@@ -1,16 +1,34 @@
 """ResearchOS FastAPI application entry point."""
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 
 from app.config import settings
 from app.routers import dependencies, events, github_proxy, goals, methods, pcr, projects, purchases, settings as settings_router, tasks
+
+
+class NoCacheMiddleware(BaseHTTPMiddleware):
+    """Prevent browsers from caching API responses."""
+
+    async def dispatch(self, request: Request, call_next):
+        response: Response = await call_next(request)
+        if request.url.path.startswith("/api/"):
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        return response
+
 
 app = FastAPI(
     title="ResearchOS",
     description="Research project management with smart GANTT scheduling",
     version="0.2.0",
 )
+
+# No-cache middleware (must be added before CORS)
+app.add_middleware(NoCacheMiddleware)
 
 # CORS
 app.add_middleware(

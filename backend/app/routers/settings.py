@@ -3,6 +3,8 @@
 import os
 import platform
 import subprocess
+import threading
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -13,6 +15,45 @@ from app.config import settings
 from app.storage import reset_stores
 
 router = APIRouter(prefix="/settings", tags=["settings"])
+
+# ── File Watcher for .env changes ───────────────────────────────────────────────
+
+_env_path = Path(__file__).parent.parent.parent / ".env"
+_last_mtime: float = 0
+
+
+def _check_env_file() -> None:
+    """Check if .env file has been modified and reload settings if so."""
+    global _last_mtime
+    try:
+        if _env_path.exists():
+            current_mtime = _env_path.stat().st_mtime
+            if current_mtime != _last_mtime:
+                _last_mtime = current_mtime
+                # Reload settings from .env
+                settings.reload()
+                # Reinitialize stores with new path
+                reset_stores()
+                print("[Settings] Detected .env change, reloaded settings")
+    except Exception as e:
+        print(f"[Settings] Error checking .env file: {e}")
+
+
+def _env_watcher_loop() -> None:
+    """Background thread that periodically checks for .env changes."""
+    global _last_mtime
+    # Initialize last mtime
+    if _env_path.exists():
+        _last_mtime = _env_path.stat().st_mtime
+    
+    while True:
+        time.sleep(2)  # Check every 2 seconds
+        _check_env_file()
+
+
+# Start the file watcher thread
+_watcher_thread = threading.Thread(target=_env_watcher_loop, daemon=True)
+_watcher_thread.start()
 
 
 class SettingsResponse(BaseModel):
@@ -39,6 +80,7 @@ def mask_token(token: str) -> str:
 
 def write_env_file(github_token: str, github_repo: str, github_localpath: str) -> None:
     """Write settings to .env file in backend directory."""
+    global _last_mtime
     env_path = Path(__file__).parent.parent.parent / ".env"
     
     content = f"""GITHUB_TOKEN={github_token}
@@ -47,6 +89,9 @@ GITHUB_LOCALPATH={github_localpath}
 CORS_ORIGINS=["http://localhost:3000"]
 """
     env_path.write_text(content)
+    
+    # Update the last mtime to prevent the watcher from triggering a duplicate reload
+    _last_mtime = env_path.stat().st_mtime
 
 
 @router.get("", response_model=SettingsResponse)
@@ -192,6 +237,38 @@ async def check_data_path():
         "message": "Data path is valid and accessible",
         "configured_path": local_path,
     }
+
+
+@router.post("/reload")
+async def reload_settings():
+    """Manually reload settings from the .env file.
+    
+    This is useful when the .env file has been edited manually
+    and you want the changes to take effect without restarting.
+    """
+    global _last_mtime
+    
+    try:
+        # Update the mtime to prevent duplicate reload
+        if _env_path.exists():
+            _last_mtime = _env_path.stat().st_mtime
+        
+        # Reload settings
+        settings.reload()
+        
+        # Reinitialize stores
+        reset_stores()
+        
+        return {
+            "status": "ok",
+            "message": "Settings reloaded successfully",
+            "github_localpath": settings.github_localpath,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to reload settings: {str(e)}"
+        )
 
 
 class MacAppCreateRequest(BaseModel):
