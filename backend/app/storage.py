@@ -134,3 +134,27 @@ dependencies_store = JsonStore("dependencies")
 methods_store = JsonStore("methods")
 events_store = JsonStore("events")
 goals_store = JsonStore("goals")
+pcr_store = JsonStore("pcr_protocols")
+purchase_items_store = JsonStore("purchase_items")
+item_catalog_store = JsonStore("item_catalog")
+
+
+def reset_stores() -> None:
+    """Reinitialize all store instances to pick up new settings.
+    
+    Call this after updating settings (e.g., github_localpath) to ensure
+    all stores use the new data path without requiring a server restart.
+    """
+    global projects_store, tasks_store, dependencies_store
+    global methods_store, events_store, goals_store
+    global pcr_store, purchase_items_store, item_catalog_store
+    
+    projects_store = JsonStore("projects")
+    tasks_store = JsonStore("tasks")
+    dependencies_store = JsonStore("dependencies")
+    methods_store = JsonStore("methods")
+    events_store = JsonStore("events")
+    goals_store = JsonStore("goals")
+    pcr_store = JsonStore("pcr_protocols")
+    purchase_items_store = JsonStore("purchase_items")
+    item_catalog_store = JsonStore("item_catalog")

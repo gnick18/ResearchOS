@@ -6,12 +6,9 @@ from typing import List
 from fastapi import APIRouter, HTTPException
 
 from app.schemas import PCRProtocolCreate, PCRProtocolUpdate, PCRProtocolOut
-from app.storage import JsonStore, methods_store
+from app.storage import methods_store, pcr_store
 
 router = APIRouter(prefix="/pcr", tags=["pcr"])
-
-# Create a store for PCR protocols
-pcr_store = JsonStore("pcr_protocols")
 
 # Default PCR gradient with proper structure
 DEFAULT_GRADIENT = {

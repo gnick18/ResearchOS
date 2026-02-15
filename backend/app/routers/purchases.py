@@ -6,13 +6,9 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.git_sync import commit_and_push
-from app.storage import JsonStore
+from app.storage import purchase_items_store, item_catalog_store
 
 router = APIRouter(prefix="/purchases", tags=["purchases"])
-
-# Two stores: purchase_items (line items per task) and item_catalog (global catalog)
-purchase_items_store = JsonStore("purchase_items")
-item_catalog_store = JsonStore("item_catalog")
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────

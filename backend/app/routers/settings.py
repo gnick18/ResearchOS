@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.config import settings
+from app.storage import reset_stores
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -66,8 +67,8 @@ async def get_settings():
 async def update_settings(update: SettingsUpdate):
     """Update environment settings.
     
-    This updates the .env file and requires an application restart
-    for changes to take full effect.
+    This updates the .env file and reinitializes all data stores,
+    so changes take effect immediately without requiring a server restart.
     """
     # Get current values, use existing if not provided
     new_token = update.github_token if update.github_token else settings.github_token
@@ -92,10 +93,12 @@ async def update_settings(update: SettingsUpdate):
     write_env_file(new_token, new_repo, new_path)
     
     # Update the settings object directly for immediate effect
-    # Note: This updates the singleton, but a restart is recommended
     settings.github_token = new_token
     settings.github_repo = new_repo
     settings.github_localpath = new_path
+    
+    # Reinitialize all stores to pick up the new data path
+    reset_stores()
     
     return SettingsResponse(
         github_token_masked=mask_token(new_token),
@@ -134,6 +137,61 @@ async def verify_settings():
         return {"status": "error", "issues": issues}
     
     return {"status": "ok", "message": "Settings verified successfully"}
+
+
+@router.get("/check-path")
+async def check_data_path():
+    """Check if the data path exists and is accessible.
+    
+    Returns detailed status about the data path configuration.
+    Used by frontend to show a popup if the path is invalid.
+    """
+    local_path = settings.github_localpath
+    
+    # Check if path is configured
+    if not local_path:
+        return {
+            "status": "error",
+            "error_type": "not_configured",
+            "message": "Data path is not configured. Please set the Local Repository Path in settings.",
+        }
+    
+    # Check if path exists
+    path_obj = Path(local_path)
+    if not path_obj.exists():
+        return {
+            "status": "error",
+            "error_type": "path_not_found",
+            "message": f"Local path does not exist: {local_path}",
+            "configured_path": local_path,
+        }
+    
+    # Check if it's a git repository
+    if not (path_obj / ".git").exists():
+        return {
+            "status": "error",
+            "error_type": "not_git_repo",
+            "message": f"Local path is not a git repository: {local_path}",
+            "configured_path": local_path,
+        }
+    
+    # Check if data directory exists or can be created
+    data_dir = path_obj / "data"
+    try:
+        data_dir.mkdir(parents=True, exist_ok=True)
+    except PermissionError:
+        return {
+            "status": "error",
+            "error_type": "permission_denied",
+            "message": f"Cannot create data directory at: {local_path}",
+            "configured_path": local_path,
+        }
+    
+    return {
+        "status": "ok",
+        "message": "Data path is valid and accessible",
+        "configured_path": local_path,
+    }
 
 
 class MacAppCreateRequest(BaseModel):

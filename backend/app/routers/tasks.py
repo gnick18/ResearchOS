@@ -18,13 +18,9 @@ from app.schemas import (
     TaskReplicateRequest,
     TaskUpdate,
 )
-from app.storage import projects_store, tasks_store, methods_store
+from app.storage import projects_store, tasks_store, methods_store, pcr_store
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
-
-# Create a store for PCR protocols (needed for copying PCR data)
-from app.storage import JsonStore
-pcr_store = JsonStore("pcr_protocols")
 
 
 def _parse_date(val) -> date:
