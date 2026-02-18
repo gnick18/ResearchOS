@@ -226,6 +226,79 @@ async def update_method(method_id: int, body: MethodUpdate):
     return _to_out(updated)
 
 
+@router.get("/{method_id}/experiments")
+async def get_method_experiments(method_id: int):
+    """Get all experiments (tasks) that have this method attached."""
+    from app.engine.dates import compute_end_date, is_weekend_active_for_task
+    from app.storage import projects_store
+    
+    # Verify method exists
+    rec = methods_store.get(method_id)
+    if not rec:
+        raise HTTPException(status_code=404, detail="Method not found")
+    
+    # Find all tasks that have this method_id in their method_ids list or method_attachments
+    all_tasks = tasks_store.list_all()
+    experiments = []
+    
+    for task in all_tasks:
+        # Check method_ids list (use or [] to handle None)
+        method_ids = task.get("method_ids") or []
+        
+        # Check method_attachments (use or [] to handle None)
+        method_attachments = task.get("method_attachments") or []
+        attachment_method_ids = [att.get("method_id") for att in method_attachments if att.get("method_id")]
+        
+        # Also check legacy method_id field
+        legacy_method_id = task.get("method_id")
+        
+        # Check if this method is linked in any of the ways
+        if method_id in method_ids or method_id in attachment_method_ids or legacy_method_id == method_id:
+            # Compute end_date if not stored
+            start_date = task.get("start_date")
+            duration_days = task.get("duration_days", 1)
+            
+            # Compute end date using the same logic as tasks router
+            from datetime import date
+            try:
+                start = date.fromisoformat(str(start_date)) if start_date else date.today()
+            except (ValueError, TypeError):
+                start = date.today()
+            
+            # Get weekend active status
+            proj = projects_store.get(task.get("project_id"))
+            project_wa = proj.get("weekend_active", False) if proj else False
+            wa = is_weekend_active_for_task(task.get("weekend_override"), project_wa)
+            
+            end_date = compute_end_date(start, duration_days, wa)
+            
+            # Get variation notes for this specific method
+            variation_notes = None
+            method_attachments = task.get("method_attachments") or []
+            for att in method_attachments:
+                if att.get("method_id") == method_id:
+                    variation_notes = att.get("variation_notes")
+                    break
+            
+            experiments.append({
+                "id": task["id"],
+                "name": task["name"],
+                "project_id": task["project_id"],
+                "start_date": str(start_date) if start_date else str(start),
+                "duration_days": duration_days,
+                "end_date": str(end_date),
+                "is_complete": task.get("is_complete", False),
+                "task_type": task.get("task_type", "experiment"),
+                "experiment_color": task.get("experiment_color"),
+                "variation_notes": variation_notes,
+            })
+    
+    # Sort by start date descending (most recent first)
+    experiments.sort(key=lambda t: t["start_date"], reverse=True)
+    
+    return experiments
+
+
 @router.delete("/{method_id}", status_code=204)
 async def delete_method(method_id: int):
     rec = methods_store.get(method_id)

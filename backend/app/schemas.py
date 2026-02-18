@@ -55,10 +55,17 @@ class TaskMethodAttachment(BaseModel):
     # PCR method copy fields - stored as JSON strings (only for PCR methods)
     pcr_gradient: Optional[str] = None  # JSON string of PCRGradient
     pcr_ingredients: Optional[str] = None  # JSON string of List[PCRIngredient]
+    # Variation notes - markdown content documenting method variations for this experiment
+    variation_notes: Optional[str] = None  # Markdown string with timestamped entries
 
 
 class TaskMethodAttachmentCreate(BaseModel):
     method_id: int
+
+
+class VariationNoteRequest(BaseModel):
+    """Request to save variation notes for a method attachment."""
+    variation_notes: str  # Markdown content with timestamped entries
 
 
 class TaskCreate(BaseModel):
@@ -152,7 +159,7 @@ class SmartGoal(BaseModel):
 
 
 class HighLevelGoalCreate(BaseModel):
-    project_id: int
+    project_id: Optional[int] = None  # None for personal goals
     name: str
     start_date: date
     end_date: date
@@ -171,7 +178,7 @@ class HighLevelGoalUpdate(BaseModel):
 
 class HighLevelGoalOut(BaseModel):
     id: int
-    project_id: int
+    project_id: Optional[int] = None  # None for personal goals
     name: str
     start_date: date
     end_date: date
@@ -279,9 +286,9 @@ class PCRCycle(BaseModel):
 
 
 class PCRGradient(BaseModel):
-    initial: List[PCRStep]
-    cycle: Optional[PCRCycle] = None
-    final: List[PCRStep]
+    initial: List[PCRStep] = []
+    cycles: List[PCRCycle] = []  # Changed from singular 'cycle' to plural 'cycles' to match frontend
+    final: List[PCRStep] = []
     hold: Optional[PCRStep] = None
 
 
@@ -290,6 +297,7 @@ class PCRIngredient(BaseModel):
     name: str
     concentration: str
     amount_per_reaction: str
+    checked: bool = False  # For lab checklist feature
 
 
 class PCRProtocolCreate(BaseModel):
@@ -297,6 +305,7 @@ class PCRProtocolCreate(BaseModel):
     gradient: PCRGradient
     ingredients: List[PCRIngredient]
     notes: Optional[str] = None
+    folder_path: Optional[str] = None  # Add folder_path support
 
 
 class PCRProtocolUpdate(BaseModel):

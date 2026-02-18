@@ -17,6 +17,7 @@ from app.schemas import (
     TaskOut,
     TaskReplicateRequest,
     TaskUpdate,
+    VariationNoteRequest,
 )
 from app.storage import projects_store, tasks_store, methods_store, pcr_store
 
@@ -555,4 +556,50 @@ async def update_method_pcr_data(
     
     updated = tasks_store.update(task_id, {"method_attachments": updated_attachments})
     await commit_and_push(f"Update PCR data for method {method_id} on task: {updated['name']}")
+    return _task_to_out(updated)
+
+
+@router.put("/{task_id}/methods/{method_id}/notes", response_model=TaskOut)
+async def save_variation_notes(
+    task_id: int, 
+    method_id: int, 
+    body: VariationNoteRequest
+):
+    """Save variation notes for a specific method attachment on a task.
+    
+    This endpoint allows users to document variations made to a method
+    during a specific experimental run. Notes are stored as markdown content
+    with timestamped entries.
+    """
+    task = tasks_store.get(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    # Get existing attachments
+    method_attachments = task.get("method_attachments", [])
+    
+    # Find the attachment to update
+    attachment_found = False
+    updated_attachments = []
+    for att in method_attachments:
+        if att.get("method_id") == method_id:
+            attachment_found = True
+            updated_att = {
+                "method_id": method_id,
+                "variation_notes": body.variation_notes,
+            }
+            # Preserve existing PCR data if present
+            if att.get("pcr_gradient"):
+                updated_att["pcr_gradient"] = att["pcr_gradient"]
+            if att.get("pcr_ingredients"):
+                updated_att["pcr_ingredients"] = att["pcr_ingredients"]
+            updated_attachments.append(updated_att)
+        else:
+            updated_attachments.append(att)
+    
+    if not attachment_found:
+        raise HTTPException(status_code=400, detail="Method is not attached to this task")
+    
+    updated = tasks_store.update(task_id, {"method_attachments": updated_attachments})
+    await commit_and_push(f"Save variation notes for method {method_id} on task: {updated['name']}")
     return _task_to_out(updated)

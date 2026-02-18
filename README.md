@@ -4,6 +4,47 @@ A research project management application with smart GANTT scheduling, automatic
 
 ![ResearchOS](https://img.shields.io/badge/version-0.2.0-blue)
 
+---
+
+## What You'll Need
+
+Before starting, make sure you have the following:
+
+| Requirement | Version | Where to Get It | Why Needed |
+|-------------|---------|-----------------|------------|
+| **GitHub Account** | Free | [github.com/signup](https://github.com/signup) | Stores your research data securely |
+| **Python** | 3.10+ | [python.org/downloads](https://www.python.org/downloads/) | Runs the backend server |
+| **Node.js** | 18+ | [nodejs.org](https://nodejs.org/) | Runs the frontend interface |
+| **Git** | Any | [git-scm.com/downloads](https://git-scm.com/downloads) | Syncs data to GitHub |
+
+> **Good news!** Docker is **NOT** required. This app runs directly on your machine with just Python and Node.js.
+
+> **Why GitHub?** ResearchOS stores all your research data in your own private GitHub repository. This gives you automatic backups, version history, and the ability to share with collaborators.
+
+---
+
+## Check Your Installations
+
+Open a terminal and run these commands to verify everything is installed:
+
+**macOS / Linux:**
+```bash
+python3 --version    # Should show Python 3.10.x or higher
+node --version       # Should show v18.x.x or higher
+git --version        # Should show git version 2.x.x
+```
+
+**Windows (Command Prompt or PowerShell):**
+```cmd
+python --version     # Should show Python 3.10.x or higher
+node --version       # Should show v18.x.x or higher
+git --version        # Should show git version 2.x.x
+```
+
+If any command fails or shows an older version, install or update from the links in the table above.
+
+---
+
 ## Features
 
 - **Project Management**: Create and organize research projects with custom colors and tags
@@ -13,16 +54,6 @@ A research project management application with smart GANTT scheduling, automatic
 - **Git-Based Storage**: All data stored in a private GitHub repository for version control and backup
 - **Methods Library**: Store and reuse experimental protocols
 - **Purchase Tracking**: Manage lab inventory and purchases
-
----
-
-## Prerequisites
-
-Before you begin, ensure you have the following installed:
-
-1. **Python 3.10+** - [Download Python](https://www.python.org/downloads/)
-2. **Node.js 18+** - [Download Node.js](https://nodejs.org/)
-3. **Git** - [Download Git](https://git-scm.com/downloads)
 
 ---
 
@@ -141,7 +172,9 @@ npm install
 
 ### Step 6: Run the Application
 
-#### Option A: Using the Start Script (Recommended)
+#### macOS / Linux
+
+**Option A: Using the Start Script (Recommended)**
 
 From the project root directory:
 
@@ -152,18 +185,56 @@ chmod +x start.sh  # Make script executable (first time only)
 
 This starts both the backend and frontend in one command.
 
-#### Option B: Manual Start
+**Option B: Manual Start**
 
-**Terminal 1 - Backend:**
+Open two terminal windows:
+
+*Terminal 1 - Backend:*
 ```bash
 cd backend
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-**Terminal 2 - Frontend:**
+*Terminal 2 - Frontend:*
 ```bash
 cd frontend
 npm run dev
+```
+
+#### Windows
+
+**Option A: Using the PowerShell Script (Recommended)**
+
+From the project root directory in PowerShell:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned  # Allow script execution (first time only)
+.\start.ps1
+```
+
+This starts both the backend and frontend in one command.
+
+**Option B: Manual Start**
+
+Open two PowerShell windows:
+
+*Window 1 - Backend:*
+```powershell
+cd backend
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+*Window 2 - Frontend:*
+```powershell
+cd frontend
+npm run dev
+```
+
+**Option C: Using WSL (Windows Subsystem for Linux)**
+
+If you have WSL installed, you can use the bash script:
+```bash
+./start.sh
 ```
 
 ### Step 7: Access the Application
@@ -172,6 +243,45 @@ Open your browser and navigate to:
 
 - **Frontend**: [http://localhost:3000](http://localhost:3000)
 - **Backend API Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
+
+---
+
+## How Data Storage Works
+
+ResearchOS uses **two separate GitHub repositories**:
+
+```
++-------------------+                    +-------------------+
+|  Code Repository  |                    |  Data Repository  |
+| (this one)        |                    | (you create)      |
+|                   |                    |                   |
+| - Application     |                    | - Your projects   |
+|   source code     |                    | - Your tasks      |
+| - Read-only       |                    | - Your methods    |
++-------------------+                    | - Private!        |
+         |                               +-------------------+
+         | Clone once                           ^
+         v                                      | Auto-save
++-------------------+                            |
+|  Your Computer    |----------------------------+
+|                   |
+| - Backend server  |
+| - Frontend app    |
+| - Local data copy |
++-------------------+
+```
+
+| Repository | Purpose | Visibility | Who creates it |
+|------------|---------|------------|----------------|
+| **Code Repository** | Contains the application code | Public | Already exists (this repo) |
+| **Data Repository** | Contains YOUR research data | **Private** | You create it |
+
+**Why two repositories?**
+
+- **Privacy**: Your research data stays private in your own repository
+- **Backup**: Every change is automatically saved to GitHub
+- **Version History**: You can see and revert any change
+- **Collaboration**: Share your data repo with lab members without giving them access to the code
 
 ---
 
@@ -207,7 +317,8 @@ ResearchManager_GANNT/
 |   |   |-- components/    # React components
 |   |   |-- lib/           # Utilities and API
 |   |-- package.json
-|-- start.sh               # Start script for both servers
+|-- start.sh               # Start script (macOS/Linux)
+|-- start.ps1              # Start script (Windows PowerShell)
 |-- .env.example           # Example environment file
 ```
 

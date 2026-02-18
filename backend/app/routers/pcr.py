@@ -10,19 +10,19 @@ from app.storage import methods_store, pcr_store
 
 router = APIRouter(prefix="/pcr", tags=["pcr"])
 
-# Default PCR gradient with proper structure
+# Default PCR gradient with proper structure (using 'cycles' to match frontend)
 DEFAULT_GRADIENT = {
     "initial": [
         {"name": "Init. Denaturation", "temperature": 95.0, "duration": "2 min"}
     ],
-    "cycle": {
+    "cycles": [{
         "repeats": 35,
         "steps": [
             {"name": "Denaturation", "temperature": 95.0, "duration": "20 sec"},
             {"name": "Annealing", "temperature": 58.0, "duration": "20 sec"},
             {"name": "Extension", "temperature": 72.0, "duration": "2 min"}
         ]
-    },
+    }],
     "final": [
         {"name": "Final Extension", "temperature": 72.0, "duration": "3 min"}
     ],
@@ -30,14 +30,14 @@ DEFAULT_GRADIENT = {
 }
 
 DEFAULT_INGREDIENTS = [
-    {"id": "1", "name": "Reaction Buffer", "concentration": "", "amount_per_reaction": ""},
-    {"id": "2", "name": "dNTPs", "concentration": "", "amount_per_reaction": ""},
-    {"id": "3", "name": "Primer F", "concentration": "", "amount_per_reaction": ""},
-    {"id": "4", "name": "Primer R", "concentration": "", "amount_per_reaction": ""},
-    {"id": "5", "name": "Polymerase", "concentration": "", "amount_per_reaction": ""},
-    {"id": "6", "name": "DNA", "concentration": "", "amount_per_reaction": ""},
-    {"id": "7", "name": "dH2O", "concentration": "", "amount_per_reaction": ""},
-    {"id": "8", "name": "Total", "concentration": "", "amount_per_reaction": ""},
+    {"id": "1", "name": "Reaction Buffer", "concentration": "", "amount_per_reaction": "", "checked": False},
+    {"id": "2", "name": "dNTPs", "concentration": "", "amount_per_reaction": "", "checked": False},
+    {"id": "3", "name": "Primer F", "concentration": "", "amount_per_reaction": "", "checked": False},
+    {"id": "4", "name": "Primer R", "concentration": "", "amount_per_reaction": "", "checked": False},
+    {"id": "5", "name": "Polymerase", "concentration": "", "amount_per_reaction": "", "checked": False},
+    {"id": "6", "name": "DNA", "concentration": "", "amount_per_reaction": "", "checked": False},
+    {"id": "7", "name": "dH2O", "concentration": "", "amount_per_reaction": "", "checked": False},
+    {"id": "8", "name": "Total", "concentration": "", "amount_per_reaction": "", "checked": False},
 ]
 
 
@@ -105,7 +105,7 @@ def create_pcr_protocol(data: PCRProtocolCreate):
         "name": data.name,
         "github_path": f"pcr://protocol/{created['id']}",  # Special path to indicate PCR
         "method_type": "pcr",
-        "folder_path": None,
+        "folder_path": data.folder_path,  # Use folder_path from request
         "parent_method_id": None,
         "tags": [],
     }
