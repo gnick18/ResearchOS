@@ -62,8 +62,8 @@ If any command fails or shows an older version, install or update from the links
 ### Step 1: Clone This Repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/ResearchManager_GANNT.git
-cd ResearchManager_GANNT
+git clone https://github.com/gnick18/ResearchOS.git
+cd ResearchOS
 ```
 
 ### Step 2: Create a Private Data Repository
@@ -299,7 +299,7 @@ ResearchOS uses **two separate GitHub repositories**:
 ## Project Structure
 
 ```
-ResearchManager_GANNT/
+ResearchOS/
 |-- backend/                 # FastAPI Python backend
 |   |-- app/
 |   |   |-- main.py         # Application entry point

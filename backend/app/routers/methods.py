@@ -215,6 +215,16 @@ async def update_method(method_id: int, body: MethodUpdate):
         raise HTTPException(status_code=404, detail="Method not found")
     updates = body.model_dump(exclude_unset=True)
     
+    # Check for duplicate name if name is being changed
+    if "name" in updates and updates["name"] != rec.get("name"):
+        existing = methods_store.list_all()
+        for method in existing:
+            if method.get("name", "").lower() == updates["name"].lower() and method["id"] != method_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"A method with the name '{updates['name']}' already exists. Please choose a different name."
+                )
+    
     # Handle legacy format migration on update
     if "attachments" in updates and updates["attachments"]:
         # Clear legacy fields when attachments are explicitly set
