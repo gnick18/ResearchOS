@@ -2,7 +2,15 @@
 
 ## Overview
 
-This feature introduces a "Set up or connect a lab research folder" page that appears before the username selection screen. It allows users to choose between linking a GitHub-cloned repository (with full git sync support) or an alternative local folder (OneDrive, internal research drive, etc.) for data storage.
+This feature introduces a "Set up or connect a lab research folder" page that appears **before** the username selection screen. It allows users to choose between linking a GitHub-cloned repository (with full git sync support) or an alternative local folder (OneDrive, internal research drive, etc.) for data storage.
+
+### Key Requirements
+
+1. **Folder setup appears BEFORE username selection** - Users must configure storage before creating/selecting a user
+2. **Auto-appears when path is invalid or no valid username** - Any time the configured path becomes invalid, or a username is missing, the setup page shows
+3. **Two storage modes**: GitHub (with git sync) or Local (OneDrive, network drives, etc.)
+4. **Local mode does NOT require `.git` folder** - Only requires the expected folder structure
+5. **GitHub mode supports blank or existing repos** - Can initialize a new data repo or connect to an existing one
 
 ---
 
@@ -55,6 +63,7 @@ class Settings(BaseSettings):
     github_localpath: str = ""  # local path to data repo clone
     cors_origins: List[str] = ["http://localhost:3000"]
     current_user: str = ""
+    main_user: str = ""
     storage_mode: str = "github"  # NEW: "github" or "local"
     
     def is_github_mode(self) -> bool:
@@ -73,6 +82,7 @@ GITHUB_REPO=
 GITHUB_LOCALPATH=
 CORS_ORIGINS="["http://localhost:3000"]"
 CURRENT_USER=
+MAIN_USER=
 STORAGE_MODE=github
 """
 ```
@@ -186,10 +196,11 @@ A full-screen setup wizard with two options:
 ```
 
 **GitHub Mode Flow:**
-1. Enter local path to cloned repo (or path where to clone)
-2. Enter GitHub repository (e.g., "username/research-eln")
-3. Enter GitHub Personal Access Token
-4. Validate and save
+1. Choose: "Blank repo" or "Existing repo"
+2. Enter local path (where to clone or where already cloned)
+3. Enter GitHub repository (e.g., "username/research-eln")
+4. Enter GitHub Personal Access Token
+5. Validate and save
 
 **Local Mode Flow:**
 1. Enter/browse to local folder path
@@ -210,10 +221,11 @@ Modify the startup flow:
 // 3. Show UserLoginScreen
 
 // New flow:
-// 1. Check if storage_mode is configured
+// 1. Check if storage_mode is configured AND path is valid
 // 2. If not configured OR path invalid → Show ResearchFolderSetup
-// 3. After setup → Show UserLoginScreen
-// 4. If user invalid → Show UserLoginScreen
+// 3. After setup → Check if valid username exists
+// 4. If no valid username → Show UserLoginScreen
+// 5. If valid username → Show main app
 ```
 
 Add state management:
@@ -225,15 +237,13 @@ useEffect(() => {
     const checkSetup = async () => {
         try {
             const result = await settingsApi.checkDataPath();
-            if (result.status === "error" && result.error_type === "not_configured") {
-                // First launch - show folder setup
-                setShowFolderSetup(true);
-            } else if (result.status === "error") {
+            if (result.status === "error") {
                 // Path error - show folder setup to fix
                 setShowFolderSetup(true);
             } else {
-                // Path valid - proceed to user login
+                // Path valid - check user
                 setShowFolderSetup(false);
+                // Then validate user...
             }
         } catch {
             setShowFolderSetup(true);
@@ -245,23 +255,11 @@ useEffect(() => {
 }, []);
 ```
 
-#### 2.3 Update DataPathCheckPopup
+#### 2.3 Replace DataPathCheckPopup with ResearchFolderSetup
 
-**File:** `frontend/src/components/DataPathCheckPopup.tsx`
-
-Add a "Change Storage Location" button that opens the ResearchFolderSetup:
-
-```tsx
-<button
-    onClick={() => {
-        onClose();
-        onOpenFolderSetup();  // New prop
-    }}
-    className="..."
->
-    Change Storage Location
-</button>
-```
+The `DataPathCheckPopup` component will be replaced by the new `ResearchFolderSetup` component. The new component handles both:
+- Initial setup (no configuration exists)
+- Fixing broken configuration (path changed, folder deleted, etc.)
 
 ---
 
@@ -303,58 +301,55 @@ export const settingsApi = {
 
 ### First Launch Flow
 
-```
-App Start
-    │
-    ▼
-Check .env for STORAGE_MODE
-    │
-    ├── Not set or empty ──────────────────┐
-    │                                       ▼
-    │                           ResearchFolderSetup
-    │                                       │
-    │                                       ├── GitHub Mode ──→ Enter path, token, repo
-    │                                       │                        │
-    │                                       │                        ▼
-    │                                       │                   Validate & Save
-    │                                       │                        │
-    │                                       └── Local Mode ───→ Enter path
-    │                                                                │
-    │                                                                ▼
-    │                                                          Validate Structure
-    │                                                                │
-    │                                                                ├── Missing? ──→ Prompt to create
-    │                                                                │                      │
-    │                                                                └──────────────────────┘
-    │                                                                                       │
-    ▼                                                                                       ▼
-Path Valid ────────────────────────────────────────────────────────────────────────────────┘
-    │
-    ▼
-UserLoginScreen
-    │
-    ├── Users exist ──→ Select user → Main App
-    │
-    └── No users ──→ Create user → Main App
+```mermaid
+flowchart TD
+    A[App Start] --> B{Check .env for STORAGE_MODE}
+    B -->|Not set or empty| C[ResearchFolderSetup]
+    B -->|Set| D{Check path validity}
+    D -->|Invalid| C
+    D -->|Valid| E{Check username}
+    E -->|No valid user| F[UserLoginScreen]
+    E -->|Valid user| G[Main App]
+    
+    C --> H{GitHub Mode?}
+    H -->|Yes| I[Enter path, token, repo]
+    H -->|No| J[Enter local path]
+    I --> K[Validate & Save]
+    J --> L[Validate Structure]
+    L --> M{Missing folders?}
+    M -->|Yes| N[Prompt to create]
+    M -->|No| K
+    N --> K
+    K --> F
 ```
 
-### Change Path Flow (from Settings)
+### Change Path Flow - from Settings
 
+```mermaid
+flowchart TD
+    A[User clicks Change Storage Location] --> B[ResearchFolderSetup]
+    B --> C{GitHub Mode?}
+    C -->|Yes| D[Update path/token/repo]
+    C -->|No| E[Update path only]
+    D --> F[Save to .env]
+    E --> F
+    F --> G[Reload App]
 ```
-User clicks "Change Storage Location"
-    │
-    ▼
-ResearchFolderSetup
-    │
-    ├── GitHub Mode ──→ Update path/token/repo
-    │
-    └── Local Mode ──→ Update path only
-    │
-    ▼
-Save to .env
-    │
-    ▼
-Reload App
+
+### Auto-Appearance Logic
+
+```mermaid
+flowchart TD
+    A[Any API call fails] --> B{Error type?}
+    B -->|Path invalid| C[Show ResearchFolderSetup]
+    B -->|User invalid| D[Show UserLoginScreen]
+    B -->|Other error| E[Show error message]
+    
+    F[App loads] --> G{Path configured and valid?}
+    G -->|No| C
+    G -->|Yes| H{Username configured and valid?}
+    H -->|No| D
+    H -->|Yes| I[Continue to app]
 ```
 
 ---
@@ -363,28 +358,39 @@ Reload App
 
 ### Backend Changes
 
-- [ ] Add `STORAGE_MODE` to `Settings` class in `config.py`
+- [ ] Add `STORAGE_MODE` to `Settings` class in [`config.py`](backend/app/config.py)
 - [ ] Update `DEFAULT_ENV_CONTENT` with new setting
 - [ ] Add `is_github_mode()` and `is_local_mode()` helper methods
-- [ ] Create `FolderSetupRequest` and `FolderSetupResponse` models
-- [ ] Add `/settings/setup-folder` endpoint
+- [ ] Create `FolderSetupRequest` and `FolderSetupResponse` models in [`schemas.py`](backend/app/schemas.py)
+- [ ] Add `/settings/setup-folder` endpoint in [`settings.py`](backend/app/routers/settings.py)
 - [ ] Add `/settings/storage-mode` GET endpoint
-- [ ] Update `check_data_path()` to handle both modes
+- [ ] Update `check_data_path()` to handle both modes:
+  - GitHub mode: require `.git` folder
+  - Local mode: only require `data/users/` structure
 - [ ] Add `validate_folder_structure()` helper function
 - [ ] Update `write_env_file()` to include `STORAGE_MODE`
 
 ### Frontend Changes
 
-- [ ] Create `ResearchFolderSetup.tsx` component
-- [ ] Add folder setup API methods to `api.ts`
-- [ ] Update `page.tsx` to show setup on first launch
-- [ ] Update `DataPathCheckPopup.tsx` with "Change Storage Location" button
-- [ ] Add types for new API requests/responses
+- [ ] Create `ResearchFolderSetup.tsx` component with:
+  - [ ] Two-card selection UI (GitHub vs Local)
+  - [ ] GitHub mode form (path, repo, token, blank/existing option)
+  - [ ] Local mode form (path only, create structure option)
+  - [ ] Validation and error handling
+- [ ] Add folder setup API methods to [`api.ts`](frontend/src/lib/api.ts)
+- [ ] Update [`page.tsx`](frontend/src/app/page.tsx) to:
+  - [ ] Show setup on first launch
+  - [ ] Show setup when path invalid
+  - [ ] Show UserLoginScreen after setup complete
+- [ ] Remove or repurpose `DataPathCheckPopup.tsx`
+- [ ] Add types for new API requests/responses in [`types.ts`](frontend/src/lib/types.ts)
 
 ### Testing
 
 - [ ] Test first launch with no .env
-- [ ] Test GitHub mode setup flow
+- [ ] Test GitHub mode setup flow:
+  - [ ] Blank repo option
+  - [ ] Existing repo option
 - [ ] Test local mode setup flow
 - [ ] Test folder structure validation
 - [ ] Test folder structure creation
@@ -392,6 +398,8 @@ Reload App
 - [ ] Test switching from local to GitHub mode
 - [ ] Test path validation for OneDrive paths
 - [ ] Test path validation for network drives
+- [ ] Test auto-appearance when path becomes invalid
+- [ ] Test auto-appearance when username becomes invalid
 
 ---
 
@@ -405,6 +413,7 @@ GITHUB_REPO=username/research-eln
 GITHUB_LOCALPATH=/Users/username/research-eln
 CORS_ORIGINS=["http://localhost:3000"]
 CURRENT_USER=GrantNickles
+MAIN_USER=
 STORAGE_MODE=github
 ```
 
@@ -416,6 +425,7 @@ GITHUB_REPO=
 GITHUB_LOCALPATH=/Users/gnickles/Library/CloudStorage/OneDrive-UW-Madison/ResearchData
 CORS_ORIGINS=["http://localhost:3000"]
 CURRENT_USER=GrantNickles
+MAIN_USER=
 STORAGE_MODE=local
 ```
 
@@ -451,25 +461,16 @@ Both modes require the following structure:
 
 2. **Folder Validation**: The system validates that the expected folder structure exists. If missing, the user is prompted to create it before proceeding.
 
-3. **Setup Page Trigger**: The setup page appears only on:
+3. **Setup Page Trigger**: The setup page appears when:
    - First launch (no `STORAGE_MODE` configured)
-   - When user clicks "Change Storage Location" from settings
+   - Path becomes invalid (folder deleted, moved, or inaccessible)
+   - User clicks "Change Storage Location" from settings
 
 4. **Settings Persistence**: All settings are saved in the local `.env` file, which is not pushed to GitHub (already in `.gitignore`).
 
 5. **Backward Compatibility**: Existing installations with `GITHUB_LOCALPATH` set but no `STORAGE_MODE` will default to GitHub mode.
 
----
-
-## Estimated Effort
-
-| Phase | Estimated Hours |
-|-------|-----------------|
-| Backend Changes | 4-6 hours |
-| Frontend Setup UI | 6-8 hours |
-| API Integration | 2-3 hours |
-| Testing | 3-4 hours |
-| **Total** | **15-21 hours** |
+6. **Order of Operations**: Folder setup → Username selection → Main app. This ensures data storage is configured before any user data is accessed.
 
 ---
 
@@ -478,4 +479,4 @@ Both modes require the following structure:
 1. **Folder Browser**: Add a native folder picker dialog for easier path selection
 2. **Migration Tool**: Help users migrate data between GitHub and local modes
 3. **Multi-folder Support**: Allow switching between multiple research folders
-4. **Cloud Sync Indicators**: Show sync status for OneDrive/ iCloud folders
+4. **Cloud Sync Indicators**: Show sync status for OneDrive/iCloud folders
