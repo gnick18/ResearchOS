@@ -6,7 +6,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
 from app.config import settings
-from app.routers import dependencies, events, github_proxy, goals, methods, pcr, projects, purchases, settings as settings_router, tasks
+from app.routers import dependencies, events, github_proxy, goals, lab, lab_links, methods, pcr, projects, purchases, settings as settings_router, tasks, users
 
 
 class NoCacheMiddleware(BaseHTTPMiddleware):
@@ -50,6 +50,9 @@ app.include_router(events.router, prefix="/api")
 app.include_router(pcr.router, prefix="/api")
 app.include_router(goals.router, prefix="/api")
 app.include_router(settings_router.router, prefix="/api")
+app.include_router(lab_links.router, prefix="/api")
+app.include_router(users.router, prefix="/api")
+app.include_router(lab.router, prefix="/api")
 
 
 @app.get("/api/health")

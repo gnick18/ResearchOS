@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from app.git_sync import commit_and_push
 from app.schemas import ProjectCreate, ProjectOut, ProjectUpdate
-from app.storage import projects_store
+from app.storage import get_projects_store, get_tasks_store, get_dependencies_store
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -23,7 +23,7 @@ def _to_out(rec: dict) -> ProjectOut:
 
 @router.get("", response_model=list[ProjectOut])
 async def list_projects():
-    records = projects_store.list_all()
+    records = get_projects_store().list_all()
     # Ensure all records have the new fields with defaults
     for rec in records:
         rec.setdefault("sort_order", 0)
@@ -39,19 +39,19 @@ async def create_project(body: ProjectCreate):
     data = body.model_dump()
     data["created_at"] = datetime.utcnow().isoformat()
     # Set default sort_order to be after all existing non-archived projects
-    existing = projects_store.list_all()
+    existing = get_projects_store().list_all()
     max_order = max((p.get("sort_order", 0) for p in existing if not p.get("is_archived", False)), default=-1)
     data["sort_order"] = max_order + 1
     data["is_archived"] = False
     data["archived_at"] = None
-    rec = projects_store.create(data)
+    rec = get_projects_store().create(data)
     await commit_and_push(f"Create project: {rec['name']}")
     return _to_out(rec)
 
 
 @router.get("/{project_id}", response_model=ProjectOut)
 async def get_project(project_id: int):
-    rec = projects_store.get(project_id)
+    rec = get_projects_store().get(project_id)
     if not rec:
         raise HTTPException(status_code=404, detail="Project not found")
     return _to_out(rec)
@@ -59,34 +59,32 @@ async def get_project(project_id: int):
 
 @router.put("/{project_id}", response_model=ProjectOut)
 async def update_project(project_id: int, body: ProjectUpdate):
-    rec = projects_store.get(project_id)
+    rec = get_projects_store().get(project_id)
     if not rec:
         raise HTTPException(status_code=404, detail="Project not found")
 
     updates = body.model_dump(exclude_unset=True)
-    updated = projects_store.update(project_id, updates)
+    updated = get_projects_store().update(project_id, updates)
     await commit_and_push(f"Update project: {updated['name']}")
     return _to_out(updated)
 
 
 @router.delete("/{project_id}", status_code=204)
 async def delete_project(project_id: int):
-    rec = projects_store.get(project_id)
+    rec = get_projects_store().get(project_id)
     if not rec:
         raise HTTPException(status_code=404, detail="Project not found")
     # Also delete all tasks and dependencies for this project
-    from app.storage import tasks_store, dependencies_store
-
-    tasks = tasks_store.query(project_id=project_id)
+    tasks = get_tasks_store().query(project_id=project_id)
     task_ids = {t["id"] for t in tasks}
     for t in tasks:
-        tasks_store.delete(t["id"])
+        get_tasks_store().delete(t["id"])
     # Delete dependencies that reference any of those tasks
-    for dep in dependencies_store.list_all():
+    for dep in get_dependencies_store().list_all():
         if dep.get("parent_id") in task_ids or dep.get("child_id") in task_ids:
-            dependencies_store.delete(dep["id"])
+            get_dependencies_store().delete(dep["id"])
 
-    projects_store.delete(project_id)
+    get_projects_store().delete(project_id)
     await commit_and_push(f"Delete project: {rec['name']}")
 
 
@@ -99,10 +97,10 @@ class ReorderRequest(BaseModel):
 async def reorder_projects(body: ReorderRequest):
     """Update sort_order for all projects based on the provided order."""
     for idx, project_id in enumerate(body.project_ids):
-        rec = projects_store.get(project_id)
+        rec = get_projects_store().get(project_id)
         if rec:
             rec["sort_order"] = idx
-            projects_store.save(project_id, rec)
+            get_projects_store().save(project_id, rec)
     await commit_and_push("Reorder projects")
     return {"status": "ok"}
 
@@ -115,7 +113,7 @@ class ArchiveRequest(BaseModel):
 @router.post("/{project_id}/archive", response_model=ProjectOut)
 async def archive_project(project_id: int, body: ArchiveRequest):
     """Archive or unarchive a project."""
-    rec = projects_store.get(project_id)
+    rec = get_projects_store().get(project_id)
     if not rec:
         raise HTTPException(status_code=404, detail="Project not found")
     
@@ -125,11 +123,11 @@ async def archive_project(project_id: int, body: ArchiveRequest):
     else:
         rec["archived_at"] = None
         # When unarchiving, set sort_order to be after all existing non-archived projects
-        existing = projects_store.list_all()
+        existing = get_projects_store().list_all()
         max_order = max((p.get("sort_order", 0) for p in existing if not p.get("is_archived", False)), default=-1)
         rec["sort_order"] = max_order + 1
     
-    projects_store.save(project_id, rec)
+    get_projects_store().save(project_id, rec)
     action = "Archive" if body.is_archived else "Unarchive"
     await commit_and_push(f"{action} project: {rec['name']}")
     return _to_out(rec)

@@ -61,6 +61,8 @@ class SettingsResponse(BaseModel):
     github_token_masked: str
     github_repo: str
     github_localpath: str
+    current_user: str
+    main_user: str
     is_configured: bool
 
 
@@ -69,6 +71,8 @@ class SettingsUpdate(BaseModel):
     github_token: Optional[str] = None
     github_repo: Optional[str] = None
     github_localpath: Optional[str] = None
+    current_user: Optional[str] = None
+    main_user: Optional[str] = None
 
 
 def mask_token(token: str) -> str:
@@ -78,7 +82,7 @@ def mask_token(token: str) -> str:
     return f"{token[:4]}...{token[-4:]}"
 
 
-def write_env_file(github_token: str, github_repo: str, github_localpath: str) -> None:
+def write_env_file(github_token: str, github_repo: str, github_localpath: str, current_user: str, main_user: str = "") -> None:
     """Write settings to .env file in backend directory."""
     global _last_mtime
     env_path = Path(__file__).parent.parent.parent / ".env"
@@ -87,6 +91,8 @@ def write_env_file(github_token: str, github_repo: str, github_localpath: str) -
 GITHUB_REPO={github_repo}
 GITHUB_LOCALPATH={github_localpath}
 CORS_ORIGINS=["http://localhost:3000"]
+CURRENT_USER={current_user}
+MAIN_USER={main_user}
 """
     env_path.write_text(content)
     
@@ -104,6 +110,8 @@ async def get_settings():
         github_token_masked=mask_token(token),
         github_repo=settings.github_repo,
         github_localpath=settings.github_localpath,
+        current_user=settings.current_user,
+        main_user=settings.main_user,
         is_configured=is_configured,
     )
 
@@ -119,6 +127,8 @@ async def update_settings(update: SettingsUpdate):
     new_token = update.github_token if update.github_token else settings.github_token
     new_repo = update.github_repo if update.github_repo else settings.github_repo
     new_path = update.github_localpath if update.github_localpath else settings.github_localpath
+    new_user = update.current_user if update.current_user else settings.current_user
+    new_main_user = update.main_user if update.main_user is not None else settings.main_user
     
     # Validate required fields
     if not new_token or not new_repo or not new_path:
@@ -135,12 +145,14 @@ async def update_settings(update: SettingsUpdate):
         )
     
     # Write to .env file
-    write_env_file(new_token, new_repo, new_path)
+    write_env_file(new_token, new_repo, new_path, new_user, new_main_user)
     
     # Update the settings object directly for immediate effect
     settings.github_token = new_token
     settings.github_repo = new_repo
     settings.github_localpath = new_path
+    settings.current_user = new_user
+    settings.main_user = new_main_user
     
     # Reinitialize all stores to pick up the new data path
     reset_stores()
@@ -149,6 +161,8 @@ async def update_settings(update: SettingsUpdate):
         github_token_masked=mask_token(new_token),
         github_repo=new_repo,
         github_localpath=new_path,
+        current_user=new_user,
+        main_user=new_main_user,
         is_configured=True,
     )
 

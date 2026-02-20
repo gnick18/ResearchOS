@@ -19,7 +19,13 @@ from app.schemas import (
     TaskUpdate,
     VariationNoteRequest,
 )
-from app.storage import projects_store, tasks_store, methods_store, pcr_store
+from app.storage import (
+    get_projects_store,
+    get_tasks_store,
+    get_methods_store,
+    get_pcr_store,
+    get_method_by_id,
+)
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -31,7 +37,7 @@ def _parse_date(val) -> date:
 
 
 def _get_weekend_active(task: dict) -> bool:
-    proj = projects_store.get(task["project_id"])
+    proj = get_projects_store().get(task["project_id"])
     project_wa = proj.get("weekend_active", False) if proj else False
     return is_weekend_active_for_task(task.get("weekend_override"), project_wa)
 
@@ -42,7 +48,7 @@ def _copy_pcr_data_for_method(method_id: int) -> dict:
     Returns a dict with pcr_gradient and pcr_ingredients fields ready to be
     stored on a method attachment, or empty dict if the method is not a PCR method.
     """
-    method = methods_store.get(method_id)
+    method = get_method_by_id(method_id)
     if not method:
         return {}
     
@@ -57,8 +63,9 @@ def _copy_pcr_data_for_method(method_id: int) -> dict:
     except ValueError:
         return {}
     
-    # Get the PCR protocol
-    pcr_protocol = pcr_store.get(pcr_id)
+    # Get the PCR protocol (check both private and public stores)
+    from app.storage import get_pcr_by_id
+    pcr_protocol = get_pcr_by_id(pcr_id)
     if not pcr_protocol:
         return {}
     
@@ -129,7 +136,7 @@ def _copy_pcr_data_to_task(method_id: int) -> dict:
     Returns a dict with pcr_gradient and pcr_ingredients fields ready to be
     stored on a task, or empty dict if the method is not a PCR method.
     """
-    method = methods_store.get(method_id)
+    method = get_method_by_id(method_id)
     if not method:
         return {}
     
@@ -145,7 +152,8 @@ def _copy_pcr_data_to_task(method_id: int) -> dict:
         return {}
     
     # Get the PCR protocol
-    pcr_protocol = pcr_store.get(pcr_id)
+    from app.storage import get_pcr_by_id
+    pcr_protocol = get_pcr_by_id(pcr_id)
     if not pcr_protocol:
         return {}
     
@@ -158,7 +166,7 @@ def _copy_pcr_data_to_task(method_id: int) -> dict:
 
 @router.get("/by-project/{project_id}", response_model=list[TaskOut])
 async def list_tasks_by_project(project_id: int):
-    tasks = tasks_store.query(project_id=project_id)
+    tasks = get_tasks_store().query(project_id=project_id)
     tasks.sort(key=lambda t: (t.get("sort_order", 0), t.get("start_date", "")))
     return [_task_to_out(t) for t in tasks]
 
@@ -175,7 +183,7 @@ async def check_duplicate_task(
     Returns a list of matching tasks (existing or past tasks that match).
     """
     # Get all tasks for this project
-    all_tasks = tasks_store.query(project_id=project_id)
+    all_tasks = get_tasks_store().query(project_id=project_id)
     
     # Filter by name (case-insensitive) and task_type
     matching_tasks = []
@@ -211,7 +219,7 @@ async def create_task(body: TaskCreate):
     data = body.model_dump()
     # Resolve weekend on creation
     wa = False
-    proj = projects_store.get(data["project_id"])
+    proj = get_projects_store().get(data["project_id"])
     if proj:
         wa = is_weekend_active_for_task(data.get("weekend_override"), proj.get("weekend_active", False))
     data["start_date"] = str(resolve_weekend(_parse_date(data["start_date"]), wa))
@@ -246,14 +254,14 @@ async def create_task(body: TaskCreate):
         data["pcr_gradient"] = method_attachments[0].get("pcr_gradient")
         data["pcr_ingredients"] = method_attachments[0].get("pcr_ingredients")
 
-    rec = tasks_store.create(data)
+    rec = get_tasks_store().create(data)
     await commit_and_push(f"Create task: {rec['name']}")
     return _task_to_out(rec)
 
 
 @router.get("/{task_id}", response_model=TaskOut)
 async def get_task(task_id: int):
-    task = tasks_store.get(task_id)
+    task = get_tasks_store().get(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     return _task_to_out(task)
@@ -261,7 +269,7 @@ async def get_task(task_id: int):
 
 @router.put("/{task_id}", response_model=TaskOut)
 async def update_task(task_id: int, body: TaskUpdate):
-    task = tasks_store.get(task_id)
+    task = get_tasks_store().get(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
@@ -332,30 +340,30 @@ async def update_task(task_id: int, body: TaskUpdate):
             updates["pcr_gradient"] = None
             updates["pcr_ingredients"] = None
 
-    updated = tasks_store.update(task_id, updates)
+    updated = get_tasks_store().update(task_id, updates)
     await commit_and_push(f"Update task: {updated['name']}")
     return _task_to_out(updated)
 
 
 @router.delete("/{task_id}", status_code=204)
 async def delete_task(task_id: int):
-    task = tasks_store.get(task_id)
+    task = get_tasks_store().get(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    tasks_store.delete(task_id)
+    get_tasks_store().delete(task_id)
     # Also delete dependencies referencing this task
-    from app.storage import dependencies_store
+    from app.storage import get_dependencies_store
 
-    for dep in dependencies_store.list_all():
+    for dep in get_dependencies_store().list_all():
         if dep.get("parent_id") == task_id or dep.get("child_id") == task_id:
-            dependencies_store.delete(dep["id"])
+            get_dependencies_store().delete(dep["id"])
     await commit_and_push(f"Delete task: {task['name']}")
 
 
 @router.get("/by-method/{method_id}", response_model=list[TaskOut])
 async def list_tasks_by_method(method_id: int):
     """List all tasks linked to a specific method."""
-    tasks = tasks_store.query(method_id=method_id)
+    tasks = get_tasks_store().query(method_id=method_id)
     tasks.sort(key=lambda t: t.get("start_date", ""), reverse=True)
     return [_task_to_out(t) for t in tasks]
 
@@ -374,7 +382,7 @@ async def move_task(task_id: int, body: TaskMoveRequest):
 @router.post("/{task_id}/replicate", response_model=list[TaskOut], status_code=201)
 async def replicate_task(task_id: int, body: TaskReplicateRequest):
     """Create N copies of a task, each offset by offset_days."""
-    template = tasks_store.get(task_id)
+    template = get_tasks_store().get(task_id)
     if not template:
         raise HTTPException(status_code=404, detail="Task not found")
 
@@ -401,7 +409,7 @@ async def replicate_task(task_id: int, body: TaskReplicateRequest):
             "pcr_gradient": template.get("pcr_gradient"),
             "pcr_ingredients": template.get("pcr_ingredients"),
         }
-        rec = tasks_store.create(new_data)
+        rec = get_tasks_store().create(new_data)
         created.append(_task_to_out(rec))
 
     await commit_and_push(f"Replicate task: {template['name']} x{body.count}")
@@ -418,7 +426,7 @@ async def reset_task_pcr(task_id: int, method_id: Optional[int] = None):
     If method_id is provided, resets only that method's attachment.
     Otherwise, resets the first/primary method's attachment.
     """
-    task = tasks_store.get(task_id)
+    task = get_tasks_store().get(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     
@@ -433,7 +441,7 @@ async def reset_task_pcr(task_id: int, method_id: Optional[int] = None):
         pcr_data = _copy_pcr_data_for_method(legacy_method_id)
         if not pcr_data:
             raise HTTPException(status_code=400, detail="Linked method is not a PCR method")
-        updated = tasks_store.update(task_id, pcr_data)
+        updated = get_tasks_store().update(task_id, pcr_data)
         await commit_and_push(f"Reset PCR data for task: {updated['name']}")
         return _task_to_out(updated)
     
@@ -453,7 +461,7 @@ async def reset_task_pcr(task_id: int, method_id: Optional[int] = None):
         else:
             updated_attachments.append(att)
     
-    updated = tasks_store.update(task_id, {"method_attachments": updated_attachments})
+    updated = get_tasks_store().update(task_id, {"method_attachments": updated_attachments})
     await commit_and_push(f"Reset PCR data for task: {updated['name']}")
     return _task_to_out(updated)
 
@@ -461,12 +469,12 @@ async def reset_task_pcr(task_id: int, method_id: Optional[int] = None):
 @router.post("/{task_id}/methods/{method_id}", response_model=TaskOut)
 async def add_method_to_task(task_id: int, method_id: int):
     """Add a method to a task's method list."""
-    task = tasks_store.get(task_id)
+    task = get_tasks_store().get(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     
-    # Check if method exists
-    method = methods_store.get(method_id)
+    # Check if method exists (check both private and public)
+    method = get_method_by_id(method_id)
     if not method:
         raise HTTPException(status_code=404, detail="Method not found")
     
@@ -484,7 +492,7 @@ async def add_method_to_task(task_id: int, method_id: int):
         **pcr_data
     })
     
-    updated = tasks_store.update(task_id, {
+    updated = get_tasks_store().update(task_id, {
         "method_attachments": method_attachments,
         "method_ids": [att.get("method_id") for att in method_attachments]
     })
@@ -495,7 +503,7 @@ async def add_method_to_task(task_id: int, method_id: int):
 @router.delete("/{task_id}/methods/{method_id}", response_model=TaskOut)
 async def remove_method_from_task(task_id: int, method_id: int):
     """Remove a method from a task's method list."""
-    task = tasks_store.get(task_id)
+    task = get_tasks_store().get(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     
@@ -509,7 +517,7 @@ async def remove_method_from_task(task_id: int, method_id: int):
     # Remove the method attachment
     updated_attachments = [att for att in method_attachments if att.get("method_id") != method_id]
     
-    updated = tasks_store.update(task_id, {
+    updated = get_tasks_store().update(task_id, {
         "method_attachments": updated_attachments,
         "method_ids": [att.get("method_id") for att in updated_attachments]
     })
@@ -525,7 +533,7 @@ async def update_method_pcr_data(
     pcr_ingredients: Optional[str] = None
 ):
     """Update PCR data for a specific method attachment on a task."""
-    task = tasks_store.get(task_id)
+    task = get_tasks_store().get(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     
@@ -554,7 +562,7 @@ async def update_method_pcr_data(
     if not attachment_found:
         raise HTTPException(status_code=400, detail="Method is not attached to this task")
     
-    updated = tasks_store.update(task_id, {"method_attachments": updated_attachments})
+    updated = get_tasks_store().update(task_id, {"method_attachments": updated_attachments})
     await commit_and_push(f"Update PCR data for method {method_id} on task: {updated['name']}")
     return _task_to_out(updated)
 
@@ -571,7 +579,7 @@ async def save_variation_notes(
     during a specific experimental run. Notes are stored as markdown content
     with timestamped entries.
     """
-    task = tasks_store.get(task_id)
+    task = get_tasks_store().get(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     
@@ -600,6 +608,66 @@ async def save_variation_notes(
     if not attachment_found:
         raise HTTPException(status_code=400, detail="Method is not attached to this task")
     
-    updated = tasks_store.update(task_id, {"method_attachments": updated_attachments})
+    updated = get_tasks_store().update(task_id, {"method_attachments": updated_attachments})
     await commit_and_push(f"Save variation notes for method {method_id} on task: {updated['name']}")
+    return _task_to_out(updated)
+
+
+@router.post("/{task_id}/convert", response_model=TaskOut)
+async def convert_task_type(task_id: int, new_task_type: str):
+    """Convert a task from one type to another.
+    
+    This endpoint allows converting between 'experiment', 'purchase', and 'list' types.
+    Shared metadata (name, dates, project, duration, completion status, etc.) is preserved.
+    Type-specific data will be cleared:
+    
+    - Converting FROM experiment: clears method_ids, method_attachments, pcr_gradient, 
+      pcr_ingredients, deviation_log, experiment_color
+    - Converting FROM purchase: clears associated purchase items
+    - Converting FROM list: clears sub_tasks
+    
+    The user should be warned about data loss before calling this endpoint.
+    """
+    task = get_tasks_store().get(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    current_type = task.get("task_type", "list")
+    
+    # Validate new task type
+    valid_types = ["experiment", "purchase", "list"]
+    if new_task_type not in valid_types:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid task type '{new_task_type}'. Must be one of: {', '.join(valid_types)}"
+        )
+    
+    # No change needed
+    if current_type == new_task_type:
+        return _task_to_out(task)
+    
+    # Build update dict - preserve shared metadata, clear type-specific data
+    updates = {
+        "task_type": new_task_type,
+        # Clear experiment-specific fields
+        "method_ids": [],
+        "method_attachments": [],
+        "method_id": None,
+        "pcr_gradient": None,
+        "pcr_ingredients": None,
+        "deviation_log": None,
+        "experiment_color": None,
+        # Clear list-specific fields
+        "sub_tasks": None,
+    }
+    
+    # If converting from purchase, delete associated purchase items
+    if current_type == "purchase":
+        from app.storage import get_purchase_items_store
+        purchase_items = get_purchase_items_store().query(task_id=task_id)
+        for item in purchase_items:
+            get_purchase_items_store().delete(item["id"])
+    
+    updated = get_tasks_store().update(task_id, updates)
+    await commit_and_push(f"Convert task {task_id} from {current_type} to {new_task_type}: {updated['name']}")
     return _task_to_out(updated)

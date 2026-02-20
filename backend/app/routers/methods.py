@@ -1,12 +1,26 @@
-"""Method library CRUD + deviation/fork workflow -- JSON file storage."""
+"""Method library CRUD + deviation/fork workflow -- JSON file storage.
+
+Supports public/private methods:
+- Private methods: Only visible to the creator
+- Public methods: Visible to all users, only editable by creator
+"""
 
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from app.config import settings
 from app.git_sync import commit_and_push
-from app.storage import methods_store, tasks_store
+from app.storage import (
+    get_methods_store,
+    get_public_methods_store,
+    get_tasks_store,
+    list_all_methods,
+    get_method_by_id,
+    move_method_to_public,
+    move_method_to_private,
+)
 
 router = APIRouter(prefix="/methods", tags=["methods"])
 
@@ -31,6 +45,7 @@ class MethodCreate(BaseModel):
     parent_method_id: Optional[int] = None
     tags: Optional[List[str]] = None
     attachments: Optional[List[MethodAttachment]] = None  # New: multiple attachments
+    is_public: bool = False  # Whether this method is shared with all users
 
 
 class MethodUpdate(BaseModel):
@@ -42,6 +57,7 @@ class MethodUpdate(BaseModel):
     parent_method_id: Optional[int] = None
     tags: Optional[List[str]] = None
     attachments: Optional[List[MethodAttachment]] = None
+    is_public: Optional[bool] = None  # Toggle public/private
 
 
 class MethodOut(BaseModel):
@@ -53,6 +69,8 @@ class MethodOut(BaseModel):
     parent_method_id: Optional[int]
     tags: Optional[List[str]]
     attachments: List[MethodAttachment] = []  # Always present, may be empty
+    is_public: bool = False
+    created_by: Optional[str] = None  # Username of creator
 
 
 class MethodForkRequest(BaseModel):
@@ -75,6 +93,8 @@ def _to_out(r: dict) -> MethodOut:
     """Convert record dict to MethodOut, handling legacy and new formats."""
     # Ensure method_type has a default for older records
     r.setdefault("method_type", "markdown")
+    r.setdefault("is_public", False)
+    r.setdefault("created_by", None)
     
     # Handle migration from old single-file format to new attachments format
     if "attachments" not in r or not r["attachments"]:
@@ -111,15 +131,21 @@ def _to_out(r: dict) -> MethodOut:
 
 @router.get("", response_model=list[MethodOut])
 async def list_methods():
-    records = methods_store.list_all()
-    records.sort(key=lambda r: r.get("name", ""))
-    return [_to_out(r) for r in records]
+    """List all methods: user's private methods + all public methods."""
+    methods = list_all_methods()
+    methods.sort(key=lambda r: r.get("name", ""))
+    return [_to_out(r) for r in methods]
 
 
 @router.post("", response_model=MethodOut, status_code=201)
 async def create_method(body: MethodCreate):
-    # Check for duplicate method name
-    existing = methods_store.list_all()
+    """Create a new method. If is_public=True, creates in public store."""
+    # Check for duplicate method name in the appropriate store
+    if body.is_public:
+        existing = get_public_methods_store().list_all()
+    else:
+        existing = get_methods_store().list_all()
+    
     for method in existing:
         if method.get("name", "").lower() == body.name.lower():
             raise HTTPException(
@@ -128,6 +154,9 @@ async def create_method(body: MethodCreate):
             )
     
     data = body.model_dump()
+    
+    # Set creator
+    data["created_by"] = settings.current_user
     
     # Handle legacy format: if attachments not provided but github_path is, create attachment
     if not data.get("attachments") and data.get("github_path"):
@@ -149,14 +178,22 @@ async def create_method(body: MethodCreate):
     elif not data.get("attachments"):
         data["attachments"] = []
     
-    rec = methods_store.create(data)
+    # Create in appropriate store
+    if body.is_public:
+        rec = get_public_methods_store().create(data)
+        rec["_is_public"] = True
+    else:
+        rec = get_methods_store().create(data)
+        rec["_is_public"] = False
+    
     await commit_and_push(f"Create method: {rec['name']}")
     return _to_out(rec)
 
 
 @router.get("/{method_id}", response_model=MethodOut)
 async def get_method(method_id: int):
-    rec = methods_store.get(method_id)
+    """Get a method by ID from either private or public store."""
+    rec = get_method_by_id(method_id)
     if not rec:
         raise HTTPException(status_code=404, detail="Method not found")
     return _to_out(rec)
@@ -165,16 +202,32 @@ async def get_method(method_id: int):
 @router.get("/{method_id}/children", response_model=list[MethodOut])
 async def get_method_children(method_id: int):
     """Get all child methods (forks) of a method."""
-    children = methods_store.query(parent_method_id=method_id)
+    # Check both stores for children
+    private_children = get_methods_store().query(parent_method_id=method_id)
+    public_children = get_public_methods_store().query(parent_method_id=method_id)
+    
+    children = private_children + public_children
     return [_to_out(c) for c in children]
 
 
 @router.post("/{method_id}/fork", response_model=MethodOut, status_code=201)
 async def fork_method(method_id: int, body: MethodForkRequest):
-    """Fork a method: create a new child method inheriting parent's tags."""
-    parent = methods_store.get(method_id)
+    """Fork a method: create a new child method inheriting parent's tags.
+    
+    Forks are always private by default.
+    """
+    parent = get_method_by_id(method_id)
     if not parent:
         raise HTTPException(status_code=404, detail="Parent method not found")
+
+    # Check for duplicate name in private store (forks are private)
+    existing = get_methods_store().list_all()
+    for method in existing:
+        if method.get("name", "").lower() == body.new_name.lower():
+            raise HTTPException(
+                status_code=400,
+                detail=f"A method with the name '{body.new_name}' already exists. Please choose a different name."
+            )
 
     child_data = {
         "name": body.new_name,
@@ -183,8 +236,10 @@ async def fork_method(method_id: int, body: MethodForkRequest):
         "folder_path": parent.get("folder_path"),
         "parent_method_id": parent["id"],
         "tags": parent.get("tags"),
+        "is_public": False,  # Forks are private by default
+        "created_by": settings.current_user,
     }
-    rec = methods_store.create(child_data)
+    rec = get_methods_store().create(child_data)
     await commit_and_push(f"Fork method: {parent['name']} -> {rec['name']}")
     return _to_out(rec)
 
@@ -192,7 +247,7 @@ async def fork_method(method_id: int, body: MethodForkRequest):
 @router.post("/save-deviation")
 async def save_deviation_to_task(body: DeviationSaveRequest):
     """Save deviations to the task's deviation_log only (no method fork)."""
-    task = tasks_store.get(body.task_id)
+    task = get_tasks_store().get(body.task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
@@ -202,22 +257,76 @@ async def save_deviation_to_task(body: DeviationSaveRequest):
     else:
         task["deviation_log"] = body.deviations
 
-    tasks_store.save(task["id"], task)
+    get_tasks_store().save(task["id"], task)
     await commit_and_push(f"Save deviation for task {task['id']}")
     return {"status": "ok", "task_id": task["id"]}
 
 
 @router.put("/{method_id}", response_model=MethodOut)
 async def update_method(method_id: int, body: MethodUpdate):
-    """Update a method's metadata (name, folder_path, tags, attachments, etc.)."""
-    rec = methods_store.get(method_id)
+    """Update a method's metadata (name, folder_path, tags, attachments, etc.).
+    
+    Only the creator can edit a public method.
+    Toggling is_public moves the method between stores.
+    """
+    rec = get_method_by_id(method_id)
     if not rec:
         raise HTTPException(status_code=404, detail="Method not found")
+    
+    is_public = rec.get("_is_public", False)
+    
+    # Check edit permissions for public methods
+    if is_public and rec.get("created_by") != settings.current_user:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the creator can edit a public method"
+        )
+    
     updates = body.model_dump(exclude_unset=True)
+    
+    # Handle is_public toggle
+    if "is_public" in updates:
+        new_is_public = updates["is_public"]
+        if new_is_public != is_public:
+            # Moving between stores
+            if new_is_public:
+                # Moving to public - check for name conflict
+                existing = get_public_methods_store().list_all()
+                for method in existing:
+                    if method.get("name", "").lower() == rec.get("name", "").lower():
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"A public method with the name '{rec.get('name')}' already exists."
+                        )
+                moved = move_method_to_public(method_id)
+                if not moved:
+                    raise HTTPException(status_code=500, detail="Failed to move method to public")
+                rec = moved
+                is_public = True
+            else:
+                # Moving to private - check for name conflict
+                existing = get_methods_store().list_all()
+                for method in existing:
+                    if method.get("name", "").lower() == rec.get("name", "").lower():
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"A private method with the name '{rec.get('name')}' already exists."
+                        )
+                moved = move_method_to_private(method_id)
+                if not moved:
+                    raise HTTPException(status_code=500, detail="Failed to move method to private")
+                rec = moved
+                is_public = False
+            
+            # Remove is_public from updates since we've already handled it
+            updates.pop("is_public")
     
     # Check for duplicate name if name is being changed
     if "name" in updates and updates["name"] != rec.get("name"):
-        existing = methods_store.list_all()
+        if is_public:
+            existing = get_public_methods_store().list_all()
+        else:
+            existing = get_methods_store().list_all()
         for method in existing:
             if method.get("name", "").lower() == updates["name"].lower() and method["id"] != method_id:
                 raise HTTPException(
@@ -231,7 +340,19 @@ async def update_method(method_id: int, body: MethodUpdate):
         updates["github_path"] = None
         updates["method_type"] = None
     
-    updated = methods_store.update(method_id, updates)
+    # Apply remaining updates
+    if updates:
+        if is_public:
+            updated = get_public_methods_store().update(method_id, updates)
+        else:
+            updated = get_methods_store().update(method_id, updates)
+        
+        if not updated:
+            raise HTTPException(status_code=500, detail="Failed to update method")
+        updated["_is_public"] = is_public
+    else:
+        updated = rec
+    
     await commit_and_push(f"Update method: {updated['name']}")
     return _to_out(updated)
 
@@ -240,15 +361,15 @@ async def update_method(method_id: int, body: MethodUpdate):
 async def get_method_experiments(method_id: int):
     """Get all experiments (tasks) that have this method attached."""
     from app.engine.dates import compute_end_date, is_weekend_active_for_task
-    from app.storage import projects_store
+    from app.storage import get_projects_store
     
     # Verify method exists
-    rec = methods_store.get(method_id)
+    rec = get_method_by_id(method_id)
     if not rec:
         raise HTTPException(status_code=404, detail="Method not found")
     
     # Find all tasks that have this method_id in their method_ids list or method_attachments
-    all_tasks = tasks_store.list_all()
+    all_tasks = get_tasks_store().list_all()
     experiments = []
     
     for task in all_tasks:
@@ -276,7 +397,7 @@ async def get_method_experiments(method_id: int):
                 start = date.today()
             
             # Get weekend active status
-            proj = projects_store.get(task.get("project_id"))
+            proj = get_projects_store().get(task.get("project_id"))
             project_wa = proj.get("weekend_active", False) if proj else False
             wa = is_weekend_active_for_task(task.get("weekend_override"), project_wa)
             
@@ -311,8 +432,23 @@ async def get_method_experiments(method_id: int):
 
 @router.delete("/{method_id}", status_code=204)
 async def delete_method(method_id: int):
-    rec = methods_store.get(method_id)
+    """Delete a method. Only the creator can delete a public method."""
+    rec = get_method_by_id(method_id)
     if not rec:
         raise HTTPException(status_code=404, detail="Method not found")
-    methods_store.delete(method_id)
+    
+    is_public = rec.get("_is_public", False)
+    
+    # Check delete permissions for public methods
+    if is_public and rec.get("created_by") != settings.current_user:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the creator can delete a public method"
+        )
+    
+    if is_public:
+        get_public_methods_store().delete(method_id)
+    else:
+        get_methods_store().delete(method_id)
+    
     await commit_and_push(f"Delete method: {rec['name']}")

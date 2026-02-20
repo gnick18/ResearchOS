@@ -285,6 +285,44 @@ ResearchOS uses **two separate GitHub repositories**:
 
 ---
 
+## Local Git Ignore Patterns
+
+ResearchOS uses Git's built-in local exclude file (`.git/info/exclude`) for files that should be ignored locally but not shared with collaborators.
+
+**Location:** `.git/info/exclude` (in your data repository)
+
+This file works exactly like `.gitignore` but is **never tracked** by Git. Each user can have their own ignore patterns.
+
+### Automatic Large File Handling
+
+When you upload a file larger than 100MB (GitHub's limit), ResearchOS automatically:
+1. Saves the file locally (so it works in your app)
+2. Adds it to `.git/info/exclude` (so it won't be pushed to GitHub)
+3. Shows a warning that the file is local-only
+
+This ensures large files don't block your workflow while keeping them private to your machine.
+
+### Manual Ignore Patterns
+
+You can also manually add patterns to `.git/info/exclude`:
+
+```bash
+# Edit the local exclude file in your data repo
+nano /path/to/your/data-repo/.git/info/exclude
+
+# Add patterns like:
+large_data_folder/
+*.zip
+personal_notes/
+```
+
+This is useful for:
+- Large files you don't want to accidentally commit
+- Personal scratch files or notes
+- Machine-specific files
+
+---
+
 ## Configuration Reference
 
 | Variable | Description | Example |

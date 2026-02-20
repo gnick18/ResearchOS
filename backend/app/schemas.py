@@ -323,3 +323,39 @@ class PCRProtocolOut(BaseModel):
     notes: Optional[str]
 
     model_config = {"from_attributes": True}
+
+
+# ── Lab Links ─────────────────────────────────────────────────────────────────
+
+
+class LabLinkCreate(BaseModel):
+    title: str
+    url: str
+    description: Optional[str] = None
+    category: Optional[str] = None
+    color: Optional[str] = None
+    preview_image_url: Optional[str] = None
+
+
+class LabLinkUpdate(BaseModel):
+    title: Optional[str] = None
+    url: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    color: Optional[str] = None
+    preview_image_url: Optional[str] = None
+    sort_order: Optional[int] = None
+
+
+class LabLinkOut(BaseModel):
+    id: int
+    title: str
+    url: str
+    description: Optional[str]
+    category: Optional[str]
+    color: Optional[str]
+    preview_image_url: Optional[str] = None
+    sort_order: int = 0
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

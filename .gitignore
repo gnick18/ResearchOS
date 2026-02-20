@@ -1,2 +1,3 @@
 ### Ignore these paths or file types
 /ResearchOS_PersonalStorage
+backend/.env

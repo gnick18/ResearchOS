@@ -11,7 +11,7 @@ from app.schemas import (
     HighLevelGoalOut,
     SmartGoal,
 )
-from app.storage import goals_store
+from app.storage import get_goals_store
 
 router = APIRouter(prefix="/goals", tags=["goals"])
 
@@ -24,7 +24,7 @@ def compute_goal_end_date(goal_data: dict) -> str:
 @router.get("/", response_model=List[HighLevelGoalOut])
 def list_goals():
     """List all high-level goals."""
-    goals = goals_store.list_all()
+    goals = get_goals_store().list_all()
     result = []
     for g in goals:
         g["end_date"] = compute_goal_end_date(g)
@@ -35,7 +35,7 @@ def list_goals():
 @router.get("/{goal_id}", response_model=HighLevelGoalOut)
 def get_goal(goal_id: int):
     """Get a specific high-level goal."""
-    goal = goals_store.get(goal_id)
+    goal = get_goals_store().get(goal_id)
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
     goal["end_date"] = compute_goal_end_date(goal)
@@ -50,7 +50,7 @@ def create_goal(goal: HighLevelGoalCreate):
     data["is_complete"] = False
     if data.get("smart_goals") is None:
         data["smart_goals"] = []
-    result = goals_store.create(data)
+    result = get_goals_store().create(data)
     result["end_date"] = compute_goal_end_date(result)
     return result
 
@@ -58,7 +58,7 @@ def create_goal(goal: HighLevelGoalCreate):
 @router.patch("/{goal_id}", response_model=HighLevelGoalOut)
 def update_goal(goal_id: int, goal: HighLevelGoalUpdate):
     """Update a high-level goal."""
-    existing = goals_store.get(goal_id)
+    existing = get_goals_store().get(goal_id)
     if not existing:
         raise HTTPException(status_code=404, detail="Goal not found")
     
@@ -70,7 +70,7 @@ def update_goal(goal_id: int, goal: HighLevelGoalUpdate):
         if all_complete and len(update_data["smart_goals"]) > 0:
             update_data["is_complete"] = True
     
-    result = goals_store.update(goal_id, update_data)
+    result = get_goals_store().update(goal_id, update_data)
     result["end_date"] = compute_goal_end_date(result)
     return result
 
@@ -78,7 +78,7 @@ def update_goal(goal_id: int, goal: HighLevelGoalUpdate):
 @router.delete("/{goal_id}")
 def delete_goal(goal_id: int):
     """Delete a high-level goal."""
-    success = goals_store.delete(goal_id)
+    success = get_goals_store().delete(goal_id)
     if not success:
         raise HTTPException(status_code=404, detail="Goal not found")
     return {"ok": True}
@@ -87,14 +87,14 @@ def delete_goal(goal_id: int):
 @router.post("/{goal_id}/smart-goals", response_model=HighLevelGoalOut)
 def add_smart_goal(goal_id: int, smart_goal: SmartGoal):
     """Add a SMART sub-goal to a high-level goal."""
-    existing = goals_store.get(goal_id)
+    existing = get_goals_store().get(goal_id)
     if not existing:
         raise HTTPException(status_code=404, detail="Goal not found")
     
     smart_goals = existing.get("smart_goals", [])
     smart_goals.append(smart_goal.model_dump())
     
-    result = goals_store.update(goal_id, {"smart_goals": smart_goals})
+    result = get_goals_store().update(goal_id, {"smart_goals": smart_goals})
     result["end_date"] = compute_goal_end_date(result)
     return result
 
@@ -102,7 +102,7 @@ def add_smart_goal(goal_id: int, smart_goal: SmartGoal):
 @router.patch("/{goal_id}/smart-goals/{smart_goal_id}", response_model=HighLevelGoalOut)
 def toggle_smart_goal(goal_id: int, smart_goal_id: str, is_complete: bool = True):
     """Toggle a SMART sub-goal's completion status."""
-    existing = goals_store.get(goal_id)
+    existing = get_goals_store().get(goal_id)
     if not existing:
         raise HTTPException(status_code=404, detail="Goal not found")
     
@@ -120,7 +120,7 @@ def toggle_smart_goal(goal_id: int, smart_goal_id: str, is_complete: bool = True
     # Check if all SMART goals are complete
     all_complete = all(sg.get("is_complete", False) for sg in smart_goals)
     
-    result = goals_store.update(goal_id, {
+    result = get_goals_store().update(goal_id, {
         "smart_goals": smart_goals,
         "is_complete": all_complete
     })
@@ -131,13 +131,13 @@ def toggle_smart_goal(goal_id: int, smart_goal_id: str, is_complete: bool = True
 @router.delete("/{goal_id}/smart-goals/{smart_goal_id}", response_model=HighLevelGoalOut)
 def delete_smart_goal(goal_id: int, smart_goal_id: str):
     """Delete a SMART sub-goal from a high-level goal."""
-    existing = goals_store.get(goal_id)
+    existing = get_goals_store().get(goal_id)
     if not existing:
         raise HTTPException(status_code=404, detail="Goal not found")
     
     smart_goals = existing.get("smart_goals", [])
     smart_goals = [sg for sg in smart_goals if sg.get("id") != smart_goal_id]
     
-    result = goals_store.update(goal_id, {"smart_goals": smart_goals})
+    result = get_goals_store().update(goal_id, {"smart_goals": smart_goals})
     result["end_date"] = compute_goal_end_date(result)
     return result

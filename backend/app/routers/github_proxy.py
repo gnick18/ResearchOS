@@ -6,6 +6,7 @@ clone. git_sync handles committing and pushing to GitHub.
 
 import base64
 import hashlib
+import logging
 from pathlib import Path
 from typing import Optional
 
@@ -16,6 +17,13 @@ from app.config import settings
 from app.git_sync import commit_and_push
 
 router = APIRouter(prefix="/github", tags=["github"])
+logger = logging.getLogger(__name__)
+
+# GitHub's recommended maximum file size (100 MB)
+GITHUB_MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB in bytes
+
+# Warning threshold (50 MB) - files this large will trigger a warning
+GITHUB_WARNING_FILE_SIZE = 50 * 1024 * 1024  # 50 MB in bytes
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -74,6 +82,52 @@ def _html_url(path: str) -> str:
     return ""
 
 
+def _add_to_local_exclude(file_path: str) -> bool:
+    """Add a file path to .git/info/exclude in the repo root.
+    
+    This uses Git's local-only exclude file, so each user's large file
+    ignores stay local and don't affect other collaborators.
+    
+    Returns True if the path was added, False if it was already present.
+    """
+    exclude_path = _repo_root() / ".git" / "info" / "exclude"
+    # Normalize the path for gitignore (use forward slashes)
+    normalized_path = file_path.lstrip("/")
+    
+    # Ensure the .git/info directory exists
+    exclude_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Read existing exclude content
+    existing_lines = []
+    if exclude_path.exists():
+        existing_content = exclude_path.read_text(encoding="utf-8")
+        existing_lines = existing_content.splitlines()
+    
+    # Check if the path is already in exclude
+    if normalized_path in existing_lines:
+        return False
+    
+    # Add the path to exclude
+    with open(exclude_path, "a", encoding="utf-8") as f:
+        # Add newline if file doesn't end with one
+        if existing_lines and existing_lines[-1] != "":
+            f.write("\n")
+        f.write(f"{normalized_path}\n")
+    
+    logger.info("Added %s to .git/info/exclude due to large file size", normalized_path)
+    return True
+
+
+def _format_file_size(size_bytes: int) -> str:
+    """Format file size in human-readable format."""
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    elif size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.1f} KB"
+    else:
+        return f"{size_bytes / (1024 * 1024):.1f} MB"
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 
@@ -117,19 +171,59 @@ async def write_file(body: FileContent):
 
 @router.put("/image")
 async def upload_image(body: ImageUpload):
-    """Save a base64-encoded image to the local data repo."""
+    """Save a base64-encoded image to the local data repo.
+    
+    If the file is too large for GitHub (>100MB), it will be added to .git/info/exclude
+    (local-only ignore) and a warning will be returned. The file will still be saved locally.
+    """
     fp = _resolve(body.path)
     fp.parent.mkdir(parents=True, exist_ok=True)
 
     image_bytes = base64.b64decode(body.base64_content)
+    file_size = len(image_bytes)
     fp.write_bytes(image_bytes)
-
-    await commit_and_push(body.message)
+    
+    # Check file size and handle large files
+    warning = None
+    added_to_gitignore = False
+    
+    if file_size >= GITHUB_MAX_FILE_SIZE:
+        # File exceeds GitHub's limit - add to local exclude
+        _add_to_local_exclude(body.path)
+        added_to_gitignore = True
+        warning = (
+            f"File size ({_format_file_size(file_size)}) exceeds GitHub's 100MB limit. "
+            f"The file has been saved locally but added to .git/info/exclude and will NOT be "
+            f"uploaded to GitHub. The image/PDF will display in your local app but "
+            f"won't be available to others."
+        )
+        logger.warning(
+            "File %s (%s) exceeds GitHub limit, added to .git/info/exclude",
+            body.path, _format_file_size(file_size)
+        )
+    elif file_size >= GITHUB_WARNING_FILE_SIZE:
+        # File is large but still uploadable - warn the user
+        warning = (
+            f"File size ({_format_file_size(file_size)}) is approaching GitHub's 100MB limit. "
+            f"Consider reducing file size for better repository performance."
+        )
+        logger.info(
+            "File %s (%s) is large but within GitHub limits",
+            body.path, _format_file_size(file_size)
+        )
+    
+    # Only commit and push if file is not excluded
+    if not added_to_gitignore:
+        await commit_and_push(body.message)
+    # Note: No need to commit when added to .git/info/exclude since it's local-only
 
     return {
         "path": body.path,
         "sha": _sha(image_bytes),
         "download_url": _html_url(body.path),
+        "file_size": file_size,
+        "warning": warning,
+        "added_to_gitignore": added_to_gitignore,
     }
 
 

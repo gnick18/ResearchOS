@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.git_sync import commit_and_push
-from app.storage import purchase_items_store, item_catalog_store
+from app.storage import get_purchase_items_store, get_item_catalog_store
 
 router = APIRouter(prefix="/purchases", tags=["purchases"])
 
@@ -111,20 +111,20 @@ def _levenshtein(s1: str, s2: str) -> int:
 
 @router.get("/by-task/{task_id}", response_model=List[PurchaseItemOut])
 async def list_purchase_items(task_id: int):
-    items = purchase_items_store.query(task_id=task_id)
+    items = get_purchase_items_store().query(task_id=task_id)
     return [_to_out(i) for i in items]
 
 
 @router.get("/all", response_model=List[PurchaseItemOut])
 async def list_all_purchases():
-    items = purchase_items_store.list_all()
+    items = get_purchase_items_store().list_all()
     return [_to_out(i) for i in items]
 
 
 @router.post("", response_model=PurchaseItemOut, status_code=201)
 async def create_purchase_item(body: PurchaseItemCreate):
     data = body.model_dump()
-    rec = purchase_items_store.create(data)
+    rec = get_purchase_items_store().create(data)
 
     # Also add/update the item catalog
     _upsert_catalog(body.item_name, body.link, body.cas, body.price_per_unit)
@@ -135,22 +135,22 @@ async def create_purchase_item(body: PurchaseItemCreate):
 
 @router.put("/{item_id}", response_model=PurchaseItemOut)
 async def update_purchase_item(item_id: int, body: PurchaseItemUpdate):
-    rec = purchase_items_store.get(item_id)
+    rec = get_purchase_items_store().get(item_id)
     if not rec:
         raise HTTPException(status_code=404, detail="Purchase item not found")
 
     updates = body.model_dump(exclude_unset=True)
-    updated = purchase_items_store.update(item_id, updates)
+    updated = get_purchase_items_store().update(item_id, updates)
     await commit_and_push(f"Update purchase item: {updated['item_name']}")
     return _to_out(updated)
 
 
 @router.delete("/{item_id}", status_code=204)
 async def delete_purchase_item(item_id: int):
-    rec = purchase_items_store.get(item_id)
+    rec = get_purchase_items_store().get(item_id)
     if not rec:
         raise HTTPException(status_code=404, detail="Purchase item not found")
-    purchase_items_store.delete(item_id)
+    get_purchase_items_store().delete(item_id)
     await commit_and_push(f"Delete purchase item: {rec['item_name']}")
 
 
@@ -165,11 +165,12 @@ def _upsert_catalog(
 ) -> None:
     """Add or update an item in the global catalog."""
     name_lower = item_name.strip().lower()
+    catalog = get_item_catalog_store()
     # Check if exact match exists
-    for cat in item_catalog_store.list_all():
+    for cat in catalog.list_all():
         if cat.get("item_name", "").strip().lower() == name_lower:
             # Update existing
-            item_catalog_store.update(cat["id"], {
+            catalog.update(cat["id"], {
                 "item_name": item_name.strip(),
                 "link": link,
                 "cas": cas,
@@ -177,7 +178,7 @@ def _upsert_catalog(
             })
             return
     # Create new
-    item_catalog_store.create({
+    catalog.create({
         "item_name": item_name.strip(),
         "link": link,
         "cas": cas,
@@ -194,7 +195,7 @@ async def search_catalog(q: str = ""):
     query_lower = q.strip().lower()
     results: list[tuple[int, dict]] = []
 
-    for cat in item_catalog_store.list_all():
+    for cat in get_item_catalog_store().list_all():
         cat_name = cat.get("item_name", "").strip().lower()
         # Exact substring match
         if query_lower in cat_name or cat_name in query_lower:
@@ -222,12 +223,13 @@ async def search_catalog(q: str = ""):
 @router.put("/catalog/{catalog_id}", response_model=CatalogItemOut)
 async def update_catalog_item(catalog_id: int, body: CatalogItemUpdate):
     """Update an existing catalog item (overwrite)."""
-    rec = item_catalog_store.get(catalog_id)
+    catalog = get_item_catalog_store()
+    rec = catalog.get(catalog_id)
     if not rec:
         raise HTTPException(status_code=404, detail="Catalog item not found")
 
     updates = body.model_dump(exclude_unset=True)
-    updated = item_catalog_store.update(catalog_id, updates)
+    updated = catalog.update(catalog_id, updates)
     await commit_and_push(f"Update catalog item: {updated['item_name']}")
     return CatalogItemOut(
         id=updated["id"],
@@ -242,7 +244,7 @@ async def update_catalog_item(catalog_id: int, body: CatalogItemUpdate):
 async def create_catalog_item(body: CatalogItemUpdate):
     """Create a new catalog item (save as new)."""
     data = body.model_dump(exclude_unset=True)
-    rec = item_catalog_store.create(data)
+    rec = get_item_catalog_store().create(data)
     await commit_and_push(f"New catalog item: {rec.get('item_name', '')}")
     return CatalogItemOut(
         id=rec["id"],
