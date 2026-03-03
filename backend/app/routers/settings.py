@@ -63,6 +63,7 @@ class SettingsResponse(BaseModel):
     github_localpath: str
     current_user: str
     main_user: str
+    storage_mode: str
     is_configured: bool
 
 
@@ -73,6 +74,32 @@ class SettingsUpdate(BaseModel):
     github_localpath: Optional[str] = None
     current_user: Optional[str] = None
     main_user: Optional[str] = None
+    storage_mode: Optional[str] = None
+
+
+class FolderSetupRequest(BaseModel):
+    """Request to set up research folder."""
+    mode: str  # "github" or "local"
+    local_path: str
+    github_token: Optional[str] = None
+    github_repo: Optional[str] = None
+    create_if_missing: bool = False
+
+
+class FolderSetupResponse(BaseModel):
+    """Response after folder setup."""
+    status: str
+    message: str
+    path: str
+    mode: str
+    created_folders: bool
+
+
+class StorageModeResponse(BaseModel):
+    """Response for storage mode query."""
+    mode: str
+    path: str
+    is_configured: bool
 
 
 def mask_token(token: str) -> str:
@@ -82,7 +109,7 @@ def mask_token(token: str) -> str:
     return f"{token[:4]}...{token[-4:]}"
 
 
-def write_env_file(github_token: str, github_repo: str, github_localpath: str, current_user: str, main_user: str = "") -> None:
+def write_env_file(github_token: str, github_repo: str, github_localpath: str, current_user: str, main_user: str = "", storage_mode: str = "github") -> None:
     """Write settings to .env file in backend directory."""
     global _last_mtime
     env_path = Path(__file__).parent.parent.parent / ".env"
@@ -93,6 +120,7 @@ GITHUB_LOCALPATH={github_localpath}
 CORS_ORIGINS=["http://localhost:3000"]
 CURRENT_USER={current_user}
 MAIN_USER={main_user}
+STORAGE_MODE={storage_mode}
 """
     env_path.write_text(content)
     
@@ -104,7 +132,7 @@ MAIN_USER={main_user}
 async def get_settings():
     """Get current environment settings."""
     token = settings.github_token
-    is_configured = bool(token and settings.github_repo and settings.github_localpath)
+    is_configured = bool(settings.github_localpath)
     
     return SettingsResponse(
         github_token_masked=mask_token(token),
@@ -112,6 +140,7 @@ async def get_settings():
         github_localpath=settings.github_localpath,
         current_user=settings.current_user,
         main_user=settings.main_user,
+        storage_mode=settings.storage_mode,
         is_configured=is_configured,
     )
 
@@ -206,13 +235,15 @@ async def check_data_path():
     Used by frontend to show a popup if the path is invalid.
     """
     local_path = settings.github_localpath
+    storage_mode = settings.storage_mode
     
     # Check if path is configured
     if not local_path:
         return {
             "status": "error",
             "error_type": "not_configured",
-            "message": "Data path is not configured. Please set the Local Repository Path in settings.",
+            "message": "Data path is not configured. Please set up a research folder.",
+            "storage_mode": storage_mode,
         }
     
     # Check if path exists
@@ -223,15 +254,17 @@ async def check_data_path():
             "error_type": "path_not_found",
             "message": f"Local path does not exist: {local_path}",
             "configured_path": local_path,
+            "storage_mode": storage_mode,
         }
     
-    # Check if it's a git repository
-    if not (path_obj / ".git").exists():
+    # In GitHub mode, check if it's a git repository
+    if settings.is_github_mode() and not (path_obj / ".git").exists():
         return {
             "status": "error",
             "error_type": "not_git_repo",
             "message": f"Local path is not a git repository: {local_path}",
             "configured_path": local_path,
+            "storage_mode": storage_mode,
         }
     
     # Check if data directory exists or can be created
@@ -244,13 +277,152 @@ async def check_data_path():
             "error_type": "permission_denied",
             "message": f"Cannot create data directory at: {local_path}",
             "configured_path": local_path,
+            "storage_mode": storage_mode,
         }
     
     return {
         "status": "ok",
         "message": "Data path is valid and accessible",
         "configured_path": local_path,
+        "storage_mode": storage_mode,
     }
+
+
+def validate_folder_structure(path: Path, create_if_missing: bool = False) -> dict:
+    """Validate and optionally create folder structure.
+    
+    Returns:
+        dict with 'valid', 'message', 'created', 'missing' keys
+    """
+    required_structure = [
+        "users",
+        "users/public",
+    ]
+    
+    results = {
+        "valid": True,
+        "message": "",
+        "created": False,
+        "missing": []
+    }
+    
+    for subdir in required_structure:
+        full_path = path / subdir
+        if not full_path.exists():
+            if create_if_missing:
+                try:
+                    full_path.mkdir(parents=True, exist_ok=True)
+                    results["created"] = True
+                except PermissionError:
+                    results["missing"].append(subdir)
+                    results["valid"] = False
+            else:
+                results["missing"].append(subdir)
+                results["valid"] = False
+    
+    if results["missing"]:
+        results["message"] = f"Missing folders: {', '.join(results['missing'])}"
+    
+    return results
+
+
+@router.get("/storage-mode", response_model=StorageModeResponse)
+async def get_storage_mode():
+    """Get the current storage mode configuration."""
+    return StorageModeResponse(
+        mode=settings.storage_mode,
+        path=settings.github_localpath,
+        is_configured=bool(settings.github_localpath),
+    )
+
+
+@router.post("/setup-folder", response_model=FolderSetupResponse)
+async def setup_research_folder(request: FolderSetupRequest):
+    """Set up or connect a research folder.
+    
+    Validates the path, creates folder structure if needed,
+    and updates the .env configuration.
+    """
+    # Validate mode
+    if request.mode not in ("github", "local"):
+        raise HTTPException(
+            status_code=400,
+            detail="Mode must be 'github' or 'local'"
+        )
+    
+    # Validate path
+    if not request.local_path:
+        raise HTTPException(
+            status_code=400,
+            detail="Local path is required"
+        )
+    
+    path_obj = Path(request.local_path)
+    
+    # Check if path exists
+    if not path_obj.exists():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Path does not exist: {request.local_path}"
+        )
+    
+    # In GitHub mode, validate git repo and token
+    if request.mode == "github":
+        if not (path_obj / ".git").exists():
+            raise HTTPException(
+                status_code=400,
+                detail=f"Path is not a git repository: {request.local_path}"
+            )
+        
+        if not request.github_token:
+            raise HTTPException(
+                status_code=400,
+                detail="GitHub token is required for GitHub mode"
+            )
+        
+        if not request.github_repo:
+            raise HTTPException(
+                status_code=400,
+                detail="GitHub repository is required for GitHub mode"
+            )
+    
+    # Validate/create folder structure
+    validation = validate_folder_structure(path_obj, request.create_if_missing)
+    if not validation["valid"]:
+        raise HTTPException(
+            status_code=400,
+            detail=validation["message"] + ". Use create_if_missing=true to create them."
+        )
+    
+    # Write to .env file
+    github_token = request.github_token or ""
+    github_repo = request.github_repo or ""
+    
+    write_env_file(
+        github_token=github_token,
+        github_repo=github_repo,
+        github_localpath=request.local_path,
+        current_user=settings.current_user,
+        main_user=settings.main_user,
+        storage_mode=request.mode,
+    )
+    
+    # Update settings object directly
+    settings.github_token = github_token
+    settings.github_repo = github_repo
+    settings.github_localpath = request.local_path
+    settings.storage_mode = request.mode
+    
+    # Reinitialize stores
+    reset_stores()
+    
+    return FolderSetupResponse(
+        status="ok",
+        message="Research folder configured successfully",
+        path=request.local_path,
+        mode=request.mode,
+        created_folders=validation["created"],
+    )
 
 
 @router.post("/reload")

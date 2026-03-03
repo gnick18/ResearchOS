@@ -358,32 +358,32 @@ flowchart TD
 
 ### Backend Changes
 
-- [ ] Add `STORAGE_MODE` to `Settings` class in [`config.py`](backend/app/config.py)
-- [ ] Update `DEFAULT_ENV_CONTENT` with new setting
-- [ ] Add `is_github_mode()` and `is_local_mode()` helper methods
-- [ ] Create `FolderSetupRequest` and `FolderSetupResponse` models in [`schemas.py`](backend/app/schemas.py)
-- [ ] Add `/settings/setup-folder` endpoint in [`settings.py`](backend/app/routers/settings.py)
-- [ ] Add `/settings/storage-mode` GET endpoint
-- [ ] Update `check_data_path()` to handle both modes:
+- [x] Add `STORAGE_MODE` to `Settings` class in [`config.py`](backend/app/config.py)
+- [x] Update `DEFAULT_ENV_CONTENT` with new setting
+- [x] Add `is_github_mode()` and `is_local_mode()` helper methods
+- [x] Create `FolderSetupRequest` and `FolderSetupResponse` models in [`settings.py`](backend/app/routers/settings.py)
+- [x] Add `/settings/setup-folder` endpoint in [`settings.py`](backend/app/routers/settings.py)
+- [x] Add `/settings/storage-mode` GET endpoint
+- [x] Update `check_data_path()` to handle both modes:
   - GitHub mode: require `.git` folder
   - Local mode: only require `data/users/` structure
-- [ ] Add `validate_folder_structure()` helper function
-- [ ] Update `write_env_file()` to include `STORAGE_MODE`
+- [x] Add `validate_folder_structure()` helper function
+- [x] Update `write_env_file()` to include `STORAGE_MODE`
 
 ### Frontend Changes
 
-- [ ] Create `ResearchFolderSetup.tsx` component with:
-  - [ ] Two-card selection UI (GitHub vs Local)
-  - [ ] GitHub mode form (path, repo, token, blank/existing option)
-  - [ ] Local mode form (path only, create structure option)
-  - [ ] Validation and error handling
-- [ ] Add folder setup API methods to [`api.ts`](frontend/src/lib/api.ts)
-- [ ] Update [`page.tsx`](frontend/src/app/page.tsx) to:
-  - [ ] Show setup on first launch
-  - [ ] Show setup when path invalid
-  - [ ] Show UserLoginScreen after setup complete
-- [ ] Remove or repurpose `DataPathCheckPopup.tsx`
-- [ ] Add types for new API requests/responses in [`types.ts`](frontend/src/lib/types.ts)
+- [x] Create `ResearchFolderSetup.tsx` component with:
+  - [x] Two-card selection UI (GitHub vs Local)
+  - [x] GitHub mode form (path, repo, token, blank/existing option)
+  - [x] Local mode form (path only, create structure option)
+  - [x] Validation and error handling
+- [x] Add folder setup API methods to [`api.ts`](frontend/src/lib/api.ts)
+- [x] Update [`page.tsx`](frontend/src/app/page.tsx) to:
+  - [x] Show setup on first launch
+  - [x] Show setup when path invalid
+  - [x] Show UserLoginScreen after setup complete
+- [x] Remove or repurpose `DataPathCheckPopup.tsx`
+- [x] Add types for new API requests/responses in [`api.ts`](frontend/src/lib/api.ts)
 
 ### Testing
 

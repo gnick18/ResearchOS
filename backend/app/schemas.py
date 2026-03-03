@@ -69,7 +69,7 @@ class VariationNoteRequest(BaseModel):
 
 
 class TaskCreate(BaseModel):
-    project_id: int
+    project_id: Optional[int] = None
     name: str
     start_date: date
     duration_days: int = Field(ge=1)

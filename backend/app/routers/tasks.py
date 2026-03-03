@@ -182,8 +182,15 @@ async def check_duplicate_task(
     
     Returns a list of matching tasks (existing or past tasks that match).
     """
+    # Handle Miscellaneous project (project_id 0 means use the actual Miscellaneous project)
+    actual_project_id = project_id
+    if project_id == 0:
+        from app.routers.projects import get_or_create_miscellaneous_project
+        misc_project = get_or_create_miscellaneous_project()
+        actual_project_id = misc_project["id"]
+    
     # Get all tasks for this project
-    all_tasks = get_tasks_store().query(project_id=project_id)
+    all_tasks = get_tasks_store().query(project_id=actual_project_id)
     
     # Filter by name (case-insensitive) and task_type
     matching_tasks = []
@@ -217,6 +224,11 @@ async def check_duplicate_task(
 @router.post("", response_model=TaskOut, status_code=201)
 async def create_task(body: TaskCreate):
     data = body.model_dump()
+    # If no project_id is provided, use the Miscellaneous project
+    if data.get("project_id") is None:
+        from app.routers.projects import get_or_create_miscellaneous_project
+        misc_project = get_or_create_miscellaneous_project()
+        data["project_id"] = misc_project["id"]
     # Resolve weekend on creation
     wa = False
     proj = get_projects_store().get(data["project_id"])

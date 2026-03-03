@@ -13,6 +13,29 @@ from app.storage import get_projects_store, get_tasks_store, get_dependencies_st
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 
+def get_or_create_miscellaneous_project() -> dict:
+    """Get the 'Miscellaneous' project, creating it if it doesn't exist."""
+    projects = get_projects_store().list_all()
+    misc_project = next((p for p in projects if p.get("name") == "Miscellaneous"), None)
+    
+    if misc_project:
+        return misc_project
+    
+    # Create the Miscellaneous project
+    from datetime import datetime
+    data = {
+        "name": "Miscellaneous",
+        "weekend_active": False,
+        "tags": ["default"],
+        "color": "#6b7280",  # Gray color
+        "created_at": datetime.utcnow().isoformat(),
+        "sort_order": -1,  # Ensure it appears first
+        "is_archived": False,
+        "archived_at": None
+    }
+    return get_projects_store().create(data)
+
+
 def _to_out(rec: dict) -> ProjectOut:
     # Ensure defaults for new fields
     rec.setdefault("sort_order", 0)
@@ -74,6 +97,9 @@ async def delete_project(project_id: int):
     rec = get_projects_store().get(project_id)
     if not rec:
         raise HTTPException(status_code=404, detail="Project not found")
+    # Prevent deletion of the Miscellaneous project
+    if rec.get("name") == "Miscellaneous":
+        raise HTTPException(status_code=400, detail="Cannot delete the Miscellaneous project. It is a permanent category for standalone tasks.")
     # Also delete all tasks and dependencies for this project
     tasks = get_tasks_store().query(project_id=project_id)
     task_ids = {t["id"] for t in tasks}
@@ -116,6 +142,10 @@ async def archive_project(project_id: int, body: ArchiveRequest):
     rec = get_projects_store().get(project_id)
     if not rec:
         raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Prevent archiving of the Miscellaneous project
+    if rec.get("name") == "Miscellaneous" and body.is_archived:
+        raise HTTPException(status_code=400, detail="Cannot archive the Miscellaneous project. It is a permanent category for standalone tasks.")
     
     rec["is_archived"] = body.is_archived
     if body.is_archived:

@@ -146,7 +146,7 @@ class SetMainUserResponse(BaseModel):
 
 def _get_users_dir() -> Path:
     """Get the users directory path."""
-    return Path(settings.github_localpath) / "data" / "users"
+    return Path(settings.github_localpath) / "users"
 
 
 def _get_available_users() -> List[str]:
@@ -274,7 +274,7 @@ RESERVED_USERNAMES = {'public', '.git', '.github', 'lab'}
 
 def _get_user_metadata_path() -> Path:
     """Get the path to the user metadata file."""
-    return Path(settings.github_localpath) / "data" / "users" / "_user_metadata.json"
+    return Path(settings.github_localpath) / "users" / "_user_metadata.json"
 
 
 def _read_user_metadata() -> Dict:
@@ -415,10 +415,43 @@ def _update_user_metadata_on_rename(old_username: str, new_username: str) -> Non
 
 
 def _migrate_existing_users() -> None:
-    """Migrate existing users without metadata to have colors and created_at."""
+    """Migrate existing users without metadata to have colors and created_at.
+    
+    Also fixes users that have duplicate colors by reassigning them.
+    """
     metadata = _read_user_metadata()
     existing_users = _get_available_users()
     
+    # First, check for duplicate colors and fix them
+    color_to_users = {}
+    for user, data in metadata.get("users", {}).items():
+        color = data.get("color")
+        if color:
+            if color not in color_to_users:
+                color_to_users[color] = []
+            color_to_users[color].append(user)
+    
+    # Reassign colors for users with duplicates
+    for color, users_with_color in color_to_users.items():
+        if len(users_with_color) > 1:
+            # Keep the first user's color, reassign others
+            for user in users_with_color[1:]:
+                new_color = _get_next_available_color()
+                if not new_color:
+                    new_color = USER_COLOR_PALETTE[0]
+                if "users" not in metadata:
+                    metadata["users"] = {}
+                if user in metadata["users"]:
+                    metadata["users"][user]["color"] = new_color
+                    # Update color_assignments
+                    if "color_assignments" not in metadata:
+                        metadata["color_assignments"] = {}
+                    # Remove old assignment
+                    if color in metadata["color_assignments"]:
+                        del metadata["color_assignments"][color]
+                    metadata["color_assignments"][new_color] = user
+    
+    # Then, add any missing users
     for user in existing_users:
         if user not in metadata.get("users", {}):
             # Assign color and created_at to existing user

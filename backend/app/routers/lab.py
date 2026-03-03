@@ -89,7 +89,7 @@ class LabSearchResponse(BaseModel):
 
 def _get_users_dir() -> Path:
     """Get the users directory path."""
-    return Path(settings.github_localpath) / "data" / "users"
+    return Path(settings.github_localpath) / "users"
 
 
 def _get_user_metadata_path() -> Path:
@@ -122,7 +122,9 @@ def _get_user_color(username: str) -> str:
     """Get the color for a user from metadata."""
     metadata = _read_user_metadata()
     user_data = metadata.get("users", {}).get(username, {})
-    return user_data.get("color", USER_COLOR_PALETTE[0])  # Default to first color in palette
+    color = user_data.get("color", USER_COLOR_PALETTE[0])  # Default to first color in palette
+    print(f"[Lab] _get_user_color({username}) -> {color}")  # Debug logging
+    return color
 
 
 def _get_available_users() -> List[str]:
@@ -235,13 +237,28 @@ async def get_all_tasks(
             if exclude_lists and task_data.get("task_type") == "list":
                 continue
             
+            # Calculate end_date if missing
+            start_date = task_data.get("start_date", "")
+            duration_days = task_data.get("duration_days", 1)
+            end_date = task_data.get("end_date", "")
+            
+            # If end_date is missing or empty, calculate it from start_date + duration_days
+            if not end_date and start_date:
+                try:
+                    from datetime import datetime, timedelta
+                    start = datetime.strptime(start_date, "%Y-%m-%d")
+                    end = start + timedelta(days=duration_days - 1)
+                    end_date = end.strftime("%Y-%m-%d")
+                except (ValueError, TypeError):
+                    end_date = start_date
+            
             all_tasks.append(LabTask(
                 id=task_data.get("id", 0),
                 name=task_data.get("name", ""),
                 project_id=task_data.get("project_id", 0),
-                start_date=task_data.get("start_date", ""),
-                duration_days=task_data.get("duration_days", 1),
-                end_date=task_data.get("end_date", ""),
+                start_date=start_date,
+                duration_days=duration_days,
+                end_date=end_date,
                 is_complete=task_data.get("is_complete", False),
                 task_type=task_data.get("task_type", "experiment"),
                 username=user,
@@ -361,13 +378,28 @@ async def get_all_experiments(usernames: Optional[str] = None):
             if task_data.get("task_type") != "experiment":
                 continue
             
+            # Calculate end_date if missing
+            start_date = task_data.get("start_date", "")
+            duration_days = task_data.get("duration_days", 1)
+            end_date = task_data.get("end_date", "")
+            
+            # If end_date is missing or empty, calculate it from start_date + duration_days
+            if not end_date and start_date:
+                try:
+                    from datetime import datetime, timedelta
+                    start = datetime.strptime(start_date, "%Y-%m-%d")
+                    end = start + timedelta(days=duration_days - 1)
+                    end_date = end.strftime("%Y-%m-%d")
+                except (ValueError, TypeError):
+                    end_date = start_date
+            
             all_experiments.append(LabTask(
                 id=task_data.get("id", 0),
                 name=task_data.get("name", ""),
                 project_id=task_data.get("project_id", 0),
-                start_date=task_data.get("start_date", ""),
-                duration_days=task_data.get("duration_days", 1),
-                end_date=task_data.get("end_date", ""),
+                start_date=start_date,
+                duration_days=duration_days,
+                end_date=end_date,
                 is_complete=task_data.get("is_complete", False),
                 task_type="experiment",
                 username=user,
@@ -380,25 +412,102 @@ async def get_all_experiments(usernames: Optional[str] = None):
     return all_experiments
 
 
+@router.get("/purchases", response_model=List[LabTask])
+async def get_all_purchases(usernames: Optional[str] = None):
+    """Get all purchase tasks across all users.
+    
+    Args:
+        usernames: Comma-separated list of usernames to filter by
+    """
+    # Ensure existing users are migrated (have colors assigned)
+    _migrate_existing_users()
+    
+    users_dir = _get_users_dir()
+    all_purchases = []
+    
+    # Parse username filter if provided
+    username_filter = None
+    if usernames:
+        username_filter = set(u.strip() for u in usernames.split(",") if u.strip())
+    
+    for user in _get_available_users():
+        # Skip if username filter is active and this user is not in it
+        if username_filter and user not in username_filter:
+            continue
+        
+        user_color = _get_user_color(user)
+        tasks_dir = users_dir / user / "tasks"
+        
+        for task_data in _list_json_files(tasks_dir):
+            # Only include purchases
+            if task_data.get("task_type") != "purchase":
+                continue
+            
+            # Calculate end_date if missing
+            start_date = task_data.get("start_date", "")
+            duration_days = task_data.get("duration_days", 1)
+            end_date = task_data.get("end_date", "")
+            
+            # If end_date is missing or empty, calculate it from start_date + duration_days
+            if not end_date and start_date:
+                try:
+                    from datetime import datetime, timedelta
+                    start = datetime.strptime(start_date, "%Y-%m-%d")
+                    end = start + timedelta(days=duration_days - 1)
+                    end_date = end.strftime("%Y-%m-%d")
+                except (ValueError, TypeError):
+                    end_date = start_date
+            
+            all_purchases.append(LabTask(
+                id=task_data.get("id", 0),
+                name=task_data.get("name", ""),
+                project_id=task_data.get("project_id", 0),
+                start_date=start_date,
+                duration_days=duration_days,
+                end_date=end_date,
+                is_complete=task_data.get("is_complete", False),
+                task_type="purchase",
+                username=user,
+                user_color=user_color,
+                experiment_color=task_data.get("experiment_color"),
+                method_ids=task_data.get("method_ids") or [],
+                notes=task_data.get("notes")
+            ))
+    
+    return all_purchases
+
+
 @router.get("/search", response_model=LabSearchResponse)
 async def search_across_users(
-    q: str,
+    q: Optional[str] = None,
     usernames: Optional[str] = None,
-    task_types: Optional[str] = None
+    task_types: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    project_id: Optional[int] = None,
+    method_id: Optional[int] = None,
+    method_folder: Optional[str] = None,
+    completion_status: Optional[str] = None  # "all", "complete", "incomplete"
 ):
     """Search across all users' data.
     
     Args:
-        q: Search query string
+        q: Search query string (optional when using other filters)
         usernames: Comma-separated list of usernames to filter by
         task_types: Comma-separated list of task types to include (experiment, purchase, list)
+        date_from: Filter tasks starting from this date (YYYY-MM-DD)
+        date_to: Filter tasks ending before this date (YYYY-MM-DD)
+        project_id: Filter by project ID
+        method_id: Filter by method ID
+        method_folder: Filter by method folder/category
+        completion_status: Filter by completion status ("all", "complete", "incomplete")
     """
     # Ensure existing users are migrated (have colors assigned)
     _migrate_existing_users()
     
     users_dir = _get_users_dir()
     results = []
-    query_lower = q.lower()
+    query_lower = q.lower() if q else None
     
     # Parse filters
     username_filter = None
@@ -408,6 +517,21 @@ async def search_across_users(
     task_type_filter = None
     if task_types:
         task_type_filter = set(t.strip() for t in task_types.split(",") if t.strip())
+    
+    # Build method folder lookup (method_id -> folder_path)
+    method_folder_lookup = {}
+    if method_folder:
+        # Scan all methods to build folder lookup
+        for user in _get_available_users():
+            methods_dir = users_dir / user / "methods"
+            for method_data in _list_json_files(methods_dir):
+                if method_data.get("folder_path") == method_folder:
+                    method_folder_lookup[method_data.get("id")] = True
+        # Also check public methods
+        public_methods_dir = users_dir / "public" / "methods"
+        for method_data in _list_json_files(public_methods_dir):
+            if method_data.get("folder_path") == method_folder:
+                method_folder_lookup[method_data.get("id")] = True
     
     for user in _get_available_users():
         # Skip if username filter is active and this user is not in it
@@ -427,45 +551,114 @@ async def search_across_users(
             if task_type_filter and task_data.get("task_type") not in task_type_filter:
                 continue
             
-            # Search in name and notes
+            # Apply project filter
+            if project_id is not None and task_data.get("project_id") != project_id:
+                continue
+            
+            # Apply completion status filter
+            if completion_status == "complete" and not task_data.get("is_complete"):
+                continue
+            if completion_status == "incomplete" and task_data.get("is_complete"):
+                continue
+            
+            # Apply date range filter
+            task_start = task_data.get("start_date", "")
+            task_end = task_data.get("end_date", "")
+            
+            # Calculate end_date if missing
+            if not task_end and task_start:
+                try:
+                    from datetime import datetime, timedelta
+                    start = datetime.strptime(task_start, "%Y-%m-%d")
+                    duration = task_data.get("duration_days", 1)
+                    end = start + timedelta(days=duration - 1)
+                    task_end = end.strftime("%Y-%m-%d")
+                except (ValueError, TypeError):
+                    task_end = task_start
+            
+            if date_from and task_end < date_from:
+                continue
+            if date_to and task_start > date_to:
+                continue
+            
+            # Apply method filter
+            task_method_ids = task_data.get("method_ids") or []
+            if method_id is not None and method_id not in task_method_ids:
+                continue
+            
+            # Apply method folder filter
+            if method_folder:
+                has_folder_method = any(mid in method_folder_lookup for mid in task_method_ids)
+                if not has_folder_method:
+                    continue
+            
+            # Apply keyword search (if provided)
             name = task_data.get("name", "")
             notes = task_data.get("notes", "")
+            tags = task_data.get("tags", [])
             
-            if query_lower in name.lower():
+            if query_lower:
+                # Search in name, notes, and tags
+                tags_str = " ".join(tags) if tags else ""
+                searchable = f"{name} {notes} {tags_str}".lower()
+                
+                if query_lower in name.lower():
+                    results.append(LabSearchResult(
+                        type="task",
+                        id=task_data.get("id", 0),
+                        name=name,
+                        username=user,
+                        user_color=user_color,
+                        match_field="name",
+                        match_preview=_create_preview(name, query_lower)
+                    ))
+                elif notes and query_lower in notes.lower():
+                    results.append(LabSearchResult(
+                        type="task",
+                        id=task_data.get("id", 0),
+                        name=name,
+                        username=user,
+                        user_color=user_color,
+                        match_field="notes",
+                        match_preview=_create_preview(notes, query_lower)
+                    ))
+                elif tags and query_lower in tags_str.lower():
+                    results.append(LabSearchResult(
+                        type="task",
+                        id=task_data.get("id", 0),
+                        name=name,
+                        username=user,
+                        user_color=user_color,
+                        match_field="tags",
+                        match_preview=_create_preview(tags_str, query_lower)
+                    ))
+            else:
+                # No keyword search, just add as result (filtered by other criteria)
                 results.append(LabSearchResult(
                     type="task",
                     id=task_data.get("id", 0),
                     name=name,
                     username=user,
                     user_color=user_color,
-                    match_field="name",
-                    match_preview=_create_preview(name, query_lower)
-                ))
-            elif notes and query_lower in notes.lower():
-                results.append(LabSearchResult(
-                    type="task",
-                    id=task_data.get("id", 0),
-                    name=name,
-                    username=user,
-                    user_color=user_color,
-                    match_field="notes",
-                    match_preview=_create_preview(notes, query_lower)
+                    match_field="filter",
+                    match_preview=notes[:100] if notes else ""
                 ))
         
-        # Search projects
-        projects_dir = users_dir / user / "projects"
-        for project_data in _list_json_files(projects_dir):
-            name = project_data.get("name", "")
-            if query_lower in name.lower():
-                results.append(LabSearchResult(
-                    type="project",
-                    id=project_data.get("id", 0),
-                    name=name,
-                    username=user,
-                    user_color=user_color,
-                    match_field="name",
-                    match_preview=_create_preview(name, query_lower)
-                ))
+        # Search projects (only if keyword search is active)
+        if query_lower:
+            projects_dir = users_dir / user / "projects"
+            for project_data in _list_json_files(projects_dir):
+                name = project_data.get("name", "")
+                if query_lower in name.lower():
+                    results.append(LabSearchResult(
+                        type="project",
+                        id=project_data.get("id", 0),
+                        name=name,
+                        username=user,
+                        user_color=user_color,
+                        match_field="name",
+                        match_preview=_create_preview(name, query_lower)
+                    ))
     
     return LabSearchResponse(
         results=results[:100],  # Limit to 100 results
@@ -493,6 +686,33 @@ def _create_preview(text: str, query: str, context_chars: int = 50) -> str:
     return preview
 
 
+@router.get("/method-folders", response_model=List[str])
+async def get_all_method_folders():
+    """Get all unique method folders across all users."""
+    # Ensure existing users are migrated (have colors assigned)
+    _migrate_existing_users()
+    
+    users_dir = _get_users_dir()
+    folders = set()
+    
+    # Get folders from public methods
+    public_methods_dir = users_dir / "public" / "methods"
+    for method_data in _list_json_files(public_methods_dir):
+        folder = method_data.get("folder_path")
+        if folder:
+            folders.add(folder)
+    
+    # Get folders from user methods
+    for user in _get_available_users():
+        methods_dir = users_dir / user / "methods"
+        for method_data in _list_json_files(methods_dir):
+            folder = method_data.get("folder_path")
+            if folder:
+                folders.add(folder)
+    
+    return sorted(folders)
+
+
 @router.get("/user/{username}/tasks", response_model=List[LabTask])
 async def get_user_tasks(username: str, exclude_goals: bool = True):
     """Get all tasks for a specific user."""
@@ -509,13 +729,28 @@ async def get_user_tasks(username: str, exclude_goals: bool = True):
         if exclude_goals and task_data.get("task_type") == "goal":
             continue
         
+        # Calculate end_date if missing
+        start_date = task_data.get("start_date", "")
+        duration_days = task_data.get("duration_days", 1)
+        end_date = task_data.get("end_date", "")
+        
+        # If end_date is missing or empty, calculate it from start_date + duration_days
+        if not end_date and start_date:
+            try:
+                from datetime import datetime, timedelta
+                start = datetime.strptime(start_date, "%Y-%m-%d")
+                end = start + timedelta(days=duration_days - 1)
+                end_date = end.strftime("%Y-%m-%d")
+            except (ValueError, TypeError):
+                end_date = start_date
+        
         tasks.append(LabTask(
             id=task_data.get("id", 0),
             name=task_data.get("name", ""),
             project_id=task_data.get("project_id", 0),
-            start_date=task_data.get("start_date", ""),
-            duration_days=task_data.get("duration_days", 1),
-            end_date=task_data.get("end_date", ""),
+            start_date=start_date,
+            duration_days=duration_days,
+            end_date=end_date,
             is_complete=task_data.get("is_complete", False),
             task_type=task_data.get("task_type", "experiment"),
             username=username,
@@ -550,3 +785,54 @@ async def get_user_projects(username: str):
         ))
     
     return projects
+
+
+class LabPurchaseItem(BaseModel):
+    """Purchase item for Lab Mode."""
+    id: int
+    task_id: int
+    item_name: str
+    quantity: int
+    link: Optional[str] = None
+    cas: Optional[str] = None
+    price_per_unit: float
+    shipping_fees: float
+    total_price: float
+    notes: Optional[str] = None
+
+
+@router.get("/user/{username}/purchases/{task_id}", response_model=List[LabPurchaseItem])
+async def get_user_purchase_items(username: str, task_id: int):
+    """Get all purchase items for a specific task from a specific user."""
+    # Ensure existing users are migrated (have colors assigned)
+    _migrate_existing_users()
+    
+    users_dir = _get_users_dir()
+    purchase_items_dir = users_dir / username / "purchase_items"
+    
+    items = []
+    for item_data in _list_json_files(purchase_items_dir):
+        # Filter by task_id
+        if item_data.get("task_id") != task_id:
+            continue
+        
+        # Calculate total price
+        qty = item_data.get("quantity", 0)
+        ppu = item_data.get("price_per_unit", 0.0)
+        ship = item_data.get("shipping_fees", 0.0)
+        total_price = round(qty * ppu + ship, 2)
+        
+        items.append(LabPurchaseItem(
+            id=item_data.get("id", 0),
+            task_id=item_data.get("task_id", 0),
+            item_name=item_data.get("item_name", ""),
+            quantity=qty,
+            link=item_data.get("link"),
+            cas=item_data.get("cas"),
+            price_per_unit=ppu,
+            shipping_fees=ship,
+            total_price=total_price,
+            notes=item_data.get("notes")
+        ))
+    
+    return items

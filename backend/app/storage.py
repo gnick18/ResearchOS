@@ -1,12 +1,12 @@
 """JSON-file-backed storage layer replacing SQLAlchemy/PostgreSQL.
 
 Each entity type (projects, tasks, dependencies, methods) gets its own
-directory under ``{data_repo}/data/users/{current_user}/{entity}/``.  
+directory under ``{data_repo}/users/{current_user}/{entity}/``.  
 Every record is stored as ``{id}.json``.  
 A ``_counters.json`` file in the data root tracks the next auto-increment ID.
 
 Public methods and PCR protocols are stored in:
-``{data_repo}/data/users/public/{entity}/``
+``{data_repo}/users/public/{entity}/``
 """
 
 import json
@@ -24,18 +24,18 @@ PUBLIC_ENTITIES = {"methods", "pcr_protocols"}
 
 
 def _data_root() -> Path:
-    """Return the ``data/users/{current_user}/`` directory inside the local data-repo clone."""
+    """Return the ``users/{current_user}/`` directory inside the local data-repo clone."""
     if not settings.current_user:
         # Return a dummy path if no user is set - don't create directories
-        return Path(settings.github_localpath) / "data" / "users" / "_no_user_"
-    root = Path(settings.github_localpath) / "data" / "users" / settings.current_user
+        return Path(settings.github_localpath) / "users" / "_no_user_"
+    root = Path(settings.github_localpath) / "users" / settings.current_user
     root.mkdir(parents=True, exist_ok=True)
     return root
 
 
 def _public_data_root() -> Path:
-    """Return the ``data/users/public/`` directory for shared methods/protocols."""
-    root = Path(settings.github_localpath) / "data" / "users" / "public"
+    """Return the ``users/public/`` directory for shared methods/protocols."""
+    root = Path(settings.github_localpath) / "users" / "public"
     root.mkdir(parents=True, exist_ok=True)
     return root
 
@@ -161,7 +161,7 @@ class JsonStore:
 class PublicJsonStore(JsonStore):
     """Store for public (shared) records like methods and PCR protocols.
     
-    Stores data in data/users/public/{entity}/ instead of user-specific folder.
+    Stores data in users/public/{entity}/ instead of user-specific folder.
     """
     
     @property

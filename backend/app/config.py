@@ -14,6 +14,7 @@ GITHUB_LOCALPATH=
 CORS_ORIGINS="["http://localhost:3000"]"
 CURRENT_USER=
 MAIN_USER=
+STORAGE_MODE=github
 """
 
 # Reserved username for Lab Mode (view-only access across all users)
@@ -38,10 +39,19 @@ class Settings(BaseSettings):
     cors_origins: List[str] = ["http://localhost:3000"]
     current_user: str = "GrantNickles"  # the active user for this instance
     main_user: str = ""  # the default user to return to when exiting lab mode
+    storage_mode: str = "github"  # "github" or "local"
 
     class Config:
         env_file = ".env"
         extra = "ignore"
+    
+    def is_github_mode(self) -> bool:
+        """Check if using GitHub sync mode."""
+        return self.storage_mode == "github"
+    
+    def is_local_mode(self) -> bool:
+        """Check if using local-only mode."""
+        return self.storage_mode == "local"
 
     def reload(self) -> None:
         """Reload settings from the .env file.
