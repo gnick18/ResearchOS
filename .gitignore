@@ -1,6 +1,4 @@
 ### Ignore these paths or file types
-backend/.env
-
 # Next.js
 frontend/.next/
 frontend/out/
@@ -25,4 +23,3 @@ frontend/tsconfig.tsbuildinfo
 # OS files
 .DS_Store
 backend/.env
-/backend
