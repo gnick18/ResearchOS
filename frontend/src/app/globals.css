@@ -1,0 +1,408 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ── Markdown Prose Overrides ──────────────────────────────────────────────── */
+
+.prose {
+  line-height: 1.7;
+}
+
+.prose h1 {
+  font-size: 1.5em;
+  font-weight: 700;
+  margin-top: 0.5em;
+  margin-bottom: 0.3em;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0.2em;
+}
+
+.prose h2 {
+  font-size: 1.25em;
+  font-weight: 600;
+  margin-top: 0.5em;
+  margin-bottom: 0.3em;
+}
+
+.prose h3 {
+  font-size: 1.1em;
+  font-weight: 600;
+  margin-top: 0.4em;
+  margin-bottom: 0.2em;
+}
+
+.prose ol {
+  list-style-type: decimal;
+  padding-left: 1.5em;
+}
+
+.prose ul {
+  list-style-type: disc;
+  padding-left: 1.5em;
+}
+
+.prose li {
+  margin-top: 0.15em;
+  margin-bottom: 0.15em;
+}
+
+.prose p {
+  margin-top: 0.3em;
+  margin-bottom: 0.3em;
+}
+
+.prose strong {
+  font-weight: 700;
+}
+
+.prose img {
+  max-width: 100%;
+  border-radius: 8px;
+  margin: 0.5em 0;
+}
+
+.prose blockquote {
+  border-left: 4px solid #d1d5db;
+  padding-left: 1em;
+  margin-left: 0;
+  margin-right: 0;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  color: #6b7280;
+  font-style: italic;
+  background-color: #f9fafb;
+  padding-top: 0.25em;
+  padding-bottom: 0.25em;
+  border-radius: 0 4px 4px 0;
+}
+
+.prose blockquote p {
+  margin: 0;
+}
+
+/* ── Code Block Styling ─────────────────────────────────────────────────────── */
+
+.prose code {
+  background-color: #f3f4f6;
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.prose pre {
+  background-color: #1f2937;
+  border-radius: 8px;
+  padding: 1em;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+
+.prose pre code {
+  background-color: transparent;
+  padding: 0;
+  font-size: 0.875em;
+  color: #e5e7eb;
+}
+
+/* ── Syntax Highlighting (highlight.js theme) ────────────────────────────────── */
+
+.hljs-comment,
+.hljs-quote {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-addition {
+  color: #c084fc;
+}
+
+.hljs-number,
+.hljs-string,
+.hljs-meta .hljs-meta-string,
+.hljs-literal,
+.hljs-doctag,
+.hljs-regexp {
+  color: #34d399;
+}
+
+.hljs-title,
+.hljs-section,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class {
+  color: #60a5fa;
+}
+
+.hljs-attribute,
+.hljs-attr,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-class .hljs-title,
+.hljs-type {
+  color: #fbbf24;
+}
+
+.hljs-symbol,
+.hljs-bullet,
+.hljs-subst,
+.hljs-meta,
+.hljs-meta .hljs-keyword,
+.hljs-selector-attr,
+.hljs-selector-pseudo,
+.hljs-link {
+  color: #f472b6;
+}
+
+.hljs-built_in,
+.hljs-deletion {
+  color: #f87171;
+}
+
+.hljs-formula {
+  background-color: #374151;
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: bold;
+}
+
+/* ── Frappe Gantt Custom Styles ─────────────────────────────────────────────── */
+
+/* Container */
+.gantt-container {
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+}
+
+/* Hide the built-in popup — we use our own TaskDetailPopup */
+.gantt-container .popup-wrapper {
+  display: none !important;
+}
+
+/* ── Grid ──────────────────────────────────────────────────────────────────── */
+
+.gantt .grid-row {
+  fill: #ffffff;
+}
+
+.gantt .grid-row:nth-child(even) {
+  fill: #fafbfc;
+}
+
+.gantt .row-line {
+  stroke: #f0f0f0;
+}
+
+.gantt .tick {
+  stroke: #f3f4f6;
+  stroke-width: 0.5;
+}
+
+.gantt .tick.thick {
+  stroke: #e5e7eb;
+  stroke-width: 0.8;
+}
+
+/* ── Header ────────────────────────────────────────────────────────────────── */
+
+.gantt-container .grid-header {
+  background: #fafbfc;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.gantt-container .upper-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.gantt-container .lower-text {
+  font-size: 11px;
+  font-weight: 500;
+  color: #9ca3af;
+}
+
+/* View mode buttons in header */
+.gantt-container .side-header * {
+  background-color: #f3f4f6;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #4b5563;
+  padding: 4px 10px;
+}
+
+.gantt-container .side-header *:hover {
+  background-color: #e5e7eb;
+}
+
+/* ── Bars ──────────────────────────────────────────────────────────────────── */
+
+/* Default bar - clean rounded style */
+.gantt .bar-wrapper .bar {
+  fill: #3b82f6;
+  stroke: none;
+  rx: 6;
+  ry: 6;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.06));
+  transition: filter 0.2s ease, transform 0.2s ease;
+}
+
+.gantt .bar-wrapper:hover .bar {
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.12));
+}
+
+.gantt .bar-wrapper .bar-progress {
+  fill: rgba(255, 255, 255, 0.25);
+  rx: 6;
+  ry: 6;
+}
+
+/* Bar label */
+.gantt .bar-label {
+  font-size: 11px;
+  font-weight: 500;
+  fill: #ffffff;
+  letter-spacing: 0.01em;
+}
+
+.gantt .bar-label.big {
+  fill: #374151;
+  font-weight: 600;
+}
+
+/* High-level goal bars */
+.gantt .bar-wrapper.bar-high-level .bar {
+  fill: #f59e0b;
+  opacity: 0.5;
+  rx: 3;
+  ry: 3;
+}
+
+/* Completed task bars */
+.gantt .bar-wrapper.bar-complete .bar {
+  fill: #10b981;
+}
+
+/* Experiment task bars */
+.gantt .bar-wrapper.bar-experiment .bar {
+  fill: #8b5cf6;
+}
+
+/* ── Arrows (dependencies) ─────────────────────────────────────────────────── */
+
+.gantt .arrow {
+  stroke: #d1d5db;
+  stroke-width: 1.5;
+  fill: none;
+}
+
+/* ── Today marker ──────────────────────────────────────────────────────────── */
+
+.gantt-container .current-highlight {
+  background: #ef4444;
+  width: 2px;
+  opacity: 0.8;
+}
+
+.gantt-container .current-ball-highlight {
+  background: #ef4444;
+}
+
+.gantt-container .current-date-highlight {
+  background: #ef4444;
+  color: #fff;
+  font-weight: 600;
+  font-size: 10px;
+  border-radius: 4px;
+}
+
+/* ── Drag handles ──────────────────────────────────────────────────────────── */
+
+.gantt .handle {
+  fill: #fff;
+  opacity: 0;
+  cursor: ew-resize;
+  transition: opacity 0.2s ease;
+}
+
+.gantt .bar-wrapper:hover .handle {
+  opacity: 0.8;
+}
+
+/* ── Weekend highlighting ──────────────────────────────────────────────────── */
+
+.gantt .grid-header .weekend-highlight {
+  fill: #f9fafb;
+}
+
+/* ── Completion animation ──────────────────────────────────────────────────── */
+
+@keyframes completion-pulse {
+  0% { fill: #10b981; filter: brightness(1); }
+  40% { fill: #f59e0b; filter: brightness(1.15); }
+  100% { fill: #10b981; filter: brightness(1); }
+}
+
+.gantt .bar-wrapper.bar-just-completed .bar {
+  animation: completion-pulse 1.2s ease-in-out;
+  fill: #10b981;
+}
+
+@keyframes sidebar-complete-pulse {
+  0% { background-color: transparent; }
+  30% { background-color: rgba(16, 185, 129, 0.15); }
+  60% { background-color: rgba(245, 158, 11, 0.1); }
+  100% { background-color: transparent; }
+}
+
+.task-just-completed {
+  animation: sidebar-complete-pulse 1.2s ease-in-out;
+}
+
+/* ── PCR Block Editing Animations ─────────────────────────────────────────────── */
+
+@keyframes jiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-1deg); }
+  75% { transform: rotate(1deg); }
+}
+
+.animate-jiggle {
+  animation: jiggle 0.3s ease-in-out infinite;
+}
+
+/* Drop indicator animation */
+@keyframes drop-pulse {
+  0%, 100% { opacity: 0.6; transform: scaleY(1); }
+  50% { opacity: 1; transform: scaleY(1.1); }
+}
+
+.drop-indicator {
+  animation: drop-pulse 0.5s ease-in-out infinite;
+}
