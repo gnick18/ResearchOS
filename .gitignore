@@ -24,3 +24,4 @@ frontend/tsconfig.tsbuildinfo
 
 # OS files
 .DS_Store
+backend/.env
