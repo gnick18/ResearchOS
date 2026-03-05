@@ -1716,7 +1716,9 @@ function DetailsTab({
         <div className="grid grid-cols-2 gap-6 max-w-lg">
           <div>
             <p className="text-xs font-medium text-gray-400 mb-1">Project</p>
-            <p className="text-sm text-gray-700">{project?.name || "—"}</p>
+            <p className="text-sm text-gray-700">
+              {project?.name || (task.is_shared_with_me ? `Shared Project (by ${task.owner})` : "—")}
+            </p>
           </div>
           <div>
             <p className="text-xs font-medium text-gray-400 mb-1">Type</p>

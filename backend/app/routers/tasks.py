@@ -141,6 +141,7 @@ def _task_to_out(task: dict) -> TaskOut:
         owner=task.get("owner", ""),
         shared_with=shared_with,
         inherited_from_project=task.get("inherited_from_project"),
+        is_shared_with_me=task.get("_is_shared", False),
     )
 
 
@@ -305,10 +306,26 @@ async def create_task(body: TaskCreate):
 
 @router.get("/{task_id}", response_model=TaskOut)
 async def get_task(task_id: int):
+    """Get a task by ID. Supports both owned and shared tasks."""
+    # First, try to get the task from the current user's store
     task = get_tasks_store().get(task_id)
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
-    return _task_to_out(task)
+    if task:
+        task["_is_shared"] = False
+        return _task_to_out(task)
+    
+    # If not found, check if it's a shared task
+    from app.storage import check_task_access, get_task_from_owner
+    from app.config import settings
+    
+    # Get all tasks including shared to find this task
+    all_tasks = list_tasks_including_shared(settings.current_user)
+    shared_task = next((t for t in all_tasks if t.get("id") == task_id), None)
+    
+    if shared_task:
+        shared_task["_is_shared"] = True
+        return _task_to_out(shared_task)
+    
+    raise HTTPException(status_code=404, detail="Task not found")
 
 
 @router.put("/{task_id}", response_model=TaskOut)

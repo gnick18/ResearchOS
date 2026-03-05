@@ -178,6 +178,7 @@ class TaskOut(BaseModel):
     owner: str = ""  # Username of task owner
     shared_with: List[SharedUser] = []  # Users with direct access (not via project)
     inherited_from_project: Optional[int] = None  # If shared via project, the project ID
+    is_shared_with_me: bool = False  # True if this task is shared WITH the current user (not owned by them)
 
     model_config = {"from_attributes": True}
 

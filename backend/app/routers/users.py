@@ -888,3 +888,640 @@ async def set_main_user(request: SetMainUserRequest):
         status="ok",
         main_user=username
     )
+
+
+# ── User Account Migration Models ────────────────────────────────────────────────
+
+class MigrationStats(BaseModel):
+    """Statistics for a user account migration."""
+    projects_count: int = 0
+    tasks_count: int = 0
+    dependencies_count: int = 0
+    methods_count: int = 0
+    events_count: int = 0
+    goals_count: int = 0
+    pcr_protocols_count: int = 0
+    purchase_items_count: int = 0
+    notes_count: int = 0
+    lab_links_count: int = 0
+    images_count: int = 0
+    files_count: int = 0
+    total_size_bytes: int = 0
+
+
+class MigrationPreviewRequest(BaseModel):
+    """Request to preview a user account migration."""
+    source_path: str        # Path to source users folder
+    source_username: str    # Username to migrate
+    target_path: str        # Path to target users folder
+    target_username: str    # Username in target (can differ if renaming)
+
+
+class MigrationPreviewResponse(BaseModel):
+    """Response for migration preview."""
+    status: str
+    source_username: str
+    target_username: str
+    source_path: str
+    target_path: str
+    can_proceed: bool
+    warnings: List[str]
+    stats: MigrationStats
+    existing_users_in_target: List[str]
+
+
+class MigrateUserRequest(BaseModel):
+    """Request to execute a user account migration."""
+    source_path: str
+    source_username: str
+    target_path: str
+    target_username: str
+    delete_source: bool = False  # Whether to delete source after migration
+
+
+class MigrateUserResponse(BaseModel):
+    """Response after user account migration."""
+    status: str
+    message: str
+    source_username: str
+    target_username: str
+    target_path: str
+    id_mappings: Dict[str, Dict[int, int]]  # entity -> old_id -> new_id
+    items_migrated: int
+    bytes_copied: int
+
+
+class MigrationProgress(BaseModel):
+    """Progress tracking for migration."""
+    status: str  # "idle", "in_progress", "complete", "error"
+    current_step: str
+    items_processed: int
+    total_items: int
+    bytes_copied: int
+    total_bytes: int
+    error_message: str = ""
+
+
+class UsersAtPathResponse(BaseModel):
+    """Response for listing users at a specific path."""
+    users: List[str]
+    path: str
+    exists: bool
+
+
+# ── Migration State (for progress tracking) ───────────────────────────────────────
+
+_migration_state = {
+    "status": "idle",
+    "current_step": "",
+    "items_processed": 0,
+    "total_items": 0,
+    "bytes_copied": 0,
+    "total_bytes": 0,
+    "error_message": ""
+}
+
+
+# ── Migration Helper Functions ────────────────────────────────────────────────────
+
+def _get_users_at_path(path: str) -> List[str]:
+    """List users at a specific path."""
+    users_dir = Path(path) / "users"
+    if not users_dir.exists():
+        return []
+    
+    excluded_folders = {
+        'public', '.git', '.github', 'lab', '_no_user_',
+        'projects', 'tasks', 'dependencies', 'methods', 'events',
+        'goals', 'pcr_protocols', 'purchase_items', 'item_catalog', 'lab_links',
+        '_counters.json', '_user_metadata.json', '_global_counters.json'
+    }
+    
+    users = []
+    for item in users_dir.iterdir():
+        if item.is_dir() and not item.name.startswith('.') and item.name not in excluded_folders:
+            users.append(item.name)
+    
+    return sorted(users)
+
+
+def _scan_user_folder(user_path: Path) -> MigrationStats:
+    """Scan a user folder and return statistics."""
+    stats = MigrationStats()
+    
+    if not user_path.exists():
+        return stats
+    
+    # Count entities
+    entity_dirs = {
+        "projects": "projects_count",
+        "tasks": "tasks_count",
+        "dependencies": "dependencies_count",
+        "methods": "methods_count",
+        "events": "events_count",
+        "goals": "goals_count",
+        "pcr_protocols": "pcr_protocols_count",
+        "purchase_items": "purchase_items_count",
+        "notes": "notes_count",
+        "lab_links": "lab_links_count",
+    }
+    
+    for dir_name, stat_name in entity_dirs.items():
+        entity_dir = user_path / dir_name
+        if entity_dir.exists():
+            count = len(list(entity_dir.glob("*.json")))
+            setattr(stats, stat_name, count)
+    
+    # Count attachments
+    images_dir = user_path / "Images"
+    if images_dir.exists():
+        stats.images_count = len(list(images_dir.rglob("*")))
+        stats.total_size_bytes += sum(f.stat().st_size for f in images_dir.rglob("*") if f.is_file())
+    
+    files_dir = user_path / "Files"
+    if files_dir.exists():
+        stats.files_count = len(list(files_dir.rglob("*")))
+        stats.total_size_bytes += sum(f.stat().st_size for f in files_dir.rglob("*") if f.is_file())
+    
+    # Add JSON file sizes
+    for dir_name in entity_dirs.keys():
+        entity_dir = user_path / dir_name
+        if entity_dir.exists():
+            stats.total_size_bytes += sum(f.stat().st_size for f in entity_dir.glob("*.json") if f.is_file())
+    
+    return stats
+
+
+def _read_counters_at_path(user_path: Path) -> Dict[str, int]:
+    """Read counters from a user folder."""
+    counters_file = user_path / "_counters.json"
+    if not counters_file.exists():
+        return {}
+    try:
+        return json.loads(counters_file.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _write_counters_at_path(user_path: Path, counters: Dict[str, int]) -> None:
+    """Write counters to a user folder."""
+    counters_file = user_path / "_counters.json"
+    counters_file.parent.mkdir(parents=True, exist_ok=True)
+    counters_file.write_text(json.dumps(counters, indent=2))
+
+
+def _read_global_counters_at_path(users_dir: Path) -> Dict[str, int]:
+    """Read global counters from a users directory."""
+    counters_file = users_dir / "_global_counters.json"
+    if not counters_file.exists():
+        return {}
+    try:
+        return json.loads(counters_file.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _write_global_counters_at_path(users_dir: Path, counters: Dict[str, int]) -> None:
+    """Write global counters to a users directory."""
+    counters_file = users_dir / "_global_counters.json"
+    counters_file.parent.mkdir(parents=True, exist_ok=True)
+    counters_file.write_text(json.dumps(counters, indent=2))
+
+
+def _read_user_metadata_at_path(users_dir: Path) -> Dict:
+    """Read user metadata from a users directory."""
+    metadata_file = users_dir / "_user_metadata.json"
+    if not metadata_file.exists():
+        return {"version": 1, "users": {}, "color_assignments": {}}
+    try:
+        return json.loads(metadata_file.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {"version": 1, "users": {}, "color_assignments": {}}
+
+
+def _write_user_metadata_at_path(users_dir: Path, metadata: Dict) -> None:
+    """Write user metadata to a users directory."""
+    metadata_file = users_dir / "_user_metadata.json"
+    metadata_file.parent.mkdir(parents=True, exist_ok=True)
+    metadata_file.write_text(json.dumps(metadata, indent=2))
+
+
+def _build_id_mappings(source_counters: Dict[str, int], target_counters: Dict[str, int]) -> Dict[str, Dict[int, int]]:
+    """Build mappings from old IDs to new IDs based on counters."""
+    mappings = {}
+    
+    # Entity types that need ID remapping
+    entity_types = ["projects", "tasks", "dependencies", "methods", "events", 
+                    "goals", "pcr_protocols", "purchase_items", "notes", "lab_links"]
+    
+    for entity in entity_types:
+        source_max = source_counters.get(entity, 0)
+        target_start = target_counters.get(entity, 0)
+        
+        if source_max > 0:
+            mappings[entity] = {}
+            for old_id in range(1, source_max + 1):
+                target_start += 1
+                mappings[entity][old_id] = target_start
+    
+    return mappings
+
+
+def _update_references_in_data(data: Dict, id_mappings: Dict[str, Dict[int, int]]) -> Dict:
+    """Update all ID references in a data dictionary."""
+    # Update project_id references (in tasks)
+    if "project_id" in data and data["project_id"]:
+        if "projects" in id_mappings and data["project_id"] in id_mappings["projects"]:
+            data["project_id"] = id_mappings["projects"][data["project_id"]]
+    
+    # Update method_ids references (in tasks)
+    if "method_ids" in data and data["method_ids"]:
+        new_method_ids = []
+        for mid in data["method_ids"]:
+            if "methods" in id_mappings and mid in id_mappings["methods"]:
+                new_method_ids.append(id_mappings["methods"][mid])
+            else:
+                new_method_ids.append(mid)
+        data["method_ids"] = new_method_ids
+    
+    # Update parent_id and child_id references (in dependencies)
+    if "parent_id" in data and data["parent_id"]:
+        if "tasks" in id_mappings and data["parent_id"] in id_mappings["tasks"]:
+            data["parent_id"] = id_mappings["tasks"][data["parent_id"]]
+    
+    if "child_id" in data and data["child_id"]:
+        if "tasks" in id_mappings and data["child_id"] in id_mappings["tasks"]:
+            data["child_id"] = id_mappings["tasks"][data["child_id"]]
+    
+    # Update task_id references (in purchase_items, events)
+    if "task_id" in data and data["task_id"]:
+        if "tasks" in id_mappings and data["task_id"] in id_mappings["tasks"]:
+            data["task_id"] = id_mappings["tasks"][data["task_id"]]
+    
+    return data
+
+
+def _migrate_entity_files(
+    source_dir: Path,
+    target_dir: Path,
+    entity_name: str,
+    id_mappings: Dict[str, Dict[int, int]],
+    progress_callback=None
+) -> int:
+    """Migrate all JSON files for an entity type."""
+    source_entity_dir = source_dir / entity_name
+    target_entity_dir = target_dir / entity_name
+    
+    if not source_entity_dir.exists():
+        return 0
+    
+    target_entity_dir.mkdir(parents=True, exist_ok=True)
+    
+    count = 0
+    entity_mapping = id_mappings.get(entity_name, {})
+    
+    for json_file in sorted(source_entity_dir.glob("*.json")):
+        try:
+            data = json.loads(json_file.read_text())
+            old_id = data.get("id")
+            
+            # Update ID if there's a mapping
+            if old_id and old_id in entity_mapping:
+                data["id"] = entity_mapping[old_id]
+                new_filename = f"{data['id']}.json"
+            else:
+                new_filename = json_file.name
+            
+            # Update any references
+            data = _update_references_in_data(data, id_mappings)
+            
+            # Write to target
+            target_file = target_entity_dir / new_filename
+            target_file.write_text(json.dumps(data, indent=2, default=str))
+            count += 1
+            
+            if progress_callback:
+                progress_callback(1, json_file.stat().st_size)
+                
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"Warning: Failed to migrate {json_file}: {e}")
+            continue
+    
+    return count
+
+
+def _migrate_attachments(
+    source_dir: Path,
+    target_dir: Path,
+    folder_name: str,  # "Images" or "Files"
+    id_mappings: Dict[str, Dict[int, int]],
+    progress_callback=None
+) -> tuple[int, int]:
+    """Migrate attachment folder with metadata updates."""
+    source_attach_dir = source_dir / folder_name
+    target_attach_dir = target_dir / folder_name
+    
+    if not source_attach_dir.exists():
+        return 0, 0
+    
+    target_attach_dir.mkdir(parents=True, exist_ok=True)
+    
+    files_copied = 0
+    bytes_copied = 0
+    
+    # Copy all files and subdirectories
+    for item in source_attach_dir.iterdir():
+        if item.is_file():
+            # Copy files directly (like _metadata.json)
+            target_file = target_attach_dir / item.name
+            shutil.copy2(str(item), str(target_file))
+            files_copied += 1
+            bytes_copied += item.stat().st_size
+            
+            # Update metadata if it's the metadata file
+            if item.name == "_metadata.json":
+                try:
+                    metadata = json.loads(item.read_text())
+                    # Update experiment_id references in entries
+                    for entry in metadata.get("entries", []):
+                        exp_id = entry.get("experiment_id")
+                        if exp_id and "tasks" in id_mappings and exp_id in id_mappings["tasks"]:
+                            entry["experiment_id"] = id_mappings["tasks"][exp_id]
+                    
+                    target_file.write_text(json.dumps(metadata, indent=2, default=str))
+                except (json.JSONDecodeError, OSError):
+                    pass
+            
+            if progress_callback:
+                progress_callback(1, item.stat().st_size)
+                
+        elif item.is_dir():
+            # Copy experiment folders
+            target_subdir = target_attach_dir / item.name
+            shutil.copytree(str(item), str(target_subdir), dirs_exist_ok=True)
+            
+            # Count files and bytes
+            for f in target_subdir.rglob("*"):
+                if f.is_file():
+                    files_copied += 1
+                    bytes_copied += f.stat().st_size
+            
+            if progress_callback:
+                progress_callback(files_copied, bytes_copied)
+    
+    return files_copied, bytes_copied
+
+
+# ── Migration Endpoints ───────────────────────────────────────────────────────────
+
+@router.get("/at-path", response_model=UsersAtPathResponse)
+async def list_users_at_path(path: str):
+    """List users at a specific path (for migration source/target selection)."""
+    users_dir = Path(path) / "users"
+    exists = users_dir.exists()
+    
+    if not exists:
+        return UsersAtPathResponse(
+            users=[],
+            path=path,
+            exists=False
+        )
+    
+    users = _get_users_at_path(path)
+    return UsersAtPathResponse(
+        users=users,
+        path=path,
+        exists=True
+    )
+
+
+@router.post("/migrate/preview", response_model=MigrationPreviewResponse)
+async def preview_migration(request: MigrationPreviewRequest):
+    """Preview a user account migration."""
+    source_users_dir = Path(request.source_path) / "users"
+    target_users_dir = Path(request.target_path) / "users"
+    
+    warnings = []
+    
+    # Validate source
+    if not source_users_dir.exists():
+        raise HTTPException(status_code=400, detail=f"Source path does not exist: {request.source_path}")
+    
+    source_user_dir = source_users_dir / request.source_username
+    if not source_user_dir.exists():
+        raise HTTPException(status_code=404, detail=f"Source user '{request.source_username}' not found")
+    
+    # Validate target
+    if not target_users_dir.exists():
+        warnings.append(f"Target path does not exist, it will be created: {request.target_path}")
+    
+    # Check for username conflict
+    target_user_dir = target_users_dir / request.target_username
+    if target_user_dir.exists():
+        warnings.append(f"User '{request.target_username}' already exists in target. Data will be merged.")
+    
+    # Validate target username
+    if not re.match(r'^[a-zA-Z0-9_]+$', request.target_username):
+        raise HTTPException(
+            status_code=400,
+            detail="Target username can only contain letters, numbers, and underscores"
+        )
+    
+    if request.target_username.lower() in {name.lower() for name in RESERVED_USERNAMES}:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Target username '{request.target_username}' is reserved"
+        )
+    
+    # Get stats
+    stats = _scan_user_folder(source_user_dir)
+    
+    # Get existing users in target
+    existing_users = _get_users_at_path(request.target_path)
+    
+    return MigrationPreviewResponse(
+        status="ok",
+        source_username=request.source_username,
+        target_username=request.target_username,
+        source_path=request.source_path,
+        target_path=request.target_path,
+        can_proceed=True,
+        warnings=warnings,
+        stats=stats,
+        existing_users_in_target=existing_users
+    )
+
+
+@router.post("/migrate", response_model=MigrateUserResponse)
+async def migrate_user(request: MigrateUserRequest):
+    """Execute a user account migration."""
+    global _migration_state
+    
+    source_users_dir = Path(request.source_path) / "users"
+    target_users_dir = Path(request.target_path) / "users"
+    
+    # Initialize migration state
+    _migration_state = {
+        "status": "in_progress",
+        "current_step": "Initializing",
+        "items_processed": 0,
+        "total_items": 0,
+        "bytes_copied": 0,
+        "total_bytes": 0,
+        "error_message": ""
+    }
+    
+    try:
+        # Validate source
+        if not source_users_dir.exists():
+            raise HTTPException(status_code=400, detail=f"Source path does not exist: {request.source_path}")
+        
+        source_user_dir = source_users_dir / request.source_username
+        if not source_user_dir.exists():
+            raise HTTPException(status_code=404, detail=f"Source user '{request.source_username}' not found")
+        
+        # Create target directories
+        target_users_dir.mkdir(parents=True, exist_ok=True)
+        target_user_dir = target_users_dir / request.target_username
+        target_user_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Read counters
+        source_counters = _read_counters_at_path(source_user_dir)
+        target_counters = _read_counters_at_path(target_user_dir)
+        
+        # Build ID mappings
+        id_mappings = _build_id_mappings(source_counters, target_counters)
+        
+        # Update target counters
+        for entity, mapping in id_mappings.items():
+            if mapping:
+                max_new_id = max(mapping.values())
+                if max_new_id > target_counters.get(entity, 0):
+                    target_counters[entity] = max_new_id
+        
+        _write_counters_at_path(target_user_dir, target_counters)
+        
+        # Handle global counters for methods and PCR protocols
+        target_global_counters = _read_global_counters_at_path(target_users_dir)
+        source_global_counters = _read_global_counters_at_path(source_users_dir)
+        
+        # Update global counters if source has higher values
+        for entity in ["methods", "pcr_protocols"]:
+            source_max = source_global_counters.get(entity, 0)
+            target_max = target_global_counters.get(entity, 0)
+            if source_max > target_max:
+                target_global_counters[entity] = source_max
+        
+        _write_global_counters_at_path(target_users_dir, target_global_counters)
+        
+        # Migrate entity files
+        entity_types = ["projects", "tasks", "dependencies", "methods", "events",
+                       "goals", "pcr_protocols", "purchase_items", "notes", "lab_links"]
+        
+        items_migrated = 0
+        bytes_copied = 0
+        
+        def progress_callback(items, bytes):
+            nonlocal items_migrated, bytes_copied
+            items_migrated += items
+            bytes_copied += bytes
+            _migration_state["items_processed"] = items_migrated
+            _migration_state["bytes_copied"] = bytes_copied
+        
+        for entity in entity_types:
+            _migration_state["current_step"] = f"Migrating {entity}"
+            count = _migrate_entity_files(
+                source_user_dir, target_user_dir, entity, id_mappings, progress_callback
+            )
+            items_migrated += count
+        
+        # Migrate attachments
+        _migration_state["current_step"] = "Migrating images"
+        img_files, img_bytes = _migrate_attachments(
+            source_user_dir, target_user_dir, "Images", id_mappings, progress_callback
+        )
+        items_migrated += img_files
+        bytes_copied += img_bytes
+        
+        _migration_state["current_step"] = "Migrating files"
+        file_files, file_bytes = _migrate_attachments(
+            source_user_dir, target_user_dir, "Files", id_mappings, progress_callback
+        )
+        items_migrated += file_files
+        bytes_copied += file_bytes
+        
+        # Update user metadata in target
+        _migration_state["current_step"] = "Updating user metadata"
+        target_metadata = _read_user_metadata_at_path(target_users_dir)
+        
+        # Get source user metadata for created_at
+        source_metadata = _read_user_metadata_at_path(source_users_dir)
+        source_user_meta = source_metadata.get("users", {}).get(request.source_username, {})
+        
+        # Assign color for migrated user
+        if request.target_username not in target_metadata.get("users", {}):
+            color = _get_next_available_color(target_metadata)
+            if not color:
+                color = USER_COLOR_PALETTE[0]
+            
+            if "users" not in target_metadata:
+                target_metadata["users"] = {}
+            if "color_assignments" not in target_metadata:
+                target_metadata["color_assignments"] = {}
+            
+            target_metadata["users"][request.target_username] = {
+                "created_at": source_user_meta.get("created_at", datetime.now(timezone.utc).isoformat()),
+                "color": color
+            }
+            target_metadata["color_assignments"][color] = request.target_username
+        
+        _write_user_metadata_at_path(target_users_dir, target_metadata)
+        
+        # Delete source if requested
+        if request.delete_source:
+            _migration_state["current_step"] = "Deleting source"
+            shutil.rmtree(str(source_user_dir))
+            
+            # Update source metadata to remove user
+            source_meta = _read_user_metadata_at_path(source_users_dir)
+            if request.source_username in source_meta.get("users", {}):
+                color = source_meta["users"][request.source_username].get("color")
+                if color and color in source_meta.get("color_assignments", {}):
+                    del source_meta["color_assignments"][color]
+                del source_meta["users"][request.source_username]
+                _write_user_metadata_at_path(source_users_dir, source_meta)
+        
+        _migration_state["status"] = "complete"
+        _migration_state["current_step"] = "Done"
+        
+        return MigrateUserResponse(
+            status="ok",
+            message=f"Successfully migrated user '{request.source_username}' to '{request.target_username}'",
+            source_username=request.source_username,
+            target_username=request.target_username,
+            target_path=request.target_path,
+            id_mappings=id_mappings,
+            items_migrated=items_migrated,
+            bytes_copied=bytes_copied
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        _migration_state["status"] = "error"
+        _migration_state["error_message"] = str(e)
+        raise HTTPException(status_code=500, detail=f"Migration failed: {str(e)}")
+
+
+@router.get("/migrate/progress", response_model=MigrationProgress)
+async def get_migration_progress():
+    """Get current migration progress."""
+    return MigrationProgress(
+        status=_migration_state["status"],
+        current_step=_migration_state["current_step"],
+        items_processed=_migration_state["items_processed"],
+        total_items=_migration_state["total_items"],
+        bytes_copied=_migration_state["bytes_copied"],
+        total_bytes=_migration_state["total_bytes"],
+        error_message=_migration_state["error_message"]
+    )

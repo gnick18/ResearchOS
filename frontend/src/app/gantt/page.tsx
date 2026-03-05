@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { goalsApi, projectsApi, dependenciesApi, fetchAllTasksIncludingShared } from "@/lib/api";
+import { goalsApi, projectsApi, dependenciesApi, fetchAllTasksIncludingShared, settingsApi } from "@/lib/api";
 import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
 import GanttChart from "@/components/GanttChart";
@@ -30,6 +30,13 @@ export default function Home() {
   // State for delete confirmation
   const [deletingGoal, setDeletingGoal] = useState<HighLevelGoal | null>(null);
 
+  // Get current user
+  const { data: settings } = useQuery({
+    queryKey: ["settings"],
+    queryFn: settingsApi.get,
+  });
+  const currentUser = settings?.current_user || "";
+
   const { data: projects = [] } = useQuery({
     queryKey: ["projects"],
     queryFn: projectsApi.listWithShared,
@@ -56,13 +63,23 @@ export default function Home() {
   // and apply the showShared filter
   const activeTasks = useMemo(() => {
     let tasks = allTasks.filter((t) => {
+      // Always include tasks shared WITH the current user (regardless of project status)
+      // is_shared_with_me is true when the task is shared WITH the current user (not owned by them)
+      if (t.is_shared_with_me) return true;
+      
+      // For own tasks, check if project exists and is not archived
       const project = projects.find((p) => p.id === t.project_id);
       return project && !project.is_archived;
     });
     
-    // If showShared is false, filter out shared tasks (tasks not owned by current user)
+    // If showShared is false, filter out tasks that are shared WITH the current user
+    // Use the is_shared_with_me flag from the backend which is set correctly
     if (!showShared) {
-      tasks = tasks.filter((t) => !t.owner || t.owner === "" || !t.shared_with || t.shared_with.length === 0);
+      tasks = tasks.filter((t) => {
+        // Keep tasks that are NOT shared with the current user
+        // is_shared_with_me is true when the task is shared WITH the current user
+        return !t.is_shared_with_me;
+      });
     }
     
     return tasks;
@@ -83,9 +100,18 @@ export default function Home() {
 
   const filteredTasks = useMemo(() => {
     let tasks = activeTasks;
+    
+    // Apply project filter, but always include tasks shared WITH the current user
+    // Use the is_shared_with_me flag from the backend
     if (selectedProjectIds.length > 0) {
-      tasks = tasks.filter((t) => selectedProjectIds.includes(t.project_id));
+      tasks = tasks.filter((t) => {
+        // Always include tasks shared with the current user (regardless of project)
+        if (t.is_shared_with_me) return true;
+        // Apply normal project filter for own tasks
+        return selectedProjectIds.includes(t.project_id);
+      });
     }
+    
     if (selectedTags.length > 0) {
       tasks = tasks.filter(
         (t) => t.tags && t.tags.some((tag) => selectedTags.includes(tag))
@@ -194,6 +220,7 @@ export default function Home() {
           task={editingTask}
           project={editingProject}
           onClose={() => setEditingTaskId(null)}
+          readOnly={editingTask.is_shared_with_me === true}
         />
       )}
 

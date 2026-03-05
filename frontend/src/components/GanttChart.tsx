@@ -723,10 +723,13 @@ export default function GanttChart({
     // Skip if already updating
     if (isUpdatingColors.current) return;
     
-    const experiments = tasks.filter(t => t.task_type === "experiment");
+    // Only update experiments that are owned by the current user (not shared with them)
+    const ownedExperiments = tasks.filter(t => 
+      t.task_type === "experiment" && !t.is_shared_with_me
+    );
     
-    // Check if any experiment needs a color update
-    const needsUpdate = experiments.some(exp => {
+    // Check if any owned experiment needs a color update
+    const needsUpdate = ownedExperiments.some(exp => {
       const computedColor = experimentColors.get(exp.id);
       return computedColor && exp.experiment_color !== computedColor;
     });
@@ -737,7 +740,7 @@ export default function GanttChart({
       isUpdatingColors.current = true;
       const updates: Promise<unknown>[] = [];
       
-      experiments.forEach(exp => {
+      ownedExperiments.forEach(exp => {
         const computedColor = experimentColors.get(exp.id);
         if (computedColor && exp.experiment_color !== computedColor) {
           updates.push(tasksApi.update(exp.id, { experiment_color: computedColor }));
@@ -1603,7 +1606,7 @@ export default function GanttChart({
                                     ) : null;
                                   })()}
                                   {/* Shared experiment owner initial indicator (non-lab mode) */}
-                                  {!isLabMode && task.shared_with && task.shared_with.length > 0 && task.owner && (
+                                  {!isLabMode && task.owner && (task.is_shared_with_me || (task.shared_with && task.shared_with.length > 0)) && (
                                     <span className="mr-1 opacity-70 text-[10px]" title={`Shared by: ${task.owner}`}>
                                       [{task.owner.charAt(0).toUpperCase()}]
                                     </span>

@@ -126,6 +126,7 @@ export interface Task {
   owner: string;
   shared_with: SharedUser[];
   inherited_from_project?: number | null;
+  is_shared_with_me?: boolean;  // True if this task is shared WITH the current user (not owned by them)
 }
 
 export interface TaskCreate {

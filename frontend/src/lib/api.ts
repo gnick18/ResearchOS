@@ -574,6 +574,78 @@ export interface SetMainUserResponse {
   main_user: string;
 }
 
+// ── User Account Migration Types ────────────────────────────────────────────────
+
+export interface MigrationStats {
+  projects_count: number;
+  tasks_count: number;
+  dependencies_count: number;
+  methods_count: number;
+  events_count: number;
+  goals_count: number;
+  pcr_protocols_count: number;
+  purchase_items_count: number;
+  notes_count: number;
+  lab_links_count: number;
+  images_count: number;
+  files_count: number;
+  total_size_bytes: number;
+}
+
+export interface UserMigrationPreviewRequest {
+  source_path: string;
+  source_username: string;
+  target_path: string;
+  target_username: string;
+}
+
+export interface UserMigrationPreviewResponse {
+  status: string;
+  source_username: string;
+  target_username: string;
+  source_path: string;
+  target_path: string;
+  can_proceed: boolean;
+  warnings: string[];
+  stats: MigrationStats;
+  existing_users_in_target: string[];
+}
+
+export interface UserMigrationRequest {
+  source_path: string;
+  source_username: string;
+  target_path: string;
+  target_username: string;
+  delete_source: boolean;
+}
+
+export interface UserMigrationResponse {
+  status: string;
+  message: string;
+  source_username: string;
+  target_username: string;
+  target_path: string;
+  id_mappings: Record<string, Record<number, number>>;
+  items_migrated: number;
+  bytes_copied: number;
+}
+
+export interface UserMigrationProgress {
+  status: "idle" | "in_progress" | "complete" | "error";
+  current_step: string;
+  items_processed: number;
+  total_items: number;
+  bytes_copied: number;
+  total_bytes: number;
+  error_message: string;
+}
+
+export interface UsersAtPathResponse {
+  users: string[];
+  path: string;
+  exists: boolean;
+}
+
 export const usersApi = {
   list: () => api.get<UserListResponse>("/users").then((r) => r.data),
   login: (username: string) =>
@@ -590,6 +662,15 @@ export const usersApi = {
   getMainUser: () => api.get<MainUserResponse>("/users/main").then((r) => r.data),
   setMainUser: (username: string) =>
     api.put<SetMainUserResponse>("/users/main", { username }).then((r) => r.data),
+  // User account migration
+  listAtPath: (path: string) =>
+    api.get<UsersAtPathResponse>("/users/at-path", { params: { path } }).then((r) => r.data),
+  previewMigration: (request: UserMigrationPreviewRequest) =>
+    api.post<UserMigrationPreviewResponse>("/users/migrate/preview", request).then((r) => r.data),
+  migrateUser: (request: UserMigrationRequest) =>
+    api.post<UserMigrationResponse>("/users/migrate", request).then((r) => r.data),
+  getMigrationProgress: () =>
+    api.get<UserMigrationProgress>("/users/migrate/progress").then((r) => r.data),
 };
 
 // ── Lab Mode ──────────────────────────────────────────────────────────────────
