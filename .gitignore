@@ -35,3 +35,6 @@ dist/
 build/
 venv/
 .venv/
+
+# User data (runtime generated)
+backend/users/
