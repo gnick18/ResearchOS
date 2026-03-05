@@ -2,11 +2,12 @@
 
 import os
 import platform
+import shutil
 import subprocess
 import threading
 import time
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -573,3 +574,485 @@ open http://localhost:3000
             status_code=500,
             detail=f"Failed to create app: {str(e)}"
         )
+
+
+# ── Data Migration Endpoints ────────────────────────────────────────────────────
+
+# Global migration state (for progress tracking)
+_migration_state = {
+    "status": "idle",  # "idle", "in_progress", "complete", "error"
+    "bytes_copied": 0,
+    "total_bytes": 0,
+    "files_copied": 0,
+    "total_files": 0,
+    "current_file": "",
+    "error_message": "",
+    "start_time": 0,
+}
+_migration_lock = threading.Lock()
+
+
+class MigrationRequest(BaseModel):
+    """Request to migrate data to a new location."""
+    destination_path: str
+    migration_type: str = "copy"  # "copy" or "move"
+    target_mode: str = "local"    # "github" or "local"
+    remove_git_folder: bool = False
+    new_github_repo: str = ""
+    new_github_token: str = ""
+
+
+class MigrationPreview(BaseModel):
+    """Preview of migration before execution."""
+    source_path: str
+    destination_path: str
+    total_size_bytes: int
+    file_count: int
+    folder_count: int
+    has_git_folder: bool
+    users_found: List[str]
+    warnings: List[str]
+    can_proceed: bool
+
+
+class MigrationProgress(BaseModel):
+    """Current migration progress."""
+    status: str
+    bytes_copied: int
+    total_bytes: int
+    files_copied: int
+    total_files: int
+    current_file: str
+    error_message: str = ""
+    progress_percent: float = 0.0
+
+
+class MigrationResponse(BaseModel):
+    """Response after migration completes."""
+    status: str
+    message: str
+    source_path: str
+    destination_path: str
+    bytes_copied: int
+    files_copied: int
+    new_storage_mode: str
+
+
+def _calculate_folder_stats(path: Path) -> tuple:
+    """Calculate total size, file count, and folder count.
+    
+    Returns:
+        tuple: (total_bytes, file_count, folder_count)
+    """
+    total_bytes = 0
+    file_count = 0
+    folder_count = 0
+    
+    try:
+        for item in path.rglob("*"):
+            if item.is_file():
+                try:
+                    total_bytes += item.stat().st_size
+                    file_count += 1
+                except (OSError, PermissionError):
+                    pass
+            elif item.is_dir():
+                folder_count += 1
+    except (OSError, PermissionError):
+        pass
+    
+    return total_bytes, file_count, folder_count
+
+
+def _get_users_in_folder(path: Path) -> List[str]:
+    """Get list of user directories in the data folder."""
+    users = []
+    users_dir = path / "users"
+    
+    if users_dir.exists():
+        for user_dir in users_dir.iterdir():
+            if user_dir.is_dir() and user_dir.name not in ("public", "lab", "_no_user_"):
+                users.append(user_dir.name)
+    
+    return sorted(users)
+
+
+def _copy_folder_with_progress(src: Path, dst: Path, skip_git: bool = False) -> None:
+    """Copy folder contents with progress tracking.
+    
+    Args:
+        src: Source folder path
+        dst: Destination folder path
+        skip_git: If True, skip the .git folder
+    """
+    global _migration_state
+    
+    # Get list of all items to copy
+    items_to_copy = []
+    for item in src.rglob("*"):
+        # Skip .git folder if requested
+        if skip_git and ".git" in item.parts:
+            continue
+        items_to_copy.append(item)
+    
+    # Update total counts
+    with _migration_lock:
+        _migration_state["total_files"] = len([i for i in items_to_copy if i.is_file()])
+        _migration_state["total_bytes"] = sum(
+            i.stat().st_size for i in items_to_copy if i.is_file()
+        )
+    
+    # Copy each item
+    for item in items_to_copy:
+        # Check for cancellation or error
+        with _migration_lock:
+            if _migration_state["status"] == "error":
+                return
+        
+        try:
+            relative_path = item.relative_to(src)
+            dest_path = dst / relative_path
+            
+            if item.is_dir():
+                dest_path.mkdir(parents=True, exist_ok=True)
+            elif item.is_file():
+                # Update current file
+                with _migration_lock:
+                    _migration_state["current_file"] = str(relative_path)
+                
+                # Create parent directories
+                dest_path.parent.mkdir(parents=True, exist_ok=True)
+                
+                # Copy file
+                shutil.copy2(item, dest_path)
+                
+                # Update progress
+                file_size = item.stat().st_size
+                with _migration_lock:
+                    _migration_state["bytes_copied"] += file_size
+                    _migration_state["files_copied"] += 1
+                    
+        except Exception as e:
+            with _migration_lock:
+                _migration_state["status"] = "error"
+                _migration_state["error_message"] = f"Error copying {item}: {str(e)}"
+            raise
+
+
+@router.post("/migrate/preview", response_model=MigrationPreview)
+async def preview_migration(request: MigrationRequest):
+    """Preview what will be migrated without making changes.
+    
+    Returns statistics about the source folder and any warnings.
+    """
+    source_path = settings.github_localpath
+    
+    # Validate source path
+    if not source_path:
+        return MigrationPreview(
+            source_path="",
+            destination_path=request.destination_path,
+            total_size_bytes=0,
+            file_count=0,
+            folder_count=0,
+            has_git_folder=False,
+            users_found=[],
+            warnings=["No data path is currently configured"],
+            can_proceed=False,
+        )
+    
+    source = Path(source_path)
+    if not source.exists():
+        return MigrationPreview(
+            source_path=source_path,
+            destination_path=request.destination_path,
+            total_size_bytes=0,
+            file_count=0,
+            folder_count=0,
+            has_git_folder=False,
+            users_found=[],
+            warnings=[f"Source path does not exist: {source_path}"],
+            can_proceed=False,
+        )
+    
+    # Validate destination path
+    dest = Path(request.destination_path)
+    warnings = []
+    
+    # Check if destination exists
+    if dest.exists():
+        warnings.append(f"Destination path already exists: {request.destination_path}")
+        # Check if it has data
+        if (dest / "users").exists():
+            warnings.append("Destination already contains user data - files may be overwritten")
+    else:
+        # Check if parent exists
+        if not dest.parent.exists():
+            warnings.append(f"Parent directory does not exist: {dest.parent}")
+    
+    # Check destination is not a subdirectory of source
+    try:
+        dest.resolve().relative_to(source.resolve())
+        warnings.append("Destination cannot be inside the source directory")
+        can_proceed = False
+    except ValueError:
+        # dest is not a subdirectory of source, which is good
+        can_proceed = True
+    
+    # Check destination is not the same as source
+    if dest.resolve() == source.resolve():
+        warnings.append("Destination cannot be the same as source")
+        can_proceed = False
+    
+    # Calculate stats
+    total_bytes, file_count, folder_count = _calculate_folder_stats(source)
+    has_git = (source / ".git").exists()
+    users = _get_users_in_folder(source)
+    
+    # Check for large data
+    if total_bytes > 1_000_000_000:  # > 1GB
+        gb_size = total_bytes / 1_000_000_000
+        warnings.append(f"Large data size ({gb_size:.1f} GB) - migration may take several minutes")
+    
+    # Check disk space (basic check)
+    try:
+        if dest.exists():
+            # Use parent if dest exists
+            check_path = dest
+        else:
+            check_path = dest.parent
+        
+        if check_path.exists():
+            stat = shutil.disk_usage(check_path)
+            free_gb = stat.free / 1_000_000_000
+            needed_gb = total_bytes / 1_000_000_000
+            if stat.free < total_bytes * 1.1:  # 10% buffer
+                warnings.append(f"Insufficient disk space: {free_gb:.1f} GB free, need {needed_gb:.1f} GB")
+                can_proceed = False
+    except Exception:
+        warnings.append("Could not check available disk space")
+    
+    return MigrationPreview(
+        source_path=source_path,
+        destination_path=request.destination_path,
+        total_size_bytes=total_bytes,
+        file_count=file_count,
+        folder_count=folder_count,
+        has_git_folder=has_git,
+        users_found=users,
+        warnings=warnings,
+        can_proceed=can_proceed,
+    )
+
+
+@router.get("/migrate/progress", response_model=MigrationProgress)
+async def get_migration_progress():
+    """Get the current migration progress.
+    
+    Poll this endpoint during migration to show progress to the user.
+    """
+    with _migration_lock:
+        progress = MigrationProgress(
+            status=_migration_state["status"],
+            bytes_copied=_migration_state["bytes_copied"],
+            total_bytes=_migration_state["total_bytes"],
+            files_copied=_migration_state["files_copied"],
+            total_files=_migration_state["total_files"],
+            current_file=_migration_state["current_file"],
+            error_message=_migration_state["error_message"],
+        )
+        
+        # Calculate percentage
+        if progress.total_bytes > 0:
+            progress.progress_percent = (progress.bytes_copied / progress.total_bytes) * 100
+        else:
+            progress.progress_percent = 0.0
+        
+        return progress
+
+
+def _execute_migration_task(request: MigrationRequest) -> None:
+    """Background task to execute the migration.
+    
+    This runs in a separate thread to avoid blocking the API.
+    """
+    global _migration_state
+    
+    try:
+        source = Path(settings.github_localpath)
+        dest = Path(request.destination_path)
+        
+        # Create destination
+        dest.mkdir(parents=True, exist_ok=True)
+        
+        # Determine if we should skip .git
+        skip_git = request.remove_git_folder or request.target_mode == "local"
+        
+        # Copy data
+        _copy_folder_with_progress(source, dest, skip_git=skip_git)
+        
+        # If move, delete source (but not .git if we skipped it)
+        if request.migration_type == "move":
+            for item in source.iterdir():
+                if skip_git and item.name == ".git":
+                    continue
+                if item.is_dir():
+                    shutil.rmtree(item)
+                else:
+                    item.unlink()
+        
+        # Update .env file
+        new_token = request.new_github_token if request.new_github_token else (
+            "" if request.target_mode == "local" else settings.github_token
+        )
+        new_repo = request.new_github_repo if request.new_github_repo else (
+            "" if request.target_mode == "local" else settings.github_repo
+        )
+        
+        write_env_file(
+            github_token=new_token,
+            github_repo=new_repo,
+            github_localpath=request.destination_path,
+            current_user=settings.current_user,
+            main_user=settings.main_user,
+            storage_mode=request.target_mode,
+        )
+        
+        # Update settings object
+        settings.github_token = new_token
+        settings.github_repo = new_repo
+        settings.github_localpath = request.destination_path
+        settings.storage_mode = request.target_mode
+        
+        # Reinitialize stores
+        reset_stores()
+        
+        # Mark complete
+        with _migration_lock:
+            _migration_state["status"] = "complete"
+            
+    except Exception as e:
+        with _migration_lock:
+            _migration_state["status"] = "error"
+            _migration_state["error_message"] = str(e)
+
+
+@router.post("/migrate", response_model=MigrationResponse)
+async def execute_migration(request: MigrationRequest):
+    """Execute the data migration.
+    
+    This copies or moves all data to the new location and updates settings.
+    For large data sets, poll /migrate/progress for status updates.
+    """
+    global _migration_state
+    
+    # Check if migration is already in progress
+    with _migration_lock:
+        if _migration_state["status"] == "in_progress":
+            raise HTTPException(
+                status_code=409,
+                detail="A migration is already in progress"
+            )
+        
+        # Reset state
+        _migration_state = {
+            "status": "in_progress",
+            "bytes_copied": 0,
+            "total_bytes": 0,
+            "files_copied": 0,
+            "total_files": 0,
+            "current_file": "",
+            "error_message": "",
+            "start_time": time.time(),
+        }
+    
+    # Validate request
+    if request.migration_type not in ("copy", "move"):
+        raise HTTPException(
+            status_code=400,
+            detail="migration_type must be 'copy' or 'move'"
+        )
+    
+    if request.target_mode not in ("github", "local"):
+        raise HTTPException(
+            status_code=400,
+            detail="target_mode must be 'github' or 'local'"
+        )
+    
+    if request.target_mode == "github":
+        if not request.new_github_token and not settings.github_token:
+            raise HTTPException(
+                status_code=400,
+                detail="GitHub token is required for GitHub mode"
+            )
+        if not request.new_github_repo and not settings.github_repo:
+            raise HTTPException(
+                status_code=400,
+                detail="GitHub repository is required for GitHub mode"
+            )
+    
+    # Validate source exists
+    source = Path(settings.github_localpath)
+    if not source.exists():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Source path does not exist: {settings.github_localpath}"
+        )
+    
+    # For small migrations, execute synchronously
+    total_bytes, file_count, _ = _calculate_folder_stats(source)
+    
+    if total_bytes < 100_000_000:  # < 100MB, do synchronously
+        _execute_migration_task(request)
+        
+        with _migration_lock:
+            final_status = _migration_state["status"]
+            error_msg = _migration_state["error_message"]
+        
+        if final_status == "error":
+            raise HTTPException(
+                status_code=500,
+                detail=f"Migration failed: {error_msg}"
+            )
+        
+        return MigrationResponse(
+            status="success",
+            message="Migration completed successfully",
+            source_path=str(source),
+            destination_path=request.destination_path,
+            bytes_copied=total_bytes,
+            files_copied=file_count,
+            new_storage_mode=request.target_mode,
+        )
+    
+    # For large migrations, start background thread
+    thread = threading.Thread(target=_execute_migration_task, args=(request,))
+    thread.start()
+    
+    return MigrationResponse(
+        status="in_progress",
+        message="Migration started. Poll /migrate/progress for updates.",
+        source_path=str(source),
+        destination_path=request.destination_path,
+        bytes_copied=0,
+        files_copied=0,
+        new_storage_mode=request.target_mode,
+    )
+
+
+@router.post("/migrate/cancel")
+async def cancel_migration():
+    """Cancel an in-progress migration.
+    
+    Note: This only prevents further copying. Partial data may remain at destination.
+    """
+    global _migration_state
+    
+    with _migration_lock:
+        if _migration_state["status"] != "in_progress":
+            return {"status": "no_migration", "message": "No migration in progress"}
+        
+        _migration_state["status"] = "error"
+        _migration_state["error_message"] = "Cancelled by user"
+    
+    return {"status": "cancelled", "message": "Migration cancelled"}

@@ -6,7 +6,7 @@ import DailyTasksSidebar from "./DailyTasksSidebar";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home" },
-  { href: "/experiments", label: "Experiments" },
+  { href: "/experiments", label: "Lab Notes" },
   { href: "/gantt", label: "GANTT" },
   { href: "/methods", label: "Methods" },
   { href: "/purchases", label: "Purchases" },

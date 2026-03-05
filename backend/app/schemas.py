@@ -6,6 +6,43 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
+# ── Shared Access (used across multiple entities) ───────────────────────────────
+
+
+class SharedUser(BaseModel):
+    """Represents a user with shared access to an item."""
+    username: str
+    permission: str = "edit"  # "view" or "edit"
+
+
+class ShareRequest(BaseModel):
+    """Request to share an item with a user."""
+    username: str
+    permission: str = "edit"  # "view" or "edit"
+    include_chain: bool = False  # For tasks: share entire dependency chain
+
+
+class SharedItemEntry(BaseModel):
+    """Entry in a user's shared_with_me registry."""
+    id: int  # Item ID
+    owner: str  # Username of owner
+    permission: str  # "view" or "edit"
+    shared_at: datetime
+
+
+class Notification(BaseModel):
+    """A notification for a user."""
+    id: str  # UUID
+    type: str  # "task_shared", "method_shared", "project_shared"
+    from_user: str  # Username who shared
+    item_type: str  # "task", "method", "project"
+    item_id: int
+    item_name: str
+    permission: str  # "view" or "edit"
+    created_at: datetime
+    read: bool = False
+
+
 # ── Projects ──────────────────────────────────────────────────────────────────
 
 
@@ -36,6 +73,8 @@ class ProjectOut(BaseModel):
     sort_order: int = 0
     is_archived: bool = False
     archived_at: Optional[datetime] = None
+    owner: str = ""  # Username of project owner
+    shared_with: List[SharedUser] = []  # Users with access to entire project
 
     model_config = {"from_attributes": True}
 
@@ -135,6 +174,10 @@ class TaskOut(BaseModel):
     pcr_ingredients: Optional[str] = None  # JSON string of List[PCRIngredient]
     # New: method attachments with individual PCR data
     method_attachments: List[TaskMethodAttachment] = []
+    # Sharing fields
+    owner: str = ""  # Username of task owner
+    shared_with: List[SharedUser] = []  # Users with direct access (not via project)
+    inherited_from_project: Optional[int] = None  # If shared via project, the project ID
 
     model_config = {"from_attributes": True}
 
@@ -359,3 +402,192 @@ class LabLinkOut(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ── Attachment Metadata ────────────────────────────────────────────────────────
+
+
+class ImageMetadataEntry(BaseModel):
+    """Metadata entry for a single image."""
+    id: int
+    filename: str
+    original_filename: Optional[str] = None  # Original filename before timestamp prefix
+    path: str  # Relative path from data repo root: Images/Mar-04-2026-Exp-Name/file.png
+    experiment_id: int
+    experiment_name: str
+    project_id: Optional[int] = None
+    project_name: Optional[str] = None
+    uploaded_at: datetime
+    file_size: int  # Size in bytes
+    file_type: str  # MIME type
+    folder: str  # Folder name: Mar-04-2026-Exp-Name
+
+
+class ImageMetadataCreate(BaseModel):
+    """Request to create image metadata."""
+    filename: str
+    original_filename: Optional[str] = None
+    experiment_id: int
+    experiment_name: str
+    project_id: Optional[int] = None
+    project_name: Optional[str] = None
+    file_size: int
+    file_type: str
+
+
+class ImageMetadataOut(BaseModel):
+    """Response for image metadata."""
+    id: int
+    filename: str
+    original_filename: Optional[str] = None
+    path: str
+    experiment_id: int
+    experiment_name: str
+    project_id: Optional[int] = None
+    project_name: Optional[str] = None
+    uploaded_at: datetime
+    file_size: int
+    file_type: str
+    folder: str
+
+    model_config = {"from_attributes": True}
+
+
+class FileMetadataEntry(BaseModel):
+    """Metadata entry for a single file (PDFs, attachments, etc.)."""
+    id: int
+    filename: str
+    original_filename: Optional[str] = None  # Original filename before timestamp prefix
+    path: str  # Relative path from data repo root: Files/Mar-04-2026-Exp-Name/file.pdf
+    experiment_id: int
+    experiment_name: str
+    project_id: Optional[int] = None
+    project_name: Optional[str] = None
+    uploaded_at: datetime
+    file_size: int  # Size in bytes
+    file_type: str  # MIME type
+    folder: str  # Folder name: Mar-04-2026-Exp-Name
+    attachment_type: str  # "notes" or "results"
+
+
+class FileMetadataCreate(BaseModel):
+    """Request to create file metadata."""
+    filename: str
+    original_filename: Optional[str] = None
+    experiment_id: int
+    experiment_name: str
+    project_id: Optional[int] = None
+    project_name: Optional[str] = None
+    file_size: int
+    file_type: str
+    attachment_type: str  # "notes" or "results"
+
+
+class FileMetadataOut(BaseModel):
+    """Response for file metadata."""
+    id: int
+    filename: str
+    original_filename: Optional[str] = None
+    path: str
+    experiment_id: int
+    experiment_name: str
+    project_id: Optional[int] = None
+    project_name: Optional[str] = None
+    uploaded_at: datetime
+    file_size: int
+    file_type: str
+    folder: str
+    attachment_type: str
+
+    model_config = {"from_attributes": True}
+
+
+# ── Attachment Upload ──────────────────────────────────────────────────────────
+
+
+class AttachmentUploadRequest(BaseModel):
+    """Request to upload an image or file attachment."""
+    experiment_id: int
+    experiment_name: str
+    project_id: Optional[int] = None
+    project_name: Optional[str] = None
+    experiment_date: date  # Used to generate folder name
+    attachment_type: str = "notes"  # "notes" or "results" (only for files)
+    base64_content: str  # Base64-encoded file content
+    original_filename: str  # Original filename from user's computer
+
+
+class AttachmentUploadResponse(BaseModel):
+    """Response after uploading an attachment."""
+    id: int
+    filename: str
+    original_filename: str
+    path: str
+    folder: str
+    file_size: int
+    file_type: str
+    warning: Optional[str] = None  # Warning about large files
+    added_to_gitignore: bool = False  # True if file was excluded from git
+
+
+# ── Meeting Notes ───────────────────────────────────────────────────────────────
+
+
+class NoteEntry(BaseModel):
+    """A single entry within a note (for running logs)."""
+    id: str  # UUID
+    title: str  # e.g., "Week 1 Meeting" or date string
+    date: date  # User-chosen date for this entry
+    content: str = ""  # Markdown content
+    created_at: datetime
+    updated_at: datetime
+
+
+class NoteEntryCreate(BaseModel):
+    """Request to create a new note entry."""
+    title: str
+    date: date
+    content: str = ""
+
+
+class NoteEntryUpdate(BaseModel):
+    """Request to update a note entry."""
+    title: Optional[str] = None
+    date: Optional[date] = None
+    content: Optional[str] = None
+
+
+class NoteCreate(BaseModel):
+    """Request to create a new note."""
+    title: str
+    description: str = ""
+    is_running_log: bool = False  # If true, has multiple entries
+    is_shared: bool = False  # If true, visible to other lab members
+    entries: List[NoteEntryCreate] = []  # Initial entries
+
+
+class NoteUpdate(BaseModel):
+    """Request to update note metadata."""
+    title: Optional[str] = None
+    description: Optional[str] = None
+    is_shared: Optional[bool] = None
+
+
+class NoteOut(BaseModel):
+    """Response for a note."""
+    id: int
+    title: str
+    description: str
+    is_running_log: bool
+    is_shared: bool
+    entries: List[NoteEntry]
+    created_at: datetime
+    updated_at: datetime
+    username: str  # Owner username
+
+    model_config = {"from_attributes": True}
+
+
+class NoteEntriesReorderRequest(BaseModel):
+    """Request to reorder entries within a note."""
+    entry_ids: List[str]  # New order of entry IDs

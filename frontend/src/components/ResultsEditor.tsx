@@ -15,6 +15,7 @@ import {
   renderStampDisplay,
   type StampData,
 } from "@/lib/stamp-utils";
+import { useFileRenamePopup } from "@/components/FileRenamePopup";
 
 interface ResultsEditorProps {
   task: Task;
@@ -45,6 +46,7 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
   const [stamp, setStamp] = useState<StampData | null>(null);
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
   
   // Track unsaved changes
   const hasUnsavedChanges = content !== originalContent && !loading;
@@ -162,17 +164,23 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
       setUploading(true);
       setUploadWarning(null);
       for (const file of Array.from(files)) {
+        // Show rename popup and wait for user decision
+        const renamedFile = await requestRename(file);
+        if (!renamedFile) {
+          continue; // User cancelled
+        }
+        
         const reader = new FileReader();
         reader.onload = async () => {
           const base64 = (reader.result as string).split(",")[1];
-          const fileName = `${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
+          const fileName = `${Date.now()}-${renamedFile.name.replace(/\s+/g, "_")}`;
           const filePath = `${attachmentsDir}/${fileName}`;
 
           try {
             const response = await githubApi.uploadImage(
               filePath,
               base64,
-              `Upload attachment for task ${task.name}: ${file.name}`
+              `Upload attachment for task ${task.name}: ${renamedFile.name}`
             );
             await loadAttachments();
             
@@ -181,14 +189,14 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
               setUploadWarning(response.warning);
             }
           } catch {
-            alert(`Failed to upload ${file.name}`);
+            alert(`Failed to upload ${renamedFile.name}`);
           }
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(renamedFile);
       }
       setUploading(false);
     },
-    [attachmentsDir, task.name, loadAttachments]
+    [attachmentsDir, task.name, loadAttachments, requestRename]
   );
 
   // Handle image upload for LiveMarkdownEditor (from drag-drop, paste, or file picker)
@@ -198,10 +206,17 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
       setUploadWarning(null);
       for (const file of files) {
         if (!file.type.startsWith("image/")) continue;
+        
+        // Show rename popup and wait for user decision
+        const renamedFile = await requestRename(file);
+        if (!renamedFile) {
+          continue; // User cancelled
+        }
+        
         const reader = new FileReader();
         reader.onload = async () => {
           const base64 = (reader.result as string).split(",")[1];
-          const imageName = `${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
+          const imageName = `${Date.now()}-${renamedFile.name.replace(/\s+/g, "_")}`;
           const imagePath = `${imagesDir}/${imageName}`;
 
           try {
@@ -211,7 +226,7 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
               `Upload image for task ${task.name}`
             );
             // Insert markdown image reference with relative path
-            const imageMarkdown = `\n![${file.name}](./Images/${imageName})\n`;
+            const imageMarkdown = `\n![${renamedFile.name}](./Images/${imageName})\n`;
             setContent((prev) => prev + imageMarkdown);
             await loadAttachments();
             
@@ -220,14 +235,14 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
               setUploadWarning(response.warning);
             }
           } catch {
-            alert(`Failed to upload ${file.name}`);
+            alert(`Failed to upload ${renamedFile.name}`);
           }
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(renamedFile);
       }
       setUploading(false);
     },
-    [imagesDir, task.name, loadAttachments]
+    [imagesDir, task.name, loadAttachments, requestRename]
   );
 
   const handleSave = useCallback(async () => {
@@ -287,8 +302,10 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
   const stampDisplay = stamp ? renderStampDisplay(stamp, task.name, projectName) : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full mx-4 max-h-[90vh] flex flex-col">
+    <>
+      <FileRenamePopup />
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+        <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full mx-4 max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>
@@ -569,5 +586,6 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
         </div>
       </div>
     </div>
+    </>
   );
 }

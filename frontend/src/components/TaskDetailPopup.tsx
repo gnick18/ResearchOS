@@ -4,12 +4,13 @@ import React, { useCallback, useEffect, useRef, useState, useMemo } from "react"
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
-import { githubApi, methodsApi, projectsApi, tasksApi, dependenciesApi, pcrApi, fetchAllTasks, type DuplicateCheckResult } from "@/lib/api";
+import { githubApi, methodsApi, projectsApi, tasksApi, dependenciesApi, pcrApi, fetchAllTasks, attachmentsApi, type DuplicateCheckResult } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import PurchaseEditor from "./PurchaseEditor";
 import DynamicAnimation from "./DynamicAnimation";
 import MethodTabs from "./MethodTabs";
+import SharePopup from "./SharePopup";
 import { useAppStore } from "@/lib/store";
 import type { Method, Task, Project, Dependency, ShiftResult, SubTask, PCRProtocol, PCRGradient, PCRIngredient } from "@/lib/types";
 import type { GitHubTreeItem } from "@/lib/types";
@@ -20,6 +21,7 @@ import {
   type ExportOptions,
   type ExperimentExportData,
 } from "@/lib/export-utils";
+import { useFileRenamePopup } from "@/components/FileRenamePopup";
 
 interface TaskDetailPopupProps {
   task: Task;
@@ -48,6 +50,7 @@ export default function TaskDetailPopup({
   const [task, setTask] = useState(initialTask);
   const [isExpanded, setIsExpanded] = useState(false);
   const [animationPosition, setAnimationPosition] = useState<{ x: number; y: number } | null>(null);
+  const [showSharePopup, setShowSharePopup] = useState(false);
   
   // Get the selected animation type from the store
   const animationType = useAppStore((s) => s.animationType);
@@ -301,6 +304,22 @@ export default function TaskDetailPopup({
             {isExperiment && (
               <TaskExportButton task={task} />
             )}
+            {/* Share button - hidden in readOnly mode */}
+            {!readOnly && (
+              <button
+                onClick={() => setShowSharePopup(true)}
+                className="text-gray-400 hover:text-gray-600 p-1"
+                title="Share task"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="18" cy="5" r="3"/>
+                  <circle cx="6" cy="12" r="3"/>
+                  <circle cx="18" cy="19" r="3"/>
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                </svg>
+              </button>
+            )}
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className="text-gray-400 hover:text-gray-600 p-1"
@@ -389,6 +408,18 @@ export default function TaskDetailPopup({
           {activeTab === "purchases" && <PurchaseEditor taskId={task.id} readOnly={readOnly} username={username} />}
         </div>
       </div>
+
+      {/* Share Popup */}
+      <SharePopup
+        isOpen={showSharePopup}
+        onClose={() => setShowSharePopup(false)}
+        itemType="task"
+        itemId={task.id}
+        itemName={task.name}
+        currentOwner={task.owner}
+        currentSharedWith={task.shared_with || []}
+        onShared={() => queryClient.refetchQueries({ queryKey: ["task", task.id] })}
+      />
     </div>
   );
 }
@@ -1774,6 +1805,7 @@ function LabNotesTab({ task, readOnly = false }: { task: Task; readOnly?: boolea
   const [uploading, setUploading] = useState(false);
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
 
   const notesPath = `results/task-${task.id}/notes.md`;
   const imagesDir = `results/task-${task.id}/Images`;
@@ -1819,19 +1851,28 @@ function LabNotesTab({ task, readOnly = false }: { task: Task; readOnly?: boolea
       setUploadWarning(null);
       for (const file of files) {
         if (!file.type.startsWith("image/")) continue;
+        
+        // Show rename popup and wait for user decision
+        const renamedFile = await requestRename(file);
+        if (!renamedFile) {
+          continue; // User cancelled
+        }
+        
         const reader = new FileReader();
         reader.onload = async () => {
           const base64 = (reader.result as string).split(",")[1];
-          const imageName = `${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
-          const imagePath = `${imagesDir}/${imageName}`;
 
           try {
-            const response = await githubApi.uploadImage(
-              imagePath,
-              base64,
-              `Upload image for ${task.name}`
-            );
-            const imageMarkdown = `\n![${file.name}](./Images/${imageName})\n`;
+            const response = await attachmentsApi.uploadImage({
+              experiment_id: task.id,
+              experiment_name: task.name,
+              project_id: task.project_id,
+              project_name: '', // We don't have project name in this context
+              experiment_date: task.start_date,
+              base64_content: base64,
+              original_filename: renamedFile.name,
+            });
+            const imageMarkdown = `\n![${renamedFile.name}](../../Images/${response.folder}/${response.filename})\n`;
             setContent((prev) => prev + imageMarkdown);
             
             // Show warning if file is too large for GitHub
@@ -1839,49 +1880,57 @@ function LabNotesTab({ task, readOnly = false }: { task: Task; readOnly?: boolea
               setUploadWarning(response.warning);
             }
           } catch {
-            alert(`Failed to upload ${file.name}`);
+            alert(`Failed to upload ${renamedFile.name}`);
           }
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(renamedFile);
       }
       setUploading(false);
     },
-    [imagesDir, task.name]
+    [task.id, task.name, task.project_id, task.start_date, requestRename]
   );
 
-  // Handle file upload (saves to attachments folder, does NOT embed in markdown)
+  // Handle file upload (saves to Files folder with new structure)
   const handleFileUpload = useCallback(
     async (files: File[]) => {
       setUploading(true);
       setUploadWarning(null);
       
       for (const file of files) {
+        // Show rename popup and wait for user decision
+        const renamedFile = await requestRename(file);
+        if (!renamedFile) {
+          continue; // User cancelled
+        }
+        
         const reader = new FileReader();
         reader.onload = async () => {
           const base64 = (reader.result as string).split(",")[1];
-          const fileName = `${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
-          const filePath = `${pdfsDir}/${fileName}`;
 
           try {
-            const response = await githubApi.uploadImage(
-              filePath,
-              base64,
-              `Upload attachment for ${task.name}: ${file.name}`
-            );
+            const response = await attachmentsApi.uploadFile({
+              experiment_id: task.id,
+              experiment_name: task.name,
+              project_id: task.project_id,
+              project_name: '', // We don't have project name in this context
+              experiment_date: task.start_date,
+              base64_content: base64,
+              original_filename: renamedFile.name,
+            });
             
             // Show warning if file is too large for GitHub
             if (response.warning) {
               setUploadWarning(response.warning);
             }
           } catch {
-            alert(`Failed to upload ${file.name}`);
+            alert(`Failed to upload ${renamedFile.name}`);
           }
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(renamedFile);
       }
       setUploading(false);
     },
-    [pdfsDir, task.name]
+    [task.id, task.name, task.project_id, task.start_date, requestRename]
   );
 
   const handleSave = useCallback(async () => {
@@ -1901,109 +1950,112 @@ function LabNotesTab({ task, readOnly = false }: { task: Task; readOnly?: boolea
   }, [content, notesPath, task.name]);
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Sub-tabs for Markdown and PDFs */}
-      <div className="flex items-center gap-1 px-6 py-2 bg-gray-50 border-b border-gray-100">
-        <button
-          onClick={() => setActiveSubTab("markdown")}
-          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-            activeSubTab === "markdown"
-              ? "bg-white text-blue-600 shadow-sm border border-gray-200"
-              : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-          }`}
-        >
-          📝 Markdown
-        </button>
-        <button
-          onClick={() => setActiveSubTab("pdfs")}
-          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-            activeSubTab === "pdfs"
-              ? "bg-white text-blue-600 shadow-sm border border-gray-200"
-              : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-          }`}
-        >
-          📎 Files
-        </button>
-      </div>
+    <>
+      <FileRenamePopup />
+      <div className="flex flex-col h-full">
+        {/* Sub-tabs for Markdown and PDFs */}
+        <div className="flex items-center gap-1 px-6 py-2 bg-gray-50 border-b border-gray-100">
+          <button
+            onClick={() => setActiveSubTab("markdown")}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+              activeSubTab === "markdown"
+                ? "bg-white text-blue-600 shadow-sm border border-gray-200"
+                : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            📝 Markdown
+          </button>
+          <button
+            onClick={() => setActiveSubTab("pdfs")}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+              activeSubTab === "pdfs"
+                ? "bg-white text-blue-600 shadow-sm border border-gray-200"
+                : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            📎 Files
+          </button>
+        </div>
 
-      {activeSubTab === "markdown" ? (
-        <>
-          {/* Toolbar - hidden in readOnly mode */}
-          {!readOnly && (
-            <div className="flex items-center gap-2 px-6 py-3 border-b border-gray-50">
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                {uploading ? "Uploading..." : "📎 Add File"}
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  if (e.target.files) handleFileUpload(Array.from(e.target.files));
-                  e.target.value = "";
-                }}
-              />
-              <div className="flex-1" />
-              {hasUnsavedChanges && (
-                <span className="text-xs text-amber-600 font-medium">Unsaved changes</span>
-              )}
-              <button
-                onClick={handleSave}
-                disabled={saving || !hasUnsavedChanges}
-                className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
-                  hasUnsavedChanges
-                    ? "text-white bg-blue-600 hover:bg-blue-700"
-                    : "text-gray-400 bg-gray-200 cursor-not-allowed"
-                } disabled:opacity-50`}
-              >
-                {saving ? "Saving..." : "Save Notes"}
-              </button>
-            </div>
-          )}
-
-          {/* File size warning */}
-          {uploadWarning && (
-            <div className="px-6 py-3 bg-amber-50 border-b border-amber-200">
-              <div className="flex items-start gap-2">
-                <span className="text-amber-500 text-sm">⚠️</span>
-                <div className="flex-1">
-                  <p className="text-sm text-amber-800">{uploadWarning}</p>
-                </div>
+        {activeSubTab === "markdown" ? (
+          <>
+            {/* Toolbar - hidden in readOnly mode */}
+            {!readOnly && (
+              <div className="flex items-center gap-2 px-6 py-3 border-b border-gray-50">
                 <button
-                  onClick={() => setUploadWarning(null)}
-                  className="text-amber-400 hover:text-amber-600 text-sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
                 >
-                  ✕
+                  {uploading ? "Uploading..." : "📎 Add File"}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files) handleFileUpload(Array.from(e.target.files));
+                    e.target.value = "";
+                  }}
+                />
+                <div className="flex-1" />
+                {hasUnsavedChanges && (
+                  <span className="text-xs text-amber-600 font-medium">Unsaved changes</span>
+                )}
+                <button
+                  onClick={handleSave}
+                  disabled={saving || !hasUnsavedChanges}
+                  className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                    hasUnsavedChanges
+                      ? "text-white bg-blue-600 hover:bg-blue-700"
+                      : "text-gray-400 bg-gray-200 cursor-not-allowed"
+                  } disabled:opacity-50`}
+                >
+                  {saving ? "Saving..." : "Save Notes"}
                 </button>
               </div>
-            </div>
-          )}
-
-          {/* Editor */}
-          <div className="flex-1 overflow-y-auto">
-            {loading ? (
-              <p className="p-6 text-sm text-gray-400 animate-pulse">Loading...</p>
-            ) : (
-              <LiveMarkdownEditor
-                value={content}
-                onChange={setContent}
-                placeholder="Click to start writing lab notes..."
-                onImageDrop={handleImageUpload}
-                imageBasePath={`results/task-${task.id}`}
-                showToolbar={true}
-              />
             )}
-          </div>
-        </>
-      ) : (
-        <PdfAttachmentsPanel task={task} pdfsDir={pdfsDir} label="Lab Notes" />
-      )}
-    </div>
+
+            {/* File size warning */}
+            {uploadWarning && (
+              <div className="px-6 py-3 bg-amber-50 border-b border-amber-200">
+                <div className="flex items-start gap-2">
+                  <span className="text-amber-500 text-sm">⚠️</span>
+                  <div className="flex-1">
+                    <p className="text-sm text-amber-800">{uploadWarning}</p>
+                  </div>
+                  <button
+                    onClick={() => setUploadWarning(null)}
+                    className="text-amber-400 hover:text-amber-600 text-sm"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Editor */}
+            <div className="flex-1 overflow-y-auto">
+              {loading ? (
+                <p className="p-6 text-sm text-gray-400 animate-pulse">Loading...</p>
+              ) : (
+                <LiveMarkdownEditor
+                  value={content}
+                  onChange={setContent}
+                  placeholder="Click to start writing lab notes..."
+                  onImageDrop={handleImageUpload}
+                  imageBasePath={`results/task-${task.id}`}
+                  showToolbar={true}
+                />
+              )}
+            </div>
+          </>
+        ) : (
+          <PdfAttachmentsPanel task={task} pdfsDir={pdfsDir} label="Lab Notes" />
+        )}
+      </div>
+    </>
   );
 }
 
@@ -3007,6 +3059,7 @@ function ResultsTab({ task, readOnly = false }: { task: Task; readOnly?: boolean
   const [uploading, setUploading] = useState(false);
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
 
   const resultsPath = `results/task-${task.id}/results.md`;
   const imagesDir = `results/task-${task.id}/Images`;
@@ -3052,63 +3105,86 @@ function ResultsTab({ task, readOnly = false }: { task: Task; readOnly?: boolean
       setUploadWarning(null);
       for (const file of files) {
         if (!file.type.startsWith("image/")) continue;
+        
+        // Show rename popup and wait for user decision
+        const renamedFile = await requestRename(file);
+        if (!renamedFile) {
+          continue; // User cancelled
+        }
+        
         const reader = new FileReader();
         reader.onload = async () => {
           const base64 = (reader.result as string).split(",")[1];
-          const imageName = `${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
-          const imagePath = `${imagesDir}/${imageName}`;
+
           try {
-            const response = await githubApi.uploadImage(imagePath, base64, `Upload for ${task.name}`);
-            setContent((prev) => prev + `\n![${file.name}](./Images/${imageName})\n`);
+            const response = await attachmentsApi.uploadImage({
+              experiment_id: task.id,
+              experiment_name: task.name,
+              project_id: task.project_id,
+              project_name: '', // We don't have project name in this context
+              experiment_date: task.start_date,
+              base64_content: base64,
+              original_filename: renamedFile.name,
+            });
+            const imageMarkdown = `\n![${renamedFile.name}](../../Images/${response.folder}/${response.filename})\n`;
+            setContent((prev) => prev + imageMarkdown);
             
             // Show warning if file is too large for GitHub
             if (response.warning) {
               setUploadWarning(response.warning);
             }
           } catch {
-            alert(`Failed to upload ${file.name}`);
+            alert(`Failed to upload ${renamedFile.name}`);
           }
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(renamedFile);
       }
       setUploading(false);
     },
-    [imagesDir, task.name]
+    [task.id, task.name, task.project_id, task.start_date, requestRename]
   );
 
-  // Handle file upload (saves to attachments folder, does NOT embed in markdown)
+  // Handle file upload (saves to Files folder with new structure)
   const handleFileUpload = useCallback(
     async (files: File[]) => {
       setUploading(true);
       setUploadWarning(null);
       
       for (const file of files) {
+        // Show rename popup and wait for user decision
+        const renamedFile = await requestRename(file);
+        if (!renamedFile) {
+          continue; // User cancelled
+        }
+        
         const reader = new FileReader();
         reader.onload = async () => {
           const base64 = (reader.result as string).split(",")[1];
-          const fileName = `${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
-          const filePath = `${pdfsDir}/${fileName}`;
 
           try {
-            const response = await githubApi.uploadImage(
-              filePath,
-              base64,
-              `Upload attachment for ${task.name}: ${file.name}`
-            );
+            const response = await attachmentsApi.uploadFile({
+              experiment_id: task.id,
+              experiment_name: task.name,
+              project_id: task.project_id,
+              project_name: '', // We don't have project name in this context
+              experiment_date: task.start_date,
+              base64_content: base64,
+              original_filename: renamedFile.name,
+            });
             
             // Show warning if file is too large for GitHub
             if (response.warning) {
               setUploadWarning(response.warning);
             }
           } catch {
-            alert(`Failed to upload ${file.name}`);
+            alert(`Failed to upload ${renamedFile.name}`);
           }
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(renamedFile);
       }
       setUploading(false);
     },
-    [pdfsDir, task.name]
+    [task.id, task.name, task.project_id, task.start_date, requestRename]
   );
 
   const handleSave = useCallback(async () => {
@@ -3124,32 +3200,34 @@ function ResultsTab({ task, readOnly = false }: { task: Task; readOnly?: boolean
   }, [content, resultsPath, task.name]);
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Sub-tabs for Markdown and PDFs */}
-      <div className="flex items-center gap-1 px-6 py-2 bg-gray-50 border-b border-gray-100">
-        <button
-          onClick={() => setActiveSubTab("markdown")}
-          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-            activeSubTab === "markdown"
-              ? "bg-white text-blue-600 shadow-sm border border-gray-200"
-              : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-          }`}
-        >
-          📝 Markdown
-        </button>
-        <button
-          onClick={() => setActiveSubTab("pdfs")}
-          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-            activeSubTab === "pdfs"
-              ? "bg-white text-blue-600 shadow-sm border border-gray-200"
-              : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-          }`}
-        >
-          📎 Files
-        </button>
-      </div>
+    <>
+      <FileRenamePopup />
+      <div className="flex flex-col h-full">
+        {/* Sub-tabs for Markdown and PDFs */}
+        <div className="flex items-center gap-1 px-6 py-2 bg-gray-50 border-b border-gray-100">
+          <button
+            onClick={() => setActiveSubTab("markdown")}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+              activeSubTab === "markdown"
+                ? "bg-white text-blue-600 shadow-sm border border-gray-200"
+                : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            📝 Markdown
+          </button>
+          <button
+            onClick={() => setActiveSubTab("pdfs")}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+              activeSubTab === "pdfs"
+                ? "bg-white text-blue-600 shadow-sm border border-gray-200"
+                : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            📎 Files
+          </button>
+        </div>
 
-      {activeSubTab === "markdown" ? (
+        {activeSubTab === "markdown" ? (
         <>
           {/* Toolbar - hidden in readOnly mode */}
           {!readOnly && (
@@ -3227,6 +3305,7 @@ function ResultsTab({ task, readOnly = false }: { task: Task; readOnly?: boolean
         <PdfAttachmentsPanel task={task} pdfsDir={pdfsDir} label="Results" />
       )}
     </div>
+    </>
   );
 }
 

@@ -1,5 +1,8 @@
 import axios from "axios";
 import type {
+  AttachmentUploadRequest,
+  AttachmentUploadResponse,
+  AttachmentStats,
   CatalogItem,
   DeviationSaveRequest,
   Dependency,
@@ -7,20 +10,33 @@ import type {
   Event,
   EventCreate,
   EventUpdate,
+  FileMetadata,
+  FundingAccount,
+  FundingAccountCreate,
+  FundingAccountUpdate,
+  FundingSummary,
   GitHubFile,
   GitHubTreeItem,
   HighLevelGoal,
   HighLevelGoalCreate,
   HighLevelGoalUpdate,
+  ImageMetadata,
   LabLink,
   LabLinkCreate,
   LabLinkUpdate,
+  LabNote,
   LinkPreview,
   SmartGoal,
   Method,
   MethodCreate,
   MethodUpdate,
   MethodForkRequest,
+  Note,
+  NoteCreate,
+  NoteUpdate,
+  NoteEntryCreate,
+  NoteEntryUpdate,
+  NoteEntriesReorderRequest,
   PCRProtocol,
   PCRProtocolCreate,
   PCRProtocolUpdate,
@@ -37,6 +53,13 @@ import type {
   TaskCreate,
   TaskMoveRequest,
   TaskUpdate,
+  // Sharing types
+  SharedUser,
+  ShareRequest,
+  SharedItemsResponse,
+  Notification,
+  NotificationResponse,
+  DependencyChainResponse,
 } from "./types";
 
 const api = axios.create({
@@ -94,6 +117,11 @@ export const fetchAllTasks = async () => {
   return results.flat();
 };
 
+export const fetchAllTasksIncludingShared = async () => {
+  const tasks = await api.get<Task[]>("/tasks/including-shared").then((r) => r.data);
+  return tasks;
+};
+
 // ── Error Handling ────────────────────────────────────────────────────────────
 
 // Global callback for data path errors - set by the app
@@ -146,6 +174,7 @@ api.interceptors.response.use(
 
 export const projectsApi = {
   list: () => api.get<Project[]>("/projects").then((r) => r.data),
+  listWithShared: () => api.get<Project[]>("/projects/including-shared").then((r) => r.data),
   get: (id: number) => api.get<Project>(`/projects/${id}`).then((r) => r.data),
   create: (data: ProjectCreate) =>
     api.post<Project>("/projects", data).then((r) => r.data),
@@ -328,6 +357,17 @@ export const purchasesApi = {
     api.put<CatalogItem>(`/purchases/catalog/${id}`, data).then((r) => r.data),
   createCatalogItem: (data: Partial<CatalogItem>) =>
     api.post<CatalogItem>("/purchases/catalog", data).then((r) => r.data),
+  // Funding Accounts
+  listFundingAccounts: () =>
+    api.get<FundingAccount[]>("/purchases/funding-accounts").then((r) => r.data),
+  createFundingAccount: (data: FundingAccountCreate) =>
+    api.post<FundingAccount>("/purchases/funding-accounts", data).then((r) => r.data),
+  updateFundingAccount: (id: number, data: FundingAccountUpdate) =>
+    api.put<FundingAccount>(`/purchases/funding-accounts/${id}`, data).then((r) => r.data),
+  deleteFundingAccount: (id: number) =>
+    api.delete(`/purchases/funding-accounts/${id}`),
+  getFundingSummary: () =>
+    api.get<FundingSummary>("/purchases/funding-summary").then((r) => r.data),
 };
 
 // ── Events (Calendar) ────────────────────────────────────────────────────────
@@ -419,6 +459,61 @@ export const settingsApi = {
     api.get<StorageModeResponse>("/settings/storage-mode").then((r) => r.data),
   setupFolder: (data: FolderSetupRequest) =>
     api.post<FolderSetupResponse>("/settings/setup-folder", data).then((r) => r.data),
+};
+
+// ── Migration Types & API ────────────────────────────────────────────────────────
+
+export interface MigrationRequest {
+  destination_path: string;
+  migration_type: "copy" | "move";
+  target_mode: "github" | "local";
+  remove_git_folder: boolean;
+  new_github_repo?: string;
+  new_github_token?: string;
+}
+
+export interface MigrationPreview {
+  source_path: string;
+  destination_path: string;
+  total_size_bytes: number;
+  file_count: number;
+  folder_count: number;
+  has_git_folder: boolean;
+  users_found: string[];
+  warnings: string[];
+  can_proceed: boolean;
+}
+
+export interface MigrationProgress {
+  status: "idle" | "in_progress" | "complete" | "error";
+  bytes_copied: number;
+  total_bytes: number;
+  files_copied: number;
+  total_files: number;
+  current_file: string;
+  error_message: string;
+  progress_percent: number;
+}
+
+export interface MigrationResponse {
+  status: string;
+  message: string;
+  source_path: string;
+  destination_path: string;
+  bytes_copied: number;
+  files_copied: number;
+  new_storage_mode: string;
+}
+
+export const migrationApi = {
+  preview: (request: MigrationRequest) =>
+    api.post<MigrationPreview>("/settings/migrate/preview", request).then((r) => r.data),
+  execute: (request: MigrationRequest) =>
+    api.post<MigrationResponse>("/settings/migrate", request).then((r) => r.data),
+  getProgress: () =>
+    api.get<MigrationProgress>("/settings/migrate/progress").then((r) => r.data),
+  cancel: () =>
+    api.post<{ status: string; message: string }>("/settings/migrate/cancel").then((r) => r.data),
 };
 
 // ── Lab Links ────────────────────────────────────────────────────────────────
@@ -589,4 +684,115 @@ export const labApi = {
     api.get<LabProject[]>(`/lab/user/${username}/projects`).then((r) => r.data),
   getUserPurchaseItems: (username: string, taskId: number) =>
     api.get<PurchaseItem[]>(`/lab/user/${username}/purchases/${taskId}`).then((r) => r.data),
+  // Notes
+  getNotes: (params?: { usernames?: string; shared_only?: boolean }) =>
+    api.get<LabNote[]>("/lab/notes", { params }).then((r) => r.data),
+  getSharedNotes: (params?: { usernames?: string }) =>
+    api.get<LabNote[]>("/lab/notes/shared", { params }).then((r) => r.data),
+  getUserNotes: (username: string) =>
+    api.get<LabNote[]>(`/lab/user/${username}/notes`).then((r) => r.data),
+};
+
+// ── Attachments ───────────────────────────────────────────────────────────────
+
+export const attachmentsApi = {
+  // Image endpoints
+  uploadImage: (data: AttachmentUploadRequest) =>
+    api.post<AttachmentUploadResponse>("/attachments/images", data).then((r) => r.data),
+  listImages: (params?: { experiment_id?: number; folder?: string }) =>
+    api.get<ImageMetadata[]>("/attachments/images", { params }).then((r) => r.data),
+  getImage: (id: number) =>
+    api.get<ImageMetadata>(`/attachments/images/${id}`).then((r) => r.data),
+  deleteImage: (id: number) =>
+    api.delete(`/attachments/images/${id}`).then((r) => r.data),
+  
+  // File endpoints
+  uploadFile: (data: AttachmentUploadRequest) =>
+    api.post<AttachmentUploadResponse>("/attachments/files", data).then((r) => r.data),
+  listFiles: (params?: { experiment_id?: number; folder?: string; attachment_type?: string }) =>
+    api.get<FileMetadata[]>("/attachments/files", { params }).then((r) => r.data),
+  getFile: (id: number) =>
+    api.get<FileMetadata>(`/attachments/files/${id}`).then((r) => r.data),
+  deleteFile: (id: number) =>
+    api.delete(`/attachments/files/${id}`).then((r) => r.data),
+  
+  // Utility endpoints
+  getFolderName: (experimentName: string, experimentDate: string) =>
+    api.get<{ folder_name: string }>("/attachments/folder-name", {
+      params: { experiment_name: experimentName, experiment_date: experimentDate },
+    }).then((r) => r.data),
+  getStats: () =>
+    api.get<AttachmentStats>("/attachments/stats").then((r) => r.data),
+  // Search for image by filename (for fixing broken image links)
+  searchImageByFilename: (filename: string) =>
+    api.get<{ search_term: string; matches: Array<{ path: string; filename: string; match_type: string }>; count: number }>("/attachments/search-by-filename", {
+      params: { filename },
+    }).then((r) => r.data),
+};
+
+// ── Notes ──────────────────────────────────────────────────────────────────────
+
+export const notesApi = {
+  list: () => api.get<Note[]>("/notes").then((r) => r.data),
+  get: (id: number) => api.get<Note>(`/notes/${id}`).then((r) => r.data),
+  create: (data: NoteCreate) =>
+    api.post<Note>("/notes", data).then((r) => r.data),
+  update: (id: number, data: NoteUpdate) =>
+    api.put<Note>(`/notes/${id}`, data).then((r) => r.data),
+  delete: (id: number) => api.delete(`/notes/${id}`),
+  // Entry management
+  addEntry: (noteId: number, data: NoteEntryCreate) =>
+    api.post<Note>(`/notes/${noteId}/entries`, data).then((r) => r.data),
+  updateEntry: (noteId: number, entryId: string, data: NoteEntryUpdate) =>
+    api.put<Note>(`/notes/${noteId}/entries/${entryId}`, data).then((r) => r.data),
+  deleteEntry: (noteId: number, entryId: string) =>
+    api.delete<Note>(`/notes/${noteId}/entries/${entryId}`).then((r) => r.data),
+  reorderEntries: (noteId: number, entryIds: string[]) =>
+    api.put<Note>(`/notes/${noteId}/entries/reorder`, { entry_ids: entryIds }).then((r) => r.data),
+};
+
+// ── Sharing ────────────────────────────────────────────────────────────────────
+
+export interface ShareResponse {
+  status: string;
+  item_id: number;
+  item_type?: string;
+  shared_with: string;
+  permission: string;
+  chain_shared_count?: number;
+  tasks_shared_count?: number;
+}
+
+export const sharingApi = {
+  // Task sharing
+  shareTask: (taskId: number, data: ShareRequest) =>
+    api.post<ShareResponse>(`/sharing/tasks/${taskId}`, data).then((r) => r.data),
+  unshareTask: (taskId: number, username: string) =>
+    api.delete<ShareResponse>(`/sharing/tasks/${taskId}/users/${username}`).then((r) => r.data),
+  getTaskDependencyChain: (taskId: number) =>
+    api.get<DependencyChainResponse>(`/sharing/tasks/${taskId}/chain`).then((r) => r.data),
+  
+  // Method sharing
+  shareMethod: (methodId: number, data: ShareRequest) =>
+    api.post<ShareResponse>(`/sharing/methods/${methodId}`, data).then((r) => r.data),
+  unshareMethod: (methodId: number, username: string) =>
+    api.delete<ShareResponse>(`/sharing/methods/${methodId}/users/${username}`).then((r) => r.data),
+  
+  // Project sharing
+  shareProject: (projectId: number, data: ShareRequest) =>
+    api.post<ShareResponse>(`/sharing/projects/${projectId}`, data).then((r) => r.data),
+  unshareProject: (projectId: number, username: string) =>
+    api.delete<ShareResponse>(`/sharing/projects/${projectId}/users/${username}`).then((r) => r.data),
+  
+  // Shared items
+  getSharedWithMe: () =>
+    api.get<SharedItemsResponse>("/sharing/shared-with-me").then((r) => r.data),
+  
+  // Notifications
+  getNotifications: (unreadOnly: boolean = false) =>
+    api.get<NotificationResponse>("/sharing/notifications", { params: { unread_only: unreadOnly } }).then((r) => r.data),
+  markNotificationRead: (notificationId: string) =>
+    api.post<{ status: string; notification_id: string }>(`/sharing/notifications/${notificationId}/dismiss`).then((r) => r.data),
+  markAllNotificationsRead: () =>
+    api.post<{ status: string; dismissed_count: number }>("/sharing/notifications/dismiss-all").then((r) => r.data),
 };

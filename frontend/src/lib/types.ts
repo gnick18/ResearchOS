@@ -1,5 +1,54 @@
 // ── API Types (mirrors backend Pydantic schemas) ────────────────────────────
 
+// ── Shared Access Types ─────────────────────────────────────────────────────
+
+export interface SharedUser {
+  username: string;
+  permission: "view" | "edit";
+}
+
+export interface ShareRequest {
+  username: string;
+  permission: "view" | "edit";
+  include_chain?: boolean;  // For tasks: share entire dependency chain
+}
+
+export interface SharedItemEntry {
+  id: number;
+  owner: string;
+  permission: string;
+  shared_at: string;
+}
+
+export interface SharedItemsResponse {
+  projects: SharedItemEntry[];
+  tasks: SharedItemEntry[];
+  methods: SharedItemEntry[];
+}
+
+export interface Notification {
+  id: string;
+  type: "task_shared" | "method_shared" | "project_shared";
+  from_user: string;
+  item_type: "task" | "method" | "project";
+  item_id: number;
+  item_name: string;
+  permission: string;
+  created_at: string;
+  read: boolean;
+}
+
+export interface NotificationResponse {
+  notifications: Notification[];
+  unread_count: number;
+}
+
+export interface DependencyChainResponse {
+  task_id: number;
+  chain_task_ids: number[];
+  chain_count: number;
+}
+
 export interface Project {
   id: number;
   name: string;
@@ -10,6 +59,8 @@ export interface Project {
   sort_order: number;
   is_archived: boolean;
   archived_at: string | null;
+  owner: string;
+  shared_with: SharedUser[];
 }
 
 export interface ProjectCreate {
@@ -71,6 +122,10 @@ export interface Task {
   pcr_ingredients: string | null;  // JSON string of PCRIngredient[]
   // New: method attachments with individual PCR data
   method_attachments: TaskMethodAttachment[];
+  // Sharing fields
+  owner: string;
+  shared_with: SharedUser[];
+  inherited_from_project?: number | null;
 }
 
 export interface TaskCreate {
@@ -213,6 +268,9 @@ export interface Method {
   attachments: MethodAttachment[];
   is_public: boolean;
   created_by: string | null;
+  // Sharing fields
+  owner: string;
+  shared_with: SharedUser[];
 }
 
 export interface MethodCreate {
@@ -316,6 +374,7 @@ export interface PurchaseItem {
   shipping_fees: number;
   total_price: number;
   notes: string | null;
+  funding_string: string | null;  // New field for funding account
 }
 
 export interface PurchaseItemCreate {
@@ -327,6 +386,7 @@ export interface PurchaseItemCreate {
   price_per_unit?: number;
   shipping_fees?: number;
   notes?: string | null;
+  funding_string?: string | null;  // New field for funding account
 }
 
 export interface PurchaseItemUpdate {
@@ -337,6 +397,7 @@ export interface PurchaseItemUpdate {
   price_per_unit?: number;
   shipping_fees?: number;
   notes?: string | null;
+  funding_string?: string | null;  // New field for funding account
 }
 
 export interface CatalogItem {
@@ -345,6 +406,37 @@ export interface CatalogItem {
   link: string | null;
   cas: string | null;
   price_per_unit: number;
+}
+
+// ── Funding Accounts ──────────────────────────────────────────────────────────
+
+export interface FundingAccount {
+  id: number;
+  name: string;
+  description: string | null;
+  total_budget: number;
+  spent: number;
+  remaining: number;
+}
+
+export interface FundingAccountCreate {
+  name: string;
+  description?: string | null;
+  total_budget?: number;
+}
+
+export interface FundingAccountUpdate {
+  name?: string;
+  description?: string | null;
+  total_budget?: number;
+}
+
+export interface FundingSummary {
+  accounts: FundingAccount[];
+  total_budget: number;
+  total_spent: number;
+  total_remaining: number;
+  uncategorized_spent: number;
 }
 
 // ── GitHub ────────────────────────────────────────────────────────────────────
@@ -451,4 +543,155 @@ export interface LinkPreview {
   description: string | null;
   image: string | null;
   site_name: string | null;
+}
+
+// ── Attachment Metadata ────────────────────────────────────────────────────────
+
+export interface ImageMetadata {
+  id: number;
+  filename: string;
+  original_filename: string | null;
+  path: string;
+  experiment_id: number;
+  experiment_name: string;
+  project_id: number | null;
+  project_name: string | null;
+  uploaded_at: string;
+  file_size: number;
+  file_type: string;
+  folder: string;
+}
+
+export interface FileMetadata {
+  id: number;
+  filename: string;
+  original_filename: string | null;
+  path: string;
+  experiment_id: number;
+  experiment_name: string;
+  project_id: number | null;
+  project_name: string | null;
+  uploaded_at: string;
+  file_size: number;
+  file_type: string;
+  folder: string;
+  attachment_type: "notes" | "results";
+}
+
+export interface AttachmentUploadRequest {
+  experiment_id: number;
+  experiment_name: string;
+  project_id?: number | null;
+  project_name?: string | null;
+  experiment_date: string;  // ISO date string YYYY-MM-DD
+  attachment_type?: "notes" | "results";  // Only for files
+  base64_content: string;
+  original_filename: string;
+}
+
+export interface AttachmentUploadResponse {
+  id: number;
+  filename: string;
+  original_filename: string;
+  path: string;
+  folder: string;
+  file_size: number;
+  file_type: string;
+  warning: string | null;
+  added_to_gitignore: boolean;
+}
+
+export interface AttachmentStats {
+  images: {
+    count: number;
+    total_size: number;
+    total_size_formatted: string;
+  };
+  files: {
+    count: number;
+    total_size: number;
+    total_size_formatted: string;
+  };
+  total: {
+    count: number;
+    total_size: number;
+    total_size_formatted: string;
+  };
+}
+
+// ── Meeting Notes ───────────────────────────────────────────────────────────────
+
+export interface NoteEntry {
+  id: string;
+  title: string;
+  date: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NoteEntryCreate {
+  title: string;
+  date: string;
+  content?: string;
+}
+
+export interface NoteEntryUpdate {
+  title?: string;
+  date?: string;
+  content?: string;
+}
+
+export interface Note {
+  id: number;
+  title: string;
+  description: string;
+  is_running_log: boolean;
+  is_shared: boolean;
+  entries: NoteEntry[];
+  created_at: string;
+  updated_at: string;
+  username: string;
+}
+
+export interface NoteCreate {
+  title: string;
+  description?: string;
+  is_running_log?: boolean;
+  is_shared?: boolean;
+  entries?: NoteEntryCreate[];
+}
+
+export interface NoteUpdate {
+  title?: string;
+  description?: string;
+  is_shared?: boolean;
+}
+
+export interface NoteEntriesReorderRequest {
+  entry_ids: string[];
+}
+
+// ── Lab Mode Notes ─────────────────────────────────────────────────────────────
+
+export interface LabNoteEntry {
+  id: string;
+  title: string;
+  date: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LabNote {
+  id: number;
+  title: string;
+  description: string;
+  is_running_log: boolean;
+  is_shared: boolean;
+  entries: LabNoteEntry[];
+  created_at: string;
+  updated_at: string;
+  username: string;
+  user_color: string;
 }

@@ -232,6 +232,10 @@ async def read_raw_file(path: str):
     """Serve a raw file from the local data repo (for images, PDFs, etc.)."""
     from fastapi.responses import FileResponse as FastAPIFileResponse
 
+    # Handle Images/ and Files/ paths by prepending user directory
+    if path.startswith("Images/") or path.startswith("Files/"):
+        path = f"users/{settings.current_user}/{path}"
+    
     fp = _resolve(path)
     if not fp.exists() or not fp.is_file():
         raise HTTPException(status_code=404, detail="File not found")

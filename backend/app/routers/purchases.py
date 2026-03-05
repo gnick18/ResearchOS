@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.git_sync import commit_and_push
-from app.storage import get_purchase_items_store, get_item_catalog_store
+from app.storage import get_purchase_items_store, get_item_catalog_store, get_funding_accounts_store, list_all_users_purchase_items
 
 router = APIRouter(prefix="/purchases", tags=["purchases"])
 
@@ -23,6 +23,7 @@ class PurchaseItemCreate(BaseModel):
     price_per_unit: float = 0.0
     shipping_fees: float = 0.0
     notes: Optional[str] = None
+    funding_string: Optional[str] = None  # New field for funding account
 
 
 class PurchaseItemUpdate(BaseModel):
@@ -33,6 +34,7 @@ class PurchaseItemUpdate(BaseModel):
     price_per_unit: Optional[float] = None
     shipping_fees: Optional[float] = None
     notes: Optional[str] = None
+    funding_string: Optional[str] = None  # New field for funding account
 
 
 class PurchaseItemOut(BaseModel):
@@ -46,6 +48,7 @@ class PurchaseItemOut(BaseModel):
     shipping_fees: float
     total_price: float
     notes: Optional[str]
+    funding_string: Optional[str] = None  # New field for funding account
 
 
 class CatalogItemOut(BaseModel):
@@ -85,6 +88,7 @@ def _to_out(rec: dict) -> PurchaseItemOut:
         shipping_fees=rec.get("shipping_fees", 0.0),
         total_price=_compute_total(rec),
         notes=rec.get("notes"),
+        funding_string=rec.get("funding_string"),
     )
 
 
@@ -252,4 +256,199 @@ async def create_catalog_item(body: CatalogItemUpdate):
         link=rec.get("link"),
         cas=rec.get("cas"),
         price_per_unit=rec.get("price_per_unit", 0.0),
+    )
+
+
+# ── Funding Accounts Endpoints (Lab-level, shared across all users) ───────────
+
+
+class FundingAccountCreate(BaseModel):
+    name: str  # The funding string identifier (e.g., "GRANT-123-ABC")
+    description: Optional[str] = None
+    total_budget: float = 0.0  # Total amount available in this account
+
+
+class FundingAccountUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    total_budget: Optional[float] = None
+
+
+class FundingAccountOut(BaseModel):
+    id: int
+    name: str
+    description: Optional[str]
+    total_budget: float
+    spent: float = 0.0  # Computed: total of all purchase items with this funding_string
+    remaining: float = 0.0  # Computed: total_budget - spent
+
+
+class FundingSummaryOut(BaseModel):
+    """Summary of spending by funding account."""
+    accounts: List[FundingAccountOut]
+    total_budget: float
+    total_spent: float
+    total_remaining: float
+    uncategorized_spent: float  # Spent on items without a funding string
+
+
+@router.get("/funding-accounts", response_model=List[FundingAccountOut])
+async def list_funding_accounts():
+    """List all funding accounts with computed spending across ALL users."""
+    store = get_funding_accounts_store()
+    # Use the new function that aggregates across all users
+    all_purchase_items = list_all_users_purchase_items()
+    
+    accounts = []
+    for acc in store.list_all():
+        # Calculate spent amount for this funding string across ALL users
+        spent = 0.0
+        for item in all_purchase_items:
+            if item.get("funding_string") == acc.get("name"):
+                qty = item.get("quantity", 0)
+                ppu = item.get("price_per_unit", 0.0)
+                ship = item.get("shipping_fees", 0.0)
+                spent += qty * ppu + ship
+        
+        total_budget = acc.get("total_budget", 0.0)
+        accounts.append(FundingAccountOut(
+            id=acc["id"],
+            name=acc.get("name", ""),
+            description=acc.get("description"),
+            total_budget=total_budget,
+            spent=round(spent, 2),
+            remaining=round(total_budget - spent, 2),
+        ))
+    
+    return accounts
+
+
+@router.post("/funding-accounts", response_model=FundingAccountOut, status_code=201)
+async def create_funding_account(body: FundingAccountCreate):
+    """Create a new funding account."""
+    store = get_funding_accounts_store()
+    
+    # Check for duplicate name
+    for acc in store.list_all():
+        if acc.get("name") == body.name:
+            raise HTTPException(status_code=400, detail="Funding account with this name already exists")
+    
+    data = body.model_dump()
+    rec = store.create(data)
+    await commit_and_push(f"Create funding account: {rec['name']}")
+    
+    return FundingAccountOut(
+        id=rec["id"],
+        name=rec.get("name", ""),
+        description=rec.get("description"),
+        total_budget=rec.get("total_budget", 0.0),
+        spent=0.0,
+        remaining=rec.get("total_budget", 0.0),
+    )
+
+
+@router.put("/funding-accounts/{account_id}", response_model=FundingAccountOut)
+async def update_funding_account(account_id: int, body: FundingAccountUpdate):
+    """Update a funding account."""
+    store = get_funding_accounts_store()
+    # Use the new function that aggregates across all users
+    all_purchase_items = list_all_users_purchase_items()
+    
+    rec = store.get(account_id)
+    if not rec:
+        raise HTTPException(status_code=404, detail="Funding account not found")
+    
+    # Check for duplicate name if name is being changed
+    if body.name and body.name != rec.get("name"):
+        for acc in store.list_all():
+            if acc.get("name") == body.name:
+                raise HTTPException(status_code=400, detail="Funding account with this name already exists")
+    
+    updates = body.model_dump(exclude_unset=True)
+    updated = store.update(account_id, updates)
+    await commit_and_push(f"Update funding account: {updated['name']}")
+    
+    # Calculate spent amount across ALL users
+    spent = 0.0
+    for item in all_purchase_items:
+        if item.get("funding_string") == updated.get("name"):
+            qty = item.get("quantity", 0)
+            ppu = item.get("price_per_unit", 0.0)
+            ship = item.get("shipping_fees", 0.0)
+            spent += qty * ppu + ship
+    
+    total_budget = updated.get("total_budget", 0.0)
+    return FundingAccountOut(
+        id=updated["id"],
+        name=updated.get("name", ""),
+        description=updated.get("description"),
+        total_budget=total_budget,
+        spent=round(spent, 2),
+        remaining=round(total_budget - spent, 2),
+    )
+
+
+@router.delete("/funding-accounts/{account_id}", status_code=204)
+async def delete_funding_account(account_id: int):
+    """Delete a funding account."""
+    store = get_funding_accounts_store()
+    rec = store.get(account_id)
+    if not rec:
+        raise HTTPException(status_code=404, detail="Funding account not found")
+    store.delete(account_id)
+    await commit_and_push(f"Delete funding account: {rec['name']}")
+
+
+@router.get("/funding-summary", response_model=FundingSummaryOut)
+async def get_funding_summary():
+    """Get a summary of all funding accounts and spending across ALL users."""
+    store = get_funding_accounts_store()
+    # Use the new function that aggregates across all users
+    all_purchase_items = list_all_users_purchase_items()
+    
+    accounts = []
+    total_budget = 0.0
+    total_spent = 0.0
+    uncategorized_spent = 0.0
+    
+    # Get all funding account names
+    account_names = set()
+    for acc in store.list_all():
+        account_names.add(acc.get("name", ""))
+        total_budget += acc.get("total_budget", 0.0)
+        
+        # Calculate spent for this account across ALL users
+        spent = 0.0
+        for item in all_purchase_items:
+            if item.get("funding_string") == acc.get("name"):
+                qty = item.get("quantity", 0)
+                ppu = item.get("price_per_unit", 0.0)
+                ship = item.get("shipping_fees", 0.0)
+                spent += qty * ppu + ship
+        
+        total_spent += spent
+        accounts.append(FundingAccountOut(
+            id=acc["id"],
+            name=acc.get("name", ""),
+            description=acc.get("description"),
+            total_budget=acc.get("total_budget", 0.0),
+            spent=round(spent, 2),
+            remaining=round(acc.get("total_budget", 0.0) - spent, 2),
+        ))
+    
+    # Calculate uncategorized spending (items without a funding string or with unknown funding string)
+    for item in all_purchase_items:
+        funding_string = item.get("funding_string")
+        if not funding_string or funding_string not in account_names:
+            qty = item.get("quantity", 0)
+            ppu = item.get("price_per_unit", 0.0)
+            ship = item.get("shipping_fees", 0.0)
+            uncategorized_spent += qty * ppu + ship
+    
+    return FundingSummaryOut(
+        accounts=accounts,
+        total_budget=round(total_budget, 2),
+        total_spent=round(total_spent, 2),
+        total_remaining=round(total_budget - total_spent, 2),
+        uncategorized_spent=round(uncategorized_spent, 2),
     )

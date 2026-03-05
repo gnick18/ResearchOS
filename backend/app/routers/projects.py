@@ -6,9 +6,10 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from app.config import settings
 from app.git_sync import commit_and_push
 from app.schemas import ProjectCreate, ProjectOut, ProjectUpdate
-from app.storage import get_projects_store, get_tasks_store, get_dependencies_store
+from app.storage import get_projects_store, get_tasks_store, get_dependencies_store, list_projects_including_shared
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -54,6 +55,27 @@ async def list_projects():
         rec.setdefault("archived_at", None)
     # Sort by sort_order first, then by created_at descending for items with same order
     records.sort(key=lambda r: (r.get("is_archived", False), r.get("sort_order", 0), -datetime.fromisoformat(r.get("created_at", "1970-01-01")).timestamp() if r.get("created_at") else 0))
+    return [_to_out(r) for r in records]
+
+
+@router.get("/including-shared", response_model=list[ProjectOut])
+async def list_projects_with_shared():
+    """List user's own projects plus projects shared with them."""
+    records = list_projects_including_shared(settings.current_user)
+    # Ensure all records have the new fields with defaults
+    for rec in records:
+        rec.setdefault("sort_order", 0)
+        rec.setdefault("is_archived", False)
+        rec.setdefault("archived_at", None)
+        rec.setdefault("owner", rec.get("_owner", settings.current_user))
+        rec.setdefault("shared_with", [])
+    # Sort: own projects first, then shared projects, then by sort_order
+    records.sort(key=lambda r: (
+        r.get("_is_shared", False),  # Own projects first (False < True)
+        r.get("is_archived", False),
+        r.get("sort_order", 0),
+        -datetime.fromisoformat(r.get("created_at", "1970-01-01")).timestamp() if r.get("created_at") else 0
+    ))
     return [_to_out(r) for r in records]
 
 

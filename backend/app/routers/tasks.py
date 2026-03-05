@@ -25,7 +25,9 @@ from app.storage import (
     get_methods_store,
     get_pcr_store,
     get_method_by_id,
+    list_tasks_including_shared,
 )
+from app.config import settings
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -77,7 +79,7 @@ def _copy_pcr_data_for_method(method_id: int) -> dict:
 
 
 def _task_to_out(task: dict) -> TaskOut:
-    from app.schemas import SubTask as SubTaskSchema, TaskMethodAttachment as TaskMethodAttachmentSchema
+    from app.schemas import SubTask as SubTaskSchema, TaskMethodAttachment as TaskMethodAttachmentSchema, SharedUser
     
     wa = _get_weekend_active(task)
     start = _parse_date(task["start_date"])
@@ -106,6 +108,15 @@ def _task_to_out(task: dict) -> TaskOut:
     # For backwards compatibility, set method_id to the first method
     method_id = method_ids[0] if method_ids else task.get("method_id")
     
+    # Convert shared_with to SharedUser objects if present
+    shared_with = []
+    if task.get("shared_with"):
+        for sw in task["shared_with"]:
+            if isinstance(sw, dict):
+                shared_with.append(SharedUser(**sw))
+            else:
+                shared_with.append(sw)
+    
     return TaskOut(
         id=task["id"],
         project_id=task["project_id"],
@@ -127,6 +138,9 @@ def _task_to_out(task: dict) -> TaskOut:
         pcr_gradient=task.get("pcr_gradient"),
         pcr_ingredients=task.get("pcr_ingredients"),
         method_attachments=method_attachments,
+        owner=task.get("owner", ""),
+        shared_with=shared_with,
+        inherited_from_project=task.get("inherited_from_project"),
     )
 
 
@@ -168,6 +182,19 @@ def _copy_pcr_data_to_task(method_id: int) -> dict:
 async def list_tasks_by_project(project_id: int):
     tasks = get_tasks_store().query(project_id=project_id)
     tasks.sort(key=lambda t: (t.get("sort_order", 0), t.get("start_date", "")))
+    return [_task_to_out(t) for t in tasks]
+
+
+@router.get("/including-shared", response_model=list[TaskOut])
+async def list_tasks_with_shared():
+    """List user's own tasks plus tasks shared with them."""
+    tasks = list_tasks_including_shared(settings.current_user)
+    # Ensure all tasks have required fields
+    for task in tasks:
+        task.setdefault("owner", task.get("_owner", settings.current_user))
+        task.setdefault("shared_with", [])
+    # Sort by start date
+    tasks.sort(key=lambda t: (t.get("start_date", ""), t.get("sort_order", 0)))
     return [_task_to_out(t) for t in tasks]
 
 
@@ -237,6 +264,11 @@ async def create_task(body: TaskCreate):
     data["start_date"] = str(resolve_weekend(_parse_date(data["start_date"]), wa))
     data.setdefault("is_complete", False)
     data.setdefault("deviation_log", None)
+    
+    # Set owner field for sharing
+    from app.config import settings
+    data["owner"] = settings.current_user
+    data["shared_with"] = []
     
     # Initialize method_attachments list
     method_attachments = []
@@ -362,14 +394,68 @@ async def delete_task(task_id: int):
     task = get_tasks_store().get(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+    
+    task_name = task.get("name", f"Task {task_id}")
+    task_type = task.get("task_type", "other")
+    
+    # Delete the task
     get_tasks_store().delete(task_id)
-    # Also delete dependencies referencing this task
+    
+    # Delete dependencies referencing this task
     from app.storage import get_dependencies_store
-
     for dep in get_dependencies_store().list_all():
         if dep.get("parent_id") == task_id or dep.get("child_id") == task_id:
             get_dependencies_store().delete(dep["id"])
-    await commit_and_push(f"Delete task: {task['name']}")
+    
+    # Clean up results directory if it exists
+    from app.config import settings
+    from pathlib import Path
+    import shutil
+    
+    results_dir = Path(settings.github_localpath) / "results" / f"task-{task_id}"
+    if results_dir.exists():
+        shutil.rmtree(str(results_dir))
+        print(f"Deleted results directory: {results_dir}")
+    
+    # Clean up attachment files and metadata for experiments
+    if task_type == "experiment":
+        from app.storage import (
+            get_image_metadata_store, 
+            get_file_metadata_store,
+            _data_root,
+        )
+        
+        img_store = get_image_metadata_store()
+        file_store = get_file_metadata_store()
+        
+        # Get all entries for this experiment to find folders to clean
+        img_entries = img_store.get_by_experiment(task_id)
+        file_entries = file_store.get_by_experiment(task_id)
+        
+        # Get unique folders
+        folders_to_clean = set()
+        for entry in img_entries:
+            folder = entry.get("folder")
+            if folder:
+                folders_to_clean.add(("Images", folder))
+        for entry in file_entries:
+            folder = entry.get("folder")
+            if folder:
+                folders_to_clean.add(("Files", folder))
+        
+        # Delete the actual files
+        data_root = _data_root()
+        for folder_type, folder_name in folders_to_clean:
+            folder_path = data_root / folder_type / folder_name
+            if folder_path.exists():
+                shutil.rmtree(str(folder_path))
+                print(f"Deleted {folder_type} folder: {folder_name}")
+        
+        # Delete metadata entries
+        img_store.delete_by_experiment(task_id)
+        file_store.delete_by_experiment(task_id)
+    
+    await commit_and_push(f"Delete task: {task_name}")
 
 
 @router.get("/by-method/{method_id}", response_model=list[TaskOut])

@@ -11,7 +11,9 @@ import AppShell from "@/components/AppShell";
 import LiveMarkdownEditor from "@/components/LiveMarkdownEditor";
 import { InteractiveGradientEditor } from "@/components/InteractiveGradientEditor";
 import MethodExperimentsSidebar from "@/components/MethodExperimentsSidebar";
-import type { Method, MethodAttachment, PCRProtocol, PCRGradient, PCRStep, PCRIngredient } from "@/lib/types";
+import { useFileRenamePopup } from "@/components/FileRenamePopup";
+import SharePopup from "@/components/SharePopup";
+import type { Method, MethodAttachment, PCRProtocol, PCRGradient, PCRStep, PCRIngredient, SharedUser } from "@/lib/types";
 
 export default function MethodsPage() {
   const queryClient = useQueryClient();
@@ -516,6 +518,7 @@ function CreateMethodModal({
   const [uploading, setUploading] = useState(false);
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
   
   // Track uploaded image paths for cleanup on cancel
   const uploadedImagePathsRef = useRef<string[]>([]);
@@ -566,10 +569,17 @@ function CreateMethodModal({
       setUploadWarning(null);
       for (const file of Array.from(files)) {
         if (!file.type.startsWith("image/")) continue;
+        
+        // Show rename popup and wait for user decision
+        const renamedFile = await requestRename(file);
+        if (!renamedFile) {
+          continue; // User cancelled
+        }
+        
         const reader = new FileReader();
         reader.onload = async () => {
           const base64 = (reader.result as string).split(",")[1];
-          const imageName = `${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
+          const imageName = `${Date.now()}-${renamedFile.name.replace(/\s+/g, "_")}`;
           const imagePath = `methods/${slug}/Images/${imageName}`;
 
           try {
@@ -580,20 +590,20 @@ function CreateMethodModal({
             );
             // Track uploaded image for potential cleanup on cancel
             uploadedImagePathsRef.current.push(imagePath);
-            const imageMarkdown = `\n![${file.name}](./Images/${imageName})\n`;
+            const imageMarkdown = `\n![${renamedFile.name}](./Images/${imageName})\n`;
             setMdContent((prev) => prev + imageMarkdown);
             if (response.warning) {
               setUploadWarning(response.warning);
             }
           } catch {
-            alert(`Failed to upload ${file.name}`);
+            alert(`Failed to upload ${renamedFile.name}`);
           }
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(renamedFile);
       }
       setUploading(false);
     },
-    [slug, name]
+    [slug, name, requestRename]
   );
   
   // Cleanup function to delete uploaded images when canceling
@@ -1094,6 +1104,7 @@ function CreateMethodModal({
           </button>
         </div>
       </div>
+      <FileRenamePopup />
     </div>
   );
 }
@@ -1248,7 +1259,9 @@ function MarkdownMethodViewer({
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
+  const [showSharePopup, setShowSharePopup] = useState(false);
   const editFileInputRef = useRef<HTMLInputElement>(null);
+  const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
 
   const methodDir = currentMethod.github_path?.substring(0, currentMethod.github_path.lastIndexOf("/")) || "";
 
@@ -1259,26 +1272,33 @@ function MarkdownMethodViewer({
       setUploadWarning(null);
       for (const file of Array.from(files)) {
         if (!file.type.startsWith("image/")) continue;
+        
+        // Show rename popup and wait for user decision
+        const renamedFile = await requestRename(file);
+        if (!renamedFile) {
+          continue; // User cancelled
+        }
+        
         const reader = new FileReader();
         reader.onload = async () => {
           const base64 = (reader.result as string).split(",")[1];
-          const imageName = `${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
+          const imageName = `${Date.now()}-${renamedFile.name.replace(/\s+/g, "_")}`;
           const imagePath = `${methodDir}/Images/${imageName}`;
           try {
             const response = await githubApi.uploadImage(imagePath, base64, `Upload image for ${method.name}`);
-            setContent((prev) => prev + `\n![${file.name}](./Images/${imageName})\n`);
+            setContent((prev) => prev + `\n![${renamedFile.name}](./Images/${imageName})\n`);
             if (response.warning) {
               setUploadWarning(response.warning);
             }
           } catch {
-            alert(`Failed to upload ${file.name}`);
+            alert(`Failed to upload ${renamedFile.name}`);
           }
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(renamedFile);
       }
       setUploading(false);
     },
-    [methodDir, method.name]
+    [methodDir, method.name, requestRename]
   );
 
   const handleEditPaste = useCallback(
@@ -1348,117 +1368,141 @@ function MarkdownMethodViewer({
   const canModify = !currentMethod.is_public || currentMethod.created_by === currentUser;
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-        <div>
-          <MethodNameEditor method={currentMethod} onNameUpdated={(newName) => setCurrentMethod({ ...currentMethod, name: newName })} />
-          <p className="text-xs text-gray-400 mt-0.5">{currentMethod.github_path}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {!editing ? (
-            <>
-              {canModify && (
+    <>
+      <div className="flex flex-col h-full">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div>
+            <MethodNameEditor method={currentMethod} onNameUpdated={(newName) => setCurrentMethod({ ...currentMethod, name: newName })} />
+            <p className="text-xs text-gray-400 mt-0.5">{currentMethod.github_path}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {!editing ? (
+              <>
+                {canModify && (
+                  <button
+                    onClick={() => setShowSharePopup(true)}
+                    className={`px-3 py-1.5 text-xs rounded-lg ${
+                      currentMethod.is_public
+                        ? "bg-green-50 text-green-600 hover:bg-green-100"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                    title="Share method"
+                  >
+                    {currentMethod.is_public ? "🌐 Public" : "🔒 Private"}
+                  </button>
+                )}
+                {!currentMethod.is_public && (
+                  <button
+                    onClick={() => setEditing(true)}
+                    className="px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200"
+                  >
+                    Edit
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
                 <button
-                  onClick={handleTogglePublic}
-                  className={`px-3 py-1.5 text-xs rounded-lg ${
-                    currentMethod.is_public
-                      ? "bg-green-50 text-green-600 hover:bg-green-100"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-                  title={currentMethod.is_public ? "Make private" : "Make public"}
+                  onClick={() => setEditing(false)}
+                  className="px-3 py-1.5 text-xs text-gray-600 rounded-lg hover:bg-gray-100"
                 >
-                  {currentMethod.is_public ? "🌐 Public" : "🔒 Private"}
+                  Cancel
                 </button>
-              )}
-              {!currentMethod.is_public && (
                 <button
-                  onClick={() => setEditing(true)}
-                  className="px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200"
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
                 >
-                  Edit
+                  {saving ? "Saving..." : "Save"}
                 </button>
-              )}
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() => setEditing(false)}
-                className="px-3 py-1.5 text-xs text-gray-600 rounded-lg hover:bg-gray-100"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
-              >
-                {saving ? "Saving..." : "Save"}
-              </button>
-            </>
-          )}
-          {canModify && (
-            <button
-              onClick={() => onDelete(currentMethod.id)}
-              className="px-3 py-1.5 text-xs text-red-500 rounded-lg hover:bg-red-50"
-            >
-              Delete
-            </button>
-          )}
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-lg ml-2"
-          >
-            ✕
-          </button>
-        </div>
-      </div>
-      <div className="flex-1 overflow-y-auto">
-        {loading ? (
-          <p className="p-6 text-sm text-gray-400 animate-pulse">
-            Loading...
-          </p>
-        ) : editing ? (
-          <div className="p-6">
-            <LiveMarkdownEditor
-              value={content}
-              onChange={setContent}
-              placeholder="Edit method content..."
-              onImageDrop={handleEditImageUpload}
-              imageBasePath={methodDir}
-              showToolbar={true}
-            />
-            {uploadWarning && (
-              <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
-                <span className="text-amber-500">⚠️</span>
-                <div className="flex-1">
-                  <p className="text-sm text-amber-800">{uploadWarning}</p>
-                </div>
-                <button
-                  onClick={() => setUploadWarning(null)}
-                  className="text-amber-400 hover:text-amber-600"
-                >
-                  ✕
-                </button>
-              </div>
+              </>
             )}
-          </div>
-        ) : (
-          <div className="p-6 prose prose-sm prose-gray max-w-none">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              rehypePlugins={[rehypeRaw]}
-              components={{
-                img: createImageComponent(
-                  currentMethod.github_path?.substring(0, currentMethod.github_path.lastIndexOf("/")) || ""
-                ),
-              }}
+            {canModify && (
+              <button
+                onClick={() => onDelete(currentMethod.id)}
+                className="px-3 py-1.5 text-xs text-red-500 rounded-lg hover:bg-red-50"
+              >
+                Delete
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 text-lg ml-2"
             >
-              {content}
-            </ReactMarkdown>
+              ✕
+            </button>
           </div>
-        )}
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <p className="p-6 text-sm text-gray-400 animate-pulse">
+              Loading...
+            </p>
+          ) : editing ? (
+            <div className="p-6">
+              <LiveMarkdownEditor
+                value={content}
+                onChange={setContent}
+                placeholder="Edit method content..."
+                onImageDrop={handleEditImageUpload}
+                imageBasePath={methodDir}
+                showToolbar={true}
+              />
+              {uploadWarning && (
+                <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+                  <span className="text-amber-500">⚠️</span>
+                  <div className="flex-1">
+                    <p className="text-sm text-amber-800">{uploadWarning}</p>
+                  </div>
+                  <button
+                    onClick={() => setUploadWarning(null)}
+                    className="text-amber-400 hover:text-amber-600"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="p-6 prose prose-sm prose-gray max-w-none">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeRaw]}
+                components={{
+                  img: createImageComponent(
+                    currentMethod.github_path?.substring(0, currentMethod.github_path.lastIndexOf("/")) || ""
+                  ),
+                }}
+              >
+                {content}
+              </ReactMarkdown>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+      <FileRenamePopup />
+      
+      {/* Share Popup */}
+      {showSharePopup && (
+        <SharePopup
+          isOpen={showSharePopup}
+          onClose={() => setShowSharePopup(false)}
+          itemType="method"
+          itemId={currentMethod.id}
+          itemName={currentMethod.name}
+          currentOwner={currentMethod.owner || currentMethod.created_by || currentUser}
+          currentSharedWith={currentMethod.shared_with || []}
+          isPublic={currentMethod.is_public}
+          onShared={() => {
+            queryClient.refetchQueries({ queryKey: ["methods"] });
+            // Update local state
+            methodsApi.get(currentMethod.id).then((updatedMethod) => {
+              setCurrentMethod(updatedMethod);
+            });
+          }}
+        />
+      )}
+    </>
   );
 }
 
@@ -1479,17 +1523,7 @@ function PdfViewer({
   const [currentMethod, setCurrentMethod] = useState(method);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const handleTogglePublic = useCallback(async () => {
-    try {
-      const newIsPublic = !currentMethod.is_public;
-      await methodsApi.update(currentMethod.id, { is_public: newIsPublic });
-      setCurrentMethod({ ...currentMethod, is_public: newIsPublic });
-      await queryClient.refetchQueries({ queryKey: ["methods"] });
-    } catch {
-      alert("Failed to update method visibility");
-    }
-  }, [currentMethod, queryClient]);
+  const [showSharePopup, setShowSharePopup] = useState(false);
 
   // Check if current user can modify this method (owner of private method, or creator of public method)
   const canModify = !currentMethod.is_public || currentMethod.created_by === currentUser;
@@ -1528,64 +1562,87 @@ function PdfViewer({
   }, [method.github_path]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-        <div>
-          <MethodNameEditor method={currentMethod} onNameUpdated={(newName) => setCurrentMethod({ ...currentMethod, name: newName })} />
-          <p className="text-xs text-gray-400 mt-0.5">
-            PDF — {currentMethod.github_path}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {canModify && (
-            <button
-              onClick={handleTogglePublic}
-              className={`px-3 py-1.5 text-xs rounded-lg ${
-                currentMethod.is_public
-                  ? "bg-green-50 text-green-600 hover:bg-green-100"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-              title={currentMethod.is_public ? "Make private" : "Make public"}
-            >
-              {currentMethod.is_public ? "🌐 Public" : "🔒 Private"}
-            </button>
-          )}
-          {canModify && (
-            <button
-              onClick={() => onDelete(currentMethod.id)}
-              className="px-3 py-1.5 text-xs text-red-500 rounded-lg hover:bg-red-50"
-            >
-              Delete
-            </button>
-          )}
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-lg ml-2"
-          >
-            ✕
-          </button>
-        </div>
-      </div>
-      <div className="flex-1 overflow-hidden">
-        {loading ? (
-          <p className="p-6 text-sm text-gray-400 animate-pulse">
-            Loading PDF...
-          </p>
-        ) : pdfUrl ? (
-          <iframe
-            src={pdfUrl}
-            className="w-full h-full min-h-[600px]"
-            title={method.name}
-          />
-        ) : (
-          <div className="p-6 text-center">
-            <p className="text-sm text-gray-500">
-              Unable to display PDF. The file may not exist yet.
+    <>
+      <div className="flex flex-col h-full">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div>
+            <MethodNameEditor method={currentMethod} onNameUpdated={(newName) => setCurrentMethod({ ...currentMethod, name: newName })} />
+            <p className="text-xs text-gray-400 mt-0.5">
+              PDF — {currentMethod.github_path}
             </p>
           </div>
-        )}
+          <div className="flex items-center gap-2">
+            {canModify && (
+              <button
+                onClick={() => setShowSharePopup(true)}
+                className={`px-3 py-1.5 text-xs rounded-lg ${
+                  currentMethod.is_public
+                    ? "bg-green-50 text-green-600 hover:bg-green-100"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+                title="Share method"
+              >
+                {currentMethod.is_public ? "🌐 Public" : "🔒 Private"}
+              </button>
+            )}
+            {canModify && (
+              <button
+                onClick={() => onDelete(currentMethod.id)}
+                className="px-3 py-1.5 text-xs text-red-500 rounded-lg hover:bg-red-50"
+              >
+                Delete
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 text-lg ml-2"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-hidden">
+          {loading ? (
+            <p className="p-6 text-sm text-gray-400 animate-pulse">
+              Loading PDF...
+            </p>
+          ) : pdfUrl ? (
+            <iframe
+              src={pdfUrl}
+              className="w-full h-full min-h-[600px]"
+              title={method.name}
+            />
+          ) : (
+            <div className="p-6 text-center">
+              <p className="text-sm text-gray-500">
+                Unable to display PDF. The file may not exist yet.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+      
+      {/* Share Popup */}
+      {showSharePopup && (
+        <SharePopup
+          isOpen={showSharePopup}
+          onClose={() => setShowSharePopup(false)}
+          itemType="method"
+          itemId={currentMethod.id}
+          itemName={currentMethod.name}
+          currentOwner={currentMethod.owner || currentMethod.created_by || currentUser}
+          currentSharedWith={currentMethod.shared_with || []}
+          isPublic={currentMethod.is_public}
+          onShared={() => {
+            queryClient.refetchQueries({ queryKey: ["methods"] });
+            // Update local state
+            methodsApi.get(currentMethod.id).then((updatedMethod) => {
+              setCurrentMethod(updatedMethod);
+            });
+          }}
+        />
+      )}
+    </>
   );
 }
 
@@ -1611,6 +1668,7 @@ function PcrViewer({
   const [ingredients, setIngredients] = useState<PCRIngredient[]>([]);
   const [notes, setNotes] = useState("");
   const [editingRecipe, setEditingRecipe] = useState(false);
+  const [showSharePopup, setShowSharePopup] = useState(false);
 
   // Extract PCR protocol ID from the github_path (format: pcr://protocol/{id})
   const pcrId = method.github_path?.startsWith("pcr://protocol/")
@@ -1675,244 +1733,256 @@ function PcrViewer({
     }
   }, [pcrId, protocol, method.name, gradient, ingredients, notes, queryClient]);
 
-  const handleTogglePublic = useCallback(async () => {
-    try {
-      const newIsPublic = !currentMethod.is_public;
-      await methodsApi.update(currentMethod.id, { is_public: newIsPublic });
-      setCurrentMethod({ ...currentMethod, is_public: newIsPublic });
-      await queryClient.refetchQueries({ queryKey: ["methods"] });
-    } catch {
-      alert("Failed to update method visibility");
-    }
-  }, [currentMethod, queryClient]);
-
   // Check if current user can modify this method (owner of private method, or creator of public method)
   const canModify = !currentMethod.is_public || currentMethod.created_by === currentUser;
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-        <div>
-          <MethodNameEditor method={currentMethod} onNameUpdated={(newName) => setCurrentMethod({ ...currentMethod, name: newName })} />
-          <p className="text-xs text-gray-400 mt-0.5">
-            PCR Protocol
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {canModify && (
-            <button
-              onClick={handleTogglePublic}
-              className={`px-3 py-1.5 text-xs rounded-lg ${
-                currentMethod.is_public
-                  ? "bg-green-50 text-green-600 hover:bg-green-100"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-              title={currentMethod.is_public ? "Make private" : "Make public"}
-            >
-              {currentMethod.is_public ? "🌐 Public" : "🔒 Private"}
-            </button>
-          )}
-          {canModify && (
-            <button
-              onClick={() => onDelete(currentMethod.id)}
-              className="px-3 py-1.5 text-xs text-red-500 rounded-lg hover:bg-red-50"
-            >
-              Delete
-            </button>
-          )}
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-lg ml-2"
-          >
-            ✕
-          </button>
-        </div>
-      </div>
-      <div className="flex-1 overflow-y-auto p-6">
-        {loading ? (
-          <p className="text-sm text-gray-400 animate-pulse">
-            Loading PCR protocol...
-          </p>
-        ) : !protocol ? (
-          <div className="text-center py-8">
-            <p className="text-sm text-gray-500">
-              PCR protocol not found. It may have been deleted.
+    <>
+      <div className="flex flex-col h-full">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div>
+            <MethodNameEditor method={currentMethod} onNameUpdated={(newName) => setCurrentMethod({ ...currentMethod, name: newName })} />
+            <p className="text-xs text-gray-400 mt-0.5">
+              PCR Protocol
             </p>
           </div>
-        ) : gradient ? (
-          <div className="space-y-6">
-            {/* Interactive Gradient Editor - Always visible with Edit Cycle button */}
-            <div>
-              <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                Thermal Gradient
-              </h4>
-              <InteractiveGradientEditor
-                gradient={gradient}
-                onChange={handleGradientChange}
-              />
-            </div>
-            
-            {/* Reaction Recipe */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-semibold text-gray-700">
-                  Reaction Recipe
-                </h4>
-                {editingRecipe ? (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setEditingRecipe(false)}
-                      className="px-3 py-1.5 text-xs text-gray-600 rounded-lg hover:bg-gray-100"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleSaveRecipe}
-                      disabled={saving}
-                      className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
-                    >
-                      {saving ? "Saving..." : "Save Recipe"}
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setEditingRecipe(true)}
-                    className="px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200"
-                  >
-                    Edit Recipe
-                  </button>
-                )}
-              </div>
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead className="bg-gray-100">
-                    <tr>
-                      <th className="px-4 py-2 text-left font-medium text-gray-600">Ingredient</th>
-                      <th className="px-4 py-2 text-left font-medium text-gray-600">Concentration</th>
-                      <th className="px-4 py-2 text-left font-medium text-gray-600">Amount/Rx</th>
-                      {editingRecipe && <th className="px-2 py-2 w-8"></th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ingredients.map((ing, i) => (
-                      <tr key={ing.id} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                        <td className="px-4 py-2">
-                          {ing.name === "Total" ? (
-                            <span className="font-medium text-gray-700">{ing.name}</span>
-                          ) : editingRecipe ? (
-                            <input
-                              type="text"
-                              value={ing.name}
-                              onChange={(e) => {
-                                const newIngredients = [...ingredients];
-                                newIngredients[i] = { ...ing, name: e.target.value };
-                                setIngredients(newIngredients);
-                              }}
-                              className="w-full px-2 py-1 border border-gray-200 rounded text-gray-700"
-                            />
-                          ) : (
-                            <span className="text-gray-700 font-medium">{ing.name}</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-2">
-                          {ing.name === "Total" ? (
-                            <span className="text-gray-500">-</span>
-                          ) : editingRecipe ? (
-                            <input
-                              type="text"
-                              value={ing.concentration}
-                              onChange={(e) => {
-                                const newIngredients = [...ingredients];
-                                newIngredients[i] = { ...ing, concentration: e.target.value };
-                                setIngredients(newIngredients);
-                              }}
-                              className="w-full px-2 py-1 border border-gray-200 rounded text-gray-500"
-                              placeholder="e.g. 10x"
-                            />
-                          ) : (
-                            <span className="text-gray-500">{ing.concentration || "-"}</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-2">
-                          {editingRecipe ? (
-                            <input
-                              type="text"
-                              value={ing.amount_per_reaction}
-                              onChange={(e) => {
-                                const newIngredients = [...ingredients];
-                                newIngredients[i] = { ...ing, amount_per_reaction: e.target.value };
-                                setIngredients(newIngredients);
-                              }}
-                              className="w-full px-2 py-1 border border-gray-200 rounded text-gray-500"
-                              placeholder="e.g. 2.5"
-                            />
-                          ) : (
-                            <span className="text-gray-500">{ing.amount_per_reaction || "-"}</span>
-                          )}
-                        </td>
-                        {editingRecipe && ing.name !== "Total" && (
-                          <td className="px-2 py-2">
-                            <button
-                              onClick={() => {
-                                setIngredients(ingredients.filter((item) => item.id !== ing.id));
-                              }}
-                              className="text-gray-400 hover:text-red-500 text-sm"
-                              title="Remove ingredient"
-                            >
-                              ✕
-                            </button>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {editingRecipe && (
-                  <button
-                    onClick={() => {
-                      const newId = String(Date.now());
-                      // Insert before Total row if it exists
-                      const totalIndex = ingredients.findIndex((ing) => ing.name === "Total");
-                      if (totalIndex >= 0) {
-                        const newIngredients = [
-                          ...ingredients.slice(0, totalIndex),
-                          { id: newId, name: "", concentration: "", amount_per_reaction: "" },
-                          ...ingredients.slice(totalIndex),
-                        ];
-                        setIngredients(newIngredients);
-                      } else {
-                        setIngredients([
-                          ...ingredients,
-                          { id: newId, name: "", concentration: "", amount_per_reaction: "" },
-                        ]);
-                      }
-                    }}
-                    className="w-full py-2 text-xs text-blue-600 hover:bg-blue-50 border-t border-gray-200"
-                  >
-                    + Add Ingredient
-                  </button>
-                )}
-              </div>
-            </div>
-            
-            {/* Notes */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-semibold text-gray-700">
-                  Notes
-                </h4>
-              </div>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Any additional notes..."
-              />
-            </div>
+          <div className="flex items-center gap-2">
+            {canModify && (
+              <button
+                onClick={() => setShowSharePopup(true)}
+                className={`px-3 py-1.5 text-xs rounded-lg ${
+                  currentMethod.is_public
+                    ? "bg-green-50 text-green-600 hover:bg-green-100"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+                title="Share method"
+              >
+                {currentMethod.is_public ? "🌐 Public" : "🔒 Private"}
+              </button>
+            )}
+            {canModify && (
+              <button
+                onClick={() => onDelete(currentMethod.id)}
+                className="px-3 py-1.5 text-xs text-red-500 rounded-lg hover:bg-red-50"
+              >
+                Delete
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 text-lg ml-2"
+            >
+              ✕
+            </button>
           </div>
-        ) : null}
+        </div>
+        <div className="flex-1 overflow-y-auto p-6">
+          {loading ? (
+            <p className="text-sm text-gray-400 animate-pulse">
+              Loading PCR protocol...
+            </p>
+          ) : !protocol ? (
+            <div className="text-center py-8">
+              <p className="text-sm text-gray-500">
+                PCR protocol not found. It may have been deleted.
+              </p>
+            </div>
+          ) : gradient ? (
+            <div className="space-y-6">
+              {/* Interactive Gradient Editor - Always visible with Edit Cycle button */}
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                  Thermal Gradient
+                </h4>
+                <InteractiveGradientEditor
+                  gradient={gradient}
+                  onChange={handleGradientChange}
+                />
+              </div>
+              
+              {/* Reaction Recipe */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-gray-700">
+                    Reaction Recipe
+                  </h4>
+                  {editingRecipe ? (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setEditingRecipe(false)}
+                        className="px-3 py-1.5 text-xs text-gray-600 rounded-lg hover:bg-gray-100"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSaveRecipe}
+                        disabled={saving}
+                        className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+                      >
+                        {saving ? "Saving..." : "Save Recipe"}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setEditingRecipe(true)}
+                      className="px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200"
+                    >
+                      Edit Recipe
+                    </button>
+                  )}
+                </div>
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="px-4 py-2 text-left font-medium text-gray-600">Ingredient</th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-600">Concentration</th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-600">Amount/Rx</th>
+                        {editingRecipe && <th className="px-2 py-2 w-8"></th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ingredients.map((ing, i) => (
+                        <tr key={ing.id} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                          <td className="px-4 py-2">
+                            {ing.name === "Total" ? (
+                              <span className="font-medium text-gray-700">{ing.name}</span>
+                            ) : editingRecipe ? (
+                              <input
+                                type="text"
+                                value={ing.name}
+                                onChange={(e) => {
+                                  const newIngredients = [...ingredients];
+                                  newIngredients[i] = { ...ing, name: e.target.value };
+                                  setIngredients(newIngredients);
+                                }}
+                                className="w-full px-2 py-1 border border-gray-200 rounded text-gray-700"
+                              />
+                            ) : (
+                              <span className="text-gray-700 font-medium">{ing.name}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2">
+                            {ing.name === "Total" ? (
+                              <span className="text-gray-500">-</span>
+                            ) : editingRecipe ? (
+                              <input
+                                type="text"
+                                value={ing.concentration}
+                                onChange={(e) => {
+                                  const newIngredients = [...ingredients];
+                                  newIngredients[i] = { ...ing, concentration: e.target.value };
+                                  setIngredients(newIngredients);
+                                }}
+                                className="w-full px-2 py-1 border border-gray-200 rounded text-gray-500"
+                                placeholder="e.g. 10x"
+                              />
+                            ) : (
+                              <span className="text-gray-500">{ing.concentration || "-"}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2">
+                            {editingRecipe ? (
+                              <input
+                                type="text"
+                                value={ing.amount_per_reaction}
+                                onChange={(e) => {
+                                  const newIngredients = [...ingredients];
+                                  newIngredients[i] = { ...ing, amount_per_reaction: e.target.value };
+                                  setIngredients(newIngredients);
+                                }}
+                                className="w-full px-2 py-1 border border-gray-200 rounded text-gray-500"
+                                placeholder="e.g. 2.5"
+                              />
+                            ) : (
+                              <span className="text-gray-500">{ing.amount_per_reaction || "-"}</span>
+                            )}
+                          </td>
+                          {editingRecipe && ing.name !== "Total" && (
+                            <td className="px-2 py-2">
+                              <button
+                                onClick={() => {
+                                  setIngredients(ingredients.filter((item) => item.id !== ing.id));
+                                }}
+                                className="text-gray-400 hover:text-red-500 text-sm"
+                                title="Remove ingredient"
+                              >
+                                ✕
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {editingRecipe && (
+                    <button
+                      onClick={() => {
+                        const newId = String(Date.now());
+                        // Insert before Total row if it exists
+                        const totalIndex = ingredients.findIndex((ing) => ing.name === "Total");
+                        if (totalIndex >= 0) {
+                          const newIngredients = [
+                            ...ingredients.slice(0, totalIndex),
+                            { id: newId, name: "", concentration: "", amount_per_reaction: "" },
+                            ...ingredients.slice(totalIndex),
+                          ];
+                          setIngredients(newIngredients);
+                        } else {
+                          setIngredients([
+                            ...ingredients,
+                            { id: newId, name: "", concentration: "", amount_per_reaction: "" },
+                          ]);
+                        }
+                      }}
+                      className="w-full py-2 text-xs text-blue-600 hover:bg-blue-50 border-t border-gray-200"
+                    >
+                      + Add Ingredient
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              {/* Notes */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-gray-700">
+                    Notes
+                  </h4>
+                </div>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Any additional notes..."
+                />
+              </div>
+            </div>
+          ) : null}
+        </div>
       </div>
-    </div>
+      
+      {/* Share Popup */}
+      {showSharePopup && (
+        <SharePopup
+          isOpen={showSharePopup}
+          onClose={() => setShowSharePopup(false)}
+          itemType="method"
+          itemId={currentMethod.id}
+          itemName={currentMethod.name}
+          currentOwner={currentMethod.owner || currentMethod.created_by || currentUser}
+          currentSharedWith={currentMethod.shared_with || []}
+          isPublic={currentMethod.is_public}
+          onShared={() => {
+            queryClient.refetchQueries({ queryKey: ["methods"] });
+            // Update local state
+            methodsApi.get(currentMethod.id).then((updatedMethod) => {
+              setCurrentMethod(updatedMethod);
+            });
+          }}
+        />
+      )}
+    </>
   );
 }

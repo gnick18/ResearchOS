@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { goalsApi, projectsApi, dependenciesApi, fetchAllTasks } from "@/lib/api";
+import { goalsApi, projectsApi, dependenciesApi, fetchAllTasksIncludingShared } from "@/lib/api";
 import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
 import GanttChart from "@/components/GanttChart";
@@ -18,6 +18,7 @@ export default function Home() {
   const queryClient = useQueryClient();
   const selectedProjectIds = useAppStore((s) => s.selectedProjectIds);
   const selectedTags = useAppStore((s) => s.selectedTags);
+  const showShared = useAppStore((s) => s.showShared);
   const editingTaskId = useAppStore((s) => s.editingTaskId);
   const setEditingTaskId = useAppStore((s) => s.setEditingTaskId);
   const setIsCreatingTask = useAppStore((s) => s.setIsCreatingTask);
@@ -31,7 +32,7 @@ export default function Home() {
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects"],
-    queryFn: projectsApi.list,
+    queryFn: projectsApi.listWithShared,
   });
 
   // Load high-level goals
@@ -48,17 +49,24 @@ export default function Home() {
 
   const { data: allTasks = [] } = useQuery({
     queryKey: ["tasks"],
-    queryFn: fetchAllTasks,
+    queryFn: fetchAllTasksIncludingShared,
   });
 
   // Filter tasks to only include those from active (non-archived) projects
-  const activeTasks = useMemo(() => 
-    allTasks.filter((t) => {
+  // and apply the showShared filter
+  const activeTasks = useMemo(() => {
+    let tasks = allTasks.filter((t) => {
       const project = projects.find((p) => p.id === t.project_id);
       return project && !project.is_archived;
-    }),
-    [allTasks, projects]
-  );
+    });
+    
+    // If showShared is false, filter out shared tasks (tasks not owned by current user)
+    if (!showShared) {
+      tasks = tasks.filter((t) => !t.owner || t.owner === "" || !t.shared_with || t.shared_with.length === 0);
+    }
+    
+    return tasks;
+  }, [allTasks, projects, showShared]);
 
   const { data: dependencies = [] } = useQuery({
     queryKey: ["dependencies"],

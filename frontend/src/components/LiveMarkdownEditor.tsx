@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import rehypeHighlight from "rehype-highlight";
+import { attachmentsApi } from "@/lib/api";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
@@ -276,6 +277,20 @@ const KEYBOARD_SHORTCUTS: ShortcutConfig[] = [
   },
 ];
 
+// Interface for broken image info
+interface BrokenImageInfo {
+  originalSrc: string;
+  alt: string;
+  element: HTMLImageElement | null;
+}
+
+// Interface for image search result
+interface ImageSearchResult {
+  path: string;
+  filename: string;
+  match_type: string;
+}
+
 interface LiveMarkdownEditorProps {
   value: string;
   onChange: (value: string) => void;
@@ -289,6 +304,8 @@ interface LiveMarkdownEditorProps {
   showToolbar?: boolean;
   /** Callback when Add Image button is clicked (if not provided, uses internal file input) */
   onAddImage?: () => void;
+  /** Callback when Browse Images button is clicked (opens image gallery popup) */
+  onBrowseImages?: () => void;
   /** Whether the editor is in read-only mode */
   disabled?: boolean;
   /** Whether to show the keyboard shortcuts helper panel */
@@ -446,11 +463,12 @@ export default function LiveMarkdownEditor({
   imageBasePath,
   showToolbar = true,
   onAddImage,
+  onBrowseImages,
   disabled = false,
   showShortcutsHelper = true,
   allowAnyFileType = false,
 }: LiveMarkdownEditorProps) {
-  const [previewMode, setPreviewMode] = useState(false);
+  const [previewMode, setPreviewMode] = useState(true);
   const [showResizeDropdown, setShowResizeDropdown] = useState(false);
   const [helperCollapsed, setHelperCollapsed] = useState(false);
   const [hasValidImageSelection, setHasValidImageSelection] = useState(false);
@@ -460,11 +478,19 @@ export default function LiveMarkdownEditor({
   const [codeBlockInsertPosition, setCodeBlockInsertPosition] = useState<number | null>(null);
   const [languageSearch, setLanguageSearch] = useState("");
   const [helperTab, setHelperTab] = useState<HelperTab>("shortcuts");
+  // Broken image detection state - queue-based approach
+  const [brokenImageQueue, setBrokenImageQueue] = useState<BrokenImageInfo[]>([]);
+  const [currentBrokenImage, setCurrentBrokenImage] = useState<BrokenImageInfo | null>(null);
+  const [showBrokenImagePopup, setShowBrokenImagePopup] = useState(false);
+  const [imageSearchResults, setImageSearchResults] = useState<ImageSearchResult[]>([]);
+  const [isSearchingImage, setIsSearchingImage] = useState(false);
+  const processedBrokenSrcsRef = useRef<Set<string>>(new Set());
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resizeDropdownRef = useRef<HTMLDivElement>(null);
   const languageSelectorRef = useRef<HTMLDivElement>(null);
   const disabledPopupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const brokenImagePopupRef = useRef<HTMLDivElement>(null);
 
   /**
    * Check if the current textarea selection is a valid image reference.
@@ -879,6 +905,308 @@ export default function LiveMarkdownEditor({
     [onChange]
   );
 
+  /**
+   * Handle broken image detection - when an image fails to load
+   * Adds to a queue and processes one at a time
+   */
+  const handleImageError = useCallback(
+    (event: React.SyntheticEvent<HTMLImageElement>, originalSrc: string, alt: string) => {
+      // Check if we've already processed this src
+      if (processedBrokenSrcsRef.current.has(originalSrc)) {
+        return;
+      }
+      
+      // Mark this src as processed
+      processedBrokenSrcsRef.current.add(originalSrc);
+      
+      // Add to the queue
+      setBrokenImageQueue(prev => {
+        // Check if already in queue
+        if (prev.some(img => img.originalSrc === originalSrc)) {
+          return prev;
+        }
+        return [...prev, { originalSrc, alt, element: null }];
+      });
+    },
+    []
+  );
+
+  /**
+   * Process the next broken image in the queue
+   */
+  useEffect(() => {
+    // If we're currently showing a popup or searching, don't process
+    if (showBrokenImagePopup || isSearchingImage) {
+      return;
+    }
+    
+    // If there are items in the queue and no current image being processed
+    if (brokenImageQueue.length > 0 && !currentBrokenImage) {
+      const nextImage = brokenImageQueue[0];
+      
+      // Extract filename from the src
+      let filename = "";
+      
+      if (nextImage.originalSrc.includes("/")) {
+        filename = nextImage.originalSrc.split("/").pop() || "";
+      } else {
+        filename = nextImage.originalSrc;
+      }
+      
+      // Remove any query parameters
+      filename = filename.split("?")[0];
+      
+      // Remove timestamp prefixes
+      const timestampMatch = filename.match(/^\d+-(.+)$/);
+      if (timestampMatch) {
+        filename = timestampMatch[1];
+      }
+      
+      if (!filename || !filename.includes(".")) {
+        // Not a valid filename, skip and remove from queue
+        setBrokenImageQueue(prev => prev.slice(1));
+        return;
+      }
+      
+      // Set current image and start search
+      setCurrentBrokenImage(nextImage);
+      setIsSearchingImage(true);
+      setShowBrokenImagePopup(true);
+      setImageSearchResults([]);
+      
+      // Remove from queue
+      setBrokenImageQueue(prev => prev.slice(1));
+      
+      // Search for the image
+      attachmentsApi.searchImageByFilename(filename)
+        .then(result => {
+          setImageSearchResults(result.matches);
+        })
+        .catch(error => {
+          console.error("Error searching for image:", error);
+          setImageSearchResults([]);
+        })
+        .finally(() => {
+          setIsSearchingImage(false);
+        });
+    }
+  }, [brokenImageQueue, currentBrokenImage, showBrokenImagePopup, isSearchingImage]);
+
+  /**
+   * Clear processed srcs when value changes (new document)
+   * Note: We don't clear on every value change because that would reset
+   * the queue while the user is fixing images. Instead, we clear when
+   * the component unmounts or when explicitly needed.
+   */
+  
+  /**
+   * Extract image sources from markdown content
+   * Returns array of { src, alt } objects
+   */
+  const extractImageSources = useCallback((content: string): { src: string; alt: string }[] => {
+    const images: { src: string; alt: string }[] = [];
+    const seenSrcs = new Set<string>();
+    
+    // Find markdown images: ![alt](src)
+    const mdImageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+    let match;
+    while ((match = mdImageRegex.exec(content)) !== null) {
+      if (!seenSrcs.has(match[2])) {
+        seenSrcs.add(match[2]);
+        images.push({ alt: match[1], src: match[2] });
+      }
+    }
+    
+    // Find HTML img tags: <img src="..." alt="..." /> or <img alt="..." src="..." />
+    const htmlImgRegex = /<img[^>]*>/gi;
+    while ((match = htmlImgRegex.exec(content)) !== null) {
+      const imgTag = match[0];
+      const srcMatch = imgTag.match(/src=["']([^"']+)["']/i);
+      const altMatch = imgTag.match(/alt=["']([^"']*)["']/i);
+      
+      if (srcMatch && !seenSrcs.has(srcMatch[1])) {
+        seenSrcs.add(srcMatch[1]);
+        images.push({ src: srcMatch[1], alt: altMatch ? altMatch[1] : "" });
+      }
+    }
+    
+    return images;
+  }, []);
+
+  /**
+   * Check if an image exists by trying to load it
+   * Returns a promise that resolves to true if the image loads, false otherwise
+   */
+  const checkImageExists = useCallback((src: string): Promise<boolean> => {
+    return new Promise((resolve) => {
+      // Resolve the path similar to how it's done in preview mode
+      let resolvedSrc = src;
+      
+      if (src.startsWith("../../Images/")) {
+        const imagePath = src.slice(3);
+        resolvedSrc = `${API_BASE}/github/raw?path=${encodeURIComponent(imagePath)}`;
+      } else if (imageBasePath && src.startsWith("./")) {
+        const relativePath = src.slice(2);
+        resolvedSrc = `${API_BASE}/github/raw?path=${encodeURIComponent(imageBasePath + "/" + relativePath)}`;
+      } else if (src.startsWith("Images/")) {
+        resolvedSrc = `${API_BASE}/github/raw?path=${encodeURIComponent(src)}`;
+      } else {
+        // For other paths, assume they're valid (external URLs, data URIs, etc.)
+        resolve(true);
+        return;
+      }
+      
+      const img = new Image();
+      img.onload = () => resolve(true);
+      img.onerror = () => resolve(false);
+      img.src = resolvedSrc;
+      
+      // Timeout after 5 seconds
+      setTimeout(() => resolve(true), 5000);
+    });
+  }, [imageBasePath]);
+
+  /**
+   * Scan for broken images in edit mode
+   * Uses a ref to track the current scan to avoid race conditions
+   */
+  useEffect(() => {
+    // Only scan in edit mode and when there's content
+    if (previewMode || !value.trim() || disabled) {
+      return;
+    }
+    
+    // Extract all image sources from the markdown content
+    const images = extractImageSources(value);
+    
+    if (images.length === 0) {
+      return;
+    }
+    
+    // Check each image for existence
+    const checkImages = async () => {
+      for (const { src, alt } of images) {
+        // Skip if already processed
+        if (processedBrokenSrcsRef.current.has(src)) {
+          continue;
+        }
+        
+        const exists = await checkImageExists(src);
+        
+        if (!exists) {
+          // Mark as processed and add to queue
+          processedBrokenSrcsRef.current.add(src);
+          setBrokenImageQueue(prev => {
+            if (prev.some(img => img.originalSrc === src)) {
+              return prev;
+            }
+            return [...prev, { originalSrc: src, alt, element: null }];
+          });
+        }
+      }
+    };
+    
+    checkImages();
+  }, [previewMode, value, disabled, extractImageSources, checkImageExists]);
+
+  /**
+   * Apply the corrected image path to the markdown content
+   */
+  const applyImageCorrection = useCallback(
+    (correctPath: string) => {
+      if (!currentBrokenImage) return;
+      
+      const { originalSrc, alt } = currentBrokenImage;
+      
+      // Build the new relative path for markdown
+      // The correctPath is like "users/username/Images/folder/file.png"
+      // We need to convert it to "../../Images/folder/file.png" for relative paths
+      let newPath: string;
+      
+      if (correctPath.includes("/Images/")) {
+        // Extract the path after "Images/"
+        const imagesIndex = correctPath.indexOf("/Images/");
+        newPath = "../.." + correctPath.substring(imagesIndex);
+      } else {
+        // Use the path as-is
+        newPath = correctPath;
+      }
+      
+      // Replace in the markdown content
+      // Look for both markdown and HTML image syntax
+      let newValue = value;
+      let replaced = false;
+      
+      // Try to find and replace markdown image syntax: ![alt](src)
+      // Use separate regex for test and replace to avoid lastIndex issues
+      const escapedAlt = alt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const escapedSrc = originalSrc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      
+      const mdImageRegex = new RegExp(`!\\[${escapedAlt}\\]\\(${escapedSrc}\\)`, 'g');
+      const mdImageTestRegex = new RegExp(`!\\[${escapedAlt}\\]\\(${escapedSrc}\\)`);
+      
+      if (mdImageTestRegex.test(newValue)) {
+        newValue = newValue.replace(mdImageRegex, `![${alt}](${newPath})`);
+        replaced = true;
+      }
+      
+      if (!replaced) {
+        // Try to find and replace by src only (in case alt is different)
+        const srcOnlyRegex = new RegExp(`!\\[^\\]]*\\]\\(${escapedSrc}\\)`, 'g');
+        const srcOnlyTestRegex = new RegExp(`!\\[^\\]]*\\]\\(${escapedSrc}\\)`);
+        
+        if (srcOnlyTestRegex.test(newValue)) {
+          newValue = newValue.replace(srcOnlyRegex, (match) => {
+            return match.replace(originalSrc, newPath);
+          });
+          replaced = true;
+        }
+      }
+      
+      if (!replaced) {
+        // Try HTML img tag
+        const htmlImgRegex = new RegExp(`<img([^>]*)src=["']${escapedSrc}["']`, 'gi');
+        const htmlImgTestRegex = new RegExp(`<img([^>]*)src=["']${escapedSrc}["']`, 'i');
+        
+        if (htmlImgTestRegex.test(newValue)) {
+          newValue = newValue.replace(htmlImgRegex, `<img$1src="${newPath}"`);
+          replaced = true;
+        }
+      }
+      
+      if (replaced) {
+        onChange(newValue);
+      }
+      
+      setShowBrokenImagePopup(false);
+      setCurrentBrokenImage(null);
+      setImageSearchResults([]);
+    },
+    [currentBrokenImage, value, onChange]
+  );
+
+  /**
+   * Dismiss the broken image popup and optionally clear the queue
+   */
+  const dismissBrokenImagePopup = useCallback((clearQueue: boolean = false) => {
+    setShowBrokenImagePopup(false);
+    setCurrentBrokenImage(null);
+    setImageSearchResults([]);
+    if (clearQueue) {
+      setBrokenImageQueue([]);
+    }
+  }, []);
+
+  /**
+   * Skip the current broken image and move to the next one in the queue
+   */
+  const skipCurrentBrokenImage = useCallback(() => {
+    setShowBrokenImagePopup(false);
+    setCurrentBrokenImage(null);
+    setImageSearchResults([]);
+    // The queue processing useEffect will pick up the next item
+  }, []);
+
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
@@ -906,6 +1234,19 @@ export default function LiveMarkdownEditor({
           >
             {allowAnyFileType ? "Add File" : "Add Image"}
           </button>
+          
+          {/* Browse Images Button */}
+          {onBrowseImages && (
+            <button
+              type="button"
+              onClick={onBrowseImages}
+              disabled={disabled}
+              className="px-2.5 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
+              title="Browse images already attached to this experiment"
+            >
+              📷 Browse
+            </button>
+          )}
           
           {/* Resize Image Button with Dropdown */}
           <div className="relative" ref={resizeDropdownRef}>
@@ -1126,15 +1467,30 @@ export default function LiveMarkdownEditor({
                       img: ({ src, alt, ...props }) => {
                         // Resolve relative image paths through the backend API
                         let resolvedSrc = String(src || "");
-                        if (imageBasePath && resolvedSrc.startsWith("./")) {
+                        const originalSrc = resolvedSrc; // Keep original for error handling
+                        
+                        // Handle new path structure: ../../Images/{folder}/{filename}
+                        // These paths go up from results/task-{id}/ to the root, then into Images/
+                        if (resolvedSrc.startsWith("../../Images/")) {
+                          const imagePath = resolvedSrc.slice(3); // Remove "../../" to get "Images/{folder}/{filename}"
+                          resolvedSrc = `${API_BASE}/github/raw?path=${encodeURIComponent(imagePath)}`;
+                        }
+                        // Handle old path structure: ./Images/{filename}
+                        else if (imageBasePath && resolvedSrc.startsWith("./")) {
                           const relativePath = resolvedSrc.slice(2); // Remove "./"
                           resolvedSrc = `${API_BASE}/github/raw?path=${encodeURIComponent(imageBasePath + "/" + relativePath)}`;
                         }
+                        // Handle paths starting with Images/ (without ./ prefix)
+                        else if (resolvedSrc.startsWith("Images/")) {
+                          resolvedSrc = `${API_BASE}/github/raw?path=${encodeURIComponent(resolvedSrc)}`;
+                        }
+                        
                         return (
                           <img
                             src={resolvedSrc}
                             alt={alt || ""}
                             className="max-w-full rounded-lg"
+                            onError={(e) => handleImageError(e, originalSrc, alt || "")}
                             {...props}
                           />
                         );
@@ -1205,6 +1561,90 @@ export default function LiveMarkdownEditor({
                 No languages found
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Broken Image Fix Popup */}
+      {showBrokenImagePopup && currentBrokenImage && (
+        <div
+          ref={brokenImagePopupRef}
+          className="fixed bottom-4 right-4 bg-white border border-red-200 rounded-lg shadow-xl z-50 w-80 max-h-96 overflow-hidden"
+        >
+          <div className="p-3 border-b border-red-100 bg-red-50">
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <p className="text-xs font-medium text-red-800">Image Not Found</p>
+              {brokenImageQueue.length > 0 && (
+                <span className="ml-auto text-xs text-red-600 bg-red-100 px-1.5 py-0.5 rounded">
+                  +{brokenImageQueue.length} more
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-red-600 mt-1 truncate" title={currentBrokenImage.originalSrc}>
+              {currentBrokenImage.originalSrc}
+            </p>
+          </div>
+          
+          <div className="p-3">
+            {isSearchingImage ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+                <span className="ml-2 text-xs text-gray-500">Searching for image...</span>
+              </div>
+            ) : imageSearchResults.length > 0 ? (
+              <>
+                <p className="text-xs text-gray-600 mb-2">
+                  Found {imageSearchResults.length} matching image{imageSearchResults.length > 1 ? 's' : ''}. Click to fix:
+                </p>
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {imageSearchResults.map((result, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={() => applyImageCorrection(result.path)}
+                      className="w-full px-2 py-2 text-left text-xs bg-gray-50 hover:bg-blue-50 hover:text-blue-700 rounded border border-gray-200 hover:border-blue-300 transition-colors"
+                      title={result.path}
+                    >
+                      <div className="font-medium truncate">{result.filename}</div>
+                      <div className="text-gray-400 truncate text-[10px] mt-0.5">
+                        {result.match_type === 'exact' ? '✓ Exact match' : '○ Similar name'}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="py-4 text-center">
+                <p className="text-xs text-gray-500">No matching images found.</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  The image may have been deleted or moved.
+                </p>
+              </div>
+            )}
+          </div>
+          
+          <div className="px-3 py-2 border-t border-gray-100 bg-gray-50 flex justify-between">
+            {brokenImageQueue.length > 0 ? (
+              <button
+                type="button"
+                onClick={skipCurrentBrokenImage}
+                className="px-3 py-1 text-xs text-blue-600 hover:text-blue-800 transition-colors"
+              >
+                Skip ({brokenImageQueue.length} remaining)
+              </button>
+            ) : (
+              <div></div>
+            )}
+            <button
+              type="button"
+              onClick={() => dismissBrokenImagePopup(true)}
+              className="px-3 py-1 text-xs text-gray-600 hover:text-gray-800 transition-colors"
+            >
+              Dismiss all
+            </button>
           </div>
         </div>
       )}

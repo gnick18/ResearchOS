@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { projectsApi, tasksApi } from "@/lib/api";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import TaskQuickPopup from "@/components/TaskQuickPopup";
+import SharePopup from "@/components/SharePopup";
 import type { Project, Task, ProjectCreate } from "@/lib/types";
 
 const DEFAULT_COLORS = [
@@ -36,6 +37,9 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
   
   // For full detail popup
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  
+  // For share popup
+  const [showSharePopup, setShowSharePopup] = useState(false);
 
   // Check if this is the Miscellaneous project (protected)
   const isMiscellaneousProject = project.name === "Miscellaneous";
@@ -207,6 +211,22 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+              )}
+              {/* Share button */}
+              {!isEditing && !isMiscellaneousProject && (
+                <button
+                  onClick={() => setShowSharePopup(true)}
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Share project"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle cx="18" cy="5" r="3"/>
+                    <circle cx="6" cy="12" r="3"/>
+                    <circle cx="18" cy="19" r="3"/>
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
                   </svg>
                 </button>
               )}
@@ -589,6 +609,18 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
             onClose={() => setSelectedTask(null)}
           />
         )}
+
+        {/* Share Popup */}
+        <SharePopup
+          isOpen={showSharePopup}
+          onClose={() => setShowSharePopup(false)}
+          itemType="project"
+          itemId={project.id}
+          itemName={project.name}
+          currentOwner={project.owner}
+          currentSharedWith={project.shared_with || []}
+          onShared={() => queryClient.refetchQueries({ queryKey: ["projects"] })}
+        />
       </div>
     </div>
   );

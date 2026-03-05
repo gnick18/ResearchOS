@@ -799,6 +799,31 @@ class LabPurchaseItem(BaseModel):
     shipping_fees: float
     total_price: float
     notes: Optional[str] = None
+    funding_string: Optional[str] = None
+
+
+class LabNoteEntry(BaseModel):
+    """A single entry within a note."""
+    id: str
+    title: str
+    date: str
+    content: str = ""
+    created_at: str
+    updated_at: str
+
+
+class LabNote(BaseModel):
+    """Note with user attribution for Lab Mode."""
+    id: int
+    title: str
+    description: str
+    is_running_log: bool
+    is_shared: bool
+    entries: List[LabNoteEntry] = []
+    created_at: str
+    updated_at: str
+    username: str
+    user_color: str
 
 
 @router.get("/user/{username}/purchases/{task_id}", response_model=List[LabPurchaseItem])
@@ -832,7 +857,124 @@ async def get_user_purchase_items(username: str, task_id: int):
             price_per_unit=ppu,
             shipping_fees=ship,
             total_price=total_price,
-            notes=item_data.get("notes")
+            notes=item_data.get("notes"),
+            funding_string=item_data.get("funding_string"),
         ))
     
     return items
+
+
+# ── Notes Endpoints ────────────────────────────────────────────────────────────
+
+
+@router.get("/notes", response_model=List[LabNote])
+async def get_all_notes(
+    usernames: Optional[str] = None,
+    shared_only: bool = False
+):
+    """Get all notes across all users.
+    
+    Args:
+        usernames: Comma-separated list of usernames to filter by
+        shared_only: If True, only return notes where is_shared=True
+    """
+    # Ensure existing users are migrated (have colors assigned)
+    _migrate_existing_users()
+    
+    users_dir = _get_users_dir()
+    all_notes = []
+    
+    # Parse username filter if provided
+    username_filter = None
+    if usernames:
+        username_filter = set(u.strip() for u in usernames.split(",") if u.strip())
+    
+    for user in _get_available_users():
+        # Skip if username filter is active and this user is not in it
+        if username_filter and user not in username_filter:
+            continue
+        
+        user_color = _get_user_color(user)
+        notes_dir = users_dir / user / "notes"
+        
+        for note_data in _list_json_files(notes_dir):
+            # Filter by shared status if requested
+            if shared_only and not note_data.get("is_shared", False):
+                continue
+            
+            # Parse entries
+            entries = []
+            for entry_data in note_data.get("entries", []):
+                entries.append(LabNoteEntry(
+                    id=entry_data.get("id", ""),
+                    title=entry_data.get("title", ""),
+                    date=entry_data.get("date", ""),
+                    content=entry_data.get("content", ""),
+                    created_at=entry_data.get("created_at", ""),
+                    updated_at=entry_data.get("updated_at", "")
+                ))
+            
+            all_notes.append(LabNote(
+                id=note_data.get("id", 0),
+                title=note_data.get("title", ""),
+                description=note_data.get("description", ""),
+                is_running_log=note_data.get("is_running_log", False),
+                is_shared=note_data.get("is_shared", False),
+                entries=entries,
+                created_at=note_data.get("created_at", ""),
+                updated_at=note_data.get("updated_at", ""),
+                username=user,
+                user_color=user_color
+            ))
+    
+    return all_notes
+
+
+@router.get("/notes/shared", response_model=List[LabNote])
+async def get_shared_notes(usernames: Optional[str] = None):
+    """Get only shared notes across all users.
+    
+    Args:
+        usernames: Comma-separated list of usernames to filter by
+    """
+    return await get_all_notes(usernames=usernames, shared_only=True)
+
+
+@router.get("/user/{username}/notes", response_model=List[LabNote])
+async def get_user_notes(username: str):
+    """Get all notes for a specific user."""
+    # Ensure existing users are migrated (have colors assigned)
+    _migrate_existing_users()
+    
+    users_dir = _get_users_dir()
+    user_color = _get_user_color(username)
+    notes_dir = users_dir / username / "notes"
+    
+    notes = []
+    for note_data in _list_json_files(notes_dir):
+        # Parse entries
+        entries = []
+        for entry_data in note_data.get("entries", []):
+            entries.append(LabNoteEntry(
+                id=entry_data.get("id", ""),
+                title=entry_data.get("title", ""),
+                date=entry_data.get("date", ""),
+                content=entry_data.get("content", ""),
+                created_at=entry_data.get("created_at", ""),
+                updated_at=entry_data.get("updated_at", "")
+            ))
+        
+        notes.append(LabNote(
+            id=note_data.get("id", 0),
+            title=note_data.get("title", ""),
+            description=note_data.get("description", ""),
+            is_running_log=note_data.get("is_running_log", False),
+            is_shared=note_data.get("is_shared", False),
+            entries=entries,
+            created_at=note_data.get("created_at", ""),
+            updated_at=note_data.get("updated_at", ""),
+            username=username,
+            user_color=user_color
+        ))
+    
+    return notes

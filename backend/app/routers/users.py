@@ -310,12 +310,17 @@ def _write_user_metadata(metadata: Dict) -> None:
     metadata_path.write_text(json.dumps(metadata, indent=2))
 
 
-def _get_next_available_color() -> Optional[str]:
+def _get_next_available_color(metadata: Optional[Dict] = None) -> Optional[str]:
     """Get the next available color from the palette.
+    
+    Args:
+        metadata: Optional metadata dict to use instead of reading from file.
+                  This is useful during migration to avoid race conditions.
     
     Returns None if all colors are in use.
     """
-    metadata = _read_user_metadata()
+    if metadata is None:
+        metadata = _read_user_metadata()
     used_colors = set(metadata.get("color_assignments", {}).keys())
     
     for color in USER_COLOR_PALETTE:
@@ -414,6 +419,19 @@ def _update_user_metadata_on_rename(old_username: str, new_username: str) -> Non
         _write_user_metadata(metadata)
 
 
+def _rebuild_color_assignments(metadata: Dict) -> None:
+    """Rebuild color_assignments from users data to ensure consistency.
+    
+    This ensures that color_assignments is always a perfect reverse mapping
+    of the colors assigned in the users dictionary.
+    """
+    metadata["color_assignments"] = {}
+    for username, data in metadata.get("users", {}).items():
+        color = data.get("color")
+        if color:
+            metadata["color_assignments"][color] = username
+
+
 def _migrate_existing_users() -> None:
     """Migrate existing users without metadata to have colors and created_at.
     
@@ -434,29 +452,29 @@ def _migrate_existing_users() -> None:
     # Reassign colors for users with duplicates
     for color, users_with_color in color_to_users.items():
         if len(users_with_color) > 1:
-            # Keep the first user's color, reassign others
+            # First user keeps the color - ensure it's tracked in color_assignments
+            first_user = users_with_color[0]
+            if "color_assignments" not in metadata:
+                metadata["color_assignments"] = {}
+            metadata["color_assignments"][color] = first_user
+            
+            # Reassign other users to new colors (pass metadata to avoid race condition)
             for user in users_with_color[1:]:
-                new_color = _get_next_available_color()
+                new_color = _get_next_available_color(metadata)
                 if not new_color:
                     new_color = USER_COLOR_PALETTE[0]
                 if "users" not in metadata:
                     metadata["users"] = {}
                 if user in metadata["users"]:
                     metadata["users"][user]["color"] = new_color
-                    # Update color_assignments
-                    if "color_assignments" not in metadata:
-                        metadata["color_assignments"] = {}
-                    # Remove old assignment
-                    if color in metadata["color_assignments"]:
-                        del metadata["color_assignments"][color]
                     metadata["color_assignments"][new_color] = user
     
-    # Then, add any missing users
+    # Then, add any missing users (pass metadata to avoid race condition)
     for user in existing_users:
         if user not in metadata.get("users", {}):
             # Assign color and created_at to existing user
             created_at = datetime.now(timezone.utc).isoformat()
-            color = _get_next_available_color()
+            color = _get_next_available_color(metadata)
             if not color:
                 color = USER_COLOR_PALETTE[0]
             
@@ -470,6 +488,9 @@ def _migrate_existing_users() -> None:
                 "color": color
             }
             metadata["color_assignments"][color] = user
+    
+    # Rebuild color_assignments to ensure consistency
+    _rebuild_color_assignments(metadata)
     
     _write_user_metadata(metadata)
 

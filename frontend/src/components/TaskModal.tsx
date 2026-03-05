@@ -6,6 +6,7 @@ import { tasksApi, methodsApi, githubApi, dependenciesApi, type DuplicateCheckRe
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Method, Project, Task, Dependency, SubTask } from "@/lib/types";
 import { createNewFileContent } from "@/lib/stamp-utils";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 interface TaskModalProps {
   projects: Project[];
@@ -20,6 +21,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
   const setNewTaskStartDate = useAppStore((s) => s.setNewTaskStartDate);
   const restrictedTaskType = useAppStore((s) => s.restrictedTaskType);
   const setRestrictedTaskType = useAppStore((s) => s.setRestrictedTaskType);
+  const setGanttLoading = useAppStore((s) => s.setGanttLoading);
   const queryClient = useQueryClient();
 
   // Filter to only active (non-archived) projects, ensuring Miscellaneous is included
@@ -38,7 +40,9 @@ export default function TaskModal({ projects }: TaskModalProps) {
         tags: ["default"],
         created_at: new Date().toISOString(),
         sort_order: -1,
-        archived_at: null
+        archived_at: null,
+        owner: "",
+        shared_with: [],
       }];
     }
     // Sort projects with Miscellaneous first, then by sort order
@@ -161,6 +165,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
   }, [isCreatingTask, activeProjects, newTaskStartDate, restrictedTaskType]);
 
   const createTask = useCallback(async () => {
+    setGanttLoading(true, "Creating task...");
     try {
       // Determine the start date based on scheduling mode
       const finalStartDate = schedulingMode === "dependency" 
@@ -210,10 +215,12 @@ export default function TaskModal({ projects }: TaskModalProps) {
 
       await queryClient.refetchQueries({ queryKey: ["tasks"] });
       await queryClient.refetchQueries({ queryKey: ["dependencies"] });
+      setGanttLoading(false);
       setIsCreatingTask(false);
       resetForm();
     } catch (error: unknown) {
       console.error("Failed to create task:", error);
+      setGanttLoading(false);
       // Type guard for axios error
       const axiosError = error as { response?: { data?: { detail?: string } } };
       const detail = axiosError?.response?.data?.detail;
@@ -235,6 +242,8 @@ export default function TaskModal({ projects }: TaskModalProps) {
     depType,
     suggestedStartDate,
     subTasks,
+    setGanttLoading,
+    projects,
   ]);
 
   const handleSubmit = useCallback(
@@ -755,6 +764,9 @@ export default function TaskModal({ projects }: TaskModalProps) {
           </button>
         </div>
       </form>
+      
+      {/* Loading overlay for task creation */}
+      <LoadingOverlay />
     </div>
   );
 }

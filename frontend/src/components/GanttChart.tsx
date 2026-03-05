@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { tasksApi, dependenciesApi } from "@/lib/api";
 import type { Dependency, Task, ShiftResult, Project, HighLevelGoal } from "@/lib/types";
 import { useAppStore } from "@/lib/store";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 interface GanttChartProps {
   tasks: Task[];
@@ -476,6 +477,7 @@ export default function GanttChart({
   const ganttStartDate = useAppStore((s) => s.ganttStartDate);
   const setIsCreatingTask = useAppStore((s) => s.setIsCreatingTask);
   const setNewTaskStartDate = useAppStore((s) => s.setNewTaskStartDate);
+  const setGanttLoading = useAppStore((s) => s.setGanttLoading);
   const containerRef = useRef<HTMLDivElement>(null);
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
@@ -824,6 +826,9 @@ export default function GanttChart({
       return;
     }
 
+    // Show loading indicator
+    setGanttLoading(true, "Moving task...");
+
     // Check if task has dependents
     if (hasDependents(taskId)) {
       // Try move with confirmation check
@@ -834,14 +839,17 @@ export default function GanttChart({
         });
 
         if (result.requires_confirmation) {
+          setGanttLoading(false);
           setShiftResult(result);
           setPendingMove({ taskId, newDate: targetDate });
           setShowShiftConfirm(true);
         } else {
           // No confirmation needed, refresh
           await queryClient.refetchQueries({ queryKey: ["tasks"] });
+          setGanttLoading(false);
         }
       } catch {
+        setGanttLoading(false);
         alert("Failed to move task");
       }
     } else {
@@ -852,17 +860,20 @@ export default function GanttChart({
           confirmed: true,
         });
         await queryClient.refetchQueries({ queryKey: ["tasks"] });
+        setGanttLoading(false);
       } catch {
+        setGanttLoading(false);
         alert("Failed to move task");
       }
     }
 
     setDraggedTask(null);
-  }, [draggedTask, hasDependents, queryClient]);
+  }, [draggedTask, hasDependents, queryClient, setGanttLoading]);
 
   // Handle confirmed shift
   const handleConfirmShift = useCallback(async () => {
     if (!pendingMove) return;
+    setGanttLoading(true, "Applying changes...");
     try {
       await tasksApi.move(pendingMove.taskId, {
         new_start_date: pendingMove.newDate,
@@ -875,10 +886,12 @@ export default function GanttChart({
       setShowShiftConfirm(false);
       setShiftResult(null);
       setPendingMove(null);
+      setGanttLoading(false);
     } catch {
+      setGanttLoading(false);
       alert("Failed to move task");
     }
-  }, [pendingMove, queryClient]);
+  }, [pendingMove, queryClient, setGanttLoading]);
 
   // Handle drag end
   const handleDragEnd = useCallback(() => {
@@ -916,6 +929,8 @@ export default function GanttChart({
   // Handle creating dependency
   const handleCreateDependency = useCallback(async (depType: "SS" | "FS" | "SF") => {
     if (!depParentTask || !depChildTask) return;
+    
+    setGanttLoading(true, "Creating dependency...");
     
     try {
       // For SS (Start at Same time) dependencies, we allow multiple parents
@@ -1014,11 +1029,13 @@ export default function GanttChart({
       setShowDepPopup(false);
       setDepParentTask(null);
       setDepChildTask(null);
+      setGanttLoading(false);
     } catch (err) {
       console.error("Failed to create dependency:", err);
+      setGanttLoading(false);
       alert("Failed to create dependency");
     }
-  }, [depParentTask, depChildTask, dependencies, queryClient]);
+  }, [depParentTask, depChildTask, dependencies, queryClient, setGanttLoading]);
 
   // Register task element ref for position calculation
   const registerTaskElement = useCallback((taskId: number, element: HTMLDivElement | null, weekIdx: number, rowIdx: number, spanInfo: { startIdx: number; span: number }) => {
@@ -1585,6 +1602,12 @@ export default function GanttChart({
                                       <span className="mr-1 opacity-70">[{taskWithUsername.username.charAt(0).toUpperCase()}]</span>
                                     ) : null;
                                   })()}
+                                  {/* Shared experiment owner initial indicator (non-lab mode) */}
+                                  {!isLabMode && task.shared_with && task.shared_with.length > 0 && task.owner && (
+                                    <span className="mr-1 opacity-70 text-[10px]" title={`Shared by: ${task.owner}`}>
+                                      [{task.owner.charAt(0).toUpperCase()}]
+                                    </span>
+                                  )}
                                   {task.name}
                                 </span>
                                 {task.is_complete && (
@@ -1615,6 +1638,9 @@ export default function GanttChart({
           Lab Mode: View-only. Tasks are colored by user.
         </p>
       )}
+      
+      {/* Loading overlay for operations */}
+      <LoadingOverlay />
     </div>
   );
 }

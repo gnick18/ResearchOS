@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { purchasesApi, labApi } from "@/lib/api";
-import type { CatalogItem, PurchaseItem } from "@/lib/types";
+import type { CatalogItem, PurchaseItem, FundingAccount } from "@/lib/types";
 
 interface PurchaseEditorProps {
   taskId: number;
@@ -19,6 +19,7 @@ interface EditingRow {
   price_per_unit: string;
   shipping_fees: string;
   notes: string;
+  funding_string: string;
 }
 
 const EMPTY_ROW: EditingRow = {
@@ -29,6 +30,7 @@ const EMPTY_ROW: EditingRow = {
   price_per_unit: "",
   shipping_fees: "",
   notes: "",
+  funding_string: "",
 };
 
 function itemToEditingRow(item: PurchaseItem): EditingRow {
@@ -40,6 +42,7 @@ function itemToEditingRow(item: PurchaseItem): EditingRow {
     price_per_unit: item.price_per_unit.toString(),
     shipping_fees: item.shipping_fees.toString(),
     notes: item.notes || "",
+    funding_string: item.funding_string || "",
   };
 }
 
@@ -74,6 +77,12 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
       // Otherwise use regular purchases API
       return purchasesApi.listByTask(taskId);
     },
+  });
+
+  // Fetch funding accounts for the dropdown
+  const { data: fundingAccounts = [] } = useQuery({
+    queryKey: ["funding-accounts"],
+    queryFn: () => purchasesApi.listFundingAccounts(),
   });
 
   // Search catalog as user types item name
@@ -191,12 +200,14 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
         price_per_unit: parseFloat(editingRow.price_per_unit) || 0,
         shipping_fees: parseFloat(editingRow.shipping_fees) || 0,
         notes: editingRow.notes.trim() || null,
+        funding_string: editingRow.funding_string.trim() || null,
       });
       setEditingItemId(null);
       setEditingRow({ ...EMPTY_ROW });
       setEditSelectedCatalogItem(null);
       refetch();
       await queryClient.refetchQueries({ queryKey: ["purchases-all"] });
+      await queryClient.refetchQueries({ queryKey: ["funding-accounts"] });
     } catch {
       alert("Failed to update item");
     } finally {
@@ -246,11 +257,13 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
         price_per_unit: parseFloat(rowData.price_per_unit) || 0,
         shipping_fees: parseFloat(rowData.shipping_fees) || 0,
         notes: rowData.notes.trim() || null,
+        funding_string: rowData.funding_string.trim() || null,
       });
       setNewRow({ ...EMPTY_ROW });
       setSelectedCatalogItem(null);
       refetch();
       await queryClient.refetchQueries({ queryKey: ["purchases-all"] });
+      await queryClient.refetchQueries({ queryKey: ["funding-accounts"] });
     } catch {
       alert("Failed to add item");
     } finally {
@@ -406,6 +419,9 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
               <th className="text-right py-2 px-2 text-xs font-semibold text-gray-500 w-24">
                 Total
               </th>
+              <th className="text-left py-2 px-2 text-xs font-semibold text-gray-500 w-28">
+                Funding String
+              </th>
               <th className="text-left py-2 px-2 text-xs font-semibold text-gray-500 w-32">
                 Notes
               </th>
@@ -511,6 +527,20 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
                     ${computeTotal(editingRow)}
                   </td>
                   <td className="py-2 px-2">
+                    <select
+                      value={editingRow.funding_string}
+                      onChange={(e) => handleEditFieldChange("funding_string", e.target.value)}
+                      className="w-full px-2 py-1 border border-amber-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-amber-400 bg-white"
+                    >
+                      <option value="">—</option>
+                      {fundingAccounts.map((acc) => (
+                        <option key={acc.id} value={acc.name}>
+                          {acc.name}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="py-2 px-2">
                     <input
                       type="text"
                       value={editingRow.notes}
@@ -572,6 +602,9 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
                   </td>
                   <td className="py-2 px-2 text-right font-medium text-gray-900">
                     ${item.total_price.toFixed(2)}
+                  </td>
+                  <td className="py-2 px-2 text-gray-500 text-xs">
+                    {item.funding_string || "—"}
                   </td>
                   <td className="py-2 px-2 text-gray-400 text-xs">
                     {item.notes || "—"}
@@ -688,6 +721,20 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
                   ${computeTotal(newRow)}
                 </td>
                 <td className="py-2 px-2">
+                  <select
+                    value={newRow.funding_string}
+                    onChange={(e) => handleFieldChange("funding_string", e.target.value)}
+                    className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
+                  >
+                    <option value="">—</option>
+                    {fundingAccounts.map((acc) => (
+                      <option key={acc.id} value={acc.name}>
+                        {acc.name}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="py-2 px-2">
                   <input
                     type="text"
                     value={newRow.notes}
@@ -716,7 +763,7 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
               <td className="py-2 px-2 text-right font-bold text-gray-900">
                 ${taskTotal.toFixed(2)}
               </td>
-              <td colSpan={2}></td>
+              <td colSpan={3}></td>
             </tr>
           </tfoot>
         </table>

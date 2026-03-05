@@ -4,11 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
-import { githubApi, methodsApi, tasksApi, pcrApi, projectsApi, type ImageUploadResponse } from "@/lib/api";
+import { githubApi, methodsApi, tasksApi, pcrApi, projectsApi, attachmentsApi, type ImageUploadResponse } from "@/lib/api";
 import type { GitHubTreeItem } from "@/lib/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { InteractiveGradientEditor } from "@/components/InteractiveGradientEditor";
 import LiveMarkdownEditor from "@/components/LiveMarkdownEditor";
+import ImageGalleryPopup from "@/components/ImageGalleryPopup";
 import type { Method, Task, PCRProtocol, PCRGradient, PCRIngredient } from "@/lib/types";
 import {
   createNewFileContent,
@@ -26,6 +27,7 @@ import {
   type ExportOptions,
   type ExperimentExportData,
 } from "@/lib/export-utils";
+import { useFileRenamePopup } from "@/components/FileRenamePopup";
 
 // ── PDF Attachment Types ───────────────────────────────────────────────────────
 
@@ -156,7 +158,9 @@ function LabNotesTab({ task }: { task: Task }) {
   const [stamp, setStamp] = useState<StampData | null>(null);
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
   const [fileCount, setFileCount] = useState(0);
+  const [showImageGallery, setShowImageGallery] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
 
   const notesPath = `results/task-${task.id}/notes.md`;
   const imagesDir = `results/task-${task.id}/Images`;
@@ -251,20 +255,31 @@ function LabNotesTab({ task }: { task: Task }) {
       setUploadWarning(null);
       for (const file of files) {
         if (!file.type.startsWith("image/")) continue;
+        
+        // Show rename popup and wait for user decision
+        const renamedFile = await requestRename(file);
+        if (!renamedFile) {
+          continue; // User cancelled
+        }
+        
         const reader = new FileReader();
         reader.onload = async () => {
           const base64 = (reader.result as string).split(",")[1];
-          const imageName = `${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
-          const imagePath = `${imagesDir}/${imageName}`;
 
           try {
-            const response = await githubApi.uploadImage(
-              imagePath,
-              base64,
-              `Upload image for ${task.name}`
-            );
-            // Insert relative link as ./Images/[image name]
-            const imageMarkdown = `\n![${file.name}](./Images/${imageName})\n`;
+            // Use new attachments API
+            const response = await attachmentsApi.uploadImage({
+              experiment_id: task.id,
+              experiment_name: task.name,
+              project_id: task.project_id,
+              project_name: projectName,
+              experiment_date: task.start_date,
+              base64_content: base64,
+              original_filename: renamedFile.name,
+            });
+            
+            // Insert relative link with new path structure
+            const imageMarkdown = `\n![${renamedFile.name}](../../Images/${response.folder}/${response.filename})\n`;
             setContent((prev) => prev + imageMarkdown);
             
             // Show warning if file is too large for GitHub
@@ -272,14 +287,14 @@ function LabNotesTab({ task }: { task: Task }) {
               setUploadWarning(response.warning);
             }
           } catch {
-            alert(`Failed to upload ${file.name}`);
+            alert(`Failed to upload ${renamedFile.name}`);
           }
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(renamedFile);
       }
       setUploading(false);
     },
-    [imagesDir, task.name]
+    [task.id, task.name, task.project_id, task.start_date, projectName, requestRename]
   );
 
   // Handle file upload (saves to attachments folder, does NOT embed in markdown)
@@ -289,32 +304,46 @@ function LabNotesTab({ task }: { task: Task }) {
       setUploadWarning(null);
       
       for (const file of files) {
+        // Show rename popup and wait for user decision
+        const renamedFile = await requestRename(file);
+        if (!renamedFile) {
+          continue; // User cancelled
+        }
+        
         const reader = new FileReader();
         reader.onload = async () => {
           const base64 = (reader.result as string).split(",")[1];
-          const fileName = `${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
-          const filePath = `${pdfsDir}/${fileName}`;
 
           try {
-            const response = await githubApi.uploadImage(
-              filePath,
-              base64,
-              `Upload attachment for ${task.name}: ${file.name}`
-            );
+            // Use new attachments API
+            const response = await attachmentsApi.uploadFile({
+              experiment_id: task.id,
+              experiment_name: task.name,
+              project_id: task.project_id,
+              project_name: projectName,
+              experiment_date: task.start_date,
+              attachment_type: "notes",
+              base64_content: base64,
+              original_filename: renamedFile.name,
+            });
             
             // Show warning if file is too large for GitHub
             if (response.warning) {
               setUploadWarning(response.warning);
             }
+            
+            // Refresh file count
+            const files = await attachmentsApi.listFiles({ experiment_id: task.id, attachment_type: "notes" });
+            setFileCount(files.length);
           } catch {
-            alert(`Failed to upload ${file.name}`);
+            alert(`Failed to upload ${renamedFile.name}`);
           }
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(renamedFile);
       }
       setUploading(false);
     },
-    [pdfsDir, task.name]
+    [task.id, task.name, task.project_id, task.start_date, projectName, requestRename]
   );
 
   const handleSave = useCallback(async () => {
@@ -338,11 +367,22 @@ function LabNotesTab({ task }: { task: Task }) {
     }
   }, [content, notesPath, task.name, projectName]);
 
+  // Handle inserting image from gallery
+  const handleInsertImageFromGallery = useCallback(
+    (markdownPath: string, imageName: string) => {
+      const imageMarkdown = `\n![${imageName}](${markdownPath})\n`;
+      setContent((prev) => prev + imageMarkdown);
+    },
+    []
+  );
+
   // Render stamp display with current names
   const stampDisplay = stamp ? renderStampDisplay(stamp, task.name, projectName, 'notes') : null;
 
   return (
-    <div className="flex flex-col h-full">
+    <>
+      <FileRenamePopup />
+      <div className="flex flex-col h-full">
       {/* Sub-tabs for Markdown and PDFs */}
       <div className="flex items-center gap-1 px-6 py-2 bg-gray-50 border-b border-gray-100">
         <button
@@ -449,6 +489,7 @@ function LabNotesTab({ task }: { task: Task }) {
                 onImageDrop={handleImageUpload}
                 imageBasePath={`results/task-${task.id}`}
                 showToolbar={true}
+                onBrowseImages={() => setShowImageGallery(true)}
               />
             )}
           </div>
@@ -456,7 +497,18 @@ function LabNotesTab({ task }: { task: Task }) {
       ) : (
         <PdfAttachmentsPanel task={task} pdfsDir={pdfsDir} label="Lab Notes" onFilesChange={setFileCount} />
       )}
+      
+      {/* Image Gallery Popup */}
+      <ImageGalleryPopup
+        isOpen={showImageGallery}
+        onClose={() => setShowImageGallery(false)}
+        experimentId={task.id}
+        experimentName={task.name}
+        experimentDate={task.start_date}
+        onInsertImage={handleInsertImageFromGallery}
+      />
     </div>
+    </>
   );
 }
 
@@ -701,7 +753,9 @@ function ResultsTab({ task }: { task: Task }) {
   const [stamp, setStamp] = useState<StampData | null>(null);
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
   const [fileCount, setFileCount] = useState(0);
+  const [showImageGallery, setShowImageGallery] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
 
   const resultsPath = `results/task-${task.id}/results.md`;
   const imagesDir = `results/task-${task.id}/Images`;
@@ -796,19 +850,31 @@ function ResultsTab({ task }: { task: Task }) {
       setUploadWarning(null);
       for (const file of files) {
         if (!file.type.startsWith("image/")) continue;
+        
+        // Show rename popup and wait for user decision
+        const renamedFile = await requestRename(file);
+        if (!renamedFile) {
+          continue; // User cancelled
+        }
+        
         const reader = new FileReader();
         reader.onload = async () => {
           const base64 = (reader.result as string).split(",")[1];
-          const imageName = `${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
-          const imagePath = `${imagesDir}/${imageName}`;
 
           try {
-            const response = await githubApi.uploadImage(
-              imagePath,
-              base64,
-              `Upload result image for ${task.name}`
-            );
-            const imageMarkdown = `\n![${file.name}](./Images/${imageName})\n`;
+            // Use new attachments API
+            const response = await attachmentsApi.uploadImage({
+              experiment_id: task.id,
+              experiment_name: task.name,
+              project_id: task.project_id,
+              project_name: projectName,
+              experiment_date: task.start_date,
+              base64_content: base64,
+              original_filename: renamedFile.name,
+            });
+            
+            // Insert relative link with new path structure
+            const imageMarkdown = `\n![${renamedFile.name}](../../Images/${response.folder}/${response.filename})\n`;
             setContent((prev) => prev + imageMarkdown);
             
             // Show warning if file is too large for GitHub
@@ -816,14 +882,14 @@ function ResultsTab({ task }: { task: Task }) {
               setUploadWarning(response.warning);
             }
           } catch {
-            alert(`Failed to upload ${file.name}`);
+            alert(`Failed to upload ${renamedFile.name}`);
           }
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(renamedFile);
       }
       setUploading(false);
     },
-    [imagesDir, task.name]
+    [task.id, task.name, task.project_id, task.start_date, projectName, requestRename]
   );
 
   // Handle file upload (saves to attachments folder, does NOT embed in markdown)
@@ -833,32 +899,46 @@ function ResultsTab({ task }: { task: Task }) {
       setUploadWarning(null);
       
       for (const file of files) {
+        // Show rename popup and wait for user decision
+        const renamedFile = await requestRename(file);
+        if (!renamedFile) {
+          continue; // User cancelled
+        }
+        
         const reader = new FileReader();
         reader.onload = async () => {
           const base64 = (reader.result as string).split(",")[1];
-          const fileName = `${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
-          const filePath = `${pdfsDir}/${fileName}`;
 
           try {
-            const response = await githubApi.uploadImage(
-              filePath,
-              base64,
-              `Upload attachment for ${task.name}: ${file.name}`
-            );
+            // Use new attachments API
+            const response = await attachmentsApi.uploadFile({
+              experiment_id: task.id,
+              experiment_name: task.name,
+              project_id: task.project_id,
+              project_name: projectName,
+              experiment_date: task.start_date,
+              attachment_type: "results",
+              base64_content: base64,
+              original_filename: renamedFile.name,
+            });
             
             // Show warning if file is too large for GitHub
             if (response.warning) {
               setUploadWarning(response.warning);
             }
+            
+            // Refresh file count
+            const files = await attachmentsApi.listFiles({ experiment_id: task.id, attachment_type: "results" });
+            setFileCount(files.length);
           } catch {
-            alert(`Failed to upload ${file.name}`);
+            alert(`Failed to upload ${renamedFile.name}`);
           }
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(renamedFile);
       }
       setUploading(false);
     },
-    [pdfsDir, task.name]
+    [task.id, task.name, task.project_id, task.start_date, projectName, requestRename]
   );
 
   const handleSave = useCallback(async () => {
@@ -881,11 +961,22 @@ function ResultsTab({ task }: { task: Task }) {
     }
   }, [content, resultsPath, task.name, projectName]);
 
+  // Handle inserting image from gallery
+  const handleInsertImageFromGallery = useCallback(
+    (markdownPath: string, imageName: string) => {
+      const imageMarkdown = `\n![${imageName}](${markdownPath})\n`;
+      setContent((prev) => prev + imageMarkdown);
+    },
+    []
+  );
+
   // Render stamp display with current names
   const stampDisplay = stamp ? renderStampDisplay(stamp, task.name, projectName, 'results') : null;
 
   return (
-    <div className="flex flex-col h-full">
+    <>
+      <FileRenamePopup />
+      <div className="flex flex-col h-full">
       {/* Sub-tabs for Markdown and PDFs */}
       <div className="flex items-center gap-1 px-6 py-2 bg-gray-50 border-b border-gray-100">
         <button
@@ -992,6 +1083,7 @@ function ResultsTab({ task }: { task: Task }) {
                 onImageDrop={handleImageUpload}
                 imageBasePath={`results/task-${task.id}`}
                 showToolbar={true}
+                onBrowseImages={() => setShowImageGallery(true)}
               />
             )}
           </div>
@@ -999,7 +1091,18 @@ function ResultsTab({ task }: { task: Task }) {
       ) : (
         <PdfAttachmentsPanel task={task} pdfsDir={pdfsDir} label="Results" onFilesChange={setFileCount} />
       )}
+      
+      {/* Image Gallery Popup */}
+      <ImageGalleryPopup
+        isOpen={showImageGallery}
+        onClose={() => setShowImageGallery(false)}
+        experimentId={task.id}
+        experimentName={task.name}
+        experimentDate={task.start_date}
+        onInsertImage={handleInsertImageFromGallery}
+      />
     </div>
+    </>
   );
 }
 

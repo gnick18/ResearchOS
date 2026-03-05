@@ -3,6 +3,7 @@
 Supports public/private methods:
 - Private methods: Only visible to the creator
 - Public methods: Visible to all users, only editable by creator
+- Shared methods: Visible to specific users with granted access
 """
 
 from typing import List, Optional
@@ -12,6 +13,7 @@ from pydantic import BaseModel
 
 from app.config import settings
 from app.git_sync import commit_and_push
+from app.schemas import SharedUser
 from app.storage import (
     get_methods_store,
     get_public_methods_store,
@@ -70,7 +72,8 @@ class MethodOut(BaseModel):
     tags: Optional[List[str]]
     attachments: List[MethodAttachment] = []  # Always present, may be empty
     is_public: bool = False
-    created_by: Optional[str] = None  # Username of creator
+    owner: str = ""  # Username of owner (renamed from created_by for consistency)
+    shared_with: List[SharedUser] = []  # Specific users with access
 
 
 class MethodForkRequest(BaseModel):
@@ -94,7 +97,10 @@ def _to_out(r: dict) -> MethodOut:
     # Ensure method_type has a default for older records
     r.setdefault("method_type", "markdown")
     r.setdefault("is_public", False)
-    r.setdefault("created_by", None)
+    # Migrate created_by to owner for consistency
+    if "owner" not in r:
+        r["owner"] = r.get("created_by", "")
+    r.setdefault("shared_with", [])
     
     # Handle migration from old single-file format to new attachments format
     if "attachments" not in r or not r["attachments"]:
@@ -155,8 +161,10 @@ async def create_method(body: MethodCreate):
     
     data = body.model_dump()
     
-    # Set creator
+    # Set owner (use owner field for consistency, also set created_by for backwards compat)
+    data["owner"] = settings.current_user
     data["created_by"] = settings.current_user
+    data["shared_with"] = []
     
     # Handle legacy format: if attachments not provided but github_path is, create attachment
     if not data.get("attachments") and data.get("github_path"):
@@ -266,7 +274,7 @@ async def save_deviation_to_task(body: DeviationSaveRequest):
 async def update_method(method_id: int, body: MethodUpdate):
     """Update a method's metadata (name, folder_path, tags, attachments, etc.).
     
-    Only the creator can edit a public method.
+    Only the owner can edit a public method.
     Toggling is_public moves the method between stores.
     """
     rec = get_method_by_id(method_id)
@@ -274,12 +282,13 @@ async def update_method(method_id: int, body: MethodUpdate):
         raise HTTPException(status_code=404, detail="Method not found")
     
     is_public = rec.get("_is_public", False)
+    owner = rec.get("owner") or rec.get("created_by", "")
     
     # Check edit permissions for public methods
-    if is_public and rec.get("created_by") != settings.current_user:
+    if is_public and owner != settings.current_user:
         raise HTTPException(
             status_code=403,
-            detail="Only the creator can edit a public method"
+            detail="Only the owner can edit a public method"
         )
     
     updates = body.model_dump(exclude_unset=True)
@@ -432,18 +441,19 @@ async def get_method_experiments(method_id: int):
 
 @router.delete("/{method_id}", status_code=204)
 async def delete_method(method_id: int):
-    """Delete a method. Only the creator can delete a public method."""
+    """Delete a method. Only the owner can delete a public method."""
     rec = get_method_by_id(method_id)
     if not rec:
         raise HTTPException(status_code=404, detail="Method not found")
     
     is_public = rec.get("_is_public", False)
+    owner = rec.get("owner") or rec.get("created_by", "")
     
     # Check delete permissions for public methods
-    if is_public and rec.get("created_by") != settings.current_user:
+    if is_public and owner != settings.current_user:
         raise HTTPException(
             status_code=403,
-            detail="Only the creator can delete a public method"
+            detail="Only the owner can delete a public method"
         )
     
     if is_public:

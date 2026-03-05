@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { useAppStore } from "@/lib/store";
 import type { Project, ViewMode } from "@/lib/types";
 import AnimationSettingsPopup from "@/components/AnimationSettingsPopup";
+import NotificationBadge from "@/components/NotificationBadge";
 import { ANIMATION_METADATA } from "@/components/animations";
 
 const VIEW_MODES: { label: string; value: ViewMode }[] = [
@@ -60,6 +61,8 @@ export default function Toolbar({
   const toggleProject = useAppStore((s) => s.toggleProject);
   const selectedTags = useAppStore((s) => s.selectedTags);
   const toggleTag = useAppStore((s) => s.toggleTag);
+  const showShared = useAppStore((s) => s.showShared);
+  const setShowShared = useAppStore((s) => s.setShowShared);
   const animationType = useAppStore((s) => s.animationType);
   const ganttStartDate = useAppStore((s) => s.ganttStartDate);
   const setGanttStartDate = useAppStore((s) => s.setGanttStartDate);
@@ -177,6 +180,31 @@ export default function Toolbar({
         </div>
       )}
 
+      {/* Shared filter button */}
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={() => setShowShared(!showShared)}
+          className={`
+            px-2.5 py-1 text-xs rounded-full transition-colors flex items-center gap-1
+            ${
+              showShared
+                ? "bg-purple-100 text-purple-700 font-medium"
+                : "bg-gray-100 text-gray-400"
+            }
+          `}
+          title="Toggle visibility of shared experiments"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="18" cy="5" r="3"/>
+            <circle cx="6" cy="12" r="3"/>
+            <circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+          Shared
+        </button>
+      </div>
+
       {/* Spacer */}
       <div className="flex-1" />
 
@@ -233,6 +261,9 @@ export default function Toolbar({
           <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
         </svg>
       </button>
+
+      {/* Notification badge */}
+      <NotificationBadge />
 
       {/* Week navigation controls */}
       <div className="flex items-center gap-1.5 border-l border-gray-200 pl-4">

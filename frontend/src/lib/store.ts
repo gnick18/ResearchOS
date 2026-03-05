@@ -25,6 +25,10 @@ interface AppState {
   selectedTags: string[];
   toggleTag: (tag: string) => void;
 
+  // Show shared experiments filter
+  showShared: boolean;
+  setShowShared: (show: boolean) => void;
+
   // GANTT view mode
   viewMode: ViewMode;
   setViewMode: (mode: ViewMode) => void;
@@ -64,6 +68,11 @@ interface AppState {
   // Animation settings (single type for all animations)
   animationType: AnimationType;
   setAnimationType: (type: AnimationType) => void;
+
+  // Gantt loading state for operations
+  ganttLoading: boolean;
+  ganttLoadingMessage: string;
+  setGanttLoading: (loading: boolean, message?: string) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -85,6 +94,9 @@ export const useAppStore = create<AppState>()(
             ? s.selectedTags.filter((t) => t !== tag)
             : [...s.selectedTags, tag],
         })),
+
+      showShared: true,  // Show shared experiments by default
+      setShowShared: (show) => set({ showShared: show }),
 
       viewMode: "2week",
       setViewMode: (mode) => set({ viewMode: mode }),
@@ -131,6 +143,11 @@ export const useAppStore = create<AppState>()(
       // Animation setting (single type with default)
       animationType: "rock",
       setAnimationType: (type) => set({ animationType: type }),
+
+      // Gantt loading state
+      ganttLoading: false,
+      ganttLoadingMessage: "",
+      setGanttLoading: (loading, message = "") => set({ ganttLoading: loading, ganttLoadingMessage: message }),
     }),
     {
       name: "research-os-settings",
