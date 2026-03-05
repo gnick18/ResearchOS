@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { settingsApi, migrationApi, type FolderSetupRequest, type MigrationPreview, type MigrationProgress, type MigrationRequest } from "@/lib/api";
+import { settingsApi, migrationApi, usersApi, type FolderSetupRequest, type MigrationPreview, type MigrationProgress, type MigrationRequest, type UsersAtPathResponse, type UserMigrationPreviewResponse, type UserMigrationProgress } from "@/lib/api";
 
 interface DataSetupScreenProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-type SetupMode = "choose" | "github" | "local" | "edit" | "migrate";
+type SetupMode = "choose" | "github" | "local" | "edit" | "migrate" | "migrate_user";
 type GithubOption = "existing" | "blank";
 
 export default function DataSetupScreen({ isOpen, onClose }: DataSetupScreenProps) {
@@ -38,6 +38,22 @@ export default function DataSetupScreen({ isOpen, onClose }: DataSetupScreenProp
   const [isMigrating, setIsMigrating] = useState(false);
   const [migrationError, setMigrationError] = useState<string | null>(null);
   const [migrationSuccess, setMigrationSuccess] = useState<string | null>(null);
+
+  // User migration state
+  const [userSourcePath, setUserSourcePath] = useState("");
+  const [userTargetPath, setUserTargetPath] = useState("");
+  const [sourceUsers, setSourceUsers] = useState<UsersAtPathResponse>({ users: [], path: "", exists: false });
+  const [targetUsers, setTargetUsers] = useState<UsersAtPathResponse>({ users: [], path: "", exists: false });
+  const [selectedSourceUser, setSelectedSourceUser] = useState("");
+  const [newUsername, setNewUsername] = useState("");
+  const [userMigrationPreview, setUserMigrationPreview] = useState<UserMigrationPreviewResponse | null>(null);
+  const [userMigrationProgress, setUserMigrationProgress] = useState<UserMigrationProgress | null>(null);
+  const [isLoadingSourceUsers, setIsLoadingSourceUsers] = useState(false);
+  const [isLoadingTargetUsers, setIsLoadingTargetUsers] = useState(false);
+  const [isPreviewingUserMigration, setIsPreviewingUserMigration] = useState(false);
+  const [isMigratingUser, setIsMigratingUser] = useState(false);
+  const [userMigrationError, setUserMigrationError] = useState<string | null>(null);
+  const [userMigrationSuccess, setUserMigrationSuccess] = useState<string | null>(null);
 
   // Load current settings when the screen opens
   useEffect(() => {
@@ -242,6 +258,105 @@ export default function DataSetupScreen({ isOpen, onClose }: DataSetupScreenProp
     }
   };
 
+  // User migration handlers
+  const handleLoadSourceUsers = async () => {
+    if (!userSourcePath.trim()) {
+      setUserMigrationError("Please enter a source path");
+      return;
+    }
+    setIsLoadingSourceUsers(true);
+    setUserMigrationError(null);
+    try {
+      const response = await usersApi.listAtPath(userSourcePath.trim());
+      setSourceUsers(response);
+      setSelectedSourceUser("");
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "Failed to load source users";
+      setUserMigrationError(errorMessage);
+    } finally {
+      setIsLoadingSourceUsers(false);
+    }
+  };
+
+  const handleLoadTargetUsers = async () => {
+    if (!userTargetPath.trim()) {
+      setUserMigrationError("Please enter a target path");
+      return;
+    }
+    setIsLoadingTargetUsers(true);
+    setUserMigrationError(null);
+    try {
+      const response = await usersApi.listAtPath(userTargetPath.trim());
+      setTargetUsers(response);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "Failed to load target users";
+      setUserMigrationError(errorMessage);
+    } finally {
+      setIsLoadingTargetUsers(false);
+    }
+  };
+
+  const handlePreviewUserMigration = async () => {
+    if (!userSourcePath.trim() || !userTargetPath.trim() || !selectedSourceUser) {
+      setUserMigrationError("Please fill in all required fields");
+      return;
+    }
+    if (!newUsername.trim()) {
+      setUserMigrationError("Please enter a new username for the target folder");
+      return;
+    }
+    setIsPreviewingUserMigration(true);
+    setUserMigrationError(null);
+    setUserMigrationPreview(null);
+    try {
+      const preview = await usersApi.previewMigration({
+        source_path: userSourcePath.trim(),
+        source_username: selectedSourceUser,
+        target_path: userTargetPath.trim(),
+        target_username: newUsername.trim(),
+      });
+      setUserMigrationPreview(preview);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "Failed to preview migration";
+      setUserMigrationError(errorMessage);
+    } finally {
+      setIsPreviewingUserMigration(false);
+    }
+  };
+
+  const handleExecuteUserMigration = async (deleteSource: boolean) => {
+    if (!userMigrationPreview?.can_proceed) {
+      setUserMigrationError("Please preview the migration first");
+      return;
+    }
+    setIsMigratingUser(true);
+    setUserMigrationError(null);
+    setUserMigrationSuccess(null);
+    try {
+      const result = await usersApi.migrateUser({
+        source_path: userSourcePath.trim(),
+        source_username: selectedSourceUser,
+        target_path: userTargetPath.trim(),
+        target_username: newUsername.trim(),
+        delete_source: deleteSource,
+      });
+      setUserMigrationSuccess(`Migration completed! ${result.items_migrated} items migrated to ${result.target_path}`);
+      // Reset form
+      setUserMigrationPreview(null);
+      setSelectedSourceUser("");
+      setNewUsername("");
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "Failed to execute migration";
+      setUserMigrationError(errorMessage);
+    } finally {
+      setIsMigratingUser(false);
+    }
+  };
+
   // Format bytes to human readable
   const formatBytes = (bytes: number): string => {
     if (bytes === 0) return "0 B";
@@ -401,6 +516,31 @@ export default function DataSetupScreen({ isOpen, onClose }: DataSetupScreenProp
               <p className="text-xs text-slate-400 truncate">Copy or move data to a new location</p>
             </div>
             <svg className="w-4 h-4 text-slate-500 group-hover:text-purple-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </button>
+      )}
+
+      {/* Migrate User Account Option */}
+      {isConfigured && (
+        <button
+          onClick={() => setMode("migrate_user")}
+          className="w-full p-4 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-cyan-500/50 rounded-xl transition-all text-left group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-600 to-blue-600 flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-sm font-semibold text-white group-hover:text-cyan-400 transition-colors">
+                Migrate User Account
+              </h4>
+              <p className="text-xs text-slate-400 truncate">Move a user account to another folder</p>
+            </div>
+            <svg className="w-4 h-4 text-slate-500 group-hover:text-cyan-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </div>
@@ -919,6 +1059,266 @@ export default function DataSetupScreen({ isOpen, onClose }: DataSetupScreenProp
     </div>
   );
 
+  const renderUserMigrationForm = () => (
+    <div className="space-y-4">
+      <button
+        onClick={() => {
+          setMode("choose");
+          setUserMigrationPreview(null);
+          setUserMigrationError(null);
+          setUserMigrationSuccess(null);
+          setSelectedSourceUser("");
+          setNewUsername("");
+        }}
+        className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        Back to options
+      </button>
+
+      <h3 className="text-lg font-semibold text-white">Migrate User Account</h3>
+
+      <div className="p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
+        <p className="text-xs text-cyan-300">
+          <strong>User migration:</strong> Move a user account from one ResearchOS folder to another. 
+          All data (projects, tasks, methods, etc.) will be migrated with new IDs to avoid conflicts.
+        </p>
+      </div>
+
+      {/* Source Path */}
+      <div>
+        <label className="block text-xs font-medium text-slate-300 mb-1">
+          Source Folder Path
+        </label>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={userSourcePath}
+            onChange={(e) => setUserSourcePath(e.target.value)}
+            placeholder="/path/to/source/folder"
+            className="flex-1 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+            disabled={isMigratingUser}
+          />
+          <button
+            onClick={handleLoadSourceUsers}
+            disabled={isLoadingSourceUsers || !userSourcePath.trim()}
+            className="px-3 py-2 text-sm text-slate-300 bg-white/10 hover:bg-white/20 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+          >
+            {isLoadingSourceUsers ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-slate-300" />
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            )}
+          </button>
+        </div>
+        {sourceUsers.exists && (
+          <p className="text-xs text-green-400 mt-1">
+            ✓ Folder found with {sourceUsers.users.length} user(s): {sourceUsers.users.join(", ") || "none"}
+          </p>
+        )}
+        {!sourceUsers.exists && sourceUsers.path && (
+          <p className="text-xs text-red-400 mt-1">Folder not found or no users folder</p>
+        )}
+      </div>
+
+      {/* Source User Selection */}
+      {sourceUsers.users.length > 0 && (
+        <div>
+          <label className="block text-xs font-medium text-slate-300 mb-1">
+            Select User to Migrate
+          </label>
+          <select
+            value={selectedSourceUser}
+            onChange={(e) => setSelectedSourceUser(e.target.value)}
+            className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            disabled={isMigratingUser}
+          >
+            <option value="">Select a user...</option>
+            {sourceUsers.users.map((user) => (
+              <option key={user} value={user}>{user}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Target Path */}
+      <div>
+        <label className="block text-xs font-medium text-slate-300 mb-1">
+          Target Folder Path
+        </label>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={userTargetPath}
+            onChange={(e) => setUserTargetPath(e.target.value)}
+            placeholder="/path/to/target/folder"
+            className="flex-1 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+            disabled={isMigratingUser}
+          />
+          <button
+            onClick={handleLoadTargetUsers}
+            disabled={isLoadingTargetUsers || !userTargetPath.trim()}
+            className="px-3 py-2 text-sm text-slate-300 bg-white/10 hover:bg-white/20 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+          >
+            {isLoadingTargetUsers ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-slate-300" />
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            )}
+          </button>
+        </div>
+        {targetUsers.exists && (
+          <p className="text-xs text-green-400 mt-1">
+            ✓ Folder found with {targetUsers.users.length} user(s): {targetUsers.users.join(", ") || "none"}
+          </p>
+        )}
+        {!targetUsers.exists && targetUsers.path && (
+          <p className="text-xs text-red-400 mt-1">Folder not found or no users folder</p>
+        )}
+      </div>
+
+      {/* New Username */}
+      {selectedSourceUser && (
+        <div>
+          <label className="block text-xs font-medium text-slate-300 mb-1">
+            New Username in Target Folder
+          </label>
+          <input
+            type="text"
+            value={newUsername}
+            onChange={(e) => setNewUsername(e.target.value)}
+            placeholder={selectedSourceUser}
+            className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+            disabled={isMigratingUser}
+          />
+          {targetUsers.users.includes(newUsername) && (
+            <p className="text-xs text-amber-400 mt-1">
+              ⚠ A user named "{newUsername}" already exists in the target folder. IDs will be re-assigned.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Error */}
+      {userMigrationError && (
+        <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
+          <p className="text-sm text-red-300">{userMigrationError}</p>
+        </div>
+      )}
+
+      {/* Success */}
+      {userMigrationSuccess && (
+        <div className="p-3 bg-green-500/20 border border-green-500/30 rounded-lg">
+          <p className="text-sm text-green-300">{userMigrationSuccess}</p>
+        </div>
+      )}
+
+      {/* Preview */}
+      {userMigrationPreview && (
+        <div className={`p-4 rounded-lg ${userMigrationPreview.can_proceed ? "bg-white/5 border border-white/10" : "bg-red-500/20 border border-red-500/30"}`}>
+          <h4 className="text-sm font-medium text-white mb-3">Migration Preview</h4>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <span className="text-slate-400">Source:</span>
+              <span className="ml-2 font-medium text-white">{userMigrationPreview.source_username}</span>
+            </div>
+            <div>
+              <span className="text-slate-400">Target:</span>
+              <span className="ml-2 font-medium text-white">{userMigrationPreview.target_username}</span>
+            </div>
+            <div>
+              <span className="text-slate-400">Projects:</span>
+              <span className="ml-2 font-medium text-white">{userMigrationPreview.stats.projects_count}</span>
+            </div>
+            <div>
+              <span className="text-slate-400">Tasks:</span>
+              <span className="ml-2 font-medium text-white">{userMigrationPreview.stats.tasks_count}</span>
+            </div>
+            <div>
+              <span className="text-slate-400">Methods:</span>
+              <span className="ml-2 font-medium text-white">{userMigrationPreview.stats.methods_count}</span>
+            </div>
+            <div>
+              <span className="text-slate-400">PCR Protocols:</span>
+              <span className="ml-2 font-medium text-white">{userMigrationPreview.stats.pcr_protocols_count}</span>
+            </div>
+            <div>
+              <span className="text-slate-400">Notes:</span>
+              <span className="ml-2 font-medium text-white">{userMigrationPreview.stats.notes_count}</span>
+            </div>
+            <div>
+              <span className="text-slate-400">Images:</span>
+              <span className="ml-2 font-medium text-white">{userMigrationPreview.stats.images_count}</span>
+            </div>
+            <div>
+              <span className="text-slate-400">Files:</span>
+              <span className="ml-2 font-medium text-white">{userMigrationPreview.stats.files_count}</span>
+            </div>
+            <div>
+              <span className="text-slate-400">Total Size:</span>
+              <span className="ml-2 font-medium text-white">{formatBytes(userMigrationPreview.stats.total_size_bytes)}</span>
+            </div>
+          </div>
+          {userMigrationPreview.warnings.length > 0 && (
+            <div className="mt-3">
+              <p className="text-sm font-medium text-amber-300 mb-1">Warnings:</p>
+              <ul className="text-xs text-amber-300 list-disc list-inside space-y-0.5">
+                {userMigrationPreview.warnings.map((warning, i) => (
+                  <li key={i}>{warning}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {userMigrationPreview.existing_users_in_target.length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs text-slate-400">
+                Existing users in target: {userMigrationPreview.existing_users_in_target.join(", ")}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Action buttons */}
+      <div className="flex gap-3 pt-2">
+        <button
+          onClick={handlePreviewUserMigration}
+          disabled={isPreviewingUserMigration || isMigratingUser || !selectedSourceUser || !newUsername.trim()}
+          className="px-4 py-2 text-sm text-slate-300 bg-white/10 hover:bg-white/20 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+        >
+          {isPreviewingUserMigration && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-slate-300" />}
+          Preview
+        </button>
+        {userMigrationPreview?.can_proceed && (
+          <>
+            <button
+              onClick={() => handleExecuteUserMigration(false)}
+              disabled={isMigratingUser}
+              className="px-4 py-2 text-sm text-white bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {isMigratingUser && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />}
+              Copy (Keep Source)
+            </button>
+            <button
+              onClick={() => handleExecuteUserMigration(true)}
+              disabled={isMigratingUser}
+              className="px-4 py-2 text-sm text-white bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {isMigratingUser && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />}
+              Move (Delete Source)
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+
   if (!isOpen) return null;
 
   return (
@@ -972,23 +1372,24 @@ export default function DataSetupScreen({ isOpen, onClose }: DataSetupScreenProp
                 {mode === "local" && renderLocalForm()}
                 {mode === "edit" && renderEditForm()}
                 {mode === "migrate" && renderMigrationForm()}
+                {mode === "migrate_user" && renderUserMigrationForm()}
 
                 {/* Error message */}
-                {error && mode !== "migrate" && (
+                {error && mode !== "migrate" && mode !== "migrate_user" && (
                   <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
                     <p className="text-sm text-red-300">{error}</p>
                   </div>
                 )}
 
                 {/* Success message */}
-                {success && mode !== "migrate" && (
+                {success && mode !== "migrate" && mode !== "migrate_user" && (
                   <div className="mt-4 p-3 bg-green-500/20 border border-green-500/30 rounded-lg">
                     <p className="text-sm text-green-300">{success}</p>
                   </div>
                 )}
 
                 {/* Submit button (only show when in a form mode, but not for migrate which has its own buttons) */}
-                {mode !== "choose" && mode !== "migrate" && (
+                {mode !== "choose" && mode !== "migrate" && mode !== "migrate_user" && (
                   <div className="mt-4">
                     <button
                       onClick={handleSetup}

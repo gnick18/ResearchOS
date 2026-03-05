@@ -458,48 +458,29 @@ async def reload_settings():
         )
 
 
-class MacAppCreateRequest(BaseModel):
-    """Request to create a Mac desktop app launcher."""
+class DesktopLauncherRequest(BaseModel):
+    """Request to create a desktop app launcher."""
     app_name: str
 
 
-class MacAppCreateResponse(BaseModel):
-    """Response after creating a Mac desktop app launcher."""
+class DesktopLauncherResponse(BaseModel):
+    """Response after creating a desktop app launcher."""
     app_path: str
     message: str
+    platform: str  # "mac", "windows", or "linux"
 
 
-@router.post("/create-mac-app", response_model=MacAppCreateResponse)
-async def create_mac_app(request: MacAppCreateRequest):
-    """Create a Mac .app bundle that launches ResearchOS.
-    
-    This creates a proper macOS application bundle on the user's Desktop
-    that can be double-clicked to start the backend/frontend and open the browser.
-    """
-    # Check if we're running on macOS
-    if platform.system() != "Darwin":
-        raise HTTPException(
-            status_code=400,
-            detail="This feature is only available on macOS"
-        )
-    
-    app_name = request.app_name.strip()
+def _sanitize_app_name(app_name: str) -> str:
+    """Sanitize app name by removing potentially dangerous characters."""
+    app_name = app_name.strip()
     if not app_name:
-        raise HTTPException(
-            status_code=400,
-            detail="App name cannot be empty"
-        )
-    
-    # Sanitize app name (remove potentially dangerous characters)
-    app_name = "".join(c for c in app_name if c.isalnum() or c in " -_").strip()
-    if not app_name:
-        raise HTTPException(
-            status_code=400,
-            detail="App name contains only invalid characters"
-        )
-    
-    # Get the project directory (parent of backend)
-    project_dir = Path(__file__).parent.parent.parent
+        return ""
+    # Remove potentially dangerous characters, keep alphanumeric, spaces, hyphens, underscores
+    return "".join(c for c in app_name if c.isalnum() or c in " -_").strip()
+
+
+def _create_mac_launcher(app_name: str, project_dir: Path) -> DesktopLauncherResponse:
+    """Create a macOS .app bundle that launches ResearchOS."""
     desktop_path = Path.home() / "Desktop"
     app_path = desktop_path / f"{app_name}.app"
     
@@ -508,33 +489,33 @@ async def create_mac_app(request: MacAppCreateRequest):
     macos_path = contents_path / "MacOS"
     resources_path = contents_path / "Resources"
     
-    try:
-        # Create directories
-        macos_path.mkdir(parents=True, exist_ok=True)
-        resources_path.mkdir(parents=True, exist_ok=True)
-        
-        # Create the executable script
-        run_script = macos_path / "run"
-        script_content = f"""#!/bin/bash
+    # Create directories
+    macos_path.mkdir(parents=True, exist_ok=True)
+    resources_path.mkdir(parents=True, exist_ok=True)
+    
+    # Create the executable script
+    run_script = macos_path / "run"
+    script_content = f"""#!/bin/bash
 # {app_name} Launcher - Starts backend + frontend and opens browser
 
 cd "{project_dir}"
 
-# Start ResearchOS in background
-./start.sh &
+# Start ResearchOS in background with nohup so it survives after this script exits
+nohup ./start.sh > /tmp/researchos-launcher.log 2>&1 &
+disown
 
 # Wait for frontend to be ready, then open browser
 sleep 5
 open http://localhost:3000
 """
-        run_script.write_text(script_content)
-        
-        # Make it executable
-        run_script.chmod(0o755)
-        
-        # Create Info.plist
-        info_plist = contents_path / "Info.plist"
-        plist_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+    run_script.write_text(script_content)
+    
+    # Make it executable
+    run_script.chmod(0o755)
+    
+    # Create Info.plist
+    info_plist = contents_path / "Info.plist"
+    plist_content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -555,20 +536,200 @@ open http://localhost:3000
 </dict>
 </plist>
 """
-        info_plist.write_text(plist_content)
-        
-        # Create PkgInfo
-        pkg_info = contents_path / "PkgInfo"
-        pkg_info.write_text("APPL????")
-        
-        # Refresh the app bundle
-        subprocess.run(["touch", str(app_path)], check=False)
-        
-        return MacAppCreateResponse(
-            app_path=str(app_path),
-            message=f"Successfully created {app_name}.app on your Desktop"
+    info_plist.write_text(plist_content)
+    
+    # Create PkgInfo
+    pkg_info = contents_path / "PkgInfo"
+    pkg_info.write_text("APPL????")
+    
+    # Refresh the app bundle
+    subprocess.run(["touch", str(app_path)], check=False)
+    
+    return DesktopLauncherResponse(
+        app_path=str(app_path),
+        message=f"Successfully created {app_name}.app on your Desktop",
+        platform="mac"
+    )
+
+
+def _create_windows_launcher(app_name: str, project_dir: Path) -> DesktopLauncherResponse:
+    """Create a Windows batch file that launches ResearchOS."""
+    desktop_path = Path.home() / "Desktop"
+    bat_path = desktop_path / f"{app_name}.bat"
+    
+    # Convert to Windows-style path for the batch file
+    project_dir_win = str(project_dir).replace("/", "\\")
+    
+    # Create the batch file
+    batch_content = f"""@echo off
+REM {app_name} Launcher - Starts backend + frontend and opens browser
+REM Console window stays open for debugging
+
+echo Starting {app_name}...
+cd /d "{project_dir_win}"
+
+REM Kill existing processes on ports 8000 and 3000
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr :8000 ^| findstr LISTENING') do (
+    taskkill /F /PID %%a 2>nul
+)
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr :3000 ^| findstr LISTENING') do (
+    taskkill /F /PID %%a 2>nul
+)
+
+REM Wait for ports to be released
+timeout /t 2 /nobreak > nul
+
+REM Start backend
+echo Starting backend on http://localhost:8000 ...
+cd backend
+start "ResearchOS Backend" /min python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+REM Start frontend
+echo Starting frontend on http://localhost:3000 ...
+cd ..\\frontend
+start "ResearchOS Frontend" /min npm run dev
+
+REM Wait for frontend to be ready
+echo Waiting for services to start...
+timeout /t 5 /nobreak > nul
+
+REM Open browser
+echo Opening browser...
+start http://localhost:3000
+
+echo.
+echo {app_name} is running!
+echo Frontend: http://localhost:3000
+echo Backend:  http://localhost:8000
+echo.
+echo Close this window to stop the services (or press Ctrl+C)
+echo.
+pause
+"""
+    bat_path.write_text(batch_content)
+    
+    return DesktopLauncherResponse(
+        app_path=str(bat_path),
+        message=f"Successfully created {app_name}.bat on your Desktop",
+        platform="windows"
+    )
+
+
+def _create_linux_launcher(app_name: str, project_dir: Path) -> DesktopLauncherResponse:
+    """Create a Linux .desktop file that launches ResearchOS."""
+    desktop_path = Path.home() / "Desktop"
+    desktop_file = desktop_path / f"{app_name}.desktop"
+    
+    # Create the .desktop file
+    desktop_content = f"""[Desktop Entry]
+Version=1.0
+Name={app_name}
+Comment=Launch ResearchOS
+Exec=bash -c "cd '{project_dir}' && ./start.sh"
+Icon=applications-science
+Terminal=true
+Type=Application
+Categories=Science;
+StartupNotify=true
+"""
+    desktop_file.write_text(desktop_content)
+    
+    # Make it executable and trusted
+    desktop_file.chmod(0o755)
+    
+    # Mark as trusted (requires gio on GNOME)
+    try:
+        subprocess.run(["gio", "set", str(desktop_file), "metadata::trusted", "true"], 
+                      check=False, capture_output=True)
+    except FileNotFoundError:
+        pass  # gio not available, that's okay
+    
+    return DesktopLauncherResponse(
+        app_path=str(desktop_file),
+        message=f"Successfully created {app_name}.desktop on your Desktop",
+        platform="linux"
+    )
+
+
+@router.post("/create-desktop-launcher", response_model=DesktopLauncherResponse)
+async def create_desktop_launcher(request: DesktopLauncherRequest):
+    """Create a desktop launcher that starts ResearchOS.
+    
+    Creates a platform-specific launcher:
+    - macOS: .app bundle
+    - Windows: .bat batch file
+    - Linux: .desktop file
+    
+    The launcher starts the backend and frontend servers and opens the browser.
+    """
+    app_name = _sanitize_app_name(request.app_name)
+    if not app_name:
+        raise HTTPException(
+            status_code=400,
+            detail="App name cannot be empty or contain only invalid characters"
         )
-        
+    
+    # Get the project directory (parent of backend)
+    project_dir = Path(__file__).parent.parent.parent
+    
+    # Detect platform and create appropriate launcher
+    current_platform = platform.system()
+    
+    try:
+        if current_platform == "Darwin":
+            return _create_mac_launcher(app_name, project_dir)
+        elif current_platform == "Windows":
+            return _create_windows_launcher(app_name, project_dir)
+        elif current_platform == "Linux":
+            return _create_linux_launcher(app_name, project_dir)
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported platform: {current_platform}. Supported platforms are macOS, Windows, and Linux."
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create launcher: {str(e)}"
+        )
+
+
+# Keep old endpoint for backwards compatibility (deprecated)
+class MacAppCreateRequest(BaseModel):
+    """Request to create a Mac desktop app launcher."""
+    app_name: str
+
+
+class MacAppCreateResponse(BaseModel):
+    """Response after creating a Mac desktop app launcher."""
+    app_path: str
+    message: str
+
+
+@router.post("/create-mac-app", response_model=MacAppCreateResponse, deprecated=True)
+async def create_mac_app(request: MacAppCreateRequest):
+    """Create a Mac .app bundle that launches ResearchOS.
+    
+    DEPRECATED: Use /create-desktop-launcher instead.
+    This endpoint is kept for backwards compatibility.
+    """
+    app_name = _sanitize_app_name(request.app_name)
+    if not app_name:
+        raise HTTPException(
+            status_code=400,
+            detail="App name cannot be empty or contain only invalid characters"
+        )
+    
+    project_dir = Path(__file__).parent.parent.parent
+    
+    try:
+        result = _create_mac_launcher(app_name, project_dir)
+        return MacAppCreateResponse(
+            app_path=result.app_path,
+            message=result.message
+        )
     except Exception as e:
         raise HTTPException(
             status_code=500,

@@ -8,7 +8,7 @@ import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import ProjectDetailPopup from "@/components/ProjectDetailPopup";
 import DataSetupScreen from "@/components/DataSetupScreen";
-import MacAppLauncherPopup from "@/components/MacAppLauncherPopup";
+import DesktopLauncherPopup from "@/components/DesktopLauncherPopup";
 import ResearchFolderSetup from "@/components/ResearchFolderSetup";
 import UserLoginScreen from "@/components/UserLoginScreen";
 import type { Project, Task } from "@/lib/types";
@@ -687,8 +687,8 @@ export default function HomePage() {
         onClose={() => setShowSettings(false)}
       />
 
-      {/* Mac App Launcher Popup */}
-      <MacAppLauncherPopup
+      {/* Desktop Launcher Popup */}
+      <DesktopLauncherPopup
         isOpen={showMacAppLauncher}
         onClose={() => setShowMacAppLauncher(false)}
       />

@@ -2,33 +2,49 @@
 
 import { useState, useEffect } from "react";
 
-interface MacAppLauncherPopupProps {
+type Platform = "mac" | "windows" | "linux" | "unknown";
+
+interface DesktopLauncherPopupProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export default function MacAppLauncherPopup({ isOpen, onClose }: MacAppLauncherPopupProps) {
+export default function DesktopLauncherPopup({ isOpen, onClose }: DesktopLauncherPopupProps) {
   const [step, setStep] = useState<"detect" | "confirm" | "name" | "creating" | "success" | "error">("detect");
-  const [isMac, setIsMac] = useState<boolean | null>(null);
+  const [platform, setPlatform] = useState<Platform>("unknown");
   const [appName, setAppName] = useState("ResearchOS");
   const [error, setError] = useState<string | null>(null);
   const [appPath, setAppPath] = useState<string | null>(null);
 
-  // Detect Mac on open
+  // Detect platform on open
   useEffect(() => {
     if (isOpen) {
-      // Detect if user is on Mac
       const userAgent = navigator.userAgent.toLowerCase();
-      const isMacOS = userAgent.includes("mac") && !userAgent.includes("windows") && !userAgent.includes("linux");
-      setIsMac(isMacOS);
-      setStep(isMacOS ? "confirm" : "error");
-      setError(isMacOS ? null : "This feature is only available on macOS.");
+      let detectedPlatform: Platform = "unknown";
+      
+      if (userAgent.includes("mac")) {
+        detectedPlatform = "mac";
+      } else if (userAgent.includes("windows")) {
+        detectedPlatform = "windows";
+      } else if (userAgent.includes("linux")) {
+        detectedPlatform = "linux";
+      }
+      
+      setPlatform(detectedPlatform);
+      
+      if (detectedPlatform === "unknown") {
+        setStep("error");
+        setError("This feature is only available on macOS, Windows, and Linux.");
+      } else {
+        setStep("confirm");
+        setError(null);
+      }
     }
   }, [isOpen]);
 
-  const handleCreateApp = async () => {
+  const handleCreateLauncher = async () => {
     if (!appName.trim()) {
-      setError("Please enter a name for your app");
+      setError("Please enter a name for your launcher");
       return;
     }
 
@@ -36,7 +52,7 @@ export default function MacAppLauncherPopup({ isOpen, onClose }: MacAppLauncherP
     setError(null);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"}/settings/create-mac-app`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"}/settings/create-desktop-launcher`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -48,14 +64,14 @@ export default function MacAppLauncherPopup({ isOpen, onClose }: MacAppLauncherP
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || "Failed to create app");
+        throw new Error(errorData.detail || "Failed to create launcher");
       }
 
       const data = await response.json();
       setAppPath(data.app_path);
       setStep("success");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create Mac app");
+      setError(err instanceof Error ? err.message : "Failed to create desktop launcher");
       setStep("error");
     }
   };
@@ -66,6 +82,56 @@ export default function MacAppLauncherPopup({ isOpen, onClose }: MacAppLauncherP
     setError(null);
     setAppPath(null);
     onClose();
+  };
+
+  const getPlatformName = () => {
+    switch (platform) {
+      case "mac": return "Mac";
+      case "windows": return "Windows";
+      case "linux": return "Linux";
+      default: return "Unknown";
+    }
+  };
+
+  const getPlatformInstructions = () => {
+    switch (platform) {
+      case "mac":
+        return (
+          <ol className="text-xs text-blue-700 space-y-1 list-decimal list-inside">
+            <li>Double-click the app to launch ResearchOS</li>
+            <li>First time: Right-click &gt; Open to bypass security</li>
+            <li>Drag to your Dock for one-click access</li>
+          </ol>
+        );
+      case "windows":
+        return (
+          <ol className="text-xs text-blue-700 space-y-1 list-decimal list-inside">
+            <li>Double-click the .bat file to launch ResearchOS</li>
+            <li>A console window will open (for debugging)</li>
+            <li>Right-click the file &gt; Send to &gt; Desktop (create shortcut) for easy access</li>
+            <li>Pin to Taskbar: Right-click shortcut &gt; Pin to taskbar</li>
+          </ol>
+        );
+      case "linux":
+        return (
+          <ol className="text-xs text-blue-700 space-y-1 list-decimal list-inside">
+            <li>Double-click the .desktop file to launch ResearchOS</li>
+            <li>If it doesn&apos;t run: Right-click &gt; Properties &gt; Permissions &gt; Allow executing</li>
+            <li>Drag to your dock/favorites for easy access</li>
+          </ol>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const getFileExtension = () => {
+    switch (platform) {
+      case "mac": return ".app";
+      case "windows": return ".bat";
+      case "linux": return ".desktop";
+      default: return "";
+    }
   };
 
   if (!isOpen) return null;
@@ -115,10 +181,10 @@ export default function MacAppLauncherPopup({ isOpen, onClose }: MacAppLauncherP
                 </svg>
               </div>
               <h4 className="text-lg font-medium text-gray-900 mb-2">
-                You're using a Mac!
+                You're using {getPlatformName()}!
               </h4>
               <p className="text-sm text-gray-600 mb-6">
-                Would you like to create a desktop app that launches ResearchOS with one click?
+                Would you like to create a desktop launcher that starts ResearchOS with one click?
               </p>
               <div className="flex gap-3 justify-center">
                 <button
@@ -141,18 +207,18 @@ export default function MacAppLauncherPopup({ isOpen, onClose }: MacAppLauncherP
           {step === "name" && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                What would you like to name your app?
+                What would you like to name your launcher?
               </label>
               <input
                 type="text"
                 value={appName}
                 onChange={(e) => setAppName(e.target.value)}
                 placeholder="ResearchOS"
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
+                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
                 autoFocus
               />
               <p className="text-xs text-gray-500 mb-6">
-                The app will be created on your Desktop. You can drag it to your Dock for easy access.
+                The launcher will be created on your Desktop as <strong>{appName || "ResearchOS"}{getFileExtension()}</strong>
               </p>
               <div className="flex gap-3 justify-end">
                 <button
@@ -162,11 +228,11 @@ export default function MacAppLauncherPopup({ isOpen, onClose }: MacAppLauncherP
                   Back
                 </button>
                 <button
-                  onClick={handleCreateApp}
+                  onClick={handleCreateLauncher}
                   disabled={!appName.trim()}
                   className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Create App
+                  Create Launcher
                 </button>
               </div>
             </div>
@@ -176,7 +242,7 @@ export default function MacAppLauncherPopup({ isOpen, onClose }: MacAppLauncherP
           {step === "creating" && (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-sm text-gray-600">Creating your desktop app...</p>
+              <p className="text-sm text-gray-600">Creating your desktop launcher...</p>
             </div>
           )}
 
@@ -189,22 +255,18 @@ export default function MacAppLauncherPopup({ isOpen, onClose }: MacAppLauncherP
                 </svg>
               </div>
               <h4 className="text-lg font-medium text-gray-900 mb-2">
-                App Created Successfully!
+                Launcher Created Successfully!
               </h4>
               <p className="text-sm text-gray-600 mb-4">
-                <strong>{appName}</strong> is now on your Desktop.
+                <strong>{appName}{getFileExtension()}</strong> is now on your Desktop.
               </p>
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <p className="text-xs text-gray-500 mb-2">App location:</p>
+                <p className="text-xs text-gray-500 mb-2">Launcher location:</p>
                 <code className="text-xs text-gray-700 break-all">{appPath}</code>
               </div>
               <div className="bg-blue-50 rounded-lg p-4 mb-6 text-left">
                 <p className="text-xs font-medium text-blue-800 mb-2">Next steps:</p>
-                <ol className="text-xs text-blue-700 space-y-1 list-decimal list-inside">
-                  <li>Double-click the app to launch ResearchOS</li>
-                  <li>First time: Right-click &gt; Open to bypass security</li>
-                  <li>Drag to your Dock for one-click access</li>
-                </ol>
+                {getPlatformInstructions()}
               </div>
               <button
                 onClick={handleClose}
@@ -224,7 +286,7 @@ export default function MacAppLauncherPopup({ isOpen, onClose }: MacAppLauncherP
                 </svg>
               </div>
               <h4 className="text-lg font-medium text-gray-900 mb-2">
-                {isMac === false ? "Not Available" : "Error"}
+                {platform === "unknown" ? "Not Available" : "Error"}
               </h4>
               <p className="text-sm text-gray-600 mb-6">
                 {error || "Something went wrong"}
