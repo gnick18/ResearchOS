@@ -1455,9 +1455,9 @@ export default function LiveMarkdownEditor({
         )}
 
         {/* Editor / Preview */}
-        <div className="flex-1 min-h-[300px] cursor-text">
+        <div className="flex-1 min-h-[300px] cursor-text overflow-hidden">
           {previewMode ? (
-            <div className="p-4 min-h-[300px]">
+            <div className="p-4 h-full overflow-y-auto">
               {value.trim() ? (
                 <div className="prose prose-sm prose-gray max-w-none" style={{ lineHeight: "1.7" }}>
                   <ReactMarkdown
