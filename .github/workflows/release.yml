@@ -65,7 +65,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-installer
-          path: installer/out/make/squirrel.windows/**/*.exe
+          path: installer/out/make/zip/win32/**/*.zip
           if-no-files-found: warn
 
   release:
@@ -113,6 +113,6 @@ jobs:
             See commit history for details.
           files: |
             artifacts/mac/**/*.zip
-            artifacts/windows/**/*.exe
+            artifacts/windows/**/*.zip
           draft: false
           prerelease: false
