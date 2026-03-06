@@ -525,7 +525,7 @@ export default function NoteDetailPopup({
           )}
 
           {/* Editor */}
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-y-auto">
             {note.is_running_log ? (
               currentEntry ? (
                 <LiveMarkdownEditor

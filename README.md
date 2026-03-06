@@ -29,9 +29,19 @@ Download the installer for your platform and run it. The installer will:
 
 **Downloads:**
 - **macOS**: Download `researchos-installer-darwin-arm64-x.x.x.zip` from the [Releases](https://github.com/gnick18/ResearchOS/releases) page
-- **Windows**: Download `ResearchOSInstallerSetup.exe` from the [Releases](https://github.com/gnick18/ResearchOS/releases) page
+- **Windows**: Download `researchos-installer-win32-x.x.x.zip` from the [Releases](https://github.com/gnick18/ResearchOS/releases) page
 
-After installation, launch ResearchOS from your desktop shortcut or Applications folder.
+> **⚠️ macOS Security Note**: On macOS, the app may show "is damaged and can't be opened" because it's not code-signed. To fix this, open Terminal and run:
+> ```bash
+> xattr -cr /path/to/researchos-installer.app
+> ```
+> Or right-click the app and select "Open", then click "Open" again when prompted.
+
+> **⚠️ Windows Security Note**: On Windows, the app may show a SmartScreen warning. To proceed:
+> 1. Click "More info" on the warning
+> 2. Click "Run anyway" to bypass the warning
+
+For future releases, we plan to add code signing which will eliminate these warnings entirely.
 
 ### Option 2: Manual Installation
 
