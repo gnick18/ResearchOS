@@ -69,12 +69,37 @@ app.on('activate', () => {
   }
 });
 
+// Execute command with user's login shell (to get proper PATH)
+async function execWithShell(command) {
+  try {
+    // On macOS, use login shell to get user's PATH
+    if (isMac) {
+      const { stdout } = await execAsync(`/bin/zsh -l -c "${command}"`, {
+        env: { ...process.env, PATH: process.env.PATH }
+      });
+      return stdout.trim();
+    } else if (isWindows) {
+      const { stdout } = await execAsync(command, {
+        env: { ...process.env, PATH: process.env.PATH }
+      });
+      return stdout.trim();
+    } else {
+      // Linux
+      const { stdout } = await execAsync(`/bin/bash -l -c "${command}"`, {
+        env: { ...process.env, PATH: process.env.PATH }
+      });
+      return stdout.trim();
+    }
+  } catch (error) {
+    return null;
+  }
+}
+
 // Check if a command exists
 async function commandExists(command) {
   try {
-    const cmd = isWindows ? `where ${command}` : `which ${command}`;
-    await execAsync(cmd);
-    return true;
+    const result = await execWithShell(`which ${command}`);
+    return result !== null && result.length > 0;
   } catch {
     return false;
   }
@@ -83,8 +108,8 @@ async function commandExists(command) {
 // Get version of a command
 async function getCommandVersion(command, versionFlag = '--version') {
   try {
-    const { stdout } = await execAsync(`${command} ${versionFlag}`);
-    return stdout.trim();
+    const result = await execWithShell(`${command} ${versionFlag}`);
+    return result;
   } catch {
     return null;
   }
