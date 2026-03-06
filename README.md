@@ -2,7 +2,7 @@
 
 A research project management application with smart GANTT scheduling, automatic git-based data synchronization, and intuitive task tracking.
 
-![ResearchOS](https://img.shields.io/badge/version-0.3.0-blue)
+![ResearchOS](https://img.shields.io/badge/version-1.0.1-blue)
 
 ---
 
