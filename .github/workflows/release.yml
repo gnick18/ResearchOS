@@ -1,0 +1,106 @@
+name: Build and Release Installer
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: installer/package-lock.json
+
+      - name: Install dependencies
+        working-directory: installer
+        run: npm ci
+
+      - name: Build installer
+        working-directory: installer
+        run: npm run make
+
+      - name: Upload Mac artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-installer
+          path: installer/out/make/zip/darwin/**/*.zip
+          if-no-files-found: error
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: installer/package-lock.json
+
+      - name: Install dependencies
+        working-directory: installer
+        run: npm ci
+
+      - name: Build installer
+        working-directory: installer
+        run: npm run make
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: installer/out/make/squirrel.windows/**/*.exe
+          if-no-files-found: warn
+
+  release:
+    needs: [build-mac, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Mac artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mac-installer
+          path: artifacts/mac
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-installer
+          path: artifacts/windows
+        continue-on-error: true
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: ResearchOS ${{ steps.get_version.outputs.VERSION }}
+          body: |
+            ## ResearchOS ${{ steps.get_version.outputs.VERSION }}
+            
+            ### Downloads
+            - **macOS**: Download `researchos-installer-darwin-arm64-*.zip`
+            - **Windows**: Download `ResearchOSInstallerSetup.exe`
+            
+            ### What's Changed
+            See commit history for details.
+          files: |
+            artifacts/mac/**/*.zip
+            artifacts/windows/**/*.exe
+          draft: false
+          prerelease: false

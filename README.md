@@ -28,8 +28,8 @@ Download the installer for your platform and run it. The installer will:
 - Set up ResearchOS and create a desktop shortcut
 
 **Downloads:**
-- **macOS**: Download `researchos-installer-darwin-arm64-x.x.x.zip` from the [Releases](releases) page
-- **Windows**: Download `ResearchOSInstallerSetup.exe` from the [Releases](releases) page
+- **macOS**: Download `researchos-installer-darwin-arm64-x.x.x.zip` from the [Releases](https://github.com/gnick18/ResearchOS/releases) page
+- **Windows**: Download `ResearchOSInstallerSetup.exe` from the [Releases](https://github.com/gnick18/ResearchOS/releases) page
 
 After installation, launch ResearchOS from your desktop shortcut or Applications folder.
 
