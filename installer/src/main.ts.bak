@@ -1,0 +1,573 @@
+// @ts-nocheck
+const electron = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = electron;
+const path = require('path');
+const os = require('os');
+const { exec, spawn } = require('child_process');
+const { promisify } = require('util');
+const fs = require('fs-extra');
+const https = require('https');
+const http = require('http');
+
+const execAsync = promisify(exec);
+
+let mainWindow: BrowserWindow | null = null;
+
+// Platform detection
+const platform = os.platform();
+const isWindows = platform === 'win32';
+const isMac = platform === 'darwin';
+
+// Default installation directory
+const getDefaultInstallDir = () => {
+  if (isWindows) {
+    return path.join(process.env.LOCALAPPDATA || os.homedir(), 'ResearchOS');
+  }
+  return path.join(os.homedir(), 'Applications', 'ResearchOS');
+};
+
+// Create the main window
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 700,
+    height: 600,
+    minWidth: 600,
+    minHeight: 500,
+    resizable: true,
+    frame: true,
+    titleBarStyle: 'default',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
+    },
+    icon: path.join(__dirname, '..', 'assets', isMac ? 'icon.icns' : 'icon.png'),
+    title: 'ResearchOS Installer',
+    backgroundColor: '#f8fafc',
+  });
+
+  // Load the renderer HTML
+  mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+
+  // Open DevTools in development
+  if (process.env.NODE_ENV === 'development') {
+    mainWindow.webContents.openDevTools();
+  }
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+}
+
+// App lifecycle
+app.whenReady().then(createWindow);
+
+app.on('window-all-closed', () => {
+  if (!isMac) {
+    app.quit();
+  }
+});
+
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow();
+  }
+});
+
+// ============================================
+// IPC Handlers - Communication with renderer
+// ============================================
+
+// Get platform info
+ipcMain.handle('get-platform', () => ({
+  platform,
+  isWindows,
+  isMac,
+  isLinux: platform === 'linux',
+  homeDir: os.homedir(),
+  defaultInstallDir: getDefaultInstallDir(),
+}));
+
+// Check if a command exists
+async function commandExists(command: string): Promise<boolean> {
+  try {
+    const cmd = isWindows ? `where ${command}` : `which ${command}`;
+    await execAsync(cmd);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Get version of a command
+async function getCommandVersion(command: string, versionFlag: string = '--version'): Promise<string | null> {
+  try {
+    const { stdout } = await execAsync(`${command} ${versionFlag}`);
+    return stdout.trim();
+  } catch {
+    return null;
+  }
+}
+
+// Parse version string to compare
+function parseVersion(versionStr: string): number[] {
+  const match = versionStr.match(/(\d+)\.(\d+)\.?(\d*)/);
+  if (!match) return [0, 0, 0];
+  return [
+    parseInt(match[1]) || 0,
+    parseInt(match[2]) || 0,
+    parseInt(match[3]) || 0,
+  ];
+}
+
+// Compare versions: returns true if installed >= required
+function compareVersions(installed: string, required: string): boolean {
+  const installedParts = parseVersion(installed);
+  const requiredParts = parseVersion(required);
+  
+  for (let i = 0; i < 3; i++) {
+    if (installedParts[i] > requiredParts[i]) return true;
+    if (installedParts[i] < requiredParts[i]) return false;
+  }
+  return true;
+}
+
+// Check all dependencies
+ipcMain.handle('check-dependencies', async () => {
+  const results: {
+    python: { installed: boolean; version: string | null; meetsRequirement: boolean };
+    node: { installed: boolean; version: string | null; meetsRequirement: boolean };
+    git: { installed: boolean; version: string | null; meetsRequirement: boolean };
+  } = {
+    python: { installed: false, version: null, meetsRequirement: false },
+    node: { installed: false, version: null, meetsRequirement: false },
+    git: { installed: false, version: null, meetsRequirement: false },
+  };
+
+  // Check Python
+  const pythonCmd = isWindows ? 'python' : 'python3';
+  if (await commandExists(pythonCmd)) {
+    results.python.installed = true;
+    results.python.version = await getCommandVersion(pythonCmd);
+    if (results.python.version) {
+      results.python.meetsRequirement = compareVersions(results.python.version, '3.10.0');
+    }
+  } else if (isWindows && await commandExists('python3')) {
+    results.python.installed = true;
+    results.python.version = await getCommandVersion('python3');
+    if (results.python.version) {
+      results.python.meetsRequirement = compareVersions(results.python.version, '3.10.0');
+    }
+  }
+
+  // Check Node.js
+  if (await commandExists('node')) {
+    results.node.installed = true;
+    results.node.version = await getCommandVersion('node');
+    if (results.node.version) {
+      results.node.meetsRequirement = compareVersions(results.node.version, '18.0.0');
+    }
+  }
+
+  // Check Git
+  if (await commandExists('git')) {
+    results.git.installed = true;
+    results.git.version = await getCommandVersion('git');
+    if (results.git.version) {
+      results.git.meetsRequirement = compareVersions(results.git.version, '2.0.0');
+    }
+  }
+
+  return results;
+});
+
+// Download a file with progress
+async function downloadFile(
+  url: string,
+  destPath: string,
+  onProgress: (percent: number) => void
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const file = fs.createWriteStream(destPath);
+    const protocol = url.startsWith('https') ? https : http;
+
+    protocol.get(url, (response) => {
+      // Handle redirects
+      if (response.statusCode === 301 || response.statusCode === 302) {
+        const redirectUrl = response.headers.location;
+        if (redirectUrl) {
+          file.close();
+          fs.unlinkSync(destPath);
+          downloadFile(redirectUrl, destPath, onProgress).then(resolve).catch(reject);
+          return;
+        }
+      }
+
+      const totalSize = parseInt(response.headers['content-length'] || '0', 10);
+      let downloadedSize = 0;
+
+      response.on('data', (chunk) => {
+        downloadedSize += chunk.length;
+        if (totalSize > 0) {
+          onProgress(Math.round((downloadedSize / totalSize) * 100));
+        }
+      });
+
+      response.pipe(file);
+
+      file.on('finish', () => {
+        file.close();
+        resolve();
+      });
+    }).on('error', (err) => {
+      fs.unlink(destPath, () => {});
+      reject(err);
+    });
+  });
+}
+
+// Install Python on Windows
+async function installPythonWindows(tempDir: string, onProgress: (status: string, percent: number) => void): Promise<void> {
+  const pythonVersion = '3.12.0';
+  const pythonUrl = `https://www.python.org/ftp/python/${pythonVersion}/python-${pythonVersion}-amd64.exe`;
+  const installerPath = path.join(tempDir, 'python-installer.exe');
+
+  onProgress('Downloading Python...', 0);
+  await downloadFile(pythonUrl, installerPath, (percent) => {
+    onProgress('Downloading Python...', percent);
+  });
+
+  onProgress('Installing Python...', 0);
+  await execAsync(`"${installerPath}" /quiet InstallAllUsers=1 PrependPath=1 Include_test=0`);
+  
+  // Clean up
+  await fs.remove(installerPath);
+}
+
+// Install Python on Mac
+async function installPythonMac(tempDir: string, onProgress: (status: string, percent: number) => void): Promise<void> {
+  // Check if Homebrew is installed
+  const hasBrew = await commandExists('brew');
+  
+  if (hasBrew) {
+    onProgress('Installing Python via Homebrew...', 0);
+    await execAsync('brew install python@3.12');
+  } else {
+    // Download Python .pkg installer
+    const pythonVersion = '3.12.0';
+    const pythonUrl = `https://www.python.org/ftp/python/${pythonVersion}/python-${pythonVersion}-macos11.pkg`;
+    const installerPath = path.join(tempDir, 'python-installer.pkg');
+
+    onProgress('Downloading Python...', 0);
+    await downloadFile(pythonUrl, installerPath, (percent) => {
+      onProgress('Downloading Python...', percent);
+    });
+
+    onProgress('Installing Python...', 0);
+    await execAsync(`sudo installer -pkg "${installerPath}" -target /`);
+    
+    // Clean up
+    await fs.remove(installerPath);
+  }
+}
+
+// Install Node.js on Windows
+async function installNodeWindows(tempDir: string, onProgress: (status: string, percent: number) => void): Promise<void> {
+  const nodeVersion = '20.10.0';
+  const nodeUrl = `https://nodejs.org/dist/v${nodeVersion}/node-v${nodeVersion}-x64.msi`;
+  const installerPath = path.join(tempDir, 'node-installer.msi');
+
+  onProgress('Downloading Node.js...', 0);
+  await downloadFile(nodeUrl, installerPath, (percent) => {
+    onProgress('Downloading Node.js...', percent);
+  });
+
+  onProgress('Installing Node.js...', 0);
+  await execAsync(`msiexec /i "${installerPath}" /qn`);
+  
+  // Clean up
+  await fs.remove(installerPath);
+}
+
+// Install Node.js on Mac
+async function installNodeMac(tempDir: string, onProgress: (status: string, percent: number) => void): Promise<void> {
+  const hasBrew = await commandExists('brew');
+  
+  if (hasBrew) {
+    onProgress('Installing Node.js via Homebrew...', 0);
+    await execAsync('brew install node@20');
+  } else {
+    // Download Node.js .pkg installer
+    const nodeVersion = '20.10.0';
+    const nodeUrl = `https://nodejs.org/dist/v${nodeVersion}/node-v${nodeVersion}.pkg`;
+    const installerPath = path.join(tempDir, 'node-installer.pkg');
+
+    onProgress('Downloading Node.js...', 0);
+    await downloadFile(nodeUrl, installerPath, (percent) => {
+      onProgress('Downloading Node.js...', percent);
+    });
+
+    onProgress('Installing Node.js...', 0);
+    await execAsync(`sudo installer -pkg "${installerPath}" -target /`);
+    
+    // Clean up
+    await fs.remove(installerPath);
+  }
+}
+
+// Install Git on Windows
+async function installGitWindows(tempDir: string, onProgress: (status: string, percent: number) => void): Promise<void> {
+  const gitVersion = '2.43.0';
+  const gitUrl = `https://github.com/git-for-windows/git/releases/download/v${gitVersion}.windows.1/Git-${gitVersion}-64-bit.exe`;
+  const installerPath = path.join(tempDir, 'git-installer.exe');
+
+  onProgress('Downloading Git...', 0);
+  await downloadFile(gitUrl, installerPath, (percent) => {
+    onProgress('Downloading Git...', percent);
+  });
+
+  onProgress('Installing Git...', 0);
+  await execAsync(`"${installerPath}" /VERYSILENT /NORESTART`);
+  
+  // Clean up
+  await fs.remove(installerPath);
+}
+
+// Install Git on Mac
+async function installGitMac(tempDir: string, onProgress: (status: string, percent: number) => void): Promise<void> {
+  const hasBrew = await commandExists('brew');
+  
+  if (hasBrew) {
+    onProgress('Installing Git via Homebrew...', 0);
+    await execAsync('brew install git');
+  } else {
+    // Try xcode-select (installs Git on Mac)
+    onProgress('Installing Git via Xcode Command Line Tools...', 0);
+    await execAsync('xcode-select --install');
+  }
+}
+
+// Install a single dependency
+ipcMain.handle('install-dependency', async (event, dep: 'python' | 'node' | 'git') => {
+  const tempDir = path.join(os.tmpdir(), 'researchos-installer');
+  await fs.ensureDir(tempDir);
+
+  const onProgress = (status: string, percent: number) => {
+    event.sender.send('install-progress', { dep, status, percent });
+  };
+
+  try {
+    if (dep === 'python') {
+      if (isWindows) {
+        await installPythonWindows(tempDir, onProgress);
+      } else if (isMac) {
+        await installPythonMac(tempDir, onProgress);
+      }
+    } else if (dep === 'node') {
+      if (isWindows) {
+        await installNodeWindows(tempDir, onProgress);
+      } else if (isMac) {
+        await installNodeMac(tempDir, onProgress);
+      }
+    } else if (dep === 'git') {
+      if (isWindows) {
+        await installGitWindows(tempDir, onProgress);
+      } else if (isMac) {
+        await installGitMac(tempDir, onProgress);
+      }
+    }
+
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+// Select directory dialog
+ipcMain.handle('select-directory', async () => {
+  const result = await dialog.showOpenDialog(mainWindow!, {
+    properties: ['openDirectory', 'createDirectory'],
+    title: 'Select Installation Directory',
+    defaultPath: getDefaultInstallDir(),
+  });
+  
+  if (result.canceled || result.filePaths.length === 0) {
+    return null;
+  }
+  return result.filePaths[0];
+});
+
+// Install ResearchOS
+ipcMain.handle('install-researchos', async (event, options: {
+  installDir: string;
+  githubToken: string;
+  githubRepo: string;
+  dataRepoPath: string;
+}) => {
+  const { installDir, githubToken, githubRepo, dataRepoPath } = options;
+  
+  try {
+    // Create installation directory
+    event.sender.send('install-status', { step: 'Creating installation directory...', percent: 5 });
+    await fs.ensureDir(installDir);
+
+    // Copy ResearchOS files (from bundled resources)
+    event.sender.send('install-status', { step: 'Copying ResearchOS files...', percent: 10 });
+    const resourcesPath = path.join(__dirname, '..', 'resources', 'researchos');
+    
+    // In development, copy from parent directory
+    // In production, copy from bundled resources
+    const sourcePath = fs.existsSync(resourcesPath) 
+      ? resourcesPath 
+      : path.join(__dirname, '..', '..', '..');
+    
+    await fs.copy(sourcePath, installDir, {
+      filter: (src) => {
+        // Skip node_modules, .git, and other unnecessary files
+        const relativePath = path.relative(sourcePath, src);
+        return !relativePath.includes('node_modules') && 
+               !relativePath.includes('.git') &&
+               !relativePath.includes('dist') &&
+               !relativePath.includes('release') &&
+               !relativePath.includes('installer');
+      }
+    });
+
+    // Install Python dependencies
+    event.sender.send('install-status', { step: 'Installing Python dependencies...', percent: 30 });
+    const backendDir = path.join(installDir, 'backend');
+    const pythonCmd = isWindows ? 'python' : 'python3';
+    
+    await new Promise<void>((resolve, reject) => {
+      const pipProcess = spawn(pythonCmd, ['-m', 'pip', 'install', '-r', 'requirements.txt'], {
+        cwd: backendDir,
+        stdio: 'pipe',
+        env: { ...process.env, PATH: process.env.PATH },
+      });
+      
+      pipProcess.on('close', (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`pip install failed with code ${code}`));
+      });
+      
+      pipProcess.on('error', reject);
+    });
+
+    // Install Node.js dependencies
+    event.sender.send('install-status', { step: 'Installing Node.js dependencies...', percent: 60 });
+    const frontendDir = path.join(installDir, 'frontend');
+    
+    await new Promise<void>((resolve, reject) => {
+      const npmProcess = spawn(isWindows ? 'npm.cmd' : 'npm', ['install'], {
+        cwd: frontendDir,
+        stdio: 'pipe',
+        env: { ...process.env, PATH: process.env.PATH },
+      });
+      
+      npmProcess.on('close', (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`npm install failed with code ${code}`));
+      });
+      
+      npmProcess.on('error', reject);
+    });
+
+    // Create .env file
+    event.sender.send('install-status', { step: 'Creating configuration...', percent: 85 });
+    const envContent = `GITHUB_TOKEN=${githubToken}
+GITHUB_REPO=${githubRepo}
+GITHUB_LOCALPATH=${dataRepoPath}
+CORS_ORIGINS=["http://localhost:3000"]
+`;
+    await fs.writeFile(path.join(backendDir, '.env'), envContent);
+
+    // Create desktop shortcut
+    event.sender.send('install-status', { step: 'Creating desktop shortcut...', percent: 90 });
+    await createDesktopShortcut(installDir);
+
+    event.sender.send('install-status', { step: 'Installation complete!', percent: 100 });
+    
+    return { success: true, installDir };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+// Create desktop shortcut
+async function createDesktopShortcut(installDir: string): Promise<void> {
+  const desktopPath = path.join(os.homedir(), 'Desktop');
+  
+  if (isWindows) {
+    // Create a .bat file on Windows
+    const batContent = `@echo off
+cd /d "${installDir}"
+start powershell -ExecutionPolicy Bypass -File "${installDir}\\start.ps1"
+`;
+    await fs.writeFile(path.join(desktopPath, 'ResearchOS.bat'), batContent);
+    
+    // Also create a .vbs to run it hidden
+    const vbsContent = `Set WshShell = CreateObject("WScript.Shell")
+WshShell.Run chr(34) & "${path.join(desktopPath, 'ResearchOS.bat')}" & chr(34), 0
+Set WshShell = Nothing
+`;
+    await fs.writeFile(path.join(desktopPath, 'ResearchOS (Silent).vbs'), vbsContent);
+    
+  } else if (isMac) {
+    // Create a .app bundle on Mac
+    const appPath = path.join(desktopPath, 'ResearchOS.app');
+    const contentsPath = path.join(appPath, 'Contents');
+    const macOSPath = path.join(contentsPath, 'MacOS');
+    const resourcesPath = path.join(contentsPath, 'Resources');
+    
+    await fs.ensureDir(macOSPath);
+    await fs.ensureDir(resourcesPath);
+    
+    // Create the launcher script
+    const launcherContent = `#!/bin/bash
+cd "${installDir}"
+./start.sh
+`;
+    await fs.writeFile(path.join(macOSPath, 'launcher'), launcherContent);
+    await fs.chmod(path.join(macOSPath, 'launcher'), '755');
+    
+    // Create Info.plist
+    const plistContent = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>launcher</string>
+    <key>CFBundleIconFile</key>
+    <string>app.icns</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.researchos.app</string>
+    <key>CFBundleName</key>
+    <string>ResearchOS</string>
+    <key>CFBundleDisplayName</key>
+    <string>ResearchOS</string>
+    <key>CFBundleVersion</key>
+    <string>1.0.0</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+</dict>
+</plist>
+`;
+    await fs.writeFile(path.join(contentsPath, 'Info.plist'), plistContent);
+    
+    // Copy icon if available
+    const iconSource = path.join(__dirname, '..', 'assets', 'icon.icns');
+    if (fs.existsSync(iconSource)) {
+      await fs.copy(iconSource, path.join(resourcesPath, 'app.icns'));
+    }
+  }
+}
+
+// Open external link
+ipcMain.handle('open-external', async (_event, url: string) => {
+  await shell.openExternal(url);
+});
+
+// Quit installer
+ipcMain.handle('quit-installer', () => {
+  app.quit();
+});

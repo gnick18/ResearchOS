@@ -6,45 +6,6 @@ A research project management application with smart GANTT scheduling, automatic
 
 ---
 
-## What You'll Need
-
-Before starting, make sure you have the following:
-
-| Requirement | Version | Where to Get It | Why Needed |
-|-------------|---------|-----------------|------------|
-| **GitHub Account** | Free | [github.com/signup](https://github.com/signup) | Stores your research data securely |
-| **Python** | 3.10+ | [python.org/downloads](https://www.python.org/downloads/) | Runs the backend server |
-| **Node.js** | 18+ | [nodejs.org](https://nodejs.org/) | Runs the frontend interface |
-| **Git** | Any | [git-scm.com/downloads](https://git-scm.com/downloads) | Syncs data to GitHub |
-
-> **Good news!** Docker is **NOT** required. This app runs directly on your machine with just Python and Node.js.
-
-> **Why GitHub?** ResearchOS stores all your research data in your own private GitHub repository. This gives you automatic backups, version history, and the ability to share with collaborators.
-
----
-
-## Check Your Installations
-
-Open a terminal and run these commands to verify everything is installed:
-
-**macOS / Linux:**
-```bash
-python3 --version    # Should show Python 3.10.x or higher
-node --version       # Should show v18.x.x or higher
-git --version        # Should show git version 2.x.x
-```
-
-**Windows (Command Prompt or PowerShell):**
-```cmd
-python --version     # Should show Python 3.10.x or higher
-node --version       # Should show v18.x.x or higher
-git --version        # Should show git version 2.x.x
-```
-
-If any command fails or shows an older version, install or update from the links in the table above.
-
----
-
 ## Features
 
 - **Project Management**: Create and organize research projects with custom colors and tags
@@ -57,198 +18,104 @@ If any command fails or shows an older version, install or update from the links
 
 ---
 
-## Quick Start Guide
+## Installation
 
-### Step 1: Clone This Repository
+### Option 1: Easy Installer (Recommended)
 
-```bash
-git clone https://github.com/gnick18/ResearchOS.git
-cd ResearchOS
-```
+Download the installer for your platform and run it. The installer will:
+- Check for required dependencies (Python, Node.js, Git)
+- Automatically install any missing dependencies
+- Set up ResearchOS and create a desktop shortcut
 
-### Step 2: Create a Private Data Repository
+**Downloads:**
+- **macOS**: Download `researchos-installer-darwin-arm64-x.x.x.zip` from the [Releases](releases) page
+- **Windows**: Download `ResearchOSInstallerSetup.exe` from the [Releases](releases) page
 
-This application stores all your research data in a **separate private GitHub repository**. This keeps your data secure and version-controlled.
+After installation, launch ResearchOS from your desktop shortcut or Applications folder.
 
-1. Go to [GitHub](https://github.com/new) and create a new repository:
-   - **Repository name**: `ResearchOS` (or any name you prefer)
-   - **Visibility**: **Private** (important for data security)
-   - **Do NOT** initialize with README, .gitignore, or license (keep it empty)
+### Option 2: Manual Installation
 
-2. Clone your new data repository to your computer:
+If you prefer to install manually or are a developer, follow these steps:
+
+#### Prerequisites
+
+| Requirement | Version | Where to Get It |
+|-------------|---------|-----------------|
+| **Python** | 3.10+ | [python.org/downloads](https://www.python.org/downloads/) |
+| **Node.js** | 18+ | [nodejs.org](https://nodejs.org/) |
+| **Git** | Any | [git-scm.com/downloads](https://git-scm.com/downloads) |
+| **GitHub Account** | Free | [github.com/signup](https://github.com/signup) |
+
+#### Steps
+
+1. **Clone the repository:**
    ```bash
-   # Replace YOUR_USERNAME with your GitHub username
-   git clone https://github.com/YOUR_USERNAME/ResearchOS.git
-   
-   # Note the full path where you cloned it (you'll need this later)
-   # Example: /Users/yourname/Desktop/ResearchOS
+   git clone https://github.com/gnick18/ResearchOS.git
+   cd ResearchOS
    ```
 
-### Step 3: Create a GitHub Personal Access Token
+2. **Install dependencies:**
+   ```bash
+   # Backend
+   cd backend
+   pip install -r requirements.txt
+   
+   # Frontend
+   cd ../frontend
+   npm install
+   ```
 
-The application needs a GitHub token to push changes to your data repository.
+3. **Run the application:**
+   
+   **macOS/Linux:**
+   ```bash
+   chmod +x start.sh
+   ./start.sh
+   ```
+   
+   **Windows:**
+   ```powershell
+   .\start.ps1
+   ```
 
-1. Go to GitHub Settings > Developer settings > Personal access tokens > **Tokens (classic)**
-   - Direct link: [https://github.com/settings/tokens](https://github.com/settings/tokens)
+4. **Access the app:** Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-2. Click **"Generate new token (classic)"**
+---
 
-3. Configure the token:
-   - **Note**: `ResearchOS App`
-   - **Expiration**: Choose based on your preference (90 days, 1 year, or no expiration)
-   - **Select scopes**: Check the following:
-     - `repo` (Full control of private repositories)
+## First-Time Setup
 
-4. Click **"Generate token"**
+When you first launch ResearchOS, you'll need to configure it:
 
-5. **Copy the token immediately** - you won't be able to see it again!
+### 1. Create a Private Data Repository
 
-### Step 4: Configure Environment Variables
+ResearchOS stores your data in your own private GitHub repository:
 
-You can configure the application in two ways:
+1. Go to [GitHub](https://github.com/new) and create a new repository
+2. Name it `ResearchOS` (or any name you prefer)
+3. Set it to **Private**
+4. Leave it empty (don't initialize with README)
 
-#### Option A: Using the GUI (Recommended)
+### 2. Create a GitHub Personal Access Token
 
-1. Start the application (see Step 5)
-2. Click the **Settings** button (gear icon) in the bottom-right corner of the homepage
-3. Enter your configuration:
-   - **GitHub Token**: Paste your personal access token
-   - **Data Repository**: Your private repo name (e.g., `YOUR_USERNAME/ResearchOS`)
-   - **Local Path**: Full path to your cloned data repository
+1. Go to [GitHub Settings > Tokens](https://github.com/settings/tokens)
+2. Click "Generate new token (classic)"
+3. Give it a name (e.g., "ResearchOS")
+4. Select the `repo` scope
+5. Click "Generate token" and copy it
 
-#### Option B: Manual Configuration
+### 3. Configure ResearchOS
 
-Create a `.env` file in the `backend/` directory:
+1. Click the **Settings** button (gear icon) in ResearchOS
+2. Enter:
+   - **GitHub Token**: Your personal access token
+   - **Data Repository**: Your private repo name (e.g., `username/ResearchOS`)
+   - **Local Path**: Where to store data locally
 
-```bash
-# Navigate to backend directory
-cd backend
-
-# Create .env file
-cat > .env << 'EOF'
-GITHUB_TOKEN=ghp_your_token_here
-GITHUB_REPO=YOUR_USERNAME/ResearchOS
-GITHUB_LOCALPATH=/path/to/your/local/ResearchOS
-CORS_ORIGINS=["http://localhost:3000"]
-EOF
-```
-
-Replace the values:
-- `GITHUB_TOKEN`: Your GitHub personal access token
-- `GITHUB_REPO`: Your private repository in format `username/repo-name`
-- `GITHUB_LOCALPATH`: **Absolute path** to your cloned data repository
-
-**Example for macOS:**
-```
-GITHUB_TOKEN=ghp_abc123xyz...
-GITHUB_REPO=jsmith/ResearchOS
-GITHUB_LOCALPATH=/Users/jsmith/Desktop/ResearchOS
-CORS_ORIGINS=["http://localhost:3000"]
-```
-
-**Example for Windows:**
-```
-GITHUB_TOKEN=ghp_abc123xyz...
-GITHUB_REPO=jsmith/ResearchOS
-GITHUB_LOCALPATH=C:/Users/jsmith/Desktop/ResearchOS
-CORS_ORIGINS=["http://localhost:3000"]
-```
-
-### Step 5: Install Dependencies
-
-#### Backend (Python)
-
-```bash
-cd backend
-pip install -r requirements.txt
-```
-
-#### Frontend (Node.js)
-
-```bash
-cd frontend
-npm install
-```
-
-### Step 6: Run the Application
-
-#### macOS / Linux
-
-**Option A: Using the Start Script (Recommended)**
-
-From the project root directory:
-
-```bash
-chmod +x start.sh  # Make script executable (first time only)
-./start.sh
-```
-
-This starts both the backend and frontend in one command.
-
-**Option B: Manual Start**
-
-Open two terminal windows:
-
-*Terminal 1 - Backend:*
-```bash
-cd backend
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-*Terminal 2 - Frontend:*
-```bash
-cd frontend
-npm run dev
-```
-
-#### Windows
-
-**Option A: Using the PowerShell Script (Recommended)**
-
-From the project root directory in PowerShell:
-
-```powershell
-Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned  # Allow script execution (first time only)
-.\start.ps1
-```
-
-This starts both the backend and frontend in one command.
-
-**Option B: Manual Start**
-
-Open two PowerShell windows:
-
-*Window 1 - Backend:*
-```powershell
-cd backend
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-*Window 2 - Frontend:*
-```powershell
-cd frontend
-npm run dev
-```
-
-**Option C: Using WSL (Windows Subsystem for Linux)**
-
-If you have WSL installed, you can use the bash script:
-```bash
-./start.sh
-```
-
-### Step 7: Access the Application
-
-Open your browser and navigate to:
-
-- **Frontend**: [http://localhost:3000](http://localhost:3000)
-- **Backend API Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
+That's it! ResearchOS will automatically save your research data to GitHub.
 
 ---
 
 ## How Data Storage Works
-
-ResearchOS uses **two separate GitHub repositories**:
 
 ```
 +-------------------+                    +-------------------+
@@ -271,66 +138,11 @@ ResearchOS uses **two separate GitHub repositories**:
 +-------------------+
 ```
 
-| Repository | Purpose | Visibility | Who creates it |
-|------------|---------|------------|----------------|
-| **Code Repository** | Contains the application code | Public | Already exists (this repo) |
-| **Data Repository** | Contains YOUR research data | **Private** | You create it |
-
 **Why two repositories?**
-
-- **Privacy**: Your research data stays private in your own repository
+- **Privacy**: Your research data stays private
 - **Backup**: Every change is automatically saved to GitHub
 - **Version History**: You can see and revert any change
-- **Collaboration**: Share your data repo with lab members without giving them access to the code
-
----
-
-## Local Git Ignore Patterns
-
-ResearchOS uses Git's built-in local exclude file (`.git/info/exclude`) for files that should be ignored locally but not shared with collaborators.
-
-**Location:** `.git/info/exclude` (in your data repository)
-
-This file works exactly like `.gitignore` but is **never tracked** by Git. Each user can have their own ignore patterns.
-
-### Automatic Large File Handling
-
-When you upload a file larger than 100MB (GitHub's limit), ResearchOS automatically:
-1. Saves the file locally (so it works in your app)
-2. Adds it to `.git/info/exclude` (so it won't be pushed to GitHub)
-3. Shows a warning that the file is local-only
-
-This ensures large files don't block your workflow while keeping them private to your machine.
-
-### Manual Ignore Patterns
-
-You can also manually add patterns to `.git/info/exclude`:
-
-```bash
-# Edit the local exclude file in your data repo
-nano /path/to/your/data-repo/.git/info/exclude
-
-# Add patterns like:
-large_data_folder/
-*.zip
-personal_notes/
-```
-
-This is useful for:
-- Large files you don't want to accidentally commit
-- Personal scratch files or notes
-- Machine-specific files
-
----
-
-## Configuration Reference
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `GITHUB_TOKEN` | GitHub Personal Access Token with `repo` scope | `ghp_abc123...` |
-| `GITHUB_REPO` | Your private data repository | `username/ResearchOS` |
-| `GITHUB_LOCALPATH` | Absolute path to cloned data repository | `/Users/name/ResearchOS` |
-| `CORS_ORIGINS` | Allowed frontend origins | `["http://localhost:3000"]` |
+- **Collaboration**: Share your data repo with lab members
 
 ---
 
@@ -338,74 +150,58 @@ This is useful for:
 
 ```
 ResearchOS/
-|-- backend/                 # FastAPI Python backend
-|   |-- app/
-|   |   |-- main.py         # Application entry point
-|   |   |-- config.py       # Settings configuration
-|   |   |-- git_sync.py     # Auto git commit/push
-|   |   |-- storage.py      # JSON file storage
-|   |   |-- routers/        # API endpoints
-|   |   |-- engine/         # Scheduling engine
-|   |   |-- schemas.py      # Data models
-|   |-- requirements.txt
-|   |-- .env                # Your configuration (not in git)
-|-- frontend/               # Next.js React frontend
-|   |-- src/
-|   |   |-- app/           # Pages
-|   |   |-- components/    # React components
-|   |   |-- lib/           # Utilities and API
-|   |-- package.json
-|-- start.sh               # Start script (macOS/Linux)
-|-- start.ps1              # Start script (Windows PowerShell)
-|-- .env.example           # Example environment file
+├── backend/                 # FastAPI Python backend
+│   ├── app/
+│   │   ├── main.py         # Application entry point
+│   │   ├── config.py       # Settings configuration
+│   │   ├── git_sync.py     # Auto git commit/push
+│   │   ├── storage.py      # JSON file storage
+│   │   ├── routers/        # API endpoints
+│   │   └── engine/         # Scheduling engine
+│   └── requirements.txt
+├── frontend/               # Next.js React frontend
+│   ├── src/
+│   │   ├── app/           # Pages
+│   │   ├── components/    # React components
+│   │   └── lib/           # Utilities and API
+│   └── package.json
+├── installer/              # Electron-based smart installer
+│   ├── src/
+│   │   ├── main.js        # Installer logic
+│   │   ├── preload.js     # IPC bridge
+│   │   └── renderer/      # UI components
+│   └── package.json
+├── start.sh               # Start script (macOS/Linux)
+└── start.ps1              # Start script (Windows)
 ```
 
 ---
 
-## How It Works
+## Building the Installer
 
-### Data Storage
+To build distributable installers:
 
-All your research data (projects, tasks, methods, etc.) is stored as JSON files in your private GitHub repository. Every change you make is automatically:
+```bash
+cd installer
+npm install
+npm run make
+```
 
-1. Saved to the local JSON files
-2. Committed to git
-3. Pushed to your private repository
-
-This provides:
-- **Version History**: Every change is tracked
-- **Backup**: Your data is safely stored on GitHub
-- **Collaboration**: Share the repository with team members
-
-### Smart Scheduling
-
-The GANTT scheduling engine automatically:
-- Shifts task dates when dependencies change
-- Respects weekends (configurable per project)
-- Handles task dependencies and constraints
-- Calculates optimal task ordering
+The output will be in `installer/out/make/`.
 
 ---
 
 ## Troubleshooting
 
 ### "Data repo path does not exist"
-
-Ensure `GITHUB_LOCALPATH` points to the correct location of your cloned data repository. Use an absolute path.
+Ensure the local path in Settings points to a valid directory.
 
 ### "git push failed"
-
-1. Check that your `GITHUB_TOKEN` is valid and has `repo` scope
-2. Ensure you have push access to the repository specified in `GITHUB_REPO`
-3. Verify the data repository is properly cloned and initialized
-
-### "CORS errors"
-
-Make sure `CORS_ORIGINS` includes `http://localhost:3000` (or your frontend URL).
+1. Check that your GitHub token is valid and has `repo` scope
+2. Ensure you have push access to the repository
 
 ### "Port already in use"
-
-The start script automatically kills processes on ports 8000 and 3000. If you still have issues:
+The start script automatically kills processes on ports 8000 and 3000. If issues persist:
 
 ```bash
 # macOS/Linux
@@ -422,27 +218,19 @@ taskkill /PID <PID> /F
 ## Development
 
 ### Running Tests
-
 ```bash
 cd backend
 pytest
 ```
 
 ### API Documentation
-
-Access the interactive API documentation at [http://localhost:8000/docs](http://localhost:8000/docs) when the backend is running.
+Access interactive API docs at [http://localhost:8000/docs](http://localhost:8000/docs) when the backend is running.
 
 ---
 
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
-
----
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
