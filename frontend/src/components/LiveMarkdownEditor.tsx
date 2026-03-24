@@ -1553,12 +1553,35 @@ export default function LiveMarkdownEditor({
                         let resolvedSrc = String(src || "");
                         const originalSrc = resolvedSrc; // Keep original for error handling
                         
-                        // Handle new path structure: ../../Images/{folder}/{filename}
-                        // These paths go up from results/task-{id}/ to the root, then into Images/
-                        if (resolvedSrc.startsWith("../../Images/")) {
-                          const imagePath = resolvedSrc.slice(3); // Remove "../../" to get "Images/{folder}/{filename}"
-                          resolvedSrc = `${API_BASE}/github/raw?path=${encodeURIComponent(imagePath)}`;
-                        }
+                       // Handle new path structure: ../../Images/{folder}/{filename}
+                       // These paths go up two levels from the markdown file location
+                       if (resolvedSrc.startsWith("../../Images/")) {
+                         const imagePath = resolvedSrc.slice(3); // Remove "../../" to get "Images/{folder}/{filename}"
+                         
+                         // If we have an imageBasePath (the repo-relative path to the markdown file's directory),
+                         // we need to go up two levels from there to get the correct base
+                         let basePath = "";
+                         if (imageBasePath) {
+                           // Go up two levels from imageBasePath
+                           const pathParts = imageBasePath.split("/");
+                           // Remove the last two path components (going up two levels)
+                           if (pathParts.length >= 2) {
+                             pathParts.splice(-2, 2);
+                             basePath = pathParts.join("/");
+                           } else {
+                             // If we can't go up two levels, use empty string (repo root)
+                             basePath = "";
+                           }
+                         } else {
+                           // No imageBasePath provided, assume we're at repo root
+                           basePath = "";
+                         }
+                         
+                         // Construct the full path: basePath + "/" + imagePath
+                         // Handle empty basePath to avoid double slashes
+                         const fullPath = basePath ? `${basePath}/${imagePath}` : imagePath;
+                         resolvedSrc = `${API_BASE}/github/raw?path=${encodeURIComponent(fullPath)}`;
+                       }
                         // Handle old path structure: ./Images/{filename}
                         else if (imageBasePath && resolvedSrc.startsWith("./")) {
                           const relativePath = resolvedSrc.slice(2); // Remove "./"

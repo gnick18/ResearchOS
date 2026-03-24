@@ -22,10 +22,30 @@ export function createImageComponent(basePath: string) {
     let resolvedSrc = String(src || "");
 
     // Handle new path structure: ../../Images/{folder}/{filename}
-    // These paths go up from results/task-{id}/ to the root, then into Images/
+    // These paths go up two levels from the markdown file location
     if (resolvedSrc.startsWith("../../Images/")) {
       const imagePath = resolvedSrc.slice(3); // Remove "../../" to get "Images/{folder}/{filename}"
-      resolvedSrc = `${API_BASE}/github/raw?path=${encodeURIComponent(imagePath)}`;
+      
+      // Go up two levels from basePath to get the repo root for this user's data
+      // basePath format: "users/{username}/results/task-{id}" or "users/{username}/methods/test-method"
+      // We want to go up to: "users/{username}"
+      let basePathRoot = "";
+      if (basePath) {
+        const pathParts = basePath.split("/");
+        // Go up two levels: remove the last two path components
+        if (pathParts.length >= 2) {
+          pathParts.splice(-2, 2);
+          basePathRoot = pathParts.join("/");
+        } else {
+          // If we can't go up two levels, use empty string (shouldn't happen in practice)
+          basePathRoot = "";
+        }
+      }
+      
+      // Construct the full path: basePathRoot + "/" + imagePath
+      // Handle empty basePathRoot to avoid leading slash
+      const fullPath = basePathRoot ? `${basePathRoot}/${imagePath}` : imagePath;
+      resolvedSrc = `${API_BASE}/github/raw?path=${encodeURIComponent(fullPath)}`;
     }
     // Handle old path structure: ./Images/{filename}
     else if (resolvedSrc.startsWith("./")) {

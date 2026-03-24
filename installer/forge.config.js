@@ -7,11 +7,23 @@ module.exports = {
       CompanyName: 'ResearchOS',
       OriginalFilename: 'ResearchOS Installer',
     },
+    osxSign: {},
+    osxNotarize: {
+      appleId: process.env.APPLE_ID,
+      appleIdPassword: process.env.APPLE_ID_PASSWORD,
+    },
   },
   makers: [
     {
       name: '@electron-forge/maker-zip',
-      platforms: ['darwin', 'win32'],
+      platforms: ['win32'],
+    },
+    {
+      name: '@electron-forge/maker-dmg',
+      platforms: ['darwin'],
+      config: {
+        icon: './assets/icon.icns',
+      },
     },
   ],
 };
