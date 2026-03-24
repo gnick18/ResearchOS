@@ -6,11 +6,44 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import rehypeHighlight from "rehype-highlight";
 import { attachmentsApi } from "@/lib/api";
+import HybridMarkdownEditor from "./HybridMarkdownEditor";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
 // Type for the helper panel tab
 type HelperTab = "shortcuts" | "styleguide";
+
+// Type for editor mode
+export type EditorMode = "edit" | "hybrid" | "preview";
+
+/**
+ * Pre-process markdown to preserve blank line spacing.
+ * Converts consecutive blank lines into explicit spacing divs.
+ */
+function preserveBlankLines(markdown: string): string {
+  // Split by code blocks first to avoid modifying content inside them
+  const codeBlockRegex = /(```[\s\S]*?```)/g;
+  const parts = markdown.split(codeBlockRegex);
+  
+  return parts.map((part, index) => {
+    // If this is a code block, return it unchanged
+    if (index % 2 === 1) {
+      return part;
+    }
+    
+    // Process blank lines in non-code-block content
+    // Replace 2+ consecutive blank lines with spacing divs
+    // A "blank line" is a line that is empty or contains only whitespace
+    return part.replace(/\n{3,}/g, (match) => {
+      // match is 3+ newlines, which means 2+ blank lines
+      // Each additional newline beyond 2 represents one more blank line
+      const blankLineCount = match.length - 2; // -2 because the first 2 newlines are normal paragraph separation
+      // Create spacing divs for each additional blank line
+      // Use <br> tags which will pass through rehype-raw
+      return '\n\n' + '<br/>'.repeat(blankLineCount);
+    });
+  }).join('');
+}
 
 // Markdown style guide content
 const MARKDOWN_STYLE_GUIDE = [
@@ -312,6 +345,10 @@ interface LiveMarkdownEditorProps {
   showShortcutsHelper?: boolean;
   /** Whether to allow any file type uploads (not just images) */
   allowAnyFileType?: boolean;
+  /** Editor mode: 'edit' (textarea), 'hybrid' (click-to-edit), or 'preview' (read-only rendered) */
+  mode?: EditorMode;
+  /** Callback when mode changes */
+  onModeChange?: (mode: EditorMode) => void;
 }
 
 /**
@@ -467,8 +504,26 @@ export default function LiveMarkdownEditor({
   disabled = false,
   showShortcutsHelper = true,
   allowAnyFileType = false,
+  mode = "hybrid",
+  onModeChange,
 }: LiveMarkdownEditorProps) {
-  const [previewMode, setPreviewMode] = useState(true);
+  // Internal mode state (used if onModeChange is not provided)
+  const [internalMode, setInternalMode] = useState<EditorMode>(mode);
+  
+  // Use controlled mode (from prop) or internal mode
+  const currentMode = onModeChange ? mode : internalMode;
+  
+  // Helper to change mode
+  const setMode = useCallback((newMode: EditorMode) => {
+    if (onModeChange) {
+      onModeChange(newMode);
+    } else {
+      setInternalMode(newMode);
+    }
+  }, [onModeChange]);
+  
+  // For backward compatibility, derive previewMode from currentMode
+  const previewMode = currentMode === "preview";
   const [showResizeDropdown, setShowResizeDropdown] = useState(false);
   const [helperCollapsed, setHelperCollapsed] = useState(false);
   const [hasValidImageSelection, setHasValidImageSelection] = useState(false);
@@ -1212,19 +1267,48 @@ export default function LiveMarkdownEditor({
       {/* Toolbar */}
       {showToolbar && (
         <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 bg-gray-50/50">
-          <button
-            type="button"
-            onClick={() => setPreviewMode(!previewMode)}
-            disabled={disabled}
-            className={`px-2.5 py-1 text-xs rounded transition-colors ${
-              previewMode
-                ? "bg-blue-100 text-blue-700 font-medium"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            } disabled:opacity-50`}
-            title="Click to toggle between edit mode and preview mode"
-          >
-            {previewMode ? "Edit" : "Preview"}
-          </button>
+          {/* Three-way mode toggle: Edit | Hybrid | Preview */}
+          <div className="flex items-center bg-gray-100 rounded-md p-0.5">
+            <button
+              type="button"
+              onClick={() => setMode("edit")}
+              disabled={disabled}
+              className={`px-2.5 py-1 text-xs rounded transition-colors ${
+                currentMode === "edit"
+                  ? "bg-white text-gray-800 font-medium shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              } disabled:opacity-50`}
+              title="Traditional textarea editor with keyboard shortcuts"
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("hybrid")}
+              disabled={disabled}
+              className={`px-2.5 py-1 text-xs rounded transition-colors ${
+                currentMode === "hybrid"
+                  ? "bg-white text-gray-800 font-medium shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              } disabled:opacity-50`}
+              title="Click on any block to edit it, everything else stays rendered"
+            >
+              Hybrid
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("preview")}
+              disabled={disabled}
+              className={`px-2.5 py-1 text-xs rounded transition-colors ${
+                currentMode === "preview"
+                  ? "bg-white text-gray-800 font-medium shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              } disabled:opacity-50`}
+              title="Read-only rendered preview"
+            >
+              Preview
+            </button>
+          </div>
           <button
             type="button"
             onClick={handleAddImageClick}
@@ -1328,7 +1412,7 @@ export default function LiveMarkdownEditor({
       {/* Main content area with helper panel and editor */}
       <div className="flex flex-1 min-h-0">
         {/* Keyboard Shortcuts Helper Panel - only show in edit mode */}
-        {showShortcutsHelper && !previewMode && (
+        {showShortcutsHelper && currentMode === "edit" && (
           <div className={`${helperCollapsed ? "w-8" : "w-52"} flex-shrink-0 border-r border-gray-100 bg-gray-50/30 flex flex-col transition-all duration-200`}>
             {/* Collapse/Expand button */}
             <button
@@ -1455,8 +1539,8 @@ export default function LiveMarkdownEditor({
         )}
 
         {/* Editor / Preview */}
-        <div className="flex-1 min-h-[300px] cursor-text overflow-hidden">
-          {previewMode ? (
+        <div className="flex-1 min-h-[300px] cursor-text overflow-hidden flex flex-col">
+          {currentMode === "preview" ? (
             <div className="p-4 h-full overflow-y-auto">
               {value.trim() ? (
                 <div className="prose prose-sm prose-gray max-w-none" style={{ lineHeight: "1.7" }}>
@@ -1497,7 +1581,7 @@ export default function LiveMarkdownEditor({
                       },
                     }}
                   >
-                    {value}
+                    {preserveBlankLines(value)}
                   </ReactMarkdown>
                 </div>
               ) : (
@@ -1506,6 +1590,15 @@ export default function LiveMarkdownEditor({
                 </p>
               )}
             </div>
+          ) : currentMode === "hybrid" ? (
+            <HybridMarkdownEditor
+              value={value}
+              onChange={onChange}
+              placeholder={placeholder}
+              disabled={disabled}
+              imageBasePath={imageBasePath}
+              showShortcutsHelper={showShortcutsHelper}
+            />
           ) : (
             <textarea
               ref={textareaRef}

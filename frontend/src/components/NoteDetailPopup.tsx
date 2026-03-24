@@ -75,6 +75,11 @@ export default function NoteDetailPopup({
   const [newEntryDate, setNewEntryDate] = useState(
     new Date().toISOString().split("T")[0]
   );
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [editingEntryTitle, setEditingEntryTitle] = useState(false);
+  const [editingEntryDate, setEditingEntryDate] = useState(false);
+  const [entryTitle, setEntryTitle] = useState("");
+  const [entryDate, setEntryDate] = useState("");
   
   // Track unsaved content for auto-save
   const unsavedContentRef = useRef<Map<string, string>>(new Map());
@@ -162,16 +167,20 @@ export default function NoteDetailPopup({
     onClose();
   }, [note.id, onClose, cancelDebouncedSave]);
 
-  // Handle escape key
+  // Handle escape key to close or exit fullscreen
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        handleClose();
+        if (isExpanded) {
+          setIsExpanded(false);
+        } else {
+          handleClose();
+        }
       }
     };
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [handleClose]);
+  }, [isExpanded, handleClose]);
 
   // Save title
   const saveTitle = async () => {
@@ -290,6 +299,62 @@ export default function NoteDetailPopup({
     }
   };
 
+  // Save entry title
+  const saveEntryTitle = async () => {
+    if (!currentEntry || entryTitle.trim() === currentEntry.title) {
+      setEditingEntryTitle(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      const updated = await notesApi.updateEntry(note.id, currentEntry.id, { title: entryTitle.trim() });
+      setEntries(updated.entries);
+      onUpdate(updated);
+      setEditingEntryTitle(false);
+    } catch (error) {
+      console.error("Failed to save entry title:", error);
+      setEntryTitle(currentEntry.title);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Save entry date
+  const saveEntryDate = async () => {
+    if (!currentEntry || entryDate === currentEntry.date) {
+      setEditingEntryDate(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      const updated = await notesApi.updateEntry(note.id, currentEntry.id, { date: entryDate });
+      setEntries(updated.entries);
+      onUpdate(updated);
+      setEditingEntryDate(false);
+    } catch (error) {
+      console.error("Failed to save entry date:", error);
+      setEntryDate(currentEntry.date);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Start editing entry title
+  const startEditingEntryTitle = () => {
+    if (currentEntry && !readOnly) {
+      setEntryTitle(currentEntry.title);
+      setEditingEntryTitle(true);
+    }
+  };
+
+  // Start editing entry date
+  const startEditingEntryDate = () => {
+    if (currentEntry && !readOnly) {
+      setEntryDate(currentEntry.date);
+      setEditingEntryDate(true);
+    }
+  };
+
   // Delete note
   const handleDeleteNote = async () => {
     if (!confirm("Are you sure you want to delete this entire note?")) return;
@@ -319,7 +384,14 @@ export default function NoteDetailPopup({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={handleClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+      <div 
+        className={`bg-white rounded-2xl shadow-2xl w-full flex flex-col overflow-hidden transition-all duration-300 ${
+          isExpanded 
+            ? "inset-4 max-w-none max-h-none h-[calc(100vh-2rem)]" 
+            : "max-w-4xl max-h-[90vh]"
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="p-4 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-start justify-between">
@@ -372,15 +444,32 @@ export default function NoteDetailPopup({
               )}
             </div>
 
-            {/* Close button */}
-            <button
-              onClick={handleClose}
-              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+            {/* Fullscreen and Close buttons */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                title={isExpanded ? "Exit fullscreen" : "Fullscreen"}
+              >
+                {isExpanded ? (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                  </svg>
+                )}
+              </button>
+              <button
+                onClick={handleClose}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* Sharing toggle */}
@@ -506,9 +595,53 @@ export default function NoteDetailPopup({
           {note.is_running_log && currentEntry && (
             <div className="px-4 py-2 border-b border-gray-100 flex items-center justify-between bg-gray-50/50 flex-shrink-0">
               <div className="flex items-center gap-3">
-                <span className="text-sm text-gray-500">
-                  Date: <span className="font-medium text-gray-700">{formatDate(currentEntry.date)}</span>
-                </span>
+                {/* Entry title - editable */}
+                {editingEntryTitle ? (
+                  <input
+                    type="text"
+                    value={entryTitle}
+                    onChange={(e) => setEntryTitle(e.target.value)}
+                    onBlur={saveEntryTitle}
+                    onKeyDown={(e) => e.key === "Enter" && saveEntryTitle()}
+                    className="text-sm font-medium text-gray-700 border-b-2 border-emerald-500 focus:outline-none bg-transparent"
+                    autoFocus
+                    disabled={readOnly}
+                  />
+                ) : (
+                  <span
+                    onClick={startEditingEntryTitle}
+                    className={`text-sm font-medium text-gray-700 ${
+                      !readOnly ? "cursor-pointer hover:text-emerald-600" : ""
+                    }`}
+                    title={!readOnly ? "Click to edit title" : ""}
+                  >
+                    {currentEntry.title}
+                  </span>
+                )}
+                <span className="text-gray-300">|</span>
+                {/* Entry date - editable */}
+                {editingEntryDate ? (
+                  <input
+                    type="date"
+                    value={entryDate}
+                    onChange={(e) => setEntryDate(e.target.value)}
+                    onBlur={saveEntryDate}
+                    onKeyDown={(e) => e.key === "Enter" && saveEntryDate()}
+                    className="text-sm text-gray-500 border-b-2 border-emerald-500 focus:outline-none bg-transparent"
+                    autoFocus
+                    disabled={readOnly}
+                  />
+                ) : (
+                  <span
+                    onClick={startEditingEntryDate}
+                    className={`text-sm text-gray-500 ${
+                      !readOnly ? "cursor-pointer hover:text-emerald-600" : ""
+                    }`}
+                    title={!readOnly ? "Click to edit date" : ""}
+                  >
+                    {formatDate(currentEntry.date)}
+                  </span>
+                )}
                 <span className="text-xs text-gray-400">
                   Updated: {formatDate(currentEntry.updated_at)}
                 </span>

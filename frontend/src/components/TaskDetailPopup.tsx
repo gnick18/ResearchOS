@@ -396,7 +396,7 @@ export default function TaskDetailPopup({
           {activeTab === "details" && (
             <DetailsTab task={task} project={project} onClose={onClose} onAnimationTrigger={(pos) => setAnimationPosition(pos)} onNavigateToTask={onNavigateToTask} readOnly={readOnly} />
           )}
-          {activeTab === "notes" && <LabNotesTab task={task} readOnly={readOnly} />}
+          {activeTab === "notes" && <LabNotesTab task={task} readOnly={readOnly} ownerUsername={username} />}
           {activeTab === "method" && (
             <MethodTabs 
               task={task} 
@@ -404,7 +404,7 @@ export default function TaskDetailPopup({
               readOnly={readOnly}
             />
           )}
-          {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly} />}
+          {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly} ownerUsername={username} />}
           {activeTab === "purchases" && <PurchaseEditor taskId={task.id} readOnly={readOnly} username={username} />}
         </div>
       </div>
@@ -1798,7 +1798,7 @@ function DetailsTab({
 
 type ContentSubTab = "markdown" | "pdfs";
 
-function LabNotesTab({ task, readOnly = false }: { task: Task; readOnly?: boolean }) {
+function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; readOnly?: boolean; ownerUsername?: string }) {
   const [activeSubTab, setActiveSubTab] = useState<ContentSubTab>("markdown");
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");
@@ -1809,9 +1809,14 @@ function LabNotesTab({ task, readOnly = false }: { task: Task; readOnly?: boolea
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
 
-  const notesPath = `results/task-${task.id}/notes.md`;
-  const imagesDir = `results/task-${task.id}/Images`;
-  const pdfsDir = `results/task-${task.id}/NotesPDFs`;
+  // Determine the owner username for path construction
+  const effectiveOwner = ownerUsername || task.owner;
+  
+  // Construct paths with owner prefix for shared experiments
+  const basePath = effectiveOwner ? `users/${effectiveOwner}/results/task-${task.id}` : `results/task-${task.id}`;
+  const notesPath = `${basePath}/notes.md`;
+  const imagesDir = `${basePath}/Images`;
+  const pdfsDir = `${basePath}/NotesPDFs`;
 
   // Track if there are unsaved changes
   const hasUnsavedChanges = content !== originalContent && !loading;
@@ -2047,7 +2052,7 @@ function LabNotesTab({ task, readOnly = false }: { task: Task; readOnly?: boolea
                   onChange={setContent}
                   placeholder="Click to start writing lab notes..."
                   onImageDrop={handleImageUpload}
-                  imageBasePath={`results/task-${task.id}`}
+                  imageBasePath={basePath}
                   showToolbar={true}
                 />
               )}
@@ -3052,7 +3057,7 @@ function MethodTab({ task }: { task: Task }) {
 
 // ── Results Tab ──────────────────────────────────────────────────────────────
 
-function ResultsTab({ task, readOnly = false }: { task: Task; readOnly?: boolean }) {
+function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; readOnly?: boolean; ownerUsername?: string }) {
   const [activeSubTab, setActiveSubTab] = useState<ContentSubTab>("markdown");
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");
@@ -3063,9 +3068,14 @@ function ResultsTab({ task, readOnly = false }: { task: Task; readOnly?: boolean
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
 
-  const resultsPath = `results/task-${task.id}/results.md`;
-  const imagesDir = `results/task-${task.id}/Images`;
-  const pdfsDir = `results/task-${task.id}/ResultsPDFs`;
+  // Determine the owner username for path construction
+  const effectiveOwner = ownerUsername || task.owner;
+  
+  // Construct paths with owner prefix for shared experiments
+  const basePath = effectiveOwner ? `users/${effectiveOwner}/results/task-${task.id}` : `results/task-${task.id}`;
+  const resultsPath = `${basePath}/results.md`;
+  const imagesDir = `${basePath}/Images`;
+  const pdfsDir = `${basePath}/ResultsPDFs`;
 
   // Track if there are unsaved changes
   const hasUnsavedChanges = content !== originalContent && !loading;
@@ -3297,7 +3307,7 @@ function ResultsTab({ task, readOnly = false }: { task: Task; readOnly?: boolean
                 onChange={setContent}
                 placeholder="Click to start writing results..."
                 onImageDrop={handleImageUpload}
-                imageBasePath={`results/task-${task.id}`}
+                imageBasePath={basePath}
                 showToolbar={true}
               />
             )}

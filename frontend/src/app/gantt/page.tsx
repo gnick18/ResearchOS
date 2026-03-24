@@ -221,6 +221,7 @@ export default function Home() {
           project={editingProject}
           onClose={() => setEditingTaskId(null)}
           readOnly={editingTask.is_shared_with_me === true}
+          username={editingTask.is_shared_with_me ? editingTask.owner : undefined}
         />
       )}
 
