@@ -57,7 +57,7 @@ function render() {
     </div>
     
     <div class="footer">
-      <span class="footer-text">ResearchOS v1.0.0</span>
+      <span class="footer-text">ResearchOS v1.0.5</span>
       <span class="footer-text">${state.platform ? capitalizeFirst(state.platform.platform) : 'Detecting...'}</span>
     </div>
   `;

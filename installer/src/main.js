@@ -522,7 +522,7 @@ cd "${installDir}"
     <key>CFBundleDisplayName</key>
     <string>ResearchOS</string>
     <key>CFBundleVersion</key>
-    <string>1.0.0</string>
+    <string>1.0.5</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
 </dict>
