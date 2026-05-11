@@ -528,14 +528,13 @@ export default function HybridMarkdownEditor({
     };
   }, [value, useBlobUrls, imageBasePath]);
 
-  /**
-   * Cleanup blob URLs on unmount
-   */
-  useEffect(() => {
-    return () => {
-      blobUrlResolver.revokeAll();
-    };
-  }, []);
+  // Blob URL cleanup intentionally not done here: blobUrlResolver is a
+  // process-wide singleton shared with the parent LiveMarkdownEditor. When
+  // this child unmounts during a mode toggle (hybrid → preview) the parent
+  // is still mounted and still has state pointing at those URLs — revoking
+  // them globally would dead-link the preview render. The parent
+  // LiveMarkdownEditor handles cleanup on its own unmount, which is the
+  // right scope.
 
   /**
    * Filter languages based on search

@@ -551,7 +551,11 @@ export default function LiveMarkdownEditor({
     currentWidth: number | null;
   } | null>(null);
 
-  // Resolve relative image references to blob URLs whenever the markdown changes.
+  // Resolve relative image references to blob URLs whenever the markdown or
+  // the active mode changes. The mode dependency is a safety net: if a child
+  // component ever wipes the singleton blobUrlResolver cache while we're
+  // still mounted (e.g. an aggressive sibling cleanup), switching modes will
+  // re-populate freshly from disk so the new render doesn't show dead URLs.
   useEffect(() => {
     const imageRegex = /!\[([^\]]*)\]\(([^)\s]+)/g;
     const htmlRegex = /<img\s+[^>]*src=["']([^"']+)["']/gi;
@@ -590,7 +594,7 @@ export default function LiveMarkdownEditor({
     return () => {
       cancelled = true;
     };
-  }, [value, imageBasePath]);
+  }, [value, imageBasePath, currentMode]);
 
   useEffect(() => () => blobUrlResolver.revokeAll(), []);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
