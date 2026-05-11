@@ -1188,31 +1188,53 @@ export default function LiveMarkdownEditor({
       return;
     }
     
-    // Check each image for existence
+    // Check each image. For broken refs whose basename already exists at the
+    // canonical destination (`${imageBasePath}/Images/{basename}`), silently
+    // rewrite the markdown — these are usually middle-state migration
+    // artifacts and don't warrant a popup. Only refs that can't be auto-
+    // recovered get queued for the broken-image picker.
     const checkImages = async () => {
+      let nextValue = value;
+      let mutated = false;
       for (const { src, alt } of images) {
-        // Skip if already processed
         if (processedBrokenSrcsRef.current.has(src)) {
           continue;
         }
-        
+
         const exists = await checkImageExists(src);
-        
-        if (!exists) {
-          // Mark as processed and add to queue
+        if (exists) continue;
+
+        const baseName = (src.split("/").pop() ?? "").split("?")[0];
+        if (baseName && imageBasePath && await fileService.fileExists(`${imageBasePath}/Images/${baseName}`)) {
+          // Found canonical copy — rewrite both markdown and HTML img refs in
+          // place without disturbing surrounding text.
           processedBrokenSrcsRef.current.add(src);
-          setBrokenImageQueue(prev => {
-            if (prev.some(img => img.originalSrc === src)) {
-              return prev;
-            }
-            return [...prev, { originalSrc: src, alt, element: null }];
-          });
+          const escapedSrc = src.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const mdRegex = new RegExp(`(!\\[[^\\]]*\\]\\()${escapedSrc}(\\))`, 'g');
+          const htmlRegex = new RegExp(`(<img[^>]+src=["'])${escapedSrc}(["'])`, 'gi');
+          const replaced = nextValue
+            .replace(mdRegex, `$1Images/${baseName}$2`)
+            .replace(htmlRegex, `$1Images/${baseName}$2`);
+          if (replaced !== nextValue) {
+            nextValue = replaced;
+            mutated = true;
+          }
+          continue;
         }
+
+        processedBrokenSrcsRef.current.add(src);
+        setBrokenImageQueue(prev => {
+          if (prev.some(img => img.originalSrc === src)) {
+            return prev;
+          }
+          return [...prev, { originalSrc: src, alt, element: null }];
+        });
       }
+      if (mutated) onChange(nextValue);
     };
-    
+
     checkImages();
-  }, [previewMode, value, disabled, extractImageSources, checkImageExists]);
+  }, [previewMode, value, disabled, extractImageSources, checkImageExists, imageBasePath, onChange]);
 
   /**
    * Apply the corrected image path to the markdown content.

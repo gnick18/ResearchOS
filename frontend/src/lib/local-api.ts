@@ -1034,21 +1034,102 @@ export const attachmentsApi = {
     };
   },
   
+  /**
+   * Search the data folder for image files whose name contains the given
+   * substring. Walks the actual filesystem so it finds files in every place
+   * an image might live — canonical task/method dirs, the legacy per-user
+   * tree, and any `users_backup_*` snapshot. Results are ranked so canonical
+   * destinations surface first, which is what users almost always want.
+   *
+   * Used by the broken-image popup in LiveMarkdownEditor when a markdown
+   * image reference can't be resolved.
+   */
   searchImageByFilename: async (filename: string) => {
-    const images = await imageMetadataStore.listAll();
-    const matches = images.filter((i) => 
-      i.filename.toLowerCase().includes(filename.toLowerCase()) ||
-      (i.original_filename?.toLowerCase().includes(filename.toLowerCase()) ?? false)
-    );
-    
+    const needle = (filename.split("/").pop() ?? filename).toLowerCase();
+    if (!needle) return { search_term: filename, matches: [], count: 0 };
+
+    type Hit = { path: string; filename: string; match_type: string; rank: number };
+    const hits: Hit[] = [];
+
+    const scanDir = async (dirPath: string, rank: number): Promise<void> => {
+      let names: string[] = [];
+      try {
+        names = await fileService.listFiles(dirPath);
+      } catch {
+        return;
+      }
+      for (const name of names) {
+        if (name.startsWith(".") || name === "_metadata.json") continue;
+        if (!name.toLowerCase().includes(needle)) continue;
+        hits.push({
+          path: `${dirPath}/${name}`,
+          filename: name,
+          match_type: name.toLowerCase() === needle ? "exact" : "filename",
+          rank,
+        });
+      }
+    };
+
+    // Recurse, capped, since legacy `users/{user}/Images/` and the backup
+    // snapshots can have arbitrary date-named subfolders.
+    const scanRecursive = async (dirPath: string, rank: number, depthRemaining = 5): Promise<void> => {
+      if (depthRemaining < 0) return;
+      await scanDir(dirPath, rank);
+      let subdirs: string[] = [];
+      try {
+        subdirs = await fileService.listDirectories(dirPath);
+      } catch {
+        return;
+      }
+      for (const sub of subdirs) {
+        await scanRecursive(`${dirPath}/${sub}`, rank, depthRemaining - 1);
+      }
+    };
+
+    try {
+      const tasks = await fileService.listDirectories("results");
+      for (const t of tasks) await scanDir(`results/${t}/Images`, 0);
+    } catch { /* results/ may not exist yet */ }
+
+    try {
+      const methods = await fileService.listDirectories("methods");
+      for (const m of methods) await scanDir(`methods/${m}/Images`, 0);
+    } catch { /* methods/ may not exist yet */ }
+
+    try {
+      const users = await fileService.listDirectories("users");
+      for (const u of users) await scanRecursive(`users/${u}/Images`, 1);
+    } catch { /* users/ may not exist */ }
+
+    try {
+      const rootDirs = await fileService.listDirectories("");
+      for (const r of rootDirs) {
+        if (!r.startsWith("users_backup_")) continue;
+        let backupUsers: string[] = [];
+        try {
+          backupUsers = await fileService.listDirectories(r);
+        } catch { continue; }
+        for (const u of backupUsers) await scanRecursive(`${r}/${u}/Images`, 2);
+      }
+    } catch { /* root listing may fail in some environments */ }
+
+    const seen = new Set<string>();
+    const unique = hits.filter((h) => {
+      if (seen.has(h.path)) return false;
+      seen.add(h.path);
+      return true;
+    });
+    unique.sort((a, b) => {
+      if (a.rank !== b.rank) return a.rank - b.rank;
+      if (a.match_type !== b.match_type) return a.match_type === "exact" ? -1 : 1;
+      return a.filename.localeCompare(b.filename);
+    });
+    const top = unique.slice(0, 20);
+
     return {
       search_term: filename,
-      matches: matches.map((m) => ({
-        path: m.path,
-        filename: m.filename,
-        match_type: m.filename.toLowerCase().includes(filename.toLowerCase()) ? "filename" : "original_filename",
-      })),
-      count: matches.length,
+      matches: top.map(({ path, filename: fn, match_type }) => ({ path, filename: fn, match_type })),
+      count: top.length,
     };
   },
 };
