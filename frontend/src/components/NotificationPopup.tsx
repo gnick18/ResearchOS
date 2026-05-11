@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { sharingApi } from "@/lib/api";
+import { sharingApi } from "@/lib/local-api";
 import type { Notification } from "@/lib/types";
 
 interface NotificationPopupProps {

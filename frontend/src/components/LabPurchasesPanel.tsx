@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { LabTask, LabUser, LabProject, purchasesApi } from "@/lib/api";
+import { LabTask, LabUser, LabProject, purchasesApi } from "@/lib/local-api";
 import type { FundingAccount, PurchaseItem } from "@/lib/types";
 
 interface LabPurchasesPanelProps {

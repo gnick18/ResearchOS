@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, useMemo } from "react";
 import { useAppStore } from "@/lib/store";
-import { tasksApi, methodsApi, githubApi, dependenciesApi, type DuplicateCheckResult } from "@/lib/api";
+import { tasksApi, methodsApi, githubApi, dependenciesApi, type DuplicateCheckResult } from "@/lib/local-api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Method, Project, Task, Dependency, SubTask } from "@/lib/types";
 import { createNewFileContent } from "@/lib/stamp-utils";

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { labApi, usersApi, LabUser, LabTask, LabProject } from "@/lib/api";
+import { labApi, usersApi, LabUser, LabTask, LabProject } from "@/lib/local-api";
 import type { Task, Dependency, Project, HighLevelGoal } from "@/lib/types";
 import LabUserFilterButton from "@/components/LabUserFilterButton";
 import LabSearchPanel from "@/components/LabSearchPanel";
@@ -79,7 +79,7 @@ export default function LabModePage() {
       
       // Load tasks and projects
       const [tasksResponse, projectsResponse] = await Promise.all([
-        labApi.getTasks({ exclude_goals: true, exclude_lists: false }), // Include lists for search
+        labApi.getTasks({ exclude_goals: true }), // Include lists for search
         labApi.getProjects(),
       ]);
       

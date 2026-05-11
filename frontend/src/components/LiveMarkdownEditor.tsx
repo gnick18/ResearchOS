@@ -5,10 +5,12 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import rehypeHighlight from "rehype-highlight";
-import { attachmentsApi } from "@/lib/api";
+import { attachmentsApi } from "@/lib/local-api";
 import HybridMarkdownEditor from "./HybridMarkdownEditor";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
+import { fileService } from "@/lib/file-system/file-service";
+import ImageResizePopover from "./ImageResizePopover";
+import { rewriteImageWidth, parseWidthPercent } from "@/lib/image-resize-utils";
 
 // Type for the helper panel tab
 type HelperTab = "shortcuts" | "styleguide";
@@ -539,7 +541,58 @@ export default function LiveMarkdownEditor({
   const [showBrokenImagePopup, setShowBrokenImagePopup] = useState(false);
   const [imageSearchResults, setImageSearchResults] = useState<ImageSearchResult[]>([]);
   const [isSearchingImage, setIsSearchingImage] = useState(false);
+  const [resolvedBlobUrls, setResolvedBlobUrls] = useState<Map<string, string>>(new Map());
   const processedBrokenSrcsRef = useRef<Set<string>>(new Set());
+  // Click-to-resize popover state (preview-mode click on rendered image)
+  const [imageResize, setImageResize] = useState<{
+    imageIndex: number;
+    x: number;
+    y: number;
+    currentWidth: number | null;
+  } | null>(null);
+
+  // Resolve relative image references to blob URLs whenever the markdown changes.
+  useEffect(() => {
+    const imageRegex = /!\[([^\]]*)\]\(([^)\s]+)/g;
+    const htmlRegex = /<img\s+[^>]*src=["']([^"']+)["']/gi;
+    const srcs = new Set<string>();
+    let m: RegExpExecArray | null;
+    while ((m = imageRegex.exec(value)) !== null) srcs.add(m[2]);
+    while ((m = htmlRegex.exec(value)) !== null) srcs.add(m[1]);
+
+    let cancelled = false;
+    (async () => {
+      const newPairs: Array<[string, string]> = [];
+      for (const src of srcs) {
+        if (!blobUrlResolver.isLocalPath(src)) continue;
+        const resolvedPath = blobUrlResolver.resolvePath(src, imageBasePath);
+        const cached = blobUrlResolver.getCachedUrl(resolvedPath);
+        if (cached) {
+          newPairs.push([src, cached]);
+          continue;
+        }
+        const url = await blobUrlResolver.getBlobUrl(resolvedPath);
+        if (url) newPairs.push([src, url]);
+      }
+      if (cancelled || newPairs.length === 0) return;
+      setResolvedBlobUrls((prev) => {
+        const next = new Map(prev);
+        let changed = false;
+        for (const [src, url] of newPairs) {
+          if (next.get(src) !== url) {
+            next.set(src, url);
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [value, imageBasePath]);
+
+  useEffect(() => () => blobUrlResolver.revokeAll(), []);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resizeDropdownRef = useRef<HTMLDivElement>(null);
@@ -568,7 +621,11 @@ export default function LiveMarkdownEditor({
   }, []);
 
   /**
-   * Track selection changes in the textarea.
+   * Track selection changes in the textarea (Edit mode only).
+   * Re-runs when `currentMode` flips so listeners attach to the newly
+   * mounted textarea when the user switches into Edit mode — without
+   * `currentMode` in deps, the effect attaches once at mount and misses
+   * the textarea entirely if the editor starts in Hybrid/Preview mode.
    */
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -593,7 +650,7 @@ export default function LiveMarkdownEditor({
       textarea.removeEventListener('keyup', handleKeyUp);
       textarea.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [checkSelectionValidity]);
+  }, [checkSelectionValidity, currentMode]);
 
   /**
    * Clean up popup timeout on unmount
@@ -961,6 +1018,22 @@ export default function LiveMarkdownEditor({
   );
 
   /**
+   * Apply a resize selection from the click-to-resize popover (preview mode).
+   * Rewrites the corresponding image in the full markdown source by index.
+   */
+  const handleImageResizeSelect = useCallback(
+    (width: number | null) => {
+      if (!imageResize) return;
+      const newValue = rewriteImageWidth(value, imageResize.imageIndex, width);
+      setImageResize(null);
+      if (newValue !== value) {
+        onChange(newValue);
+      }
+    },
+    [imageResize, value, onChange],
+  );
+
+  /**
    * Handle broken image detection - when an image fails to load
    * Adds to a queue and processes one at a time
    */
@@ -1092,33 +1165,10 @@ export default function LiveMarkdownEditor({
    * Check if an image exists by trying to load it
    * Returns a promise that resolves to true if the image loads, false otherwise
    */
-  const checkImageExists = useCallback((src: string): Promise<boolean> => {
-    return new Promise((resolve) => {
-      // Resolve the path similar to how it's done in preview mode
-      let resolvedSrc = src;
-      
-      if (src.startsWith("../../Images/")) {
-        const imagePath = src.slice(3);
-        resolvedSrc = `${API_BASE}/github/raw?path=${encodeURIComponent(imagePath)}`;
-      } else if (imageBasePath && src.startsWith("./")) {
-        const relativePath = src.slice(2);
-        resolvedSrc = `${API_BASE}/github/raw?path=${encodeURIComponent(imageBasePath + "/" + relativePath)}`;
-      } else if (src.startsWith("Images/")) {
-        resolvedSrc = `${API_BASE}/github/raw?path=${encodeURIComponent(src)}`;
-      } else {
-        // For other paths, assume they're valid (external URLs, data URIs, etc.)
-        resolve(true);
-        return;
-      }
-      
-      const img = new Image();
-      img.onload = () => resolve(true);
-      img.onerror = () => resolve(false);
-      img.src = resolvedSrc;
-      
-      // Timeout after 5 seconds
-      setTimeout(() => resolve(true), 5000);
-    });
+  const checkImageExists = useCallback(async (src: string): Promise<boolean> => {
+    if (!blobUrlResolver.isLocalPath(src)) return true;
+    const resolvedPath = blobUrlResolver.resolvePath(src, imageBasePath);
+    return await fileService.fileExists(resolvedPath);
   }, [imageBasePath]);
 
   /**
@@ -1165,25 +1215,51 @@ export default function LiveMarkdownEditor({
   }, [previewMode, value, disabled, extractImageSources, checkImageExists]);
 
   /**
-   * Apply the corrected image path to the markdown content
+   * Apply the corrected image path to the markdown content.
+   *
+   * Copies the user-picked file into `${imageBasePath}/Images/{basename}` (so
+   * legacy / backup-folder originals get pulled into the canonical location)
+   * and rewrites the markdown to use the canonical `Images/{file}` form that
+   * blobUrlResolver and the migration helper both understand.
+   *
+   * If `imageBasePath` isn't set, falls back to the legacy "../../Images/..."
+   * rewrite so we don't lose the user's intent — but every caller in this
+   * codebase passes imageBasePath, so the fallback shouldn't be hit.
    */
   const applyImageCorrection = useCallback(
-    (correctPath: string) => {
+    async (correctPath: string) => {
       if (!currentBrokenImage) return;
-      
+
       const { originalSrc, alt } = currentBrokenImage;
-      
-      // Build the new relative path for markdown
-      // The correctPath is like "users/username/Images/folder/file.png"
-      // We need to convert it to "../../Images/folder/file.png" for relative paths
+
       let newPath: string;
-      
-      if (correctPath.includes("/Images/")) {
-        // Extract the path after "Images/"
+      if (imageBasePath) {
+        try {
+          const baseName = correctPath.split("/").pop() ?? correctPath;
+          const dot = baseName.lastIndexOf(".");
+          const stem = dot > 0 ? baseName.slice(0, dot) : baseName;
+          const ext = dot > 0 ? baseName.slice(dot) : "";
+          let finalName = baseName;
+          let n = 1;
+          while (await fileService.fileExists(`${imageBasePath}/Images/${finalName}`)) {
+            finalName = `${stem}-${n}${ext}`;
+            n += 1;
+          }
+          const blob = await fileService.readFileAsBlob(correctPath);
+          if (!blob) throw new Error(`source not found: ${correctPath}`);
+          await fileService.writeFileFromBlob(`${imageBasePath}/Images/${finalName}`, blob);
+          newPath = `Images/${finalName}`;
+        } catch {
+          alert(`Failed to copy ${correctPath} into the notes folder. The markdown reference was left unchanged.`);
+          setShowBrokenImagePopup(false);
+          setCurrentBrokenImage(null);
+          setImageSearchResults([]);
+          return;
+        }
+      } else if (correctPath.includes("/Images/")) {
         const imagesIndex = correctPath.indexOf("/Images/");
         newPath = "../.." + correctPath.substring(imagesIndex);
       } else {
-        // Use the path as-is
         newPath = correctPath;
       }
       
@@ -1237,7 +1313,7 @@ export default function LiveMarkdownEditor({
       setCurrentBrokenImage(null);
       setImageSearchResults([]);
     },
-    [currentBrokenImage, value, onChange]
+    [currentBrokenImage, value, onChange, imageBasePath]
   );
 
   /**
@@ -1332,71 +1408,75 @@ export default function LiveMarkdownEditor({
             </button>
           )}
           
-          {/* Resize Image Button with Dropdown */}
-          <div className="relative" ref={resizeDropdownRef}>
-            <button
-              type="button"
-              onClick={() => {
-                if (hasValidImageSelection) {
-                  setShowResizeDropdown(!showResizeDropdown);
-                  setShowDisabledPopup(false);
-                } else {
-                  setShowDisabledPopup(true);
-                  setShowResizeDropdown(false);
-                  // Auto-hide popup after 4 seconds
-                  if (disabledPopupTimeoutRef.current) {
-                    clearTimeout(disabledPopupTimeoutRef.current);
-                  }
-                  disabledPopupTimeoutRef.current = setTimeout(() => {
+          {/* Resize Image Button with Dropdown — only useful in Edit mode
+              (raw textarea). In Hybrid/Preview mode users click the rendered
+              image directly to open the resize popover. */}
+          {currentMode === "edit" && (
+            <div className="relative" ref={resizeDropdownRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (hasValidImageSelection) {
+                    setShowResizeDropdown(!showResizeDropdown);
                     setShowDisabledPopup(false);
-                  }, 4000);
+                  } else {
+                    setShowDisabledPopup(true);
+                    setShowResizeDropdown(false);
+                    // Auto-hide popup after 4 seconds
+                    if (disabledPopupTimeoutRef.current) {
+                      clearTimeout(disabledPopupTimeoutRef.current);
+                    }
+                    disabledPopupTimeoutRef.current = setTimeout(() => {
+                      setShowDisabledPopup(false);
+                    }, 4000);
+                  }
+                }}
+                disabled={disabled}
+                className={`px-2.5 py-1 text-xs rounded transition-colors ${
+                  hasValidImageSelection
+                    ? "bg-blue-100 text-blue-700 font-medium hover:bg-blue-200"
+                    : "bg-gray-100 text-gray-400 hover:bg-gray-150"
+                } disabled:opacity-50`}
+                title={hasValidImageSelection
+                  ? "Choose a size percentage for the selected image"
+                  : "Select an image path or markdown image syntax first"
                 }
-              }}
-              disabled={disabled}
-              className={`px-2.5 py-1 text-xs rounded transition-colors ${
-                hasValidImageSelection
-                  ? "bg-blue-100 text-blue-700 font-medium hover:bg-blue-200"
-                  : "bg-gray-100 text-gray-400 hover:bg-gray-150"
-              } disabled:opacity-50`}
-              title={hasValidImageSelection 
-                ? "Choose a size percentage for the selected image" 
-                : "Select an image path or markdown image syntax first"
-              }
-            >
-              Resize Image
-            </button>
-            {showResizeDropdown && hasValidImageSelection && (
-              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 py-1 min-w-[100px]">
-                <div className="px-3 py-1.5 text-xs text-gray-500 border-b border-gray-100 cursor-help" title="Choose how big the image should appear">
-                  Select size:
+              >
+                Resize Image
+              </button>
+              {showResizeDropdown && hasValidImageSelection && (
+                <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 py-1 min-w-[100px]">
+                  <div className="px-3 py-1.5 text-xs text-gray-500 border-b border-gray-100 cursor-help" title="Choose how big the image should appear">
+                    Select size:
+                  </div>
+                  {RESIZE_OPTIONS.map((pct) => (
+                    <button
+                      key={pct}
+                      type="button"
+                      onClick={() => handleResizeImage(pct)}
+                      className="w-full px-3 py-1.5 text-xs text-left text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                      title={`Resize image to ${pct}% of its original size`}
+                    >
+                      {pct}%
+                    </button>
+                  ))}
                 </div>
-                {RESIZE_OPTIONS.map((pct) => (
-                  <button
-                    key={pct}
-                    type="button"
-                    onClick={() => handleResizeImage(pct)}
-                    className="w-full px-3 py-1.5 text-xs text-left text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
-                    title={`Resize image to ${pct}% of its original size`}
-                  >
-                    {pct}%
-                  </button>
-                ))}
-              </div>
-            )}
-            {showDisabledPopup && !hasValidImageSelection && (
-              <div className="absolute top-full left-0 mt-1 bg-amber-50 border border-amber-200 rounded-md shadow-lg z-10 p-3 max-w-[280px]">
-                <p className="text-xs text-amber-800 font-medium mb-1.5">How to resize an image:</p>
-                <p className="text-xs text-amber-700">
-                  Select the entire image text, such as:
-                </p>
-                <ul className="text-xs text-amber-600 mt-1 space-y-0.5 ml-3">
-                  <li>• <code className="bg-amber-100 px-1 rounded">![alt](image.png)</code></li>
-                  <li>• <code className="bg-amber-100 px-1 rounded">&lt;img src="..."&gt;</code></li>
-                  <li>• <code className="bg-amber-100 px-1 rounded">./path/image.png</code></li>
-                </ul>
-              </div>
-            )}
-          </div>
+              )}
+              {showDisabledPopup && !hasValidImageSelection && (
+                <div className="absolute top-full left-0 mt-1 bg-amber-50 border border-amber-200 rounded-md shadow-lg z-10 p-3 max-w-[280px]">
+                  <p className="text-xs text-amber-800 font-medium mb-1.5">How to resize an image:</p>
+                  <p className="text-xs text-amber-700">
+                    Select the entire image text, such as:
+                  </p>
+                  <ul className="text-xs text-amber-600 mt-1 space-y-0.5 ml-3">
+                    <li>• <code className="bg-amber-100 px-1 rounded">![alt](image.png)</code></li>
+                    <li>• <code className="bg-amber-100 px-1 rounded">&lt;img src=&quot;...&quot;&gt;</code></li>
+                    <li>• <code className="bg-amber-100 px-1 rounded">./path/image.png</code></li>
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
           
           <input
             ref={fileInputRef}
@@ -1544,68 +1624,51 @@ export default function LiveMarkdownEditor({
             <div className="p-4 h-full overflow-y-auto">
               {value.trim() ? (
                 <div className="prose prose-sm prose-gray max-w-none" style={{ lineHeight: "1.7" }}>
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    rehypePlugins={[rehypeRaw, rehypeHighlight]}
-                    components={{
-                      img: ({ src, alt, ...props }) => {
-                        // Resolve relative image paths through the backend API
-                        let resolvedSrc = String(src || "");
-                        const originalSrc = resolvedSrc; // Keep original for error handling
-                        
-                       // Handle new path structure: ../../Images/{folder}/{filename}
-                       // These paths go up two levels from the markdown file location
-                       if (resolvedSrc.startsWith("../../Images/")) {
-                         const imagePath = resolvedSrc.slice(3); // Remove "../../" to get "Images/{folder}/{filename}"
-                         
-                         // If we have an imageBasePath (the repo-relative path to the markdown file's directory),
-                         // we need to go up two levels from there to get the correct base
-                         let basePath = "";
-                         if (imageBasePath) {
-                           // Go up two levels from imageBasePath
-                           const pathParts = imageBasePath.split("/");
-                           // Remove the last two path components (going up two levels)
-                           if (pathParts.length >= 2) {
-                             pathParts.splice(-2, 2);
-                             basePath = pathParts.join("/");
-                           } else {
-                             // If we can't go up two levels, use empty string (repo root)
-                             basePath = "";
-                           }
-                         } else {
-                           // No imageBasePath provided, assume we're at repo root
-                           basePath = "";
-                         }
-                         
-                         // Construct the full path: basePath + "/" + imagePath
-                         // Handle empty basePath to avoid double slashes
-                         const fullPath = basePath ? `${basePath}/${imagePath}` : imagePath;
-                         resolvedSrc = `${API_BASE}/github/raw?path=${encodeURIComponent(fullPath)}`;
-                       }
-                        // Handle old path structure: ./Images/{filename}
-                        else if (imageBasePath && resolvedSrc.startsWith("./")) {
-                          const relativePath = resolvedSrc.slice(2); // Remove "./"
-                          resolvedSrc = `${API_BASE}/github/raw?path=${encodeURIComponent(imageBasePath + "/" + relativePath)}`;
-                        }
-                        // Handle paths starting with Images/ (without ./ prefix)
-                        else if (resolvedSrc.startsWith("Images/")) {
-                          resolvedSrc = `${API_BASE}/github/raw?path=${encodeURIComponent(resolvedSrc)}`;
-                        }
-                        
-                        return (
-                          <img
-                            src={resolvedSrc}
-                            alt={alt || ""}
-                            className="max-w-full rounded-lg"
-                            onError={(e) => handleImageError(e, originalSrc, alt || "")}
-                            {...props}
-                          />
-                        );
-                      },
-                    }}
-                  >
-                    {preserveBlankLines(value)}
-                  </ReactMarkdown>
+                  {(() => {
+                    // Counter shared across all img renders within this document
+                    // render pass; ReactMarkdown invokes the img component in
+                    // document order, giving each image a stable 0-based index
+                    // that matches rewriteImageWidth's match order.
+                    const imgIndexRef = { current: 0 };
+                    return (
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        rehypePlugins={[rehypeRaw, rehypeHighlight]}
+                        components={{
+                          img: ({ src, alt, width, ...props }) => {
+                            const myIndex = imgIndexRef.current++;
+                            const currentWidthPct = parseWidthPercent(width as string | number | undefined);
+                            const originalSrc = String(src || "");
+                            const resolvedSrc = resolvedBlobUrls.get(originalSrc) ?? originalSrc;
+                            return (
+                              <img
+                                src={resolvedSrc}
+                                alt={alt || ""}
+                                width={width}
+                                className="max-w-full rounded-lg cursor-pointer"
+                                onError={(e) => handleImageError(e, originalSrc, alt || "")}
+                                onClick={(e) => {
+                                  if (disabled) return;
+                                  e.stopPropagation();
+                                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                  setImageResize({
+                                    imageIndex: myIndex,
+                                    x: rect.left,
+                                    y: rect.bottom + 4,
+                                    currentWidth: currentWidthPct,
+                                  });
+                                }}
+                                title="Click to resize"
+                                {...props}
+                              />
+                            );
+                          },
+                        }}
+                      >
+                        {preserveBlankLines(value)}
+                      </ReactMarkdown>
+                    );
+                  })()}
                 </div>
               ) : (
                 <p className="text-sm text-gray-300 italic">
@@ -1621,6 +1684,7 @@ export default function LiveMarkdownEditor({
               disabled={disabled}
               imageBasePath={imageBasePath}
               showShortcutsHelper={showShortcutsHelper}
+              useBlobUrls
             />
           ) : (
             <textarea
@@ -1679,6 +1743,17 @@ export default function LiveMarkdownEditor({
             )}
           </div>
         </div>
+      )}
+
+      {/* Image Resize Popover (preview mode click-to-resize) */}
+      {imageResize && (
+        <ImageResizePopover
+          x={imageResize.x}
+          y={imageResize.y}
+          currentWidth={imageResize.currentWidth}
+          onSelect={handleImageResizeSelect}
+          onClose={() => setImageResize(null)}
+        />
       )}
 
       {/* Broken Image Fix Popup */}

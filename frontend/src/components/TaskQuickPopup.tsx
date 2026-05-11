@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { tasksApi } from "@/lib/api";
+import { tasksApi } from "@/lib/local-api";
 import type { Task, Project } from "@/lib/types";
 import DynamicAnimation from "./DynamicAnimation";
 import { useAppStore } from "@/lib/store";

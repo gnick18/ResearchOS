@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { notesApi, labApi } from "@/lib/api";
+import { notesApi, labApi } from "@/lib/local-api";
 import type { Note, NoteCreate, LabNote } from "@/lib/types";
 import NoteCard from "./NoteCard";
 import NoteDetailPopup from "./NoteDetailPopup";

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { projectsApi, tasksApi, dependenciesApi, methodsApi, githubApi } from "@/lib/api";
+import { projectsApi, tasksApi, dependenciesApi, methodsApi, githubApi, settingsApi } from "@/lib/local-api";
 import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
@@ -44,13 +44,19 @@ export default function ExperimentsPage() {
   const setNewTaskStartDate = useAppStore((s) => s.setNewTaskStartDate);
   const setRestrictedTaskType = useAppStore((s) => s.setRestrictedTaskType);
 
+  const { data: settings } = useQuery({
+    queryKey: ["settings"],
+    queryFn: settingsApi.get,
+  });
+  const currentUser = settings?.current_user || "";
+
   const { data: projects = [] } = useQuery({
-    queryKey: ["projects"],
+    queryKey: ["projects", currentUser],
     queryFn: projectsApi.list,
   });
 
   const { data: allTasks = [] } = useQuery({
-    queryKey: ["tasks"],
+    queryKey: ["tasks", currentUser],
     queryFn: async () => {
       if (projects.length === 0) return [];
       const results = await Promise.all(
@@ -62,7 +68,7 @@ export default function ExperimentsPage() {
   });
 
   const { data: dependencies = [] } = useQuery({
-    queryKey: ["dependencies"],
+    queryKey: ["dependencies", currentUser],
     queryFn: () => dependenciesApi.list(),
   });
 
@@ -387,6 +393,8 @@ export default function ExperimentsPage() {
           const methodId = methodIdsToProcess[i];
           try {
             const methodData = await methodsApi.get(methodId);
+            
+            if (!methodData) continue;
             
             // For the first method, set as the primary method
             if (i === 0) {

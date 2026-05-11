@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { Note, NoteEntry } from "@/lib/types";
-import { notesApi } from "@/lib/api";
+import { notesApi } from "@/lib/local-api";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
 
 interface NoteDetailPopupProps {
@@ -115,12 +115,13 @@ export default function NoteDetailPopup({
       
       try {
         const updated = await notesApi.updateEntry(note.id, entryId, { content });
+        if (!updated) return;
         // Only update state if we're not closing
         if (!isClosingRef.current) {
           setEntries(updated.entries);
         }
         unsavedContentRef.current.delete(entryId);
-        onUpdate(updated);
+        if (updated) onUpdate(updated);
       } catch (error) {
         console.error("Failed to save entry content:", error);
       } finally {
@@ -191,7 +192,7 @@ export default function NoteDetailPopup({
     setSaving(true);
     try {
       const updated = await notesApi.update(note.id, { title });
-      onUpdate(updated);
+      if (updated) onUpdate(updated);
       setEditingTitle(false);
     } catch (error) {
       console.error("Failed to save title:", error);
@@ -210,7 +211,7 @@ export default function NoteDetailPopup({
     setSaving(true);
     try {
       const updated = await notesApi.update(note.id, { description });
-      onUpdate(updated);
+      if (updated) onUpdate(updated);
       setEditingDescription(false);
     } catch (error) {
       console.error("Failed to save description:", error);
@@ -225,8 +226,10 @@ export default function NoteDetailPopup({
     setSaving(true);
     try {
       const updated = await notesApi.update(note.id, { is_shared: !isShared });
-      setIsShared(updated.is_shared);
-      onUpdate(updated);
+      if (updated) {
+        setIsShared(updated.is_shared);
+        onUpdate(updated);
+      }
     } catch (error) {
       console.error("Failed to toggle sharing:", error);
     } finally {
@@ -266,6 +269,7 @@ export default function NoteDetailPopup({
         date: newEntryDate,
         content: "",
       });
+      if (!updated) return;
       setEntries(updated.entries);
       setActiveTab(updated.entries[updated.entries.length - 1].id);
       setShowNewEntryForm(false);
@@ -286,6 +290,7 @@ export default function NoteDetailPopup({
     setSaving(true);
     try {
       const updated = await notesApi.deleteEntry(note.id, entryId);
+      if (!updated) return;
       setEntries(updated.entries);
       // Select another tab if the deleted one was active
       if (activeTab === entryId && updated.entries.length > 0) {
@@ -308,8 +313,10 @@ export default function NoteDetailPopup({
     setSaving(true);
     try {
       const updated = await notesApi.updateEntry(note.id, currentEntry.id, { title: entryTitle.trim() });
-      setEntries(updated.entries);
-      onUpdate(updated);
+      if (updated) {
+        setEntries(updated.entries);
+        onUpdate(updated);
+      }
       setEditingEntryTitle(false);
     } catch (error) {
       console.error("Failed to save entry title:", error);
@@ -328,8 +335,10 @@ export default function NoteDetailPopup({
     setSaving(true);
     try {
       const updated = await notesApi.updateEntry(note.id, currentEntry.id, { date: entryDate });
-      setEntries(updated.entries);
-      onUpdate(updated);
+      if (updated) {
+        setEntries(updated.entries);
+        onUpdate(updated);
+      }
       setEditingEntryDate(false);
     } catch (error) {
       console.error("Failed to save entry date:", error);

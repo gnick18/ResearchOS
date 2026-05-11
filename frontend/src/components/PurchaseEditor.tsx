@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { purchasesApi, labApi } from "@/lib/api";
+import { purchasesApi, labApi } from "@/lib/local-api";
 import type { CatalogItem, PurchaseItem, FundingAccount } from "@/lib/types";
 
 interface PurchaseEditorProps {
@@ -39,8 +39,8 @@ function itemToEditingRow(item: PurchaseItem): EditingRow {
     quantity: item.quantity.toString(),
     link: item.link || "",
     cas: item.cas || "",
-    price_per_unit: item.price_per_unit.toString(),
-    shipping_fees: item.shipping_fees.toString(),
+    price_per_unit: (item.price_per_unit ?? 0).toString(),
+    shipping_fees: (item.shipping_fees ?? 0).toString(),
     notes: item.notes || "",
     funding_string: item.funding_string || "",
   };
@@ -352,7 +352,7 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
     [refetch, queryClient]
   );
 
-  const taskTotal = items.reduce((sum, i) => sum + i.total_price, 0);
+  const taskTotal = items.reduce((sum, i) => sum + (i.total_price ?? 0), 0);
 
   return (
     <div className="p-4">
@@ -458,7 +458,7 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
                               {cat.item_name}
                             </p>
                             <p className="text-xs text-gray-400">
-                              ${cat.price_per_unit.toFixed(2)}
+                              ${(cat.price_per_unit ?? 0).toFixed(2)}
                               {cat.cas ? ` · ${cat.cas}` : ""}
                             </p>
                           </button>
@@ -595,13 +595,13 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
                     {item.cas || "—"}
                   </td>
                   <td className="py-2 px-2 text-right text-gray-700">
-                    ${item.price_per_unit.toFixed(2)}
+                    ${(item.price_per_unit ?? 0).toFixed(2)}
                   </td>
                   <td className="py-2 px-2 text-right text-gray-500">
-                    ${item.shipping_fees.toFixed(2)}
+                    ${(item.shipping_fees ?? 0).toFixed(2)}
                   </td>
                   <td className="py-2 px-2 text-right font-medium text-gray-900">
-                    ${item.total_price.toFixed(2)}
+                    ${(item.total_price ?? 0).toFixed(2)}
                   </td>
                   <td className="py-2 px-2 text-gray-500 text-xs">
                     {item.funding_string || "—"}
@@ -652,7 +652,7 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
                             {cat.item_name}
                           </p>
                           <p className="text-xs text-gray-400">
-                            ${cat.price_per_unit.toFixed(2)}
+                            ${(cat.price_per_unit ?? 0).toFixed(2)}
                             {cat.cas ? ` · ${cat.cas}` : ""}
                           </p>
                         </button>

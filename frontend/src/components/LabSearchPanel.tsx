@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo } from "react";
-import { labApi, LabUser, LabSearchResult, LabProject, LabMethod, LabTask } from "@/lib/api";
+import { labApi, LabUser, LabSearchResult, LabProject, LabMethod, LabTask } from "@/lib/local-api";
 
 interface LabSearchPanelProps {
   users: LabUser[];

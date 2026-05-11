@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { attachmentsApi } from "@/lib/api";
+import { attachmentsApi } from "@/lib/local-api";
 import type { ImageMetadata } from "@/lib/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";

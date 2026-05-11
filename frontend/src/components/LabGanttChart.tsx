@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useCallback, useEffect } from "react";
-import { LabTask, LabUser, LabProject } from "@/lib/api";
+import { LabTask, LabUser, LabProject } from "@/lib/local-api";
 import { useAppStore } from "@/lib/store";
 
 interface LabGanttChartProps {

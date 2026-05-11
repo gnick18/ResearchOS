@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { projectsApi, tasksApi, methodsApi } from "@/lib/api";
+import { projectsApi, tasksApi, methodsApi, settingsApi } from "@/lib/local-api";
 import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import type { Task, Method, Project } from "@/lib/types";
@@ -45,18 +45,24 @@ export default function SearchPage() {
     completionStatus: "all",
   });
 
+  const { data: settings } = useQuery({
+    queryKey: ["settings"],
+    queryFn: settingsApi.get,
+  });
+  const currentUser = settings?.current_user || "";
+
   const { data: projects = [] } = useQuery({
-    queryKey: ["projects"],
+    queryKey: ["projects", currentUser],
     queryFn: projectsApi.list,
   });
 
   const { data: methods = [] } = useQuery({
-    queryKey: ["methods"],
+    queryKey: ["methods", currentUser],
     queryFn: methodsApi.list,
   });
 
   const { data: allTasks = [] } = useQuery({
-    queryKey: ["tasks"],
+    queryKey: ["tasks", currentUser],
     queryFn: async () => {
       if (projects.length === 0) return [];
       const results = await Promise.all(

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { settingsApi, migrationApi, usersApi, type FolderSetupRequest, type MigrationPreview, type MigrationProgress, type MigrationRequest, type UsersAtPathResponse, type UserMigrationPreviewResponse, type UserMigrationProgress } from "@/lib/api";
+import { settingsApi, migrationApi, usersApi, type FolderSetupRequest, type MigrationPreview, type MigrationProgress, type MigrationRequest, type UsersAtPathResponse, type UserMigrationPreviewResponse, type UserMigrationProgress } from "@/lib/local-api";
 
 interface DataSetupScreenProps {
   isOpen: boolean;

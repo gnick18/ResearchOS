@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { settingsApi, migrationApi, usersApi, type SettingsResponse, type SettingsVerifyResponse, type MigrationPreview, type MigrationProgress, type MigrationRequest, type UserMigrationPreviewRequest, type UserMigrationPreviewResponse, type UserMigrationProgress, type UsersAtPathResponse } from "@/lib/api";
+import { settingsApi, migrationApi, usersApi, type SettingsResponse, type SettingsVerifyResponse, type MigrationPreview, type MigrationProgress, type MigrationRequest, type UserMigrationPreviewRequest, type UserMigrationPreviewResponse, type UserMigrationProgress, type UsersAtPathResponse } from "@/lib/local-api";
 
 interface SettingsPopupProps {
   isOpen: boolean;
@@ -327,9 +327,7 @@ export default function SettingsPopup({ isOpen, onClose }: SettingsPopupProps) {
       if (githubLocalpath.trim()) {
         updateData.github_localpath = githubLocalpath.trim();
       }
-      if (currentUser.trim()) {
-        updateData.current_user = currentUser.trim();
-      }
+      // Current user is read-only here; switch users via the in-app avatar instead.
 
       if (Object.keys(updateData).length === 0) {
         setError("No changes to save");
@@ -494,7 +492,7 @@ export default function SettingsPopup({ isOpen, onClose }: SettingsPopupProps) {
                   </p>
                 </div>
 
-                {/* Current User */}
+                {/* Current User (read-only — use the in-app user switcher to change) */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     Current User
@@ -502,12 +500,12 @@ export default function SettingsPopup({ isOpen, onClose }: SettingsPopupProps) {
                   <input
                     type="text"
                     value={currentUser}
-                    onChange={(e) => setCurrentUser(e.target.value)}
-                    placeholder="GrantNickles"
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    readOnly
+                    disabled
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-500 cursor-not-allowed"
                   />
                   <p className="text-xs text-gray-400 mt-1.5">
-                    Your username - data will be stored in the users/{`{username}`} folder
+                    To switch users, close this dialog and use the user avatar in the top bar.
                   </p>
                 </div>
               </div>

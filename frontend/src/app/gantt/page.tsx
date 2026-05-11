@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { goalsApi, projectsApi, dependenciesApi, fetchAllTasksIncludingShared, settingsApi } from "@/lib/api";
+import { goalsApi, projectsApi, dependenciesApi, fetchAllTasksIncludingShared, settingsApi } from "@/lib/local-api";
 import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
 import GanttChart from "@/components/GanttChart";
@@ -38,55 +38,77 @@ export default function Home() {
   const currentUser = settings?.current_user || "";
 
   const { data: projects = [] } = useQuery({
-    queryKey: ["projects"],
+    queryKey: ["projects", currentUser],
     queryFn: projectsApi.listWithShared,
   });
 
-  // Load high-level goals
   const { data: goals = [] } = useQuery({
-    queryKey: ["goals"],
+    queryKey: ["goals", currentUser],
     queryFn: goalsApi.list,
   });
 
-  // Filter to only active (non-archived) projects for Gantt chart
   const activeProjects = useMemo(() => 
     projects.filter((p) => !p.is_archived),
     [projects]
   );
 
   const { data: allTasks = [] } = useQuery({
-    queryKey: ["tasks"],
+    queryKey: ["tasks", currentUser],
     queryFn: fetchAllTasksIncludingShared,
   });
 
-  // Filter tasks to only include those from active (non-archived) projects
-  // and apply the showShared filter
+  useEffect(() => {
+    console.log("[Gantt] Data loaded:", {
+      currentUser,
+      projectsCount: projects.length,
+      tasksCount: allTasks.length,
+      activeProjectsCount: activeProjects.length,
+      sampleTask: allTasks[0] ? { id: allTasks[0].id, name: allTasks[0].name, project_id: allTasks[0].project_id } : null,
+      sampleProject: projects[0] ? { id: projects[0].id, name: projects[0].name } : null,
+    });
+  }, [projects, allTasks, activeProjects, currentUser]);
+
   const activeTasks = useMemo(() => {
+    if (projects.length === 0) {
+      console.log("[Gantt] Projects not loaded yet, returning all tasks:", allTasks.length);
+      return allTasks;
+    }
+    
+    console.log("[Gantt.activeTasks] Projects loaded:", projects.length, "project IDs:", projects.map(p => p.id));
+    console.log("[Gantt.activeTasks] All tasks:", allTasks.length, "task project IDs:", allTasks.map(t => t.project_id));
+    
     let tasks = allTasks.filter((t) => {
-      // Always include tasks shared WITH the current user (regardless of project status)
-      // is_shared_with_me is true when the task is shared WITH the current user (not owned by them)
-      if (t.is_shared_with_me) return true;
-      
-      // For own tasks, check if project exists and is not archived
+      if (t.is_shared_with_me) {
+        console.log("[Gantt.activeTasks] Task", t.id, "is shared with me, keeping");
+        return true;
+      }
       const project = projects.find((p) => p.id === t.project_id);
-      return project && !project.is_archived;
+      const result = project && !project.is_archived;
+      if (!project) {
+        console.log("[Gantt.activeTasks] Task", t.id, "project", t.project_id, "not found in projects array");
+      } else if (project.is_archived) {
+        console.log("[Gantt.activeTasks] Task", t.id, "project", project.name, "is archived");
+      }
+      return result;
     });
     
-    // If showShared is false, filter out tasks that are shared WITH the current user
-    // Use the is_shared_with_me flag from the backend which is set correctly
     if (!showShared) {
       tasks = tasks.filter((t) => {
-        // Keep tasks that are NOT shared with the current user
-        // is_shared_with_me is true when the task is shared WITH the current user
         return !t.is_shared_with_me;
       });
     }
+
+    console.log("[Gantt] Active tasks filtered:", {
+      allTasksCount: allTasks.length,
+      projectsCount: projects.length,
+      activeTasksCount: tasks.length,
+    });
     
     return tasks;
   }, [allTasks, projects, showShared]);
 
   const { data: dependencies = [] } = useQuery({
-    queryKey: ["dependencies"],
+    queryKey: ["dependencies", currentUser],
     queryFn: () => dependenciesApi.list(),
   });
 
@@ -99,24 +121,25 @@ export default function Home() {
   }, [dependencies, activeTasks]);
 
   const filteredTasks = useMemo(() => {
+    console.log("[Gantt.filteredTasks] Computing from activeTasks:", activeTasks.length);
     let tasks = activeTasks;
     
-    // Apply project filter, but always include tasks shared WITH the current user
-    // Use the is_shared_with_me flag from the backend
     if (selectedProjectIds.length > 0) {
       tasks = tasks.filter((t) => {
-        // Always include tasks shared with the current user (regardless of project)
         if (t.is_shared_with_me) return true;
-        // Apply normal project filter for own tasks
         return selectedProjectIds.includes(t.project_id);
       });
+      console.log("[Gantt.filteredTasks] After project filter:", tasks.length);
     }
     
     if (selectedTags.length > 0) {
       tasks = tasks.filter(
         (t) => t.tags && t.tags.some((tag) => selectedTags.includes(tag))
       );
+      console.log("[Gantt.filteredTasks] After tag filter:", tasks.length);
     }
+    
+    console.log("[Gantt.filteredTasks] Final count:", tasks.length, "Sample:", tasks[0] ? { id: tasks[0].id, name: tasks[0].name, start: tasks[0].start_date } : null);
     return tasks;
   }, [activeTasks, selectedProjectIds, selectedTags]);
 

@@ -1,0 +1,2408 @@
+import { JsonStore, getPublicStore, getLabStore, AttachmentMetadataStore, getCurrentUserCached, clearCurrentUserCache } from "./storage/json-store";
+import { fileService } from "./file-system/file-service";
+import { getCurrentUser, getMainUser, storeCurrentUser, storeMainUser, clearCurrentUser } from "./file-system/indexeddb-store";
+import { computeEndDate } from "./engine/dates";
+import { shiftTask } from "./engine/shift";
+import { formatDate, parseDate } from "./engine/dates";
+import { discoverUsers } from "./file-system/user-discovery";
+import JSZip from "jszip";
+import type {
+  Project,
+  ProjectCreate,
+  ProjectUpdate,
+  Task,
+  TaskCreate,
+  TaskUpdate,
+  TaskMoveRequest,
+  Dependency,
+  DependencyCreate,
+  Method,
+  MethodCreate,
+  MethodUpdate,
+  Event,
+  EventCreate,
+  EventUpdate,
+  HighLevelGoal,
+  HighLevelGoalCreate,
+  HighLevelGoalUpdate,
+  PCRProtocol,
+  PCRProtocolCreate,
+  PCRProtocolUpdate,
+  PurchaseItem,
+  PurchaseItemCreate,
+  PurchaseItemUpdate,
+  FundingAccount,
+  FundingAccountCreate,
+  FundingAccountUpdate,
+  LabLink,
+  LabLinkCreate,
+  LabLinkUpdate,
+  Note,
+  NoteCreate,
+  NoteUpdate,
+  NoteEntry,
+  ImageMetadata,
+  FileMetadata,
+  CatalogItem,
+  ShiftResult,
+  SharedUser,
+  ShareRequest,
+  SharedItemEntry,
+  Notification,
+} from "./schemas";
+
+const projectsStore = new JsonStore<Project>("projects");
+const tasksStore = new JsonStore<Task>("tasks");
+const dependenciesStore = new JsonStore<Dependency>("dependencies");
+const methodsStore = new JsonStore<Method>("methods");
+const publicMethodsStore = getPublicStore<Method>("methods");
+const eventsStore = new JsonStore<Event>("events");
+const goalsStore = new JsonStore<HighLevelGoal>("goals");
+const pcrStore = new JsonStore<PCRProtocol>("pcr_protocols");
+const publicPcrStore = getPublicStore<PCRProtocol>("pcr_protocols");
+const purchaseItemsStore = new JsonStore<PurchaseItem>("purchase_items");
+const catalogStore = new JsonStore<CatalogItem>("item_catalog");
+const labLinksStore = new JsonStore<LabLink>("lab_links");
+const notesStore = new JsonStore<Note>("notes");
+const fundingAccountsStore = getLabStore<FundingAccount>("funding_accounts");
+const imageMetadataStore = new AttachmentMetadataStore<ImageMetadata>("Images");
+const fileMetadataStore = new AttachmentMetadataStore<FileMetadata>("Files");
+
+const USER_COLORS = [
+  "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
+  "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1",
+];
+
+function getUserColor(username: string): string {
+  let hash = 0;
+  for (let i = 0; i < username.length; i++) {
+    hash = username.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return USER_COLORS[Math.abs(hash) % USER_COLORS.length];
+}
+
+export const projectsApi = {
+  list: async (): Promise<Project[]> => {
+    return projectsStore.listAll();
+  },
+  
+  listWithShared: async (): Promise<Project[]> => {
+    return projectsStore.listAll();
+  },
+  
+  get: async (id: number): Promise<Project | null> => {
+    return projectsStore.get(id);
+  },
+  
+  create: async (data: ProjectCreate): Promise<Project> => {
+    const now = new Date().toISOString();
+    const project = await projectsStore.create({
+      name: data.name,
+      weekend_active: data.weekend_active ?? false,
+      tags: data.tags ?? null,
+      color: data.color ?? null,
+      created_at: now,
+      sort_order: 0,
+      is_archived: false,
+      archived_at: null,
+      owner: "",
+      shared_with: [],
+    });
+    return project;
+  },
+  
+  update: async (id: number, data: ProjectUpdate): Promise<Project | null> => {
+    return projectsStore.update(id, data);
+  },
+  
+  delete: async (id: number): Promise<void> => {
+    await projectsStore.delete(id);
+  },
+  
+  reorder: async (projectIds: number[]): Promise<void> => {
+    for (let i = 0; i < projectIds.length; i++) {
+      await projectsStore.update(projectIds[i], { sort_order: i });
+    }
+  },
+  
+  archive: async (id: number, isArchived: boolean): Promise<Project | null> => {
+    const archivedAt = isArchived ? new Date().toISOString() : null;
+    return projectsStore.update(id, { is_archived: isArchived, archived_at: archivedAt });
+  },
+};
+
+function computeTaskEndDate(task: Task): Task {
+  if (task.end_date) return task;
+  return {
+    ...task,
+    end_date: formatDate(computeEndDate(parseDate(task.start_date), task.duration_days, false))
+  };
+}
+
+export const tasksApi = {
+  listByProject: async (projectId: number): Promise<Task[]> => {
+    const tasks = await tasksStore.query({ project_id: projectId });
+    return tasks.map(computeTaskEndDate);
+  },
+  
+  get: async (id: number): Promise<Task | null> => {
+    const task = await tasksStore.get(id);
+    return task ? computeTaskEndDate(task) : null;
+  },
+  
+  create: async (data: {
+    project_id?: number | null;
+    name: string;
+    start_date: string;
+    duration_days?: number;
+    is_high_level?: boolean;
+    task_type?: "experiment" | "purchase" | "list";
+    weekend_override?: boolean | null;
+    method_id?: number | null;
+    method_ids?: number[];
+    tags?: string[];
+    sort_order?: number;
+    experiment_color?: string | null;
+    sub_tasks?: Array<{ id: string; text: string; is_complete: boolean }>;
+    pcr_gradient?: string | null;
+    pcr_ingredients?: string | null;
+    method_attachments?: Array<{ method_id: number; pcr_gradient?: string | null; pcr_ingredients?: string | null; variation_notes?: string | null }>;
+  }): Promise<Task> => {
+    const startDate = parseDate(data.start_date);
+    const durationDays = data.duration_days || 1;
+    const endDate = computeEndDate(startDate, durationDays, false);
+    
+    const task = await tasksStore.create({
+      project_id: data.project_id ?? 0,
+      name: data.name,
+      start_date: data.start_date,
+      duration_days: durationDays,
+      end_date: formatDate(endDate),
+      is_high_level: data.is_high_level ?? false,
+      is_complete: false,
+      task_type: data.task_type ?? "list",
+      weekend_override: data.weekend_override ?? null,
+      method_id: data.method_id ?? null,
+      method_ids: data.method_ids ?? [],
+      deviation_log: null,
+      tags: data.tags ?? null,
+      sort_order: data.sort_order ?? 0,
+      experiment_color: data.experiment_color ?? null,
+      sub_tasks: data.sub_tasks ?? null,
+      pcr_gradient: data.pcr_gradient ?? null,
+      pcr_ingredients: data.pcr_ingredients ?? null,
+      method_attachments: (data.method_attachments ?? []).map((a) => ({
+        method_id: a.method_id,
+        pcr_gradient: a.pcr_gradient ?? null,
+        pcr_ingredients: a.pcr_ingredients ?? null,
+        variation_notes: a.variation_notes ?? null,
+      })),
+      owner: "",
+      shared_with: [],
+    });
+    return task;
+  },
+  
+  update: async (id: number, data: TaskUpdate): Promise<Task | null> => {
+    const existing = await tasksStore.get(id);
+    if (!existing) return null;
+    
+    let endDate = existing.end_date;
+    if (data.start_date || data.duration_days) {
+      const startDate = parseDate(data.start_date ?? existing.start_date);
+      const durationDays = data.duration_days ?? existing.duration_days;
+      endDate = formatDate(computeEndDate(startDate, durationDays, false));
+    }
+    
+    return tasksStore.update(id, { ...data, end_date: endDate });
+  },
+  
+  delete: async (id: number): Promise<void> => {
+    await tasksStore.delete(id);
+  },
+  
+  listByMethod: async (methodId: number): Promise<Task[]> => {
+    const allTasks = await tasksStore.listAll();
+    return allTasks.filter((t) => t.method_ids?.includes(methodId));
+  },
+  
+  move: async (id: number, data: TaskMoveRequest): Promise<ShiftResult> => {
+    const newStartDate = parseDate(data.new_start_date);
+    return shiftTask(id, newStartDate, data.confirmed ?? false);
+  },
+  
+  replicate: async (id: number, count: number, offsetDays: number): Promise<Task[]> => {
+    const original = await tasksStore.get(id);
+    if (!original) return [];
+    
+    const created: Task[] = [];
+    for (let i = 1; i <= count; i++) {
+      const newStart = new Date(parseDate(original.start_date));
+      newStart.setDate(newStart.getDate() + offsetDays * i);
+      
+      const newTask = await tasksStore.create({
+        ...original,
+        start_date: formatDate(newStart),
+        end_date: formatDate(computeEndDate(newStart, original.duration_days, false)),
+        is_complete: false,
+      });
+      created.push(newTask);
+    }
+    return created;
+  },
+  
+  resetPcr: async (id: number, methodId?: number): Promise<Task | null> => {
+    const task = await tasksStore.get(id);
+    if (!task) return null;
+    
+    if (methodId) {
+      const attachments = task.method_attachments?.map((a) => {
+        if (a.method_id === methodId) {
+          return { ...a, pcr_gradient: null, pcr_ingredients: null };
+        }
+        return a;
+      });
+      return tasksStore.update(id, { method_attachments: attachments });
+    }
+    
+    return tasksStore.update(id, {
+      pcr_gradient: null,
+      pcr_ingredients: null,
+      method_attachments: task.method_attachments?.map((a) => ({
+        ...a,
+        pcr_gradient: null,
+        pcr_ingredients: null,
+      })),
+    });
+  },
+  
+  addMethod: async (taskId: number, methodId: number): Promise<Task | null> => {
+    const task = await tasksStore.get(taskId);
+    if (!task) return null;
+    
+    const methodIds = [...(task.method_ids || [])];
+    if (!methodIds.includes(methodId)) {
+      methodIds.push(methodId);
+    }
+    
+    const attachments = [...(task.method_attachments || [])];
+    if (!attachments.find((a) => a.method_id === methodId)) {
+      attachments.push({
+        method_id: methodId,
+        pcr_gradient: null,
+        pcr_ingredients: null,
+        variation_notes: null,
+      });
+    }
+    
+    return tasksStore.update(taskId, { method_ids: methodIds, method_attachments: attachments });
+  },
+  
+  removeMethod: async (taskId: number, methodId: number): Promise<Task | null> => {
+    const task = await tasksStore.get(taskId);
+    if (!task) return null;
+    
+    const methodIds = (task.method_ids || []).filter((id) => id !== methodId);
+    const attachments = (task.method_attachments || []).filter((a) => a.method_id !== methodId);
+    
+    return tasksStore.update(taskId, { method_ids: methodIds, method_attachments: attachments });
+  },
+  
+  updateMethodPcr: async (
+    taskId: number,
+    methodId: number,
+    data: { pcr_gradient?: string; pcr_ingredients?: string }
+  ): Promise<Task | null> => {
+    const task = await tasksStore.get(taskId);
+    if (!task) return null;
+    
+    const attachments = (task.method_attachments || []).map((a) => {
+      if (a.method_id === methodId) {
+        return { ...a, ...data };
+      }
+      return a;
+    });
+    
+    return tasksStore.update(taskId, { method_attachments: attachments });
+  },
+  
+  saveVariationNote: async (
+    taskId: number,
+    methodId: number,
+    variationNotes: string
+  ): Promise<Task | null> => {
+    const task = await tasksStore.get(taskId);
+    if (!task) return null;
+    
+    const attachments = (task.method_attachments || []).map((a) => {
+      if (a.method_id === methodId) {
+        return { ...a, variation_notes: variationNotes };
+      }
+      return a;
+    });
+    
+    return tasksStore.update(taskId, { method_attachments: attachments });
+  },
+  
+  checkDuplicate: async (
+    projectId: number,
+    name: string,
+    taskType: string,
+    excludeTaskId?: number
+  ): Promise<{ has_duplicate: boolean; matching_tasks: Task[] }> => {
+    const tasks = await tasksStore.query({ project_id: projectId, task_type: taskType as Task["task_type"] });
+    const matching = tasks.filter((t) => 
+      t.name.toLowerCase() === name.toLowerCase() && 
+      t.id !== excludeTaskId
+    );
+    return {
+      has_duplicate: matching.length > 0,
+      matching_tasks: matching,
+    };
+  },
+  
+  convertType: async (
+    id: number,
+    newTaskType: "experiment" | "purchase" | "list"
+  ): Promise<Task | null> => {
+    return tasksStore.update(id, { task_type: newTaskType });
+  },
+};
+
+export const dependenciesApi = {
+  list: async (projectId?: number): Promise<Dependency[]> => {
+    if (projectId) {
+      const tasks = await tasksStore.query({ project_id: projectId });
+      const taskIds = new Set(tasks.map((t) => t.id));
+      const allDeps = await dependenciesStore.listAll();
+      return allDeps.filter(
+        (d) => taskIds.has(d.parent_id) && taskIds.has(d.child_id)
+      );
+    }
+    return dependenciesStore.listAll();
+  },
+  
+  create: async (data: DependencyCreate): Promise<Dependency> => {
+    return dependenciesStore.create(data);
+  },
+  
+  delete: async (id: number): Promise<void> => {
+    await dependenciesStore.delete(id);
+  },
+};
+
+export const methodsApi = {
+  list: async (): Promise<Method[]> => {
+    const privateMethods = await methodsStore.listAll();
+    const publicMethods = await publicMethodsStore.listAll();
+    
+    const marked = [
+      ...privateMethods.map((m) => ({ ...m, is_public: false })),
+      ...publicMethods.map((m) => ({ ...m, is_public: true })),
+    ];
+    return marked;
+  },
+  
+  get: async (id: number): Promise<Method | null> => {
+    const method = await methodsStore.get(id);
+    if (method) return { ...method, is_public: false };
+    
+    const publicMethod = await publicMethodsStore.get(id);
+    if (publicMethod) return { ...publicMethod, is_public: true };
+    
+    return null;
+  },
+  
+  create: async (data: MethodCreate): Promise<Method> => {
+    if (data.is_public) {
+      return publicMethodsStore.create({
+        ...data,
+        github_path: data.github_path ?? null,
+        method_type: data.method_type ?? null,
+        folder_path: data.folder_path ?? null,
+        parent_method_id: data.parent_method_id ?? null,
+        tags: data.tags ?? null,
+        attachments: data.attachments ?? [],
+        created_by: null,
+        owner: "",
+        shared_with: [],
+      });
+    }
+    
+    return methodsStore.create({
+      ...data,
+      github_path: data.github_path ?? null,
+      method_type: data.method_type ?? null,
+      folder_path: data.folder_path ?? null,
+      parent_method_id: data.parent_method_id ?? null,
+      tags: data.tags ?? null,
+      attachments: data.attachments ?? [],
+      is_public: false,
+      created_by: null,
+      owner: "",
+      shared_with: [],
+    });
+  },
+  
+  update: async (id: number, data: MethodUpdate): Promise<Method | null> => {
+    let method = await methodsStore.get(id);
+    if (method) {
+      return methodsStore.update(id, data);
+    }
+    
+    method = await publicMethodsStore.get(id);
+    if (method) {
+      return publicMethodsStore.update(id, data);
+    }
+    
+    return null;
+  },
+  
+  getChildren: async (id: number): Promise<Method[]> => {
+    const allMethods = await methodsApi.list();
+    return allMethods.filter((m) => m.parent_method_id === id);
+  },
+  
+  getExperiments: async (id: number): Promise<MethodExperiment[]> => {
+    const tasks = await tasksStore.listAll();
+    return tasks.filter((t) => t.method_ids?.includes(id) && t.task_type === "experiment").map((t) => ({
+      id: t.id,
+      name: t.name,
+      project_id: t.project_id,
+      start_date: t.start_date,
+      duration_days: t.duration_days,
+      end_date: t.end_date,
+      is_complete: t.is_complete,
+      task_type: t.task_type,
+      experiment_color: t.experiment_color,
+      variation_notes: null,
+    }));
+  },
+  
+  fork: async (id: number, data: { new_name: string; new_github_path: string; deviations: string }): Promise<Method> => {
+    const original = await methodsApi.get(id);
+    if (!original) throw new Error("Method not found");
+    
+    return methodsStore.create({
+      ...original,
+      name: data.new_name,
+      github_path: data.new_github_path,
+      parent_method_id: id,
+      is_public: false,
+    });
+  },
+  
+  saveDeviation: async (data: { task_id: number; deviations: string }): Promise<Task | null> => {
+    return tasksStore.update(data.task_id, { deviation_log: data.deviations });
+  },
+  
+  delete: async (id: number): Promise<void> => {
+    await methodsStore.delete(id);
+    await publicMethodsStore.delete(id);
+  },
+};
+
+export const eventsApi = {
+  list: async (): Promise<Event[]> => {
+    return eventsStore.listAll();
+  },
+  
+  get: async (id: number): Promise<Event | null> => {
+    return eventsStore.get(id);
+  },
+  
+  create: async (data: EventCreate): Promise<Event> => {
+    return eventsStore.create({
+      ...data,
+      event_type: data.event_type ?? "conference",
+      end_date: data.end_date ?? null,
+      location: data.location ?? null,
+      url: data.url ?? null,
+      notes: data.notes ?? null,
+      color: data.color ?? null,
+    });
+  },
+  
+  update: async (id: number, data: EventUpdate): Promise<Event | null> => {
+    return eventsStore.update(id, data);
+  },
+  
+  delete: async (id: number): Promise<void> => {
+    await eventsStore.delete(id);
+  },
+};
+
+export const goalsApi = {
+  list: async (): Promise<HighLevelGoal[]> => {
+    return goalsStore.listAll();
+  },
+  
+  get: async (id: number): Promise<HighLevelGoal | null> => {
+    return goalsStore.get(id);
+  },
+  
+  create: async (data: HighLevelGoalCreate): Promise<HighLevelGoal> => {
+    return goalsStore.create({
+      project_id: data.project_id ?? null,
+      name: data.name,
+      start_date: data.start_date,
+      end_date: data.end_date,
+      color: data.color ?? null,
+      smart_goals: data.smart_goals ?? [],
+      is_complete: false,
+      created_at: new Date().toISOString(),
+    });
+  },
+  
+  update: async (id: number, data: HighLevelGoalUpdate): Promise<HighLevelGoal | null> => {
+    return goalsStore.update(id, data);
+  },
+  
+  delete: async (id: number): Promise<void> => {
+    await goalsStore.delete(id);
+  },
+  
+  addSmartGoal: async (id: number, smartGoal: { id: string; text: string; is_complete: boolean }): Promise<HighLevelGoal | null> => {
+    const goal = await goalsStore.get(id);
+    if (!goal) return null;
+    
+    const smartGoals = [...(goal.smart_goals || []), smartGoal];
+    return goalsStore.update(id, { smart_goals: smartGoals });
+  },
+  
+  toggleSmartGoal: async (id: number, smartGoalId: string, isComplete: boolean): Promise<HighLevelGoal | null> => {
+    const goal = await goalsStore.get(id);
+    if (!goal) return null;
+    
+    const smartGoals = (goal.smart_goals || []).map((sg) => {
+      if (sg.id === smartGoalId) {
+        return { ...sg, is_complete: isComplete };
+      }
+      return sg;
+    });
+    return goalsStore.update(id, { smart_goals: smartGoals });
+  },
+  
+  deleteSmartGoal: async (id: number, smartGoalId: string): Promise<HighLevelGoal | null> => {
+    const goal = await goalsStore.get(id);
+    if (!goal) return null;
+    
+    const smartGoals = (goal.smart_goals || []).filter((sg) => sg.id !== smartGoalId);
+    return goalsStore.update(id, { smart_goals: smartGoals });
+  },
+};
+
+export const pcrApi = {
+  list: async (): Promise<PCRProtocol[]> => {
+    const privateProtocols = await pcrStore.listAll();
+    const publicProtocols = await publicPcrStore.listAll();
+    
+    return [
+      ...privateProtocols.map((p) => ({ ...p, is_public: false })),
+      ...publicProtocols.map((p) => ({ ...p, is_public: true })),
+    ];
+  },
+  
+  get: async (id: number): Promise<PCRProtocol | null> => {
+    const protocol = await pcrStore.get(id);
+    if (protocol) return { ...protocol, is_public: false };
+    
+    const publicProtocol = await publicPcrStore.get(id);
+    if (publicProtocol) return { ...publicProtocol, is_public: true };
+    
+    return null;
+  },
+  
+  create: async (data: PCRProtocolCreate): Promise<PCRProtocol> => {
+    const isPublic = data.is_public ?? false;
+    if (isPublic) {
+      return publicPcrStore.create({
+        name: data.name,
+        gradient: data.gradient,
+        ingredients: data.ingredients,
+        notes: data.notes ?? null,
+        is_public: true,
+        created_by: null,
+      });
+    }
+    
+    return pcrStore.create({
+      name: data.name,
+      gradient: data.gradient,
+      ingredients: data.ingredients,
+      notes: data.notes ?? null,
+      is_public: false,
+      created_by: null,
+    });
+  },
+  
+  update: async (id: number, data: PCRProtocolUpdate): Promise<PCRProtocol | null> => {
+    let protocol = await pcrStore.get(id);
+    if (protocol) {
+      return pcrStore.update(id, data);
+    }
+    
+    protocol = await publicPcrStore.get(id);
+    if (protocol) {
+      return publicPcrStore.update(id, data);
+    }
+    
+    return null;
+  },
+  
+  delete: async (id: number): Promise<void> => {
+    await pcrStore.delete(id);
+    await publicPcrStore.delete(id);
+  },
+  
+  getDefaultGradient: async () => {
+    return {
+      initial: [{ name: "Initial Denaturation", temperature: 95, duration: "2 min" }],
+      cycles: [{
+        repeats: 30,
+        steps: [
+          { name: "Denaturation", temperature: 95, duration: "20 sec" },
+          { name: "Annealing", temperature: 60, duration: "20 sec" },
+          { name: "Extension", temperature: 72, duration: "1 min" },
+        ],
+      }],
+      final: [{ name: "Final Extension", temperature: 72, duration: "5 min" }],
+      hold: { name: "Hold", temperature: 4, duration: "Indef." },
+    };
+  },
+  
+  getDefaultIngredients: async () => {
+    return [
+      { id: "1", name: "Template DNA", concentration: "10 ng/uL", amount_per_reaction: "1", checked: false },
+      { id: "2", name: "Forward Primer", concentration: "10 uM", amount_per_reaction: "0.5", checked: false },
+      { id: "3", name: "Reverse Primer", concentration: "10 uM", amount_per_reaction: "0.5", checked: false },
+      { id: "4", name: "dNTPs", concentration: "10 mM", amount_per_reaction: "0.5", checked: false },
+      { id: "5", name: "Buffer", concentration: "10X", amount_per_reaction: "2.5", checked: false },
+      { id: "6", name: "Polymerase", concentration: "5 U/uL", amount_per_reaction: "0.25", checked: false },
+      { id: "7", name: "Water", concentration: "-", amount_per_reaction: "to 25", checked: false },
+    ];
+  },
+};
+
+export const purchasesApi = {
+  listByTask: async (taskId: number): Promise<PurchaseItem[]> => {
+    const items = await purchaseItemsStore.query({ task_id: taskId });
+    return items.map(item => ({
+      ...item,
+      total_price: item.total_price ?? (item.price_per_unit ?? 0) * item.quantity + (item.shipping_fees ?? 0),
+    }));
+  },
+  
+  listAll: async (): Promise<PurchaseItem[]> => {
+    const items = await purchaseItemsStore.listAll();
+    return items.map(item => ({
+      ...item,
+      total_price: item.total_price ?? (item.price_per_unit ?? 0) * item.quantity + (item.shipping_fees ?? 0),
+    }));
+  },
+  
+  create: async (data: PurchaseItemCreate): Promise<PurchaseItem> => {
+    const total = (data.price_per_unit ?? 0) * data.quantity + (data.shipping_fees ?? 0);
+    return purchaseItemsStore.create({
+      ...data,
+      link: data.link ?? null,
+      cas: data.cas ?? null,
+      price_per_unit: data.price_per_unit ?? 0,
+      shipping_fees: data.shipping_fees ?? 0,
+      total_price: total,
+      notes: data.notes ?? null,
+      funding_string: data.funding_string ?? null,
+    });
+  },
+  
+  update: async (id: number, data: PurchaseItemUpdate): Promise<PurchaseItem | null> => {
+    const existing = await purchaseItemsStore.get(id);
+    if (!existing) return null;
+    
+    const pricePerUnit = data.price_per_unit ?? existing.price_per_unit;
+    const quantity = data.quantity ?? existing.quantity;
+    const shippingFees = data.shipping_fees ?? existing.shipping_fees;
+    const total = pricePerUnit * quantity + shippingFees;
+    
+    return purchaseItemsStore.update(id, { ...data, total_price: total });
+  },
+  
+  delete: async (id: number): Promise<void> => {
+    await purchaseItemsStore.delete(id);
+  },
+  
+  searchCatalog: async (q: string): Promise<CatalogItem[]> => {
+    const items = await catalogStore.listAll();
+    const query = q.toLowerCase();
+    return items.filter(
+      (item) =>
+        item.item_name.toLowerCase().includes(query) ||
+        (item.cas?.toLowerCase().includes(query) ?? false)
+    );
+  },
+  
+  updateCatalogItem: async (id: number, data: Partial<CatalogItem>): Promise<CatalogItem | null> => {
+    return catalogStore.update(id, data);
+  },
+  
+  createCatalogItem: async (data: Partial<CatalogItem>): Promise<CatalogItem> => {
+    return catalogStore.create({
+      item_name: data.item_name ?? "",
+      link: data.link ?? null,
+      cas: data.cas ?? null,
+      price_per_unit: data.price_per_unit ?? 0,
+    });
+  },
+  
+  listFundingAccounts: async (): Promise<FundingAccount[]> => {
+    return fundingAccountsStore.listAll();
+  },
+  
+  createFundingAccount: async (data: FundingAccountCreate): Promise<FundingAccount> => {
+    return fundingAccountsStore.create({
+      ...data,
+      description: data.description ?? null,
+      total_budget: data.total_budget ?? 0,
+      spent: 0,
+      remaining: data.total_budget ?? 0,
+    });
+  },
+  
+  updateFundingAccount: async (id: number, data: FundingAccountUpdate): Promise<FundingAccount | null> => {
+    const existing = await fundingAccountsStore.get(id);
+    if (!existing) return null;
+    
+    const totalBudget = data.total_budget ?? existing.total_budget;
+    return fundingAccountsStore.update(id, {
+      ...data,
+      remaining: totalBudget - existing.spent,
+    });
+  },
+  
+  deleteFundingAccount: async (id: number): Promise<void> => {
+    await fundingAccountsStore.delete(id);
+  },
+  
+  getFundingSummary: async () => {
+    const accounts = await fundingAccountsStore.listAll();
+    const totalBudget = accounts.reduce((sum, a) => sum + a.total_budget, 0);
+    const totalSpent = accounts.reduce((sum, a) => sum + a.spent, 0);
+    
+    return {
+      accounts,
+      total_budget: totalBudget,
+      total_spent: totalSpent,
+      total_remaining: totalBudget - totalSpent,
+      uncategorized_spent: 0,
+    };
+  },
+};
+
+export const labLinksApi = {
+  list: async (): Promise<LabLink[]> => {
+    return labLinksStore.listAll();
+  },
+  
+  get: async (id: number): Promise<LabLink | null> => {
+    return labLinksStore.get(id);
+  },
+  
+  create: async (data: LabLinkCreate): Promise<LabLink> => {
+    return labLinksStore.create({
+      ...data,
+      description: data.description ?? null,
+      category: data.category ?? null,
+      color: data.color ?? null,
+      preview_image_url: data.preview_image_url ?? null,
+      sort_order: 0,
+      created_at: new Date().toISOString(),
+    });
+  },
+  
+  update: async (id: number, data: LabLinkUpdate): Promise<LabLink | null> => {
+    return labLinksStore.update(id, data);
+  },
+  
+  delete: async (id: number): Promise<void> => {
+    await labLinksStore.delete(id);
+  },
+  
+  getPreview: async (url: string): Promise<{ title: string; description: string | null; image: string | null; site_name: string | null }> => {
+    return {
+      title: url,
+      description: null,
+      image: null,
+      site_name: null,
+    };
+  },
+};
+
+export const notesApi = {
+  list: async (): Promise<Note[]> => {
+    return notesStore.listAll();
+  },
+  
+  get: async (id: number): Promise<Note | null> => {
+    return notesStore.get(id);
+  },
+  
+  create: async (data: { title: string; description?: string; is_running_log?: boolean; is_shared?: boolean; entries?: Array<{ title: string; date: string; content?: string }> }): Promise<Note> => {
+    const now = new Date().toISOString();
+    const entries: NoteEntry[] = (data.entries ?? []).map((e) => ({
+      id: crypto.randomUUID(),
+      title: e.title,
+      date: e.date,
+      content: e.content ?? "",
+      created_at: now,
+      updated_at: now,
+    }));
+    
+    return notesStore.create({
+      title: data.title,
+      description: data.description ?? "",
+      is_running_log: data.is_running_log ?? false,
+      is_shared: data.is_shared ?? false,
+      entries,
+      created_at: now,
+      updated_at: now,
+      username: "",
+    });
+  },
+  
+  update: async (id: number, data: NoteUpdate): Promise<Note | null> => {
+    const updated = await notesStore.update(id, {
+      ...data,
+      updated_at: new Date().toISOString(),
+    });
+    return updated;
+  },
+  
+  delete: async (id: number): Promise<void> => {
+    await notesStore.delete(id);
+  },
+  
+  addEntry: async (noteId: number, data: { title: string; date: string; content?: string }): Promise<Note | null> => {
+    const note = await notesStore.get(noteId);
+    if (!note) return null;
+    
+    const now = new Date().toISOString();
+    const newEntry: NoteEntry = {
+      id: crypto.randomUUID(),
+      title: data.title,
+      date: data.date,
+      content: data.content ?? "",
+      created_at: now,
+      updated_at: now,
+    };
+    
+    const entries = [...(note.entries || []), newEntry];
+    return notesStore.update(noteId, { entries, updated_at: now });
+  },
+  
+  updateEntry: async (noteId: number, entryId: string, data: { title?: string; date?: string; content?: string }): Promise<Note | null> => {
+    const note = await notesStore.get(noteId);
+    if (!note) return null;
+    
+    const now = new Date().toISOString();
+    const entries = (note.entries || []).map((e) => {
+      if (e.id === entryId) {
+        return { ...e, ...data, updated_at: now };
+      }
+      return e;
+    });
+    
+    return notesStore.update(noteId, { entries, updated_at: now });
+  },
+  
+  deleteEntry: async (noteId: number, entryId: string): Promise<Note | null> => {
+    const note = await notesStore.get(noteId);
+    if (!note) return null;
+    
+    const entries = (note.entries || []).filter((e) => e.id !== entryId);
+    return notesStore.update(noteId, { entries, updated_at: new Date().toISOString() });
+  },
+  
+  reorderEntries: async (noteId: number, entryIds: string[]): Promise<Note | null> => {
+    const note = await notesStore.get(noteId);
+    if (!note) return null;
+    
+    const entriesMap = new Map((note.entries || []).map((e) => [e.id, e]));
+    const entries = entryIds.map((id) => entriesMap.get(id)).filter(Boolean) as NoteEntry[];
+    
+    return notesStore.update(noteId, { entries, updated_at: new Date().toISOString() });
+  },
+};
+
+export const attachmentsApi = {
+  uploadImage: async (data: {
+    experiment_id: number;
+    experiment_name: string;
+    project_id?: number | null;
+    project_name?: string | null;
+    experiment_date: string;
+    base64_content: string;
+    original_filename: string;
+  }): Promise<ImageUploadResponse> => {
+    throw new Error("Image upload requires file system access - use fileService directly");
+  },
+  
+  listImages: async (params?: { experiment_id?: number; folder?: string }): Promise<ImageMetadata[]> => {
+    const entries = await imageMetadataStore.listAll();
+    if (params?.experiment_id) {
+      return entries.filter((e) => e.experiment_id === params.experiment_id);
+    }
+    if (params?.folder) {
+      return entries.filter((e) => e.folder === params.folder);
+    }
+    return entries;
+  },
+  
+  getImage: async (id: number): Promise<ImageMetadata | null> => {
+    return imageMetadataStore.getEntry(id);
+  },
+  
+  deleteImage: async (id: number): Promise<void> => {
+    await imageMetadataStore.deleteEntry(id);
+  },
+  
+  uploadFile: async (data: {
+    experiment_id: number;
+    experiment_name: string;
+    project_id?: number | null;
+    project_name?: string | null;
+    experiment_date: string;
+    attachment_type?: "notes" | "results";
+    base64_content: string;
+    original_filename: string;
+  }): Promise<ImageUploadResponse> => {
+    throw new Error("File upload requires file system access - use fileService directly");
+  },
+  
+  listFiles: async (params?: { experiment_id?: number; folder?: string; attachment_type?: string }): Promise<FileMetadata[]> => {
+    const entries = await fileMetadataStore.listAll();
+    let filtered = entries;
+    
+    if (params?.experiment_id) {
+      filtered = filtered.filter((e) => e.experiment_id === params.experiment_id);
+    }
+    if (params?.folder) {
+      filtered = filtered.filter((e) => e.folder === params.folder);
+    }
+    if (params?.attachment_type) {
+      filtered = filtered.filter((e) => e.attachment_type === params.attachment_type);
+    }
+    
+    return filtered;
+  },
+  
+  getFile: async (id: number): Promise<FileMetadata | null> => {
+    return fileMetadataStore.getEntry(id);
+  },
+  
+  deleteFile: async (id: number): Promise<void> => {
+    await fileMetadataStore.deleteEntry(id);
+  },
+  
+  getFolderName: (experimentName: string, experimentDate: string): { folder_name: string } => {
+    const date = new Date(experimentDate);
+    const dateStr = date.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+    const safeName = experimentName.replace(/[^a-zA-Z0-9_-]/g, "-").replace(/-+/g, "-");
+    return { folder_name: `${dateStr}-${safeName}` };
+  },
+  
+  getStats: async () => {
+    const images = await imageMetadataStore.listAll();
+    const files = await fileMetadataStore.listAll();
+    
+    const imageSize = images.reduce((sum, i) => sum + i.file_size, 0);
+    const fileSize = files.reduce((sum, f) => sum + f.file_size, 0);
+    
+    const formatSize = (bytes: number): string => {
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    };
+    
+    return {
+      images: { count: images.length, total_size: imageSize, total_size_formatted: formatSize(imageSize) },
+      files: { count: files.length, total_size: fileSize, total_size_formatted: formatSize(fileSize) },
+      total: {
+        count: images.length + files.length,
+        total_size: imageSize + fileSize,
+        total_size_formatted: formatSize(imageSize + fileSize),
+      },
+    };
+  },
+  
+  searchImageByFilename: async (filename: string) => {
+    const images = await imageMetadataStore.listAll();
+    const matches = images.filter((i) => 
+      i.filename.toLowerCase().includes(filename.toLowerCase()) ||
+      (i.original_filename?.toLowerCase().includes(filename.toLowerCase()) ?? false)
+    );
+    
+    return {
+      search_term: filename,
+      matches: matches.map((m) => ({
+        path: m.path,
+        filename: m.filename,
+        match_type: m.filename.toLowerCase().includes(filename.toLowerCase()) ? "filename" : "original_filename",
+      })),
+      count: matches.length,
+    };
+  },
+};
+
+// ── Sharing helpers ──────────────────────────────────────────────────────────
+
+type ItemType = "task" | "method" | "project";
+
+interface SharedManifest {
+  version: number;
+  projects: SharedItemEntry[];
+  tasks: SharedItemEntry[];
+  methods: SharedItemEntry[];
+}
+
+interface NotificationFile {
+  version: number;
+  notifications: Notification[];
+}
+
+const PERMISSION_DEFAULT = "edit";
+
+function emptyManifest(): SharedManifest {
+  return { version: 1, projects: [], tasks: [], methods: [] };
+}
+
+function emptyNotifications(): NotificationFile {
+  return { version: 1, notifications: [] };
+}
+
+async function readSharedWithMe(username: string): Promise<SharedManifest> {
+  const path = `users/${username}/_shared_with_me.json`;
+  const data = await fileService.readJson<Partial<SharedManifest>>(path);
+  return {
+    version: data?.version ?? 1,
+    projects: data?.projects ?? [],
+    tasks: data?.tasks ?? [],
+    methods: data?.methods ?? [],
+  };
+}
+
+async function writeSharedWithMe(username: string, data: SharedManifest): Promise<void> {
+  await fileService.writeJson(`users/${username}/_shared_with_me.json`, data);
+}
+
+async function readNotificationsFile(username: string): Promise<NotificationFile> {
+  const path = `users/${username}/_notifications.json`;
+  const data = await fileService.readJson<Partial<NotificationFile>>(path);
+  return {
+    version: data?.version ?? 1,
+    notifications: data?.notifications ?? [],
+  };
+}
+
+async function writeNotificationsFile(username: string, data: NotificationFile): Promise<void> {
+  await fileService.writeJson(`users/${username}/_notifications.json`, data);
+}
+
+function notificationTypeFor(itemType: ItemType): Notification["type"] {
+  if (itemType === "task") return "task_shared";
+  if (itemType === "method") return "method_shared";
+  return "project_shared";
+}
+
+function sharedListKey(itemType: ItemType): "tasks" | "methods" | "projects" {
+  if (itemType === "task") return "tasks";
+  if (itemType === "method") return "methods";
+  return "projects";
+}
+
+async function addReceiverShare(
+  receiver: string,
+  itemType: ItemType,
+  entry: SharedItemEntry,
+  notificationName: string
+): Promise<void> {
+  const manifest = await readSharedWithMe(receiver);
+  const list = manifest[sharedListKey(itemType)];
+  const idx = list.findIndex((e) => e.id === entry.id && e.owner === entry.owner);
+  if (idx >= 0) list[idx] = entry;
+  else list.push(entry);
+  await writeSharedWithMe(receiver, manifest);
+
+  const notifs = await readNotificationsFile(receiver);
+  notifs.notifications.push({
+    id:
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    type: notificationTypeFor(itemType),
+    from_user: entry.owner,
+    item_type: itemType,
+    item_id: entry.id,
+    item_name: notificationName,
+    permission: entry.permission,
+    created_at: entry.shared_at,
+    read: false,
+  });
+  await writeNotificationsFile(receiver, notifs);
+}
+
+async function removeReceiverShare(
+  receiver: string,
+  itemType: ItemType,
+  itemId: number,
+  owner: string
+): Promise<void> {
+  const manifest = await readSharedWithMe(receiver);
+  const key = sharedListKey(itemType);
+  const before = manifest[key].length;
+  manifest[key] = manifest[key].filter((e) => !(e.id === itemId && e.owner === owner));
+  if (manifest[key].length !== before) {
+    await writeSharedWithMe(receiver, manifest);
+  }
+}
+
+interface ShareableEntity {
+  shared_with?: Array<{ username: string; permission: string }> | null;
+  name?: string;
+}
+
+function upsertSharedWith<T extends ShareableEntity>(
+  entity: T,
+  username: string,
+  permission: string
+): T {
+  const list = entity.shared_with ?? [];
+  const idx = list.findIndex((s) => s.username === username);
+  if (idx >= 0) list[idx] = { username, permission };
+  else list.push({ username, permission });
+  return { ...entity, shared_with: list };
+}
+
+function removeSharedWith<T extends ShareableEntity>(entity: T, username: string): T {
+  const list = (entity.shared_with ?? []).filter((s) => s.username !== username);
+  return { ...entity, shared_with: list };
+}
+
+/**
+ * Walk the dependency graph upstream from `taskId` (parents/ancestors).
+ * Sharing a task with `include_chain` shares everything it depends on too,
+ * so the receiver sees a self-contained subgraph.
+ */
+async function getTaskAncestors(taskId: number): Promise<number[]> {
+  const deps = await dependenciesStore.listAll();
+  const parentsByChild = new Map<number, number[]>();
+  for (const d of deps) {
+    const arr = parentsByChild.get(d.child_id) ?? [];
+    arr.push(d.parent_id);
+    parentsByChild.set(d.child_id, arr);
+  }
+  const visited = new Set<number>([taskId]);
+  const order: number[] = [taskId];
+  const queue = [taskId];
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    for (const parent of parentsByChild.get(id) ?? []) {
+      if (!visited.has(parent)) {
+        visited.add(parent);
+        order.push(parent);
+        queue.push(parent);
+      }
+    }
+  }
+  return order;
+}
+
+// ── Sharing API ──────────────────────────────────────────────────────────────
+
+export const sharingApi = {
+  shareTask: async (
+    taskId: number,
+    data: { username: string; permission?: "view" | "edit"; include_chain?: boolean }
+  ): Promise<{
+    status: string;
+    item_id: number;
+    shared_with: string;
+    permission: string;
+    chain_shared_count?: number;
+  }> => {
+    const currentUser = await getCurrentUserCached();
+    const permission = data.permission ?? PERMISSION_DEFAULT;
+    if (data.username === currentUser) {
+      throw new Error("Cannot share a task with yourself");
+    }
+    const ids = data.include_chain ? await getTaskAncestors(taskId) : [taskId];
+    const sharedAt = new Date().toISOString();
+    let count = 0;
+    for (const id of ids) {
+      const task = await tasksStore.get(id);
+      if (!task) continue;
+      const updated = upsertSharedWith(task, data.username, permission);
+      await tasksStore.save(id, updated);
+      await addReceiverShare(
+        data.username,
+        "task",
+        { id, owner: currentUser, permission, shared_at: sharedAt },
+        task.name
+      );
+      count += 1;
+    }
+    return {
+      status: "ok",
+      item_id: taskId,
+      shared_with: data.username,
+      permission,
+      chain_shared_count: data.include_chain ? count : undefined,
+    };
+  },
+
+  unshareTask: async (
+    taskId: number,
+    username: string
+  ): Promise<{ status: string; item_id: number; shared_with: string }> => {
+    const currentUser = await getCurrentUserCached();
+    const task = await tasksStore.get(taskId);
+    if (task) {
+      const updated = removeSharedWith(task, username);
+      await tasksStore.save(taskId, updated);
+    }
+    await removeReceiverShare(username, "task", taskId, currentUser);
+    return { status: "ok", item_id: taskId, shared_with: username };
+  },
+
+  getTaskDependencyChain: async (
+    taskId: number
+  ): Promise<{ task_id: number; chain_task_ids: number[]; chain_count: number }> => {
+    const chain = await getTaskAncestors(taskId);
+    return { task_id: taskId, chain_task_ids: chain, chain_count: chain.length };
+  },
+
+  shareMethod: async (
+    methodId: number,
+    data: { username: string; permission?: "view" | "edit" }
+  ): Promise<{ status: string; item_id: number; shared_with: string; permission: string }> => {
+    const currentUser = await getCurrentUserCached();
+    const permission = data.permission ?? PERMISSION_DEFAULT;
+    if (data.username === currentUser) {
+      throw new Error("Cannot share a method with yourself");
+    }
+    const method = await methodsStore.get(methodId);
+    if (!method) throw new Error(`Method ${methodId} not found in current user's library`);
+    const updated = upsertSharedWith(method, data.username, permission);
+    await methodsStore.save(methodId, updated);
+    await addReceiverShare(
+      data.username,
+      "method",
+      { id: methodId, owner: currentUser, permission, shared_at: new Date().toISOString() },
+      method.name
+    );
+    return { status: "ok", item_id: methodId, shared_with: data.username, permission };
+  },
+
+  unshareMethod: async (
+    methodId: number,
+    username: string
+  ): Promise<{ status: string; item_id: number; shared_with: string }> => {
+    const currentUser = await getCurrentUserCached();
+    const method = await methodsStore.get(methodId);
+    if (method) {
+      const updated = removeSharedWith(method, username);
+      await methodsStore.save(methodId, updated);
+    }
+    await removeReceiverShare(username, "method", methodId, currentUser);
+    return { status: "ok", item_id: methodId, shared_with: username };
+  },
+
+  shareProject: async (
+    projectId: number,
+    data: { username: string; permission?: "view" | "edit" }
+  ): Promise<{ status: string; item_id: number; shared_with: string; permission: string }> => {
+    const currentUser = await getCurrentUserCached();
+    const permission = data.permission ?? PERMISSION_DEFAULT;
+    if (data.username === currentUser) {
+      throw new Error("Cannot share a project with yourself");
+    }
+    const project = await projectsStore.get(projectId);
+    if (!project) throw new Error(`Project ${projectId} not found in current user's workspace`);
+    const updated = upsertSharedWith(project, data.username, permission);
+    await projectsStore.save(projectId, updated);
+    await addReceiverShare(
+      data.username,
+      "project",
+      { id: projectId, owner: currentUser, permission, shared_at: new Date().toISOString() },
+      project.name
+    );
+    return { status: "ok", item_id: projectId, shared_with: data.username, permission };
+  },
+
+  unshareProject: async (
+    projectId: number,
+    username: string
+  ): Promise<{ status: string; item_id: number; shared_with: string }> => {
+    const currentUser = await getCurrentUserCached();
+    const project = await projectsStore.get(projectId);
+    if (project) {
+      const updated = removeSharedWith(project, username);
+      await projectsStore.save(projectId, updated);
+    }
+    await removeReceiverShare(username, "project", projectId, currentUser);
+    return { status: "ok", item_id: projectId, shared_with: username };
+  },
+
+  getSharedWithMe: async (): Promise<{
+    projects: SharedItemEntry[];
+    tasks: SharedItemEntry[];
+    methods: SharedItemEntry[];
+  }> => {
+    const currentUser = await getCurrentUserCached();
+    const manifest = await readSharedWithMe(currentUser);
+    return { projects: manifest.projects, tasks: manifest.tasks, methods: manifest.methods };
+  },
+
+  getNotifications: async (
+    unreadOnly: boolean = false
+  ): Promise<{ notifications: Notification[]; unread_count: number }> => {
+    const currentUser = await getCurrentUserCached();
+    const file = await readNotificationsFile(currentUser);
+    const all = file.notifications;
+    const notifications = unreadOnly ? all.filter((n) => !n.read) : all;
+    const unread_count = all.filter((n) => !n.read).length;
+    return { notifications, unread_count };
+  },
+
+  markNotificationRead: async (
+    notificationId: string
+  ): Promise<{ status: string; notification_id: string }> => {
+    const currentUser = await getCurrentUserCached();
+    const file = await readNotificationsFile(currentUser);
+    const idx = file.notifications.findIndex((n) => n.id === notificationId);
+    if (idx >= 0) {
+      file.notifications[idx] = { ...file.notifications[idx], read: true };
+      await writeNotificationsFile(currentUser, file);
+    }
+    return { status: "ok", notification_id: notificationId };
+  },
+
+  markAllNotificationsRead: async (): Promise<{ status: string; dismissed_count: number }> => {
+    const currentUser = await getCurrentUserCached();
+    const file = await readNotificationsFile(currentUser);
+    let count = 0;
+    file.notifications = file.notifications.map((n) => {
+      if (!n.read) {
+        count += 1;
+        return { ...n, read: true };
+      }
+      return n;
+    });
+    if (count > 0) {
+      await writeNotificationsFile(currentUser, file);
+    }
+    return { status: "ok", dismissed_count: count };
+  },
+};
+
+export const labApi = {
+  getUsers: async (): Promise<{ users: LabUser[] }> => {
+    const usernames = await discoverUsers();
+    const users: LabUser[] = usernames.map((username) => ({
+      username,
+      color: getUserColor(username),
+      created_at: null,
+    }));
+    return { users };
+  },
+  
+  getTasks: async (params?: { exclude_goals?: boolean; usernames?: string }): Promise<LabTask[]> => {
+    const allUsers = await discoverUsers();
+    const tasks: LabTask[] = [];
+    
+    for (const username of allUsers) {
+      const userTasks = await tasksStore.listAllForUser(username);
+      for (const t of userTasks) {
+        const task = computeTaskEndDate(t);
+        tasks.push({
+          id: task.id,
+          name: task.name,
+          project_id: task.project_id,
+          start_date: task.start_date,
+          duration_days: task.duration_days,
+          end_date: task.end_date,
+          is_complete: task.is_complete,
+          task_type: task.task_type,
+          username: task.owner || username,
+          user_color: getUserColor(username),
+          experiment_color: task.experiment_color,
+          method_ids: task.method_ids || [],
+          notes: task.deviation_log,
+        });
+      }
+    }
+    
+    return tasks;
+  },
+  
+  getProjects: async (params?: { usernames?: string }): Promise<LabProject[]> => {
+    const allUsers = await discoverUsers();
+    const projects: LabProject[] = [];
+    
+    for (const username of allUsers) {
+      const userProjects = await projectsStore.listAllForUser(username);
+      for (const p of userProjects) {
+        projects.push({
+          id: p.id,
+          name: p.name,
+          color: p.color || "#3b82f6",
+          username: p.owner || username,
+          user_color: getUserColor(username),
+          is_archived: p.is_archived || false,
+        });
+      }
+    }
+    
+    return projects;
+  },
+  
+  getMethods: async (): Promise<LabMethod[]> => {
+    const allUsers = await discoverUsers();
+    const methods: LabMethod[] = [];
+    
+    for (const username of allUsers) {
+      const userMethods = await methodsStore.listAllForUser(username);
+      for (const m of userMethods) {
+        methods.push({
+          id: m.id,
+          name: m.name,
+          username: m.owner || username,
+          user_color: getUserColor(username),
+          is_public: false,
+        });
+      }
+    }
+    
+    const publicMethods = await publicMethodsStore.listAll();
+    for (const m of publicMethods) {
+      methods.push({
+        id: m.id,
+        name: m.name,
+        username: m.owner || "public",
+        user_color: "#6b7280",
+        is_public: true,
+      });
+    }
+    
+    return methods;
+  },
+  
+  getMethodFolders: async (): Promise<string[]> => {
+    return [];
+  },
+  
+  getExperiments: async (params?: { usernames?: string }): Promise<LabTask[]> => {
+    const allUsers = await discoverUsers();
+    const tasks: LabTask[] = [];
+    
+    for (const username of allUsers) {
+      const userTasks = await tasksStore.listAllForUser(username);
+      for (const t of userTasks) {
+        if (t.task_type !== "experiment") continue;
+        const task = computeTaskEndDate(t);
+        tasks.push({
+          id: task.id,
+          name: task.name,
+          project_id: task.project_id,
+          start_date: task.start_date,
+          duration_days: task.duration_days,
+          end_date: task.end_date,
+          is_complete: task.is_complete,
+          task_type: task.task_type,
+          username: task.owner || username,
+          user_color: getUserColor(username),
+          experiment_color: task.experiment_color,
+          method_ids: task.method_ids || [],
+          notes: task.deviation_log,
+        });
+      }
+    }
+    
+    return tasks;
+  },
+  
+  getPurchases: async (params?: { usernames?: string }): Promise<LabTask[]> => {
+    const allUsers = await discoverUsers();
+    const tasks: LabTask[] = [];
+    
+    for (const username of allUsers) {
+      const userTasks = await tasksStore.listAllForUser(username);
+      for (const t of userTasks) {
+        if (t.task_type !== "purchase") continue;
+        const task = computeTaskEndDate(t);
+        tasks.push({
+          id: task.id,
+          name: task.name,
+          project_id: task.project_id,
+          start_date: task.start_date,
+          duration_days: task.duration_days,
+          end_date: task.end_date,
+          is_complete: task.is_complete,
+          task_type: task.task_type,
+          username: task.owner || username,
+          user_color: getUserColor(username),
+          experiment_color: task.experiment_color,
+          method_ids: task.method_ids || [],
+          notes: task.deviation_log,
+        });
+      }
+    }
+    
+    return tasks;
+  },
+  
+  search: async (params: {
+    q?: string;
+    usernames?: string;
+    task_types?: string;
+    date_from?: string;
+    date_to?: string;
+    project_id?: number;
+    method_id?: number;
+    method_folder?: string;
+    completion_status?: "all" | "complete" | "incomplete";
+  }): Promise<{ results: LabSearchResult[]; total_count: number }> => {
+    return { results: [], total_count: 0 };
+  },
+  
+  getUserTasks: async (username: string): Promise<LabTask[]> => {
+    const tasks = await tasksStore.listAllForUser(username);
+    return tasks.map((t) => {
+      const task = computeTaskEndDate(t);
+      return {
+        id: task.id,
+        name: task.name,
+        project_id: task.project_id,
+        start_date: task.start_date,
+        duration_days: task.duration_days,
+        end_date: task.end_date,
+        is_complete: task.is_complete,
+        task_type: task.task_type,
+        username: task.owner || username,
+        user_color: getUserColor(username),
+        experiment_color: task.experiment_color,
+        method_ids: task.method_ids || [],
+        notes: task.deviation_log,
+      };
+    });
+  },
+  
+  getUserProjects: async (username: string): Promise<LabProject[]> => {
+    const projects = await projectsStore.listAllForUser(username);
+    return projects.map((p) => ({
+      id: p.id,
+      name: p.name,
+      color: p.color || "#3b82f6",
+      username: p.owner || username,
+      user_color: getUserColor(username),
+      is_archived: p.is_archived || false,
+    }));
+  },
+  
+  getUserPurchaseItems: async (username: string, taskId: number): Promise<PurchaseItem[]> => {
+    const items = await purchaseItemsStore.listAllForUser(username);
+    return items.filter((item) => item.task_id === taskId).map((item) => ({
+      ...item,
+      total_price: item.total_price ?? (item.price_per_unit ?? 0) * item.quantity + (item.shipping_fees ?? 0),
+    }));
+  },
+  
+  getNotes: async (params?: { usernames?: string; shared_only?: boolean }): Promise<Note[]> => {
+    const allUsers = await discoverUsers();
+    const notes: Note[] = [];
+    
+    for (const username of allUsers) {
+      const userNotes = await notesStore.listAllForUser(username);
+      for (const note of userNotes) {
+        notes.push({ ...note, username: note.username || username });
+      }
+    }
+    
+    if (params?.shared_only) {
+      return notes.filter((n) => n.is_shared);
+    }
+    return notes;
+  },
+  
+  getSharedNotes: async (params?: { usernames?: string }): Promise<Note[]> => {
+    const allUsers = await discoverUsers();
+    const notes: Note[] = [];
+    
+    for (const username of allUsers) {
+      const userNotes = await notesStore.listAllForUser(username);
+      for (const note of userNotes) {
+        if (note.is_shared) {
+          notes.push({ ...note, username: note.username || username });
+        }
+      }
+    }
+    
+    return notes;
+  },
+  
+  getUserNotes: async (username: string): Promise<Note[]> => {
+    const notes = await notesStore.listAllForUser(username);
+    return notes.map((n) => ({ ...n, username: n.username || username }));
+  },
+};
+
+export const usersApi = {
+  list: async (): Promise<{ users: string[]; current_user: string }> => {
+    if (!fileService.isConnected()) {
+      return { users: [], current_user: "" };
+    }
+    
+    const usersDir = await fileService.getDirectory("users");
+    if (!usersDir) {
+      return { users: [], current_user: "" };
+    }
+    
+    const skipDirs = new Set(["public", "lab", "_no_user_", "_global_counters.json", "_user_metadata.json"]);
+    const users: string[] = [];
+    
+    for await (const entry of (usersDir as unknown as { values: () => AsyncIterable<FileSystemHandle> }).values()) {
+      if (entry.kind === "directory" && !skipDirs.has(entry.name)) {
+        users.push(entry.name);
+      }
+    }
+    
+    const currentUser = await getCurrentUser();
+    return { users: users.sort(), current_user: currentUser || "" };
+  },
+  
+  login: async (username: string): Promise<{ status: string; current_user: string }> => {
+    clearCurrentUserCache();
+    await storeCurrentUser(username);
+    return { status: "ok", current_user: username };
+  },
+
+  create: async (username: string): Promise<{ status: string; current_user: string; created: boolean }> => {
+    clearCurrentUserCache();
+    await storeCurrentUser(username);
+    return { status: "ok", current_user: username, created: true };
+  },
+  
+  validate: async (): Promise<{ valid: boolean; current_user: string }> => {
+    const currentUser = await getCurrentUser();
+    if (currentUser) {
+      return { valid: true, current_user: currentUser };
+    }
+    return { valid: false, current_user: "" };
+  },
+  
+  rename: async (oldUsername: string, newUsername: string): Promise<{ status: string; old_username: string; new_username: string }> => {
+    const sanitized = newUsername.trim().replace(/[^a-zA-Z0-9_-]/g, "");
+    if (!sanitized) throw new Error("New username is empty or contains only invalid characters");
+    if (sanitized === oldUsername) {
+      return { status: "ok", old_username: oldUsername, new_username: sanitized };
+    }
+    const root = fileService.getDirectoryHandle();
+    if (!root) throw new Error("File system not connected");
+    const usersDir = await fileService.getDirectory("users");
+    if (!usersDir) throw new Error("users/ directory not found");
+
+    const usersHandle = usersDir as unknown as {
+      getDirectoryHandle: (name: string, opts?: { create?: boolean }) => Promise<FileSystemDirectoryHandle>;
+      removeEntry: (name: string, opts?: { recursive?: boolean }) => Promise<void>;
+      values: () => AsyncIterable<FileSystemHandle>;
+    };
+
+    // Refuse to overwrite an existing user directory.
+    try {
+      await usersHandle.getDirectoryHandle(sanitized);
+      throw new Error(`User '${sanitized}' already exists`);
+    } catch (err) {
+      if (err instanceof Error && err.message.includes("already exists")) throw err;
+      // NotFoundError is expected — proceed.
+    }
+
+    const sourceDir = await usersHandle.getDirectoryHandle(oldUsername);
+    const targetDir = await usersHandle.getDirectoryHandle(sanitized, { create: true });
+
+    const copyTree = async (
+      from: FileSystemDirectoryHandle,
+      to: FileSystemDirectoryHandle
+    ): Promise<void> => {
+      const fromIterable = from as unknown as { values: () => AsyncIterable<FileSystemHandle> };
+      const toHandle = to as unknown as {
+        getFileHandle: (name: string, opts?: { create?: boolean }) => Promise<FileSystemFileHandle>;
+        getDirectoryHandle: (name: string, opts?: { create?: boolean }) => Promise<FileSystemDirectoryHandle>;
+      };
+      for await (const entry of fromIterable.values()) {
+        if (entry.kind === "file") {
+          const srcFile = await (entry as FileSystemFileHandle).getFile();
+          const dest = await toHandle.getFileHandle(entry.name, { create: true });
+          const writable = await dest.createWritable();
+          await writable.write(await srcFile.arrayBuffer());
+          await writable.close();
+        } else if (entry.kind === "directory") {
+          const subDest = await toHandle.getDirectoryHandle(entry.name, { create: true });
+          await copyTree(entry as FileSystemDirectoryHandle, subDest);
+        }
+      }
+    };
+
+    await copyTree(sourceDir, targetDir);
+    await usersHandle.removeEntry(oldUsername, { recursive: true });
+
+    // If renaming the current user, keep them logged in under the new name.
+    const current = await getCurrentUser();
+    if (current === oldUsername) {
+      clearCurrentUserCache();
+      await storeCurrentUser(sanitized);
+    }
+    const main = await getMainUser();
+    if (main === oldUsername) {
+      await storeMainUser(sanitized);
+    }
+
+    return { status: "ok", old_username: oldUsername, new_username: sanitized };
+  },
+
+  logout: async (): Promise<{ status: string; message: string }> => {
+    clearCurrentUserCache();
+    await clearCurrentUser();
+    return { status: "ok", message: "Logged out" };
+  },
+  
+  getMainUser: async (): Promise<{ main_user: string; current_user: string }> => {
+    const [mainUser, currentUser] = await Promise.all([
+      getMainUser(),
+      getCurrentUser(),
+    ]);
+    return { main_user: mainUser || "", current_user: currentUser || "" };
+  },
+  
+  setMainUser: async (username: string): Promise<{ status: string; main_user: string }> => {
+    await storeMainUser(username);
+    return { status: "ok", main_user: username };
+  },
+  
+  archive: async (username: string): Promise<Blob> => {
+    if (!fileService.isConnected()) {
+      throw new Error("File system not connected");
+    }
+    
+    const usersDir = await fileService.getDirectory("users");
+    if (!usersDir) {
+      throw new Error("Users directory not found");
+    }
+    
+    const userDir = await (usersDir as any).getDirectoryHandle(username, { create: false });
+    if (!userDir) {
+      throw new Error(`User '${username}' not found`);
+    }
+    
+    const zip = new JSZip();
+    
+    const addFolderToZip = async (dirHandle: FileSystemDirectoryHandle, zipFolder: JSZip) => {
+      for await (const entry of (dirHandle as any).values()) {
+        if (entry.kind === "file") {
+          const file = await entry.getFile();
+          const content = await file.arrayBuffer();
+          zipFolder.file(entry.name, content);
+        } else if (entry.kind === "directory") {
+          const subFolder = zipFolder.folder(entry.name);
+          if (subFolder) {
+            await addFolderToZip(entry, subFolder);
+          }
+        }
+      }
+    };
+    
+    await addFolderToZip(userDir, zip);
+    
+    return await zip.generateAsync({ type: "blob" });
+  },
+  
+  delete: async (username: string, confirmationStep: number, acknowledgedWarning: boolean): Promise<{ status: string; deleted_username: string; message: string }> => {
+    if (!fileService.isConnected()) {
+      return { status: "error", deleted_username: "", message: "File system not connected" };
+    }
+    
+    if (!acknowledgedWarning) {
+      return { status: "error", deleted_username: "", message: "Warning must be acknowledged" };
+    }
+    
+    if (confirmationStep === 1) {
+      return { 
+        status: "warning", 
+        deleted_username: "", 
+        message: `This will remove all data for user '${username}'. Please acknowledge and proceed to step 2.` 
+      };
+    }
+    
+    if (confirmationStep === 2) {
+      try {
+        const usersDir = await fileService.getDirectory("users");
+        if (!usersDir) {
+          return { status: "error", deleted_username: "", message: "Users directory not found" };
+        }
+        
+        await (usersDir as any).removeEntry(username, { recursive: true });
+        
+        return { 
+          status: "ok", 
+          deleted_username: username, 
+          message: `User '${username}' has been deleted successfully` 
+        };
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to delete user";
+        return { status: "error", deleted_username: "", message: errorMessage };
+      }
+    }
+    
+    return { status: "error", deleted_username: "", message: "Invalid confirmation step" };
+  },
+  
+  listAtPath: async (path: string): Promise<UsersAtPathResponse> => {
+    return { users: [], path, exists: false };
+  },
+  
+  previewMigration: async (request: UserMigrationPreviewRequest): Promise<UserMigrationPreviewResponse> => ({ 
+    status: "error", 
+    source_username: request.source_username,
+    target_username: request.target_username,
+    source_path: request.source_path,
+    target_path: request.target_path,
+    can_proceed: false,
+    warnings: ["Migration not supported in local mode"],
+    stats: {
+      projects_count: 0,
+      tasks_count: 0,
+      dependencies_count: 0,
+      methods_count: 0,
+      events_count: 0,
+      goals_count: 0,
+      pcr_protocols_count: 0,
+      purchase_items_count: 0,
+      notes_count: 0,
+      lab_links_count: 0,
+      images_count: 0,
+      files_count: 0,
+      total_size_bytes: 0,
+    },
+    existing_users_in_target: [],
+  }),
+  
+  migrateUser: async (request: UserMigrationRequest): Promise<UserMigrationResponse> => ({ 
+    status: "error", 
+    message: "Migration not supported in local mode", 
+    source_username: request.source_username,
+    target_username: request.target_username,
+    target_path: request.target_path,
+    id_mappings: {},
+    items_migrated: 0,
+    bytes_copied: 0,
+  }),
+  
+  getMigrationProgress: async (): Promise<UserMigrationProgress> => ({ status: "idle", current_step: "", items_processed: 0, total_items: 0, bytes_copied: 0, total_bytes: 0, error_message: "" }),
+};
+
+export const settingsApi = {
+  get: async () => {
+    const currentUser = await getCurrentUserCached();
+    const mainUser = await getMainUser();
+    return {
+      github_token_masked: "",
+      github_repo: "",
+      github_localpath: "",
+      current_user: currentUser || "",
+      main_user: mainUser || "",
+      storage_mode: "local",
+      is_configured: true,
+    };
+  },
+  
+  update: async (data: SettingsUpdate): Promise<SettingsResponse> => {
+    return settingsApi.get();
+  },
+  
+  verify: async (): Promise<SettingsVerifyResponse> => {
+    return { status: "ok" };
+  },
+  
+  checkDataPath: async (): Promise<DataPathCheckResponse> => {
+    return { status: "ok", message: "Connected" };
+  },
+  
+  reload: async () => {
+    return { status: "ok", message: "Reloaded", github_localpath: "" };
+  },
+  
+  getStorageMode: async (): Promise<StorageModeResponse> => {
+    return { mode: "local", path: "", is_configured: true };
+  },
+  
+  setupFolder: async (data: FolderSetupRequest): Promise<FolderSetupResponse> => {
+    return { status: "ok", message: "Folder configured", path: data.local_path, mode: data.mode, created_folders: false };
+  },
+};
+
+export const migrationApi = {
+  preview: async (request: MigrationRequest): Promise<MigrationPreview> => ({ 
+    source_path: request.destination_path,
+    destination_path: request.destination_path,
+    total_size_bytes: 0,
+    file_count: 0,
+    folder_count: 0,
+    has_git_folder: false,
+    users_found: [],
+    warnings: ["Migration not supported in local mode"],
+    can_proceed: false,
+  }),
+  execute: async (request: MigrationRequest): Promise<MigrationResponse> => ({ 
+    status: "error", 
+    message: "Migration not supported in local mode", 
+    source_path: request.destination_path,
+    destination_path: request.destination_path,
+    bytes_copied: 0,
+    files_copied: 0,
+    new_storage_mode: request.target_mode,
+  }),
+  getProgress: async (): Promise<MigrationProgress> => ({ status: "idle", bytes_copied: 0, total_bytes: 0, files_copied: 0, total_files: 0, current_file: "", error_message: "", progress_percent: 0 }),
+  cancel: async (): Promise<{ status: string; message: string }> => ({ status: "ok", message: "Cancelled" }),
+};
+
+async function readBlobAsText(blob: Blob): Promise<string> {
+  const buffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
+  }
+}
+
+async function sha1Hex(input: string): Promise<string> {
+  const bytes = new TextEncoder().encode(input);
+  const hash = await crypto.subtle.digest("SHA-1", bytes);
+  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export const githubApi = {
+  readFile: async (path: string): Promise<{ path: string; content: string; sha: string; html_url: string }> => {
+    const blob = await fileService.readFileAsBlob(path);
+    if (!blob) throw new Error(`File not found: ${path}`);
+    const content = await readBlobAsText(blob);
+    const sha = await sha1Hex(content);
+    return { path, content, sha, html_url: "" };
+  },
+  writeFile: async (path: string, content: string, _message?: string): Promise<{ path: string; sha: string }> => {
+    const blob = new Blob([content], { type: "text/plain" });
+    await fileService.writeFileFromBlob(path, blob);
+    const sha = await sha1Hex(content);
+    return { path, sha };
+  },
+  uploadImage: async (path: string, base64Content: string, _message?: string): Promise<ImageUploadResponse> => {
+    const binaryString = atob(base64Content);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+    await fileService.writeFileFromBlob(path, new Blob([bytes]));
+    const sha = await sha1Hex(base64Content);
+    const parts = path.split("/");
+    const filename = parts[parts.length - 1] ?? "";
+    const folder = parts.length >= 2 ? parts[parts.length - 2] : "";
+    const ext = filename.includes(".") ? filename.slice(filename.lastIndexOf(".") + 1) : "";
+    return {
+      id: 0,
+      path,
+      sha,
+      download_url: "",
+      file_size: bytes.length,
+      warning: "",
+      added_to_gitignore: false,
+      filename,
+      original_filename: filename,
+      folder,
+      file_type: ext,
+    };
+  },
+  listDirectory: async (path?: string): Promise<Array<{ name: string; path: string; type: "file" | "dir"; size: number }>> => {
+    if (!path) return [];
+    const files = await fileService.listFiles(path);
+    return files.map((name) => ({ name, path: `${path}/${name}`, type: "file" as const, size: 0 }));
+  },
+  deleteDirectory: async (path: string): Promise<{ status: string }> => {
+    const parts = path.split("/").filter(Boolean);
+    if (parts.length === 0) return { status: "not_found" };
+    const parentPath = parts.slice(0, -1).join("/");
+    const parent = parentPath
+      ? await fileService.getDirectory(parentPath)
+      : fileService.getDirectoryHandle();
+    if (!parent) return { status: "not_found" };
+    try {
+      await (parent as unknown as { removeEntry: (name: string, opts?: { recursive?: boolean }) => Promise<void> }).removeEntry(parts[parts.length - 1], { recursive: true });
+      return { status: "deleted" };
+    } catch {
+      return { status: "not_found" };
+    }
+  },
+  getRawUrl: (path: string): string => path,
+};
+
+export const fetchAllTasks = async () => {
+  const tasks = await tasksStore.listAll();
+  return tasks.map(computeTaskEndDate);
+};
+
+interface SharedWithMeManifest {
+  version?: number;
+  tasks?: Array<{ id: number; owner: string; permission?: string; shared_at?: string }>;
+}
+
+export const fetchAllTasksIncludingShared = async () => {
+  const ownTasks = await tasksStore.listAll();
+  console.log("[fetchAllTasksIncludingShared] ownTasks count:", ownTasks.length);
+
+  let sharedTasks: Task[] = [];
+  try {
+    const currentUser = await getCurrentUserCached();
+    const manifestPath = `users/${currentUser}/_shared_with_me.json`;
+    console.log("[fetchAllTasksIncludingShared] currentUser:", currentUser, "manifestPath:", manifestPath);
+    const manifest = await fileService.readJson<SharedWithMeManifest>(manifestPath);
+    console.log("[fetchAllTasksIncludingShared] manifest:", manifest);
+    const entries = manifest?.tasks ?? [];
+    if (entries.length > 0) {
+      const ownIds = new Set(ownTasks.map((t) => t.id));
+      for (const entry of entries) {
+        // Skip collisions: each user has its own ID space, so a shared task can have
+        // the same numeric id as an own task. The UI keys off `task.id`, so showing
+        // both would corrupt rendering. We prefer the owner's task and skip the share
+        // with a console warning — surfacing collisions properly requires a composite
+        // key refactor we're not doing here.
+        if (ownIds.has(entry.id)) {
+          console.warn(
+            `[fetchAllTasksIncludingShared] id collision: own task ${entry.id} hides shared task ${entry.id} from ${entry.owner}`
+          );
+          continue;
+        }
+        const sharedTaskPath = `users/${entry.owner}/tasks/${entry.id}.json`;
+        const task = await fileService.readJson<Task>(sharedTaskPath);
+        console.log("[fetchAllTasksIncludingShared] read shared task at", sharedTaskPath, "→", task ? "OK" : "MISSING");
+        if (!task) continue;
+        sharedTasks.push({
+          ...task,
+          owner: entry.owner,
+          is_shared_with_me: true,
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("[fetchAllTasksIncludingShared] failed to load shared tasks:", err);
+  }
+
+  console.log("[fetchAllTasksIncludingShared] returning", ownTasks.length + sharedTasks.length, "tasks (", sharedTasks.length, "shared)");
+  return [...ownTasks, ...sharedTasks].map(computeTaskEndDate);
+};
+
+export type {
+  Project,
+  ProjectCreate,
+  ProjectUpdate,
+  Task,
+  TaskCreate,
+  TaskUpdate,
+  TaskMoveRequest,
+  Dependency,
+  DependencyCreate,
+  Method,
+  MethodCreate,
+  MethodUpdate,
+  Event,
+  EventCreate,
+  EventUpdate,
+  HighLevelGoal,
+  HighLevelGoalCreate,
+  HighLevelGoalUpdate,
+  PCRProtocol,
+  PCRProtocolCreate,
+  PCRProtocolUpdate,
+  PurchaseItem,
+  PurchaseItemCreate,
+  PurchaseItemUpdate,
+  FundingAccount,
+  FundingAccountCreate,
+  FundingAccountUpdate,
+  LabLink,
+  LabLinkCreate,
+  LabLinkUpdate,
+  Note,
+  NoteCreate,
+  NoteUpdate,
+  ImageMetadata,
+  FileMetadata,
+  CatalogItem,
+  ShiftResult,
+  SharedUser,
+  ShareRequest,
+  SharedItemEntry,
+  Notification,
+};
+
+export interface LabUser {
+  username: string;
+  color: string;
+  created_at: string | null;
+}
+
+export interface LabTask {
+  id: number;
+  name: string;
+  project_id: number;
+  start_date: string;
+  duration_days: number;
+  end_date: string;
+  is_complete: boolean;
+  task_type: string;
+  username: string;
+  user_color: string;
+  experiment_color: string | null;
+  method_ids: number[];
+  notes: string | null;
+}
+
+export interface LabProject {
+  id: number;
+  name: string;
+  color: string;
+  username: string;
+  user_color: string;
+  is_archived: boolean;
+}
+
+export interface LabMethod {
+  id: number;
+  name: string;
+  username: string;
+  user_color: string;
+  is_public: boolean;
+}
+
+export interface LabSearchResult {
+  type: string;
+  id: number;
+  name: string;
+  username: string;
+  user_color: string;
+  match_field: string;
+  match_preview: string;
+}
+
+export interface DuplicateCheckResult {
+  has_duplicate: boolean;
+  matching_tasks: Array<{
+    id: number;
+    name: string;
+    task_type: string;
+    start_date: string;
+    is_complete: boolean;
+  }>;
+}
+
+export interface DataPathCheckResponse {
+  status: "ok" | "error";
+  error_type?: "not_configured" | "path_not_found" | "not_git_repo" | "permission_denied";
+  message: string;
+  configured_path?: string;
+  storage_mode?: string;
+}
+
+export interface FolderSetupRequest {
+  mode: "github" | "local";
+  local_path: string;
+  github_token?: string;
+  github_repo?: string;
+  create_if_missing: boolean;
+}
+
+export interface FolderSetupResponse {
+  status: string;
+  message: string;
+  path: string;
+  mode: string;
+  created_folders: boolean;
+}
+
+export interface StorageModeResponse {
+  mode: string;
+  path: string;
+  is_configured: boolean;
+}
+
+export interface SettingsResponse {
+  github_token_masked: string;
+  github_repo: string;
+  github_localpath: string;
+  current_user: string;
+  main_user: string;
+  storage_mode: string;
+  is_configured: boolean;
+}
+
+export interface SettingsUpdate {
+  github_token?: string;
+  github_repo?: string;
+  github_localpath?: string;
+  current_user?: string;
+  main_user?: string;
+  storage_mode?: string;
+}
+
+export interface SettingsVerifyResponse {
+  status: "ok" | "error";
+  message?: string;
+  issues?: string[];
+}
+
+export interface MigrationRequest {
+  destination_path: string;
+  migration_type: "copy" | "move";
+  target_mode: "github" | "local";
+  remove_git_folder: boolean;
+  new_github_repo?: string;
+  new_github_token?: string;
+}
+
+export interface MigrationPreview {
+  source_path: string;
+  destination_path: string;
+  total_size_bytes: number;
+  file_count: number;
+  folder_count: number;
+  has_git_folder: boolean;
+  users_found: string[];
+  warnings: string[];
+  can_proceed: boolean;
+}
+
+export interface MigrationProgress {
+  status: "idle" | "in_progress" | "complete" | "error";
+  bytes_copied: number;
+  total_bytes: number;
+  files_copied: number;
+  total_files: number;
+  current_file: string;
+  error_message: string;
+  progress_percent: number;
+}
+
+export interface MigrationResponse {
+  status: string;
+  message: string;
+  source_path: string;
+  destination_path: string;
+  bytes_copied: number;
+  files_copied: number;
+  new_storage_mode: string;
+}
+
+export interface UserMigrationPreviewRequest {
+  source_path: string;
+  source_username: string;
+  target_path: string;
+  target_username: string;
+}
+
+export interface UserMigrationPreviewResponse {
+  status: string;
+  source_username: string;
+  target_username: string;
+  source_path: string;
+  target_path: string;
+  can_proceed: boolean;
+  warnings: string[];
+  stats: {
+    projects_count: number;
+    tasks_count: number;
+    dependencies_count: number;
+    methods_count: number;
+    events_count: number;
+    goals_count: number;
+    pcr_protocols_count: number;
+    purchase_items_count: number;
+    notes_count: number;
+    lab_links_count: number;
+    images_count: number;
+    files_count: number;
+    total_size_bytes: number;
+  };
+  existing_users_in_target: string[];
+}
+
+export interface UserMigrationRequest {
+  source_path: string;
+  source_username: string;
+  target_path: string;
+  target_username: string;
+  delete_source: boolean;
+}
+
+export interface UserMigrationResponse {
+  status: string;
+  message: string;
+  source_username: string;
+  target_username: string;
+  target_path: string;
+  id_mappings: Record<string, Record<number, number>>;
+  items_migrated: number;
+  bytes_copied: number;
+}
+
+export interface UserMigrationProgress {
+  status: "idle" | "in_progress" | "complete" | "error";
+  current_step: string;
+  items_processed: number;
+  total_items: number;
+  bytes_copied: number;
+  total_bytes: number;
+  error_message: string;
+}
+
+export interface UsersAtPathResponse {
+  users: string[];
+  path: string;
+  exists: boolean;
+}
+
+export interface ImageUploadResponse {
+  id: number;
+  path: string;
+  sha: string;
+  download_url: string;
+  file_size: number;
+  warning?: string;
+  added_to_gitignore: boolean;
+  filename: string;
+  original_filename: string;
+  folder: string;
+  file_type: string;
+}
+
+export interface MethodExperiment {
+  id: number;
+  name: string;
+  project_id: number;
+  start_date: string;
+  duration_days: number;
+  end_date: string;
+  is_complete: boolean;
+  task_type: string;
+  experiment_color: string | null;
+  variation_notes: string | null;
+}
+
+export function setDataPathErrorCallback(callback: (error: DataPathCheckResponse) => void): void {
+  // No-op in local mode
+}

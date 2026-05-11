@@ -5,7 +5,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { githubApi, methodsApi, tasksApi, pcrApi } from "@/lib/api";
+import { githubApi, methodsApi, tasksApi, pcrApi } from "@/lib/local-api";
+import { migrateNoteImages } from "@/lib/notes/migrate-images";
 import type { Method, Task, TaskMethodAttachment, PCRProtocol, PCRGradient, PCRIngredient } from "@/lib/types";
 import { InteractiveGradientEditor } from "@/components/InteractiveGradientEditor";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
@@ -144,19 +145,47 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
         if (pdfUrl) URL.revokeObjectURL(pdfUrl);
       };
     } else {
-      // Markdown methods
-      githubApi
-        .readFile(activeMethod.github_path)
-        .then((file) => {
-          setMethodContent(file.content);
-          setLoading(false);
-        })
-        .catch(() => {
-          setMethodContent("*Method file not found.*");
-          setLoading(false);
-        });
+      // Markdown methods — migrate legacy image refs on load, mirroring the
+      // pattern used in TaskDetailPopup and MarkdownMethodViewer. In readOnly
+      // mode (lab view), skip the migration save-back; just display the raw
+      // content. The actual file rewrite happens the next time an owner
+      // opens the method directly.
+      let cancelled = false;
+      const githubPath = activeMethod.github_path;
+      (async () => {
+        try {
+          const file = await githubApi.readFile(githubPath);
+          const raw = file.content;
+          if (readOnly) {
+            if (!cancelled) {
+              setMethodContent(raw);
+              setLoading(false);
+            }
+            return;
+          }
+          const dir = githubPath.substring(0, githubPath.lastIndexOf("/"));
+          const slug = dir.split("/").pop() || dir;
+          const legacyOwner = activeMethod.owner || activeMethod.created_by || undefined;
+          const { content: migrated, didMigrate } = await migrateNoteImages(raw, slug, dir, legacyOwner);
+          if (didMigrate) {
+            await githubApi.writeFile(githubPath, migrated, `Migrate image references for: ${activeMethod.name}`);
+          }
+          if (!cancelled) {
+            setMethodContent(migrated);
+            setLoading(false);
+          }
+        } catch {
+          if (!cancelled) {
+            setMethodContent("*Method file not found.*");
+            setLoading(false);
+          }
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
     }
-  }, [activeMethod?.github_path, isPcrMethod, isPdfMethod]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeMethod?.github_path, isPcrMethod, isPdfMethod, readOnly]); // eslint-disable-line react-hooks/exhaustive-deps
   
   // Track PCR changes
   const originalPcrGradient = useMemo(() => {
@@ -199,7 +228,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
       await queryClient.refetchQueries({ queryKey: ["task", task.id] });
       setActiveMethodId(methodId);
       setShowMethodSelector(false);
-      onTaskUpdate?.(updatedTask);
+      if (updatedTask) if (updatedTask) onTaskUpdate?.(updatedTask);
     } catch (err) {
       console.error("Failed to add method:", err);
       alert("Failed to add method");
@@ -215,6 +244,8 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
     setSaving(true);
     try {
       const updatedTask = await tasksApi.removeMethod(task.id, methodId);
+      if (!updatedTask) return;
+      
       await queryClient.refetchQueries({ queryKey: ["tasks"] });
       await queryClient.refetchQueries({ queryKey: ["task", task.id] });
       
@@ -224,7 +255,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
         setActiveMethodId(remainingMethods.length > 0 ? remainingMethods[0].method_id : null);
       }
       
-      onTaskUpdate?.(updatedTask);
+      if (updatedTask) onTaskUpdate?.(updatedTask);
     } catch (err) {
       console.error("Failed to remove method:", err);
       alert("Failed to remove method");
@@ -246,7 +277,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
       await queryClient.refetchQueries({ queryKey: ["tasks"] });
       await queryClient.refetchQueries({ queryKey: ["task", task.id] });
       setHasUnsavedChanges(false);
-      onTaskUpdate?.(updatedTask);
+      if (updatedTask) if (updatedTask) onTaskUpdate?.(updatedTask);
     } catch (err) {
       console.error("Failed to save PCR changes:", err);
       alert("Failed to save PCR changes");
@@ -265,7 +296,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
       const updatedTask = await tasksApi.resetPcr(task.id, activeMethodId);
       await queryClient.refetchQueries({ queryKey: ["tasks"] });
       await queryClient.refetchQueries({ queryKey: ["task", task.id] });
-      onTaskUpdate?.(updatedTask);
+      if (updatedTask) onTaskUpdate?.(updatedTask);
     } catch (err) {
       console.error("Failed to reset PCR:", err);
       alert("Failed to reset PCR data");

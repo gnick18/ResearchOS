@@ -3,7 +3,7 @@
 import React, { useCallback, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import AppShell from "@/components/AppShell";
-import { pcrApi } from "@/lib/api";
+import { pcrApi } from "@/lib/local-api";
 import type { PCRProtocol, PCRGradient, PCRStep, PCRIngredient } from "@/lib/types";
 import { InteractiveGradientEditor, getTemperatureColor } from "@/components/InteractiveGradientEditor";
 

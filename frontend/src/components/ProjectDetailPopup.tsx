@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { projectsApi, tasksApi } from "@/lib/api";
+import { projectsApi, tasksApi } from "@/lib/local-api";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import TaskQuickPopup from "@/components/TaskQuickPopup";
 import SharePopup from "@/components/SharePopup";

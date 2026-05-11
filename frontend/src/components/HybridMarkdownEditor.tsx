@@ -11,8 +11,9 @@ import {
   updateBlockContent,
   type MarkdownBlock,
 } from "@/lib/markdown-block-parser";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
+import { rewriteImageWidth, parseWidthPercent } from "@/lib/image-resize-utils";
+import ImageResizePopover from "./ImageResizePopover";
 
 // Type for the helper panel tab
 type HelperTab = "shortcuts" | "styleguide";
@@ -242,6 +243,7 @@ interface HybridMarkdownEditorProps {
   imageBasePath?: string;
   disabled?: boolean;
   showShortcutsHelper?: boolean;
+  useBlobUrls?: boolean;
 }
 
 /**
@@ -380,6 +382,7 @@ export default function HybridMarkdownEditor({
   imageBasePath,
   disabled = false,
   showShortcutsHelper = true,
+  useBlobUrls = true,
 }: HybridMarkdownEditorProps) {
   // Track which block is currently being edited by its start offset
   // Using startOffset is more stable than block ID because it doesn't
@@ -407,10 +410,22 @@ export default function HybridMarkdownEditor({
   const [languageSelectorPosition, setLanguageSelectorPosition] = useState({ top: 0, left: 0 });
   const [codeBlockInsertPosition, setCodeBlockInsertPosition] = useState<number | null>(null);
   const [languageSearch, setLanguageSearch] = useState("");
+
+  // Image resize popover state (click-to-resize on rendered images)
+  const [imageResize, setImageResize] = useState<{
+    blockOffset: number;
+    imageIndex: number;
+    x: number;
+    y: number;
+    currentWidth: number | null;
+  } | null>(null);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const languageSelectorRef = useRef<HTMLDivElement>(null);
+
+  // Resolved blob URLs for images (path -> blob URL)
+  const [resolvedBlobUrls, setResolvedBlobUrls] = useState<Map<string, string>>(new Map());
   
   /**
    * Auto-grow textarea to fit content
@@ -463,6 +478,62 @@ export default function HybridMarkdownEditor({
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  /**
+   * Resolve blob URLs for images in the markdown content. Keyed by the
+   * original src token (e.g. `Images/foo.png`) so renderers can do a direct lookup.
+   */
+  useEffect(() => {
+    if (!useBlobUrls) return;
+
+    let cancelled = false;
+    (async () => {
+      const imageRegex = /!\[([^\]]*)\]\(([^)\s]+)/g;
+      const htmlRegex = /<img\s+[^>]*src=["']([^"']+)["']/gi;
+      const srcs = new Set<string>();
+      let m: RegExpExecArray | null;
+      while ((m = imageRegex.exec(value)) !== null) srcs.add(m[2]);
+      while ((m = htmlRegex.exec(value)) !== null) srcs.add(m[1]);
+
+      const newPairs: Array<[string, string]> = [];
+      for (const src of srcs) {
+        if (!blobUrlResolver.isLocalPath(src)) continue;
+        const resolvedPath = blobUrlResolver.resolvePath(src, imageBasePath);
+        const cached = blobUrlResolver.getCachedUrl(resolvedPath);
+        if (cached) {
+          newPairs.push([src, cached]);
+          continue;
+        }
+        const url = await blobUrlResolver.getBlobUrl(resolvedPath);
+        if (url) newPairs.push([src, url]);
+      }
+      if (cancelled || newPairs.length === 0) return;
+      setResolvedBlobUrls((prev) => {
+        const next = new Map(prev);
+        let changed = false;
+        for (const [src, url] of newPairs) {
+          if (next.get(src) !== url) {
+            next.set(src, url);
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [value, useBlobUrls, imageBasePath]);
+
+  /**
+   * Cleanup blob URLs on unmount
+   */
+  useEffect(() => {
+    return () => {
+      blobUrlResolver.revokeAll();
     };
   }, []);
 
@@ -944,6 +1015,36 @@ export default function HybridMarkdownEditor({
   );
 
   /**
+   * Apply a resize selection from the image popover.
+   * Rewrites the corresponding image within the block's markdown source.
+   */
+  const handleImageResizeSelect = useCallback(
+    (width: number | null) => {
+      if (!imageResize) return;
+      const block = blocks.find((b) => b.startOffset === imageResize.blockOffset);
+      if (!block) {
+        setImageResize(null);
+        return;
+      }
+
+      const newBlockContent = rewriteImageWidth(
+        block.content,
+        imageResize.imageIndex,
+        width,
+      );
+      setImageResize(null);
+      if (newBlockContent === block.content) return;
+
+      const newValue =
+        value.substring(0, block.startOffset) +
+        newBlockContent +
+        value.substring(block.startOffset + block.content.length);
+      onChange(newValue);
+    },
+    [imageResize, blocks, value, onChange],
+  );
+
+  /**
    * Handle inserting style guide syntax
    */
   const handleInsertSyntax = useCallback(
@@ -1053,41 +1154,53 @@ export default function HybridMarkdownEditor({
             </div>
           ) : block.content.trim() ? (
             <div className="prose prose-sm prose-gray max-w-none">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeRaw, rehypeHighlight]}
-                components={{
-                  img: ({ src, alt, ...props }) => {
-                    // Resolve relative image paths through the backend API
-                    let resolvedSrc = String(src || "");
-                    const originalSrc = resolvedSrc;
-
-                    if (resolvedSrc.startsWith("../../Images/")) {
-                      const imagePath = resolvedSrc.slice(3);
-                      resolvedSrc = `${API_BASE}/github/raw?path=${encodeURIComponent(imagePath)}`;
-                    } else if (imageBasePath && resolvedSrc.startsWith("./")) {
-                      const relativePath = resolvedSrc.slice(2);
-                      resolvedSrc = `${API_BASE}/github/raw?path=${encodeURIComponent(
-                        imageBasePath + "/" + relativePath
-                      )}`;
-                    } else if (resolvedSrc.startsWith("Images/")) {
-                      resolvedSrc = `${API_BASE}/github/raw?path=${encodeURIComponent(resolvedSrc)}`;
-                    }
-
-                    return (
-                      <img
-                        src={resolvedSrc}
-                        alt={alt || ""}
-                        className="max-w-full rounded-lg"
-                        onError={(e) => handleImageError(e, originalSrc)}
-                        {...props}
-                      />
-                    );
-                  },
-                }}
-              >
-                {block.content}
-              </ReactMarkdown>
+              {(() => {
+                // Counter shared across all img renders within this block.
+                // Reset on every renderBlock invocation; ReactMarkdown calls the
+                // img component synchronously in document order during render.
+                const imgIndexRef = { current: 0 };
+                return (
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[rehypeRaw, rehypeHighlight]}
+                    components={{
+                      img: ({ src, alt, width, ...props }) => {
+                        const myIndex = imgIndexRef.current++;
+                        const currentWidthPct = parseWidthPercent(width as string | number | undefined);
+                        const originalSrc = String(src || "");
+                        const resolvedSrc = useBlobUrls
+                          ? resolvedBlobUrls.get(originalSrc) ?? originalSrc
+                          : originalSrc;
+                        return (
+                          <img
+                            src={resolvedSrc}
+                            alt={alt || ""}
+                            width={width}
+                            className="max-w-full rounded-lg cursor-pointer"
+                            onError={(e) => handleImageError(e, originalSrc)}
+                            onClick={(e) => {
+                              if (disabled) return;
+                              e.stopPropagation();
+                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                              setImageResize({
+                                blockOffset: block.startOffset,
+                                imageIndex: myIndex,
+                                x: rect.left,
+                                y: rect.bottom + 4,
+                                currentWidth: currentWidthPct,
+                              });
+                            }}
+                            title="Click to resize"
+                            {...props}
+                          />
+                        );
+                      },
+                    }}
+                  >
+                    {block.content}
+                  </ReactMarkdown>
+                );
+              })()}
             </div>
           ) : (
             <span className="text-gray-300 italic text-sm">
@@ -1108,6 +1221,8 @@ export default function HybridMarkdownEditor({
       handleImageError,
       imageBasePath,
       placeholder,
+      useBlobUrls,
+      resolvedBlobUrls,
     ]
   );
 
@@ -1476,6 +1591,17 @@ export default function HybridMarkdownEditor({
             )}
           </div>
         </div>
+      )}
+
+      {/* Image Resize Popover */}
+      {imageResize && (
+        <ImageResizePopover
+          x={imageResize.x}
+          y={imageResize.y}
+          currentWidth={imageResize.currentWidth}
+          onSelect={handleImageResizeSelect}
+          onClose={() => setImageResize(null)}
+        />
       )}
     </div>
   );

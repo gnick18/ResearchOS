@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { githubApi, projectsApi, attachmentsApi } from "@/lib/api";
+import { githubApi, projectsApi, attachmentsApi } from "@/lib/local-api";
 import { useQuery } from "@tanstack/react-query";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import type { Task } from "@/lib/types";

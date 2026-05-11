@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import type { Dependency, Project, SnapZone, Task } from "@/lib/types";
-import { dependenciesApi } from "@/lib/api";
+import { dependenciesApi } from "@/lib/local-api";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface SidebarTreeProps {

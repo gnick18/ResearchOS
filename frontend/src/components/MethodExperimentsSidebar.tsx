@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { methodsApi, projectsApi, tasksApi, type MethodExperiment } from "@/lib/api";
+import { methodsApi, projectsApi, tasksApi, type MethodExperiment } from "@/lib/local-api";
 import type { Task, Project } from "@/lib/types";
 import { useState, useCallback } from "react";
 import TaskDetailPopup from "./TaskDetailPopup";

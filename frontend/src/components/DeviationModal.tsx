@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { methodsApi, githubApi } from "@/lib/api";
+import { methodsApi, githubApi } from "@/lib/local-api";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Method, Task } from "@/lib/types";
 

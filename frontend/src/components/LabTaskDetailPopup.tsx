@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { LabTask } from "@/lib/api";
+import { LabTask } from "@/lib/local-api";
 
 interface LabTaskDetailPopupProps {
   task: LabTask;

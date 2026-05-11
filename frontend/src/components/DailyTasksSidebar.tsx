@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { projectsApi, tasksApi, fetchAllTasks } from "@/lib/api";
+import { projectsApi, tasksApi, fetchAllTasks, settingsApi } from "@/lib/local-api";
 import TaskDetailPopup from "./TaskDetailPopup";
 import TaskQuickPopup from "./TaskQuickPopup";
 import type { Task, Project } from "@/lib/types";
@@ -12,37 +12,59 @@ import type { Task, Project } from "@/lib/types";
  * Clicking a task opens a quick popup with checkbox and expand button.
  */
 export default function DailyTasksSidebar() {
-  // For quick popup
   const [quickPopupTask, setQuickPopupTask] = useState<Task | null>(null);
   const [quickPopupPosition, setQuickPopupPosition] = useState({ x: 0, y: 0 });
-  
-  // For full detail popup
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
+  const { data: settings } = useQuery({
+    queryKey: ["settings"],
+    queryFn: settingsApi.get,
+  });
+  const currentUser = settings?.current_user || "";
+
   const { data: projects = [] } = useQuery({
-    queryKey: ["projects"],
+    queryKey: ["projects", currentUser],
     queryFn: projectsApi.list,
   });
 
-  // Filter to only active (non-archived) projects
   const activeProjects = useMemo(() => 
     projects.filter((p) => !p.is_archived),
     [projects]
   );
 
   const { data: allTasks = [] } = useQuery({
-    queryKey: ["tasks"],
+    queryKey: ["tasks", currentUser],
     queryFn: fetchAllTasks,
   });
 
-  // Filter tasks to only include those from active (non-archived) projects
-  const activeTasks = useMemo(() => 
-    allTasks.filter((t) => {
+  useEffect(() => {
+    console.log("[DailyTasksSidebar] Data loaded:", {
+      currentUser,
+      projectsCount: projects.length,
+      tasksCount: allTasks.length,
+      activeProjectsCount: activeProjects.length,
+    });
+  }, [projects, allTasks, activeProjects, currentUser]);
+
+  const activeTasks = useMemo(() => {
+    if (projects.length === 0) {
+      console.log("[DailyTasksSidebar] Projects not loaded yet, returning all tasks");
+      return allTasks;
+    }
+    
+    const filtered = allTasks.filter((t) => {
       const project = projects.find((p) => p.id === t.project_id);
       return project && !project.is_archived;
-    }),
-    [allTasks, projects]
-  );
+    });
+    
+    console.log("[DailyTasksSidebar] Active tasks filtered:", {
+      allTasksCount: allTasks.length,
+      projectsCount: projects.length,
+      activeTasksCount: filtered.length,
+    });
+    
+    return filtered;
+  }, [allTasks, projects]);
 
   const today = new Date().toISOString().split("T")[0];
 

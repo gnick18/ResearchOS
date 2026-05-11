@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState, useEffect, useLayoutEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { tasksApi, dependenciesApi } from "@/lib/api";
+import { tasksApi, dependenciesApi } from "@/lib/local-api";
 import type { Dependency, Task, ShiftResult, Project, HighLevelGoal } from "@/lib/types";
 import { useAppStore } from "@/lib/store";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -302,6 +302,7 @@ function assignRowsDynamic(
 
 // Helper to parse a date string (YYYY-MM-DD) as local date at midnight
 function parseLocalDate(dateStr: string): Date {
+  if (!dateStr) return new Date();
   const [year, month, day] = dateStr.split('-').map(Number);
   return new Date(year, month - 1, day);
 }
@@ -514,9 +515,20 @@ export default function GanttChart({
   }, [viewMode]);
 
   // Filter tasks for lab mode - exclude list tasks (must be before dates)
+  // Also filter out tasks without valid dates to prevent crashes
   const filteredTasks = useMemo(() => {
-    if (!isLabMode) return tasks;
-    return tasks.filter(t => t.task_type !== "list");
+    console.log("[GanttChart.filteredTasks] Input tasks:", tasks.length, "tasks:", tasks.map(t => ({ id: t.id, name: t.name, start: t.start_date, end: t.end_date, type: t.task_type })));
+    
+    let result = tasks.filter(t => t.start_date && t.end_date);
+    console.log("[GanttChart.filteredTasks] After date filter:", result.length);
+    
+    if (!isLabMode) {
+      console.log("[GanttChart.filteredTasks] Returning (non-lab mode):", result.length);
+      return result;
+    }
+    const labResult = result.filter(t => t.task_type !== "list");
+    console.log("[GanttChart.filteredTasks] Returning (lab mode):", labResult.length);
+    return labResult;
   }, [tasks, isLabMode]);
 
   const dates = useMemo(() => getDateRange(filteredTasks, weeksToShow, ganttStartDate), [filteredTasks, weeksToShow, ganttStartDate]);

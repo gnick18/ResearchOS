@@ -559,6 +559,17 @@ export interface RenameUserResponse {
   new_username: string;
 }
 
+export interface DeleteUserRequest {
+  confirmation_step: number;
+  acknowledged_warning: boolean;
+}
+
+export interface DeleteUserResponse {
+  status: string;
+  deleted_username: string;
+  message: string;
+}
+
 export interface LogoutResponse {
   status: string;
   message: string;
@@ -662,7 +673,12 @@ export const usersApi = {
   getMainUser: () => api.get<MainUserResponse>("/users/main").then((r) => r.data),
   setMainUser: (username: string) =>
     api.put<SetMainUserResponse>("/users/main", { username }).then((r) => r.data),
-  // User account migration
+  archive: (username: string) =>
+    api.get(`/users/${username}/archive`, { responseType: "blob" }).then((r) => r.data),
+  delete: (username: string, confirmationStep: number, acknowledgedWarning: boolean) =>
+    api.delete<DeleteUserResponse>(`/users/${username}`, {
+      data: { confirmation_step: confirmationStep, acknowledged_warning: acknowledgedWarning } as DeleteUserRequest,
+    }).then((r) => r.data),
   listAtPath: (path: string) =>
     api.get<UsersAtPathResponse>("/users/at-path", { params: { path } }).then((r) => r.data),
   previewMigration: (request: UserMigrationPreviewRequest) =>

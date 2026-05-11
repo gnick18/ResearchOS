@@ -4,11 +4,14 @@ import json
 import os
 import re
 import shutil
+import tempfile
+import zipfile
 from datetime import datetime, timezone
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.config import settings
@@ -776,18 +779,16 @@ async def delete_user(username: str, request: DeleteUserRequest):
         user_path = users_dir / username
         
         try:
-            # Delete the user folder
+            _cleanup_shared_references(username)
+            
             shutil.rmtree(str(user_path))
             
-            # Free up the user's color for reuse
             _free_color_for_user(username)
             
-            # If the deleted user was the current user, clear the session
             if settings.current_user == username:
                 settings.current_user = ""
                 reset_stores()
             
-            # If the deleted user was the main user, clear the main user
             if settings.main_user == username:
                 _update_env_with_main_user("")
                 settings.main_user = ""
@@ -802,6 +803,105 @@ async def delete_user(username: str, request: DeleteUserRequest):
                 status_code=500, 
                 detail=f"Failed to delete user: {str(e)}"
             )
+
+
+class ArchiveUserResponse(BaseModel):
+    status: str
+    username: str
+    archive_filename: str
+    stats: MigrationStats
+    message: str
+
+
+def _cleanup_shared_references(deleted_username: str) -> None:
+    """Clean up shared references when a user is deleted.
+    
+    Removes the deleted user from:
+    - Other users' _shared_with_me.json files
+    - Items' shared_with fields (owned by the deleted user)
+    """
+    users_dir = _get_users_dir()
+    if not users_dir.exists():
+        return
+    
+    for user_dir in users_dir.iterdir():
+        if not user_dir.is_dir():
+            continue
+        if user_dir.name in ('public', 'lab', '_no_user_'):
+            continue
+        if user_dir.name == deleted_username:
+            continue
+        
+        shared_file = user_dir / "_shared_with_me.json"
+        if not shared_file.exists():
+            continue
+        
+        try:
+            shared_data = json.loads(shared_file.read_text())
+            modified = False
+            
+            for key in ["projects", "tasks", "methods"]:
+                if key in shared_data:
+                    original_count = len(shared_data[key])
+                    shared_data[key] = [
+                        entry for entry in shared_data[key]
+                        if entry.get("owner") != deleted_username
+                    ]
+                    if len(shared_data[key]) < original_count:
+                        modified = True
+            
+            if modified:
+                shared_file.write_text(json.dumps(shared_data, indent=2, default=str))
+        except (json.JSONDecodeError, OSError):
+            continue
+
+
+@router.get("/{username}/archive")
+async def archive_user(username: str):
+    """Create a zip archive of user data for download.
+    
+    Returns a zip file containing all user data with the same folder structure.
+    """
+    username = username.strip()
+    
+    if not username:
+        raise HTTPException(status_code=400, detail="Username cannot be empty")
+    
+    if not _user_exists(username):
+        raise HTTPException(status_code=404, detail=f"User '{username}' does not exist")
+    
+    if username.lower() in {name.lower() for name in RESERVED_USERNAMES}:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot archive reserved user '{username}'"
+        )
+    
+    users_dir = _get_users_dir()
+    user_path = users_dir / username
+    
+    try:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        archive_filename = f"{username}_archive_{timestamp}.zip"
+        temp_path = Path(tempfile.gettempdir()) / archive_filename
+        
+        with zipfile.ZipFile(temp_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for file_path in user_path.rglob('*'):
+                if file_path.is_file():
+                    arcname = file_path.relative_to(user_path)
+                    zf.write(file_path, arcname)
+        
+        stats = _scan_user_folder(user_path)
+        
+        return FileResponse(
+            path=str(temp_path),
+            media_type='application/zip',
+            filename=archive_filename
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create archive: {str(e)}"
+        )
 
 
 @router.get("/metadata", response_model=AllUsersMetadataResponse)

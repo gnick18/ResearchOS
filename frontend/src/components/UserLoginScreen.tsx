@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { usersApi } from "@/lib/api";
+import { usersApi } from "@/lib/local-api";
+import { useFileSystem } from "@/lib/file-system/file-system-context";
 
 interface UserLoginScreenProps {
   onLogin: () => void;
 }
 
 export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
+  const { setCurrentUser } = useFileSystem();
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<string[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -21,6 +23,14 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   const [editValue, setEditValue] = useState("");
   const [renaming, setRenaming] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
+  
+  // Delete user state
+  const [deleteUserSelected, setDeleteUserSelected] = useState<string | null>(null);
+  const [deleteUserArchive, setDeleteUserArchive] = useState(true);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
+  const [isArchivingUser, setIsArchivingUser] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmStep, setDeleteConfirmStep] = useState(0);
 
   useEffect(() => {
     loadUsers();
@@ -56,6 +66,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     setError(null);
     try {
       await usersApi.login(username);
+      await setCurrentUser(username);
       onLogin();
     } catch (err) {
       setError("Failed to login. Please try again.");
@@ -68,6 +79,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     setError(null);
     try {
       await usersApi.login("lab");
+      await setCurrentUser("lab");
       onLogin();
     } catch (err) {
       setError("Failed to enter Lab Mode. Please try again.");
@@ -92,6 +104,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     setError(null);
     try {
       await usersApi.create(username);
+      await setCurrentUser(username);
       onLogin();
     } catch (err) {
       setError("Failed to create user. Please try again.");
@@ -170,6 +183,82 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       setMainUser(username);
     } catch (err) {
       console.error("Failed to set main user:", err);
+    }
+  };
+
+  const startDelete = (user: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDeleteUserSelected(user);
+    setDeleteUserArchive(true);
+    setShowDeleteConfirm(true);
+    setDeleteConfirmStep(1);
+    setError(null);
+  };
+
+  const cancelDelete = () => {
+    setDeleteUserSelected(null);
+    setShowDeleteConfirm(false);
+    setDeleteConfirmStep(0);
+    setError(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteUserSelected) return;
+    
+    if (deleteConfirmStep === 1) {
+      // Step 1: Archive if requested, then move to step 2
+      if (deleteUserArchive) {
+        setIsArchivingUser(true);
+        setError(null);
+        try {
+          const blob = await usersApi.archive(deleteUserSelected);
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${deleteUserSelected}_archive.zip`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+        } catch (err: unknown) {
+          console.error("Archive error:", err);
+          const errorMessage = err instanceof Error ? err.message : 
+            (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "Failed to archive user data";
+          setError(`Archive failed: ${errorMessage}. You can uncheck "Archive data" to proceed without backup.`);
+          setIsArchivingUser(false);
+          return;
+        }
+        setIsArchivingUser(false);
+      }
+      
+      // Move to step 2 (final confirmation)
+      setDeleteConfirmStep(2);
+      return;
+    }
+    
+    if (deleteConfirmStep === 2) {
+      // Step 2: Execute deletion
+      setIsDeletingUser(true);
+      setError(null);
+      
+      try {
+        await usersApi.delete(deleteUserSelected, 1, true);
+        await usersApi.delete(deleteUserSelected, 2, true);
+        
+        // Remove from local state
+        setUsers(users.filter(u => u !== deleteUserSelected));
+        if (mainUser === deleteUserSelected) {
+          setMainUser(null);
+        }
+        
+        cancelDelete();
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 
+          (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "Failed to delete user";
+        setError(errorMessage);
+      } finally {
+        setIsDeletingUser(false);
+      }
     }
   };
 
@@ -370,6 +459,18 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                             </svg>
                           </button>
                           
+                          {/* Delete button */}
+                          <button
+                            onClick={(e) => startDelete(user, e)}
+                            disabled={loggingIn !== null}
+                            className="p-2 opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded-lg text-slate-400 hover:text-red-400 transition-all"
+                            title="Delete user"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                          
                           {loggingIn === user ? (
                             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                           ) : (
@@ -441,6 +542,94 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
           Your data is stored locally and synced to your private repository
         </p>
       </div>
+
+      {/* Delete User Confirmation Modal */}
+      {deleteUserSelected && showDeleteConfirm && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-slate-800 rounded-2xl shadow-2xl border border-white/20 max-w-md w-full mx-4 overflow-hidden">
+            <div className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-white mb-2">
+                    Delete User Profile
+                  </h3>
+                  {deleteConfirmStep === 1 ? (
+                    <p className="text-slate-300 text-sm">
+                      Are you sure you want to delete <span className="font-semibold text-white">{deleteUserSelected}</span>? This action cannot be undone.
+                    </p>
+                  ) : (
+                    <p className="text-slate-300 text-sm">
+                      Final confirmation: Permanently delete <span className="font-semibold text-white">{deleteUserSelected}</span>?
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {deleteConfirmStep === 1 && (
+                <div className="mt-4 p-3 bg-slate-700/50 rounded-lg">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={deleteUserArchive}
+                      onChange={(e) => setDeleteUserArchive(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-500 bg-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
+                    />
+                    <span className="text-sm text-slate-300">
+                      Archive data before deletion (recommended)
+                    </span>
+                  </label>
+                </div>
+              )}
+
+              {error && (
+                <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
+                  <p className="text-sm text-red-300">{error}</p>
+                </div>
+              )}
+
+              {isArchivingUser && (
+                <div className="mt-4 p-3 bg-blue-500/20 rounded-lg flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400"></div>
+                  <span className="text-sm text-blue-300">Creating archive...</span>
+                </div>
+              )}
+
+              {isDeletingUser && (
+                <div className="mt-4 p-3 bg-red-500/20 rounded-lg flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-400"></div>
+                  <span className="text-sm text-red-300">Deleting user...</span>
+                </div>
+              )}
+
+              <div className="mt-6 flex gap-3">
+                <button
+                  onClick={cancelDelete}
+                  disabled={isArchivingUser || isDeletingUser}
+                  className="flex-1 py-2.5 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmDelete}
+                  disabled={isArchivingUser || isDeletingUser}
+                  className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {deleteConfirmStep === 1 ? (
+                    "Continue"
+                  ) : (
+                    "Delete Permanently"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

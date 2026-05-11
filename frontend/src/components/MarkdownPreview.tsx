@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import rehypeHighlight from "rehype-highlight";
-import { githubApi } from "@/lib/api";
+import { githubApi } from "@/lib/local-api";
+import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 
 interface MarkdownPreviewProps {
   githubPath: string | null;
@@ -13,7 +14,7 @@ interface MarkdownPreviewProps {
 }
 
 /**
- * Quick View modal: renders a .md file from GitHub in a minimalist internal preview.
+ * Quick View modal: renders a .md file from the local data folder.
  */
 export default function MarkdownPreview({
   githubPath,
@@ -22,6 +23,11 @@ export default function MarkdownPreview({
   const [content, setContent] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [resolvedBlobUrls, setResolvedBlobUrls] = useState<Map<string, string>>(new Map());
+
+  const basePath = githubPath
+    ? githubPath.split("/").slice(0, -1).join("/")
+    : undefined;
 
   useEffect(() => {
     if (!githubPath) return;
@@ -34,18 +40,47 @@ export default function MarkdownPreview({
         setContent(file.content);
         setLoading(false);
       })
-      .catch((err) => {
-        setError("Could not load file from GitHub");
+      .catch(() => {
+        setError("Could not load file");
         setLoading(false);
       });
   }, [githubPath]);
+
+  useEffect(() => {
+    if (!content) return;
+    const imageRegex = /!\[([^\]]*)\]\(([^)\s]+)/g;
+    const htmlRegex = /<img\s+[^>]*src=["']([^"']+)["']/gi;
+    const srcs = new Set<string>();
+    let m: RegExpExecArray | null;
+    while ((m = imageRegex.exec(content)) !== null) srcs.add(m[2]);
+    while ((m = htmlRegex.exec(content)) !== null) srcs.add(m[1]);
+
+    let cancelled = false;
+    (async () => {
+      const newPairs: Array<[string, string]> = [];
+      for (const src of srcs) {
+        if (!blobUrlResolver.isLocalPath(src)) continue;
+        const resolvedPath = blobUrlResolver.resolvePath(src, basePath);
+        const url = await blobUrlResolver.getBlobUrl(resolvedPath);
+        if (url) newPairs.push([src, url]);
+      }
+      if (cancelled || newPairs.length === 0) return;
+      setResolvedBlobUrls((prev) => {
+        const next = new Map(prev);
+        for (const [src, url] of newPairs) next.set(src, url);
+        return next;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [content, basePath]);
 
   if (!githubPath) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
       <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full mx-4 max-h-[80vh] flex flex-col">
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>
             <h3 className="text-sm font-semibold text-gray-900">
@@ -61,7 +96,6 @@ export default function MarkdownPreview({
           </button>
         </div>
 
-        {/* Content */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
           {loading && (
             <p className="text-sm text-gray-400 animate-pulse">Loading...</p>
@@ -69,7 +103,24 @@ export default function MarkdownPreview({
           {error && <p className="text-sm text-red-500">{error}</p>}
           {!loading && !error && (
             <div className="prose prose-sm prose-gray max-w-none">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, rehypeHighlight]}>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeRaw, rehypeHighlight]}
+                components={{
+                  img: ({ src, alt, ...props }) => {
+                    const originalSrc = String(src || "");
+                    const resolvedSrc = resolvedBlobUrls.get(originalSrc) ?? originalSrc;
+                    return (
+                      <img
+                        src={resolvedSrc}
+                        alt={alt || ""}
+                        className="max-w-full rounded-lg"
+                        {...props}
+                      />
+                    );
+                  },
+                }}
+              >
                 {content}
               </ReactMarkdown>
             </div>

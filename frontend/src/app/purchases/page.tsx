@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { projectsApi, tasksApi, purchasesApi } from "@/lib/api";
+import { projectsApi, tasksApi, purchasesApi, settingsApi } from "@/lib/local-api";
 import AppShell from "@/components/AppShell";
 import PurchaseEditor from "@/components/PurchaseEditor";
 import type { Task, PurchaseItem, FundingAccount } from "@/lib/types";
@@ -13,13 +13,19 @@ export default function PurchasesPage() {
   const [showFundingManager, setShowFundingManager] = useState(false);
   const queryClient = useQueryClient();
 
+  const { data: settings } = useQuery({
+    queryKey: ["settings"],
+    queryFn: settingsApi.get,
+  });
+  const currentUser = settings?.current_user || "";
+
   const { data: projects = [] } = useQuery({
-    queryKey: ["projects"],
+    queryKey: ["projects", currentUser],
     queryFn: projectsApi.list,
   });
 
   const { data: allTasks = [] } = useQuery({
-    queryKey: ["tasks"],
+    queryKey: ["tasks", currentUser],
     queryFn: async () => {
       if (projects.length === 0) return [];
       const results = await Promise.all(
@@ -31,12 +37,12 @@ export default function PurchasesPage() {
   });
 
   const { data: allPurchases = [] } = useQuery({
-    queryKey: ["purchases-all"],
+    queryKey: ["purchases-all", currentUser],
     queryFn: purchasesApi.listAll,
   });
 
   const { data: fundingAccounts = [] } = useQuery({
-    queryKey: ["funding-accounts"],
+    queryKey: ["funding-accounts", currentUser],
     queryFn: purchasesApi.listFundingAccounts,
   });
 
@@ -58,7 +64,7 @@ export default function PurchasesPage() {
 
   // Grand total
   const grandTotal = useMemo(
-    () => allPurchases.reduce((sum, p) => sum + p.total_price, 0),
+    () => allPurchases.reduce((sum, p) => sum + (p.total_price ?? 0), 0),
     [allPurchases]
   );
 
@@ -68,7 +74,7 @@ export default function PurchasesPage() {
     for (const p of allPurchases) {
       const key = p.funding_string || "Uncategorized";
       if (!map[key]) map[key] = { total: 0, count: 0 };
-      map[key].total += p.total_price;
+      map[key].total += p.total_price ?? 0;
       map[key].count += 1;
     }
     return map;
@@ -134,7 +140,7 @@ export default function PurchasesPage() {
               .map((task) => {
                 const items = purchasesByTask[task.id] || [];
                 const taskTotal = items.reduce(
-                  (sum, i) => sum + i.total_price,
+                  (sum, i) => sum + (i.total_price ?? 0),
                   0
                 );
                 const project = projects.find(

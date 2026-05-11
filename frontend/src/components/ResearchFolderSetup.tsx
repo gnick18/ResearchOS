@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { settingsApi, type FolderSetupRequest, type DataPathCheckResponse } from "@/lib/api";
+import { settingsApi, type FolderSetupRequest, type DataPathCheckResponse } from "@/lib/local-api";
 
 interface ResearchFolderSetupProps {
   onComplete: () => void;

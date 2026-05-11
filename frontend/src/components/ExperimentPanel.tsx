@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
-import { githubApi, methodsApi, tasksApi, pcrApi, projectsApi, attachmentsApi, type ImageUploadResponse } from "@/lib/api";
+import { githubApi, methodsApi, tasksApi, pcrApi, projectsApi, attachmentsApi, type ImageUploadResponse } from "@/lib/local-api";
 import type { GitHubTreeItem } from "@/lib/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { InteractiveGradientEditor } from "@/components/InteractiveGradientEditor";
@@ -1481,7 +1481,7 @@ function ExportButton({ task }: { task: Task }) {
       if (task.method_id) {
         try {
           method = await methodsApi.get(task.method_id);
-          if (method.github_path) {
+          if (method && method.github_path) {
             const methodFile = await githubApi.readFile(method.github_path);
             methodContent = methodFile.content;
           }

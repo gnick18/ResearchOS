@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState, useMemo } from "react"
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
-import { githubApi, methodsApi, projectsApi, tasksApi, dependenciesApi, pcrApi, fetchAllTasks, attachmentsApi, type DuplicateCheckResult } from "@/lib/api";
+import { githubApi, methodsApi, projectsApi, tasksApi, dependenciesApi, pcrApi, fetchAllTasks, attachmentsApi, type DuplicateCheckResult } from "@/lib/local-api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import PurchaseEditor from "./PurchaseEditor";
@@ -22,6 +22,8 @@ import {
   type ExperimentExportData,
 } from "@/lib/export-utils";
 import { useFileRenamePopup } from "@/components/FileRenamePopup";
+import { fileService } from "@/lib/file-system/file-service";
+import { migrateNoteImages } from "@/lib/notes/migrate-images";
 
 interface TaskDetailPopupProps {
   task: Task;
@@ -60,11 +62,18 @@ export default function TaskDetailPopup({
     setAnimationPosition(null);
   }, []);
 
-  // Refresh task data
+  // Refresh task data — but only when the viewer owns the task.
+  //
+  // In readOnly mode (Lab Mode or shared-with-me views) `initialTask` belongs to
+  // another user (`username` prop). `tasksApi.get` always reads from the CURRENT
+  // user's directory and each user has their own ID space, so refetching here
+  // would silently overwrite the popup with whatever task happens to share the
+  // same numeric id in the viewer's folder — the "screen freakout" symptom.
   const { data: freshTask } = useQuery({
-    queryKey: ["task", initialTask.id],
+    queryKey: ["task", initialTask.id, username ?? null],
     queryFn: () => tasksApi.get(initialTask.id),
     initialData: initialTask,
+    enabled: !readOnly,
   });
 
   useEffect(() => {
@@ -1798,6 +1807,65 @@ function DetailsTab({
 
 type ContentSubTab = "markdown" | "pdfs";
 
+function splitFilenameExt(name: string): { stem: string; ext: string } {
+  const dot = name.lastIndexOf(".");
+  if (dot <= 0) return { stem: name, ext: "" };
+  return { stem: name.slice(0, dot), ext: name.slice(dot) };
+}
+
+async function pickUniqueFilename(dirPath: string, desired: string): Promise<string> {
+  const { stem, ext } = splitFilenameExt(desired);
+  let candidate = desired;
+  let n = 1;
+  while (await fileService.fileExists(`${dirPath}/${candidate}`)) {
+    candidate = `${stem}-${n}${ext}`;
+    n += 1;
+  }
+  return candidate;
+}
+
+const IMG_REF_REGEX = /!\[[^\]]*\]\(([^)\s]+)/g;
+const HTML_IMG_REF_REGEX = /<img\s+[^>]*src=["']([^"']+)["'][^>]*>/gi;
+
+function referencedRelativeNames(markdown: string, subdir: "Images" | "Files"): Set<string> {
+  const prefix = `${subdir}/`;
+  const referenced = new Set<string>();
+  const collect = (regex: RegExp) => {
+    let m: RegExpExecArray | null;
+    while ((m = regex.exec(markdown)) !== null) {
+      let src = m[1];
+      if (src.startsWith("./")) src = src.slice(2);
+      if (src.startsWith(prefix)) {
+        const name = src.slice(prefix.length);
+        if (!name.includes("/")) referenced.add(name);
+      }
+    }
+  };
+  collect(new RegExp(IMG_REF_REGEX.source, "g"));
+  collect(new RegExp(HTML_IMG_REF_REGEX.source, "gi"));
+  return referenced;
+}
+
+/**
+ * After saving a notes/results markdown file, remove any files in
+ * `${basePath}/Images/` or `${basePath}/Files/` that are no longer referenced.
+ * Failures are swallowed (best-effort cleanup; not safety-critical).
+ */
+async function gcUnreferencedAttachments(markdown: string, basePath: string): Promise<void> {
+  for (const subdir of ["Images", "Files"] as const) {
+    const dirPath = `${basePath}/${subdir}`;
+    const dirHandle = await fileService.getDirectory(dirPath);
+    if (!dirHandle) continue;
+    const onDisk = await fileService.listFiles(dirPath);
+    const referenced = referencedRelativeNames(markdown, subdir);
+    for (const name of onDisk) {
+      if (!referenced.has(name)) {
+        await fileService.deleteFile(`${dirPath}/${name}`);
+      }
+    }
+  }
+}
+
 function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; readOnly?: boolean; ownerUsername?: string }) {
   const [activeSubTab, setActiveSubTab] = useState<ContentSubTab>("markdown");
   const [content, setContent] = useState("");
@@ -1809,11 +1877,9 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
 
-  // Determine the owner username for path construction
-  const effectiveOwner = ownerUsername || task.owner;
-  
-  // Construct paths with owner prefix for shared experiments
-  const basePath = effectiveOwner ? `users/${effectiveOwner}/results/task-${task.id}` : `results/task-${task.id}`;
+  // Results are stored at the global `results/task-{id}/` path (not per-user).
+  const legacyOwner = ownerUsername || task.owner;
+  const basePath = `results/task-${task.id}`;
   const notesPath = `${basePath}/notes.md`;
   const imagesDir = `${basePath}/Images`;
   const pdfsDir = `${basePath}/NotesPDFs`;
@@ -1822,22 +1888,41 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
   const hasUnsavedChanges = content !== originalContent && !loading;
 
   useEffect(() => {
-    githubApi
-      .readFile(notesPath)
-      .then((file) => {
-        setContent(file.content);
-        setOriginalContent(file.content);
-        setLoading(false);
-      })
-      .catch(() => {
-        // File doesn't exist - create new content with stamp
-        const projectName = "Unknown Project"; // We don't have project name in this context
+    let cancelled = false;
+    (async () => {
+      try {
+        const file = await githubApi.readFile(notesPath);
+        const raw = file.content;
+        if (readOnly) {
+          if (!cancelled) {
+            setContent(raw);
+            setOriginalContent(raw);
+            setLoading(false);
+          }
+          return;
+        }
+        const { content: migrated, didMigrate } = await migrateNoteImages(raw, task.id, basePath, legacyOwner);
+        if (didMigrate) {
+          await githubApi.writeFile(notesPath, migrated, `Migrate image references for: ${task.name}`);
+        }
+        if (!cancelled) {
+          setContent(migrated);
+          setOriginalContent(migrated);
+          setLoading(false);
+        }
+      } catch {
+        if (cancelled) return;
+        const projectName = "Unknown Project";
         const newContent = createNewFileContent(task.name, projectName, 'notes');
         setContent(newContent);
         setOriginalContent(newContent);
         setLoading(false);
-      });
-  }, [notesPath, task.name]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [notesPath, basePath, task.id, task.name, legacyOwner, readOnly]);
 
   // Warn before navigating away with unsaved changes
   useEffect(() => {
@@ -1851,110 +1936,63 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
-  // Handle image upload for LiveMarkdownEditor (from drag-drop, paste, or file picker)
   const handleImageUpload = useCallback(
     async (files: File[]) => {
       setUploading(true);
       setUploadWarning(null);
       for (const file of files) {
         if (!file.type.startsWith("image/")) continue;
-        
-        // Show rename popup and wait for user decision
         const renamedFile = await requestRename(file);
-        if (!renamedFile) {
-          continue; // User cancelled
+        if (!renamedFile) continue;
+        try {
+          const finalName = await pickUniqueFilename(imagesDir, renamedFile.name);
+          const destPath = `${imagesDir}/${finalName}`;
+          await fileService.writeFileFromBlob(destPath, renamedFile);
+          const altText = renamedFile.name;
+          const imageMarkdown = `\n![${altText}](Images/${finalName})\n`;
+          setContent((prev) => prev + imageMarkdown);
+        } catch {
+          alert(`Failed to upload ${renamedFile.name}`);
         }
-        
-        const reader = new FileReader();
-        reader.onload = async () => {
-          const base64 = (reader.result as string).split(",")[1];
-
-          try {
-            const response = await attachmentsApi.uploadImage({
-              experiment_id: task.id,
-              experiment_name: task.name,
-              project_id: task.project_id,
-              project_name: '', // We don't have project name in this context
-              experiment_date: task.start_date,
-              base64_content: base64,
-              original_filename: renamedFile.name,
-            });
-            const imageMarkdown = `\n![${renamedFile.name}](../../Images/${response.folder}/${response.filename})\n`;
-            setContent((prev) => prev + imageMarkdown);
-            
-            // Show warning if file is too large for GitHub
-            if (response.warning) {
-              setUploadWarning(response.warning);
-            }
-          } catch {
-            alert(`Failed to upload ${renamedFile.name}`);
-          }
-        };
-        reader.readAsDataURL(renamedFile);
       }
       setUploading(false);
     },
-    [task.id, task.name, task.project_id, task.start_date, requestRename]
+    [imagesDir, requestRename]
   );
 
-  // Handle file upload (saves to Files folder with new structure)
   const handleFileUpload = useCallback(
     async (files: File[]) => {
       setUploading(true);
       setUploadWarning(null);
-      
+      const filesDir = `${basePath}/Files`;
       for (const file of files) {
-        // Show rename popup and wait for user decision
         const renamedFile = await requestRename(file);
-        if (!renamedFile) {
-          continue; // User cancelled
+        if (!renamedFile) continue;
+        try {
+          const finalName = await pickUniqueFilename(filesDir, renamedFile.name);
+          const destPath = `${filesDir}/${finalName}`;
+          await fileService.writeFileFromBlob(destPath, renamedFile);
+        } catch {
+          alert(`Failed to upload ${renamedFile.name}`);
         }
-        
-        const reader = new FileReader();
-        reader.onload = async () => {
-          const base64 = (reader.result as string).split(",")[1];
-
-          try {
-            const response = await attachmentsApi.uploadFile({
-              experiment_id: task.id,
-              experiment_name: task.name,
-              project_id: task.project_id,
-              project_name: '', // We don't have project name in this context
-              experiment_date: task.start_date,
-              base64_content: base64,
-              original_filename: renamedFile.name,
-            });
-            
-            // Show warning if file is too large for GitHub
-            if (response.warning) {
-              setUploadWarning(response.warning);
-            }
-          } catch {
-            alert(`Failed to upload ${renamedFile.name}`);
-          }
-        };
-        reader.readAsDataURL(renamedFile);
       }
       setUploading(false);
     },
-    [task.id, task.name, task.project_id, task.start_date, requestRename]
+    [basePath, requestRename]
   );
 
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
-      await githubApi.writeFile(
-        notesPath,
-        content,
-        `Update lab notes for: ${task.name}`
-      );
-      setOriginalContent(content); // Update original content after successful save
+      await githubApi.writeFile(notesPath, content, `Update lab notes for: ${task.name}`);
+      await gcUnreferencedAttachments(content, basePath);
+      setOriginalContent(content);
     } catch {
       alert("Failed to save notes");
     } finally {
       setSaving(false);
     }
-  }, [content, notesPath, task.name]);
+  }, [content, notesPath, basePath, task.name]);
 
   return (
     <>
@@ -2651,6 +2689,7 @@ function MethodTab({ task }: { task: Task }) {
     setSaving(true);
     try {
       const updatedTask = await tasksApi.resetPcr(task.id);
+      if (!updatedTask) return;
       
       // Update local state with the reset values
       if (updatedTask.pcr_gradient && updatedTask.pcr_ingredients) {
@@ -3068,11 +3107,9 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
 
-  // Determine the owner username for path construction
-  const effectiveOwner = ownerUsername || task.owner;
-  
-  // Construct paths with owner prefix for shared experiments
-  const basePath = effectiveOwner ? `users/${effectiveOwner}/results/task-${task.id}` : `results/task-${task.id}`;
+  // Results are stored at the global `results/task-{id}/` path (not per-user).
+  const legacyOwner = ownerUsername || task.owner;
+  const basePath = `results/task-${task.id}`;
   const resultsPath = `${basePath}/results.md`;
   const imagesDir = `${basePath}/Images`;
   const pdfsDir = `${basePath}/ResultsPDFs`;
@@ -3081,22 +3118,41 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
   const hasUnsavedChanges = content !== originalContent && !loading;
 
   useEffect(() => {
-    githubApi
-      .readFile(resultsPath)
-      .then((file) => {
-        setContent(file.content);
-        setOriginalContent(file.content);
-        setLoading(false);
-      })
-      .catch(() => {
-        // File doesn't exist - create new content with stamp
-        const projectName = "Unknown Project"; // We don't have project name in this context
+    let cancelled = false;
+    (async () => {
+      try {
+        const file = await githubApi.readFile(resultsPath);
+        const raw = file.content;
+        if (readOnly) {
+          if (!cancelled) {
+            setContent(raw);
+            setOriginalContent(raw);
+            setLoading(false);
+          }
+          return;
+        }
+        const { content: migrated, didMigrate } = await migrateNoteImages(raw, task.id, basePath, legacyOwner);
+        if (didMigrate) {
+          await githubApi.writeFile(resultsPath, migrated, `Migrate image references for: ${task.name}`);
+        }
+        if (!cancelled) {
+          setContent(migrated);
+          setOriginalContent(migrated);
+          setLoading(false);
+        }
+      } catch {
+        if (cancelled) return;
+        const projectName = "Unknown Project";
         const newContent = createNewFileContent(task.name, projectName, 'results');
         setContent(newContent);
         setOriginalContent(newContent);
         setLoading(false);
-      });
-  }, [resultsPath, task.name]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [resultsPath, basePath, task.id, task.name, legacyOwner, readOnly]);
 
   // Warn before navigating away with unsaved changes
   useEffect(() => {
@@ -3110,106 +3166,62 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
-  // Handle image upload for LiveMarkdownEditor (from drag-drop, paste, or file picker)
   const handleImageUpload = useCallback(
     async (files: File[]) => {
       setUploading(true);
       setUploadWarning(null);
       for (const file of files) {
         if (!file.type.startsWith("image/")) continue;
-        
-        // Show rename popup and wait for user decision
         const renamedFile = await requestRename(file);
-        if (!renamedFile) {
-          continue; // User cancelled
+        if (!renamedFile) continue;
+        try {
+          const finalName = await pickUniqueFilename(imagesDir, renamedFile.name);
+          const destPath = `${imagesDir}/${finalName}`;
+          await fileService.writeFileFromBlob(destPath, renamedFile);
+          const imageMarkdown = `\n![${renamedFile.name}](Images/${finalName})\n`;
+          setContent((prev) => prev + imageMarkdown);
+        } catch {
+          alert(`Failed to upload ${renamedFile.name}`);
         }
-        
-        const reader = new FileReader();
-        reader.onload = async () => {
-          const base64 = (reader.result as string).split(",")[1];
-
-          try {
-            const response = await attachmentsApi.uploadImage({
-              experiment_id: task.id,
-              experiment_name: task.name,
-              project_id: task.project_id,
-              project_name: '', // We don't have project name in this context
-              experiment_date: task.start_date,
-              base64_content: base64,
-              original_filename: renamedFile.name,
-            });
-            const imageMarkdown = `\n![${renamedFile.name}](../../Images/${response.folder}/${response.filename})\n`;
-            setContent((prev) => prev + imageMarkdown);
-            
-            // Show warning if file is too large for GitHub
-            if (response.warning) {
-              setUploadWarning(response.warning);
-            }
-          } catch {
-            alert(`Failed to upload ${renamedFile.name}`);
-          }
-        };
-        reader.readAsDataURL(renamedFile);
       }
       setUploading(false);
     },
-    [task.id, task.name, task.project_id, task.start_date, requestRename]
+    [imagesDir, requestRename]
   );
 
-  // Handle file upload (saves to Files folder with new structure)
   const handleFileUpload = useCallback(
     async (files: File[]) => {
       setUploading(true);
       setUploadWarning(null);
-      
+      const filesDir = `${basePath}/Files`;
       for (const file of files) {
-        // Show rename popup and wait for user decision
         const renamedFile = await requestRename(file);
-        if (!renamedFile) {
-          continue; // User cancelled
+        if (!renamedFile) continue;
+        try {
+          const finalName = await pickUniqueFilename(filesDir, renamedFile.name);
+          const destPath = `${filesDir}/${finalName}`;
+          await fileService.writeFileFromBlob(destPath, renamedFile);
+        } catch {
+          alert(`Failed to upload ${renamedFile.name}`);
         }
-        
-        const reader = new FileReader();
-        reader.onload = async () => {
-          const base64 = (reader.result as string).split(",")[1];
-
-          try {
-            const response = await attachmentsApi.uploadFile({
-              experiment_id: task.id,
-              experiment_name: task.name,
-              project_id: task.project_id,
-              project_name: '', // We don't have project name in this context
-              experiment_date: task.start_date,
-              base64_content: base64,
-              original_filename: renamedFile.name,
-            });
-            
-            // Show warning if file is too large for GitHub
-            if (response.warning) {
-              setUploadWarning(response.warning);
-            }
-          } catch {
-            alert(`Failed to upload ${renamedFile.name}`);
-          }
-        };
-        reader.readAsDataURL(renamedFile);
       }
       setUploading(false);
     },
-    [task.id, task.name, task.project_id, task.start_date, requestRename]
+    [basePath, requestRename]
   );
 
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
       await githubApi.writeFile(resultsPath, content, `Update results: ${task.name}`);
-      setOriginalContent(content); // Update original content after successful save
+      await gcUnreferencedAttachments(content, basePath);
+      setOriginalContent(content);
     } catch {
       alert("Failed to save results");
     } finally {
       setSaving(false);
     }
-  }, [content, resultsPath, task.name]);
+  }, [content, resultsPath, basePath, task.name]);
 
   return (
     <>
@@ -3697,7 +3709,7 @@ function TaskExportButton({ task }: { task: Task }) {
       if (task.method_id) {
         try {
           method = await methodsApi.get(task.method_id);
-          if (method.github_path) {
+          if (method && method.github_path) {
             const methodFile = await githubApi.readFile(method.github_path);
             methodContent = methodFile.content;
           }

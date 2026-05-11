@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import AppShell from "@/components/AppShell";
-import { labLinksApi } from "@/lib/api";
+import { labLinksApi } from "@/lib/local-api";
 import type { LabLink, LabLinkCreate, LabLinkUpdate } from "@/lib/types";
 
 // Predefined colors for link cards

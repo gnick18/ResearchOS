@@ -5,7 +5,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
-import { methodsApi, githubApi, pcrApi, usersApi } from "@/lib/api";
+import { methodsApi, githubApi, pcrApi, usersApi } from "@/lib/local-api";
+import { fileService } from "@/lib/file-system/file-service";
+import { migrateNoteImages } from "@/lib/notes/migrate-images";
 import { createImageComponent } from "@/lib/markdown-helpers";
 import AppShell from "@/components/AppShell";
 import LiveMarkdownEditor from "@/components/LiveMarkdownEditor";
@@ -14,6 +16,19 @@ import MethodExperimentsSidebar from "@/components/MethodExperimentsSidebar";
 import { useFileRenamePopup } from "@/components/FileRenamePopup";
 import SharePopup from "@/components/SharePopup";
 import type { Method, MethodAttachment, PCRProtocol, PCRGradient, PCRStep, PCRIngredient, SharedUser } from "@/lib/types";
+
+async function pickUniqueImageName(dirPath: string, desired: string): Promise<string> {
+  const dot = desired.lastIndexOf(".");
+  const stem = dot > 0 ? desired.slice(0, dot) : desired;
+  const ext = dot > 0 ? desired.slice(dot) : "";
+  let candidate = desired;
+  let n = 1;
+  while (await fileService.fileExists(`${dirPath}/${candidate}`)) {
+    candidate = `${stem}-${n}${ext}`;
+    n += 1;
+  }
+  return candidate;
+}
 
 export default function MethodsPage() {
   const queryClient = useQueryClient();
@@ -1279,26 +1294,17 @@ function MarkdownMethodViewer({
           continue; // User cancelled
         }
         
-        const reader = new FileReader();
-        reader.onload = async () => {
-          const base64 = (reader.result as string).split(",")[1];
-          const imageName = `${Date.now()}-${renamedFile.name.replace(/\s+/g, "_")}`;
-          const imagePath = `${methodDir}/Images/${imageName}`;
-          try {
-            const response = await githubApi.uploadImage(imagePath, base64, `Upload image for ${method.name}`);
-            setContent((prev) => prev + `\n![${renamedFile.name}](./Images/${imageName})\n`);
-            if (response.warning) {
-              setUploadWarning(response.warning);
-            }
-          } catch {
-            alert(`Failed to upload ${renamedFile.name}`);
-          }
-        };
-        reader.readAsDataURL(renamedFile);
+        try {
+          const finalName = await pickUniqueImageName(`${methodDir}/Images`, renamedFile.name);
+          await fileService.writeFileFromBlob(`${methodDir}/Images/${finalName}`, renamedFile);
+          setContent((prev) => prev + `\n![${renamedFile.name}](Images/${finalName})\n`);
+        } catch {
+          alert(`Failed to upload ${renamedFile.name}`);
+        }
       }
       setUploading(false);
     },
-    [methodDir, method.name, requestRename]
+    [methodDir, requestRename]
   );
 
   const handleEditPaste = useCallback(
@@ -1324,17 +1330,42 @@ function MarkdownMethodViewer({
       setLoading(false);
       return;
     }
-    githubApi
-      .readFile(method.github_path)
-      .then((file) => {
-        setContent(file.content);
-        setLoading(false);
-      })
-      .catch(() => {
-        setContent("*Method file not found.*");
-        setLoading(false);
-      });
-  }, [method.github_path]);
+    let cancelled = false;
+    const githubPath = method.github_path;
+    (async () => {
+      try {
+        const file = await githubApi.readFile(githubPath);
+        const raw = file.content;
+        const dir = githubPath.substring(0, githubPath.lastIndexOf("/"));
+        const slug = dir.split("/").pop() || dir;
+        const legacyOwner = method.owner || method.created_by || undefined;
+        const canMigrate = !method.is_public || method.created_by === currentUser;
+        if (!canMigrate) {
+          if (!cancelled) {
+            setContent(raw);
+            setLoading(false);
+          }
+          return;
+        }
+        const { content: migrated, didMigrate } = await migrateNoteImages(raw, slug, dir, legacyOwner);
+        if (didMigrate) {
+          await githubApi.writeFile(githubPath, migrated, `Migrate image references for: ${method.name}`);
+        }
+        if (!cancelled) {
+          setContent(migrated);
+          setLoading(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setContent("*Method file not found.*");
+          setLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [method.github_path, method.owner, method.created_by, method.is_public, method.name, currentUser]);
 
   const handleSave = useCallback(async () => {
     if (!method.github_path) return;
@@ -1497,7 +1528,7 @@ function MarkdownMethodViewer({
             queryClient.refetchQueries({ queryKey: ["methods"] });
             // Update local state
             methodsApi.get(currentMethod.id).then((updatedMethod) => {
-              setCurrentMethod(updatedMethod);
+              if (updatedMethod) setCurrentMethod(updatedMethod);
             });
           }}
         />
@@ -1637,7 +1668,7 @@ function PdfViewer({
             queryClient.refetchQueries({ queryKey: ["methods"] });
             // Update local state
             methodsApi.get(currentMethod.id).then((updatedMethod) => {
-              setCurrentMethod(updatedMethod);
+              if (updatedMethod) setCurrentMethod(updatedMethod);
             });
           }}
         />
@@ -1683,6 +1714,10 @@ function PcrViewer({
     
     pcrApi.get(pcrId)
       .then((data) => {
+        if (!data) {
+          setLoading(false);
+          return;
+        }
         setProtocol(data);
         setGradient(data.gradient);
         setIngredients(data.ingredients);
@@ -1978,7 +2013,7 @@ function PcrViewer({
             queryClient.refetchQueries({ queryKey: ["methods"] });
             // Update local state
             methodsApi.get(currentMethod.id).then((updatedMethod) => {
-              setCurrentMethod(updatedMethod);
+              if (updatedMethod) setCurrentMethod(updatedMethod);
             });
           }}
         />

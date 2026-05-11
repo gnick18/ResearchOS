@@ -2,7 +2,7 @@
 
 import { useCallback, useState, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { goalsApi } from "@/lib/api";
+import { goalsApi } from "@/lib/local-api";
 import { useAppStore } from "@/lib/store";
 import type { SmartGoal, HighLevelGoal, Project } from "@/lib/types";
 import DynamicAnimation from "./DynamicAnimation";

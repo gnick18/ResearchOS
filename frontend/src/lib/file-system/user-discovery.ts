@@ -1,0 +1,103 @@
+import { fileService } from "./file-service";
+
+const SKIP_DIRECTORIES = new Set(["public", "lab", "_no_user_", "_global_counters.json", "_user_metadata.json"]);
+
+export async function validateResearchFolder(handle: FileSystemDirectoryHandle): Promise<boolean> {
+  try {
+    const usersHandle = await handle.getDirectoryHandle("users");
+    return usersHandle.kind === "directory";
+  } catch (err) {
+    console.error("validateResearchFolder error:", err);
+    return false;
+  }
+}
+
+export async function discoverUsers(): Promise<string[]> {
+  if (!fileService.isConnected()) {
+    console.log("discoverUsers: fileService not connected");
+    return [];
+  }
+
+  const users: string[] = [];
+
+  try {
+    const usersDir = await fileService.getDirectory("users");
+    if (!usersDir) {
+      console.log("discoverUsers: could not get users directory");
+      return [];
+    }
+
+    console.log("discoverUsers: iterating users directory");
+    for await (const entry of (usersDir as unknown as { values: () => AsyncIterable<FileSystemHandle> }).values()) {
+      console.log("discoverUsers: found entry:", entry.name, "kind:", entry.kind);
+      if (entry.kind === "directory" && !SKIP_DIRECTORIES.has(entry.name)) {
+        users.push(entry.name);
+      }
+    }
+
+    console.log("discoverUsers: found users:", users);
+    return users.sort();
+  } catch (err) {
+    console.error("discoverUsers error:", err);
+    return [];
+  }
+}
+
+export async function ensureFolderStructure(): Promise<boolean> {
+  if (!fileService.isConnected()) return false;
+
+  try {
+    await fileService.ensureDir("users");
+    await fileService.ensureDir("users/public");
+    await fileService.ensureDir("users/public/methods");
+    await fileService.ensureDir("users/public/pcr_protocols");
+    await fileService.ensureDir("users/lab");
+    await fileService.ensureDir("users/lab/funding_accounts");
+
+    const globalCountersExists = await fileService.fileExists("users/_global_counters.json");
+    if (!globalCountersExists) {
+      await fileService.writeJson("users/_global_counters.json", {});
+    }
+
+    const publicCountersExists = await fileService.fileExists("users/public/_counters.json");
+    if (!publicCountersExists) {
+      await fileService.writeJson("users/public/_counters.json", {});
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function ensureUserFolderStructure(username: string): Promise<boolean> {
+  if (!fileService.isConnected()) return false;
+
+  const sanitized = username.trim().replace(/[^a-zA-Z0-9_-]/g, "");
+  if (!sanitized) return false;
+
+  try {
+    await fileService.ensureDir(`users/${sanitized}`);
+    await fileService.ensureDir(`users/${sanitized}/projects`);
+    await fileService.ensureDir(`users/${sanitized}/tasks`);
+    await fileService.ensureDir(`users/${sanitized}/dependencies`);
+    await fileService.ensureDir(`users/${sanitized}/methods`);
+    await fileService.ensureDir(`users/${sanitized}/events`);
+    await fileService.ensureDir(`users/${sanitized}/goals`);
+    await fileService.ensureDir(`users/${sanitized}/pcr_protocols`);
+    await fileService.ensureDir(`users/${sanitized}/purchase_items`);
+    await fileService.ensureDir(`users/${sanitized}/lab_links`);
+    await fileService.ensureDir(`users/${sanitized}/notes`);
+    await fileService.ensureDir(`users/${sanitized}/Images`);
+    await fileService.ensureDir(`users/${sanitized}/Files`);
+
+    const countersExists = await fileService.fileExists(`users/${sanitized}/_counters.json`);
+    if (!countersExists) {
+      await fileService.writeJson(`users/${sanitized}/_counters.json`, {});
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { sharingApi, usersApi, methodsApi } from "@/lib/api";
+import { sharingApi, usersApi, methodsApi } from "@/lib/local-api";
 import type { SharedUser, ShareRequest, DependencyChainResponse } from "@/lib/types";
 
 interface SharePopupProps {

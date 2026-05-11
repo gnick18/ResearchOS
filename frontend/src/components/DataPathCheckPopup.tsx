@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { settingsApi, type DataPathCheckResponse } from "@/lib/api";
+import { settingsApi, type DataPathCheckResponse } from "@/lib/local-api";
 
 interface DataPathCheckPopupProps {
   isOpen: boolean;

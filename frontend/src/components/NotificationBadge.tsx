@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { sharingApi } from "@/lib/api";
+import { sharingApi } from "@/lib/local-api";
 import NotificationPopup from "./NotificationPopup";
 
 export default function NotificationBadge() {

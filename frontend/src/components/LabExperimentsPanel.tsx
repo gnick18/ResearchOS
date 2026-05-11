@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { LabTask, LabUser, LabProject } from "@/lib/api";
+import { LabTask, LabUser, LabProject } from "@/lib/local-api";
 
 interface LabExperimentsPanelProps {
   experiments: LabTask[];

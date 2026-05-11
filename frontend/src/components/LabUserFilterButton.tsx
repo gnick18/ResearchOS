@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { LabUser } from "@/lib/api";
+import { LabUser } from "@/lib/local-api";
 
 interface LabUserFilterButtonProps {
   users: LabUser[];

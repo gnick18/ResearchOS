@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { eventsApi } from "@/lib/api";
+import { eventsApi } from "@/lib/local-api";
 import AppShell from "@/components/AppShell";
 import type { Event } from "@/lib/types";
 
@@ -321,7 +321,7 @@ export default function CalendarPage() {
             try {
               await eventsApi.create({
                 title: data.title!,
-                event_type: data.event_type,
+                event_type: data.event_type || "other",
                 start_date: data.start_date!,
                 end_date: data.end_date,
                 location: data.location,

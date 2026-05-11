@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { useAppStore } from "@/lib/store";
-import { tasksApi } from "@/lib/api";
+import { tasksApi } from "@/lib/local-api";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function BulkMoveModal() {

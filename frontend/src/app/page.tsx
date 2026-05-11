@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { projectsApi, tasksApi, settingsApi, usersApi, setDataPathErrorCallback, fetchAllTasks, type DataPathCheckResponse } from "@/lib/api";
+import { projectsApi, tasksApi, settingsApi, setDataPathErrorCallback, fetchAllTasks, type DataPathCheckResponse } from "@/lib/local-api";
 import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import ProjectDetailPopup from "@/components/ProjectDetailPopup";
@@ -11,6 +11,7 @@ import DataSetupScreen from "@/components/DataSetupScreen";
 import DesktopLauncherPopup from "@/components/DesktopLauncherPopup";
 import ResearchFolderSetup from "@/components/ResearchFolderSetup";
 import UserLoginScreen from "@/components/UserLoginScreen";
+import { useFileSystem } from "@/lib/file-system/file-system-context";
 import type { Project, Task } from "@/lib/types";
 
 const DEFAULT_COLORS = [
@@ -47,8 +48,9 @@ export default function HomePage() {
   const [showSettings, setShowSettings] = useState(false);
   const [showMacAppLauncher, setShowMacAppLauncher] = useState(false);
   const [showUserSwitch, setShowUserSwitch] = useState(false);
-  const [currentUser, setCurrentUser] = useState<string>("");
-  const [checkingUser, setCheckingUser] = useState(true);
+  const { currentUser: providerCurrentUser, isLoading: fsLoading } = useFileSystem();
+  const currentUser = providerCurrentUser ?? "";
+  const checkingUser = fsLoading;
   
   // Data path check state
   const [dataPathError, setDataPathError] = useState<DataPathCheckResponse | null>(null);
@@ -82,31 +84,13 @@ export default function HomePage() {
     checkDataPath();
   }, []);
 
-  // Fetch current user on mount
+  // Redirect to lab page if the current user is "lab".
+  // currentUser comes from FileSystemProvider, which loads it from IndexedDB on startup.
   useEffect(() => {
-    const fetchCurrentUser = async () => {
-      try {
-        const result = await usersApi.validate();
-        if (result.valid) {
-          setCurrentUser(result.current_user);
-          // Redirect to lab page if user is "lab"
-          if (result.current_user.toLowerCase() === "lab") {
-            router.push("/lab");
-            return; // Don't set checkingUser to false, let the redirect happen
-          }
-        } else {
-          // No valid user - clear current user
-          setCurrentUser("");
-        }
-      } catch {
-        // Ignore errors - user will need to login
-        setCurrentUser("");
-      } finally {
-        setCheckingUser(false);
-      }
-    };
-    fetchCurrentUser();
-  }, [router]);
+    if (currentUser && currentUser.toLowerCase() === "lab") {
+      router.push("/lab");
+    }
+  }, [currentUser, router]);
 
   // Register callback for data path errors from API calls
   useEffect(() => {
@@ -116,11 +100,10 @@ export default function HomePage() {
   }, []);
 
   const { data: projects = [] } = useQuery({
-    queryKey: ["projects"],
+    queryKey: ["projects", currentUser],
     queryFn: projectsApi.list,
   });
 
-  // Separate active and archived projects
   const { activeProjects, archivedProjects } = useMemo(() => {
     const active = projects.filter((p) => !p.is_archived);
     const archived = projects.filter((p) => p.is_archived);
@@ -128,7 +111,7 @@ export default function HomePage() {
   }, [projects]);
 
   const { data: allTasks = [] } = useQuery({
-    queryKey: ["tasks"],
+    queryKey: ["tasks", currentUser],
     queryFn: fetchAllTasks,
   });
 
@@ -270,22 +253,15 @@ export default function HomePage() {
     );
   }
 
-  // Show login screen if no current user
+  // Show login screen if no current user.
+  // UserLoginScreen already calls useFileSystem().setCurrentUser internally, so
+  // by the time onLogin fires the provider has the new user and lab redirect
+  // logic in our useEffect will handle "lab" automatically.
   if (!checkingUser && !currentUser) {
     return (
       <UserLoginScreen
         onLogin={() => {
           queryClient.invalidateQueries();
-          // Refresh current user and redirect if lab
-          usersApi.validate().then((result) => {
-            if (result.valid) {
-              setCurrentUser(result.current_user);
-              // Redirect to lab page if user is "lab"
-              if (result.current_user.toLowerCase() === "lab") {
-                router.push("/lab");
-              }
-            }
-          });
         }}
       />
     );
@@ -699,16 +675,6 @@ export default function HomePage() {
           onLogin={() => {
             setShowUserSwitch(false);
             queryClient.invalidateQueries();
-            // Refresh current user and redirect if lab
-            usersApi.validate().then((result) => {
-              if (result.valid) {
-                setCurrentUser(result.current_user);
-                // Redirect to lab page if user is "lab"
-                if (result.current_user.toLowerCase() === "lab") {
-                  router.push("/lab");
-                }
-              }
-            });
           }}
         />
       )}

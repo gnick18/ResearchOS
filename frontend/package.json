@@ -11,8 +11,11 @@
   "dependencies": {
     "@tanstack/react-query": "^5.90.21",
     "axios": "^1.13.5",
+    "date-fns": "^4.1.0",
     "frappe-gantt": "^1.0.4",
     "html2canvas": "^1.4.1",
+    "idb-keyval": "^6.2.1",
+    "isomorphic-git": "^1.37.6",
     "jspdf": "^2.5.2",
     "jszip": "^3.10.1",
     "next": "16.1.6",
@@ -23,6 +26,7 @@
     "rehype-highlight": "^7.0.2",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
+    "zod": "^3.24.2",
     "zustand": "^5.0.11"
   },
   "devDependencies": {
@@ -33,6 +37,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.5"
   }
 }

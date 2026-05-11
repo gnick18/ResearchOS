@@ -2,61 +2,57 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { ViewMode, HighLevelGoal } from "./types";
 
-// Animation types available for selection
 export type AnimationType = 
-  | "celebration"  // Confetti, unicorns, rainbows
-  | "rock"         // Guitars, lightning, skulls
-  | "space"        // Stars, planets, rockets, aliens
-  | "underwater"   // Fish, bubbles, jellyfish, coral
-  | "sports"       // Balls, trophies, whistles, medals
-  | "science"      // Atoms, DNA, beakers, molecules
-  | "plants"       // Flowers, leaves, seeds, trees
-  | "animals"      // Paw prints, feathers, birds, butterflies
-  | "fungi"        // Mushrooms, spores, mycelium
-  | "scary";       // Skulls, vampires, monsters, ghosts
+  | "celebration"
+  | "rock"
+  | "space"
+  | "underwater"
+  | "sports"
+  | "science"
+  | "plants"
+  | "animals"
+  | "fungi"
+  | "scary";
 
-interface AppState {
-  // Selected projects for filtering
+interface ConnectionState {
+  isConnected: boolean;
+  isConnecting: boolean;
+  connectionError: string | null;
+  lastConnectedAt: number | null;
+}
+
+interface AppState extends ConnectionState {
   selectedProjectIds: number[];
   toggleProject: (id: number) => void;
   setSelectedProjects: (ids: number[]) => void;
 
-  // Selected tags for filtering
   selectedTags: string[];
   toggleTag: (tag: string) => void;
 
-  // Show shared experiments filter
   showShared: boolean;
   setShowShared: (show: boolean) => void;
 
-  // GANTT view mode
   viewMode: ViewMode;
   setViewMode: (mode: ViewMode) => void;
 
-  // GANTT start date (a Monday, or null to use current week)
   ganttStartDate: string | null;
   setGanttStartDate: (date: string | null) => void;
-  // Navigate forward/backward by weeks
   ganttNavigateWeeks: (weeks: number) => void;
 
-  // Task creation/edit modal
   editingTaskId: number | null;
   setEditingTaskId: (id: number | null) => void;
   isCreatingTask: boolean;
   setIsCreatingTask: (v: boolean) => void;
   newTaskStartDate: string | null;
   setNewTaskStartDate: (date: string | null) => void;
-  // Restrict task type (e.g., only "experiment" from experiments page)
   restrictedTaskType: "experiment" | "purchase" | "list" | null;
   setRestrictedTaskType: (type: "experiment" | "purchase" | "list" | null) => void;
 
-  // High-level goal creation/edit modal
   isCreatingGoal: boolean;
   setIsCreatingGoal: (v: boolean) => void;
   editingGoal: HighLevelGoal | null;
   setEditingGoal: (goal: HighLevelGoal | null) => void;
 
-  // Bulk move confirmation
   bulkMoveData: {
     taskId: number;
     newStartDate: string;
@@ -65,19 +61,33 @@ interface AppState {
   } | null;
   setBulkMoveData: (data: AppState["bulkMoveData"]) => void;
 
-  // Animation settings (single type for all animations)
   animationType: AnimationType;
   setAnimationType: (type: AnimationType) => void;
 
-  // Gantt loading state for operations
   ganttLoading: boolean;
   ganttLoadingMessage: string;
   setGanttLoading: (loading: boolean, message?: string) => void;
+
+  setConnected: (connected: boolean) => void;
+  setConnecting: (connecting: boolean) => void;
+  setConnectionError: (error: string | null) => void;
 }
 
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
+      isConnected: false,
+      isConnecting: false,
+      connectionError: null,
+      lastConnectedAt: null,
+
+      setConnected: (connected) => set({ 
+        isConnected: connected, 
+        lastConnectedAt: connected ? Date.now() : null 
+      }),
+      setConnecting: (connecting) => set({ isConnecting: connecting }),
+      setConnectionError: (error) => set({ connectionError: error }),
+
       selectedProjectIds: [],
       toggleProject: (id) =>
         set((s) => ({
@@ -95,7 +105,7 @@ export const useAppStore = create<AppState>()(
             : [...s.selectedTags, tag],
         })),
 
-      showShared: true,  // Show shared experiments by default
+      showShared: true,
       setShowShared: (show) => set({ showShared: show }),
 
       viewMode: "2week",
@@ -106,7 +116,6 @@ export const useAppStore = create<AppState>()(
       ganttNavigateWeeks: (weeks) =>
         set((s) => {
           if (!s.ganttStartDate) {
-            // If no custom start date, start from current week's Monday
             const today = new Date();
             const monday = new Date(today);
             monday.setDate(today.getDate() - today.getDay() + 1);
@@ -115,7 +124,6 @@ export const useAppStore = create<AppState>()(
               ganttStartDate: monday.toISOString().split("T")[0],
             };
           }
-          // Navigate from current start date
           const current = new Date(s.ganttStartDate);
           current.setDate(current.getDate() + weeks * 7);
           return {
@@ -140,11 +148,9 @@ export const useAppStore = create<AppState>()(
       bulkMoveData: null,
       setBulkMoveData: (data) => set({ bulkMoveData: data }),
 
-      // Animation setting (single type with default)
       animationType: "rock",
       setAnimationType: (type) => set({ animationType: type }),
 
-      // Gantt loading state
       ganttLoading: false,
       ganttLoadingMessage: "",
       setGanttLoading: (loading, message = "") => set({ ganttLoading: loading, ganttLoadingMessage: message }),

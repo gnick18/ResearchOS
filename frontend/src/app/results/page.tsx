@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { projectsApi, tasksApi, githubApi } from "@/lib/api";
+import { projectsApi, tasksApi, githubApi, settingsApi } from "@/lib/local-api";
 import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
 import ResultsEditor from "@/components/ResultsEditor";
@@ -21,13 +21,19 @@ export default function ResultsPage() {
   const selectedProjectIds = useAppStore((s) => s.selectedProjectIds);
   const queryClient = useQueryClient();
 
+  const { data: settings } = useQuery({
+    queryKey: ["settings"],
+    queryFn: settingsApi.get,
+  });
+  const currentUser = settings?.current_user || "";
+
   const { data: projects = [] } = useQuery({
-    queryKey: ["projects"],
+    queryKey: ["projects", currentUser],
     queryFn: projectsApi.list,
   });
 
   const { data: allTasks = [] } = useQuery({
-    queryKey: ["tasks"],
+    queryKey: ["tasks", currentUser],
     queryFn: async () => {
       if (projects.length === 0) return [];
       const results = await Promise.all(
