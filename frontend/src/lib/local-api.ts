@@ -2145,33 +2145,30 @@ interface SharedWithMeManifest {
 
 export const fetchAllTasksIncludingShared = async () => {
   const ownTasks = await tasksStore.listAll();
-  console.log("[fetchAllTasksIncludingShared] ownTasks count:", ownTasks.length);
 
-  let sharedTasks: Task[] = [];
+  const sharedTasks: Task[] = [];
   try {
     const currentUser = await getCurrentUserCached();
-    const manifestPath = `users/${currentUser}/_shared_with_me.json`;
-    console.log("[fetchAllTasksIncludingShared] currentUser:", currentUser, "manifestPath:", manifestPath);
-    const manifest = await fileService.readJson<SharedWithMeManifest>(manifestPath);
-    console.log("[fetchAllTasksIncludingShared] manifest:", manifest);
+    const manifest = await fileService.readJson<SharedWithMeManifest>(
+      `users/${currentUser}/_shared_with_me.json`
+    );
     const entries = manifest?.tasks ?? [];
     if (entries.length > 0) {
       const ownIds = new Set(ownTasks.map((t) => t.id));
       for (const entry of entries) {
-        // Skip collisions: each user has its own ID space, so a shared task can have
-        // the same numeric id as an own task. The UI keys off `task.id`, so showing
-        // both would corrupt rendering. We prefer the owner's task and skip the share
-        // with a console warning — surfacing collisions properly requires a composite
-        // key refactor we're not doing here.
+        // Each user has its own ID space, so a shared task can collide with an own
+        // task's numeric id. The UI keys off `task.id`, so showing both would
+        // corrupt rendering. Prefer the owner's task; a composite-key refactor
+        // would be needed to surface the share separately.
         if (ownIds.has(entry.id)) {
           console.warn(
-            `[fetchAllTasksIncludingShared] id collision: own task ${entry.id} hides shared task ${entry.id} from ${entry.owner}`
+            `[fetchAllTasksIncludingShared] id collision: own task ${entry.id} hides shared task from ${entry.owner}`
           );
           continue;
         }
-        const sharedTaskPath = `users/${entry.owner}/tasks/${entry.id}.json`;
-        const task = await fileService.readJson<Task>(sharedTaskPath);
-        console.log("[fetchAllTasksIncludingShared] read shared task at", sharedTaskPath, "→", task ? "OK" : "MISSING");
+        const task = await fileService.readJson<Task>(
+          `users/${entry.owner}/tasks/${entry.id}.json`
+        );
         if (!task) continue;
         sharedTasks.push({
           ...task,
@@ -2184,7 +2181,6 @@ export const fetchAllTasksIncludingShared = async () => {
     console.warn("[fetchAllTasksIncludingShared] failed to load shared tasks:", err);
   }
 
-  console.log("[fetchAllTasksIncludingShared] returning", ownTasks.length + sharedTasks.length, "tasks (", sharedTasks.length, "shared)");
   return [...ownTasks, ...sharedTasks].map(computeTaskEndDate);
 };
 

@@ -52,8 +52,14 @@ export default function Home() {
     [projects]
   );
 
+  // Use a distinct query key from the rest of the app: other pages cache the
+  // current user's own tasks under ["tasks", currentUser] via `fetchAllTasks`.
+  // Without a distinct key, React Query would hand the Gantt a stale 15-task
+  // result when the user navigates back from one of those pages. The key still
+  // begins with "tasks" so existing `invalidateQueries({ queryKey: ["tasks"] })`
+  // calls elsewhere will continue to invalidate it via prefix match.
   const { data: allTasks = [] } = useQuery({
-    queryKey: ["tasks", currentUser],
+    queryKey: ["tasks", "with-shared", currentUser],
     queryFn: fetchAllTasksIncludingShared,
   });
 
