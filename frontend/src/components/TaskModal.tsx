@@ -524,6 +524,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
                           type="button"
                           onClick={() => handleDeleteSubTask(st.id)}
                           className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 text-xs transition-opacity"
+                          title="Remove item"
                         >
                           ✕
                         </button>

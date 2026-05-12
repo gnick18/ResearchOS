@@ -265,6 +265,7 @@ export default function HighLevelGoalModal({
                   key={c}
                   type="button"
                   onClick={() => setColor(c)}
+                  title={`Use color ${c}`}
                   className={`w-8 h-8 rounded-full transition-transform ${
                     color === c ? "ring-2 ring-offset-2 ring-gray-400 scale-110" : ""
                   }`}
@@ -331,6 +332,7 @@ export default function HighLevelGoalModal({
                     type="button"
                     onClick={() => handleDeleteSmartGoal(sg.id)}
                     className="text-gray-400 hover:text-red-500 text-xs"
+                    title="Delete sub-goal"
                   >
                     ✕
                   </button>

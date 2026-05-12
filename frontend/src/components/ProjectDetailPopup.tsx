@@ -233,6 +233,7 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
               <button
                 onClick={onClose}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
+                title="Close"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -279,6 +280,7 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
                     <button
                       key={c}
                       onClick={() => setColor(c)}
+                      title={`Use color ${c}`}
                       className={`w-7 h-7 rounded-full transition-transform ${
                         color === c ? "ring-2 ring-offset-2 ring-gray-400 scale-110" : ""
                       }`}

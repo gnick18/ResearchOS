@@ -157,7 +157,7 @@ export default function ImageGalleryPopup({
               {experimentName} · {experimentDate}
             </p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg" title="Close">
             ✕
           </button>
         </div>

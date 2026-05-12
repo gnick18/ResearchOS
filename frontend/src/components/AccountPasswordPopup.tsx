@@ -159,6 +159,7 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
             onClick={onClose}
             className="text-slate-400 hover:text-white text-lg leading-none"
             aria-label="Close"
+            title="Close"
           >
             ✕
           </button>
@@ -327,6 +328,7 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
                 onClick={() => setShowForgot(false)}
                 className="text-slate-400 hover:text-white text-lg leading-none"
                 aria-label="Close"
+                title="Close"
               >
                 ✕
               </button>
