@@ -86,7 +86,18 @@ export default function TelegramStatusBadge() {
         }
         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${toneClass}`}
       >
-        <span className={`inline-block w-2 h-2 rounded-full ${presentation.dot}`} />
+        {paired && health === "ok" ? (
+          // Active-connection glow: an expanding emerald halo around a
+          // solid dot, so the badge visibly "breathes" while polling is
+          // healthy. Other states use a flat dot so they stand out from
+          // the healthy steady-state.
+          <span className="relative flex w-2 h-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
+            <span className="relative inline-flex w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_1px_rgba(16,185,129,0.7)]" />
+          </span>
+        ) : (
+          <span className={`inline-block w-2 h-2 rounded-full ${presentation.dot}`} />
+        )}
         {paired ? `Telegram: @${pairing.botUsername}` : "Connect Telegram"}
         {paired && presentation.label && (
           <span className="ml-1 text-[10px] uppercase tracking-wide">
