@@ -102,6 +102,20 @@ export default function StagedLoadingScreen({
           <p className="text-base text-slate-200 mb-5 leading-relaxed">{subtitle}</p>
         )}
 
+        {stage === "opening-picker" && (
+          <div className="mb-5 rounded-lg border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-left">
+            <p className="text-base font-semibold text-amber-300 mb-1">
+              ⚠️ Don&apos;t refresh the page
+            </p>
+            <p className="text-sm text-amber-100/90 leading-relaxed">
+              The OS folder picker may look frozen — there is no spinner in the
+              system dialog. This is normal for OneDrive / iCloud / Dropbox
+              folders. Refreshing will throw away progress and you&apos;ll have
+              to start over.
+            </p>
+          </div>
+        )}
+
         <div className="flex items-center justify-center gap-3 text-sm text-slate-300 mb-3">
           {showReadCount && (
             <span className="px-3 py-1 bg-slate-800/60 rounded-full">
