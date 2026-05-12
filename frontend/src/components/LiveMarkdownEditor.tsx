@@ -551,7 +551,7 @@ export default function LiveMarkdownEditor({
   const [imageSearchResults, setImageSearchResults] = useState<ImageSearchResult[]>([]);
   const [isSearchingImage, setIsSearchingImage] = useState(false);
   const [resolvedBlobUrls, setResolvedBlobUrls] = useState<Map<string, string>>(new Map());
-  const [showImageStrip, setShowImageStrip] = useState(false);
+  const [showImageStrip, setShowImageStrip] = useState(true);
   const editorContentRef = useRef<HTMLDivElement>(null);
 
   // Scroll the rendered preview/hybrid editor to the image with the given
