@@ -884,6 +884,7 @@ export const notesApi = {
       is_running_log: data.is_running_log ?? false,
       is_shared: data.is_shared ?? false,
       entries,
+      comments: [],
       created_at: now,
       updated_at: now,
       username: "",

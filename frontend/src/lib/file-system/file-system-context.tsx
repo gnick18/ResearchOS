@@ -17,9 +17,13 @@ import { clearCurrentUserCache } from "../storage/json-store";
 import { discoverUsers, validateResearchFolder, ensureFolderStructure } from "./user-discovery";
 
 /** Coarse-grained phase of the startup connect flow. Used by the loading
- *  screen so the user sees something change while OneDrive is being slow. */
+ *  screen so the user sees something change while OneDrive is being slow.
+ *  `opening-picker` covers the time between clicking Connect and the OS
+ *  picker appearing — on OneDrive folders this can be 15-60s and the
+ *  browser is fully blocked. */
 export type LoadingStage =
   | null
+  | "opening-picker"
   | "connecting"
   | "verifying-permission"
   | "validating-folder"
@@ -115,25 +119,38 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
       return false;
     }
 
+    // Flip into the loading screen BEFORE calling showDirectoryPicker. On
+    // OneDrive/iCloud folders the call itself can block JS for 15-60s while
+    // the OS spins up the directory provider, so we need React to paint the
+    // staged screen first. Two requestAnimationFrame ticks guarantee the
+    // browser has committed the DOM update before we hand control back.
+    setState((prev) => ({ ...prev, isLoading: true, loadingStage: "opening-picker", error: null }));
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    );
+
     let handle: FileSystemDirectoryHandle | null = null;
 
     try {
       handle = await showDirectoryPicker({ mode: "readwrite" });
     } catch (err) {
+      // User dismissed the picker — clear loading state and bail quietly.
       if (err instanceof Error && err.name === "AbortError") {
+        setState((prev) => ({ ...prev, isLoading: false, loadingStage: null }));
         return false;
       }
       const message = err instanceof Error ? err.message : "Failed to open folder picker";
-      setState((prev) => ({ ...prev, error: message }));
+      setState((prev) => ({ ...prev, isLoading: false, loadingStage: null, error: message }));
       return false;
     }
 
     if (!handle) {
+      setState((prev) => ({ ...prev, isLoading: false, loadingStage: null }));
       return false;
     }
 
     fileService.resetReadCount();
-    setState((prev) => ({ ...prev, isLoading: true, loadingStage: "connecting", error: null }));
+    setState((prev) => ({ ...prev, loadingStage: "connecting" }));
 
     try {
       fileService.setDirectoryHandle(handle);

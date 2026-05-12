@@ -15,6 +15,7 @@ interface StagedLoadingScreenProps {
 }
 
 const STAGE_MESSAGES: Record<NonNullable<LoadingStage>, string> = {
+  "opening-picker": "Opening the folder picker",
   connecting: "Connecting to your folder",
   "verifying-permission": "Verifying read/write access",
   "validating-folder": "Inspecting folder contents",
@@ -23,10 +24,12 @@ const STAGE_MESSAGES: Record<NonNullable<LoadingStage>, string> = {
 };
 
 const STAGE_SUBTITLES: Record<NonNullable<LoadingStage>, string> = {
+  "opening-picker":
+    "Asking the OS for a folder dialog. If your research folder lives in OneDrive / iCloud / Dropbox, this step can take 15-60 seconds the first time — the OS has to spin up its file provider. This is not a freeze.",
   connecting: "Waiting for the system to hand us a folder handle…",
   "verifying-permission": "If your browser shows a prompt, click Allow.",
   "validating-folder":
-    "If this is a OneDrive / Dropbox / iCloud folder, the first read can be slow while the OS catches up. This is normal.",
+    "Cloud folders are slow on first read while the OS catches up. This is normal.",
   "discovering-users": "Scanning users/ for everyone with data here.",
   preparing: "Loading projects, tasks, and recent activity.",
 };
