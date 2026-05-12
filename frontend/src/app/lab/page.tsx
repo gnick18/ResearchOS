@@ -305,25 +305,29 @@ export default function LabModePage() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* Stats Bar - shown on all tabs */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-4 border border-gray-200">
-            <p className="text-gray-500 text-sm">Users</p>
-            <p className="text-2xl font-bold text-gray-900">{users.length}</p>
+        {/* Stats Bar — only on tabs where global counts add context.
+            Activity / Methods / Roadmaps / Notes / Search each summarize
+            themselves inside the panel, so this row would just be noise. */}
+        {(activeTab === "gantt" || activeTab === "experiments" || activeTab === "purchases") && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-white rounded-xl p-4 border border-gray-200">
+              <p className="text-gray-500 text-sm">Users</p>
+              <p className="text-2xl font-bold text-gray-900">{users.length}</p>
+            </div>
+            <div className="bg-white rounded-xl p-4 border border-gray-200">
+              <p className="text-gray-500 text-sm">Projects</p>
+              <p className="text-2xl font-bold text-gray-900">{filteredProjects.length}</p>
+            </div>
+            <div className="bg-white rounded-xl p-4 border border-gray-200">
+              <p className="text-gray-500 text-sm">Experiments</p>
+              <p className="text-2xl font-bold text-blue-600">{experiments.length}</p>
+            </div>
+            <div className="bg-white rounded-xl p-4 border border-gray-200">
+              <p className="text-gray-500 text-sm">Purchases</p>
+              <p className="text-2xl font-bold text-amber-600">{purchases.length}</p>
+            </div>
           </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-200">
-            <p className="text-gray-500 text-sm">Projects</p>
-            <p className="text-2xl font-bold text-gray-900">{filteredProjects.length}</p>
-          </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-200">
-            <p className="text-gray-500 text-sm">Experiments</p>
-            <p className="text-2xl font-bold text-blue-600">{experiments.length}</p>
-          </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-200">
-            <p className="text-gray-500 text-sm">Purchases</p>
-            <p className="text-2xl font-bold text-amber-600">{purchases.length}</p>
-          </div>
-        </div>
+        )}
 
         {/* Tab Content */}
         {activeTab === "activity" ? (
