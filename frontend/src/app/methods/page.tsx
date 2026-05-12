@@ -1708,8 +1708,8 @@ function PcrViewer({
           return;
         }
         setProtocol(data);
-        setGradient(data.gradient);
-        setIngredients(data.ingredients);
+        setGradient(data.gradient ?? null);
+        setIngredients(Array.isArray(data.ingredients) ? data.ingredients : []);
         setNotes(data.notes || "");
         setLoading(false);
       })

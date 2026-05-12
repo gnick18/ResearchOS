@@ -680,7 +680,7 @@ export function InteractiveGradientEditor({
         cycleContainerIndex: cycleIdx,
       });
       
-      cycle.steps.forEach((step, stepIdx) => {
+      (cycle.steps || []).forEach((step, stepIdx) => {
         blocks.push({
           id: `cycle-${cycleIdx}-step-${stepIdx}`,
           type: "cycle",

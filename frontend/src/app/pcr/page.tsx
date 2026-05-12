@@ -6,6 +6,7 @@ import AppShell from "@/components/AppShell";
 import { pcrApi } from "@/lib/local-api";
 import type { PCRProtocol, PCRGradient, PCRStep, PCRIngredient } from "@/lib/types";
 import { InteractiveGradientEditor, getTemperatureColor } from "@/components/InteractiveGradientEditor";
+import { repairAllPCRProtocols } from "@/lib/repair/pcr-protocols";
 
 // Default gradient for new protocols
 const DEFAULT_GRADIENT: PCRGradient = {
@@ -42,11 +43,39 @@ export default function PCRPage() {
   const queryClient = useQueryClient();
   const [selectedProtocol, setSelectedProtocol] = useState<PCRProtocol | null>(null);
   const [creating, setCreating] = useState(false);
+  const [repairing, setRepairing] = useState(false);
 
   const { data: protocols = [] } = useQuery({
     queryKey: ["pcr-protocols"],
     queryFn: pcrApi.list,
   });
+
+  const handleRepair = useCallback(async () => {
+    if (!confirm("Scan all PCR protocols for malformed data and rewrite any that need repair? This is safe — only invalid fields are reset to defaults.")) return;
+    setRepairing(true);
+    try {
+      const report = await repairAllPCRProtocols();
+      await queryClient.refetchQueries({ queryKey: ["pcr-protocols"] });
+      if (report.repaired === 0 && report.errors.length === 0 && report.unrecoverable === 0) {
+        alert(`All ${report.total} protocols are healthy. No repairs needed.`);
+        return;
+      }
+      const lines = [
+        `Scanned ${report.total} protocols.`,
+        `Repaired: ${report.repaired}`,
+        report.unrecoverable > 0 ? `Unrecoverable: ${report.unrecoverable}` : null,
+        report.errors.length > 0 ? `Errors: ${report.errors.length}` : null,
+        "",
+        ...report.details.map((d) => `• [${d.scope}] ${d.name} (#${d.id}): ${d.fixes.join("; ")}`),
+        ...report.errors.map((e) => `! ${e}`),
+      ].filter(Boolean);
+      alert(lines.join("\n"));
+    } catch (err) {
+      alert(`Repair failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setRepairing(false);
+    }
+  }, [queryClient]);
 
   const handleDelete = useCallback(async (id: number) => {
     if (!confirm("Delete this PCR protocol?")) return;
@@ -93,12 +122,22 @@ export default function PCRPage() {
               Thermal cycler gradients and reaction recipes
             </p>
           </div>
-          <button
-            onClick={() => setCreating(true)}
-            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            + New Protocol
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleRepair}
+              disabled={repairing}
+              className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+              title="Scan and fix any malformed PCR protocol files"
+            >
+              {repairing ? "Repairing..." : "Repair Data"}
+            </button>
+            <button
+              onClick={() => setCreating(true)}
+              className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              + New Protocol
+            </button>
+          </div>
         </div>
 
         {/* Protocol List */}
@@ -392,16 +431,23 @@ function RecipeTable({
   const addRow = () => {
     if (!onChange) return;
     const newId = String(Date.now());
-    onChange([
-      ...ingredients.slice(0, -1),
-      { id: newId, name: "", concentration: "", amount_per_reaction: "" },
-      ingredients[ingredients.length - 1],
-    ]);
+    const newIng: PCRIngredient = { id: newId, name: "", concentration: "", amount_per_reaction: "" };
+    const totalIndex = ingredients.findIndex((ing) => ing.name === "Total");
+    if (totalIndex >= 0) {
+      onChange([
+        ...ingredients.slice(0, totalIndex),
+        newIng,
+        ...ingredients.slice(totalIndex),
+      ]);
+    } else {
+      onChange([...ingredients, newIng]);
+    }
   };
 
   const removeRow = (id: string) => {
     if (!onChange) return;
-    if (ingredients[ingredients.length - 1].id === id) return;
+    const target = ingredients.find((ing) => ing.id === id);
+    if (target?.name === "Total") return;
     onChange(ingredients.filter((ing) => ing.id !== id));
   };
 
