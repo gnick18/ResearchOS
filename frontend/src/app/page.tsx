@@ -8,7 +8,6 @@ import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import ProjectDetailPopup from "@/components/ProjectDetailPopup";
 import DataSetupScreen from "@/components/DataSetupScreen";
-import DesktopLauncherPopup from "@/components/DesktopLauncherPopup";
 import UserLoginScreen from "@/components/UserLoginScreen";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import type { Project, Task } from "@/lib/types";
