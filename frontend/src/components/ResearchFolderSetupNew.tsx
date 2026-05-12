@@ -21,13 +21,14 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
     needsInitialization,
     initializeFolder,
     lastConnectedFolder,
+    createNewFolder,
   } = useFileSystem();
 
   const [showUserSelection, setShowUserSelection] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
 
   console.log("ResearchFolderSetupNew render:", { 
     isConnected, 
@@ -462,56 +463,27 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                 </div>
                 <h2 className="text-lg font-bold text-white">Create New Folder</h2>
               </div>
-              <p className="text-slate-400 text-sm mb-3">
-                Start fresh with a new ResearchOS folder. First create an empty folder on your computer, then select it below.
+              <p className="text-slate-400 text-sm mb-4">
+                Start fresh with a new ResearchOS folder. Enter a name and choose where to save it.
               </p>
 
-              <button
-                onClick={() => setShowHelp(!showHelp)}
-                className="w-full text-left text-sm text-slate-400 hover:text-slate-300 transition-colors mb-4 flex items-center gap-2"
-              >
-                <svg
-                  className={`w-4 h-4 transition-transform ${showHelp ? "rotate-90" : ""}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-                How to create a new folder
-              </button>
-
-              {showHelp && (
-                <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-4 text-sm">
-                  <ol className="text-slate-300 space-y-2">
-                    <li className="flex gap-2">
-                      <span className="text-purple-400 font-medium">1.</span>
-                      <span>Open your file manager (Finder/Explorer)</span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="text-purple-400 font-medium">2.</span>
-                      <span>Navigate to where you want the folder (e.g., Documents or OneDrive)</span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="text-purple-400 font-medium">3.</span>
-                      <span>Create a new folder with any name you&apos;d like (e.g., &quot;SmithLab_ResearchOS&quot;)</span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="text-purple-400 font-medium">4.</span>
-                      <span>Come back and click &quot;Select Location&quot; below</span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="text-purple-400 font-medium">5.</span>
-                      <span>Choose the folder you just created</span>
-                    </li>
-                  </ol>
-                </div>
-              )}
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                  Folder Name
+                </label>
+                <input
+                  type="text"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  placeholder="e.g., SmithLab_ResearchOS"
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                />
+              </div>
 
               <button
-                onClick={handleConnect}
-                disabled={isLoading}
-                className="w-full py-2.5 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                onClick={() => createNewFolder(newFolderName)}
+                disabled={isLoading || !newFolderName.trim()}
+                className="w-full py-2.5 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? (
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
@@ -520,7 +492,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                     </svg>
-                    Select Location
+                    Choose Location
                   </>
                 )}
               </button>

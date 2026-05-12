@@ -51,6 +51,7 @@ interface FileSystemContextValue extends FileSystemState {
   refreshUsers: () => Promise<void>;
   reverifyPermission: () => Promise<boolean>;
   initializeFolder: () => Promise<boolean>;
+  createNewFolder: (folderName: string) => Promise<boolean>;
 }
 
 const FileSystemContext = createContext<FileSystemContextValue | null>(null);
@@ -269,6 +270,108 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     }
   }, []);
 
+  const createNewFolder = useCallback(async (folderName: string): Promise<boolean> => {
+    const showDirectoryPicker = (window as unknown as { showDirectoryPicker?: (options?: { mode?: string }) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker;
+    if (!showDirectoryPicker) {
+      setState((prev) => ({
+        ...prev,
+        error: "File System Access API not supported in this browser.",
+      }));
+      return false;
+    }
+
+    const sanitizedName = folderName.trim().replace(/[<>:"/\\|?*]/g, "");
+    if (!sanitizedName) {
+      setState((prev) => ({
+        ...prev,
+        error: "Please enter a valid folder name.",
+      }));
+      return false;
+    }
+
+    setState((prev) => ({ ...prev, isLoading: true, loadingStage: "opening-picker", error: null }));
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    );
+
+    let parentHandle: FileSystemDirectoryHandle | null = null;
+
+    try {
+      parentHandle = await showDirectoryPicker({ mode: "readwrite" });
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        setState((prev) => ({ ...prev, isLoading: false, loadingStage: null }));
+        return false;
+      }
+      const message = err instanceof Error ? err.message : "Failed to open folder picker";
+      setState((prev) => ({ ...prev, isLoading: false, loadingStage: null, error: message }));
+      return false;
+    }
+
+    if (!parentHandle) {
+      setState((prev) => ({ ...prev, isLoading: false, loadingStage: null }));
+      return false;
+    }
+
+    setState((prev) => ({ ...prev, loadingStage: "connecting" }));
+
+    try {
+      const newFolderHandle = await parentHandle.getDirectoryHandle(sanitizedName, { create: true });
+      fileService.setDirectoryHandle(newFolderHandle);
+
+      setState((prev) => ({ ...prev, loadingStage: "verifying-permission" }));
+      const hasPermission = await fileService.verifyPermission(true);
+
+      if (!hasPermission) {
+        fileService.clearDirectoryHandle();
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          loadingStage: null,
+          error: "Permission denied. Please allow read/write access to the folder.",
+        }));
+        return false;
+      }
+
+      setState((prev) => ({ ...prev, loadingStage: "preparing" }));
+      const success = await ensureFolderStructure();
+      if (!success) {
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          loadingStage: null,
+          error: "Failed to create folder structure. Please try again.",
+        }));
+        return false;
+      }
+
+      await storeDirectoryHandle(newFolderHandle);
+
+      setState((prev) => ({
+        ...prev,
+        isConnected: true,
+        isLoading: false,
+        loadingStage: null,
+        error: null,
+        directoryName: newFolderHandle.name,
+        availableUsers: [],
+        needsInitialization: false,
+        lastConnectedFolder: newFolderHandle.name,
+      }));
+
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to create folder";
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        loadingStage: null,
+        error: message,
+      }));
+      return false;
+    }
+  }, []);
+
   const disconnect = useCallback(async () => {
     fileService.clearDirectoryHandle();
     await clearDirectoryHandle();
@@ -339,6 +442,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     refreshUsers,
     reverifyPermission,
     initializeFolder,
+    createNewFolder,
   };
 
   return (
