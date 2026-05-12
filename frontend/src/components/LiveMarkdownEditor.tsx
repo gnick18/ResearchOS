@@ -1712,8 +1712,10 @@ export default function LiveMarkdownEditor({
           </div>
         )}
 
-        {/* Editor / Preview */}
-        <div className="flex-1 min-h-[300px] cursor-text overflow-hidden flex flex-col">
+        {/* Editor / Preview — `min-h-0` lets the flex slot shrink below
+            its content's natural size so we scroll INSIDE this column
+            instead of bursting out of a small popup. */}
+        <div className="flex-1 min-h-0 cursor-text overflow-hidden flex flex-col">
           {currentMode === "preview" ? (
             <div className="p-4 h-full overflow-y-auto">
               {value.trim() ? (
@@ -1786,7 +1788,7 @@ export default function LiveMarkdownEditor({
               onChange={handleTextChange}
               onKeyDown={handleKeyDown}
               disabled={disabled}
-              className="w-full h-full min-h-[400px] p-4 text-sm font-mono text-gray-800 bg-white resize-none focus:outline-none border-0 disabled:bg-gray-50 disabled:text-gray-500"
+              className="w-full h-full p-4 text-sm font-mono text-gray-800 bg-white resize-none focus:outline-none border-0 disabled:bg-gray-50 disabled:text-gray-500"
               style={{ lineHeight: "1.7" }}
               placeholder={placeholder || "Write in Markdown..."}
             />

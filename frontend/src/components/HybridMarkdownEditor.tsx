@@ -1347,7 +1347,7 @@ export default function HybridMarkdownEditor({
         
         <div
           ref={containerRef}
-          className="hybrid-editor p-4 min-h-[300px] h-full overflow-y-auto cursor-text flex-1"
+          className="hybrid-editor p-4 min-h-0 h-full overflow-y-auto cursor-text flex-1"
           onClick={() => {
             if (!disabled) {
               // Create a new empty paragraph block to edit
@@ -1523,7 +1523,7 @@ export default function HybridMarkdownEditor({
         </div>
       )}
       
-      <div ref={containerRef} className="hybrid-editor p-4 min-h-[300px] h-full overflow-y-auto flex-1">
+      <div ref={containerRef} className="hybrid-editor p-4 min-h-0 h-full overflow-y-auto flex-1">
         {blocks.map((block) => renderBlock(block))}
         
         {/* Add new block button at the end */}

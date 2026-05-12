@@ -2158,8 +2158,11 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
               </div>
             )}
 
-            {/* Editor */}
-            <div className="flex-1 overflow-y-auto">
+            {/* Editor — give it a sized flex slot so the editor scrolls
+                internally (the markdown body, toolbar, and image strip
+                stay anchored) instead of pushing the whole popup tab
+                to scroll as a unit. */}
+            <div className="flex-1 min-h-0 flex flex-col">
               {loading ? (
                 <p className="p-6 text-sm text-gray-400 animate-pulse">Loading...</p>
               ) : (
@@ -3395,8 +3398,10 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
             </div>
           )}
 
-          {/* Editor */}
-          <div className="flex-1 overflow-y-auto">
+          {/* Editor — sized flex slot so the markdown scrolls inside the
+              editor, not by pushing the whole tab. Matches the LabNotes
+              tab and the fullscreen behavior. */}
+          <div className="flex-1 min-h-0 flex flex-col">
             {loading ? (
               <p className="p-6 text-sm text-gray-400 animate-pulse">Loading...</p>
             ) : (
