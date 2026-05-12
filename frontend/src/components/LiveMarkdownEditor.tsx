@@ -11,6 +11,7 @@ import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 import { fileService } from "@/lib/file-system/file-service";
 import ImageResizePopover from "./ImageResizePopover";
 import { rewriteImageBySrcAlt, parseWidthPercent } from "@/lib/image-resize-utils";
+import ImageStrip from "./ImageStrip";
 
 // Transparent 1×1 GIF used as the `src` placeholder while the real blob URL
 // is being resolved asynchronously, so the browser never tries to fetch the
@@ -548,6 +549,41 @@ export default function LiveMarkdownEditor({
   const [imageSearchResults, setImageSearchResults] = useState<ImageSearchResult[]>([]);
   const [isSearchingImage, setIsSearchingImage] = useState(false);
   const [resolvedBlobUrls, setResolvedBlobUrls] = useState<Map<string, string>>(new Map());
+  const [showImageStrip, setShowImageStrip] = useState(false);
+  const editorContentRef = useRef<HTMLDivElement>(null);
+
+  // Scroll the rendered preview/hybrid editor to the Nth image when the user
+  // clicks a thumbnail in the strip. In Edit mode there are no rendered
+  // images (just textarea text), so we first flip into Preview mode and let
+  // the scroll happen on the next paint. A short ring outline flashes on the
+  // target so the user can spot which image they jumped to.
+  const handleImageStripClick = useCallback(
+    (index: number) => {
+      const scroll = () => {
+        const root = editorContentRef.current;
+        if (!root) return;
+        const imgs = root.querySelectorAll("img");
+        const target = imgs[index] as HTMLImageElement | undefined;
+        if (!target) return;
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        target.classList.add("ring-4", "ring-blue-400", "ring-offset-2", "transition-shadow");
+        window.setTimeout(() => {
+          target.classList.remove("ring-4", "ring-blue-400", "ring-offset-2");
+        }, 1400);
+      };
+
+      if (currentMode === "edit") {
+        setMode("preview");
+        // Wait two frames for ReactMarkdown to render the preview before
+        // we try to find the img element.
+        requestAnimationFrame(() => requestAnimationFrame(scroll));
+      } else {
+        // hybrid + preview both render images immediately.
+        requestAnimationFrame(scroll);
+      }
+    },
+    [currentMode, setMode]
+  );
   const processedBrokenSrcsRef = useRef<Set<string>>(new Set());
   // Click-to-resize popover state (preview-mode click on rendered image)
   const [imageResize, setImageResize] = useState<{
@@ -1445,6 +1481,26 @@ export default function LiveMarkdownEditor({
               📷 Browse
             </button>
           )}
+
+          {/* Image Strip Toggle — shows a scrollable strip of every image in
+              this document along the bottom; clicking a thumbnail scrolls
+              the preview to that image. */}
+          <button
+            type="button"
+            onClick={() => setShowImageStrip((v) => !v)}
+            className={`px-2.5 py-1 text-xs rounded transition-colors ${
+              showImageStrip
+                ? "bg-blue-100 text-blue-700"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+            title={
+              showImageStrip
+                ? "Hide the image strip"
+                : "Show every image in this document at the bottom — click a thumbnail to scroll to it"
+            }
+          >
+            🖼 Strip
+          </button>
           
           {/* Resize Image Button with Dropdown — only useful in Edit mode
               (raw textarea). In Hybrid/Preview mode users click the rendered
@@ -1528,7 +1584,7 @@ export default function LiveMarkdownEditor({
       )}
 
       {/* Main content area with helper panel and editor */}
-      <div className="flex flex-1 min-h-0">
+      <div ref={editorContentRef} className="flex flex-1 min-h-0">
         {/* Keyboard Shortcuts Helper Panel - only show in edit mode */}
         {showShortcutsHelper && currentMode === "edit" && (
           <div className={`${helperCollapsed ? "w-8" : "w-52"} flex-shrink-0 border-r border-gray-100 bg-gray-50/30 flex flex-col transition-all duration-200`}>
@@ -1737,6 +1793,16 @@ export default function LiveMarkdownEditor({
           )}
         </div>
       </div>
+
+      {/* Image Strip — every image in this document as scrollable thumbnails.
+          Clicking one scrolls the preview/hybrid render to that image. */}
+      {showImageStrip && (
+        <ImageStrip
+          content={value}
+          basePath={imageBasePath}
+          onImageClick={handleImageStripClick}
+        />
+      )}
 
       {/* Language Selector Popup */}
       {showLanguageSelector && (
