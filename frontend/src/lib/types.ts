@@ -105,6 +105,9 @@ export interface Task {
   name: string;
   start_date: string; // ISO date string YYYY-MM-DD
   duration_days: number;
+  // Derived/cached: computeEndDate(start_date, duration_days, false). Stored
+  // on disk for cache friendliness but always validated/recomputed at the
+  // local-api boundary — never trust it as the source of truth.
   end_date: string;
   is_high_level: boolean;
   is_complete: boolean;

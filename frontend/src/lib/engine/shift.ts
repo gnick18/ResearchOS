@@ -151,7 +151,12 @@ export async function shiftTask(
   const oldStart = parseDate(task.start_date);
   const oldEnd = computeEndDate(oldStart, task.duration_days, wa);
 
+  // end_date on disk is a derived/cached value (see Task.end_date in
+  // ../types.ts). Recompute and persist it alongside start_date so we don't
+  // leave a stale end_date behind — that's the bug that caused tasks to
+  // silently drop from the gantt when end_date < start_date.
   task.start_date = formatDate(resolvedStart);
+  task.end_date = formatDate(computeEndDate(resolvedStart, task.duration_days, false));
   await saveTaskForOwner(taskId, task, owner);
 
   const newEnd = computeEndDate(resolvedStart, task.duration_days, wa);
@@ -220,6 +225,7 @@ export async function shiftTask(
         const parentNewEnd = computeEndDate(parentNewStart, parentTask.duration_days, parentWa);
 
         parentTask.start_date = formatDate(parentNewStart);
+        parentTask.end_date = formatDate(computeEndDate(parentNewStart, parentTask.duration_days, false));
         await saveTaskForOwner(parentTask.id!, parentTask, owner);
 
         affected.push({
@@ -327,6 +333,7 @@ export async function shiftTask(
       }
 
       childTask.start_date = formatDate(childNewStart);
+      childTask.end_date = formatDate(computeEndDate(childNewStart, childTask.duration_days, false));
       await saveTaskForOwner(childTask.id!, childTask, owner);
 
       affected.push({

@@ -419,6 +419,17 @@ function getTaskSpanInWeek(
   const visibleStart = formatDate(allDates[0]);
   const visibleEnd = formatDate(allDates[allDates.length - 1]);
 
+  // Surface corrupted task data loudly instead of silently dropping the task.
+  // end_date is supposed to be derived from start_date + duration_days; if it's
+  // inverted, something upstream wrote a stale value. The reconcile pass in
+  // fetchAllTasks heals these on next read, but warn here so a regression
+  // doesn't go unnoticed in the meantime.
+  if (task.end_date < task.start_date) {
+    console.warn(
+      `[GanttChart] task ${task.id} (${task.name}) has end_date ${task.end_date} < start_date ${task.start_date}; dropping from view`,
+    );
+  }
+
   // Task doesn't overlap this week at all
   if (task.end_date < weekStart || task.start_date > weekEnd) return null;
 

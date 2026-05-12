@@ -1,9 +1,9 @@
 import { JsonStore, getPublicStore, getLabStore, AttachmentMetadataStore, getCurrentUserCached, clearCurrentUserCache } from "./storage/json-store";
 import { fileService } from "./file-system/file-service";
 import { getCurrentUser, getMainUser, storeCurrentUser, storeMainUser, clearCurrentUser } from "./file-system/indexeddb-store";
-import { computeEndDate } from "./engine/dates";
 import { shiftTask } from "./engine/shift";
 import { formatDate, parseDate } from "./engine/dates";
+import { canonicalEndDate, computeTaskEndDate } from "./tasks/end-date";
 import { discoverUsers } from "./file-system/user-discovery";
 import { ensureLabUserMetadata, fallbackUserColor, setUserMetadataField, getUserMetadata, type UserMetadataEntry } from "./file-system/user-metadata";
 import JSZip from "jszip";
@@ -137,14 +137,6 @@ export const projectsApi = {
   },
 };
 
-function computeTaskEndDate(task: Task): Task {
-  if (task.end_date) return task;
-  return {
-    ...task,
-    end_date: formatDate(computeEndDate(parseDate(task.start_date), task.duration_days, false))
-  };
-}
-
 // Reads/writes route to the owner's directory when `owner` is provided —
 // used by the receiver of a shared task with permission "edit". Without
 // `owner`, falls back to the current user's directory (the usual case).
@@ -191,9 +183,8 @@ export const tasksApi = {
     pcr_ingredients?: string | null;
     method_attachments?: Array<{ method_id: number; pcr_gradient?: string | null; pcr_ingredients?: string | null; variation_notes?: string | null }>;
   }): Promise<Task> => {
-    const startDate = parseDate(data.start_date);
     const durationDays = data.duration_days || 1;
-    const endDate = computeEndDate(startDate, durationDays, false);
+    const endDate = canonicalEndDate({ start_date: data.start_date, duration_days: durationDays });
 
     // Record the creator as the owner. The file lives under their dir already,
     // but downstream code (per-user results paths, shared-task routing) reads
@@ -206,7 +197,7 @@ export const tasksApi = {
       name: data.name,
       start_date: data.start_date,
       duration_days: durationDays,
-      end_date: formatDate(endDate),
+      end_date: endDate,
       is_high_level: data.is_high_level ?? false,
       is_complete: false,
       task_type: data.task_type ?? "list",
@@ -236,12 +227,14 @@ export const tasksApi = {
     const existing = await getTaskForCaller(id, owner);
     if (!existing) return null;
 
-    let endDate = existing.end_date;
-    if (data.start_date || data.duration_days) {
-      const startDate = parseDate(data.start_date ?? existing.start_date);
-      const durationDays = data.duration_days ?? existing.duration_days;
-      endDate = formatDate(computeEndDate(startDate, durationDays, false));
-    }
+    // Always recompute. end_date is derived from (start_date, duration_days),
+    // so any update — even one that doesn't touch those fields — should rewrite
+    // it. Otherwise a previously-corrupted end_date persists across edits to
+    // unrelated fields like name or is_complete.
+    const endDate = canonicalEndDate({
+      start_date: data.start_date ?? existing.start_date,
+      duration_days: data.duration_days ?? existing.duration_days,
+    });
 
     return updateTaskForCaller(id, { ...data, end_date: endDate }, owner);
   },
@@ -272,10 +265,11 @@ export const tasksApi = {
       const newStart = new Date(parseDate(original.start_date));
       newStart.setDate(newStart.getDate() + offsetDays * i);
       
+      const startStr = formatDate(newStart);
       const newTask = await tasksStore.create({
         ...original,
-        start_date: formatDate(newStart),
-        end_date: formatDate(computeEndDate(newStart, original.duration_days, false)),
+        start_date: startStr,
+        end_date: canonicalEndDate({ start_date: startStr, duration_days: original.duration_days }),
         is_complete: false,
       });
       created.push(newTask);
@@ -2242,10 +2236,43 @@ export const githubApi = {
   getRawUrl: (path: string): string => path,
 };
 
+// Fire-and-forget heal pass: when on-disk end_date doesn't match the canonical
+// derived value, rewrite the file. Runs after the read so the caller isn't
+// blocked. Failures are logged but never propagated — a heal-write that fails
+// just means the same fix runs again on the next read.
+async function persistEndDateHealForOwn(stale: Task[]): Promise<void> {
+  for (const fixed of stale) {
+    try {
+      await tasksStore.save(fixed.id, fixed);
+    } catch (err) {
+      console.warn(`[end_date heal] failed to persist task ${fixed.id}:`, err);
+    }
+  }
+}
+
+async function persistEndDateHealForOwner(stale: Array<{ task: Task; owner: string }>): Promise<void> {
+  for (const { task, owner } of stale) {
+    try {
+      await tasksStore.saveForUser(task.id, task, owner);
+    } catch (err) {
+      console.warn(`[end_date heal] failed to persist shared task ${owner}/${task.id}:`, err);
+    }
+  }
+}
+
 export const fetchAllTasks = async () => {
   const tasks = await tasksStore.listAll();
   const currentUser = await getCurrentUserCached();
-  return tasks.map((t) => withOwnerFallback(computeTaskEndDate(t), currentUser));
+  const stale: Task[] = [];
+  const out = tasks.map((raw) => {
+    const fixed = computeTaskEndDate(raw);
+    if (fixed !== raw) stale.push(fixed);
+    return withOwnerFallback(fixed, currentUser);
+  });
+  if (stale.length > 0) {
+    void persistEndDateHealForOwn(stale);
+  }
+  return out;
 };
 
 // Older tasks were written with `owner: ""`. Reading from
@@ -2269,6 +2296,9 @@ export const fetchAllTasksIncludingShared = async () => {
   const ownTasksWithOwner = ownTasks.map((t) => withOwnerFallback(t, currentUserForOwn));
 
   const sharedTasks: Task[] = [];
+  // Track shared tasks whose end_date needs healing, keyed by owner so the
+  // write-back lands in the right user directory.
+  const sharedToHeal: Array<{ task: Task; owner: string }> = [];
   try {
     const currentUser = currentUserForOwn;
     const manifest = await fileService.readJson<SharedWithMeManifest>(
@@ -2284,18 +2314,38 @@ export const fetchAllTasksIncludingShared = async () => {
       );
       if (!task) continue;
       const permission = entry.permission === "view" ? "view" : "edit";
-      sharedTasks.push({
+      const withOwner = {
         ...task,
         owner: entry.owner,
         is_shared_with_me: true,
         shared_permission: permission,
-      });
+      } as Task;
+      sharedTasks.push(withOwner);
+      // Only attempt heal-write for shared tasks the viewer is allowed to edit.
+      // The raw on-disk task (sans the is_shared_with_me / shared_permission
+      // overlays) is what gets persisted.
+      if (permission === "edit") {
+        const expected = canonicalEndDate(task);
+        if (task.end_date !== expected) {
+          sharedToHeal.push({ task: { ...task, end_date: expected }, owner: entry.owner });
+        }
+      }
     }
   } catch (err) {
     console.warn("[fetchAllTasksIncludingShared] failed to load shared tasks:", err);
   }
 
-  const merged = [...ownTasksWithOwner, ...sharedTasks].map(computeTaskEndDate);
+  const ownStale: Task[] = [];
+  const merged = [...ownTasksWithOwner, ...sharedTasks].map((raw) => {
+    const fixed = computeTaskEndDate(raw);
+    // Only heal own (non-shared) entries here. Shared-task heals were captured
+    // separately above so they get routed to the owner's directory.
+    if (fixed !== raw && !raw.is_shared_with_me) ownStale.push(fixed);
+    return fixed;
+  });
+
+  if (ownStale.length > 0) void persistEndDateHealForOwn(ownStale);
+  if (sharedToHeal.length > 0) void persistEndDateHealForOwner(sharedToHeal);
 
   // Guardrail: composite keys must be unique across the merged list. Hitting
   // this means the keying scheme is inconsistent somewhere upstream.
