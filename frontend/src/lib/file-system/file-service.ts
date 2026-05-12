@@ -5,6 +5,11 @@ export interface FileServiceConfig {
 export class FileService {
   private directoryHandle: FileSystemDirectoryHandle | null = null;
 
+  // Cheap counter incremented on every FSA read. Used by the startup loading
+  // screen to show "Loaded N files…" so the user knows something's happening
+  // even when OneDrive is being slow.
+  private readCount = 0;
+
   setDirectoryHandle(handle: FileSystemDirectoryHandle): void {
     this.directoryHandle = handle;
   }
@@ -15,6 +20,18 @@ export class FileService {
 
   clearDirectoryHandle(): void {
     this.directoryHandle = null;
+  }
+
+  getReadCount(): number {
+    return this.readCount;
+  }
+
+  resetReadCount(): void {
+    this.readCount = 0;
+  }
+
+  private bumpReadCount(): void {
+    this.readCount += 1;
   }
 
   async verifyPermission(requestWrite: boolean = true): Promise<boolean> {
@@ -170,6 +187,7 @@ export class FileService {
       const file = await fileHandle.getFile();
       const text = await file.text();
       const result = JSON.parse(text) as T;
+      this.bumpReadCount();
       console.log(`[fileService.readJson] Successfully read: ${path}`);
       return result;
     } catch (err) {
@@ -247,6 +265,7 @@ export class FileService {
     }
 
     console.log(`[fileService.listFiles] Found ${files.length} files in ${dirPath}:`, files);
+    this.bumpReadCount();
     return files.sort();
   }
 
@@ -265,6 +284,7 @@ export class FileService {
       }
     }
 
+    this.bumpReadCount();
     return dirs.sort();
   }
 
@@ -276,7 +296,9 @@ export class FileService {
 
     try {
       const fileHandle = handle as FileSystemFileHandle;
-      return await fileHandle.getFile();
+      const file = await fileHandle.getFile();
+      this.bumpReadCount();
+      return file;
     } catch {
       return null;
     }

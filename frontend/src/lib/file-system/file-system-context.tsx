@@ -16,9 +16,20 @@ import {
 import { clearCurrentUserCache } from "../storage/json-store";
 import { discoverUsers, validateResearchFolder, ensureFolderStructure } from "./user-discovery";
 
+/** Coarse-grained phase of the startup connect flow. Used by the loading
+ *  screen so the user sees something change while OneDrive is being slow. */
+export type LoadingStage =
+  | null
+  | "connecting"
+  | "verifying-permission"
+  | "validating-folder"
+  | "discovering-users"
+  | "preparing";
+
 interface FileSystemState {
   isConnected: boolean;
   isLoading: boolean;
+  loadingStage: LoadingStage;
   error: string | null;
   directoryName: string | null;
   currentUser: string | null;
@@ -44,6 +55,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
   const [state, setState] = useState<FileSystemState>({
     isConnected: false,
     isLoading: true,
+    loadingStage: null,
     error: null,
     directoryName: null,
     currentUser: null,
@@ -120,31 +132,36 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
       return false;
     }
 
-    setState((prev) => ({ ...prev, isLoading: true, error: null }));
+    fileService.resetReadCount();
+    setState((prev) => ({ ...prev, isLoading: true, loadingStage: "connecting", error: null }));
 
     try {
       fileService.setDirectoryHandle(handle);
 
+      setState((prev) => ({ ...prev, loadingStage: "verifying-permission" }));
       const hasPermission = await fileService.verifyPermission(true);
       console.log("Permission check result:", hasPermission);
-      
+
       if (!hasPermission) {
         fileService.clearDirectoryHandle();
         setState((prev) => ({
           ...prev,
           isLoading: false,
+          loadingStage: null,
           error: "Permission denied. Please allow read/write access to the folder.",
         }));
         return false;
       }
 
+      setState((prev) => ({ ...prev, loadingStage: "validating-folder" }));
       const isValid = await validateResearchFolder(handle);
       console.log("Folder validation result:", isValid, "for folder:", handle.name);
-      
+
       if (!isValid) {
         setState((prev) => ({
           ...prev,
           isLoading: false,
+          loadingStage: null,
           error: null,
           directoryName: handle.name,
           needsInitialization: true,
@@ -154,6 +171,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
 
       await storeDirectoryHandle(handle);
 
+      setState((prev) => ({ ...prev, loadingStage: "discovering-users" }));
       const users = await discoverUsers();
 
       let currentUser = await getCurrentUser();
@@ -172,6 +190,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         ...prev,
         isConnected: true,
         isLoading: false,
+        loadingStage: null,
         error: null,
         directoryName: handle!.name,
         currentUser,
@@ -187,6 +206,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
       setState((prev) => ({
         ...prev,
         isLoading: false,
+        loadingStage: null,
         error: message,
       }));
       return false;
@@ -240,6 +260,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     setState({
       isConnected: false,
       isLoading: false,
+      loadingStage: null,
       error: null,
       directoryName: null,
       currentUser: null,

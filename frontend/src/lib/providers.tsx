@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, useEffect, type ReactNode } from "react";
 import { FileSystemProvider, useFileSystem, isFileSystemAccessSupported } from "@/lib/file-system/file-system-context";
 import ResearchFolderSetupNew from "@/components/ResearchFolderSetupNew";
+import StagedLoadingScreen from "@/components/StagedLoadingScreen";
 
 function AppContent({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -18,7 +19,7 @@ function AppContent({ children }: { children: ReactNode }) {
       })
   );
 
-  const { isConnected, isLoading, currentUser } = useFileSystem();
+  const { isConnected, isLoading, currentUser, loadingStage } = useFileSystem();
   const [showSetup, setShowSetup] = useState(false);
 
   console.log("AppContent render:", { isConnected, isLoading, currentUser, showSetup });
@@ -42,16 +43,7 @@ function AppContent({ children }: { children: ReactNode }) {
 
   if (isLoading) {
     console.log("AppContent: rendering loading screen");
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-        <div className="text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg mb-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-          </div>
-          <p className="text-slate-400">Loading ResearchOS...</p>
-        </div>
-      </div>
-    );
+    return <StagedLoadingScreen stage={loadingStage} />;
   }
 
   if (!isFileSystemAccessSupported()) {
