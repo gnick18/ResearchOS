@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { readPairing, type TelegramPairing } from "@/lib/telegram/telegram-store";
+import { useTelegramPolling } from "@/lib/telegram/use-telegram-polling";
+import { imageEvents } from "@/lib/attachments/image-events";
 import TelegramPairingModal from "./TelegramPairingModal";
 
 export default function TelegramStatusBadge() {
@@ -22,6 +24,18 @@ export default function TelegramStatusBadge() {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  // Bump the displayed counters when new images arrive — gives the user
+  // visual confirmation in the header that the connection is alive.
+  const [recent, setRecent] = useState(0);
+  useEffect(() => {
+    const unsub = imageEvents.onAttached(() => setRecent((n) => n + 1));
+    return unsub;
+  }, []);
+
+  // Drive the inbound photo pipeline. The hook short-circuits when the user
+  // isn't paired and self-throttles via a cross-tab lock.
+  useTelegramPolling(pairing ? currentUser : null);
 
   if (!currentUser) return null;
 
@@ -47,6 +61,9 @@ export default function TelegramStatusBadge() {
           }`}
         />
         {paired ? `Telegram: @${pairing.botUsername}` : "Connect Telegram"}
+        {paired && recent > 0 && (
+          <span className="ml-1 text-emerald-600">+{recent}</span>
+        )}
       </button>
       {modalOpen && (
         <TelegramPairingModal

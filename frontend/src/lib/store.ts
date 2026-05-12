@@ -21,7 +21,18 @@ interface ConnectionState {
   lastConnectedAt: number | null;
 }
 
+/** The task whose detail popup is currently open. Read imperatively by the
+ *  Telegram image router to decide where an inbound photo lands. */
+export interface ActiveTask {
+  id: number;
+  owner: string;
+  name: string;
+}
+
 interface AppState extends ConnectionState {
+  activeTask: ActiveTask | null;
+  setActiveTask: (task: ActiveTask | null) => void;
+
   selectedProjectIds: number[];
   toggleProject: (id: number) => void;
   setSelectedProjects: (ids: number[]) => void;
@@ -83,7 +94,10 @@ export const useAppStore = create<AppState>()(
       connectionError: null,
       lastConnectedAt: null,
 
-      setConnected: (connected) => set({ 
+      activeTask: null,
+      setActiveTask: (task) => set({ activeTask: task }),
+
+      setConnected: (connected) => set({
         isConnected: connected, 
         lastConnectedAt: connected ? Date.now() : null 
       }),
