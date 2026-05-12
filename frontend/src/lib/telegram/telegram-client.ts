@@ -128,7 +128,13 @@ export async function getFile(token: string, fileId: string): Promise<TelegramFi
 }
 
 export async function downloadFile(token: string, filePath: string): Promise<Blob> {
-  const res = await fetch(`${BASE}/file/bot${token}/${filePath}`);
+  // Telegram's file CDN doesn't send CORS headers, so the browser refuses to
+  // fetch it directly. Route through our own /api/telegram-file proxy
+  // (Next.js API route, runs server-side) which forwards to Telegram and
+  // streams the bytes back. The token rides in a header rather than the URL
+  // so it doesn't appear in access logs.
+  const url = `/api/telegram-file?path=${encodeURIComponent(filePath)}`;
+  const res = await fetch(url, { headers: { "x-telegram-token": token } });
   if (!res.ok) throw new TelegramApiError(`downloadFile failed: ${res.status}`);
   return res.blob();
 }
