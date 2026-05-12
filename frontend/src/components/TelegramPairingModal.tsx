@@ -139,6 +139,10 @@ export default function TelegramPairingModal({ username, onClose }: TelegramPair
   };
 
   const handleDisconnect = async () => {
+    const ok = window.confirm(
+      "Disconnect your Telegram bot? Inbound photos will stop arriving until you re-pair. Your existing photos and notes are untouched."
+    );
+    if (!ok) return;
     setDisconnecting(true);
     try {
       await clearPairing(username);
@@ -196,21 +200,24 @@ export default function TelegramPairingModal({ username, onClose }: TelegramPair
               experiment is open and it&apos;ll appear in that experiment&apos;s image
               strip.
             </p>
-            <div className="flex items-center justify-end gap-2 pt-2">
+            <div className="flex items-center justify-between gap-2 pt-2">
               <button
                 onClick={handleDisconnect}
                 disabled={disconnecting}
-                className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                className="px-3 py-2 text-xs text-red-600 border border-red-200 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
               >
-                {disconnecting ? "Disconnecting…" : "Disconnect"}
+                {disconnecting ? "Disconnecting…" : "🔌 Disconnect bot"}
               </button>
               <button
                 onClick={handleCancel}
-                className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                className="px-5 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors font-medium"
               >
-                Done
+                ✓ Keep paired
               </button>
             </div>
+            <p className="text-[10px] text-gray-400 text-center pt-1">
+              &quot;Keep paired&quot; just closes this dialog — your connection stays active.
+            </p>
           </div>
         )}
 
@@ -279,11 +286,14 @@ export default function TelegramPairingModal({ username, onClose }: TelegramPair
             <div className="flex justify-center">
               <span className="inline-flex h-3 w-3 animate-pulse rounded-full bg-blue-400" />
             </div>
+            <p className="text-[11px] text-amber-600">
+              Pairing isn&apos;t saved until your bot receives a message.
+            </p>
             <button
               onClick={handleCancel}
-              className="text-xs text-gray-400 hover:text-gray-600"
+              className="text-xs text-gray-400 hover:text-gray-600 underline"
             >
-              Cancel
+              Cancel pairing
             </button>
           </div>
         )}
