@@ -28,6 +28,7 @@ export default function InboxBadge() {
   }, [currentUser]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on deps change
     void refresh();
   }, [refresh]);
 

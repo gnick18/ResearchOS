@@ -98,6 +98,7 @@ export default function ImageStrip({
   }, [basePath]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on deps change
     void refresh();
   }, [refresh]);
 
@@ -145,6 +146,7 @@ export default function ImageStrip({
   // Resolve blob URLs for everything we're showing.
   useEffect(() => {
     if (entries.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot reset when entries cleared
       setBlobUrls(new Map());
       return;
     }
