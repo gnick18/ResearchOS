@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import DailyTasksSidebar from "./DailyTasksSidebar";
+import TelegramStatusBadge from "./TelegramStatusBadge";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home" },
@@ -43,6 +44,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           ))}
         </nav>
+
+        <div className="flex-1" />
+
+        <TelegramStatusBadge />
       </header>
 
       {/* Main content with daily tasks sidebar */}
