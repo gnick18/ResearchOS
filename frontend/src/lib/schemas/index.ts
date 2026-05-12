@@ -447,6 +447,13 @@ export const NoteEntrySchema = z.object({
   updated_at: z.string(),
 });
 
+export const NoteCommentSchema = z.object({
+  id: z.string(),
+  author: z.string(),
+  text: z.string(),
+  created_at: z.string(),
+});
+
 export const NoteSchema = z.object({
   id: z.number(),
   title: z.string(),
@@ -454,6 +461,7 @@ export const NoteSchema = z.object({
   is_running_log: z.boolean().default(false),
   is_shared: z.boolean().default(false),
   entries: z.array(NoteEntrySchema).default([]),
+  comments: z.array(NoteCommentSchema).default([]),
   created_at: z.string(),
   updated_at: z.string(),
   username: z.string(),
@@ -562,6 +570,7 @@ export type LabLink = z.infer<typeof LabLinkSchema>;
 export type LabLinkCreate = z.infer<typeof LabLinkCreateSchema>;
 export type LabLinkUpdate = z.infer<typeof LabLinkUpdateSchema>;
 export type NoteEntry = z.infer<typeof NoteEntrySchema>;
+export type NoteComment = z.infer<typeof NoteCommentSchema>;
 export type Note = z.infer<typeof NoteSchema>;
 export type NoteCreate = z.infer<typeof NoteCreateSchema>;
 export type NoteUpdate = z.infer<typeof NoteUpdateSchema>;

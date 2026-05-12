@@ -110,8 +110,21 @@ export default function NoteCard({ note, onClick, isLabMode = false }: NoteCardP
 
       {/* Footer with date and user info */}
       <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-100">
-        <span className="text-xs text-gray-400">{getLatestEntryDate()}</span>
-        
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-400">{getLatestEntryDate()}</span>
+          {note.comments && note.comments.length > 0 && (
+            <span
+              className="inline-flex items-center gap-1 text-xs text-gray-500"
+              title={`${note.comments.length} comment${note.comments.length === 1 ? "" : "s"}`}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h6m-7 9l4-4h10a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h1v4z" />
+              </svg>
+              {note.comments.length}
+            </span>
+          )}
+        </div>
+
         {/* User indicator in lab mode */}
         {isLabMode && isLabNote(note) && (
           <div className="flex items-center gap-1.5">
