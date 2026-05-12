@@ -3,13 +3,12 @@
 import { useCallback, useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { projectsApi, tasksApi, settingsApi, setDataPathErrorCallback, fetchAllTasks, type DataPathCheckResponse } from "@/lib/local-api";
+import { projectsApi, fetchAllTasks } from "@/lib/local-api";
 import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import ProjectDetailPopup from "@/components/ProjectDetailPopup";
 import DataSetupScreen from "@/components/DataSetupScreen";
 import DesktopLauncherPopup from "@/components/DesktopLauncherPopup";
-import ResearchFolderSetup from "@/components/ResearchFolderSetup";
 import UserLoginScreen from "@/components/UserLoginScreen";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import type { Project, Task } from "@/lib/types";
@@ -51,38 +50,10 @@ export default function HomePage() {
   const { currentUser: providerCurrentUser, isLoading: fsLoading } = useFileSystem();
   const currentUser = providerCurrentUser ?? "";
   const checkingUser = fsLoading;
-  
-  // Data path check state
-  const [dataPathError, setDataPathError] = useState<DataPathCheckResponse | null>(null);
-  const [checkingPath, setCheckingPath] = useState(true);
-  
+
   // Drag and drop state
   const [draggedProjectId, setDraggedProjectId] = useState<number | null>(null);
   const [dragOverProjectId, setDragOverProjectId] = useState<number | null>(null);
-
-  // Check data path on mount
-  useEffect(() => {
-    const checkDataPath = async () => {
-      try {
-        const result = await settingsApi.checkDataPath();
-        if (result.status === "error") {
-          setDataPathError(result);
-        } else {
-          setDataPathError(null);
-        }
-      } catch {
-        // If the check fails, show a generic error
-        setDataPathError({
-          status: "error",
-          error_type: "not_configured",
-          message: "Unable to verify data path configuration. Please check your settings.",
-        });
-      } finally {
-        setCheckingPath(false);
-      }
-    };
-    checkDataPath();
-  }, []);
 
   // Redirect to lab page if the current user is "lab".
   // currentUser comes from FileSystemProvider, which loads it from IndexedDB on startup.
@@ -91,13 +62,6 @@ export default function HomePage() {
       router.push("/lab");
     }
   }, [currentUser, router]);
-
-  // Register callback for data path errors from API calls
-  useEffect(() => {
-    setDataPathErrorCallback((error) => {
-      setDataPathError(error);
-    });
-  }, []);
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", currentUser],
@@ -239,19 +203,6 @@ export default function HomePage() {
       day: "numeric" 
     });
   };
-
-  // Show folder setup if path is invalid
-  if (!checkingPath && dataPathError) {
-    return (
-      <ResearchFolderSetup
-        errorData={dataPathError}
-        onComplete={() => {
-          setDataPathError(null);
-          window.location.reload();
-        }}
-      />
-    );
-  }
 
   // Show login screen if no current user.
   // UserLoginScreen already calls useFileSystem().setCurrentUser internally, so
@@ -679,14 +630,12 @@ export default function HomePage() {
         />
       )}
 
-      {/* Loading overlay while checking path or user */}
-      {(checkingPath || checkingUser) && (
+      {/* Loading overlay while checking user */}
+      {checkingUser && (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-white/80 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-3">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-            <p className="text-sm text-gray-500">
-              {checkingPath ? "Checking data path..." : "Checking user..."}
-            </p>
+            <p className="text-sm text-gray-500">Checking user...</p>
           </div>
         </div>
       )}
