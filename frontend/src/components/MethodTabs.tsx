@@ -581,6 +581,68 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
 
 // ── Variation Notes Panel Component ───────────────────────────────────────────────
 
+interface VariationEntry {
+  heading: string;
+  body: string;
+}
+
+/**
+ * Split a variation-notes markdown blob into individual entries, each headed
+ * by a `### Variation ...` line. Handles both legacy ("Variation (timestamp)")
+ * and current ("Variation - timestamp") header formats. Any text before the
+ * first header is returned as a leading entry with an empty heading so it
+ * isn't silently dropped.
+ */
+function parseVariationEntries(markdown: string): VariationEntry[] {
+  if (!markdown.trim()) return [];
+  const headerRegex = /^###\s+Variation\b[^\n]*$/gm;
+  const matches: Array<{ text: string; start: number }> = [];
+  let m: RegExpExecArray | null;
+  while ((m = headerRegex.exec(markdown)) !== null) {
+    matches.push({ text: m[0], start: m.index });
+  }
+  if (matches.length === 0) {
+    return [{ heading: "", body: markdown.trim() }];
+  }
+  const entries: VariationEntry[] = [];
+  // Anything before the first header — preserve as a heading-less entry.
+  const prologue = markdown.substring(0, matches[0].start).trim();
+  if (prologue) entries.push({ heading: "", body: prologue });
+  for (let i = 0; i < matches.length; i++) {
+    const start = matches[i].start;
+    const end = i + 1 < matches.length ? matches[i + 1].start : markdown.length;
+    const heading = matches[i].text;
+    const body = markdown.substring(start + heading.length, end).replace(/^\n+/, "").replace(/\s+$/, "");
+    entries.push({ heading, body });
+  }
+  return entries;
+}
+
+/**
+ * Remove the `entryIndex`-th `### Variation` entry from the markdown.
+ * Indices match `parseVariationEntries` output (a leading heading-less entry,
+ * if present, counts as index 0 and is not deletable via this helper — the
+ * caller should hide the trash button for that case).
+ */
+function removeVariationEntry(markdown: string, entryIndex: number): string {
+  const headerRegex = /^###\s+Variation\b[^\n]*$/gm;
+  const matches: Array<{ start: number }> = [];
+  let m: RegExpExecArray | null;
+  while ((m = headerRegex.exec(markdown)) !== null) {
+    matches.push({ start: m.index });
+  }
+  // Account for a leading heading-less prologue offsetting indices by 1.
+  const prologue = matches.length > 0 ? markdown.substring(0, matches[0].start).trim() : "";
+  const headerArrayIndex = prologue ? entryIndex - 1 : entryIndex;
+  if (headerArrayIndex < 0 || headerArrayIndex >= matches.length) return markdown;
+  const start = matches[headerArrayIndex].start;
+  const end =
+    headerArrayIndex + 1 < matches.length
+      ? matches[headerArrayIndex + 1].start
+      : markdown.length;
+  return (markdown.substring(0, start) + markdown.substring(end)).trim();
+}
+
 interface VariationNotesPanelProps {
   taskId: number;
   methodId: number;
@@ -658,6 +720,29 @@ function VariationNotesPanel({ taskId, methodId, variationNotes, onSaved, readOn
     setOriginalContent(variationNotes || "");
     setIsEditing(false);
   }, [variationNotes]);
+
+  // Delete a single variation entry (in-place; no Edit All needed)
+  const handleDeleteEntry = useCallback(
+    async (entryIndex: number) => {
+      if (!variationNotes) return;
+      if (!window.confirm("Delete this variation note? This can't be undone.")) return;
+      const updated = removeVariationEntry(variationNotes, entryIndex);
+      setSaving(true);
+      try {
+        await tasksApi.saveVariationNote(taskId, methodId, updated);
+        onSaved();
+      } catch (err) {
+        console.error("Failed to delete variation note:", err);
+        alert("Failed to delete variation note");
+      } finally {
+        setSaving(false);
+      }
+    },
+    [variationNotes, taskId, methodId, onSaved],
+  );
+
+  // Split rendered notes into individual entries so each gets its own delete button.
+  const entries = useMemo(() => parseVariationEntries(variationNotes || ""), [variationNotes]);
   
   return (
     <div className="border-b border-gray-200">
@@ -731,11 +816,48 @@ function VariationNotesPanel({ taskId, methodId, variationNotes, onSaved, readOn
             </div>
           ) : (
             <div className="space-y-3">
-              {variationNotes ? (
-                <div className="prose prose-sm prose-amber max-w-none bg-white rounded-lg p-4 border border-amber-200">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-                    {variationNotes}
-                  </ReactMarkdown>
+              {variationNotes && entries.length > 0 ? (
+                <div className="space-y-2">
+                  {entries.map((entry, idx) => {
+                    // Heading-less leading prologue (legacy data) — no delete button.
+                    const canDelete = !readOnly && entry.heading !== "";
+                    return (
+                      <div
+                        key={idx}
+                        className="group relative bg-white rounded-lg p-4 pr-9 border border-amber-200"
+                      >
+                        {canDelete && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteEntry(idx)}
+                            disabled={saving}
+                            className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity disabled:opacity-50"
+                            title="Delete this variation"
+                            aria-label="Delete this variation"
+                          >
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            </svg>
+                          </button>
+                        )}
+                        <div className="prose prose-sm prose-amber max-w-none">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                            {entry.heading ? `${entry.heading}\n\n${entry.body}` : entry.body}
+                          </ReactMarkdown>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-6 text-amber-600">
