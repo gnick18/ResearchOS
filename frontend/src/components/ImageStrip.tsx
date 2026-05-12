@@ -1,55 +1,62 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
+import { imageEvents } from "@/lib/attachments/image-events";
+import { listImagesInFolder, type FolderImageEntry } from "@/lib/attachments/image-folder";
 
 interface ImageStripProps {
-  /** Raw markdown source — we scan it for image references. */
+  /** Raw markdown source — used to figure out which linked files are
+   *  actually referenced in the document (vs. linked-only). */
   content: string;
-  /** Directory the markdown file lives in (e.g. `results/task-3`). Used for
-   *  resolving relative `Images/x.png` references. */
+  /** Directory the markdown file lives in (e.g. `users/Grant/results/task-3`).
+   *  We list `${basePath}/Images/` for the primary thumbnail set, and resolve
+   *  relative srcs against it. */
   basePath?: string;
-  /** Fired when the user clicks a thumbnail. `index` is the position of the
-   *  image among all image refs in the document (0-based, in source order),
-   *  which the caller can use to scroll the editor preview to that image. */
-  onImageClick?: (index: number, originalSrc: string) => void;
+  /** Click handler — receives the filename (within `Images/`) and whether
+   *  the image is currently referenced in the markdown body. Phase 4 swaps
+   *  the parent's handler for "open metadata popup". */
+  onImageClick?: (filename: string, inDocument: boolean) => void;
   className?: string;
 }
 
-interface ImageRef {
-  /** Original src token as it appears in markdown (e.g. `Images/foo.png`). */
-  src: string;
-  /** Display name (last path segment). */
+interface StripEntry {
   filename: string;
+  /** Path inside the markdown's directory (always `Images/{filename}`). */
+  relativePath: string;
+  /** Full FS path, used to resolve a blob URL. */
+  fullPath: string;
+  inDocument: boolean;
+  sidecarCaption?: string;
 }
 
-const MD_REGEX = /!\[([^\]]*)\]\(([^)\s]+)/g;
+const MD_REGEX = /!\[[^\]]*\]\(([^)\s]+)/g;
 const HTML_REGEX = /<img\s+[^>]*src=["']([^"']+)["']/gi;
 
-function extractImageRefs(markdown: string): ImageRef[] {
-  const refs: ImageRef[] = [];
-  let m: RegExpExecArray | null;
-
-  const mdRe = new RegExp(MD_REGEX.source, "g");
-  while ((m = mdRe.exec(markdown)) !== null) {
-    refs.push({ src: m[2], filename: m[2].split("/").pop() ?? m[2] });
-  }
-
-  const htmlRe = new RegExp(HTML_REGEX.source, "gi");
-  while ((m = htmlRe.exec(markdown)) !== null) {
-    refs.push({ src: m[1], filename: m[1].split("/").pop() ?? m[1] });
-  }
-
-  // Order matters: callers index into the rendered DOM by position, and
-  // ReactMarkdown renders images in source order. Sort by their position in
-  // the source string to keep markdown and HTML refs interleaved correctly.
-  return refs.sort((a, b) => markdown.indexOf(a.src) - markdown.indexOf(b.src));
+function imagesReferencedInMarkdown(markdown: string): Set<string> {
+  const referenced = new Set<string>();
+  const collect = (regex: RegExp) => {
+    let m: RegExpExecArray | null;
+    while ((m = regex.exec(markdown)) !== null) {
+      let src = m[1];
+      if (src.startsWith("./")) src = src.slice(2);
+      if (src.startsWith("Images/")) {
+        const name = src.slice("Images/".length);
+        if (!name.includes("/")) referenced.add(name);
+      }
+    }
+  };
+  collect(new RegExp(MD_REGEX.source, "g"));
+  collect(new RegExp(HTML_REGEX.source, "gi"));
+  return referenced;
 }
 
 /**
- * Horizontal scrollable strip of every image referenced by a markdown file.
- * Drop in next to a markdown editor; clicking a thumbnail fires `onImageClick`
- * with the image's index, which the caller uses to scroll the preview.
+ * Horizontal scrollable strip of every image **linked** to the current task —
+ * meaning every image file in the task's `Images/` folder, whether or not the
+ * markdown body references it yet. Images that ARE referenced in the body get
+ * a normal appearance; images that exist on disk but aren't in the doc yet
+ * (e.g. just arrived via Telegram) get a small blue dot to flag them.
  */
 export default function ImageStrip({
   content,
@@ -57,80 +64,146 @@ export default function ImageStrip({
   onImageClick,
   className,
 }: ImageStripProps) {
-  const images = useMemo(() => extractImageRefs(content), [content]);
+  const [folderEntries, setFolderEntries] = useState<FolderImageEntry[]>([]);
   const [blobUrls, setBlobUrls] = useState<Map<string, string>>(new Map());
 
+  const referencedNames = useMemo(() => imagesReferencedInMarkdown(content), [content]);
+
+  const refresh = useCallback(async () => {
+    if (!basePath) {
+      setFolderEntries([]);
+      return;
+    }
+    try {
+      const entries = await listImagesInFolder(basePath);
+      setFolderEntries(entries);
+    } catch {
+      setFolderEntries([]);
+    }
+  }, [basePath]);
+
   useEffect(() => {
-    if (images.length === 0) return;
+    void refresh();
+  }, [refresh]);
+
+  // Refresh when an image is attached / has its metadata changed / is deleted
+  // anywhere in the app (in-app upload, Telegram inbound, metadata popup,
+  // trash drop-zone). We compare basePath so unrelated tasks don't re-list.
+  useEffect(() => {
+    const unsubAttach = imageEvents.onAttached((ev) => {
+      if (ev.basePath === basePath) void refresh();
+    });
+    const unsubMeta = imageEvents.onMetadataChanged((ev) => {
+      if (ev.basePath === basePath) void refresh();
+    });
+    const unsubDelete = imageEvents.onDeleted((ev) => {
+      if (ev.basePath === basePath) void refresh();
+    });
+    const onFocus = () => {
+      void refresh();
+    };
+    window.addEventListener("focus", onFocus);
+    return () => {
+      unsubAttach();
+      unsubMeta();
+      unsubDelete();
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [basePath, refresh]);
+
+  const entries: StripEntry[] = useMemo(() => {
+    const items: StripEntry[] = folderEntries.map((e) => ({
+      filename: e.name,
+      relativePath: `Images/${e.name}`,
+      fullPath: basePath ? `${basePath}/Images/${e.name}` : `Images/${e.name}`,
+      inDocument: referencedNames.has(e.name),
+      sidecarCaption: e.sidecar?.caption,
+    }));
+    // Stable order: linked-only first (so the user immediately notices new
+    // arrivals), then in-document, alphabetical within each group.
+    return items.sort((a, b) => {
+      if (a.inDocument !== b.inDocument) return a.inDocument ? 1 : -1;
+      return a.filename.localeCompare(b.filename);
+    });
+  }, [folderEntries, referencedNames, basePath]);
+
+  // Resolve blob URLs for everything we're showing.
+  useEffect(() => {
+    if (entries.length === 0) {
+      setBlobUrls(new Map());
+      return;
+    }
     let cancelled = false;
     (async () => {
       const next = new Map<string, string>();
-      for (const ref of images) {
-        if (!blobUrlResolver.isLocalPath(ref.src)) {
-          next.set(ref.src, ref.src);
-          continue;
-        }
-        const resolvedPath = blobUrlResolver.resolvePath(ref.src, basePath);
-        const cached = blobUrlResolver.getCachedUrl(resolvedPath);
+      for (const entry of entries) {
+        const cached = blobUrlResolver.getCachedUrl(entry.fullPath);
         if (cached) {
-          next.set(ref.src, cached);
+          next.set(entry.fullPath, cached);
           continue;
         }
-        const url = await blobUrlResolver.getBlobUrl(resolvedPath);
-        if (url) next.set(ref.src, url);
+        const url = await blobUrlResolver.getBlobUrl(entry.fullPath);
+        if (url) next.set(entry.fullPath, url);
       }
       if (!cancelled) setBlobUrls(next);
     })();
     return () => {
       cancelled = true;
     };
-  }, [images, basePath]);
+  }, [entries]);
 
-  // `sticky bottom-0` keeps the strip pinned to the bottom of the scrollable
-  // editor container even when the document is tall (lab-notes wrapper uses
-  // overflow-y-auto). Without it the strip sits below the visible fold in
-  // non-fullscreen popups and the user only ever sees it when expanded.
   const wrapperClass = `sticky bottom-0 z-10 ${className ?? ""}`.trim();
 
-  if (images.length === 0) {
+  if (entries.length === 0) {
     return (
       <div className={wrapperClass}>
         <p className="text-xs text-gray-400 italic px-3 py-2 bg-gray-50 border-t border-gray-200">
-          No images in this document yet. Drag one in or use the Add Image button.
+          No images linked to this experiment yet. Send one via Telegram or drag a file in.
         </p>
       </div>
     );
   }
 
+  const linkedOnlyCount = entries.filter((e) => !e.inDocument).length;
+
   return (
     <div className={wrapperClass}>
       <div className="flex items-center gap-2 px-3 py-2 overflow-x-auto bg-gray-50 border-t border-gray-200">
         <span className="text-xs text-gray-500 font-medium flex-shrink-0 mr-1">
-          {images.length} image{images.length === 1 ? "" : "s"}
+          {entries.length} image{entries.length === 1 ? "" : "s"}
+          {linkedOnlyCount > 0 && (
+            <span className="ml-1 text-blue-600">({linkedOnlyCount} new)</span>
+          )}
         </span>
-        {images.map((ref, idx) => {
-          const url = blobUrls.get(ref.src);
+        {entries.map((entry) => {
+          const url = blobUrls.get(entry.fullPath);
+          const tooltip = entry.sidecarCaption
+            ? `${entry.sidecarCaption} — ${entry.filename}`
+            : entry.filename;
           return (
             <button
-              key={`${idx}-${ref.src}`}
+              key={entry.filename}
               type="button"
-              onClick={() => onImageClick?.(idx, ref.src)}
+              onClick={() => onImageClick?.(entry.filename, entry.inDocument)}
               className="group relative flex-shrink-0 w-16 h-16 rounded-md border border-gray-200 bg-white overflow-hidden hover:border-blue-400 hover:ring-2 hover:ring-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-              title={ref.filename}
+              title={tooltip}
             >
               {url ? (
-                <img
-                  src={url}
-                  alt={ref.filename}
-                  className="w-full h-full object-cover"
-                />
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={url} alt={entry.filename} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-gray-300 text-2xl">
                   🖼
                 </div>
               )}
+              {!entry.inDocument && (
+                <span
+                  className="absolute top-1 right-1 w-2 h-2 rounded-full bg-blue-500 ring-2 ring-white"
+                  aria-label="Linked but not in document"
+                />
+              )}
               <span className="absolute inset-x-0 bottom-0 px-1 py-0.5 text-[9px] text-white bg-black/60 truncate opacity-0 group-hover:opacity-100 transition-opacity">
-                {ref.filename}
+                {entry.filename}
               </span>
             </button>
           );
