@@ -27,6 +27,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
   const [newUsername, setNewUsername] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   console.log("ResearchFolderSetupNew render:", { 
     isConnected, 
@@ -280,6 +281,92 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
     );
   }
 
+  if (lastConnectedFolder) {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <div className="absolute inset-0 opacity-5">
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+            }}
+          />
+        </div>
+
+        <div className="relative z-10 w-full max-w-lg mx-4">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg mb-4">
+              <svg
+                className="w-8 h-8 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+                />
+              </svg>
+            </div>
+            <h1 className="text-3xl font-bold text-white">ResearchOS</h1>
+            <p className="text-slate-400 mt-2">Local-first research data management</p>
+          </div>
+
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-white mb-4 text-center">
+                Reconnect Folder
+              </h2>
+              <p className="text-slate-400 mb-6 text-center">
+                Select your <span className="text-white font-medium">{lastConnectedFolder}</span> folder to continue. 
+                Your folder selection is required each time you reload the page.
+              </p>
+
+              <button
+                onClick={handleConnect}
+                disabled={isLoading}
+                className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isLoading ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+                ) : (
+                  <>
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                      />
+                    </svg>
+                    Reconnect Folder
+                  </>
+                )}
+              </button>
+
+              {error && (
+                <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
+                  <p className="text-sm text-red-300">{error}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <p className="text-center text-slate-500 text-sm mt-6">
+            Your data stays on your computer. No cloud required.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <div className="absolute inset-0 opacity-5">
@@ -291,7 +378,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
         />
       </div>
 
-      <div className="relative z-10 w-full max-w-lg mx-4">
+      <div className="relative z-10 w-full max-w-3xl mx-4">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg mb-4">
             <svg
@@ -312,33 +399,13 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
           <p className="text-slate-400 mt-2">Local-first research data management</p>
         </div>
 
-        <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
-          <div className="p-6">
-            <h2 className="text-xl font-bold text-white mb-4 text-center">
-              {lastConnectedFolder ? "Reconnect Folder" : "Connect Research Folder"}
-            </h2>
-            {lastConnectedFolder ? (
-              <p className="text-slate-400 mb-6 text-center">
-                Select your <span className="text-white font-medium">{lastConnectedFolder}</span> folder to continue. 
-                Your folder selection is required each time you reload the page.
-              </p>
-            ) : (
-              <p className="text-slate-400 mb-6 text-center">
-                Select a folder to store your research data locally. Works with OneDrive, iCloud, or any local folder.
-              </p>
-            )}
-
-            <button
-              onClick={handleConnect}
-              disabled={isLoading}
-              className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {isLoading ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
-              ) : (
-                <>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
                   <svg
-                    className="w-5 h-5"
+                    className="w-5 h-5 text-blue-400"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -350,18 +417,122 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                       d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
                     />
                   </svg>
-                  {lastConnectedFolder ? "Reconnect Folder" : "Select Folder"}
-                </>
-              )}
-            </button>
-
-            {error && (
-              <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
-                <p className="text-sm text-red-300">{error}</p>
+                </div>
+                <h2 className="text-lg font-bold text-white">Link Existing Folder</h2>
               </div>
-            )}
+              <p className="text-slate-400 text-sm mb-6">
+                Connect to an existing ResearchOS folder with your projects and data. Perfect if you&apos;ve synced your folder via OneDrive or iCloud.
+              </p>
+              <button
+                onClick={handleConnect}
+                disabled={isLoading}
+                className="w-full py-2.5 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isLoading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                    </svg>
+                    Link Folder
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                  <svg
+                    className="w-5 h-5 text-purple-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                    />
+                  </svg>
+                </div>
+                <h2 className="text-lg font-bold text-white">Create New Folder</h2>
+              </div>
+              <p className="text-slate-400 text-sm mb-3">
+                Start fresh with a new ResearchOS folder. First create an empty folder on your computer, then select it below.
+              </p>
+
+              <button
+                onClick={() => setShowHelp(!showHelp)}
+                className="w-full text-left text-sm text-slate-400 hover:text-slate-300 transition-colors mb-4 flex items-center gap-2"
+              >
+                <svg
+                  className={`w-4 h-4 transition-transform ${showHelp ? "rotate-90" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+                How to create a new folder
+              </button>
+
+              {showHelp && (
+                <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-4 text-sm">
+                  <ol className="text-slate-300 space-y-2">
+                    <li className="flex gap-2">
+                      <span className="text-purple-400 font-medium">1.</span>
+                      <span>Open your file manager (Finder/Explorer)</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-purple-400 font-medium">2.</span>
+                      <span>Navigate to where you want the folder (e.g., Documents or OneDrive)</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-purple-400 font-medium">3.</span>
+                      <span>Create a new folder named &quot;ResearchOS&quot;</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-purple-400 font-medium">4.</span>
+                      <span>Come back and click &quot;Select Location&quot; below</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-purple-400 font-medium">5.</span>
+                      <span>Choose the folder you just created</span>
+                    </li>
+                  </ol>
+                </div>
+              )}
+
+              <button
+                onClick={handleConnect}
+                disabled={isLoading}
+                className="w-full py-2.5 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isLoading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                    </svg>
+                    Select Location
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
+
+        {error && (
+          <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg max-w-3xl mx-auto">
+            <p className="text-sm text-red-300">{error}</p>
+          </div>
+        )}
 
         <p className="text-center text-slate-500 text-sm mt-6">
           Your data stays on your computer. No cloud required.
