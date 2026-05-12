@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import type { Note, NoteEntry } from "@/lib/types";
 import { notesApi } from "@/lib/local-api";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
+import NoteCommentsThread from "./NoteCommentsThread";
 
 interface NoteDetailPopupProps {
   note: Note;
@@ -698,6 +699,11 @@ export default function NoteDetailPopup({
             )}
           </div>
         </div>
+
+        {/* Comments thread (#13): visible in both lab mode (readOnly=true)
+            and regular mode so the note's owner can see PI feedback. The
+            thread itself is the gate for whether commenting is enabled. */}
+        <NoteCommentsThread note={note} />
 
         {/* Footer */}
         {!readOnly && (

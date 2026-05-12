@@ -42,6 +42,7 @@ import type {
   NoteCreate,
   NoteUpdate,
   NoteEntry,
+  NoteComment,
   ImageMetadata,
   FileMetadata,
   CatalogItem,
@@ -945,11 +946,57 @@ export const notesApi = {
   reorderEntries: async (noteId: number, entryIds: string[]): Promise<Note | null> => {
     const note = await notesStore.get(noteId);
     if (!note) return null;
-    
+
     const entriesMap = new Map((note.entries || []).map((e) => [e.id, e]));
     const entries = entryIds.map((id) => entriesMap.get(id)).filter(Boolean) as NoteEntry[];
-    
+
     return notesStore.update(noteId, { entries, updated_at: new Date().toISOString() });
+  },
+
+  // Append a comment to a shared note. Lab-mode (#13): the viewer is usually
+  // a different user than the note owner, so we read/write through the
+  // owner's directory directly — same cross-user pattern as shared tasks.
+  // Append-only by design; no edit. Author must be a real username, not "lab".
+  addComment: async (
+    noteId: number,
+    ownerUsername: string,
+    text: string,
+    author: string,
+  ): Promise<Note | null> => {
+    const trimmed = text.trim();
+    if (!trimmed) return null;
+    const note = await notesStore.getForUser(noteId, ownerUsername);
+    if (!note) return null;
+    const newComment: NoteComment = {
+      id: crypto.randomUUID(),
+      author,
+      text: trimmed,
+      created_at: new Date().toISOString(),
+    };
+    const comments = [...(note.comments || []), newComment];
+    return notesStore.updateForUser(
+      noteId,
+      { comments, updated_at: new Date().toISOString() },
+      ownerUsername,
+    );
+  },
+
+  // Remove a comment. Only the comment's author can call this — the UI
+  // enforces that, but the API doesn't (caller-trusted, like every other
+  // path in this app's local-only model).
+  deleteComment: async (
+    noteId: number,
+    ownerUsername: string,
+    commentId: string,
+  ): Promise<Note | null> => {
+    const note = await notesStore.getForUser(noteId, ownerUsername);
+    if (!note) return null;
+    const comments = (note.comments || []).filter((c) => c.id !== commentId);
+    return notesStore.updateForUser(
+      noteId,
+      { comments, updated_at: new Date().toISOString() },
+      ownerUsername,
+    );
   },
 };
 
@@ -2222,6 +2269,7 @@ export type {
   Note,
   NoteCreate,
   NoteUpdate,
+  NoteComment,
   ImageMetadata,
   FileMetadata,
   CatalogItem,

@@ -644,6 +644,13 @@ export interface NoteEntryUpdate {
   content?: string;
 }
 
+export interface NoteComment {
+  id: string;
+  author: string;       // username of the commenter (the real user, not "lab")
+  text: string;
+  created_at: string;
+}
+
 export interface Note {
   id: number;
   title: string;
@@ -651,6 +658,7 @@ export interface Note {
   is_running_log: boolean;
   is_shared: boolean;
   entries: NoteEntry[];
+  comments?: NoteComment[];  // Lab-mode comment thread (#13); optional for backward compat
   created_at: string;
   updated_at: string;
   username: string;
@@ -692,6 +700,7 @@ export interface LabNote {
   is_running_log: boolean;
   is_shared: boolean;
   entries: LabNoteEntry[];
+  comments?: NoteComment[];
   created_at: string;
   updated_at: string;
   username: string;
