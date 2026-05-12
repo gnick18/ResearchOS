@@ -68,6 +68,7 @@ import { useFileRenamePopup } from "@/components/FileRenamePopup";
 import { fileService } from "@/lib/file-system/file-service";
 import { migrateNoteImages } from "@/lib/notes/migrate-images";
 import { findExistingTaskResultsBase, resolveTaskResultsBase, taskResultsBase } from "@/lib/tasks/results-paths";
+import { attachImageToTask } from "@/lib/attachments/attach-image";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 interface TaskDetailPopupProps {
@@ -2023,19 +2024,21 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
         const renamedFile = await requestRename(file);
         if (!renamedFile) continue;
         try {
-          const finalName = await pickUniqueFilename(imagesDir, renamedFile.name);
-          const destPath = `${imagesDir}/${finalName}`;
-          await fileService.writeFileFromBlob(destPath, renamedFile);
-          const altText = renamedFile.name;
-          const imageMarkdown = `\n![${altText}](Images/${finalName})\n`;
-          setContent((prev) => prev + imageMarkdown);
+          const { markdownSnippet } = await attachImageToTask({
+            ownerUsername: task.owner,
+            taskId: task.id,
+            basePath,
+            blob: renamedFile,
+            suggestedFilename: renamedFile.name,
+          });
+          setContent((prev) => prev + markdownSnippet);
         } catch {
           alert(`Failed to upload ${renamedFile.name}`);
         }
       }
       setUploading(false);
     },
-    [imagesDir, requestRename]
+    [basePath, requestRename, task.id, task.owner]
   );
 
   const handleFileUpload = useCallback(
@@ -3264,18 +3267,21 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
         const renamedFile = await requestRename(file);
         if (!renamedFile) continue;
         try {
-          const finalName = await pickUniqueFilename(imagesDir, renamedFile.name);
-          const destPath = `${imagesDir}/${finalName}`;
-          await fileService.writeFileFromBlob(destPath, renamedFile);
-          const imageMarkdown = `\n![${renamedFile.name}](Images/${finalName})\n`;
-          setContent((prev) => prev + imageMarkdown);
+          const { markdownSnippet } = await attachImageToTask({
+            ownerUsername: task.owner,
+            taskId: task.id,
+            basePath,
+            blob: renamedFile,
+            suggestedFilename: renamedFile.name,
+          });
+          setContent((prev) => prev + markdownSnippet);
         } catch {
           alert(`Failed to upload ${renamedFile.name}`);
         }
       }
       setUploading(false);
     },
-    [imagesDir, requestRename]
+    [basePath, requestRename, task.id, task.owner]
   );
 
   const handleFileUpload = useCallback(
