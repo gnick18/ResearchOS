@@ -37,7 +37,7 @@ const STAGE_SUBTITLES: Record<NonNullable<LoadingStage>, string> = {
 // Rotated every few seconds during long stages so the user can tell the
 // screen is still alive (not frozen by Chrome).
 const REASSURANCE_MESSAGES = [
-  "Still here. OneDrive folders are slow on first connect — it's the OS, not us.",
+  "Still here. Cloud folders are slow on first connect — it's the OS, not us.",
   "Tip: once it's loaded, everything after this stays snappy.",
   "Your data is being read directly from disk — no server in the middle.",
   "Big folder? The first scan can take a minute. Subsequent loads are faster.",

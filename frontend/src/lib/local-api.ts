@@ -5,7 +5,7 @@ import { computeEndDate } from "./engine/dates";
 import { shiftTask } from "./engine/shift";
 import { formatDate, parseDate } from "./engine/dates";
 import { discoverUsers } from "./file-system/user-discovery";
-import { ensureLabUserMetadata, fallbackUserColor, setUserMetadataField, getUserMetadata } from "./file-system/user-metadata";
+import { ensureLabUserMetadata, fallbackUserColor, setUserMetadataField, getUserMetadata, type UserMetadataEntry } from "./file-system/user-metadata";
 import JSZip from "jszip";
 import type {
   Project,
@@ -73,7 +73,7 @@ const fileMetadataStore = new AttachmentMetadataStore<FileMetadata>("Files");
 
 async function loadLabUsers(): Promise<{
   usernames: string[];
-  metadata: Record<string, { color: string; created_at: string }>;
+  metadata: Record<string, UserMetadataEntry>;
 }> {
   const usernames = await discoverUsers();
   const metadata = await ensureLabUserMetadata(usernames);
