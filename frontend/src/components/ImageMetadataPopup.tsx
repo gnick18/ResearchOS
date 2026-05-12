@@ -14,6 +14,12 @@ interface ImageMetadataPopupProps {
   inDocument: boolean;
   /** Triggered when the user clicks "Jump to occurrence in note". */
   onJump?: (filename: string) => void;
+  /** When provided, the popup shows a rename input. The callback should
+   *  perform the actual file move + emit events; throw to surface an error
+   *  in the popup. */
+  onRename?: (newFilename: string) => Promise<void>;
+  /** When provided, the popup shows a "Delete file" button in the footer. */
+  onDelete?: () => Promise<void>;
   onClose: () => void;
 }
 
@@ -33,6 +39,8 @@ export default function ImageMetadataPopup({
   filename,
   inDocument,
   onJump,
+  onRename,
+  onDelete,
   onClose,
 }: ImageMetadataPopupProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -40,6 +48,10 @@ export default function ImageMetadataPopup({
   const [caption, setCaption] = useState("");
   const [description, setDescription] = useState("");
   const [tagsInput, setTagsInput] = useState("");
+  const [renameInput, setRenameInput] = useState(filename);
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
@@ -87,6 +99,47 @@ export default function ImageMetadataPopup({
   const handleJump = () => {
     onJump?.(filename);
     onClose();
+  };
+
+  const handleRename = async () => {
+    if (!onRename) return;
+    const next = renameInput.trim();
+    setRenameError(null);
+    if (!next) {
+      setRenameError("Filename can't be empty.");
+      return;
+    }
+    if (next === filename) {
+      setRenameError("That's already the filename.");
+      return;
+    }
+    setRenaming(true);
+    try {
+      await onRename(next);
+      onClose();
+    } catch (err) {
+      setRenameError(err instanceof Error ? err.message : "Rename failed.");
+    } finally {
+      setRenaming(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!onDelete) return;
+    const ok = window.confirm(
+      `Delete "${filename}"? The file and its sidecar are removed from disk.`
+    );
+    if (!ok) return;
+    setDeleting(true);
+    try {
+      await onDelete();
+      onClose();
+    } catch (err) {
+      console.error("[image-metadata] delete failed", err);
+      alert(err instanceof Error ? err.message : "Delete failed.");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -164,6 +217,35 @@ export default function ImageMetadataPopup({
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+                {onRename && (
+                  <div className="pt-2 border-t border-gray-100">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Filename
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={renameInput}
+                        onChange={(e) => {
+                          setRenameInput(e.target.value);
+                          setRenameError(null);
+                        }}
+                        className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRename}
+                        disabled={renaming || renameInput.trim() === filename || !renameInput.trim()}
+                        className="px-3 py-2 text-xs text-white bg-gray-700 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-40"
+                      >
+                        {renaming ? "Renaming…" : "Rename"}
+                      </button>
+                    </div>
+                    {renameError && (
+                      <p className="mt-1 text-xs text-red-600">{renameError}</p>
+                    )}
+                  </div>
+                )}
                 {sidecar?.source && (
                   <div className="text-xs text-gray-400 pt-1 space-y-0.5">
                     <p>
@@ -180,19 +262,31 @@ export default function ImageMetadataPopup({
         </div>
 
         <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={handleJump}
-            disabled={!inDocument}
-            className="px-3 py-2 text-xs text-blue-700 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            title={
-              inDocument
-                ? "Scroll the rendered note to this image"
-                : "This image isn't in the note yet — drag it in first"
-            }
-          >
-            ↪ Jump to occurrence in note
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleJump}
+              disabled={!inDocument}
+              className="px-3 py-2 text-xs text-blue-700 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              title={
+                inDocument
+                  ? "Scroll the rendered note to this image"
+                  : "This image isn't in the note yet — drag it in first"
+              }
+            >
+              ↪ Jump to occurrence in note
+            </button>
+            {onDelete && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="px-3 py-2 text-xs text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
+              >
+                {deleting ? "Deleting…" : "🗑 Delete file"}
+              </button>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <button
               type="button"

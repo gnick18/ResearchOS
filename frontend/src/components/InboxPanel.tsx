@@ -1,14 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { fileService } from "@/lib/file-system/file-service";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
-import { imageEvents } from "@/lib/attachments/image-events";
-import { listImagesInFolder, type FolderImageEntry, sidecarPath } from "@/lib/attachments/image-folder";
-import { moveImageBetweenBases } from "@/lib/attachments/move-image";
+import { listImagesInFolder, type FolderImageEntry } from "@/lib/attachments/image-folder";
+import {
+  deleteImageFromBase,
+  moveImageBetweenBases,
+  renameImageInPlace,
+} from "@/lib/attachments/move-image";
 import { resolveTaskResultsBase } from "@/lib/tasks/results-paths";
 import { useAppStore, type ActiveTask } from "@/lib/store";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import ImageMetadataPopup from "./ImageMetadataPopup";
 
 interface InboxPanelProps {
   onClose: () => void;
@@ -28,6 +31,7 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
   const [entries, setEntries] = useState<InboxEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [popupFilename, setPopupFilename] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!currentUser) return;
@@ -78,11 +82,7 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
       if (!ok) return;
       setBusy(entry.name);
       try {
-        const inbox = inboxBase(currentUser);
-        await fileService.deleteFile(`${inbox}/Images/${entry.name}`);
-        await fileService.deleteFile(sidecarPath(inbox, entry.name));
-        blobUrlResolver.revokePath(`${inbox}/Images/${entry.name}`);
-        imageEvents.emitDeleted({ basePath: inbox, filename: entry.name });
+        await deleteImageFromBase(inboxBase(currentUser), entry.name);
         await refresh();
       } finally {
         setBusy(null);
@@ -134,7 +134,9 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
                 return (
                   <li
                     key={entry.name}
-                    className="flex items-center gap-3 p-2 rounded-lg border border-gray-100 hover:border-gray-200"
+                    className="flex items-center gap-3 p-2 rounded-lg border border-gray-100 hover:border-blue-200 hover:bg-blue-50/30 cursor-pointer transition-colors"
+                    onClick={() => setPopupFilename(entry.name)}
+                    title="Click to edit caption, rename, or delete"
                   >
                     {entry.blobUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -159,7 +161,10 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
                         </p>
                       )}
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div
+                      className="flex items-center gap-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <button
                         type="button"
                         disabled={!activeTask || busy === entry.name}
@@ -189,6 +194,22 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
           )}
         </div>
       </div>
+      {popupFilename && currentUser && (
+        <ImageMetadataPopup
+          basePath={inboxBase(currentUser)}
+          filename={popupFilename}
+          inDocument={false}
+          onRename={async (newFilename) => {
+            await renameImageInPlace(inboxBase(currentUser), popupFilename, newFilename);
+            await refresh();
+          }}
+          onDelete={async () => {
+            await deleteImageFromBase(inboxBase(currentUser), popupFilename);
+            await refresh();
+          }}
+          onClose={() => setPopupFilename(null)}
+        />
+      )}
     </div>
   );
 }
