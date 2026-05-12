@@ -16,6 +16,7 @@ import {
   type StampData,
 } from "@/lib/stamp-utils";
 import { useFileRenamePopup } from "@/components/FileRenamePopup";
+import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 
 interface ResultsEditorProps {
   task: Task;
@@ -45,6 +46,7 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
   const [selectedAttachment, setSelectedAttachment] = useState<Attachment | null>(null);
   const [stamp, setStamp] = useState<StampData | null>(null);
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
+  const [attachmentUrls, setAttachmentUrls] = useState<Map<string, string>>(new Map());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
   
@@ -157,6 +159,38 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
   useEffect(() => {
     loadAttachments();
   }, [loadAttachments]);
+
+  // Resolve every attachment to a blob URL so <img>, <iframe>, and <a download>
+  // tags can render directly from the File System Access folder. `getRawUrl`
+  // used to return a backend URL; under FSA we hand back a `blob:` URL instead.
+  useEffect(() => {
+    if (attachments.length === 0) {
+      setAttachmentUrls(new Map());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const newPairs: Array<[string, string]> = [];
+      for (const att of attachments) {
+        const cached = blobUrlResolver.getCachedUrl(att.path);
+        if (cached) {
+          newPairs.push([att.path, cached]);
+          continue;
+        }
+        const url = await blobUrlResolver.getBlobUrl(att.path);
+        if (url) newPairs.push([att.path, url]);
+      }
+      if (cancelled || newPairs.length === 0) return;
+      setAttachmentUrls((prev) => {
+        const next = new Map(prev);
+        for (const [path, url] of newPairs) next.set(path, url);
+        return next;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [attachments]);
 
   // Handle file upload (saves to attachments folder, does NOT embed in markdown)
   const handleFileUpload = useCallback(
@@ -283,8 +317,14 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
     async (attachment: Attachment) => {
       if (!confirm(`Delete ${attachment.name}?`)) return;
       try {
-        // Delete by using the deleteDirectory endpoint for single file
         await githubApi.deleteDirectory(attachment.path);
+        blobUrlResolver.revokePath(attachment.path);
+        setAttachmentUrls((prev) => {
+          if (!prev.has(attachment.path)) return prev;
+          const next = new Map(prev);
+          next.delete(attachment.path);
+          return next;
+        });
         await loadAttachments();
         if (selectedAttachment?.path === attachment.path) {
           setSelectedAttachment(null);
@@ -494,7 +534,7 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
                       <div className="h-32 bg-gray-50 flex items-center justify-center">
                         {att.type === "image" ? (
                           <img
-                            src={githubApi.getRawUrl(att.path)}
+                            src={attachmentUrls.get(att.path) ?? ""}
                             alt={att.name}
                             className="max-h-full max-w-full object-contain"
                           />
@@ -534,7 +574,7 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
                       </h4>
                       <div className="flex items-center gap-2">
                         <a
-                          href={githubApi.getRawUrl(selectedAttachment.path)}
+                          href={attachmentUrls.get(selectedAttachment.path) ?? ""}
                           download={selectedAttachment.name}
                           className="px-3 py-1.5 text-xs text-blue-600 hover:bg-blue-50 rounded-lg"
                         >
@@ -557,13 +597,13 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
                     <div className="flex-1 overflow-auto p-6">
                       {selectedAttachment.type === "image" ? (
                         <img
-                          src={githubApi.getRawUrl(selectedAttachment.path)}
+                          src={attachmentUrls.get(selectedAttachment.path) ?? ""}
                           alt={selectedAttachment.name}
                           className="max-w-full max-h-full mx-auto"
                         />
                       ) : selectedAttachment.type === "pdf" ? (
                         <iframe
-                          src={githubApi.getRawUrl(selectedAttachment.path)}
+                          src={attachmentUrls.get(selectedAttachment.path) ?? ""}
                           className="w-full h-full min-h-[500px]"
                           title={selectedAttachment.name}
                         />
@@ -573,7 +613,7 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
                             Preview not available for this file type.
                           </p>
                           <a
-                            href={githubApi.getRawUrl(selectedAttachment.path)}
+                            href={attachmentUrls.get(selectedAttachment.path) ?? ""}
                             download={selectedAttachment.name}
                             className="mt-4 inline-block px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700"
                           >

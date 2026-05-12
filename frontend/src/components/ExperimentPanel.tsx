@@ -1,14 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import rehypeRaw from "rehype-raw";
 import { githubApi, methodsApi, tasksApi, pcrApi, projectsApi, attachmentsApi, type ImageUploadResponse } from "@/lib/local-api";
 import type { GitHubTreeItem } from "@/lib/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { InteractiveGradientEditor } from "@/components/InteractiveGradientEditor";
 import LiveMarkdownEditor from "@/components/LiveMarkdownEditor";
+import RenderedMarkdown from "@/components/RenderedMarkdown";
 import ImageGalleryPopup from "@/components/ImageGalleryPopup";
 import type { Method, Task, PCRProtocol, PCRGradient, PCRIngredient } from "@/lib/types";
 import {
@@ -730,11 +728,11 @@ function MethodTab({ task }: { task: Task }) {
             className="w-full h-full min-h-[400px] p-6 text-sm font-mono text-gray-700 resize-none focus:outline-none"
           />
         ) : (
-          <div className="p-6 prose prose-sm prose-gray max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-              {methodContent}
-            </ReactMarkdown>
-          </div>
+          <RenderedMarkdown
+            content={methodContent}
+            basePath={method?.github_path ? method.github_path.split("/").slice(0, -1).join("/") : undefined}
+            className="p-6 prose prose-sm prose-gray max-w-none"
+          />
         )}
       </div>
     </div>
@@ -1330,11 +1328,11 @@ function PdfAttachmentsPanel({ task, pdfsDir, label, onFilesChange }: { task: Ta
         <div className="flex-1 overflow-hidden">
           {isMarkdown ? (
             markdownContent ? (
-              <div className="h-full overflow-y-auto p-6 prose prose-sm prose-gray max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-                  {markdownContent}
-                </ReactMarkdown>
-              </div>
+              <RenderedMarkdown
+                content={markdownContent}
+                basePath={activeFile?.path.split("/").slice(0, -1).join("/")}
+                className="h-full overflow-y-auto p-6 prose prose-sm prose-gray max-w-none"
+              />
             ) : (
               <div className="flex items-center justify-center h-full">
                 <p className="text-sm text-gray-400 animate-pulse">Loading...</p>

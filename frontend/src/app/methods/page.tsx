@@ -2,15 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import rehypeRaw from "rehype-raw";
 import { methodsApi, githubApi, pcrApi, usersApi } from "@/lib/local-api";
 import { fileService } from "@/lib/file-system/file-service";
 import { migrateNoteImages } from "@/lib/notes/migrate-images";
-import { createImageComponent } from "@/lib/markdown-helpers";
 import AppShell from "@/components/AppShell";
 import LiveMarkdownEditor from "@/components/LiveMarkdownEditor";
+import RenderedMarkdown from "@/components/RenderedMarkdown";
 import { InteractiveGradientEditor } from "@/components/InteractiveGradientEditor";
 import MethodExperimentsSidebar from "@/components/MethodExperimentsSidebar";
 import { useFileRenamePopup } from "@/components/FileRenamePopup";
@@ -1495,19 +1492,11 @@ function MarkdownMethodViewer({
               )}
             </div>
           ) : (
-            <div className="p-6 prose prose-sm prose-gray max-w-none">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeRaw]}
-                components={{
-                  img: createImageComponent(
-                    currentMethod.github_path?.substring(0, currentMethod.github_path.lastIndexOf("/")) || ""
-                  ),
-                }}
-              >
-                {content}
-              </ReactMarkdown>
-            </div>
+            <RenderedMarkdown
+              content={content}
+              basePath={currentMethod.github_path?.substring(0, currentMethod.github_path.lastIndexOf("/")) || ""}
+              className="p-6 prose prose-sm prose-gray max-w-none"
+            />
           )}
         </div>
       </div>
