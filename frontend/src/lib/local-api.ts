@@ -1944,114 +1944,20 @@ export const usersApi = {
     
     return { status: "error", deleted_username: "", message: "Invalid confirmation step" };
   },
-  
-  listAtPath: async (path: string): Promise<UsersAtPathResponse> => {
-    return { users: [], path, exists: false };
-  },
-  
-  previewMigration: async (request: UserMigrationPreviewRequest): Promise<UserMigrationPreviewResponse> => ({ 
-    status: "error", 
-    source_username: request.source_username,
-    target_username: request.target_username,
-    source_path: request.source_path,
-    target_path: request.target_path,
-    can_proceed: false,
-    warnings: ["Migration not supported in local mode"],
-    stats: {
-      projects_count: 0,
-      tasks_count: 0,
-      dependencies_count: 0,
-      methods_count: 0,
-      events_count: 0,
-      goals_count: 0,
-      pcr_protocols_count: 0,
-      purchase_items_count: 0,
-      notes_count: 0,
-      lab_links_count: 0,
-      images_count: 0,
-      files_count: 0,
-      total_size_bytes: 0,
-    },
-    existing_users_in_target: [],
-  }),
-  
-  migrateUser: async (request: UserMigrationRequest): Promise<UserMigrationResponse> => ({ 
-    status: "error", 
-    message: "Migration not supported in local mode", 
-    source_username: request.source_username,
-    target_username: request.target_username,
-    target_path: request.target_path,
-    id_mappings: {},
-    items_migrated: 0,
-    bytes_copied: 0,
-  }),
-  
-  getMigrationProgress: async (): Promise<UserMigrationProgress> => ({ status: "idle", current_step: "", items_processed: 0, total_items: 0, bytes_copied: 0, total_bytes: 0, error_message: "" }),
 };
 
+// TODO: replace callers (app/{purchases,experiments,search,gantt,results}/page.tsx
+// and DailyTasksSidebar.tsx) with useCurrentUser() from @/hooks/useCurrentUser
+// and delete this object.
 export const settingsApi = {
   get: async () => {
     const currentUser = await getCurrentUserCached();
     const mainUser = await getMainUser();
     return {
-      github_token_masked: "",
-      github_repo: "",
-      github_localpath: "",
       current_user: currentUser || "",
       main_user: mainUser || "",
-      storage_mode: "local",
-      is_configured: true,
     };
   },
-  
-  update: async (data: SettingsUpdate): Promise<SettingsResponse> => {
-    return settingsApi.get();
-  },
-  
-  verify: async (): Promise<SettingsVerifyResponse> => {
-    return { status: "ok" };
-  },
-  
-  checkDataPath: async (): Promise<DataPathCheckResponse> => {
-    return { status: "ok", message: "Connected" };
-  },
-  
-  reload: async () => {
-    return { status: "ok", message: "Reloaded", github_localpath: "" };
-  },
-  
-  getStorageMode: async (): Promise<StorageModeResponse> => {
-    return { mode: "local", path: "", is_configured: true };
-  },
-  
-  setupFolder: async (data: FolderSetupRequest): Promise<FolderSetupResponse> => {
-    return { status: "ok", message: "Folder configured", path: data.local_path, mode: data.mode, created_folders: false };
-  },
-};
-
-export const migrationApi = {
-  preview: async (request: MigrationRequest): Promise<MigrationPreview> => ({ 
-    source_path: request.destination_path,
-    destination_path: request.destination_path,
-    total_size_bytes: 0,
-    file_count: 0,
-    folder_count: 0,
-    has_git_folder: false,
-    users_found: [],
-    warnings: ["Migration not supported in local mode"],
-    can_proceed: false,
-  }),
-  execute: async (request: MigrationRequest): Promise<MigrationResponse> => ({ 
-    status: "error", 
-    message: "Migration not supported in local mode", 
-    source_path: request.destination_path,
-    destination_path: request.destination_path,
-    bytes_copied: 0,
-    files_copied: 0,
-    new_storage_mode: request.target_mode,
-  }),
-  getProgress: async (): Promise<MigrationProgress> => ({ status: "idle", bytes_copied: 0, total_bytes: 0, files_copied: 0, total_files: 0, current_file: "", error_message: "", progress_percent: 0 }),
-  cancel: async (): Promise<{ status: string; message: string }> => ({ status: "ok", message: "Cancelled" }),
 };
 
 async function readBlobAsText(blob: Blob): Promise<string> {
@@ -2288,171 +2194,6 @@ export interface DuplicateCheckResult {
   }>;
 }
 
-export interface DataPathCheckResponse {
-  status: "ok" | "error";
-  error_type?: "not_configured" | "path_not_found" | "not_git_repo" | "permission_denied";
-  message: string;
-  configured_path?: string;
-  storage_mode?: string;
-}
-
-export interface FolderSetupRequest {
-  mode: "github" | "local";
-  local_path: string;
-  github_token?: string;
-  github_repo?: string;
-  create_if_missing: boolean;
-}
-
-export interface FolderSetupResponse {
-  status: string;
-  message: string;
-  path: string;
-  mode: string;
-  created_folders: boolean;
-}
-
-export interface StorageModeResponse {
-  mode: string;
-  path: string;
-  is_configured: boolean;
-}
-
-export interface SettingsResponse {
-  github_token_masked: string;
-  github_repo: string;
-  github_localpath: string;
-  current_user: string;
-  main_user: string;
-  storage_mode: string;
-  is_configured: boolean;
-}
-
-export interface SettingsUpdate {
-  github_token?: string;
-  github_repo?: string;
-  github_localpath?: string;
-  current_user?: string;
-  main_user?: string;
-  storage_mode?: string;
-}
-
-export interface SettingsVerifyResponse {
-  status: "ok" | "error";
-  message?: string;
-  issues?: string[];
-}
-
-export interface MigrationRequest {
-  destination_path: string;
-  migration_type: "copy" | "move";
-  target_mode: "github" | "local";
-  remove_git_folder: boolean;
-  new_github_repo?: string;
-  new_github_token?: string;
-}
-
-export interface MigrationPreview {
-  source_path: string;
-  destination_path: string;
-  total_size_bytes: number;
-  file_count: number;
-  folder_count: number;
-  has_git_folder: boolean;
-  users_found: string[];
-  warnings: string[];
-  can_proceed: boolean;
-}
-
-export interface MigrationProgress {
-  status: "idle" | "in_progress" | "complete" | "error";
-  bytes_copied: number;
-  total_bytes: number;
-  files_copied: number;
-  total_files: number;
-  current_file: string;
-  error_message: string;
-  progress_percent: number;
-}
-
-export interface MigrationResponse {
-  status: string;
-  message: string;
-  source_path: string;
-  destination_path: string;
-  bytes_copied: number;
-  files_copied: number;
-  new_storage_mode: string;
-}
-
-export interface UserMigrationPreviewRequest {
-  source_path: string;
-  source_username: string;
-  target_path: string;
-  target_username: string;
-}
-
-export interface UserMigrationPreviewResponse {
-  status: string;
-  source_username: string;
-  target_username: string;
-  source_path: string;
-  target_path: string;
-  can_proceed: boolean;
-  warnings: string[];
-  stats: {
-    projects_count: number;
-    tasks_count: number;
-    dependencies_count: number;
-    methods_count: number;
-    events_count: number;
-    goals_count: number;
-    pcr_protocols_count: number;
-    purchase_items_count: number;
-    notes_count: number;
-    lab_links_count: number;
-    images_count: number;
-    files_count: number;
-    total_size_bytes: number;
-  };
-  existing_users_in_target: string[];
-}
-
-export interface UserMigrationRequest {
-  source_path: string;
-  source_username: string;
-  target_path: string;
-  target_username: string;
-  delete_source: boolean;
-}
-
-export interface UserMigrationResponse {
-  status: string;
-  message: string;
-  source_username: string;
-  target_username: string;
-  target_path: string;
-  id_mappings: Record<string, Record<number, number>>;
-  items_migrated: number;
-  bytes_copied: number;
-}
-
-export interface UserMigrationProgress {
-  status: "idle" | "in_progress" | "complete" | "error";
-  current_step: string;
-  items_processed: number;
-  total_items: number;
-  bytes_copied: number;
-  total_bytes: number;
-  error_message: string;
-}
-
-export interface UsersAtPathResponse {
-  users: string[];
-  path: string;
-  exists: boolean;
-}
-
 export interface ImageUploadResponse {
   id: number;
   path: string;
@@ -2478,8 +2219,4 @@ export interface MethodExperiment {
   task_type: string;
   experiment_color: string | null;
   variation_notes: string | null;
-}
-
-export function setDataPathErrorCallback(callback: (error: DataPathCheckResponse) => void): void {
-  // No-op in local mode
 }
