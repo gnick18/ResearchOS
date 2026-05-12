@@ -85,7 +85,8 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
       }
       if (activeAttachment.pcr_ingredients) {
         try {
-          setPcrIngredients(JSON.parse(activeAttachment.pcr_ingredients));
+          const parsed = JSON.parse(activeAttachment.pcr_ingredients);
+          setPcrIngredients(Array.isArray(parsed) ? parsed : []);
         } catch {
           setPcrIngredients([]);
         }
@@ -95,8 +96,10 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
       setHasUnsavedChanges(false);
     } else if (fetchedPcrProtocol) {
       // Fall back to protocol data if no attachment data
-      setPcrGradient(fetchedPcrProtocol.gradient);
-      setPcrIngredients(fetchedPcrProtocol.ingredients);
+      setPcrGradient(fetchedPcrProtocol.gradient ?? null);
+      setPcrIngredients(
+        Array.isArray(fetchedPcrProtocol.ingredients) ? fetchedPcrProtocol.ingredients : []
+      );
       setHasUnsavedChanges(false);
     }
   }, [activeAttachment, fetchedPcrProtocol]);
