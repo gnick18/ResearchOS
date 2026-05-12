@@ -2,11 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { labApi, LabUser, LabGoal, LabProject } from "@/lib/local-api";
+import { labApi, LabGoal } from "@/lib/local-api";
+import { useLabData } from "@/hooks/useLabData";
 
 interface LabRoadmapsPanelProps {
-  users: LabUser[];
-  projects: LabProject[];
   selectedUsernames: Set<string>;
   onUserClick?: (username: string) => void;
 }
@@ -54,11 +53,10 @@ function timelineStatus(goal: LabGoal, today: string): {
 }
 
 export default function LabRoadmapsPanel({
-  users,
-  projects,
   selectedUsernames,
   onUserClick,
 }: LabRoadmapsPanelProps) {
+  const { users, projects } = useLabData();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const { data: goals = [], isLoading } = useQuery<LabGoal[]>({

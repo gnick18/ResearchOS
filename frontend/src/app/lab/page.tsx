@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
-import { labApi, usersApi, LabUser, LabTask, LabProject } from "@/lib/local-api";
+import { usersApi, LabTask } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useLabData } from "@/hooks/useLabData";
 import type { Task } from "@/lib/types";
 import LabUserFilterButton from "@/components/LabUserFilterButton";
 import LabSearchPanel from "@/components/LabSearchPanel";
@@ -55,8 +55,6 @@ function labTaskToTask(labTask: LabTask): Task {
 
 type TabType = "activity" | "gantt" | "experiments" | "purchases" | "roadmaps" | "methods" | "notes" | "search";
 
-const LAB_STALE_MS = 60_000;
-
 export default function LabModePage() {
   const router = useRouter();
   const { setCurrentUser } = useCurrentUser();
@@ -66,51 +64,18 @@ export default function LabModePage() {
   const [selectedTask, setSelectedTask] = useState<LabTask | null>(null);
   const [viewingUser, setViewingUser] = useState<string | null>(null);
 
-  const usersQuery = useQuery({
-    queryKey: ["lab", "users"],
-    queryFn: () => labApi.getUsers().then((r) => r.users),
-    staleTime: LAB_STALE_MS,
-    refetchOnWindowFocus: false,
-  });
-  const tasksQuery = useQuery({
-    queryKey: ["lab", "tasks"],
-    queryFn: () => labApi.getTasks({ exclude_goals: true }),
-    staleTime: LAB_STALE_MS,
-    refetchOnWindowFocus: false,
-  });
-  const projectsQuery = useQuery({
-    queryKey: ["lab", "projects"],
-    queryFn: () => labApi.getProjects(),
-    staleTime: LAB_STALE_MS,
-    refetchOnWindowFocus: false,
-  });
-
-  const users: LabUser[] = usersQuery.data ?? [];
-  const tasks: LabTask[] = tasksQuery.data ?? [];
-  const projects: LabProject[] = projectsQuery.data ?? [];
+  const { users, tasks, projects, isLoading, errorMessage, retry } = useLabData();
 
   // Seed the user-filter selection once, when users first load. After that,
   // user toggles are sticky — new users discovered on a refetch don't get
   // auto-selected, but the existing selection isn't blown away either.
   useEffect(() => {
     if (seededSelection) return;
-    if (!usersQuery.isSuccess) return;
+    if (isLoading) return;
+    if (users.length === 0) return;
     setSelectedUsers(new Set(users.map((u) => u.username)));
     setSeededSelection(true);
-  }, [seededSelection, usersQuery.isSuccess, users]);
-
-  const isLoading =
-    usersQuery.isLoading || tasksQuery.isLoading || projectsQuery.isLoading;
-  const errorMessage =
-    usersQuery.error || tasksQuery.error || projectsQuery.error
-      ? "Failed to load data. Please check your connection."
-      : null;
-
-  const retry = useCallback(() => {
-    usersQuery.refetch();
-    tasksQuery.refetch();
-    projectsQuery.refetch();
-  }, [usersQuery, tasksQuery, projectsQuery]);
+  }, [seededSelection, isLoading, users]);
 
   // Filter data by selected users
   const filteredProjects = projects.filter(p => selectedUsers.has(p.username));
@@ -363,9 +328,6 @@ export default function LabModePage() {
         {/* Tab Content */}
         {activeTab === "activity" ? (
           <LabActivityPanel
-            tasks={tasks}
-            users={users}
-            projects={projects}
             selectedUsernames={selectedUsers}
             onTaskClick={setSelectedTask}
             onUserClick={setViewingUser}
@@ -373,48 +335,32 @@ export default function LabModePage() {
           />
         ) : activeTab === "search" ? (
           <LabSearchPanel
-            users={users}
             selectedUsernames={selectedUsers}
-            tasks={tasks}
             onTaskClick={setSelectedTask}
           />
         ) : activeTab === "gantt" ? (
           <LabGanttChart
-            tasks={tasks}
-            users={users}
-            projects={projects}
             selectedUsernames={selectedUsers}
             onTaskClick={(task) => setSelectedTask(task)}
           />
         ) : activeTab === "experiments" ? (
           <LabExperimentsPanel
-            experiments={experiments}
-            users={users}
-            projects={projects}
             selectedUsernames={selectedUsers}
             onExperimentClick={setSelectedTask}
           />
         ) : activeTab === "purchases" ? (
           <LabPurchasesPanel
-            purchases={purchases}
-            users={users}
-            projects={projects}
             selectedUsernames={selectedUsers}
             onPurchaseClick={setSelectedTask}
           />
         ) : activeTab === "methods" ? (
           <LabMethodsPanel
-            tasks={tasks}
-            users={users}
-            projects={projects}
             selectedUsernames={selectedUsers}
             onTaskClick={setSelectedTask}
             onUserClick={setViewingUser}
           />
         ) : activeTab === "roadmaps" ? (
           <LabRoadmapsPanel
-            users={users}
-            projects={projects}
             selectedUsernames={selectedUsers}
             onUserClick={setViewingUser}
           />
@@ -430,7 +376,6 @@ export default function LabModePage() {
       {/* Floating User Filter Button */}
       {users.length > 0 && (
         <LabUserFilterButton
-          users={users}
           selectedUsernames={selectedUsers}
           onToggleUser={toggleUser}
           onSelectAll={selectAllUsers}
@@ -450,22 +395,16 @@ export default function LabModePage() {
       )}
 
       {/* Per-user side panel */}
-      {viewingUser && (() => {
-        const u = users.find((x) => x.username === viewingUser);
-        if (!u) return null;
-        return (
-          <LabUserDetailPanel
-            user={u}
-            tasks={tasks}
-            projects={projects}
-            onClose={() => setViewingUser(null)}
-            onTaskClick={(task) => {
-              setViewingUser(null);
-              setSelectedTask(task);
-            }}
-          />
-        );
-      })()}
+      {viewingUser && (
+        <LabUserDetailPanel
+          username={viewingUser}
+          onClose={() => setViewingUser(null)}
+          onTaskClick={(task) => {
+            setViewingUser(null);
+            setSelectedTask(task);
+          }}
+        />
+      )}
     </div>
   );
 }

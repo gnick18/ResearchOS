@@ -1,10 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { LabUser } from "@/lib/local-api";
+import { useLabData } from "@/hooks/useLabData";
 
 interface LabUserFilterButtonProps {
-  users: LabUser[];
   selectedUsernames: Set<string>;
   onToggleUser: (username: string) => void;
   onSelectAll: () => void;
@@ -16,13 +15,13 @@ interface LabUserFilterButtonProps {
 const POSITION_STORAGE_KEY = "lab-filter-button-position-v2"; // v2 to reset position
 
 export default function LabUserFilterButton({
-  users,
   selectedUsernames,
   onToggleUser,
   onSelectAll,
   onDeselectAll,
   onViewUser,
 }: LabUserFilterButtonProps) {
+  const { users } = useLabData();
   const [isExpanded, setIsExpanded] = useState(false);
   // Default position is bottom-right (will be calculated on first render)
   const [position, setPosition] = useState(() => {

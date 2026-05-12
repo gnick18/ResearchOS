@@ -1,13 +1,11 @@
 "use client";
 
-import { useMemo, useState, useCallback, useEffect } from "react";
-import { LabTask, LabUser, LabProject } from "@/lib/local-api";
+import { useMemo, useState, useCallback } from "react";
+import { LabTask } from "@/lib/local-api";
 import { useAppStore } from "@/lib/store";
+import { useLabData } from "@/hooks/useLabData";
 
 interface LabGanttChartProps {
-  tasks: LabTask[];
-  users: LabUser[];
-  projects: LabProject[];
   selectedUsernames: Set<string>;
   onTaskClick: (task: LabTask) => void;
 }
@@ -207,27 +205,12 @@ function getCompletedTaskColor(hexColor: string): { color: string; opacity: numb
 }
 
 export default function LabGanttChart({
-  tasks,
-  users,
-  projects,
   selectedUsernames,
   onTaskClick,
 }: LabGanttChartProps) {
+  const { users, tasks, projects } = useLabData();
   const viewMode = useAppStore((s) => s.viewMode);
   const ganttStartDate = useAppStore((s) => s.ganttStartDate);
-
-  // Debug logging
-  useEffect(() => {
-    console.log("LabGanttChart - Props received:", {
-      tasksCount: tasks?.length || 0,
-      usersCount: users?.length || 0,
-      projectsCount: projects?.length || 0,
-      selectedUsernamesSize: selectedUsernames?.size || 0,
-      selectedUsernames: selectedUsernames ? Array.from(selectedUsernames) : [],
-      firstTask: tasks?.[0],
-      users: users?.map(u => ({ username: u.username, color: u.color })),
-    });
-  }, [tasks, users, projects, selectedUsernames]);
 
   const weeksToShow = useMemo(() => {
     switch (viewMode) {
