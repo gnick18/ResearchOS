@@ -51,10 +51,8 @@ If you prefer to install manually or are a developer, follow these steps:
 
 | Requirement | Version | Where to Get It |
 |-------------|---------|-----------------|
-| **Python** | 3.10+ | [python.org/downloads](https://www.python.org/downloads/) |
 | **Node.js** | 18+ | [nodejs.org](https://nodejs.org/) |
-| **Git** | Any | [git-scm.com/downloads](https://git-scm.com/downloads) |
-| **GitHub Account** | Free | [github.com/signup](https://github.com/signup) |
+| **Chromium browser** | Recent | Chrome, Edge, or Brave — Firefox/Safari aren't supported (File System Access API) |
 
 #### Steps
 
@@ -66,12 +64,7 @@ If you prefer to install manually or are a developer, follow these steps:
 
 2. **Install dependencies:**
    ```bash
-   # Backend
-   cd backend
-   pip install -r requirements.txt
-   
-   # Frontend
-   cd ../frontend
+   cd frontend
    npm install
    ```
 
@@ -94,65 +87,43 @@ If you prefer to install manually or are a developer, follow these steps:
 
 ## First-Time Setup
 
-When you first launch ResearchOS, you'll need to configure it:
+When you first launch ResearchOS, the app will ask you to pick a folder
+on your computer to store research data in. Pick (or create) an empty
+folder anywhere you like — Desktop, Documents, a OneDrive/Dropbox folder
+if you want sync, or a folder inside a git clone if you want version
+control.
 
-### 1. Create a Private Data Repository
+The browser will prompt for read/write access to that folder. ResearchOS
+keeps everything (projects, tasks, methods, notes, images) inside it as
+plain JSON and markdown — no server, no cloud account required.
 
-ResearchOS stores your data in your own private GitHub repository:
-
-1. Go to [GitHub](https://github.com/new) and create a new repository
-2. Name it `ResearchOS` (or any name you prefer)
-3. Set it to **Private**
-4. Leave it empty (don't initialize with README)
-
-### 2. Create a GitHub Personal Access Token
-
-1. Go to [GitHub Settings > Tokens](https://github.com/settings/tokens)
-2. Click "Generate new token (classic)"
-3. Give it a name (e.g., "ResearchOS")
-4. Select the `repo` scope
-5. Click "Generate token" and copy it
-
-### 3. Configure ResearchOS
-
-1. Click the **Settings** button (gear icon) in ResearchOS
-2. Enter:
-   - **GitHub Token**: Your personal access token
-   - **Data Repository**: Your private repo name (e.g., `username/ResearchOS`)
-   - **Local Path**: Where to store data locally
-
-That's it! ResearchOS will automatically save your research data to GitHub.
+If multiple people share the folder (e.g. via OneDrive/Dropbox), each
+person picks the same folder and selects their own username from the
+login screen.
 
 ---
 
 ## How Data Storage Works
 
 ```
-+-------------------+                    +-------------------+
-|  Code Repository  |                    |  Data Repository  |
-| (this one)        |                    | (you create)      |
-|                   |                    |                   |
-| - Application     |                    | - Your projects   |
-|   source code     |                    | - Your tasks      |
-| - Read-only       |                    | - Your methods    |
-+-------------------+                    | - Private!        |
-         |                               +-------------------+
-         | Clone once                           ^
-         v                                      | Auto-save
-+-------------------+                            |
-|  Your Computer    |----------------------------+
-|                   |
-| - Backend server  |
-| - Frontend app    |
-| - Local data copy |
-+-------------------+
++-----------------------------+
+|        Your Browser         |
+|  (Chrome / Edge / Brave)    |
+|                             |
+|  ResearchOS app             |
+|     |                       |
+|     | File System Access    |
+|     v                       |
+|  Folder on your disk        |
+|  - users/{username}/...     |
+|  - methods/...              |
+|  - results/task-{id}/...    |
++-----------------------------+
 ```
 
-**Why two repositories?**
-- **Privacy**: Your research data stays private
-- **Backup**: Every change is automatically saved to GitHub
-- **Version History**: You can see and revert any change
-- **Collaboration**: Share your data repo with lab members
+Everything lives in the folder you picked. To back up, sync, or share
+with collaborators, point a tool you already trust (OneDrive, Dropbox,
+git, rsync, Time Machine) at that folder.
 
 ---
 
@@ -160,20 +131,11 @@ That's it! ResearchOS will automatically save your research data to GitHub.
 
 ```
 ResearchOS/
-├── backend/                 # FastAPI Python backend
-│   ├── app/
-│   │   ├── main.py         # Application entry point
-│   │   ├── config.py       # Settings configuration
-│   │   ├── git_sync.py     # Auto git commit/push
-│   │   ├── storage.py      # JSON file storage
-│   │   ├── routers/        # API endpoints
-│   │   └── engine/         # Scheduling engine
-│   └── requirements.txt
-├── frontend/               # Next.js React frontend
+├── frontend/               # Next.js React app (all the code)
 │   ├── src/
 │   │   ├── app/           # Pages
 │   │   ├── components/    # React components
-│   │   └── lib/           # Utilities and API
+│   │   └── lib/           # Utilities, FSA layer, API replacement
 │   └── package.json
 ├── installer/              # Electron-based smart installer
 │   ├── src/
@@ -181,9 +143,14 @@ ResearchOS/
 │   │   ├── preload.js     # IPC bridge
 │   │   └── renderer/      # UI components
 │   └── package.json
-├── start.sh               # Start script (macOS/Linux)
-└── start.ps1              # Start script (Windows)
+├── scripts/                # One-off maintenance scripts
+├── start.sh                # Start script (macOS/Linux)
+└── start.ps1               # Start script (Windows)
 ```
+
+ResearchOS is now fully client-side: every interaction with your data
+goes through the browser's File System Access API, talking to a folder
+you pick on your own disk. There is no separate backend process.
 
 ---
 
@@ -211,15 +178,14 @@ Ensure the local path in Settings points to a valid directory.
 2. Ensure you have push access to the repository
 
 ### "Port already in use"
-The start script automatically kills processes on ports 8000 and 3000. If issues persist:
+The start script automatically kills the process on port 3000. If issues persist:
 
 ```bash
 # macOS/Linux
-lsof -ti tcp:8000 | xargs kill -9
 lsof -ti tcp:3000 | xargs kill -9
 
 # Windows
-netstat -ano | findstr :8000
+netstat -ano | findstr :3000
 taskkill /PID <PID> /F
 ```
 
@@ -229,12 +195,9 @@ taskkill /PID <PID> /F
 
 ### Running Tests
 ```bash
-cd backend
-pytest
+cd frontend
+npm test
 ```
-
-### API Documentation
-Access interactive API docs at [http://localhost:8000/docs](http://localhost:8000/docs) when the backend is running.
 
 ---
 
