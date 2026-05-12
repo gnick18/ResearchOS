@@ -94,6 +94,18 @@ export default function LabPurchasesPanel({
     return totals;
   }, [visibleItems]);
 
+  // Lab-wide spend per funding string across ALL users (not just selected).
+  // FundingAccount.spent on disk is stale (set to 0 at create time and never
+  // recomputed), so we derive the displayed "Spent" from items here.
+  const spentByFundingAll = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const item of allItems) {
+      const key = item.funding_string || UNCATEGORIZED;
+      totals.set(key, (totals.get(key) ?? 0) + (item.total_price ?? 0));
+    }
+    return totals;
+  }, [allItems]);
+
   // Lookup: "username:taskId" -> parent purchase task. Used to attribute
   // line items to a project and month for summary rollups.
   const taskLookup = useMemo(() => {
@@ -272,6 +284,13 @@ export default function LabPurchasesPanel({
               {fundingAccounts.map((acc) => {
                 const visibleSpent = spentByFunding.get(acc.name) ?? 0;
                 const isSelected = selectedFundingString === acc.name;
+                // Derive these locally — FundingAccount.spent/remaining on disk
+                // is unreliable (set to 0 on create, never recomputed, and
+                // missing entirely on older account files).
+                const budget = acc.total_budget ?? 0;
+                const spent = spentByFundingAll.get(acc.name) ?? 0;
+                const remaining = budget - spent;
+                const pct = budget > 0 ? (spent / budget) * 100 : 0;
                 return (
                   <div
                     key={acc.id}
@@ -286,11 +305,11 @@ export default function LabPurchasesPanel({
                       <p className="text-sm font-medium text-gray-900 truncate" title={acc.name}>
                         {acc.name}
                       </p>
-                      {acc.remaining < 0 ? (
+                      {budget > 0 && remaining < 0 ? (
                         <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">
                           Over Budget
                         </span>
-                      ) : acc.remaining < acc.total_budget * 0.1 ? (
+                      ) : budget > 0 && remaining < budget * 0.1 ? (
                         <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
                           Low
                         </span>
@@ -299,7 +318,7 @@ export default function LabPurchasesPanel({
                     <div className="space-y-1">
                       <div className="flex justify-between text-xs">
                         <span className="text-gray-500">Spent</span>
-                        <span className="font-medium text-gray-900">${acc.spent.toFixed(2)}</span>
+                        <span className="font-medium text-gray-900">${spent.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-xs">
                         <span className="text-gray-500">In view</span>
@@ -307,27 +326,21 @@ export default function LabPurchasesPanel({
                       </div>
                       <div className="flex justify-between text-xs">
                         <span className="text-gray-500">Budget</span>
-                        <span className="font-medium text-gray-900">${acc.total_budget.toFixed(2)}</span>
+                        <span className="font-medium text-gray-900">${budget.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-xs">
                         <span className="text-gray-500">Remaining</span>
-                        <span className={`font-medium ${acc.remaining < 0 ? "text-red-600" : "text-emerald-600"}`}>
-                          ${acc.remaining.toFixed(2)}
+                        <span className={`font-medium ${remaining < 0 ? "text-red-600" : "text-emerald-600"}`}>
+                          ${remaining.toFixed(2)}
                         </span>
                       </div>
                       {/* Progress bar */}
                       <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all ${
-                            acc.spent > acc.total_budget
-                              ? "bg-red-500"
-                              : acc.spent > acc.total_budget * 0.8
-                              ? "bg-amber-500"
-                              : "bg-emerald-500"
+                            pct > 100 ? "bg-red-500" : pct > 80 ? "bg-amber-500" : "bg-emerald-500"
                           }`}
-                          style={{
-                            width: `${Math.min(100, (acc.spent / acc.total_budget) * 100) || 0}%`,
-                          }}
+                          style={{ width: `${Math.min(100, pct)}%` }}
                         />
                       </div>
                     </div>
