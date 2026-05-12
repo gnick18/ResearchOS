@@ -552,18 +552,33 @@ export default function LiveMarkdownEditor({
   const [showImageStrip, setShowImageStrip] = useState(false);
   const editorContentRef = useRef<HTMLDivElement>(null);
 
-  // Scroll the rendered preview/hybrid editor to the Nth image when the user
-  // clicks a thumbnail in the strip. In Edit mode there are no rendered
-  // images (just textarea text), so we first flip into Preview mode and let
-  // the scroll happen on the next paint. A short ring outline flashes on the
-  // target so the user can spot which image they jumped to.
+  // Scroll the rendered preview/hybrid editor to the image with the given
+  // filename when the user clicks an in-document thumbnail in the strip. For
+  // linked-only thumbnails (not yet in the body) we don't have an <img> to
+  // scroll to — Phase 4's metadata popup will take over the click handler;
+  // until then we just no-op for those.
   const handleImageStripClick = useCallback(
-    (index: number) => {
+    (filename: string, inDocument: boolean) => {
+      if (!inDocument) return;
       const scroll = () => {
         const root = editorContentRef.current;
         if (!root) return;
-        const imgs = root.querySelectorAll("img");
-        const target = imgs[index] as HTMLImageElement | undefined;
+        const imgs = Array.from(root.querySelectorAll("img"));
+        const target = imgs.find((img) => {
+          const src = img.getAttribute("src") ?? "";
+          // Blob URLs don't contain the filename; match against alt or the
+          // resolved data-orig-src attribute if rendered, falling back to a
+          // suffix check on src for non-blob (e.g. external) cases.
+          const alt = img.getAttribute("alt") ?? "";
+          const dataSrc = img.getAttribute("data-orig-src") ?? "";
+          return (
+            dataSrc.endsWith(`/${filename}`) ||
+            dataSrc.endsWith(filename) ||
+            src.endsWith(`/${filename}`) ||
+            src.endsWith(filename) ||
+            alt === filename
+          );
+        }) as HTMLImageElement | undefined;
         if (!target) return;
         target.scrollIntoView({ behavior: "smooth", block: "center" });
         target.classList.add("ring-4", "ring-blue-400", "ring-offset-2", "transition-shadow");
@@ -574,11 +589,8 @@ export default function LiveMarkdownEditor({
 
       if (currentMode === "edit") {
         setMode("preview");
-        // Wait two frames for ReactMarkdown to render the preview before
-        // we try to find the img element.
         requestAnimationFrame(() => requestAnimationFrame(scroll));
       } else {
-        // hybrid + preview both render images immediately.
         requestAnimationFrame(scroll);
       }
     },

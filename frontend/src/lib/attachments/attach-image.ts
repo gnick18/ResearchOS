@@ -1,5 +1,6 @@
 import { fileService } from "@/lib/file-system/file-service";
 import { taskResultsBase } from "@/lib/tasks/results-paths";
+import { imageEvents } from "@/lib/attachments/image-events";
 
 function splitFilenameExt(name: string): { stem: string; ext: string } {
   const dot = name.lastIndexOf(".");
@@ -57,6 +58,8 @@ export async function attachImageToTask(opts: AttachImageOptions): Promise<Attac
   const relativePath = `Images/${finalFilename}`;
   const alt = opts.altText ?? opts.suggestedFilename;
   const markdownSnippet = `\n![${alt}](${relativePath})\n`;
+
+  imageEvents.emitAttached({ basePath: base, relativePath });
 
   return {
     relativePath,
