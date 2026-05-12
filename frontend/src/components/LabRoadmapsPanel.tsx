@@ -72,11 +72,15 @@ export default function LabRoadmapsPanel({
     return (username: string) => map.get(username) ?? "#6b7280";
   }, [users]);
 
+  // Personal goals (project_id === null) are filtered out by labApi.getGoals
+  // before they ever reach lab mode, so we don't need to handle that case.
   const projectNameFor = useMemo(() => {
     const map = new Map<string, string>();
     for (const p of projects) map.set(`${p.username}:${p.id}`, p.name);
     return (username: string, projectId: number | null) =>
-      projectId === null ? "Personal" : map.get(`${username}:${projectId}`) ?? "Unknown project";
+      projectId === null
+        ? "Unknown project"
+        : map.get(`${username}:${projectId}`) ?? "Unknown project";
   }, [projects]);
 
   // Group goals by username, sorted by start_date asc within each user.

@@ -1664,6 +1664,10 @@ export const labApi = {
   // #14: lab-wide goals view. Returns each user's HighLevelGoals annotated
   // with username + color, skipping any user who opted out via
   // _user_metadata.json (hide_goals_from_lab). Used by the Roadmaps tab.
+  //
+  // Privacy contract: personal goals (project_id === null) are NEVER
+  // exposed to lab mode. Only project-scoped goals propagate. The
+  // hide_goals_from_lab flag is the additional opt-out for project goals.
   getGoals: async (): Promise<LabGoal[]> => {
     const { usernames, metadata } = await loadLabUsers();
     const out: LabGoal[] = [];
@@ -1672,6 +1676,7 @@ export const labApi = {
       const userGoals = await goalsStore.listAllForUser(username);
       const userColor = colorFor(metadata, username);
       for (const g of userGoals) {
+        if (g.project_id === null) continue; // personal goal, never shared
         out.push({
           id: g.id,
           name: g.name,
