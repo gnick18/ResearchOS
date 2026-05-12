@@ -13,6 +13,7 @@ import ImageResizePopover from "./ImageResizePopover";
 import { rewriteImageBySrcAlt, parseWidthPercent } from "@/lib/image-resize-utils";
 import ImageStrip from "./ImageStrip";
 import ImageTrashDropZone from "./ImageTrashDropZone";
+import { caretOffsetFromPoint } from "@/lib/utils/textarea-caret";
 
 // Transparent 1×1 GIF used as the `src` placeholder while the real blob URL
 // is being resolved asynchronously, so the browser never tries to fetch the
@@ -1619,10 +1620,18 @@ export default function LiveMarkdownEditor({
 
           const ta = textareaRef.current;
           if (currentMode === "edit" && ta) {
-            const start = ta.selectionStart ?? value.length;
-            const end = ta.selectionEnd ?? start;
-            const before = value.slice(0, start);
-            const after = value.slice(end);
+            // Browsers don't expose a character offset from a drop point on
+            // textareas (caretRangeFromPoint only works on contentEditable),
+            // so we mirror the textarea offscreen and measure. Falls back to
+            // the textarea's current selection on failure.
+            let dropOffset: number;
+            try {
+              dropOffset = caretOffsetFromPoint(ta, e.clientX, e.clientY);
+            } catch {
+              dropOffset = ta.selectionStart ?? value.length;
+            }
+            const before = value.slice(0, dropOffset);
+            const after = value.slice(dropOffset);
             const needsLeadingNl = before.length > 0 && !before.endsWith("\n");
             const needsTrailingNl = after.length > 0 && !after.startsWith("\n");
             const insert = `${needsLeadingNl ? "\n" : ""}${snippet}${needsTrailingNl ? "\n" : ""}`;

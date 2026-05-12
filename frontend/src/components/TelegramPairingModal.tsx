@@ -8,6 +8,7 @@ import {
   writePairing,
   type TelegramPairing,
 } from "@/lib/telegram/telegram-store";
+import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
 
 interface TelegramPairingModalProps {
   username: string;
@@ -74,6 +75,17 @@ export default function TelegramPairingModal({ username, onClose }: TelegramPair
               pairedAt: new Date().toISOString(),
             };
             await writePairing(username, pairing);
+            // Make sure the bot token never accidentally gets committed if
+            // the data folder is a git repo (it carries an active Telegram
+            // bot credential). Best-effort; failure is non-fatal.
+            try {
+              await ensureGitignoreEntries([
+                "_telegram.json",
+                "users/*/_telegram.json",
+              ]);
+            } catch {
+              /* ignore */
+            }
             // Friendly confirmation to the user's Telegram chat. Best-effort.
             try {
               await sendMessage(

@@ -1149,6 +1149,41 @@ export default function HybridMarkdownEditor({
           }`}
           data-block-type={block.type}
           onClick={(e) => handleBlockClick(block, e)}
+          onDragOver={(e) => {
+            if (disabled) return;
+            if (!Array.from(e.dataTransfer.types).includes("application/x-research-os-image")) return;
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = "copy";
+            // A blue ring while hovered makes the target block obvious.
+            (e.currentTarget as HTMLElement).classList.add("ring-2", "ring-blue-400");
+          }}
+          onDragLeave={(e) => {
+            (e.currentTarget as HTMLElement).classList.remove("ring-2", "ring-blue-400");
+          }}
+          onDrop={(e) => {
+            if (disabled) return;
+            const raw = e.dataTransfer.getData("application/x-research-os-image");
+            if (!raw) return;
+            e.preventDefault();
+            e.stopPropagation();
+            (e.currentTarget as HTMLElement).classList.remove("ring-2", "ring-blue-400");
+            let parsed: { filename: string; caption?: string } | null = null;
+            try {
+              parsed = JSON.parse(raw) as { filename: string; caption?: string };
+            } catch {
+              return;
+            }
+            if (!parsed?.filename) return;
+            const snippet = `![${parsed.caption ?? ""}](Images/${parsed.filename})`;
+            const insertAt = block.startOffset + block.content.length;
+            const before = value.slice(0, insertAt);
+            const after = value.slice(insertAt);
+            // \n\n on each side gives markdown a clean paragraph break; double
+            // newlines collapse visually, so this is safe even if the user
+            // already had blank lines here.
+            onChange(`${before}\n\n${snippet}\n\n${after}`);
+          }}
           style={{ minHeight: block.type === "blankLine" ? "1.5em" : undefined }}
         >
           {block.type === "blankLine" ? (
@@ -1228,6 +1263,8 @@ export default function HybridMarkdownEditor({
       placeholder,
       useBlobUrls,
       resolvedBlobUrls,
+      value,
+      onChange,
     ]
   );
 
