@@ -124,8 +124,19 @@ export default function TaskDetailPopup({
   });
 
   useEffect(() => {
-    if (freshTask) setTask(freshTask);
-  }, [freshTask]);
+    if (!freshTask) return;
+    // freshTask comes straight off disk (e.g. `users/Kritika/tasks/1.json`),
+    // which never carries the sharing metadata — that gets attached by the
+    // aggregator in `fetchAllTasksIncludingShared`. Preserve those fields
+    // from the prop so the owner-aware tasksApi wrapper still knows where
+    // to write subsequent mutations.
+    setTask({
+      ...freshTask,
+      owner: initialTask.owner || freshTask.owner,
+      is_shared_with_me: initialTask.is_shared_with_me,
+      shared_permission: initialTask.shared_permission,
+    });
+  }, [freshTask, initialTask.owner, initialTask.is_shared_with_me, initialTask.shared_permission]);
 
   // Handle escape key to close or exit fullscreen
   useEffect(() => {
