@@ -98,7 +98,10 @@ export default function StagedLoadingScreen({
 
         <h2 className="text-2xl font-semibold text-white mb-3">{title}</h2>
 
-        {subtitle && (
+        {/* The opening-picker stage has its own dedicated callout below,
+            so skip the generic subtitle there to avoid saying the same
+            thing twice. */}
+        {subtitle && stage !== "opening-picker" && (
           <p className="text-base text-slate-200 mb-5 leading-relaxed">{subtitle}</p>
         )}
 
