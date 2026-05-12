@@ -55,7 +55,7 @@ export default function InboxBadge() {
             : "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100"
         }`}
       >
-        📥 Inbox
+        Inbox
         {count > 0 && (
           <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-amber-200 text-amber-900">
             {count}

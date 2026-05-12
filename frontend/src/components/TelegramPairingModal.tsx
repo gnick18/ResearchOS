@@ -167,15 +167,10 @@ export default function TelegramPairingModal({ username, onClose }: TelegramPair
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">📱</span>
-            <div>
-              <h3 className="text-base font-semibold text-gray-900">Connect Telegram</h3>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Send lab-bench photos straight into the open experiment.
-              </p>
-            </div>
-          </div>
+          <h3 className="text-base font-semibold text-gray-900">Connect Telegram</h3>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Send lab-bench photos straight into the open experiment.
+          </p>
         </div>
 
         {step.kind === "loading" && (
@@ -206,13 +201,13 @@ export default function TelegramPairingModal({ username, onClose }: TelegramPair
                 disabled={disconnecting}
                 className="px-3 py-2 text-xs text-red-600 border border-red-200 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
               >
-                {disconnecting ? "Disconnecting…" : "🔌 Disconnect bot"}
+                {disconnecting ? "Disconnecting…" : "Disconnect bot"}
               </button>
               <button
                 onClick={handleCancel}
                 className="px-5 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors font-medium"
               >
-                ✓ Keep paired
+                Keep paired
               </button>
             </div>
             <p className="text-[10px] text-gray-400 text-center pt-1">
@@ -273,7 +268,6 @@ export default function TelegramPairingModal({ username, onClose }: TelegramPair
 
         {step.kind === "waitForStart" && (
           <div className="px-5 py-6 space-y-4 text-center">
-            <div className="text-2xl">⏳</div>
             <p className="text-sm text-gray-700">
               Token accepted for{" "}
               <span className="font-medium">@{step.botUsername}</span>.
@@ -300,10 +294,9 @@ export default function TelegramPairingModal({ username, onClose }: TelegramPair
 
         {step.kind === "success" && (
           <div className="px-5 py-6 space-y-3 text-center">
-            <div className="text-3xl">✅</div>
-            <p className="text-sm text-gray-700">
+            <p className="text-sm font-medium text-emerald-700">
               Paired with{" "}
-              <span className="font-medium">@{step.pairing.botUsername}</span>.
+              <span className="font-semibold">@{step.pairing.botUsername}</span>.
             </p>
           </div>
         )}

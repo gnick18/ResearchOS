@@ -1511,7 +1511,7 @@ export default function LiveMarkdownEditor({
                 : "Show every image in this document at the bottom — click a thumbnail to scroll to it"
             }
           >
-            🖼 Strip
+            Strip
           </button>
           
           {/* Resize Image Button with Dropdown — only useful in Edit mode
