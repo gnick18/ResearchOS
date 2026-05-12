@@ -13,29 +13,20 @@ export async function validateResearchFolder(handle: FileSystemDirectoryHandle):
 }
 
 export async function discoverUsers(): Promise<string[]> {
-  if (!fileService.isConnected()) {
-    console.log("discoverUsers: fileService not connected");
-    return [];
-  }
+  if (!fileService.isConnected()) return [];
 
   const users: string[] = [];
 
   try {
     const usersDir = await fileService.getDirectory("users");
-    if (!usersDir) {
-      console.log("discoverUsers: could not get users directory");
-      return [];
-    }
+    if (!usersDir) return [];
 
-    console.log("discoverUsers: iterating users directory");
     for await (const entry of (usersDir as unknown as { values: () => AsyncIterable<FileSystemHandle> }).values()) {
-      console.log("discoverUsers: found entry:", entry.name, "kind:", entry.kind);
       if (entry.kind === "directory" && !SKIP_DIRECTORIES.has(entry.name)) {
         users.push(entry.name);
       }
     }
 
-    console.log("discoverUsers: found users:", users);
     return users.sort();
   } catch (err) {
     console.error("discoverUsers error:", err);

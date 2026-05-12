@@ -9,6 +9,7 @@ interface LabUserFilterButtonProps {
   onToggleUser: (username: string) => void;
   onSelectAll: () => void;
   onDeselectAll: () => void;
+  onViewUser?: (username: string) => void;
 }
 
 // Local storage key for button position
@@ -20,6 +21,7 @@ export default function LabUserFilterButton({
   onToggleUser,
   onSelectAll,
   onDeselectAll,
+  onViewUser,
 }: LabUserFilterButtonProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   // Default position is bottom-right (will be calculated on first render)
@@ -186,33 +188,54 @@ export default function LabUserFilterButton({
               .map((user) => {
                 const isSelected = selectedUsernames.has(user.username);
                 return (
-                  <button
+                  <div
                     key={user.username}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleUser(user.username);
-                    }}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all ${
-                      isSelected
-                        ? "ring-2 ring-gray-300"
-                        : "ring-1 ring-gray-200 opacity-50"
+                    className={`flex items-center rounded-lg transition-all overflow-hidden ${
+                      isSelected ? "ring-2 ring-gray-300" : "ring-1 ring-gray-200 opacity-60"
                     }`}
                     style={{
                       backgroundColor: isSelected ? user.color : `${user.color}33`,
                     }}
                   >
-                    <div
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-white text-sm font-medium"
-                      style={{ backgroundColor: user.color }}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleUser(user.username);
+                      }}
+                      className="flex items-center gap-2 px-3 py-2"
+                      title={isSelected ? "Hide from view" : "Show in view"}
                     >
-                      {user.username.charAt(0).toUpperCase()}
-                    </div>
-                    <span
-                      className={isSelected ? "text-white" : "text-gray-500"}
-                    >
-                      {user.username}
-                    </span>
-                  </button>
+                      <div
+                        className="w-6 h-6 rounded-full flex items-center justify-center text-white text-sm font-medium"
+                        style={{ backgroundColor: user.color }}
+                      >
+                        {user.username.charAt(0).toUpperCase()}
+                      </div>
+                      <span className={isSelected ? "text-white" : "text-gray-500"}>
+                        {user.username}
+                      </span>
+                    </button>
+                    {onViewUser && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onViewUser(user.username);
+                          setIsExpanded(false);
+                        }}
+                        className={`px-2 py-2 transition-colors ${
+                          isSelected
+                            ? "text-white/90 hover:bg-white/10"
+                            : "text-gray-500 hover:bg-black/5"
+                        }`}
+                        title={`View ${user.username}'s dashboard`}
+                        aria-label={`View ${user.username}'s dashboard`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 );
               })}
           </div>

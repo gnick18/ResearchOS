@@ -5,6 +5,7 @@ import { computeEndDate } from "./engine/dates";
 import { shiftTask } from "./engine/shift";
 import { formatDate, parseDate } from "./engine/dates";
 import { discoverUsers } from "./file-system/user-discovery";
+import { ensureLabUserMetadata, fallbackUserColor } from "./file-system/user-metadata";
 import JSZip from "jszip";
 import type {
   Project,
@@ -68,17 +69,20 @@ const fundingAccountsStore = getLabStore<FundingAccount>("funding_accounts");
 const imageMetadataStore = new AttachmentMetadataStore<ImageMetadata>("Images");
 const fileMetadataStore = new AttachmentMetadataStore<FileMetadata>("Files");
 
-const USER_COLORS = [
-  "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
-  "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1",
-];
+async function loadLabUsers(): Promise<{
+  usernames: string[];
+  metadata: Record<string, { color: string; created_at: string }>;
+}> {
+  const usernames = await discoverUsers();
+  const metadata = await ensureLabUserMetadata(usernames);
+  return { usernames, metadata };
+}
 
-function getUserColor(username: string): string {
-  let hash = 0;
-  for (let i = 0; i < username.length; i++) {
-    hash = username.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return USER_COLORS[Math.abs(hash) % USER_COLORS.length];
+function colorFor(
+  metadata: Record<string, { color: string; created_at: string }>,
+  username: string,
+): string {
+  return metadata[username]?.color ?? fallbackUserColor(username);
 }
 
 export const projectsApi = {
@@ -1501,84 +1505,95 @@ export const sharingApi = {
   },
 };
 
+function labTaskFrom(
+  t: Task,
+  username: string,
+  userColor: string,
+): LabTask {
+  const task = computeTaskEndDate(t);
+  return {
+    id: task.id,
+    name: task.name,
+    project_id: task.project_id,
+    start_date: task.start_date,
+    duration_days: task.duration_days,
+    end_date: task.end_date,
+    is_complete: task.is_complete,
+    task_type: task.task_type,
+    username: task.owner || username,
+    user_color: userColor,
+    experiment_color: task.experiment_color,
+    method_ids: task.method_ids || [],
+    notes: task.deviation_log,
+  };
+}
+
 export const labApi = {
   getUsers: async (): Promise<{ users: LabUser[] }> => {
-    const usernames = await discoverUsers();
+    const { usernames, metadata } = await loadLabUsers();
     const users: LabUser[] = usernames.map((username) => ({
       username,
-      color: getUserColor(username),
-      created_at: null,
+      color: colorFor(metadata, username),
+      created_at: metadata[username]?.created_at ?? null,
     }));
     return { users };
   },
-  
+
   getTasks: async (params?: { exclude_goals?: boolean; usernames?: string }): Promise<LabTask[]> => {
-    const allUsers = await discoverUsers();
+    const { usernames, metadata } = await loadLabUsers();
     const tasks: LabTask[] = [];
-    
-    for (const username of allUsers) {
+
+    for (const username of usernames) {
       const userTasks = await tasksStore.listAllForUser(username);
+      const userColor = colorFor(metadata, username);
       for (const t of userTasks) {
-        const task = computeTaskEndDate(t);
-        tasks.push({
-          id: task.id,
-          name: task.name,
-          project_id: task.project_id,
-          start_date: task.start_date,
-          duration_days: task.duration_days,
-          end_date: task.end_date,
-          is_complete: task.is_complete,
-          task_type: task.task_type,
-          username: task.owner || username,
-          user_color: getUserColor(username),
-          experiment_color: task.experiment_color,
-          method_ids: task.method_ids || [],
-          notes: task.deviation_log,
-        });
+        tasks.push(labTaskFrom(t, username, userColor));
       }
     }
-    
+
     return tasks;
   },
-  
+
   getProjects: async (params?: { usernames?: string }): Promise<LabProject[]> => {
-    const allUsers = await discoverUsers();
+    const { usernames, metadata } = await loadLabUsers();
     const projects: LabProject[] = [];
-    
-    for (const username of allUsers) {
+
+    for (const username of usernames) {
       const userProjects = await projectsStore.listAllForUser(username);
+      const userColor = colorFor(metadata, username);
       for (const p of userProjects) {
         projects.push({
           id: p.id,
           name: p.name,
           color: p.color || "#3b82f6",
           username: p.owner || username,
-          user_color: getUserColor(username),
+          user_color: userColor,
           is_archived: p.is_archived || false,
         });
       }
     }
-    
+
     return projects;
   },
-  
+
   getMethods: async (): Promise<LabMethod[]> => {
-    const allUsers = await discoverUsers();
+    const { usernames, metadata } = await loadLabUsers();
     const methods: LabMethod[] = [];
-    
-    for (const username of allUsers) {
+
+    for (const username of usernames) {
       const userMethods = await methodsStore.listAllForUser(username);
+      const userColor = colorFor(metadata, username);
       for (const m of userMethods) {
         methods.push({
           id: m.id,
           name: m.name,
           username: m.owner || username,
-          user_color: getUserColor(username),
+          user_color: userColor,
           is_public: false,
         });
       }
     }
-    
+
     const publicMethods = await publicMethodsStore.listAll();
     for (const m of publicMethods) {
       methods.push({
@@ -1589,74 +1604,46 @@ export const labApi = {
         is_public: true,
       });
     }
-    
+
     return methods;
   },
-  
+
   getMethodFolders: async (): Promise<string[]> => {
     return [];
   },
-  
+
   getExperiments: async (params?: { usernames?: string }): Promise<LabTask[]> => {
-    const allUsers = await discoverUsers();
+    const { usernames, metadata } = await loadLabUsers();
     const tasks: LabTask[] = [];
-    
-    for (const username of allUsers) {
+
+    for (const username of usernames) {
       const userTasks = await tasksStore.listAllForUser(username);
+      const userColor = colorFor(metadata, username);
       for (const t of userTasks) {
         if (t.task_type !== "experiment") continue;
-        const task = computeTaskEndDate(t);
-        tasks.push({
-          id: task.id,
-          name: task.name,
-          project_id: task.project_id,
-          start_date: task.start_date,
-          duration_days: task.duration_days,
-          end_date: task.end_date,
-          is_complete: task.is_complete,
-          task_type: task.task_type,
-          username: task.owner || username,
-          user_color: getUserColor(username),
-          experiment_color: task.experiment_color,
-          method_ids: task.method_ids || [],
-          notes: task.deviation_log,
-        });
+        tasks.push(labTaskFrom(t, username, userColor));
       }
     }
-    
+
     return tasks;
   },
-  
+
   getPurchases: async (params?: { usernames?: string }): Promise<LabTask[]> => {
-    const allUsers = await discoverUsers();
+    const { usernames, metadata } = await loadLabUsers();
     const tasks: LabTask[] = [];
-    
-    for (const username of allUsers) {
+
+    for (const username of usernames) {
       const userTasks = await tasksStore.listAllForUser(username);
+      const userColor = colorFor(metadata, username);
       for (const t of userTasks) {
         if (t.task_type !== "purchase") continue;
-        const task = computeTaskEndDate(t);
-        tasks.push({
-          id: task.id,
-          name: task.name,
-          project_id: task.project_id,
-          start_date: task.start_date,
-          duration_days: task.duration_days,
-          end_date: task.end_date,
-          is_complete: task.is_complete,
-          task_type: task.task_type,
-          username: task.owner || username,
-          user_color: getUserColor(username),
-          experiment_color: task.experiment_color,
-          method_ids: task.method_ids || [],
-          notes: task.deviation_log,
-        });
+        tasks.push(labTaskFrom(t, username, userColor));
       }
     }
-    
+
     return tasks;
   },
-  
+
   search: async (params: {
     q?: string;
     usernames?: string;
@@ -1668,43 +1655,146 @@ export const labApi = {
     method_folder?: string;
     completion_status?: "all" | "complete" | "incomplete";
   }): Promise<{ results: LabSearchResult[]; total_count: number }> => {
-    return { results: [], total_count: 0 };
+    const q = (params.q ?? "").trim().toLowerCase();
+    const usernamesFilter = params.usernames
+      ? new Set(params.usernames.split(",").map((s) => s.trim()).filter(Boolean))
+      : null;
+    const taskTypes = params.task_types
+      ? new Set(params.task_types.split(",").map((s) => s.trim()).filter(Boolean))
+      : null;
+    const dateFrom = params.date_from || null;
+    const dateTo = params.date_to || null;
+    const projectId = typeof params.project_id === "number" ? params.project_id : null;
+    const methodId = typeof params.method_id === "number" ? params.method_id : null;
+    const completion = params.completion_status ?? "all";
+
+    const { usernames: allUsernames, metadata } = await loadLabUsers();
+    const targetUsernames = usernamesFilter
+      ? allUsernames.filter((u) => usernamesFilter.has(u))
+      : allUsernames;
+
+    const results: LabSearchResult[] = [];
+
+    const previewFrom = (text: string): string => {
+      if (!q) return text.slice(0, 160);
+      const idx = text.toLowerCase().indexOf(q);
+      if (idx === -1) return text.slice(0, 160);
+      const start = Math.max(0, idx - 40);
+      const end = Math.min(text.length, idx + q.length + 80);
+      return (start > 0 ? "…" : "") + text.slice(start, end) + (end < text.length ? "…" : "");
+    };
+
+    // Tasks
+    for (const username of targetUsernames) {
+      const userColor = colorFor(metadata, username);
+      const userTasks = await tasksStore.listAllForUser(username);
+      for (const raw of userTasks) {
+        if (raw.is_high_level) continue; // lab mode never surfaces goals
+        if (taskTypes && !taskTypes.has(raw.task_type)) continue;
+        if (projectId !== null && raw.project_id !== projectId) continue;
+        if (methodId !== null && !(raw.method_ids || []).includes(methodId)) continue;
+        if (completion === "complete" && !raw.is_complete) continue;
+        if (completion === "incomplete" && raw.is_complete) continue;
+
+        const task = computeTaskEndDate(raw);
+        if (dateFrom && task.end_date < dateFrom) continue;
+        if (dateTo && task.start_date > dateTo) continue;
+
+        let matchField: string = "filter";
+        let matchPreview = "";
+
+        if (q) {
+          const name = task.name?.toLowerCase() ?? "";
+          const tags = (task.tags ?? []).join(" ").toLowerCase();
+          const deviation = (task.deviation_log ?? "").toLowerCase();
+          if (name.includes(q)) {
+            matchField = "name";
+          } else if (tags.includes(q)) {
+            matchField = "tags";
+            matchPreview = previewFrom((task.tags ?? []).join(", "));
+          } else if (deviation.includes(q)) {
+            matchField = "deviation_log";
+            matchPreview = previewFrom(task.deviation_log ?? "");
+          } else {
+            continue; // no text match
+          }
+        }
+
+        results.push({
+          type: "task",
+          id: task.id,
+          name: task.name,
+          username: task.owner || username,
+          user_color: userColor,
+          match_field: matchField,
+          match_preview: matchPreview,
+        });
+      }
+    }
+
+    // Projects & methods only matter when not filtering to a specific task type.
+    if (!taskTypes) {
+      for (const username of targetUsernames) {
+        const userColor = colorFor(metadata, username);
+
+        const userProjects = await projectsStore.listAllForUser(username);
+        for (const p of userProjects) {
+          if (projectId !== null && p.id !== projectId) continue;
+          if (q && !p.name.toLowerCase().includes(q)) continue;
+          results.push({
+            type: "project",
+            id: p.id,
+            name: p.name,
+            username: p.owner || username,
+            user_color: userColor,
+            match_field: q ? "name" : "filter",
+            match_preview: "",
+          });
+        }
+
+        if (projectId === null) {
+          const userMethods = await methodsStore.listAllForUser(username);
+          for (const m of userMethods) {
+            if (methodId !== null && m.id !== methodId) continue;
+            if (q && !m.name.toLowerCase().includes(q)) continue;
+            results.push({
+              type: "method",
+              id: m.id,
+              name: m.name,
+              username: m.owner || username,
+              user_color: userColor,
+              match_field: q ? "name" : "filter",
+              match_preview: "",
+            });
+          }
+        }
+      }
+    }
+
+    return { results, total_count: results.length };
   },
-  
+
   getUserTasks: async (username: string): Promise<LabTask[]> => {
+    const metadata = await ensureLabUserMetadata([username]);
+    const userColor = colorFor(metadata, username);
     const tasks = await tasksStore.listAllForUser(username);
-    return tasks.map((t) => {
-      const task = computeTaskEndDate(t);
-      return {
-        id: task.id,
-        name: task.name,
-        project_id: task.project_id,
-        start_date: task.start_date,
-        duration_days: task.duration_days,
-        end_date: task.end_date,
-        is_complete: task.is_complete,
-        task_type: task.task_type,
-        username: task.owner || username,
-        user_color: getUserColor(username),
-        experiment_color: task.experiment_color,
-        method_ids: task.method_ids || [],
-        notes: task.deviation_log,
-      };
-    });
+    return tasks.map((t) => labTaskFrom(t, username, userColor));
   },
-  
+
   getUserProjects: async (username: string): Promise<LabProject[]> => {
+    const metadata = await ensureLabUserMetadata([username]);
+    const userColor = colorFor(metadata, username);
     const projects = await projectsStore.listAllForUser(username);
     return projects.map((p) => ({
       id: p.id,
       name: p.name,
       color: p.color || "#3b82f6",
       username: p.owner || username,
-      user_color: getUserColor(username),
+      user_color: userColor,
       is_archived: p.is_archived || false,
     }));
   },
-  
+
   getUserPurchaseItems: async (username: string, taskId: number): Promise<PurchaseItem[]> => {
     const items = await purchaseItemsStore.listAllForUser(username);
     return items.filter((item) => item.task_id === taskId).map((item) => ({
@@ -1712,40 +1802,44 @@ export const labApi = {
       total_price: item.total_price ?? (item.price_per_unit ?? 0) * item.quantity + (item.shipping_fees ?? 0),
     }));
   },
-  
+
+  getAllPurchaseItems: async (
+    params?: { shared_only?: boolean },
+  ): Promise<Array<PurchaseItem & { username: string }>> => {
+    const usernames = await discoverUsers();
+    const items: Array<PurchaseItem & { username: string }> = [];
+    for (const username of usernames) {
+      const userItems = await purchaseItemsStore.listAllForUser(username);
+      for (const item of userItems) {
+        items.push({
+          ...item,
+          username,
+          total_price:
+            item.total_price ??
+            (item.price_per_unit ?? 0) * item.quantity + (item.shipping_fees ?? 0),
+        });
+      }
+    }
+    return items;
+  },
+
   getNotes: async (params?: { usernames?: string; shared_only?: boolean }): Promise<Note[]> => {
-    const allUsers = await discoverUsers();
+    const usernames = await discoverUsers();
     const notes: Note[] = [];
-    
-    for (const username of allUsers) {
+
+    for (const username of usernames) {
       const userNotes = await notesStore.listAllForUser(username);
       for (const note of userNotes) {
         notes.push({ ...note, username: note.username || username });
       }
     }
-    
+
     if (params?.shared_only) {
       return notes.filter((n) => n.is_shared);
     }
     return notes;
   },
-  
-  getSharedNotes: async (params?: { usernames?: string }): Promise<Note[]> => {
-    const allUsers = await discoverUsers();
-    const notes: Note[] = [];
-    
-    for (const username of allUsers) {
-      const userNotes = await notesStore.listAllForUser(username);
-      for (const note of userNotes) {
-        if (note.is_shared) {
-          notes.push({ ...note, username: note.username || username });
-        }
-      }
-    }
-    
-    return notes;
-  },
-  
+
   getUserNotes: async (username: string): Promise<Note[]> => {
     const notes = await notesStore.listAllForUser(username);
     return notes.map((n) => ({ ...n, username: n.username || username }));

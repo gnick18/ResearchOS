@@ -1,16 +1,19 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { labApi, usersApi, LabUser, LabTask, LabProject } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import type { Task, Dependency, Project, HighLevelGoal } from "@/lib/types";
+import type { Task } from "@/lib/types";
 import LabUserFilterButton from "@/components/LabUserFilterButton";
 import LabSearchPanel from "@/components/LabSearchPanel";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import LabGanttChart from "@/components/LabGanttChart";
 import LabPurchasesPanel from "@/components/LabPurchasesPanel";
 import LabExperimentsPanel from "@/components/LabExperimentsPanel";
+import LabActivityPanel from "@/components/LabActivityPanel";
+import LabUserDetailPanel from "@/components/LabUserDetailPanel";
 import NotesPanel from "@/components/NotesPanel";
 
 // Helper function to convert LabTask to Task type for the popup
@@ -48,67 +51,66 @@ function labTaskToTask(labTask: LabTask): Task {
   };
 }
 
-type TabType = "gantt" | "experiments" | "purchases" | "notes" | "search";
+type TabType = "activity" | "gantt" | "experiments" | "purchases" | "notes" | "search";
+
+const LAB_STALE_MS = 60_000;
 
 export default function LabModePage() {
   const router = useRouter();
   const { setCurrentUser } = useCurrentUser();
-  const [loading, setLoading] = useState(true);
-  const [users, setUsers] = useState<LabUser[]>([]);
-  const [tasks, setTasks] = useState<LabTask[]>([]);
-  const [projects, setProjects] = useState<LabProject[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
-  const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<TabType>("gantt");
+  const [seededSelection, setSeededSelection] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>("activity");
   const [selectedTask, setSelectedTask] = useState<LabTask | null>(null);
+  const [viewingUser, setViewingUser] = useState<string | null>(null);
 
-  // Load all data on mount
+  const usersQuery = useQuery({
+    queryKey: ["lab", "users"],
+    queryFn: () => labApi.getUsers().then((r) => r.users),
+    staleTime: LAB_STALE_MS,
+    refetchOnWindowFocus: false,
+  });
+  const tasksQuery = useQuery({
+    queryKey: ["lab", "tasks"],
+    queryFn: () => labApi.getTasks({ exclude_goals: true }),
+    staleTime: LAB_STALE_MS,
+    refetchOnWindowFocus: false,
+  });
+  const projectsQuery = useQuery({
+    queryKey: ["lab", "projects"],
+    queryFn: () => labApi.getProjects(),
+    staleTime: LAB_STALE_MS,
+    refetchOnWindowFocus: false,
+  });
+
+  const users: LabUser[] = usersQuery.data ?? [];
+  const tasks: LabTask[] = tasksQuery.data ?? [];
+  const projects: LabProject[] = projectsQuery.data ?? [];
+
+  // Seed the user-filter selection once, when users first load. After that,
+  // user toggles are sticky — new users discovered on a refetch don't get
+  // auto-selected, but the existing selection isn't blown away either.
   useEffect(() => {
-    loadData();
-  }, []);
+    if (seededSelection) return;
+    if (!usersQuery.isSuccess) return;
+    setSelectedUsers(new Set(users.map((u) => u.username)));
+    setSeededSelection(true);
+  }, [seededSelection, usersQuery.isSuccess, users]);
 
-  const loadData = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      // Load users first
-      const usersResponse = await labApi.getUsers();
-      setUsers(usersResponse.users);
-      
-      // Select all users by default
-      const allUsernames = new Set(usersResponse.users.map(u => u.username));
-      setSelectedUsers(allUsernames);
-      
-      // Load tasks and projects
-      const [tasksResponse, projectsResponse] = await Promise.all([
-        labApi.getTasks({ exclude_goals: true }), // Include lists for search
-        labApi.getProjects(),
-      ]);
-      
-      console.log("Loaded tasks:", tasksResponse);
-      console.log("Loaded users:", usersResponse.users);
-      console.log("Loaded projects:", projectsResponse);
-      console.log("Task details - first 3 tasks:", tasksResponse.slice(0, 3).map((t: LabTask) => ({
-        id: t.id,
-        name: t.name,
-        username: t.username,
-        task_type: t.task_type,
-        start_date: t.start_date,
-        end_date: t.end_date,
-      })));
-      
-      setTasks(tasksResponse);
-      setProjects(projectsResponse);
-    } catch (err) {
-      console.error("Failed to load lab data:", err);
-      setError("Failed to load data. Please check your connection.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const isLoading =
+    usersQuery.isLoading || tasksQuery.isLoading || projectsQuery.isLoading;
+  const errorMessage =
+    usersQuery.error || tasksQuery.error || projectsQuery.error
+      ? "Failed to load data. Please check your connection."
+      : null;
+
+  const retry = useCallback(() => {
+    usersQuery.refetch();
+    tasksQuery.refetch();
+    projectsQuery.refetch();
+  }, [usersQuery, tasksQuery, projectsQuery]);
 
   // Filter data by selected users
-  const filteredTasks = tasks.filter(t => selectedUsers.has(t.username));
   const filteredProjects = projects.filter(p => selectedUsers.has(p.username));
 
   // Get experiments (task_type === "experiment")
@@ -173,17 +175,7 @@ export default function LabModePage() {
     }
   };
 
-  // Format date for display
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return "";
-    try {
-      return new Date(dateStr).toLocaleDateString();
-    } catch {
-      return dateStr;
-    }
-  };
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -194,13 +186,13 @@ export default function LabModePage() {
     );
   }
 
-  if (error) {
+  if (errorMessage) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-500 mb-4">{error}</p>
+          <p className="text-red-500 mb-4">{errorMessage}</p>
           <button
-            onClick={loadData}
+            onClick={retry}
             className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
           >
             Retry
@@ -237,6 +229,19 @@ export default function LabModePage() {
           
           {/* Tabs */}
           <div className="flex gap-1 flex-wrap">
+            <button
+              onClick={() => setActiveTab("activity")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+                activeTab === "activity"
+                  ? "bg-emerald-100 text-emerald-700"
+                  : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              Activity
+            </button>
             <button
               onClick={() => setActiveTab("gantt")}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
@@ -328,7 +333,17 @@ export default function LabModePage() {
         </div>
 
         {/* Tab Content */}
-        {activeTab === "search" ? (
+        {activeTab === "activity" ? (
+          <LabActivityPanel
+            tasks={tasks}
+            users={users}
+            projects={projects}
+            selectedUsernames={selectedUsers}
+            onTaskClick={setSelectedTask}
+            onUserClick={setViewingUser}
+            onSwitchToNotes={() => setActiveTab("notes")}
+          />
+        ) : activeTab === "search" ? (
           <LabSearchPanel
             users={users}
             selectedUsernames={selectedUsers}
@@ -376,6 +391,7 @@ export default function LabModePage() {
           onToggleUser={toggleUser}
           onSelectAll={selectAllUsers}
           onDeselectAll={deselectAllUsers}
+          onViewUser={setViewingUser}
         />
       )}
 
@@ -388,6 +404,24 @@ export default function LabModePage() {
           username={selectedTask.username}
         />
       )}
+
+      {/* Per-user side panel */}
+      {viewingUser && (() => {
+        const u = users.find((x) => x.username === viewingUser);
+        if (!u) return null;
+        return (
+          <LabUserDetailPanel
+            user={u}
+            tasks={tasks}
+            projects={projects}
+            onClose={() => setViewingUser(null)}
+            onTaskClick={(task) => {
+              setViewingUser(null);
+              setSelectedTask(task);
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }

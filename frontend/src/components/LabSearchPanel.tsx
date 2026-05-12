@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { labApi, LabUser, LabSearchResult, LabProject, LabMethod, LabTask } from "@/lib/local-api";
 
 interface LabSearchPanelProps {
@@ -39,10 +40,7 @@ export default function LabSearchPanel({
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const [projects, setProjects] = useState<LabProject[]>([]);
-  const [methods, setMethods] = useState<LabMethod[]>([]);
-  const [methodFolders, setMethodFolders] = useState<string[]>([]);
-  
+
   const [filters, setFilters] = useState<SearchFilters>({
     keywords: "",
     dateFrom: "",
@@ -55,24 +53,24 @@ export default function LabSearchPanel({
     username: "", // Empty means all selected users
   });
 
-  // Load projects, methods, and method folders on mount
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [projectsRes, methodsRes, foldersRes] = await Promise.all([
-          labApi.getProjects(),
-          labApi.getMethods(),
-          labApi.getMethodFolders(),
-        ]);
-        setProjects(projectsRes);
-        setMethods(methodsRes);
-        setMethodFolders(foldersRes);
-      } catch (err) {
-        console.error("Failed to load search data:", err);
-      }
-    };
-    loadData();
-  }, []);
+  const { data: projects = [] } = useQuery<LabProject[]>({
+    queryKey: ["lab", "projects"],
+    queryFn: () => labApi.getProjects(),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+  const { data: methods = [] } = useQuery<LabMethod[]>({
+    queryKey: ["lab", "methods"],
+    queryFn: () => labApi.getMethods(),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+  const { data: methodFolders = [] } = useQuery<string[]>({
+    queryKey: ["lab", "method-folders"],
+    queryFn: () => labApi.getMethodFolders(),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
 
   // Get user color by username
   const getUserColor = (username: string) => {
