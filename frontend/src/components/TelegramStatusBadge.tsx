@@ -42,6 +42,7 @@ export default function TelegramStatusBadge() {
   }, [currentUser]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on deps change
     void reload();
   }, [reload]);
 
