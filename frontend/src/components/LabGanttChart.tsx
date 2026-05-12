@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import { LabTask } from "@/lib/local-api";
 import { useAppStore } from "@/lib/store";
 import { useLabData } from "@/hooks/useLabData";
@@ -229,36 +229,14 @@ export default function LabGanttChart({
   const dates = useMemo(() => getDateRange(weeksToShow, ganttStartDate), [weeksToShow, ganttStartDate]);
   const weeks = useMemo(() => splitIntoWeeks(dates), [dates]);
 
-  // Debug date range
-  useEffect(() => {
-    if (dates.length > 0) {
-      console.log("LabGanttChart - Date range:", {
-        startDate: dates[0] ? formatDate(dates[0]) : 'N/A',
-        endDate: dates[dates.length - 1] ? formatDate(dates[dates.length - 1]) : 'N/A',
-        weeksCount: weeks.length,
-        weeksToShow,
-        ganttStartDate,
-        viewMode,
-      });
-    }
-  }, [dates, weeks, weeksToShow, ganttStartDate, viewMode]);
-
   const today = formatDate(new Date());
 
   // Filter tasks by selected users and exclude list tasks
   const filteredTasks = useMemo(() => {
-    const result = tasks.filter(t => 
-      selectedUsernames.has(t.username) && 
+    return tasks.filter(t =>
+      selectedUsernames.has(t.username) &&
       t.task_type !== "list" // Hide list tasks from GANTT
     );
-    console.log("LabGanttChart - Filtering tasks:", {
-      totalTasks: tasks.length,
-      selectedUsernames: Array.from(selectedUsernames),
-      filteredCount: result.length,
-      taskTypes: tasks.map(t => t.task_type),
-      taskUsernames: tasks.map(t => t.username),
-    });
-    return result;
   }, [tasks, selectedUsernames]);
 
   // Get user color by username
@@ -288,21 +266,10 @@ export default function LabGanttChart({
   }, [rowAssignments]);
 
   // Sort tasks by start date
-  const sortedTasks = useMemo(() => {
-    const result = [...filteredTasks].sort((a, b) => a.start_date.localeCompare(b.start_date));
-    console.log("LabGanttChart - Sorted tasks:", {
-      count: result.length,
-      firstThree: result.slice(0, 3).map(t => ({
-        id: t.id,
-        name: t.name,
-        start_date: t.start_date,
-        end_date: t.end_date,
-        task_type: t.task_type,
-        username: t.username
-      }))
-    });
-    return result;
-  }, [filteredTasks]);
+  const sortedTasks = useMemo(
+    () => [...filteredTasks].sort((a, b) => a.start_date.localeCompare(b.start_date)),
+    [filteredTasks],
+  );
 
   // Find the earliest and latest task dates to determine if we need to adjust the view
   const taskDateRange = useMemo(() => {
@@ -319,25 +286,9 @@ export default function LabGanttChart({
   const tasksInVisibleRange = useMemo(() => {
     const visibleStart = formatDate(dates[0]);
     const visibleEnd = formatDate(dates[dates.length - 1]);
-    
-    const result = filteredTasks.filter(t => 
+    return filteredTasks.filter(t =>
       t.end_date >= visibleStart && t.start_date <= visibleEnd
     );
-    
-    console.log("LabGanttChart - Tasks in visible range:", {
-      visibleStart,
-      visibleEnd,
-      filteredTasksCount: filteredTasks.length,
-      tasksInVisibleRangeCount: result.length,
-      taskDates: filteredTasks.slice(0, 5).map(t => ({
-        name: t.name,
-        start_date: t.start_date,
-        end_date: t.end_date,
-        inRange: t.end_date >= visibleStart && t.start_date <= visibleEnd
-      }))
-    });
-    
-    return result;
   }, [filteredTasks, dates]);
 
   // Auto-navigate to tasks if they're outside the visible date range
@@ -402,23 +353,6 @@ export default function LabGanttChart({
         const weekTasks = sortedTasks.filter(
           (t) => t.start_date <= weekEnd && t.end_date >= weekStart
         );
-
-        // Debug week rendering - log all weeks
-        console.log(`LabGanttChart - Week ${weekIdx} rendering:`, {
-          weekIdx,
-          weekStart,
-          weekEnd,
-          weekTasksCount: weekTasks.length,
-          sortedTasksCount: sortedTasks.length,
-          sampleTaskComparisons: sortedTasks.slice(0, 3).map(t => ({
-            name: t.name,
-            start_date: t.start_date,
-            end_date: t.end_date,
-            startCompare: `${t.start_date} <= ${weekEnd} = ${t.start_date <= weekEnd}`,
-            endCompare: `${t.end_date} >= ${weekStart} = ${t.end_date >= weekStart}`,
-            inWeek: t.start_date <= weekEnd && t.end_date >= weekStart
-          }))
-        });
 
         if (weekTasks.length === 0 && weekIdx > weeksToShow) return null;
 
