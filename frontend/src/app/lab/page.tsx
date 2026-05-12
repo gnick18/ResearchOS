@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { labApi, usersApi, LabUser, LabTask, LabProject } from "@/lib/local-api";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import type { Task, Dependency, Project, HighLevelGoal } from "@/lib/types";
 import LabUserFilterButton from "@/components/LabUserFilterButton";
 import LabSearchPanel from "@/components/LabSearchPanel";
@@ -51,6 +52,7 @@ type TabType = "gantt" | "experiments" | "purchases" | "notes" | "search";
 
 export default function LabModePage() {
   const router = useRouter();
+  const { setCurrentUser } = useCurrentUser();
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<LabUser[]>([]);
   const [tasks, setTasks] = useState<LabTask[]>([]);
@@ -144,25 +146,29 @@ export default function LabModePage() {
     setSelectedUsers(new Set());
   }, []);
 
-  // Handle logout - return to main user if set, otherwise go to login
+  // Handle logout - return to main user if set, otherwise go to login.
+  //
+  // usersApi.login / usersApi.logout update IndexedDB + the in-memory user
+  // cache, but they do NOT touch the FileSystemProvider's React state. We
+  // also have to call `setCurrentUser` from the provider so the home page's
+  // lab-redirect useEffect sees the new value (otherwise it bounces us
+  // straight back to /lab).
   const handleLogout = async () => {
     try {
-      // Get the main user setting
       const mainUserResponse = await usersApi.getMainUser();
       const mainUser = mainUserResponse.main_user;
-      
+
       if (mainUser) {
-        // Login as the main user
         await usersApi.login(mainUser);
+        await setCurrentUser(mainUser);
         router.push("/");
       } else {
-        // No main user set, logout completely
         await usersApi.logout();
+        await setCurrentUser("");
         router.push("/");
       }
     } catch (err) {
       console.error("Failed to exit lab mode:", err);
-      // Still redirect to home page even if there's an error
       router.push("/");
     }
   };
