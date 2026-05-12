@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
+import BetaDonationButton from "@/components/BetaDonationButton";
+import BugReportModal from "@/components/BugReportModal";
+import { useErrorReporting } from "@/hooks/useErrorReporting";
 
 interface DataSetupScreenProps {
   isOpen: boolean;
@@ -12,6 +15,7 @@ export default function DataSetupScreen({ isOpen, onClose }: DataSetupScreenProp
   const { currentUser, directoryName, lastConnectedFolder, disconnect } = useFileSystem();
   const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const { showBugReport, currentError, openBugReport, closeBugReport } = useErrorReporting();
 
   if (!isOpen) return null;
 
@@ -98,8 +102,29 @@ export default function DataSetupScreen({ isOpen, onClose }: DataSetupScreenProp
               </div>
             )}
           </div>
+
+          {/* Beta: Support & Bug Report */}
+          <div className="pt-3 border-t border-gray-100 flex gap-2">
+            <button
+              onClick={openBugReport}
+              className="flex-1 py-2 text-sm text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              Report Bug
+            </button>
+            <BetaDonationButton variant="link" />
+          </div>
         </div>
       </div>
+
+      {/* Bug Report Modal */}
+      <BugReportModal
+        isOpen={showBugReport}
+        onClose={closeBugReport}
+        prefilledError={currentError}
+      />
     </div>
   );
 }

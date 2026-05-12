@@ -5,6 +5,8 @@ import { useState, useEffect, type ReactNode } from "react";
 import { FileSystemProvider, useFileSystem, isFileSystemAccessSupported } from "@/lib/file-system/file-system-context";
 import ResearchFolderSetupNew from "@/components/ResearchFolderSetupNew";
 import StagedLoadingScreen from "@/components/StagedLoadingScreen";
+import ErrorBoundary from "@/components/ErrorBoundary";
+import { initializeErrorHandlers } from "@/lib/error-reporting";
 
 function AppContent({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -80,10 +82,19 @@ function AppContent({ children }: { children: ReactNode }) {
   );
 }
 
+let errorHandlersInitialized = false;
+
 export function Providers({ children }: { children: ReactNode }) {
+  if (!errorHandlersInitialized && typeof window !== "undefined") {
+    initializeErrorHandlers();
+    errorHandlersInitialized = true;
+  }
+
   return (
-    <FileSystemProvider>
-      <AppContent>{children}</AppContent>
-    </FileSystemProvider>
+    <ErrorBoundary>
+      <FileSystemProvider>
+        <AppContent>{children}</AppContent>
+      </FileSystemProvider>
+    </ErrorBoundary>
   );
 }

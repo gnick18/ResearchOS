@@ -5,6 +5,9 @@ import { usersApi } from "@/lib/local-api";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { hasPassword, verifyPassword } from "@/lib/auth/password";
 import AccountPasswordPopup from "@/components/AccountPasswordPopup";
+import BetaDonationButton from "@/components/BetaDonationButton";
+import BugReportModal from "@/components/BugReportModal";
+import { useErrorReporting } from "@/hooks/useErrorReporting";
 
 interface UserLoginScreenProps {
   onLogin: () => void;
@@ -49,6 +52,9 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   // Per-user password-set status — drives the lock icon's appearance.
   // Loaded after the user list comes back, refreshed after the password popup closes.
   const [lockedUsers, setLockedUsers] = useState<Set<string>>(new Set());
+
+  // Bug report state
+  const { showBugReport, currentError, openBugReport, closeBugReport } = useErrorReporting();
 
   const refreshLockStatus = async (usernames: string[]) => {
     const next = new Set<string>();
@@ -840,6 +846,27 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
           }}
         />
       )}
+
+      {/* Beta: Support this project */}
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4">
+        <button
+          onClick={openBugReport}
+          className="text-slate-500 hover:text-white text-xs transition-colors flex items-center gap-1"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          Report Bug
+        </button>
+        <BetaDonationButton variant="link" />
+      </div>
+
+      {/* Bug Report Modal */}
+      <BugReportModal
+        isOpen={showBugReport}
+        onClose={closeBugReport}
+        prefilledError={currentError}
+      />
     </div>
   );
 }

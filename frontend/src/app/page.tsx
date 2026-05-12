@@ -10,6 +10,9 @@ import ProjectDetailPopup from "@/components/ProjectDetailPopup";
 import DataSetupScreen from "@/components/DataSetupScreen";
 import UserLoginScreen from "@/components/UserLoginScreen";
 import LabVisibilityToggle from "@/components/LabVisibilityToggle";
+import BetaDonationButton from "@/components/BetaDonationButton";
+import BugReportModal from "@/components/BugReportModal";
+import { useErrorReporting } from "@/hooks/useErrorReporting";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import type { Project, Task } from "@/lib/types";
 
@@ -49,6 +52,7 @@ export default function HomePage() {
   const { currentUser: providerCurrentUser, isLoading: fsLoading } = useFileSystem();
   const currentUser = providerCurrentUser ?? "";
   const checkingUser = fsLoading;
+  const { showBugReport, showErrorToast, currentError, openBugReport, closeBugReport, reportCurrentError, dismissErrorToast } = useErrorReporting();
 
   // Drag and drop state
   const [draggedProjectId, setDraggedProjectId] = useState<number | null>(null);
@@ -621,6 +625,70 @@ export default function HomePage() {
           <div className="flex flex-col items-center gap-3">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
             <p className="text-sm text-gray-500">Checking user...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Beta: Donation Button */}
+      <BetaDonationButton />
+
+      {/* Beta: Report a Bug Button */}
+      <button
+        onClick={openBugReport}
+        className="fixed bottom-20 left-6 px-3 py-2 bg-gray-800 hover:bg-gray-900 text-white text-sm rounded-lg shadow-lg hover:shadow-xl transition-all flex items-center gap-2 z-40"
+        title="Report a bug"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <span className="hidden sm:inline">Report Bug</span>
+      </button>
+
+      {/* Dev: Test Error Button (only in development) */}
+      {process.env.NODE_ENV === "development" && (
+        <button
+          onClick={() => {
+            throw new Error("Test error for bug report feature");
+          }}
+          className="fixed bottom-20 left-36 px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm rounded-lg shadow-lg transition-all flex items-center gap-2 z-40"
+          title="Trigger test error (dev only)"
+        >
+          Test Error
+        </button>
+      )}
+
+      {/* Bug Report Modal */}
+      <BugReportModal
+        isOpen={showBugReport}
+        onClose={closeBugReport}
+        prefilledError={currentError}
+      />
+
+      {/* Error Toast */}
+      {showErrorToast && (
+        <div className="fixed bottom-24 left-6 bg-red-600 text-white px-4 py-3 rounded-lg shadow-lg z-50 flex items-center gap-3 max-w-sm">
+          <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium">An error occurred</p>
+            <p className="text-xs opacity-90 truncate">{currentError?.message}</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={reportCurrentError}
+              className="text-xs bg-white/20 hover:bg-white/30 px-2 py-1 rounded transition-colors"
+            >
+              Report
+            </button>
+            <button
+              onClick={dismissErrorToast}
+              className="text-xs hover:bg-white/20 px-1 rounded transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
         </div>
       )}
