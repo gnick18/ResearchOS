@@ -700,13 +700,23 @@ function CreateMethodModal({
           is_public: isPublic,
         });
       } else if (uploadType === "pcr") {
-        // Create PCR protocol
-        await pcrApi.create({
+        const protocol = await pcrApi.create({
           name: name.trim(),
           gradient: pcrGradient,
           ingredients: pcrIngredients,
           notes: pcrNotes || null,
-          folder_path: folder.trim() || null,  // Pass folder_path to PCR creation
+          folder_path: folder.trim() || null,
+          is_public: isPublic,
+        });
+        await methodsApi.create({
+          name: name.trim(),
+          github_path: `pcr://protocol/${protocol.id}`,
+          method_type: "pcr",
+          folder_path: folder.trim() || null,
+          tags: tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean),
           is_public: isPublic,
         });
       }
