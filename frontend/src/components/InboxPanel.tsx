@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { fileService } from "@/lib/file-system/file-service";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 import { imageEvents } from "@/lib/attachments/image-events";
-import { listImagesInFolder, type FolderImageEntry, sidecarPath, type ImageSidecar } from "@/lib/attachments/image-folder";
+import { listImagesInFolder, type FolderImageEntry, sidecarPath } from "@/lib/attachments/image-folder";
+import { moveImageBetweenBases } from "@/lib/attachments/move-image";
 import { resolveTaskResultsBase } from "@/lib/tasks/results-paths";
 import { useAppStore, type ActiveTask } from "@/lib/store";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -54,32 +55,11 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
       if (!currentUser) return;
       setBusy(entry.name);
       try {
-        const inbox = inboxBase(currentUser);
-        const srcPath = `${inbox}/Images/${entry.name}`;
-        const srcSidecar = sidecarPath(inbox, entry.name);
-
         const taskBase = await resolveTaskResultsBase(
           { id: task.id, owner: task.owner },
           currentUser
         );
-        const destPath = `${taskBase}/Images/${entry.name}`;
-        const destSidecar = sidecarPath(taskBase, entry.name);
-
-        const blob = await fileService.readFileAsBlob(srcPath);
-        if (!blob) throw new Error("Source image not found");
-        await fileService.writeFileFromBlob(destPath, blob);
-
-        const existingSidecar = await fileService.readJson<ImageSidecar>(srcSidecar);
-        if (existingSidecar) {
-          await fileService.writeJson(destSidecar, existingSidecar);
-        }
-
-        await fileService.deleteFile(srcPath);
-        await fileService.deleteFile(srcSidecar);
-        blobUrlResolver.revokePath(srcPath);
-
-        imageEvents.emitAttached({ basePath: taskBase, relativePath: `Images/${entry.name}` });
-        imageEvents.emitDeleted({ basePath: inbox, filename: entry.name });
+        await moveImageBetweenBases(inboxBase(currentUser), taskBase, entry.name);
         await refresh();
       } catch (err) {
         console.error("[inbox] move failed", err);

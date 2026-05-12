@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import DailyTasksSidebar from "./DailyTasksSidebar";
 import TelegramStatusBadge from "./TelegramStatusBadge";
 import InboxBadge from "./InboxBadge";
+import InboxToast from "./InboxToast";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home" },
@@ -61,6 +62,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      <InboxToast />
     </div>
   );
 }
