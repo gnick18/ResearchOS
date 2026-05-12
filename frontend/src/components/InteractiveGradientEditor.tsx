@@ -637,6 +637,26 @@ export function EditingToolbar({
   );
 }
 
+function findBlockIdByStep(gradient: PCRGradient, step: PCRStep): string | null {
+  const initial = gradient.initial || [];
+  for (let i = 0; i < initial.length; i++) {
+    if (initial[i] === step) return `initial-${i}`;
+  }
+  const cycles = gradient.cycles || [];
+  for (let cIdx = 0; cIdx < cycles.length; cIdx++) {
+    const steps = cycles[cIdx].steps || [];
+    for (let sIdx = 0; sIdx < steps.length; sIdx++) {
+      if (steps[sIdx] === step) return `cycle-${cIdx}-step-${sIdx}`;
+    }
+  }
+  const final = gradient.final || [];
+  for (let i = 0; i < final.length; i++) {
+    if (final[i] === step) return `final-${i}`;
+  }
+  if (gradient.hold === step) return "hold";
+  return null;
+}
+
 // ── Main Interactive Gradient Editor Component ─────────────────────────────────
 
 interface InteractiveGradientEditorProps {
@@ -953,24 +973,31 @@ export function InteractiveGradientEditor({
     onChange(blocksToGradient(rebuiltBlocks));
   }, [isCycleErasing, blocks, onChange, blocksToGradient, rebuildBlocksAfterMove]);
 
+  const commitMove = useCallback((newBlocks: GradientBlock[], movedStep: PCRStep) => {
+    const rebuiltBlocks = rebuildBlocksAfterMove(newBlocks);
+    const newGradient = blocksToGradient(rebuiltBlocks);
+    onChange(newGradient);
+    const newId = findBlockIdByStep(newGradient, movedStep);
+    if (newId) setSelectedBlockId(newId);
+  }, [rebuildBlocksAfterMove, blocksToGradient, onChange]);
+
   // Handle move left - arrows should NEVER move a step into a cycle
   const handleMoveLeft = useCallback((id: string) => {
     const blockIndex = blocks.findIndex(b => b.id === id);
     if (blockIndex <= 0) return;
-    
+
     const movingBlock = blocks[blockIndex];
     const prevBlock = blocks[blockIndex - 1];
-    
+
     // Hold step can always move left with a normal swap - rebuildBlocksAfterMove will preserve it
     // Check this FIRST before other logic
     if (movingBlock.type === "hold" || movingBlock.id === "hold") {
       const newBlocks = [...blocks];
       [newBlocks[blockIndex - 1], newBlocks[blockIndex]] = [newBlocks[blockIndex], newBlocks[blockIndex - 1]];
-      const rebuiltBlocks = rebuildBlocksAfterMove(newBlocks);
-      onChange(blocksToGradient(rebuiltBlocks));
+      commitMove(newBlocks, movingBlock.step);
       return;
     }
-    
+
     // If the moving block is already inside a cycle, allow normal movement within the cycle
     // (cycle steps can move within their own cycle)
     if (movingBlock.type === "cycle" && movingBlock.cycleIndex !== undefined) {
@@ -979,8 +1006,7 @@ export function InteractiveGradientEditor({
         // Normal swap within the same cycle
         const newBlocks = [...blocks];
         [newBlocks[blockIndex - 1], newBlocks[blockIndex]] = [newBlocks[blockIndex], newBlocks[blockIndex - 1]];
-        const rebuiltBlocks = rebuildBlocksAfterMove(newBlocks);
-        onChange(blocksToGradient(rebuiltBlocks));
+        commitMove(newBlocks, movingBlock.step);
         return;
       }
       // If previous block is the cycle container (moving to position 0 in cycle), allow it
@@ -989,25 +1015,23 @@ export function InteractiveGradientEditor({
         return;
       }
     }
-    
+
     // Check if previous block is a cycle step (inside a cycle) - don't enter the cycle
     if (prevBlock.type === "cycle" && prevBlock.cycleIndex !== undefined) {
       // Find the cycle container for this cycle
       const cycleContainerIdx = prevBlock.cycleContainerIndex;
       const containerIndex = findCycleContainerIndex(blocks, cycleContainerIdx!);
-      
+
       if (containerIndex >= 0) {
         // Move the step to before the cycle container (swap with entire cycle)
         const newBlocks = [...blocks];
         const [movingBlk] = newBlocks.splice(blockIndex, 1);
         newBlocks.splice(containerIndex, 0, movingBlk);
-        
-        const rebuiltBlocks = rebuildBlocksAfterMove(newBlocks);
-        onChange(blocksToGradient(rebuiltBlocks));
+        commitMove(newBlocks, movingBlock.step);
         return;
       }
     }
-    
+
     // Check if previous block is a cycle container - don't enter the cycle
     if (prevBlock.id.startsWith("cycle-container-")) {
       // The step is right after a cycle, moving left would put it inside
@@ -1015,38 +1039,33 @@ export function InteractiveGradientEditor({
       const newBlocks = [...blocks];
       const [movingBlk] = newBlocks.splice(blockIndex, 1);
       newBlocks.splice(blockIndex - 1, 0, movingBlk);
-      
-      const rebuiltBlocks = rebuildBlocksAfterMove(newBlocks);
-      onChange(blocksToGradient(rebuiltBlocks));
+      commitMove(newBlocks, movingBlock.step);
       return;
     }
-    
+
     // Normal swap for non-cycle blocks
     const newBlocks = [...blocks];
     [newBlocks[blockIndex - 1], newBlocks[blockIndex]] = [newBlocks[blockIndex], newBlocks[blockIndex - 1]];
-    
-    const rebuiltBlocks = rebuildBlocksAfterMove(newBlocks);
-    onChange(blocksToGradient(rebuiltBlocks));
-  }, [blocks, onChange, blocksToGradient, rebuildBlocksAfterMove, findCycleContainerIndex]);
+    commitMove(newBlocks, movingBlock.step);
+  }, [blocks, commitMove, findCycleContainerIndex]);
 
   // Handle move right - arrows should NEVER move a step into a cycle
   const handleMoveRight = useCallback((id: string) => {
     const blockIndex = blocks.findIndex(b => b.id === id);
     if (blockIndex < 0 || blockIndex >= blocks.length - 1) return;
-    
+
     const movingBlock = blocks[blockIndex];
     const nextBlock = blocks[blockIndex + 1];
-    
+
     // Hold step can always move right with a normal swap - rebuildBlocksAfterMove will preserve it
     // Check this FIRST before other logic (though hold is typically at the end)
     if (movingBlock.type === "hold" || movingBlock.id === "hold") {
       const newBlocks = [...blocks];
       [newBlocks[blockIndex], newBlocks[blockIndex + 1]] = [newBlocks[blockIndex + 1], newBlocks[blockIndex]];
-      const rebuiltBlocks = rebuildBlocksAfterMove(newBlocks);
-      onChange(blocksToGradient(rebuiltBlocks));
+      commitMove(newBlocks, movingBlock.step);
       return;
     }
-    
+
     // If the moving block is already inside a cycle, allow normal movement within the cycle
     // (cycle steps can move within their own cycle)
     if (movingBlock.type === "cycle" && movingBlock.cycleIndex !== undefined) {
@@ -1055,8 +1074,7 @@ export function InteractiveGradientEditor({
         // Normal swap within the same cycle
         const newBlocks = [...blocks];
         [newBlocks[blockIndex], newBlocks[blockIndex + 1]] = [newBlocks[blockIndex + 1], newBlocks[blockIndex]];
-        const rebuiltBlocks = rebuildBlocksAfterMove(newBlocks);
-        onChange(blocksToGradient(rebuiltBlocks));
+        commitMove(newBlocks, movingBlock.step);
         return;
       }
       // If next block is not in the same cycle, this step would exit the cycle
@@ -1068,65 +1086,56 @@ export function InteractiveGradientEditor({
           // Moving right within cycle but not at the end yet - normal swap
           const newBlocks = [...blocks];
           [newBlocks[blockIndex], newBlocks[blockIndex + 1]] = [newBlocks[blockIndex + 1], newBlocks[blockIndex]];
-          const rebuiltBlocks = rebuildBlocksAfterMove(newBlocks);
-          onChange(blocksToGradient(rebuiltBlocks));
+          commitMove(newBlocks, movingBlock.step);
           return;
         }
       }
     }
-    
+
     // Check if next block is a cycle container - don't enter the cycle
     if (nextBlock.id.startsWith("cycle-container-")) {
       // Find the end of this cycle
       const cycleContainerIdx = nextBlock.cycleContainerIndex;
       const cycleEndIndex = findCycleEndIndex(blocks, cycleContainerIdx!);
-      
+
       if (cycleEndIndex >= 0) {
         // Move the step to after the cycle (swap with entire cycle)
         const newBlocks = [...blocks];
         const [movingBlk] = newBlocks.splice(blockIndex, 1);
         newBlocks.splice(cycleEndIndex, 0, movingBlk);
-        
-        const rebuiltBlocks = rebuildBlocksAfterMove(newBlocks);
-        onChange(blocksToGradient(rebuiltBlocks));
+        commitMove(newBlocks, movingBlock.step);
         return;
       } else {
         // Empty cycle - move after the container
         const newBlocks = [...blocks];
         const [movingBlk] = newBlocks.splice(blockIndex, 1);
         newBlocks.splice(blockIndex + 1, 0, movingBlk);
-        
-        const rebuiltBlocks = rebuildBlocksAfterMove(newBlocks);
-        onChange(blocksToGradient(rebuiltBlocks));
+        commitMove(newBlocks, movingBlock.step);
         return;
       }
     }
-    
+
     // Check if next block is a cycle step (inside a cycle) - don't enter the cycle
     if (nextBlock.type === "cycle" && nextBlock.cycleIndex !== undefined) {
       // Find the end of this cycle
       const cycleContainerIdx = nextBlock.cycleContainerIndex;
       const cycleEndIndex = findCycleEndIndex(blocks, cycleContainerIdx!);
-      
+
       if (cycleEndIndex >= 0) {
         // Move the step to after the cycle (swap with entire cycle)
         const newBlocks = [...blocks];
         const [movingBlk] = newBlocks.splice(blockIndex, 1);
         newBlocks.splice(cycleEndIndex + 1, 0, movingBlk);
-        
-        const rebuiltBlocks = rebuildBlocksAfterMove(newBlocks);
-        onChange(blocksToGradient(rebuiltBlocks));
+        commitMove(newBlocks, movingBlock.step);
         return;
       }
     }
-    
+
     // Normal swap for non-cycle blocks
     const newBlocks = [...blocks];
     [newBlocks[blockIndex], newBlocks[blockIndex + 1]] = [newBlocks[blockIndex + 1], newBlocks[blockIndex]];
-    
-    const rebuiltBlocks = rebuildBlocksAfterMove(newBlocks);
-    onChange(blocksToGradient(rebuiltBlocks));
-  }, [blocks, onChange, blocksToGradient, rebuildBlocksAfterMove, findCycleEndIndex]);
+    commitMove(newBlocks, movingBlock.step);
+  }, [blocks, commitMove, findCycleEndIndex]);
 
   // Handle edit block
   const handleEditBlock = useCallback((block: GradientBlock) => {
