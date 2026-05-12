@@ -2,12 +2,11 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { labApi, LabUser, LabSearchResult, LabProject, LabMethod, LabTask } from "@/lib/local-api";
+import { labApi, LabSearchResult, LabProject, LabMethod, LabTask } from "@/lib/local-api";
+import { useLabData } from "@/hooks/useLabData";
 
 interface LabSearchPanelProps {
-  users: LabUser[];
   selectedUsernames: Set<string>;
-  tasks: LabTask[];
   onClose?: () => void;
   onTaskClick?: (task: LabTask) => void;
 }
@@ -30,12 +29,11 @@ const DEFAULT_COLORS = [
 ];
 
 export default function LabSearchPanel({
-  users,
   selectedUsernames,
-  tasks,
   onClose,
   onTaskClick,
 }: LabSearchPanelProps) {
+  const { users, tasks } = useLabData();
   const [results, setResults] = useState<LabSearchResult[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);

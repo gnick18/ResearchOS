@@ -2,13 +2,11 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { labApi, LabTask, LabUser, LabProject } from "@/lib/local-api";
+import { labApi, LabTask } from "@/lib/local-api";
+import { useLabData } from "@/hooks/useLabData";
 import type { Note } from "@/lib/types";
 
 interface LabActivityPanelProps {
-  tasks: LabTask[];
-  users: LabUser[];
-  projects: LabProject[];
   selectedUsernames: Set<string>;
   onTaskClick: (task: LabTask) => void;
   onUserClick?: (username: string) => void;
@@ -163,14 +161,12 @@ function SectionShell({
 }
 
 export default function LabActivityPanel({
-  tasks,
-  users,
-  projects,
   selectedUsernames,
   onTaskClick,
   onUserClick,
   onSwitchToNotes,
 }: LabActivityPanelProps) {
+  const { users, tasks, projects } = useLabData();
   // Shared notes only — matches what the Notes tab shows.
   const { data: notes = [] } = useQuery<Note[]>({
     queryKey: ["lab", "notes-shared"],

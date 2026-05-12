@@ -1,23 +1,23 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { LabTask, LabUser, LabProject } from "@/lib/local-api";
+import { LabTask } from "@/lib/local-api";
+import { useLabData } from "@/hooks/useLabData";
 
 interface LabExperimentsPanelProps {
-  experiments: LabTask[];
-  users: LabUser[];
-  projects: LabProject[];
   selectedUsernames: Set<string>;
   onExperimentClick: (experiment: LabTask) => void;
 }
 
 export default function LabExperimentsPanel({
-  experiments,
-  users,
-  projects,
   selectedUsernames,
   onExperimentClick,
 }: LabExperimentsPanelProps) {
+  const { users, tasks, projects } = useLabData();
+  const experiments = useMemo(
+    () => tasks.filter((t) => t.task_type === "experiment"),
+    [tasks],
+  );
   const [sortBy, setSortBy] = useState<"username" | "project" | "date" | "name">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [viewMode, setViewMode] = useState<"grouped" | "table">("grouped");

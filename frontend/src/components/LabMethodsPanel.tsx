@@ -2,12 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { labApi, LabTask, LabUser, LabProject, LabMethod } from "@/lib/local-api";
+import { labApi, LabTask, LabMethod } from "@/lib/local-api";
+import { useLabData } from "@/hooks/useLabData";
 
 interface LabMethodsPanelProps {
-  tasks: LabTask[];
-  users: LabUser[];
-  projects: LabProject[];
   selectedUsernames: Set<string>;
   onTaskClick: (task: LabTask) => void;
   onUserClick?: (username: string) => void;
@@ -46,13 +44,11 @@ interface MethodRow {
 }
 
 export default function LabMethodsPanel({
-  tasks,
-  users,
-  projects,
   selectedUsernames,
   onTaskClick,
   onUserClick,
 }: LabMethodsPanelProps) {
+  const { users, tasks, projects } = useLabData();
   const { data: methods = [], isLoading } = useQuery<LabMethod[]>({
     queryKey: ["lab", "methods"],
     queryFn: () => labApi.getMethods(),

@@ -2,13 +2,12 @@
 
 import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { labApi, LabTask, LabProject, LabUser } from "@/lib/local-api";
+import { labApi, LabTask } from "@/lib/local-api";
+import { useLabData } from "@/hooks/useLabData";
 import type { Note, PurchaseItem } from "@/lib/types";
 
 interface LabUserDetailPanelProps {
-  user: LabUser;
-  tasks: LabTask[];
-  projects: LabProject[];
+  username: string;
   onClose: () => void;
   onTaskClick: (task: LabTask) => void;
 }
@@ -51,12 +50,16 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
 }
 
 export default function LabUserDetailPanel({
-  user,
-  tasks,
-  projects,
+  username,
   onClose,
   onTaskClick,
 }: LabUserDetailPanelProps) {
+  const { users, tasks, projects } = useLabData();
+  const user = useMemo(
+    () => users.find((u) => u.username === username),
+    [users, username],
+  );
+
   const today = startOfTodayISO();
   const windowStart = isoDaysAgo(RECENT_DAYS);
 
@@ -70,8 +73,8 @@ export default function LabUserDetailPanel({
   }, [onClose]);
 
   const { data: notes = [] } = useQuery<Note[]>({
-    queryKey: ["lab", "notes", user.username],
-    queryFn: () => labApi.getUserNotes(user.username),
+    queryKey: ["lab", "notes", username],
+    queryFn: () => labApi.getUserNotes(username),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
@@ -84,20 +87,20 @@ export default function LabUserDetailPanel({
     staleTime: 60_000,
     refetchOnWindowFocus: false,
     select: (data: Array<PurchaseItem & { username: string }>) =>
-      data.filter((i) => i.username === user.username),
+      data.filter((i) => i.username === username),
   });
 
   const userTasks = useMemo(
-    () => tasks.filter((t) => t.username === user.username),
-    [tasks, user.username],
+    () => tasks.filter((t) => t.username === username),
+    [tasks, username],
   );
 
   const projectNameFor = useMemo(() => {
     const map = new Map<string, string>();
     for (const p of projects) map.set(`${p.username}:${p.id}`, p.name);
     return (projectId: number) =>
-      map.get(`${user.username}:${projectId}`) ?? "Unknown project";
-  }, [projects, user.username]);
+      map.get(`${username}:${projectId}`) ?? "Unknown project";
+  }, [projects, username]);
 
   const activeExperiments = useMemo(() => {
     return userTasks
@@ -128,8 +131,13 @@ export default function LabUserDetailPanel({
       );
   }, [notes, windowStart]);
 
+  // If the user isn't in the cache yet (data still loading, or username
+  // doesn't exist), bail. The page-level open-panel guard usually prevents
+  // this, but we still want a safe fallback.
+  if (!user) return null;
+
   // Stats
-  const projectsCount = projects.filter((p) => p.username === user.username && !p.is_archived).length;
+  const projectsCount = projects.filter((p) => p.username === username && !p.is_archived).length;
   const totalExperiments = userTasks.filter((t) => t.task_type === "experiment").length;
   const completedExperiments = userTasks.filter(
     (t) => t.task_type === "experiment" && t.is_complete,
@@ -161,7 +169,7 @@ export default function LabUserDetailPanel({
         className="fixed right-0 top-0 h-full w-full sm:w-[480px] bg-white shadow-2xl z-[70] flex flex-col"
         role="dialog"
         aria-modal="true"
-        aria-label={`${user.username} dashboard`}
+        aria-label={`${username} dashboard`}
       >
         {/* Header */}
         <div className="p-4 border-b border-gray-200 flex items-center gap-3">
@@ -169,10 +177,10 @@ export default function LabUserDetailPanel({
             className="w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-semibold flex-shrink-0"
             style={{ backgroundColor: user.color }}
           >
-            {user.username.charAt(0).toUpperCase()}
+            {username.charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-semibold text-gray-900 truncate">{user.username}</h2>
+            <h2 className="text-lg font-semibold text-gray-900 truncate">{username}</h2>
             <p className="text-xs text-gray-500">
               {user.created_at ? `Member since ${formatDate(user.created_at)}` : "Member"}
             </p>

@@ -2,12 +2,10 @@
 
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { LabTask, LabUser, LabProject, purchasesApi, labApi } from "@/lib/local-api";
+import { LabTask, purchasesApi, labApi } from "@/lib/local-api";
+import { useLabData } from "@/hooks/useLabData";
 
 interface LabPurchasesPanelProps {
-  purchases: LabTask[];
-  users: LabUser[];
-  projects: LabProject[];
   selectedUsernames: Set<string>;
   onPurchaseClick: (purchase: LabTask) => void;
 }
@@ -15,12 +13,14 @@ interface LabPurchasesPanelProps {
 const UNCATEGORIZED = "__uncategorized__";
 
 export default function LabPurchasesPanel({
-  purchases,
-  users,
-  projects,
   selectedUsernames,
   onPurchaseClick,
 }: LabPurchasesPanelProps) {
+  const { users, tasks, projects } = useLabData();
+  const purchases = useMemo(
+    () => tasks.filter((t) => t.task_type === "purchase"),
+    [tasks],
+  );
   const [selectedFundingString, setSelectedFundingString] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "summary">("list");
 
