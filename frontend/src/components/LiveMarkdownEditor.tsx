@@ -553,13 +553,11 @@ export default function LiveMarkdownEditor({
   const editorContentRef = useRef<HTMLDivElement>(null);
 
   // Scroll the rendered preview/hybrid editor to the image with the given
-  // filename when the user clicks an in-document thumbnail in the strip. For
-  // linked-only thumbnails (not yet in the body) we don't have an <img> to
-  // scroll to — Phase 4's metadata popup will take over the click handler;
-  // until then we just no-op for those.
-  const handleImageStripClick = useCallback(
-    (filename: string, inDocument: boolean) => {
-      if (!inDocument) return;
+  // filename. Triggered by the "Jump to occurrence" button inside the
+  // image-strip metadata popup; the strip only enables that button when the
+  // image is actually in the document.
+  const handleJumpToImage = useCallback(
+    (filename: string) => {
       const scroll = () => {
         const root = editorContentRef.current;
         if (!root) return;
@@ -1814,7 +1812,7 @@ export default function LiveMarkdownEditor({
         <ImageStrip
           content={value}
           basePath={imageBasePath}
-          onImageClick={handleImageStripClick}
+          onJumpToImage={handleJumpToImage}
         />
       )}
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 import { imageEvents } from "@/lib/attachments/image-events";
 import { listImagesInFolder, type FolderImageEntry } from "@/lib/attachments/image-folder";
+import ImageMetadataPopup from "./ImageMetadataPopup";
 
 interface ImageStripProps {
   /** Raw markdown source — used to figure out which linked files are
@@ -13,10 +14,9 @@ interface ImageStripProps {
    *  We list `${basePath}/Images/` for the primary thumbnail set, and resolve
    *  relative srcs against it. */
   basePath?: string;
-  /** Click handler — receives the filename (within `Images/`) and whether
-   *  the image is currently referenced in the markdown body. Phase 4 swaps
-   *  the parent's handler for "open metadata popup". */
-  onImageClick?: (filename: string, inDocument: boolean) => void;
+  /** Triggered when the user clicks "Jump to occurrence" inside the metadata
+   *  popup. Parent (markdown editor) scrolls the preview to the image. */
+  onJumpToImage?: (filename: string) => void;
   className?: string;
 }
 
@@ -61,11 +61,12 @@ function imagesReferencedInMarkdown(markdown: string): Set<string> {
 export default function ImageStrip({
   content,
   basePath,
-  onImageClick,
+  onJumpToImage,
   className,
 }: ImageStripProps) {
   const [folderEntries, setFolderEntries] = useState<FolderImageEntry[]>([]);
   const [blobUrls, setBlobUrls] = useState<Map<string, string>>(new Map());
+  const [popupFilename, setPopupFilename] = useState<string | null>(null);
 
   const referencedNames = useMemo(() => imagesReferencedInMarkdown(content), [content]);
 
@@ -184,7 +185,7 @@ export default function ImageStrip({
             <button
               key={entry.filename}
               type="button"
-              onClick={() => onImageClick?.(entry.filename, entry.inDocument)}
+              onClick={() => setPopupFilename(entry.filename)}
               className="group relative flex-shrink-0 w-16 h-16 rounded-md border border-gray-200 bg-white overflow-hidden hover:border-blue-400 hover:ring-2 hover:ring-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
               title={tooltip}
             >
@@ -209,6 +210,15 @@ export default function ImageStrip({
           );
         })}
       </div>
+      {popupFilename && basePath && (
+        <ImageMetadataPopup
+          basePath={basePath}
+          filename={popupFilename}
+          inDocument={referencedNames.has(popupFilename)}
+          onJump={onJumpToImage}
+          onClose={() => setPopupFilename(null)}
+        />
+      )}
     </div>
   );
 }
