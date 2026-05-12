@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { getUpdates, TelegramApiError } from "./telegram-client";
 import { readPairing, updateLastUpdateId } from "./telegram-store";
 import { routeTelegramMessage } from "./image-router";
+import { setPollingHealth } from "./telegram-runtime";
 
 const TAB_LOCK_KEY = "telegram-poller-tab";
 const HEARTBEAT_MS = 5000;
@@ -65,7 +66,10 @@ function sleep(ms: number): Promise<void> {
  */
 export function useTelegramPolling(username: string | null): void {
   useEffect(() => {
-    if (!username) return;
+    if (!username) {
+      setPollingHealth("idle");
+      return;
+    }
 
     let cancelled = false;
     const tabId = Math.random().toString(36).slice(2);
@@ -80,10 +84,12 @@ export function useTelegramPolling(username: string | null): void {
       while (!cancelled) {
         const pairing = await readPairing(username);
         if (!pairing) {
+          setPollingHealth("idle");
           await sleep(2500);
           continue;
         }
         if (!tryClaimLock(tabId)) {
+          setPollingHealth("idle");
           await sleep(HEARTBEAT_MS);
           continue;
         }
@@ -113,21 +119,25 @@ export function useTelegramPolling(username: string | null): void {
             await updateLastUpdateId(username, maxId);
           }
           backoffMs = 1000;
+          setPollingHealth("ok");
         } catch (err) {
           if (cancelled) return;
           if (err instanceof DOMException && err.name === "AbortError") return;
           if (err instanceof TelegramApiError && err.code === 401) {
             console.warn("[telegram-poll] token rejected (401); user must re-pair");
+            setPollingHealth("auth_error");
             await sleep(30000);
             continue;
           }
           if (err instanceof TelegramApiError && err.code === 409) {
             // Another client is polling the same bot. Step aside.
             console.info("[telegram-poll] conflict (409); another client active");
+            setPollingHealth("conflict");
             await sleep(15000);
             continue;
           }
           console.warn("[telegram-poll] transient error, backing off", err);
+          setPollingHealth("retrying");
           await sleep(backoffMs);
           backoffMs = Math.min(backoffMs * 2, 30000);
         }
@@ -139,6 +149,7 @@ export function useTelegramPolling(username: string | null): void {
       controller.abort();
       window.clearInterval(heartbeat);
       releaseLock(tabId);
+      setPollingHealth("idle");
     };
   }, [username]);
 }

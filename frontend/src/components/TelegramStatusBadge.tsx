@@ -4,8 +4,28 @@ import { useCallback, useEffect, useState } from "react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { readPairing, type TelegramPairing } from "@/lib/telegram/telegram-store";
 import { useTelegramPolling } from "@/lib/telegram/use-telegram-polling";
+import {
+  getPollingHealth,
+  subscribePollingHealth,
+  type PollingHealth,
+} from "@/lib/telegram/telegram-runtime";
 import { imageEvents } from "@/lib/attachments/image-events";
 import TelegramPairingModal from "./TelegramPairingModal";
+
+const HEALTH_PRESENTATION: Record<
+  PollingHealth,
+  { dot: string; label?: string; tone: "ok" | "warn" | "error" | "idle" }
+> = {
+  ok: { dot: "bg-emerald-500", tone: "ok" },
+  retrying: { dot: "bg-amber-400 animate-pulse", label: "retrying", tone: "warn" },
+  conflict: {
+    dot: "bg-amber-400",
+    label: "another tab is polling",
+    tone: "warn",
+  },
+  auth_error: { dot: "bg-red-500", label: "re-pair needed", tone: "error" },
+  idle: { dot: "bg-gray-300", tone: "idle" },
+};
 
 export default function TelegramStatusBadge() {
   const { currentUser } = useCurrentUser();
@@ -37,9 +57,21 @@ export default function TelegramStatusBadge() {
   // isn't paired and self-throttles via a cross-tab lock.
   useTelegramPolling(pairing ? currentUser : null);
 
+  const [health, setHealth] = useState<PollingHealth>(getPollingHealth());
+  useEffect(() => subscribePollingHealth(setHealth), []);
+
   if (!currentUser) return null;
 
   const paired = !!pairing;
+  const presentation = paired ? HEALTH_PRESENTATION[health] : HEALTH_PRESENTATION.idle;
+  const toneClass =
+    presentation.tone === "error"
+      ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+      : presentation.tone === "warn"
+        ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+        : paired
+          ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+          : "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100";
 
   return (
     <>
@@ -47,20 +79,19 @@ export default function TelegramStatusBadge() {
         type="button"
         onClick={() => setModalOpen(true)}
         title={
-          paired ? `Paired with @${pairing.botUsername}` : "Connect a Telegram bot to send photos"
-        }
-        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
           paired
-            ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-            : "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100"
-        }`}
+            ? `Paired with @${pairing.botUsername}${presentation.label ? ` (${presentation.label})` : ""}`
+            : "Connect a Telegram bot to send photos"
+        }
+        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${toneClass}`}
       >
-        <span
-          className={`inline-block w-2 h-2 rounded-full ${
-            paired ? "bg-emerald-500" : "bg-gray-300"
-          }`}
-        />
+        <span className={`inline-block w-2 h-2 rounded-full ${presentation.dot}`} />
         {paired ? `Telegram: @${pairing.botUsername}` : "Connect Telegram"}
+        {paired && presentation.label && (
+          <span className="ml-1 text-[10px] uppercase tracking-wide">
+            {presentation.label}
+          </span>
+        )}
         {paired && recent > 0 && (
           <span className="ml-1 text-emerald-600">+{recent}</span>
         )}
