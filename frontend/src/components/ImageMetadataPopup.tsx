@@ -171,7 +171,7 @@ export default function ImageMetadataPopup({
               // eslint-disable-next-line @next/next/no-img-element
               <img src={previewUrl} alt={filename} className="max-w-full max-h-[60vh] object-contain" />
             ) : (
-              <span className="text-gray-300 text-5xl">🖼</span>
+              <span className="text-xs text-gray-400">Loading preview…</span>
             )}
           </div>
 
@@ -283,7 +283,7 @@ export default function ImageMetadataPopup({
                 disabled={deleting}
                 className="px-3 py-2 text-xs text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
               >
-                {deleting ? "Deleting…" : "🗑 Delete file"}
+                {deleting ? "Deleting…" : "Delete file"}
               </button>
             )}
           </div>

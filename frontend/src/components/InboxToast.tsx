@@ -124,9 +124,7 @@ export default function InboxToast() {
                   className="w-12 h-12 rounded-lg object-cover flex-shrink-0 bg-gray-100"
                 />
               ) : (
-                <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 text-xl flex-shrink-0">
-                  🖼
-                </div>
+                <div className="w-12 h-12 rounded-lg bg-gray-100 flex-shrink-0" />
               )}
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-gray-800 truncate">
@@ -135,7 +133,7 @@ export default function InboxToast() {
                   )}
                 </p>
                 <p className="text-[10px] text-gray-400">
-                  📥 Inbox — {activeTask ? `file to ${activeTask.name}?` : "no experiment open"}
+                  Inbox — {activeTask ? `file to ${activeTask.name}?` : "no experiment open"}
                 </p>
               </div>
               <div className="flex flex-col items-stretch gap-1 flex-shrink-0">

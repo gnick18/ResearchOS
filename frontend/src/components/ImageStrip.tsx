@@ -231,9 +231,7 @@ export default function ImageStrip({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={url} alt={entry.filename} className="w-full h-full object-cover pointer-events-none" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-300 text-2xl">
-                  🖼
-                </div>
+                <div className="w-full h-full bg-gray-100" />
               )}
               {!entry.inDocument && (
                 <span
