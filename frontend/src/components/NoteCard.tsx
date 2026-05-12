@@ -1,6 +1,8 @@
 "use client";
 
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Note, LabNote } from "@/lib/types";
+import { notesApi } from "@/lib/local-api";
 
 interface NoteCardProps {
   note: Note | LabNote;
@@ -9,6 +11,16 @@ interface NoteCardProps {
 }
 
 export default function NoteCard({ note, onClick, isLabMode = false }: NoteCardProps) {
+  const queryClient = useQueryClient();
+  const toggleShareMutation = useMutation({
+    mutationFn: (next: boolean) => notesApi.update(note.id, { is_shared: next }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+      queryClient.invalidateQueries({ queryKey: ["lab-notes"] });
+      queryClient.invalidateQueries({ queryKey: ["lab", "notes-shared"] });
+      queryClient.invalidateQueries({ queryKey: ["lab", "notes"] });
+    },
+  });
   // Format date for display
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "";
@@ -82,11 +94,35 @@ export default function NoteCard({ note, onClick, isLabMode = false }: NoteCardP
             </div>
           )}
           
-          {/* Shared indicator */}
-          {note.is_shared && (
-            <span className="px-2 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded-full">
-              Shared
-            </span>
+          {/* Share-with-lab pill (#15). Clickable to toggle in the owner's
+              own view; static label in lab mode (can't flip others' notes). */}
+          {isLabMode ? (
+            note.is_shared && (
+              <span className="px-2 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded-full">
+                Shared with lab
+              </span>
+            )
+          ) : (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleShareMutation.mutate(!note.is_shared);
+              }}
+              disabled={toggleShareMutation.isPending}
+              className={`px-2 py-0.5 text-xs rounded-full transition-colors ${
+                note.is_shared
+                  ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+              } disabled:opacity-50`}
+              title={
+                note.is_shared
+                  ? "Visible in Lab Mode to all lab mates. Click to make private."
+                  : "Private. Click to share with lab mates."
+              }
+            >
+              {note.is_shared ? "Shared with lab" : "Private"}
+            </button>
           )}
         </div>
         

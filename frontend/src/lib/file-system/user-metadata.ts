@@ -10,6 +10,9 @@ const USER_COLOR_PALETTE = [
 export interface UserMetadataEntry {
   color: string;
   created_at: string;
+  // Per-user opt-out from lab-mode goals visibility (#14). When true,
+  // labApi.getGoals() skips this user. Default = false (visible).
+  hide_goals_from_lab?: boolean;
 }
 
 export interface UserMetadataFile {
@@ -78,4 +81,48 @@ export async function ensureLabUserMetadata(
 
 export function fallbackUserColor(username: string): string {
   return hashColor(username);
+}
+
+/**
+ * Sets a single field on a user's metadata entry, preserving all other
+ * fields. The user is auto-created with palette color + now() if missing.
+ */
+export async function setUserMetadataField<K extends keyof UserMetadataEntry>(
+  username: string,
+  field: K,
+  value: UserMetadataEntry[K],
+): Promise<UserMetadataEntry | null> {
+  if (!fileService.isConnected()) return null;
+  const file = await readMetadataFile();
+  const existing = file.users[username];
+  if (existing) {
+    file.users[username] = { ...existing, [field]: value };
+  } else {
+    const takenColors = new Set<string>(
+      Object.values(file.users).map((entry) => entry.color),
+    );
+    file.users[username] = {
+      color: pickColor(takenColors, username),
+      created_at: new Date().toISOString(),
+      [field]: value,
+    };
+  }
+  try {
+    await fileService.writeJson(METADATA_PATH, file);
+  } catch (err) {
+    console.error("setUserMetadataField: failed to persist", err);
+    return null;
+  }
+  return file.users[username];
+}
+
+/**
+ * Reads a single user's metadata without ensuring/writing. Returns null
+ * if the user isn't recorded yet.
+ */
+export async function getUserMetadata(
+  username: string,
+): Promise<UserMetadataEntry | null> {
+  const file = await readMetadataFile();
+  return file.users[username] ?? null;
 }

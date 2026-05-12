@@ -52,13 +52,17 @@ export default function NotesPanel({
     },
   });
 
-  // Update note mutation
+  // Update note mutation. Sharing toggles affect lab-mode caches too, so
+  // bust those (activity feed, per-user dashboard) in addition to the
+  // regular notes lists.
   const updateNoteMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<NoteCreate> }) =>
       notesApi.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notes"] });
       queryClient.invalidateQueries({ queryKey: ["lab-notes"] });
+      queryClient.invalidateQueries({ queryKey: ["lab", "notes-shared"] });
+      queryClient.invalidateQueries({ queryKey: ["lab", "notes"] });
     },
   });
 
@@ -68,6 +72,8 @@ export default function NotesPanel({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notes"] });
       queryClient.invalidateQueries({ queryKey: ["lab-notes"] });
+      queryClient.invalidateQueries({ queryKey: ["lab", "notes-shared"] });
+      queryClient.invalidateQueries({ queryKey: ["lab", "notes"] });
     },
   });
 

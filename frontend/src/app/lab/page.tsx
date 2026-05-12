@@ -14,6 +14,7 @@ import LabPurchasesPanel from "@/components/LabPurchasesPanel";
 import LabExperimentsPanel from "@/components/LabExperimentsPanel";
 import LabActivityPanel from "@/components/LabActivityPanel";
 import LabMethodsPanel from "@/components/LabMethodsPanel";
+import LabRoadmapsPanel from "@/components/LabRoadmapsPanel";
 import LabUserDetailPanel from "@/components/LabUserDetailPanel";
 import NotesPanel from "@/components/NotesPanel";
 
@@ -52,7 +53,7 @@ function labTaskToTask(labTask: LabTask): Task {
   };
 }
 
-type TabType = "activity" | "gantt" | "experiments" | "purchases" | "methods" | "notes" | "search";
+type TabType = "activity" | "gantt" | "experiments" | "purchases" | "roadmaps" | "methods" | "notes" | "search";
 
 const LAB_STALE_MS = 60_000;
 
@@ -283,6 +284,19 @@ export default function LabModePage() {
               Purchases
             </button>
             <button
+              onClick={() => setActiveTab("roadmaps")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+                activeTab === "roadmaps"
+                  ? "bg-emerald-100 text-emerald-700"
+                  : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7h18M3 12h18M3 17h12" />
+              </svg>
+              Roadmaps
+            </button>
+            <button
               onClick={() => setActiveTab("methods")}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
                 activeTab === "methods"
@@ -395,6 +409,13 @@ export default function LabModePage() {
             projects={projects}
             selectedUsernames={selectedUsers}
             onTaskClick={setSelectedTask}
+            onUserClick={setViewingUser}
+          />
+        ) : activeTab === "roadmaps" ? (
+          <LabRoadmapsPanel
+            users={users}
+            projects={projects}
+            selectedUsernames={selectedUsers}
             onUserClick={setViewingUser}
           />
         ) : activeTab === "notes" ? (

@@ -9,6 +9,7 @@ import TaskDetailPopup from "@/components/TaskDetailPopup";
 import ProjectDetailPopup from "@/components/ProjectDetailPopup";
 import DataSetupScreen from "@/components/DataSetupScreen";
 import UserLoginScreen from "@/components/UserLoginScreen";
+import LabVisibilityToggle from "@/components/LabVisibilityToggle";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import type { Project, Task } from "@/lib/types";
 
@@ -232,6 +233,9 @@ export default function HomePage() {
                 <span className="text-gray-300"> · {archivedProjects.length} archived</span>
               )}
             </p>
+            <div className="mt-2">
+              <LabVisibilityToggle username={currentUser} />
+            </div>
           </div>
           <button
             onClick={() => setCreating(true)}
