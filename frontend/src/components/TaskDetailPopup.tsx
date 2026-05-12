@@ -107,6 +107,14 @@ export default function TaskDetailPopup({
 
   // Get the selected animation type from the store
   const animationType = useAppStore((s) => s.animationType);
+
+  // Expose this task as the "active task" while the popup is open, so the
+  // Telegram image router knows where to drop inbound photos.
+  const setActiveTask = useAppStore((s) => s.setActiveTask);
+  useEffect(() => {
+    setActiveTask({ id: task.id, owner: task.owner, name: task.name });
+    return () => setActiveTask(null);
+  }, [setActiveTask, task.id, task.owner, task.name]);
   
   // Stable callback for animation completion to prevent re-triggering
   const handleAnimationComplete = useCallback(() => {
