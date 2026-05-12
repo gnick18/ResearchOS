@@ -1594,7 +1594,52 @@ export default function LiveMarkdownEditor({
       )}
 
       {/* Main content area with helper panel and editor */}
-      <div ref={editorContentRef} className="flex flex-1 min-h-0">
+      <div
+        ref={editorContentRef}
+        className="flex flex-1 min-h-0"
+        onDragOver={(e) => {
+          if (Array.from(e.dataTransfer.types).includes("application/x-research-os-image")) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "copy";
+          }
+        }}
+        onDrop={(e) => {
+          const raw = e.dataTransfer.getData("application/x-research-os-image");
+          if (!raw) return;
+          e.preventDefault();
+          let parsed: { filename: string; caption?: string } | null = null;
+          try {
+            parsed = JSON.parse(raw) as { filename: string; caption?: string };
+          } catch {
+            return;
+          }
+          if (!parsed?.filename) return;
+          const snippet = `![${parsed.caption ?? ""}](Images/${parsed.filename})`;
+
+          const ta = textareaRef.current;
+          if (currentMode === "edit" && ta) {
+            const start = ta.selectionStart ?? value.length;
+            const end = ta.selectionEnd ?? start;
+            const before = value.slice(0, start);
+            const after = value.slice(end);
+            const needsLeadingNl = before.length > 0 && !before.endsWith("\n");
+            const needsTrailingNl = after.length > 0 && !after.startsWith("\n");
+            const insert = `${needsLeadingNl ? "\n" : ""}${snippet}${needsTrailingNl ? "\n" : ""}`;
+            const next = before + insert + after;
+            onChange(next);
+            // Move caret to just after the inserted snippet on the next tick.
+            const caret = (before + insert).length;
+            requestAnimationFrame(() => {
+              ta.focus();
+              ta.setSelectionRange(caret, caret);
+            });
+          } else {
+            const trailing = value.endsWith("\n") ? "" : "\n";
+            onChange(`${value}${trailing}${snippet}\n`);
+            if (currentMode === "preview") setMode("hybrid");
+          }
+        }}
+      >
         {/* Keyboard Shortcuts Helper Panel - only show in edit mode */}
         {showShortcutsHelper && currentMode === "edit" && (
           <div className={`${helperCollapsed ? "w-8" : "w-52"} flex-shrink-0 border-r border-gray-100 bg-gray-50/30 flex flex-col transition-all duration-200`}>
