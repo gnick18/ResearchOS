@@ -276,10 +276,21 @@ function MethodRowView({
 
   return (
     <div className={dimmed ? "opacity-70" : ""}>
-      <button
-        type="button"
+      {/* Row is a div, not a button — it contains the per-user avatar
+          buttons inside the cluster, and nested <button>s are invalid
+          HTML (hydration error). Keyboard a11y is handled via role +
+          tabIndex + onKeyDown for Enter/Space. */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={onToggle}
-        className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors flex items-center gap-3"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
+        className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors flex items-center gap-3 cursor-pointer"
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -336,7 +347,7 @@ function MethodRowView({
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
         </svg>
-      </button>
+      </div>
 
       {expanded && (
         <div className="px-4 pb-3 -mt-1">
