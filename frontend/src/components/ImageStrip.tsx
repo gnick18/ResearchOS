@@ -6,6 +6,20 @@ import { imageEvents } from "@/lib/attachments/image-events";
 import { listImagesInFolder, type FolderImageEntry } from "@/lib/attachments/image-folder";
 import ImageMetadataPopup from "./ImageMetadataPopup";
 
+/** MIME-style key for drag-and-drop. Defined here so the editor can pick it
+ *  out without coupling. */
+export const STRIP_DRAG_MIME = "application/x-research-os-image";
+
+export interface StripDragPayload {
+  /** Filename within the task's Images/ folder. */
+  filename: string;
+  /** Source `basePath` (the strip's task), used by the trash drop-zone to
+   *  know which file to delete. */
+  basePath: string;
+  /** Optional caption pulled from the sidecar at drag-start. */
+  caption?: string;
+}
+
 interface ImageStripProps {
   /** Raw markdown source — used to figure out which linked files are
    *  actually referenced in the document (vs. linked-only). */
@@ -181,17 +195,33 @@ export default function ImageStrip({
           const tooltip = entry.sidecarCaption
             ? `${entry.sidecarCaption} — ${entry.filename}`
             : entry.filename;
+          const payload: StripDragPayload = {
+            filename: entry.filename,
+            basePath: basePath ?? "",
+            caption: entry.sidecarCaption,
+          };
           return (
             <button
               key={entry.filename}
               type="button"
+              draggable={!!basePath}
+              onDragStart={(e) => {
+                e.dataTransfer.setData(STRIP_DRAG_MIME, JSON.stringify(payload));
+                e.dataTransfer.setData(
+                  "text/plain",
+                  `![${entry.sidecarCaption ?? ""}](Images/${entry.filename})`
+                );
+                e.dataTransfer.effectAllowed = "copyMove";
+                const img = e.currentTarget.querySelector("img");
+                if (img) e.dataTransfer.setDragImage(img, 32, 32);
+              }}
               onClick={() => setPopupFilename(entry.filename)}
-              className="group relative flex-shrink-0 w-16 h-16 rounded-md border border-gray-200 bg-white overflow-hidden hover:border-blue-400 hover:ring-2 hover:ring-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              className="group relative flex-shrink-0 w-16 h-16 rounded-md border border-gray-200 bg-white overflow-hidden hover:border-blue-400 hover:ring-2 hover:ring-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-grab active:cursor-grabbing"
               title={tooltip}
             >
               {url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={url} alt={entry.filename} className="w-full h-full object-cover" />
+                <img src={url} alt={entry.filename} className="w-full h-full object-cover pointer-events-none" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-gray-300 text-2xl">
                   🖼
