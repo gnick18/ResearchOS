@@ -6,6 +6,7 @@ import { tasksApi, methodsApi, githubApi, dependenciesApi, type DuplicateCheckRe
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Method, Project, Task, Dependency, SubTask } from "@/lib/types";
 import { createNewFileContent } from "@/lib/stamp-utils";
+import { taskResultsBase } from "@/lib/tasks/results-paths";
 import LoadingOverlay from "@/components/LoadingOverlay";
 
 interface TaskModalProps {
@@ -199,7 +200,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
 
       // If experiment, create the lab notes file scaffold
       if (taskType === "experiment") {
-        const notesPath = `results/task-${task.id}/notes.md`;
+        const notesPath = `${taskResultsBase(task)}/notes.md`;
         const projectName = projects.find((p) => p.id === projectId)?.name || "Unknown Project";
         const template = createNewFileContent(name.trim(), projectName, 'notes');
         try {

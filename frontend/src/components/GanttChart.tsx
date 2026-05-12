@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useRef, useState, useEffect, useLayoutEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { tasksApi, dependenciesApi } from "@/lib/local-api";
+import { taskKey } from "@/lib/types";
 import type { Dependency, Task, ShiftResult, Project, HighLevelGoal } from "@/lib/types";
 import { useAppStore } from "@/lib/store";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -13,7 +14,7 @@ interface GanttChartProps {
   projectColors: Record<number, string>;
   projects: Project[];
   goals: HighLevelGoal[];
-  onTaskClick: (taskId: number) => void;
+  onTaskClick: (taskKey: string) => void;
   onGoalClick: (goal: HighLevelGoal) => void;
   // Lab Mode props
   isLabMode?: boolean;
@@ -28,12 +29,14 @@ interface TaskPosition {
   height: number;
 }
 
-// Mutable ref to store task elements for position calculation
-type TaskElementMap = Map<number, { element: HTMLDivElement; weekIdx: number; rowIdx: number; spanInfo: { startIdx: number; span: number } }>;
+// Mutable ref to store task elements for position calculation.
+// Keyed by composite (owner, id) string so shared tasks that share a numeric
+// id with an own task don't clobber each other.
+type TaskElementMap = Map<string, { element: HTMLDivElement; weekIdx: number; rowIdx: number; spanInfo: { startIdx: number; span: number } }>;
 
 // Interface for row assignment
 interface TaskRowAssignment {
-  taskId: number;
+  taskKey: string;
   row: number;
   chainId: number; // Which chain this task belongs to
   positionInChain: number; // Position within the chain (0 = first, 1 = second, etc.)
@@ -114,85 +117,90 @@ function getCompletedTaskColor(hexColor: string): { color: string; opacity: numb
   return { color: lightened, opacity: 0.65 };
 }
 
-// Build dependency chains - groups of tasks that are connected by dependencies
-// Returns a map of task_id -> { chainId, positionInChain, chainTasks, chainColor }
+// Build dependency chains - groups of tasks that are connected by dependencies.
+// Returns a map of taskKey -> chain info. Dependencies are loaded only from the
+// current user's directory, so they only ever connect own (non-shared) tasks;
+// shared tasks always appear as singleton chains here.
 function buildDependencyChains(
-  tasks: Task[], 
+  tasks: Task[],
   dependencies: Dependency[]
-): Map<number, { chainId: number; positionInChain: number; chainTasks: Task[]; chainColor: string }> {
-  const result = new Map<number, { chainId: number; positionInChain: number; chainTasks: Task[]; chainColor: string }>();
-  
+): Map<string, { chainId: number; positionInChain: number; chainTasks: Task[]; chainColor: string }> {
+  const result = new Map<string, { chainId: number; positionInChain: number; chainTasks: Task[]; chainColor: string }>();
+
   if (tasks.length === 0) return result;
-  
-  // Build parent/child maps
-  const parentMap = new Map<number, number[]>();
-  const childMap = new Map<number, number[]>();
-  const taskIds = new Set(tasks.map(t => t.id));
-  
+
+  // Dep parent_id/child_id are numeric ids in the current user's namespace.
+  // Resolve them to composite keys via own (non-shared) tasks only.
+  const ownTaskKeyById = new Map<number, string>();
+  const taskByKey = new Map<string, Task>();
+  for (const t of tasks) {
+    taskByKey.set(taskKey(t), t);
+    if (!t.is_shared_with_me) ownTaskKeyById.set(t.id, taskKey(t));
+  }
+
+  const parentMap = new Map<string, string[]>();
+  const childMap = new Map<string, string[]>();
+
   dependencies.forEach(dep => {
-    if (taskIds.has(dep.parent_id) && taskIds.has(dep.child_id)) {
-      if (!childMap.has(dep.parent_id)) childMap.set(dep.parent_id, []);
-      childMap.get(dep.parent_id)!.push(dep.child_id);
-      
-      if (!parentMap.has(dep.child_id)) parentMap.set(dep.child_id, []);
-      parentMap.get(dep.child_id)!.push(dep.parent_id);
-    }
+    const pKey = ownTaskKeyById.get(dep.parent_id);
+    const cKey = ownTaskKeyById.get(dep.child_id);
+    if (!pKey || !cKey) return;
+    if (!childMap.has(pKey)) childMap.set(pKey, []);
+    childMap.get(pKey)!.push(cKey);
+    if (!parentMap.has(cKey)) parentMap.set(cKey, []);
+    parentMap.get(cKey)!.push(pKey);
   });
-  
+
   // Find connected components using BFS
-  const visited = new Set<number>();
+  const visited = new Set<string>();
   let chainId = 0;
-  
+
   // Sort tasks by start date for consistent processing
   const sortedTasks = [...tasks].sort((a, b) => a.start_date.localeCompare(b.start_date));
-  
+
   sortedTasks.forEach(task => {
-    if (visited.has(task.id)) return;
-    
-    // BFS to find all connected tasks
-    const chainTaskIds: number[] = [];
-    const queue = [task.id];
-    
+    const tk = taskKey(task);
+    if (visited.has(tk)) return;
+
+    const chainKeys: string[] = [];
+    const queue = [tk];
+
     while (queue.length > 0) {
       const current = queue.shift()!;
       if (visited.has(current)) continue;
       visited.add(current);
-      chainTaskIds.push(current);
-      
-      // Add parents and children
+      chainKeys.push(current);
+
       const parents = parentMap.get(current) || [];
       const children = childMap.get(current) || [];
-      
-      [...parents, ...children].forEach(id => {
-        if (taskIds.has(id) && !visited.has(id)) {
-          queue.push(id);
+
+      [...parents, ...children].forEach(k => {
+        if (taskByKey.has(k) && !visited.has(k)) {
+          queue.push(k);
         }
       });
     }
-    
-    // Get actual task objects and sort by start date
-    const chainTasks = chainTaskIds
-      .map(id => tasks.find(t => t.id === id))
+
+    const chainTasks = chainKeys
+      .map(k => taskByKey.get(k))
       .filter((t): t is Task => t !== undefined)
       .sort((a, b) => a.start_date.localeCompare(b.start_date));
-    
-    // Assign chain color based on the first task's experiment color or generate one
+
     const firstTask = chainTasks[0];
     const chainColor = firstTask?.experiment_color || DARKER_EXPERIMENT_COLORS[chainId % DARKER_EXPERIMENT_COLORS.length];
-    
-    // Store result for each task in the chain
+
     chainTasks.forEach((t, positionInChain) => {
-      result.set(t.id, {
+      result.set(taskKey(t), {
         chainId,
         positionInChain,
         chainTasks,
-        chainColor
+        chainColor,
       });
     });
-    
+
     chainId++;
   });
-  
+
   return result;
 }
 
@@ -203,39 +211,44 @@ function buildDependencyChains(
 // 3. When conflicts occur (including within same chain), tasks shift to lower rows
 // 4. Gap days between dependent tasks are reserved to prevent overlap with connection lines
 function assignRowsDynamic(
-  tasks: Task[], 
+  tasks: Task[],
   dependencies: Dependency[],
   dates: Date[]
-): Map<number, number> {
-  const rowAssignments = new Map<number, number>();
-  
+): Map<string, number> {
+  const rowAssignments = new Map<string, number>();
+
   if (tasks.length === 0) return rowAssignments;
-  
-  // Build dependency chains
-  const chainInfo = buildDependencyChains(tasks, dependencies);
-  
-  // Build a map of task_id -> its dependent child tasks
-  const childMap = new Map<number, number[]>();
-  const taskIds = new Set(tasks.map(t => t.id));
+
+  // Map dep numeric ids onto composite keys; only own (non-shared) tasks
+  // participate in dependency-aware row packing since dependency records are
+  // loaded only from the viewer's own directory.
+  const ownTaskKeyById = new Map<number, string>();
+  const taskByKey = new Map<string, Task>();
+  for (const t of tasks) {
+    taskByKey.set(taskKey(t), t);
+    if (!t.is_shared_with_me) ownTaskKeyById.set(t.id, taskKey(t));
+  }
+
+  const childMap = new Map<string, string[]>();
   dependencies.forEach(dep => {
-    if (taskIds.has(dep.parent_id) && taskIds.has(dep.child_id)) {
-      if (!childMap.has(dep.parent_id)) childMap.set(dep.parent_id, []);
-      childMap.get(dep.parent_id)!.push(dep.child_id);
-    }
+    const pKey = ownTaskKeyById.get(dep.parent_id);
+    const cKey = ownTaskKeyById.get(dep.child_id);
+    if (!pKey || !cKey) return;
+    if (!childMap.has(pKey)) childMap.set(pKey, []);
+    childMap.get(pKey)!.push(cKey);
   });
-  
+
   // Track which rows are occupied on each day
-  // date_str -> Set of occupied rows
   const dayOccupancy = new Map<string, Set<number>>();
   dates.forEach(d => {
     dayOccupancy.set(formatDate(d), new Set());
   });
-  
+
   // Sort all tasks by start date (regardless of chain)
   const sortedTasks = [...tasks].sort((a, b) => a.start_date.localeCompare(b.start_date));
-  
-  // Process each task individually, checking for conflicts
+
   sortedTasks.forEach(task => {
+    const tk = taskKey(task);
     // Find all dates this task spans
     const taskDates: string[] = [];
     const taskStart = parseLocalDate(task.start_date);
@@ -246,18 +259,16 @@ function assignRowsDynamic(
         taskDates.push(ds);
       }
     }
-    
-    // Also include gap days between this task and its dependent children
-    // These gap days should be reserved to prevent other tasks from overlapping with connection lines
+
+    // Reserve gap days between this task and its dependent children so other
+    // tasks don't overlap connector lines.
     const gapDates: string[] = [];
-    const children = childMap.get(task.id) || [];
-    children.forEach(childId => {
-      const childTask = tasks.find(t => t.id === childId);
+    const childKeys = childMap.get(tk) || [];
+    childKeys.forEach(ck => {
+      const childTask = taskByKey.get(ck);
       if (childTask) {
-        // Gap is from day after parent ends to day before child starts
         const parentEnd = parseLocalDate(task.end_date);
         const childStart = parseLocalDate(childTask.start_date);
-        // Only reserve gap if it's more than 1 day (otherwise no line is drawn)
         const daysDiff = Math.round((childStart.getTime() - parentEnd.getTime()) / (1000 * 60 * 60 * 24));
         if (daysDiff > 1) {
           for (let d = new Date(parentEnd); d < childStart; d.setDate(d.getDate() + 1)) {
@@ -269,34 +280,31 @@ function assignRowsDynamic(
         }
       }
     });
-    
+
     const allDates = [...taskDates, ...gapDates];
-    
-    // Find the first row that's available for ALL dates of this task (including gap dates)
+
     let assignedRow = 0;
-    const maxRows = 100; // Safety limit
-    
+    const maxRows = 100;
+
     for (let row = 0; row < maxRows; row++) {
       const isAvailable = allDates.every(ds => {
         const occupancy = dayOccupancy.get(ds);
         return occupancy && !occupancy.has(row);
       });
-      
+
       if (isAvailable) {
         assignedRow = row;
         break;
       }
     }
-    
-    // Assign this row to the task
-    rowAssignments.set(task.id, assignedRow);
-    
-    // Mark all dates as occupied (including gap dates)
+
+    rowAssignments.set(tk, assignedRow);
+
     allDates.forEach(ds => {
       dayOccupancy.get(ds)?.add(assignedRow);
     });
   });
-  
+
   return rowAssignments;
 }
 
@@ -497,7 +505,9 @@ export default function GanttChart({
   
   // Use refs for task elements and positions to avoid render loops
   const taskElementsRef = useRef<TaskElementMap>(new Map());
-  const [taskPositions, setTaskPositions] = useState<Map<number, TaskPosition>>(new Map());
+  // Keyed by composite (owner, id) so two tasks with the same numeric id never
+  // share a position entry.
+  const [taskPositions, setTaskPositions] = useState<Map<string, TaskPosition>>(new Map());
   const [containerRect, setContainerRect] = useState<DOMRect | null>(null);
 
   const weeksToShow = useMemo(() => {
@@ -570,118 +580,121 @@ export default function GanttChart({
     return dependencies.filter(d => taskIds.has(d.parent_id) && taskIds.has(d.child_id));
   }, [dependencies, filteredTasks]);
 
-  // Check if a task has dependents (children)
-  const hasDependents = useCallback((taskId: number) => {
-    return dependencies.some(d => d.parent_id === taskId);
+  // Check if a task has dependents (children). Dependencies are loaded only
+  // from the viewer's own directory, so a shared task never has dependents
+  // here even if its numeric id collides with one of the viewer's own.
+  const hasDependents = useCallback((task: Task) => {
+    if (task.is_shared_with_me) return false;
+    return dependencies.some(d => d.parent_id === task.id);
   }, [dependencies]);
 
-  // Compute experiment colors based on dependency chains
-  // Returns a map of task_id -> color for experiments
+  // Compute experiment colors based on dependency chains.
+  // Returns a map of taskKey -> color for experiments. Keyed by composite key
+  // so an own task and a shared task with the same numeric id never share an
+  // entry (would otherwise cause one to "steal" the other's color).
   const experimentColors = useMemo(() => {
-    const colorMap = new Map<number, string>();
+    const colorMap = new Map<string, string>();
     const experiments = tasks.filter(t => t.task_type === "experiment");
-    
+
     if (experiments.length === 0) return colorMap;
 
-    // Build dependency graph for experiments only
-    const experimentIds = new Set(experiments.map(e => e.id));
-    const parentMap = new Map<number, number[]>(); // task_id -> array of parent task_ids
-    const childMap = new Map<number, number[]>();  // task_id -> array of child task_ids
-    
+    // Dependencies are only loaded for own tasks; map dep numeric ids to
+    // composite keys via own (non-shared) experiments.
+    const ownExpKeyById = new Map<number, string>();
+    const expByKey = new Map<string, Task>();
+    for (const e of experiments) {
+      expByKey.set(taskKey(e), e);
+      if (!e.is_shared_with_me) ownExpKeyById.set(e.id, taskKey(e));
+    }
+
+    const parentMap = new Map<string, string[]>();
+    const childMap = new Map<string, string[]>();
+
     dependencies.forEach(dep => {
-      if (experimentIds.has(dep.parent_id) && experimentIds.has(dep.child_id)) {
-        if (!parentMap.has(dep.child_id)) parentMap.set(dep.child_id, []);
-        parentMap.get(dep.child_id)!.push(dep.parent_id);
-        
-        if (!childMap.has(dep.parent_id)) childMap.set(dep.parent_id, []);
-        childMap.get(dep.parent_id)!.push(dep.child_id);
-      }
+      const pKey = ownExpKeyById.get(dep.parent_id);
+      const cKey = ownExpKeyById.get(dep.child_id);
+      if (!pKey || !cKey) return;
+      if (!parentMap.has(cKey)) parentMap.set(cKey, []);
+      parentMap.get(cKey)!.push(pKey);
+      if (!childMap.has(pKey)) childMap.set(pKey, []);
+      childMap.get(pKey)!.push(cKey);
     });
 
     // Find all connected components (chains) using BFS
-    const visited = new Set<number>();
-    const chains: number[][] = [];
-    
+    const visited = new Set<string>();
+    const chains: string[][] = [];
+
     experiments.forEach(exp => {
-      if (visited.has(exp.id)) return;
-      
-      // BFS to find all connected experiments
-      const chain: number[] = [];
-      const queue = [exp.id];
-      
+      const ek = taskKey(exp);
+      if (visited.has(ek)) return;
+
+      const chain: string[] = [];
+      const queue = [ek];
+
       while (queue.length > 0) {
         const current = queue.shift()!;
         if (visited.has(current)) continue;
         visited.add(current);
         chain.push(current);
-        
-        // Add parents
+
         const parents = parentMap.get(current) || [];
         parents.forEach(p => {
           if (!visited.has(p)) queue.push(p);
         });
-        
-        // Add children
+
         const children = childMap.get(current) || [];
         children.forEach(c => {
           if (!visited.has(c)) queue.push(c);
         });
       }
-      
+
       if (chain.length > 0) {
         chains.push(chain);
       }
     });
 
-    // Get colors currently in use by chains (multi-experiment chains only)
+    // Get colors currently in use by multi-experiment chains
     const chainColorsInUse = new Set<string>();
     chains.forEach(chain => {
       if (chain.length > 1) {
-        // This is a multi-experiment chain, find its color
-        const leftmostExp = chain.reduce((earliest, id) => {
-          const exp = experiments.find(e => e.id === id);
-          const earliestExp = experiments.find(e => e.id === earliest);
+        const leftmostKey = chain.reduce((earliest, key) => {
+          const exp = expByKey.get(key);
+          const earliestExp = expByKey.get(earliest);
           if (!exp || !earliestExp) return earliest;
-          return exp.start_date < earliestExp.start_date ? id : earliest;
+          return exp.start_date < earliestExp.start_date ? key : earliest;
         }, chain[0]);
-        
-        const leftmostTask = experiments.find(e => e.id === leftmostExp);
+
+        const leftmostTask = expByKey.get(leftmostKey);
         if (leftmostTask?.experiment_color) {
           chainColorsInUse.add(leftmostTask.experiment_color);
         }
       }
     });
 
-    // Find available colors (not currently used by chains)
-    let availableColors = DARKER_EXPERIMENT_COLORS.filter(c => !chainColorsInUse.has(c));
-    
-    // Assign colors to each chain
+    const availableColors = DARKER_EXPERIMENT_COLORS.filter(c => !chainColorsInUse.has(c));
+
     chains.forEach(chain => {
-      // Find the leftmost experiment (earliest start date)
-      const leftmostExp = chain.reduce((earliest, id) => {
-        const exp = experiments.find(e => e.id === id);
-        const earliestExp = experiments.find(e => e.id === earliest);
+      const leftmostKey = chain.reduce((earliest, key) => {
+        const exp = expByKey.get(key);
+        const earliestExp = expByKey.get(earliest);
         if (!exp || !earliestExp) return earliest;
-        return exp.start_date < earliestExp.start_date ? id : earliest;
+        return exp.start_date < earliestExp.start_date ? key : earliest;
       }, chain[0]);
-      
-      const leftmostTask = experiments.find(e => e.id === leftmostExp);
-      
-      // Determine the color for this chain
+
+      const leftmostTask = expByKey.get(leftmostKey);
+
       let chainColor: string;
-      
+
       if (chain.length > 1) {
-        // Multi-experiment chain: use existing color or assign new
         if (leftmostTask?.experiment_color) {
           chainColor = leftmostTask.experiment_color;
         } else if (availableColors.length > 0) {
           chainColor = availableColors.shift()!;
         } else {
-          // All colors are used, pick the least used color
           const colorCounts = new Map<string, number>();
           DARKER_EXPERIMENT_COLORS.forEach(c => colorCounts.set(c, 0));
           colorMap.forEach(c => colorCounts.set(c, (colorCounts.get(c) || 0) + 1));
-          
+
           let minCount = Infinity;
           let leastUsedColor = DARKER_EXPERIMENT_COLORS[0];
           colorCounts.forEach((count, color) => {
@@ -693,15 +706,13 @@ export default function GanttChart({
           chainColor = leastUsedColor;
         }
       } else {
-        // Standalone experiment: always assign a new unique color
         if (availableColors.length > 0) {
           chainColor = availableColors.shift()!;
         } else {
-          // All colors are used, pick the least used color
           const colorCounts = new Map<string, number>();
           DARKER_EXPERIMENT_COLORS.forEach(c => colorCounts.set(c, 0));
           colorMap.forEach(c => colorCounts.set(c, (colorCounts.get(c) || 0) + 1));
-          
+
           let minCount = Infinity;
           let leastUsedColor = DARKER_EXPERIMENT_COLORS[0];
           colorCounts.forEach((count, color) => {
@@ -713,10 +724,9 @@ export default function GanttChart({
           chainColor = leastUsedColor;
         }
       }
-      
-      // Assign the color to all experiments in the chain
-      chain.forEach(id => {
-        colorMap.set(id, chainColor);
+
+      chain.forEach(key => {
+        colorMap.set(key, chainColor);
       });
     });
 
@@ -742,18 +752,18 @@ export default function GanttChart({
     
     // Check if any owned experiment needs a color update
     const needsUpdate = ownedExperiments.some(exp => {
-      const computedColor = experimentColors.get(exp.id);
+      const computedColor = experimentColors.get(taskKey(exp));
       return computedColor && exp.experiment_color !== computedColor;
     });
-    
+
     if (!needsUpdate) return;
-    
+
     const updateColors = async () => {
       isUpdatingColors.current = true;
       const updates: Promise<unknown>[] = [];
-      
+
       ownedExperiments.forEach(exp => {
-        const computedColor = experimentColors.get(exp.id);
+        const computedColor = experimentColors.get(taskKey(exp));
         if (computedColor && exp.experiment_color !== computedColor) {
           updates.push(tasksApi.update(exp.id, { experiment_color: computedColor }));
         }
@@ -791,11 +801,11 @@ export default function GanttChart({
     if (!containerRef.current) return;
     
     const containerBounds = containerRef.current.getBoundingClientRect();
-    const newPositions = new Map<number, TaskPosition>();
-    
-    taskElementsRef.current.forEach((data, taskId) => {
+    const newPositions = new Map<string, TaskPosition>();
+
+    taskElementsRef.current.forEach((data, tk) => {
       const taskBounds = data.element.getBoundingClientRect();
-      newPositions.set(taskId, {
+      newPositions.set(tk, {
         left: taskBounds.left - containerBounds.left,
         width: taskBounds.width,
         top: taskBounds.top - containerBounds.top,
@@ -852,7 +862,7 @@ export default function GanttChart({
         : undefined;
 
     // Check if task has dependents
-    if (hasDependents(taskId)) {
+    if (hasDependents(draggedTask)) {
       // Try move with confirmation check
       try {
         const result = await tasksApi.move(taskId, {
@@ -935,8 +945,8 @@ export default function GanttChart({
     e.preventDefault();
     e.stopPropagation();
     setDragOverTask(null);
-    
-    if (!draggedTask || draggedTask.id === targetTask.id) {
+
+    if (!draggedTask || taskKey(draggedTask) === taskKey(targetTask)) {
       setDraggedTask(null);
       return;
     }
@@ -1060,11 +1070,11 @@ export default function GanttChart({
   }, [depParentTask, depChildTask, dependencies, queryClient, setGanttLoading]);
 
   // Register task element ref for position calculation
-  const registerTaskElement = useCallback((taskId: number, element: HTMLDivElement | null, weekIdx: number, rowIdx: number, spanInfo: { startIdx: number; span: number }) => {
+  const registerTaskElement = useCallback((tk: string, element: HTMLDivElement | null, weekIdx: number, rowIdx: number, spanInfo: { startIdx: number; span: number }) => {
     if (element) {
-      taskElementsRef.current.set(taskId, { element, weekIdx, rowIdx, spanInfo });
+      taskElementsRef.current.set(tk, { element, weekIdx, rowIdx, spanInfo });
     } else {
-      taskElementsRef.current.delete(taskId);
+      taskElementsRef.current.delete(tk);
     }
   }, []);
 
@@ -1340,7 +1350,7 @@ export default function GanttChart({
                   // Group week tasks by their assigned row
                   const tasksByRow = new Map<number, Task[]>();
                   weekTasks.forEach(task => {
-                    const row = rowAssignments.get(task.id) ?? 0;
+                    const row = rowAssignments.get(taskKey(task)) ?? 0;
                     if (!tasksByRow.has(row)) {
                       tasksByRow.set(row, []);
                     }
@@ -1395,10 +1405,11 @@ export default function GanttChart({
                           const taskProject = projects.find(p => p.id === task.project_id);
                           const spanInfo = getTaskSpanInWeek(task, weekDates, taskProject, dates);
                           if (!spanInfo) return null;
-                          const taskWeekKey = `${task.id}-w${weekIdx}-r${rowNum}`;
+                          const tk = taskKey(task);
+                          const taskWeekKey = `${tk}-w${weekIdx}-r${rowNum}`;
 
                           // Get chain info for this task
-                          const taskChainInfo = chainInfo.get(task.id);
+                          const taskChainInfo = chainInfo.get(tk);
                           const chainColor = taskChainInfo?.chainColor;
                           const positionInChain = taskChainInfo?.positionInChain ?? 0;
                           const chainTasks = taskChainInfo?.chainTasks || [task];
@@ -1430,7 +1441,7 @@ export default function GanttChart({
                           // Main task color is always the project color (or user color in lab mode)
                           const taskColor = baseColor;
 
-                          const isTaskDragged = draggedTask?.id === task.id;
+                          const isTaskDragged = draggedTask !== null && taskKey(draggedTask) === tk;
 
                           return (
                             <div
@@ -1443,7 +1454,7 @@ export default function GanttChart({
                             >
                               {/* Task bar */}
                               <div
-                                ref={(el) => registerTaskElement(task.id, el, weekIdx, rowNum, spanInfo)}
+                                ref={(el) => registerTaskElement(tk, el, weekIdx, rowNum, spanInfo)}
                                 draggable={!isLabMode}
                                 onDragStart={isLabMode ? undefined : (e) => handleDragStart(e, task)}
                                 onDragEnd={isLabMode ? undefined : handleDragEnd}
@@ -1453,12 +1464,12 @@ export default function GanttChart({
                                   if (isLabMode && onTaskClickLab) {
                                     onTaskClickLab(task as Task & { username?: string });
                                   } else {
-                                    onTaskClick(task.id);
+                                    onTaskClick(tk);
                                   }
                                 }}
                                 className={`absolute inset-x-0 top-1 bottom-1 rounded-lg cursor-pointer flex items-center px-3 text-white text-xs font-medium truncate shadow-sm hover:shadow-md transition-all overflow-hidden ${
                                   isTaskDragged ? "opacity-50 scale-95" : ""
-                                } ${dragOverTask?.id === task.id ? "ring-2 ring-orange-400 ring-offset-1" : ""}`}
+                                } ${dragOverTask !== null && taskKey(dragOverTask) === tk ? "ring-2 ring-orange-400 ring-offset-1" : ""}`}
                                 style={{
                                   backgroundColor: taskColor,
                                   opacity: task.is_high_level ? 0.6 : isTaskDragged ? 0.3 : task.is_complete ? completedOpacity : 1,
@@ -1481,7 +1492,7 @@ export default function GanttChart({
                                   <div
                                     className="absolute top-0 left-0 right-0 h-1"
                                     style={{
-                                      backgroundColor: task.experiment_color || experimentColors.get(task.id) || 'rgba(255, 255, 255, 0.5)',
+                                      backgroundColor: task.experiment_color || experimentColors.get(tk) || 'rgba(255, 255, 255, 0.5)',
                                       opacity: 0.9,
                                     }}
                                   />

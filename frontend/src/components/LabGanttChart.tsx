@@ -109,9 +109,16 @@ function getTaskSpanInWeek(
   return { startIdx, span, extendsBeyondEnd, extendsBeyondStart };
 }
 
+// Lab Mode merges multiple users' tasks into one list. Each user has its own
+// id space (per-user `_counters.json`), so `task.id` alone is not unique here.
+// Use `${username}:${id}` for any map / React key that must distinguish them.
+function labTaskKey(task: Pick<LabTask, "id" | "username">): string {
+  return `${task.username}:${task.id}`;
+}
+
 // Dynamic row assignment based on date conflicts
-function assignRowsDynamic(tasks: LabTask[], dates: Date[]): Map<number, number> {
-  const rowAssignments = new Map<number, number>();
+function assignRowsDynamic(tasks: LabTask[], dates: Date[]): Map<string, number> {
+  const rowAssignments = new Map<string, number>();
 
   if (tasks.length === 0) return rowAssignments;
 
@@ -152,7 +159,7 @@ function assignRowsDynamic(tasks: LabTask[], dates: Date[]): Map<number, number>
       }
     }
 
-    rowAssignments.set(task.id, assignedRow);
+    rowAssignments.set(labTaskKey(task), assignedRow);
 
     taskDates.forEach(ds => {
       dayOccupancy.get(ds)?.add(assignedRow);
@@ -401,7 +408,7 @@ export default function LabGanttChart({
                   // Group week tasks by their assigned row
                   const tasksByRow = new Map<number, LabTask[]>();
                   weekTasks.forEach(task => {
-                    const row = rowAssignments.get(task.id) ?? 0;
+                    const row = rowAssignments.get(labTaskKey(task)) ?? 0;
                     if (!tasksByRow.has(row)) {
                       tasksByRow.set(row, []);
                     }
@@ -460,7 +467,7 @@ export default function LabGanttChart({
 
                           return (
                             <div
-                              key={`${task.id}-w${weekIdx}-r${rowNum}`}
+                              key={`${labTaskKey(task)}-w${weekIdx}-r${rowNum}`}
                               className="absolute inset-y-0"
                               style={{
                                 left: `${(spanInfo.startIdx / weekDates.length) * 100}%`,

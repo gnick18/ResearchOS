@@ -130,6 +130,17 @@ export interface Task {
   shared_permission?: "view" | "edit";  // Only set when is_shared_with_me=true; the level the receiver was granted
 }
 
+// Each user has its own auto-incrementing id space, so `task.id` alone is not
+// unique across the merged view returned by `fetchAllTasksIncludingShared`.
+// Use `taskKey(task)` whenever a task needs a stable, collision-free identifier
+// in memory: React keys, Map<…, …> by-task lookups, store/selection state, and
+// React Query keys. The on-disk format is unchanged; the composite key only
+// exists at the UI layer.
+export function taskKey(task: Pick<Task, "id" | "owner" | "is_shared_with_me">): string {
+  const ns = task.is_shared_with_me ? (task.owner || "shared") : "self";
+  return `${ns}:${task.id}`;
+}
+
 export interface TaskCreate {
   project_id?: number | null;
   name: string;

@@ -13,6 +13,7 @@ import TaskModal from "@/components/TaskModal";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import HighLevelGoalModal from "@/components/HighLevelGoalModal";
 import HighLevelGoalSidebar from "@/components/HighLevelGoalSidebar";
+import { taskKey } from "@/lib/types";
 import type { Project, HighLevelGoal } from "@/lib/types";
 
 export default function Home() {
@@ -20,8 +21,8 @@ export default function Home() {
   const selectedProjectIds = useAppStore((s) => s.selectedProjectIds);
   const selectedTags = useAppStore((s) => s.selectedTags);
   const showShared = useAppStore((s) => s.showShared);
-  const editingTaskId = useAppStore((s) => s.editingTaskId);
-  const setEditingTaskId = useAppStore((s) => s.setEditingTaskId);
+  const editingTaskKey = useAppStore((s) => s.editingTaskKey);
+  const setEditingTaskKey = useAppStore((s) => s.setEditingTaskKey);
   const setIsCreatingTask = useAppStore((s) => s.setIsCreatingTask);
   const isCreatingGoal = useAppStore((s) => s.isCreatingGoal);
   const setIsCreatingGoal = useAppStore((s) => s.setIsCreatingGoal);
@@ -166,10 +167,10 @@ export default function Home() {
   }, [activeProjects]);
 
   const handleTaskClick = useCallback(
-    (taskId: number) => {
-      setEditingTaskId(taskId);
+    (key: string) => {
+      setEditingTaskKey(key);
     },
-    [setEditingTaskId]
+    [setEditingTaskKey]
   );
 
   const handleCreateTask = useCallback(
@@ -203,8 +204,8 @@ export default function Home() {
   );
 
   // Find the task and project for the detail popup
-  const editingTask = editingTaskId
-    ? allTasks.find((t) => t.id === editingTaskId)
+  const editingTask = editingTaskKey
+    ? allTasks.find((t) => taskKey(t) === editingTaskKey)
     : null;
   const editingProject = editingTask
     ? projects.find((p) => p.id === editingTask.project_id)
@@ -245,7 +246,7 @@ export default function Home() {
         <TaskDetailPopup
           task={editingTask}
           project={editingProject}
-          onClose={() => setEditingTaskId(null)}
+          onClose={() => setEditingTaskKey(null)}
           readOnly={editingTask.is_shared_with_me === true && editingTask.shared_permission !== "edit"}
           username={editingTask.is_shared_with_me ? editingTask.owner : undefined}
         />

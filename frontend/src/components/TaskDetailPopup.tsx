@@ -54,6 +54,7 @@ import DynamicAnimation from "./DynamicAnimation";
 import MethodTabs from "./MethodTabs";
 import SharePopup from "./SharePopup";
 import { useAppStore } from "@/lib/store";
+import { taskKey } from "@/lib/types";
 import type { Method, Task, Project, Dependency, ShiftResult, SubTask, PCRProtocol, PCRGradient, PCRIngredient } from "@/lib/types";
 import type { GitHubTreeItem } from "@/lib/types";
 import { InteractiveGradientEditor, getTemperatureColor } from "@/components/InteractiveGradientEditor";
@@ -66,6 +67,8 @@ import {
 import { useFileRenamePopup } from "@/components/FileRenamePopup";
 import { fileService } from "@/lib/file-system/file-service";
 import { migrateNoteImages } from "@/lib/notes/migrate-images";
+import { findExistingTaskResultsBase, resolveTaskResultsBase, taskResultsBase } from "@/lib/tasks/results-paths";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 interface TaskDetailPopupProps {
   task: Task;
@@ -117,7 +120,7 @@ export default function TaskDetailPopup({
   // would silently overwrite the popup with whatever task happens to share the
   // same numeric id in the viewer's folder — the "screen freakout" symptom.
   const { data: freshTask } = useQuery({
-    queryKey: ["task", initialTask.id, username ?? null],
+    queryKey: ["task", taskKey(initialTask)],
     queryFn: () => tasksApi.get(initialTask.id),
     initialData: initialTask,
     enabled: !readOnly,
@@ -193,7 +196,7 @@ export default function TaskDetailPopup({
                       await tasksApi.update(task.id, { is_complete: !task.is_complete });
                       await Promise.all([
                         await queryClient.refetchQueries({ queryKey: ["tasks"] }),
-                        await queryClient.refetchQueries({ queryKey: ["task", task.id] }),
+                        await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] }),
                       ]);
                     } catch {
                       alert("Failed to update task");
@@ -242,7 +245,7 @@ export default function TaskDetailPopup({
                           await queryClient.refetchQueries({ queryKey: ["tasks"] }),
                           await queryClient.refetchQueries({ queryKey: ["task"] }),
                         ]);
-                        queryClient.removeQueries({ queryKey: ["task", task.id] });
+                        queryClient.removeQueries({ queryKey: ["task", taskKey(task)] });
                       } catch {
                         alert("Failed to delete task");
                       }
@@ -337,7 +340,7 @@ export default function TaskDetailPopup({
                     await tasksApi.update(task.id, { is_complete: !task.is_complete });
                     await Promise.all([
                       await queryClient.refetchQueries({ queryKey: ["tasks"] }),
-                      await queryClient.refetchQueries({ queryKey: ["task", task.id] }),
+                      await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] }),
                     ]);
                   } catch {
                     alert("Failed to update task");
@@ -414,7 +417,7 @@ export default function TaskDetailPopup({
                         queryClient.refetchQueries({ queryKey: ["tasks"] }),
                         queryClient.refetchQueries({ queryKey: ["task"] }),
                       ]);
-                      queryClient.removeQueries({ queryKey: ["task", task.id] });
+                      queryClient.removeQueries({ queryKey: ["task", taskKey(task)] });
                     } catch {
                       alert("Failed to delete task");
                     }
@@ -485,7 +488,7 @@ export default function TaskDetailPopup({
         itemName={task.name}
         currentOwner={task.owner}
         currentSharedWith={task.shared_with || []}
-        onShared={() => queryClient.refetchQueries({ queryKey: ["task", task.id] })}
+        onShared={() => queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] })}
       />
     </div>
   );
@@ -535,7 +538,7 @@ function SimpleTaskChecklist({
       await tasksApi.update(task.id, { sub_tasks: updatedSubTasks });
       await Promise.all([
         await queryClient.refetchQueries({ queryKey: ["tasks"] }),
-        await queryClient.refetchQueries({ queryKey: ["task", task.id] }),
+        await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] }),
       ]);
     } catch {
       alert("Failed to update sub-task");
@@ -560,7 +563,7 @@ function SimpleTaskChecklist({
     try {
       await tasksApi.update(task.id, { sub_tasks: updatedSubTasks });
       await queryClient.refetchQueries({ queryKey: ["tasks"] });
-      await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+      await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
     } catch {
       alert("Failed to add sub-task");
     } finally {
@@ -575,7 +578,7 @@ function SimpleTaskChecklist({
     try {
       await tasksApi.update(task.id, { sub_tasks: updatedSubTasks });
       await queryClient.refetchQueries({ queryKey: ["tasks"] });
-      await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+      await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
     } catch {
       alert("Failed to delete sub-task");
     } finally {
@@ -819,7 +822,7 @@ function DetailsTab({
         
         // No confirmation needed, apply the move
         await queryClient.refetchQueries({ queryKey: ["tasks"] });
-        await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+        await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
       } else {
         // Regular update - don't send start_date if task has parent dependencies
         const updateData: Parameters<typeof tasksApi.update>[1] = {
@@ -838,7 +841,7 @@ function DetailsTab({
         
         await tasksApi.update(task.id, updateData);
         await queryClient.refetchQueries({ queryKey: ["tasks"] });
-        await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+        await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
       }
       setEditing(false);
     } catch {
@@ -871,7 +874,7 @@ function DetailsTab({
         }
         
         await queryClient.refetchQueries({ queryKey: ["tasks"] });
-        await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+        await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
       } else {
         const updateData: Parameters<typeof tasksApi.update>[1] = {
           name: name.trim(),
@@ -888,7 +891,7 @@ function DetailsTab({
         
         await tasksApi.update(task.id, updateData);
         await queryClient.refetchQueries({ queryKey: ["tasks"] });
-        await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+        await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
       }
       setEditing(false);
     } catch {
@@ -907,7 +910,7 @@ function DetailsTab({
         confirmed: true,
       });
       await queryClient.refetchQueries({ queryKey: ["tasks"] });
-      await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+      await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
       await queryClient.refetchQueries({ queryKey: ["dependencies"] });
       setShowShiftConfirm(false);
       setShiftResult(null);
@@ -929,7 +932,7 @@ function DetailsTab({
       // Invalidate all task-related queries
       await queryClient.refetchQueries({ queryKey: ["tasks"] });
       await queryClient.refetchQueries({ queryKey: ["task"] });
-      queryClient.removeQueries({ queryKey: ["task", task.id] });
+      queryClient.removeQueries({ queryKey: ["task", taskKey(task)] });
     } catch {
       alert("Failed to delete task");
     }
@@ -950,7 +953,7 @@ function DetailsTab({
       
       await tasksApi.update(task.id, updateData);
       await queryClient.refetchQueries({ queryKey: ["tasks"] });
-      await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+      await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
     } catch {
       alert("Failed to update task");
     }
@@ -985,7 +988,7 @@ function DetailsTab({
       
       await queryClient.refetchQueries({ queryKey: ["dependencies"] });
       await queryClient.refetchQueries({ queryKey: ["tasks"] });
-      await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+      await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
       setNewParentTaskId(null);
       setNewDepType("FS");
     } catch {
@@ -1070,7 +1073,7 @@ function DetailsTab({
       
       await queryClient.refetchQueries({ queryKey: ["dependencies"] });
       await queryClient.refetchQueries({ queryKey: ["tasks"] });
-      await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+      await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
       setShowRemoveFromChain(false);
     } catch (err) {
       console.error("Failed to remove from chain:", err);
@@ -1100,7 +1103,7 @@ function DetailsTab({
     try {
       await tasksApi.update(task.id, { sub_tasks: updatedSubTasks });
       await queryClient.refetchQueries({ queryKey: ["tasks"] });
-      await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+      await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
     } catch {
       alert("Failed to update sub-task");
     } finally {
@@ -1124,7 +1127,7 @@ function DetailsTab({
     try {
       await tasksApi.update(task.id, { sub_tasks: updatedSubTasks });
       await queryClient.refetchQueries({ queryKey: ["tasks"] });
-      await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+      await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
     } catch {
       alert("Failed to add sub-task");
     } finally {
@@ -1139,7 +1142,7 @@ function DetailsTab({
     try {
       await tasksApi.update(task.id, { sub_tasks: updatedSubTasks });
       await queryClient.refetchQueries({ queryKey: ["tasks"] });
-      await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+      await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
     } catch {
       alert("Failed to delete sub-task");
     } finally {
@@ -1154,7 +1157,7 @@ function DetailsTab({
       await tasksApi.convertType(task.id, convertToType);
       await Promise.all([
         queryClient.refetchQueries({ queryKey: ["tasks"] }),
-        queryClient.refetchQueries({ queryKey: ["task", task.id] }),
+        queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] }),
       ]);
       setShowConvertModal(false);
     } catch (error) {
@@ -1942,10 +1945,13 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
+  const { currentUser } = useCurrentUser();
 
-  // Results are stored at the global `results/task-{id}/` path (not per-user).
+  // Resolved lazily: the per-user path is canonical, but if legacy global
+  // `results/task-{id}/` is the only one with data we read from there until
+  // the owner triggers a one-time copy (see resolveTaskResultsBase).
   const legacyOwner = ownerUsername || task.owner;
-  const basePath = `results/task-${task.id}`;
+  const [basePath, setBasePath] = useState<string>(() => taskResultsBase(task));
   const notesPath = `${basePath}/notes.md`;
   const imagesDir = `${basePath}/Images`;
   const pdfsDir = `${basePath}/NotesPDFs`;
@@ -1957,7 +1963,13 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
     let cancelled = false;
     (async () => {
       try {
-        const file = await githubApi.readFile(notesPath);
+        const resolved = currentUser
+          ? await resolveTaskResultsBase({ id: task.id, owner: task.owner }, currentUser)
+          : taskResultsBase({ id: task.id, owner: task.owner });
+        if (cancelled) return;
+        setBasePath(resolved);
+        const resolvedNotes = `${resolved}/notes.md`;
+        const file = await githubApi.readFile(resolvedNotes);
         const raw = file.content;
         if (readOnly) {
           if (!cancelled) {
@@ -1967,9 +1979,9 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
           }
           return;
         }
-        const { content: migrated, didMigrate } = await migrateNoteImages(raw, task.id, basePath, legacyOwner);
+        const { content: migrated, didMigrate } = await migrateNoteImages(raw, task.id, resolved, legacyOwner);
         if (didMigrate) {
-          await githubApi.writeFile(notesPath, migrated, `Migrate image references for: ${task.name}`);
+          await githubApi.writeFile(resolvedNotes, migrated, `Migrate image references for: ${task.name}`);
         }
         if (!cancelled) {
           setContent(migrated);
@@ -1988,7 +2000,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
     return () => {
       cancelled = true;
     };
-  }, [notesPath, basePath, task.id, task.name, legacyOwner, readOnly]);
+  }, [task.id, task.name, task.owner, currentUser, legacyOwner, readOnly]);
 
   // Warn before navigating away with unsaved changes
   useEffect(() => {
@@ -2659,7 +2671,7 @@ function MethodTab({ task }: { task: Task }) {
     try {
       await tasksApi.update(task.id, { method_id: methodId });
       await queryClient.refetchQueries({ queryKey: ["tasks"] });
-      await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+      await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
       setShowMethodSelector(false);
       setLoading(true); // Trigger reload of method content
     } catch {
@@ -2676,7 +2688,7 @@ function MethodTab({ task }: { task: Task }) {
     try {
       await tasksApi.update(task.id, { method_id: null });
       await queryClient.refetchQueries({ queryKey: ["tasks"] });
-      await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+      await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
       setMethodContent("");
       setOriginalContent("");
       setPcrProtocol(null);
@@ -2701,7 +2713,7 @@ function MethodTab({ task }: { task: Task }) {
         deviation_log: newDeviation + existingDeviations 
       });
       await queryClient.refetchQueries({ queryKey: ["tasks"] });
-      await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+      await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
       setVariationNote("");
       setShowVariationInput(false);
     } catch {
@@ -2742,7 +2754,7 @@ function MethodTab({ task }: { task: Task }) {
       setHasExperimentSpecificPcr(true);
       
       await queryClient.refetchQueries({ queryKey: ["tasks"] });
-      await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+      await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
     } catch {
       alert("Failed to save PCR modifications");
     } finally {
@@ -2766,7 +2778,7 @@ function MethodTab({ task }: { task: Task }) {
       setHasExperimentSpecificPcr(false);
       
       await queryClient.refetchQueries({ queryKey: ["tasks"] });
-      await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+      await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
     } catch {
       alert("Failed to reset PCR data");
     } finally {
@@ -3173,10 +3185,11 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
+  const { currentUser } = useCurrentUser();
 
-  // Results are stored at the global `results/task-{id}/` path (not per-user).
+  // See LabNotesTab for the per-user / legacy fallback rules.
   const legacyOwner = ownerUsername || task.owner;
-  const basePath = `results/task-${task.id}`;
+  const [basePath, setBasePath] = useState<string>(() => taskResultsBase(task));
   const resultsPath = `${basePath}/results.md`;
   const imagesDir = `${basePath}/Images`;
   const pdfsDir = `${basePath}/ResultsPDFs`;
@@ -3188,7 +3201,13 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
     let cancelled = false;
     (async () => {
       try {
-        const file = await githubApi.readFile(resultsPath);
+        const resolved = currentUser
+          ? await resolveTaskResultsBase({ id: task.id, owner: task.owner }, currentUser)
+          : taskResultsBase({ id: task.id, owner: task.owner });
+        if (cancelled) return;
+        setBasePath(resolved);
+        const resolvedResults = `${resolved}/results.md`;
+        const file = await githubApi.readFile(resolvedResults);
         const raw = file.content;
         if (readOnly) {
           if (!cancelled) {
@@ -3198,9 +3217,9 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
           }
           return;
         }
-        const { content: migrated, didMigrate } = await migrateNoteImages(raw, task.id, basePath, legacyOwner);
+        const { content: migrated, didMigrate } = await migrateNoteImages(raw, task.id, resolved, legacyOwner);
         if (didMigrate) {
-          await githubApi.writeFile(resultsPath, migrated, `Migrate image references for: ${task.name}`);
+          await githubApi.writeFile(resolvedResults, migrated, `Migrate image references for: ${task.name}`);
         }
         if (!cancelled) {
           setContent(migrated);
@@ -3219,7 +3238,7 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
     return () => {
       cancelled = true;
     };
-  }, [resultsPath, basePath, task.id, task.name, legacyOwner, readOnly]);
+  }, [task.id, task.name, task.owner, currentUser, legacyOwner, readOnly]);
 
   // Warn before navigating away with unsaved changes
   useEffect(() => {
@@ -3757,14 +3776,15 @@ function TaskExportButton({ task }: { task: Task }) {
   const handleExport = useCallback(async (format: 'markdown' | 'pdf') => {
     setExporting(true);
     setShowDropdown(false);
-    
+
     try {
       const projectName = project?.name || "Unknown Project";
-      
+      const base = (await findExistingTaskResultsBase(task)) ?? taskResultsBase(task);
+
       // Fetch lab notes
       let labNotes: string | null = null;
       try {
-        const notesFile = await githubApi.readFile(`results/task-${task.id}/notes.md`);
+        const notesFile = await githubApi.readFile(`${base}/notes.md`);
         labNotes = notesFile.content;
       } catch {
         // Notes don't exist
@@ -3788,7 +3808,7 @@ function TaskExportButton({ task }: { task: Task }) {
       // Fetch results
       let results: string | null = null;
       try {
-        const resultsFile = await githubApi.readFile(`results/task-${task.id}/results.md`);
+        const resultsFile = await githubApi.readFile(`${base}/results.md`);
         results = resultsFile.content;
       } catch {
         // Results don't exist
@@ -3797,13 +3817,13 @@ function TaskExportButton({ task }: { task: Task }) {
       // Get PDF attachments
       const pdfAttachments: string[] = [];
       try {
-        const notesPdfs = await githubApi.listDirectory(`results/task-${task.id}/NotesPDFs`);
+        const notesPdfs = await githubApi.listDirectory(`${base}/NotesPDFs`);
         pdfAttachments.push(...notesPdfs.map((f: GitHubTreeItem) => f.path));
       } catch {
         // Directory doesn't exist
       }
       try {
-        const resultsPdfs = await githubApi.listDirectory(`results/task-${task.id}/ResultsPDFs`);
+        const resultsPdfs = await githubApi.listDirectory(`${base}/ResultsPDFs`);
         pdfAttachments.push(...resultsPdfs.map((f: GitHubTreeItem) => f.path));
       } catch {
         // Directory doesn't exist

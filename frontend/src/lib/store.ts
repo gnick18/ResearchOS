@@ -39,8 +39,10 @@ interface AppState extends ConnectionState {
   setGanttStartDate: (date: string | null) => void;
   ganttNavigateWeeks: (weeks: number) => void;
 
-  editingTaskId: number | null;
-  setEditingTaskId: (id: number | null) => void;
+  // Composite (owner, id) key — see `taskKey()` in `lib/types.ts`. A raw
+  // numeric id is not unique across the shared-with-me aggregator output.
+  editingTaskKey: string | null;
+  setEditingTaskKey: (key: string | null) => void;
   isCreatingTask: boolean;
   setIsCreatingTask: (v: boolean) => void;
   newTaskStartDate: string | null;
@@ -131,8 +133,8 @@ export const useAppStore = create<AppState>()(
           };
         }),
 
-      editingTaskId: null,
-      setEditingTaskId: (id) => set({ editingTaskId: id }),
+      editingTaskKey: null,
+      setEditingTaskKey: (key) => set({ editingTaskKey: key }),
       isCreatingTask: false,
       setIsCreatingTask: (v) => set({ isCreatingTask: v }),
       newTaskStartDate: null,

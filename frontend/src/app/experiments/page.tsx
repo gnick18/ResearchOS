@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { projectsApi, tasksApi, dependenciesApi, methodsApi, githubApi } from "@/lib/local-api";
+import { findExistingTaskResultsBase, taskResultsBase } from "@/lib/tasks/results-paths";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
@@ -365,11 +366,15 @@ export default function ExperimentsPage() {
         
         const project = projects.find(p => p.id === task.project_id);
         const projectName = project?.name || "Unknown Project";
-        
+
+        // Read from the per-user results dir, falling back to the legacy
+        // global location so older un-migrated tasks still export.
+        const resultsBase = (await findExistingTaskResultsBase(task)) ?? taskResultsBase(task);
+
         // Fetch lab notes
         let labNotes: string | null = null;
         try {
-          const notesFile = await githubApi.readFile(`results/task-${task.id}/notes.md`);
+          const notesFile = await githubApi.readFile(`${resultsBase}/notes.md`);
           labNotes = notesFile.content;
         } catch {
           // Notes don't exist
@@ -521,7 +526,7 @@ export default function ExperimentsPage() {
         // Fetch results
         let results: string | null = null;
         try {
-          const resultsFile = await githubApi.readFile(`results/task-${task.id}/results.md`);
+          const resultsFile = await githubApi.readFile(`${resultsBase}/results.md`);
           results = resultsFile.content;
         } catch {
           // Results don't exist
@@ -530,13 +535,13 @@ export default function ExperimentsPage() {
         // Get PDF attachments
         const pdfAttachments: string[] = [];
         try {
-          const notesPdfs = await githubApi.listDirectory(`results/task-${task.id}/NotesPDFs`);
+          const notesPdfs = await githubApi.listDirectory(`${resultsBase}/NotesPDFs`);
           pdfAttachments.push(...notesPdfs.map((f: GitHubTreeItem) => f.path));
         } catch {
           // Directory doesn't exist
         }
         try {
-          const resultsPdfs = await githubApi.listDirectory(`results/task-${task.id}/ResultsPDFs`);
+          const resultsPdfs = await githubApi.listDirectory(`${resultsBase}/ResultsPDFs`);
           pdfAttachments.push(...resultsPdfs.map((f: GitHubTreeItem) => f.path));
         } catch {
           // Directory doesn't exist

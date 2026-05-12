@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { projectsApi, tasksApi, githubApi } from "@/lib/local-api";
+import { findExistingTaskResultsBase, taskResultsBase } from "@/lib/tasks/results-paths";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
@@ -81,10 +82,13 @@ export default function ResultsPage() {
       const cards: ResultCard[] = [];
       
       for (const task of resultTasks) {
-        const resultDir = `results/task-${task.id}`;
+        // Read-only scan: probe the per-user path first, fall back to the
+        // legacy global path. Callers that mutate (popup edits) trigger the
+        // one-time copy via `resolveTaskResultsBase` separately.
+        const resultDir = (await findExistingTaskResultsBase(task)) ?? taskResultsBase(task);
         let hasNotes = false;
         let attachmentCount = 0;
-        
+
         try {
           const items = await githubApi.listDirectory(resultDir);
           for (const item of items) {

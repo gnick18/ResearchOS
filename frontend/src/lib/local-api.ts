@@ -163,7 +163,14 @@ export const tasksApi = {
 
   get: async (id: number, owner?: string): Promise<Task | null> => {
     const task = await getTaskForCaller(id, owner);
-    return task ? computeTaskEndDate(task) : null;
+    if (!task) return null;
+    // Backfill the `owner` field with whichever directory the task was read
+    // from. `owner` is set when reading a shared task from the actual owner's
+    // dir; otherwise it's the current user's. Older tasks have `owner: ""`
+    // on disk; without this their per-user results path would resolve to
+    // `users//results/...`.
+    const effectiveOwner = owner ?? (await getCurrentUserCached()) ?? "";
+    return computeTaskEndDate(withOwnerFallback(task, effectiveOwner));
   },
   
   create: async (data: {
@@ -187,7 +194,13 @@ export const tasksApi = {
     const startDate = parseDate(data.start_date);
     const durationDays = data.duration_days || 1;
     const endDate = computeEndDate(startDate, durationDays, false);
-    
+
+    // Record the creator as the owner. The file lives under their dir already,
+    // but downstream code (per-user results paths, shared-task routing) reads
+    // the field directly, so persisting it avoids relying on the directory
+    // location later.
+    const currentUser = (await getCurrentUserCached()) ?? "";
+
     const task = await tasksStore.create({
       project_id: data.project_id ?? 0,
       name: data.name,
@@ -213,7 +226,7 @@ export const tasksApi = {
         pcr_ingredients: a.pcr_ingredients ?? null,
         variation_notes: a.variation_notes ?? null,
       })),
-      owner: "",
+      owner: currentUser,
       shared_with: [],
     });
     return task;
@@ -2231,8 +2244,19 @@ export const githubApi = {
 
 export const fetchAllTasks = async () => {
   const tasks = await tasksStore.listAll();
-  return tasks.map(computeTaskEndDate);
+  const currentUser = await getCurrentUserCached();
+  return tasks.map((t) => withOwnerFallback(computeTaskEndDate(t), currentUser));
 };
+
+// Older tasks were written with `owner: ""`. Reading from
+// `users/{currentUser}/tasks/{id}.json` is unambiguous about who owns them,
+// so we backfill the field in memory. The on-disk file is left alone (a
+// migration script can fix it later). Without this, anything keying off
+// `task.owner` — like the per-user results path — would compute `users//...`.
+function withOwnerFallback(task: Task, currentUser: string | null): Task {
+  if (task.owner) return task;
+  return { ...task, owner: currentUser ?? "" };
+}
 
 interface SharedWithMeManifest {
   version?: number;
@@ -2241,45 +2265,53 @@ interface SharedWithMeManifest {
 
 export const fetchAllTasksIncludingShared = async () => {
   const ownTasks = await tasksStore.listAll();
+  const currentUserForOwn = await getCurrentUserCached();
+  const ownTasksWithOwner = ownTasks.map((t) => withOwnerFallback(t, currentUserForOwn));
 
   const sharedTasks: Task[] = [];
   try {
-    const currentUser = await getCurrentUserCached();
+    const currentUser = currentUserForOwn;
     const manifest = await fileService.readJson<SharedWithMeManifest>(
       `users/${currentUser}/_shared_with_me.json`
     );
     const entries = manifest?.tasks ?? [];
-    if (entries.length > 0) {
-      const ownIds = new Set(ownTasks.map((t) => t.id));
-      for (const entry of entries) {
-        // Each user has its own ID space, so a shared task can collide with an own
-        // task's numeric id. The UI keys off `task.id`, so showing both would
-        // corrupt rendering. Prefer the owner's task; a composite-key refactor
-        // would be needed to surface the share separately.
-        if (ownIds.has(entry.id)) {
-          console.warn(
-            `[fetchAllTasksIncludingShared] id collision: own task ${entry.id} hides shared task from ${entry.owner}`
-          );
-          continue;
-        }
-        const task = await fileService.readJson<Task>(
-          `users/${entry.owner}/tasks/${entry.id}.json`
-        );
-        if (!task) continue;
-        const permission = entry.permission === "view" ? "view" : "edit";
-        sharedTasks.push({
-          ...task,
-          owner: entry.owner,
-          is_shared_with_me: true,
-          shared_permission: permission,
-        });
-      }
+    for (const entry of entries) {
+      // Per-user ID spaces mean a shared task's numeric id can collide with one
+      // of the viewer's own tasks. Both are surfaced; downstream code keys off
+      // `taskKey(task)` (in `frontend/src/lib/types.ts`) to disambiguate.
+      const task = await fileService.readJson<Task>(
+        `users/${entry.owner}/tasks/${entry.id}.json`
+      );
+      if (!task) continue;
+      const permission = entry.permission === "view" ? "view" : "edit";
+      sharedTasks.push({
+        ...task,
+        owner: entry.owner,
+        is_shared_with_me: true,
+        shared_permission: permission,
+      });
     }
   } catch (err) {
     console.warn("[fetchAllTasksIncludingShared] failed to load shared tasks:", err);
   }
 
-  return [...ownTasks, ...sharedTasks].map(computeTaskEndDate);
+  const merged = [...ownTasksWithOwner, ...sharedTasks].map(computeTaskEndDate);
+
+  // Guardrail: composite keys must be unique across the merged list. Hitting
+  // this means the keying scheme is inconsistent somewhere upstream.
+  if (process.env.NODE_ENV !== "production") {
+    const seen = new Set<string>();
+    for (const t of merged) {
+      const ns = t.is_shared_with_me ? (t.owner || "shared") : "self";
+      const key = `${ns}:${t.id}`;
+      if (seen.has(key)) {
+        console.error(`[fetchAllTasksIncludingShared] duplicate composite key: ${key}`);
+      }
+      seen.add(key);
+    }
+  }
+
+  return merged;
 };
 
 export type {
