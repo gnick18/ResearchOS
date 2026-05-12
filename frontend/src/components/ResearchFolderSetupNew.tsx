@@ -494,7 +494,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                     </li>
                     <li className="flex gap-2">
                       <span className="text-purple-400 font-medium">3.</span>
-                      <span>Create a new folder named &quot;ResearchOS&quot;</span>
+                      <span>Create a new folder with any name you&apos;d like (e.g., &quot;SmithLab_ResearchOS&quot;)</span>
                     </li>
                     <li className="flex gap-2">
                       <span className="text-purple-400 font-medium">4.</span>
