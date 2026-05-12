@@ -617,6 +617,7 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
                           handleDeleteItem(item.id);
                         }}
                         className="text-red-400 hover:text-red-600 text-xs"
+                        title="Delete item"
                       >
                         ✕
                       </button>
@@ -748,6 +749,7 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
                     onClick={handleAddRow}
                     disabled={saving || !newRow.item_name.trim() || !newRow.quantity}
                     className="text-blue-500 hover:text-blue-700 text-sm font-bold disabled:opacity-30"
+                    title="Add item"
                   >
                     +
                   </button>

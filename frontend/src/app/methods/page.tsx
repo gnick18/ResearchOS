@@ -444,6 +444,7 @@ function CreateCategoryModal({
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 text-lg"
+            title="Close"
           >
             ✕
           </button>
@@ -745,6 +746,7 @@ function CreateMethodModal({
           <button
             onClick={handleCancel}
             className="text-gray-400 hover:text-gray-600 text-lg"
+            title="Close"
           >
             ✕
           </button>
@@ -886,6 +888,7 @@ function CreateMethodModal({
                     <button
                       onClick={() => setUploadWarning(null)}
                       className="text-amber-400 hover:text-amber-600"
+                      title="Dismiss warning"
                     >
                       ✕
                     </button>
@@ -953,6 +956,7 @@ function CreateMethodModal({
                     <button
                       onClick={() => setUploadWarning(null)}
                       className="text-amber-400 hover:text-amber-600"
+                      title="Dismiss warning"
                     >
                       ✕
                     </button>
@@ -1466,6 +1470,7 @@ function MarkdownMethodViewer({
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 text-lg ml-2"
+              title="Close"
             >
               ✕
             </button>
@@ -1626,6 +1631,7 @@ function PdfViewer({
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 text-lg ml-2"
+              title="Close"
             >
               ✕
             </button>
@@ -1805,6 +1811,7 @@ function PcrViewer({
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 text-lg ml-2"
+              title="Close"
             >
               ✕
             </button>

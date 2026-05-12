@@ -136,6 +136,7 @@ export default function CalendarPage() {
             <button
               onClick={goToPrevMonth}
               className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+              title="Previous month"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M15 18l-6-6 6-6"/>
@@ -155,6 +156,7 @@ export default function CalendarPage() {
             <button
               onClick={goToNextMonth}
               className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+              title="Next month"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 18l6-6-6-6"/>
@@ -388,7 +390,7 @@ function EventModal({
           <h3 className="text-base font-semibold text-gray-900">
             {isEditing ? "Edit Event" : "Event Details"}
           </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg" title="Close">
             ✕
           </button>
         </div>
@@ -462,6 +464,7 @@ function EventModal({
                     <button
                       key={c}
                       onClick={() => setColor(c)}
+                      title={`Use color ${c}`}
                       className={`w-6 h-6 rounded-full transition-transform ${
                         color === c ? "ring-2 ring-offset-2 ring-gray-400 scale-110" : ""
                       }`}
@@ -586,7 +589,7 @@ function CreateEventModal({
       <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h3 className="text-base font-semibold text-gray-900">New Event</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg" title="Close">
             ✕
           </button>
         </div>
@@ -663,6 +666,7 @@ function CreateEventModal({
                   key={c}
                   type="button"
                   onClick={() => setColor(c)}
+                  title={`Use color ${c}`}
                   className={`w-6 h-6 rounded-full transition-transform ${
                     color === c ? "ring-2 ring-offset-2 ring-gray-400 scale-110" : ""
                   }`}

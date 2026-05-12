@@ -399,6 +399,7 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
             <button
               onClick={handleClose}
               className="text-gray-400 hover:text-gray-600 text-lg ml-2"
+              title="Close"
             >
               &#10005;
             </button>
@@ -440,6 +441,7 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
               <button
                 onClick={() => setUploadWarning(null)}
                 className="text-amber-400 hover:text-amber-600 text-sm"
+                title="Dismiss"
               >
                 ✕
               </button>
@@ -589,6 +591,7 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
                         <button
                           onClick={() => setSelectedAttachment(null)}
                           className="text-gray-400 hover:text-gray-600 text-lg ml-2"
+                          title="Close attachment preview"
                         >
                           &#10005;
                         </button>

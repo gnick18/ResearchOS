@@ -271,6 +271,7 @@ export default function TaskDetailPopup({
               <button
                 onClick={onClose}
                 className="text-gray-400 hover:text-gray-600 p-1.5"
+                title="Close"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M18 6L6 18M6 6l12 12"/>
@@ -434,6 +435,7 @@ export default function TaskDetailPopup({
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 text-lg"
+              title="Close"
             >
               ✕
             </button>
@@ -602,10 +604,11 @@ function SimpleTaskChecklist({
               onClick={readOnly ? undefined : (e) => handleToggleSubTask(st.id, e)}
               disabled={saving || readOnly}
               className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all flex-shrink-0 ${
-                st.is_complete 
-                  ? "bg-blue-500 border-blue-500" 
+                st.is_complete
+                  ? "bg-blue-500 border-blue-500"
                   : "border-gray-300 hover:border-blue-400"
               } ${readOnly ? "cursor-default" : ""}`}
+              title={st.is_complete ? "Mark as incomplete" : "Mark as complete"}
             >
               {st.is_complete && (
                 <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -620,6 +623,7 @@ function SimpleTaskChecklist({
               <button
                 onClick={() => handleDeleteSubTask(st.id)}
                 className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-opacity"
+                title="Delete item"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M18 6L6 18M6 6l12 12"/>
@@ -645,6 +649,7 @@ function SimpleTaskChecklist({
             onClick={handleAddSubTask}
             disabled={!newSubTaskText.trim() || saving}
             className="px-4 py-2.5 text-base bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Add item"
           >
             +
           </button>
@@ -1386,10 +1391,11 @@ function DetailsTab({
                   onClick={(e) => handleToggleSubTask(st.id, e)}
                   disabled={saving}
                   className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
-                    st.is_complete 
-                      ? "bg-gradient-to-br from-orange-500 to-yellow-400 border-orange-400" 
+                    st.is_complete
+                      ? "bg-gradient-to-br from-orange-500 to-yellow-400 border-orange-400"
                       : "border-gray-300 hover:border-orange-400"
                   }`}
+                  title={st.is_complete ? "Mark as incomplete" : "Mark as complete"}
                 >
                   {st.is_complete && (
                     <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1403,6 +1409,7 @@ function DetailsTab({
                 <button
                   onClick={() => handleDeleteSubTask(st.id)}
                   className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 text-xs transition-opacity"
+                  title="Delete sub-task"
                 >
                   ✕
                 </button>
@@ -2151,6 +2158,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                   <button
                     onClick={() => setUploadWarning(null)}
                     className="text-amber-400 hover:text-amber-600 text-sm"
+                    title="Dismiss warning"
                   >
                     ✕
                   </button>
@@ -2528,6 +2536,7 @@ function PCRRecipeTable({
                   <button
                     onClick={() => removeRow(ing.id)}
                     className="text-gray-400 hover:text-red-500"
+                    title="Remove ingredient"
                   >
                     x
                   </button>
@@ -3391,6 +3400,7 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
                 <button
                   onClick={() => setUploadWarning(null)}
                   className="text-amber-400 hover:text-amber-600 text-sm"
+                  title="Dismiss warning"
                 >
                   ✕
                 </button>

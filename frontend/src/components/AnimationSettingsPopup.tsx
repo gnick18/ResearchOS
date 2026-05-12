@@ -51,6 +51,7 @@ export default function AnimationSettingsPopup({
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 text-lg"
+            title="Close"
           >
             ✕
           </button>

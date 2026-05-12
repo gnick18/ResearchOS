@@ -106,6 +106,7 @@ export default function ExperimentPanel({ task, onClose }: ExperimentPanelProps)
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 text-lg"
+              title="Close"
             >
               ✕
             </button>
@@ -459,6 +460,7 @@ function LabNotesTab({ task }: { task: Task }) {
                 <button
                   onClick={() => setUploadWarning(null)}
                   className="text-amber-400 hover:text-amber-600 text-sm"
+                  title="Dismiss"
                 >
                   ✕
                 </button>
@@ -1053,6 +1055,7 @@ function ResultsTab({ task }: { task: Task }) {
                 <button
                   onClick={() => setUploadWarning(null)}
                   className="text-amber-400 hover:text-amber-600 text-sm"
+                  title="Dismiss"
                 >
                   ✕
                 </button>

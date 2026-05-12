@@ -91,6 +91,7 @@ export default function MarkdownPreview({
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 text-lg"
+            title="Close"
           >
             ✕
           </button>

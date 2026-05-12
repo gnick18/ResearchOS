@@ -286,6 +286,7 @@ export default function HomePage() {
                     <button
                       key={c}
                       onClick={() => setNewColor(c)}
+                      title={`Use color ${c}`}
                       className={`w-7 h-7 rounded-full transition-transform ${
                         newColor === c ? "ring-2 ring-offset-2 ring-gray-400 scale-110" : ""
                       }`}

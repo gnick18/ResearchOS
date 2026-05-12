@@ -508,6 +508,7 @@ function RecipeTable({
                   <button
                     onClick={() => removeRow(ing.id)}
                     className="text-gray-400 hover:text-red-500"
+                    title="Remove ingredient"
                   >
                     x
                   </button>
@@ -567,7 +568,7 @@ function CreatePCRModal({
       <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h3 className="text-base font-semibold text-gray-900">New PCR Protocol</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg" title="Close">
             x
           </button>
         </div>
@@ -710,7 +711,7 @@ function ViewPCRModal({
                 </button>
               </>
             )}
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg ml-2">
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg ml-2" title="Close">
               x
             </button>
           </div>
