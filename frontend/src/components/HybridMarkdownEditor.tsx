@@ -12,8 +12,14 @@ import {
   type MarkdownBlock,
 } from "@/lib/markdown-block-parser";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
-import { rewriteImageWidth, parseWidthPercent } from "@/lib/image-resize-utils";
+import { rewriteImageBySrcAlt, parseWidthPercent } from "@/lib/image-resize-utils";
 import ImageResizePopover from "./ImageResizePopover";
+
+// Transparent 1×1 GIF used as the `src` placeholder while the real blob URL
+// is being resolved asynchronously, so the browser never tries to fetch the
+// raw local path (which would 404 against the Next.js dev server).
+const IMAGE_PLACEHOLDER =
+  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
 // Type for the helper panel tab
 type HelperTab = "shortcuts" | "styleguide";
@@ -414,7 +420,8 @@ export default function HybridMarkdownEditor({
   // Image resize popover state (click-to-resize on rendered images)
   const [imageResize, setImageResize] = useState<{
     blockOffset: number;
-    imageIndex: number;
+    imageSrc: string;
+    imageAlt: string;
     x: number;
     y: number;
     currentWidth: number | null;
@@ -1026,9 +1033,10 @@ export default function HybridMarkdownEditor({
         return;
       }
 
-      const newBlockContent = rewriteImageWidth(
+      const newBlockContent = rewriteImageBySrcAlt(
         block.content,
-        imageResize.imageIndex,
+        imageResize.imageSrc,
+        imageResize.imageAlt,
         width,
       );
       setImageResize(null);
@@ -1153,53 +1161,51 @@ export default function HybridMarkdownEditor({
             </div>
           ) : block.content.trim() ? (
             <div className="prose prose-sm prose-gray max-w-none">
-              {(() => {
-                // Counter shared across all img renders within this block.
-                // Reset on every renderBlock invocation; ReactMarkdown calls the
-                // img component synchronously in document order during render.
-                const imgIndexRef = { current: 0 };
-                return (
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    rehypePlugins={[rehypeRaw, rehypeHighlight]}
-                    components={{
-                      img: ({ src, alt, width, ...props }) => {
-                        const myIndex = imgIndexRef.current++;
-                        const currentWidthPct = parseWidthPercent(width as string | number | undefined);
-                        const originalSrc = String(src || "");
-                        const resolvedSrc = useBlobUrls
-                          ? resolvedBlobUrls.get(originalSrc) ?? originalSrc
-                          : originalSrc;
-                        return (
-                          <img
-                            src={resolvedSrc}
-                            alt={alt || ""}
-                            width={width}
-                            className="max-w-full rounded-lg cursor-pointer"
-                            onError={(e) => handleImageError(e, originalSrc)}
-                            onClick={(e) => {
-                              if (disabled) return;
-                              e.stopPropagation();
-                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                              setImageResize({
-                                blockOffset: block.startOffset,
-                                imageIndex: myIndex,
-                                x: rect.left,
-                                y: rect.bottom + 4,
-                                currentWidth: currentWidthPct,
-                              });
-                            }}
-                            title="Click to resize"
-                            {...props}
-                          />
-                        );
-                      },
-                    }}
-                  >
-                    {block.content}
-                  </ReactMarkdown>
-                );
-              })()}
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeRaw, rehypeHighlight]}
+                components={{
+                  img: ({ src, alt, width, ...props }) => {
+                    const currentWidthPct = parseWidthPercent(width as string | number | undefined);
+                    const originalSrc = String(src || "");
+                    const originalAlt = String(alt || "");
+                    const cachedBlob = useBlobUrls ? resolvedBlobUrls.get(originalSrc) : undefined;
+                    // While we're waiting for the async blob URL for a local
+                    // path, render a transparent placeholder so the browser
+                    // doesn't request — and 404 on — the raw local path.
+                    const needsResolution =
+                      useBlobUrls && blobUrlResolver.isLocalPath(originalSrc) && !cachedBlob;
+                    const resolvedSrc = needsResolution
+                      ? IMAGE_PLACEHOLDER
+                      : (cachedBlob ?? originalSrc);
+                    return (
+                      <img
+                        src={resolvedSrc}
+                        alt={originalAlt}
+                        width={width}
+                        className="max-w-full rounded-lg cursor-pointer"
+                        onError={(e) => handleImageError(e, originalSrc)}
+                        onClick={(e) => {
+                          if (disabled) return;
+                          e.stopPropagation();
+                          setImageResize({
+                            blockOffset: block.startOffset,
+                            imageSrc: originalSrc,
+                            imageAlt: originalAlt,
+                            x: e.clientX + 6,
+                            y: e.clientY + 6,
+                            currentWidth: currentWidthPct,
+                          });
+                        }}
+                        title="Click to resize"
+                        {...props}
+                      />
+                    );
+                  },
+                }}
+              >
+                {block.content}
+              </ReactMarkdown>
             </div>
           ) : (
             <span className="text-gray-300 italic text-sm">

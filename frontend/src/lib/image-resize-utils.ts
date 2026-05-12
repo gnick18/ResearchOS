@@ -29,8 +29,14 @@ function findAllImages(markdown: string): ImageMatch[] {
 }
 
 /**
- * Rewrite a single image's textual representation to use the given width
- * (or strip the width attribute / convert to plain markdown if `width` is null).
+ * Rewrite a single image's textual representation to use the given width.
+ *
+ * Size rules:
+ *  - Markdown form (`![alt](src)`) can't carry a width attribute, so picking
+ *    a size promotes it to the HTML form `<img src=".." alt=".." width="N%" />`.
+ *  - Picking "Remove width" (width === null) demotes HTML form back to the
+ *    simpler markdown form, dropping any incidental HTML attributes — markdown
+ *    form is the canonical representation when no width is needed.
  */
 function rewriteSingleImage(imgText: string, width: number | null): string {
   // Markdown form: ![alt](src)
@@ -45,6 +51,17 @@ function rewriteSingleImage(imgText: string, width: number | null): string {
   // HTML form: <img ...>
   if (/^<img\b/i.test(imgText)) {
     if (width === null) {
+      // Simplify back to markdown form using src + alt; other attributes are
+      // dropped, which is fine because the popover's "Remove width" path is
+      // meant as a reset to the canonical form.
+      const srcMatch = imgText.match(/\bsrc\s*=\s*["']([^"']+)["']/i);
+      const altMatch = imgText.match(/\balt\s*=\s*["']([^"']*)["']/i);
+      if (srcMatch) {
+        const src = srcMatch[1];
+        const alt = altMatch ? altMatch[1] : "";
+        return `![${alt}](${src})`;
+      }
+      // No src extractable — fall back to stripping the width attribute only.
       return imgText.replace(/\s+width\s*=\s*["']?[^"'\s>]+["']?/i, "");
     }
     if (/\bwidth\s*=/i.test(imgText)) {
@@ -72,6 +89,46 @@ export function rewriteImageWidth(
   if (imageIndex < 0 || imageIndex >= matches.length) return markdown;
 
   const target = matches[imageIndex];
+  const replaced = rewriteSingleImage(target.text, width);
+  if (replaced === target.text) return markdown;
+  return markdown.substring(0, target.start) + replaced + markdown.substring(target.end);
+}
+
+/**
+ * Check whether an image's text representation matches the given src/alt.
+ * Handles both markdown `![alt](src)` and HTML `<img src="..." alt="..." />` forms.
+ */
+function imageMatchesSrcAlt(imgText: string, src: string, alt: string): boolean {
+  const mdMatch = imgText.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+  if (mdMatch) {
+    return mdMatch[2] === src && mdMatch[1] === alt;
+  }
+  const srcMatch = imgText.match(/\bsrc\s*=\s*["']([^"']+)["']/i);
+  const altMatch = imgText.match(/\balt\s*=\s*["']([^"']*)["']/i);
+  const imgSrc = srcMatch ? srcMatch[1] : "";
+  const imgAlt = altMatch ? altMatch[1] : "";
+  return imgSrc === src && imgAlt === alt;
+}
+
+/**
+ * Rewrite the first image in `markdown` whose src+alt matches the given pair.
+ * This is the StrictMode-safe alternative to `rewriteImageWidth` — identifying
+ * images by stable React props rather than a render-time counter avoids the
+ * double-render counter inflation in dev.
+ *
+ * Limitation: if two images share the same src+alt in the same block, only
+ * the first is rewritten. For typical content (distinct file paths) this is
+ * not an issue.
+ */
+export function rewriteImageBySrcAlt(
+  markdown: string,
+  src: string,
+  alt: string,
+  width: number | null,
+): string {
+  const matches = findAllImages(markdown);
+  const target = matches.find((m) => imageMatchesSrcAlt(m.text, src, alt));
+  if (!target) return markdown;
   const replaced = rewriteSingleImage(target.text, width);
   if (replaced === target.text) return markdown;
   return markdown.substring(0, target.start) + replaced + markdown.substring(target.end);

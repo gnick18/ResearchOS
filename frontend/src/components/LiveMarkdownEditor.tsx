@@ -10,7 +10,13 @@ import HybridMarkdownEditor from "./HybridMarkdownEditor";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 import { fileService } from "@/lib/file-system/file-service";
 import ImageResizePopover from "./ImageResizePopover";
-import { rewriteImageWidth, parseWidthPercent } from "@/lib/image-resize-utils";
+import { rewriteImageBySrcAlt, parseWidthPercent } from "@/lib/image-resize-utils";
+
+// Transparent 1×1 GIF used as the `src` placeholder while the real blob URL
+// is being resolved asynchronously, so the browser never tries to fetch the
+// raw local path (which would 404 against the Next.js dev server).
+const IMAGE_PLACEHOLDER =
+  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
 // Type for the helper panel tab
 type HelperTab = "shortcuts" | "styleguide";
@@ -545,7 +551,8 @@ export default function LiveMarkdownEditor({
   const processedBrokenSrcsRef = useRef<Set<string>>(new Set());
   // Click-to-resize popover state (preview-mode click on rendered image)
   const [imageResize, setImageResize] = useState<{
-    imageIndex: number;
+    imageSrc: string;
+    imageAlt: string;
     x: number;
     y: number;
     currentWidth: number | null;
@@ -1028,7 +1035,12 @@ export default function LiveMarkdownEditor({
   const handleImageResizeSelect = useCallback(
     (width: number | null) => {
       if (!imageResize) return;
-      const newValue = rewriteImageWidth(value, imageResize.imageIndex, width);
+      const newValue = rewriteImageBySrcAlt(
+        value,
+        imageResize.imageSrc,
+        imageResize.imageAlt,
+        width,
+      );
       setImageResize(null);
       if (newValue !== value) {
         onChange(newValue);
@@ -1650,51 +1662,50 @@ export default function LiveMarkdownEditor({
             <div className="p-4 h-full overflow-y-auto">
               {value.trim() ? (
                 <div className="prose prose-sm prose-gray max-w-none" style={{ lineHeight: "1.7" }}>
-                  {(() => {
-                    // Counter shared across all img renders within this document
-                    // render pass; ReactMarkdown invokes the img component in
-                    // document order, giving each image a stable 0-based index
-                    // that matches rewriteImageWidth's match order.
-                    const imgIndexRef = { current: 0 };
-                    return (
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        rehypePlugins={[rehypeRaw, rehypeHighlight]}
-                        components={{
-                          img: ({ src, alt, width, ...props }) => {
-                            const myIndex = imgIndexRef.current++;
-                            const currentWidthPct = parseWidthPercent(width as string | number | undefined);
-                            const originalSrc = String(src || "");
-                            const resolvedSrc = resolvedBlobUrls.get(originalSrc) ?? originalSrc;
-                            return (
-                              <img
-                                src={resolvedSrc}
-                                alt={alt || ""}
-                                width={width}
-                                className="max-w-full rounded-lg cursor-pointer"
-                                onError={(e) => handleImageError(e, originalSrc, alt || "")}
-                                onClick={(e) => {
-                                  if (disabled) return;
-                                  e.stopPropagation();
-                                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                                  setImageResize({
-                                    imageIndex: myIndex,
-                                    x: rect.left,
-                                    y: rect.bottom + 4,
-                                    currentWidth: currentWidthPct,
-                                  });
-                                }}
-                                title="Click to resize"
-                                {...props}
-                              />
-                            );
-                          },
-                        }}
-                      >
-                        {preserveBlankLines(value)}
-                      </ReactMarkdown>
-                    );
-                  })()}
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[rehypeRaw, rehypeHighlight]}
+                    components={{
+                      img: ({ src, alt, width, ...props }) => {
+                        const currentWidthPct = parseWidthPercent(width as string | number | undefined);
+                        const originalSrc = String(src || "");
+                        const originalAlt = String(alt || "");
+                        const cachedBlob = resolvedBlobUrls.get(originalSrc);
+                        // While we're waiting for the async blob URL for a
+                        // local path, render a transparent placeholder so the
+                        // browser doesn't request — and 404 on — the raw path.
+                        const needsResolution =
+                          blobUrlResolver.isLocalPath(originalSrc) && !cachedBlob;
+                        const resolvedSrc = needsResolution
+                          ? IMAGE_PLACEHOLDER
+                          : (cachedBlob ?? originalSrc);
+                        return (
+                          <img
+                            src={resolvedSrc}
+                            alt={originalAlt}
+                            width={width}
+                            className="max-w-full rounded-lg cursor-pointer"
+                            onError={(e) => handleImageError(e, originalSrc, originalAlt)}
+                            onClick={(e) => {
+                              if (disabled) return;
+                              e.stopPropagation();
+                              setImageResize({
+                                imageSrc: originalSrc,
+                                imageAlt: originalAlt,
+                                x: e.clientX + 6,
+                                y: e.clientY + 6,
+                                currentWidth: currentWidthPct,
+                              });
+                            }}
+                            title="Click to resize"
+                            {...props}
+                          />
+                        );
+                      },
+                    }}
+                  >
+                    {preserveBlankLines(value)}
+                  </ReactMarkdown>
                 </div>
               ) : (
                 <p className="text-sm text-gray-300 italic">
