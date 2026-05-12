@@ -5,7 +5,7 @@ import { computeEndDate } from "./engine/dates";
 import { shiftTask } from "./engine/shift";
 import { formatDate, parseDate } from "./engine/dates";
 import { discoverUsers } from "./file-system/user-discovery";
-import { ensureLabUserMetadata, fallbackUserColor } from "./file-system/user-metadata";
+import { ensureLabUserMetadata, fallbackUserColor, setUserMetadataField, getUserMetadata } from "./file-system/user-metadata";
 import JSZip from "jszip";
 import type {
   Project,
@@ -26,6 +26,7 @@ import type {
   HighLevelGoal,
   HighLevelGoalCreate,
   HighLevelGoalUpdate,
+  SmartGoal,
   PCRProtocol,
   PCRProtocolCreate,
   PCRProtocolUpdate,
@@ -1660,6 +1661,34 @@ export const labApi = {
     return [];
   },
 
+  // #14: lab-wide goals view. Returns each user's HighLevelGoals annotated
+  // with username + color, skipping any user who opted out via
+  // _user_metadata.json (hide_goals_from_lab). Used by the Roadmaps tab.
+  getGoals: async (): Promise<LabGoal[]> => {
+    const { usernames, metadata } = await loadLabUsers();
+    const out: LabGoal[] = [];
+    for (const username of usernames) {
+      if (metadata[username]?.hide_goals_from_lab) continue;
+      const userGoals = await goalsStore.listAllForUser(username);
+      const userColor = colorFor(metadata, username);
+      for (const g of userGoals) {
+        out.push({
+          id: g.id,
+          name: g.name,
+          project_id: g.project_id,
+          start_date: g.start_date,
+          end_date: g.end_date,
+          is_complete: g.is_complete,
+          color: g.color,
+          smart_goals: g.smart_goals || [],
+          username,
+          user_color: userColor,
+        });
+      }
+    }
+    return out;
+  },
+
   getExperiments: async (params?: { usernames?: string }): Promise<LabTask[]> => {
     const { usernames, metadata } = await loadLabUsers();
     const tasks: LabTask[] = [];
@@ -2102,6 +2131,18 @@ export const usersApi = {
     
     return { status: "error", deleted_username: "", message: "Invalid confirmation step" };
   },
+
+  // #14: lab visibility preference. When true, this user's goals are hidden
+  // from the lab-mode Roadmaps tab (and the lab GANTT once goals land
+  // there). Stored in users/_user_metadata.json.
+  getHideGoalsFromLab: async (username: string): Promise<boolean> => {
+    const md = await getUserMetadata(username);
+    return Boolean(md?.hide_goals_from_lab);
+  },
+  setHideGoalsFromLab: async (username: string, hide: boolean): Promise<boolean> => {
+    const updated = await setUserMetadataField(username, "hide_goals_from_lab", hide);
+    return Boolean(updated?.hide_goals_from_lab);
+  },
 };
 
 async function readBlobAsText(blob: Blob): Promise<string> {
@@ -2255,6 +2296,7 @@ export type {
   HighLevelGoal,
   HighLevelGoalCreate,
   HighLevelGoalUpdate,
+  SmartGoal,
   PCRProtocol,
   PCRProtocolCreate,
   PCRProtocolUpdate,
@@ -2318,6 +2360,19 @@ export interface LabMethod {
   username: string;
   user_color: string;
   is_public: boolean;
+}
+
+export interface LabGoal {
+  id: number;
+  name: string;
+  project_id: number | null;
+  start_date: string;
+  end_date: string;
+  is_complete: boolean;
+  color: string | null;
+  smart_goals: SmartGoal[];
+  username: string;
+  user_color: string;
 }
 
 export interface LabSearchResult {
