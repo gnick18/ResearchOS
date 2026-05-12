@@ -2,7 +2,8 @@
 
 import { useCallback, useMemo, useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { goalsApi, projectsApi, dependenciesApi, fetchAllTasksIncludingShared, settingsApi } from "@/lib/local-api";
+import { goalsApi, projectsApi, dependenciesApi, fetchAllTasksIncludingShared } from "@/lib/local-api";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
 import GanttChart from "@/components/GanttChart";
@@ -30,12 +31,8 @@ export default function Home() {
   // State for delete confirmation
   const [deletingGoal, setDeletingGoal] = useState<HighLevelGoal | null>(null);
 
-  // Get current user
-  const { data: settings } = useQuery({
-    queryKey: ["settings"],
-    queryFn: settingsApi.get,
-  });
-  const currentUser = settings?.current_user || "";
+  const { currentUser: providerCurrentUser } = useCurrentUser();
+  const currentUser = providerCurrentUser ?? "";
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", currentUser],

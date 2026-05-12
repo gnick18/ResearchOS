@@ -2,7 +2,8 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { projectsApi, tasksApi, fetchAllTasks, settingsApi } from "@/lib/local-api";
+import { projectsApi, tasksApi, fetchAllTasks } from "@/lib/local-api";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import TaskDetailPopup from "./TaskDetailPopup";
 import TaskQuickPopup from "./TaskQuickPopup";
 import type { Task, Project } from "@/lib/types";
@@ -16,11 +17,8 @@ export default function DailyTasksSidebar() {
   const [quickPopupPosition, setQuickPopupPosition] = useState({ x: 0, y: 0 });
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
-  const { data: settings } = useQuery({
-    queryKey: ["settings"],
-    queryFn: settingsApi.get,
-  });
-  const currentUser = settings?.current_user || "";
+  const { currentUser: providerCurrentUser } = useCurrentUser();
+  const currentUser = providerCurrentUser ?? "";
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", currentUser],

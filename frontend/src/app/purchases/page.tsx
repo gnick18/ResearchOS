@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { projectsApi, tasksApi, purchasesApi, settingsApi } from "@/lib/local-api";
+import { projectsApi, tasksApi, purchasesApi } from "@/lib/local-api";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import AppShell from "@/components/AppShell";
 import PurchaseEditor from "@/components/PurchaseEditor";
 import type { Task, PurchaseItem, FundingAccount } from "@/lib/types";
@@ -13,11 +14,8 @@ export default function PurchasesPage() {
   const [showFundingManager, setShowFundingManager] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data: settings } = useQuery({
-    queryKey: ["settings"],
-    queryFn: settingsApi.get,
-  });
-  const currentUser = settings?.current_user || "";
+  const { currentUser: providerCurrentUser } = useCurrentUser();
+  const currentUser = providerCurrentUser ?? "";
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", currentUser],

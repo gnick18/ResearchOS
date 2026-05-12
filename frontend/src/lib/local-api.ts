@@ -1946,20 +1946,6 @@ export const usersApi = {
   },
 };
 
-// TODO: replace callers (app/{purchases,experiments,search,gantt,results}/page.tsx
-// and DailyTasksSidebar.tsx) with useCurrentUser() from @/hooks/useCurrentUser
-// and delete this object.
-export const settingsApi = {
-  get: async () => {
-    const currentUser = await getCurrentUserCached();
-    const mainUser = await getMainUser();
-    return {
-      current_user: currentUser || "",
-      main_user: mainUser || "",
-    };
-  },
-};
-
 async function readBlobAsText(blob: Blob): Promise<string> {
   const buffer = await blob.arrayBuffer();
   const bytes = new Uint8Array(buffer);

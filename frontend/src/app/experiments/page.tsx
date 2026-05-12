@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { projectsApi, tasksApi, dependenciesApi, methodsApi, githubApi, settingsApi } from "@/lib/local-api";
+import { projectsApi, tasksApi, dependenciesApi, methodsApi, githubApi } from "@/lib/local-api";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
@@ -44,11 +45,8 @@ export default function ExperimentsPage() {
   const setNewTaskStartDate = useAppStore((s) => s.setNewTaskStartDate);
   const setRestrictedTaskType = useAppStore((s) => s.setRestrictedTaskType);
 
-  const { data: settings } = useQuery({
-    queryKey: ["settings"],
-    queryFn: settingsApi.get,
-  });
-  const currentUser = settings?.current_user || "";
+  const { currentUser: providerCurrentUser } = useCurrentUser();
+  const currentUser = providerCurrentUser ?? "";
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", currentUser],
