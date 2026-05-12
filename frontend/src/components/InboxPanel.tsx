@@ -202,6 +202,14 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
             await deleteImageFromBase(inboxBase(currentUser), popupFilename);
             await refresh();
           }}
+          onMoveToActive={async (task) => {
+            const taskBase = await resolveTaskResultsBase(
+              { id: task.id, owner: task.owner },
+              currentUser
+            );
+            await moveImageBetweenBases(inboxBase(currentUser), taskBase, popupFilename);
+            await refresh();
+          }}
           onClose={() => setPopupFilename(null)}
         />
       )}

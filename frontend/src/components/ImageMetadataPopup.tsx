@@ -5,6 +5,7 @@ import { fileService } from "@/lib/file-system/file-service";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 import { imageEvents } from "@/lib/attachments/image-events";
 import { sidecarPath, type ImageSidecar } from "@/lib/attachments/image-folder";
+import { useAppStore, type ActiveTask } from "@/lib/store";
 
 interface ImageMetadataPopupProps {
   basePath: string;
@@ -20,6 +21,10 @@ interface ImageMetadataPopupProps {
   onRename?: (newFilename: string) => Promise<void>;
   /** When provided, the popup shows a "Delete file" button in the footer. */
   onDelete?: () => Promise<void>;
+  /** When provided AND an experiment popup is open, the metadata popup shows
+   *  a primary "Move to <experiment>" button so the user can file an inbox
+   *  arrival without bouncing between dialogs. */
+  onMoveToActive?: (task: ActiveTask) => Promise<void>;
   onClose: () => void;
 }
 
@@ -41,8 +46,10 @@ export default function ImageMetadataPopup({
   onJump,
   onRename,
   onDelete,
+  onMoveToActive,
   onClose,
 }: ImageMetadataPopupProps) {
+  const activeTask = useAppStore((s) => s.activeTask);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [sidecar, setSidecar] = useState<ImageSidecar | null>(null);
   const [caption, setCaption] = useState("");
@@ -52,6 +59,7 @@ export default function ImageMetadataPopup({
   const [renameError, setRenameError] = useState<string | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [moving, setMoving] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
@@ -139,6 +147,29 @@ export default function ImageMetadataPopup({
       alert(err instanceof Error ? err.message : "Delete failed.");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleMoveToActive = async () => {
+    if (!onMoveToActive || !activeTask) return;
+    setMoving(true);
+    try {
+      // Persist any pending metadata edits first so they ride along with the
+      // file move. If the move fails, the sidecar update is still useful.
+      const next: ImageSidecar = {
+        ...sidecar,
+        caption: caption.trim() || undefined,
+        description: description.trim() || undefined,
+        tags: parseTags(tagsInput),
+      };
+      await fileService.writeJson(sidecarFsPath, next);
+      await onMoveToActive(activeTask);
+      onClose();
+    } catch (err) {
+      console.error("[image-metadata] move failed", err);
+      alert(err instanceof Error ? err.message : "Move failed.");
+    } finally {
+      setMoving(false);
     }
   };
 
@@ -288,6 +319,17 @@ export default function ImageMetadataPopup({
             )}
           </div>
           <div className="flex items-center gap-2">
+            {onMoveToActive && activeTask && (
+              <button
+                type="button"
+                onClick={handleMoveToActive}
+                disabled={moving || !loaded}
+                title={`File this image into Experiment ${activeTask.id} (${activeTask.name})`}
+                className="px-4 py-2 text-sm text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-50 font-medium"
+              >
+                {moving ? "Moving…" : `Move to ${activeTask.name}`}
+              </button>
+            )}
             <button
               type="button"
               onClick={onClose}
