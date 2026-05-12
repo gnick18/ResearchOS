@@ -45,6 +45,14 @@ interface FileSystemState {
 
 interface FileSystemContextValue extends FileSystemState {
   connect: () => Promise<boolean>;
+  /**
+   * Re-attach to the previously connected folder using the handle persisted
+   * in IndexedDB. If the browser still remembers the permission grant, this
+   * resolves silently; otherwise it triggers a tiny `requestPermission`
+   * confirmation (much cheaper than the full OS folder picker). Must be
+   * called from a user gesture so the browser allows the permission prompt.
+   */
+  reconnectWithStoredHandle: () => Promise<boolean>;
   disconnect: () => Promise<void>;
   setCurrentUser: (username: string) => Promise<void>;
   createUser: (username: string) => Promise<boolean>;
@@ -52,6 +60,11 @@ interface FileSystemContextValue extends FileSystemState {
   reverifyPermission: () => Promise<boolean>;
   initializeFolder: () => Promise<boolean>;
   createNewFolder: (folderName: string) => Promise<boolean>;
+}
+
+interface PermissionableHandle extends FileSystemDirectoryHandle {
+  queryPermission?: (opts: { mode: "read" | "readwrite" }) => Promise<PermissionState>;
+  requestPermission?: (opts: { mode: "read" | "readwrite" }) => Promise<PermissionState>;
 }
 
 const FileSystemContext = createContext<FileSystemContextValue | null>(null);
@@ -81,22 +94,138 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     return fileService.verifyPermission(true);
   }, []);
 
+  /**
+   * Drive the shared "post-handle" phases — verify permission, validate the
+   * folder, discover users, populate state. Called both by `connect()` after
+   * the OS picker resolves and by `reconnectWithStoredHandle()` after the
+   * lightweight permission-only path. The caller is responsible for setting
+   * `isLoading: true` first.
+   */
+  const finishConnect = useCallback(
+    async (handle: FileSystemDirectoryHandle): Promise<boolean> => {
+      try {
+        fileService.setDirectoryHandle(handle);
+
+        setState((prev) => ({ ...prev, loadingStage: "verifying-permission" }));
+        const hasPermission = await fileService.verifyPermission(true);
+        if (!hasPermission) {
+          fileService.clearDirectoryHandle();
+          setState((prev) => ({
+            ...prev,
+            isLoading: false,
+            loadingStage: null,
+            error: "Permission denied. Please allow read/write access to the folder.",
+          }));
+          return false;
+        }
+
+        setState((prev) => ({ ...prev, loadingStage: "validating-folder" }));
+        const isValid = await validateResearchFolder(handle);
+        if (!isValid) {
+          setState((prev) => ({
+            ...prev,
+            isLoading: false,
+            loadingStage: null,
+            error: null,
+            directoryName: handle.name,
+            needsInitialization: true,
+          }));
+          return false;
+        }
+
+        await storeDirectoryHandle(handle);
+
+        setState((prev) => ({ ...prev, loadingStage: "discovering-users" }));
+        const users = await discoverUsers();
+
+        let currentUser = await getCurrentUser();
+        if (users.length === 1) {
+          currentUser = users[0];
+          await storeCurrentUser(currentUser);
+        }
+
+        let mainUser = await getMainUser();
+        if (!mainUser && currentUser) {
+          mainUser = currentUser;
+          await storeMainUser(mainUser);
+        }
+
+        setState((prev) => ({
+          ...prev,
+          isConnected: true,
+          isLoading: false,
+          loadingStage: null,
+          error: null,
+          directoryName: handle.name,
+          currentUser,
+          mainUser,
+          availableUsers: users,
+          needsInitialization: false,
+          lastConnectedFolder: handle.name,
+        }));
+
+        return true;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to connect to folder";
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          loadingStage: null,
+          error: message,
+        }));
+        return false;
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     async function initialize() {
       try {
-        const meta = await getStoredDirectoryMeta();
-        const [currentUser, mainUser] = await Promise.all([
+        const [storedHandle, meta, currentUser, mainUser] = await Promise.all([
+          getStoredDirectoryHandle(),
+          getStoredDirectoryMeta(),
           getCurrentUser(),
           getMainUser(),
         ]);
 
-        console.log("[FileSystemProvider.initialize] meta:", meta);
-        console.log("[FileSystemProvider.initialize] currentUser:", currentUser);
-        console.log("[FileSystemProvider.initialize] mainUser:", mainUser);
+        console.log("[FileSystemProvider.initialize] meta:", meta, "hasHandle:", !!storedHandle);
+
+        // Try a silent reconnect: if Chrome still remembers the readwrite
+        // grant on this handle, we can skip the OS picker entirely. We
+        // intentionally only use the *silent* path here — calling
+        // requestPermission outside a user gesture is rejected by the
+        // browser, and we don't want to surface a confusing prompt on
+        // page load.
+        if (storedHandle) {
+          const permissionable = storedHandle as PermissionableHandle;
+          if (permissionable.queryPermission) {
+            try {
+              const permission = await permissionable.queryPermission({ mode: "readwrite" });
+              if (permission === "granted") {
+                fileService.resetReadCount();
+                setState((prev) => ({
+                  ...prev,
+                  isLoading: true,
+                  loadingStage: "connecting",
+                  lastConnectedFolder: storedHandle.name,
+                  currentUser,
+                  mainUser,
+                }));
+                const ok = await finishConnect(storedHandle);
+                if (ok) return;
+                // finishConnect failed (e.g. folder validation issue); fall
+                // through to the normal "show setup screen" path below.
+              }
+            } catch (err) {
+              console.warn("[FileSystemProvider.initialize] queryPermission failed:", err);
+            }
+          }
+        }
 
         setState((prev) => ({
           ...prev,
-          lastConnectedFolder: meta?.name || null,
+          lastConnectedFolder: meta?.name || storedHandle?.name || null,
           currentUser,
           mainUser,
           isLoading: false,
@@ -108,7 +237,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     }
 
     initialize();
-  }, []);
+  }, [finishConnect]);
 
   const connect = useCallback(async (): Promise<boolean> => {
     const showDirectoryPicker = (window as unknown as { showDirectoryPicker?: (options?: { mode?: string }) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker;
@@ -152,84 +281,60 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
 
     fileService.resetReadCount();
     setState((prev) => ({ ...prev, loadingStage: "connecting" }));
+    return finishConnect(handle);
+  }, [finishConnect]);
 
-    try {
-      fileService.setDirectoryHandle(handle);
+  const reconnectWithStoredHandle = useCallback(async (): Promise<boolean> => {
+    setState((prev) => ({ ...prev, isLoading: true, loadingStage: "verifying-permission", error: null }));
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    );
 
-      setState((prev) => ({ ...prev, loadingStage: "verifying-permission" }));
-      const hasPermission = await fileService.verifyPermission(true);
-      console.log("Permission check result:", hasPermission);
-
-      if (!hasPermission) {
-        fileService.clearDirectoryHandle();
-        setState((prev) => ({
-          ...prev,
-          isLoading: false,
-          loadingStage: null,
-          error: "Permission denied. Please allow read/write access to the folder.",
-        }));
-        return false;
-      }
-
-      setState((prev) => ({ ...prev, loadingStage: "validating-folder" }));
-      const isValid = await validateResearchFolder(handle);
-      console.log("Folder validation result:", isValid, "for folder:", handle.name);
-
-      if (!isValid) {
-        setState((prev) => ({
-          ...prev,
-          isLoading: false,
-          loadingStage: null,
-          error: null,
-          directoryName: handle.name,
-          needsInitialization: true,
-        }));
-        return false;
-      }
-
-      await storeDirectoryHandle(handle);
-
-      setState((prev) => ({ ...prev, loadingStage: "discovering-users" }));
-      const users = await discoverUsers();
-
-      let currentUser = await getCurrentUser();
-      if (users.length === 1) {
-        currentUser = users[0];
-        await storeCurrentUser(currentUser);
-      }
-
-      let mainUser = await getMainUser();
-      if (!mainUser && currentUser) {
-        mainUser = currentUser;
-        await storeMainUser(mainUser);
-      }
-
-      setState((prev) => ({
-        ...prev,
-        isConnected: true,
-        isLoading: false,
-        loadingStage: null,
-        error: null,
-        directoryName: handle!.name,
-        currentUser,
-        mainUser,
-        availableUsers: users,
-        needsInitialization: false,
-        lastConnectedFolder: handle!.name,
-      }));
-
-      return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to connect to folder";
+    const handle = await getStoredDirectoryHandle();
+    if (!handle) {
       setState((prev) => ({
         ...prev,
         isLoading: false,
         loadingStage: null,
-        error: message,
+        error: "No previously connected folder found. Please pick a folder.",
       }));
       return false;
     }
-  }, []);
+
+    const permissionable = handle as PermissionableHandle;
+    if (!permissionable.requestPermission) {
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        loadingStage: null,
+        error: "This browser doesn't support reconnecting to a stored folder. Please pick the folder again.",
+      }));
+      return false;
+    }
+
+    let permission: PermissionState;
+    try {
+      permission = await permissionable.requestPermission({ mode: "readwrite" });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Permission request failed";
+      setState((prev) => ({ ...prev, isLoading: false, loadingStage: null, error: message }));
+      return false;
+    }
+
+    if (permission !== "granted") {
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        loadingStage: null,
+        error: "Access not granted. Click Continue and choose Allow, or pick the folder again.",
+      }));
+      return false;
+    }
+
+    fileService.resetReadCount();
+    setState((prev) => ({ ...prev, loadingStage: "connecting" }));
+    return finishConnect(handle);
+  }, [finishConnect]);
 
   const initializeFolder = useCallback(async (): Promise<boolean> => {
     if (!fileService.isConnected()) return false;
@@ -436,6 +541,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
   const value: FileSystemContextValue = {
     ...state,
     connect,
+    reconnectWithStoredHandle,
     disconnect,
     setCurrentUser,
     createUser,

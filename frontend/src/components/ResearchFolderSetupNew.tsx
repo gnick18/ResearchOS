@@ -10,6 +10,7 @@ interface ResearchFolderSetupProps {
 export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupProps) {
   const {
     connect,
+    reconnectWithStoredHandle,
     isLoading,
     error,
     isConnected,
@@ -318,15 +319,14 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
           <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
             <div className="p-6">
               <h2 className="text-xl font-bold text-white mb-4 text-center">
-                Reconnect Folder
+                Reconnect to <span className="text-blue-300">{lastConnectedFolder}</span>
               </h2>
-              <p className="text-slate-400 mb-6 text-center">
-                Select your <span className="text-white font-medium">{lastConnectedFolder}</span> folder to continue. 
-                Your folder selection is required each time you reload the page.
+              <p className="text-slate-300 mb-6 text-center">
+                We remember the folder you picked last time. Continue to re-attach without going through the OS picker.
               </p>
 
               <button
-                onClick={handleConnect}
+                onClick={() => reconnectWithStoredHandle()}
                 disabled={isLoading}
                 className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
@@ -340,16 +340,19 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                       stroke="currentColor"
                       viewBox="0 0 24 24"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-                      />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
-                    Reconnect Folder
+                    Continue
                   </>
                 )}
+              </button>
+
+              <button
+                onClick={handleConnect}
+                disabled={isLoading}
+                className="w-full mt-3 py-2 text-sm text-slate-400 hover:text-white transition-colors disabled:opacity-50"
+              >
+                Pick a different folder
               </button>
 
               {error && (
