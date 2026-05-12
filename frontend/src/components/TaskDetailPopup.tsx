@@ -305,9 +305,9 @@ export default function TaskDetailPopup({
       )}
       <div
         className={`bg-white rounded-xl shadow-2xl w-full mx-4 flex flex-col transition-all duration-300 border-l-4 ${
-          isExpanded 
-            ? "inset-4 max-w-none max-h-none h-[calc(100vh-2rem)]" 
-            : "max-w-5xl max-h-[90vh]"
+          isExpanded
+            ? "inset-4 max-w-none max-h-none h-[calc(100vh-2rem)]"
+            : "max-w-5xl h-[90vh]"
         }`}
         style={{ borderLeftColor: project?.color || "#3b82f6" }}
         onClick={(e) => e.stopPropagation()}
