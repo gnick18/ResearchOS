@@ -12,6 +12,7 @@ import { fileService } from "@/lib/file-system/file-service";
 import ImageResizePopover from "./ImageResizePopover";
 import { rewriteImageBySrcAlt, parseWidthPercent } from "@/lib/image-resize-utils";
 import ImageStrip from "./ImageStrip";
+import ImageTrashDropZone from "./ImageTrashDropZone";
 
 // Transparent 1×1 GIF used as the `src` placeholder while the real blob URL
 // is being resolved asynchronously, so the browser never tries to fetch the
@@ -1851,8 +1852,10 @@ export default function LiveMarkdownEditor({
         </div>
       </div>
 
-      {/* Image Strip — every image in this document as scrollable thumbnails.
-          Clicking one scrolls the preview/hybrid render to that image. */}
+      {/* Image Strip — every image linked to this experiment as scrollable
+          thumbnails. Drag one into the markdown to insert at the cursor, or
+          drop on the trash zone (rendered while a drag is in progress) to
+          delete from disk and strip references. */}
       {showImageStrip && (
         <ImageStrip
           content={value}
@@ -1860,6 +1863,7 @@ export default function LiveMarkdownEditor({
           onJumpToImage={handleJumpToImage}
         />
       )}
+      <ImageTrashDropZone value={value} onChange={onChange} basePath={imageBasePath} />
 
       {/* Language Selector Popup */}
       {showLanguageSelector && (
