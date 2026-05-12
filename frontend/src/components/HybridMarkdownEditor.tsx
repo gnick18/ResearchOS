@@ -394,6 +394,10 @@ export default function HybridMarkdownEditor({
   // Using startOffset is more stable than block ID because it doesn't
   // change when the block content changes during editing
   const [editingBlockOffset, setEditingBlockOffset] = useState<number | null>(null);
+  // Single-click selects a block (without entering edit mode), double-click
+  // enters edit. Selection enables keyboard delete + future drag/reorder
+  // without competing with the textarea's own cursor placement.
+  const [selectedBlockOffset, setSelectedBlockOffset] = useState<number | null>(null);
   // Track the current content of the editing block (for live editing)
   const [editingBlockContent, setEditingBlockContent] = useState<string>("");
   // Track cursor position when entering edit mode
@@ -487,6 +491,70 @@ export default function HybridMarkdownEditor({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  /**
+   * Keyboard actions on the currently-selected (but not-yet-editing) block:
+   *   - Delete / Backspace → remove the block
+   *   - Enter             → enter edit mode
+   *   - Escape            → clear selection
+   *
+   * Ignored when focus is in an input/textarea/contentEditable so we don't
+   * fight an inline editor.
+   */
+  useEffect(() => {
+    if (selectedBlockOffset === null) return;
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        // deleteBlockByOffset reads the latest closure via the effect deps.
+        const target = selectedBlockOffset;
+        const block = blocks.find((b) => b.startOffset === target);
+        if (!block) return;
+        let start = block.startOffset;
+        let end = block.startOffset + block.content.length;
+        while (end < value.length && value[end] === "\n") end++;
+        if (end >= value.length) {
+          while (start > 0 && value[start - 1] === "\n") start--;
+        }
+        onChange(value.slice(0, start) + value.slice(end));
+        setSelectedBlockOffset(null);
+      } else if (e.key === "Escape") {
+        setSelectedBlockOffset(null);
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const block = blocks.find((b) => b.startOffset === selectedBlockOffset);
+        if (block) {
+          setSelectedBlockOffset(null);
+          isEditingRef.current = true;
+          setEditingBlockOffset(block.startOffset);
+          setEditingBlockContent(block.content);
+          editingBlockOriginalLengthRef.current = block.content.length;
+          setEditCursorPosition(0);
+        }
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selectedBlockOffset, blocks, value, onChange]);
+
+  // Clear selection if the underlying block was removed by an outside edit
+  // (e.g. content rewrite). Synchronizing to external state is exactly what
+  // useEffect is for; silence the compiler lint.
+  useEffect(() => {
+    if (selectedBlockOffset === null) return;
+    const stillExists = blocks.some((b) => b.startOffset === selectedBlockOffset);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync to external state
+    if (!stillExists) setSelectedBlockOffset(null);
+  }, [blocks, selectedBlockOffset]);
 
   /**
    * Resolve blob URLs for images in the markdown content. Keyed by the
@@ -603,37 +671,64 @@ export default function HybridMarkdownEditor({
   /**
    * Handle clicking on a block to enter edit mode
    */
-  const handleBlockClick = useCallback(
-    (block: MarkdownBlock, event: React.MouseEvent) => {
+  const handleBlockSelect = useCallback(
+    (block: MarkdownBlock) => {
+      if (disabled) return;
+      setSelectedBlockOffset(block.startOffset);
+    },
+    [disabled]
+  );
+
+  const handleBlockEdit = useCallback(
+    (block: MarkdownBlock, event?: React.MouseEvent) => {
       if (disabled) return;
 
-      // Set this block as editing by its start offset
+      // Entering edit takes over from selection — clear it so we don't show
+      // both a selection halo and an editing textarea.
+      setSelectedBlockOffset(null);
+
       isEditingRef.current = true;
       setEditingBlockOffset(block.startOffset);
       setEditingBlockContent(block.content);
-      // Store the original block length so we can replace the correct portion
-      // of the document even when block boundaries change during editing
       editingBlockOriginalLengthRef.current = block.content.length;
 
-      // Calculate cursor position based on click location
-      // The click position relative to the block element
-      const rect = (event.target as HTMLElement).getBoundingClientRect();
-      const clickY = event.clientY - rect.top;
-      
-      // Estimate line number based on click position
-      const lineHeight = 24; // Approximate line height
-      const estimatedLine = Math.floor(clickY / lineHeight);
-      
-      // Find the character offset for that line within the block
-      const lines = block.content.split("\n");
-      let offset = 0;
-      for (let i = 0; i < Math.min(estimatedLine, lines.length - 1); i++) {
-        offset += lines[i].length + 1; // +1 for newline
+      if (event) {
+        // Place the textarea caret at the line the user clicked on.
+        const rect = (event.target as HTMLElement).getBoundingClientRect();
+        const clickY = event.clientY - rect.top;
+        const lineHeight = 24;
+        const estimatedLine = Math.floor(clickY / lineHeight);
+        const lines = block.content.split("\n");
+        let offset = 0;
+        for (let i = 0; i < Math.min(estimatedLine, lines.length - 1); i++) {
+          offset += lines[i].length + 1;
+        }
+        setEditCursorPosition(Math.min(offset, block.content.length));
+      } else {
+        setEditCursorPosition(0);
       }
-      
-      setEditCursorPosition(Math.min(offset, block.content.length));
     },
     [disabled]
+  );
+
+  /** Remove a block and its trailing paragraph separator from the document. */
+  const deleteBlockByOffset = useCallback(
+    (offset: number) => {
+      const block = blocks.find((b) => b.startOffset === offset);
+      if (!block) return;
+      let start = block.startOffset;
+      let end = block.startOffset + block.content.length;
+      // Eat the paragraph-separating newlines so we don't leave a phantom
+      // blank line behind. If the block is at the end, eat leading newlines
+      // instead so the previous block doesn't gain a trailing blank line.
+      while (end < value.length && value[end] === "\n") end++;
+      if (end >= value.length) {
+        while (start > 0 && value[start - 1] === "\n") start--;
+      }
+      onChange(value.slice(0, start) + value.slice(end));
+      setSelectedBlockOffset(null);
+    },
+    [blocks, value, onChange]
   );
 
   /**
@@ -1139,16 +1234,26 @@ export default function HybridMarkdownEditor({
 
       // Render as preview
       // Use startOffset as key for stability - it doesn't change when content changes
+      const isSelected = selectedBlockOffset === block.startOffset;
       return (
         <div
           key={`block-${block.startOffset}`}
-          className={`hybrid-block preview-block cursor-pointer rounded transition-all duration-150 ${
+          className={`hybrid-block preview-block relative cursor-pointer rounded transition-all duration-150 ${
             disabled
               ? "opacity-70 cursor-not-allowed"
-              : "hover:border-blue-200 hover:bg-blue-50/30"
+              : isSelected
+                ? "ring-2 ring-blue-400 bg-blue-50"
+                : "hover:border-blue-200 hover:bg-blue-50/30"
           }`}
           data-block-type={block.type}
-          onClick={(e) => handleBlockClick(block, e)}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleBlockSelect(block);
+          }}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            handleBlockEdit(block, e);
+          }}
           onDragOver={(e) => {
             if (disabled) return;
             if (!Array.from(e.dataTransfer.types).includes("application/x-research-os-image")) return;
@@ -1186,6 +1291,33 @@ export default function HybridMarkdownEditor({
           }}
           style={{ minHeight: block.type === "blankLine" ? "1.5em" : undefined }}
         >
+          {isSelected && !disabled && (
+            <div className="absolute -top-2 -right-2 flex items-center gap-1 bg-white border border-blue-300 rounded-full shadow-sm px-1 py-0.5 z-10">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleBlockEdit(block, e);
+                }}
+                title="Edit (or double-click the block)"
+                className="px-1.5 py-0.5 text-[10px] text-blue-700 hover:bg-blue-50 rounded-full"
+              >
+                Edit
+              </button>
+              <span className="w-px h-3 bg-gray-200" aria-hidden />
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteBlockByOffset(block.startOffset);
+                }}
+                title="Delete (or press Delete/Backspace)"
+                className="px-1.5 py-0.5 text-[10px] text-red-600 hover:bg-red-50 rounded-full"
+              >
+                Delete
+              </button>
+            </div>
+          )}
           {block.type === "blankLine" ? (
             // Render blank lines as visible spacing - height based on number of newlines
             <div 
@@ -1253,8 +1385,11 @@ export default function HybridMarkdownEditor({
     [
       editingBlockOffset,
       editingBlockContent,
+      selectedBlockOffset,
       disabled,
-      handleBlockClick,
+      handleBlockSelect,
+      handleBlockEdit,
+      deleteBlockByOffset,
       handleEditChange,
       handleEditBlur,
       handleEditKeyDown,
