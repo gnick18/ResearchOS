@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { usersApi } from "@/lib/local-api";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
+import { hasPassword, verifyPassword } from "@/lib/auth/password";
+import AccountPasswordPopup from "@/components/AccountPasswordPopup";
 
 interface UserLoginScreenProps {
   onLogin: () => void;
@@ -31,6 +33,48 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   const [isArchivingUser, setIsArchivingUser] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmStep, setDeleteConfirmStep] = useState(0);
+
+  // Password gate state — populated when a protected user is clicked
+  const [passwordGate, setPasswordGate] = useState<{
+    username: string;
+    nextAction: "user" | "lab";
+  } | null>(null);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [verifyingPassword, setVerifyingPassword] = useState(false);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
+
+  // Per-user password management popup (set/change/remove)
+  const [managingPasswordFor, setManagingPasswordFor] = useState<string | null>(null);
+
+  // Per-user password-set status — drives the lock icon's appearance.
+  // Loaded after the user list comes back, refreshed after the password popup closes.
+  const [lockedUsers, setLockedUsers] = useState<Set<string>>(new Set());
+
+  const refreshLockStatus = async (usernames: string[]) => {
+    const next = new Set<string>();
+    await Promise.all(
+      usernames.map(async (u) => {
+        try {
+          if (await hasPassword(u)) next.add(u);
+        } catch {
+          // If we can't read, treat as unlocked rather than crashing the screen.
+        }
+      })
+    );
+    setLockedUsers(next);
+  };
+
+  useEffect(() => {
+    if (users.length > 0) {
+      refreshLockStatus(users.filter((u) => u !== "lab"));
+    }
+  }, [users]);
+
+  useEffect(() => {
+    if (passwordGate && passwordInputRef.current) {
+      passwordInputRef.current.focus();
+    }
+  }, [passwordGate]);
 
   useEffect(() => {
     loadUsers();
@@ -61,9 +105,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     }
   };
 
-  const handleLogin = async (username: string) => {
-    setLoggingIn(username);
-    setError(null);
+  const performLogin = async (username: string) => {
     try {
       await usersApi.login(username);
       await setCurrentUser(username);
@@ -72,6 +114,53 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       setError("Failed to login. Please try again.");
       setLoggingIn(null);
     }
+  };
+
+  const handleLogin = async (username: string) => {
+    setLoggingIn(username);
+    setError(null);
+    try {
+      const gated = await hasPassword(username);
+      if (gated) {
+        setPasswordGate({ username, nextAction: "user" });
+        setPasswordInput("");
+        return;
+      }
+    } catch {
+      // If we can't read the auth file, fall through to normal login —
+      // safer than locking the user out due to a transient FS error.
+    }
+    await performLogin(username);
+  };
+
+  const handleSubmitPassword = async () => {
+    if (!passwordGate) return;
+    setError(null);
+    setVerifyingPassword(true);
+    try {
+      const ok = await verifyPassword(passwordGate.username, passwordInput);
+      if (!ok) {
+        setError("Incorrect password.");
+        setVerifyingPassword(false);
+        return;
+      }
+      const { username } = passwordGate;
+      setPasswordGate(null);
+      setPasswordInput("");
+      setVerifyingPassword(false);
+      await performLogin(username);
+    } catch {
+      setError("Failed to verify password. Please try again.");
+      setVerifyingPassword(false);
+    }
+  };
+
+  const cancelPasswordGate = () => {
+    setPasswordGate(null);
+    setPasswordInput("");
+    setVerifyingPassword(false);
+    setLoggingIn(null);
+    setError(null);
   };
 
   const handleLabModeLogin = async () => {
@@ -435,41 +524,88 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                           
                           {/* Set as Main button */}
                           {mainUser !== user && (
+                            <div className="relative group/icon">
+                              <button
+                                onClick={(e) => handleSetMainUser(user, e)}
+                                disabled={loggingIn !== null}
+                                className="p-2 opacity-0 group-hover:opacity-100 hover:bg-amber-500/20 rounded-lg text-slate-400 hover:text-amber-400 transition-all"
+                                aria-label="Set as main user"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                                </svg>
+                              </button>
+                              <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap px-2 py-1 text-[10px] font-medium rounded bg-slate-900/95 text-slate-100 border border-white/10 opacity-0 group-hover/icon:opacity-100 transition-opacity z-10">
+                                Set as main
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Edit button */}
+                          <div className="relative group/icon">
                             <button
-                              onClick={(e) => handleSetMainUser(user, e)}
+                              onClick={(e) => startEdit(user, e)}
                               disabled={loggingIn !== null}
-                              className="p-2 opacity-0 group-hover:opacity-100 hover:bg-amber-500/20 rounded-lg text-slate-400 hover:text-amber-400 transition-all"
-                              title="Set as main user (default when exiting lab mode)"
+                              className="p-2 opacity-0 group-hover:opacity-100 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-all"
+                              aria-label="Rename user"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                               </svg>
                             </button>
-                          )}
-                          
-                          {/* Edit button */}
-                          <button
-                            onClick={(e) => startEdit(user, e)}
-                            disabled={loggingIn !== null}
-                            className="p-2 opacity-0 group-hover:opacity-100 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-all"
-                            title="Rename user"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                            </svg>
-                          </button>
-                          
+                            <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap px-2 py-1 text-[10px] font-medium rounded bg-slate-900/95 text-slate-100 border border-white/10 opacity-0 group-hover/icon:opacity-100 transition-opacity z-10">
+                              Rename
+                            </span>
+                          </div>
+
+                          {/* Password button — visible-always when locked, hover-only when unlocked */}
+                          <div className="relative group/icon">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setManagingPasswordFor(user);
+                              }}
+                              disabled={loggingIn !== null}
+                              className={`p-2 rounded-lg transition-all ${
+                                lockedUsers.has(user)
+                                  ? "text-amber-300 hover:bg-amber-500/20 hover:text-amber-200"
+                                  : "opacity-0 group-hover:opacity-100 text-slate-400 hover:bg-white/10 hover:text-white"
+                              }`}
+                              aria-label={lockedUsers.has(user) ? "Password protected — manage" : "Set account password"}
+                            >
+                              {lockedUsers.has(user) ? (
+                                // Closed padlock
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                              ) : (
+                                // Open padlock
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                                </svg>
+                              )}
+                            </button>
+                            <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap px-2 py-1 text-[10px] font-medium rounded bg-slate-900/95 text-slate-100 border border-white/10 opacity-0 group-hover/icon:opacity-100 transition-opacity z-10">
+                              {lockedUsers.has(user) ? "Password set — manage" : "Set password"}
+                            </span>
+                          </div>
+
                           {/* Delete button */}
-                          <button
-                            onClick={(e) => startDelete(user, e)}
-                            disabled={loggingIn !== null}
-                            className="p-2 opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded-lg text-slate-400 hover:text-red-400 transition-all"
-                            title="Delete user"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
+                          <div className="relative group/icon">
+                            <button
+                              onClick={(e) => startDelete(user, e)}
+                              disabled={loggingIn !== null}
+                              className="p-2 opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded-lg text-slate-400 hover:text-red-400 transition-all"
+                              aria-label="Delete user"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                            <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap px-2 py-1 text-[10px] font-medium rounded bg-slate-900/95 text-slate-100 border border-white/10 opacity-0 group-hover/icon:opacity-100 transition-opacity z-10">
+                              Delete user
+                            </span>
+                          </div>
                           
                           {loggingIn === user ? (
                             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
@@ -629,6 +765,76 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Password gate — shown when a protected user is clicked */}
+      {passwordGate && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={cancelPasswordGate}
+        >
+          <div
+            className="bg-slate-800 rounded-2xl shadow-2xl border border-white/20 max-w-sm w-full mx-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-white/10">
+              <h3 className="text-lg font-semibold text-white">Enter password</h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Sign in to {passwordGate.username}
+              </p>
+            </div>
+            <div className="px-6 py-5 space-y-3">
+              <input
+                ref={passwordInputRef}
+                type="password"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSubmitPassword();
+                  if (e.key === "Escape") cancelPasswordGate();
+                }}
+                disabled={verifyingPassword}
+                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                autoComplete="current-password"
+                placeholder="Password"
+              />
+              {error && (
+                <div className="p-2 bg-red-500/20 border border-red-500/30 rounded-lg">
+                  <p className="text-xs text-red-300">{error}</p>
+                </div>
+              )}
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={cancelPasswordGate}
+                  disabled={verifyingPassword}
+                  className="flex-1 py-2 text-sm bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-lg disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitPassword}
+                  disabled={verifyingPassword || !passwordInput}
+                  className="flex-1 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg disabled:opacity-50"
+                >
+                  {verifyingPassword ? "Verifying..." : "Sign in"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Account password management popup */}
+      {managingPasswordFor && (
+        <AccountPasswordPopup
+          username={managingPasswordFor}
+          onClose={() => {
+            setManagingPasswordFor(null);
+            // Re-read auth files so the lock icon flips immediately if the
+            // user set or removed a password. Cheap on a small user list.
+            refreshLockStatus(users.filter((u) => u !== "lab"));
+          }}
+        />
       )}
     </div>
   );
