@@ -214,7 +214,13 @@ export default function ImageStrip({
                 e.dataTransfer.effectAllowed = "copyMove";
                 const img = e.currentTarget.querySelector("img");
                 if (img) e.dataTransfer.setDragImage(img, 32, 32);
+                imageEvents.emitDragStart({
+                  basePath: basePath ?? "",
+                  filename: entry.filename,
+                  caption: entry.sidecarCaption,
+                });
               }}
+              onDragEnd={() => imageEvents.emitDragEnd()}
               onClick={() => setPopupFilename(entry.filename)}
               className="group relative flex-shrink-0 w-16 h-16 rounded-md border border-gray-200 bg-white overflow-hidden hover:border-blue-400 hover:ring-2 hover:ring-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-grab active:cursor-grabbing"
               title={tooltip}

@@ -9,6 +9,7 @@
 type AttachedDetail = { basePath: string; relativePath: string };
 type MetadataDetail = { basePath: string; filename: string };
 type DeletedDetail = { basePath: string; filename: string };
+type DragStartDetail = { basePath: string; filename: string; caption?: string };
 
 const target = new EventTarget();
 
@@ -38,5 +39,22 @@ export const imageEvents = {
     const listener = (ev: Event) => handler((ev as CustomEvent<DeletedDetail>).detail);
     target.addEventListener("image-deleted", listener);
     return () => target.removeEventListener("image-deleted", listener);
+  },
+
+  emitDragStart(detail: DragStartDetail): void {
+    target.dispatchEvent(new CustomEvent("image-drag-start", { detail }));
+  },
+  emitDragEnd(): void {
+    target.dispatchEvent(new CustomEvent("image-drag-end"));
+  },
+  onDragStart(handler: (detail: DragStartDetail) => void): () => void {
+    const listener = (ev: Event) => handler((ev as CustomEvent<DragStartDetail>).detail);
+    target.addEventListener("image-drag-start", listener);
+    return () => target.removeEventListener("image-drag-start", listener);
+  },
+  onDragEnd(handler: () => void): () => void {
+    const listener = () => handler();
+    target.addEventListener("image-drag-end", listener);
+    return () => target.removeEventListener("image-drag-end", listener);
   },
 };
