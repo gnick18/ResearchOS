@@ -86,10 +86,16 @@ export default function ImageStrip({
     };
   }, [images, basePath]);
 
+  // `sticky bottom-0` keeps the strip pinned to the bottom of the scrollable
+  // editor container even when the document is tall (lab-notes wrapper uses
+  // overflow-y-auto). Without it the strip sits below the visible fold in
+  // non-fullscreen popups and the user only ever sees it when expanded.
+  const wrapperClass = `sticky bottom-0 z-10 ${className ?? ""}`.trim();
+
   if (images.length === 0) {
     return (
-      <div className={className}>
-        <p className="text-xs text-gray-400 italic px-3 py-2">
+      <div className={wrapperClass}>
+        <p className="text-xs text-gray-400 italic px-3 py-2 bg-gray-50 border-t border-gray-200">
           No images in this document yet. Drag one in or use the Add Image button.
         </p>
       </div>
@@ -97,7 +103,7 @@ export default function ImageStrip({
   }
 
   return (
-    <div className={className}>
+    <div className={wrapperClass}>
       <div className="flex items-center gap-2 px-3 py-2 overflow-x-auto bg-gray-50 border-t border-gray-200">
         <span className="text-xs text-gray-500 font-medium flex-shrink-0 mr-1">
           {images.length} image{images.length === 1 ? "" : "s"}
