@@ -99,6 +99,7 @@ export const TaskSchema = z.object({
   shared_with: z.array(SharedUserSchema).default([]),
   inherited_from_project: z.number().nullable().optional(),
   is_shared_with_me: z.boolean().default(false).optional(),
+  shared_permission: z.enum(["view", "edit"]).optional(),
 });
 
 export const TaskCreateSchema = z.object({

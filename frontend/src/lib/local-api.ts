@@ -139,14 +139,24 @@ function computeTaskEndDate(task: Task): Task {
   };
 }
 
+// Reads/writes route to the owner's directory when `owner` is provided —
+// used by the receiver of a shared task with permission "edit". Without
+// `owner`, falls back to the current user's directory (the usual case).
+async function getTaskForCaller(id: number, owner?: string): Promise<Task | null> {
+  return owner ? tasksStore.getForUser(id, owner) : tasksStore.get(id);
+}
+async function updateTaskForCaller(id: number, data: Partial<Task>, owner?: string): Promise<Task | null> {
+  return owner ? tasksStore.updateForUser(id, data, owner) : tasksStore.update(id, data);
+}
+
 export const tasksApi = {
   listByProject: async (projectId: number): Promise<Task[]> => {
     const tasks = await tasksStore.query({ project_id: projectId });
     return tasks.map(computeTaskEndDate);
   },
-  
-  get: async (id: number): Promise<Task | null> => {
-    const task = await tasksStore.get(id);
+
+  get: async (id: number, owner?: string): Promise<Task | null> => {
+    const task = await getTaskForCaller(id, owner);
     return task ? computeTaskEndDate(task) : null;
   },
   
@@ -203,32 +213,35 @@ export const tasksApi = {
     return task;
   },
   
-  update: async (id: number, data: TaskUpdate): Promise<Task | null> => {
-    const existing = await tasksStore.get(id);
+  update: async (id: number, data: TaskUpdate, owner?: string): Promise<Task | null> => {
+    const existing = await getTaskForCaller(id, owner);
     if (!existing) return null;
-    
+
     let endDate = existing.end_date;
     if (data.start_date || data.duration_days) {
       const startDate = parseDate(data.start_date ?? existing.start_date);
       const durationDays = data.duration_days ?? existing.duration_days;
       endDate = formatDate(computeEndDate(startDate, durationDays, false));
     }
-    
-    return tasksStore.update(id, { ...data, end_date: endDate });
+
+    return updateTaskForCaller(id, { ...data, end_date: endDate }, owner);
   },
-  
+
+  // Note: delete is intentionally not owner-routed — only the task's owner
+  // should remove the file. Receivers with edit permission can modify the
+  // task but not destroy it.
   delete: async (id: number): Promise<void> => {
     await tasksStore.delete(id);
   },
-  
+
   listByMethod: async (methodId: number): Promise<Task[]> => {
     const allTasks = await tasksStore.listAll();
     return allTasks.filter((t) => t.method_ids?.includes(methodId));
   },
-  
-  move: async (id: number, data: TaskMoveRequest): Promise<ShiftResult> => {
+
+  move: async (id: number, data: TaskMoveRequest, owner?: string): Promise<ShiftResult> => {
     const newStartDate = parseDate(data.new_start_date);
-    return shiftTask(id, newStartDate, data.confirmed ?? false);
+    return shiftTask(id, newStartDate, data.confirmed ?? false, owner);
   },
   
   replicate: async (id: number, count: number, offsetDays: number): Promise<Task[]> => {
@@ -251,10 +264,10 @@ export const tasksApi = {
     return created;
   },
   
-  resetPcr: async (id: number, methodId?: number): Promise<Task | null> => {
-    const task = await tasksStore.get(id);
+  resetPcr: async (id: number, methodId?: number, owner?: string): Promise<Task | null> => {
+    const task = await getTaskForCaller(id, owner);
     if (!task) return null;
-    
+
     if (methodId) {
       const attachments = task.method_attachments?.map((a) => {
         if (a.method_id === methodId) {
@@ -262,10 +275,10 @@ export const tasksApi = {
         }
         return a;
       });
-      return tasksStore.update(id, { method_attachments: attachments });
+      return updateTaskForCaller(id, { method_attachments: attachments }, owner);
     }
-    
-    return tasksStore.update(id, {
+
+    return updateTaskForCaller(id, {
       pcr_gradient: null,
       pcr_ingredients: null,
       method_attachments: task.method_attachments?.map((a) => ({
@@ -273,18 +286,18 @@ export const tasksApi = {
         pcr_gradient: null,
         pcr_ingredients: null,
       })),
-    });
+    }, owner);
   },
-  
-  addMethod: async (taskId: number, methodId: number): Promise<Task | null> => {
-    const task = await tasksStore.get(taskId);
+
+  addMethod: async (taskId: number, methodId: number, owner?: string): Promise<Task | null> => {
+    const task = await getTaskForCaller(taskId, owner);
     if (!task) return null;
-    
+
     const methodIds = [...(task.method_ids || [])];
     if (!methodIds.includes(methodId)) {
       methodIds.push(methodId);
     }
-    
+
     const attachments = [...(task.method_attachments || [])];
     if (!attachments.find((a) => a.method_id === methodId)) {
       attachments.push({
@@ -294,54 +307,56 @@ export const tasksApi = {
         variation_notes: null,
       });
     }
-    
-    return tasksStore.update(taskId, { method_ids: methodIds, method_attachments: attachments });
+
+    return updateTaskForCaller(taskId, { method_ids: methodIds, method_attachments: attachments }, owner);
   },
-  
-  removeMethod: async (taskId: number, methodId: number): Promise<Task | null> => {
-    const task = await tasksStore.get(taskId);
+
+  removeMethod: async (taskId: number, methodId: number, owner?: string): Promise<Task | null> => {
+    const task = await getTaskForCaller(taskId, owner);
     if (!task) return null;
-    
+
     const methodIds = (task.method_ids || []).filter((id) => id !== methodId);
     const attachments = (task.method_attachments || []).filter((a) => a.method_id !== methodId);
-    
-    return tasksStore.update(taskId, { method_ids: methodIds, method_attachments: attachments });
+
+    return updateTaskForCaller(taskId, { method_ids: methodIds, method_attachments: attachments }, owner);
   },
-  
+
   updateMethodPcr: async (
     taskId: number,
     methodId: number,
-    data: { pcr_gradient?: string; pcr_ingredients?: string }
+    data: { pcr_gradient?: string; pcr_ingredients?: string },
+    owner?: string
   ): Promise<Task | null> => {
-    const task = await tasksStore.get(taskId);
+    const task = await getTaskForCaller(taskId, owner);
     if (!task) return null;
-    
+
     const attachments = (task.method_attachments || []).map((a) => {
       if (a.method_id === methodId) {
         return { ...a, ...data };
       }
       return a;
     });
-    
-    return tasksStore.update(taskId, { method_attachments: attachments });
+
+    return updateTaskForCaller(taskId, { method_attachments: attachments }, owner);
   },
-  
+
   saveVariationNote: async (
     taskId: number,
     methodId: number,
-    variationNotes: string
+    variationNotes: string,
+    owner?: string
   ): Promise<Task | null> => {
-    const task = await tasksStore.get(taskId);
+    const task = await getTaskForCaller(taskId, owner);
     if (!task) return null;
-    
+
     const attachments = (task.method_attachments || []).map((a) => {
       if (a.method_id === methodId) {
         return { ...a, variation_notes: variationNotes };
       }
       return a;
     });
-    
-    return tasksStore.update(taskId, { method_attachments: attachments });
+
+    return updateTaskForCaller(taskId, { method_attachments: attachments }, owner);
   },
   
   checkDuplicate: async (
@@ -363,9 +378,10 @@ export const tasksApi = {
   
   convertType: async (
     id: number,
-    newTaskType: "experiment" | "purchase" | "list"
+    newTaskType: "experiment" | "purchase" | "list",
+    owner?: string
   ): Promise<Task | null> => {
-    return tasksStore.update(id, { task_type: newTaskType });
+    return updateTaskForCaller(id, { task_type: newTaskType }, owner);
   },
 };
 
@@ -2062,10 +2078,12 @@ export const fetchAllTasksIncludingShared = async () => {
           `users/${entry.owner}/tasks/${entry.id}.json`
         );
         if (!task) continue;
+        const permission = entry.permission === "view" ? "view" : "edit";
         sharedTasks.push({
           ...task,
           owner: entry.owner,
           is_shared_with_me: true,
+          shared_permission: permission,
         });
       }
     }

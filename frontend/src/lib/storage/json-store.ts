@@ -174,6 +174,44 @@ export class JsonStore<T extends { id: number }> {
     return await fileService.readJson<T>(filePath);
   }
 
+  // ── Owner-routed variants ──────────────────────────────────────────────────
+  // These read/write inside a specific user's directory instead of the current
+  // user's. Used by shared-task edit flows where a receiver with permission
+  // "edit" needs to mutate the owner's file in place.
+
+  async getForUser(id: number, username: string): Promise<T | null> {
+    const basePath = `users/${username}`;
+    return await fileService.readJson<T>(this.getFilePath(id, basePath));
+  }
+
+  async saveForUser(id: number, data: T, username: string): Promise<T> {
+    const basePath = `users/${username}`;
+    await fileService.ensureDir(`${basePath}/${this.entityName}`);
+    const record = { ...data, id };
+    await fileService.writeJson(this.getFilePath(id, basePath), record);
+    return record;
+  }
+
+  async updateForUser(id: number, data: Partial<T>, username: string): Promise<T | null> {
+    const existing = await this.getForUser(id, username);
+    if (!existing) return null;
+    const updated = { ...existing };
+    for (const key of Object.keys(data) as (keyof T)[]) {
+      const value = data[key];
+      if (value !== undefined) {
+        (updated as Record<string, unknown>)[key as string] = value;
+      }
+    }
+    const basePath = `users/${username}`;
+    await fileService.writeJson(this.getFilePath(id, basePath), updated);
+    return updated;
+  }
+
+  async deleteForUser(id: number, username: string): Promise<boolean> {
+    const basePath = `users/${username}`;
+    return await fileService.deleteFile(this.getFilePath(id, basePath));
+  }
+
   async create(data: Omit<T, "id">): Promise<T> {
     await this.ensureDir();
 

@@ -484,7 +484,7 @@ export default function GanttChart({
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
   const [showShiftConfirm, setShowShiftConfirm] = useState(false);
   const [shiftResult, setShiftResult] = useState<ShiftResult | null>(null);
-  const [pendingMove, setPendingMove] = useState<{ taskId: number; newDate: string } | null>(null);
+  const [pendingMove, setPendingMove] = useState<{ taskId: number; newDate: string; owner?: string } | null>(null);
   
   // Dependency popup state
   const [showDepPopup, setShowDepPopup] = useState(false);
@@ -844,6 +844,13 @@ export default function GanttChart({
     // Show loading indicator
     setGanttLoading(true, "Moving task...");
 
+    // If this is a shared task the user has edit permission on, route the
+    // move (and its dependency cascade) through the owner's directory.
+    const moveOwner =
+      draggedTask.is_shared_with_me && draggedTask.shared_permission === "edit"
+        ? draggedTask.owner
+        : undefined;
+
     // Check if task has dependents
     if (hasDependents(taskId)) {
       // Try move with confirmation check
@@ -851,12 +858,12 @@ export default function GanttChart({
         const result = await tasksApi.move(taskId, {
           new_start_date: targetDate,
           confirmed: false,
-        });
+        }, moveOwner);
 
         if (result.requires_confirmation) {
           setGanttLoading(false);
           setShiftResult(result);
-          setPendingMove({ taskId, newDate: targetDate });
+          setPendingMove({ taskId, newDate: targetDate, owner: moveOwner });
           setShowShiftConfirm(true);
         } else {
           // No confirmation needed, refresh
@@ -873,7 +880,7 @@ export default function GanttChart({
         await tasksApi.move(taskId, {
           new_start_date: targetDate,
           confirmed: true,
-        });
+        }, moveOwner);
         await queryClient.refetchQueries({ queryKey: ["tasks"] });
         setGanttLoading(false);
       } catch {
@@ -893,7 +900,7 @@ export default function GanttChart({
       await tasksApi.move(pendingMove.taskId, {
         new_start_date: pendingMove.newDate,
         confirmed: true,
-      });
+      }, pendingMove.owner);
       await Promise.all([
         await queryClient.refetchQueries({ queryKey: ["tasks"] }),
         await queryClient.refetchQueries({ queryKey: ["dependencies"] }),

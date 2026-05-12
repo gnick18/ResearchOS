@@ -127,6 +127,7 @@ export interface Task {
   shared_with: SharedUser[];
   inherited_from_project?: number | null;
   is_shared_with_me?: boolean;  // True if this task is shared WITH the current user (not owned by them)
+  shared_permission?: "view" | "edit";  // Only set when is_shared_with_me=true; the level the receiver was granted
 }
 
 export interface TaskCreate {
