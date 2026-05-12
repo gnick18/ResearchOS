@@ -9,6 +9,7 @@
  */
 
 import { parseContent } from './stamp-utils';
+import { fileService } from './file-system/file-service';
 import type { Task, Method, MethodAttachment } from './types';
 
 // Dynamic imports for PDF libraries (to avoid SSR issues)
@@ -608,15 +609,15 @@ export async function exportMultipleExperiments(
 // ---------------------------------------------------------------------------
 
 /**
- * Fetch PDF data from the backend
+ * Read a PDF attachment from the user's data folder via the File System Access
+ * API and return its bytes for embedding in a generated export.
  */
 export async function fetchPdfData(path: string): Promise<ArrayBuffer> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
-  const response = await fetch(`${apiUrl}/github/raw?path=${encodeURIComponent(path)}`);
-  if (!response.ok) {
+  const blob = await fileService.readFileAsBlob(path);
+  if (!blob) {
     throw new Error(`Failed to fetch PDF: ${path}`);
   }
-  return response.arrayBuffer();
+  return blob.arrayBuffer();
 }
 
 /**

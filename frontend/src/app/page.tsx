@@ -8,7 +8,6 @@ import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import ProjectDetailPopup from "@/components/ProjectDetailPopup";
 import DataSetupScreen from "@/components/DataSetupScreen";
-import DesktopLauncherPopup from "@/components/DesktopLauncherPopup";
 import ResearchFolderSetup from "@/components/ResearchFolderSetup";
 import UserLoginScreen from "@/components/UserLoginScreen";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
@@ -46,7 +45,6 @@ export default function HomePage() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [showMacAppLauncher, setShowMacAppLauncher] = useState(false);
   const [showUserSwitch, setShowUserSwitch] = useState(false);
   const { currentUser: providerCurrentUser, isLoading: fsLoading } = useFileSystem();
   const currentUser = providerCurrentUser ?? "";
@@ -634,22 +632,10 @@ export default function HomePage() {
         </svg>
       </button>
 
-      {/* Create Desktop Launcher Button - Bottom Right (left of settings) */}
-      <button
-        onClick={() => setShowMacAppLauncher(true)}
-        className="fixed bottom-6 right-20 w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center text-white z-50"
-        title="Create Desktop Launcher"
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-        </svg>
-      </button>
-
-      {/* User Switch Button - Bottom Right (left of desktop launcher) */}
+      {/* User Switch Button - Bottom Right */}
       <button
         onClick={() => setShowUserSwitch(true)}
-        className="fixed bottom-6 w-12 h-12 bg-white border border-gray-200 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center text-gray-600 hover:text-gray-900 z-50"
-        style={{ right: '136px' }}
+        className="fixed bottom-6 right-20 w-12 h-12 bg-white border border-gray-200 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center text-gray-600 hover:text-gray-900 z-50"
         title={`Switch User (currently: ${currentUser || 'Unknown'})`}
       >
         <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-semibold">
@@ -661,12 +647,6 @@ export default function HomePage() {
       <DataSetupScreen
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
-      />
-
-      {/* Desktop Launcher Popup */}
-      <DesktopLauncherPopup
-        isOpen={showMacAppLauncher}
-        onClose={() => setShowMacAppLauncher(false)}
       />
 
       {/* User Switch Screen */}

@@ -1,10 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { attachmentsApi } from "@/lib/local-api";
-import type { ImageMetadata } from "@/lib/types";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+import { fileService } from "@/lib/file-system/file-service";
+import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 
 interface ImageGalleryPopupProps {
   isOpen: boolean;
@@ -12,9 +10,44 @@ interface ImageGalleryPopupProps {
   experimentId: number;
   experimentName: string;
   experimentDate: string;
+  /**
+   * Called when the user picks an image. `markdownPath` is the value to put
+   * inside `![alt](...)` — relative to the markdown file that's being edited
+   * (`results/task-{id}/notes.md` or `results.md`).
+   */
   onInsertImage: (markdownPath: string, imageName: string) => void;
 }
 
+interface GalleryImage {
+  filename: string;
+  /** Path on disk under the FSA-mounted folder, e.g. `results/task-3/Images/foo.png` */
+  absolutePath: string;
+  /** Path to insert in markdown, e.g. `Images/foo.png` */
+  insertPath: string;
+  size: number;
+  lastModified: number;
+  blobUrl: string | null;
+}
+
+const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp"]);
+
+function isImageFilename(name: string): boolean {
+  const dot = name.lastIndexOf(".");
+  if (dot <= 0) return false;
+  return IMAGE_EXTENSIONS.has(name.slice(dot).toLowerCase());
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * Browse-and-insert popup for images already attached to an experiment. Reads
+ * directly from `results/task-{id}/Images/` via the File System Access API
+ * and inserts the canonical relative path (`Images/{file}`) into the markdown.
+ */
 export default function ImageGalleryPopup({
   isOpen,
   onClose,
@@ -23,59 +56,73 @@ export default function ImageGalleryPopup({
   experimentDate,
   onInsertImage,
 }: ImageGalleryPopupProps) {
-  const [images, setImages] = useState<ImageMetadata[]>([]);
+  const [images, setImages] = useState<GalleryImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedImage, setSelectedImage] = useState<ImageMetadata | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
 
-  // Load images for this experiment
+  const imagesDir = `results/task-${experimentId}/Images`;
+
+  const loadImages = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const dirHandle = await fileService.getDirectory(imagesDir);
+      if (!dirHandle) {
+        setImages([]);
+        setLoading(false);
+        return;
+      }
+      const entries = await fileService.listFiles(imagesDir);
+      const collected: GalleryImage[] = [];
+      for (const filename of entries) {
+        if (!isImageFilename(filename)) continue;
+        const absolutePath = `${imagesDir}/${filename}`;
+        const blob = await fileService.readFileAsBlob(absolutePath);
+        if (!blob) continue;
+        // Prefer the resolver's cached blob URL if we already have one.
+        const cached = blobUrlResolver.getCachedUrl(absolutePath);
+        const blobUrl = cached ?? (await blobUrlResolver.getBlobUrl(absolutePath));
+        const file = await (async () => {
+          try {
+            return blob as File;
+          } catch {
+            return null;
+          }
+        })();
+        collected.push({
+          filename,
+          absolutePath,
+          insertPath: `Images/${filename}`,
+          size: blob.size,
+          lastModified: file && "lastModified" in file ? (file as File).lastModified : 0,
+          blobUrl,
+        });
+      }
+      collected.sort((a, b) => a.filename.localeCompare(b.filename));
+      setImages(collected);
+    } catch (err) {
+      console.error("Failed to load images:", err);
+      setError("Failed to load images. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [imagesDir]);
+
   useEffect(() => {
     if (!isOpen) return;
-
-    const loadImages = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const imageList = await attachmentsApi.listImages({ experiment_id: experimentId });
-        setImages(imageList);
-      } catch (err) {
-        console.error("Failed to load images:", err);
-        setError("Failed to load images. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
+    setSelectedImage(null);
     loadImages();
-  }, [isOpen, experimentId]);
+  }, [isOpen, loadImages]);
 
-  // Generate preview URL for selected image
-  useEffect(() => {
-    if (selectedImage) {
-      // The path is like "Images/folder/filename"
-      // We need to use the github raw endpoint
-      const encodedPath = encodeURIComponent(selectedImage.path);
-      setPreviewUrl(`${API_BASE}/github/raw?path=${encodedPath}`);
-    } else {
-      setPreviewUrl(null);
-    }
-  }, [selectedImage]);
-
-  // Handle clicking on an image to insert
   const handleInsertImage = useCallback(
-    (image: ImageMetadata) => {
-      // Build the relative markdown path
-      // The path is like "Images/folder/filename"
-      // For markdown, we need "../../Images/folder/filename" (relative from results/task-{id}/)
-      const markdownPath = `../../${image.path}`;
-      onInsertImage(markdownPath, image.original_filename || image.filename);
+    (image: GalleryImage) => {
+      onInsertImage(image.insertPath, image.filename);
       onClose();
     },
     [onInsertImage, onClose]
   );
 
-  // Handle clicking outside to close
   const handleBackdropClick = useCallback(
     (e: React.MouseEvent) => {
       if (e.target === e.currentTarget) {
@@ -85,14 +132,12 @@ export default function ImageGalleryPopup({
     [onClose]
   );
 
-  // Handle escape key to close
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen) {
         onClose();
       }
     };
-
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
   }, [isOpen, onClose]);
@@ -105,27 +150,19 @@ export default function ImageGalleryPopup({
       onClick={handleBackdropClick}
     >
       <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[85vh] flex flex-col">
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>
-            <h3 className="text-base font-semibold text-gray-900">
-              📷 Image Gallery
-            </h3>
+            <h3 className="text-base font-semibold text-gray-900">📷 Image Gallery</h3>
             <p className="text-xs text-gray-400 mt-0.5">
               {experimentName} · {experimentDate}
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-lg"
-          >
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">
             ✕
           </button>
         </div>
 
-        {/* Content */}
         <div className="flex flex-1 min-h-0 overflow-hidden">
-          {/* Image Grid */}
           <div className="flex-1 overflow-y-auto p-4">
             {loading ? (
               <div className="flex items-center justify-center h-48">
@@ -137,14 +174,7 @@ export default function ImageGalleryPopup({
                 <span className="text-3xl mb-2">⚠️</span>
                 <p className="text-sm text-red-500">{error}</p>
                 <button
-                  onClick={() => {
-                    setError(null);
-                    setLoading(true);
-                    attachmentsApi.listImages({ experiment_id: experimentId })
-                      .then(setImages)
-                      .catch(() => setError("Failed to load images."))
-                      .finally(() => setLoading(false));
-                  }}
+                  onClick={loadImages}
                   className="mt-2 px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200"
                 >
                   Retry
@@ -155,47 +185,43 @@ export default function ImageGalleryPopup({
                 <span className="text-4xl mb-3">🖼️</span>
                 <p className="text-sm text-gray-500 mb-1">No images attached yet</p>
                 <p className="text-xs text-gray-400">
-                  Upload images using the "Add Image" button in the editor
+                  Upload images using the &quot;Add Image&quot; button in the editor
                 </p>
               </div>
             ) : (
               <div className="grid grid-cols-3 gap-3">
                 {images.map((image) => (
                   <div
-                    key={image.id}
+                    key={image.absolutePath}
                     className={`group relative bg-gray-50 border-2 rounded-lg overflow-hidden cursor-pointer transition-all hover:shadow-md ${
-                      selectedImage?.id === image.id
+                      selectedImage?.absolutePath === image.absolutePath
                         ? "border-blue-500 ring-2 ring-blue-200"
                         : "border-gray-200 hover:border-gray-300"
                     }`}
                     onClick={() => setSelectedImage(image)}
                   >
-                    {/* Image Preview */}
                     <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
-                      <img
-                        src={`${API_BASE}/github/raw?path=${encodeURIComponent(image.path)}`}
-                        alt={image.original_filename || image.filename}
-                        className="max-w-full max-h-full object-contain"
-                        onError={(e) => {
-                          // Show placeholder on error
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = "none";
-                          target.parentElement!.innerHTML = '<span class="text-4xl">🖼️</span>';
-                        }}
-                      />
-                    </div>
-                    
-                    {/* Image Info */}
-                    <div className="p-2 border-t border-gray-100">
-                      <p className="text-xs font-medium text-gray-700 truncate" title={image.original_filename || image.filename}>
-                        {image.original_filename || image.filename}
-                      </p>
-                      <p className="text-[10px] text-gray-400 mt-0.5">
-                        {image.file_size ? formatFileSize(image.file_size) : "Unknown size"}
-                      </p>
+                      {image.blobUrl ? (
+                        <img
+                          src={image.blobUrl}
+                          alt={image.filename}
+                          className="max-w-full max-h-full object-contain"
+                        />
+                      ) : (
+                        <span className="text-4xl">🖼️</span>
+                      )}
                     </div>
 
-                    {/* Insert button on hover */}
+                    <div className="p-2 border-t border-gray-100">
+                      <p
+                        className="text-xs font-medium text-gray-700 truncate"
+                        title={image.filename}
+                      >
+                        {image.filename}
+                      </p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">{formatFileSize(image.size)}</p>
+                    </div>
+
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -213,54 +239,42 @@ export default function ImageGalleryPopup({
             )}
           </div>
 
-          {/* Preview Panel (shows when image is selected) */}
           {selectedImage && (
             <div className="w-64 border-l border-gray-100 flex flex-col bg-gray-50">
               <div className="p-3 border-b border-gray-100">
                 <p className="text-xs font-medium text-gray-700">Preview</p>
               </div>
-              
-              {/* Preview Image */}
+
               <div className="flex-1 flex items-center justify-center p-3 overflow-hidden">
-                {previewUrl && (
+                {selectedImage.blobUrl && (
                   <img
-                    src={previewUrl}
-                    alt={selectedImage.original_filename || selectedImage.filename}
+                    src={selectedImage.blobUrl}
+                    alt={selectedImage.filename}
                     className="max-w-full max-h-full object-contain rounded-lg shadow-sm"
                   />
                 )}
               </div>
 
-              {/* Image Details */}
               <div className="p-3 border-t border-gray-100 space-y-2">
                 <div>
                   <p className="text-[10px] text-gray-400 uppercase">Filename</p>
-                  <p className="text-xs text-gray-700 truncate" title={selectedImage.original_filename || selectedImage.filename}>
-                    {selectedImage.original_filename || selectedImage.filename}
+                  <p className="text-xs text-gray-700 truncate" title={selectedImage.filename}>
+                    {selectedImage.filename}
                   </p>
                 </div>
-                {selectedImage.file_size && (
+                <div>
+                  <p className="text-[10px] text-gray-400 uppercase">Size</p>
+                  <p className="text-xs text-gray-700">{formatFileSize(selectedImage.size)}</p>
+                </div>
+                {selectedImage.lastModified > 0 && (
                   <div>
-                    <p className="text-[10px] text-gray-400 uppercase">Size</p>
-                    <p className="text-xs text-gray-700">{formatFileSize(selectedImage.file_size)}</p>
-                  </div>
-                )}
-                {selectedImage.file_type && (
-                  <div>
-                    <p className="text-[10px] text-gray-400 uppercase">Type</p>
-                    <p className="text-xs text-gray-700">{selectedImage.file_type}</p>
-                  </div>
-                )}
-                {selectedImage.uploaded_at && (
-                  <div>
-                    <p className="text-[10px] text-gray-400 uppercase">Uploaded</p>
+                    <p className="text-[10px] text-gray-400 uppercase">Modified</p>
                     <p className="text-xs text-gray-700">
-                      {new Date(selectedImage.uploaded_at).toLocaleDateString()}
+                      {new Date(selectedImage.lastModified).toLocaleDateString()}
                     </p>
                   </div>
                 )}
-                
-                {/* Insert Button */}
+
                 <button
                   onClick={() => handleInsertImage(selectedImage)}
                   className="w-full mt-2 px-3 py-2 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
@@ -272,7 +286,6 @@ export default function ImageGalleryPopup({
           )}
         </div>
 
-        {/* Footer */}
         <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100 bg-gray-50">
           <p className="text-xs text-gray-400">
             {images.length} image{images.length !== 1 ? "s" : ""} found
@@ -287,15 +300,4 @@ export default function ImageGalleryPopup({
       </div>
     </div>
   );
-}
-
-// Helper function to format file size
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  } else if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`;
-  } else {
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
 }
