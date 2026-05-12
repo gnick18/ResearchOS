@@ -56,6 +56,8 @@ export default function StagedLoadingScreen({
   const [elapsedSec, setElapsedSec] = useState(0);
   const [reassuranceIdx, setReassuranceIdx] = useState(0);
 
+  // Run once on mount — don't reset on stage transitions so the elapsed
+  // counter shows the real wall-clock time the user has been waiting.
   useEffect(() => {
     const start = Date.now();
     const tick = setInterval(() => {
@@ -63,7 +65,7 @@ export default function StagedLoadingScreen({
       setElapsedSec(Math.floor((Date.now() - start) / 1000));
     }, 250);
     return () => clearInterval(tick);
-  }, [stage]);
+  }, []);
 
   useEffect(() => {
     // Rotate the reassurance line every ~6 seconds once we've been waiting a
@@ -82,34 +84,51 @@ export default function StagedLoadingScreen({
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      <div className="max-w-md w-full mx-4 text-center">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg mb-5">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+      <div className="max-w-xl w-full mx-4 text-center">
+        <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg mb-6">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-white"></div>
         </div>
 
-        <h2 className="text-xl font-semibold text-white mb-2">{title}</h2>
+        {/* Indeterminate progress bar that runs on the compositor thread so it
+            keeps animating even when the main thread is blocked by the OS
+            folder picker. */}
+        <div className="relative h-1.5 w-full max-w-sm mx-auto bg-slate-800/60 rounded-full overflow-hidden mb-6">
+          <div className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-staged-loading-sweep" />
+        </div>
+
+        <h2 className="text-2xl font-semibold text-white mb-3">{title}</h2>
 
         {subtitle && (
-          <p className="text-sm text-slate-400 mb-4 leading-relaxed">{subtitle}</p>
+          <p className="text-base text-slate-200 mb-5 leading-relaxed">{subtitle}</p>
         )}
 
-        <div className="flex items-center justify-center gap-3 text-xs text-slate-500 mb-3">
+        <div className="flex items-center justify-center gap-3 text-sm text-slate-300 mb-3">
           {showReadCount && (
-            <span className="px-2 py-0.5 bg-slate-800/60 rounded-full">
+            <span className="px-3 py-1 bg-slate-800/60 rounded-full">
               {readCount} {readCount === 1 ? "file" : "files"} read
             </span>
           )}
-          <span className="px-2 py-0.5 bg-slate-800/60 rounded-full">
-            {elapsedSec}s
+          <span className="px-3 py-1 bg-slate-800/60 rounded-full">
+            {elapsedSec}s elapsed
           </span>
         </div>
 
         {showReassurance && (
-          <p className="text-xs text-slate-500 italic mt-6 transition-opacity duration-300">
+          <p className="text-sm text-slate-300 italic mt-6 transition-opacity duration-300">
             {REASSURANCE_MESSAGES[reassuranceIdx]}
           </p>
         )}
       </div>
+
+      <style>{`
+        @keyframes staged-loading-sweep {
+          0% { left: -33%; }
+          100% { left: 100%; }
+        }
+        .animate-staged-loading-sweep {
+          animation: staged-loading-sweep 1.4s ease-in-out infinite;
+        }
+      `}</style>
     </div>
   );
 }
