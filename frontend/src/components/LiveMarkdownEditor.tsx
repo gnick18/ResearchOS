@@ -1607,22 +1607,40 @@ export default function LiveMarkdownEditor({
           const types = Array.from(e.dataTransfer.types);
           if (
             types.includes("application/x-research-os-image") ||
-            types.includes(FILE_STRIP_DRAG_MIME)
+            types.includes(FILE_STRIP_DRAG_MIME) ||
+            types.includes("Files")
           ) {
             e.preventDefault();
             e.dataTransfer.dropEffect = "copy";
           }
         }}
         onDrop={(e) => {
-          // Two possible payloads: an ImageStrip drag (existing) inserts a
-          // markdown `![](Images/...)` reference; a FileStrip drag (new)
-          // inserts a markdown hyperlink `[name](Files/...)`. Branch off
-          // whichever MIME the dataTransfer carries; otherwise let the
-          // native handler take over (or no-op).
+          // Three possible payloads:
+          //   1. ImageStrip drag — inserts `![](Images/...)`.
+          //   2. FileStrip drag — inserts `[name](Files/...)`.
+          //   3. Native OS file drop (Finder, etc.) — uploads via the
+          //      caller-supplied onFileDrop / onImageDrop. Without this
+          //      branch the browser would handle it (Chrome opens the
+          //      PDF), so we always preventDefault even if no callback
+          //      is wired to keep the editor inert.
           const imageRaw = e.dataTransfer.getData("application/x-research-os-image");
           const fileRaw = e.dataTransfer.getData(FILE_STRIP_DRAG_MIME);
-          if (!imageRaw && !fileRaw) return;
+          const nativeFiles =
+            !imageRaw && !fileRaw && e.dataTransfer.files.length > 0
+              ? Array.from(e.dataTransfer.files)
+              : null;
+          if (!imageRaw && !fileRaw && !nativeFiles) return;
           e.preventDefault();
+          e.stopPropagation();
+          if (nativeFiles) {
+            if (allowAnyFileType && onFileDrop) {
+              onFileDrop(nativeFiles);
+            } else if (onImageDrop) {
+              const imageFiles = nativeFiles.filter((f) => f.type.startsWith("image/"));
+              if (imageFiles.length > 0) onImageDrop(imageFiles);
+            }
+            return;
+          }
 
           let snippet: string | null = null;
           if (imageRaw) {

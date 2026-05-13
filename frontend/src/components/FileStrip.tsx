@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { filesApi } from "@/lib/local-api";
+import { fileEvents } from "@/lib/attachments/file-events";
 
 /** MIME-style key for drag-and-drop. Defined here so the editor can pick it
  *  out without coupling. Mirrors `STRIP_DRAG_MIME` in ImageStrip. */
@@ -113,16 +114,25 @@ export default function FileStrip({
     void refresh();
   }, [refresh]);
 
-  // No dedicated event bus for file uploads/deletes yet (parallel to
-  // imageEvents would be a nice follow-up). Refresh on window focus so that
-  // files added in another tab / via a fresh upload land in the strip.
+  // Refresh on window focus (e.g. files dropped via a different app/tab)
+  // and when a fileEvents broadcast targets this strip's basePath.
   useEffect(() => {
     const onFocus = () => {
       void refresh();
     };
     window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [refresh]);
+    const offAttached = fileEvents.onAttached((detail) => {
+      if (detail.basePath === basePath) void refresh();
+    });
+    const offDeleted = fileEvents.onDeleted((detail) => {
+      if (detail.basePath === basePath) void refresh();
+    });
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      offAttached();
+      offDeleted();
+    };
+  }, [refresh, basePath]);
 
   const entries: StripEntry[] = useMemo(() => {
     const items: StripEntry[] = folderEntries.map((name) => ({

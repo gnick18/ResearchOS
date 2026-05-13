@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { methodsApi as rawMethodsApi, filesApi, pcrApi, usersApi, fetchAllMethodsIncludingShared } from "@/lib/local-api";
 import type { MethodUpdate } from "@/lib/local-api";
 import { fileService } from "@/lib/file-system/file-service";
+import { fileEvents } from "@/lib/attachments/file-events";
 import { migrateNoteImages } from "@/lib/notes/migrate-images";
 import AppShell from "@/components/AppShell";
 import LiveMarkdownEditor from "@/components/LiveMarkdownEditor";
@@ -621,13 +622,13 @@ function CreateMethodModal({
       setUploadWarning(null);
       for (const file of Array.from(files)) {
         if (!file.type.startsWith("image/")) continue;
-        
+
         // Show rename popup and wait for user decision
         const renamedFile = await requestRename(file);
         if (!renamedFile) {
           continue; // User cancelled
         }
-        
+
         const reader = new FileReader();
         reader.onload = async () => {
           const base64 = (reader.result as string).split(",")[1];
@@ -656,6 +657,34 @@ function CreateMethodModal({
       setUploading(false);
     },
     [slug, name, requestRename]
+  );
+
+  const handleFileUpload = useCallback(
+    async (files: FileList | File[]) => {
+      if (!slug) {
+        alert("Enter a method name first");
+        return;
+      }
+      const methodBase = `methods/${slug}`;
+      const filesDir = `${methodBase}/Files`;
+      setUploading(true);
+      setUploadWarning(null);
+      for (const file of Array.from(files)) {
+        const renamedFile = await requestRename(file);
+        if (!renamedFile) continue;
+        try {
+          const finalName = await pickUniqueImageName(filesDir, renamedFile.name);
+          const destPath = `${filesDir}/${finalName}`;
+          await fileService.writeFileFromBlob(destPath, renamedFile);
+          uploadedImagePathsRef.current.push(destPath);
+          fileEvents.emitAttached({ basePath: methodBase, relativePath: `Files/${finalName}` });
+        } catch {
+          alert(`Failed to upload ${renamedFile.name}`);
+        }
+      }
+      setUploading(false);
+    },
+    [slug, requestRename]
   );
   
   // Cleanup function to delete uploaded images when canceling
@@ -910,6 +939,8 @@ function CreateMethodModal({
                     onChange={setMdContent}
                     placeholder={`# ${name || "Method Name"}\n\n## Materials\n- Item 1\n- Item 2\n\n## Steps\n1. First step\n2. Second step`}
                     onImageDrop={handleImageUpload}
+                    onFileDrop={handleFileUpload}
+                    allowAnyFileType={true}
                     imageBasePath={`methods/${slug}`}
                     showToolbar={true}
                   />
@@ -1339,17 +1370,39 @@ function MarkdownMethodViewer({
       setUploadWarning(null);
       for (const file of Array.from(files)) {
         if (!file.type.startsWith("image/")) continue;
-        
+
         // Show rename popup and wait for user decision
         const renamedFile = await requestRename(file);
         if (!renamedFile) {
           continue; // User cancelled
         }
-        
+
         try {
           const finalName = await pickUniqueImageName(`${methodDir}/Images`, renamedFile.name);
           await fileService.writeFileFromBlob(`${methodDir}/Images/${finalName}`, renamedFile);
           setContent((prev) => prev + `\n![${renamedFile.name}](Images/${finalName})\n`);
+        } catch {
+          alert(`Failed to upload ${renamedFile.name}`);
+        }
+      }
+      setUploading(false);
+    },
+    [methodDir, requestRename]
+  );
+
+  const handleEditFileUpload = useCallback(
+    async (files: FileList | File[]) => {
+      if (!methodDir) return;
+      const filesDir = `${methodDir}/Files`;
+      setUploading(true);
+      setUploadWarning(null);
+      for (const file of Array.from(files)) {
+        const renamedFile = await requestRename(file);
+        if (!renamedFile) continue;
+        try {
+          const finalName = await pickUniqueImageName(filesDir, renamedFile.name);
+          await fileService.writeFileFromBlob(`${filesDir}/${finalName}`, renamedFile);
+          fileEvents.emitAttached({ basePath: methodDir, relativePath: `Files/${finalName}` });
         } catch {
           alert(`Failed to upload ${renamedFile.name}`);
         }
@@ -1530,6 +1583,8 @@ function MarkdownMethodViewer({
                 onChange={setContent}
                 placeholder="Edit method content..."
                 onImageDrop={handleEditImageUpload}
+                onFileDrop={handleEditFileUpload}
+                allowAnyFileType={true}
                 imageBasePath={methodDir}
                 showToolbar={true}
               />
