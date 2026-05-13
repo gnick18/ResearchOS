@@ -604,7 +604,7 @@ export default function HomePage() {
       )}
 
       {/* Data Folder Button - Bottom Right */}
-      <Tooltip label="Data folder · connect or switch" placement="left">
+      <Tooltip label="Data folder · connect or switch" placement="top">
       <button
         onClick={() => setShowSettings(true)}
         className="fixed bottom-6 right-6 w-12 h-12 bg-white border border-gray-200 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center text-gray-600 hover:text-gray-900 z-50"
@@ -618,7 +618,7 @@ export default function HomePage() {
       {/* User Switch Button - Bottom Right */}
       <Tooltip
         label={`Switch user${currentUser ? ` (now: ${currentUser})` : ""}`}
-        placement="left"
+        placement="top"
       >
       <button
         onClick={() => setShowUserSwitch(true)}

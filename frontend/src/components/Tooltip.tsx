@@ -1,76 +1,170 @@
 "use client";
 
-import { Children, cloneElement, isValidElement, type ReactElement } from "react";
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactElement,
+} from "react";
+import { createPortal } from "react-dom";
 
 type Placement = "top" | "bottom" | "left" | "right";
 
 interface Props {
-  /** Required — short, action-oriented label, e.g. "Open settings". */
+  /** Short, action-oriented label, e.g. "Open settings". */
   label: string;
   /** Where the tooltip pops relative to the child. Default "bottom". */
   placement?: Placement;
-  /**
-   * Single child that the tooltip attaches to. Must be a positioned
-   * (relative / absolute / fixed) element so the floating label can
-   * absolute-position against it; if the child has no position class the
-   * wrapper auto-applies `relative`.
-   */
-  children: ReactElement<{ className?: string; "aria-label"?: string }>;
-  /** Optional aria-label override; defaults to `label`. */
-  ariaLabel?: string;
+  /** Single trigger element (Link / button / div with a hover surface). */
+  children: ReactElement<Record<string, unknown>>;
+  /** Delay before showing on hover, in ms. Default 80. */
+  showDelayMs?: number;
 }
 
-const PLACEMENT_CLASSES: Record<Placement, string> = {
-  top: "bottom-full left-1/2 -translate-x-1/2 mb-1.5",
-  bottom: "top-full left-1/2 -translate-x-1/2 mt-1.5",
-  left: "right-full top-1/2 -translate-y-1/2 mr-1.5",
-  right: "left-full top-1/2 -translate-y-1/2 ml-1.5",
-};
+const GAP = 6;
 
 /**
- * Lightweight CSS-only tooltip. Wraps a single child element and shows the
- * label on hover/focus with a 100ms fade-in. Adds `group` + `relative` to
- * the child's className (preserving any existing classes) so the absolute
- * tooltip span anchors correctly without bumping page layout.
+ * Portal-rendered hover/focus tooltip.
  *
- * Uses native `:hover` / `group-focus-within` rather than JS so there's no
- * 1-second native-title delay and no event handlers to worry about.
+ * The label is appended to `document.body` with `position: fixed` and
+ * coordinates derived from the trigger's bounding rect — so it can never
+ * be clipped by an `overflow: hidden` / `overflow: auto` ancestor (e.g.
+ * the scrollable sidebar) or hidden behind sibling icons with their own
+ * stacking contexts.
+ *
+ * We clone the single child rather than wrapping it, which preserves the
+ * trigger's exact layout. The injected `group` class keeps any existing
+ * `group-hover:*` utilities on descendants (e.g. the gear icon's
+ * rotate-90 hover animation) working as a side benefit.
  */
 export default function Tooltip({
   label,
   placement = "bottom",
   children,
-  ariaLabel,
+  showDelayMs = 80,
 }: Props) {
+  const triggerElRef = useRef<HTMLElement | null>(null);
+  const tooltipRef = useRef<HTMLSpanElement>(null);
+  const showTimerRef = useRef<number | null>(null);
+
+  const [visible, setVisible] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    return () => {
+      if (showTimerRef.current !== null) {
+        window.clearTimeout(showTimerRef.current);
+      }
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!visible || !triggerElRef.current) return;
+    const trigger = triggerElRef.current.getBoundingClientRect();
+    const tt = tooltipRef.current?.getBoundingClientRect();
+    const ttW = tt?.width ?? 0;
+    const ttH = tt?.height ?? 0;
+
+    let top = 0;
+    let left = 0;
+    switch (placement) {
+      case "top":
+        top = trigger.top - ttH - GAP;
+        left = trigger.left + trigger.width / 2 - ttW / 2;
+        break;
+      case "bottom":
+        top = trigger.bottom + GAP;
+        left = trigger.left + trigger.width / 2 - ttW / 2;
+        break;
+      case "left":
+        top = trigger.top + trigger.height / 2 - ttH / 2;
+        left = trigger.left - ttW - GAP;
+        break;
+      case "right":
+        top = trigger.top + trigger.height / 2 - ttH / 2;
+        left = trigger.right + GAP;
+        break;
+    }
+
+    // Clamp to viewport so long labels near the edge stay fully visible
+    // rather than getting cut off.
+    const MARGIN = 4;
+    const maxLeft = Math.max(MARGIN, window.innerWidth - ttW - MARGIN);
+    const maxTop = Math.max(MARGIN, window.innerHeight - ttH - MARGIN);
+    left = Math.max(MARGIN, Math.min(left, maxLeft));
+    top = Math.max(MARGIN, Math.min(top, maxTop));
+
+    setPos({ top, left });
+  }, [visible, placement, label]);
+
+  const handleEnter = useCallback(() => {
+    if (showTimerRef.current !== null) window.clearTimeout(showTimerRef.current);
+    showTimerRef.current = window.setTimeout(() => {
+      setVisible(true);
+    }, showDelayMs);
+  }, [showDelayMs]);
+
+  const handleLeave = useCallback(() => {
+    if (showTimerRef.current !== null) {
+      window.clearTimeout(showTimerRef.current);
+      showTimerRef.current = null;
+    }
+    setVisible(false);
+    setPos(null);
+  }, []);
+
+  const captureRef = useCallback((el: HTMLElement | null) => {
+    triggerElRef.current = el;
+  }, []);
+
   const child = Children.only(children);
-  if (!isValidElement(child)) return child;
+  if (!isValidElement(child)) return <>{children}</>;
 
-  const existing = child.props.className ?? "";
-  // Only add `relative` if the child isn't already positioned — `fixed` /
-  // `absolute` / `sticky` classes shouldn't be overridden.
-  const needsRelative =
-    !/(^|\s)(relative|absolute|fixed|sticky)(\s|$)/.test(existing);
-  const merged = [
-    existing,
-    "group",
-    needsRelative ? "relative" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  type ChildProps = { className?: string };
+  const original = child.props as unknown as ChildProps;
+  const merged: Record<string, unknown> = {
+    className: [original.className, "group"].filter(Boolean).join(" "),
+    onMouseEnter: handleEnter,
+    onMouseLeave: handleLeave,
+    onFocus: handleEnter,
+    onBlur: handleLeave,
+    ref: captureRef,
+  };
 
-  return cloneElement(child, {
-    className: merged,
-    "aria-label": child.props["aria-label"] ?? ariaLabel ?? label,
-    children: (
-      <>
-        {(child.props as { children?: React.ReactNode }).children}
-        <span
-          role="tooltip"
-          className={`pointer-events-none absolute z-[200] whitespace-nowrap rounded-md bg-gray-900 text-white text-[11px] font-medium px-2 py-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-100 shadow-lg ${PLACEMENT_CLASSES[placement]}`}
-        >
-          {label}
-        </span>
-      </>
-    ),
-  } as Record<string, unknown>);
+  return (
+    <>
+      {/* eslint-disable-next-line react-hooks/refs -- merged passes a
+          callback ref + memoised handlers; nothing reads .current here. */}
+      {cloneElement(child, merged)}
+      {mounted &&
+        visible &&
+        createPortal(
+          <span
+            ref={tooltipRef}
+            role="tooltip"
+            style={{
+              position: "fixed",
+              top: pos?.top ?? -9999,
+              left: pos?.left ?? -9999,
+              opacity: pos ? 1 : 0,
+              transition: "opacity 100ms",
+              pointerEvents: "none",
+              zIndex: 1000,
+            }}
+            className="whitespace-nowrap rounded-md bg-gray-900 text-white text-[11px] font-medium px-2 py-1 shadow-lg"
+          >
+            {label}
+          </span>,
+          document.body,
+        )}
+    </>
+  );
 }
