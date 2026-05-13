@@ -263,14 +263,6 @@ export interface HighLevelGoalUpdate {
 
 // ── Methods ──────────────────────────────────────────────────────────────────
 
-export interface MethodAttachment {
-  id: string;
-  name: string;
-  attachment_type: "markdown" | "pdf" | "pcr";
-  path: string;
-  order: number;
-}
-
 export interface Method {
   id: number;
   name: string;
@@ -279,7 +271,6 @@ export interface Method {
   folder_path: string | null;
   parent_method_id: number | null;
   tags: string[] | null;
-  attachments: MethodAttachment[];
   is_public: boolean;
   created_by: string | null;
   // Sharing fields
@@ -294,7 +285,6 @@ export interface MethodCreate {
   folder_path?: string | null;
   parent_method_id?: number | null;
   tags?: string[];
-  attachments?: MethodAttachment[];
   is_public?: boolean;
 }
 
@@ -305,7 +295,6 @@ export interface MethodUpdate {
   folder_path?: string | null;
   parent_method_id?: number | null;
   tags?: string[];
-  attachments?: MethodAttachment[];
   is_public?: boolean;
 }
 

@@ -227,14 +227,6 @@ export const HighLevelGoalUpdateSchema = z.object({
   is_complete: z.boolean().optional(),
 });
 
-export const MethodAttachmentSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  attachment_type: z.enum(["markdown", "pdf", "pcr"]),
-  path: z.string(),
-  order: z.number(),
-});
-
 export const MethodSchema = z.object({
   id: z.number(),
   name: z.string(),
@@ -243,7 +235,6 @@ export const MethodSchema = z.object({
   folder_path: z.string().nullable(),
   parent_method_id: z.number().nullable(),
   tags: z.array(z.string()).nullable(),
-  attachments: z.array(MethodAttachmentSchema).default([]),
   is_public: z.boolean().default(false),
   created_by: z.string().nullable(),
   owner: z.string().default(""),
@@ -257,7 +248,6 @@ export const MethodCreateSchema = z.object({
   folder_path: z.string().optional().nullable(),
   parent_method_id: z.number().optional().nullable(),
   tags: z.array(z.string()).optional().nullable(),
-  attachments: z.array(MethodAttachmentSchema).optional(),
   is_public: z.boolean().default(false),
 });
 
@@ -268,7 +258,6 @@ export const MethodUpdateSchema = z.object({
   folder_path: z.string().optional().nullable(),
   parent_method_id: z.number().optional().nullable(),
   tags: z.array(z.string()).optional().nullable(),
-  attachments: z.array(MethodAttachmentSchema).optional(),
   is_public: z.boolean().optional(),
 });
 
@@ -564,7 +553,6 @@ export type SmartGoal = z.infer<typeof SmartGoalSchema>;
 export type HighLevelGoal = z.infer<typeof HighLevelGoalSchema>;
 export type HighLevelGoalCreate = z.infer<typeof HighLevelGoalCreateSchema>;
 export type HighLevelGoalUpdate = z.infer<typeof HighLevelGoalUpdateSchema>;
-export type MethodAttachment = z.infer<typeof MethodAttachmentSchema>;
 export type Method = z.infer<typeof MethodSchema>;
 export type MethodCreate = z.infer<typeof MethodCreateSchema>;
 export type MethodUpdate = z.infer<typeof MethodUpdateSchema>;
