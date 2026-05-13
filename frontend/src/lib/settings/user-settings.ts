@@ -33,6 +33,12 @@ export interface UserSettings {
   telegramNotifications: boolean;
   confirmDestructiveActions: boolean;
 
+  // Left sidebar (the one shown on every page except /calendar, which has
+  // its own dedicated sidebar). Independent toggles so the user can pick
+  // "tasks only", "calendar events only", or both stacked.
+  sidebarShowTasks: boolean;
+  sidebarShowCalendarEvents: boolean;
+
   // Per-user opt-out (mirrored to _user_metadata.json so the existing lab readers keep working)
   hideGoalsFromLab: boolean;
 }
@@ -51,6 +57,8 @@ export const DEFAULT_SETTINGS: UserSettings = {
   timeFormat: "12h",
   telegramNotifications: true,
   confirmDestructiveActions: true,
+  sidebarShowTasks: true,
+  sidebarShowCalendarEvents: false,
   hideGoalsFromLab: false,
 };
 
