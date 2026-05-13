@@ -51,15 +51,15 @@ export default function DeviationModal({
       // Create the forked method in the database
       const newMethod = await methodsApi.fork(method.id, {
         new_name: forkName.trim(),
-        new_github_path: `methods/${forkName.trim().replace(/\s+/g, "-").toLowerCase()}.md`,
+        new_source_path: `methods/${forkName.trim().replace(/\s+/g, "-").toLowerCase()}.md`,
         deviations: deviations.trim(),
       });
 
       // Read the parent method content from disk
       let parentContent = "";
       try {
-        if (method.github_path) {
-          const file = await filesApi.readFile(method.github_path);
+        if (method.source_path) {
+          const file = await filesApi.readFile(method.source_path);
           parentContent = file.content;
         }
       } catch {
@@ -68,9 +68,9 @@ export default function DeviationModal({
 
       // Write the new method file with deviations appended
       const newContent = `${parentContent}\n\n---\n\n## Deviations from ${method.name}\n\n${deviations.trim()}`;
-      if (newMethod.github_path) {
+      if (newMethod.source_path) {
         await filesApi.writeFile(
-          newMethod.github_path,
+          newMethod.source_path,
           newContent,
           `Fork method: ${forkName} from ${method.name}`
         );

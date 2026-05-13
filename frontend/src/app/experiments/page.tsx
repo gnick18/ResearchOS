@@ -460,32 +460,32 @@ export default function ExperimentsPage() {
               }
             }
             
-            // Legacy: check github_path if no attachments found
-            if (methodData.attachments.length === 0 && methodData.github_path) {
+            // Legacy: check source_path if no attachments found
+            if (methodData.attachments.length === 0 && methodData.source_path) {
               // Check if it's a PDF by method_type, path, or try to detect from content
-              const isPdfByPath = methodData.github_path.toLowerCase().endsWith('.pdf');
+              const isPdfByPath = methodData.source_path.toLowerCase().endsWith('.pdf');
               const isPdfByType = methodData.method_type === 'pdf';
               
               if (isPdfByType || isPdfByPath) {
                 try {
-                  const pdfData = await fetchPdfData(methodData.github_path);
-                  const filename = methodData.github_path.split('/').pop() || 'attachment.pdf';
+                  const pdfData = await fetchPdfData(methodData.source_path);
+                  const filename = methodData.source_path.split('/').pop() || 'attachment.pdf';
                   
                   methodPdfs.push({
                     filename,
-                    originalPath: methodData.github_path,
+                    originalPath: methodData.source_path,
                     data: pdfData,
                     methodId: methodData.id,
                     methodName: methodData.name,
                     order: 0,
                   });
                 } catch (error) {
-                  console.error(`Failed to fetch PDF ${methodData.github_path}:`, error);
+                  console.error(`Failed to fetch PDF ${methodData.source_path}:`, error);
                 }
               } else {
                 // Try to fetch as markdown, but detect if it's actually a PDF
                 try {
-                  const methodFile = await filesApi.readFile(methodData.github_path);
+                  const methodFile = await filesApi.readFile(methodData.source_path);
                   
                   // Check if content is base64-encoded PDF (starts with "JVBERi0" which is base64 for "%PDF-1")
                   const isBase64Pdf = methodFile.content.startsWith('JVBERi0');
@@ -497,11 +497,11 @@ export default function ExperimentsPage() {
                     for (let j = 0; j < binaryString.length; j++) {
                       bytes[j] = binaryString.charCodeAt(j);
                     }
-                    const filename = methodData.github_path.split('/').pop() || 'attachment.pdf';
+                    const filename = methodData.source_path.split('/').pop() || 'attachment.pdf';
                     
                     methodPdfs.push({
                       filename,
-                      originalPath: methodData.github_path,
+                      originalPath: methodData.source_path,
                       data: bytes.buffer,
                       methodId: methodData.id,
                       methodName: methodData.name,

@@ -24,9 +24,9 @@ function generateIngredientId(): string {
   return `ing_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
-// Helper function to extract PCR protocol ID from github_path
-function extractPCRProtocolId(githubPath: string): number | null {
-  const match = githubPath.match(/^pcr:\/\/protocol\/(\d+)$/);
+// Helper function to extract PCR protocol ID from source_path
+function extractPCRProtocolId(sourcePath: string): number | null {
+  const match = sourcePath.match(/^pcr:\/\/protocol\/(\d+)$/);
   return match ? parseInt(match[1], 10) : null;
 }
 
@@ -57,9 +57,9 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
   const activeMethod = allMethods.find(m => m.id === activeMethodId);
   
   // Check if active method is a PCR method or PDF method
-  const isPcrMethod = activeMethod?.method_type === "pcr" || (activeMethod?.github_path?.startsWith("pcr://") ?? false);
-  const isPdfMethod = activeMethod?.method_type === "pdf" || (activeMethod?.github_path?.toLowerCase().endsWith(".pdf") ?? false);
-  const pcrProtocolId = activeMethod?.github_path ? extractPCRProtocolId(activeMethod.github_path) : null;
+  const isPcrMethod = activeMethod?.method_type === "pcr" || (activeMethod?.source_path?.startsWith("pcr://") ?? false);
+  const isPdfMethod = activeMethod?.method_type === "pdf" || (activeMethod?.source_path?.toLowerCase().endsWith(".pdf") ?? false);
+  const pcrProtocolId = activeMethod?.source_path ? extractPCRProtocolId(activeMethod.source_path) : null;
   
   // Load PCR protocol data if this is a PCR method
   const { data: fetchedPcrProtocol } = useQuery({
@@ -113,7 +113,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
   
   // Load method content from disk for non-PCR methods
   useEffect(() => {
-    if (!activeMethod?.github_path || isPcrMethod) {
+    if (!activeMethod?.source_path || isPcrMethod) {
       setLoading(false);
       setPdfUrl(null);
       return;
@@ -124,7 +124,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
     // Handle PDF methods differently
     if (isPdfMethod) {
       filesApi
-        .readFile(activeMethod.github_path)
+        .readFile(activeMethod.source_path)
         .then((file) => {
           // The content comes back as base64 for binary files
           try {
@@ -156,10 +156,10 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
       // content. The actual file rewrite happens the next time an owner
       // opens the method directly.
       let cancelled = false;
-      const githubPath = activeMethod.github_path;
+      const sourcePath = activeMethod.source_path;
       (async () => {
         try {
-          const file = await filesApi.readFile(githubPath);
+          const file = await filesApi.readFile(sourcePath);
           const raw = file.content;
           if (readOnly) {
             if (!cancelled) {
@@ -168,12 +168,12 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
             }
             return;
           }
-          const dir = githubPath.substring(0, githubPath.lastIndexOf("/"));
+          const dir = sourcePath.substring(0, sourcePath.lastIndexOf("/"));
           const slug = dir.split("/").pop() || dir;
           const legacyOwner = activeMethod.owner || activeMethod.created_by || undefined;
           const { content: migrated, didMigrate } = await migrateNoteImages(raw, slug, dir, legacyOwner);
           if (didMigrate) {
-            await filesApi.writeFile(githubPath, migrated, `Migrate image references for: ${activeMethod.name}`);
+            await filesApi.writeFile(sourcePath, migrated, `Migrate image references for: ${activeMethod.name}`);
           }
           if (!cancelled) {
             setMethodContent(migrated);
@@ -190,7 +190,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
         cancelled = true;
       };
     }
-  }, [activeMethod?.github_path, isPcrMethod, isPdfMethod, readOnly]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeMethod?.source_path, isPcrMethod, isPdfMethod, readOnly]); // eslint-disable-line react-hooks/exhaustive-deps
   
   // Track PCR changes
   const originalPcrGradient = useMemo(() => {

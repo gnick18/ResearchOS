@@ -10,7 +10,7 @@ import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 import Tooltip from "./Tooltip";
 
 interface MarkdownPreviewProps {
-  githubPath: string | null;
+  sourcePath: string | null;
   onClose: () => void;
 }
 
@@ -18,7 +18,7 @@ interface MarkdownPreviewProps {
  * Quick View modal: renders a .md file from the local data folder.
  */
 export default function MarkdownPreview({
-  githubPath,
+  sourcePath,
   onClose,
 }: MarkdownPreviewProps) {
   const [content, setContent] = useState<string>("");
@@ -26,17 +26,17 @@ export default function MarkdownPreview({
   const [error, setError] = useState<string | null>(null);
   const [resolvedBlobUrls, setResolvedBlobUrls] = useState<Map<string, string>>(new Map());
 
-  const basePath = githubPath
-    ? githubPath.split("/").slice(0, -1).join("/")
+  const basePath = sourcePath
+    ? sourcePath.split("/").slice(0, -1).join("/")
     : undefined;
 
   useEffect(() => {
-    if (!githubPath) return;
+    if (!sourcePath) return;
     setLoading(true);
     setError(null);
 
     filesApi
-      .readFile(githubPath)
+      .readFile(sourcePath)
       .then((file) => {
         setContent(file.content);
         setLoading(false);
@@ -45,7 +45,7 @@ export default function MarkdownPreview({
         setError("Could not load file");
         setLoading(false);
       });
-  }, [githubPath]);
+  }, [sourcePath]);
 
   useEffect(() => {
     if (!content) return;
@@ -77,7 +77,7 @@ export default function MarkdownPreview({
     };
   }, [content, basePath]);
 
-  if (!githubPath) return null;
+  if (!sourcePath) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
@@ -85,9 +85,9 @@ export default function MarkdownPreview({
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>
             <h3 className="text-sm font-semibold text-gray-900">
-              {githubPath.split("/").pop()}
+              {sourcePath.split("/").pop()}
             </h3>
-            <p className="text-xs text-gray-400 mt-0.5">{githubPath}</p>
+            <p className="text-xs text-gray-400 mt-0.5">{sourcePath}</p>
           </div>
           <Tooltip label="Close" placement="bottom">
             <button

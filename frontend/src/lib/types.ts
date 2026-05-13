@@ -274,7 +274,7 @@ export interface MethodAttachment {
 export interface Method {
   id: number;
   name: string;
-  github_path: string | null;
+  source_path: string | null;
   method_type: "markdown" | "pdf" | "pcr" | null;
   folder_path: string | null;
   parent_method_id: number | null;
@@ -289,7 +289,7 @@ export interface Method {
 
 export interface MethodCreate {
   name: string;
-  github_path?: string | null;
+  source_path?: string | null;
   method_type?: "markdown" | "pdf" | "pcr";
   folder_path?: string | null;
   parent_method_id?: number | null;
@@ -300,7 +300,7 @@ export interface MethodCreate {
 
 export interface MethodUpdate {
   name?: string;
-  github_path?: string | null;
+  source_path?: string | null;
   method_type?: "markdown" | "pdf" | "pcr" | null;
   folder_path?: string | null;
   parent_method_id?: number | null;
@@ -366,7 +366,7 @@ export interface PCRProtocolUpdate {
 
 export interface MethodForkRequest {
   new_name: string;
-  new_github_path: string;
+  new_source_path: string;
   deviations: string;
 }
 
