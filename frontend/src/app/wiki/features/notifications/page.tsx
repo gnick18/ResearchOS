@@ -15,13 +15,15 @@ export default function NotificationsFeaturePage() {
         caption="The bell and inbox icons sit together in the top-right of the header."
       />
 
-      <h2>Three surfaces, one job</h2>
+      <h2>What you&apos;ll see and where</h2>
       <p>
-        The bell, the inbox tray, and event reminders are three different
-        delivery points for &quot;something happened that you might want to
-        know about.&quot; They look like separate features and they live in
-        separate corners of the header, but they all answer the same question:
-        what changed since I last looked?
+        The top-right of the header has two icons sitting next to each other:
+        a <strong>bell</strong> for notifications and an <strong>inbox</strong>{" "}
+        for Telegram-arrived photos. Both can carry a small number badge when
+        new things show up. A third surface, <strong>event reminders</strong>,
+        is a browser notification that pops out from the OS itself when a
+        calendar reminder fires. They cover different kinds of "new" but
+        you&apos;ll learn the corners of the app from these three.
       </p>
 
       <h2>The bell</h2>

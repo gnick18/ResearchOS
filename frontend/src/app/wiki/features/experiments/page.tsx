@@ -16,33 +16,28 @@ export default function ExperimentsFeaturePage() {
         caption="Every experiment across every project, with a quick-open editor."
       />
 
-      <h2>What an experiment is here</h2>
+      <h2>What an experiment looks like</h2>
       <p>
-        An <strong>experiment</strong> is just a task with{" "}
-        <code>task_type: &quot;experiment&quot;</code>. What sets it apart is
-        what hangs off it: a markdown notes body, an attached image strip, one
-        or more attached methods (snapshotted at attach time), an optional
-        deviation log, and a separate Results folder for the final outputs.
+        Each experiment is a tile in the Lab Notes list. Click a tile and a
+        popup opens with everything for that experiment in one place:
+        markdown notes, an image strip, attached methods and PCR protocols,
+        sub-tasks, and a deviation log. The same popup is what opens when
+        you click an experiment&apos;s bar on the Gantt or its row in
+        search.
       </p>
       <p>
-        That split is intentional. The three concepts live in three different
-        places on disk and they each have a different job:
+        Two things live near experiments but are separate tabs of their own:
       </p>
       <ul>
         <li>
-          <strong>Lab Notes</strong> (this tab) is the <em>during-the-run</em>{" "}
-          record. Live notes, sub-tasks, deviation log, image strip.
+          <Link href="/wiki/features/methods">Methods</Link> is the lab&apos;s
+          reusable protocol library. Attach one to an experiment from the
+          popup&apos;s side panel.
         </li>
         <li>
-          <Link href="/wiki/features/methods">Methods</Link> is the{" "}
-          <em>reusable protocol library</em>. Edit a method once and every
-          future experiment can attach it.
-        </li>
-        <li>
-          <Link href="/wiki/features/results">Results</Link> is the{" "}
-          <em>final-output</em> folder for the experiment (i.e., gels, blots,
-          plots, write-up). Lives at{" "}
-          <code>users/&lt;you&gt;/results/task-&lt;id&gt;/</code>.
+          <Link href="/wiki/features/results">Results</Link> is where the
+          final outputs go (gels, blots, plots, the write-up). Each
+          experiment has its own Results folder, opened from the same popup.
         </li>
       </ul>
 
