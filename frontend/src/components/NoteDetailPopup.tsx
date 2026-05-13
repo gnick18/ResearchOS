@@ -121,51 +121,6 @@ export default function NoteDetailPopup({
   const isSavingRef = useRef(false);
   const isClosingRef = useRef(false);
 
-  const handleImageUpload = useCallback(
-    async (files: File[]) => {
-      setUploading(true);
-      for (const file of files) {
-        if (!file.type.startsWith("image/")) continue;
-        const renamedFile = await requestRename(file);
-        if (!renamedFile) continue;
-        try {
-          await attachImageToTask({
-            ownerUsername: currentUser ?? note.username,
-            taskId: note.id,
-            basePath,
-            blob: renamedFile,
-            suggestedFilename: renamedFile.name,
-          });
-        } catch {
-          alert(`Failed to upload ${renamedFile.name}`);
-        }
-      }
-      setUploading(false);
-    },
-    [basePath, requestRename, currentUser, note.id, note.username]
-  );
-
-  const handleFileUpload = useCallback(
-    async (files: File[]) => {
-      setUploading(true);
-      const filesDir = `${basePath}/Files`;
-      for (const file of files) {
-        const renamedFile = await requestRename(file);
-        if (!renamedFile) continue;
-        try {
-          const finalName = await pickUniqueFilename(filesDir, renamedFile.name);
-          const destPath = `${filesDir}/${finalName}`;
-          await fileService.writeFileFromBlob(destPath, renamedFile);
-          fileEvents.emitAttached({ basePath, relativePath: `Files/${finalName}` });
-        } catch {
-          alert(`Failed to upload ${renamedFile.name}`);
-        }
-      }
-      setUploading(false);
-    },
-    [basePath, requestRename]
-  );
-
   // Set initial active tab
   useEffect(() => {
     if (note.entries.length > 0 && !activeTab) {
@@ -355,11 +310,78 @@ export default function NoteDetailPopup({
 
       // Track unsaved content
       unsavedContentRef.current.set(activeTab, content);
-      
+
       // Trigger debounced save
       debouncedSave(activeTab, content);
     },
     [activeTab, debouncedSave]
+  );
+
+  const handleImageUpload = useCallback(
+    async (files: File[]) => {
+      setUploading(true);
+      const snippets: string[] = [];
+      for (const file of files) {
+        if (!file.type.startsWith("image/")) continue;
+        const renamedFile = await requestRename(file);
+        if (!renamedFile) continue;
+        try {
+          const { markdownSnippet } = await attachImageToTask({
+            ownerUsername: currentUser ?? note.username,
+            taskId: note.id,
+            basePath,
+            blob: renamedFile,
+            suggestedFilename: renamedFile.name,
+          });
+          snippets.push(markdownSnippet);
+        } catch {
+          alert(`Failed to upload ${renamedFile.name}`);
+        }
+      }
+      setUploading(false);
+      // Append all snippets to the active entry's body in one update so the
+      // markdown actually references the uploaded files. Without this, the
+      // debounced auto-save runs against a body that doesn't reference the
+      // new images and the GC sweep deletes them as orphans 1.5s later.
+      if (snippets.length > 0 && activeTab) {
+        const currentEntry = entries.find((e) => e.id === activeTab);
+        if (currentEntry) {
+          updateEntryContent(currentEntry.content + snippets.join(""));
+        }
+      }
+    },
+    [basePath, requestRename, currentUser, note.id, note.username, activeTab, entries, updateEntryContent]
+  );
+
+  const handleFileUpload = useCallback(
+    async (files: File[]) => {
+      setUploading(true);
+      const filesDir = `${basePath}/Files`;
+      const snippets: string[] = [];
+      for (const file of files) {
+        const renamedFile = await requestRename(file);
+        if (!renamedFile) continue;
+        try {
+          const finalName = await pickUniqueFilename(filesDir, renamedFile.name);
+          const destPath = `${filesDir}/${finalName}`;
+          await fileService.writeFileFromBlob(destPath, renamedFile);
+          fileEvents.emitAttached({ basePath, relativePath: `Files/${finalName}` });
+          snippets.push(`\n[${finalName}](Files/${finalName})\n`);
+        } catch {
+          alert(`Failed to upload ${renamedFile.name}`);
+        }
+      }
+      setUploading(false);
+      // Same GC-protection rationale as handleImageUpload above: the body
+      // must reference the file or the debounced GC sweep will delete it.
+      if (snippets.length > 0 && activeTab) {
+        const currentEntry = entries.find((e) => e.id === activeTab);
+        if (currentEntry) {
+          updateEntryContent(currentEntry.content + snippets.join(""));
+        }
+      }
+    },
+    [basePath, requestRename, activeTab, entries, updateEntryContent]
   );
 
   // Add new entry
