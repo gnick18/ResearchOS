@@ -554,12 +554,13 @@ export default function LiveMarkdownEditor({
   const [resolvedBlobUrls, setResolvedBlobUrls] = useState<Map<string, string>>(new Map());
   const [showAttachmentStrip, setShowAttachmentStrip] = useState(true);
   const [activeAttachmentTab, setActiveAttachmentTab] = useState<"images" | "files">("images");
-  // Native-file drag affordance: light up the editor wrapper while the user is
-  // dragging a file from Finder over it. Counter handles child-element bubbling
-  // (dragenter/leave fire on every nested element the cursor crosses), so we
-  // only clear the highlight when the counter returns to 0.
+  // Native-file drag affordance: light up the editor (or the surrounding popup)
+  // while the user is dragging a file from Finder over it. Counter handles
+  // child-element bubbling — dragenter/leave fire on every nested element the
+  // cursor crosses, so we only clear the highlight when the counter returns to 0.
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const dragCounterRef = useRef(0);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const editorContentRef = useRef<HTMLDivElement>(null);
 
   // Scroll the rendered preview/hybrid editor to the image with the given
@@ -1475,11 +1476,29 @@ export default function LiveMarkdownEditor({
     if (isDraggingFile) setIsDraggingFile(false);
   };
 
+  // Apply the ring to whichever ancestor opts in via `data-drag-ring-target`
+  // (typically the popup card that contains the editor) so it isn't clipped
+  // by the editor's overflow parents. If no ancestor opts in, the editor's
+  // own wrapper takes the ring as a fallback.
+  useEffect(() => {
+    if (!wrapperRef.current) return;
+    const target =
+      wrapperRef.current.closest("[data-drag-ring-target]") as HTMLElement | null
+      ?? wrapperRef.current;
+    if (isDraggingFile) {
+      target.classList.add("live-md-drag-ring-active");
+    } else {
+      target.classList.remove("live-md-drag-ring-active");
+    }
+    return () => {
+      target.classList.remove("live-md-drag-ring-active");
+    };
+  }, [isDraggingFile]);
+
   return (
     <div
-      className={`flex flex-col h-full transition-all duration-150 ${
-        isDraggingFile ? "ring-4 ring-blue-400 ring-offset-2 bg-blue-50/20" : ""
-      }`}
+      ref={wrapperRef}
+      className="flex flex-col h-full"
       onDragEnter={handleWrapperDragEnter}
       onDragLeave={handleWrapperDragLeave}
       // Capture phase: the inner drop handler calls stopPropagation on valid

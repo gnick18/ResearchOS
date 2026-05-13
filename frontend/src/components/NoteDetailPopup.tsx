@@ -402,12 +402,15 @@ export default function NoteDetailPopup({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={handleClose}>
-      <div 
+      <div
         className={`bg-white rounded-2xl shadow-2xl w-full flex flex-col overflow-hidden transition-all duration-300 ${
-          isExpanded 
-            ? "inset-4 max-w-none max-h-none h-[calc(100vh-2rem)]" 
+          isExpanded
+            ? "inset-4 max-w-none max-h-none h-[calc(100vh-2rem)]"
             : "max-w-4xl max-h-[90vh]"
         }`}
+        // LiveMarkdownEditor draws its file-drag ring on this card so the
+        // ring isn't clipped by the editor's overflow parents.
+        data-drag-ring-target=""
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

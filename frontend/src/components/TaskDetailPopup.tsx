@@ -325,6 +325,10 @@ export default function TaskDetailPopup({
             : "max-w-5xl h-[90vh]"
         }`}
         style={{ borderLeftColor: project?.color || "#3b82f6" }}
+        // LiveMarkdownEditor walks up to this attribute and draws its
+        // file-drag ring on the popup card so the ring isn't clipped by
+        // the editor's overflow parents.
+        data-drag-ring-target=""
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
