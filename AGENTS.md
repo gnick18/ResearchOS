@@ -1,6 +1,6 @@
 # Master-Agent Handoff Doc
 
-This file briefs an orchestrator agent (a "master bot") on what ResearchOS is, how the codebase is organized, and the working conventions established over a long collaboration on it. Read this end-to-end before suggesting work, spawning sub-agents, or committing.
+This file briefs an orchestrator agent (a "master bot") on what ResearchOS is, how the codebase is organized, and the working conventions established over a long collaboration on it. Read this end-to-end before suggesting work, spawning sub-agents, or committing. For deeper architecture (data flow, FSA wrapper internals, store layout), read `ARCHITECTURE.md` next.
 
 ---
 
@@ -119,14 +119,28 @@ Editable shared tasks: most mutating `tasksApi` methods (`update`, `move`, `dele
 
 ## 4. Working conventions
 
-### Spawning sub-agents
+### Sub-agents (spawn vs inline)
 
-Big chunks of work were done by spawning fresh agents in their own worktrees via `mcp__ccd_session__spawn_task`. The reliable recipe for a prompt:
+Big chunks of work were done by spawning fresh agents in their own worktrees via `mcp__ccd_session__spawn_task`.
+
+**Spawn when:**
+
+- Multi-hour work that doesn't depend on this chat's state (audit sweeps, large refactors, isolated features).
+- Anything where the user explicitly says "spawn an agent."
+
+**Don't spawn — do it inline — when:**
+
+- Single-file fixes.
+- Anything that needs ongoing dialogue with the user.
+- Trivial cleanup.
+
+Reliable recipe for a spawn prompt:
 
 - **Self-contained briefing.** Spawned agents don't see prior chat history. Include the project's one-liner, the specific files to touch, the current commit they should expect to see, and what's out-of-scope.
 - **Scope guards.** Always say what NOT to do (don't touch on-disk JSON format, don't refactor unrelated things, don't migrate to a new component if scope is "add `title` attrs").
 - **Reproduction recipe** if you can give one (`as Grant open Kritika's shared task — should …`).
-- **Verification gate**: `cd frontend && npx tsc --noEmit` must pass. Optionally `npx eslint src/`. Live test in `http://localhost:3000`.
+- **Worktree bootstrap.** A fresh worktree has no `node_modules` — without it, `npx tsc` falls through to a placeholder ("This is not the tsc command you are looking for") and the verification gate is silently bypassed. The spawn prompt must include either `cd frontend && npm install` as a precondition, or a symlink shortcut (`ln -s /Users/gnickles/Desktop/ResearchOS/frontend/node_modules frontend/node_modules` from the worktree root, since the main checkout's deps stay in lockstep with the worktree's `package.json`).
+- **Verification gate**: `cd frontend && npx tsc --noEmit` must pass with exit 0. Optionally `npx eslint src/`. Live test in `http://localhost:3000`.
 - **Staleness check.** Tell them: "If you don't see `frontend/src/lib/local-api.ts` or recent commit `<hash>`, the worktree is stale — stop and report." This catches the case where the spawned worktree is branched off pre-FSA-migration state.
 
 ### Commits
@@ -135,6 +149,7 @@ Big chunks of work were done by spawning fresh agents in their own worktrees via
 - Sign-off: `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`.
 - **Never commit without explicit user confirmation.** When unsure, ask.
 - **Never push without explicit user confirmation.** "Push when ready" is the default until the user says push.
+- Default remote is `origin`; `main` is the canonical branch. Feature work lives on `claude/*` branches and merges into local `main` after the user verifies the UI. Push to `origin` only on explicit confirmation. **Never `--force` push to `main`.** If the user asks for a force push, double-check the target branch first.
 - `git add` specific paths, not `-A`. Other agents may have parallel uncommitted work in the tree.
 - Use `git commit -F /tmp/researchOS-commit-msg.txt` for multi-paragraph messages with apostrophes — shell HEREDOCs choke on `'` inside `'…'`-quoted shells.
 
@@ -143,19 +158,7 @@ Big chunks of work were done by spawning fresh agents in their own worktrees via
 - When the same worktree is shared with parallel agents, expect to see "intentional, do not revert" system reminders about files modified outside your scope. Treat those files as authoritative; don't undo their changes.
 - Typecheck after every significant change: `cd frontend && npx tsc --noEmit`. The bar is exit 0.
 - ESLint warnings are fine; new errors are not.
-
-### Sub-agent task chips ("spawned tasks")
-
-Use `mcp__ccd_session__spawn_task` for:
-
-- Multi-hour work that doesn't depend on this chat's state (audit sweeps, large refactors, isolated features).
-- Anything where the user explicitly says "spawn an agent."
-
-Don't use it for:
-
-- Single-file fixes (do them inline).
-- Anything that needs ongoing dialogue with the user.
-- Trivial cleanup.
+- **Icon-only buttons** → wrap in `<Tooltip>` from `frontend/src/components/Tooltip.tsx`. Native HTML `title=` is functionally invisible in this app (custom rendering layer hides it) — never use it for tooltips on new code. The native-tooltip migration sweep is mostly done; any new component should default to `<Tooltip>`.
 
 ---
 
@@ -195,13 +198,13 @@ Don't use it for:
 
 - **Cross-user dependency cascade is namespace-bounded.** `shiftTask(taskId, …, owner)` only walks deps in that one user's directory. There's a planned chain-share feature that mirrors dependency edges across users' dependency dirs; it's spawned but unmerged.
 
-- **Schema field renames sometimes outpace callers.** When you see a typecheck error in `local-api.ts` for a Notes/Project/etc field that doesn't exist on the inferred type, it's usually because the schema in `lib/schemas/index.ts` was renamed by another agent and a caller wasn't updated.
+- **Schema field renames sometimes outpace callers.** When you see a typecheck error in `local-api.ts` for a Notes/Project/etc field that doesn't exist on the inferred type, it's usually because the schema in `lib/schemas/index.ts` was renamed by another agent and a caller wasn't updated. The typical fix touches **three layers in lockstep**: (1) the Zod schema in `frontend/src/lib/schemas/index.ts`, (2) the corresponding `*Api` adapter in `frontend/src/lib/local-api.ts` (read/write/normalize paths), and (3) the React component callers that pass the field. Grep the old name across all three before declaring the rename complete — partial renames often typecheck because callers go through `any`-shaped intermediaries.
 
 ---
 
 ## 7. Recent landed work (top of `main`)
 
-(Read `git log --oneline -20` to see exact state. Highlights from this collaboration:)
+**Snapshot frozen at commit `1b19b524` (2026-05-13).** This list will drift as new work lands — always prefer `git log --oneline -20` over this section for the current state, and treat anything below as historical context only. Highlights from this collaboration:
 
 - README revamp with hosted-URL + Telegram + calendar sections.
 - Drag-to-trash double-delete fix + middle-state image-ref migration persistence.
@@ -255,7 +258,9 @@ cd frontend
 npx tsc --noEmit
 npx eslint src/
 
-# Where the data lives during dev
+# Where the data lives during dev (example only — this is Grant's local path;
+# other users / dev environments will have different roots, and the app
+# accepts any directory the user picks via showDirectoryPicker)
 /Users/gnickles/Library/CloudStorage/OneDrive-UW-Madison/ResearchOS_FungalInteractionsLab
 
 # Cleanup script (zips originals to Desktop, then deletes migrated copies)
