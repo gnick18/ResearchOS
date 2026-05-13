@@ -106,6 +106,8 @@ function eventToExternal(
   return {
     id: `ext-${feed.id}-${uid}${occurrenceKey ? `-${occurrenceKey}` : ""}`,
     feedId: feed.id,
+    feedKind: feed.kind,
+    providerEventId: uid,
     title: summary,
     start_date: startStr,
     end_date: endStr && endStr !== startStr ? endStr : null,

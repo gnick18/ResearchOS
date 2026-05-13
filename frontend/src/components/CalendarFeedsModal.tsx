@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
@@ -11,7 +11,21 @@ import {
 } from "@/lib/calendar/external-feeds-store";
 import { parseIcsToExternalEvents } from "@/lib/calendar/ics-parser";
 import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
-import type { CalendarFeed, CalendarFeedProvider } from "@/lib/types";
+import {
+  clearTokens,
+  readTokens,
+  type OAuthTokens,
+} from "@/lib/calendar/oauth-tokens-store";
+import { isProviderConfigured } from "@/lib/calendar/oauth-config";
+import { connectProvider } from "@/lib/calendar/oauth-connect";
+import {
+  listCalendars as listGoogleCalendars,
+  type GoogleCalendarListItem,
+} from "@/lib/calendar/google-client";
+import type {
+  CalendarFeed,
+  CalendarFeedProvider,
+} from "@/lib/types";
 
 const PROVIDER_LABELS: Record<CalendarFeedProvider, string> = {
   google: "Google Calendar",
@@ -36,21 +50,44 @@ export default function CalendarFeedsModal({ onClose }: Props) {
   const [loading, setLoading] = useState(true);
   const [showHelp, setShowHelp] = useState<CalendarFeedProvider | null>(null);
 
-  const [draftProvider, setDraftProvider] = useState<CalendarFeedProvider>("google");
+  const [draftProvider, setDraftProvider] = useState<CalendarFeedProvider>("icloud");
   const [draftLabel, setDraftLabel] = useState("");
   const [draftUrl, setDraftUrl] = useState("");
   const [draftColor, setDraftColor] = useState(DEFAULT_COLORS[0]);
   const [testing, setTesting] = useState(false);
   const [draftError, setDraftError] = useState<string | null>(null);
 
+  // ── Google OAuth section state ─────────────────────────────────────
+  const googleConfigured = isProviderConfigured("google");
+  const [googleTokens, setGoogleTokens] = useState<OAuthTokens | null>(null);
+  const [googleCalendars, setGoogleCalendars] = useState<GoogleCalendarListItem[]>([]);
+  const [googleBusy, setGoogleBusy] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
+
+  // Initial load.
   useEffect(() => {
     if (!currentUser) return;
     let cancelled = false;
     (async () => {
       const list = await listFeeds(currentUser);
-      if (!cancelled) {
-        setFeeds(list);
-        setLoading(false);
+      const g = await readTokens(currentUser, "google");
+      if (cancelled) return;
+      setFeeds(list);
+      setGoogleTokens(g);
+      setLoading(false);
+      // If already connected, pull the calendar list so the user can
+      // toggle subscriptions immediately.
+      if (g) {
+        try {
+          const cals = await listGoogleCalendars(currentUser);
+          if (!cancelled) setGoogleCalendars(cals);
+        } catch (err) {
+          if (!cancelled) {
+            setGoogleError(
+              err instanceof Error ? err.message : "Couldn't fetch your Google calendars.",
+            );
+          }
+        }
       }
     })();
     return () => {
@@ -58,11 +95,12 @@ export default function CalendarFeedsModal({ onClose }: Props) {
     };
   }, [currentUser]);
 
-  const invalidate = () => {
+  const invalidate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["calendar-feeds", currentUser] });
     queryClient.invalidateQueries({ queryKey: ["calendar-feed-events"] });
-  };
+  }, [queryClient, currentUser]);
 
+  // ── ICS-form handlers (existing behaviour) ─────────────────────────
   const handleAdd = async () => {
     if (!currentUser) return;
     const url = draftUrl.trim();
@@ -79,29 +117,28 @@ export default function CalendarFeedsModal({ onClose }: Props) {
         throw new Error(text || `Server returned ${res.status}`);
       }
       const ics = await res.text();
-      // Probe-parse to surface broken feeds before we save them.
+      // Probe-parse to surface broken feeds before saving.
       const probe = parseIcsToExternalEvents(ics, {
         id: 0,
         provider: draftProvider,
+        kind: "ics",
         label: "_probe",
         icsUrl: url,
+        oauthCalendarId: null,
         color: draftColor,
         enabled: true,
         lastSyncAt: null,
       });
       if (probe.length === 0) {
-        // Allow saving anyway — a calendar can legitimately be empty — but
-        // warn the user so they don't think it silently failed.
         const ok = window.confirm(
-          "The feed was reachable but contained no events in the ±2-year window. Add it anyway?"
+          "The feed was reachable but contained no events in the ±2-year window. Add it anyway?",
         );
         if (!ok) {
           setTesting(false);
           return;
         }
       }
-      const label =
-        draftLabel.trim() || `${PROVIDER_LABELS[draftProvider]}`;
+      const label = draftLabel.trim() || PROVIDER_LABELS[draftProvider];
       const created = await createFeed(currentUser, {
         provider: draftProvider,
         label,
@@ -146,7 +183,7 @@ export default function CalendarFeedsModal({ onClose }: Props) {
   const handleDelete = async (feed: CalendarFeed) => {
     if (!currentUser) return;
     const ok = window.confirm(
-      `Remove "${feed.label}"? Events from this calendar will disappear immediately. ResearchOS events are untouched.`
+      `Remove "${feed.label}"? Events from this calendar will disappear immediately. ResearchOS events are untouched.`,
     );
     if (!ok) return;
     await deleteFeed(currentUser, feed.id);
@@ -154,6 +191,97 @@ export default function CalendarFeedsModal({ onClose }: Props) {
     invalidate();
   };
 
+  // ── Google OAuth handlers ──────────────────────────────────────────
+  const refreshGoogleCalendarList = useCallback(async () => {
+    if (!currentUser) return;
+    try {
+      const cals = await listGoogleCalendars(currentUser);
+      setGoogleCalendars(cals);
+      setGoogleError(null);
+    } catch (err) {
+      setGoogleError(
+        err instanceof Error ? err.message : "Couldn't fetch your Google calendars.",
+      );
+    }
+  }, [currentUser]);
+
+  const handleConnectGoogle = async () => {
+    if (!currentUser) return;
+    setGoogleBusy(true);
+    setGoogleError(null);
+    try {
+      const tokens = await connectProvider(currentUser, "google");
+      setGoogleTokens(tokens);
+      await refreshGoogleCalendarList();
+      try {
+        await ensureGitignoreEntries([
+          "_calendar-oauth.json",
+          "users/*/_calendar-oauth.json",
+        ]);
+      } catch {
+        /* ignore */
+      }
+    } catch (err) {
+      setGoogleError(err instanceof Error ? err.message : "Sign-in failed.");
+    } finally {
+      setGoogleBusy(false);
+    }
+  };
+
+  const handleDisconnectGoogle = async () => {
+    if (!currentUser) return;
+    const googleFeeds = feeds.filter((f) => f.kind === "google");
+    const ok = window.confirm(
+      googleFeeds.length === 0
+        ? "Disconnect your Google account?"
+        : `Disconnect your Google account? ${googleFeeds.length} subscribed calendar${
+            googleFeeds.length === 1 ? "" : "s"
+          } will be removed.`,
+    );
+    if (!ok) return;
+    setGoogleBusy(true);
+    try {
+      for (const f of googleFeeds) await deleteFeed(currentUser, f.id);
+      await clearTokens(currentUser, "google");
+      setGoogleTokens(null);
+      setGoogleCalendars([]);
+      setFeeds((prev) => prev.filter((f) => f.kind !== "google"));
+      invalidate();
+    } finally {
+      setGoogleBusy(false);
+    }
+  };
+
+  const isGoogleCalendarSubscribed = (calId: string): CalendarFeed | undefined =>
+    feeds.find((f) => f.kind === "google" && f.oauthCalendarId === calId);
+
+  const handleToggleGoogleCalendar = async (cal: GoogleCalendarListItem) => {
+    if (!currentUser) return;
+    const existing = isGoogleCalendarSubscribed(cal.id);
+    if (existing) {
+      await deleteFeed(currentUser, existing.id);
+      setFeeds((prev) => prev.filter((f) => f.id !== existing.id));
+      invalidate();
+      return;
+    }
+    // Subscribe — colour from Google's hint if we got one, otherwise pick
+    // the next colour from the default palette so multiple calendars stay
+    // visually distinct.
+    const usedColors = new Set(feeds.map((f) => f.color));
+    const fallbackColor =
+      DEFAULT_COLORS.find((c) => !usedColors.has(c)) ?? DEFAULT_COLORS[0];
+    const created = await createFeed(currentUser, {
+      kind: "google",
+      provider: "google",
+      label: cal.summary,
+      oauthCalendarId: cal.id,
+      color: cal.backgroundColor || fallbackColor,
+    });
+    setFeeds((prev) => [...prev, created]);
+    invalidate();
+  };
+
+  // ── Render ─────────────────────────────────────────────────────────
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm"
@@ -167,7 +295,8 @@ export default function CalendarFeedsModal({ onClose }: Props) {
           <div>
             <h3 className="text-base font-semibold text-gray-900">Linked Calendars</h3>
             <p className="text-xs text-gray-500 mt-0.5">
-              Show events from Google, Outlook, or iCloud alongside ResearchOS events. Read-only.
+              Show events from Google, Outlook, or iCloud alongside ResearchOS events.
+              Google can be two-way; Outlook coming soon; iCloud is read-only.
             </p>
           </div>
           <button
@@ -180,7 +309,7 @@ export default function CalendarFeedsModal({ onClose }: Props) {
         </div>
 
         <div className="overflow-y-auto px-5 py-4 space-y-6">
-          {/* Existing feeds */}
+          {/* Connected feeds */}
           <div>
             <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
               Connected ({feeds.length})
@@ -189,7 +318,7 @@ export default function CalendarFeedsModal({ onClose }: Props) {
               <p className="text-sm text-gray-500 py-4">Loading…</p>
             ) : feeds.length === 0 ? (
               <p className="text-sm text-gray-400 italic py-2">
-                No linked calendars yet. Add one below.
+                No linked calendars yet. Connect Google below or paste an ICS URL.
               </p>
             ) : (
               <ul className="space-y-2">
@@ -221,12 +350,21 @@ export default function CalendarFeedsModal({ onClose }: Props) {
                           {feed.label}
                         </span>
                         <span className="text-[10px] uppercase tracking-wide text-gray-400">
-                          {PROVIDER_LABELS[feed.provider]}
+                          {feed.kind === "ics"
+                            ? PROVIDER_LABELS[feed.provider]
+                            : feed.kind === "google"
+                              ? "Google · two-way"
+                              : "Outlook · two-way"}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-400 truncate mt-0.5" title={feed.icsUrl}>
-                        {feed.icsUrl}
-                      </p>
+                      {feed.icsUrl && (
+                        <p
+                          className="text-xs text-gray-400 truncate mt-0.5"
+                          title={feed.icsUrl}
+                        >
+                          {feed.icsUrl}
+                        </p>
+                      )}
                       {feed.lastSyncAt && (
                         <p className="text-[10px] text-gray-400 mt-0.5">
                           Last synced {new Date(feed.lastSyncAt).toLocaleString()}
@@ -258,11 +396,143 @@ export default function CalendarFeedsModal({ onClose }: Props) {
             )}
           </div>
 
-          {/* Add new */}
+          {/* Connect Google account */}
+          <div className="border-t border-gray-100 pt-5">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+              Connect an account
+            </h4>
+            <div className="space-y-3">
+              {!googleConfigured ? (
+                <div className="border border-gray-200 rounded-lg p-3">
+                  <p className="text-sm text-gray-700 font-medium">Google Calendar</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Not configured for this deployment. Set{" "}
+                    <code className="px-1 py-0.5 bg-gray-100 rounded">
+                      NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED=1
+                    </code>{" "}
+                    plus your client id/secret to enable.
+                  </p>
+                </div>
+              ) : !googleTokens ? (
+                <div className="border border-gray-200 rounded-lg p-3 flex items-center gap-3">
+                  <GoogleLogo />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900">Google Calendar</p>
+                    <p className="text-[11px] text-gray-500">
+                      Read events · edit time / title / location · delete. iCloud-only
+                      account? Use the ICS form below instead.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleConnectGoogle}
+                    disabled={googleBusy}
+                    className="px-3 py-1.5 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+                  >
+                    {googleBusy ? "Opening…" : "Connect"}
+                  </button>
+                </div>
+              ) : (
+                <div className="border border-emerald-200 bg-emerald-50/50 rounded-lg p-3 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <GoogleLogo />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900">
+                        Connected to Google
+                      </p>
+                      {googleTokens.accountEmail && (
+                        <p className="text-[11px] text-gray-500 truncate">
+                          as {googleTokens.accountEmail}
+                        </p>
+                      )}
+                      {!googleTokens.refreshToken && (
+                        <p className="text-[11px] text-amber-700 mt-1">
+                          Google didn&apos;t return a refresh token. Access will expire
+                          in ~1 hour; reconnect to keep syncing.
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={handleDisconnectGoogle}
+                      disabled={googleBusy}
+                      className="text-[11px] text-red-600 hover:underline disabled:opacity-50"
+                    >
+                      Disconnect
+                    </button>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
+                      Show events from
+                    </p>
+                    {googleError && (
+                      <p className="text-xs text-red-600 mb-2">{googleError}</p>
+                    )}
+                    {googleCalendars.length === 0 && !googleError ? (
+                      <p className="text-xs text-gray-400 italic">Loading calendars…</p>
+                    ) : (
+                      <ul className="space-y-1">
+                        {googleCalendars.map((cal) => {
+                          const sub = isGoogleCalendarSubscribed(cal.id);
+                          return (
+                            <li key={cal.id}>
+                              <label className="flex items-center gap-2 px-2 py-1 rounded hover:bg-white cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={!!sub}
+                                  onChange={() => handleToggleGoogleCalendar(cal)}
+                                />
+                                <span
+                                  className="inline-block w-2.5 h-2.5 rounded-sm"
+                                  style={{
+                                    backgroundColor: cal.backgroundColor || "#9ca3af",
+                                  }}
+                                />
+                                <span className="text-xs text-gray-800 truncate flex-1">
+                                  {cal.summary}
+                                  {cal.primary && (
+                                    <span className="ml-1 text-[10px] uppercase tracking-wide text-blue-600">
+                                      primary
+                                    </span>
+                                  )}
+                                </span>
+                                {cal.accessRole && cal.accessRole !== "owner" && (
+                                  <span className="text-[10px] text-gray-400">
+                                    {cal.accessRole}
+                                  </span>
+                                )}
+                              </label>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Outlook placeholder until M2 lands. */}
+              <div className="border border-gray-200 rounded-lg p-3 flex items-center gap-3 opacity-60">
+                <OutlookLogo />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900">Outlook / Microsoft 365</p>
+                  <p className="text-[11px] text-gray-500">
+                    OAuth coming next. For now, publish a calendar from Outlook and
+                    paste its ICS URL below.
+                  </p>
+                </div>
+                <span className="text-[11px] text-gray-400">Coming soon</span>
+              </div>
+            </div>
+          </div>
+
+          {/* ICS URL form */}
           <div className="border-t border-gray-100 pt-5">
             <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
-              Add a calendar
+              Or paste a public iCal / ICS URL
             </h4>
+            <p className="text-[11px] text-gray-500 mb-3">
+              The only way to subscribe to iCloud calendars. Read-only.
+            </p>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -274,9 +544,9 @@ export default function CalendarFeedsModal({ onClose }: Props) {
                     onChange={(e) => setDraftProvider(e.target.value as CalendarFeedProvider)}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="google">Google Calendar</option>
-                    <option value="outlook">Outlook / Office 365</option>
                     <option value="icloud">iCloud / Apple Calendar</option>
+                    <option value="google">Google Calendar (ICS)</option>
+                    <option value="outlook">Outlook / Office 365 (ICS)</option>
                     <option value="other">Other (any public iCal URL)</option>
                   </select>
                 </div>
@@ -305,8 +575,8 @@ export default function CalendarFeedsModal({ onClose }: Props) {
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <p className="mt-1 text-[11px] text-amber-600">
-                  This URL grants read access to your calendar events to anyone who has it.
-                  ResearchOS stores it in your private data folder.
+                  This URL grants read access to your calendar events to anyone who has
+                  it. ResearchOS stores it in your private data folder.
                 </p>
               </div>
               <div>
@@ -362,10 +632,50 @@ export default function CalendarFeedsModal({ onClose }: Props) {
         </div>
 
         <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 text-[11px] text-gray-500">
-          Linked events are read-only and never modify your ResearchOS data.
+          OAuth-connected calendars become editable once write support ships. ICS
+          subscriptions stay read-only.
         </div>
       </div>
     </div>
+  );
+}
+
+function GoogleLogo() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.75h3.57c2.08-1.92 3.28-4.74 3.28-8.07z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.75c-.99.66-2.26 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.12c-.22-.66-.35-1.36-.35-2.12s.13-1.46.35-2.12V7.04H2.18a11 11 0 0 0 0 9.92l3.66-2.84z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.2 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.04l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"
+      />
+    </svg>
+  );
+}
+
+function OutlookLogo() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#0078D4"
+        d="M21.5 4h-9v3h7.5v10h-7.5v3h9c.55 0 1-.45 1-1V5c0-.55-.45-1-1-1z"
+      />
+      <path fill="#0078D4" d="M11.5 3.5L1.5 5v14l10 1.5z" />
+      <path
+        fill="#fff"
+        d="M6.5 8.7c-1.78 0-2.97 1.43-2.97 3.3 0 1.89 1.2 3.3 2.97 3.3 1.78 0 2.96-1.41 2.96-3.3 0-1.87-1.19-3.3-2.96-3.3zm0 5.16c-.94 0-1.53-.79-1.53-1.86 0-1.06.6-1.86 1.53-1.86s1.52.8 1.52 1.86c0 1.07-.59 1.86-1.52 1.86z"
+      />
+    </svg>
   );
 }
 
@@ -378,17 +688,18 @@ function HelpContent({ provider }: { provider: CalendarFeedProvider }) {
             Open <span className="font-medium">Google Calendar</span> in a desktop browser.
           </li>
           <li>
-            Click the gear icon → <span className="font-medium">Settings</span> →{" "}
+            Click the gear → <span className="font-medium">Settings</span> →{" "}
             <span className="font-medium">Settings for my calendars</span>.
           </li>
           <li>Pick the calendar you want to share.</li>
           <li>
-            Scroll to{" "}
-            <span className="font-medium">&ldquo;Secret address in iCal format&rdquo;</span>
-            (private) or <span className="font-medium">&ldquo;Public address in iCal
-            format&rdquo;</span> (if the calendar is set to public).
+            Copy the <span className="font-medium">&ldquo;Secret address in iCal format&rdquo;</span>{" "}
+            URL.
           </li>
-          <li>Copy that URL and paste it above.</li>
+          <li>
+            Easier alternative: use the &ldquo;Connect Google&rdquo; button above for a
+            real OAuth integration (read + write).
+          </li>
         </ol>
       );
     case "outlook":
@@ -406,8 +717,7 @@ function HelpContent({ provider }: { provider: CalendarFeedProvider }) {
             details&rdquo;</span>, and click <span className="font-medium">Publish</span>.
           </li>
           <li>
-            Copy the <span className="font-medium">ICS</span> link Outlook generates
-            (ends in <span className="font-mono">.ics</span>).
+            Copy the <span className="font-medium">ICS</span> link Outlook generates.
           </li>
         </ol>
       );
@@ -419,7 +729,7 @@ function HelpContent({ provider }: { provider: CalendarFeedProvider }) {
             iCloud.com.
           </li>
           <li>
-            Right-click (or tap the share icon next to) the calendar →{" "}
+            Right-click the calendar →{" "}
             <span className="font-medium">Share Calendar</span> →{" "}
             <span className="font-medium">Public Calendar</span>.
           </li>
@@ -430,8 +740,8 @@ function HelpContent({ provider }: { provider: CalendarFeedProvider }) {
             automatically.
           </li>
           <li>
-            iCloud-published feeds can lag by up to 24 hours. Edits in iCal won&apos;t
-            appear here instantly.
+            Apple doesn&apos;t expose a write API to third parties, so iCloud feeds
+            stay read-only no matter what.
           </li>
         </ol>
       );

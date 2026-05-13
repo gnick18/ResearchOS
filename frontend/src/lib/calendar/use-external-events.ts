@@ -9,6 +9,7 @@ import {
   markFeedSynced,
 } from "./external-feeds-store";
 import { parseIcsToExternalEvents } from "./ics-parser";
+import { listEventsForFeed as listGoogleEvents } from "./google-client";
 
 const FEEDS_QUERY_KEY = ["calendar-feeds"] as const;
 const FEED_EVENTS_PREFIX = "calendar-feed-events";
@@ -16,7 +17,8 @@ const FEED_EVENTS_PREFIX = "calendar-feed-events";
 const FIFTEEN_MIN_MS = 15 * 60 * 1000;
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
-async function fetchAndParseFeed(feed: CalendarFeed): Promise<ExternalEvent[]> {
+async function fetchIcsFeed(feed: CalendarFeed): Promise<ExternalEvent[]> {
+  if (!feed.icsUrl) return [];
   const proxyUrl = `/api/calendar-feed?url=${encodeURIComponent(feed.icsUrl)}`;
   const res = await fetch(proxyUrl, { cache: "no-store" });
   if (!res.ok) {
@@ -25,6 +27,23 @@ async function fetchAndParseFeed(feed: CalendarFeed): Promise<ExternalEvent[]> {
   }
   const ics = await res.text();
   return parseIcsToExternalEvents(ics, feed);
+}
+
+async function fetchFeed(
+  feed: CalendarFeed,
+  username: string | null,
+): Promise<ExternalEvent[]> {
+  switch (feed.kind) {
+    case "ics":
+      return fetchIcsFeed(feed);
+    case "google":
+      if (!username) return [];
+      return listGoogleEvents(username, feed);
+    case "outlook":
+      // M2: implemented when the Microsoft client lands. For now, an
+      // explicit no-op keeps disabled feeds from blocking the rest.
+      return [];
+  }
 }
 
 export function useCalendarFeeds() {
@@ -54,9 +73,14 @@ export function useExternalEvents() {
 
   const perFeed = useQueries({
     queries: enabledFeeds.map((feed) => ({
-      queryKey: [FEED_EVENTS_PREFIX, feed.id, feed.icsUrl] as const,
+      queryKey: [
+        FEED_EVENTS_PREFIX,
+        feed.id,
+        feed.kind,
+        feed.icsUrl ?? feed.oauthCalendarId,
+      ] as const,
       queryFn: async () => {
-        const events = await fetchAndParseFeed(feed);
+        const events = await fetchFeed(feed, currentUser);
         if (currentUser) {
           try {
             await markFeedSynced(currentUser, feed.id);
