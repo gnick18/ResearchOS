@@ -12,9 +12,29 @@ export default function LabModeFeaturePage() {
       <Screenshot
         src="/wiki/screenshots/lab-mode.png"
         alt="Lab Mode with the activity feed open and a combined Gantt below it."
+        caption="Lab Mode aggregates across every user in the folder."
       />
 
-      <h2>How to get there</h2>
+      <h2>What Lab Mode aggregates</h2>
+      <p>
+        ResearchOS data is namespaced by user (your projects, your tasks, your
+        methods all live under <code>users/&lt;you&gt;/</code>). When several
+        people share the same folder, each one has their own namespace inside
+        it.
+      </p>
+      <p>
+        Lab Mode is the view that <strong>reads across all those
+        namespaces</strong> and renders one combined picture. It&apos;s how
+        you see what the lab as a whole is up to without manually switching
+        between teammates.
+      </p>
+      <p>
+        If you&apos;re the only user in the folder, Lab Mode still works but
+        you&apos;ll be the only contributor in every list. The view starts to
+        earn its keep once two or more people are in the folder.
+      </p>
+
+      <h2>Get to Lab Mode</h2>
       <ul>
         <li>
           Click the <strong>Lab</strong> tab in the header.
@@ -26,6 +46,11 @@ export default function LabModeFeaturePage() {
       </ul>
 
       <h2>The tabs inside Lab Mode</h2>
+      <Screenshot
+        src="/wiki/screenshots/lab-mode-activity.png"
+        alt="The Activity feed in Lab Mode showing a chronological list of changes with contributor names."
+        caption="The Activity feed lists every change across the lab, with the contributor's name and a timestamp."
+      />
       <ul>
         <li>
           <strong>Activity</strong> is a chronological feed of every change
@@ -40,15 +65,16 @@ export default function LabModeFeaturePage() {
         <li>
           <strong>Experiments</strong>, <strong>Methods</strong>,{" "}
           <strong>Purchases</strong>, <strong>Roadmaps</strong>, and{" "}
-          <strong>Notes</strong> are flat lists across all users, with each row
-          attributed to its owner.
+          <strong>Notes</strong> are flat lists across all users, with each
+          row attributed to its owner.
         </li>
       </ul>
 
-      <h2>Filtering by user</h2>
+      <h2>Filter by user</h2>
       <p>
         Click the user-filter button to toggle which users are included. Hide
-        teammates you don&apos;t need to see. The filter persists per browser.
+        teammates you don&apos;t need to see. The filter persists per
+        browser.
       </p>
 
       <Callout variant="tip" title="Shared lab account setup first">

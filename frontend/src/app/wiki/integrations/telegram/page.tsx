@@ -15,12 +15,29 @@ export default function TelegramIntegrationPage() {
         caption="The Telegram pairing modal, reached from Settings → Profile."
       />
 
-      <h2>What it does</h2>
+      <h2>What this gets you</h2>
       <p>
-        ResearchOS polls a Telegram bot you own. Any photo (or document) you
-        send to that bot from your phone shows up in the in-app inbox tray and
-        triggers a toast at the bottom-right of the app. From there you can
-        drag the image into any experiment&apos;s notes.
+        The Telegram integration gives you a one-way pipe from your phone into
+        ResearchOS. You set up a Telegram bot that you own. Any photo (or
+        document) you send to that bot from your phone shows up in two places
+        inside the app:
+      </p>
+      <ul>
+        <li>
+          A small <strong>inbox tray</strong> in the bottom-right of the
+          window. Each new arrival becomes a card you can drag into any
+          experiment&apos;s notes or its results gallery.
+        </li>
+        <li>
+          A <strong>toast notification</strong> that fires when the photo
+          lands, so you don&apos;t have to keep checking the tray.
+        </li>
+      </ul>
+      <p>
+        Under the hood, ResearchOS polls Telegram&apos;s <code>getUpdates</code>{" "}
+        endpoint every few seconds while the app is open. New photos are saved
+        into <code>users/&lt;you&gt;/inbox/Images/</code> with a small JSON
+        sidecar containing the caption, sender, and timestamp.
       </p>
 
       <h2>Create a bot</h2>
@@ -53,8 +70,8 @@ export default function TelegramIntegrationPage() {
           In ResearchOS, open <strong>Settings → Profile → Connect Telegram</strong>.
         </Step>
         <Step>
-          Paste the bot token. The modal validates it and shows the
-          bot&apos;s name.
+          Paste the bot token. The modal validates it and shows the bot&apos;s
+          name.
         </Step>
         <Step>
           On your phone, open a chat with your new bot and send{" "}
@@ -63,7 +80,7 @@ export default function TelegramIntegrationPage() {
         </Step>
         <Step>
           Send any photo to the bot. It should appear in the ResearchOS inbox
-          within a few seconds.
+          tray within a few seconds.
         </Step>
       </Steps>
 
@@ -77,10 +94,10 @@ export default function TelegramIntegrationPage() {
 
       <h2>Disconnecting</h2>
       <p>
-        Reopen the Telegram pairing modal and click <strong>Disconnect</strong>.
-        That removes the local token. The bot itself stays alive on
-        Telegram&apos;s side. To delete the bot entirely, send{" "}
-        <code>/deletebot</code> to BotFather.
+        Reopen the Telegram pairing modal and click{" "}
+        <strong>Disconnect</strong>. That removes the local token. The bot
+        itself stays alive on Telegram&apos;s side. To delete the bot
+        entirely, send <code>/deletebot</code> to BotFather.
       </p>
     </WikiPage>
   );

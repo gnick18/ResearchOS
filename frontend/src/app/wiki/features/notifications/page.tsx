@@ -12,7 +12,17 @@ export default function NotificationsFeaturePage() {
       <Screenshot
         src="/wiki/screenshots/notifications.png"
         alt="The notification bell with a count badge and the inbox icon beside it in the header."
+        caption="The bell and inbox icons sit together in the top-right of the header."
       />
+
+      <h2>Three surfaces, one job</h2>
+      <p>
+        The bell, the inbox tray, and event reminders are three different
+        delivery points for &quot;something happened that you might want to
+        know about.&quot; They look like separate features and they live in
+        separate corners of the header, but they all answer the same question:
+        what changed since I last looked?
+      </p>
 
       <h2>The bell</h2>
       <ul>
@@ -39,9 +49,9 @@ export default function NotificationsFeaturePage() {
 
       <h2>Event reminders</h2>
       <p>
-        On the Calendar, set a reminder on any event (i.e., the bell button on
-        the event popover). When the reminder time arrives and ResearchOS is
-        open in a tab, a desktop notification fires. Browser notification
+        On the Calendar, set a reminder on any event (i.e., the bell button
+        on the event popover). When the reminder time arrives and ResearchOS
+        is open in a tab, a desktop notification fires. Browser notification
         permissions must be granted for this to work.
       </p>
 
