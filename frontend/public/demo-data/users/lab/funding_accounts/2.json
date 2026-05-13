@@ -1,0 +1,8 @@
+{
+  "id": 2,
+  "name": "DEMO-DOE-EERE",
+  "description": "Fake DOE bioenergy supplement.",
+  "total_budget": 25000,
+  "spent": 5310,
+  "remaining": 19690
+}

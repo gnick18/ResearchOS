@@ -23,9 +23,10 @@ import { buildWikiFixtures } from "./wiki-capture-fixture";
 
 /** Capture-mode variants. The default `"signed-in"` corresponds to
  *  `?wikiCapture=1` (the most common case) and gives you a fully signed-in
- *  session as user `grant`. The `"picker"` variant (`?wikiCapture=picker`)
- *  installs the fixture but leaves `currentUser` empty so the user-picker
- *  screen renders — used to capture `user-login.png`. */
+ *  session as user `alex` (the demo lab's PI). The `"picker"` variant
+ *  (`?wikiCapture=picker`) installs the fixture but leaves `currentUser`
+ *  empty so the user-picker screen renders — used to capture
+ *  `user-login.png`. */
 export type WikiCaptureVariant = "signed-in" | "picker";
 
 /** Returns the capture variant for the current URL, or null if the page
@@ -172,12 +173,12 @@ export async function installWikiCaptureFixture(
   svc.createWritable = async () => null;
 
   // Seed IndexedDB so getCurrentUser / getMainUser / reconnectWithStoredHandle
-  // see "grant" without needing the OS folder picker. Skipped in picker
+  // see "alex" without needing the OS folder picker. Skipped in picker
   // mode so the app stays on the user-selection screen.
   try {
     if (signIn) {
-      await storeCurrentUser("grant");
-      await storeMainUser("grant");
+      await storeCurrentUser("alex");
+      await storeMainUser("alex");
     }
     // A directory handle that survives in IndexedDB so reconnect attempts
     // resolve, even though our overrides never actually touch it.

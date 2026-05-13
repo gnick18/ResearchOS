@@ -1,0 +1,30 @@
+{
+  "id": 10,
+  "project_id": 3,
+  "name": "Set up growth curves in YPD/glucose",
+  "start_date": "2026-05-15",
+  "duration_days": 1,
+  "end_date": "2026-05-15",
+  "is_high_level": false,
+  "is_complete": false,
+  "task_type": "experiment",
+  "weekend_override": null,
+  "method_id": null,
+  "method_ids": [],
+  "deviation_log": null,
+  "tags": null,
+  "sort_order": 10,
+  "experiment_color": "#f59e0b",
+  "sub_tasks": null,
+  "pcr_gradient": null,
+  "pcr_ingredients": null,
+  "method_attachments": [
+    {
+      "method_id": 2,
+      "owner": "alex",
+      "snapshot_at": "2026-05-13T08:00:00Z"
+    }
+  ],
+  "owner": "alex",
+  "shared_with": []
+}

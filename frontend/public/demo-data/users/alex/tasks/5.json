@@ -1,0 +1,40 @@
+{
+  "id": 5,
+  "project_id": 1,
+  "name": "PCR-screen integrants",
+  "start_date": "2026-05-13",
+  "duration_days": 1,
+  "end_date": "2026-05-13",
+  "is_high_level": false,
+  "is_complete": false,
+  "task_type": "experiment",
+  "weekend_override": null,
+  "method_id": null,
+  "method_ids": [],
+  "deviation_log": null,
+  "tags": null,
+  "sort_order": 5,
+  "experiment_color": "#3b82f6",
+  "sub_tasks": [
+    {
+      "id": "st1",
+      "text": "Run DemoCheck PCR — 16 rxns",
+      "is_complete": false
+    },
+    {
+      "id": "st2",
+      "text": "Pour 1% agarose gel",
+      "is_complete": false
+    },
+    {
+      "id": "st3",
+      "text": "Photograph + annotate gel",
+      "is_complete": false
+    }
+  ],
+  "pcr_gradient": null,
+  "pcr_ingredients": null,
+  "method_attachments": [],
+  "owner": "alex",
+  "shared_with": []
+}

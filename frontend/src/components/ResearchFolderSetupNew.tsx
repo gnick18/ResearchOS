@@ -565,6 +565,21 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
           </div>
         )}
 
+        <div className="mt-4 flex flex-col items-center gap-2">
+          <button
+            onClick={() => {
+              window.location.href = "/demo-lab.zip";
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-amber-200 hover:text-amber-100 border border-amber-300/30 hover:border-amber-300/60 rounded-lg text-sm font-medium transition-colors"
+          >
+            <span aria-hidden="true">🧪</span>
+            Try the Demo Lab
+          </button>
+          <p className="text-xs text-slate-500">
+            An entirely fake yeast-lab dataset to explore the app with.
+          </p>
+        </div>
+
         <div className="text-center mt-6 flex items-center justify-center gap-4 flex-wrap">
           <a
             href="/wiki/getting-started/connecting-your-folder"

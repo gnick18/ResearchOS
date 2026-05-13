@@ -1,0 +1,13 @@
+{
+  "id": 3,
+  "task_id": 7,
+  "item_name": "Phusion polymerase (demo)",
+  "quantity": 1,
+  "link": "https://example.org/demo-neb",
+  "cas": null,
+  "price_per_unit": 285,
+  "shipping_fees": 0,
+  "total_price": 285,
+  "notes": "For DemoCheck PCR.",
+  "funding_string": "DEMO-NIH-GM999999"
+}

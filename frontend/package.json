@@ -4,11 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node ../scripts/build-demo-zip.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "wiki:screenshots": "node ../scripts/capture-wiki-screenshots.mjs"
+    "wiki:screenshots": "node ../scripts/capture-wiki-screenshots.mjs",
+    "demo:data": "node ../scripts/generate-demo-data.mjs",
+    "demo:images": "node ../scripts/generate-demo-images.mjs",
+    "demo:zip": "node ../scripts/build-demo-zip.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.21",
@@ -30,6 +34,7 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@napi-rs/canvas": "^1.0.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

@@ -1,0 +1,100 @@
+{
+  "id": 1,
+  "name": "[Demo protocol] DemoCheck PCR — pYES integration",
+  "gradient": {
+    "initial": [
+      {
+        "name": "Initial denaturation",
+        "temperature": 98,
+        "duration": "30 sec"
+      }
+    ],
+    "cycles": [
+      {
+        "repeats": 30,
+        "steps": [
+          {
+            "name": "Denaturation",
+            "temperature": 98,
+            "duration": "10 sec"
+          },
+          {
+            "name": "Annealing",
+            "temperature": 58,
+            "duration": "30 sec"
+          },
+          {
+            "name": "Extension",
+            "temperature": 72,
+            "duration": "45 sec"
+          }
+        ]
+      }
+    ],
+    "final": [
+      {
+        "name": "Final extension",
+        "temperature": 72,
+        "duration": "5 min"
+      }
+    ],
+    "hold": {
+      "name": "Hold",
+      "temperature": 12,
+      "duration": "Indef."
+    }
+  },
+  "ingredients": [
+    {
+      "id": "i1",
+      "name": "5x HF Buffer",
+      "concentration": "5x",
+      "amount_per_reaction": "5.0"
+    },
+    {
+      "id": "i2",
+      "name": "dNTPs",
+      "concentration": "10 mM",
+      "amount_per_reaction": "0.5"
+    },
+    {
+      "id": "i3",
+      "name": "pYES-fwd",
+      "concentration": "10 µM",
+      "amount_per_reaction": "1.25"
+    },
+    {
+      "id": "i4",
+      "name": "pYES-rev",
+      "concentration": "10 µM",
+      "amount_per_reaction": "1.25"
+    },
+    {
+      "id": "i5",
+      "name": "Phusion polymerase",
+      "concentration": "2 U/µL",
+      "amount_per_reaction": "0.25"
+    },
+    {
+      "id": "i6",
+      "name": "gDNA template",
+      "concentration": "~50 ng/µL",
+      "amount_per_reaction": "1.0"
+    },
+    {
+      "id": "i7",
+      "name": "Nuclease-free H2O",
+      "concentration": "—",
+      "amount_per_reaction": "15.75"
+    }
+  ],
+  "notes": "Demo protocol — verifies integration of the `pYES-GAL1::flbA` cassette at the URA3 locus. Expected band: ~1.4 kb.",
+  "tags": [
+    "demo",
+    "screen"
+  ],
+  "is_public": true,
+  "created_by": "alex",
+  "owner": "public",
+  "shared_with": []
+}

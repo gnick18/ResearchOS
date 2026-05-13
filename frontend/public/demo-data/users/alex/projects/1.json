@@ -1,0 +1,16 @@
+{
+  "id": 1,
+  "name": "DEMO: Engineer FakeYeast for biofuel",
+  "weekend_active": false,
+  "tags": [
+    "demo",
+    "strains"
+  ],
+  "color": "#3b82f6",
+  "created_at": "2026-02-01T00:00:00Z",
+  "sort_order": 0,
+  "is_archived": false,
+  "archived_at": null,
+  "owner": "alex",
+  "shared_with": []
+}

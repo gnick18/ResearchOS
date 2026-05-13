@@ -1,0 +1,11 @@
+{
+  "id": 3,
+  "title": "Demo lab GitHub fake repo",
+  "url": "https://example.org/demo-github",
+  "description": "Analysis scripts for the screen.",
+  "category": "Bioinformatics tools",
+  "color": "#10b981",
+  "preview_image_url": null,
+  "sort_order": 1,
+  "created_at": "2026-02-01T00:00:00Z"
+}
