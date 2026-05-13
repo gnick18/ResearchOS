@@ -27,12 +27,13 @@ export default function CreatingAUserPage() {
       <h2>Creating a user</h2>
       <Steps>
         <Step>
-          Click <strong>New User</strong> on the user-picker screen.
+          On the user-picker screen, scroll to <strong>Create New Account</strong>{" "}
+          and type a username in the input field. Lowercase letters, numbers,
+          and hyphens are safest across operating systems (e.g.,{" "}
+          <code>grant</code>, <code>sarah-lab</code>).
         </Step>
         <Step>
-          Type a username. Lowercase letters, numbers, and hyphens are safest
-          across operating systems (e.g., <code>grant</code>,{" "}
-          <code>sarah-lab</code>).
+          Click <strong>Create</strong>.
         </Step>
         <Step>
           A directory at <code>users/&lt;your-name&gt;/</code> is created and

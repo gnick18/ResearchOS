@@ -66,6 +66,7 @@ deployment will activate fixture mode.
 | Filename | Wiki page | Click target highlighted |
 |---|---|---|
 | `folder-connect.png` | Connecting Your Folder | Link Folder button |
+| `user-login.png` | Creating a User | username input (picker mode) |
 | `home-projects.png` | Home & Projects | + New Project |
 | `gantt-overview.png` | Gantt Chart | + Task |
 | `experiments-list.png` | Experiments & Lab Notes | + New Experiment |
@@ -88,13 +89,24 @@ with the filename, route, optional `waitFor` selector, optional
 `action` callback (e.g. click a button to open a modal), and optional
 `highlight` spec.
 
+## Capture variants
+
+The `?wikiCapture` flag has two values:
+
+- `?wikiCapture=1` (default) — installs the fixture and signs in as
+  "grant". The home page and every feature page render with realistic
+  data. This is what `FIXTURE_ROUTES` in the script uses.
+- `?wikiCapture=picker` — installs the fixture but doesn't sign in. The
+  app shows the user-picker screen with "grant" and "sarah" already
+  in the list, plus a "Create New Account" form. Used to capture
+  `user-login.png`.
+
+Each picker-mode capture runs in its own fresh browser context so the
+IndexedDB current-user from a previous signed-in capture doesn't carry
+over.
+
 ## Known gaps
 
-- **`user-login.png`** (referenced by `/wiki/getting-started/creating-a-user`)
-  isn't captured. Fixture mode auto-signs in as "grant" so the user-picker
-  screen never renders. A future variant `?wikiCapture=picker` could load
-  the fixture without setting the current user, surfacing the picker. For
-  now the placeholder shows on that wiki page.
 - **Lab Mode** captures the empty state because the user-filter is empty
   by default. To make the screenshot richer, the script could click the
   user filter and select all users before capturing.

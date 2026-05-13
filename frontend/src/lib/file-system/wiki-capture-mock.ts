@@ -21,31 +21,56 @@ import { fileService } from "./file-service";
 import { storeCurrentUser, storeMainUser, storeDirectoryHandle } from "./indexeddb-store";
 import { buildWikiFixtures } from "./wiki-capture-fixture";
 
-/** Returns true if the current URL opts into capture mode. Allowed in dev,
- *  and also in `next start` against localhost (so the screenshot capture
- *  script can run against the fast prod build without us shipping the
- *  fixture path to a real deployment). Hard-blocked on non-local hostnames
- *  in production no matter what. SSR-safe: returns false on the server. */
-export function isWikiCaptureMode(): boolean {
-  if (typeof window === "undefined") return false;
+/** Capture-mode variants. The default `"signed-in"` corresponds to
+ *  `?wikiCapture=1` (the most common case) and gives you a fully signed-in
+ *  session as user `grant`. The `"picker"` variant (`?wikiCapture=picker`)
+ *  installs the fixture but leaves `currentUser` empty so the user-picker
+ *  screen renders — used to capture `user-login.png`. */
+export type WikiCaptureVariant = "signed-in" | "picker";
+
+/** Returns the capture variant for the current URL, or null if the page
+ *  hasn't opted in. Allowed in dev and on localhost in prod; hard-blocked
+ *  on non-local hostnames in production. SSR-safe: returns null on the
+ *  server. */
+export function getWikiCaptureVariant(): WikiCaptureVariant | null {
+  if (typeof window === "undefined") return null;
   try {
-    const hasFlag = new URLSearchParams(window.location.search).has("wikiCapture");
-    if (!hasFlag) return false;
-    if (process.env.NODE_ENV !== "production") return true;
-    // Production build: only honor the flag when served from localhost.
-    const host = window.location.hostname;
-    return host === "localhost" || host === "127.0.0.1" || host === "[::1]";
+    const params = new URLSearchParams(window.location.search);
+    const value = params.get("wikiCapture");
+    if (value === null) return null;
+    if (process.env.NODE_ENV === "production") {
+      const host = window.location.hostname;
+      const ok = host === "localhost" || host === "127.0.0.1" || host === "[::1]";
+      if (!ok) return null;
+    }
+    return value === "picker" ? "picker" : "signed-in";
   } catch {
-    return false;
+    return null;
   }
+}
+
+/** True if any wiki-capture flag is set on the URL. */
+export function isWikiCaptureMode(): boolean {
+  return getWikiCaptureVariant() !== null;
 }
 
 let installed = false;
 
+interface InstallOptions {
+  /** When true, skip writing the IndexedDB current-user entry, so the
+   *  app sees the folder as connected but no user signed in. Used to
+   *  capture `user-login.png` (the user-picker screen). Default: false. */
+  signIn?: boolean;
+}
+
 /** Idempotent. Swaps fileService methods for an in-memory store seeded with
- *  fixture data. Also writes the fixture user to IndexedDB so the rest of
- *  the app sees them as signed in. */
-export async function installWikiCaptureFixture(): Promise<void> {
+ *  fixture data. By default, also writes the fixture user to IndexedDB so
+ *  the rest of the app sees them as signed in. Pass `signIn: false` to
+ *  stop at the user-picker. */
+export async function installWikiCaptureFixture(
+  options: InstallOptions = {},
+): Promise<void> {
+  const { signIn = true } = options;
   if (installed) return;
   installed = true;
 
@@ -147,10 +172,13 @@ export async function installWikiCaptureFixture(): Promise<void> {
   svc.createWritable = async () => null;
 
   // Seed IndexedDB so getCurrentUser / getMainUser / reconnectWithStoredHandle
-  // see "grant" without needing the OS folder picker.
+  // see "grant" without needing the OS folder picker. Skipped in picker
+  // mode so the app stays on the user-selection screen.
   try {
-    await storeCurrentUser("grant");
-    await storeMainUser("grant");
+    if (signIn) {
+      await storeCurrentUser("grant");
+      await storeMainUser("grant");
+    }
     // A directory handle that survives in IndexedDB so reconnect attempts
     // resolve, even though our overrides never actually touch it.
     await storeDirectoryHandle(fakeHandle);
