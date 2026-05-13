@@ -17,40 +17,39 @@ export default function MarkdownEditorPage() {
         caption="The editor as it appears inside an experiment. The same component mounts in task popups, results, methods, and notes."
       />
 
-      <h2>What this is and where you&apos;ll see it</h2>
+      <h2>Where you&apos;ll see it</h2>
       <p>
-        The markdown editor is one React component reused across every place
-        you write more than a sentence:
+        The same editor opens in every place you write more than a sentence
+        in ResearchOS:
       </p>
       <ul>
         <li>
-          <strong>Experiment notes</strong> on the{" "}
-          <Link href="/wiki/features/experiments">Lab Notes</Link> page.
+          The <strong>Lab Notes tab</strong> of any experiment popup (see{" "}
+          <Link href="/wiki/features/experiments">Experiments &amp; Notes</Link>).
         </li>
         <li>
-          <strong>Task descriptions</strong> in the task detail popup (which
-          you can open from the <Link href="/wiki/features/gantt">Gantt</Link>,
-          the left sidebar, search results, or the calendar).
+          The <strong>Description</strong> field on the task detail popup,
+          which you can open from the <Link href="/wiki/features/gantt">Gantt</Link>,
+          the left sidebar, search results, or the calendar.
         </li>
         <li>
-          <strong>Results write-ups</strong> on the{" "}
+          The right-side write-up panel on the{" "}
           <Link href="/wiki/features/results">Results</Link> page.
         </li>
         <li>
-          <strong>Method bodies</strong> in the{" "}
+          The body of every method in the{" "}
           <Link href="/wiki/features/methods">Methods library</Link>.
         </li>
         <li>
-          <strong>Free-form notes</strong> (running logs and standalone notes).
+          Free-form notes (running logs and standalone notes).
         </li>
       </ul>
       <p>
-        Every editor instance reads and writes markdown. Most save to a{" "}
-        <code>.md</code> file next to the document&apos;s image folder (e.g.,
-        <code> results/task-12/results.md</code>). A handful save into a
-        field on a JSON record. Either way the source-of-truth is plain text
-        markdown, which means you can open any of these files in a normal
-        editor outside ResearchOS without losing anything.
+        Everything you type is plain markdown. The toolbar buttons just
+        insert the same characters you&apos;d type by hand (e.g.,{" "}
+        <code>**bold**</code>, <code># heading</code>), so opening any of
+        these files in a normal text editor outside ResearchOS gets you the
+        same content.
       </p>
 
       <h2>The three modes</h2>

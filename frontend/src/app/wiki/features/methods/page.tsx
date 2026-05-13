@@ -18,23 +18,23 @@ export default function MethodsFeaturePage() {
 
       <h2>What a method is</h2>
       <p>
-        A <strong>method</strong> is a saved markdown protocol that lives in
-        your library and can be attached to any experiment. Think of it as the
-        clean, canonical version of how to do X (e.g., a DNA extraction, a
-        gel-run protocol, a buffer recipe).
+        A <strong>method</strong> is a markdown protocol you save once and
+        reuse across experiments — a DNA extraction, a gel-run recipe, a
+        buffer mix. The folder tree on the left of the page is your library
+        of them. Click a name to open its markdown body in the editor on the
+        right.
       </p>
       <p>
-        Methods are <em>snapshot-on-attach</em>. When you attach a method to
-        an experiment, ResearchOS captures the method&apos;s parameters
-        (reagent volumes, temperatures, durations) onto that experiment. You
-        can then log per-run variations on the experiment without touching the
-        canonical method. The next experiment that attaches the same method
-        still gets the clean original.
+        When you attach a method to an experiment, ResearchOS copies its
+        volumes, temperatures, and durations onto that experiment. You can
+        tweak those copied values for the run (the experiment then carries
+        its own variation), and the original method stays as-is for the
+        next time someone attaches it.
       </p>
       <p>
-        Methods can be private (under your user) or shared lab-wide (in the{" "}
-        <strong>Shared</strong> folder, which writes to{" "}
-        <code>users/public/methods/</code>).
+        Methods saved in the <strong>Shared</strong> folder appear in
+        everyone&apos;s library. Methods under your own user are private to
+        you.
       </p>
 
       <h2>Create a method</h2>
@@ -68,13 +68,13 @@ export default function MethodsFeaturePage() {
         </li>
       </ul>
 
-      <h2>Variations live on the experiment</h2>
+      <h2>Variations stay on the experiment</h2>
       <p>
-        Once a method is attached to an experiment, edits to volumes,
-        temperatures, or durations stay on that experiment&apos;s copy. The
-        underlying method file is untouched. This is the whole point of the
-        library: one source of truth for the protocol, room to record what
-        actually happened on each run.
+        After you attach a method, any edits you make to volumes,
+        temperatures, or durations inside the experiment popup change only
+        that experiment&apos;s copy. The original method in the library
+        doesn&apos;t move. The next experiment that attaches the same method
+        gets the unedited version, plus a fresh chance to vary.
       </p>
 
       <Callout variant="tip" title="Search before you write">

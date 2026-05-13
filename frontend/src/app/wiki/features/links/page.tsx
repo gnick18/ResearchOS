@@ -16,11 +16,11 @@ export default function LinksFeaturePage() {
 
       <h2>What Lab Links is</h2>
       <p>
-        Lab Links is a flat bookmark list that lives under the shared{" "}
-        <code>lab/</code> tree, so every user in the folder sees the same
-        entries. Categories group related links (e.g., Bioinformatics,
-        Ordering, Journal access). Use it for the URLs every member of the
-        lab eventually needs to find.
+        A page of bookmarks, grouped into categories (e.g., Bioinformatics,
+        Ordering, Journal access), that everyone in the folder sees the same
+        way. Use it for the URLs every member of the lab eventually needs
+        to find: the IDT ordering portal, the protocols.io account, the
+        cluster login page.
       </p>
 
       <h2>Add a link</h2>

@@ -15,23 +15,24 @@ export default function LabModeFeaturePage() {
         caption="Lab Mode aggregates across every user in the folder."
       />
 
-      <h2>What Lab Mode aggregates</h2>
+      <h2>What Lab Mode shows you</h2>
       <p>
-        ResearchOS data is namespaced by user (your projects, your tasks, your
-        methods all live under <code>users/&lt;you&gt;/</code>). When several
-        people share the same folder, each one has their own namespace inside
-        it.
+        Normally you only see your own projects, tasks, methods, and
+        purchases. Lab Mode is the view where you see <em>everyone&apos;s</em>{" "}
+        at once — every active experiment in the lab, every method anyone has
+        written, every purchase against every funding account.
       </p>
       <p>
-        Lab Mode is the view that <strong>reads across all those
-        namespaces</strong> and renders one combined picture. It&apos;s how
-        you see what the lab as a whole is up to without manually switching
-        between teammates.
+        The header turns into a row of tabs (Activity, Gantt, Experiments,
+        Methods, Purchases, Roadmaps, Notes), each one showing the combined
+        view for that area. Bars and badges are tinted by user color rather
+        than project color so you can tell at a glance whose work you&apos;re
+        looking at.
       </p>
       <p>
-        If you&apos;re the only user in the folder, Lab Mode still works but
-        you&apos;ll be the only contributor in every list. The view starts to
-        earn its keep once two or more people are in the folder.
+        If you&apos;re the only person in the folder, Lab Mode still works,
+        you&apos;ll just be the only contributor in every list. It earns its
+        keep once two or more labmates share the same folder.
       </p>
 
       <h2>Get to Lab Mode</h2>

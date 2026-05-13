@@ -15,28 +15,20 @@ export default function PurchasesFeaturePage() {
         caption="Unpurchased on the left, purchased on the right, per-account totals at the top."
       />
 
-      <h2>How purchases and funding accounts fit together</h2>
+      <h2>Two columns and a budget bar</h2>
       <p>
-        Two things live on this tab and they pair up:
+        The Purchases page has two columns of cards (<strong>Unpurchased</strong>
+        on the left, <strong>Purchased</strong> on the right) and a row of
+        budget totals along the top. Each card is one order — an item, its
+        vendor, the price, and which funding account is paying. Drag a card
+        from left to right when the order arrives.
       </p>
-      <ul>
-        <li>
-          <strong>Funding accounts</strong> are lab-wide budgets (e.g.,{" "}
-          <em>NIH R01 GM-141289</em>, <em>USDA Hatch</em>). They live at{" "}
-          <code>lab/funding_accounts/</code> and are visible to every user in
-          the folder. Each account has a total budget and a running spend.
-        </li>
-        <li>
-          <strong>Purchase items</strong> are individual orders (e.g.,{" "}
-          <em>ITS1F primers, IDT</em>). Each one debits exactly one funding
-          account. Purchases are per-user, so your shopping list and your
-          labmate&apos;s are separate.
-        </li>
-      </ul>
       <p>
-        The page rolls everyone&apos;s purchases up into per-account totals at
-        the top, so the lab as a whole can see how much of each grant has
-        been spent.
+        The totals along the top are per <strong>funding account</strong>{" "}
+        (e.g., your R01, an internal bridge grant). Funding accounts are
+        shared across the whole lab, so when your labmate buys reagents the
+        budget bar updates here too. Add or edit accounts from{" "}
+        <strong>Manage Funding Accounts</strong>.
       </p>
 
       <h2>Add a purchase</h2>

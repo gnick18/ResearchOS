@@ -17,17 +17,17 @@ export default function ResultsFeaturePage() {
 
       <h2>What Results is for</h2>
       <p>
-        Experiment notes capture <em>what happened during the run</em>.
-        Results capture <em>what came out</em>. Keeping the two apart means
-        you can write up a paper without sifting through every variation log,
-        and your results live in a predictable place on disk (i.e.,{" "}
-        <code>users/&lt;you&gt;/results/task-&lt;id&gt;/</code>).
+        Lab notes are where you record <em>what happened during the run</em>:
+        running observations, sub-tasks, deviation log. Results is where the{" "}
+        <em>final outputs</em> go: the gel image you want in a paper, the
+        plot for a thesis chapter, the short write-up of what the experiment
+        showed. Each experiment has its own Results page reached from the
+        task popup.
       </p>
       <p>
-        That folder has its own <code>Images/</code> directory for the
-        gallery and a <code>results.md</code> for the write-up. Everything in
-        Results survives even if you later trim or restructure the
-        experiment&apos;s lab-notes folder.
+        The page is a two-pane layout — a gallery of result images on the
+        left and a markdown editor on the right. Drag images into the gallery
+        or click the upload button, then write the summary in the editor.
       </p>
 
       <h2>Open the Results editor</h2>
@@ -39,8 +39,7 @@ export default function ResultsFeaturePage() {
           the Results tab.
         </Step>
         <Step>
-          Drag images into the gallery, or use the upload button. They land
-          in <code>results/task-&lt;id&gt;/Images/</code>.
+          Drag images into the gallery, or click the upload button.
         </Step>
         <Step>
           Write a results summary in the markdown editor on the right. It&apos;s

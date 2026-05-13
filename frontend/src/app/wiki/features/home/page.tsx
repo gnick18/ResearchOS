@@ -17,23 +17,22 @@ export default function HomeFeaturePage() {
 
       <h2>What a project is</h2>
       <p>
-        A <strong>project</strong> is the top-level container in ResearchOS.
-        Every task lives inside one (an experiment, a purchase item, a list
-        of todos), and the project&apos;s color is what ties them together
-        visually across the rest of the app.
+        A <strong>project</strong> is a colored card on the Home page. Every
+        task you create — an experiment, a purchase, a list item — gets filed
+        under one project. Click a card and the project&apos;s detail popup
+        opens, where you can rename, recolor, retag, or archive it.
       </p>
       <p>
-        That color shows up on every project bar in the{" "}
-        <Link href="/wiki/features/gantt">Gantt</Link>, on the badges in{" "}
-        <Link href="/wiki/features/lab-mode">Lab Mode</Link>, and on the
-        calendar overlay. Picking distinct colors for active projects pays off
-        the first time you look at a busy Gantt.
+        The color you pick for a project follows it everywhere: it&apos;s the
+        bar color on the <Link href="/wiki/features/gantt">Gantt</Link>, the
+        badge color in <Link href="/wiki/features/lab-mode">Lab Mode</Link>,
+        and the overlay color on the calendar. Pick distinct colors for active
+        projects early so a busy Gantt stays readable.
       </p>
       <p>
-        Projects are per-user. Your projects live under{" "}
-        <code>users/&lt;you&gt;/projects/</code>, your labmate&apos;s live
-        under theirs. You don&apos;t see each other&apos;s projects unless
-        you&apos;re in Lab Mode.
+        Each labmate has their own set of projects. You don&apos;t see each
+        other&apos;s cards on the Home page, but Lab Mode rolls everyone&apos;s
+        up.
       </p>
 
       <h2>Create a project</h2>

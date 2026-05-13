@@ -14,15 +14,11 @@ export default function SearchFeaturePage() {
 
       <h2>What gets searched</h2>
       <p>
-        Search runs against the JSON files in your folder live. There&apos;s
-        no persistent index. Every project, task, method, PCR protocol, note,
-        and experiment under your user (plus anything shared with you from
-        another user) is in scope.
-      </p>
-      <p>
-        Because the search reads from disk on demand, it stays in sync with
-        whatever&apos;s actually in the folder, including changes a teammate
-        just synced over from another machine.
+        Search covers everything you can see in the app: every project,
+        task, method, PCR protocol, note, and experiment under your user,
+        plus anything a labmate has shared with you. It runs against the
+        current state of your folder each time you type, so a file your
+        labmate just synced over shows up without a refresh.
       </p>
 
       <h2>Search basics</h2>

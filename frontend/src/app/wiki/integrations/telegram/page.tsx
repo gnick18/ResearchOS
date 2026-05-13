@@ -17,27 +17,17 @@ export default function TelegramIntegrationPage() {
 
       <h2>What this gets you</h2>
       <p>
-        The Telegram integration gives you a one-way pipe from your phone into
-        ResearchOS. You set up a Telegram bot that you own. Any photo (or
-        document) you send to that bot from your phone shows up in two places
-        inside the app:
+        Take a photo at the bench, send it to your Telegram bot, and a few
+        seconds later it appears inside ResearchOS in two places: an{" "}
+        <strong>inbox tray</strong> in the bottom-right of the window, and a{" "}
+        <strong>toast</strong> at the same corner so you notice it. From the
+        tray you can drag the photo straight into any experiment&apos;s notes
+        or its results gallery.
       </p>
-      <ul>
-        <li>
-          A small <strong>inbox tray</strong> in the bottom-right of the
-          window. Each new arrival becomes a card you can drag into any
-          experiment&apos;s notes or its results gallery.
-        </li>
-        <li>
-          A <strong>toast notification</strong> that fires when the photo
-          lands, so you don&apos;t have to keep checking the tray.
-        </li>
-      </ul>
       <p>
-        Under the hood, ResearchOS polls Telegram&apos;s <code>getUpdates</code>{" "}
-        endpoint every few seconds while the app is open. New photos are saved
-        into <code>users/&lt;you&gt;/inbox/Images/</code> with a small JSON
-        sidecar containing the caption, sender, and timestamp.
+        Each photo card in the tray shows the caption you sent with it, when
+        it arrived, and a small preview. Click the card to enlarge, or drag
+        it onto the editor where you want it filed.
       </p>
 
       <h2>Create a bot</h2>

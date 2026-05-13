@@ -17,28 +17,27 @@ export default function PCRFeaturePage() {
 
       <h2>What a PCR protocol is</h2>
       <p>
-        A <strong>PCR protocol</strong> in ResearchOS is two things saved
-        together:
+        The PCR editor has two panels stacked on top of each other:
       </p>
       <ul>
         <li>
-          A <strong>gradient</strong>: the ordered list of temperature steps
-          the thermocycler will run (e.g., initial denaturation, the main
-          cycle, hold). Each step has a temperature, a duration, and (for the
-          cycled block) a repeat count.
+          The <strong>gradient</strong> panel up top: the temperature steps
+          the thermocycler will run (initial denaturation, the cycled block
+          with its repeat count, the hold). Drag the points on the chart or
+          type values in the table next to it.
         </li>
         <li>
-          A <strong>reagent table</strong>: the per-reaction master mix. Each
-          row is one ingredient with a stock concentration and a volume per
-          reaction. Totals recompute as you type.
+          The <strong>reagents</strong> panel below: the per-reaction master
+          mix. Each row is one ingredient with a stock concentration and a
+          volume. Totals recompute as you type.
         </li>
       </ul>
       <p>
-        The protocol mirrors the <em>snapshot-on-attach</em> model that
-        Methods uses. When you attach a PCR protocol to an experiment,
-        ResearchOS copies its parameters onto that experiment, so per-run
-        overrides (e.g., the annealing temp was a degree off this time) stay
-        on the experiment and don&apos;t dirty the shared protocol.
+        Attaching a PCR protocol to an experiment works the same way as
+        attaching a method: ResearchOS copies the gradient and reagents onto
+        the experiment, you tweak whatever was off this run (e.g., the
+        annealing temp), and the library copy stays untouched for the next
+        person who attaches it.
       </p>
 
       <h2>Build a protocol</h2>
