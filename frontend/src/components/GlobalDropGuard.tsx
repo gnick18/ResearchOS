@@ -18,19 +18,40 @@ export default function GlobalDropGuard() {
   const [toast, setToast] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
+    // Skip the global "not supported" toast when the drop is inside a
+    // surface that knows how to handle attachments. The TaskDetailPopup
+    // marks its outer card with data-drag-ring-target. NoteDetailPopup,
+    // methods page editors, and any future surfaces should add the
+    // data-attach-target attribute to opt in. The popup's own drop
+    // handler is responsible for actually attaching the file — this
+    // guard just prevents the misleading "not supported" toast from
+    // racing it for the user's attention.
+    const isInsideAttachSurface = (target: EventTarget | null): boolean => {
+      if (!(target instanceof Element)) return false;
+      return Boolean(target.closest("[data-drag-ring-target], [data-attach-target]"));
+    };
     const handleDragOver = (e: DragEvent) => {
       if (!e.dataTransfer) return;
       if (!Array.from(e.dataTransfer.types).includes("Files")) return;
       // preventDefault on dragover is required for the drop event to fire.
       // Without this, Chrome rejects the target and falls through to default
-      // (opening the file in a new tab) — the original symptom.
+      // (opening the file in a new tab) — the original symptom. We always
+      // preventDefault even inside attach surfaces so that if the inner
+      // surface's own handler fails to catch the drop, Chrome at least
+      // doesn't open the file.
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
     };
     const handleDrop = (e: DragEvent) => {
       if (!e.dataTransfer) return;
       if (!Array.from(e.dataTransfer.types).includes("Files")) return;
+      // Always preventDefault: if the inner surface's drop handler missed
+      // this for any reason, Chrome would open the file. Defensive.
       e.preventDefault();
+      // But ONLY show the "not supported" toast when the drop is outside
+      // every known attach surface. Inside a task popup / note popup /
+      // methods page, the inner handler owns the UX.
+      if (isInsideAttachSurface(e.target)) return;
       setToast({ x: e.clientX, y: e.clientY });
       window.setTimeout(() => setToast(null), 3500);
     };
