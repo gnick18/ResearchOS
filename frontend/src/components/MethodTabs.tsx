@@ -54,7 +54,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
   const handleTabDrop = useCallback((e: React.DragEvent) => {
     if (!Array.from(e.dataTransfer.types).includes("Files")) return;
     e.preventDefault();
-    showTabDropWarning();
+    showTabDropWarning(e.clientX, e.clientY);
   }, [showTabDropWarning]);
   
   // Get method attachments from task
@@ -784,7 +784,7 @@ function VariationNotesPanel({ taskId, methodId, variationNotes, onSaved, readOn
                 placeholder="Write your variation notes in markdown..."
                 showToolbar={true}
                 allowAnyFileType={true}
-                onFileDrop={showDropWarning}
+                onFileDrop={() => showDropWarning()}
               />
               <div className="flex justify-end gap-2">
                 <button
