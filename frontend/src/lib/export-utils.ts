@@ -652,7 +652,7 @@ export async function processMethodAttachments(
       }
     } else if (attachment.attachment_type === 'markdown' && attachment.path) {
       // For markdown, we'll return the content separately
-      // The caller will need to fetch this using githubApi.readFile
+      // The caller will need to fetch this using filesApi.readFile
     }
   }
   

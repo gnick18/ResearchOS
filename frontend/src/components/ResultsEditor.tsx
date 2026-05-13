@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { githubApi, projectsApi, attachmentsApi } from "@/lib/local-api";
+import { filesApi, projectsApi, attachmentsApi } from "@/lib/local-api";
 import { useQuery } from "@tanstack/react-query";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import type { Task } from "@/lib/types";
@@ -80,7 +80,7 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
 
   // Load markdown content
   useEffect(() => {
-    githubApi
+    filesApi
       .readFile(resultPath)
       .then((file) => {
         let fileContent = file.content;
@@ -94,7 +94,7 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
           fileContent = addReopenedStamp(fileContent);
           fileContent = updateLastAccess(fileContent);
           // Save the updated content with reopened stamp
-          githubApi.writeFile(
+          filesApi.writeFile(
             resultPath,
             fileContent,
             `Add reopened stamp for: ${task.name}`
@@ -129,7 +129,7 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
   const loadAttachments = useCallback(async () => {
     setAttachmentsLoading(true);
     try {
-      const items = await githubApi.listDirectory(resultDir);
+      const items = await filesApi.listDirectory(resultDir);
       const atts: Attachment[] = items
         .filter((item) => item.type === "file" && item.name !== "notes.md")
         .map((item) => {
@@ -211,7 +211,7 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
           const filePath = `${attachmentsDir}/${fileName}`;
 
           try {
-            const response = await githubApi.uploadImage(
+            const response = await filesApi.uploadImage(
               filePath,
               base64,
               `Upload attachment for task ${task.name}: ${renamedFile.name}`
@@ -290,7 +290,7 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
       let contentToSave = updateStampNames(content, task.name, projectName);
       contentToSave = updateLastAccess(contentToSave);
       
-      await githubApi.writeFile(
+      await filesApi.writeFile(
         resultPath,
         contentToSave,
         `Update results for task: ${task.name}`
@@ -317,7 +317,7 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
     async (attachment: Attachment) => {
       if (!confirm(`Delete ${attachment.name}?`)) return;
       try {
-        await githubApi.deleteDirectory(attachment.path);
+        await filesApi.deleteDirectory(attachment.path);
         blobUrlResolver.revokePath(attachment.path);
         setAttachmentUrls((prev) => {
           if (!prev.has(attachment.path)) return prev;

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { methodsApi, githubApi, pcrApi, usersApi } from "@/lib/local-api";
+import { methodsApi, filesApi, pcrApi, usersApi } from "@/lib/local-api";
 import { fileService } from "@/lib/file-system/file-service";
 import { migrateNoteImages } from "@/lib/notes/migrate-images";
 import AppShell from "@/components/AppShell";
@@ -186,7 +186,7 @@ export default function MethodsPage() {
             );
             // Delete the method's directory (includes images)
             try {
-              await githubApi.deleteDirectory(methodDir);
+              await filesApi.deleteDirectory(methodDir);
             } catch {
               // Non-fatal — directory might not exist
             }
@@ -596,7 +596,7 @@ function CreateMethodModal({
           const imagePath = `methods/${slug}/Images/${imageName}`;
 
           try {
-            const response = await githubApi.uploadImage(
+            const response = await filesApi.uploadImage(
               imagePath,
               base64,
               `Upload image for method: ${name}`
@@ -626,7 +626,7 @@ function CreateMethodModal({
       // Delete the entire method folder if we uploaded any images
       const methodDir = `methods/${slug}`;
       try {
-        await githubApi.deleteDirectory(methodDir);
+        await filesApi.deleteDirectory(methodDir);
       } catch {
         // Non-fatal — directory might not exist or already be deleted
       }
@@ -658,7 +658,7 @@ function CreateMethodModal({
       if (uploadType === "markdown") {
         const githubPath = `methods/${slug}/${slug}.md`;
         // Write the markdown file
-        await githubApi.writeFile(
+        await filesApi.writeFile(
           githubPath,
           mdContent || `# ${name}\n\n`,
           `Create method: ${name}`
@@ -683,7 +683,7 @@ function CreateMethodModal({
           reader.readAsDataURL(pdfFile);
         });
         const githubPath = `methods/${slug}/${pdfFile.name}`;
-        const response = await githubApi.uploadImage(githubPath, base64, `Upload PDF: ${name}`);
+        const response = await filesApi.uploadImage(githubPath, base64, `Upload PDF: ${name}`);
         if (response.warning) {
           setUploadWarning(response.warning);
         }
@@ -1345,7 +1345,7 @@ function MarkdownMethodViewer({
     const githubPath = method.github_path;
     (async () => {
       try {
-        const file = await githubApi.readFile(githubPath);
+        const file = await filesApi.readFile(githubPath);
         const raw = file.content;
         const dir = githubPath.substring(0, githubPath.lastIndexOf("/"));
         const slug = dir.split("/").pop() || dir;
@@ -1360,7 +1360,7 @@ function MarkdownMethodViewer({
         }
         const { content: migrated, didMigrate } = await migrateNoteImages(raw, slug, dir, legacyOwner);
         if (didMigrate) {
-          await githubApi.writeFile(githubPath, migrated, `Migrate image references for: ${method.name}`);
+          await filesApi.writeFile(githubPath, migrated, `Migrate image references for: ${method.name}`);
         }
         if (!cancelled) {
           setContent(migrated);
@@ -1382,7 +1382,7 @@ function MarkdownMethodViewer({
     if (!method.github_path) return;
     setSaving(true);
     try {
-      await githubApi.writeFile(
+      await filesApi.writeFile(
         method.github_path,
         content,
         `Update method: ${method.name}`
@@ -1569,7 +1569,7 @@ function PdfViewer({
       setLoading(false);
       return;
     }
-    githubApi
+    filesApi
       .readFile(method.github_path)
       .then((file) => {
         // The content comes back as base64 for binary files

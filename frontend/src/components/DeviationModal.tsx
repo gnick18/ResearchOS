@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { methodsApi, githubApi } from "@/lib/local-api";
+import { methodsApi, filesApi } from "@/lib/local-api";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Method, Task } from "@/lib/types";
 
@@ -59,7 +59,7 @@ export default function DeviationModal({
       let parentContent = "";
       try {
         if (method.github_path) {
-          const file = await githubApi.readFile(method.github_path);
+          const file = await filesApi.readFile(method.github_path);
           parentContent = file.content;
         }
       } catch {
@@ -69,7 +69,7 @@ export default function DeviationModal({
       // Write the new method file with deviations appended
       const newContent = `${parentContent}\n\n---\n\n## Deviations from ${method.name}\n\n${deviations.trim()}`;
       if (newMethod.github_path) {
-        await githubApi.writeFile(
+        await filesApi.writeFile(
           newMethod.github_path,
           newContent,
           `Fork method: ${forkName} from ${method.name}`
