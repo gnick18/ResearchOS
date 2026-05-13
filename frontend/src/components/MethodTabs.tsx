@@ -5,7 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { githubApi, methodsApi, tasksApi, pcrApi } from "@/lib/local-api";
+import { filesApi, methodsApi, tasksApi, pcrApi } from "@/lib/local-api";
 import { migrateNoteImages } from "@/lib/notes/migrate-images";
 import type { Method, Task, TaskMethodAttachment, PCRProtocol, PCRGradient, PCRIngredient } from "@/lib/types";
 import { InteractiveGradientEditor } from "@/components/InteractiveGradientEditor";
@@ -122,7 +122,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
     
     // Handle PDF methods differently
     if (isPdfMethod) {
-      githubApi
+      filesApi
         .readFile(activeMethod.github_path)
         .then((file) => {
           // The content comes back as base64 for binary files
@@ -158,7 +158,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
       const githubPath = activeMethod.github_path;
       (async () => {
         try {
-          const file = await githubApi.readFile(githubPath);
+          const file = await filesApi.readFile(githubPath);
           const raw = file.content;
           if (readOnly) {
             if (!cancelled) {
@@ -172,7 +172,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
           const legacyOwner = activeMethod.owner || activeMethod.created_by || undefined;
           const { content: migrated, didMigrate } = await migrateNoteImages(raw, slug, dir, legacyOwner);
           if (didMigrate) {
-            await githubApi.writeFile(githubPath, migrated, `Migrate image references for: ${activeMethod.name}`);
+            await filesApi.writeFile(githubPath, migrated, `Migrate image references for: ${activeMethod.name}`);
           }
           if (!cancelled) {
             setMethodContent(migrated);

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { projectsApi, tasksApi, dependenciesApi, methodsApi, githubApi } from "@/lib/local-api";
+import { projectsApi, tasksApi, dependenciesApi, methodsApi, filesApi } from "@/lib/local-api";
 import { findExistingTaskResultsBase, taskResultsBase } from "@/lib/tasks/results-paths";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAppStore } from "@/lib/store";
@@ -374,7 +374,7 @@ export default function ExperimentsPage() {
         // Fetch lab notes
         let labNotes: string | null = null;
         try {
-          const notesFile = await githubApi.readFile(`${resultsBase}/notes.md`);
+          const notesFile = await filesApi.readFile(`${resultsBase}/notes.md`);
           labNotes = notesFile.content;
         } catch {
           // Notes don't exist
@@ -428,7 +428,7 @@ export default function ExperimentsPage() {
               } else if (attachment.attachment_type === 'markdown' && attachment.path) {
                 // For markdown attachments, fetch content
                 try {
-                  const methodFile = await githubApi.readFile(attachment.path);
+                  const methodFile = await filesApi.readFile(attachment.path);
                   
                   // Check if content is base64-encoded PDF (starts with "JVBERi0" which is base64 for "%PDF-1")
                   const isBase64Pdf = methodFile.content.startsWith('JVBERi0');
@@ -487,7 +487,7 @@ export default function ExperimentsPage() {
               } else {
                 // Try to fetch as markdown, but detect if it's actually a PDF
                 try {
-                  const methodFile = await githubApi.readFile(methodData.github_path);
+                  const methodFile = await filesApi.readFile(methodData.github_path);
                   
                   // Check if content is base64-encoded PDF (starts with "JVBERi0" which is base64 for "%PDF-1")
                   const isBase64Pdf = methodFile.content.startsWith('JVBERi0');
@@ -526,7 +526,7 @@ export default function ExperimentsPage() {
         // Fetch results
         let results: string | null = null;
         try {
-          const resultsFile = await githubApi.readFile(`${resultsBase}/results.md`);
+          const resultsFile = await filesApi.readFile(`${resultsBase}/results.md`);
           results = resultsFile.content;
         } catch {
           // Results don't exist
@@ -535,13 +535,13 @@ export default function ExperimentsPage() {
         // Get PDF attachments
         const pdfAttachments: string[] = [];
         try {
-          const notesPdfs = await githubApi.listDirectory(`${resultsBase}/NotesPDFs`);
+          const notesPdfs = await filesApi.listDirectory(`${resultsBase}/NotesPDFs`);
           pdfAttachments.push(...notesPdfs.map((f: GitHubTreeItem) => f.path));
         } catch {
           // Directory doesn't exist
         }
         try {
-          const resultsPdfs = await githubApi.listDirectory(`${resultsBase}/ResultsPDFs`);
+          const resultsPdfs = await filesApi.listDirectory(`${resultsBase}/ResultsPDFs`);
           pdfAttachments.push(...resultsPdfs.map((f: GitHubTreeItem) => f.path));
         } catch {
           // Directory doesn't exist

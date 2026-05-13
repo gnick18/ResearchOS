@@ -5,7 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import rehypeHighlight from "rehype-highlight";
-import { githubApi } from "@/lib/local-api";
+import { filesApi } from "@/lib/local-api";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 
 interface MarkdownPreviewProps {
@@ -34,7 +34,7 @@ export default function MarkdownPreview({
     setLoading(true);
     setError(null);
 
-    githubApi
+    filesApi
       .readFile(githubPath)
       .then((file) => {
         setContent(file.content);

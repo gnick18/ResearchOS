@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { projectsApi, tasksApi, githubApi } from "@/lib/local-api";
+import { projectsApi, tasksApi, filesApi } from "@/lib/local-api";
 import { findExistingTaskResultsBase, taskResultsBase } from "@/lib/tasks/results-paths";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAppStore } from "@/lib/store";
@@ -90,7 +90,7 @@ export default function ResultsPage() {
         let attachmentCount = 0;
 
         try {
-          const items = await githubApi.listDirectory(resultDir);
+          const items = await filesApi.listDirectory(resultDir);
           for (const item of items) {
             if (item.type === "file") {
               if (item.name === "notes.md") {

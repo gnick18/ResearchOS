@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { methodsApi, fetchAllTasks, githubApi } from "@/lib/local-api";
+import { methodsApi, fetchAllTasks, filesApi } from "@/lib/local-api";
 import type { Method, Task } from "@/lib/types";
 import RenderedMarkdown from "@/components/RenderedMarkdown";
 
@@ -443,7 +443,7 @@ function MethodPreview({ method }: { method: Method | null }) {
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["method-preview", method?.id],
-    queryFn: () => githubApi.readFile(method!.github_path!),
+    queryFn: () => filesApi.readFile(method!.github_path!),
     enabled: canFetchFile,
     staleTime: 5 * 60_000,
   });

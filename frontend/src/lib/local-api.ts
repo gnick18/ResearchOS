@@ -2175,7 +2175,7 @@ async function sha1Hex(input: string): Promise<string> {
   return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-export const githubApi = {
+export const filesApi = {
   readFile: async (path: string): Promise<{ path: string; content: string; sha: string; html_url: string }> => {
     const blob = await fileService.readFileAsBlob(path);
     if (!blob) throw new Error(`File not found: ${path}`);

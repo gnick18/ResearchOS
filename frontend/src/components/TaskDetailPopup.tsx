@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState, useMemo } from "react"
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
-import { githubApi, methodsApi, projectsApi, tasksApi as rawTasksApi, dependenciesApi, fetchAllTasks, attachmentsApi, type DuplicateCheckResult } from "@/lib/local-api";
+import { filesApi, methodsApi, projectsApi, tasksApi as rawTasksApi, dependenciesApi, fetchAllTasks, attachmentsApi, type DuplicateCheckResult } from "@/lib/local-api";
 import type { TaskUpdate, TaskMoveRequest } from "@/lib/local-api";
 
 /**
@@ -2031,7 +2031,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
         if (cancelled) return;
         setBasePath(resolved);
         const resolvedNotes = `${resolved}/notes.md`;
-        const file = await githubApi.readFile(resolvedNotes);
+        const file = await filesApi.readFile(resolvedNotes);
         const raw = file.content;
         if (readOnly) {
           if (!cancelled) {
@@ -2043,7 +2043,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
         }
         const { content: migrated, didMigrate } = await migrateNoteImages(raw, task.id, resolved, legacyOwner);
         if (didMigrate) {
-          await githubApi.writeFile(resolvedNotes, migrated, `Migrate image references for: ${task.name}`);
+          await filesApi.writeFile(resolvedNotes, migrated, `Migrate image references for: ${task.name}`);
         }
         if (!cancelled) {
           setContent(migrated);
@@ -2126,7 +2126,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
-      await githubApi.writeFile(notesPath, content, `Update lab notes for: ${task.name}`);
+      await filesApi.writeFile(notesPath, content, `Update lab notes for: ${task.name}`);
       await gcUnreferencedAttachments(content, basePath);
       setOriginalContent(content);
     } catch {
@@ -2284,7 +2284,7 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
         if (cancelled) return;
         setBasePath(resolved);
         const resolvedResults = `${resolved}/results.md`;
-        const file = await githubApi.readFile(resolvedResults);
+        const file = await filesApi.readFile(resolvedResults);
         const raw = file.content;
         if (readOnly) {
           if (!cancelled) {
@@ -2296,7 +2296,7 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
         }
         const { content: migrated, didMigrate } = await migrateNoteImages(raw, task.id, resolved, legacyOwner);
         if (didMigrate) {
-          await githubApi.writeFile(resolvedResults, migrated, `Migrate image references for: ${task.name}`);
+          await filesApi.writeFile(resolvedResults, migrated, `Migrate image references for: ${task.name}`);
         }
         if (!cancelled) {
           setContent(migrated);
@@ -2379,7 +2379,7 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
-      await githubApi.writeFile(resultsPath, content, `Update results: ${task.name}`);
+      await filesApi.writeFile(resultsPath, content, `Update results: ${task.name}`);
       await gcUnreferencedAttachments(content, basePath);
       setOriginalContent(content);
     } catch {
@@ -2570,7 +2570,7 @@ function PdfAttachmentsPanel({ task, pdfsDir, label }: { task: Task; pdfsDir: st
   const loadFiles = useCallback(async () => {
     setLoading(true);
     try {
-      const dirFiles = await githubApi.listDirectory(pdfsDir);
+      const dirFiles = await filesApi.listDirectory(pdfsDir);
       
       const attachments: PdfAttachment[] = dirFiles.map((f: GitHubTreeItem) => ({
         name: f.name,
@@ -2601,7 +2601,7 @@ function PdfAttachmentsPanel({ task, pdfsDir, label }: { task: Task; pdfsDir: st
           const fileName = `${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
           const filePath = `${pdfsDir}/${fileName}`;
           
-          await githubApi.uploadImage(
+          await filesApi.uploadImage(
             filePath,
             base64,
             `Upload file for ${label}: ${file.name}`
@@ -2623,7 +2623,7 @@ function PdfAttachmentsPanel({ task, pdfsDir, label }: { task: Task; pdfsDir: st
     if (!file.isRenderable) {
       // For non-renderable files, offer download
       try {
-        const fileData = await githubApi.readFile(file.path);
+        const fileData = await filesApi.readFile(file.path);
         const binaryString = atob(fileData.content);
         const bytes = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
@@ -2651,7 +2651,7 @@ function PdfAttachmentsPanel({ task, pdfsDir, label }: { task: Task; pdfsDir: st
     setMarkdownContent(null);
     
     try {
-      const fileData = await githubApi.readFile(file.path);
+      const fileData = await filesApi.readFile(file.path);
       
       // Check if it's a markdown file - render with ReactMarkdown
       if (isMarkdownFile(file.name)) {
@@ -2867,7 +2867,7 @@ function TaskExportButton({ task }: { task: Task }) {
       // Fetch lab notes
       let labNotes: string | null = null;
       try {
-        const notesFile = await githubApi.readFile(`${base}/notes.md`);
+        const notesFile = await filesApi.readFile(`${base}/notes.md`);
         labNotes = notesFile.content;
       } catch {
         // Notes don't exist
@@ -2880,7 +2880,7 @@ function TaskExportButton({ task }: { task: Task }) {
         try {
           method = await methodsApi.get(task.method_id);
           if (method && method.github_path) {
-            const methodFile = await githubApi.readFile(method.github_path);
+            const methodFile = await filesApi.readFile(method.github_path);
             methodContent = methodFile.content;
           }
         } catch {
@@ -2891,7 +2891,7 @@ function TaskExportButton({ task }: { task: Task }) {
       // Fetch results
       let results: string | null = null;
       try {
-        const resultsFile = await githubApi.readFile(`${base}/results.md`);
+        const resultsFile = await filesApi.readFile(`${base}/results.md`);
         results = resultsFile.content;
       } catch {
         // Results don't exist
@@ -2900,13 +2900,13 @@ function TaskExportButton({ task }: { task: Task }) {
       // Get PDF attachments
       const pdfAttachments: string[] = [];
       try {
-        const notesPdfs = await githubApi.listDirectory(`${base}/NotesPDFs`);
+        const notesPdfs = await filesApi.listDirectory(`${base}/NotesPDFs`);
         pdfAttachments.push(...notesPdfs.map((f: GitHubTreeItem) => f.path));
       } catch {
         // Directory doesn't exist
       }
       try {
-        const resultsPdfs = await githubApi.listDirectory(`${base}/ResultsPDFs`);
+        const resultsPdfs = await filesApi.listDirectory(`${base}/ResultsPDFs`);
         pdfAttachments.push(...resultsPdfs.map((f: GitHubTreeItem) => f.path));
       } catch {
         // Directory doesn't exist
