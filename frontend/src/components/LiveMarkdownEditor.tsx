@@ -1458,13 +1458,42 @@ export default function LiveMarkdownEditor({
       if (replaced) {
         onChange(newValue);
       }
-      
+
       setShowBrokenImagePopup(false);
       setCurrentBrokenImage(null);
       setImageSearchResults([]);
     },
     [currentBrokenImage, value, onChange, imageBasePath]
   );
+
+  // Strip the broken reference from the markdown entirely. Same regex
+  // shapes as applyImageCorrection's match logic — the difference is we
+  // replace with an empty string instead of a corrected path.
+  const removeBrokenReference = useCallback(() => {
+    if (!currentBrokenImage) return;
+    const { originalSrc, alt } = currentBrokenImage;
+    const escapedAlt = alt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const escapedSrc = originalSrc.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    let newValue = value;
+    // Strip exact `![alt](src)` first so we don't accidentally over-match
+    // when alt is empty and a sibling image has the same src.
+    const exactMd = new RegExp(`!\\[${escapedAlt}\\]\\(${escapedSrc}\\)\\s*`, "g");
+    newValue = newValue.replace(exactMd, "");
+    // Fall back to any-alt match for the same src.
+    const anyAltMd = new RegExp(`!\\[[^\\]]*\\]\\(${escapedSrc}\\)\\s*`, "g");
+    newValue = newValue.replace(anyAltMd, "");
+    // HTML <img> tag with this src.
+    const htmlImg = new RegExp(`<img[^>]*src=["']${escapedSrc}["'][^>]*>\\s*`, "gi");
+    newValue = newValue.replace(htmlImg, "");
+
+    if (newValue !== value) {
+      onChange(newValue);
+    }
+    setShowBrokenImagePopup(false);
+    setCurrentBrokenImage(null);
+    setImageSearchResults([]);
+  }, [currentBrokenImage, value, onChange]);
 
   /**
    * Dismiss the broken image popup and optionally clear the queue
@@ -2291,11 +2320,18 @@ export default function LiveMarkdownEditor({
                 <p className="text-xs text-gray-400 mt-1">
                   The image may have been deleted or moved.
                 </p>
+                <button
+                  type="button"
+                  onClick={removeBrokenReference}
+                  className="mt-3 px-3 py-1.5 text-xs bg-red-500 hover:bg-red-600 text-white rounded transition-colors"
+                >
+                  Remove reference from note
+                </button>
               </div>
             )}
           </div>
-          
-          <div className="px-3 py-2 border-t border-gray-100 bg-gray-50 flex justify-between">
+
+          <div className="px-3 py-2 border-t border-gray-100 bg-gray-50 flex justify-between items-center">
             {brokenImageQueue.length > 0 ? (
               <button
                 type="button"
@@ -2307,13 +2343,25 @@ export default function LiveMarkdownEditor({
             ) : (
               <div></div>
             )}
-            <button
-              type="button"
-              onClick={() => dismissBrokenImagePopup(true)}
-              className="px-3 py-1 text-xs text-gray-600 hover:text-gray-800 transition-colors"
-            >
-              Dismiss all
-            </button>
+            <div className="flex items-center gap-3">
+              {imageSearchResults.length > 0 && (
+                <button
+                  type="button"
+                  onClick={removeBrokenReference}
+                  className="text-xs text-red-600 hover:text-red-800 transition-colors"
+                  title="Strip this reference from the markdown body"
+                >
+                  Remove reference
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => dismissBrokenImagePopup(true)}
+                className="px-3 py-1 text-xs text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                Dismiss all
+              </button>
+            </div>
           </div>
         </div>
       )}
