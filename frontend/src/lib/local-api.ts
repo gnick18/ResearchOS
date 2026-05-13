@@ -93,15 +93,15 @@ export const projectsApi = {
   list: async (): Promise<Project[]> => {
     return projectsStore.listAll();
   },
-  
+
   listWithShared: async (): Promise<Project[]> => {
     return projectsStore.listAll();
   },
-  
-  get: async (id: number): Promise<Project | null> => {
-    return projectsStore.get(id);
+
+  get: async (id: number, owner?: string): Promise<Project | null> => {
+    return owner ? projectsStore.getForUser(id, owner) : projectsStore.get(id);
   },
-  
+
   create: async (data: ProjectCreate): Promise<Project> => {
     const now = new Date().toISOString();
     const project = await projectsStore.create({
@@ -118,24 +118,31 @@ export const projectsApi = {
     });
     return project;
   },
-  
-  update: async (id: number, data: ProjectUpdate): Promise<Project | null> => {
-    return projectsStore.update(id, data);
+
+  // When `owner` is set (receiver of a shared project with permission "edit"),
+  // the write lands in the owner's directory instead of the current user's.
+  update: async (id: number, data: ProjectUpdate, owner?: string): Promise<Project | null> => {
+    return owner ? projectsStore.updateForUser(id, data, owner) : projectsStore.update(id, data);
   },
-  
+
+  // Delete is intentionally NOT owner-routed: only the original owner should
+  // be able to destroy the file. Mirrors the convention in tasksApi.
   delete: async (id: number): Promise<void> => {
     await projectsStore.delete(id);
   },
-  
+
   reorder: async (projectIds: number[]): Promise<void> => {
     for (let i = 0; i < projectIds.length; i++) {
       await projectsStore.update(projectIds[i], { sort_order: i });
     }
   },
-  
-  archive: async (id: number, isArchived: boolean): Promise<Project | null> => {
+
+  archive: async (id: number, isArchived: boolean, owner?: string): Promise<Project | null> => {
     const archivedAt = isArchived ? new Date().toISOString() : null;
-    return projectsStore.update(id, { is_archived: isArchived, archived_at: archivedAt });
+    const patch = { is_archived: isArchived, archived_at: archivedAt };
+    return owner
+      ? projectsStore.updateForUser(id, patch, owner)
+      : projectsStore.update(id, patch);
   },
 };
 
@@ -509,7 +516,15 @@ export const methodsApi = {
     return marked;
   },
 
-  get: async (id: number): Promise<Method | null> => {
+  // When `owner` is set, the read targets the owner's private methods dir
+  // (used by receivers viewing a shared method). Public methods live in the
+  // shared `users/public/` store and are never owner-routed.
+  get: async (id: number, owner?: string): Promise<Method | null> => {
+    if (owner) {
+      const ownerMethod = await methodsStore.getForUser(id, owner);
+      if (ownerMethod) return normalizeMethodRecord({ ...ownerMethod, is_public: false });
+      return null;
+    }
     const method = await methodsStore.get(id);
     if (method) return normalizeMethodRecord({ ...method, is_public: false });
 
@@ -518,7 +533,7 @@ export const methodsApi = {
 
     return null;
   },
-  
+
   create: async (data: MethodCreate): Promise<Method> => {
     if (data.is_public) {
       return publicMethodsStore.create({
@@ -547,26 +562,32 @@ export const methodsApi = {
       shared_with: [],
     });
   },
-  
-  update: async (id: number, data: MethodUpdate): Promise<Method | null> => {
+
+  // When `owner` is set (receiver of a shared method with permission "edit"),
+  // the write lands in the owner's private methods dir. Public methods are
+  // shared globally and are never owner-routed.
+  update: async (id: number, data: MethodUpdate, owner?: string): Promise<Method | null> => {
+    if (owner) {
+      return methodsStore.updateForUser(id, data, owner);
+    }
     let method = await methodsStore.get(id);
     if (method) {
       return methodsStore.update(id, data);
     }
-    
+
     method = await publicMethodsStore.get(id);
     if (method) {
       return publicMethodsStore.update(id, data);
     }
-    
+
     return null;
   },
-  
+
   getChildren: async (id: number): Promise<Method[]> => {
     const allMethods = await methodsApi.list();
     return allMethods.filter((m) => m.parent_method_id === id);
   },
-  
+
   getExperiments: async (id: number): Promise<MethodExperiment[]> => {
     const tasks = await tasksStore.listAll();
     return tasks.filter((t) => t.method_ids?.includes(id) && t.task_type === "experiment").map((t) => ({
@@ -582,11 +603,18 @@ export const methodsApi = {
       variation_notes: null,
     }));
   },
-  
-  fork: async (id: number, data: { new_name: string; new_source_path: string; deviations: string }): Promise<Method> => {
-    const original = await methodsApi.get(id);
+
+  // Forks always land in the current user's library — "make my own copy" is
+  // the whole point. The owner arg only routes the read of the source method
+  // so a receiver editing a shared method can still fork it.
+  fork: async (
+    id: number,
+    data: { new_name: string; new_source_path: string; deviations: string },
+    owner?: string
+  ): Promise<Method> => {
+    const original = await methodsApi.get(id, owner);
     if (!original) throw new Error("Method not found");
-    
+
     return methodsStore.create({
       ...original,
       name: data.new_name,
@@ -595,11 +623,13 @@ export const methodsApi = {
       is_public: false,
     });
   },
-  
+
   saveDeviation: async (data: { task_id: number; deviations: string }): Promise<Task | null> => {
     return tasksStore.update(data.task_id, { deviation_log: data.deviations });
   },
-  
+
+  // Delete is intentionally NOT owner-routed: only the original owner should
+  // be able to destroy the file. Mirrors the convention in tasksApi.
   delete: async (id: number): Promise<void> => {
     await methodsStore.delete(id);
     await publicMethodsStore.delete(id);
@@ -2443,6 +2473,75 @@ export const fetchAllTasksIncludingShared = async () => {
   }
 
   return merged;
+};
+
+// Mirror of `fetchAllTasksIncludingShared` for methods. Reads the receiver's
+// `_shared_with_me.json` manifest and pulls each shared method from the
+// owner's private dir, overlaying `is_shared_with_me` / `shared_permission` /
+// `owner` at read time. Public methods are already surfaced by
+// `methodsApi.list`; this only adds the receiver-shared private ones.
+export const fetchAllMethodsIncludingShared = async (): Promise<Method[]> => {
+  const ownMethods = await methodsApi.list();
+
+  const sharedMethods: Method[] = [];
+  try {
+    const currentUser = await getCurrentUserCached();
+    const manifest = await fileService.readJson<SharedManifest>(
+      `users/${currentUser}/_shared_with_me.json`
+    );
+    const entries = manifest?.methods ?? [];
+    for (const entry of entries) {
+      const method = await fileService.readJson<Method>(
+        `users/${entry.owner}/methods/${entry.id}.json`
+      );
+      if (!method) continue;
+      const permission = entry.permission === "view" ? "view" : "edit";
+      const withOverlay = {
+        ...method,
+        owner: entry.owner,
+        is_public: false,
+        is_shared_with_me: true,
+        shared_permission: permission,
+      } as Method;
+      sharedMethods.push(withOverlay);
+    }
+  } catch (err) {
+    console.warn("[fetchAllMethodsIncludingShared] failed to load shared methods:", err);
+  }
+
+  return [...ownMethods, ...sharedMethods];
+};
+
+// Mirror of `fetchAllTasksIncludingShared` for projects.
+export const fetchAllProjectsIncludingShared = async (): Promise<Project[]> => {
+  const ownProjects = await projectsStore.listAll();
+
+  const sharedProjects: Project[] = [];
+  try {
+    const currentUser = await getCurrentUserCached();
+    const manifest = await fileService.readJson<SharedManifest>(
+      `users/${currentUser}/_shared_with_me.json`
+    );
+    const entries = manifest?.projects ?? [];
+    for (const entry of entries) {
+      const project = await fileService.readJson<Project>(
+        `users/${entry.owner}/projects/${entry.id}.json`
+      );
+      if (!project) continue;
+      const permission = entry.permission === "view" ? "view" : "edit";
+      const withOverlay = {
+        ...project,
+        owner: entry.owner,
+        is_shared_with_me: true,
+        shared_permission: permission,
+      } as Project;
+      sharedProjects.push(withOverlay);
+    }
+  } catch (err) {
+    console.warn("[fetchAllProjectsIncludingShared] failed to load shared projects:", err);
+  }
+
+  return [...ownProjects, ...sharedProjects];
 };
 
 export type {

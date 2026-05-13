@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, useMemo } from "react";
 import { useAppStore } from "@/lib/store";
-import { tasksApi, methodsApi, filesApi, dependenciesApi, type DuplicateCheckResult } from "@/lib/local-api";
+import { tasksApi, filesApi, dependenciesApi, fetchAllMethodsIncludingShared, type DuplicateCheckResult } from "@/lib/local-api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Method, Project, Task, Dependency, SubTask } from "@/lib/types";
 import { createNewFileContent } from "@/lib/stamp-utils";
@@ -88,7 +88,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
   // Load methods for the dropdown
   const { data: methods = [] } = useQuery({
     queryKey: ["methods"],
-    queryFn: methodsApi.list,
+    queryFn: fetchAllMethodsIncludingShared,
     enabled: isCreatingTask && taskType === "experiment",
   });
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { projectsApi } from "@/lib/local-api";
+import { fetchAllProjectsIncludingShared } from "@/lib/local-api";
 import type { Task, Project } from "@/lib/types";
 
 interface TaskPickerProps {
@@ -48,7 +48,7 @@ export default function TaskPicker({
 }: TaskPickerProps) {
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["projects"],
-    queryFn: projectsApi.list,
+    queryFn: fetchAllProjectsIncludingShared,
   });
 
   const [query, setQuery] = useState("");

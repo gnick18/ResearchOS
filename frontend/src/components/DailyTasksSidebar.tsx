@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { projectsApi, fetchAllTasks, eventsApi } from "@/lib/local-api";
+import { fetchAllTasks, eventsApi, fetchAllProjectsIncludingShared } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAppStore } from "@/lib/store";
 import { useExternalEvents } from "@/lib/calendar/use-external-events";
@@ -42,7 +42,7 @@ export default function DailyTasksSidebar() {
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", currentUser],
-    queryFn: projectsApi.list,
+    queryFn: fetchAllProjectsIncludingShared,
   });
 
   const activeProjects = useMemo(() => 

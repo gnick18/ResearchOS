@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { goalsApi, projectsApi, dependenciesApi, fetchAllTasksIncludingShared } from "@/lib/local-api";
+import { goalsApi, dependenciesApi, fetchAllTasksIncludingShared, fetchAllProjectsIncludingShared } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
@@ -37,7 +37,7 @@ export default function Home() {
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", currentUser],
-    queryFn: projectsApi.listWithShared,
+    queryFn: fetchAllProjectsIncludingShared,
   });
 
   const { data: goals = [] } = useQuery({

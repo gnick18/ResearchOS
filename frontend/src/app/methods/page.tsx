@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { methodsApi, filesApi, pcrApi, usersApi } from "@/lib/local-api";
+import { methodsApi as rawMethodsApi, filesApi, pcrApi, usersApi, fetchAllMethodsIncludingShared } from "@/lib/local-api";
+import type { MethodUpdate } from "@/lib/local-api";
 import { fileService } from "@/lib/file-system/file-service";
 import { migrateNoteImages } from "@/lib/notes/migrate-images";
 import AppShell from "@/components/AppShell";
@@ -14,6 +15,39 @@ import { useFileRenamePopup } from "@/components/FileRenamePopup";
 import SharePopup from "@/components/SharePopup";
 import Tooltip from "@/components/Tooltip";
 import type { Method, PCRProtocol, PCRGradient, PCRStep, PCRIngredient, SharedUser } from "@/lib/types";
+
+/**
+ * When the current viewer is a receiver of a shared method with edit
+ * permission, every mutation needs to write back to the OWNER's directory
+ * (e.g. `users/Kritika/methods/1.json`), not the current user's. Plain own
+ * methods (or read-only views) pass undefined and the writes go to the
+ * current user's directory. Mirrors the pattern in TaskDetailPopup.
+ */
+function effectiveOwnerOf(method: Method): string | undefined {
+  return method.is_shared_with_me && method.shared_permission === "edit"
+    ? method.owner
+    : undefined;
+}
+
+function ownerScopedMethodsApi(method: Method) {
+  const owner = effectiveOwnerOf(method);
+  return {
+    ...rawMethodsApi,
+    get: (id: number) => rawMethodsApi.get(id, owner),
+    update: (id: number, data: MethodUpdate) => rawMethodsApi.update(id, data, owner),
+    fork: (
+      id: number,
+      data: { new_name: string; new_source_path: string; deviations: string }
+    ) => rawMethodsApi.fork(id, data, owner),
+    // `delete` intentionally not owner-routed: only the original owner should
+    // be able to destroy the file.
+  };
+}
+
+// Unscoped methodsApi for read-only flows (list/create) that don't depend on
+// a specific Method record. Mutating call sites should use the scoped wrapper
+// keyed off the current method instead.
+const methodsApi = rawMethodsApi;
 
 async function pickUniqueImageName(dirPath: string, desired: string): Promise<string> {
   const dot = desired.lastIndexOf(".");
@@ -50,7 +84,7 @@ export default function MethodsPage() {
 
   const { data: methods = [] } = useQuery({
     queryKey: ["methods"],
-    queryFn: methodsApi.list,
+    queryFn: fetchAllMethodsIncludingShared,
   });
 
   // Get current user for permission checks
@@ -144,9 +178,12 @@ export default function MethodsPage() {
       }
 
       try {
-        // Update the method's folder_path
+        // Update the method's folder_path. Use the owner-scoped API so when
+        // the dragged method is shared-with-edit, the write lands in the
+        // owner's directory.
         const newFolderPath = targetFolder === "Uncategorized" ? null : targetFolder;
-        await methodsApi.update(draggedMethod.id, {
+        const scoped = ownerScopedMethodsApi(draggedMethod);
+        await scoped.update(draggedMethod.id, {
           name: draggedMethod.name,
           source_path: draggedMethod.source_path ?? undefined,
           method_type: draggedMethod.method_type ?? undefined,
@@ -1188,6 +1225,9 @@ function MethodNameEditor({
   const [name, setName] = useState(method.name);
   const [saving, setSaving] = useState(false);
 
+  // Owner-aware view: shared-with-edit methods write back to the owner's dir.
+  const scopedMethodsApi = useMemo(() => ownerScopedMethodsApi(method), [method]);
+
   const handleSaveName = useCallback(async () => {
     if (!name.trim() || name === method.name) {
       setEditingName(false);
@@ -1196,7 +1236,7 @@ function MethodNameEditor({
     }
     setSaving(true);
     try {
-      await methodsApi.update(method.id, { name: name.trim() });
+      await scopedMethodsApi.update(method.id, { name: name.trim() });
       await queryClient.refetchQueries({ queryKey: ["methods"] });
       onNameUpdated(name.trim());
       setEditingName(false);
@@ -1207,7 +1247,7 @@ function MethodNameEditor({
     } finally {
       setSaving(false);
     }
-  }, [name, method.id, method.name, queryClient, onNameUpdated]);
+  }, [name, method.id, method.name, queryClient, onNameUpdated, scopedMethodsApi]);
 
   if (editingName) {
     return (
@@ -1286,6 +1326,9 @@ function MarkdownMethodViewer({
   const [showSharePopup, setShowSharePopup] = useState(false);
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
+
+  // Owner-aware view: shared-with-edit methods write back to the owner's dir.
+  const scopedMethodsApi = useMemo(() => ownerScopedMethodsApi(currentMethod), [currentMethod]);
 
   const methodDir = currentMethod.source_path?.substring(0, currentMethod.source_path.lastIndexOf("/")) || "";
 
@@ -1396,13 +1439,13 @@ function MarkdownMethodViewer({
   const handleTogglePublic = useCallback(async () => {
     try {
       const newIsPublic = !currentMethod.is_public;
-      await methodsApi.update(currentMethod.id, { is_public: newIsPublic });
+      await scopedMethodsApi.update(currentMethod.id, { is_public: newIsPublic });
       setCurrentMethod({ ...currentMethod, is_public: newIsPublic });
       await queryClient.refetchQueries({ queryKey: ["methods"] });
     } catch {
       alert("Failed to update method visibility");
     }
-  }, [currentMethod, queryClient]);
+  }, [currentMethod, queryClient, scopedMethodsApi]);
 
   // Check if current user can modify this method (owner of private method, or creator of public method)
   const canModify = !currentMethod.is_public || currentMethod.created_by === currentUser;
@@ -1530,7 +1573,7 @@ function MarkdownMethodViewer({
           onShared={() => {
             queryClient.refetchQueries({ queryKey: ["methods"] });
             // Update local state
-            methodsApi.get(currentMethod.id).then((updatedMethod) => {
+            scopedMethodsApi.get(currentMethod.id).then((updatedMethod) => {
               if (updatedMethod) setCurrentMethod(updatedMethod);
             });
           }}
@@ -1558,6 +1601,9 @@ function PdfViewer({
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showSharePopup, setShowSharePopup] = useState(false);
+
+  // Owner-aware view: shared-with-edit methods route reads to the owner's dir.
+  const scopedMethodsApi = useMemo(() => ownerScopedMethodsApi(currentMethod), [currentMethod]);
 
   // Check if current user can modify this method (owner of private method, or creator of public method)
   const canModify = !currentMethod.is_public || currentMethod.created_by === currentUser;
@@ -1672,7 +1718,7 @@ function PdfViewer({
           onShared={() => {
             queryClient.refetchQueries({ queryKey: ["methods"] });
             // Update local state
-            methodsApi.get(currentMethod.id).then((updatedMethod) => {
+            scopedMethodsApi.get(currentMethod.id).then((updatedMethod) => {
               if (updatedMethod) setCurrentMethod(updatedMethod);
             });
           }}
@@ -1705,6 +1751,9 @@ function PcrViewer({
   const [notes, setNotes] = useState("");
   const [editingRecipe, setEditingRecipe] = useState(false);
   const [showSharePopup, setShowSharePopup] = useState(false);
+
+  // Owner-aware view: shared-with-edit methods route reads to the owner's dir.
+  const scopedMethodsApi = useMemo(() => ownerScopedMethodsApi(currentMethod), [currentMethod]);
 
   // Extract PCR protocol ID from the source_path (format: pcr://protocol/{id})
   const pcrId = method.source_path?.startsWith("pcr://protocol/")
@@ -2020,7 +2069,7 @@ function PcrViewer({
           onShared={() => {
             queryClient.refetchQueries({ queryKey: ["methods"] });
             // Update local state
-            methodsApi.get(currentMethod.id).then((updatedMethod) => {
+            scopedMethodsApi.get(currentMethod.id).then((updatedMethod) => {
               if (updatedMethod) setCurrentMethod(updatedMethod);
             });
           }}

@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { projectsApi, fetchAllTasks } from "@/lib/local-api";
+import { projectsApi, fetchAllTasks, fetchAllProjectsIncludingShared } from "@/lib/local-api";
 import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import ProjectDetailPopup from "@/components/ProjectDetailPopup";
@@ -90,7 +90,7 @@ export default function HomePage() {
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", currentUser],
-    queryFn: projectsApi.list,
+    queryFn: fetchAllProjectsIncludingShared,
   });
 
   const { activeProjects, archivedProjects } = useMemo(() => {

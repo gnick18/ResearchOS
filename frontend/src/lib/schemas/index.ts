@@ -61,6 +61,11 @@ export const ProjectSchema = z.object({
   archived_at: z.string().nullable(),
   owner: z.string().default(""),
   shared_with: z.array(SharedUserSchema).default([]),
+  // Read-time overlays — never persisted to disk. Applied by
+  // `fetchAllProjectsIncludingShared` when surfacing projects shared with the
+  // current viewer.
+  is_shared_with_me: z.boolean().default(false).optional(),
+  shared_permission: z.enum(["view", "edit"]).optional(),
 });
 
 export const ProjectCreateSchema = z.object({
@@ -239,6 +244,11 @@ export const MethodSchema = z.object({
   created_by: z.string().nullable(),
   owner: z.string().default(""),
   shared_with: z.array(SharedUserSchema).default([]),
+  // Read-time overlays — never persisted to disk. Applied by
+  // `fetchAllMethodsIncludingShared` when surfacing methods shared with the
+  // current viewer.
+  is_shared_with_me: z.boolean().default(false).optional(),
+  shared_permission: z.enum(["view", "edit"]).optional(),
 });
 
 export const MethodCreateSchema = z.object({

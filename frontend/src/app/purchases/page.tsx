@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { projectsApi, tasksApi, purchasesApi } from "@/lib/local-api";
+import { tasksApi, purchasesApi, fetchAllProjectsIncludingShared } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import AppShell from "@/components/AppShell";
 import PurchaseEditor from "@/components/PurchaseEditor";
@@ -19,7 +19,7 @@ export default function PurchasesPage() {
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", currentUser],
-    queryFn: projectsApi.list,
+    queryFn: fetchAllProjectsIncludingShared,
   });
 
   const { data: allTasks = [] } = useQuery({

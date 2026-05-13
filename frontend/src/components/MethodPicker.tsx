@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { methodsApi, fetchAllTasks, filesApi } from "@/lib/local-api";
+import { fetchAllTasks, fetchAllMethodsIncludingShared, filesApi } from "@/lib/local-api";
 import type { Method, Task } from "@/lib/types";
 import RenderedMarkdown from "@/components/RenderedMarkdown";
 
@@ -67,7 +67,7 @@ export default function MethodPicker({
 }: MethodPickerProps) {
   const { data: allMethods = [], isLoading } = useQuery({
     queryKey: ["methods"],
-    queryFn: methodsApi.list,
+    queryFn: fetchAllMethodsIncludingShared,
   });
 
   const excludeSet = useMemo(

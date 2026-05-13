@@ -69,6 +69,10 @@ export interface Project {
   archived_at: string | null;
   owner: string;
   shared_with: SharedUser[];
+  // Read-time overlay fields — set by fetchAllProjectsIncludingShared when
+  // the receiver of a shared project loads it. Never persisted to disk.
+  is_shared_with_me?: boolean;
+  shared_permission?: "view" | "edit";
 }
 
 export interface ProjectCreate {
@@ -276,6 +280,10 @@ export interface Method {
   // Sharing fields
   owner: string;
   shared_with: SharedUser[];
+  // Read-time overlay fields — set by fetchAllMethodsIncludingShared when
+  // the receiver of a shared method loads it. Never persisted to disk.
+  is_shared_with_me?: boolean;
+  shared_permission?: "view" | "edit";
 }
 
 export interface MethodCreate {
