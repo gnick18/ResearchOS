@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { eventsApi } from "@/lib/local-api";
 import AppShell from "@/components/AppShell";
 import CalendarFeedsButton from "@/components/CalendarFeedsButton";
+import DayDetailDrawer from "@/components/DayDetailDrawer";
 import { useExternalEvents } from "@/lib/calendar/use-external-events";
 import type { Event, ExternalEvent } from "@/lib/types";
 
@@ -69,6 +70,7 @@ export default function CalendarPage() {
   } = useExternalEvents();
 
   const [selectedExternal, setSelectedExternal] = useState<ExternalEvent | null>(null);
+  const [expandedDate, setExpandedDate] = useState<string | null>(null);
 
   // Get current month/year
   const currentYear = currentDate.getFullYear();
@@ -259,10 +261,12 @@ export default function CalendarPage() {
               return (
                 <div
                   key={index}
+                  onClick={() => setExpandedDate(dateStr)}
                   onDoubleClick={() => {
                     setPrefilledStartDate(dateStr);
                     setCreating(true);
                   }}
+                  title="Click to see all events · Double-click to add a new event"
                   className={`min-h-[100px] border-b border-r border-gray-100 p-1 cursor-pointer ${
                     day.isCurrentMonth ? "bg-white hover:bg-gray-50" : "bg-gray-50 hover:bg-gray-100"
                   }`}
@@ -477,6 +481,37 @@ export default function CalendarPage() {
             } catch {
               alert("Failed to update event");
             }
+          }}
+        />
+      )}
+
+      {/* Day-detail drawer (single click on a day cell) */}
+      {expandedDate && (
+        <DayDetailDrawer
+          dateStr={expandedDate}
+          events={events.filter((e) => {
+            const start = e.start_date;
+            const end = e.end_date || e.start_date;
+            return expandedDate >= start && expandedDate <= end;
+          })}
+          externalEvents={externalEvents.filter((e) => {
+            const start = e.start_date;
+            const end = e.end_date || e.start_date;
+            return expandedDate >= start && expandedDate <= end;
+          })}
+          onClose={() => setExpandedDate(null)}
+          onSelectNative={(e) => {
+            setExpandedDate(null);
+            setSelectedEvent(e);
+          }}
+          onSelectExternal={(e) => {
+            setExpandedDate(null);
+            setSelectedExternal(e);
+          }}
+          onCreate={(d) => {
+            setExpandedDate(null);
+            setPrefilledStartDate(d);
+            setCreating(true);
           }}
         />
       )}
