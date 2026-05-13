@@ -80,6 +80,43 @@ export default function NotificationPopup({
     }
   };
 
+  const handleDismiss = async (notificationId: string) => {
+    try {
+      await sharingApi.dismissNotification(notificationId);
+      setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+      onNotificationRead();
+      window.dispatchEvent(new CustomEvent("ros-notifications-changed"));
+    } catch (err) {
+      console.error("Failed to dismiss notification:", err);
+    }
+  };
+
+  const handleClearAll = async () => {
+    const ok = window.confirm(
+      "Clear all notifications? Unread items will be removed too."
+    );
+    if (!ok) return;
+    try {
+      await sharingApi.dismissAllNotifications();
+      setNotifications([]);
+      onNotificationRead();
+      window.dispatchEvent(new CustomEvent("ros-notifications-changed"));
+    } catch (err) {
+      console.error("Failed to clear notifications:", err);
+    }
+  };
+
+  const handleClearRead = async () => {
+    try {
+      await sharingApi.dismissReadNotifications();
+      setNotifications((prev) => prev.filter((n) => !n.read));
+      onNotificationRead();
+      window.dispatchEvent(new CustomEvent("ros-notifications-changed"));
+    } catch (err) {
+      console.error("Failed to clear read notifications:", err);
+    }
+  };
+
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
     const now = new Date();
@@ -132,13 +169,33 @@ export default function NotificationPopup({
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-gray-50">
         <h3 className="font-semibold text-gray-900">Notifications</h3>
-        {unreadCount > 0 && (
-          <button
-            onClick={handleMarkAllRead}
-            className="text-xs text-blue-600 hover:text-blue-800 font-medium"
-          >
-            Mark all read
-          </button>
+        {notifications.length > 0 && (
+          <div className="flex items-center gap-3 text-xs">
+            {unreadCount > 0 && (
+              <button
+                onClick={handleMarkAllRead}
+                className="text-blue-600 hover:text-blue-800 font-medium"
+              >
+                Mark all read
+              </button>
+            )}
+            {notifications.some((n) => n.read) && (
+              <button
+                onClick={handleClearRead}
+                className="text-gray-500 hover:text-gray-700"
+                title="Remove notifications already marked read"
+              >
+                Clear read
+              </button>
+            )}
+            <button
+              onClick={handleClearAll}
+              className="text-red-500 hover:text-red-700"
+              title="Remove every notification"
+            >
+              Clear all
+            </button>
+          </div>
         )}
       </div>
 
@@ -210,20 +267,34 @@ export default function NotificationPopup({
                         </>
                       )}
                     </div>
-                    {!notification.read && (
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      {!notification.read && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMarkRead(notification.id);
+                          }}
+                          className="text-blue-600 hover:text-blue-800"
+                          title="Mark as read"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </button>
+                      )}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleMarkRead(notification.id);
+                          handleDismiss(notification.id);
                         }}
-                        className="flex-shrink-0 text-blue-600 hover:text-blue-800"
-                        title="Mark as read"
+                        className="text-gray-300 hover:text-red-500 transition-colors"
+                        title="Dismiss"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                       </button>
-                    )}
+                    </div>
                   </div>
                 </div>
               );
