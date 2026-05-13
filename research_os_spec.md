@@ -1,3 +1,7 @@
+> **Historical document.** This is the original product spec from when ResearchOS was a FastAPI + Neon + GitHub-as-storage app. The implementation has since moved to a pure-frontend Next.js app that stores all data locally via the browser's File System Access API. The product goals below still describe the app, but the tech stack section no longer matches reality. See `ARCHITECTURE.md` and `README.md` for the current architecture.
+
+---
+
 1. Project Overview
 ResearchOS is a specialized, minimalist project management webtool designed for postdoc researchers. It prioritizes the "messy reality" of lab work, including shifting timelines, protocol deviations, and the need for a permanent, version-controlled archive of results.
 Tech Stack

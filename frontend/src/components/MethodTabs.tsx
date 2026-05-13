@@ -111,7 +111,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // Load method content from GitHub for non-PCR methods
+  // Load method content from disk for non-PCR methods
   useEffect(() => {
     if (!activeMethod?.github_path || isPcrMethod) {
       setLoading(false);

@@ -744,13 +744,13 @@ export default function GanttChart({
     return colorMap;
   }, [tasks, dependencies]);
 
-  // Effect to update experiment colors in the backend when they change
-  // Use a ref to prevent infinite loops
-  // Skip in Lab Mode - we don't update anything in the backend
+  // Effect to persist experiment colors back to the task when they change.
+  // Use a ref to prevent infinite loops.
+  // Skip in Lab Mode - it's a read-only view of other users' data.
   const isUpdatingColors = useRef(false);
-  
+
   useEffect(() => {
-    // Skip in lab mode - no backend updates
+    // Skip in lab mode - we don't write to other users' tasks
     if (isLabMode) return;
     
     // Skip if already updating

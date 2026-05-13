@@ -55,7 +55,7 @@ export default function DeviationModal({
         deviations: deviations.trim(),
       });
 
-      // Read the parent method content from GitHub
+      // Read the parent method content from disk
       let parentContent = "";
       try {
         if (method.github_path) {

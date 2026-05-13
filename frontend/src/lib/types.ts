@@ -1,5 +1,3 @@
-// ── API Types (mirrors backend Pydantic schemas) ────────────────────────────
-
 // ── Shared Access Types ─────────────────────────────────────────────────────
 
 export interface SharedUser {
@@ -18,12 +16,6 @@ export interface SharedItemEntry {
   owner: string;
   permission: string;
   shared_at: string;
-}
-
-export interface SharedItemsResponse {
-  projects: SharedItemEntry[];
-  tasks: SharedItemEntry[];
-  methods: SharedItemEntry[];
 }
 
 export interface SharedItemNotification {
@@ -58,11 +50,6 @@ export interface EventReminderNotification {
 }
 
 export type Notification = SharedItemNotification | EventReminderNotification;
-
-export interface NotificationResponse {
-  notifications: Notification[];
-  unread_count: number;
-}
 
 export interface DependencyChainResponse {
   task_id: number;
@@ -476,14 +463,7 @@ export interface FundingSummary {
   uncategorized_spent: number;
 }
 
-// ── GitHub ────────────────────────────────────────────────────────────────────
-
-export interface GitHubFile {
-  path: string;
-  content: string;
-  sha: string;
-  html_url: string;
-}
+// ── File-system shapes ──────────────────────────────────────────────────────
 
 export interface GitHubTreeItem {
   name: string;
@@ -655,47 +635,6 @@ export interface FileMetadata {
   file_type: string;
   folder: string;
   attachment_type: "notes" | "results";
-}
-
-export interface AttachmentUploadRequest {
-  experiment_id: number;
-  experiment_name: string;
-  project_id?: number | null;
-  project_name?: string | null;
-  experiment_date: string;  // ISO date string YYYY-MM-DD
-  attachment_type?: "notes" | "results";  // Only for files
-  base64_content: string;
-  original_filename: string;
-}
-
-export interface AttachmentUploadResponse {
-  id: number;
-  filename: string;
-  original_filename: string;
-  path: string;
-  folder: string;
-  file_size: number;
-  file_type: string;
-  warning: string | null;
-  added_to_gitignore: boolean;
-}
-
-export interface AttachmentStats {
-  images: {
-    count: number;
-    total_size: number;
-    total_size_formatted: string;
-  };
-  files: {
-    count: number;
-    total_size: number;
-    total_size_formatted: string;
-  };
-  total: {
-    count: number;
-    total_size: number;
-    total_size_formatted: string;
-  };
 }
 
 // ── Meeting Notes ───────────────────────────────────────────────────────────────

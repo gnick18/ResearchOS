@@ -1,3 +1,7 @@
+> **Historical document.** This was the seed prompt that kicked off the project, when the plan was a FastAPI backend + Neon Postgres + GitHub-as-storage. The implementation has since pivoted to a pure-frontend Next.js app with local-only storage. Kept for context; do not treat as current architecture.
+
+---
+
 We need to establish the a webapp with: The ability to create a research project, add a task with a dependency, and see it reflected on a 2D GANTT timeline.
 Core Priorities for the Initial Build:
 1.	Recursive Date Engine: The most critical feature is the Python backend logic. If I move a parent task, all children must shift. We must respect the 'Weekend Active' toggle—if a project is not weekend-active, shifted tasks must automatically land on the following Monday.

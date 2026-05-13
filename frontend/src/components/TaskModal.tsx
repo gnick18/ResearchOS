@@ -34,7 +34,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
     // Check if Miscellaneous project exists
     const hasMiscProject = filtered.some(p => p.name === "Miscellaneous");
     if (!hasMiscProject) {
-      // Add a placeholder for the Miscellaneous project (will be created on backend)
+      // Add a placeholder for the Miscellaneous project (created on first save)
       filtered = [...filtered, {
         id: 0,
         name: "Miscellaneous",

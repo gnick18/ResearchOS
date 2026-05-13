@@ -2691,8 +2691,9 @@ function PdfAttachmentsPanel({ task, pdfsDir, label }: { task: Task; pdfsDir: st
     if (!confirm(`Delete "${file.name}"?`)) return;
     
     try {
-      // GitHub API doesn't have a delete method, so we'll use the image delete approach
-      // For now, just remove from the list (actual deletion would need backend support)
+      // NB: this only removes the file from the in-memory list — the file on
+      // disk is left in place. Wire this up to fileService when real deletion
+      // is wanted.
       setFiles((prev) => prev.filter((f) => f.path !== file.path));
       if (activeFile?.path === file.path) {
         setActiveFile(null);

@@ -1025,95 +1025,7 @@ export const attachmentsApi = {
   }): Promise<ImageUploadResponse> => {
     throw new Error("Image upload requires file system access - use fileService directly");
   },
-  
-  listImages: async (params?: { experiment_id?: number; folder?: string }): Promise<ImageMetadata[]> => {
-    const entries = await imageMetadataStore.listAll();
-    if (params?.experiment_id) {
-      return entries.filter((e) => e.experiment_id === params.experiment_id);
-    }
-    if (params?.folder) {
-      return entries.filter((e) => e.folder === params.folder);
-    }
-    return entries;
-  },
-  
-  getImage: async (id: number): Promise<ImageMetadata | null> => {
-    return imageMetadataStore.getEntry(id);
-  },
-  
-  deleteImage: async (id: number): Promise<void> => {
-    await imageMetadataStore.deleteEntry(id);
-  },
-  
-  uploadFile: async (data: {
-    experiment_id: number;
-    experiment_name: string;
-    project_id?: number | null;
-    project_name?: string | null;
-    experiment_date: string;
-    attachment_type?: "notes" | "results";
-    base64_content: string;
-    original_filename: string;
-  }): Promise<ImageUploadResponse> => {
-    throw new Error("File upload requires file system access - use fileService directly");
-  },
-  
-  listFiles: async (params?: { experiment_id?: number; folder?: string; attachment_type?: string }): Promise<FileMetadata[]> => {
-    const entries = await fileMetadataStore.listAll();
-    let filtered = entries;
-    
-    if (params?.experiment_id) {
-      filtered = filtered.filter((e) => e.experiment_id === params.experiment_id);
-    }
-    if (params?.folder) {
-      filtered = filtered.filter((e) => e.folder === params.folder);
-    }
-    if (params?.attachment_type) {
-      filtered = filtered.filter((e) => e.attachment_type === params.attachment_type);
-    }
-    
-    return filtered;
-  },
-  
-  getFile: async (id: number): Promise<FileMetadata | null> => {
-    return fileMetadataStore.getEntry(id);
-  },
-  
-  deleteFile: async (id: number): Promise<void> => {
-    await fileMetadataStore.deleteEntry(id);
-  },
-  
-  getFolderName: (experimentName: string, experimentDate: string): { folder_name: string } => {
-    const date = new Date(experimentDate);
-    const dateStr = date.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
-    const safeName = experimentName.replace(/[^a-zA-Z0-9_-]/g, "-").replace(/-+/g, "-");
-    return { folder_name: `${dateStr}-${safeName}` };
-  },
-  
-  getStats: async () => {
-    const images = await imageMetadataStore.listAll();
-    const files = await fileMetadataStore.listAll();
-    
-    const imageSize = images.reduce((sum, i) => sum + i.file_size, 0);
-    const fileSize = files.reduce((sum, f) => sum + f.file_size, 0);
-    
-    const formatSize = (bytes: number): string => {
-      if (bytes < 1024) return `${bytes} B`;
-      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-    };
-    
-    return {
-      images: { count: images.length, total_size: imageSize, total_size_formatted: formatSize(imageSize) },
-      files: { count: files.length, total_size: fileSize, total_size_formatted: formatSize(fileSize) },
-      total: {
-        count: images.length + files.length,
-        total_size: imageSize + fileSize,
-        total_size_formatted: formatSize(imageSize + fileSize),
-      },
-    };
-  },
-  
+
   /**
    * Search the data folder for image files whose name contains the given
    * substring. Walks the actual filesystem so it finds files in every place
@@ -2303,7 +2215,6 @@ export const filesApi = {
       return { status: "not_found" };
     }
   },
-  getRawUrl: (path: string): string => path,
 };
 
 // Fire-and-forget heal pass: when on-disk end_date doesn't match the canonical
