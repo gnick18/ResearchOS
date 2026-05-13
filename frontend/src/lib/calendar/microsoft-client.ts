@@ -161,6 +161,172 @@ export async function listEventsForFeed(
   return out;
 }
 
+export interface ExternalEventPatch {
+  title?: string;
+  start_date?: string;
+  end_date?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  location?: string | null;
+  notes?: string | null;
+}
+
+async function getGraphEvent(
+  username: string,
+  eventId: string,
+): Promise<GraphEvent> {
+  // /me/events/{id} reads the event regardless of which sub-calendar it
+  // lives in, so we don't need to thread the calendar id through here.
+  const res = await authedFetch(
+    username,
+    `${GRAPH_ROOT}/me/events/${encodeURIComponent(eventId)}`,
+  );
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Graph events.get failed: ${text || res.statusText}`);
+  }
+  return (await res.json()) as GraphEvent;
+}
+
+/** Build a Graph datetime object — local date + time + IANA timezone, no
+ *  trailing Z. Graph interprets it in the supplied timezone. */
+function localToGraphDateTime(dateStr: string, timeStr: string): {
+  dateTime: string;
+  timeZone: string;
+} {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const [h, min] = timeStr.split(":").map(Number);
+  const dt = new Date(y, m - 1, d, h, min, 0, 0);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const iso =
+    `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T` +
+    `${pad(dt.getHours())}:${pad(dt.getMinutes())}:00`;
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  return { dateTime: iso, timeZone };
+}
+
+export async function updateEvent(
+  username: string,
+  feed: CalendarFeed,
+  eventId: string,
+  patch: ExternalEventPatch,
+): Promise<ExternalEvent> {
+  if (feed.kind !== "outlook" || !feed.oauthCalendarId) {
+    throw new Error("Outlook update called on a non-outlook feed.");
+  }
+  const existing = await getGraphEvent(username, eventId);
+
+  const body: Record<string, unknown> = {};
+  if (patch.title !== undefined) body.subject = patch.title;
+  if (patch.location !== undefined) {
+    body.location = { displayName: patch.location ?? "" };
+  }
+  if (patch.notes !== undefined) {
+    body.body = { contentType: "text", content: patch.notes ?? "" };
+  }
+
+  const touchedDateOrTime =
+    patch.start_date !== undefined ||
+    patch.end_date !== undefined ||
+    patch.start_time !== undefined ||
+    patch.end_time !== undefined;
+
+  if (touchedDateOrTime) {
+    const startDateOrTime = existing.start?.dateTime
+      ? new Date(
+          existing.start.dateTime.endsWith("Z")
+            ? existing.start.dateTime
+            : existing.start.dateTime + "Z",
+        )
+      : null;
+    const endDateOrTime = existing.end?.dateTime
+      ? new Date(
+          existing.end.dateTime.endsWith("Z")
+            ? existing.end.dateTime
+            : existing.end.dateTime + "Z",
+        )
+      : null;
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const existingStartDate = startDateOrTime
+      ? `${startDateOrTime.getFullYear()}-${pad(startDateOrTime.getMonth() + 1)}-${pad(startDateOrTime.getDate())}`
+      : null;
+    const existingStartTime = startDateOrTime
+      ? `${pad(startDateOrTime.getHours())}:${pad(startDateOrTime.getMinutes())}`
+      : null;
+    const existingEndDate = endDateOrTime
+      ? `${endDateOrTime.getFullYear()}-${pad(endDateOrTime.getMonth() + 1)}-${pad(endDateOrTime.getDate())}`
+      : null;
+    const existingEndTime = endDateOrTime
+      ? `${pad(endDateOrTime.getHours())}:${pad(endDateOrTime.getMinutes())}`
+      : null;
+
+    const startDate = patch.start_date ?? existingStartDate;
+    if (!startDate) throw new Error("Cannot rebuild start/end without a start_date.");
+    const startTime =
+      patch.start_time !== undefined ? patch.start_time : existingStartTime;
+    const endDate =
+      patch.end_date !== undefined
+        ? patch.end_date ?? startDate
+        : existingEndDate ?? startDate;
+    const endTime =
+      patch.end_time !== undefined ? patch.end_time : existingEndTime;
+
+    if (startTime === null && endTime === null) {
+      // Graph all-day events use date-only ISO and need isAllDay:true.
+      // End is exclusive (day after the last day).
+      const [y, m, d] = endDate.split("-").map(Number);
+      const exclusive = new Date(y, m - 1, d + 1);
+      const exclusiveStr = `${exclusive.getFullYear()}-${pad(exclusive.getMonth() + 1)}-${pad(exclusive.getDate())}`;
+      body.isAllDay = true;
+      body.start = { dateTime: `${startDate}T00:00:00`, timeZone: "UTC" };
+      body.end = { dateTime: `${exclusiveStr}T00:00:00`, timeZone: "UTC" };
+    } else {
+      const s = localToGraphDateTime(startDate, startTime ?? "09:00");
+      const e = localToGraphDateTime(endDate, endTime ?? startTime ?? "10:00");
+      body.isAllDay = false;
+      body.start = s;
+      body.end = e;
+    }
+  }
+
+  const res = await authedFetch(
+    username,
+    `${GRAPH_ROOT}/me/events/${encodeURIComponent(eventId)}`,
+    {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Graph events.patch failed: ${text || res.statusText}`);
+  }
+  const updated = (await res.json()) as GraphEvent;
+  const ee = toExternalEvent(updated, feed);
+  if (!ee) throw new Error("Update succeeded but the response couldn't be parsed.");
+  return ee;
+}
+
+export async function deleteEvent(
+  username: string,
+  feed: CalendarFeed,
+  eventId: string,
+): Promise<void> {
+  if (feed.kind !== "outlook" || !feed.oauthCalendarId) {
+    throw new Error("Outlook delete called on a non-outlook feed.");
+  }
+  const res = await authedFetch(
+    username,
+    `${GRAPH_ROOT}/me/events/${encodeURIComponent(eventId)}`,
+    { method: "DELETE" },
+  );
+  if (!res.ok && res.status !== 404 && res.status !== 410) {
+    const text = await res.text();
+    throw new Error(`Graph events.delete failed: ${text || res.statusText}`);
+  }
+}
+
 function toLocalDateString(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
