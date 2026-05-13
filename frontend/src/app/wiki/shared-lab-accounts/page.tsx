@@ -1,0 +1,133 @@
+import Link from "next/link";
+import WikiPage from "@/components/wiki/WikiPage";
+import Callout from "@/components/wiki/Callout";
+import { Steps, Step } from "@/components/wiki/Steps";
+import { findWikiNode } from "@/lib/wiki/nav";
+
+export default function SharedLabAccountsPage() {
+  const node = findWikiNode("/wiki/shared-lab-accounts");
+  const providers = node?.children ?? [];
+  return (
+    <WikiPage
+      intro="One folder, shared across your whole lab. Everyone keeps their own data, and Lab Mode rolls it all up."
+    >
+      <h2>How it works</h2>
+      <p>
+        The trick is simple: put your ResearchOS folder inside a cloud-synced
+        folder (OneDrive, Google Drive, Dropbox, or iCloud). Every lab member
+        points ResearchOS at that <strong>same</strong> folder on their own
+        computer. Inside the folder, each member picks a different username, so
+        their data lives at <code>users/sarah/</code>, <code>users/grant/</code>,
+        and so on.
+      </p>
+      <p>
+        The cloud provider takes care of syncing files between machines.
+        ResearchOS has no idea any of this is happening — it just reads and
+        writes JSON files like normal.
+      </p>
+
+      <Callout variant="danger" title="The one rule: keep the folder available offline">
+        ResearchOS needs to <strong>read and write the folder directly on
+        disk</strong>. If your cloud provider keeps the folder &quot;online
+        only&quot; (a placeholder file that downloads on demand), writes will
+        fail or be silently dropped. <strong>Every</strong> member needs to flip
+        the &quot;always keep local&quot; switch for the lab folder on{" "}
+        <strong>every</strong> laptop they use ResearchOS from.
+      </Callout>
+
+      <h2>Setup steps (every member runs these once)</h2>
+      <Steps>
+        <Step>
+          Install the cloud provider&apos;s <strong>desktop app</strong> (not
+          just the website). OneDrive on Windows is pre-installed; Drive for
+          desktop, Dropbox, and iCloud Drive each ship as a separate download.
+        </Step>
+        <Step>
+          One person creates an empty folder named e.g.{" "}
+          <code>LabName-ResearchOS</code> inside the synced area, then shares it
+          with the rest of the lab via the cloud provider&apos;s normal
+          share flow.
+        </Step>
+        <Step>
+          Each member accepts the share and confirms the folder is now visible
+          on their laptop&apos;s filesystem (Finder / Explorer).
+        </Step>
+        <Step>
+          Each member follows their provider&apos;s instructions below to make
+          the folder <strong>always available offline</strong>.
+        </Step>
+        <Step>
+          Each member opens ResearchOS, clicks <strong>Connect Folder</strong>,
+          and picks that shared folder.
+        </Step>
+        <Step>
+          On the user-picker, each member clicks <strong>New User</strong> and
+          types their own username.
+        </Step>
+      </Steps>
+
+      <h2>Pick your cloud provider</h2>
+      <div className="grid gap-3 not-prose mt-3 sm:grid-cols-2">
+        {providers.map((p) => (
+          <Link
+            key={p.href}
+            href={p.href}
+            className="block rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 px-5 py-4 transition-colors"
+          >
+            <div className="font-semibold text-gray-900">{p.label}</div>
+            {p.blurb ? (
+              <div className="mt-1 text-sm text-gray-600">{p.blurb}</div>
+            ) : null}
+          </Link>
+        ))}
+      </div>
+
+      <h2>Verify the folder is local</h2>
+      <p>
+        Before you start using ResearchOS, open the shared folder in Finder
+        (macOS) or Explorer (Windows) and confirm:
+      </p>
+      <ul>
+        <li>
+          Files show as fully downloaded — no cloud icon, no &quot;online
+          only&quot; badge, no &quot;available when online&quot; tag.
+        </li>
+        <li>
+          You can open a sample file with the network disconnected.
+        </li>
+        <li>
+          The folder&apos;s &quot;Size on disk&quot; in its properties dialog is
+          non-zero and roughly matches the &quot;Size&quot;.
+        </li>
+      </ul>
+
+      <Callout variant="tip" title="Lab Mode aggregates everyone">
+        Once everyone is set up, anyone can switch to the special{" "}
+        <code>lab</code> user (or click the <strong>Lab</strong> tab) to see a
+        combined Gantt, activity feed, methods library, and purchases view
+        across every member. See{" "}
+        <Link href="/wiki/features/lab-mode">Lab Mode</Link>.
+      </Callout>
+
+      <h2>Pitfalls to avoid</h2>
+      <ul>
+        <li>
+          <strong>Don&apos;t put the folder in two different cloud
+          providers.</strong> Pick one. Stacking OneDrive and Dropbox on the
+          same folder corrupts JSON files when both try to write.
+        </li>
+        <li>
+          <strong>Don&apos;t use the same username on two laptops.</strong> If
+          Sarah signs in as <code>sarah</code> on her laptop and also{" "}
+          <code>sarah</code> on a shared lab computer at the same time, the two
+          ResearchOS sessions will overwrite each other&apos;s files.
+        </li>
+        <li>
+          <strong>Don&apos;t edit files outside ResearchOS while the app is
+          open.</strong> The app caches data in memory; external edits won&apos;t
+          be picked up until you reload the page.
+        </li>
+      </ul>
+    </WikiPage>
+  );
+}

@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, useEffect, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { FileSystemProvider, useFileSystem, isFileSystemAccessSupported } from "@/lib/file-system/file-system-context";
 import ResearchFolderSetupNew from "@/components/ResearchFolderSetupNew";
 import StagedLoadingScreen from "@/components/StagedLoadingScreen";
@@ -9,6 +10,14 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { initializeErrorHandlers } from "@/lib/error-reporting";
 
 function AppContent({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  // The wiki must render before sign-in so new users can read the setup
+  // guide and the browser-requirements page on their first visit. Skip
+  // every gate below — loading, browser-support, folder-connect — when
+  // the user is on a /wiki/* route. Query client is still provided so
+  // any future client-rendered queries inside the wiki work.
+  const isWikiRoute = pathname?.startsWith("/wiki");
+
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -43,6 +52,12 @@ function AppContent({ children }: { children: ReactNode }) {
     }
   }, [currentUser, queryClient]);
 
+  if (isWikiRoute) {
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+  }
+
   if (isLoading) {
     console.log("AppContent: rendering loading screen");
     return <StagedLoadingScreen stage={loadingStage} />;
@@ -54,10 +69,16 @@ function AppContent({ children }: { children: ReactNode }) {
       <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
         <div className="max-w-lg mx-4 p-6 bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20">
           <h2 className="text-xl font-bold text-white mb-4">Browser Not Supported</h2>
-          <p className="text-slate-300">
+          <p className="text-slate-300 mb-4">
             ResearchOS requires the File System Access API, which is only supported in
             Chromium-based browsers (Chrome, Edge, Brave). Please switch to a supported browser.
           </p>
+          <a
+            href="/wiki/getting-started/browser-requirements"
+            className="inline-block text-sm font-medium text-blue-300 hover:text-blue-200 underline"
+          >
+            Read the browser requirements guide →
+          </a>
         </div>
       </div>
     );
