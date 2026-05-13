@@ -8,6 +8,7 @@ import { isWikiCaptureMode } from "@/lib/file-system/wiki-capture-mock";
 import ResearchFolderSetupNew from "@/components/ResearchFolderSetupNew";
 import StagedLoadingScreen from "@/components/StagedLoadingScreen";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import GlobalDropGuard from "@/components/GlobalDropGuard";
 import { initializeErrorHandlers } from "@/lib/error-reporting";
 
 function AppContent({ children }: { children: ReactNode }) {
@@ -132,6 +133,7 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <ErrorBoundary>
       <FileSystemProvider>
+        <GlobalDropGuard />
         <AppContent>{children}</AppContent>
       </FileSystemProvider>
     </ErrorBoundary>

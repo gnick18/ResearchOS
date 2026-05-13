@@ -129,12 +129,16 @@ export default function TaskDetailPopup({
   const handleUniversalDragOver = useCallback((e: React.DragEvent) => {
     if (!Array.from(e.dataTransfer.types).includes("Files")) return;
     e.preventDefault();
+    e.stopPropagation();
     e.dataTransfer.dropEffect = "copy";
   }, []);
   const handleUniversalDrop = useCallback(
     async (e: React.DragEvent) => {
       if (!Array.from(e.dataTransfer.types).includes("Files")) return;
       e.preventDefault();
+      // stopPropagation so the window-level GlobalDropGuard doesn't also fire
+      // its "no attachment target" toast on top of our success toast.
+      e.stopPropagation();
       const files = Array.from(e.dataTransfer.files);
       if (files.length === 0) return;
       const dropX = e.clientX;
