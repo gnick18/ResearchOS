@@ -10,6 +10,8 @@ interface MethodPickerProps {
   currentMethodId: number | null;
   /** Pin "Recently used in this project" at the top when available. */
   currentProjectId?: number;
+  /** Hide these methods entirely — e.g. methods already attached to the task. */
+  excludeMethodIds?: number[];
   onSelect: (methodId: number) => void | Promise<void>;
   onClose: () => void;
 }
@@ -60,13 +62,24 @@ export default function MethodPicker({
   open,
   currentMethodId,
   currentProjectId,
+  excludeMethodIds,
   onSelect,
   onClose,
 }: MethodPickerProps) {
-  const { data: methods = [], isLoading } = useQuery({
+  const { data: allMethods = [], isLoading } = useQuery({
     queryKey: ["methods"],
     queryFn: methodsApi.list,
   });
+
+  const excludeSet = useMemo(
+    () => new Set(excludeMethodIds ?? []),
+    [excludeMethodIds]
+  );
+
+  const methods = useMemo(
+    () => (excludeSet.size === 0 ? allMethods : allMethods.filter((m) => !excludeSet.has(m.id))),
+    [allMethods, excludeSet]
+  );
 
   const { data: tasks = [] } = useQuery({
     queryKey: ["tasks"],
@@ -291,9 +304,13 @@ export default function MethodPicker({
             <div className="px-4 py-8 text-center text-sm text-gray-400">
               Loading methods…
             </div>
-          ) : methods.length === 0 ? (
+          ) : allMethods.length === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-gray-400">
               No methods available. Create some in the Methods section first.
+            </div>
+          ) : methods.length === 0 ? (
+            <div className="px-4 py-8 text-center text-sm text-gray-400">
+              All methods are already attached.
             </div>
           ) : flatRows.length === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-gray-400">
