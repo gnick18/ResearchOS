@@ -4,7 +4,6 @@ import { useState, useMemo } from "react";
 import { useAppStore } from "@/lib/store";
 import type { Project, ViewMode } from "@/lib/types";
 import AnimationSettingsPopup from "@/components/AnimationSettingsPopup";
-import NotificationBadge from "@/components/NotificationBadge";
 import { ANIMATION_METADATA } from "@/components/animations";
 
 const VIEW_MODES: { label: string; value: ViewMode }[] = [
@@ -261,9 +260,6 @@ export default function Toolbar({
           <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
         </svg>
       </button>
-
-      {/* Notification badge */}
-      <NotificationBadge />
 
       {/* Week navigation controls */}
       <div className="flex items-center gap-1.5 border-l border-gray-200 pl-4">
