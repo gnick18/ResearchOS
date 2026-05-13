@@ -9,6 +9,7 @@ import InboxBadge from "./InboxBadge";
 import InboxToast from "./InboxToast";
 import NotificationBadge from "./NotificationBadge";
 import ReminderRunner from "./ReminderRunner";
+import DevTestNotificationButton from "./DevTestNotificationButton";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home" },
@@ -53,6 +54,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="flex-1" />
 
         <div className="flex items-center gap-2">
+          <DevTestNotificationButton />
           <NotificationBadge />
           <InboxBadge />
           <TelegramStatusBadge />
