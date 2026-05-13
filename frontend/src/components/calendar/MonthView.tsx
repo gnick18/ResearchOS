@@ -1,0 +1,204 @@
+"use client";
+
+import { useCallback, useMemo } from "react";
+import type { Event, ExternalEvent } from "@/lib/types";
+import {
+  type CalendarItem,
+  EVENT_TYPE_COLORS,
+  eventTimeOrder,
+  formatTime,
+  toLocalDateString,
+} from "./utils";
+
+interface Props {
+  anchor: Date;
+  events: Event[];
+  externalEvents: ExternalEvent[];
+  onDayClick: (dateStr: string) => void;
+  onDayDoubleClick: (dateStr: string) => void;
+  onEventClick: (event: Event) => void;
+  onExternalClick: (event: ExternalEvent) => void;
+}
+
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+export default function MonthView({
+  anchor,
+  events,
+  externalEvents,
+  onDayClick,
+  onDayDoubleClick,
+  onEventClick,
+  onExternalClick,
+}: Props) {
+  const year = anchor.getFullYear();
+  const month = anchor.getMonth();
+
+  const calendarDays = useMemo(() => {
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startDayOfWeek = firstDay.getDay();
+
+    const days: { date: Date; isCurrentMonth: boolean }[] = [];
+    const prevMonth = new Date(year, month, 0);
+    const prevMonthDays = prevMonth.getDate();
+    for (let i = startDayOfWeek - 1; i >= 0; i--) {
+      days.push({
+        date: new Date(year, month - 1, prevMonthDays - i),
+        isCurrentMonth: false,
+      });
+    }
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push({ date: new Date(year, month, i), isCurrentMonth: true });
+    }
+    const remainingDays = 42 - days.length;
+    for (let i = 1; i <= remainingDays; i++) {
+      days.push({ date: new Date(year, month + 1, i), isCurrentMonth: false });
+    }
+    return days;
+  }, [year, month]);
+
+  const getEventsForDate = useCallback(
+    (date: Date): CalendarItem[] => {
+      const dateStr = toLocalDateString(date);
+      const native: CalendarItem[] = events
+        .filter((event) => {
+          const startDate = event.start_date;
+          const endDate = event.end_date || event.start_date;
+          return dateStr >= startDate && dateStr <= endDate;
+        })
+        .map((event) => ({ kind: "native", event }));
+      const external: CalendarItem[] = externalEvents
+        .filter((event) => {
+          const startDate = event.start_date;
+          const endDate = event.end_date || event.start_date;
+          return dateStr >= startDate && dateStr <= endDate;
+        })
+        .map((event) => ({ kind: "external", event }));
+      return [...native, ...external];
+    },
+    [events, externalEvents]
+  );
+
+  const today = toLocalDateString(new Date());
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      {/* Day headers */}
+      <div className="grid grid-cols-7 border-b border-gray-100">
+        {DAY_NAMES.map((day) => (
+          <div
+            key={day}
+            className="px-2 py-3 text-xs font-semibold text-gray-500 text-center"
+          >
+            {day}
+          </div>
+        ))}
+      </div>
+
+      {/* Calendar grid */}
+      <div className="grid grid-cols-7">
+        {calendarDays.map((day, index) => {
+          const dateStr = toLocalDateString(day.date);
+          const dayEvents = getEventsForDate(day.date);
+          const sorted = [...dayEvents].sort((a, b) => eventTimeOrder(a.event, b.event));
+          const isToday = dateStr === today;
+          return (
+            <div
+              key={index}
+              onClick={() => onDayClick(dateStr)}
+              onDoubleClick={() => onDayDoubleClick(dateStr)}
+              title="Click to see all events · Double-click to add a new event"
+              className={`min-h-[100px] border-b border-r border-gray-100 p-1 cursor-pointer ${
+                day.isCurrentMonth
+                  ? "bg-white hover:bg-gray-50"
+                  : "bg-gray-50 hover:bg-gray-100"
+              }`}
+            >
+              <div
+                className={`text-xs font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full ${
+                  isToday
+                    ? "bg-blue-600 text-white"
+                    : day.isCurrentMonth
+                      ? "text-gray-700"
+                      : "text-gray-400"
+                }`}
+              >
+                {day.date.getDate()}
+              </div>
+              <div className="space-y-1">
+                {sorted.slice(0, 3).map((item) =>
+                  item.kind === "native" ? (
+                    <button
+                      key={`n-${item.event.id}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEventClick(item.event);
+                      }}
+                      className="w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80"
+                      style={{
+                        backgroundColor:
+                          item.event.color || EVENT_TYPE_COLORS[item.event.event_type],
+                        color: "white",
+                      }}
+                    >
+                      {item.event.start_time && (
+                        <span className="font-semibold mr-1">
+                          {formatTime(item.event.start_time)}
+                        </span>
+                      )}
+                      {item.event.title}
+                    </button>
+                  ) : (
+                    <button
+                      key={`x-${item.event.id}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onExternalClick(item.event);
+                      }}
+                      title="Linked calendar event (read-only)"
+                      className="w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80 flex items-center gap-1"
+                      style={{
+                        backgroundColor: "white",
+                        color: item.event.color,
+                        border: `1px solid ${item.event.color}`,
+                      }}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="8"
+                        height="8"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="flex-shrink-0"
+                      >
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                      </svg>
+                      {item.event.start_time && (
+                        <span className="font-semibold flex-shrink-0">
+                          {formatTime(item.event.start_time)}
+                        </span>
+                      )}
+                      <span className="truncate">{item.event.title}</span>
+                    </button>
+                  )
+                )}
+                {sorted.length > 3 && (
+                  <p className="text-[10px] text-gray-400 px-1.5">
+                    +{sorted.length - 3} more
+                  </p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
