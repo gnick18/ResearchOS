@@ -12,6 +12,7 @@ import UserLoginScreen from "@/components/UserLoginScreen";
 import LabVisibilityToggle from "@/components/LabVisibilityToggle";
 import BetaDonationButton from "@/components/BetaDonationButton";
 import BugReportModal from "@/components/BugReportModal";
+import DevTestNotificationButton from "@/components/DevTestNotificationButton";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import type { Project, Task } from "@/lib/types";
@@ -656,6 +657,9 @@ export default function HomePage() {
           Test Error
         </button>
       )}
+
+      {/* Dev: Send Test Notification (only in development) */}
+      <DevTestNotificationButton />
 
       {/* Bug Report Modal */}
       <BugReportModal
