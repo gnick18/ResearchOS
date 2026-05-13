@@ -1565,6 +1565,46 @@ export const sharingApi = {
   },
 
   /**
+   * Remove a single notification from the user's notifications file.
+   * Unlike markNotificationRead this fully deletes the entry — callers want
+   * the inbox empty, not just acknowledged.
+   */
+  dismissNotification: async (
+    notificationId: string
+  ): Promise<{ status: string; notification_id: string }> => {
+    const currentUser = await getCurrentUserCached();
+    const file = await readNotificationsFile(currentUser);
+    file.notifications = file.notifications.filter((n) => n.id !== notificationId);
+    await writeNotificationsFile(currentUser, file);
+    return { status: "ok", notification_id: notificationId };
+  },
+
+  /** Clear every notification in the inbox. Returns how many were cleared. */
+  dismissAllNotifications: async (): Promise<{ status: string; dismissed_count: number }> => {
+    const currentUser = await getCurrentUserCached();
+    const file = await readNotificationsFile(currentUser);
+    const count = file.notifications.length;
+    if (count > 0) {
+      file.notifications = [];
+      await writeNotificationsFile(currentUser, file);
+    }
+    return { status: "ok", dismissed_count: count };
+  },
+
+  /** Clear notifications already marked read; leave unread ones in place. */
+  dismissReadNotifications: async (): Promise<{ status: string; dismissed_count: number }> => {
+    const currentUser = await getCurrentUserCached();
+    const file = await readNotificationsFile(currentUser);
+    const before = file.notifications.length;
+    file.notifications = file.notifications.filter((n) => !n.read);
+    const removed = before - file.notifications.length;
+    if (removed > 0) {
+      await writeNotificationsFile(currentUser, file);
+    }
+    return { status: "ok", dismissed_count: removed };
+  },
+
+  /**
    * Append a calendar event reminder to the user's notifications file. Used
    * by the ReminderRunner when a scheduled timeout fires. Returns the new
    * notification so callers can also surface an OS-level Notification API
