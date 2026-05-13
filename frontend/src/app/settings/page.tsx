@@ -9,6 +9,7 @@ import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useAppStore } from "@/lib/store";
 import { tasksApi, methodsApi } from "@/lib/local-api";
 import { repairAttachmentPaths } from "@/lib/tasks/migrate-attachments";
+import { repairStampFormats } from "@/lib/tasks/migrate-stamps";
 import {
   patchUserSettings,
   readUserSettings,
@@ -622,6 +623,17 @@ function MaintenanceSection() {
           </>
         }
         run={repairAttachmentPaths}
+        invalidateKey={["tasks"]}
+      />
+      <RepairRow
+        title="Repair stamp formats"
+        description={
+          <>
+            Walks every notes, results, and method markdown file and rewrites the legacy stamp header (the <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">[stamp-start]: # (hidden)</code> block at the top) into the new HTML-comment format.
+            Older files render with a stray <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">[stamp-end]: # (hidden)</code> line bleeding into the preview; the app folds these in on first open, but the button finishes any tail you have not visited yet.
+          </>
+        }
+        run={repairStampFormats}
         invalidateKey={["tasks"]}
       />
     </SectionShell>
