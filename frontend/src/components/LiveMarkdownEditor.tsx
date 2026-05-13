@@ -563,6 +563,53 @@ export default function LiveMarkdownEditor({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const editorContentRef = useRef<HTMLDivElement>(null);
 
+  // Capture-phase native drop listener. Chrome's default behavior for
+  // native file drops on rendered <img> elements (the markdown preview
+  // image) intercepts the drop before React's synthetic events fire on
+  // any inner element — so neither the img's nor the block's nor the
+  // editor's React onDrop ever sees the drop, and the event escapes to
+  // the window-level GlobalDropGuard. Listening in capture phase on the
+  // editor content wrapper catches the event BEFORE it reaches the img,
+  // so we can route the file ourselves with preventDefault +
+  // stopPropagation. Dragover stays without stopPropagation so the ring
+  // affordance still triggers on the wrapper.
+  useEffect(() => {
+    const el = editorContentRef.current;
+    if (!el) return;
+    const handleNativeDragOver = (e: DragEvent) => {
+      if (!e.dataTransfer) return;
+      if (!Array.from(e.dataTransfer.types).includes("Files")) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+    };
+    const handleNativeDrop = (e: DragEvent) => {
+      if (!e.dataTransfer) return;
+      if (!Array.from(e.dataTransfer.types).includes("Files")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length === 0) return;
+      const images = files.filter((f) => f.type.startsWith("image/"));
+      const others = files.filter((f) => !f.type.startsWith("image/"));
+      if (images.length > 0) {
+        if (onImageDrop) {
+          onImageDrop(images);
+        } else if (allowAnyFileType && onFileDrop) {
+          onFileDrop(images);
+        }
+      }
+      if (others.length > 0 && allowAnyFileType && onFileDrop) {
+        onFileDrop(others);
+      }
+    };
+    el.addEventListener("dragover", handleNativeDragOver, true);
+    el.addEventListener("drop", handleNativeDrop, true);
+    return () => {
+      el.removeEventListener("dragover", handleNativeDragOver, true);
+      el.removeEventListener("drop", handleNativeDrop, true);
+    };
+  }, [onFileDrop, onImageDrop, allowAnyFileType]);
+
   // Scroll the rendered preview/hybrid editor to the image with the given
   // filename. Triggered by the "Jump to occurrence" button inside the
   // image-strip metadata popup; the strip only enables that button when the
