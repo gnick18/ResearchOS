@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "wiki:screenshots": "node ../scripts/capture-wiki-screenshots.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.21",
