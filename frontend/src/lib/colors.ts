@@ -69,6 +69,28 @@ export function hslToHex({ h, s, l }: HSL): string {
 }
 
 /**
+ * Deeper, full-opacity two-stop gradient sized for the app header
+ * background. Same hue family as the avatar gradient (stop 2 hue shifted
+ * -40°) but the lightness range is clamped lower so the colors stay
+ * saturated and "modern" rather than pastel. Designed to sit under
+ * floating white pill nav items.
+ */
+export function headerGradient(baseHex: string): [string, string] {
+  const hsl = hexToHsl(baseHex);
+  const stop1 = hslToHex({
+    h: hsl.h,
+    s: clamp(hsl.s * 0.95, 45, 90),
+    l: clamp(hsl.l - 4, 30, 46),
+  });
+  const stop2 = hslToHex({
+    h: hsl.h - 40,
+    s: clamp(hsl.s * 0.9, 40, 85),
+    l: clamp(hsl.l + 6, 36, 54),
+  });
+  return [stop1, stop2];
+}
+
+/**
  * Picks a pleasing two-stop gradient anchored on `baseHex`. Stop 2 is the
  * same hue shifted -40° on the color wheel (toward yellow when starting
  * from any cool color, toward pink/magenta from warm ones) and lightened

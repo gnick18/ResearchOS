@@ -13,7 +13,7 @@ import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { useAppStore } from "@/lib/store";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useUserColor } from "@/hooks/useUserColor";
-import { avatarGradient, hexToRgba } from "@/lib/colors";
+import { headerGradient } from "@/lib/colors";
 
 const SETTINGS_HREF = "/settings";
 
@@ -30,45 +30,64 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     (item) => item.href === HOME_HREF || visibleTabs.includes(item.href),
   );
 
-  // Tint the header with the user's avatar gradient at low alpha (over the
-  // white base), and replace the gray bottom border with a saturated
-  // gradient stripe. Skipped pre-login so the setup/login screens stay
-  // neutral.
-  const [gradStop1, gradStop2] = avatarGradient(baseColor);
+  // When a user is signed in, paint the whole header with their full-opacity
+  // two-stop gradient. Text legibility is preserved by wrapping every
+  // interactive element (wordmark, nav links, gear) in its own floating
+  // white pill — the gradient lives behind the pills, never under text.
+  const [stop1, stop2] = headerGradient(baseColor);
   const hasUser = !!currentUser;
-  const headerTint = hasUser
-    ? `linear-gradient(to right, ${hexToRgba(gradStop1, 0.14)}, ${hexToRgba(gradStop2, 0.14)})`
+  const headerStyle = hasUser
+    ? { background: `linear-gradient(to right, ${stop1}, ${stop2})` }
     : undefined;
-  const headerAccent = `linear-gradient(to right, ${gradStop1}, ${gradStop2})`;
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       {/* Header */}
       <header
-        className={`bg-white px-6 py-3 flex items-center gap-6 relative ${
-          hasUser ? "" : "border-b border-gray-200"
+        className={`px-4 py-2.5 flex items-center gap-2 ${
+          hasUser ? "shadow-sm" : "bg-white border-b border-gray-200"
         }`}
-        style={headerTint ? { backgroundImage: headerTint } : undefined}
+        style={headerStyle}
       >
-        <h1 className="text-lg font-bold text-gray-900 tracking-tight">
-          ResearchOS
-        </h1>
+        <PillWrap on={hasUser}>
+          <h1 className="text-base font-bold text-gray-900 tracking-tight">
+            ResearchOS
+          </h1>
+        </PillWrap>
 
         {/* Navigation */}
         <nav className="flex items-center gap-1">
-          {filtered.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                pathname === item.href
-                  ? "bg-blue-50 text-blue-700 font-medium"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {filtered.map((item) => {
+            const isActive = pathname === item.href;
+            if (hasUser) {
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`px-3 py-1.5 text-sm rounded-full transition-colors shadow-sm ${
+                    isActive
+                      ? "bg-white text-gray-900 font-medium"
+                      : "bg-white/75 text-gray-700 hover:bg-white"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            }
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                  isActive
+                    ? "bg-blue-50 text-blue-700 font-medium"
+                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="flex-1" />
@@ -81,8 +100,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             href={SETTINGS_HREF}
             aria-label="Settings"
             title="Settings"
-            className={`p-1.5 rounded-lg transition-colors ${
-              pathname === SETTINGS_HREF
+            className={`p-1.5 rounded-full transition-colors ${
+              hasUser
+                ? pathname === SETTINGS_HREF
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "bg-white/75 text-gray-700 hover:bg-white shadow-sm"
+                : pathname === SETTINGS_HREF
                 ? "bg-blue-50 text-blue-700"
                 : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
             }`}
@@ -103,14 +126,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </svg>
           </Link>
         </div>
-
-        {hasUser && (
-          <div
-            aria-hidden
-            className="absolute bottom-0 left-0 right-0 h-[2px] pointer-events-none"
-            style={{ background: headerAccent }}
-          />
-        )}
       </header>
 
       {/* Main content with route-specific sidebar */}
@@ -124,5 +139,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <InboxToast />
       <ReminderRunner />
     </div>
+  );
+}
+
+/** Wrap children in a floating white pill only when a colored gradient
+ *  header is active. Pre-login the wordmark stays naked on bg-white. */
+function PillWrap({ on, children }: { on: boolean; children: React.ReactNode }) {
+  if (!on) return <>{children}</>;
+  return (
+    <div className="bg-white rounded-full px-3.5 py-1.5 shadow-sm">{children}</div>
   );
 }
