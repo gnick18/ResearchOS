@@ -31,7 +31,6 @@ function labTaskToTask(labTask: LabTask): Task {
     is_complete: labTask.is_complete,
     task_type: labTask.task_type as "experiment" | "purchase" | "list",
     weekend_override: null,
-    method_id: labTask.method_ids?.[0] || null,
     method_ids: labTask.method_ids || [],
     deviation_log: null,
     tags: null,

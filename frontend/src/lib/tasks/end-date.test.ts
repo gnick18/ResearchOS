@@ -14,7 +14,6 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     is_complete: false,
     task_type: "list",
     weekend_override: null,
-    method_id: null,
     method_ids: [],
     deviation_log: null,
     tags: null,

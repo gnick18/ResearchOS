@@ -143,10 +143,31 @@ export const projectsApi = {
 // used by the receiver of a shared task with permission "edit". Without
 // `owner`, falls back to the current user's directory (the usual case).
 async function getTaskForCaller(id: number, owner?: string): Promise<Task | null> {
-  return owner ? tasksStore.getForUser(id, owner) : tasksStore.get(id);
+  const raw = owner ? await tasksStore.getForUser(id, owner) : await tasksStore.get(id);
+  return raw ? normalizeTaskRecord(raw) : null;
 }
 async function updateTaskForCaller(id: number, data: Partial<Task>, owner?: string): Promise<Task | null> {
   return owner ? tasksStore.updateForUser(id, data, owner) : tasksStore.update(id, data);
+}
+
+// Legacy single-method shape: tasks created before multi-method support stored
+// the linked method as `method_id` (singular). We've since moved to
+// `method_ids` (plural). Files on disk for those old tasks still have
+// `method_id` populated and `method_ids: []`. This helper promotes the legacy
+// field into the new shape in memory so downstream code can rely on
+// `method_ids` exclusively. Files self-heal on the next write since the
+// JsonStore spread keeps unknown keys but our writers no longer emit
+// `method_id` — over time, edited tasks lose the field naturally. For a
+// one-shot disk cleanup, see `tasksApi.repairMethodLinks`.
+function normalizeTaskRecord(raw: Task): Task {
+  const legacy = raw as Task & { method_id?: number | null };
+  if (
+    (!raw.method_ids || raw.method_ids.length === 0) &&
+    typeof legacy.method_id === "number"
+  ) {
+    return { ...raw, method_ids: [legacy.method_id] };
+  }
+  return raw;
 }
 
 export const tasksApi = {
@@ -175,7 +196,6 @@ export const tasksApi = {
     is_high_level?: boolean;
     task_type?: "experiment" | "purchase" | "list";
     weekend_override?: boolean | null;
-    method_id?: number | null;
     method_ids?: number[];
     tags?: string[];
     sort_order?: number;
@@ -204,7 +224,6 @@ export const tasksApi = {
       is_complete: false,
       task_type: data.task_type ?? "list",
       weekend_override: data.weekend_override ?? null,
-      method_id: data.method_id ?? null,
       method_ids: data.method_ids ?? [],
       deviation_log: null,
       tags: data.tags ?? null,
@@ -330,6 +349,52 @@ export const tasksApi = {
     const attachments = (task.method_attachments || []).filter((a) => a.method_id !== methodId);
 
     return updateTaskForCaller(taskId, { method_ids: methodIds, method_attachments: attachments }, owner);
+  },
+
+  /**
+   * One-shot disk-level cleanup: walks every task owned by the current user
+   * and promotes any legacy top-level `method_id` into `method_ids` if the
+   * new array is empty. Writes back so the on-disk JSON gets the new shape.
+   *
+   * The lazy `normalizeTaskRecord` already covers in-memory reads, so this
+   * function is purely for users who want the disk shape cleaned up
+   * eagerly (and for confidence that all legacy task records have been
+   * migrated). Returns counts so the UI can show a summary.
+   *
+   * Only touches tasks under `users/{currentUser}/tasks/`. Tasks belonging
+   * to other users (shared-with-me) are not modified, even if the caller
+   * has edit permission — they self-heal next time the owner edits.
+   */
+  repairMethodLinks: async (): Promise<{ scanned: number; repaired: number; alreadyCorrect: number; failed: number }> => {
+    const tasks = await tasksStore.listAll();
+    let repaired = 0;
+    let alreadyCorrect = 0;
+    let failed = 0;
+    for (const raw of tasks) {
+      const legacy = raw as Task & { method_id?: number | null };
+      const needsPromotion =
+        (!raw.method_ids || raw.method_ids.length === 0) &&
+        typeof legacy.method_id === "number";
+      const hasLegacyKey = "method_id" in (raw as Record<string, unknown>);
+      if (!needsPromotion && !hasLegacyKey) {
+        alreadyCorrect += 1;
+        continue;
+      }
+      try {
+        const next: Task = needsPromotion
+          ? { ...raw, method_ids: [legacy.method_id as number] }
+          : raw;
+        // Drop the legacy field from the persisted shape.
+        const persisted: Record<string, unknown> = { ...next };
+        delete persisted.method_id;
+        await tasksStore.save(raw.id, persisted as Task);
+        repaired += 1;
+      } catch (err) {
+        console.warn(`[repairMethodLinks] failed to repair task ${raw.id}:`, err);
+        failed += 1;
+      }
+    }
+    return { scanned: tasks.length, repaired, alreadyCorrect, failed };
   },
 
   updateMethodPcr: async (
@@ -2232,7 +2297,7 @@ export const fetchAllTasks = async () => {
   const out = tasks.map((raw) => {
     const fixed = computeTaskEndDate(raw);
     if (fixed !== raw) stale.push(fixed);
-    return withOwnerFallback(fixed, currentUser);
+    return normalizeTaskRecord(withOwnerFallback(fixed, currentUser));
   });
   if (stale.length > 0) {
     void persistEndDateHealForOwn(stale);
@@ -2306,7 +2371,7 @@ export const fetchAllTasksIncludingShared = async () => {
     // Only heal own (non-shared) entries here. Shared-task heals were captured
     // separately above so they get routed to the owner's directory.
     if (fixed !== raw && !raw.is_shared_with_me) ownStale.push(fixed);
-    return fixed;
+    return normalizeTaskRecord(fixed);
   });
 
   if (ownStale.length > 0) void persistEndDateHealForOwn(ownStale);

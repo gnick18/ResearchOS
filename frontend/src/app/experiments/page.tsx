@@ -385,12 +385,10 @@ export default function ExperimentsPage() {
         let methodContent: string | null = null;
         const methodPdfs: PdfAttachmentData[] = [];
         
-        // Get all method IDs to process
-        const methodIdsToProcess = task.method_ids?.length 
-          ? task.method_ids 
-          : task.method_id 
-            ? [task.method_id] 
-            : [];
+        // Get all method IDs to process. Legacy single-method tasks are
+        // already normalised at the read boundary (see normalizeTaskRecord
+        // in local-api.ts), so method_ids is the only thing we need to read.
+        const methodIdsToProcess = task.method_ids ?? [];
         
         for (let i = 0; i < methodIdsToProcess.length; i++) {
           const methodId = methodIdsToProcess[i];
@@ -952,7 +950,7 @@ export default function ExperimentsPage() {
                               <span>{rootTask.duration_days}d</span>
                             </div>
                             
-                            {rootTask.method_id && (
+                            {rootTask.method_ids?.length > 0 && (
                               <span className="text-[10px] px-2 py-0.5 bg-purple-50 text-purple-600 rounded-full mt-2 inline-block">
                                 Has Method
                               </span>
@@ -1071,7 +1069,7 @@ export default function ExperimentsPage() {
                                   <span>·</span>
                                   <span>{rootTask.duration_days}d</span>
                                 </div>
-                                {rootTask.method_id && (
+                                {rootTask.method_ids?.length > 0 && (
                                   <span className="text-[10px] px-2 py-0.5 bg-purple-50 text-purple-600 rounded-full mt-2 inline-block">
                                     Has Method
                                   </span>
