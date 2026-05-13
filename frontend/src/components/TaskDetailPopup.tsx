@@ -70,6 +70,7 @@ import { fileService } from "@/lib/file-system/file-service";
 import { migrateNoteImages } from "@/lib/notes/migrate-images";
 import { findExistingTaskResultsBase, resolveTaskResultsBase, taskResultsBase } from "@/lib/tasks/results-paths";
 import { attachImageToTask } from "@/lib/attachments/attach-image";
+import { fileEvents } from "@/lib/attachments/file-events";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 interface TaskDetailPopupProps {
@@ -2087,6 +2088,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
           const finalName = await pickUniqueFilename(filesDir, renamedFile.name);
           const destPath = `${filesDir}/${finalName}`;
           await fileService.writeFileFromBlob(destPath, renamedFile);
+          fileEvents.emitAttached({ basePath, relativePath: `Files/${finalName}` });
         } catch {
           alert(`Failed to upload ${renamedFile.name}`);
         }
@@ -2209,6 +2211,8 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                   onChange={setContent}
                   placeholder="Click to start writing lab notes..."
                   onImageDrop={handleImageUpload}
+                  onFileDrop={handleFileUpload}
+                  allowAnyFileType={true}
                   imageBasePath={basePath}
                   showToolbar={true}
                 />
@@ -2339,6 +2343,7 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
           const finalName = await pickUniqueFilename(filesDir, renamedFile.name);
           const destPath = `${filesDir}/${finalName}`;
           await fileService.writeFileFromBlob(destPath, renamedFile);
+          fileEvents.emitAttached({ basePath, relativePath: `Files/${finalName}` });
         } catch {
           alert(`Failed to upload ${renamedFile.name}`);
         }
@@ -2460,6 +2465,8 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
                 onChange={setContent}
                 placeholder="Click to start writing results..."
                 onImageDrop={handleImageUpload}
+                onFileDrop={handleFileUpload}
+                allowAnyFileType={true}
                 imageBasePath={basePath}
                 showToolbar={true}
               />
