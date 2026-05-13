@@ -223,10 +223,18 @@ Reliable recipe for a spawn prompt:
 
 ## 8. Open backlog / things worth queuing
 
-(User may push back on any of these — confirm before starting.)
+### Active bot branches (in flight)
+
+`claude/*` branches with unmerged work. Spawn scopes must not collide with these areas. **Update this list as bots land or spawn** — it's the manager bot's quickest read on what's off-limits to a new spawn.
+
+- **File attachments redesign** — branch TBD (spawned 2026-05-13). FileStrip + Images/Files tabs in `LiveMarkdownEditor`, replacing the old file-attachment toolbar flow. Off-limits: the attachment ribbon, the markdown editor's drag handlers, `filesApi.listDirectory`, `ResultsEditor`'s drop pipeline.
+- **Wiki content / tone** — `claude/ecstatic-payne-d8c5e5`. Off-limits: `frontend/src/app/wiki/`.
+- **Repo cleanup / lint / renames** — `claude/distracted-proskuriakova-d93805`. Broad sweep across the codebase (recent: `Method.attachments` removal, `github_path → source_path` rename, lint warnings in pickers/`TaskDetailPopup`). Coordinate before any "while I'm here" cleanup, rename, or lint pass outside your spawn's narrow scope.
+- **Calendar integrations** — `claude/festive-spence-378806`. Recent: Google Calendar OAuth M1, Outlook OAuth M2, two-way sync M3, calendar OAuth setup wiki, wiki top bar. Off-limits: `frontend/src/lib/calendar/`, `frontend/src/app/calendar/`, `/api/calendar-feed/`.
+
+### Queued (confirm before spawning)
 
 - **Chain-share** (Version B): when a task with a dependency chain is shared, share the whole connected component. Spawned earlier; in flight on a branch. The chain-share agent is supposed to coordinate with the composite-key work (already landed).
-- **Editing shared methods / projects.** Currently only shared tasks are editable from the receiver side. Same `ownerScopedX` pattern would apply.
 - **Cross-user dependency cascades** in `shiftTask`. Today it stays in one user's namespace; a fully connected chain that spans users won't cascade end-to-end.
 - **Cross-owner task→project sharing (Option C).** Today the `TaskDetailPopup` project-move dropdown is own-only — a task can only live in a project owned by the same user. The clean semantic model is to treat "move my task into someone else's shared project" as a *sharing* operation, not a move: the task file stays in the original owner's directory (so `ownerScoped*` editability still works), and a new cross-namespace association registers it as "appearing in" the destination project. Concretely this needs either a composite ref on the task (e.g. `external_project: { owner, id }`) or a project-side manifest of hosted-from-others tasks, plus an analog to `fetchAllTasksIncludingShared` at the project level so the destination project's GANTT/timeline pulls in the external tasks. UX: dropdown becomes a "share into project" action with confirmation, a badge on the affected task, and a remove flow. **Coordinate with chain-share** — both build on cross-namespace references and should share one primitive rather than introducing two competing ones. Don't spawn until chain-share lands so this has a concrete substrate to extend.
 - **Lab notes from the inbox panel.** Filing a Telegram image currently means dragging it into a note. Could add a "send to → task" picker.
