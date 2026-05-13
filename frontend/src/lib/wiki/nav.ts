@@ -147,8 +147,14 @@ export const WIKI_NAV: WikiNode[] = [
       },
       {
         href: "/wiki/integrations/calendar-feeds",
-        label: "External Calendar Feeds",
+        label: "External Calendar Feeds (ICS)",
         blurb: "Subscribe to Google, Outlook, or iCloud ICS calendars.",
+      },
+      {
+        href: "/wiki/integrations/calendar-oauth",
+        label: "Calendar OAuth Setup",
+        blurb:
+          "One-time deployer setup so users get a one-click Connect button.",
       },
     ],
   },
