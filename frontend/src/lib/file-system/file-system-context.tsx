@@ -116,6 +116,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         defaultLandingTab: settings.defaultLandingTab,
         sidebarShowTasks: settings.sidebarShowTasks,
         sidebarShowCalendarEvents: settings.sidebarShowCalendarEvents,
+        sidebarEventsHorizonDays: settings.sidebarEventsHorizonDays,
       });
     } catch (err) {
       console.warn("[FileSystemProvider.hydrateSettingsForUser] failed", err);
@@ -128,6 +129,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         defaultLandingTab: DEFAULT_SETTINGS.defaultLandingTab,
         sidebarShowTasks: DEFAULT_SETTINGS.sidebarShowTasks,
         sidebarShowCalendarEvents: DEFAULT_SETTINGS.sidebarShowCalendarEvents,
+        sidebarEventsHorizonDays: DEFAULT_SETTINGS.sidebarEventsHorizonDays,
       });
     }
   }, []);

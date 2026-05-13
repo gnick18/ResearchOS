@@ -27,6 +27,7 @@ export interface SettingsHydration {
   defaultLandingTab: string;
   sidebarShowTasks: boolean;
   sidebarShowCalendarEvents: boolean;
+  sidebarEventsHorizonDays: number;
 }
 
 interface ConnectionState {
@@ -106,6 +107,9 @@ interface AppState extends ConnectionState {
 
   sidebarShowCalendarEvents: boolean;
   setSidebarShowCalendarEvents: (v: boolean) => void;
+
+  sidebarEventsHorizonDays: number;
+  setSidebarEventsHorizonDays: (days: number) => void;
 
   hydrateFromSettings: (s: SettingsHydration) => void;
   resetSettingsToDefaults: () => void;
@@ -228,6 +232,9 @@ export const useAppStore = create<AppState>()((set) => ({
   sidebarShowCalendarEvents: false,
   setSidebarShowCalendarEvents: (v) => set({ sidebarShowCalendarEvents: v }),
 
+  sidebarEventsHorizonDays: 7,
+  setSidebarEventsHorizonDays: (days) => set({ sidebarEventsHorizonDays: days }),
+
   hydrateFromSettings: (s) =>
     set({
       animationType: s.animationType,
@@ -238,6 +245,7 @@ export const useAppStore = create<AppState>()((set) => ({
       defaultLandingTab: s.defaultLandingTab,
       sidebarShowTasks: s.sidebarShowTasks,
       sidebarShowCalendarEvents: s.sidebarShowCalendarEvents,
+      sidebarEventsHorizonDays: s.sidebarEventsHorizonDays,
     }),
 
   resetSettingsToDefaults: () =>
@@ -250,6 +258,7 @@ export const useAppStore = create<AppState>()((set) => ({
       defaultLandingTab: "/",
       sidebarShowTasks: true,
       sidebarShowCalendarEvents: false,
+      sidebarEventsHorizonDays: 7,
     }),
 
   ganttLoading: false,
