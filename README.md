@@ -172,25 +172,10 @@ ResearchOS/
 │   │   ├── components/       # React components (Task popup, image strip, etc.)
 │   │   └── lib/              # FSA layer, telegram client, calendar parser, …
 │   └── package.json
-├── installer/                 # Electron-based desktop installer (optional)
 ├── scripts/                   # One-off maintenance scripts (e.g. legacy-image cleanup)
 ├── start.sh                   # Local dev launcher (macOS/Linux)
 └── start.ps1                  # Local dev launcher (Windows)
 ```
-
----
-
-## Building the desktop installer
-
-For users who'd rather not pick a folder in the browser every time, the `installer/` directory builds an Electron wrapper that launches the app and remembers state across launches:
-
-```bash
-cd installer
-npm install
-npm run make
-```
-
-Output lands in `installer/out/make/`.
 
 ---
 

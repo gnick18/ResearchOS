@@ -122,12 +122,6 @@ ResearchOS/
 │   ├── public/                  # Static assets
 │   └── package.json
 │
-├── installer/                   # Electron desktop installer (currently stale — see plans)
-│   ├── src/
-│   │   ├── main.js
-│   │   └── renderer/
-│   └── package.json
-│
 ├── plans/                       # Feature planning documents
 ├── .kilo/plans/                 # Session handoff documents
 └── README.md
