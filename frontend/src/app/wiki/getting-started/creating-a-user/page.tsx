@@ -19,9 +19,17 @@ export default function CreatingAUserPage() {
       <p>
         ResearchOS has no central account system. A &quot;user&quot; is just a
         named subdirectory inside <code>users/</code> in your folder. Each user
-        has their own projects, tasks, methods, and notes. Multiple users can
-        share one folder (see{" "}
-        <Link href="/wiki/shared-lab-accounts">Shared Lab Accounts</Link>).
+        has their own projects, tasks, methods, and notes.
+      </p>
+      <p>
+        In this model, <strong>the folder is the lab</strong>. Anyone with
+        access to the same folder can pick a username on the user-picker and
+        become a member, no invite step needed. If a folder is private to you,
+        you&apos;re a lab of one. If a folder is shared via OneDrive / Google
+        Drive / Dropbox / iCloud, everyone with read-write access to that
+        folder is in the same lab. See{" "}
+        <Link href="/wiki/shared-lab-accounts">Shared Lab Accounts</Link> for
+        the cloud setup.
       </p>
 
       <h2>Creating a user</h2>
