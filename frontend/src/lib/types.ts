@@ -26,7 +26,7 @@ export interface SharedItemsResponse {
   methods: SharedItemEntry[];
 }
 
-export interface Notification {
+export interface SharedItemNotification {
   id: string;
   type: "task_shared" | "method_shared" | "project_shared";
   from_user: string;
@@ -37,6 +37,27 @@ export interface Notification {
   created_at: string;
   read: boolean;
 }
+
+export interface EventReminderNotification {
+  id: string;
+  type: "event_reminder";
+  /** String form so we can carry both numeric (native) and string (external)
+   *  event ids without dual fields. */
+  event_id: string;
+  event_kind: "native" | "external";
+  event_title: string;
+  /** ISO local-datetime string for the event's start (e.g. "2026-05-13T14:30:00"). */
+  event_start_iso: string;
+  /** Local YYYY-MM-DD — used to deep-link back to the day view. */
+  event_date: string;
+  event_location: string | null;
+  /** Minutes-before-start when this reminder fired (display label). */
+  offset_minutes: number;
+  created_at: string;
+  read: boolean;
+}
+
+export type Notification = SharedItemNotification | EventReminderNotification;
 
 export interface NotificationResponse {
   notifications: Notification[];

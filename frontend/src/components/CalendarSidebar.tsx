@@ -17,6 +17,7 @@ import {
   toLocalDateString,
 } from "@/components/calendar/utils";
 import CalendarFeedsModal from "./CalendarFeedsModal";
+import CalendarRemindersModal from "./CalendarRemindersModal";
 import type { CalendarFeed, Event, ExternalEvent } from "@/lib/types";
 
 type UpcomingItem =
@@ -31,6 +32,7 @@ export default function CalendarSidebar() {
   const router = useRouter();
   const { currentUser } = useCurrentUser();
   const [feedsModalOpen, setFeedsModalOpen] = useState(false);
+  const [remindersModalOpen, setRemindersModalOpen] = useState(false);
   const jumpTo = useCalendarNavStore((s) => s.jumpTo);
 
   const { data: feeds = [] } = useCalendarFeeds();
@@ -107,13 +109,23 @@ export default function CalendarSidebar() {
           <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">
             Calendars
           </h2>
-          <button
-            onClick={() => setFeedsModalOpen(true)}
-            title="Manage linked calendars"
-            className="text-[11px] text-blue-600 hover:underline"
-          >
-            Manage
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setRemindersModalOpen(true)}
+              title="Configure event reminders"
+              className="text-[11px] text-blue-600 hover:underline"
+            >
+              Reminders
+            </button>
+            <span className="text-[10px] text-gray-300">·</span>
+            <button
+              onClick={() => setFeedsModalOpen(true)}
+              title="Manage linked calendars"
+              className="text-[11px] text-blue-600 hover:underline"
+            >
+              Manage
+            </button>
+          </div>
         </div>
         <div className="px-3 py-2 space-y-1">
           <FeedRow
@@ -177,6 +189,9 @@ export default function CalendarSidebar() {
       </aside>
       {feedsModalOpen && (
         <CalendarFeedsModal onClose={() => setFeedsModalOpen(false)} />
+      )}
+      {remindersModalOpen && (
+        <CalendarRemindersModal onClose={() => setRemindersModalOpen(false)} />
       )}
     </>
   );

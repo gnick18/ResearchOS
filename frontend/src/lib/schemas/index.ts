@@ -18,7 +18,7 @@ export const SharedItemEntrySchema = z.object({
   shared_at: z.string(),
 });
 
-export const NotificationSchema = z.object({
+export const SharedItemNotificationSchema = z.object({
   id: z.string(),
   type: z.enum(["task_shared", "method_shared", "project_shared"]),
   from_user: z.string(),
@@ -29,6 +29,25 @@ export const NotificationSchema = z.object({
   created_at: z.string(),
   read: z.boolean().default(false),
 });
+
+export const EventReminderNotificationSchema = z.object({
+  id: z.string(),
+  type: z.literal("event_reminder"),
+  event_id: z.string(),
+  event_kind: z.enum(["native", "external"]),
+  event_title: z.string(),
+  event_start_iso: z.string(),
+  event_date: z.string(),
+  event_location: z.string().nullable(),
+  offset_minutes: z.number(),
+  created_at: z.string(),
+  read: z.boolean().default(false),
+});
+
+export const NotificationSchema = z.discriminatedUnion("type", [
+  SharedItemNotificationSchema,
+  EventReminderNotificationSchema,
+]);
 
 export const ProjectSchema = z.object({
   id: z.number(),
@@ -534,6 +553,8 @@ export type SharedUser = z.infer<typeof SharedUserSchema>;
 export type ShareRequest = z.infer<typeof ShareRequestSchema>;
 export type SharedItemEntry = z.infer<typeof SharedItemEntrySchema>;
 export type Notification = z.infer<typeof NotificationSchema>;
+export type SharedItemNotification = z.infer<typeof SharedItemNotificationSchema>;
+export type EventReminderNotification = z.infer<typeof EventReminderNotificationSchema>;
 export type Project = z.infer<typeof ProjectSchema>;
 export type ProjectCreate = z.infer<typeof ProjectCreateSchema>;
 export type ProjectUpdate = z.infer<typeof ProjectUpdateSchema>;
