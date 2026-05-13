@@ -20,41 +20,16 @@ A research project management application with smart GANTT scheduling, automatic
 
 ## Installation
 
-### Option 1: Easy Installer (Recommended)
+ResearchOS runs entirely in the browser via the File System Access API. Clone the repo and run the start script, or use the hosted Vercel deployment.
 
-Download the installer for your platform and run it. The installer will:
-- Check for required dependencies (Python, Node.js, Git)
-- Automatically install any missing dependencies
-- Set up ResearchOS and create a desktop shortcut
-
-**Downloads:**
-- **macOS**: Download `researchos-installer-darwin-arm64-x.x.x.zip` from the [Releases](https://github.com/gnick18/ResearchOS/releases) page
-- **Windows**: Download `researchos-installer-win32-x.x.x.zip` from the [Releases](https://github.com/gnick18/ResearchOS/releases) page
-
-> **⚠️ macOS Security Note**: On macOS, the app may show "is damaged and can't be opened" because it's not code-signed. To fix this, open Terminal and run:
-> ```bash
-> xattr -cr /path/to/researchos-installer.app
-> ```
-> Or right-click the app and select "Open", then click "Open" again when prompted.
-
-> **⚠️ Windows Security Note**: On Windows, the app may show a SmartScreen warning. To proceed:
-> 1. Click "More info" on the warning
-> 2. Click "Run anyway" to bypass the warning
-
-For future releases, we plan to add code signing which will eliminate these warnings entirely.
-
-### Option 2: Manual Installation
-
-If you prefer to install manually or are a developer, follow these steps:
-
-#### Prerequisites
+### Prerequisites
 
 | Requirement | Version | Where to Get It |
 |-------------|---------|-----------------|
 | **Node.js** | 18+ | [nodejs.org](https://nodejs.org/) |
 | **Chromium browser** | Recent | Chrome, Edge, or Brave — Firefox/Safari aren't supported (File System Access API) |
 
-#### Steps
+### Steps
 
 1. **Clone the repository:**
    ```bash
@@ -137,12 +112,6 @@ ResearchOS/
 │   │   ├── components/    # React components
 │   │   └── lib/           # Utilities, FSA layer, API replacement
 │   └── package.json
-├── installer/              # Electron-based smart installer
-│   ├── src/
-│   │   ├── main.js        # Installer logic
-│   │   ├── preload.js     # IPC bridge
-│   │   └── renderer/      # UI components
-│   └── package.json
 ├── scripts/                # One-off maintenance scripts
 ├── start.sh                # Start script (macOS/Linux)
 └── start.ps1               # Start script (Windows)
@@ -151,20 +120,6 @@ ResearchOS/
 ResearchOS is now fully client-side: every interaction with your data
 goes through the browser's File System Access API, talking to a folder
 you pick on your own disk. There is no separate backend process.
-
----
-
-## Building the Installer
-
-To build distributable installers:
-
-```bash
-cd installer
-npm install
-npm run make
-```
-
-The output will be in `installer/out/make/`.
 
 ---
 
