@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { projectsApi, tasksApi, filesApi } from "@/lib/local-api";
+import { tasksApi, filesApi, fetchAllProjectsIncludingShared } from "@/lib/local-api";
 import { findExistingTaskResultsBase, taskResultsBase } from "@/lib/tasks/results-paths";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAppStore } from "@/lib/store";
@@ -28,7 +28,7 @@ export default function ResultsPage() {
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", currentUser],
-    queryFn: projectsApi.list,
+    queryFn: fetchAllProjectsIncludingShared,
   });
 
   const { data: allTasks = [] } = useQuery({

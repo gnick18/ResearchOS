@@ -2,12 +2,39 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { projectsApi, tasksApi } from "@/lib/local-api";
+import { projectsApi as rawProjectsApi, tasksApi } from "@/lib/local-api";
+import type { ProjectUpdate } from "@/lib/local-api";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import TaskQuickPopup from "@/components/TaskQuickPopup";
 import SharePopup from "@/components/SharePopup";
 import Tooltip from "@/components/Tooltip";
 import type { Project, Task, ProjectCreate } from "@/lib/types";
+
+/**
+ * When the current viewer is a receiver of a shared project with edit
+ * permission, every mutation needs to write back to the OWNER's directory
+ * (e.g. `users/Kritika/projects/1.json`), not the current user's. Plain own
+ * projects (or read-only views) pass undefined and the writes go to the
+ * current user's directory. Mirrors the pattern in TaskDetailPopup.
+ */
+function effectiveOwnerOf(project: Project): string | undefined {
+  return project.is_shared_with_me && project.shared_permission === "edit"
+    ? project.owner
+    : undefined;
+}
+
+function ownerScopedProjectsApi(project: Project) {
+  const owner = effectiveOwnerOf(project);
+  return {
+    ...rawProjectsApi,
+    get: (id: number) => rawProjectsApi.get(id, owner),
+    update: (id: number, data: ProjectUpdate) => rawProjectsApi.update(id, data, owner),
+    archive: (id: number, isArchived: boolean) =>
+      rawProjectsApi.archive(id, isArchived, owner),
+    // `delete` intentionally not owner-routed: only the original owner should
+    // be able to destroy the file.
+  };
+}
 
 const DEFAULT_COLORS = [
   "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
@@ -21,6 +48,10 @@ interface ProjectDetailPopupProps {
 
 export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPopupProps) {
   const queryClient = useQueryClient();
+  // Owner-aware view of projectsApi: when this popup is showing a project
+  // shared with the current user with edit permission, every mutating call
+  // routes through the owner's directory instead of the current user's.
+  const projectsApi = useMemo(() => ownerScopedProjectsApi(project), [project]);
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(project.name);
   const [tags, setTags] = useState(project.tags?.join(", ") || "");

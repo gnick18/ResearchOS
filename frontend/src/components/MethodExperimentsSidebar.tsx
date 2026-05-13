@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { methodsApi, projectsApi, tasksApi, type MethodExperiment } from "@/lib/local-api";
+import { methodsApi, tasksApi, fetchAllProjectsIncludingShared, type MethodExperiment } from "@/lib/local-api";
 import type { Task, Project } from "@/lib/types";
 import { useState, useCallback } from "react";
 import TaskDetailPopup from "./TaskDetailPopup";
@@ -36,7 +36,7 @@ export default function MethodExperimentsSidebar({
   // Fetch all projects to get project names
   const { data: projects = [] } = useQuery({
     queryKey: ["projects"],
-    queryFn: projectsApi.list,
+    queryFn: fetchAllProjectsIncludingShared,
     staleTime: 60000, // Cache projects for 1 minute
   });
 

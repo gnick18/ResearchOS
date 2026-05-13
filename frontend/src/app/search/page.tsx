@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { projectsApi, tasksApi, methodsApi } from "@/lib/local-api";
+import { projectsApi, tasksApi, methodsApi, fetchAllMethodsIncludingShared, fetchAllProjectsIncludingShared } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
@@ -51,12 +51,12 @@ export default function SearchPage() {
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", currentUser],
-    queryFn: projectsApi.list,
+    queryFn: fetchAllProjectsIncludingShared,
   });
 
   const { data: methods = [] } = useQuery({
     queryKey: ["methods", currentUser],
-    queryFn: methodsApi.list,
+    queryFn: fetchAllMethodsIncludingShared,
   });
 
   const { data: allTasks = [] } = useQuery({

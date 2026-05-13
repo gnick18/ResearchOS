@@ -5,7 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { filesApi, methodsApi, tasksApi, pcrApi } from "@/lib/local-api";
+import { filesApi, tasksApi, pcrApi, fetchAllMethodsIncludingShared } from "@/lib/local-api";
 import { migrateNoteImages } from "@/lib/notes/migrate-images";
 import type { Method, Task, TaskMethodAttachment, PCRProtocol, PCRGradient, PCRIngredient } from "@/lib/types";
 import { InteractiveGradientEditor } from "@/components/InteractiveGradientEditor";
@@ -49,7 +49,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
   // Load all available methods
   const { data: allMethods = [] } = useQuery({
     queryKey: ["methods"],
-    queryFn: methodsApi.list,
+    queryFn: fetchAllMethodsIncludingShared,
   });
   
   // Get the active method attachment
