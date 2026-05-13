@@ -68,8 +68,15 @@ import {
 import { useFileRenamePopup } from "@/components/FileRenamePopup";
 import { fileService } from "@/lib/file-system/file-service";
 import { migrateNoteImages } from "@/lib/notes/migrate-images";
-import { findExistingTaskResultsBase, resolveTaskResultsBase, taskResultsBase } from "@/lib/tasks/results-paths";
-import { migrateTaskAttachmentsToFiles } from "@/lib/tasks/migrate-attachments";
+import {
+  findExistingTaskResultsBase,
+  resolveTabAttachmentBase,
+  resolveTaskResultsBase,
+  taskNotesBase,
+  taskResultsBase,
+  taskResultsTabBase,
+} from "@/lib/tasks/results-paths";
+import { migrateTaskAttachmentsToFiles, splitTaskAttachments } from "@/lib/tasks/migrate-attachments";
 import { attachImageToTask } from "@/lib/attachments/attach-image";
 import { fileEvents } from "@/lib/attachments/file-events";
 import { gcUnreferencedAttachments } from "@/lib/attachments/gc";
@@ -107,6 +114,20 @@ export default function TaskDetailPopup({
   const [activeTab, setActiveTab] = useState<Tab>(
     initialTab ?? (isPurchase ? "purchases" : "details")
   );
+  // Tracks which markdown-editor tab the user last viewed. Drops on
+  // non-editor surfaces (Details, Methods, the header, anywhere outside the
+  // editor card) route to this tab's per-tab attachment folder. Defaults
+  // to "notes" so first-time drops on Details have a sensible target.
+  // Updated in `selectTab` below — not in an effect — so cascading rerenders
+  // don't fire on every activeTab change.
+  const [lastEditorTab, setLastEditorTab] = useState<"notes" | "results">(
+    initialTab === "results" ? "results" : "notes"
+  );
+  const selectTab = useCallback((tab: Tab) => {
+    setActiveTab(tab);
+    if (tab === "notes") setLastEditorTab("notes");
+    else if (tab === "results") setLastEditorTab("results");
+  }, []);
   const [task, setTask] = useState(initialTask);
   const [isExpanded, setIsExpanded] = useState(false);
   const [animationPosition, setAnimationPosition] = useState<{ x: number; y: number } | null>(null);
@@ -118,10 +139,13 @@ export default function TaskDetailPopup({
   const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
 
   // Universal drop: any file dragged anywhere onto the popup card uploads to
-  // the task's Files/ (or Images/) folder, no matter which tab is active.
-  // LiveMarkdownEditor instances inside Lab Notes / Results already handle
-  // their own drops and stopPropagation, so this handler only fires for
-  // drops outside an editor (Details, Methods rendered content, header, etc).
+  // the most-recently-viewed editor tab's per-tab attachment folder
+  // (Lab Notes → `task-N/notes/{Files,Images}`, Results →
+  // `task-N/results/{Files,Images}`). Defaults to Lab Notes so first-time
+  // drops on Details have a target. LiveMarkdownEditor instances inside
+  // Lab Notes / Results already handle their own drops and stopPropagation,
+  // so this handler only fires for drops outside an editor (Details,
+  // Methods rendered content, header, etc).
   const popupBasePath = useMemo(() => taskResultsBase(task), [task]);
   const [universalDropToast, setUniversalDropToast] = useState<
     { msg: string; x: number; y: number } | null
@@ -144,14 +168,27 @@ export default function TaskDetailPopup({
       const dropX = e.clientX;
       const dropY = e.clientY;
       const landed: string[] = [];
+
+      // Route to whichever editor tab was last active. If the per-tab
+      // scoped folder isn't populated yet (and legacy shared `Files/`+
+      // `Images/` still hold this task's attachments at the outer base),
+      // we still target the scoped folder — the editor's first drop is the
+      // moment the migration is expected to kick in, and writing into the
+      // legacy shared folder here would re-introduce the cross-tab bleed
+      // we're trying to fix.
+      const tabRoot = lastEditorTab === "results"
+        ? `${popupBasePath}/results`
+        : `${popupBasePath}/notes`;
+      const labelForTab = lastEditorTab === "results" ? "Results" : "Lab Notes";
+
       for (const file of files) {
         const isImage = file.type.startsWith("image/");
         const folder = isImage ? "Images" : "Files";
-        const dir = `${popupBasePath}/${folder}`;
+        const dir = `${tabRoot}/${folder}`;
         try {
           const finalName = await pickUniqueFilename(dir, file.name);
           await fileService.writeFileFromBlob(`${dir}/${finalName}`, file);
-          const detail = { basePath: popupBasePath, relativePath: `${folder}/${finalName}` };
+          const detail = { basePath: tabRoot, relativePath: `${folder}/${finalName}` };
           if (isImage) {
             imageEvents.emitAttached(detail);
           } else {
@@ -165,13 +202,13 @@ export default function TaskDetailPopup({
       if (landed.length > 0) {
         const msg =
           landed.length === 1
-            ? `Added ${landed[0]} to this task. View in Lab Notes / Results.`
-            : `Added ${landed.length} files to this task. View in Lab Notes / Results.`;
+            ? `Added ${landed[0]} to ${labelForTab}.`
+            : `Added ${landed.length} files to ${labelForTab}.`;
         setUniversalDropToast({ msg, x: dropX, y: dropY });
         window.setTimeout(() => setUniversalDropToast(null), 3000);
       }
     },
-    [popupBasePath]
+    [lastEditorTab, popupBasePath]
   );
 
   // Get the selected animation type from the store
@@ -539,7 +576,7 @@ export default function TaskDetailPopup({
           {tabs.map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => selectTab(tab)}
               className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === tab
                   ? "border-blue-500 text-blue-600 bg-white"
@@ -2014,10 +2051,20 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
   // Resolved lazily: the per-user path is canonical, but if legacy global
   // `results/task-{id}/` is the only one with data we read from there until
   // the owner triggers a one-time copy (see resolveTaskResultsBase).
+  //
+  // `outerBase`: directory holding notes.md + results.md + the NotesPDFs/
+  // and ResultsPDFs/ panels. Per-tab scoped attachments live one level
+  // deeper (`outerBase/notes` and `outerBase/results`).
+  // `attachBase`: where Files/ + Images/ for THIS tab resolve. In normal
+  // operation == `outerBase/notes`; falls back to `outerBase` (legacy
+  // shared layout) when the tab folder hasn't been populated yet.
   const legacyOwner = ownerUsername || task.owner;
-  const [basePath, setBasePath] = useState<string>(() => taskResultsBase(task));
-  const notesPath = `${basePath}/notes.md`;
-  const pdfsDir = `${basePath}/NotesPDFs`;
+  const [outerBase, setOuterBase] = useState<string>(() => taskResultsBase(task));
+  const [attachBase, setAttachBase] = useState<string>(() => taskNotesBase(task));
+  const notesPath = `${outerBase}/notes.md`;
+  const pdfsDir = `${outerBase}/NotesPDFs`;
+  const tabBase = useMemo(() => `${outerBase}/notes`, [outerBase]);
+  const inLegacyAttachMode = attachBase === outerBase;
 
   // Look up the project name so a fresh notes.md gets a real project in its
   // stamp instead of "Unknown Project". Reuses the same query key as the
@@ -2038,7 +2085,18 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
           ? await resolveTaskResultsBase({ id: task.id, owner: task.owner }, currentUser)
           : taskResultsBase({ id: task.id, owner: task.owner });
         if (cancelled) return;
-        setBasePath(resolved);
+        setOuterBase(resolved);
+        // Lazy fallback for the attachment base. Default to the per-tab
+        // scoped folder; if that's empty and legacy shared `Files/`+`Images/`
+        // exist at the outer base, read from there until the next write or
+        // the Settings split button migrates them.
+        const resolvedAttach = await resolveTabAttachmentBase(
+          { id: task.id, owner: task.owner },
+          "notes",
+          resolved
+        );
+        if (cancelled) return;
+        setAttachBase(resolvedAttach);
         const resolvedNotes = `${resolved}/notes.md`;
         const file = await filesApi.readFile(resolvedNotes);
         const raw = file.content;
@@ -2052,6 +2110,9 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
         }
         // Lazy-migrate any legacy `Attachments/` content into `Files/` on the
         // owner's first read. Cheap no-op if the folder doesn't exist.
+        // Operates on the OUTER base — the per-tab split is deferred to
+        // either the Settings repair button or the next write (see
+        // `ensureAttachmentsSplit` below).
         const attachMig = await migrateTaskAttachmentsToFiles(resolved, raw);
         const startContent = attachMig.contentRewritten ? attachMig.content : raw;
         const { content: migrated, didMigrate } = await migrateNoteImages(startContent, task.id, resolved, legacyOwner);
@@ -2095,10 +2156,71 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
+  // When the tab is in legacy attach mode (shared `Files/`+`Images/` at the
+  // outer base), perform the split-on-write migration so new drops land in
+  // the per-tab scoped folder and refs stay self-contained. Returns the
+  // post-migration notes content so callers can use it as their next
+  // `setContent` baseline. No-op when already on the scoped folder.
+  const ensureAttachmentsSplit = useCallback(
+    async (
+      latestContent: string
+    ): Promise<{ notesContent: string; migrated: boolean }> => {
+      if (!inLegacyAttachMode) {
+        return { notesContent: latestContent, migrated: false };
+      }
+      // Read the OTHER tab's body off disk — the user might not have opened
+      // it during this session.
+      let otherContent = "";
+      try {
+        const f = await filesApi.readFile(`${outerBase}/results.md`);
+        otherContent = f.content;
+      } catch {
+        otherContent = "";
+      }
+      const split = await splitTaskAttachments(
+        { id: task.id, owner: task.owner },
+        latestContent,
+        otherContent
+      );
+      if (split.notesContentRewritten) {
+        try {
+          await filesApi.writeFile(
+            `${outerBase}/notes.md`,
+            split.notesContent,
+            `Split attachments for: ${task.name}`
+          );
+        } catch {
+          // best-effort — the rewrite + content state still apply
+        }
+      }
+      if (split.resultsContentRewritten) {
+        try {
+          await filesApi.writeFile(
+            `${outerBase}/results.md`,
+            split.resultsContent,
+            `Split attachments for: ${task.name}`
+          );
+        } catch {
+          // best-effort
+        }
+      }
+      setAttachBase(tabBase);
+      return { notesContent: split.notesContent, migrated: true };
+    },
+    [inLegacyAttachMode, outerBase, tabBase, task.id, task.name, task.owner]
+  );
+
   const handleImageUpload = useCallback(
     async (files: File[]) => {
       setUploading(true);
       setUploadWarning(null);
+      const split = await ensureAttachmentsSplit(content);
+      if (split.migrated) {
+        // Use the rewritten body as the baseline so subsequent setContent
+        // calls don't replay stale refs.
+        setContent(split.notesContent);
+        setOriginalContent(split.notesContent);
+      }
       for (const file of files) {
         if (!file.type.startsWith("image/")) continue;
         const renamedFile = await requestRename(file);
@@ -2107,7 +2229,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
           const { markdownSnippet } = await attachImageToTask({
             ownerUsername: task.owner,
             taskId: task.id,
-            basePath,
+            basePath: tabBase,
             blob: renamedFile,
             suggestedFilename: renamedFile.name,
           });
@@ -2118,14 +2240,19 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
       }
       setUploading(false);
     },
-    [basePath, requestRename, task.id, task.owner]
+    [content, ensureAttachmentsSplit, requestRename, tabBase, task.id, task.owner]
   );
 
   const handleFileUpload = useCallback(
     async (files: File[]) => {
       setUploading(true);
       setUploadWarning(null);
-      const filesDir = `${basePath}/Files`;
+      const split = await ensureAttachmentsSplit(content);
+      if (split.migrated) {
+        setContent(split.notesContent);
+        setOriginalContent(split.notesContent);
+      }
+      const filesDir = `${tabBase}/Files`;
       for (const file of files) {
         const renamedFile = await requestRename(file);
         if (!renamedFile) continue;
@@ -2133,28 +2260,34 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
           const finalName = await pickUniqueFilename(filesDir, renamedFile.name);
           const destPath = `${filesDir}/${finalName}`;
           await fileService.writeFileFromBlob(destPath, renamedFile);
-          fileEvents.emitAttached({ basePath, relativePath: `Files/${finalName}` });
+          fileEvents.emitAttached({ basePath: tabBase, relativePath: `Files/${finalName}` });
         } catch {
           alert(`Failed to upload ${renamedFile.name}`);
         }
       }
       setUploading(false);
     },
-    [basePath, requestRename]
+    [content, ensureAttachmentsSplit, requestRename, tabBase]
   );
 
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
-      await filesApi.writeFile(notesPath, content, `Update lab notes for: ${task.name}`);
-      await gcUnreferencedAttachments(content, basePath);
-      setOriginalContent(content);
+      const split = await ensureAttachmentsSplit(content);
+      const toWrite = split.migrated ? split.notesContent : content;
+      await filesApi.writeFile(notesPath, toWrite, `Update lab notes for: ${task.name}`);
+      // GC scans only the per-tab scoped folder — legacy shared attachments
+      // (if any survived migration as orphans) are left alone until the
+      // user runs the Settings split button.
+      await gcUnreferencedAttachments(toWrite, tabBase);
+      setContent(toWrite);
+      setOriginalContent(toWrite);
     } catch {
       alert("Failed to save notes");
     } finally {
       setSaving(false);
     }
-  }, [content, notesPath, basePath, task.name]);
+  }, [content, ensureAttachmentsSplit, notesPath, tabBase, task.name]);
 
   return (
     <>
@@ -2258,7 +2391,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                   onImageDrop={handleImageUpload}
                   onFileDrop={handleFileUpload}
                   allowAnyFileType={true}
-                  imageBasePath={basePath}
+                  imageBasePath={attachBase}
                   showToolbar={true}
                 />
               )}
@@ -2286,11 +2419,16 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
   const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
   const { currentUser } = useCurrentUser();
 
-  // See LabNotesTab for the per-user / legacy fallback rules.
+  // See LabNotesTab for the per-user / legacy fallback rules. `outerBase`
+  // holds the .md files + PDF panels; `attachBase` is the per-tab scoped
+  // folder for THIS tab (or a legacy fallback to the shared outer base).
   const legacyOwner = ownerUsername || task.owner;
-  const [basePath, setBasePath] = useState<string>(() => taskResultsBase(task));
-  const resultsPath = `${basePath}/results.md`;
-  const pdfsDir = `${basePath}/ResultsPDFs`;
+  const [outerBase, setOuterBase] = useState<string>(() => taskResultsBase(task));
+  const [attachBase, setAttachBase] = useState<string>(() => taskResultsTabBase(task));
+  const resultsPath = `${outerBase}/results.md`;
+  const pdfsDir = `${outerBase}/ResultsPDFs`;
+  const tabBase = useMemo(() => `${outerBase}/results`, [outerBase]);
+  const inLegacyAttachMode = attachBase === outerBase;
 
   // See LabNotesTab — same lookup so a fresh results.md gets a real project
   // name in its stamp instead of "Unknown Project".
@@ -2310,7 +2448,14 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
           ? await resolveTaskResultsBase({ id: task.id, owner: task.owner }, currentUser)
           : taskResultsBase({ id: task.id, owner: task.owner });
         if (cancelled) return;
-        setBasePath(resolved);
+        setOuterBase(resolved);
+        const resolvedAttach = await resolveTabAttachmentBase(
+          { id: task.id, owner: task.owner },
+          "results",
+          resolved
+        );
+        if (cancelled) return;
+        setAttachBase(resolvedAttach);
         const resolvedResults = `${resolved}/results.md`;
         const file = await filesApi.readFile(resolvedResults);
         const raw = file.content;
@@ -2367,10 +2512,62 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
+  const ensureAttachmentsSplit = useCallback(
+    async (
+      latestContent: string
+    ): Promise<{ resultsContent: string; migrated: boolean }> => {
+      if (!inLegacyAttachMode) {
+        return { resultsContent: latestContent, migrated: false };
+      }
+      let otherContent = "";
+      try {
+        const f = await filesApi.readFile(`${outerBase}/notes.md`);
+        otherContent = f.content;
+      } catch {
+        otherContent = "";
+      }
+      const split = await splitTaskAttachments(
+        { id: task.id, owner: task.owner },
+        otherContent,
+        latestContent
+      );
+      if (split.notesContentRewritten) {
+        try {
+          await filesApi.writeFile(
+            `${outerBase}/notes.md`,
+            split.notesContent,
+            `Split attachments for: ${task.name}`
+          );
+        } catch {
+          // best-effort
+        }
+      }
+      if (split.resultsContentRewritten) {
+        try {
+          await filesApi.writeFile(
+            `${outerBase}/results.md`,
+            split.resultsContent,
+            `Split attachments for: ${task.name}`
+          );
+        } catch {
+          // best-effort
+        }
+      }
+      setAttachBase(tabBase);
+      return { resultsContent: split.resultsContent, migrated: true };
+    },
+    [inLegacyAttachMode, outerBase, tabBase, task.id, task.name, task.owner]
+  );
+
   const handleImageUpload = useCallback(
     async (files: File[]) => {
       setUploading(true);
       setUploadWarning(null);
+      const split = await ensureAttachmentsSplit(content);
+      if (split.migrated) {
+        setContent(split.resultsContent);
+        setOriginalContent(split.resultsContent);
+      }
       for (const file of files) {
         if (!file.type.startsWith("image/")) continue;
         const renamedFile = await requestRename(file);
@@ -2379,7 +2576,7 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
           const { markdownSnippet } = await attachImageToTask({
             ownerUsername: task.owner,
             taskId: task.id,
-            basePath,
+            basePath: tabBase,
             blob: renamedFile,
             suggestedFilename: renamedFile.name,
           });
@@ -2390,14 +2587,19 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
       }
       setUploading(false);
     },
-    [basePath, requestRename, task.id, task.owner]
+    [content, ensureAttachmentsSplit, requestRename, tabBase, task.id, task.owner]
   );
 
   const handleFileUpload = useCallback(
     async (files: File[]) => {
       setUploading(true);
       setUploadWarning(null);
-      const filesDir = `${basePath}/Files`;
+      const split = await ensureAttachmentsSplit(content);
+      if (split.migrated) {
+        setContent(split.resultsContent);
+        setOriginalContent(split.resultsContent);
+      }
+      const filesDir = `${tabBase}/Files`;
       for (const file of files) {
         const renamedFile = await requestRename(file);
         if (!renamedFile) continue;
@@ -2405,28 +2607,31 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
           const finalName = await pickUniqueFilename(filesDir, renamedFile.name);
           const destPath = `${filesDir}/${finalName}`;
           await fileService.writeFileFromBlob(destPath, renamedFile);
-          fileEvents.emitAttached({ basePath, relativePath: `Files/${finalName}` });
+          fileEvents.emitAttached({ basePath: tabBase, relativePath: `Files/${finalName}` });
         } catch {
           alert(`Failed to upload ${renamedFile.name}`);
         }
       }
       setUploading(false);
     },
-    [basePath, requestRename]
+    [content, ensureAttachmentsSplit, requestRename, tabBase]
   );
 
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
-      await filesApi.writeFile(resultsPath, content, `Update results: ${task.name}`);
-      await gcUnreferencedAttachments(content, basePath);
-      setOriginalContent(content);
+      const split = await ensureAttachmentsSplit(content);
+      const toWrite = split.migrated ? split.resultsContent : content;
+      await filesApi.writeFile(resultsPath, toWrite, `Update results: ${task.name}`);
+      await gcUnreferencedAttachments(toWrite, tabBase);
+      setContent(toWrite);
+      setOriginalContent(toWrite);
     } catch {
       alert("Failed to save results");
     } finally {
       setSaving(false);
     }
-  }, [content, resultsPath, basePath, task.name]);
+  }, [content, ensureAttachmentsSplit, resultsPath, tabBase, task.name]);
 
   return (
     <>
@@ -2529,7 +2734,7 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
                 onImageDrop={handleImageUpload}
                 onFileDrop={handleFileUpload}
                 allowAnyFileType={true}
-                imageBasePath={basePath}
+                imageBasePath={attachBase}
                 showToolbar={true}
               />
             )}

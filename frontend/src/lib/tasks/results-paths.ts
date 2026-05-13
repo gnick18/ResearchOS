@@ -11,9 +11,88 @@ import type { Task } from "../types";
  * Always use this for WRITES. For reads, prefer
  * `findExistingTaskResultsBase` so legacy data (written before this
  * namespacing) is still surfaced.
+ *
+ * The OUTER directory holds `notes.md`, `results.md`, the PDF subfolders,
+ * and the per-tab scoped subdirs `notes/` and `results/`. Each per-tab
+ * subdir owns its own `Files/` + `Images/`. The outer directory name does
+ * NOT change when migration happens — only the inner shape does.
  */
 export function taskResultsBase(task: Pick<Task, "id" | "owner">): string {
   return `users/${task.owner}/results/task-${task.id}`;
+}
+
+/**
+ * Per-tab scoped base for the Lab Notes tab. Attachments dropped on Lab
+ * Notes land in `${taskNotesBase}/Files` and `${taskNotesBase}/Images`, and
+ * markdown refs in `notes.md` (e.g. `Images/foo.png`) resolve relative to
+ * this directory.
+ *
+ * The markdown file itself stays at `${taskResultsBase}/notes.md`, NOT at
+ * `${taskNotesBase}/notes.md`. Only the attachment scope is per-tab; the
+ * `.md` files keep their existing location so external tools and the export
+ * pipeline don't have to chase a moving target.
+ */
+export function taskNotesBase(task: Pick<Task, "id" | "owner">): string {
+  return `${taskResultsBase(task)}/notes`;
+}
+
+/**
+ * Per-tab scoped base for the Results tab. Mirrors `taskNotesBase` for the
+ * Results side. See that helper's doc for the rules.
+ */
+export function taskResultsTabBase(task: Pick<Task, "id" | "owner">): string {
+  return `${taskResultsBase(task)}/results`;
+}
+
+/**
+ * Check whether a per-tab scoped folder has any content yet. Used to decide
+ * the lazy read-side fallback: if the tab folder is empty, point the editor
+ * at the legacy shared `Files/` + `Images/` at the outer base so old
+ * attachments still render until the Settings repair button (or a write)
+ * migrates them.
+ */
+export async function tabScopedFolderHasContent(
+  tabBase: string
+): Promise<boolean> {
+  for (const subdir of ["Files", "Images"] as const) {
+    try {
+      const names = await fileService.listFiles(`${tabBase}/${subdir}`);
+      if (names.some((n) => !n.startsWith("."))) return true;
+    } catch {
+      // Folder doesn't exist — that's fine, just means no content here.
+    }
+  }
+  return false;
+}
+
+/**
+ * Resolve the effective attachment base for a single tab. If the per-tab
+ * scoped folder (`${outerBase}/notes` or `${outerBase}/results`) holds any
+ * attachments, return that. Otherwise fall back to the legacy shared outer
+ * base so old `Files/` + `Images/` content keeps rendering. New writes
+ * always go to the per-tab scoped folder (callers pass the per-tab base for
+ * the upload path explicitly — this helper is for READ resolution).
+ */
+export async function resolveTabAttachmentBase(
+  task: Pick<Task, "id" | "owner">,
+  tab: "notes" | "results",
+  outerBase: string
+): Promise<string> {
+  const tabBase = tab === "notes" ? `${outerBase}/notes` : `${outerBase}/results`;
+  if (await tabScopedFolderHasContent(tabBase)) return tabBase;
+  // Legacy fallback: shared `Files/` + `Images/` at the outer base.
+  for (const subdir of ["Files", "Images"] as const) {
+    try {
+      const names = await fileService.listFiles(`${outerBase}/${subdir}`);
+      if (names.some((n) => !n.startsWith("."))) return outerBase;
+    } catch {
+      // Nothing here either.
+    }
+  }
+  // Nothing on either side — point at the per-tab base so first write
+  // lands in the canonical location.
+  void task;
+  return tabBase;
 }
 
 /**

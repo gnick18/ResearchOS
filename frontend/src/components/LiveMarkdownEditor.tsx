@@ -1699,7 +1699,7 @@ export default function LiveMarkdownEditor({
             e.dataTransfer.dropEffect = "copy";
           }
         }}
-        onDrop={(e) => {
+        onDrop={async (e) => {
           // Three possible payloads:
           //   1. ImageStrip drag — inserts `![](Images/...)`.
           //   2. FileStrip drag — inserts `[name](Files/...)`.
@@ -1744,23 +1744,89 @@ export default function LiveMarkdownEditor({
 
           let snippet: string | null = null;
           if (imageRaw) {
-            let parsed: { filename: string; caption?: string } | null = null;
+            let parsed: { filename: string; caption?: string; basePath?: string } | null = null;
             try {
-              parsed = JSON.parse(imageRaw) as { filename: string; caption?: string };
+              parsed = JSON.parse(imageRaw) as { filename: string; caption?: string; basePath?: string };
             } catch {
               return;
             }
             if (!parsed?.filename) return;
-            snippet = `![${parsed.caption ?? ""}](Images/${parsed.filename})`;
+            // Cross-tab drag: if the source strip's basePath differs from
+            // this editor's, copy the file into the editor's tab folder so
+            // the inserted ref resolves locally (the canonical tab-scoped
+            // layout has strict isolation — no `../` traversal). Falls
+            // through gracefully if either basePath is missing or the
+            // source file isn't readable.
+            if (
+              imageBasePath &&
+              parsed.basePath &&
+              parsed.basePath !== imageBasePath
+            ) {
+              try {
+                const srcPath = `${parsed.basePath}/Images/${parsed.filename}`;
+                const blob = await fileService.readFileAsBlob(srcPath);
+                if (blob) {
+                  let destName = parsed.filename;
+                  const { stem, ext } = (() => {
+                    const dot = destName.lastIndexOf(".");
+                    return dot <= 0
+                      ? { stem: destName, ext: "" }
+                      : { stem: destName.slice(0, dot), ext: destName.slice(dot) };
+                  })();
+                  let n = 1;
+                  while (await fileService.fileExists(`${imageBasePath}/Images/${destName}`)) {
+                    destName = `${stem}-${n}${ext}`;
+                    n += 1;
+                  }
+                  await fileService.writeFileFromBlob(`${imageBasePath}/Images/${destName}`, blob);
+                  snippet = `![${parsed.caption ?? ""}](Images/${destName})`;
+                }
+              } catch {
+                // fall through to default snippet below
+              }
+            }
+            if (!snippet) {
+              snippet = `![${parsed.caption ?? ""}](Images/${parsed.filename})`;
+            }
           } else if (fileRaw) {
-            let parsed: { filename: string } | null = null;
+            let parsed: { filename: string; basePath?: string } | null = null;
             try {
-              parsed = JSON.parse(fileRaw) as { filename: string };
+              parsed = JSON.parse(fileRaw) as { filename: string; basePath?: string };
             } catch {
               return;
             }
             if (!parsed?.filename) return;
-            snippet = `[${parsed.filename}](Files/${parsed.filename})`;
+            if (
+              imageBasePath &&
+              parsed.basePath &&
+              parsed.basePath !== imageBasePath
+            ) {
+              try {
+                const srcPath = `${parsed.basePath}/Files/${parsed.filename}`;
+                const blob = await fileService.readFileAsBlob(srcPath);
+                if (blob) {
+                  let destName = parsed.filename;
+                  const { stem, ext } = (() => {
+                    const dot = destName.lastIndexOf(".");
+                    return dot <= 0
+                      ? { stem: destName, ext: "" }
+                      : { stem: destName.slice(0, dot), ext: destName.slice(dot) };
+                  })();
+                  let n = 1;
+                  while (await fileService.fileExists(`${imageBasePath}/Files/${destName}`)) {
+                    destName = `${stem}-${n}${ext}`;
+                    n += 1;
+                  }
+                  await fileService.writeFileFromBlob(`${imageBasePath}/Files/${destName}`, blob);
+                  snippet = `[${destName}](Files/${destName})`;
+                }
+              } catch {
+                // fall through to default snippet below
+              }
+            }
+            if (!snippet) {
+              snippet = `[${parsed.filename}](Files/${parsed.filename})`;
+            }
           }
           if (!snippet) return;
 

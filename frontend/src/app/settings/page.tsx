@@ -8,7 +8,7 @@ import UserAvatar from "@/components/UserAvatar";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useAppStore } from "@/lib/store";
 import { tasksApi, methodsApi } from "@/lib/local-api";
-import { repairAttachmentPaths } from "@/lib/tasks/migrate-attachments";
+import { splitAllTaskAttachments } from "@/lib/tasks/migrate-attachments";
 import { repairStampFormats } from "@/lib/tasks/migrate-stamps";
 import {
   patchUserSettings,
@@ -615,14 +615,16 @@ function MaintenanceSection() {
         invalidateKey={["methods"]}
       />
       <RepairRow
-        title="Repair attachment paths"
+        title="Split Lab Notes / Results attachments"
         description={
           <>
-            Walks every task and moves anything still sitting in <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">results/task-N/Attachments/</code> into the canonical <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">Files/</code> folder, rewriting markdown links to match.
-            Older versions of the Results page wrote here instead of <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">Files/</code>; the app now folds these in on first open, but the button finishes any tail you have not visited yet.
+            Walks every task you own and splits the shared <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">results/task-N/Files/</code> and <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">results/task-N/Images/</code> into per-tab folders <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">notes/{`{Files,Images}`}</code> and <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">results/{`{Files,Images}`}</code>, copying each file into whichever tab body references it (or both if both reference it) and rewriting markdown links to match.
+            Files referenced by neither body are left alone in the legacy folder.
+            If you have any leftover <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">Attachments/</code> folders from the previous repair button, this step runs that fold-into-<code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">Files/</code> migration first.
+            The app falls back to the legacy shared folder on read so old data renders without clicking this — the button finishes the long tail.
           </>
         }
-        run={repairAttachmentPaths}
+        run={splitAllTaskAttachments}
         invalidateKey={["tasks"]}
       />
       <RepairRow
