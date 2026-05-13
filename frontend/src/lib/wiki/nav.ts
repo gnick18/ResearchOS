@@ -139,6 +139,33 @@ export const WIKI_NAV: WikiNode[] = [
         href: "/wiki/features/lab-mode",
         label: "Lab Mode",
         blurb: "Aggregated view across every user in the folder.",
+        children: [
+          {
+            href: "/wiki/features/lab-mode/activity",
+            label: "Activity",
+            blurb: "Running now, recently completed, recent shared notes.",
+          },
+          {
+            href: "/wiki/features/lab-mode/gantt",
+            label: "Combined GANTT",
+            blurb: "Every user's tasks on one timeline, colored by owner.",
+          },
+          {
+            href: "/wiki/features/lab-mode/purchases",
+            label: "Lab-wide purchases",
+            blurb: "Cross-user spend rolled up by funding account.",
+          },
+          {
+            href: "/wiki/features/lab-mode/cross-user-lists",
+            label: "Cross-user lists",
+            blurb: "Experiments, Methods, Roadmaps, and Notes across the lab.",
+          },
+          {
+            href: "/wiki/features/lab-mode/user-filter",
+            label: "The user filter",
+            blurb: "Pick who shows up on every tab, plus the per-user side panel.",
+          },
+        ],
       },
       {
         href: "/wiki/features/search",
