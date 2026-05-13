@@ -38,11 +38,11 @@ export default function TelegramIntegrationPage() {
         </Step>
         <Step>
           Send <code>/newbot</code>. BotFather asks for a display name (any)
-          and a username (must end in <code>bot</code>, e.g.{" "}
+          and a username (must end in <code>bot</code>, e.g.,{" "}
           <code>my_lab_camera_bot</code>).
         </Step>
         <Step>
-          BotFather replies with the bot&apos;s <strong>API token</strong> — a
+          BotFather replies with the bot&apos;s <strong>API token</strong>, a
           string like <code>1234567:ABCdef…</code>. Copy it.
         </Step>
       </Steps>
@@ -78,7 +78,7 @@ export default function TelegramIntegrationPage() {
       <h2>Disconnecting</h2>
       <p>
         Reopen the Telegram pairing modal and click <strong>Disconnect</strong>.
-        That removes the local token; the bot itself stays alive on
+        That removes the local token. The bot itself stays alive on
         Telegram&apos;s side. To delete the bot entirely, send{" "}
         <code>/deletebot</code> to BotFather.
       </p>

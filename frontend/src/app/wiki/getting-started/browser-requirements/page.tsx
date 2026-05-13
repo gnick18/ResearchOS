@@ -9,49 +9,51 @@ export default function BrowserRequirementsPage() {
       <h2>Supported browsers</h2>
       <ul>
         <li>
-          <strong>Google Chrome</strong> (version 86+) — Windows, macOS, Linux,
-          ChromeOS
+          <strong>Google Chrome</strong> (version 86+) on Windows, macOS,
+          Linux, ChromeOS.
         </li>
         <li>
-          <strong>Microsoft Edge</strong> (version 86+) — Windows, macOS
+          <strong>Microsoft Edge</strong> (version 86+) on Windows, macOS.
         </li>
         <li>
-          <strong>Brave</strong> — Windows, macOS, Linux
+          <strong>Brave</strong> on Windows, macOS, Linux.
         </li>
         <li>
-          Other Chromium-based browsers (Arc, Vivaldi, Opera) generally work but
-          are not officially tested.
+          Other Chromium-based browsers (e.g., Arc, Vivaldi, Opera) usually
+          work but aren&apos;t officially tested.
         </li>
       </ul>
 
       <h2>Not supported</h2>
       <ul>
         <li>
-          <strong>Firefox</strong> — does not implement the File System Access
-          API. The same data is stored in <code>users/&lt;username&gt;/</code>
-          inside your folder, so once it ships, your existing data will load.
+          <strong>Firefox</strong> doesn&apos;t implement the File System
+          Access API. Your data is still stored in{" "}
+          <code>users/&lt;username&gt;/</code> inside your folder, so once
+          Firefox ships support, your existing data will load.
         </li>
         <li>
-          <strong>Safari (macOS / iOS)</strong> — same limitation as Firefox.
+          <strong>Safari (macOS / iOS)</strong> has the same limitation as
+          Firefox.
         </li>
         <li>
-          <strong>Mobile browsers</strong> (Chrome / Edge / Brave on iOS or
-          Android) — the API is desktop-only.
+          <strong>Mobile browsers</strong> (e.g., Chrome / Edge / Brave on iOS
+          or Android) won&apos;t work. The API is desktop-only.
         </li>
       </ul>
 
       <Callout variant="info" title="Why this limitation?">
         ResearchOS uses the <strong>File System Access API</strong> to read and
         write JSON files directly to a folder you pick. This is what lets the
-        app run with no server, no account, and no upload of your data. Until
-        Firefox and Safari ship support, those browsers can&apos;t open
-        ResearchOS folders.
+        app run with no server, no account, and no upload of your data. While
+        Firefox and Safari haven&apos;t shipped support yet, those browsers
+        can&apos;t open ResearchOS folders.
       </Callout>
 
       <h2>How to switch browsers</h2>
       <ul>
         <li>
-          <strong>Chrome</strong> —{" "}
+          <strong>Chrome</strong>:{" "}
           <a
             href="https://www.google.com/chrome/"
             target="_blank"
@@ -61,7 +63,7 @@ export default function BrowserRequirementsPage() {
           </a>
         </li>
         <li>
-          <strong>Edge</strong> —{" "}
+          <strong>Edge</strong>:{" "}
           <a
             href="https://www.microsoft.com/edge"
             target="_blank"
@@ -72,7 +74,7 @@ export default function BrowserRequirementsPage() {
           (preinstalled on Windows 10/11)
         </li>
         <li>
-          <strong>Brave</strong> —{" "}
+          <strong>Brave</strong>:{" "}
           <a href="https://brave.com/" target="_blank" rel="noopener noreferrer">
             brave.com
           </a>

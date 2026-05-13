@@ -16,39 +16,41 @@ export default function SettingsFeaturePage() {
       <h2>Profile</h2>
       <ul>
         <li>
-          <strong>User color</strong> — picks the tint used for your bars in
+          <strong>User color</strong> picks the tint used for your bars in
           Lab Mode and (optionally) for the header gradient.
         </li>
         <li>
-          <strong>Set / change password</strong> — adds a PBKDF2-hashed
-          password gate on the user-picker. See{" "}
+          <strong>Set / change password</strong> adds a PBKDF2-hashed password
+          gate on the user-picker. See{" "}
           <Link href="/wiki/getting-started/creating-a-user">Creating a User</Link>.
         </li>
         <li>
-          <strong>Colored header</strong> — when on, the app header takes a
-          gradient based on your user color. Off → classic white header.
+          <strong>Colored header</strong>, when on, gives the app header a
+          gradient based on your user color. Off keeps the classic white
+          header.
         </li>
       </ul>
 
       <h2>Preferences</h2>
       <ul>
         <li>
-          <strong>Default landing tab</strong> — the page ResearchOS jumps to
+          <strong>Default landing tab</strong> is the page ResearchOS jumps to
           when you sign in.
         </li>
         <li>
-          <strong>Gantt default view</strong> — 1 week through All time.
+          <strong>Gantt default view</strong> ranges from 1 week through All
+          time.
         </li>
         <li>
-          <strong>Calendar default view</strong> — month, week, or day.
+          <strong>Calendar default view</strong> is month, week, or day.
         </li>
         <li>
-          <strong>Tab visibility</strong> — hide tabs you don&apos;t use.
-          Home is always shown so you have a guaranteed safe landing.
+          <strong>Tab visibility</strong> hides tabs you don&apos;t use. Home
+          is always shown so you have a guaranteed safe landing.
         </li>
         <li>
-          <strong>Sidebar options</strong> — toggle the daily tasks sidebar,
-          show external calendar events alongside tasks, set the event horizon
+          <strong>Sidebar options</strong> toggle the daily tasks sidebar, show
+          external calendar events alongside tasks, and set the event horizon
           in days.
         </li>
       </ul>
@@ -56,15 +58,14 @@ export default function SettingsFeaturePage() {
       <h2>Data Management</h2>
       <ul>
         <li>
-          <strong>Current folder</strong> — the name of the connected folder.
+          <strong>Current folder</strong> is the name of the connected folder.
         </li>
         <li>
-          <strong>Disconnect / Pick Different Folder</strong> — drops the
-          current handle and reopens the folder picker. Your data on disk is
-          untouched.
+          <strong>Disconnect / Pick Different Folder</strong> drops the current
+          handle and reopens the folder picker. Your data on disk is untouched.
         </li>
         <li>
-          <strong>Report a bug</strong> — opens a modal that captures app state
+          <strong>Report a bug</strong> opens a modal that captures app state
           for the developers.
         </li>
       </ul>
@@ -72,7 +73,7 @@ export default function SettingsFeaturePage() {
       <Callout variant="info" title="Settings are per-user, per-folder">
         Each user&apos;s preferences live in{" "}
         <code>users/&lt;you&gt;/settings.json</code>. Switching users loads
-        their settings; switching folders gives you a clean slate.
+        their settings, and switching folders gives you a clean slate.
       </Callout>
     </WikiPage>
   );

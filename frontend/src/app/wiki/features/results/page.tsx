@@ -6,7 +6,7 @@ import Screenshot from "@/components/wiki/Screenshot";
 export default function ResultsFeaturePage() {
   return (
     <WikiPage
-      intro="A per-task folder for the final outputs of an experiment — gels, blots, write-ups."
+      intro="A per-task folder for the final outputs of an experiment (e.g., gels, blots, write-ups)."
     >
       <Screenshot
         src="/wiki/screenshots/results-editor.png"
@@ -18,8 +18,8 @@ export default function ResultsFeaturePage() {
         Experiment notes capture <em>what happened during the run</em>. Results
         capture <em>what came out</em>. Keeping them apart means you can write
         up a paper without sifting through every variation log, and your
-        results live in a predictable place on disk:{" "}
-        <code>users/&lt;you&gt;/results/task-&lt;id&gt;/</code>.
+        results live in a predictable place on disk (i.e.,{" "}
+        <code>users/&lt;you&gt;/results/task-&lt;id&gt;/</code>).
       </p>
 
       <h2>How to use it</h2>
@@ -33,7 +33,7 @@ export default function ResultsFeaturePage() {
         </li>
         <li>
           Write a results summary in the markdown editor. Same editor as
-          experiments — supports inline images, headings, tables.
+          experiments, which supports inline images, headings, and tables.
         </li>
       </ul>
 
