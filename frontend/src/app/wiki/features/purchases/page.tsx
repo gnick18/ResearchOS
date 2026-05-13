@@ -51,9 +51,9 @@ export default function PurchasesFeaturePage() {
 
       <h2>Manage funding accounts</h2>
       <Screenshot
-        src="/wiki/screenshots/purchases-funding-modal.png"
-        alt="The Manage Funding Accounts modal showing existing accounts with budgets and remaining balances."
-        caption="The Manage Funding Accounts modal: the lab-wide budget settings."
+        src="/wiki/screenshots/purchases-funding-panel.png"
+        alt="The Manage Funding Accounts panel expanded inline on the Purchases page, showing existing accounts with budgets and remaining balances."
+        caption="The Manage Funding Accounts panel: the lab-wide budget settings, expanded inline."
       />
       <p>
         Click <strong>Manage Funding Accounts</strong> to add or edit an

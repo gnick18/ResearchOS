@@ -244,17 +244,17 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     async function initialize() {
       // Wiki-screenshot capture mode: bypass the FS picker and silent reconnect
       // entirely. Seed an in-memory fixture. The "signed-in" variant
-      // (?wikiCapture=1) signs in as "grant" so feature pages render with
-      // realistic data. The "picker" variant (?wikiCapture=picker) leaves
-      // currentUser empty so the user-picker screen renders — used to
-      // capture user-login.png.
+      // (?wikiCapture=1) signs in as "alex" (the Demo Lab PI) so feature
+      // pages render with realistic data. The "picker" variant
+      // (?wikiCapture=picker) leaves currentUser empty so the user-picker
+      // screen renders — used to capture user-login.png.
       const captureVariant = getWikiCaptureVariant();
       if (captureVariant) {
         try {
           const signIn = captureVariant === "signed-in";
           await installWikiCaptureFixture({ signIn });
           if (signIn) {
-            await hydrateSettingsForUser("grant");
+            await hydrateSettingsForUser("alex");
           }
           setState((prev) => ({
             ...prev,
@@ -263,9 +263,9 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
             loadingStage: null,
             error: null,
             directoryName: "wiki-capture-fixture",
-            currentUser: signIn ? "grant" : null,
-            mainUser: signIn ? "grant" : null,
-            availableUsers: ["grant", "sarah"],
+            currentUser: signIn ? "alex" : null,
+            mainUser: signIn ? "alex" : null,
+            availableUsers: ["alex", "morgan"],
             needsInitialization: false,
             lastConnectedFolder: "wiki-capture-fixture",
           }));

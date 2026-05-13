@@ -54,8 +54,14 @@ present, the mock:
 - Seeds the in-memory map with the fixtures in
   `wiki-capture-fixture.ts` (two users with realistic projects, tasks,
   methods, events, purchases, etc.).
-- Writes "grant" into IndexedDB as the current user so the rest of the
-  app sees them as signed in.
+- Writes "alex" into IndexedDB as the current user so the rest of the
+  app sees them as signed in (the demo lab's PI).
+- Fetches the watermarked demo PNGs from `public/demo-data/` and seeds
+  them into the in-memory blob map, so Results gallery / image strip /
+  Telegram inbox shots render real (fake) images.
+- Seeds a handful of synthetic `notes.md` / `results.md` bodies with
+  inline markdown image refs so editor-mode shots (Hybrid block select,
+  Preview-mode image-resize popover) have body content to interact with.
 
 The flag is guarded so it can only activate in development mode, OR in
 production when served from localhost. There is no scenario where a real
@@ -63,24 +69,35 @@ deployment will activate fixture mode.
 
 ## What gets captured
 
-| Filename | Wiki page | Click target highlighted |
+| Filename | Wiki page | Click target / action |
 |---|---|---|
 | `folder-connect.png` | Connecting Your Folder | Link Folder button |
 | `user-login.png` | Creating a User | username input (picker mode) |
 | `home-projects.png` | Home & Projects | + New Project |
+| `home-project-popup.png` | Home & Projects | clicks the DEMO biofuel project card |
 | `gantt-overview.png` | Gantt Chart | + Task |
+| `gantt-zoom-controls.png` | Gantt Chart | `3M` zoom button (cropped to top of page) |
+| `gantt-task-popup.png` | Gantt Chart | clicks the "Yeast transformation" bar to open the task popup |
 | `experiments-list.png` | Experiments & Lab Notes | + New Experiment |
+| `experiments-editor.png` | Experiments & Lab Notes | clicks an experiment tile to open its popup |
+| `editor-language-picker.png` | (markdown editor refs) | Lab Notes → Edit → types `` ``` `` to fire the language picker |
+| `editor-hybrid-selected.png` | (markdown editor refs) | Lab Notes (Hybrid) → single-clicks a paragraph block |
+| `editor-image-resize.png` | (markdown editor refs) | Lab Notes → Preview → clicks an inline image |
 | `methods-library.png` | Methods Library | + New Method |
 | `pcr-editor.png` | PCR Protocols | + New Protocol |
 | `purchases-list.png` | Purchases & Funding | + New Purchase |
+| `purchases-funding-panel.png` | Purchases & Funding | clicks "Manage Funding Accounts" (inline panel) |
 | `calendar-month.png` | Calendar | + New Event |
 | `lab-mode.png` | Lab Mode | (whole-page view) |
-| `search-results.png` | Search | search input |
-| `links.png` | Lab Links | + New Link |
-| `results-editor.png` | Results | (whole-page view) |
+| `lab-mode-activity.png` | Lab Mode | Activity feed (auto-populated user filter) |
+| `search-results.png` | Search | search input (query = DEMO) |
+| `links.png` | Lab Links | Add Link |
+| `results-list.png` | Results | (whole-page view of result cards) |
+| `results-tab.png` | Results | clicks the "Patch positives" card → Results tab gallery |
 | `settings.png` | Settings | Connect Telegram |
 | `notifications.png` | Notifications & Inbox | bell icon (cropped to header) |
 | `telegram-pairing.png` | Telegram Bot | bot token input |
+| `telegram-inbox.png` | Telegram Bot / Inbox | clicks the Inbox header button to open the tray |
 | `calendar-feeds-modal.png` | External Calendar Feeds | ICS URL input |
 
 If you add a new wiki page that needs a screenshot, add an entry to
@@ -94,10 +111,10 @@ with the filename, route, optional `waitFor` selector, optional
 The `?wikiCapture` flag has two values:
 
 - `?wikiCapture=1` (default) — installs the fixture and signs in as
-  "grant". The home page and every feature page render with realistic
+  "alex". The home page and every feature page render with realistic
   data. This is what `FIXTURE_ROUTES` in the script uses.
 - `?wikiCapture=picker` — installs the fixture but doesn't sign in. The
-  app shows the user-picker screen with "grant" and "sarah" already
+  app shows the user-picker screen with "alex" and "morgan" already
   in the list, plus a "Create New Account" form. Used to capture
   `user-login.png`.
 
@@ -107,6 +124,6 @@ over.
 
 ## Known gaps
 
-- **Lab Mode** captures the empty state because the user-filter is empty
-  by default. To make the screenshot richer, the script could click the
-  user filter and select all users before capturing.
+- None currently outstanding. The fixture mock now auto-populates the
+  Lab Mode user filter via `discoverUsers` so the Activity feed renders
+  entries for both seeded users without a click sequence.

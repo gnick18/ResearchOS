@@ -78,6 +78,69 @@ const PICKER_ROUTES = [
   },
 ];
 
+/** Action helpers shared by experiment-popup screenshots. */
+
+// Tasks marked complete are collapsed under a "Show N completed
+// experiments" disclosure by default. Expand it (if present) and click
+// the matching tile to open the task popup. Returns true if the popup
+// likely opened.
+async function revealCompletedAndOpenTask(page, taskNameRegex) {
+  try {
+    // Toggle on completed experiments. Idempotent — clicking twice toggles
+    // it back off, so only click when the label still says "Show".
+    const disclosure = page
+      .locator("button")
+      .filter({ hasText: /^Show \d+ completed experiment/i })
+      .first();
+    if (await disclosure.count()) {
+      await disclosure.click({ timeout: 3000 });
+      await page.waitForTimeout(500);
+    }
+  } catch {}
+  try {
+    const tile = page.getByText(taskNameRegex).first();
+    if (!(await tile.count())) return false;
+    await tile.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+    await tile.click({ timeout: 3000 });
+    await page.waitForTimeout(1000);
+    return true;
+  } catch (err) {
+    console.warn(`  ⚠ open-task action: ${err.message}`);
+    return false;
+  }
+}
+
+// Click the Lab Notes tab inside an open TaskDetailPopup.
+async function openLabNotesTab(page) {
+  try {
+    const tab = page
+      .locator("button")
+      .filter({ hasText: /^Lab Notes$/ })
+      .first();
+    if (await tab.count()) {
+      await tab.click({ timeout: 3000 });
+      await page.waitForTimeout(700);
+    }
+  } catch {}
+}
+
+// Switch the markdown editor's three-way mode toggle to "Edit", "Hybrid",
+// or "Preview". The buttons are <button>Edit</button> etc inside a small
+// segmented control; match the exact text so we don't catch the page's
+// main "Edit" button or similar.
+async function switchEditorMode(page, label) {
+  try {
+    const btn = page
+      .locator("button")
+      .filter({ hasText: new RegExp(`^${label}$`) })
+      .last();
+    if (await btn.count()) {
+      await btn.click({ timeout: 3000 });
+      await page.waitForTimeout(500);
+    }
+  } catch {}
+}
+
 /** Routes that need the fixture mode (?wikiCapture=1) so realistic data
  *  renders. Each can specify a post-load action (e.g. click a button to
  *  open a modal). */
@@ -89,6 +152,27 @@ const FIXTURE_ROUTES = [
     highlight: { text: "New Project" },
   },
   {
+    path: "/",
+    file: "home-project-popup.png",
+    waitFor: "text=Research Project Overview",
+    settleMs: 800,
+    action: async (page) => {
+      // The same project name appears in the left sidebar too — scope the
+      // click to the project card's <h3> so we open the project popup
+      // rather than a sidebar task entry.
+      const heading = page
+        .locator("h3")
+        .filter({ hasText: /^DEMO:\s*Engineer FakeYeast for biofuel$/ })
+        .first();
+      if (await heading.count()) {
+        try {
+          await heading.click({ timeout: 3000 });
+          await page.waitForTimeout(900);
+        } catch {}
+      }
+    },
+  },
+  {
     path: "/gantt",
     file: "gantt-overview.png",
     waitFor: ".gantt, [role='grid'], text=GANTT",
@@ -96,10 +180,157 @@ const FIXTURE_ROUTES = [
     highlight: { text: "+ Task" },
   },
   {
+    path: "/gantt",
+    file: "gantt-zoom-controls.png",
+    waitFor: ".gantt, [role='grid'], text=GANTT",
+    settleMs: 1500,
+    crop: { x: 0, y: 0, width: 1440, height: 220 },
+    highlight: { text: "3M" },
+  },
+  {
+    path: "/gantt",
+    file: "gantt-task-popup.png",
+    waitFor: ".gantt, [role='grid'], text=GANTT",
+    settleMs: 1500,
+    action: async (page) => {
+      // Task 2 (start 2026-05-08) sits 5 days before the fixture's
+      // "today" (2026-05-13). The default 2-week window anchors at the
+      // current Monday so the bar is off-screen to the left. Push the
+      // anchor date back to the prior Monday (2026-05-04) so the bar
+      // renders inside the viewport, then click the task label.
+      try {
+        const dateInput = page.locator('input[type="date"]').first();
+        if (await dateInput.count()) {
+          await dateInput.fill("2026-05-04", { timeout: 3000 });
+          await page.waitForTimeout(800);
+        }
+      } catch {}
+      try {
+        const allBtn = page
+          .locator("button")
+          .filter({ hasText: /^1M$/ })
+          .first();
+        if (await allBtn.count()) {
+          await allBtn.click({ timeout: 3000 });
+          await page.waitForTimeout(800);
+        }
+      } catch {}
+      const target = page
+        .getByText(/Yeast transformation:\s*pYES-GAL1::flbA/i)
+        .first();
+      if (await target.count()) {
+        try {
+          await target.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+          await target.click({ timeout: 3000 });
+          await page.waitForTimeout(900);
+        } catch {}
+      }
+    },
+  },
+  {
     path: "/experiments",
     file: "experiments-list.png",
     waitFor: "h1, h2, text=Lab Notes",
     highlight: { text: "New Experiment" },
+  },
+  {
+    path: "/experiments",
+    file: "experiments-editor.png",
+    waitFor: "h1, h2, text=Lab Notes",
+    settleMs: 800,
+    action: async (page) => {
+      await revealCompletedAndOpenTask(
+        page,
+        /Yeast transformation:\s*pYES-GAL1::flbA/i,
+      );
+    },
+  },
+  {
+    path: "/experiments",
+    file: "editor-language-picker.png",
+    waitFor: "h1, h2, text=Lab Notes",
+    settleMs: 800,
+    action: async (page) => {
+      if (!(await revealCompletedAndOpenTask(
+        page,
+        /Yeast transformation:\s*pYES-GAL1::flbA/i,
+      ))) return;
+      try {
+        await openLabNotesTab(page);
+        await switchEditorMode(page, "Edit");
+        const ta = page.locator("textarea").first();
+        if (!(await ta.count())) return;
+        await ta.click({ timeout: 3000 });
+        // Jump to the bottom of the body and create a fresh empty line.
+        await page.keyboard.press("Control+End").catch(() => {});
+        await page.keyboard.press("End");
+        await page.keyboard.press("Enter");
+        await page.keyboard.press("Enter");
+        await page.keyboard.type("```", { delay: 80 });
+        await page.waitForTimeout(600);
+      } catch (err) {
+        console.warn(`  ⚠ editor-language-picker action: ${err.message}`);
+      }
+    },
+    highlight: { selector: "input[placeholder*='Search language' i]" },
+  },
+  {
+    path: "/experiments",
+    file: "editor-hybrid-selected.png",
+    waitFor: "h1, h2, text=Lab Notes",
+    settleMs: 800,
+    action: async (page) => {
+      if (!(await revealCompletedAndOpenTask(
+        page,
+        /Yeast transformation:\s*pYES-GAL1::flbA/i,
+      ))) return;
+      try {
+        await openLabNotesTab(page);
+        // Hybrid is the default mode. Click a paragraph block from the
+        // seeded body so the blue ring + inline Edit/Delete buttons appear.
+        const block = page.getByText(/Plated on SD-Ura/i).first();
+        if (await block.count()) {
+          await block.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+          await block.click({ timeout: 3000 });
+          await page.waitForTimeout(500);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ editor-hybrid-selected action: ${err.message}`);
+      }
+    },
+  },
+  {
+    path: "/experiments",
+    file: "editor-image-resize.png",
+    waitFor: "h1, h2, text=Lab Notes",
+    settleMs: 800,
+    action: async (page) => {
+      if (!(await revealCompletedAndOpenTask(
+        page,
+        /Yeast transformation:\s*pYES-GAL1::flbA/i,
+      ))) return;
+      try {
+        await openLabNotesTab(page);
+        await switchEditorMode(page, "Preview");
+        await page.waitForTimeout(800);
+        // Body images render through a custom <img> renderer that
+        // resolves Images/* to blob: URLs, so target by alt-text and
+        // fall back to "any img with cursor-pointer" (the renderer marks
+        // every clickable body image that way).
+        const img = page
+          .locator(
+            "img[alt*='Transformation plate' i], img.cursor-pointer",
+          )
+          .first();
+        if (await img.count()) {
+          await img.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+          await img.click({ timeout: 3000 });
+          await page.waitForTimeout(700);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ editor-image-resize action: ${err.message}`);
+      }
+    },
   },
   {
     path: "/methods",
@@ -120,6 +351,23 @@ const FIXTURE_ROUTES = [
     highlight: { text: "New Purchase" },
   },
   {
+    path: "/purchases",
+    file: "purchases-funding-panel.png",
+    waitFor: "text=Purchases",
+    settleMs: 600,
+    action: async (page) => {
+      const btn = page
+        .getByText(/Manage Funding Accounts|Funding Accounts/i)
+        .first();
+      if (await btn.count()) {
+        try {
+          await btn.click({ timeout: 3000 });
+          await page.waitForTimeout(700);
+        } catch {}
+      }
+    },
+  },
+  {
     path: "/calendar",
     file: "calendar-month.png",
     waitFor: "text=Calendar, text=May",
@@ -127,9 +375,15 @@ const FIXTURE_ROUTES = [
   },
   { path: "/lab", file: "lab-mode.png", waitFor: "text=Activity, text=Lab" },
   {
-    path: "/search?q=ICS",
+    path: "/lab",
+    file: "lab-mode-activity.png",
+    waitFor: "text=Activity, text=Lab",
+    settleMs: 1200,
+  },
+  {
+    path: "/search?q=DEMO",
     file: "search-results.png",
-    waitFor: "text=Search, text=ICS",
+    waitFor: "text=Search, text=DEMO",
     highlight: { selector: "input[type='search'], input[placeholder*='earch' i]" },
   },
   {
@@ -138,7 +392,29 @@ const FIXTURE_ROUTES = [
     waitFor: "text=Lab Links, text=Links",
     highlight: { text: "New Link" },
   },
-  { path: "/results", file: "results-editor.png", waitFor: "text=Results" },
+  {
+    path: "/results",
+    file: "results-list.png",
+    waitFor: "text=Results",
+    settleMs: 700,
+  },
+  {
+    path: "/results",
+    file: "results-tab.png",
+    waitFor: "text=Results",
+    settleMs: 700,
+    action: async (page) => {
+      const card = page
+        .getByText(/Patch positives on SD-Ura/i)
+        .first();
+      if (await card.count()) {
+        try {
+          await card.click({ timeout: 3000 });
+          await page.waitForTimeout(900);
+        } catch {}
+      }
+    },
+  },
   {
     path: "/settings",
     file: "settings.png",
@@ -151,6 +427,25 @@ const FIXTURE_ROUTES = [
     waitFor: "text=Research Project Overview",
     crop: { x: 0, y: 0, width: 1440, height: 100 },
     highlight: { selector: "button[title='Notifications'], [title*='otification' i]" },
+  },
+  {
+    path: "/",
+    file: "telegram-inbox.png",
+    waitFor: "text=Research Project Overview",
+    settleMs: 800,
+    action: async (page) => {
+      // The Inbox header button is a <button> with visible text "Inbox".
+      const btn = page
+        .locator("button")
+        .filter({ hasText: /^Inbox(\s*\d+)?$/ })
+        .first();
+      if (await btn.count()) {
+        try {
+          await btn.click({ timeout: 3000 });
+          await page.waitForTimeout(700);
+        } catch {}
+      }
+    },
   },
   // Modals — navigate, click a button, then capture.
   {
