@@ -1,0 +1,12 @@
+{
+  "id": 1,
+  "title": "Run 2026-05-08: pYES-GAL1::flbA transformation",
+  "description": "Demo experiment note. Transformed FakeYeast-001 with pYES-GAL1::flbA using the LiAc protocol. Heat shock ran short (38 min, see deviation_log). Plated on SD-Ura. 40 colonies after 48 h — eight patched for downstream work.",
+  "is_running_log": false,
+  "is_shared": false,
+  "entries": [],
+  "comments": [],
+  "created_at": "2026-05-08T14:00:00Z",
+  "updated_at": "2026-05-11T09:00:00Z",
+  "username": "alex"
+}

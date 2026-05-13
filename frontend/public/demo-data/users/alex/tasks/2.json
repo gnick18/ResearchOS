@@ -1,0 +1,51 @@
+{
+  "id": 2,
+  "project_id": 1,
+  "name": "Yeast transformation: pYES-GAL1::flbA",
+  "start_date": "2026-05-08",
+  "duration_days": 1,
+  "end_date": "2026-05-08",
+  "is_high_level": false,
+  "is_complete": true,
+  "task_type": "experiment",
+  "weekend_override": null,
+  "method_id": null,
+  "method_ids": [],
+  "deviation_log": "Demo: heat-shock ran 38 min instead of 40 (interrupted by timer reset). Noted for the colony count.",
+  "tags": null,
+  "sort_order": 2,
+  "experiment_color": "#3b82f6",
+  "sub_tasks": [
+    {
+      "id": "st1",
+      "text": "Grow overnight FakeYeast-001 culture",
+      "is_complete": true
+    },
+    {
+      "id": "st2",
+      "text": "Prep PEG/LiAc mix fresh",
+      "is_complete": true
+    },
+    {
+      "id": "st3",
+      "text": "Heat shock 40 min @ 42°C",
+      "is_complete": true
+    },
+    {
+      "id": "st4",
+      "text": "Plate on SD-Ura",
+      "is_complete": true
+    }
+  ],
+  "pcr_gradient": null,
+  "pcr_ingredients": null,
+  "method_attachments": [
+    {
+      "method_id": 1,
+      "owner": "alex",
+      "snapshot_at": "2026-05-08T09:00:00Z"
+    }
+  ],
+  "owner": "alex",
+  "shared_with": []
+}

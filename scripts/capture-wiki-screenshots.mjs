@@ -372,7 +372,7 @@ async function main() {
     await ctx.close();
   }
 
-  // 3. Fixture-mode pages (fresh context, signed in as "grant")
+  // 3. Fixture-mode pages (fresh context, signed in as "alex")
   console.log("\nFixture-mode pages:");
   {
     const ctx = await browser.newContext({

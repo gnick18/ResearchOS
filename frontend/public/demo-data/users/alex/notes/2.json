@@ -1,0 +1,12 @@
+{
+  "id": 2,
+  "title": "Lab observations (running log)",
+  "description": "Demo running log. Tracking weekly bench notes.\n\n2026-05-13: PCR screen of 16 transformants today. Expect ~50% positive based on the patch results. Will update the gel image once it's run.\n\n2026-05-10: Patched plates look clean — no contamination.",
+  "is_running_log": true,
+  "is_shared": false,
+  "entries": [],
+  "comments": [],
+  "created_at": "2026-05-01T00:00:00Z",
+  "updated_at": "2026-05-13T09:00:00Z",
+  "username": "alex"
+}

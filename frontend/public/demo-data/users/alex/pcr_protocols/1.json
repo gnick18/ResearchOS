@@ -1,0 +1,74 @@
+{
+  "id": 1,
+  "name": "[Demo protocol] qPCR fakeGFP expression",
+  "gradient": {
+    "initial": [
+      {
+        "name": "Initial denaturation",
+        "temperature": 95,
+        "duration": "3 min"
+      }
+    ],
+    "cycles": [
+      {
+        "repeats": 40,
+        "steps": [
+          {
+            "name": "Denaturation",
+            "temperature": 95,
+            "duration": "15 sec"
+          },
+          {
+            "name": "Anneal/Extend",
+            "temperature": 60,
+            "duration": "60 sec"
+          }
+        ]
+      }
+    ],
+    "final": [],
+    "hold": null
+  },
+  "ingredients": [
+    {
+      "id": "i1",
+      "name": "SYBR Master Mix (2x)",
+      "concentration": "2x",
+      "amount_per_reaction": "10"
+    },
+    {
+      "id": "i2",
+      "name": "fakeGFP-fwd",
+      "concentration": "10 µM",
+      "amount_per_reaction": "0.5"
+    },
+    {
+      "id": "i3",
+      "name": "fakeGFP-rev",
+      "concentration": "10 µM",
+      "amount_per_reaction": "0.5"
+    },
+    {
+      "id": "i4",
+      "name": "cDNA template (1:5)",
+      "concentration": "—",
+      "amount_per_reaction": "2"
+    },
+    {
+      "id": "i5",
+      "name": "Nuclease-free H2O",
+      "concentration": "—",
+      "amount_per_reaction": "7"
+    }
+  ],
+  "notes": "Demo qPCR — use ACT1 as housekeeping reference. Public version available at users/public.",
+  "tags": [
+    "demo",
+    "qPCR",
+    "fakeGFP"
+  ],
+  "is_public": false,
+  "created_by": "alex",
+  "owner": "alex",
+  "shared_with": []
+}

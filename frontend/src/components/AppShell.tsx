@@ -9,6 +9,7 @@ import InboxBadge from "./InboxBadge";
 import InboxToast from "./InboxToast";
 import NotificationBadge from "./NotificationBadge";
 import ReminderRunner from "./ReminderRunner";
+import DemoLabBanner from "./DemoLabBanner";
 import Tooltip from "./Tooltip";
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { HELP_HREF } from "@/lib/wiki/nav";
@@ -46,6 +47,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
+      <DemoLabBanner />
       {/* Header */}
       <header
         className={`px-4 py-2.5 flex items-center gap-2 ${

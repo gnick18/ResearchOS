@@ -1,0 +1,30 @@
+{
+  "id": 3,
+  "project_id": 1,
+  "name": "qPCR setup — verify GFP transcripts",
+  "start_date": "2026-05-16",
+  "duration_days": 1,
+  "end_date": "2026-05-16",
+  "is_high_level": false,
+  "is_complete": false,
+  "task_type": "experiment",
+  "weekend_override": null,
+  "method_id": null,
+  "method_ids": [],
+  "deviation_log": null,
+  "tags": null,
+  "sort_order": 3,
+  "experiment_color": "#10b981",
+  "sub_tasks": null,
+  "pcr_gradient": null,
+  "pcr_ingredients": null,
+  "method_attachments": [
+    {
+      "method_id": 2,
+      "owner": "morgan",
+      "snapshot_at": "2026-05-13T08:00:00Z"
+    }
+  ],
+  "owner": "morgan",
+  "shared_with": []
+}

@@ -1,829 +1,100 @@
 /**
  * Static fixture data for wiki-screenshot capture mode (?wikiCapture=1).
  *
- * Returned as a flat list of [path, jsonBody] pairs, where path is the same
- * relative path the real FileService writes to (e.g.
- * `users/grant/projects/1.json`). The mock in wiki-capture-mock.ts loads
- * these into an in-memory map.
+ * GENERATED FILE — do not edit by hand.
+ * Source: scripts/generate-demo-data.mjs
  *
- * Two users seeded so Lab Mode has something to aggregate. Dates are clustered
- * around 2026-05 to look current relative to the CLAUDE.md anchor date.
+ * Mirrors the on-disk demo lab at `frontend/public/demo-data/`. Two
+ * fictional users (alex, morgan), demo projects, demo strains, and
+ * everything else carries a clearly-fake DEMO/Demo prefix.
  *
  * Do not import this from production code — it is dev-only.
  */
 
 type FixtureEntry = [string, unknown];
 
-const TODAY = "2026-05-13";
-const TOMORROW = "2026-05-14";
-const NEXT_WEEK = "2026-05-20";
-const LAST_WEEK = "2026-05-06";
-const TWO_WEEKS = "2026-05-27";
-
-const GRANT_COLOR = "#3b82f6"; // blue
-const SARAH_COLOR = "#10b981"; // emerald
-
 export function buildWikiFixtures(): FixtureEntry[] {
-  const entries: FixtureEntry[] = [];
-
-  // ── Global / public / lab roots ────────────────────────────────────────────
-  entries.push(["users/_global_counters.json", {}]);
-  entries.push([
-    "users/_user_metadata.json",
-    {
-      grant: { color: GRANT_COLOR, created_at: "2026-01-01T00:00:00Z" },
-      sarah: { color: SARAH_COLOR, created_at: "2026-01-05T00:00:00Z" },
-    },
-  ]);
-  entries.push(["users/public/_counters.json", { methods: 1, pcr_protocols: 1 }]);
-  entries.push([
-    "users/public/methods/1.json",
-    {
-      id: 1,
-      name: "Genomic DNA extraction (fungal)",
-      github_path: null,
-      method_type: "markdown",
-      folder_path: "DNA",
-      parent_method_id: null,
-      tags: ["DNA", "fungi"],
-      attachments: [
-        {
-          id: "att-1",
-          name: "Protocol",
-          attachment_type: "markdown",
-          path: "users/public/methods/1.md",
-          order: 0,
-        },
-      ],
-      is_public: true,
-      created_by: "grant",
-      owner: "public",
-      shared_with: [],
-    },
-  ]);
-  entries.push([
-    "users/public/methods/1.md",
-    "# Genomic DNA extraction (fungal)\n\n1. Grind ~100 mg of frozen mycelium in liquid N2.\n2. Resuspend in 600 µL CTAB lysis buffer, 65°C for 30 min.\n3. Chloroform extract twice, then isopropanol precipitate.\n4. Wash pellet with 70% EtOH, air dry, resuspend in 50 µL TE.\n",
-  ]);
-  entries.push([
-    "users/public/pcr_protocols/1.json",
-    {
-      id: 1,
-      name: "ITS1F / ITS4 amplicon",
-      gradient: {
-        initial: [{ name: "Initial denaturation", temperature: 95, duration: "3 min" }],
-        cycles: [
-          {
-            repeats: 35,
-            steps: [
-              { name: "Denaturation", temperature: 95, duration: "30 sec" },
-              { name: "Annealing", temperature: 55, duration: "30 sec" },
-              { name: "Extension", temperature: 72, duration: "60 sec" },
-            ],
-          },
-        ],
-        final: [{ name: "Final extension", temperature: 72, duration: "5 min" }],
-        hold: { name: "Hold", temperature: 12, duration: "Indef." },
-      },
-      ingredients: [
-        { id: "i1", name: "10x Buffer", concentration: "10x", amount_per_reaction: "2.5" },
-        { id: "i2", name: "dNTPs", concentration: "10 mM", amount_per_reaction: "0.5" },
-        { id: "i3", name: "ITS1F", concentration: "10 µM", amount_per_reaction: "1.0" },
-        { id: "i4", name: "ITS4", concentration: "10 µM", amount_per_reaction: "1.0" },
-        { id: "i5", name: "Taq polymerase", concentration: "5 U/µL", amount_per_reaction: "0.25" },
-        { id: "i6", name: "Template DNA", concentration: "10 ng/µL", amount_per_reaction: "1.0" },
-        { id: "i7", name: "Nuclease-free H2O", concentration: "—", amount_per_reaction: "18.75" },
-      ],
-      notes: "Standard fungal ITS amplification. 35 cycles, anneal at 55°C.",
-      tags: ["ITS", "fungi"],
-      is_public: true,
-      created_by: "grant",
-      owner: "public",
-      shared_with: [],
-    },
-  ]);
-
-  // Lab-wide funding accounts
-  entries.push([
-    "users/lab/funding_accounts/1.json",
-    {
-      id: 1,
-      name: "NIH R01 GM-141289",
-      description: "Fungal biosynthetic gene cluster discovery",
-      total_budget: 50000,
-      spent: 12450,
-      remaining: 37550,
-    },
-  ]);
-  entries.push([
-    "users/lab/funding_accounts/2.json",
-    {
-      id: 2,
-      name: "USDA Hatch",
-      description: "Lichen-associated isocyanide metabolites",
-      total_budget: 15000,
-      spent: 3200,
-      remaining: 11800,
-    },
-  ]);
-  entries.push(["users/lab/_counters.json", { funding_accounts: 2 }]);
-
-  // ── User: grant ────────────────────────────────────────────────────────────
-  entries.push([
-    "users/grant/_counters.json",
-    {
-      projects: 4,
-      tasks: 12,
-      methods: 2,
-      events: 4,
-      goals: 2,
-      pcr_protocols: 1,
-      purchase_items: 3,
-      lab_links: 4,
-      notes: 2,
-      dependencies: 2,
-    },
-  ]);
-  entries.push([
-    "users/grant/settings.json",
-    {
-      animationType: "celebration",
-      defaultGanttViewMode: "3-months",
-      defaultCalendarViewMode: "month",
-      showSharedByDefault: true,
-      visibleTabs: [
-        "/experiments",
-        "/gantt",
-        "/methods",
-        "/purchases",
-        "/results",
-        "/calendar",
-        "/search",
-        "/links",
-      ],
-      defaultLandingTab: "/",
-      sidebarShowTasks: true,
-      sidebarShowCalendarEvents: true,
-      sidebarEventsHorizonDays: 7,
-      coloredHeader: false,
-    },
-  ]);
-
-  // Projects
-  entries.push(...projectFiles("grant", [
-    {
-      id: 1,
-      name: "ICS Genome Mining",
-      color: "#3b82f6",
-      tags: ["bioinformatics", "fungi"],
-      sort_order: 0,
-    },
-    {
-      id: 2,
-      name: "Lichen Isocyanide Diversity",
-      color: "#8b5cf6",
-      tags: ["lichens", "isocyanides"],
-      sort_order: 1,
-    },
-    {
-      id: 3,
-      name: "Amanita Comparative Genomics",
-      color: "#f59e0b",
-      tags: ["Amanita", "invasive"],
-      sort_order: 2,
-    },
-    {
-      id: 4,
-      name: "Lab Mentoring",
-      color: "#ec4899",
-      tags: ["mentoring"],
-      sort_order: 3,
-    },
-  ]));
-
-  // Tasks
-  entries.push(...taskFiles("grant", [
-    {
-      id: 1,
-      project_id: 1,
-      name: "Run NEBuilder on PKS and ICS clones",
-      start_date: LAST_WEEK,
-      duration_days: 1,
-      end_date: LAST_WEEK,
-      task_type: "experiment",
-      is_complete: false,
-      experiment_color: "#3b82f6",
-      sub_tasks: [
-        { id: "st1", text: "Linearize pUC19 vector (PCR)", is_complete: true },
-        { id: "st2", text: "Gel-purify all 5 fragments", is_complete: true },
-        { id: "st3", text: "Set up NEBuilder reaction (1:2 vector:insert)", is_complete: true },
-        { id: "st4", text: "Transform NEB 10-beta", is_complete: false },
-        { id: "st5", text: "Pick 8 colonies for colony PCR", is_complete: false },
-      ],
-      deviation_log: "Fragment 3 (ICS midsection) gel band was faint, re-amplified with extra 5 cycles. Ran second NEBuilder rxn in parallel using the original fragment 3 as a control.",
-      method_attachments: [
-        { method_id: 1, owner: "grant", snapshot_at: "2026-05-06T13:50:00Z" },
-      ],
-    },
-    {
-      id: 2,
-      project_id: 1,
-      name: "Sequence assembled ICS contigs",
-      start_date: TODAY,
-      duration_days: 2,
-      end_date: TOMORROW,
-      task_type: "experiment",
-      is_complete: false,
-    },
-    {
-      id: 3,
-      project_id: 1,
-      name: "Update CASSIS BGC predictions table",
-      start_date: NEXT_WEEK,
-      duration_days: 3,
-      end_date: "2026-05-22",
-      task_type: "list",
-      is_complete: false,
-    },
-    {
-      id: 4,
-      project_id: 2,
-      name: "Figure out where A. nidulans and S. livens are",
-      start_date: TODAY,
-      duration_days: 1,
-      end_date: TODAY,
-      task_type: "experiment",
-      is_complete: false,
-    },
-    {
-      id: 5,
-      project_id: 2,
-      name: "Make media",
-      start_date: TOMORROW,
-      duration_days: 1,
-      end_date: TOMORROW,
-      task_type: "list",
-      is_complete: false,
-    },
-    {
-      id: 6,
-      project_id: 2,
-      name: "Inoculate A. nidulans and S. livens",
-      start_date: "2026-05-15",
-      duration_days: 1,
-      end_date: "2026-05-15",
-      task_type: "experiment",
-      is_complete: false,
-    },
-    {
-      id: 7,
-      project_id: 2,
-      name: "Order ITS primers",
-      start_date: TODAY,
-      duration_days: 1,
-      end_date: TODAY,
-      task_type: "purchase",
-      is_complete: false,
-    },
-    {
-      id: 8,
-      project_id: 3,
-      name: "Extract DNA from South African A. muscaria",
-      start_date: "2026-05-11",
-      duration_days: 2,
-      end_date: "2026-05-12",
-      task_type: "experiment",
-      is_complete: true,
-    },
-    {
-      id: 9,
-      project_id: 3,
-      name: "Run BiG-SCAPE on Amanita BGCs",
-      start_date: "2026-05-18",
-      duration_days: 4,
-      end_date: "2026-05-21",
-      task_type: "experiment",
-      is_complete: false,
-    },
-    {
-      id: 10,
-      project_id: 3,
-      name: "Order LC-MS standards",
-      start_date: TODAY,
-      duration_days: 1,
-      end_date: TODAY,
-      task_type: "purchase",
-      is_complete: false,
-    },
-    {
-      id: 11,
-      project_id: 4,
-      name: "Meet with Sarah re: lichen project",
-      start_date: TOMORROW,
-      duration_days: 1,
-      end_date: TOMORROW,
-      task_type: "list",
-      is_complete: false,
-    },
-    {
-      id: 12,
-      project_id: 4,
-      name: "Review committee feedback",
-      start_date: "2026-05-08",
-      duration_days: 1,
-      end_date: "2026-05-08",
-      task_type: "list",
-      is_complete: true,
-    },
-  ]));
-
-  // Methods
-  entries.push([
-    "users/grant/methods/1.json",
-    {
-      id: 1,
-      name: "BiG-SCAPE BGC clustering",
-      github_path: null,
-      method_type: "markdown",
-      folder_path: "Bioinformatics",
-      parent_method_id: null,
-      tags: ["bioinformatics", "BGC"],
-      attachments: [
-        {
-          id: "att-1",
-          name: "Protocol",
-          attachment_type: "markdown",
-          path: "users/grant/methods/1.md",
-          order: 0,
-        },
-      ],
-      is_public: false,
-      created_by: "grant",
-      owner: "grant",
-      shared_with: [],
-    },
-  ]);
-  entries.push([
-    "users/grant/methods/1.md",
-    "# BiG-SCAPE BGC clustering\n\nUsed to group homologous BGCs into gene cluster families (GCFs).\n\n## Inputs\n\n- GenBank files for each BGC\n- Optional: anchor file marking core synthase domains\n\n## Steps\n\n1. Place all `.gbk` files into `input_bgcs/`.\n2. Run: `bigscape.py -i input_bgcs/ -o output/ --mix --cutoffs 0.3`.\n3. Inspect the network in Cytoscape (`output/network_files/`).\n4. Lower the cutoff if GCFs merge too aggressively, raise it if they fragment.\n",
-  ]);
-  entries.push([
-    "users/grant/methods/2.json",
-    {
-      id: 2,
-      name: "antiSMASH 7 baseline run",
-      github_path: null,
-      method_type: "markdown",
-      folder_path: "Bioinformatics",
-      parent_method_id: null,
-      tags: ["bioinformatics", "BGC"],
-      attachments: [
-        {
-          id: "att-1",
-          name: "Protocol",
-          attachment_type: "markdown",
-          path: "users/grant/methods/2.md",
-          order: 0,
-        },
-      ],
-      is_public: false,
-      created_by: "grant",
-      owner: "grant",
-      shared_with: [],
-    },
-  ]);
-  entries.push([
-    "users/grant/methods/2.md",
-    "# antiSMASH 7 baseline run\n\nRuns the standard fungal BGC predictor on an assembled genome and parks the results in a comparable directory shape every time.\n\n## When to use this\n\n- First pass over any new fungal assembly.\n- Sanity check on a CASSIS or BiG-SCAPE prediction.\n\n## Inputs\n\n- A polished assembly in FASTA format (`assembly.fa`).\n- Optional: a known reference gbk to compare against.\n\n## Steps\n\n1. Place the FASTA at `inputs/<strain>/assembly.fa`.\n2. Run with:\n   ```bash\n   antismash --taxon fungi \\\n     --output-dir results/<strain>/ \\\n     --genefinding-tool glimmerhmm \\\n     --clusterhmmer --asf --cb-knownclusters --pfam2go \\\n     inputs/<strain>/assembly.fa\n   ```\n3. Open `index.html` in the results directory.\n4. Note the type and count of clusters in the lab notebook.\n\n## Common gotchas\n\n- Run with `--allow-long-headers` if your contig names are long.\n- The `--cb-knownclusters` flag is what makes the comparison-to-MIBiG view actually populate.\n",
-  ]);
-
-  // PCR protocols
-  entries.push([
-    "users/grant/pcr_protocols/1.json",
-    {
-      id: 1,
-      name: "qPCR icsA expression",
-      gradient: {
-        initial: [{ name: "Initial denaturation", temperature: 95, duration: "3 min" }],
-        cycles: [
-          {
-            repeats: 40,
-            steps: [
-              { name: "Denaturation", temperature: 95, duration: "15 sec" },
-              { name: "Anneal/Extend", temperature: 60, duration: "60 sec" },
-            ],
-          },
-        ],
-        final: [],
-        hold: null,
-      },
-      ingredients: [
-        { id: "i1", name: "SYBR Master Mix (2x)", concentration: "2x", amount_per_reaction: "10" },
-        { id: "i2", name: "icsA-fwd", concentration: "10 µM", amount_per_reaction: "0.5" },
-        { id: "i3", name: "icsA-rev", concentration: "10 µM", amount_per_reaction: "0.5" },
-        { id: "i4", name: "cDNA template", concentration: "—", amount_per_reaction: "2" },
-        { id: "i5", name: "Nuclease-free H2O", concentration: "—", amount_per_reaction: "7" },
-      ],
-      notes: "Use β-actin as housekeeping reference.",
-      tags: ["qPCR", "icsA"],
-      is_public: false,
-      created_by: "grant",
-      owner: "grant",
-      shared_with: [],
-    },
-  ]);
-
-  // Calendar events
-  entries.push([
-    "users/grant/events/1.json",
-    {
-      id: 1,
-      title: "Keller Lab Meeting",
-      event_type: "meeting",
-      start_date: TOMORROW,
-      end_date: TOMORROW,
-      start_time: "11:00",
-      end_time: "12:00",
-      location: "MSB 4203",
-      url: null,
-      notes: null,
-      color: "#3b82f6",
-    },
-  ]);
-  entries.push([
-    "users/grant/events/2.json",
-    {
-      id: 2,
-      title: "SMBE 2026 abstract deadline",
-      event_type: "deadline",
-      start_date: TWO_WEEKS,
-      end_date: TWO_WEEKS,
-      start_time: null,
-      end_time: null,
-      location: null,
-      url: "https://smbe2026.org",
-      notes: "Submit Chapter 3 results.",
-      color: "#ef4444",
-    },
-  ]);
-  entries.push([
-    "users/grant/events/3.json",
-    {
-      id: 3,
-      title: "Fungal Genetics Conference",
-      event_type: "conference",
-      start_date: "2026-06-10",
-      end_date: "2026-06-13",
-      start_time: null,
-      end_time: null,
-      location: "Asilomar, CA",
-      url: null,
-      notes: null,
-      color: "#8b5cf6",
-    },
-  ]);
-  entries.push([
-    "users/grant/events/4.json",
-    {
-      id: 4,
-      title: "Coon Lab Instrument Meeting",
-      event_type: "meeting",
-      start_date: TOMORROW,
-      end_date: TOMORROW,
-      start_time: "14:00",
-      end_time: "15:00",
-      location: "Chemistry 1315",
-      url: null,
-      notes: null,
-      color: "#10b981",
-    },
-  ]);
-
-  // High-level goals
-  entries.push([
-    "users/grant/goals/1.json",
-    {
-      id: 1,
-      project_id: 1,
-      name: "Publish ICS genome-mining paper",
-      start_date: "2026-04-01",
-      end_date: "2026-07-31",
-      color: "#3b82f6",
-      smart_goals: [
-        { id: "sg1", text: "Finalize CASSIS results table", is_complete: true },
-        { id: "sg2", text: "Draft methods section", is_complete: true },
-        { id: "sg3", text: "Submit to Nat. Comms.", is_complete: false },
-      ],
-      is_complete: false,
-      created_at: "2026-04-01T00:00:00Z",
-    },
-  ]);
-  entries.push([
-    "users/grant/goals/2.json",
-    {
-      id: 2,
-      project_id: 3,
-      name: "Defend dissertation",
-      start_date: "2026-04-01",
-      end_date: "2026-08-31",
-      color: "#f59e0b",
-      smart_goals: [
-        { id: "sg1", text: "Send draft to committee", is_complete: false },
-        { id: "sg2", text: "Schedule defense", is_complete: false },
-      ],
-      is_complete: false,
-      created_at: "2026-04-01T00:00:00Z",
-    },
-  ]);
-
-  // Purchase items
-  entries.push([
-    "users/grant/purchase_items/1.json",
-    {
-      id: 1,
-      task_id: 7,
-      item_name: "ITS1F / ITS4 primers (IDT, 25 nmol each)",
-      quantity: 2,
-      link: "https://www.idtdna.com/",
-      cas: null,
-      price_per_unit: 15.0,
-      shipping_fees: 5.0,
-      total_price: 35.0,
-      notes: null,
-      funding_string: "NIH R01 GM-141289",
-    },
-  ]);
-  entries.push([
-    "users/grant/purchase_items/2.json",
-    {
-      id: 2,
-      task_id: 10,
-      item_name: "Muscimol standard (Sigma M1523)",
-      quantity: 1,
-      link: "https://www.sigmaaldrich.com/",
-      cas: "2763-96-4",
-      price_per_unit: 248.0,
-      shipping_fees: 0,
-      total_price: 248.0,
-      notes: "For LC-MS quantification.",
-      funding_string: "NIH R01 GM-141289",
-    },
-  ]);
-  entries.push([
-    "users/grant/purchase_items/3.json",
-    {
-      id: 3,
-      task_id: 10,
-      item_name: "Ibotenic acid standard (Sigma I2765)",
-      quantity: 1,
-      link: "https://www.sigmaaldrich.com/",
-      cas: "2552-55-8",
-      price_per_unit: 312.0,
-      shipping_fees: 0,
-      total_price: 312.0,
-      notes: null,
-      funding_string: "NIH R01 GM-141289",
-    },
-  ]);
-
-  // Lab links
-  entries.push([
-    "users/grant/lab_links/1.json",
-    {
-      id: 1,
-      title: "antiSMASH 7 (fungal)",
-      url: "https://fungismash.secondarymetabolites.org/",
-      description: "Web service for fungal BGC prediction.",
-      category: "Bioinformatics",
-      color: "#3b82f6",
-      preview_image_url: null,
-      sort_order: 0,
-      created_at: "2026-02-01T00:00:00Z",
-    },
-  ]);
-  entries.push([
-    "users/grant/lab_links/2.json",
-    {
-      id: 2,
-      title: "MIBiG repository",
-      url: "https://mibig.secondarymetabolites.org/",
-      description: "Curated BGC reference database.",
-      category: "Bioinformatics",
-      color: "#3b82f6",
-      preview_image_url: null,
-      sort_order: 1,
-      created_at: "2026-02-01T00:00:00Z",
-    },
-  ]);
-  entries.push([
-    "users/grant/lab_links/3.json",
-    {
-      id: 3,
-      title: "Keller Lab IDT ordering",
-      url: "https://www.idtdna.com/",
-      description: null,
-      category: "Ordering",
-      color: "#10b981",
-      preview_image_url: null,
-      sort_order: 0,
-      created_at: "2026-02-01T00:00:00Z",
-    },
-  ]);
-  entries.push([
-    "users/grant/lab_links/4.json",
-    {
-      id: 4,
-      title: "JGI MycoCosm",
-      url: "https://mycocosm.jgi.doe.gov/",
-      description: "Fungal genome database.",
-      category: "Bioinformatics",
-      color: "#3b82f6",
-      preview_image_url: null,
-      sort_order: 2,
-      created_at: "2026-02-01T00:00:00Z",
-    },
-  ]);
-
-  // Notes
-  entries.push([
-    "users/grant/notes/1.json",
-    {
-      id: 1,
-      title: "Run 2026-05-06: NEBuilder PKS+ICS",
-      description:
-        "Five-fragment NEBuilder assembly. Insert ratios 1:2 (vector:insert). Transformed into NEB 10-beta. 50/50 split between LB+Carb and LB+Kan plates.",
-      is_running_log: false,
-      is_shared: false,
-      entries: [],
-      comments: [],
-      created_at: "2026-05-06T14:00:00Z",
-      updated_at: "2026-05-06T18:00:00Z",
-      username: "grant",
-    },
-  ]);
-  entries.push([
-    "users/grant/notes/2.json",
-    {
-      id: 2,
-      title: "Lab observations (running)",
-      description:
-        "A. nidulans cultures showing slower growth on minimal media this week. Possibly N-source related. Following up.",
-      is_running_log: true,
-      is_shared: false,
-      entries: [],
-      comments: [],
-      created_at: "2026-05-01T00:00:00Z",
-      updated_at: "2026-05-13T09:00:00Z",
-      username: "grant",
-    },
-  ]);
-
-  // Dependencies (just one example)
-  entries.push([
-    "users/grant/dependencies/1.json",
-    { id: 1, parent_id: 5, child_id: 6, dep_type: "FS" },
-  ]);
-  entries.push([
-    "users/grant/dependencies/2.json",
-    { id: 2, parent_id: 4, child_id: 5, dep_type: "FS" },
-  ]);
-
-  // ── User: sarah (for Lab Mode) ─────────────────────────────────────────────
-  entries.push([
-    "users/sarah/_counters.json",
-    {
-      projects: 1,
-      tasks: 2,
-      methods: 0,
-      events: 0,
-      goals: 0,
-      pcr_protocols: 0,
-      purchase_items: 0,
-      lab_links: 0,
-      notes: 0,
-      dependencies: 0,
-    },
-  ]);
-  entries.push([
-    "users/sarah/settings.json",
-    {
-      animationType: "celebration",
-      defaultGanttViewMode: "1-month",
-      defaultCalendarViewMode: "week",
-      showSharedByDefault: true,
-      visibleTabs: ["/experiments", "/gantt", "/methods", "/purchases", "/calendar"],
-      defaultLandingTab: "/",
-      sidebarShowTasks: true,
-      sidebarShowCalendarEvents: true,
-      sidebarEventsHorizonDays: 7,
-      coloredHeader: false,
-    },
-  ]);
-  entries.push(...projectFiles("sarah", [
-    {
-      id: 1,
-      name: "Cryptococcus melanin pathway",
-      color: SARAH_COLOR,
-      tags: ["Cryptococcus", "melanin"],
-      sort_order: 0,
-    },
-  ]));
-  entries.push(...taskFiles("sarah", [
-    {
-      id: 1,
-      project_id: 1,
-      name: "Western blot CnLAC1 expression",
-      start_date: TOMORROW,
-      duration_days: 1,
-      end_date: TOMORROW,
-      task_type: "experiment",
-      is_complete: false,
-    },
-    {
-      id: 2,
-      project_id: 1,
-      name: "Order anti-CnLAC1 antibody",
-      start_date: TODAY,
-      duration_days: 1,
-      end_date: TODAY,
-      task_type: "purchase",
-      is_complete: false,
-    },
-  ]));
-
-  return entries;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-
-type ProjectFix = {
-  id: number;
-  name: string;
-  color: string;
-  tags: string[];
-  sort_order: number;
-};
-
-function projectFiles(owner: string, projects: ProjectFix[]): FixtureEntry[] {
-  return projects.map((p) => [
-    `users/${owner}/projects/${p.id}.json`,
-    {
-      id: p.id,
-      name: p.name,
-      weekend_active: false,
-      tags: p.tags,
-      color: p.color,
-      created_at: "2026-02-01T00:00:00Z",
-      sort_order: p.sort_order,
-      is_archived: false,
-      archived_at: null,
-      owner,
-      shared_with: [],
-    },
-  ]);
-}
-
-type TaskFix = {
-  id: number;
-  project_id: number;
-  name: string;
-  start_date: string;
-  duration_days: number;
-  end_date: string;
-  task_type: "experiment" | "purchase" | "list";
-  is_complete: boolean;
-  experiment_color?: string;
-  sub_tasks?: { id: string; text: string; is_complete: boolean }[];
-  deviation_log?: string;
-  method_attachments?: { method_id: number; owner: string; snapshot_at: string }[];
-};
-
-function taskFiles(owner: string, tasks: TaskFix[]): FixtureEntry[] {
-  return tasks.map((t) => [
-    `users/${owner}/tasks/${t.id}.json`,
-    {
-      id: t.id,
-      project_id: t.project_id,
-      name: t.name,
-      start_date: t.start_date,
-      duration_days: t.duration_days,
-      end_date: t.end_date,
-      is_high_level: false,
-      is_complete: t.is_complete,
-      task_type: t.task_type,
-      weekend_override: null,
-      method_id: null,
-      method_ids: [],
-      deviation_log: t.deviation_log ?? null,
-      tags: null,
-      sort_order: t.id,
-      experiment_color: t.experiment_color ?? null,
-      sub_tasks: t.sub_tasks ?? null,
-      pcr_gradient: null,
-      pcr_ingredients: null,
-      method_attachments: t.method_attachments ?? [],
-      owner,
-      shared_with: [],
-    },
-  ]);
+  return [
+    ["_demo_marker.json", {"is_demo":true,"version":"1.0","lab_title":"Demo Synthetic Biology Lab","generated_at":"2026-05-13T00:00:00Z","notice":"This folder is the ResearchOS demo lab. All projects, strains, and results are fabricated for tutorial purposes."}],
+    ["users/_global_counters.json", {}],
+    ["users/_user_metadata.json", {"alex":{"color":"#3b82f6","created_at":"2026-01-15T00:00:00Z"},"morgan":{"color":"#10b981","created_at":"2026-01-20T00:00:00Z"}}],
+    ["users/public/_counters.json", {"methods":1,"pcr_protocols":1}],
+    ["users/public/methods/1.json", {"id":1,"name":"[Demo protocol] Plasmid mini-prep","source_path":null,"method_type":"markdown","folder_path":"DNA","parent_method_id":null,"tags":["DNA","plasmid","demo"],"attachments":[{"id":"att-1","name":"Protocol","attachment_type":"markdown","path":"users/public/methods/1.md","order":0}],"is_public":true,"created_by":"alex","owner":"public","shared_with":[]}],
+    ["users/public/pcr_protocols/1.json", {"id":1,"name":"[Demo protocol] DemoCheck PCR — pYES integration","gradient":{"initial":[{"name":"Initial denaturation","temperature":98,"duration":"30 sec"}],"cycles":[{"repeats":30,"steps":[{"name":"Denaturation","temperature":98,"duration":"10 sec"},{"name":"Annealing","temperature":58,"duration":"30 sec"},{"name":"Extension","temperature":72,"duration":"45 sec"}]}],"final":[{"name":"Final extension","temperature":72,"duration":"5 min"}],"hold":{"name":"Hold","temperature":12,"duration":"Indef."}},"ingredients":[{"id":"i1","name":"5x HF Buffer","concentration":"5x","amount_per_reaction":"5.0"},{"id":"i2","name":"dNTPs","concentration":"10 mM","amount_per_reaction":"0.5"},{"id":"i3","name":"pYES-fwd","concentration":"10 µM","amount_per_reaction":"1.25"},{"id":"i4","name":"pYES-rev","concentration":"10 µM","amount_per_reaction":"1.25"},{"id":"i5","name":"Phusion polymerase","concentration":"2 U/µL","amount_per_reaction":"0.25"},{"id":"i6","name":"gDNA template","concentration":"~50 ng/µL","amount_per_reaction":"1.0"},{"id":"i7","name":"Nuclease-free H2O","concentration":"—","amount_per_reaction":"15.75"}],"notes":"Demo protocol — verifies integration of the `pYES-GAL1::flbA` cassette at the URA3 locus. Expected band: ~1.4 kb.","tags":["demo","screen"],"is_public":true,"created_by":"alex","owner":"public","shared_with":[]}],
+    ["users/lab/funding_accounts/1.json", {"id":1,"name":"DEMO-NIH-GM999999","description":"Fake NIH grant for FakeYeast biofuel engineering.","total_budget":80000,"spent":14250,"remaining":65750}],
+    ["users/lab/funding_accounts/2.json", {"id":2,"name":"DEMO-DOE-EERE","description":"Fake DOE bioenergy supplement.","total_budget":25000,"spent":5310,"remaining":19690}],
+    ["users/lab/funding_accounts/3.json", {"id":3,"name":"DEMO-Internal-Bridge","description":"Demo internal bridge funds for consumables.","total_budget":5000,"spent":980,"remaining":4020}],
+    ["users/lab/_counters.json", {"funding_accounts":3}],
+    ["users/alex/_counters.json", {"projects":4,"tasks":15,"methods":4,"events":4,"goals":2,"pcr_protocols":1,"purchase_items":4,"lab_links":6,"notes":2,"dependencies":7}],
+    ["users/alex/settings.json", {"animationType":"celebration","defaultGanttViewMode":"3-months","defaultCalendarViewMode":"month","showSharedByDefault":true,"visibleTabs":["/experiments","/gantt","/methods","/purchases","/results","/calendar","/search","/links"],"defaultLandingTab":"/","sidebarShowTasks":true,"sidebarShowCalendarEvents":true,"sidebarEventsHorizonDays":7,"coloredHeader":false}],
+    ["users/alex/projects/1.json", {"id":1,"name":"DEMO: Engineer FakeYeast for biofuel","weekend_active":false,"tags":["demo","strains"],"color":"#3b82f6","created_at":"2026-02-01T00:00:00Z","sort_order":0,"is_archived":false,"archived_at":null,"owner":"alex","shared_with":[]}],
+    ["users/alex/projects/2.json", {"id":2,"name":"DEMO: Plasmid library construction","weekend_active":false,"tags":["demo","cloning"],"color":"#8b5cf6","created_at":"2026-02-01T00:00:00Z","sort_order":1,"is_archived":false,"archived_at":null,"owner":"alex","shared_with":[]}],
+    ["users/alex/projects/3.json", {"id":3,"name":"DEMO: Stress tolerance screening","weekend_active":false,"tags":["demo","screening"],"color":"#f59e0b","created_at":"2026-02-01T00:00:00Z","sort_order":2,"is_archived":false,"archived_at":null,"owner":"alex","shared_with":[]}],
+    ["users/alex/projects/4.json", {"id":4,"name":"DEMO: Lab admin & onboarding","weekend_active":false,"tags":["demo","admin"],"color":"#ec4899","created_at":"2026-02-01T00:00:00Z","sort_order":3,"is_archived":false,"archived_at":null,"owner":"alex","shared_with":[]}],
+    ["users/alex/tasks/1.json", {"id":1,"project_id":1,"name":"Design pYES-GAL1::flbA construct","start_date":"2026-05-06","duration_days":1,"end_date":"2026-05-06","is_high_level":false,"is_complete":true,"task_type":"list","weekend_override":null,"method_id":null,"method_ids":[],"deviation_log":null,"tags":null,"sort_order":1,"experiment_color":null,"sub_tasks":[{"id":"st1","text":"Pull flbA CDS from FakeYeast genome","is_complete":true},{"id":"st2","text":"Design Gibson overlaps for pYES2","is_complete":true},{"id":"st3","text":"Order gBlocks","is_complete":true}],"pcr_gradient":null,"pcr_ingredients":null,"method_attachments":[],"owner":"alex","shared_with":[]}],
+    ["users/alex/tasks/2.json", {"id":2,"project_id":1,"name":"Yeast transformation: pYES-GAL1::flbA","start_date":"2026-05-08","duration_days":1,"end_date":"2026-05-08","is_high_level":false,"is_complete":true,"task_type":"experiment","weekend_override":null,"method_id":null,"method_ids":[],"deviation_log":"Demo: heat-shock ran 38 min instead of 40 (interrupted by timer reset). Noted for the colony count.","tags":null,"sort_order":2,"experiment_color":"#3b82f6","sub_tasks":[{"id":"st1","text":"Grow overnight FakeYeast-001 culture","is_complete":true},{"id":"st2","text":"Prep PEG/LiAc mix fresh","is_complete":true},{"id":"st3","text":"Heat shock 40 min @ 42°C","is_complete":true},{"id":"st4","text":"Plate on SD-Ura","is_complete":true}],"pcr_gradient":null,"pcr_ingredients":null,"method_attachments":[{"method_id":1,"owner":"alex","snapshot_at":"2026-05-08T09:00:00Z"}],"owner":"alex","shared_with":[]}],
+    ["users/alex/tasks/3.json", {"id":3,"project_id":1,"name":"Patch positives on SD-Ura","start_date":"2026-05-11","duration_days":1,"end_date":"2026-05-11","is_high_level":false,"is_complete":true,"task_type":"experiment","weekend_override":null,"method_id":null,"method_ids":[],"deviation_log":null,"tags":null,"sort_order":3,"experiment_color":"#3b82f6","sub_tasks":null,"pcr_gradient":null,"pcr_ingredients":null,"method_attachments":[],"owner":"alex","shared_with":[]}],
+    ["users/alex/tasks/4.json", {"id":4,"project_id":1,"name":"Genomic DNA prep — top 8 transformants","start_date":"2026-05-12","duration_days":1,"end_date":"2026-05-12","is_high_level":false,"is_complete":true,"task_type":"experiment","weekend_override":null,"method_id":null,"method_ids":[],"deviation_log":null,"tags":null,"sort_order":4,"experiment_color":"#3b82f6","sub_tasks":null,"pcr_gradient":null,"pcr_ingredients":null,"method_attachments":[],"owner":"alex","shared_with":[]}],
+    ["users/alex/tasks/5.json", {"id":5,"project_id":1,"name":"PCR-screen integrants","start_date":"2026-05-13","duration_days":1,"end_date":"2026-05-13","is_high_level":false,"is_complete":false,"task_type":"experiment","weekend_override":null,"method_id":null,"method_ids":[],"deviation_log":null,"tags":null,"sort_order":5,"experiment_color":"#3b82f6","sub_tasks":[{"id":"st1","text":"Run DemoCheck PCR — 16 rxns","is_complete":false},{"id":"st2","text":"Pour 1% agarose gel","is_complete":false},{"id":"st3","text":"Photograph + annotate gel","is_complete":false}],"pcr_gradient":null,"pcr_ingredients":null,"method_attachments":[],"owner":"alex","shared_with":[]}],
+    ["users/alex/tasks/6.json", {"id":6,"project_id":1,"name":"Send sequencing — top 4","start_date":"2026-05-14","duration_days":1,"end_date":"2026-05-14","is_high_level":false,"is_complete":false,"task_type":"list","weekend_override":null,"method_id":null,"method_ids":[],"deviation_log":null,"tags":null,"sort_order":6,"experiment_color":null,"sub_tasks":null,"pcr_gradient":null,"pcr_ingredients":null,"method_attachments":[],"owner":"alex","shared_with":[]}],
+    ["users/alex/tasks/7.json", {"id":7,"project_id":2,"name":"Order DemoStrain ΔADE2 reagents","start_date":"2026-05-06","duration_days":1,"end_date":"2026-05-06","is_high_level":false,"is_complete":true,"task_type":"purchase","weekend_override":null,"method_id":null,"method_ids":[],"deviation_log":null,"tags":null,"sort_order":7,"experiment_color":null,"sub_tasks":null,"pcr_gradient":null,"pcr_ingredients":null,"method_attachments":[],"owner":"alex","shared_with":[]}],
+    ["users/alex/tasks/8.json", {"id":8,"project_id":2,"name":"Mini-prep candidate plasmids","start_date":"2026-05-14","duration_days":1,"end_date":"2026-05-14","is_high_level":false,"is_complete":false,"task_type":"experiment","weekend_override":null,"method_id":null,"method_ids":[],"deviation_log":null,"tags":null,"sort_order":8,"experiment_color":"#8b5cf6","sub_tasks":null,"pcr_gradient":null,"pcr_ingredients":null,"method_attachments":[],"owner":"alex","shared_with":[]}],
+    ["users/alex/tasks/9.json", {"id":9,"project_id":2,"name":"Build pDEMO-fluo plasmid library","start_date":"2026-05-20","duration_days":4,"end_date":"2026-05-23","is_high_level":false,"is_complete":false,"task_type":"experiment","weekend_override":null,"method_id":null,"method_ids":[],"deviation_log":null,"tags":null,"sort_order":9,"experiment_color":"#8b5cf6","sub_tasks":null,"pcr_gradient":null,"pcr_ingredients":null,"method_attachments":[],"owner":"alex","shared_with":[]}],
+    ["users/alex/tasks/10.json", {"id":10,"project_id":3,"name":"Set up growth curves in YPD/glucose","start_date":"2026-05-15","duration_days":1,"end_date":"2026-05-15","is_high_level":false,"is_complete":false,"task_type":"experiment","weekend_override":null,"method_id":null,"method_ids":[],"deviation_log":null,"tags":null,"sort_order":10,"experiment_color":"#f59e0b","sub_tasks":null,"pcr_gradient":null,"pcr_ingredients":null,"method_attachments":[{"method_id":2,"owner":"alex","snapshot_at":"2026-05-13T08:00:00Z"}],"owner":"alex","shared_with":[]}],
+    ["users/alex/tasks/11.json", {"id":11,"project_id":3,"name":"Heat-shock survival assay","start_date":"2026-05-18","duration_days":1,"end_date":"2026-05-18","is_high_level":false,"is_complete":false,"task_type":"experiment","weekend_override":null,"method_id":null,"method_ids":[],"deviation_log":null,"tags":null,"sort_order":11,"experiment_color":"#f59e0b","sub_tasks":null,"pcr_gradient":null,"pcr_ingredients":null,"method_attachments":[{"method_id":4,"owner":"alex","snapshot_at":"2026-05-13T08:00:00Z"}],"owner":"alex","shared_with":[]}],
+    ["users/alex/tasks/12.json", {"id":12,"project_id":3,"name":"Compile growth-curve results","start_date":"2026-05-19","duration_days":1,"end_date":"2026-05-19","is_high_level":false,"is_complete":false,"task_type":"list","weekend_override":null,"method_id":null,"method_ids":[],"deviation_log":null,"tags":null,"sort_order":12,"experiment_color":null,"sub_tasks":null,"pcr_gradient":null,"pcr_ingredients":null,"method_attachments":[],"owner":"alex","shared_with":[]}],
+    ["users/alex/tasks/13.json", {"id":13,"project_id":4,"name":"Update lab onboarding doc","start_date":"2026-05-13","duration_days":1,"end_date":"2026-05-13","is_high_level":false,"is_complete":false,"task_type":"list","weekend_override":null,"method_id":null,"method_ids":[],"deviation_log":null,"tags":null,"sort_order":13,"experiment_color":null,"sub_tasks":null,"pcr_gradient":null,"pcr_ingredients":null,"method_attachments":[],"owner":"alex","shared_with":[]}],
+    ["users/alex/tasks/14.json", {"id":14,"project_id":4,"name":"Review morgan's draft figures","start_date":"2026-05-14","duration_days":1,"end_date":"2026-05-14","is_high_level":false,"is_complete":false,"task_type":"list","weekend_override":null,"method_id":null,"method_ids":[],"deviation_log":null,"tags":null,"sort_order":14,"experiment_color":null,"sub_tasks":null,"pcr_gradient":null,"pcr_ingredients":null,"method_attachments":[],"owner":"alex","shared_with":[]}],
+    ["users/alex/tasks/15.json", {"id":15,"project_id":4,"name":"Order LC-MS solvents","start_date":"2026-05-13","duration_days":1,"end_date":"2026-05-13","is_high_level":false,"is_complete":false,"task_type":"purchase","weekend_override":null,"method_id":null,"method_ids":[],"deviation_log":null,"tags":null,"sort_order":15,"experiment_color":null,"sub_tasks":null,"pcr_gradient":null,"pcr_ingredients":null,"method_attachments":[],"owner":"alex","shared_with":[]}],
+    ["users/alex/methods/1.json", {"id":1,"name":"[Demo protocol] Yeast transformation (LiAc)","source_path":null,"method_type":"markdown","folder_path":"Strains","parent_method_id":null,"tags":["demo"],"attachments":[{"id":"att-1","name":"Protocol","attachment_type":"markdown","path":"users/alex/methods/1.md","order":0}],"is_public":false,"created_by":"alex","owner":"alex","shared_with":[]}],
+    ["users/alex/methods/2.json", {"id":2,"name":"[Demo protocol] Growth curve in 96-well","source_path":null,"method_type":"markdown","folder_path":"Screening","parent_method_id":null,"tags":["demo"],"attachments":[{"id":"att-1","name":"Protocol","attachment_type":"markdown","path":"users/alex/methods/2.md","order":0}],"is_public":false,"created_by":"alex","owner":"alex","shared_with":[]}],
+    ["users/alex/methods/3.json", {"id":3,"name":"[Demo protocol] Plasmid mini-prep (private fork)","source_path":null,"method_type":"markdown","folder_path":"Cloning","parent_method_id":null,"tags":["demo"],"attachments":[{"id":"att-1","name":"Protocol","attachment_type":"markdown","path":"users/alex/methods/3.md","order":0}],"is_public":false,"created_by":"alex","owner":"alex","shared_with":[]}],
+    ["users/alex/methods/4.json", {"id":4,"name":"[Demo protocol] Heat-shock survival assay","source_path":null,"method_type":"markdown","folder_path":"Screening","parent_method_id":null,"tags":["demo"],"attachments":[{"id":"att-1","name":"Protocol","attachment_type":"markdown","path":"users/alex/methods/4.md","order":0}],"is_public":false,"created_by":"alex","owner":"alex","shared_with":[]}],
+    ["users/alex/pcr_protocols/1.json", {"id":1,"name":"[Demo protocol] qPCR fakeGFP expression","gradient":{"initial":[{"name":"Initial denaturation","temperature":95,"duration":"3 min"}],"cycles":[{"repeats":40,"steps":[{"name":"Denaturation","temperature":95,"duration":"15 sec"},{"name":"Anneal/Extend","temperature":60,"duration":"60 sec"}]}],"final":[],"hold":null},"ingredients":[{"id":"i1","name":"SYBR Master Mix (2x)","concentration":"2x","amount_per_reaction":"10"},{"id":"i2","name":"fakeGFP-fwd","concentration":"10 µM","amount_per_reaction":"0.5"},{"id":"i3","name":"fakeGFP-rev","concentration":"10 µM","amount_per_reaction":"0.5"},{"id":"i4","name":"cDNA template (1:5)","concentration":"—","amount_per_reaction":"2"},{"id":"i5","name":"Nuclease-free H2O","concentration":"—","amount_per_reaction":"7"}],"notes":"Demo qPCR — use ACT1 as housekeeping reference. Public version available at users/public.","tags":["demo","qPCR","fakeGFP"],"is_public":false,"created_by":"alex","owner":"alex","shared_with":[]}],
+    ["users/alex/events/1.json", {"id":1,"title":"Demo lab meeting — strain design review","event_type":"meeting","start_date":"2026-05-18","end_date":"2026-05-18","start_time":"11:00","end_time":"12:00","location":"Bio 4203 (demo)","url":null,"notes":"Bring transformation gel images.","color":"#3b82f6"}],
+    ["users/alex/events/2.json", {"id":2,"title":"DEMO-DOE renewal abstract deadline","event_type":"deadline","start_date":"2026-05-29","end_date":"2026-05-29","start_time":null,"end_time":null,"location":null,"url":null,"notes":"Fake DOE grant renewal — demo task.","color":"#ef4444"}],
+    ["users/alex/events/3.json", {"id":3,"title":"Demo Synthetic Biology Conference 2026","event_type":"conference","start_date":"2026-06-15","end_date":"2026-06-17","start_time":null,"end_time":null,"location":"Demo Convention Center","url":"https://example.org/demo-sb-2026","notes":null,"color":"#8b5cf6"}],
+    ["users/alex/events/4.json", {"id":4,"title":"1:1 with morgan","event_type":"meeting","start_date":"2026-05-14","end_date":"2026-05-14","start_time":"14:00","end_time":"14:30","location":"alex's office (demo)","url":null,"notes":null,"color":"#10b981"}],
+    ["users/alex/goals/1.json", {"id":1,"project_id":1,"name":"DEMO: Publish FakeYeast biofuel paper","start_date":"2026-04-01","end_date":"2026-08-31","color":"#3b82f6","smart_goals":[{"id":"sg1","text":"Verify pYES-GAL1::flbA integration","is_complete":true},{"id":"sg2","text":"Demonstrate biofuel yield improvement","is_complete":false},{"id":"sg3","text":"Draft methods + results","is_complete":false}],"is_complete":false,"created_at":"2026-04-01T00:00:00Z"}],
+    ["users/alex/goals/2.json", {"id":2,"project_id":2,"name":"DEMO: Finish plasmid library","start_date":"2026-04-01","end_date":"2026-06-30","color":"#8b5cf6","smart_goals":[{"id":"sg1","text":"10 candidate plasmids assembled","is_complete":false},{"id":"sg2","text":"All sequenced + validated","is_complete":false}],"is_complete":false,"created_at":"2026-04-01T00:00:00Z"}],
+    ["users/alex/purchase_items/1.json", {"id":1,"task_id":7,"item_name":"DemoStrain ΔADE2 (fake yeast collection)","quantity":1,"link":"https://example.org/demo-strain-catalog","cas":null,"price_per_unit":220,"shipping_fees":25,"total_price":245,"notes":"Demo strain — replaces nothing real.","funding_string":"DEMO-DOE-EERE"}],
+    ["users/alex/purchase_items/2.json", {"id":2,"task_id":7,"item_name":"FakeYeast genotyping primers (IDT)","quantity":4,"link":"https://example.org/demo-idt","cas":null,"price_per_unit":14,"shipping_fees":5,"total_price":61,"notes":null,"funding_string":"DEMO-NIH-GM999999"}],
+    ["users/alex/purchase_items/3.json", {"id":3,"task_id":7,"item_name":"Phusion polymerase (demo)","quantity":1,"link":"https://example.org/demo-neb","cas":null,"price_per_unit":285,"shipping_fees":0,"total_price":285,"notes":"For DemoCheck PCR.","funding_string":"DEMO-NIH-GM999999"}],
+    ["users/alex/purchase_items/4.json", {"id":4,"task_id":15,"item_name":"LC-MS grade acetonitrile (demo)","quantity":2,"link":"https://example.org/demo-sigma","cas":"75-05-8","price_per_unit":95,"shipping_fees":10,"total_price":200,"notes":"Demo solvent for fake-metabolite quantification.","funding_string":"DEMO-Internal-Bridge"}],
+    ["users/alex/lab_links/1.json", {"id":1,"title":"Benchling (demo workspace)","url":"https://example.org/demo-benchling","description":"Cloning notebook for the demo lab.","category":"Bioinformatics tools","color":"#3b82f6","preview_image_url":null,"sort_order":0,"created_at":"2026-02-01T00:00:00Z"}],
+    ["users/alex/lab_links/2.json", {"id":2,"title":"SnapGene","url":"https://example.org/demo-snapgene","description":"Plasmid map viewer.","category":"Bioinformatics tools","color":"#3b82f6","preview_image_url":null,"sort_order":1,"created_at":"2026-02-01T00:00:00Z"}],
+    ["users/alex/lab_links/3.json", {"id":3,"title":"AddGene (demo)","url":"https://example.org/demo-addgene","description":"Plasmid repository — demo links only.","category":"Bioinformatics tools","color":"#3b82f6","preview_image_url":null,"sort_order":2,"created_at":"2026-02-01T00:00:00Z"}],
+    ["users/alex/lab_links/4.json", {"id":4,"title":"IDT ordering portal (demo)","url":"https://example.org/demo-idt-order","description":null,"category":"Ordering portals","color":"#10b981","preview_image_url":null,"sort_order":0,"created_at":"2026-02-01T00:00:00Z"}],
+    ["users/alex/lab_links/5.json", {"id":5,"title":"Sigma-Aldrich (demo)","url":"https://example.org/demo-sigma","description":"Reagents.","category":"Ordering portals","color":"#10b981","preview_image_url":null,"sort_order":1,"created_at":"2026-02-01T00:00:00Z"}],
+    ["users/alex/lab_links/6.json", {"id":6,"title":"Nature Biotechnology","url":"https://example.org/demo-natbiotech","description":"Target journal for the FakeYeast biofuel paper.","category":"Journals","color":"#f59e0b","preview_image_url":null,"sort_order":0,"created_at":"2026-02-01T00:00:00Z"}],
+    ["users/alex/notes/1.json", {"id":1,"title":"Run 2026-05-08: pYES-GAL1::flbA transformation","description":"Demo experiment note. Transformed FakeYeast-001 with pYES-GAL1::flbA using the LiAc protocol. Heat shock ran short (38 min, see deviation_log). Plated on SD-Ura. 40 colonies after 48 h — eight patched for downstream work.","is_running_log":false,"is_shared":false,"entries":[],"comments":[],"created_at":"2026-05-08T14:00:00Z","updated_at":"2026-05-11T09:00:00Z","username":"alex"}],
+    ["users/alex/notes/2.json", {"id":2,"title":"Lab observations (running log)","description":"Demo running log. Tracking weekly bench notes.\n\n2026-05-13: PCR screen of 16 transformants today. Expect ~50% positive based on the patch results. Will update the gel image once it's run.\n\n2026-05-10: Patched plates look clean — no contamination.","is_running_log":true,"is_shared":false,"entries":[],"comments":[],"created_at":"2026-05-01T00:00:00Z","updated_at":"2026-05-13T09:00:00Z","username":"alex"}],
+    ["users/alex/dependencies/1.json", {"id":1,"parent_id":1,"child_id":2,"dep_type":"FS"}],
+    ["users/alex/dependencies/2.json", {"id":2,"parent_id":2,"child_id":3,"dep_type":"FS"}],
+    ["users/alex/dependencies/3.json", {"id":3,"parent_id":3,"child_id":4,"dep_type":"FS"}],
+    ["users/alex/dependencies/4.json", {"id":4,"parent_id":4,"child_id":5,"dep_type":"FS"}],
+    ["users/alex/dependencies/5.json", {"id":5,"parent_id":5,"child_id":6,"dep_type":"FS"}],
+    ["users/alex/dependencies/6.json", {"id":6,"parent_id":7,"child_id":2,"dep_type":"FS"}],
+    ["users/alex/dependencies/7.json", {"id":7,"parent_id":8,"child_id":9,"dep_type":"FS"}],
+    ["users/morgan/_counters.json", {"projects":2,"tasks":5,"methods":2,"events":0,"goals":0,"pcr_protocols":0,"purchase_items":2,"lab_links":4,"notes":1,"dependencies":2}],
+    ["users/morgan/settings.json", {"animationType":"celebration","defaultGanttViewMode":"1-month","defaultCalendarViewMode":"week","showSharedByDefault":true,"visibleTabs":["/experiments","/gantt","/methods","/purchases","/results","/calendar","/links"],"defaultLandingTab":"/","sidebarShowTasks":true,"sidebarShowCalendarEvents":true,"sidebarEventsHorizonDays":7,"coloredHeader":false}],
+    ["users/morgan/projects/1.json", {"id":1,"name":"DEMO: 96-well fluorescence screen","weekend_active":false,"tags":["demo","screening"],"color":"#10b981","created_at":"2026-02-01T00:00:00Z","sort_order":0,"is_archived":false,"archived_at":null,"owner":"morgan","shared_with":[]}],
+    ["users/morgan/projects/2.json", {"id":2,"name":"DEMO: Morgan dissertation milestones","weekend_active":false,"tags":["demo","thesis"],"color":"#06b6d4","created_at":"2026-02-01T00:00:00Z","sort_order":1,"is_archived":false,"archived_at":null,"owner":"morgan","shared_with":[]}],
+    ["users/morgan/tasks/1.json", {"id":1,"project_id":1,"name":"Plate FY-Δgal80 transformants on 96-well","start_date":"2026-05-13","duration_days":1,"end_date":"2026-05-13","is_high_level":false,"is_complete":false,"task_type":"experiment","weekend_override":null,"method_id":null,"method_ids":[],"deviation_log":null,"tags":null,"sort_order":1,"experiment_color":"#10b981","sub_tasks":null,"pcr_gradient":null,"pcr_ingredients":null,"method_attachments":[{"method_id":1,"owner":"morgan","snapshot_at":"2026-05-13T08:00:00Z"}],"owner":"morgan","shared_with":[]}],
+    ["users/morgan/tasks/2.json", {"id":2,"project_id":1,"name":"Run fluorescence reader scan","start_date":"2026-05-14","duration_days":1,"end_date":"2026-05-14","is_high_level":false,"is_complete":false,"task_type":"experiment","weekend_override":null,"method_id":null,"method_ids":[],"deviation_log":null,"tags":null,"sort_order":2,"experiment_color":"#10b981","sub_tasks":null,"pcr_gradient":null,"pcr_ingredients":null,"method_attachments":[],"owner":"morgan","shared_with":[]}],
+    ["users/morgan/tasks/3.json", {"id":3,"project_id":1,"name":"qPCR setup — verify GFP transcripts","start_date":"2026-05-16","duration_days":1,"end_date":"2026-05-16","is_high_level":false,"is_complete":false,"task_type":"experiment","weekend_override":null,"method_id":null,"method_ids":[],"deviation_log":null,"tags":null,"sort_order":3,"experiment_color":"#10b981","sub_tasks":null,"pcr_gradient":null,"pcr_ingredients":null,"method_attachments":[{"method_id":2,"owner":"morgan","snapshot_at":"2026-05-13T08:00:00Z"}],"owner":"morgan","shared_with":[]}],
+    ["users/morgan/tasks/4.json", {"id":4,"project_id":2,"name":"Draft Chapter 2 outline","start_date":"2026-05-20","duration_days":3,"end_date":"2026-05-22","is_high_level":false,"is_complete":false,"task_type":"list","weekend_override":null,"method_id":null,"method_ids":[],"deviation_log":null,"tags":null,"sort_order":4,"experiment_color":null,"sub_tasks":null,"pcr_gradient":null,"pcr_ingredients":null,"method_attachments":[],"owner":"morgan","shared_with":[]}],
+    ["users/morgan/tasks/5.json", {"id":5,"project_id":2,"name":"Send draft figures to alex","start_date":"2026-05-14","duration_days":1,"end_date":"2026-05-14","is_high_level":false,"is_complete":false,"task_type":"list","weekend_override":null,"method_id":null,"method_ids":[],"deviation_log":null,"tags":null,"sort_order":5,"experiment_color":null,"sub_tasks":null,"pcr_gradient":null,"pcr_ingredients":null,"method_attachments":[],"owner":"morgan","shared_with":[]}],
+    ["users/morgan/methods/1.json", {"id":1,"name":"[Demo protocol] Fluorescence screen (96-well)","source_path":null,"method_type":"markdown","folder_path":"Screening","parent_method_id":null,"tags":["demo"],"attachments":[{"id":"att-1","name":"Protocol","attachment_type":"markdown","path":"users/morgan/methods/1.md","order":0}],"is_public":false,"created_by":"morgan","owner":"morgan","shared_with":[]}],
+    ["users/morgan/methods/2.json", {"id":2,"name":"[Demo protocol] qPCR setup","source_path":null,"method_type":"markdown","folder_path":"qPCR","parent_method_id":null,"tags":["demo"],"attachments":[{"id":"att-1","name":"Protocol","attachment_type":"markdown","path":"users/morgan/methods/2.md","order":0}],"is_public":false,"created_by":"morgan","owner":"morgan","shared_with":[]}],
+    ["users/morgan/purchase_items/1.json", {"id":1,"task_id":1,"item_name":"96-well black-walled plates (demo)","quantity":2,"link":"https://example.org/demo-platesupply","cas":null,"price_per_unit":48,"shipping_fees":8,"total_price":104,"notes":null,"funding_string":"DEMO-Internal-Bridge"}],
+    ["users/morgan/purchase_items/2.json", {"id":2,"task_id":2,"item_name":"GFP recombinant standard (demo)","quantity":1,"link":"https://example.org/demo-gfp-std","cas":null,"price_per_unit":175,"shipping_fees":0,"total_price":175,"notes":"For absolute quantification.","funding_string":"DEMO-DOE-EERE"}],
+    ["users/morgan/lab_links/1.json", {"id":1,"title":"Demo plate-reader software docs","url":"https://example.org/demo-reader-docs","description":"Manual for the demo BioTek H1.","category":"Bioinformatics tools","color":"#10b981","preview_image_url":null,"sort_order":0,"created_at":"2026-02-01T00:00:00Z"}],
+    ["users/morgan/lab_links/2.json", {"id":2,"title":"ACS Synthetic Biology","url":"https://example.org/demo-acssb","description":"Methods journal.","category":"Journals","color":"#f59e0b","preview_image_url":null,"sort_order":0,"created_at":"2026-02-01T00:00:00Z"}],
+    ["users/morgan/lab_links/3.json", {"id":3,"title":"Demo lab GitHub fake repo","url":"https://example.org/demo-github","description":"Analysis scripts for the screen.","category":"Bioinformatics tools","color":"#10b981","preview_image_url":null,"sort_order":1,"created_at":"2026-02-01T00:00:00Z"}],
+    ["users/morgan/lab_links/4.json", {"id":4,"title":"Sigma-Aldrich (demo)","url":"https://example.org/demo-sigma","description":null,"category":"Ordering portals","color":"#10b981","preview_image_url":null,"sort_order":2,"created_at":"2026-02-01T00:00:00Z"}],
+    ["users/morgan/notes/1.json", {"id":1,"title":"96-well plate layout notes","description":"Demo note. Column 1 = WT negative, column 12 = pDEMO-fluo+ positive. Columns 2–11 are candidate FY-Δgal80 transformants from alex's library.","is_running_log":false,"is_shared":false,"entries":[],"comments":[],"created_at":"2026-05-12T00:00:00Z","updated_at":"2026-05-13T08:00:00Z","username":"morgan"}],
+    ["users/morgan/dependencies/1.json", {"id":1,"parent_id":1,"child_id":2,"dep_type":"FS"}],
+    ["users/morgan/dependencies/2.json", {"id":2,"parent_id":2,"child_id":3,"dep_type":"FS"}],
+  ];
 }

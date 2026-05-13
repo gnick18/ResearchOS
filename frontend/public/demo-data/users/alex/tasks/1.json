@@ -1,0 +1,40 @@
+{
+  "id": 1,
+  "project_id": 1,
+  "name": "Design pYES-GAL1::flbA construct",
+  "start_date": "2026-05-06",
+  "duration_days": 1,
+  "end_date": "2026-05-06",
+  "is_high_level": false,
+  "is_complete": true,
+  "task_type": "list",
+  "weekend_override": null,
+  "method_id": null,
+  "method_ids": [],
+  "deviation_log": null,
+  "tags": null,
+  "sort_order": 1,
+  "experiment_color": null,
+  "sub_tasks": [
+    {
+      "id": "st1",
+      "text": "Pull flbA CDS from FakeYeast genome",
+      "is_complete": true
+    },
+    {
+      "id": "st2",
+      "text": "Design Gibson overlaps for pYES2",
+      "is_complete": true
+    },
+    {
+      "id": "st3",
+      "text": "Order gBlocks",
+      "is_complete": true
+    }
+  ],
+  "pcr_gradient": null,
+  "pcr_ingredients": null,
+  "method_attachments": [],
+  "owner": "alex",
+  "shared_with": []
+}
