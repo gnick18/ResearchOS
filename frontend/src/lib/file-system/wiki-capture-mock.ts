@@ -21,6 +21,26 @@ import { fileService } from "./file-service";
 import { storeCurrentUser, storeMainUser, storeDirectoryHandle } from "./indexeddb-store";
 import { buildWikiFixtures } from "./wiki-capture-fixture";
 
+/** Watermarked fake PNGs that ship inside `frontend/public/demo-data/`.
+ *  At fixture install time we fetch each one and seed it into the mock's
+ *  blob map keyed by the same relative path the app reads with
+ *  (`fileService.readFileAsBlob("users/.../Images/foo.png")`). Without this
+ *  step, fixture-mode screenshots of the Results gallery, the experiment
+ *  image strip, and the Telegram inbox come out empty even though the
+ *  Demo Lab puts real watermarked images on disk. */
+const DEMO_PNG_PATHS = [
+  "users/alex/inbox/Images/photo-2026-05-12.png",
+  "users/alex/results/task-2/Images/transformation-plate.png",
+  "users/alex/results/task-3/Images/patch-plate.png",
+  "users/alex/results/task-4/Images/gel-gdna-quality.png",
+  "users/alex/results/task-5/Images/gel-pcr-screen.png",
+  "users/alex/results/task-10/Images/growth-curve-YPD.png",
+  "users/alex/results/task-11/Images/heatshock-survival.png",
+  "users/morgan/results/task-1/Images/plate-96-fluo.png",
+  "users/morgan/results/task-2/Images/fluo-scan-results.png",
+  "users/morgan/results/task-3/Images/gel-qpcr-products.png",
+];
+
 /** Capture-mode variants. The default `"signed-in"` corresponds to
  *  `?wikiCapture=1` (the most common case) and gives you a fully signed-in
  *  session as user `alex` (the demo lab's PI). The `"picker"` variant
@@ -125,14 +145,19 @@ export async function installWikiCaptureFixture(
 
   svc.listFiles = async (dirPath: string): Promise<string[]> => {
     const prefix = normalizePath(dirPath);
-    const out: string[] = [];
+    const out = new Set<string>();
     const target = prefix ? prefix + "/" : "";
-    for (const key of files.keys()) {
-      if (!key.startsWith(target)) continue;
+    const collect = (key: string) => {
+      if (!key.startsWith(target)) return;
       const rest = key.slice(target.length);
-      if (!rest.includes("/")) out.push(rest);
-    }
-    return out.sort();
+      if (!rest.includes("/")) out.add(rest);
+    };
+    for (const key of files.keys()) collect(key);
+    // Seeded PNG blobs are real files too (Results gallery and image strip
+    // call this to count attachments). Without this loop, the Results page
+    // shows "No results yet" for tasks whose only attachments are blobs.
+    for (const key of blobs.keys()) collect(key);
+    return Array.from(out).sort();
   };
 
   svc.listDirectories = async (dirPath: string): Promise<string[]> => {
@@ -146,13 +171,15 @@ export async function installWikiCaptureFixture(
       const head = rest.split("/")[0];
       if (head) out.add(head);
     }
-    // Also include directory-shaped paths derived from files.
-    for (const key of files.keys()) {
-      if (!key.startsWith(target)) continue;
+    // Also include directory-shaped paths derived from files and blobs.
+    const collectFromKey = (key: string) => {
+      if (!key.startsWith(target)) return;
       const rest = key.slice(target.length);
       const parts = rest.split("/");
       if (parts.length > 1) out.add(parts[0]);
-    }
+    };
+    for (const key of files.keys()) collectFromKey(key);
+    for (const key of blobs.keys()) collectFromKey(key);
     return Array.from(out).sort();
   };
 
@@ -187,7 +214,31 @@ export async function installWikiCaptureFixture(
     console.warn("[wiki-capture-mock] IndexedDB seed failed:", err);
   }
 
-  console.log(`[wiki-capture-mock] Installed. Seeded ${files.size} files across ${dirs.size} dirs.`);
+  // Fetch the demo-lab PNGs from `public/demo-data/` and seed them into
+  // the blob map so `readFileAsBlob` resolves. Best-effort: failures are
+  // logged and individual missing PNGs just leave that path unresolved
+  // (renders as a broken-image placeholder, same as a real folder with
+  // a missing file).
+  await Promise.all(
+    DEMO_PNG_PATHS.map(async (relPath) => {
+      try {
+        const res = await fetch(`/demo-data/${relPath}`);
+        if (!res.ok) {
+          console.warn(`[wiki-capture-mock] PNG fetch ${res.status}: ${relPath}`);
+          return;
+        }
+        const blob = await res.blob();
+        blobs.set(normalizePath(relPath), blob);
+        addParentDirs(normalizePath(relPath), dirs);
+      } catch (err) {
+        console.warn(`[wiki-capture-mock] PNG fetch failed for ${relPath}:`, err);
+      }
+    }),
+  );
+
+  console.log(
+    `[wiki-capture-mock] Installed. Seeded ${files.size} files, ${blobs.size} blobs, ${dirs.size} dirs.`,
+  );
 }
 
 function normalizePath(p: string): string {

@@ -15,19 +15,14 @@ export async function validateResearchFolder(handle: FileSystemDirectoryHandle):
 export async function discoverUsers(): Promise<string[]> {
   if (!fileService.isConnected()) return [];
 
-  const users: string[] = [];
-
+  // Route through `fileService.listDirectories` rather than the raw FSA
+  // iterator so the wiki-capture mock (which patches the file service but
+  // can't expose an FSA-shaped `values()` on its fake handle) sees the
+  // seeded user directories. Real folders go through the same path with
+  // no behavior change.
   try {
-    const usersDir = await fileService.getDirectory("users");
-    if (!usersDir) return [];
-
-    for await (const entry of (usersDir as unknown as { values: () => AsyncIterable<FileSystemHandle> }).values()) {
-      if (entry.kind === "directory" && !SKIP_DIRECTORIES.has(entry.name)) {
-        users.push(entry.name);
-      }
-    }
-
-    return users.sort();
+    const all = await fileService.listDirectories("users");
+    return all.filter((name) => !SKIP_DIRECTORIES.has(name)).sort();
   } catch (err) {
     console.error("discoverUsers error:", err);
     return [];
