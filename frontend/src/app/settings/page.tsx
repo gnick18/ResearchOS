@@ -115,6 +115,8 @@ function SettingsBody() {
           showShared: saved.showSharedByDefault,
           visibleTabs: saved.visibleTabs,
           defaultLandingTab: saved.defaultLandingTab,
+          sidebarShowTasks: saved.sidebarShowTasks,
+          sidebarShowCalendarEvents: saved.sidebarShowCalendarEvents,
         });
         setRecentlySaved(true);
         // Auto-dismiss the "Saved" pill after 1.5s. Set in the handler (not
@@ -168,6 +170,7 @@ function SettingsBody() {
             half-typed display-name draft to user B. */}
         <ProfileSection key={`profile-${currentUser}`} settings={settings} update={update} />
         <TabsSection settings={settings} update={update} />
+        <SidebarSection settings={settings} update={update} />
         <DefaultsSection settings={settings} update={update} />
         <AnimationSection settings={settings} update={update} />
         <BehaviorSection settings={settings} update={update} />
@@ -346,6 +349,50 @@ function TabsSection({ settings, update }: SectionProps) {
           Where ResearchOS opens to when you load the app.
         </p>
       </div>
+    </SectionShell>
+  );
+}
+
+function SidebarSection({ settings, update }: SectionProps) {
+  const bothOff = !settings.sidebarShowTasks && !settings.sidebarShowCalendarEvents;
+  return (
+    <SectionShell
+      title="Sidebar"
+      description="The left sidebar shown on every page except Calendar (which has its own). Pick what to show — tasks for today, today's calendar events, or both stacked."
+    >
+      <div className="space-y-2">
+        <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={settings.sidebarShowTasks}
+            onChange={(e) => void update({ sidebarShowTasks: e.target.checked })}
+            className="accent-blue-600"
+          />
+          <span className="text-sm text-gray-800">Tasks</span>
+          <span className="ml-auto text-[10px] text-gray-400">
+            today + overdue + upcoming
+          </span>
+        </label>
+        <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={settings.sidebarShowCalendarEvents}
+            onChange={(e) =>
+              void update({ sidebarShowCalendarEvents: e.target.checked })
+            }
+            className="accent-blue-600"
+          />
+          <span className="text-sm text-gray-800">Calendar events</span>
+          <span className="ml-auto text-[10px] text-gray-400">
+            today + next 7 days
+          </span>
+        </label>
+      </div>
+      {bothOff && (
+        <p className="text-xs text-amber-600 mt-1">
+          Both off — the sidebar will be empty on non-calendar pages.
+        </p>
+      )}
     </SectionShell>
   );
 }

@@ -25,6 +25,8 @@ export interface SettingsHydration {
   showShared: boolean;
   visibleTabs: string[];
   defaultLandingTab: string;
+  sidebarShowTasks: boolean;
+  sidebarShowCalendarEvents: boolean;
 }
 
 interface ConnectionState {
@@ -98,6 +100,12 @@ interface AppState extends ConnectionState {
 
   defaultLandingTab: string;
   setDefaultLandingTab: (href: string) => void;
+
+  sidebarShowTasks: boolean;
+  setSidebarShowTasks: (v: boolean) => void;
+
+  sidebarShowCalendarEvents: boolean;
+  setSidebarShowCalendarEvents: (v: boolean) => void;
 
   hydrateFromSettings: (s: SettingsHydration) => void;
   resetSettingsToDefaults: () => void;
@@ -214,6 +222,12 @@ export const useAppStore = create<AppState>()((set) => ({
   defaultLandingTab: "/",
   setDefaultLandingTab: (href) => set({ defaultLandingTab: href }),
 
+  sidebarShowTasks: true,
+  setSidebarShowTasks: (v) => set({ sidebarShowTasks: v }),
+
+  sidebarShowCalendarEvents: false,
+  setSidebarShowCalendarEvents: (v) => set({ sidebarShowCalendarEvents: v }),
+
   hydrateFromSettings: (s) =>
     set({
       animationType: s.animationType,
@@ -222,6 +236,8 @@ export const useAppStore = create<AppState>()((set) => ({
       showShared: s.showShared,
       visibleTabs: s.visibleTabs,
       defaultLandingTab: s.defaultLandingTab,
+      sidebarShowTasks: s.sidebarShowTasks,
+      sidebarShowCalendarEvents: s.sidebarShowCalendarEvents,
     }),
 
   resetSettingsToDefaults: () =>
@@ -232,6 +248,8 @@ export const useAppStore = create<AppState>()((set) => ({
       showShared: true,
       visibleTabs: DEFAULT_VISIBLE_TABS,
       defaultLandingTab: "/",
+      sidebarShowTasks: true,
+      sidebarShowCalendarEvents: false,
     }),
 
   ganttLoading: false,
