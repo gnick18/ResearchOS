@@ -54,6 +54,7 @@ import DynamicAnimation from "./DynamicAnimation";
 import MethodTabs from "./MethodTabs";
 import TaskPicker from "./TaskPicker";
 import SharePopup from "./SharePopup";
+import Tooltip from "./Tooltip";
 import { useAppStore } from "@/lib/store";
 import { taskKey } from "@/lib/types";
 import type { Method, Task, Project, Dependency, ShiftResult, SubTask } from "@/lib/types";
@@ -199,6 +200,7 @@ export default function TaskDetailPopup({
                 <span className="text-xs text-gray-400 italic flex-shrink-0">Mark as complete →</span>
               )}
               {!readOnly && (
+                <Tooltip label={task.is_complete ? "Mark as incomplete" : "Mark as complete"} placement="bottom">
                 <button
                   onClick={async () => {
                     try {
@@ -212,22 +214,22 @@ export default function TaskDetailPopup({
                     }
                   }}
                   className={`p-1.5 rounded-full transition-all flex-shrink-0 ${
-                    task.is_complete 
-                      ? "bg-green-500 text-white hover:bg-green-600" 
+                    task.is_complete
+                      ? "bg-green-500 text-white hover:bg-green-600"
                       : "text-gray-300 hover:text-green-500 hover:bg-green-50"
                   }`}
-                  title={task.is_complete ? "Mark as incomplete" : "Mark as complete"}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M20 6L9 17l-5-5"/>
                   </svg>
                 </button>
+                </Tooltip>
               )}
               {/* Show static status indicator in readOnly mode */}
               {readOnly && (
                 <span className={`p-1.5 rounded-full flex-shrink-0 ${
-                  task.is_complete 
-                    ? "bg-green-500 text-white" 
+                  task.is_complete
+                    ? "bg-green-500 text-white"
                     : "text-gray-300"
                 }`}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -243,6 +245,7 @@ export default function TaskDetailPopup({
             <div className="flex items-center gap-1">
               {/* Delete button - hidden in readOnly mode, greyed out for shared receivers */}
               {!readOnly && (
+                <Tooltip label={task.is_shared_with_me ? `Only the owner (${task.owner}) can delete this task` : "Delete task"} placement="bottom">
                 <button
                   disabled={task.is_shared_with_me}
                   onClick={async () => {
@@ -261,31 +264,33 @@ export default function TaskDetailPopup({
                     }
                   }}
                   className={`p-1.5 ${task.is_shared_with_me ? "text-gray-300 cursor-not-allowed" : "text-gray-400 hover:text-red-500"}`}
-                  title={task.is_shared_with_me ? `Only the owner (${task.owner}) can delete this task` : "Delete task"}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                   </svg>
                 </button>
+                </Tooltip>
               )}
+              <Tooltip label="Expand to full view" placement="bottom">
               <button
                 onClick={() => setIsExpanded(true)}
                 className="text-gray-400 hover:text-gray-600 p-1.5"
-                title="Expand to full view"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
                 </svg>
               </button>
+              </Tooltip>
+              <Tooltip label="Close" placement="bottom">
               <button
                 onClick={onClose}
                 className="text-gray-400 hover:text-gray-600 p-1.5"
-                title="Close"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M18 6L6 18M6 6l12 12"/>
                 </svg>
               </button>
+              </Tooltip>
             </div>
           </div>
 
@@ -344,6 +349,7 @@ export default function TaskDetailPopup({
               <span className="text-xs text-gray-400 italic">Mark as complete →</span>
             )}
             {!readOnly && (
+              <Tooltip label={task.is_complete ? "Mark as incomplete" : "Mark as complete"} placement="bottom">
               <button
                 onClick={async () => {
                   try {
@@ -357,22 +363,22 @@ export default function TaskDetailPopup({
                   }
                 }}
                 className={`p-1.5 rounded-full transition-all ${
-                  task.is_complete 
-                    ? "bg-green-500 text-white hover:bg-green-600" 
+                  task.is_complete
+                    ? "bg-green-500 text-white hover:bg-green-600"
                     : "text-gray-300 hover:text-green-500 hover:bg-green-50"
                 }`}
-                title={task.is_complete ? "Mark as incomplete" : "Mark as complete"}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20 6L9 17l-5-5"/>
                 </svg>
               </button>
+              </Tooltip>
             )}
             {/* Show static status indicator in readOnly mode */}
             {readOnly && (
               <span className={`p-1.5 rounded-full ${
-                task.is_complete 
-                  ? "bg-green-500 text-white" 
+                task.is_complete
+                  ? "bg-green-500 text-white"
                   : "text-gray-300"
               }`}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -385,10 +391,10 @@ export default function TaskDetailPopup({
             )}
             {/* Share button - hidden in readOnly mode */}
             {!readOnly && (
+              <Tooltip label="Share task" placement="bottom">
               <button
                 onClick={() => setShowSharePopup(true)}
                 className="text-gray-400 hover:text-gray-600 p-1"
-                title="Share task"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="18" cy="5" r="3"/>
@@ -398,11 +404,12 @@ export default function TaskDetailPopup({
                   <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
                 </svg>
               </button>
+              </Tooltip>
             )}
+            <Tooltip label={isExpanded ? "Exit fullscreen" : "Fullscreen"} placement="bottom">
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className="text-gray-400 hover:text-gray-600 p-1"
-              title={isExpanded ? "Exit fullscreen" : "Fullscreen"}
             >
               {isExpanded ? (
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -414,8 +421,10 @@ export default function TaskDetailPopup({
                 </svg>
               )}
             </button>
+            </Tooltip>
             {/* Delete button - hidden in readOnly mode, greyed out for shared receivers */}
             {!readOnly && (
+              <Tooltip label={task.is_shared_with_me ? `Only the owner (${task.owner}) can delete this task` : "Delete task"} placement="bottom">
               <button
                 disabled={task.is_shared_with_me}
                 onClick={async () => {
@@ -434,20 +443,21 @@ export default function TaskDetailPopup({
                   }
                 }}
                 className={`p-1 ${task.is_shared_with_me ? "text-gray-300 cursor-not-allowed" : "text-gray-400 hover:text-red-500"}`}
-                title={task.is_shared_with_me ? `Only the owner (${task.owner}) can delete this task` : "Delete task"}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                 </svg>
               </button>
+              </Tooltip>
             )}
+            <Tooltip label="Close" placement="bottom">
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 text-lg"
-              title="Close"
             >
               ✕
             </button>
+            </Tooltip>
           </div>
         </div>
 
@@ -2941,11 +2951,11 @@ function TaskExportButton({ task }: { task: Task }) {
 
   return (
     <div className="relative" ref={dropdownRef}>
+      <Tooltip label="Export experiment" placement="bottom">
       <button
         onClick={() => setShowDropdown(!showDropdown)}
         disabled={exporting}
         className="text-gray-400 hover:text-gray-600 p-1 disabled:opacity-50"
-        title="Export experiment"
       >
         {exporting ? (
           <svg className="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -2960,6 +2970,7 @@ function TaskExportButton({ task }: { task: Task }) {
           </svg>
         )}
       </button>
+      </Tooltip>
 
       {showDropdown && (
         <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 min-w-[140px]">

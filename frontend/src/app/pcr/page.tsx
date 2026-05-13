@@ -6,6 +6,7 @@ import AppShell from "@/components/AppShell";
 import { pcrApi } from "@/lib/local-api";
 import type { PCRProtocol, PCRGradient, PCRStep, PCRIngredient } from "@/lib/types";
 import { InteractiveGradientEditor, getTemperatureColor } from "@/components/InteractiveGradientEditor";
+import Tooltip from "@/components/Tooltip";
 import { repairAllPCRProtocols } from "@/lib/repair/pcr-protocols";
 
 // Default gradient for new protocols
@@ -505,13 +506,14 @@ function RecipeTable({
               </td>
               {editable && ing.name !== "Total" && (
                 <td className="px-3 py-2">
-                  <button
-                    onClick={() => removeRow(ing.id)}
-                    className="text-gray-400 hover:text-red-500"
-                    title="Remove ingredient"
-                  >
-                    x
-                  </button>
+                  <Tooltip label="Remove ingredient" placement="left">
+                    <button
+                      onClick={() => removeRow(ing.id)}
+                      className="text-gray-400 hover:text-red-500"
+                    >
+                      x
+                    </button>
+                  </Tooltip>
                 </td>
               )}
             </tr>
@@ -568,9 +570,11 @@ function CreatePCRModal({
       <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h3 className="text-base font-semibold text-gray-900">New PCR Protocol</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg" title="Close">
-            x
-          </button>
+          <Tooltip label="Close" placement="bottom">
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">
+              x
+            </button>
+          </Tooltip>
         </div>
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           <div>
@@ -711,9 +715,11 @@ function ViewPCRModal({
                 </button>
               </>
             )}
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg ml-2" title="Close">
-              x
-            </button>
+            <Tooltip label="Close" placement="bottom">
+              <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg ml-2">
+                x
+              </button>
+            </Tooltip>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-6 space-y-6">

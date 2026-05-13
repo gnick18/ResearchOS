@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { sharingApi } from "@/lib/local-api";
 import { useCalendarNavStore } from "@/lib/calendar/calendar-nav-store";
+import Tooltip from "./Tooltip";
 import type { Notification } from "@/lib/types";
 
 interface NotificationPopupProps {
@@ -299,31 +300,33 @@ export default function NotificationPopup({
                     </div>
                     <div className="flex flex-col items-end gap-1 flex-shrink-0">
                       {!notification.read && (
+                        <Tooltip label="Mark as read" placement="left">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleMarkRead(notification.id);
+                            }}
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </button>
+                        </Tooltip>
+                      )}
+                      <Tooltip label="Dismiss" placement="left">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleMarkRead(notification.id);
+                            handleDismiss(notification.id);
                           }}
-                          className="text-blue-600 hover:text-blue-800"
-                          title="Mark as read"
+                          className="text-gray-300 hover:text-red-500 transition-colors"
                         >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                           </svg>
                         </button>
-                      )}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDismiss(notification.id);
-                        }}
-                        className="text-gray-300 hover:text-red-500 transition-colors"
-                        title="Dismiss"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
+                      </Tooltip>
                     </div>
                   </div>
                 </div>

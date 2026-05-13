@@ -11,6 +11,7 @@ import type { Method, Task, TaskMethodAttachment, PCRProtocol, PCRGradient, PCRI
 import { InteractiveGradientEditor } from "@/components/InteractiveGradientEditor";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import MethodPicker from "./MethodPicker";
+import Tooltip from "./Tooltip";
 
 interface MethodTabsProps {
   task: Task;
@@ -345,35 +346,37 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                 
                 {/* Close button - hidden in readOnly mode */}
                 {!readOnly && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRemoveMethod(attachment.method_id);
-                    }}
-                    disabled={saving}
-                    className="opacity-0 group-hover:opacity-100 hover:bg-gray-300 rounded p-0.5 transition-opacity"
-                    title="Remove method"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M18 6L6 18M6 6l12 12"/>
-                    </svg>
-                  </button>
+                  <Tooltip label="Remove method" placement="bottom">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveMethod(attachment.method_id);
+                      }}
+                      disabled={saving}
+                      className="opacity-0 group-hover:opacity-100 hover:bg-gray-300 rounded p-0.5 transition-opacity"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                      </svg>
+                    </button>
+                  </Tooltip>
                 )}
               </div>
             );
           })}
-          
+
           {/* Add method button - hidden in readOnly mode */}
           {!readOnly && (
-            <button
-              onClick={() => setShowMethodSelector(true)}
-              className="flex items-center justify-center px-3 py-2 rounded-t-lg text-sm text-gray-500 hover:bg-gray-200 transition-colors"
-              title="Add method"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 5v14M5 12h14"/>
-              </svg>
-            </button>
+            <Tooltip label="Add method" placement="bottom">
+              <button
+                onClick={() => setShowMethodSelector(true)}
+                className="flex items-center justify-center px-3 py-2 rounded-t-lg text-sm text-gray-500 hover:bg-gray-200 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 5v14M5 12h14"/>
+                </svg>
+              </button>
+            </Tooltip>
           )}
         </div>
       </div>
@@ -790,14 +793,14 @@ function VariationNotesPanel({ taskId, methodId, variationNotes, onSaved, readOn
                         className="group relative bg-white rounded-lg p-4 pr-9 border border-amber-200"
                       >
                         {canDelete && (
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteEntry(idx)}
-                            disabled={saving}
-                            className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity disabled:opacity-50"
-                            title="Delete this variation"
-                            aria-label="Delete this variation"
-                          >
+                          <Tooltip label="Delete this variation" placement="left">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteEntry(idx)}
+                              disabled={saving}
+                              className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity disabled:opacity-50"
+                              aria-label="Delete this variation"
+                            >
                             <svg
                               width="14"
                               height="14"
@@ -811,7 +814,8 @@ function VariationNotesPanel({ taskId, methodId, variationNotes, onSaved, readOn
                               <polyline points="3 6 5 6 21 6" />
                               <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                             </svg>
-                          </button>
+                            </button>
+                          </Tooltip>
                         )}
                         <div className="prose prose-sm prose-amber max-w-none">
                           <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
@@ -949,21 +953,22 @@ function PCRRecipeTable({
             >
               <td className="px-2 py-2 text-center">
                 {ing.name !== "Total" && (
-                  <button
-                    onClick={() => toggleChecked(ing.id)}
-                    className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
-                      ing.checked 
-                        ? "bg-green-500 border-green-500 text-white" 
-                        : "border-gray-300 hover:border-green-400 hover:bg-green-50"
-                    }`}
-                    title={ing.checked ? "Mark as not added" : "Mark as added"}
-                  >
-                    {ing.checked && (
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </button>
+                  <Tooltip label={ing.checked ? "Mark as not added" : "Mark as added"} placement="bottom">
+                    <button
+                      onClick={() => toggleChecked(ing.id)}
+                      className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                        ing.checked
+                          ? "bg-green-500 border-green-500 text-white"
+                          : "border-gray-300 hover:border-green-400 hover:bg-green-50"
+                      }`}
+                    >
+                      {ing.checked && (
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  </Tooltip>
                 )}
               </td>
               <td className="px-3 py-2">
@@ -1006,13 +1011,14 @@ function PCRRecipeTable({
               </td>
               {editable && ing.name !== "Total" && (
                 <td className="px-3 py-2">
-                  <button
-                    onClick={() => removeRow(ing.id)}
-                    className="text-gray-400 hover:text-red-500"
-                    title="Remove ingredient"
-                  >
-                    x
-                  </button>
+                  <Tooltip label="Remove ingredient" placement="left">
+                    <button
+                      onClick={() => removeRow(ing.id)}
+                      className="text-gray-400 hover:text-red-500"
+                    >
+                      x
+                    </button>
+                  </Tooltip>
                 </td>
               )}
             </tr>

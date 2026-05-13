@@ -7,6 +7,7 @@ import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
 import CalendarFeedsButton from "@/components/CalendarFeedsButton";
 import DayDetailDrawer from "@/components/DayDetailDrawer";
+import Tooltip from "@/components/Tooltip";
 import MonthView from "@/components/calendar/MonthView";
 import WeekView from "@/components/calendar/WeekView";
 import DayView from "@/components/calendar/DayView";
@@ -185,27 +186,29 @@ export default function CalendarPage() {
         {/* Navigation + view switcher */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => stepDate(-1)}
-              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
-              title={`Previous ${view}`}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15 18l-6-6 6-6" />
-              </svg>
-            </button>
+            <Tooltip label={`Previous ${view}`} placement="bottom">
+              <button
+                onClick={() => stepDate(-1)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+              </button>
+            </Tooltip>
             <h3 className="text-lg font-semibold text-gray-900 min-w-[180px]">
               {headingLabel}
             </h3>
-            <button
-              onClick={() => stepDate(1)}
-              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
-              title={`Next ${view}`}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 18l6-6-6-6" />
-              </svg>
-            </button>
+            <Tooltip label={`Next ${view}`} placement="bottom">
+              <button
+                onClick={() => stepDate(1)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+              </button>
+            </Tooltip>
             <button
               onClick={goToToday}
               className="ml-2 px-3 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded-lg"
@@ -430,9 +433,11 @@ function EventModal({
           <h3 className="text-base font-semibold text-gray-900">
             {isEditing ? "Edit Event" : "Event Details"}
           </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg" title="Close">
-            ✕
-          </button>
+          <Tooltip label="Close" placement="bottom">
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">
+              ✕
+            </button>
+          </Tooltip>
         </div>
         <div className="p-6">
           {isEditing ? (
@@ -678,9 +683,11 @@ function CreateEventModal({
       <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h3 className="text-base font-semibold text-gray-900">New Event</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg" title="Close">
-            ✕
-          </button>
+          <Tooltip label="Close" placement="bottom">
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">
+              ✕
+            </button>
+          </Tooltip>
         </div>
         <div className="p-6 space-y-4">
           <div>
@@ -847,13 +854,14 @@ function ExternalEventModal({
               Read-only
             </span>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-lg"
-            title="Close"
-          >
-            ✕
-          </button>
+          <Tooltip label="Close" placement="bottom">
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 text-lg"
+            >
+              ✕
+            </button>
+          </Tooltip>
         </div>
         <div className="p-6 space-y-4">
           <h4 className="text-lg font-semibold text-gray-900">{event.title}</h4>

@@ -7,6 +7,7 @@ import {
   removePassword,
   verifyPassword,
 } from "@/lib/auth/password";
+import Tooltip from "./Tooltip";
 
 interface AccountPasswordPopupProps {
   username: string;
@@ -155,14 +156,15 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
             <h3 className="text-lg font-semibold text-white">Account password</h3>
             <p className="text-xs text-slate-400 mt-0.5">for {username}</p>
           </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-white text-lg leading-none"
-            aria-label="Close"
-            title="Close"
-          >
-            ✕
-          </button>
+          <Tooltip label="Close" placement="bottom">
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-white text-lg leading-none"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </Tooltip>
         </div>
 
         {hasExisting === null ? (
@@ -324,14 +326,15 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
           >
             <div className="flex items-start justify-between mb-3">
               <h3 className="text-lg font-semibold text-white">Forgot your password?</h3>
-              <button
-                onClick={() => setShowForgot(false)}
-                className="text-slate-400 hover:text-white text-lg leading-none"
-                aria-label="Close"
-                title="Close"
-              >
-                ✕
-              </button>
+              <Tooltip label="Close" placement="bottom">
+                <button
+                  onClick={() => setShowForgot(false)}
+                  className="text-slate-400 hover:text-white text-lg leading-none"
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </Tooltip>
             </div>
             <p className="text-sm text-slate-300 mb-3 leading-relaxed">
               Since ResearchOS stores everything locally, there&apos;s no

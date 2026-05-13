@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { labApi, LabTask } from "@/lib/local-api";
 import { useLabData } from "@/hooks/useLabData";
 import UserAvatar from "@/components/UserAvatar";
+import Tooltip from "@/components/Tooltip";
 import type { Note, PurchaseItem } from "@/lib/types";
 
 interface LabUserDetailPanelProps {
@@ -181,16 +182,17 @@ export default function LabUserDetailPanel({
               {user.created_at ? `Member since ${formatDate(user.created_at)}` : "Member"}
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg text-gray-500 hover:bg-gray-100"
-            aria-label="Close"
-            title="Close"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <Tooltip label="Close" placement="bottom">
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg text-gray-500 hover:bg-gray-100"
+              aria-label="Close"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </Tooltip>
         </div>
 
         {/* Stats */}

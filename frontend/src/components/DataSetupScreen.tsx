@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import BetaDonationButton from "@/components/BetaDonationButton";
 import BugReportModal from "@/components/BugReportModal";
+import Tooltip from "@/components/Tooltip";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
 
 interface DataSetupScreenProps {
@@ -36,16 +37,17 @@ export default function DataSetupScreen({ isOpen, onClose }: DataSetupScreenProp
       <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
         <div className="flex items-center justify-between p-5 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-gray-900">Settings</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-            aria-label="Close"
-            title="Close"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <Tooltip label="Close" placement="bottom">
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+              aria-label="Close"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </Tooltip>
         </div>
 
         <div className="p-5 space-y-5">

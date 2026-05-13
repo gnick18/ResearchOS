@@ -7,6 +7,7 @@ import rehypeRaw from "rehype-raw";
 import rehypeHighlight from "rehype-highlight";
 import { filesApi } from "@/lib/local-api";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
+import Tooltip from "./Tooltip";
 
 interface MarkdownPreviewProps {
   githubPath: string | null;
@@ -88,13 +89,14 @@ export default function MarkdownPreview({
             </h3>
             <p className="text-xs text-gray-400 mt-0.5">{githubPath}</p>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-lg"
-            title="Close"
-          >
-            ✕
-          </button>
+          <Tooltip label="Close" placement="bottom">
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 text-lg"
+            >
+              ✕
+            </button>
+          </Tooltip>
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-4">

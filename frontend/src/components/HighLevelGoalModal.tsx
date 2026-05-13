@@ -6,6 +6,7 @@ import { goalsApi } from "@/lib/local-api";
 import { useAppStore } from "@/lib/store";
 import type { SmartGoal, HighLevelGoal, Project } from "@/lib/types";
 import DynamicAnimation from "./DynamicAnimation";
+import Tooltip from "./Tooltip";
 
 interface HighLevelGoalModalProps {
   projects: Project[];
@@ -328,14 +329,15 @@ export default function HighLevelGoalModal({
                       {sg.text}
                     </span>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteSmartGoal(sg.id)}
-                    className="text-gray-400 hover:text-red-500 text-xs"
-                    title="Delete sub-goal"
-                  >
-                    ✕
-                  </button>
+                  <Tooltip label="Delete sub-goal" placement="bottom">
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteSmartGoal(sg.id)}
+                      className="text-gray-400 hover:text-red-500 text-xs"
+                    >
+                      ✕
+                    </button>
+                  </Tooltip>
                 </div>
               ))}
             </div>

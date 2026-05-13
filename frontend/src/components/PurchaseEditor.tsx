@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { purchasesApi, labApi } from "@/lib/local-api";
+import Tooltip from "@/components/Tooltip";
 import type { CatalogItem, PurchaseItem, FundingAccount } from "@/lib/types";
 
 interface PurchaseEditorProps {
@@ -550,21 +551,23 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
                     />
                   </td>
                   <td className="py-2 px-1 flex items-center gap-1">
-                    <button
-                      onClick={handleSaveEdit}
-                      disabled={saving || !editingRow.item_name.trim()}
-                      className="text-green-500 hover:text-green-700 text-sm font-bold disabled:opacity-30"
-                      title="Save changes"
-                    >
-                      ✓
-                    </button>
-                    <button
-                      onClick={handleCancelEdit}
-                      className="text-gray-400 hover:text-gray-600 text-sm"
-                      title="Cancel editing"
-                    >
-                      ✕
-                    </button>
+                    <Tooltip label="Save changes" placement="bottom">
+                      <button
+                        onClick={handleSaveEdit}
+                        disabled={saving || !editingRow.item_name.trim()}
+                        className="text-green-500 hover:text-green-700 text-sm font-bold disabled:opacity-30"
+                      >
+                        ✓
+                      </button>
+                    </Tooltip>
+                    <Tooltip label="Cancel editing" placement="bottom">
+                      <button
+                        onClick={handleCancelEdit}
+                        className="text-gray-400 hover:text-gray-600 text-sm"
+                      >
+                        ✕
+                      </button>
+                    </Tooltip>
                   </td>
                 </tr>
               ) : (
@@ -611,16 +614,17 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
                   </td>
                   <td className="py-2 px-1">
                     {!readOnly && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteItem(item.id);
-                        }}
-                        className="text-red-400 hover:text-red-600 text-xs"
-                        title="Delete item"
-                      >
-                        ✕
-                      </button>
+                      <Tooltip label="Delete item" placement="left">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteItem(item.id);
+                          }}
+                          className="text-red-400 hover:text-red-600 text-xs"
+                        >
+                          ✕
+                        </button>
+                      </Tooltip>
                     )}
                   </td>
                 </tr>
@@ -745,14 +749,15 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
                   />
                 </td>
                 <td className="py-2 px-1">
-                  <button
-                    onClick={handleAddRow}
-                    disabled={saving || !newRow.item_name.trim() || !newRow.quantity}
-                    className="text-blue-500 hover:text-blue-700 text-sm font-bold disabled:opacity-30"
-                    title="Add item"
-                  >
-                    +
-                  </button>
+                  <Tooltip label="Add item" placement="left">
+                    <button
+                      onClick={handleAddRow}
+                      disabled={saving || !newRow.item_name.trim() || !newRow.quantity}
+                      className="text-blue-500 hover:text-blue-700 text-sm font-bold disabled:opacity-30"
+                    >
+                      +
+                    </button>
+                  </Tooltip>
                 </td>
               </tr>
             )}

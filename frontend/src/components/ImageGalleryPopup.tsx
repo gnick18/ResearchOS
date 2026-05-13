@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { fileService } from "@/lib/file-system/file-service";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
+import Tooltip from "./Tooltip";
 
 interface ImageGalleryPopupProps {
   isOpen: boolean;
@@ -157,9 +158,11 @@ export default function ImageGalleryPopup({
               {experimentName} · {experimentDate}
             </p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg" title="Close">
-            ✕
-          </button>
+          <Tooltip label="Close" placement="bottom">
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">
+              ✕
+            </button>
+          </Tooltip>
         </div>
 
         <div className="flex flex-1 min-h-0 overflow-hidden">

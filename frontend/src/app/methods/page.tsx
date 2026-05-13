@@ -12,6 +12,7 @@ import { InteractiveGradientEditor } from "@/components/InteractiveGradientEdito
 import MethodExperimentsSidebar from "@/components/MethodExperimentsSidebar";
 import { useFileRenamePopup } from "@/components/FileRenamePopup";
 import SharePopup from "@/components/SharePopup";
+import Tooltip from "@/components/Tooltip";
 import type { Method, MethodAttachment, PCRProtocol, PCRGradient, PCRStep, PCRIngredient, SharedUser } from "@/lib/types";
 
 async function pickUniqueImageName(dirPath: string, desired: string): Promise<string> {
@@ -441,13 +442,14 @@ function CreateCategoryModal({
           <h3 className="text-base font-semibold text-gray-900">
             New Category
           </h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-lg"
-            title="Close"
-          >
-            ✕
-          </button>
+          <Tooltip label="Close" placement="bottom">
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 text-lg"
+            >
+              ✕
+            </button>
+          </Tooltip>
         </div>
         <div className="p-6">
           <label className="block text-xs font-medium text-gray-500 mb-1">
@@ -743,13 +745,14 @@ function CreateMethodModal({
           <h3 className="text-base font-semibold text-gray-900">
             New Method
           </h3>
-          <button
-            onClick={handleCancel}
-            className="text-gray-400 hover:text-gray-600 text-lg"
-            title="Close"
-          >
-            ✕
-          </button>
+          <Tooltip label="Close" placement="bottom">
+            <button
+              onClick={handleCancel}
+              className="text-gray-400 hover:text-gray-600 text-lg"
+            >
+              ✕
+            </button>
+          </Tooltip>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
@@ -885,13 +888,14 @@ function CreateMethodModal({
                     <div className="flex-1">
                       <p className="text-sm text-amber-800">{uploadWarning}</p>
                     </div>
-                    <button
-                      onClick={() => setUploadWarning(null)}
-                      className="text-amber-400 hover:text-amber-600"
-                      title="Dismiss warning"
-                    >
-                      ✕
-                    </button>
+                    <Tooltip label="Dismiss warning" placement="bottom">
+                      <button
+                        onClick={() => setUploadWarning(null)}
+                        className="text-amber-400 hover:text-amber-600"
+                      >
+                        ✕
+                      </button>
+                    </Tooltip>
                   </div>
                 )}
               </div>
@@ -953,13 +957,14 @@ function CreateMethodModal({
                     <div className="flex-1">
                       <p className="text-sm text-amber-800">{uploadWarning}</p>
                     </div>
-                    <button
-                      onClick={() => setUploadWarning(null)}
-                      className="text-amber-400 hover:text-amber-600"
-                      title="Dismiss warning"
-                    >
-                      ✕
-                    </button>
+                    <Tooltip label="Dismiss warning" placement="bottom">
+                      <button
+                        onClick={() => setUploadWarning(null)}
+                        className="text-amber-400 hover:text-amber-600"
+                      >
+                        ✕
+                      </button>
+                    </Tooltip>
                   </div>
                 )}
               </div>
@@ -1049,15 +1054,16 @@ function CreateMethodModal({
                             </td>
                             <td className="px-2 py-2">
                               {ing.name !== "Total" && (
-                                <button
-                                  onClick={() => {
-                                    setPcrIngredients(pcrIngredients.filter((item) => item.id !== ing.id));
-                                  }}
-                                  className="text-gray-400 hover:text-red-500 text-sm"
-                                  title="Remove ingredient"
-                                >
-                                  ✕
-                                </button>
+                                <Tooltip label="Remove ingredient" placement="left">
+                                  <button
+                                    onClick={() => {
+                                      setPcrIngredients(pcrIngredients.filter((item) => item.id !== ing.id));
+                                    }}
+                                    className="text-gray-400 hover:text-red-500 text-sm"
+                                  >
+                                    ✕
+                                  </button>
+                                </Tooltip>
                               )}
                             </td>
                           </tr>
@@ -1253,13 +1259,14 @@ function MethodNameEditor({
   return (
     <div className="flex items-center gap-2 group">
       <h3 className="text-sm font-semibold text-gray-900">{method.name}</h3>
-      <button
-        onClick={() => setEditingName(true)}
-        className="opacity-0 group-hover:opacity-100 px-1.5 py-0.5 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-opacity"
-        title="Rename method"
-      >
-        ✏️
-      </button>
+      <Tooltip label="Rename method" placement="bottom">
+        <button
+          onClick={() => setEditingName(true)}
+          className="opacity-0 group-hover:opacity-100 px-1.5 py-0.5 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-opacity"
+        >
+          ✏️
+        </button>
+      </Tooltip>
     </div>
   );
 }
@@ -1467,13 +1474,14 @@ function MarkdownMethodViewer({
                 Delete
               </button>
             )}
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 text-lg ml-2"
-              title="Close"
-            >
-              ✕
-            </button>
+            <Tooltip label="Close" placement="bottom">
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-gray-600 text-lg ml-2"
+              >
+                ✕
+              </button>
+            </Tooltip>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
@@ -1628,13 +1636,14 @@ function PdfViewer({
                 Delete
               </button>
             )}
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 text-lg ml-2"
-              title="Close"
-            >
-              ✕
-            </button>
+            <Tooltip label="Close" placement="bottom">
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-gray-600 text-lg ml-2"
+              >
+                ✕
+              </button>
+            </Tooltip>
           </div>
         </div>
         <div className="flex-1 overflow-hidden">
@@ -1808,13 +1817,14 @@ function PcrViewer({
                 Delete
               </button>
             )}
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 text-lg ml-2"
-              title="Close"
-            >
-              ✕
-            </button>
+            <Tooltip label="Close" placement="bottom">
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-gray-600 text-lg ml-2"
+              >
+                ✕
+              </button>
+            </Tooltip>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-6">
@@ -1941,15 +1951,16 @@ function PcrViewer({
                           </td>
                           {editingRecipe && ing.name !== "Total" && (
                             <td className="px-2 py-2">
-                              <button
-                                onClick={() => {
-                                  setIngredients(ingredients.filter((item) => item.id !== ing.id));
-                                }}
-                                className="text-gray-400 hover:text-red-500 text-sm"
-                                title="Remove ingredient"
-                              >
-                                ✕
-                              </button>
+                              <Tooltip label="Remove ingredient" placement="left">
+                                <button
+                                  onClick={() => {
+                                    setIngredients(ingredients.filter((item) => item.id !== ing.id));
+                                  }}
+                                  className="text-gray-400 hover:text-red-500 text-sm"
+                                >
+                                  ✕
+                                </button>
+                              </Tooltip>
                             </td>
                           )}
                         </tr>

@@ -16,6 +16,7 @@ import {
   type StampData,
 } from "@/lib/stamp-utils";
 import { useFileRenamePopup } from "@/components/FileRenamePopup";
+import Tooltip from "@/components/Tooltip";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 
 interface ResultsEditorProps {
@@ -396,13 +397,14 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
                 </button>
               </>
             )}
-            <button
-              onClick={handleClose}
-              className="text-gray-400 hover:text-gray-600 text-lg ml-2"
-              title="Close"
-            >
-              &#10005;
-            </button>
+            <Tooltip label="Close" placement="bottom">
+              <button
+                onClick={handleClose}
+                className="text-gray-400 hover:text-gray-600 text-lg ml-2"
+              >
+                &#10005;
+              </button>
+            </Tooltip>
           </div>
         </div>
 
@@ -438,13 +440,14 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
               <div className="flex-1">
                 <p className="text-sm text-amber-800">{uploadWarning}</p>
               </div>
-              <button
-                onClick={() => setUploadWarning(null)}
-                className="text-amber-400 hover:text-amber-600 text-sm"
-                title="Dismiss"
-              >
-                ✕
-              </button>
+              <Tooltip label="Dismiss" placement="bottom">
+                <button
+                  onClick={() => setUploadWarning(null)}
+                  className="text-amber-400 hover:text-amber-600 text-sm"
+                >
+                  ✕
+                </button>
+              </Tooltip>
             </div>
           </div>
         )}
@@ -588,13 +591,14 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
                         >
                           Delete
                         </button>
-                        <button
-                          onClick={() => setSelectedAttachment(null)}
-                          className="text-gray-400 hover:text-gray-600 text-lg ml-2"
-                          title="Close attachment preview"
-                        >
-                          &#10005;
-                        </button>
+                        <Tooltip label="Close attachment preview" placement="bottom">
+                          <button
+                            onClick={() => setSelectedAttachment(null)}
+                            className="text-gray-400 hover:text-gray-600 text-lg ml-2"
+                          >
+                            &#10005;
+                          </button>
+                        </Tooltip>
                       </div>
                     </div>
                     <div className="flex-1 overflow-auto p-6">

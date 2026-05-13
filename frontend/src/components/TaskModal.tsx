@@ -10,6 +10,7 @@ import { taskResultsBase } from "@/lib/tasks/results-paths";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import MethodPicker from "@/components/MethodPicker";
 import TaskPicker from "@/components/TaskPicker";
+import Tooltip from "@/components/Tooltip";
 
 interface TaskModalProps {
   projects: Project[];
@@ -524,14 +525,15 @@ export default function TaskModal({ projects }: TaskModalProps) {
                           {/* Empty checkbox - just visual */}
                         </div>
                         <span className="flex-1 text-sm text-gray-700">{st.text}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteSubTask(st.id)}
-                          className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 text-xs transition-opacity"
-                          title="Remove item"
-                        >
-                          ✕
-                        </button>
+                        <Tooltip label="Remove item" placement="left">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteSubTask(st.id)}
+                            className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 text-xs transition-opacity"
+                          >
+                            ✕
+                          </button>
+                        </Tooltip>
                       </div>
                     ))}
                   </div>

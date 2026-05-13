@@ -6,6 +6,7 @@ import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { patchUserSettings } from "@/lib/settings/user-settings";
 import { ANIMATION_METADATA, AnimationType } from "./animations";
 import DynamicAnimation from "./DynamicAnimation";
+import Tooltip from "./Tooltip";
 
 interface AnimationSettingsPopupProps {
   isOpen: boolean;
@@ -56,13 +57,14 @@ export default function AnimationSettingsPopup({
           <h3 className="text-lg font-semibold text-gray-900">
             Animation Settings
           </h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-lg"
-            title="Close"
-          >
-            ✕
-          </button>
+          <Tooltip label="Close" placement="bottom">
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 text-lg"
+            >
+              ✕
+            </button>
+          </Tooltip>
         </div>
 
         <p className="text-sm text-gray-500 mb-4">
