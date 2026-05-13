@@ -2,75 +2,53 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { methodsApi, fetchAllTasks } from "@/lib/local-api";
-import type { Method, Task } from "@/lib/types";
+import { projectsApi } from "@/lib/local-api";
+import type { Task, Project } from "@/lib/types";
 
-interface MethodPickerProps {
+interface TaskPickerProps {
   open: boolean;
-  currentMethodId: number | null;
-  /** Pin "Recently used in this project" at the top when available. */
+  /** Tasks eligible to be selected — caller pre-filters (e.g. exclude self / existing parents). */
+  availableTasks: Task[];
+  /** Pin the section for this project at the top. */
   currentProjectId?: number;
-  onSelect: (methodId: number) => void | Promise<void>;
+  /** Optional placeholder + title overrides. */
+  placeholder?: string;
+  title?: string;
+  onSelect: (taskId: number) => void | Promise<void>;
   onClose: () => void;
 }
 
 type FlatRow =
   | { kind: "header"; label: string; count: number; sectionKey: string }
-  | { kind: "method"; method: Method; sectionKey: string };
+  | { kind: "task"; task: Task; sectionKey: string };
 
-const UNCATEGORIZED = "Uncategorized";
-const RECENT_LIMIT = 5;
+const NO_PROJECT = "No project";
 
-function methodIdsOf(t: Task): number[] {
-  if (t.method_ids && t.method_ids.length > 0) return t.method_ids;
-  if (t.method_id != null) return [t.method_id];
-  return [];
-}
-
-/**
- * Map of method-id -> most recent task start_date that used it.
- * Caller filters which tasks to consider (e.g. by project).
- */
-function buildRecency(tasks: Task[]): Map<number, string> {
-  const out = new Map<number, string>();
-  for (const t of tasks) {
-    for (const mid of methodIdsOf(t)) {
-      const existing = out.get(mid);
-      if (!existing || (t.start_date && t.start_date > existing)) {
-        out.set(mid, t.start_date ?? "");
-      }
-    }
+function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return iso;
   }
-  return out;
 }
 
-function topByRecency(
-  recency: Map<number, string>,
-  byId: Map<number, Method>,
-  limit: number
-): Method[] {
-  return Array.from(recency.entries())
-    .sort((a, b) => b[1].localeCompare(a[1]))
-    .slice(0, limit)
-    .map(([id]) => byId.get(id))
-    .filter((m): m is Method => !!m);
-}
-
-export default function MethodPicker({
+export default function TaskPicker({
   open,
-  currentMethodId,
+  availableTasks,
   currentProjectId,
+  placeholder = "Search experiments by name or #tag…",
+  title,
   onSelect,
   onClose,
-}: MethodPickerProps) {
-  const { data: methods = [], isLoading } = useQuery({
-    queryKey: ["methods"],
-    queryFn: methodsApi.list,
-  });
-
-  const { data: tasks = [] } = useQuery({
-    queryKey: ["tasks"],
-    queryFn: fetchAllTasks,
+}: TaskPickerProps) {
+  const { data: projects = [] } = useQuery<Project[]>({
+    queryKey: ["projects"],
+    queryFn: projectsApi.list,
   });
 
   const [query, setQuery] = useState("");
@@ -87,109 +65,79 @@ export default function MethodPicker({
     }
   }, [open]);
 
-  const methodById = useMemo(() => {
-    const m = new Map<number, Method>();
-    for (const x of methods) m.set(x.id, x);
+  const projectById = useMemo(() => {
+    const m = new Map<number, Project>();
+    for (const p of projects) m.set(p.id, p);
     return m;
-  }, [methods]);
-
-  const recentInProject = useMemo(() => {
-    if (currentProjectId == null) return [] as Method[];
-    const projectTasks = tasks.filter((t) => t.project_id === currentProjectId);
-    return topByRecency(buildRecency(projectTasks), methodById, RECENT_LIMIT);
-  }, [tasks, currentProjectId, methodById]);
-
-  const recentAnywhere = useMemo(() => {
-    return topByRecency(buildRecency(tasks), methodById, RECENT_LIMIT);
-  }, [tasks, methodById]);
+  }, [projects]);
 
   const flatRows: FlatRow[] = useMemo(() => {
     const raw = query.trim().toLowerCase();
     const tagQuery = raw.startsWith("#") ? raw.slice(1) : raw;
 
-    const filtered = methods.filter((m) => {
+    const filtered = availableTasks.filter((t) => {
       if (!raw) return true;
-      if (m.name.toLowerCase().includes(raw)) return true;
-      if (tagQuery && m.tags?.some((t) => t.toLowerCase().includes(tagQuery))) {
+      if (t.name.toLowerCase().includes(raw)) return true;
+      if (tagQuery && t.tags?.some((tag) => tag.toLowerCase().includes(tagQuery))) {
         return true;
       }
       return false;
     });
 
-    const rows: FlatRow[] = [];
-
-    // Pinned sections — only shown when the user hasn't typed a query.
-    // Search mode prioritises matches; pinned context becomes noise.
-    if (!raw) {
-      if (recentInProject.length > 0) {
-        rows.push({
-          kind: "header",
-          label: "Recently used in this project",
-          count: recentInProject.length,
-          sectionKey: "pinned-project",
-        });
-        for (const m of recentInProject) {
-          rows.push({ kind: "method", method: m, sectionKey: "pinned-project" });
-        }
-      }
-
-      // Skip "Recently used" if its top entries are the same as the project
-      // section above — avoid an identical pinned block.
-      const projectIds = new Set(recentInProject.map((m) => m.id));
-      const recentDeduped = recentAnywhere.filter((m) => !projectIds.has(m.id));
-      if (recentDeduped.length > 0) {
-        rows.push({
-          kind: "header",
-          label: "Recently used",
-          count: recentDeduped.length,
-          sectionKey: "pinned-recent",
-        });
-        for (const m of recentDeduped) {
-          rows.push({ kind: "method", method: m, sectionKey: "pinned-recent" });
-        }
-      }
+    // Group tasks by project. Sort within a project by start_date desc so the
+    // most-recent experiment is at the top of each group — usually what the
+    // user is depending on.
+    const byProject = new Map<number | "none", Task[]>();
+    for (const t of filtered) {
+      const key: number | "none" = t.project_id ?? "none";
+      const bucket = byProject.get(key);
+      if (bucket) bucket.push(t);
+      else byProject.set(key, [t]);
     }
 
-    // Regular folder-grouped view of all (filtered) methods.
-    const byFolder = new Map<string, Method[]>();
-    for (const m of filtered) {
-      const folder = m.folder_path || UNCATEGORIZED;
-      const bucket = byFolder.get(folder);
-      if (bucket) bucket.push(m);
-      else byFolder.set(folder, [m]);
-    }
-
-    const folderNames = Array.from(byFolder.keys()).sort((a, b) => {
-      if (a === UNCATEGORIZED) return 1;
-      if (b === UNCATEGORIZED) return -1;
-      return a.localeCompare(b);
+    const projectKeys = Array.from(byProject.keys()).sort((a, b) => {
+      // current project first
+      if (a === currentProjectId) return -1;
+      if (b === currentProjectId) return 1;
+      // "none" last
+      if (a === "none") return 1;
+      if (b === "none") return -1;
+      const aName = projectById.get(a as number)?.name ?? "";
+      const bName = projectById.get(b as number)?.name ?? "";
+      return aName.localeCompare(bName);
     });
 
-    for (const folder of folderNames) {
-      const items = (byFolder.get(folder) ?? []).slice().sort((a, b) =>
-        a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
-      );
+    const rows: FlatRow[] = [];
+    for (const key of projectKeys) {
+      const tasks = (byProject.get(key) ?? []).slice().sort((a, b) => {
+        // recent first within a project
+        if (a.start_date && b.start_date && a.start_date !== b.start_date) {
+          return b.start_date.localeCompare(a.start_date);
+        }
+        return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+      });
+      const labelBase =
+        key === "none"
+          ? NO_PROJECT
+          : projectById.get(key as number)?.name ?? `Project ${key}`;
+      const label = key === currentProjectId ? `${labelBase} · this project` : labelBase;
       rows.push({
         kind: "header",
-        label: folder,
-        count: items.length,
-        sectionKey: `folder:${folder}`,
+        label,
+        count: tasks.length,
+        sectionKey: `project:${key}`,
       });
-      for (const method of items) {
-        rows.push({
-          kind: "method",
-          method,
-          sectionKey: `folder:${folder}`,
-        });
+      for (const task of tasks) {
+        rows.push({ kind: "task", task, sectionKey: `project:${key}` });
       }
     }
     return rows;
-  }, [methods, query, recentInProject, recentAnywhere]);
+  }, [availableTasks, query, projectById, currentProjectId]);
 
   const selectableIndices = useMemo(
     () =>
       flatRows
-        .map((r, i) => (r.kind === "method" ? i : -1))
+        .map((r, i) => (r.kind === "task" ? i : -1))
         .filter((i) => i !== -1),
     [flatRows]
   );
@@ -235,8 +183,8 @@ export default function MethodPicker({
     } else if (e.key === "Enter") {
       e.preventDefault();
       const row = flatRows[highlightedIndex];
-      if (row?.kind === "method") {
-        void onSelect(row.method.id);
+      if (row?.kind === "task") {
+        void onSelect(row.task.id);
       }
     } else if (e.key === "Escape") {
       e.preventDefault();
@@ -255,6 +203,11 @@ export default function MethodPicker({
         style={{ maxHeight: "75vh" }}
         onClick={(e) => e.stopPropagation()}
       >
+        {title && (
+          <div className="px-4 pt-3 pb-1 text-xs uppercase tracking-wide font-semibold text-gray-500">
+            {title}
+          </div>
+        )}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
           <svg
             className="w-4 h-4 text-gray-400 shrink-0"
@@ -274,7 +227,7 @@ export default function MethodPicker({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search methods by name or #tag…"
+            placeholder={placeholder}
             className="flex-1 text-sm outline-none placeholder-gray-400"
           />
           <button
@@ -287,18 +240,14 @@ export default function MethodPicker({
         </div>
 
         <div ref={listRef} className="flex-1 overflow-y-auto">
-          {isLoading ? (
+          {availableTasks.length === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-gray-400">
-              Loading methods…
-            </div>
-          ) : methods.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-gray-400">
-              No methods available. Create some in the Methods section first.
+              No eligible experiments available.
             </div>
           ) : flatRows.length === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-gray-400">
-              No methods match &ldquo;{query}&rdquo;. Try a different search or
-              clear the input.
+              No experiments match &ldquo;{query}&rdquo;. Try a different search
+              or clear the input.
             </div>
           ) : (
             flatRows.map((row, index) => {
@@ -315,47 +264,41 @@ export default function MethodPicker({
                   </div>
                 );
               }
-              const m = row.method;
-              const isCurrent = m.id === currentMethodId;
+              const t = row.task;
               const isHighlighted = index === highlightedIndex;
               return (
                 <button
-                  key={`${row.sectionKey}:${m.id}`}
+                  key={`${row.sectionKey}:${t.id}`}
                   ref={(el) => {
                     if (el) rowRefs.current.set(index, el);
                     else rowRefs.current.delete(index);
                   }}
                   onMouseEnter={() => setHighlightedIndex(index)}
-                  onClick={() => void onSelect(m.id)}
+                  onClick={() => void onSelect(t.id)}
                   className={`w-full text-left px-4 py-2.5 border-b border-gray-50 transition-colors ${
                     isHighlighted ? "bg-blue-50" : "bg-white hover:bg-gray-50"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-sm font-medium text-gray-900 truncate">
-                        {m.name}
+                      <span
+                        className={`text-sm font-medium truncate ${
+                          t.is_complete ? "text-gray-400 line-through" : "text-gray-900"
+                        }`}
+                      >
+                        {t.name}
                       </span>
-                      {m.method_type === "pcr" && (
-                        <span className="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded shrink-0">
-                          PCR
-                        </span>
-                      )}
-                      {m.method_type === "pdf" && (
-                        <span className="text-xs px-1.5 py-0.5 bg-rose-100 text-rose-600 rounded shrink-0">
-                          PDF
-                        </span>
+                      {t.is_complete && (
+                        <span className="text-xs text-green-600 shrink-0">✓</span>
                       )}
                     </div>
-                    {isCurrent && (
-                      <span className="text-xs text-green-600 shrink-0">
-                        ✓ Current
-                      </span>
-                    )}
+                    <span className="text-xs text-gray-400 shrink-0 whitespace-nowrap">
+                      {formatDate(t.start_date)} → {formatDate(t.end_date)}
+                    </span>
                   </div>
-                  {m.tags && m.tags.length > 0 && (
+                  {t.tags && t.tags.length > 0 && (
                     <div className="flex gap-1 mt-1 flex-wrap">
-                      {m.tags.map((tag) => (
+                      {t.tags.map((tag) => (
                         <span
                           key={tag}
                           className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded"
