@@ -63,6 +63,21 @@ const PUBLIC_ROUTES = [
   },
 ];
 
+/** Picker-mode route: fixture is installed but no currentUser is set, so
+ *  ResearchFolderSetupNew renders the user-picker list. Uses its own fresh
+ *  browser context so IndexedDB state doesn't carry over from signed-in
+ *  captures. */
+const PICKER_ROUTES = [
+  {
+    path: "/",
+    file: "user-login.png",
+    captureVariant: "picker",
+    waitFor:
+      "text=Select Account, text=Create New Account, text=Pick a user, text=Continue",
+    highlight: { selector: "input[placeholder*='username' i]" },
+  },
+];
+
 /** Routes that need the fixture mode (?wikiCapture=1) so realistic data
  *  renders. Each can specify a post-load action (e.g. click a button to
  *  open a modal). */
@@ -265,7 +280,8 @@ async function applyHighlight(page, highlight) {
 }
 
 async function capturePage(page, route, baseUrl) {
-  const url = `${baseUrl}${route.path}${route.path.includes("?") ? "&" : "?"}wikiCapture=1`;
+  const variant = route.captureVariant ?? "1";
+  const url = `${baseUrl}${route.path}${route.path.includes("?") ? "&" : "?"}wikiCapture=${variant}`;
   return _capturePageAt(page, route, url);
 }
 
@@ -340,7 +356,23 @@ async function main() {
     await ctx.close();
   }
 
-  // 2. Fixture-mode pages (fresh context each, IndexedDB seeded by the app)
+  // 2. Picker-mode pages (fresh context — fixture installed without
+  //    signing in, so the user-picker screen renders)
+  console.log("\nPicker-mode pages:");
+  {
+    const ctx = await browser.newContext({
+      viewport: VIEWPORT,
+      deviceScaleFactor: 2,
+    });
+    const page = await ctx.newPage();
+    for (const route of PICKER_ROUTES) {
+      const success = await capturePage(page, route, BASE_URL);
+      success ? ok++ : fail++;
+    }
+    await ctx.close();
+  }
+
+  // 3. Fixture-mode pages (fresh context, signed in as "grant")
   console.log("\nFixture-mode pages:");
   {
     const ctx = await browser.newContext({

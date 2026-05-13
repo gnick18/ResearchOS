@@ -17,7 +17,7 @@ import { clearCurrentUserCache } from "../storage/json-store";
 import { discoverUsers, validateResearchFolder, ensureFolderStructure } from "./user-discovery";
 import { readUserSettings, patchUserSettings, userSettingsFileExists, DEFAULT_SETTINGS } from "../settings/user-settings";
 import { useAppStore, readLegacyLocalStorageSettings } from "../store";
-import { isWikiCaptureMode, installWikiCaptureFixture } from "./wiki-capture-mock";
+import { getWikiCaptureVariant, installWikiCaptureFixture } from "./wiki-capture-mock";
 
 /** Coarse-grained phase of the startup connect flow. Used by the loading
  *  screen so the user sees something change while OneDrive is being slow.
@@ -243,13 +243,19 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     async function initialize() {
       // Wiki-screenshot capture mode: bypass the FS picker and silent reconnect
-      // entirely. Seed an in-memory fixture and pretend we're connected as
-      // "grant" so feature pages render with realistic data. Dev-only; guarded
-      // both here and inside installWikiCaptureFixture by NODE_ENV.
-      if (isWikiCaptureMode()) {
+      // entirely. Seed an in-memory fixture. The "signed-in" variant
+      // (?wikiCapture=1) signs in as "grant" so feature pages render with
+      // realistic data. The "picker" variant (?wikiCapture=picker) leaves
+      // currentUser empty so the user-picker screen renders — used to
+      // capture user-login.png.
+      const captureVariant = getWikiCaptureVariant();
+      if (captureVariant) {
         try {
-          await installWikiCaptureFixture();
-          await hydrateSettingsForUser("grant");
+          const signIn = captureVariant === "signed-in";
+          await installWikiCaptureFixture({ signIn });
+          if (signIn) {
+            await hydrateSettingsForUser("grant");
+          }
           setState((prev) => ({
             ...prev,
             isConnected: true,
@@ -257,8 +263,8 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
             loadingStage: null,
             error: null,
             directoryName: "wiki-capture-fixture",
-            currentUser: "grant",
-            mainUser: "grant",
+            currentUser: signIn ? "grant" : null,
+            mainUser: signIn ? "grant" : null,
             availableUsers: ["grant", "sarah"],
             needsInitialization: false,
             lastConnectedFolder: "wiki-capture-fixture",

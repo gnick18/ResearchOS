@@ -59,12 +59,11 @@ function AppContent({ children }: { children: ReactNode }) {
     );
   }
 
-  // Capture mode: FileSystemProvider has seeded fixture data and set state
-  // to connected/grant. Skip every gate (loading screen, browser check,
-  // folder-connect setup). If state hasn't propagated yet on first render
-  // we still skip everything below and just render — the QueryClient
-  // invalidate effect picks up new data when currentUser flips.
-  if (isWikiCaptureMode()) {
+  // Capture mode (signed-in variant): FileSystemProvider has seeded fixture
+  // data and set state to connected/grant. Skip every gate. The "picker"
+  // variant leaves currentUser empty on purpose, so fall through to render
+  // the user-picker via ResearchFolderSetupNew below.
+  if (isWikiCaptureMode() && currentUser) {
     return (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
@@ -98,14 +97,21 @@ function AppContent({ children }: { children: ReactNode }) {
 
   if (showSetup || !isConnected || !currentUser) {
     console.log("AppContent: rendering ResearchFolderSetupNew because:", { showSetup, isConnected, currentUser });
+    // Wrapped in QueryClientProvider because the user-picker renders
+    // <UserAvatar> which calls useUserColor() → useQuery(). Without the
+    // provider, the picker throws "No QueryClient set" the moment there
+    // are existing users to choose from (notably in wiki-capture picker
+    // mode, where the fixture exposes two users).
     return (
-      <ResearchFolderSetupNew
-        onComplete={() => {
-          console.log("onComplete callback called in AppContent");
-          setShowSetup(false);
-          queryClient.invalidateQueries();
-        }}
-      />
+      <QueryClientProvider client={queryClient}>
+        <ResearchFolderSetupNew
+          onComplete={() => {
+            console.log("onComplete callback called in AppContent");
+            setShowSetup(false);
+            queryClient.invalidateQueries();
+          }}
+        />
+      </QueryClientProvider>
     );
   }
 
