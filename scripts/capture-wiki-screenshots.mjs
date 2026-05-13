@@ -1,123 +1,367 @@
 #!/usr/bin/env node
 /**
- * Capture wiki screenshots against a running dev server.
+ * Capture every wiki screenshot against a running dev server.
  *
  * Usage:
  *   # 1. Start the dev server in another terminal
  *   cd frontend && npm run dev
  *
  *   # 2. Run this script
- *   node scripts/capture-wiki-screenshots.mjs
- *
- * Or, combined:
  *   cd frontend && npm run wiki:screenshots
+ *   # or directly: node scripts/capture-wiki-screenshots.mjs
  *
- * What it captures right now:
- *   - The folder-connect screen at /
- *   - Every /wiki/* page (the wiki rendering itself, useful for QA)
+ * What it captures:
+ *   - The folder-connect screen at / (no folder connected, fresh context)
+ *   - Every /wiki/* page (renders without auth)
+ *   - Every in-app feature page (loaded via ?wikiCapture=1 which seeds
+ *     the FileService with the fixture in wiki-capture-fixture.ts)
+ *   - The Telegram pairing modal and Manage Feeds modal (clicked into)
  *
- * What it does NOT capture (yet):
- *   - In-app feature pages like /gantt, /experiments, /methods, /settings.
- *     Those need a connected folder with realistic fixture data. Until
- *     `?wikiCapture=1` fixture-mode lands (see WIKI_SCREENSHOTS.md →
- *     "TODO: fixture mode"), capture those interactively via Chrome MCP
- *     or by running the app against a real folder and using DevTools'
- *     screenshot command. The Screenshot component in the wiki renders
- *     a graceful "screenshot pending" placeholder until the PNG lands.
- *
- * Output:
- *   frontend/public/wiki/screenshots/<name>.png
+ * Output: frontend/public/wiki/screenshots/<name>.png
  *
  * Requirements:
- *   npm install --no-save playwright
- *   npx playwright install chromium   # one-time
+ *   - playwright (devDependency)
+ *   - chromium browser: `npx playwright install chromium`
+ *
+ * Notes:
+ *   - Captures at 1440x900 viewport, 2x deviceScaleFactor (Retina-crisp).
+ *   - Hides dev/beta UI (Test Notification, Test Error, Report Bug, Beta
+ *     donation widget) before each shot so docs look clean.
+ *   - The fixture mode is dev-only — guarded by NODE_ENV inside the app.
  */
 
-import { chromium } from "playwright";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..");
+
+// Playwright is a devDep of `frontend/`, not of the repo root. Resolve it via
+// a require anchored to frontend/package.json so the script works whether you
+// run it from the repo root or from inside frontend/.
+const requireFromFrontend = createRequire(
+  path.join(REPO_ROOT, "frontend", "package.json"),
+);
+const { chromium } = requireFromFrontend("playwright");
+
 const OUT_DIR = path.join(REPO_ROOT, "frontend", "public", "wiki", "screenshots");
 const BASE_URL = process.env.WIKI_CAPTURE_BASE_URL ?? "http://localhost:3000";
-
-/** Routes that are public (no folder connection required) and can be captured
- *  with a plain Playwright run. Each entry → one PNG in OUT_DIR. */
-const PUBLIC_ROUTES = [
-  // Wiki itself
-  { path: "/wiki", file: "wiki-landing.png" },
-  { path: "/wiki/getting-started", file: "wiki-getting-started.png" },
-  { path: "/wiki/getting-started/browser-requirements", file: "wiki-browser-requirements.png" },
-  { path: "/wiki/getting-started/connecting-your-folder", file: "wiki-connecting-folder.png" },
-  { path: "/wiki/getting-started/creating-a-user", file: "wiki-creating-user.png" },
-  { path: "/wiki/shared-lab-accounts", file: "wiki-shared-lab-accounts.png" },
-  { path: "/wiki/shared-lab-accounts/onedrive", file: "wiki-onedrive.png" },
-  { path: "/wiki/shared-lab-accounts/google-drive", file: "wiki-google-drive.png" },
-  { path: "/wiki/shared-lab-accounts/dropbox", file: "wiki-dropbox.png" },
-  { path: "/wiki/shared-lab-accounts/icloud", file: "wiki-icloud.png" },
-  // The folder-connect screen at "/" before any folder is picked
-  { path: "/", file: "folder-connect.png", waitForSelector: "button" },
-];
-
 const VIEWPORT = { width: 1440, height: 900 };
 
-async function ensureOut() {
-  await mkdir(OUT_DIR, { recursive: true });
+/** Public, no-auth routes (fresh browser context). */
+const PUBLIC_ROUTES = [
+  // The folder-connect screen at / (the only public-route screenshot referenced
+  // by the wiki). The wiki pages themselves are validated by `next build` and
+  // don't need screenshot snapshots in /public.
+  {
+    path: "/",
+    file: "folder-connect.png",
+    waitFor: "text=Connect Folder",
+    highlight: { text: "Link Folder" },
+  },
+];
+
+/** Routes that need the fixture mode (?wikiCapture=1) so realistic data
+ *  renders. Each can specify a post-load action (e.g. click a button to
+ *  open a modal). */
+const FIXTURE_ROUTES = [
+  {
+    path: "/",
+    file: "home-projects.png",
+    waitFor: "text=Research Project Overview",
+    highlight: { text: "New Project" },
+  },
+  {
+    path: "/gantt",
+    file: "gantt-overview.png",
+    waitFor: ".gantt, [role='grid'], text=GANTT",
+    settleMs: 1500,
+    highlight: { text: "+ Task" },
+  },
+  {
+    path: "/experiments",
+    file: "experiments-list.png",
+    waitFor: "h1, h2, text=Lab Notes",
+    highlight: { text: "New Experiment" },
+  },
+  {
+    path: "/methods",
+    file: "methods-library.png",
+    waitFor: "text=Methods",
+    highlight: { text: "New Method" },
+  },
+  {
+    path: "/pcr",
+    file: "pcr-editor.png",
+    waitFor: "text=PCR",
+    highlight: { text: "New Protocol" },
+  },
+  {
+    path: "/purchases",
+    file: "purchases-list.png",
+    waitFor: "text=Purchases",
+    highlight: { text: "New Purchase" },
+  },
+  {
+    path: "/calendar",
+    file: "calendar-month.png",
+    waitFor: "text=Calendar, text=May",
+    highlight: { text: "New Event" },
+  },
+  { path: "/lab", file: "lab-mode.png", waitFor: "text=Activity, text=Lab" },
+  {
+    path: "/search?q=ICS",
+    file: "search-results.png",
+    waitFor: "text=Search, text=ICS",
+    highlight: { selector: "input[type='search'], input[placeholder*='earch' i]" },
+  },
+  {
+    path: "/links",
+    file: "links.png",
+    waitFor: "text=Lab Links, text=Links",
+    highlight: { text: "New Link" },
+  },
+  { path: "/results", file: "results-editor.png", waitFor: "text=Results" },
+  {
+    path: "/settings",
+    file: "settings.png",
+    waitFor: "text=Settings, text=Profile",
+    highlight: { text: "Connect Telegram" },
+  },
+  {
+    path: "/",
+    file: "notifications.png",
+    waitFor: "text=Research Project Overview",
+    crop: { x: 0, y: 0, width: 1440, height: 100 },
+    highlight: { selector: "button[title='Notifications'], [title*='otification' i]" },
+  },
+  // Modals — navigate, click a button, then capture.
+  {
+    path: "/settings",
+    file: "telegram-pairing.png",
+    waitFor: "text=Settings",
+    action: async (page) => {
+      const tg = page.getByText(/Connect Telegram|Telegram/i).first();
+      if (await tg.count()) {
+        try {
+          await tg.click({ timeout: 3000 });
+          await page.waitForTimeout(800);
+        } catch {}
+      }
+    },
+    highlight: { selector: "input[placeholder*='token' i], input[placeholder*='123456' i]" },
+  },
+  {
+    path: "/calendar",
+    file: "calendar-feeds-modal.png",
+    waitFor: "text=Calendar",
+    action: async (page) => {
+      const btn = page.getByText(/Manage Feeds|External Feeds|Linked Calendars/i).first();
+      if (await btn.count()) {
+        try {
+          await btn.click({ timeout: 3000 });
+          await page.waitForTimeout(800);
+        } catch {}
+      }
+    },
+    highlight: { selector: "input[placeholder*='ICS' i], input[placeholder*='url' i], input[placeholder*='https' i]" },
+  },
+];
+
+/** Hide dev/beta UI that distracts from docs. Re-applied per page. */
+const HIDE_SCRIPT = `
+  (function hideDevUI() {
+    const HIDE_TEXTS = [
+      "Test Notification",
+      "Test Error",
+      "Report Bug",
+    ];
+    const all = document.querySelectorAll("button, a");
+    for (const el of all) {
+      const text = (el.textContent || "").trim();
+      if (HIDE_TEXTS.some(t => text === t || text.startsWith(t))) {
+        el.style.display = "none";
+      }
+    }
+    // Hide the bottom-left "Support" pill (Beta donation widget). Walk up
+    // to its fixed-position container.
+    const supportLeaves = Array.from(document.querySelectorAll("*")).filter(el => {
+      const t = (el.textContent || "").trim();
+      return t === "Support" && el.children.length === 0;
+    });
+    for (const leaf of supportLeaves) {
+      let cur = leaf;
+      for (let i = 0; i < 6 && cur; i++) {
+        const cs = getComputedStyle(cur);
+        if (cs.position === "fixed") { cur.style.display = "none"; break; }
+        cur = cur.parentElement;
+      }
+    }
+    // Hide Telegram status pill (contains the bot username, which is personal data).
+    const tgPills = Array.from(document.querySelectorAll("*")).filter(el => {
+      const t = (el.textContent || "").trim();
+      return t.startsWith("Telegram:") && el.children.length <= 2;
+    });
+    for (const el of tgPills) {
+      el.style.visibility = "hidden";
+    }
+  })();
+`;
+
+async function applyClean(page) {
+  try {
+    await page.evaluate(HIDE_SCRIPT);
+  } catch {}
 }
 
-async function capture() {
-  console.log(`Capturing screenshots → ${OUT_DIR}`);
-  console.log(`Base URL: ${BASE_URL}`);
-
-  await ensureOut();
-
-  const browser = await chromium.launch({
-    headless: true,
-    args: ["--enable-experimental-web-platform-features"],
-  });
-  const context = await browser.newContext({
-    viewport: VIEWPORT,
-    deviceScaleFactor: 2,
-  });
-
-  let failed = 0;
-  for (const route of PUBLIC_ROUTES) {
-    const page = await context.newPage();
-    const url = `${BASE_URL}${route.path}`;
-    const out = path.join(OUT_DIR, route.file);
-    try {
-      await page.goto(url, { waitUntil: "networkidle", timeout: 20000 });
-      if (route.waitForSelector) {
-        await page.waitForSelector(route.waitForSelector, { timeout: 10000 });
+/** Draws a red ring + glow around the element matching the given spec.
+ *  Used to point readers at the click target on each docs screenshot.
+ *  Tolerant of missing elements (logs a warning, skips). */
+async function applyHighlight(page, highlight) {
+  if (!highlight) return;
+  try {
+    await page.evaluate((spec) => {
+      let el = null;
+      if (spec.selector) {
+        el = document.querySelector(spec.selector);
       }
-      // Tiny settle to let fonts and async paints finish.
-      await page.waitForTimeout(300);
-      await page.screenshot({ path: out, fullPage: route.fullPage ?? false });
-      console.log(`  ✓ ${route.path.padEnd(50)} → ${route.file}`);
+      if (!el && spec.text) {
+        const needle = String(spec.text).toLowerCase();
+        const candidates = Array.from(
+          document.querySelectorAll("button, a, [role='button']"),
+        );
+        // Prefer exact text matches; fall back to a substring match.
+        el =
+          candidates.find(
+            (e) => (e.textContent || "").trim().toLowerCase() === needle,
+          ) ||
+          candidates.find((e) =>
+            (e.textContent || "").trim().toLowerCase().includes(needle),
+          );
+      }
+      if (!el) {
+        console.warn("[wiki-highlight] No element matched", spec);
+        return false;
+      }
+      // Apply a high-contrast red ring + soft glow. Pin position so the
+      // outline doesn't push neighboring layout around.
+      el.setAttribute("data-wiki-highlight", "1");
+      const cs = getComputedStyle(el);
+      if (cs.position === "static") el.style.position = "relative";
+      el.style.outline = "3px solid #ef4444";
+      el.style.outlineOffset = "4px";
+      el.style.borderRadius = el.style.borderRadius || "10px";
+      el.style.boxShadow =
+        "0 0 0 6px rgba(239, 68, 68, 0.18), 0 0 24px 4px rgba(239, 68, 68, 0.45)";
+      el.style.zIndex = "9999";
+      el.scrollIntoView({ block: "center", behavior: "instant" });
+      return true;
+    }, highlight);
+  } catch (err) {
+    console.warn(`  ⚠ highlight failed: ${err.message}`);
+  }
+}
+
+async function capturePage(page, route, baseUrl) {
+  const url = `${baseUrl}${route.path}${route.path.includes("?") ? "&" : "?"}wikiCapture=1`;
+  return _capturePageAt(page, route, url);
+}
+
+async function capturePublicPage(page, route, baseUrl) {
+  return _capturePageAt(page, route, `${baseUrl}${route.path}`);
+}
+
+async function _capturePageAt(page, route, url) {
+  const out = path.join(OUT_DIR, route.file);
+  try {
+    await page.goto(url, { waitUntil: "networkidle", timeout: 30000 });
+  } catch (err) {
+    console.error(`  ✗ ${route.file} — goto failed: ${err.message}`);
+    return false;
+  }
+  if (route.waitFor) {
+    // Accept comma-separated alternatives; succeed if any one resolves first.
+    const candidates = route.waitFor.split(",").map((s) => s.trim()).filter(Boolean);
+    const races = candidates.map((sel) =>
+      page.waitForSelector(sel, { timeout: 8000 }).catch(() => null),
+    );
+    await Promise.race(races);
+  }
+  await page.waitForTimeout(route.settleMs ?? 600);
+  if (route.action) {
+    try {
+      await route.action(page);
     } catch (err) {
-      failed++;
-      console.error(`  ✗ ${route.path.padEnd(50)} → ${err.message}`);
-    } finally {
-      await page.close();
+      console.warn(`  ⚠ ${route.file} — action threw: ${err.message}`);
     }
+  }
+  await applyClean(page);
+  await applyHighlight(page, route.highlight);
+  await page.waitForTimeout(200); // let style changes commit
+  try {
+    if (route.crop) {
+      await page.screenshot({ path: out, clip: route.crop });
+    } else {
+      await page.screenshot({ path: out, fullPage: false });
+    }
+    console.log(`  ✓ ${route.file}`);
+    return true;
+  } catch (err) {
+    console.error(`  ✗ ${route.file} — screenshot failed: ${err.message}`);
+    return false;
+  }
+}
+
+async function main() {
+  console.log(`Capturing wiki screenshots → ${OUT_DIR}`);
+  console.log(`Base URL: ${BASE_URL}\n`);
+
+  await mkdir(OUT_DIR, { recursive: true });
+
+  const browser = await chromium.launch({ headless: true });
+
+  let ok = 0;
+  let fail = 0;
+
+  // 1. Public / pre-auth pages (fresh context, no IndexedDB)
+  console.log("Public pages:");
+  {
+    const ctx = await browser.newContext({
+      viewport: VIEWPORT,
+      deviceScaleFactor: 2,
+    });
+    const page = await ctx.newPage();
+    for (const route of PUBLIC_ROUTES) {
+      const success = await capturePublicPage(page, route, BASE_URL);
+      success ? ok++ : fail++;
+    }
+    await ctx.close();
+  }
+
+  // 2. Fixture-mode pages (fresh context each, IndexedDB seeded by the app)
+  console.log("\nFixture-mode pages:");
+  {
+    const ctx = await browser.newContext({
+      viewport: VIEWPORT,
+      deviceScaleFactor: 2,
+    });
+    const page = await ctx.newPage();
+    for (const route of FIXTURE_ROUTES) {
+      const success = await capturePage(page, route, BASE_URL);
+      success ? ok++ : fail++;
+    }
+    await ctx.close();
   }
 
   await browser.close();
 
-  if (failed > 0) {
-    console.error(`\n${failed} route(s) failed. Is the dev server running at ${BASE_URL}?`);
-    process.exit(1);
-  }
-  console.log(`\nDone. ${PUBLIC_ROUTES.length} screenshots saved.`);
-  console.log(
-    "\nNote: In-app feature page screenshots (Gantt, Experiments, etc.) " +
-      "must be captured separately — see scripts/WIKI_SCREENSHOTS.md.",
-  );
+  console.log(`\n${ok} succeeded, ${fail} failed.`);
+  if (fail > 0) process.exit(1);
 }
 
-capture().catch((err) => {
+main().catch((err) => {
   console.error(err);
   process.exit(1);
 });

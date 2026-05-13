@@ -3,116 +3,98 @@
 The in-app `/wiki/*` pages embed screenshots from
 `frontend/public/wiki/screenshots/`. When a PNG is missing the `Screenshot`
 component renders a gray "screenshot pending" placeholder, so the wiki is
-fully readable without any captures — but it looks better with them.
+fully readable without any captures.
 
-## What's automated
+## Capturing every screenshot
 
 `scripts/capture-wiki-screenshots.mjs` is a Playwright script that captures
-two categories:
+every page the wiki references, in one run. The capture loop:
 
-1. **The wiki pages themselves** — `/wiki/*`. Useful for QA: open the PNGs
-   to see what the wiki looks like at a glance.
-2. **The folder-connect screen** at `/` — the screen new users see before
-   they pick a folder.
-
-These don't need a connected folder, so the script can run unattended.
+1. Boots a headless Chromium against the local dev / prod server.
+2. For the folder-connect page (no auth required), loads `/` in a fresh
+   browser context.
+3. For every in-app feature page, appends `?wikiCapture=1` to the URL. The
+   app's `wiki-capture-mock.ts` swaps in an in-memory FileService seeded
+   with fixture data (`wiki-capture-fixture.ts`), so the page renders with
+   realistic projects, tasks, methods, etc. without needing a real folder.
+4. Injects CSS / DOM hacks to hide dev/beta UI (Test Notification, Test
+   Error, Report Bug, Beta donation widget, Telegram status pill).
+5. Highlights the primary click target on each page with a red ring + glow
+   so readers can find it at a glance.
+6. Writes PNGs into `frontend/public/wiki/screenshots/` at 1440×900 logical
+   pixels, 2× device scale (Retina-crisp).
 
 ### Running it
 
 ```bash
-# 1. Start the dev server in one terminal
+# 1. Build + start the prod server (fastest path; fixture mode honors the
+#    flag on localhost in both dev and prod):
 cd frontend
-npm run dev
+npm run build
+npm run start -- -p 3001 &
 
-# 2. In another terminal, install playwright (one-time)
-cd <repo root>
-npx playwright install chromium
-
-# 3. Run the capture
-npm run wiki:screenshots --prefix frontend
-# or directly:
-node scripts/capture-wiki-screenshots.mjs
+# 2. Capture (requires `npx playwright install chromium` once):
+npm run wiki:screenshots
 ```
 
-Output lands in `frontend/public/wiki/screenshots/`. Commit the regenerated
-PNGs along with any wiki content changes.
+The `wiki:screenshots` script points at `http://localhost:3000` by default.
+Override with `WIKI_CAPTURE_BASE_URL=http://localhost:3001 npm run
+wiki:screenshots` when running on a different port.
 
-## What's NOT automated (yet)
+Commit the regenerated PNGs alongside any wiki content changes.
 
-In-app feature pages — Home, Gantt, Experiments, Methods, PCR, Purchases,
-Calendar, Lab, Search, Links, Results, Settings, Notifications — need a
-connected folder with realistic fixture data to look like anything. The
-File System Access API isn't easily automatable in headless Playwright
-(the OS folder picker is not scriptable, and the in-browser handle is
-stored in IndexedDB).
+## How fixture mode works
 
-Two viable approaches for these:
+The capture relies on a `?wikiCapture=1` URL flag handled by
+`frontend/src/lib/file-system/wiki-capture-mock.ts`. When the flag is
+present, the mock:
 
-### Option A — Interactive Chrome session
+- Patches the singleton `fileService` to read/write from an in-memory
+  `Map<path, content>` (no real disk involved).
+- Seeds the in-memory map with the fixtures in
+  `wiki-capture-fixture.ts` (two users with realistic projects, tasks,
+  methods, events, purchases, etc.).
+- Writes "grant" into IndexedDB as the current user so the rest of the
+  app sees them as signed in.
 
-1. Start `npm run dev`.
-2. Open a Chrome window manually.
-3. Pick a fixture folder (e.g. `scripts/wiki-fixture/` once we populate it).
-4. Sign in as the fixture user.
-5. For each feature page: open it, take a screenshot via DevTools'
-   command palette (`Ctrl/Cmd+Shift+P → Capture full size screenshot`),
-   rename, drop into `frontend/public/wiki/screenshots/`.
+The flag is guarded so it can only activate in development mode, OR in
+production when served from localhost. There is no scenario where a real
+deployment will activate fixture mode.
 
-Or drive Chrome interactively via the Chrome MCP server — same flow, but
-the agent does the clicks.
+## What gets captured
 
-### Option B — Fixture mode (TODO)
+| Filename | Wiki page | Click target highlighted |
+|---|---|---|
+| `folder-connect.png` | Connecting Your Folder | Link Folder button |
+| `home-projects.png` | Home & Projects | + New Project |
+| `gantt-overview.png` | Gantt Chart | + Task |
+| `experiments-list.png` | Experiments & Lab Notes | + New Experiment |
+| `methods-library.png` | Methods Library | + New Method |
+| `pcr-editor.png` | PCR Protocols | + New Protocol |
+| `purchases-list.png` | Purchases & Funding | + New Purchase |
+| `calendar-month.png` | Calendar | + New Event |
+| `lab-mode.png` | Lab Mode | (whole-page view) |
+| `search-results.png` | Search | search input |
+| `links.png` | Lab Links | + New Link |
+| `results-editor.png` | Results | (whole-page view) |
+| `settings.png` | Settings | Connect Telegram |
+| `notifications.png` | Notifications & Inbox | bell icon (cropped to header) |
+| `telegram-pairing.png` | Telegram Bot | bot token input |
+| `calendar-feeds-modal.png` | External Calendar Feeds | ICS URL input |
 
-The plan from `plans/i-want-to-make-peppy-pony.md` describes a
-`?wikiCapture=1` query flag that swaps in an in-memory FileService backed
-by `scripts/wiki-fixture/`. Once that lands, the Playwright script can
-loop over every in-app route with `?wikiCapture=1` appended and the
-captures become fully automated.
+If you add a new wiki page that needs a screenshot, add an entry to
+`PUBLIC_ROUTES` or `FIXTURE_ROUTES` in `capture-wiki-screenshots.mjs`
+with the filename, route, optional `waitFor` selector, optional
+`action` callback (e.g. click a button to open a modal), and optional
+`highlight` spec.
 
-To implement it:
+## Known gaps
 
-1. Add a `WikiCaptureFileService` in
-   `frontend/src/lib/file-system/` that satisfies the same interface as
-   the production FileService but reads its JSON from a bundled fixture
-   object.
-2. In `FileSystemProvider`, when `window.location.search` contains
-   `wikiCapture=1` AND `NODE_ENV !== "production"`, return that mock
-   service and a hard-coded `currentUser`. Treat the connect step as a
-   no-op.
-3. Extend `PUBLIC_ROUTES` in `capture-wiki-screenshots.mjs` with the
-   in-app routes, each with `?wikiCapture=1` appended.
-
-The fixture itself can be a single TypeScript object with sample
-projects, tasks, methods, etc.
-
-## Expected filenames
-
-The wiki references these filenames. Use these names exactly when saving
-screenshots so the wiki's `<Screenshot src=...>` props pick them up:
-
-### Getting Started
-- `folder-connect.png` — `/wiki/getting-started/connecting-your-folder`
-- `user-login.png` — `/wiki/getting-started/creating-a-user`
-
-### Features
-- `home-projects.png` — `/wiki/features/home`
-- `gantt-overview.png` — `/wiki/features/gantt`
-- `experiments-list.png` — `/wiki/features/experiments`
-- `methods-library.png` — `/wiki/features/methods`
-- `pcr-editor.png` — `/wiki/features/pcr`
-- `purchases-list.png` — `/wiki/features/purchases`
-- `calendar-month.png` — `/wiki/features/calendar`
-- `lab-mode.png` — `/wiki/features/lab-mode`
-- `search-results.png` — `/wiki/features/search`
-- `links.png` — `/wiki/features/links`
-- `results-editor.png` — `/wiki/features/results`
-- `settings.png` — `/wiki/features/settings`
-- `notifications.png` — `/wiki/features/notifications`
-
-### Integrations
-- `telegram-pairing.png` — `/wiki/integrations/telegram`
-- `calendar-feeds-modal.png` — `/wiki/integrations/calendar-feeds`
-
-If you add a new wiki page that needs a screenshot, follow the naming
-pattern `<page-key>.png` and update both this README and the
-`PUBLIC_ROUTES` array in the capture script.
+- **`user-login.png`** (referenced by `/wiki/getting-started/creating-a-user`)
+  isn't captured. Fixture mode auto-signs in as "grant" so the user-picker
+  screen never renders. A future variant `?wikiCapture=picker` could load
+  the fixture without setting the current user, surfacing the picker. For
+  now the placeholder shows on that wiki page.
+- **Lab Mode** captures the empty state because the user-filter is empty
+  by default. To make the screenshot richer, the script could click the
+  user filter and select all users before capturing.

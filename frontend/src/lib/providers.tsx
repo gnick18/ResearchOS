@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, useEffect, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { FileSystemProvider, useFileSystem, isFileSystemAccessSupported } from "@/lib/file-system/file-system-context";
+import { isWikiCaptureMode } from "@/lib/file-system/wiki-capture-mock";
 import ResearchFolderSetupNew from "@/components/ResearchFolderSetupNew";
 import StagedLoadingScreen from "@/components/StagedLoadingScreen";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -53,6 +54,17 @@ function AppContent({ children }: { children: ReactNode }) {
   }, [currentUser, queryClient]);
 
   if (isWikiRoute) {
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+  }
+
+  // Capture mode: FileSystemProvider has seeded fixture data and set state
+  // to connected/grant. Skip every gate (loading screen, browser check,
+  // folder-connect setup). If state hasn't propagated yet on first render
+  // we still skip everything below and just render — the QueryClient
+  // invalidate effect picks up new data when currentUser flips.
+  if (isWikiCaptureMode()) {
     return (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
