@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import DailyTasksSidebar from "./DailyTasksSidebar";
+import CalendarSidebar from "./CalendarSidebar";
 import TelegramStatusBadge from "./TelegramStatusBadge";
 import InboxBadge from "./InboxBadge";
 import InboxToast from "./InboxToast";
@@ -55,9 +56,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      {/* Main content with daily tasks sidebar */}
+      {/* Main content with route-specific sidebar */}
       <div className="flex flex-1 overflow-hidden">
-        <DailyTasksSidebar />
+        {pathname === "/calendar" ? <CalendarSidebar /> : <DailyTasksSidebar />}
         <main className="flex-1 flex flex-col overflow-hidden">
           {children}
         </main>
