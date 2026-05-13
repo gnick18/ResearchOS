@@ -6,6 +6,7 @@ import { notesApi } from "@/lib/local-api";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import NoteCommentsThread from "./NoteCommentsThread";
 import Tooltip from "./Tooltip";
+import { useDropWarning } from "@/lib/use-drop-warning";
 
 interface NoteDetailPopupProps {
   note: Note;
@@ -87,6 +88,12 @@ export default function NoteDetailPopup({
   const unsavedContentRef = useRef<Map<string, string>>(new Map());
   const isSavingRef = useRef(false);
   const isClosingRef = useRef(false);
+
+  // Notes don't have a Files/ folder concept yet — flash a toast when the
+  // user drops a file onto the editor instead of silently swallowing it.
+  const { show: showDropWarning, toast: dropWarningToast } = useDropWarning(
+    "File attachments aren't supported on notes yet. Attach files via a task's Lab Notes or Results tab instead."
+  );
 
   // Set initial active tab
   useEffect(() => {
@@ -680,6 +687,8 @@ export default function NoteDetailPopup({
                   onChange={updateEntryContent}
                   placeholder="Write your meeting notes in Markdown..."
                   disabled={readOnly}
+                  allowAnyFileType={true}
+                  onFileDrop={showDropWarning}
                 />
               ) : (
                 <div className="flex items-center justify-center h-full text-gray-400">
@@ -698,6 +707,8 @@ export default function NoteDetailPopup({
                   }}
                   placeholder="Write your meeting notes in Markdown..."
                   disabled={readOnly}
+                  allowAnyFileType={true}
+                  onFileDrop={showDropWarning}
                 />
               )
             )}
@@ -724,6 +735,7 @@ export default function NoteDetailPopup({
           </div>
         )}
       </div>
+      {dropWarningToast}
     </div>
   );
 }

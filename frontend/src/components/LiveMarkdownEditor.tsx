@@ -12,6 +12,7 @@ import { fileService } from "@/lib/file-system/file-service";
 import ImageResizePopover from "./ImageResizePopover";
 import { rewriteImageBySrcAlt, parseWidthPercent } from "@/lib/image-resize-utils";
 import ImageStrip from "./ImageStrip";
+import FileStrip, { FILE_STRIP_DRAG_MIME } from "./FileStrip";
 import ImageTrashDropZone from "./ImageTrashDropZone";
 import { caretOffsetFromPoint } from "@/lib/utils/textarea-caret";
 
@@ -551,7 +552,8 @@ export default function LiveMarkdownEditor({
   const [imageSearchResults, setImageSearchResults] = useState<ImageSearchResult[]>([]);
   const [isSearchingImage, setIsSearchingImage] = useState(false);
   const [resolvedBlobUrls, setResolvedBlobUrls] = useState<Map<string, string>>(new Map());
-  const [showImageStrip, setShowImageStrip] = useState(true);
+  const [showAttachmentStrip, setShowAttachmentStrip] = useState(true);
+  const [activeAttachmentTab, setActiveAttachmentTab] = useState<"images" | "files">("images");
   const editorContentRef = useRef<HTMLDivElement>(null);
 
   // Scroll the rendered preview/hybrid editor to the image with the given
@@ -1494,21 +1496,23 @@ export default function LiveMarkdownEditor({
             </button>
           )}
 
-          {/* Image Strip Toggle — shows a scrollable strip of every image in
-              this document along the bottom; clicking a thumbnail scrolls
-              the preview to that image. */}
+          {/* Attachment Strip Toggle — shows a scrollable strip of every
+              image OR non-image file attached to this experiment along the
+              bottom. A small Images / Files tab bar above the strip switches
+              between the two. Drag a thumbnail into the body to insert a
+              reference at the drop point. */}
           <button
             type="button"
-            onClick={() => setShowImageStrip((v) => !v)}
+            onClick={() => setShowAttachmentStrip((v) => !v)}
             className={`px-2.5 py-1 text-xs rounded transition-colors ${
-              showImageStrip
+              showAttachmentStrip
                 ? "bg-blue-100 text-blue-700"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
             title={
-              showImageStrip
-                ? "Hide the image strip"
-                : "Show every image in this document at the bottom — click a thumbnail to scroll to it"
+              showAttachmentStrip
+                ? "Hide the attachments strip"
+                : "Show every image and file attached to this experiment along the bottom — drag a tile into the body to insert it"
             }
           >
             Strip
@@ -1600,23 +1604,65 @@ export default function LiveMarkdownEditor({
         ref={editorContentRef}
         className="flex flex-1 min-h-0"
         onDragOver={(e) => {
-          if (Array.from(e.dataTransfer.types).includes("application/x-research-os-image")) {
+          const types = Array.from(e.dataTransfer.types);
+          if (
+            types.includes("application/x-research-os-image") ||
+            types.includes(FILE_STRIP_DRAG_MIME) ||
+            types.includes("Files")
+          ) {
             e.preventDefault();
             e.dataTransfer.dropEffect = "copy";
           }
         }}
         onDrop={(e) => {
-          const raw = e.dataTransfer.getData("application/x-research-os-image");
-          if (!raw) return;
+          // Three possible payloads:
+          //   1. ImageStrip drag — inserts `![](Images/...)`.
+          //   2. FileStrip drag — inserts `[name](Files/...)`.
+          //   3. Native OS file drop (Finder, etc.) — uploads via the
+          //      caller-supplied onFileDrop / onImageDrop. Without this
+          //      branch the browser would handle it (Chrome opens the
+          //      PDF), so we always preventDefault even if no callback
+          //      is wired to keep the editor inert.
+          const imageRaw = e.dataTransfer.getData("application/x-research-os-image");
+          const fileRaw = e.dataTransfer.getData(FILE_STRIP_DRAG_MIME);
+          const nativeFiles =
+            !imageRaw && !fileRaw && e.dataTransfer.files.length > 0
+              ? Array.from(e.dataTransfer.files)
+              : null;
+          if (!imageRaw && !fileRaw && !nativeFiles) return;
           e.preventDefault();
-          let parsed: { filename: string; caption?: string } | null = null;
-          try {
-            parsed = JSON.parse(raw) as { filename: string; caption?: string };
-          } catch {
+          e.stopPropagation();
+          if (nativeFiles) {
+            if (allowAnyFileType && onFileDrop) {
+              onFileDrop(nativeFiles);
+            } else if (onImageDrop) {
+              const imageFiles = nativeFiles.filter((f) => f.type.startsWith("image/"));
+              if (imageFiles.length > 0) onImageDrop(imageFiles);
+            }
             return;
           }
-          if (!parsed?.filename) return;
-          const snippet = `![${parsed.caption ?? ""}](Images/${parsed.filename})`;
+
+          let snippet: string | null = null;
+          if (imageRaw) {
+            let parsed: { filename: string; caption?: string } | null = null;
+            try {
+              parsed = JSON.parse(imageRaw) as { filename: string; caption?: string };
+            } catch {
+              return;
+            }
+            if (!parsed?.filename) return;
+            snippet = `![${parsed.caption ?? ""}](Images/${parsed.filename})`;
+          } else if (fileRaw) {
+            let parsed: { filename: string } | null = null;
+            try {
+              parsed = JSON.parse(fileRaw) as { filename: string };
+            } catch {
+              return;
+            }
+            if (!parsed?.filename) return;
+            snippet = `[${parsed.filename}](Files/${parsed.filename})`;
+          }
+          if (!snippet) return;
 
           const ta = textareaRef.current;
           if (currentMode === "edit" && ta) {
@@ -1861,16 +1907,48 @@ export default function LiveMarkdownEditor({
         </div>
       </div>
 
-      {/* Image Strip — every image linked to this experiment as scrollable
-          thumbnails. Drag one into the markdown to insert at the cursor, or
-          drop on the trash zone (rendered while a drag is in progress) to
-          delete from disk and strip references. */}
-      {showImageStrip && (
-        <ImageStrip
-          content={value}
-          basePath={imageBasePath}
-          onJumpToImage={handleJumpToImage}
-        />
+      {/* Attachment Strip — every image or non-image file attached to this
+          experiment, as scrollable thumbnails / tiles. A small Images |
+          Files tab bar switches between the two strips. Drag one into the
+          markdown to insert at the drop point, or (images only) drop on the
+          trash zone (rendered while an image drag is in progress) to delete
+          from disk and strip references. */}
+      {showAttachmentStrip && (
+        <div className="sticky bottom-0 z-10">
+          <div className="flex items-center gap-1 px-3 pt-2 bg-gray-50 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={() => setActiveAttachmentTab("images")}
+              className={`px-2.5 py-1 text-xs rounded-t transition-colors ${
+                activeAttachmentTab === "images"
+                  ? "bg-white text-gray-800 font-medium border border-gray-200 border-b-transparent"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+              }`}
+            >
+              Images
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveAttachmentTab("files")}
+              className={`px-2.5 py-1 text-xs rounded-t transition-colors ${
+                activeAttachmentTab === "files"
+                  ? "bg-white text-gray-800 font-medium border border-gray-200 border-b-transparent"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+              }`}
+            >
+              Files
+            </button>
+          </div>
+          {activeAttachmentTab === "images" ? (
+            <ImageStrip
+              content={value}
+              basePath={imageBasePath}
+              onJumpToImage={handleJumpToImage}
+            />
+          ) : (
+            <FileStrip content={value} basePath={imageBasePath} />
+          )}
+        </div>
       )}
       <ImageTrashDropZone value={value} onChange={onChange} basePath={imageBasePath} />
 

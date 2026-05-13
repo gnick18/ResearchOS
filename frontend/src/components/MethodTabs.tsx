@@ -12,6 +12,7 @@ import { InteractiveGradientEditor } from "@/components/InteractiveGradientEdito
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import MethodPicker from "./MethodPicker";
 import Tooltip from "./Tooltip";
+import { useDropWarning } from "@/lib/use-drop-warning";
 
 interface MethodTabsProps {
   task: Task;
@@ -623,6 +624,12 @@ function VariationNotesPanel({ taskId, methodId, variationNotes, onSaved, readOn
   const [content, setContent] = useState(variationNotes || "");
   const [originalContent, setOriginalContent] = useState(variationNotes || "");
   const [saving, setSaving] = useState(false);
+
+  // Variation notes are stored inline in the Task JSON, not in a Files/
+  // folder — so dropping a file here has nowhere to go. Flash a toast.
+  const { show: showDropWarning, toast: dropWarningToast } = useDropWarning(
+    "File attachments aren't supported on variation notes. Attach files via the method's main page or a task's Lab Notes / Results tab."
+  );
   
   // Track unsaved changes
   const hasUnsavedChanges = content !== originalContent;
@@ -755,6 +762,8 @@ function VariationNotesPanel({ taskId, methodId, variationNotes, onSaved, readOn
                 onChange={setContent}
                 placeholder="Write your variation notes in markdown..."
                 showToolbar={true}
+                allowAnyFileType={true}
+                onFileDrop={showDropWarning}
               />
               <div className="flex justify-end gap-2">
                 <button
@@ -854,6 +863,7 @@ function VariationNotesPanel({ taskId, methodId, variationNotes, onSaved, readOn
           )}
         </div>
       )}
+      {dropWarningToast}
     </div>
   );
 }
