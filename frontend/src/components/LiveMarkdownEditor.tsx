@@ -554,6 +554,12 @@ export default function LiveMarkdownEditor({
   const [resolvedBlobUrls, setResolvedBlobUrls] = useState<Map<string, string>>(new Map());
   const [showAttachmentStrip, setShowAttachmentStrip] = useState(true);
   const [activeAttachmentTab, setActiveAttachmentTab] = useState<"images" | "files">("images");
+  // Native-file drag affordance: light up the editor wrapper while the user is
+  // dragging a file from Finder over it. Counter handles child-element bubbling
+  // (dragenter/leave fire on every nested element the cursor crosses), so we
+  // only clear the highlight when the counter returns to 0.
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const dragCounterRef = useRef(0);
   const editorContentRef = useRef<HTMLDivElement>(null);
 
   // Scroll the rendered preview/hybrid editor to the image with the given
@@ -1426,8 +1432,61 @@ export default function LiveMarkdownEditor({
     // The queue processing useEffect will pick up the next item
   }, []);
 
+  // Whether this editor instance should advertise itself as a file drop target.
+  // Surfaces that opted into native file uploads (`allowAnyFileType` + `onFileDrop`)
+  // route files into `${basePath}/Files/`; surfaces without that wiring still
+  // benefit from showing the ring + receiving the existing drop-warning toast,
+  // so the affordance fires whenever either prop is set. Without this gate a
+  // read-only preview-only editor would falsely promise to accept drops.
+  const acceptsFileDragAffordance = allowAnyFileType || Boolean(onFileDrop);
+
+  const handleWrapperDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    if (!acceptsFileDragAffordance) return;
+    const types = Array.from(e.dataTransfer.types);
+    // ImageStrip / FileStrip drags originate inside the editor and have their
+    // own affordances — don't double up. Only react to native Finder drags.
+    if (
+      types.includes("application/x-research-os-image") ||
+      types.includes(FILE_STRIP_DRAG_MIME)
+    ) {
+      return;
+    }
+    if (!types.includes("Files")) return;
+    dragCounterRef.current += 1;
+    if (!isDraggingFile) setIsDraggingFile(true);
+  };
+
+  const handleWrapperDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    if (!acceptsFileDragAffordance) return;
+    const types = Array.from(e.dataTransfer.types);
+    if (
+      types.includes("application/x-research-os-image") ||
+      types.includes(FILE_STRIP_DRAG_MIME)
+    ) {
+      return;
+    }
+    if (!types.includes("Files")) return;
+    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+    if (dragCounterRef.current === 0) setIsDraggingFile(false);
+  };
+
+  const handleWrapperDrop = () => {
+    dragCounterRef.current = 0;
+    if (isDraggingFile) setIsDraggingFile(false);
+  };
+
   return (
-    <div className="flex flex-col h-full">
+    <div
+      className={`flex flex-col h-full transition-all duration-150 ${
+        isDraggingFile ? "ring-4 ring-blue-400 ring-offset-2 bg-blue-50/20" : ""
+      }`}
+      onDragEnter={handleWrapperDragEnter}
+      onDragLeave={handleWrapperDragLeave}
+      // Capture phase: the inner drop handler calls stopPropagation on valid
+      // payloads, which would prevent a bubble-phase onDrop here from firing.
+      // Capture runs top-down before that stop, so we always reset on drop.
+      onDropCapture={handleWrapperDrop}
+    >
       {/* Toolbar */}
       {showToolbar && (
         <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 bg-gray-50/50">
