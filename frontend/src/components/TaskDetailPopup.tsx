@@ -73,6 +73,7 @@ import { migrateTaskAttachmentsToFiles } from "@/lib/tasks/migrate-attachments";
 import { attachImageToTask } from "@/lib/attachments/attach-image";
 import { fileEvents } from "@/lib/attachments/file-events";
 import { gcUnreferencedAttachments } from "@/lib/attachments/gc";
+import { imageEvents } from "@/lib/attachments/image-events";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 interface TaskDetailPopupProps {
@@ -115,6 +116,59 @@ export default function TaskDetailPopup({
   // shared to the current user with edit permission, every mutating call
   // routes through the owner's directory instead of the current user's.
   const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
+
+  // Universal drop: any file dragged anywhere onto the popup card uploads to
+  // the task's Files/ (or Images/) folder, no matter which tab is active.
+  // LiveMarkdownEditor instances inside Lab Notes / Results already handle
+  // their own drops and stopPropagation, so this handler only fires for
+  // drops outside an editor (Details, Methods rendered content, header, etc).
+  const popupBasePath = useMemo(() => taskResultsBase(task), [task]);
+  const [universalDropToast, setUniversalDropToast] = useState<
+    { msg: string; x: number; y: number } | null
+  >(null);
+  const handleUniversalDragOver = useCallback((e: React.DragEvent) => {
+    if (!Array.from(e.dataTransfer.types).includes("Files")) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  }, []);
+  const handleUniversalDrop = useCallback(
+    async (e: React.DragEvent) => {
+      if (!Array.from(e.dataTransfer.types).includes("Files")) return;
+      e.preventDefault();
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length === 0) return;
+      const dropX = e.clientX;
+      const dropY = e.clientY;
+      const landed: string[] = [];
+      for (const file of files) {
+        const isImage = file.type.startsWith("image/");
+        const folder = isImage ? "Images" : "Files";
+        const dir = `${popupBasePath}/${folder}`;
+        try {
+          const finalName = await pickUniqueFilename(dir, file.name);
+          await fileService.writeFileFromBlob(`${dir}/${finalName}`, file);
+          const detail = { basePath: popupBasePath, relativePath: `${folder}/${finalName}` };
+          if (isImage) {
+            imageEvents.emitAttached(detail);
+          } else {
+            fileEvents.emitAttached(detail);
+          }
+          landed.push(finalName);
+        } catch (err) {
+          console.error("Failed to upload", file.name, err);
+        }
+      }
+      if (landed.length > 0) {
+        const msg =
+          landed.length === 1
+            ? `Added ${landed[0]} to this task. View in Lab Notes / Results.`
+            : `Added ${landed.length} files to this task. View in Lab Notes / Results.`;
+        setUniversalDropToast({ msg, x: dropX, y: dropY });
+        window.setTimeout(() => setUniversalDropToast(null), 3000);
+      }
+    },
+    [popupBasePath]
+  );
 
   // Get the selected animation type from the store
   const animationType = useAppStore((s) => s.animationType);
@@ -339,6 +393,8 @@ export default function TaskDetailPopup({
         // the editor's overflow parents.
         data-drag-ring-target=""
         onClick={(e) => e.stopPropagation()}
+        onDragOver={handleUniversalDragOver}
+        onDrop={handleUniversalDrop}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
@@ -511,6 +567,17 @@ export default function TaskDetailPopup({
           {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly} ownerUsername={username} />}
           {activeTab === "purchases" && <PurchaseEditor taskId={task.id} readOnly={readOnly} username={username} />}
         </div>
+        {universalDropToast && (
+          <div
+            className="fixed z-50 max-w-sm rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 shadow-lg pointer-events-none"
+            style={{
+              left: Math.max(8, Math.min(universalDropToast.x + 12, (typeof window !== "undefined" ? window.innerWidth : 1024) - 400)),
+              top: Math.max(8, Math.min(universalDropToast.y + 12, (typeof window !== "undefined" ? window.innerHeight : 768) - 100)),
+            }}
+          >
+            {universalDropToast.msg}
+          </div>
+        )}
       </div>
 
       {/* Share Popup */}

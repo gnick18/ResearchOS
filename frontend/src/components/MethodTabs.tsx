@@ -36,26 +36,6 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
   const [activeMethodId, setActiveMethodId] = useState<number | null>(null);
   const [showMethodSelector, setShowMethodSelector] = useState(false);
   const [saving, setSaving] = useState(false);
-
-  // Rendered method content and variation-notes previews aren't drop targets
-  // (read-only markdown displays). Without an interceptor the native file
-  // drop falls through to Chrome and opens the file. Toast instead.
-  const { show: showTabDropWarning, toast: tabDropWarningToast } = useDropWarning(
-    "File attachments aren't supported on the Methods tab. Drop into the task's Lab Notes or Results tab instead."
-  );
-  const handleTabDragOver = useCallback((e: React.DragEvent) => {
-    if (!Array.from(e.dataTransfer.types).includes("Files")) return;
-    e.preventDefault();
-    // Use "copy" (not "none") so Chrome actually fires the drop event —
-    // dropEffect "none" cancels the drop and gives the user a silent
-    // "bounces back, nothing happens" with no toast.
-    e.dataTransfer.dropEffect = "copy";
-  }, []);
-  const handleTabDrop = useCallback((e: React.DragEvent) => {
-    if (!Array.from(e.dataTransfer.types).includes("Files")) return;
-    e.preventDefault();
-    showTabDropWarning(e.clientX, e.clientY);
-  }, [showTabDropWarning]);
   
   // Get method attachments from task
   const methodAttachments = task.method_attachments || [];
@@ -332,8 +312,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
   }, [task.id, activeMethodId, queryClient, onTaskUpdate]);
   
   return (
-    <div className="flex flex-col h-full" onDragOver={handleTabDragOver} onDrop={handleTabDrop}>
-      {tabDropWarningToast}
+    <div className="flex flex-col h-full">
       {/* Tab bar - browser-like */}
       <div className="flex items-center bg-gray-100 border-b border-gray-200 px-2 pt-2">
         {/* Method tabs */}
