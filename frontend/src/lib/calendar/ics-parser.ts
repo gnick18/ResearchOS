@@ -25,6 +25,12 @@ function toLocalDateString(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+function toLocalTimeString(date: Date): string {
+  const h = String(date.getHours()).padStart(2, "0");
+  const m = String(date.getMinutes()).padStart(2, "0");
+  return `${h}:${m}`;
+}
+
 function safeText(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -89,6 +95,9 @@ function eventToExternal(
   }
   const startStr = toLocalDateString(start);
 
+  const startTime = isAllDay ? null : toLocalTimeString(start);
+  const endTime = isAllDay ? null : toLocalTimeString(endJs);
+
   const summary = safeText(vevent.getFirstPropertyValue("summary")) ?? "(no title)";
   const location = safeText(vevent.getFirstPropertyValue("location"));
   const description = safeText(vevent.getFirstPropertyValue("description"));
@@ -100,6 +109,8 @@ function eventToExternal(
     title: summary,
     start_date: startStr,
     end_date: endStr && endStr !== startStr ? endStr : null,
+    start_time: startTime,
+    end_time: endTime,
     location,
     url,
     notes: description,

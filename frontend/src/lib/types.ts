@@ -493,6 +493,10 @@ export interface Event {
   event_type: "conference" | "deadline" | "meeting" | "other";
   start_date: string;
   end_date: string | null;
+  /** Local time in HH:MM 24-hour form. `null` means the event is all-day. */
+  start_time: string | null;
+  /** Local time in HH:MM 24-hour form. `null` means no explicit end time. */
+  end_time: string | null;
   location: string | null;
   url: string | null;
   notes: string | null;
@@ -504,6 +508,8 @@ export interface EventCreate {
   event_type?: "conference" | "deadline" | "meeting" | "other";
   start_date: string;
   end_date?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
   location?: string | null;
   url?: string | null;
   notes?: string | null;
@@ -515,6 +521,8 @@ export interface EventUpdate {
   event_type?: "conference" | "deadline" | "meeting" | "other";
   start_date?: string;
   end_date?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
   location?: string | null;
   url?: string | null;
   notes?: string | null;
@@ -542,6 +550,12 @@ export interface ExternalEvent {
   title: string;
   start_date: string;
   end_date: string | null;
+  /** Local time in HH:MM 24-hour form (preserved from VEVENT DTSTART when
+   *  the event isn't all-day). `null` means an all-day event. */
+  start_time: string | null;
+  /** Local time in HH:MM 24-hour form (from VEVENT DTEND). `null` means no
+   *  end time was specified. */
+  end_time: string | null;
   location: string | null;
   url: string | null;
   notes: string | null;

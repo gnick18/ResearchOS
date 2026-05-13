@@ -24,6 +24,30 @@ const EVENT_TYPE_COLORS: Record<string, string> = {
   other: "#6b7280",
 };
 
+/** Format an HH:MM string into a compact 12h form, e.g. "9:00" → "9:00a",
+ *  "13:30" → "1:30p", "00:00" → "12:00a". Returns "" for null/empty. */
+function formatTime(time: string | null | undefined): string {
+  if (!time) return "";
+  const m = time.match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return "";
+  const hour = parseInt(m[1], 10);
+  const minute = m[2];
+  const period = hour >= 12 ? "p" : "a";
+  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+  return minute === "00" ? `${hour12}${period}` : `${hour12}:${minute}${period}`;
+}
+
+/** Sort comparator that puts all-day events first, then sorts timed events by
+ *  start_time ascending. */
+function eventTimeOrder(a: { start_time?: string | null }, b: { start_time?: string | null }): number {
+  const at = a.start_time ?? "";
+  const bt = b.start_time ?? "";
+  if (at === bt) return 0;
+  if (!at) return -1;
+  if (!bt) return 1;
+  return at.localeCompare(bt);
+}
+
 export default function CalendarPage() {
   const queryClient = useQueryClient();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -255,51 +279,70 @@ export default function CalendarPage() {
                     {day.date.getDate()}
                   </div>
                   <div className="space-y-1">
-                    {dayEvents.slice(0, 3).map((item) =>
-                      item.kind === "native" ? (
-                        <button
-                          key={`n-${item.event.id}`}
-                          onClick={() => setSelectedEvent(item.event)}
-                          className="w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80"
-                          style={{
-                            backgroundColor:
-                              item.event.color || EVENT_TYPE_COLORS[item.event.event_type],
-                            color: "white",
-                          }}
-                        >
-                          {item.event.title}
-                        </button>
-                      ) : (
-                        <button
-                          key={`x-${item.event.id}`}
-                          onClick={() => setSelectedExternal(item.event)}
-                          title="Linked calendar event (read-only)"
-                          className="w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80 flex items-center gap-1"
-                          style={{
-                            backgroundColor: "white",
-                            color: item.event.color,
-                            border: `1px solid ${item.event.color}`,
-                          }}
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="8"
-                            height="8"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="3"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="flex-shrink-0"
+                    {[...dayEvents]
+                      .sort((a, b) => eventTimeOrder(a.event, b.event))
+                      .slice(0, 3)
+                      .map((item) =>
+                        item.kind === "native" ? (
+                          <button
+                            key={`n-${item.event.id}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedEvent(item.event);
+                            }}
+                            className="w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80"
+                            style={{
+                              backgroundColor:
+                                item.event.color || EVENT_TYPE_COLORS[item.event.event_type],
+                              color: "white",
+                            }}
                           >
-                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                          </svg>
-                          <span className="truncate">{item.event.title}</span>
-                        </button>
-                      )
-                    )}
+                            {item.event.start_time && (
+                              <span className="font-semibold mr-1">
+                                {formatTime(item.event.start_time)}
+                              </span>
+                            )}
+                            {item.event.title}
+                          </button>
+                        ) : (
+                          <button
+                            key={`x-${item.event.id}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedExternal(item.event);
+                            }}
+                            title="Linked calendar event (read-only)"
+                            className="w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80 flex items-center gap-1"
+                            style={{
+                              backgroundColor: "white",
+                              color: item.event.color,
+                              border: `1px solid ${item.event.color}`,
+                            }}
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="8"
+                              height="8"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className="flex-shrink-0"
+                            >
+                              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                            </svg>
+                            {item.event.start_time && (
+                              <span className="font-semibold flex-shrink-0">
+                                {formatTime(item.event.start_time)}
+                              </span>
+                            )}
+                            <span className="truncate">{item.event.title}</span>
+                          </button>
+                        )
+                      )}
                     {dayEvents.length > 3 && (
                       <p className="text-[10px] text-gray-400 px-1.5">
                         +{dayEvents.length - 3} more
@@ -377,6 +420,15 @@ export default function CalendarPage() {
                             item.event.end_date !== item.event.start_date && (
                               <> → {item.event.end_date}</>
                             )}
+                          {item.event.start_time && (
+                            <>
+                              {" · "}
+                              {formatTime(item.event.start_time)}
+                              {item.event.end_time && (
+                                <> – {formatTime(item.event.end_time)}</>
+                              )}
+                            </>
+                          )}
                         </p>
                         {item.event.location && (
                           <p className="text-xs text-gray-500 mt-1 truncate">
@@ -491,6 +543,8 @@ function EventModal({
   const [eventType, setEventType] = useState(event.event_type);
   const [startDate, setStartDate] = useState(event.start_date);
   const [endDate, setEndDate] = useState(event.end_date || "");
+  const [startTime, setStartTime] = useState(event.start_time || "");
+  const [endTime, setEndTime] = useState(event.end_time || "");
   const [location, setLocation] = useState(event.location || "");
   const [url, setUrl] = useState(event.url || "");
   const [notes, setNotes] = useState(event.notes || "");
@@ -502,6 +556,8 @@ function EventModal({
       event_type: eventType,
       start_date: startDate,
       end_date: endDate || null,
+      start_time: startTime || null,
+      end_time: endTime || null,
       location: location || null,
       url: url || null,
       notes: notes || null,
@@ -565,6 +621,42 @@ function EventModal({
                   />
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                    Start Time <span className="text-gray-300 font-normal">(optional)</span>
+                  </label>
+                  <input
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                    End Time <span className="text-gray-300 font-normal">(optional)</span>
+                  </label>
+                  <input
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              {(startTime || endTime) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStartTime("");
+                    setEndTime("");
+                  }}
+                  className="text-[11px] text-blue-600 hover:underline -mt-2"
+                >
+                  Clear times (make all-day)
+                </button>
+              )}
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">Location</label>
                 <input
@@ -624,6 +716,13 @@ function EventModal({
                 {event.start_date}
                 {event.end_date && event.end_date !== event.start_date && (
                   <> → {event.end_date}</>
+                )}
+                {event.start_time && (
+                  <>
+                    {" · "}
+                    {formatTime(event.start_time)}
+                    {event.end_time && <> – {formatTime(event.end_time)}</>}
+                  </>
                 )}
               </p>
               {event.location && (
@@ -691,6 +790,8 @@ function CreateEventModal({
   };
   const [startDate, setStartDate] = useState(defaultStartDate || getLocalDateString());
   const [endDate, setEndDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [location, setLocation] = useState("");
   const [url, setUrl] = useState("");
   const [notes, setNotes] = useState("");
@@ -703,6 +804,8 @@ function CreateEventModal({
       event_type: eventType,
       start_date: startDate,
       end_date: endDate || null,
+      start_time: startTime || null,
+      end_time: endTime || null,
       location: location || null,
       url: url || null,
       notes: notes || null,
@@ -764,6 +867,33 @@ function CreateEventModal({
               />
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                Start Time <span className="text-gray-300 font-normal">(optional)</span>
+              </label>
+              <input
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                End Time <span className="text-gray-300 font-normal">(optional)</span>
+              </label>
+              <input
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          <p className="text-[11px] text-gray-400 -mt-2">
+            Leave times empty for an all-day event.
+          </p>
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Location</label>
             <input
@@ -871,6 +1001,13 @@ function ExternalEventModal({
             {event.start_date}
             {event.end_date && event.end_date !== event.start_date && (
               <> → {event.end_date}</>
+            )}
+            {event.start_time && (
+              <>
+                {" · "}
+                {formatTime(event.start_time)}
+                {event.end_time && <> – {formatTime(event.end_time)}</>}
+              </>
             )}
           </p>
           {event.location && (
