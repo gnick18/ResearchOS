@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState, useMemo } from "react"
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
-import { filesApi, methodsApi, projectsApi, tasksApi as rawTasksApi, dependenciesApi, fetchAllTasks, attachmentsApi, type DuplicateCheckResult } from "@/lib/local-api";
+import { filesApi, methodsApi, projectsApi, tasksApi as rawTasksApi, dependenciesApi, fetchAllTasks, type DuplicateCheckResult } from "@/lib/local-api";
 import type { TaskUpdate, TaskMoveRequest } from "@/lib/local-api";
 
 /**
@@ -57,7 +57,7 @@ import SharePopup from "./SharePopup";
 import Tooltip from "./Tooltip";
 import { useAppStore } from "@/lib/store";
 import { taskKey } from "@/lib/types";
-import type { Method, Task, Project, Dependency, ShiftResult, SubTask } from "@/lib/types";
+import type { Method, Task, Project, ShiftResult, SubTask } from "@/lib/types";
 import type { GitHubTreeItem } from "@/lib/types";
 import { createNewFileContent } from "@/lib/stamp-utils";
 import {
@@ -136,13 +136,12 @@ export default function TaskDetailPopup({
     enabled: !readOnly,
   });
 
+  // Sync local task state with the freshly-fetched record from disk while
+  // preserving the sharing-metadata overlay from the prop (the on-disk file
+  // never carries it). Legitimate external-state-into-React sync.
   useEffect(() => {
     if (!freshTask) return;
-    // freshTask comes straight off disk (e.g. `users/Kritika/tasks/1.json`),
-    // which never carries the sharing metadata — that gets attached by the
-    // aggregator in `fetchAllTasksIncludingShared`. Preserve those fields
-    // from the prop so the owner-aware tasksApi wrapper still knows where
-    // to write subsequent mutations.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTask({
       ...freshTask,
       owner: initialTask.owner || freshTask.owner,
@@ -539,7 +538,7 @@ function SimpleTaskChecklist({
     setSubTasks(task.sub_tasks || []);
   }, [task.sub_tasks]);
 
-  const handleToggleSubTask = useCallback(async (subTaskId: string, event: React.MouseEvent) => {
+  const handleToggleSubTask = useCallback(async (subTaskId: string, _event: React.MouseEvent) => {
     const checkbox = checkboxRefs.current.get(subTaskId);
     const rect = checkbox?.getBoundingClientRect();
     
@@ -566,7 +565,7 @@ function SimpleTaskChecklist({
     } finally {
       setSaving(false);
     }
-  }, [subTasks, task.id, queryClient, onAnimationTrigger]);
+  }, [subTasks, task, tasksApi, queryClient, onAnimationTrigger]);
 
   const handleAddSubTask = useCallback(async () => {
     if (!newSubTaskText.trim()) return;
@@ -590,7 +589,7 @@ function SimpleTaskChecklist({
     } finally {
       setSaving(false);
     }
-  }, [newSubTaskText, subTasks, task.id, queryClient]);
+  }, [newSubTaskText, subTasks, task, tasksApi, queryClient]);
 
   const handleDeleteSubTask = useCallback(async (subTaskId: string) => {
     const updatedSubTasks = subTasks.filter(st => st.id !== subTaskId);
@@ -605,7 +604,7 @@ function SimpleTaskChecklist({
     } finally {
       setSaving(false);
     }
-  }, [subTasks, task.id, queryClient]);
+  }, [subTasks, task, tasksApi, queryClient]);
 
   return (
     <div className="p-4">
@@ -702,7 +701,7 @@ function DetailsTab({
   const [projectId, setProjectId] = useState(task.project_id);
   const [startDate, setStartDate] = useState(task.start_date);
   const [durationDays, setDurationDays] = useState(task.duration_days);
-  const [isComplete, setIsComplete] = useState(task.is_complete);
+  const isComplete = task.is_complete;
   const [weekendOverride, setWeekendOverride] = useState<boolean | null>(task.weekend_override);
   const [saving, setSaving] = useState(false);
   const [showShiftConfirm, setShowShiftConfirm] = useState(false);
@@ -725,7 +724,6 @@ function DetailsTab({
   
   // Duplicate warning state
   const [duplicateWarning, setDuplicateWarning] = useState<DuplicateCheckResult | null>(null);
-  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
   
   // Task type conversion state
   const [showConvertModal, setShowConvertModal] = useState(false);
@@ -810,12 +808,10 @@ function DetailsTab({
     try {
       // Check for duplicate name if name has changed
       if (name.trim() !== task.name) {
-        setIsCheckingDuplicate(true);
         try {
           const duplicateCheck = await tasksApi.checkDuplicate(projectId, name.trim(), task.task_type, task.id);
           if (duplicateCheck.has_duplicate) {
             setDuplicateWarning(duplicateCheck);
-            setIsCheckingDuplicate(false);
             setSaving(false);
             return;
           }
@@ -823,7 +819,6 @@ function DetailsTab({
           console.error("Failed to check for duplicates:", error);
           // Continue with save if check fails
         }
-        setIsCheckingDuplicate(false);
       }
       
       // Check if start date changed and task has dependents
@@ -874,7 +869,7 @@ function DetailsTab({
     } finally {
       setSaving(false);
     }
-  }, [task.id, task.start_date, task.task_type, task.name, name, projectId, startDate, durationDays, isComplete, weekendOverride, queryClient, dependentTasks.length, parentTasks.length]);
+  }, [task, tasksApi, name, projectId, startDate, durationDays, isComplete, weekendOverride, queryClient, dependentTasks.length, parentTasks.length]);
 
   // Function to proceed with save despite duplicate warning
   const handleProceedWithDuplicate = useCallback(async () => {
@@ -924,7 +919,7 @@ function DetailsTab({
     } finally {
       setSaving(false);
     }
-  }, [task.id, task.start_date, task.task_type, name, projectId, startDate, durationDays, isComplete, weekendOverride, queryClient, dependentTasks.length, parentTasks.length]);
+  }, [task, tasksApi, name, projectId, startDate, durationDays, isComplete, weekendOverride, queryClient, dependentTasks.length, parentTasks.length]);
 
   const handleConfirmShift = useCallback(async () => {
     if (!pendingStartDate) return;
@@ -946,7 +941,7 @@ function DetailsTab({
     } finally {
       setSaving(false);
     }
-  }, [task.id, pendingStartDate, queryClient]);
+  }, [task, tasksApi, pendingStartDate, queryClient]);
 
   const handleDelete = useCallback(async () => {
     if (!confirm(`Delete task "${task.name}"?`)) return;
@@ -961,38 +956,7 @@ function DetailsTab({
     } catch {
       alert("Failed to delete task");
     }
-  }, [task.id, task.name, queryClient, onClose]);
-
-  const handleToggleComplete = useCallback(async () => {
-    try {
-      // If marking as complete, also mark all subtasks as complete
-      const updateData: { is_complete: boolean; sub_tasks?: SubTask[] } = { 
-        is_complete: !task.is_complete 
-      };
-      
-      if (!task.is_complete && subTasks.length > 0) {
-        // Mark all subtasks as complete when marking task as complete
-        updateData.sub_tasks = subTasks.map(st => ({ ...st, is_complete: true }));
-        setSubTasks(updateData.sub_tasks!);
-      }
-      
-      await tasksApi.update(task.id, updateData);
-      await queryClient.refetchQueries({ queryKey: ["tasks"] });
-      await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
-    } catch {
-      alert("Failed to update task");
-    }
-  }, [task.id, task.is_complete, subTasks, queryClient]);
-
-  const handleRemoveDependency = useCallback(async (depId: number) => {
-    if (!confirm("Remove this dependency?")) return;
-    try {
-      await dependenciesApi.delete(depId);
-      await queryClient.refetchQueries({ queryKey: ["dependencies"] });
-    } catch {
-      alert("Failed to remove dependency");
-    }
-  }, [queryClient]);
+  }, [task, tasksApi, queryClient, onClose]);
 
   // Handle adding a new dependency
   const handleAddDependency = useCallback(async () => {
@@ -1021,7 +985,7 @@ function DetailsTab({
     } finally {
       setSaving(false);
     }
-  }, [newParentTaskId, task.id, newDepType, suggestedNewStartDate, queryClient]);
+  }, [newParentTaskId, task, tasksApi, newDepType, suggestedNewStartDate, queryClient]);
 
   // Build the ordered dependency chain for the tree visualization
   // Returns an array of "levels" - each level contains tasks that start at the same time
@@ -1106,10 +1070,10 @@ function DetailsTab({
     } finally {
       setSaving(false);
     }
-  }, [showRemoveFromChain, task.id, removeStartDate, dependencies, queryClient]);
+  }, [showRemoveFromChain, task, tasksApi, removeStartDate, dependencies, queryClient]);
 
   // Sub-task handlers
-  const handleToggleSubTask = useCallback(async (subTaskId: string, event: React.MouseEvent) => {
+  const handleToggleSubTask = useCallback(async (subTaskId: string, _event: React.MouseEvent) => {
     const checkbox = checkboxRefs.current.get(subTaskId);
     const rect = checkbox?.getBoundingClientRect();
     
@@ -1134,7 +1098,7 @@ function DetailsTab({
     } finally {
       setSaving(false);
     }
-  }, [subTasks, task.id, queryClient, onAnimationTrigger]);
+  }, [subTasks, task, tasksApi, queryClient, onAnimationTrigger]);
 
   const handleAddSubTask = useCallback(async () => {
     if (!newSubTaskText.trim()) return;
@@ -1158,7 +1122,7 @@ function DetailsTab({
     } finally {
       setSaving(false);
     }
-  }, [newSubTaskText, subTasks, task.id, queryClient]);
+  }, [newSubTaskText, subTasks, task, tasksApi, queryClient]);
 
   const handleDeleteSubTask = useCallback(async (subTaskId: string) => {
     const updatedSubTasks = subTasks.filter(st => st.id !== subTaskId);
@@ -1173,7 +1137,7 @@ function DetailsTab({
     } finally {
       setSaving(false);
     }
-  }, [subTasks, task.id, queryClient]);
+  }, [subTasks, task, tasksApi, queryClient]);
 
   // Handle task type conversion
   const handleConvertTaskType = useCallback(async () => {
@@ -1191,7 +1155,7 @@ function DetailsTab({
     } finally {
       setConverting(false);
     }
-  }, [task.id, convertToType, queryClient]);
+  }, [task, tasksApi, convertToType, queryClient]);
 
   // Get warning message for task type conversion
   const getConversionWarnings = useCallback((fromType: string) => {
@@ -2025,7 +1989,6 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
   const legacyOwner = ownerUsername || task.owner;
   const [basePath, setBasePath] = useState<string>(() => taskResultsBase(task));
   const notesPath = `${basePath}/notes.md`;
-  const imagesDir = `${basePath}/Images`;
   const pdfsDir = `${basePath}/NotesPDFs`;
 
   // Track if there are unsaved changes
@@ -2253,7 +2216,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
             </div>
           </>
         ) : (
-          <PdfAttachmentsPanel task={task} pdfsDir={pdfsDir} label="Lab Notes" />
+          <PdfAttachmentsPanel pdfsDir={pdfsDir} label="Lab Notes" />
         )}
       </div>
     </>
@@ -2278,7 +2241,6 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
   const legacyOwner = ownerUsername || task.owner;
   const [basePath, setBasePath] = useState<string>(() => taskResultsBase(task));
   const resultsPath = `${basePath}/results.md`;
-  const imagesDir = `${basePath}/Images`;
   const pdfsDir = `${basePath}/ResultsPDFs`;
 
   // Track if there are unsaved changes
@@ -2505,7 +2467,7 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
           </div>
         </>
       ) : (
-        <PdfAttachmentsPanel task={task} pdfsDir={pdfsDir} label="Results" />
+        <PdfAttachmentsPanel pdfsDir={pdfsDir} label="Results" />
       )}
     </div>
     </>
@@ -2563,7 +2525,7 @@ interface PdfAttachment {
   isRenderable: boolean;
 }
 
-function PdfAttachmentsPanel({ task, pdfsDir, label }: { task: Task; pdfsDir: string; label: string }) {
+function PdfAttachmentsPanel({ pdfsDir, label }: { pdfsDir: string; label: string }) {
   const [files, setFiles] = useState<PdfAttachment[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -2572,16 +2534,11 @@ function PdfAttachmentsPanel({ task, pdfsDir, label }: { task: Task; pdfsDir: st
   const [markdownContent, setMarkdownContent] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load files from directory
-  useEffect(() => {
-    loadFiles();
-  }, [pdfsDir]);
-
   const loadFiles = useCallback(async () => {
     setLoading(true);
     try {
       const dirFiles = await filesApi.listDirectory(pdfsDir);
-      
+
       const attachments: PdfAttachment[] = dirFiles.map((f: GitHubTreeItem) => ({
         name: f.name,
         path: f.path,
@@ -2589,7 +2546,7 @@ function PdfAttachmentsPanel({ task, pdfsDir, label }: { task: Task; pdfsDir: st
         loading: false,
         isRenderable: isRenderableFile(f.name),
       }));
-      
+
       setFiles(attachments);
     } catch {
       // Directory doesn't exist yet
@@ -2597,6 +2554,14 @@ function PdfAttachmentsPanel({ task, pdfsDir, label }: { task: Task; pdfsDir: st
     }
     setLoading(false);
   }, [pdfsDir]);
+
+  // Load files from directory. loadFiles is async and calls setState
+  // internally; the lint rule trips on the transitive setState but this is
+  // a standard "fetch on mount/dep change" pattern.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadFiles();
+  }, [loadFiles]);
 
   // Handle file upload
   const handleUpload = useCallback(async (fileList: FileList | null) => {

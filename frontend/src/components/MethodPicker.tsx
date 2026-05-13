@@ -91,12 +91,22 @@ export default function MethodPicker({
   const listRef = useRef<HTMLDivElement | null>(null);
   const rowRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
 
-  useEffect(() => {
+  // Reset internal state when the picker is (re)opened. Uses the "compare to
+  // previous prop in render" pattern documented in the React docs as the
+  // preferred alternative to syncing state via useEffect.
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (open) {
       setQuery("");
       setHighlightedIndex(0);
-      requestAnimationFrame(() => inputRef.current?.focus());
     }
+  }
+
+  // Focus the search input on open. Side effect on the DOM, so it stays in
+  // an effect — but no setState here, so the lint rule is happy.
+  useEffect(() => {
+    if (open) requestAnimationFrame(() => inputRef.current?.focus());
   }, [open]);
 
   const methodById = useMemo(() => {
@@ -211,8 +221,13 @@ export default function MethodPicker({
     return row?.kind === "method" ? row.method : null;
   }, [flatRows, highlightedIndex]);
 
+  // Clamp the highlighted index when the filtered list changes (e.g. the user
+  // types in the search box and the previously-highlighted row is no longer
+  // present). This is a defensive sync that responds to derived state, so it
+  // legitimately needs setState in an effect.
   useEffect(() => {
     if (selectableIndices.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHighlightedIndex(-1);
       return;
     }
@@ -448,10 +463,13 @@ function MethodPreview({ method }: { method: Method | null }) {
 
   // For PDFs, decode the base64 content into a blob URL for the <iframe>.
   // Revoke when the method changes or the component unmounts so we don't
-  // leak object URLs while the user arrows through the list.
+  // leak object URLs while the user arrows through the list. The setState
+  // here is a legitimate sync between an external resource (the blob URL)
+  // and React state, with cleanup — exactly what useEffect is for.
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   useEffect(() => {
     if (!isPdf || !data?.content) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPdfUrl(null);
       return;
     }
