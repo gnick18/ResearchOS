@@ -1,3 +1,4 @@
+import Link from "next/link";
 import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
 import Screenshot from "@/components/wiki/Screenshot";
@@ -127,6 +128,12 @@ export default function PurchasesFeaturePage() {
         the toggle row downloads a flat row-per-item file of whatever&apos;s
         in the current view (so the user filter, funding filter, and the
         view&apos;s date ordering all carry through to the export).
+      </p>
+      <p>
+        For a full walkthrough of the Lab Mode tab&apos;s controls (card colours,
+        the &ldquo;In view&rdquo; vs &ldquo;Spent&rdquo; distinction, filter
+        stacking, CSV export details), see{" "}
+        <Link href="/wiki/features/lab-mode/purchases">Lab Mode &rarr; Lab-wide purchases</Link>.
       </p>
 
       <h2>How a typical lab uses this</h2>
