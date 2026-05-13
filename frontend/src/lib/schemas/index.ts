@@ -92,8 +92,6 @@ export const TaskSchema = z.object({
   sort_order: z.number().default(0),
   experiment_color: z.string().nullable(),
   sub_tasks: z.array(SubTaskSchema).nullable(),
-  pcr_gradient: z.string().nullable(),
-  pcr_ingredients: z.string().nullable(),
   method_attachments: z.array(TaskMethodAttachmentSchema).default([]),
   owner: z.string().default(""),
   shared_with: z.array(SharedUserSchema).default([]),
@@ -116,8 +114,6 @@ export const TaskCreateSchema = z.object({
   sort_order: z.number().default(0),
   experiment_color: z.string().optional().nullable(),
   sub_tasks: z.array(SubTaskSchema).optional().nullable(),
-  pcr_gradient: z.string().optional().nullable(),
-  pcr_ingredients: z.string().optional().nullable(),
   method_attachments: z.array(TaskMethodAttachmentSchema).optional(),
 });
 
@@ -137,8 +133,6 @@ export const TaskUpdateSchema = z.object({
   sort_order: z.number().optional(),
   experiment_color: z.string().optional().nullable(),
   sub_tasks: z.array(SubTaskSchema).optional().nullable(),
-  pcr_gradient: z.string().optional().nullable(),
-  pcr_ingredients: z.string().optional().nullable(),
   method_attachments: z.array(TaskMethodAttachmentSchema).optional(),
 });
 

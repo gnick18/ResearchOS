@@ -21,8 +21,6 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     sort_order: 0,
     experiment_color: null,
     sub_tasks: null,
-    pcr_gradient: null,
-    pcr_ingredients: null,
     method_attachments: [],
     owner: "",
     shared_with: [],

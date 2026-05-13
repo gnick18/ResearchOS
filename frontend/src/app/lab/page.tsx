@@ -38,8 +38,6 @@ function labTaskToTask(labTask: LabTask): Task {
     sort_order: 0,
     experiment_color: labTask.experiment_color,
     sub_tasks: null,
-    pcr_gradient: null,
-    pcr_ingredients: null,
     method_attachments: (labTask.method_ids || []).map((methodId) => ({
       method_id: methodId,
       pcr_gradient: null,
