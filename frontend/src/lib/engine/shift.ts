@@ -1,7 +1,7 @@
 import { addDays, subDays, parseISO, isValid } from "date-fns";
 import { parseDate, formatDate, resolveWeekend, computeEndDate, isWeekendActiveForTask, computeStartDateFromEnd } from "./dates";
 import { JsonStore } from "../storage/json-store";
-import type { Task, Dependency, Project, ShiftedTask, ShiftWarning, ShiftResult } from "../schemas";
+import type { Task, Dependency, Project, ShiftedTask, ShiftWarning, ShiftResult } from "../types";
 
 type TaskDict = Task & { [key: string]: unknown };
 type DependencyDict = Dependency;
