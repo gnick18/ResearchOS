@@ -138,6 +138,11 @@ export async function migrateNoteImages(
 
   const seen = new Map<string, string>(); // originalPath -> newRelativeRef
   let out = content;
+  // Tracks whether ANY ref was rewritten this pass (copy OR middle-state
+  // recovery). The manifest only records copies, but the rewrite-only case
+  // still needs to mark the note dirty so the caller writes the canonical
+  // markdown back to disk.
+  let didRewriteAny = false;
 
   async function rewriteOne(src: string): Promise<string | null> {
     // Already in canonical form
@@ -160,6 +165,7 @@ export async function migrateNoteImages(
       // is gone from `users/{owner}/Images/` but `${basePath}/${subdir}/{file}`
       // already holds the canonical copy. Just rewrite the ref to point there.
       if (await fileService.fileExists(`${basePath}/${subdir}/${desired}`)) {
+        didRewriteAny = true;
         return `${subdir}/${desired}`;
       }
       return null;
@@ -176,6 +182,7 @@ export async function migrateNoteImages(
     const newRef = `${finalSubdir}/${finalName}`;
     seen.set(sourcePath, newRef);
     manifest.entries.push({ originalPath: sourcePath, newPath: destPath });
+    didRewriteAny = true;
     return newRef;
   }
 
@@ -202,12 +209,14 @@ export async function migrateNoteImages(
     }
   }
 
-  const didMigrate = manifest.entries.length > 0;
-  if (didMigrate) {
+  const didCopyAny = manifest.entries.length > 0;
+  if (didCopyAny) {
     await writeManifest(basePath, manifest);
   }
 
-  return { content: out, didMigrate, manifest };
+  // Surface `didMigrate=true` whenever any rewrite happened — caller uses
+  // this to know it should write the canonical markdown back to disk.
+  return { content: out, didMigrate: didRewriteAny, manifest };
 }
 
 async function writeManifest(basePath: string, fresh: MigrationManifest): Promise<void> {
