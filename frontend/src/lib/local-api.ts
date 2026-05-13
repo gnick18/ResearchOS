@@ -1010,18 +1010,6 @@ export const notesApi = {
 };
 
 export const attachmentsApi = {
-  uploadImage: async (data: {
-    experiment_id: number;
-    experiment_name: string;
-    project_id?: number | null;
-    project_name?: string | null;
-    experiment_date: string;
-    base64_content: string;
-    original_filename: string;
-  }): Promise<ImageUploadResponse> => {
-    throw new Error("Image upload requires file system access - use fileService directly");
-  },
-
   /**
    * Search the data folder for image files whose name contains the given
    * substring. Walks the actual filesystem so it finds files in every place

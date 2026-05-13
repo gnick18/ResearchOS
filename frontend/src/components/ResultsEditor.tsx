@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { filesApi, projectsApi, attachmentsApi } from "@/lib/local-api";
+import { filesApi, projectsApi } from "@/lib/local-api";
+import { attachImageToTask } from "@/lib/attachments/attach-image";
 import { useQuery } from "@tanstack/react-query";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import type { Task } from "@/lib/types";
@@ -232,55 +233,36 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
     [attachmentsDir, task.name, loadAttachments, requestRename]
   );
 
-   // Handle image upload for LiveMarkdownEditor (from drag-drop, paste, or file picker)
-   const handleImageUpload = useCallback(
-     async (files: File[]) => {
-       setUploading(true);
-       setUploadWarning(null);
-       for (const file of files) {
-         if (!file.type.startsWith("image/")) continue;
-         
-         // Show rename popup and wait for user decision
-         const renamedFile = await requestRename(file);
-         if (!renamedFile) {
-           continue; // User cancelled
-         }
-         
-         const reader = new FileReader();
-         reader.onload = async () => {
-           const base64 = (reader.result as string).split(",")[1];
-           const imageName = `${Date.now()}-${renamedFile.name.replace(/\s+/g, "_")}`;
-           
-           try {
-             const response = await attachmentsApi.uploadImage({
-               experiment_id: task.id,
-               experiment_name: task.name,
-               project_id: task.project_id,
-               project_name: projectName || '', // Use project name from query
-               experiment_date: task.start_date,
-               base64_content: base64,
-               original_filename: renamedFile.name,
-             });
-             // Insert markdown image reference with relative path
-             // From results/task-{id}/ to Images/{folder}/ requires ../../
-             const imageMarkdown = `\n![${renamedFile.name}](../../Images/${response.folder}/${response.filename})\n`;
-             setContent((prev) => prev + imageMarkdown);
-             await loadAttachments();
-             
-             // Show warning if the file is unusually large
-             if (response.warning) {
-               setUploadWarning(response.warning);
-             }
-           } catch {
-             alert(`Failed to upload ${renamedFile.name}`);
-           }
-         };
-         reader.readAsDataURL(renamedFile);
-       }
-       setUploading(false);
-     },
-     [task.id, task.name, task.project_id, task.start_date, projectName, loadAttachments, requestRename]
-   );
+  // Handle image upload for LiveMarkdownEditor (drag-drop, paste, or file picker).
+  // Writes to `${resultDir}/Images/<unique-filename>` via fileService and inserts
+  // a relative markdown snippet. Mirrors the pattern used by TaskDetailPopup's
+  // ResultsTab so both entry points behave identically.
+  const handleImageUpload = useCallback(
+    async (files: File[]) => {
+      setUploading(true);
+      setUploadWarning(null);
+      for (const file of files) {
+        if (!file.type.startsWith("image/")) continue;
+        const renamedFile = await requestRename(file);
+        if (!renamedFile) continue; // User cancelled
+        try {
+          const { markdownSnippet } = await attachImageToTask({
+            ownerUsername: task.owner,
+            taskId: task.id,
+            basePath: resultDir,
+            blob: renamedFile,
+            suggestedFilename: renamedFile.name,
+          });
+          setContent((prev) => prev + markdownSnippet);
+          await loadAttachments();
+        } catch {
+          alert(`Failed to upload ${renamedFile.name}`);
+        }
+      }
+      setUploading(false);
+    },
+    [task.id, task.owner, resultDir, loadAttachments, requestRename]
+  );
 
   const handleSave = useCallback(async () => {
     setSaving(true);
