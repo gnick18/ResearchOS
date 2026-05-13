@@ -537,15 +537,27 @@ function OAuthCard({
 
   if (!configured) {
     return (
-      <div className="border border-gray-200 rounded-lg p-3">
-        <p className="text-sm text-gray-700 font-medium">{fullName}</p>
-        <p className="text-xs text-gray-500 mt-1">
-          Not configured for this deployment. Set{" "}
-          <code className="px-1 py-0.5 bg-gray-100 rounded">
-            {envHintFor(provider)}
-          </code>{" "}
-          plus your client id/secret to enable.
-        </p>
+      <div className="border border-gray-200 rounded-lg p-3 flex items-start gap-3">
+        <Logo />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-gray-900">{fullName}</p>
+          <p className="text-[11px] text-gray-500 mt-0.5">
+            Not yet enabled on this deployment — the site owner needs to
+            register an OAuth client and set{" "}
+            <code className="px-1 py-0.5 bg-gray-100 rounded">
+              {envHintFor(provider)}
+            </code>
+            .
+          </p>
+          <a
+            href="/wiki/integrations/calendar-oauth"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block mt-2 text-[11px] font-medium text-blue-600 hover:underline"
+          >
+            Setup guide →
+          </a>
+        </div>
       </div>
     );
   }
