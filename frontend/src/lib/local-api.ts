@@ -54,7 +54,7 @@ import type {
   Notification,
   SharedItemNotification,
   EventReminderNotification,
-} from "./schemas";
+} from "./types";
 
 const projectsStore = new JsonStore<Project>("projects");
 const tasksStore = new JsonStore<Task>("tasks");
@@ -382,7 +382,7 @@ export const tasksApi = {
       const needsPromotion =
         (!raw.method_ids || raw.method_ids.length === 0) &&
         typeof legacy.method_id === "number";
-      const hasLegacyKey = "method_id" in (raw as Record<string, unknown>);
+      const hasLegacyKey = "method_id" in raw;
       if (!needsPromotion && !hasLegacyKey) {
         alreadyCorrect += 1;
         continue;
@@ -394,7 +394,7 @@ export const tasksApi = {
         // Drop the legacy field from the persisted shape.
         const persisted: Record<string, unknown> = { ...next };
         delete persisted.method_id;
-        await tasksStore.save(raw.id, persisted as Task);
+        await tasksStore.save(raw.id, persisted as unknown as Task);
         repaired += 1;
       } catch (err) {
         console.warn(`[repairMethodLinks] failed to repair task ${raw.id}:`, err);
@@ -543,6 +543,7 @@ export const methodsApi = {
         folder_path: data.folder_path ?? null,
         parent_method_id: data.parent_method_id ?? null,
         tags: data.tags ?? null,
+        is_public: true,
         created_by: null,
         owner: "",
         shared_with: [],
@@ -652,7 +653,7 @@ export const methodsApi = {
     let failed = 0;
     for (const { method, store } of records) {
       const legacy = method as Method & { github_path?: string | null };
-      const hasLegacyKey = "github_path" in (method as Record<string, unknown>);
+      const hasLegacyKey = "github_path" in method;
       const needsPromotion = method.source_path == null && typeof legacy.github_path === "string";
       if (!needsPromotion && !hasLegacyKey) {
         alreadyCorrect += 1;
@@ -664,7 +665,7 @@ export const methodsApi = {
           : method;
         const persisted: Record<string, unknown> = { ...next };
         delete persisted.github_path;
-        await store.save(method.id, persisted as Method);
+        await store.save(method.id, persisted as unknown as Method);
         repaired += 1;
       } catch (err) {
         console.warn(`[repairSourcePaths] failed to repair method ${method.id}:`, err);
