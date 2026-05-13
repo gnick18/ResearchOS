@@ -72,6 +72,7 @@ import { findExistingTaskResultsBase, resolveTaskResultsBase, taskResultsBase } 
 import { migrateTaskAttachmentsToFiles } from "@/lib/tasks/migrate-attachments";
 import { attachImageToTask } from "@/lib/attachments/attach-image";
 import { fileEvents } from "@/lib/attachments/file-events";
+import { gcUnreferencedAttachments } from "@/lib/attachments/gc";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 interface TaskDetailPopupProps {
@@ -1925,63 +1926,6 @@ async function pickUniqueFilename(dirPath: string, desired: string): Promise<str
     n += 1;
   }
   return candidate;
-}
-
-const IMG_REF_REGEX = /!\[[^\]]*\]\(([^)\s]+)/g;
-const HTML_IMG_REF_REGEX = /<img\s+[^>]*src=["']([^"']+)["'][^>]*>/gi;
-
-function referencedRelativeNames(markdown: string, subdir: "Images" | "Files"): Set<string> {
-  const prefix = `${subdir}/`;
-  const referenced = new Set<string>();
-  const collect = (regex: RegExp) => {
-    let m: RegExpExecArray | null;
-    while ((m = regex.exec(markdown)) !== null) {
-      let src = m[1];
-      if (src.startsWith("./")) src = src.slice(2);
-      // Strip query/anchor noise. Markdown image titles after the path are
-      // outside the captured src group already (regex stops at the first
-      // whitespace), so no further trimming needed.
-      const trimmed = src.split("#")[0].split("?")[0];
-      if (!trimmed.includes(`${prefix}`)) continue;
-
-      // Treat both same-folder refs (`Images/foo.png`) and legacy
-      // subfolder refs (`Images/Mar-02-2026.../foo.png`) as protecting the
-      // top-level basename `foo.png` from GC. That's the *only* place
-      // GC can delete from anyway (`listFiles` doesn't recurse), so we
-      // need to avoid sweeping out files whose only references in the
-      // markdown happen to use a stale subdirectory path. Without this,
-      // dragging one image to the trash also wipes out any sibling whose
-      // only refs were subfolder-style.
-      const afterPrefix = trimmed.slice(trimmed.indexOf(prefix) + prefix.length);
-      if (!afterPrefix) continue;
-      const segments = afterPrefix.split("/").filter(Boolean);
-      const basename = segments[segments.length - 1];
-      if (basename) referenced.add(basename);
-    }
-  };
-  collect(new RegExp(IMG_REF_REGEX.source, "g"));
-  collect(new RegExp(HTML_IMG_REF_REGEX.source, "gi"));
-  return referenced;
-}
-
-/**
- * After saving a notes/results markdown file, remove any files in
- * `${basePath}/Images/` or `${basePath}/Files/` that are no longer referenced.
- * Failures are swallowed (best-effort cleanup; not safety-critical).
- */
-async function gcUnreferencedAttachments(markdown: string, basePath: string): Promise<void> {
-  for (const subdir of ["Images", "Files"] as const) {
-    const dirPath = `${basePath}/${subdir}`;
-    const dirHandle = await fileService.getDirectory(dirPath);
-    if (!dirHandle) continue;
-    const onDisk = await fileService.listFiles(dirPath);
-    const referenced = referencedRelativeNames(markdown, subdir);
-    for (const name of onDisk) {
-      if (!referenced.has(name)) {
-        await fileService.deleteFile(`${dirPath}/${name}`);
-      }
-    }
-  }
 }
 
 function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; readOnly?: boolean; ownerUsername?: string }) {

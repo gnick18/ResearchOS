@@ -10,6 +10,7 @@ import { useFileRenamePopup } from "./FileRenamePopup";
 import { fileService } from "@/lib/file-system/file-service";
 import { attachImageToTask } from "@/lib/attachments/attach-image";
 import { fileEvents } from "@/lib/attachments/file-events";
+import { gcUnreferencedAttachments } from "@/lib/attachments/gc";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 function splitFilenameExt(name: string): { stem: string; ext: string } {
@@ -188,10 +189,10 @@ export default function NoteDetailPopup({
   const saveEntryContent = useCallback(
     async (entryId: string, content: string) => {
       if (isSavingRef.current) return;
-      
+
       isSavingRef.current = true;
       setSaving(true);
-      
+
       try {
         const updated = await notesApi.updateEntry(note.id, entryId, { content });
         if (!updated) return;
@@ -201,6 +202,17 @@ export default function NoteDetailPopup({
         }
         unsavedContentRef.current.delete(entryId);
         if (updated) onUpdate(updated);
+
+        // Sweep orphaned attachments. Images/ and Files/ are shared across
+        // every entry of a note, so the union of all entries' markdown is
+        // what protects a file. Best-effort: a GC failure must not break
+        // the save (this fires every 1.5s on auto-save).
+        try {
+          const combined = updated.entries.map((e) => e.content).join("\n\n");
+          await gcUnreferencedAttachments(combined, basePath);
+        } catch (gcError) {
+          console.warn("Attachment GC failed:", gcError);
+        }
       } catch (error) {
         console.error("Failed to save entry content:", error);
       } finally {
@@ -208,7 +220,7 @@ export default function NoteDetailPopup({
         isSavingRef.current = false;
       }
     },
-    [note.id, onUpdate]
+    [note.id, onUpdate, basePath]
   );
 
   // Debounced save (1.5 seconds after user stops typing)
@@ -223,10 +235,10 @@ export default function NoteDetailPopup({
   const handleClose = useCallback(async () => {
     // Mark that we're closing to prevent state updates after save
     isClosingRef.current = true;
-    
+
     // Cancel any pending debounced saves
     cancelDebouncedSave();
-    
+
     // Save any unsaved content immediately
     if (unsavedContentRef.current.size > 0) {
       setSaving(true);
@@ -243,9 +255,22 @@ export default function NoteDetailPopup({
         setSaving(false);
       }
     }
-    
+
+    // Sweep orphaned attachments after the final save. Refetch the note
+    // because parallel updateEntry writes above can race; the on-disk
+    // truth is what GC needs to evaluate references against.
+    try {
+      const fresh = await notesApi.get(note.id);
+      if (fresh) {
+        const combined = fresh.entries.map((e) => e.content).join("\n\n");
+        await gcUnreferencedAttachments(combined, basePath);
+      }
+    } catch (gcError) {
+      console.warn("Attachment GC on close failed:", gcError);
+    }
+
     onClose();
-  }, [note.id, onClose, cancelDebouncedSave]);
+  }, [note.id, onClose, cancelDebouncedSave, basePath]);
 
   // Handle escape key to close or exit fullscreen
   useEffect(() => {
