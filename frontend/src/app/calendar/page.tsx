@@ -4,7 +4,13 @@ import { useCallback, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { eventsApi } from "@/lib/local-api";
 import AppShell from "@/components/AppShell";
-import type { Event } from "@/lib/types";
+import CalendarFeedsButton from "@/components/CalendarFeedsButton";
+import { useExternalEvents } from "@/lib/calendar/use-external-events";
+import type { Event, ExternalEvent } from "@/lib/types";
+
+type CalendarItem =
+  | { kind: "native"; event: Event }
+  | { kind: "external"; event: ExternalEvent };
 
 const DEFAULT_COLORS = [
   "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
@@ -30,6 +36,15 @@ export default function CalendarPage() {
     queryKey: ["events"],
     queryFn: eventsApi.list,
   });
+
+  const {
+    events: externalEvents,
+    errorsByFeedId: externalErrors,
+    isFetching: externalIsFetching,
+    refetch: refetchExternal,
+  } = useExternalEvents();
+
+  const [selectedExternal, setSelectedExternal] = useState<ExternalEvent | null>(null);
 
   // Get current month/year
   const currentYear = currentDate.getFullYear();
@@ -74,16 +89,26 @@ export default function CalendarPage() {
     return days;
   }, [currentYear, currentMonth]);
 
-  // Get events for a specific date
-  const getEventsForDate = useCallback((date: Date) => {
+  // Get events for a specific date (native + external merged)
+  const getEventsForDate = useCallback((date: Date): CalendarItem[] => {
     // Use local date components to avoid timezone issues
     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-    return events.filter((event) => {
-      const startDate = event.start_date;
-      const endDate = event.end_date || event.start_date;
-      return dateStr >= startDate && dateStr <= endDate;
-    });
-  }, [events]);
+    const native: CalendarItem[] = events
+      .filter((event) => {
+        const startDate = event.start_date;
+        const endDate = event.end_date || event.start_date;
+        return dateStr >= startDate && dateStr <= endDate;
+      })
+      .map((event) => ({ kind: "native", event }));
+    const external: CalendarItem[] = externalEvents
+      .filter((event) => {
+        const startDate = event.start_date;
+        const endDate = event.end_date || event.start_date;
+        return dateStr >= startDate && dateStr <= endDate;
+      })
+      .map((event) => ({ kind: "external", event }));
+    return [...native, ...external];
+  }, [events, externalEvents]);
 
   // Navigate months
   const goToPrevMonth = useCallback(() => {
@@ -121,13 +146,36 @@ export default function CalendarPage() {
               Conferences, deadlines, and events
             </p>
           </div>
-          <button
-            onClick={() => setCreating(true)}
-            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            + New Event
-          </button>
+          <div className="flex items-center gap-2">
+            <CalendarFeedsButton />
+            <button
+              onClick={() => setCreating(true)}
+              className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              + New Event
+            </button>
+          </div>
         </div>
+
+        {externalErrors.size > 0 && (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">
+            <p className="font-medium mb-1">
+              Some linked calendars couldn&apos;t be fetched:
+            </p>
+            <ul className="list-disc list-inside space-y-0.5">
+              {Array.from(externalErrors.entries()).map(([feedId, msg]) => (
+                <li key={feedId}>{msg}</li>
+              ))}
+            </ul>
+            <button
+              onClick={() => void refetchExternal()}
+              disabled={externalIsFetching}
+              className="mt-2 text-amber-700 underline disabled:opacity-50"
+            >
+              {externalIsFetching ? "Retrying…" : "Retry now"}
+            </button>
+          </div>
+        )}
 
         {/* Calendar */}
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -207,19 +255,51 @@ export default function CalendarPage() {
                     {day.date.getDate()}
                   </div>
                   <div className="space-y-1">
-                    {dayEvents.slice(0, 3).map((event) => (
-                      <button
-                        key={event.id}
-                        onClick={() => setSelectedEvent(event)}
-                        className="w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80"
-                        style={{
-                          backgroundColor: event.color || EVENT_TYPE_COLORS[event.event_type],
-                          color: "white",
-                        }}
-                      >
-                        {event.title}
-                      </button>
-                    ))}
+                    {dayEvents.slice(0, 3).map((item) =>
+                      item.kind === "native" ? (
+                        <button
+                          key={`n-${item.event.id}`}
+                          onClick={() => setSelectedEvent(item.event)}
+                          className="w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80"
+                          style={{
+                            backgroundColor:
+                              item.event.color || EVENT_TYPE_COLORS[item.event.event_type],
+                            color: "white",
+                          }}
+                        >
+                          {item.event.title}
+                        </button>
+                      ) : (
+                        <button
+                          key={`x-${item.event.id}`}
+                          onClick={() => setSelectedExternal(item.event)}
+                          title="Linked calendar event (read-only)"
+                          className="w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80 flex items-center gap-1"
+                          style={{
+                            backgroundColor: "white",
+                            color: item.event.color,
+                            border: `1px solid ${item.event.color}`,
+                          }}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="8"
+                            height="8"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="flex-shrink-0"
+                          >
+                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                          </svg>
+                          <span className="truncate">{item.event.title}</span>
+                        </button>
+                      )
+                    )}
                     {dayEvents.length > 3 && (
                       <p className="text-[10px] text-gray-400 px-1.5">
                         +{dayEvents.length - 3} more
@@ -236,40 +316,78 @@ export default function CalendarPage() {
         <div className="mt-8">
           <h3 className="text-sm font-semibold text-gray-700 mb-4">Upcoming Events</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {events
-              .filter((e) => (e.end_date || e.start_date) >= today)
-              .sort((a, b) => a.start_date.localeCompare(b.start_date))
+            {([
+              ...events.map((e) => ({ kind: "native" as const, event: e })),
+              ...externalEvents.map((e) => ({ kind: "external" as const, event: e })),
+            ] as CalendarItem[])
+              .filter((it) => (it.event.end_date || it.event.start_date) >= today)
+              .sort((a, b) => a.event.start_date.localeCompare(b.event.start_date))
               .slice(0, 6)
-              .map((event) => (
-                <div
-                  key={event.id}
-                  onClick={() => setSelectedEvent(event)}
-                  className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all cursor-pointer"
-                >
-                  <div className="flex items-start gap-3">
-                    <div
-                      className="w-1 h-12 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: event.color || EVENT_TYPE_COLORS[event.event_type] }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-medium text-gray-900 truncate">
-                        {event.title}
-                      </h4>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {event.start_date}
-                        {event.end_date && event.end_date !== event.start_date && (
-                          <> → {event.end_date}</>
-                        )}
-                      </p>
-                      {event.location && (
-                        <p className="text-xs text-gray-500 mt-1 truncate">
-                          {event.location}
+              .map((item) => {
+                const color =
+                  item.kind === "native"
+                    ? item.event.color || EVENT_TYPE_COLORS[item.event.event_type]
+                    : item.event.color;
+                return (
+                  <div
+                    key={item.kind === "native" ? `n-${item.event.id}` : `x-${item.event.id}`}
+                    onClick={() =>
+                      item.kind === "native"
+                        ? setSelectedEvent(item.event)
+                        : setSelectedExternal(item.event)
+                    }
+                    className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all cursor-pointer"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className="w-1 h-12 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: color }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <h4 className="text-sm font-medium text-gray-900 truncate">
+                            {item.event.title}
+                          </h4>
+                          {item.kind === "external" && (
+                            <span
+                              title="Linked calendar (read-only)"
+                              className="inline-flex flex-shrink-0 items-center justify-center"
+                              style={{ color }}
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="11"
+                                height="11"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                              </svg>
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {item.event.start_date}
+                          {item.event.end_date &&
+                            item.event.end_date !== item.event.start_date && (
+                              <> → {item.event.end_date}</>
+                            )}
                         </p>
-                      )}
+                        {item.event.location && (
+                          <p className="text-xs text-gray-500 mt-1 truncate">
+                            {item.event.location}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
           </div>
         </div>
       </div>
@@ -308,6 +426,14 @@ export default function CalendarPage() {
               alert("Failed to update event");
             }
           }}
+        />
+      )}
+
+      {/* External (read-only) Event Modal */}
+      {selectedExternal && (
+        <ExternalEventModal
+          event={selectedExternal}
+          onClose={() => setSelectedExternal(null)}
         />
       )}
 
@@ -695,6 +821,85 @@ function CreateEventModal({
             className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
           >
             Create Event
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── External (read-only) Event Modal ─────────────────────────────────────────
+
+function ExternalEventModal({
+  event,
+  onClose,
+}: {
+  event: ExternalEvent;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <span
+              className="inline-block w-2.5 h-2.5 rounded-full"
+              style={{ backgroundColor: event.color }}
+            />
+            <h3 className="text-base font-semibold text-gray-900">Linked Event</h3>
+            <span className="text-[10px] uppercase tracking-wide text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">
+              Read-only
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 text-lg"
+            title="Close"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <h4 className="text-lg font-semibold text-gray-900">{event.title}</h4>
+          <p className="text-sm text-gray-600">
+            {event.start_date}
+            {event.end_date && event.end_date !== event.start_date && (
+              <> → {event.end_date}</>
+            )}
+          </p>
+          {event.location && (
+            <p className="text-sm text-gray-600">Location: {event.location}</p>
+          )}
+          {event.url && (
+            <a
+              href={event.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block text-sm text-blue-600 hover:underline break-all"
+            >
+              {event.url}
+            </a>
+          )}
+          {event.notes && (
+            <p className="text-sm text-gray-600 whitespace-pre-wrap">{event.notes}</p>
+          )}
+          <p className="text-[11px] text-gray-400 pt-2 border-t border-gray-100">
+            From a linked calendar. Edit this event in its source app (Google,
+            Outlook, iCloud) — changes will sync back within 15 min.
+          </p>
+        </div>
+        <div className="flex justify-end px-6 py-4 border-t border-gray-100">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+          >
+            Close
           </button>
         </div>
       </div>

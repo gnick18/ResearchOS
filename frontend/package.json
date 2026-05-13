@@ -15,6 +15,7 @@
     "date-fns": "^4.1.0",
     "frappe-gantt": "^1.0.4",
     "html2canvas": "^1.4.1",
+    "ical.js": "^2.2.1",
     "idb-keyval": "^6.2.1",
     "isomorphic-git": "^1.37.6",
     "jspdf": "^2.5.2",

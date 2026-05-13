@@ -521,6 +521,34 @@ export interface EventUpdate {
   color?: string | null;
 }
 
+// ── External Calendar Feeds (Google/Outlook/iCloud via ICS) ──────────────────
+
+export type CalendarFeedProvider = "google" | "outlook" | "icloud" | "other";
+
+export interface CalendarFeed {
+  id: number;
+  provider: CalendarFeedProvider;
+  label: string;
+  icsUrl: string;
+  color: string;
+  enabled: boolean;
+  lastSyncAt: string | null;
+}
+
+export interface ExternalEvent {
+  /** Stable string id derived from feedId + ICS UID. */
+  id: string;
+  feedId: number;
+  title: string;
+  start_date: string;
+  end_date: string | null;
+  location: string | null;
+  url: string | null;
+  notes: string | null;
+  color: string;
+  source: "external";
+}
+
 // ── Lab Links ─────────────────────────────────────────────────────────────────
 
 export interface LabLink {
