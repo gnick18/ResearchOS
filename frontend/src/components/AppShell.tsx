@@ -20,6 +20,7 @@ const SETTINGS_HREF = "/settings";
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const visibleTabs = useAppStore((s) => s.visibleTabs);
+  const coloredHeader = useAppStore((s) => s.coloredHeader);
   const { currentUser } = useFileSystem();
   const baseColor = useUserColor(currentUser ?? "");
 
@@ -30,13 +31,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     (item) => item.href === HOME_HREF || visibleTabs.includes(item.href),
   );
 
-  // When a user is signed in, paint the whole header with their full-opacity
-  // two-stop gradient. Text legibility is preserved by wrapping every
-  // interactive element (wordmark, nav links, gear) in its own floating
-  // white pill — the gradient lives behind the pills, never under text.
+  // Header is tinted only when (a) a user is signed in, AND (b) the user
+  // has opted into a colored header in Settings → Profile. Either off →
+  // the classic white header. On the tinted variant, every interactive
+  // element lives inside a floating white pill so text never sits
+  // directly on the gradient.
   const [stop1, stop2] = headerGradient(baseColor);
-  const hasUser = !!currentUser;
-  const headerStyle = hasUser
+  const tinted = !!currentUser && coloredHeader;
+  const headerStyle = tinted
     ? { background: `linear-gradient(to right, ${stop1}, ${stop2})` }
     : undefined;
 
@@ -45,11 +47,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* Header */}
       <header
         className={`px-4 py-2.5 flex items-center gap-2 ${
-          hasUser ? "shadow-sm" : "bg-white border-b border-gray-200"
+          tinted ? "shadow-sm" : "bg-white border-b border-gray-200"
         }`}
         style={headerStyle}
       >
-        <PillWrap on={hasUser}>
+        <PillWrap on={tinted}>
           <h1 className="text-base font-bold text-gray-900 tracking-tight">
             ResearchOS
           </h1>
@@ -59,7 +61,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <nav className="flex items-center gap-1">
           {filtered.map((item) => {
             const isActive = pathname === item.href;
-            if (hasUser) {
+            if (tinted) {
               return (
                 <Link
                   key={item.href}
@@ -93,7 +95,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="flex-1" />
 
         <div className="flex items-center gap-2">
-          <NotificationBadge />
+          <NotificationBadge pill={tinted} />
           <InboxBadge />
           <TelegramStatusBadge />
           <Link
@@ -101,7 +103,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             aria-label="Settings"
             title="Settings"
             className={`group p-1.5 rounded-full transition-colors ${
-              hasUser
+              tinted
                 ? pathname === SETTINGS_HREF
                   ? "bg-white text-gray-900 shadow-sm"
                   : "bg-white/75 text-gray-700 hover:bg-white shadow-sm"

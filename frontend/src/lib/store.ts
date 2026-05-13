@@ -28,6 +28,7 @@ export interface SettingsHydration {
   sidebarShowTasks: boolean;
   sidebarShowCalendarEvents: boolean;
   sidebarEventsHorizonDays: number;
+  coloredHeader: boolean;
 }
 
 interface ConnectionState {
@@ -110,6 +111,9 @@ interface AppState extends ConnectionState {
 
   sidebarEventsHorizonDays: number;
   setSidebarEventsHorizonDays: (days: number) => void;
+
+  coloredHeader: boolean;
+  setColoredHeader: (v: boolean) => void;
 
   hydrateFromSettings: (s: SettingsHydration) => void;
   resetSettingsToDefaults: () => void;
@@ -235,6 +239,9 @@ export const useAppStore = create<AppState>()((set) => ({
   sidebarEventsHorizonDays: 7,
   setSidebarEventsHorizonDays: (days) => set({ sidebarEventsHorizonDays: days }),
 
+  coloredHeader: true,
+  setColoredHeader: (v) => set({ coloredHeader: v }),
+
   hydrateFromSettings: (s) =>
     set({
       animationType: s.animationType,
@@ -246,6 +253,7 @@ export const useAppStore = create<AppState>()((set) => ({
       sidebarShowTasks: s.sidebarShowTasks,
       sidebarShowCalendarEvents: s.sidebarShowCalendarEvents,
       sidebarEventsHorizonDays: s.sidebarEventsHorizonDays,
+      coloredHeader: s.coloredHeader,
     }),
 
   resetSettingsToDefaults: () =>
@@ -259,6 +267,7 @@ export const useAppStore = create<AppState>()((set) => ({
       sidebarShowTasks: true,
       sidebarShowCalendarEvents: false,
       sidebarEventsHorizonDays: 7,
+      coloredHeader: true,
     }),
 
   ganttLoading: false,

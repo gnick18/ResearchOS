@@ -23,6 +23,7 @@ export interface UserSettings {
   // Personalization
   displayName: string | null;     // null → use folder name
   color: string;                  // hex; mirrored to _user_metadata.json
+  coloredHeader: boolean;         // false → keep header white instead of tinting with `color`
   animationType: AnimationType;
 
   // Formatting
@@ -55,6 +56,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   showSharedByDefault: true,
   displayName: null,
   color: "#3b82f6",
+  coloredHeader: true,
   animationType: "rock",
   dateFormat: "MDY",
   timeFormat: "12h",
