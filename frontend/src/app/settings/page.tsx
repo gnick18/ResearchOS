@@ -8,6 +8,7 @@ import { useAppStore } from "@/lib/store";
 import {
   patchUserSettings,
   readUserSettings,
+  SIDEBAR_HORIZON_CHOICES,
   type UserSettings,
   type CalendarViewMode,
   type DateFormat,
@@ -117,6 +118,7 @@ function SettingsBody() {
           defaultLandingTab: saved.defaultLandingTab,
           sidebarShowTasks: saved.sidebarShowTasks,
           sidebarShowCalendarEvents: saved.sidebarShowCalendarEvents,
+          sidebarEventsHorizonDays: saved.sidebarEventsHorizonDays,
         });
         setRecentlySaved(true);
         // Auto-dismiss the "Saved" pill after 1.5s. Set in the handler (not
@@ -384,10 +386,36 @@ function SidebarSection({ settings, update }: SectionProps) {
           />
           <span className="text-sm text-gray-800">Calendar events</span>
           <span className="ml-auto text-[10px] text-gray-400">
-            today + next 7 days
+            today and beyond
           </span>
         </label>
       </div>
+
+      <div
+        className={settings.sidebarShowCalendarEvents ? "" : "opacity-50 pointer-events-none"}
+      >
+        <label className="block text-xs font-medium text-gray-700 mb-1">
+          How much calendar to show
+        </label>
+        <select
+          value={settings.sidebarEventsHorizonDays}
+          onChange={(e) =>
+            void update({ sidebarEventsHorizonDays: parseInt(e.target.value, 10) })
+          }
+          disabled={!settings.sidebarShowCalendarEvents}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+        >
+          {SIDEBAR_HORIZON_CHOICES.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </select>
+        <p className="text-xs text-gray-400 mt-1">
+          Controls the &ldquo;Next N days&rdquo; section under Today&apos;s Events.
+        </p>
+      </div>
+
       {bothOff && (
         <p className="text-xs text-amber-600 mt-1">
           Both off — the sidebar will be empty on non-calendar pages.

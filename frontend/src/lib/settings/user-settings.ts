@@ -38,6 +38,9 @@ export interface UserSettings {
   // "tasks only", "calendar events only", or both stacked.
   sidebarShowTasks: boolean;
   sidebarShowCalendarEvents: boolean;
+  /** When `sidebarShowCalendarEvents` is on, how far past today to peek.
+   *  `0` = show today only (no "Next N days" subsection). */
+  sidebarEventsHorizonDays: number;
 
   // Per-user opt-out (mirrored to _user_metadata.json so the existing lab readers keep working)
   hideGoalsFromLab: boolean;
@@ -59,8 +62,18 @@ export const DEFAULT_SETTINGS: UserSettings = {
   confirmDestructiveActions: true,
   sidebarShowTasks: true,
   sidebarShowCalendarEvents: false,
+  sidebarEventsHorizonDays: 7,
   hideGoalsFromLab: false,
 };
+
+/** Horizon choices surfaced in the Settings → Sidebar selector. */
+export const SIDEBAR_HORIZON_CHOICES: Array<{ value: number; label: string }> = [
+  { value: 0, label: "Today only" },
+  { value: 3, label: "Today + next 3 days" },
+  { value: 7, label: "Today + next 7 days" },
+  { value: 14, label: "Today + next 14 days" },
+  { value: 30, label: "Today + next 30 days" },
+];
 
 function settingsPath(username: string): string {
   return `users/${username}/settings.json`;
@@ -82,6 +95,14 @@ function normalize(raw: Partial<UserSettings> | null | undefined): UserSettings 
   if (!isValidTabHref(merged.defaultLandingTab) || !visibleTabs.includes(merged.defaultLandingTab)) {
     merged.defaultLandingTab = HOME_HREF;
   }
+
+  // Clamp the events horizon to a sane range — 0..365 days. A hand-edited
+  // settings.json with NaN or a negative number would otherwise break the
+  // sidebar's upcoming-events filter.
+  const horizonRaw = Number(merged.sidebarEventsHorizonDays);
+  merged.sidebarEventsHorizonDays = Number.isFinite(horizonRaw)
+    ? Math.max(0, Math.min(365, Math.floor(horizonRaw)))
+    : DEFAULT_SETTINGS.sidebarEventsHorizonDays;
 
   return merged;
 }

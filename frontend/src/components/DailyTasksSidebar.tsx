@@ -33,6 +33,7 @@ export default function DailyTasksSidebar() {
   // FileSystemProvider on login). User can flip them in Settings → Sidebar.
   const showTasks = useAppStore((s) => s.sidebarShowTasks);
   const showEvents = useAppStore((s) => s.sidebarShowCalendarEvents);
+  const horizonDays = useAppStore((s) => s.sidebarEventsHorizonDays);
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", currentUser],
@@ -268,7 +269,12 @@ export default function DailyTasksSidebar() {
           </>
         )}
 
-        {showEvents && <CalendarEventsSection withDivider={showTasks} />}
+        {showEvents && (
+          <CalendarEventsSection
+            withDivider={showTasks}
+            horizonDays={horizonDays}
+          />
+        )}
       </aside>
 
       {/* Task Quick Popup */}
@@ -296,9 +302,13 @@ export default function DailyTasksSidebar() {
 
 // ── Calendar events sub-section ──────────────────────────────────────────────
 
-const HORIZON_DAYS = 7;
-
-function CalendarEventsSection({ withDivider }: { withDivider: boolean }) {
+function CalendarEventsSection({
+  withDivider,
+  horizonDays,
+}: {
+  withDivider: boolean;
+  horizonDays: number;
+}) {
   const router = useRouter();
   const jumpTo = useCalendarNavStore((s) => s.jumpTo);
 
@@ -311,9 +321,9 @@ function CalendarEventsSection({ withDivider }: { withDivider: boolean }) {
   const todayStr = toLocalDateString(new Date());
   const horizonStr = useMemo(() => {
     const d = new Date();
-    d.setDate(d.getDate() + HORIZON_DAYS);
+    d.setDate(d.getDate() + horizonDays);
     return toLocalDateString(d);
-  }, []);
+  }, [horizonDays]);
 
   const { todayItems, upcomingByDate } = useMemo(() => {
     type Item =
@@ -385,11 +395,11 @@ function CalendarEventsSection({ withDivider }: { withDivider: boolean }) {
         )}
       </div>
 
-      {upcomingByDate.size > 0 && (
+      {horizonDays > 0 && upcomingByDate.size > 0 && (
         <>
           <div className="px-4 py-2 border-t border-gray-100">
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-              Next {HORIZON_DAYS} days
+              Next {horizonDays} day{horizonDays === 1 ? "" : "s"}
             </h3>
           </div>
           <div className="p-3 space-y-3">
