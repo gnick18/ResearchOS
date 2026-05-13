@@ -986,15 +986,22 @@ export default function LiveMarkdownEditor({
     (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files) {
         const files = Array.from(e.target.files);
-        // If allowAnyFileType is true, use onFileDrop for all files, fallback to onImageDrop for images only
-        if (allowAnyFileType && onFileDrop) {
-          onFileDrop(files);
-        } else if (onImageDrop) {
-          // Filter to only images for backward compatibility
-          const imageFiles = files.filter(f => f.type.startsWith("image/"));
-          if (imageFiles.length > 0) {
+        // Same split logic as the native-drop path: route images to
+        // onImageDrop (Images/ + markdown snippet) and non-images to
+        // onFileDrop (Files/). Without splitting, an image picked via
+        // the toolbar's Add File button lands in the wrong folder when
+        // the caller has both callbacks wired.
+        const imageFiles = files.filter((f) => f.type.startsWith("image/"));
+        const otherFiles = files.filter((f) => !f.type.startsWith("image/"));
+        if (imageFiles.length > 0) {
+          if (onImageDrop) {
             onImageDrop(imageFiles);
+          } else if (allowAnyFileType && onFileDrop) {
+            onFileDrop(imageFiles);
           }
+        }
+        if (otherFiles.length > 0 && allowAnyFileType && onFileDrop) {
+          onFileDrop(otherFiles);
         }
       }
       e.target.value = "";
@@ -1711,11 +1718,26 @@ export default function LiveMarkdownEditor({
           e.preventDefault();
           e.stopPropagation();
           if (nativeFiles) {
-            if (allowAnyFileType && onFileDrop) {
-              onFileDrop(nativeFiles);
-            } else if (onImageDrop) {
-              const imageFiles = nativeFiles.filter((f) => f.type.startsWith("image/"));
-              if (imageFiles.length > 0) onImageDrop(imageFiles);
+            // Split by image vs non-image so images go to onImageDrop (which
+            // writes to Images/ + inserts a markdown image snippet) and other
+            // files go to onFileDrop (which writes to Files/). Without this
+            // split, images dropped on a tab that has both callbacks wired
+            // (Lab Notes / Results) fall into onFileDrop and land in Files/
+            // — orphaned: no markdown link, no ImageStrip entry, the user
+            // sees "nothing happened."
+            const imageFiles = nativeFiles.filter((f) => f.type.startsWith("image/"));
+            const otherFiles = nativeFiles.filter((f) => !f.type.startsWith("image/"));
+            if (imageFiles.length > 0) {
+              if (onImageDrop) {
+                onImageDrop(imageFiles);
+              } else if (allowAnyFileType && onFileDrop) {
+                // No image-specific handler: caller wants all files, so route
+                // images through the file path as a fallback.
+                onFileDrop(imageFiles);
+              }
+            }
+            if (otherFiles.length > 0 && allowAnyFileType && onFileDrop) {
+              onFileDrop(otherFiles);
             }
             return;
           }
