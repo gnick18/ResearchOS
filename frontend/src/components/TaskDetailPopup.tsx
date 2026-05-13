@@ -53,6 +53,7 @@ import PurchaseEditor from "./PurchaseEditor";
 import DynamicAnimation from "./DynamicAnimation";
 import MethodTabs from "./MethodTabs";
 import MethodPicker from "./MethodPicker";
+import TaskPicker from "./TaskPicker";
 import SharePopup from "./SharePopup";
 import { useAppStore } from "@/lib/store";
 import { taskKey } from "@/lib/types";
@@ -703,6 +704,7 @@ function DetailsTab({
   // New dependency fields
   const [newParentTaskId, setNewParentTaskId] = useState<number | null>(null);
   const [newDepType, setNewDepType] = useState<"FS" | "SS" | "SF">("FS");
+  const [showParentPicker, setShowParentPicker] = useState(false);
   
   // Sub-tasks state
   const [subTasks, setSubTasks] = useState<SubTask[]>(task.sub_tasks || []);
@@ -1713,19 +1715,37 @@ function DetailsTab({
                 Add Dependency (optional)
               </label>
               <div className="space-y-2">
-                <select
-                  value={newParentTaskId ?? ""}
-                  onChange={(e) => setNewParentTaskId(e.target.value ? Number(e.target.value) : null)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select an experiment this depends on...</option>
-                  {availableParentTasks.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} ({t.start_date} → {t.end_date})
-                    </option>
-                  ))}
-                </select>
-                
+                {selectedNewParent ? (
+                  <div className="flex items-center justify-between gap-2 px-3 py-2 border border-gray-200 rounded-lg bg-white text-sm">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-medium text-gray-900 truncate">
+                        {selectedNewParent.name}
+                      </span>
+                      <span className="text-xs text-gray-400 shrink-0">
+                        {selectedNewParent.start_date} → {selectedNewParent.end_date}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setNewParentTaskId(null)}
+                      className="text-xs text-gray-400 hover:text-gray-600 shrink-0"
+                    >
+                      Change
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowParentPicker(true)}
+                    disabled={availableParentTasks.length === 0}
+                    className="w-full text-left px-3 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-blue-400 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {availableParentTasks.length === 0
+                      ? "No eligible experiments to depend on"
+                      : "Select an experiment this depends on…"}
+                  </button>
+                )}
+
                 {newParentTaskId && (
                   <>
                     <select
@@ -1760,6 +1780,18 @@ function DetailsTab({
                   </>
                 )}
               </div>
+              <TaskPicker
+                open={showParentPicker}
+                availableTasks={availableParentTasks}
+                currentProjectId={task.project_id}
+                title="Add dependency"
+                placeholder="Search experiments by name or #tag…"
+                onSelect={(id) => {
+                  setNewParentTaskId(id);
+                  setShowParentPicker(false);
+                }}
+                onClose={() => setShowParentPicker(false)}
+              />
             </div>
           )}
 
@@ -2873,6 +2905,7 @@ function MethodTab({ task }: { task: Task }) {
         <MethodPicker
           open={showMethodSelector}
           currentMethodId={task.method_id}
+          currentProjectId={task.project_id}
           onSelect={handleLinkMethod}
           onClose={() => setShowMethodSelector(false)}
         />
@@ -2892,6 +2925,7 @@ function MethodTab({ task }: { task: Task }) {
       <MethodPicker
         open={showMethodSelector}
         currentMethodId={task.method_id}
+        currentProjectId={task.project_id}
         onSelect={handleLinkMethod}
         onClose={() => setShowMethodSelector(false)}
       />
@@ -3035,6 +3069,7 @@ function MethodTab({ task }: { task: Task }) {
     <MethodPicker
       open={showMethodSelector}
       currentMethodId={task.method_id}
+      currentProjectId={task.project_id}
       onSelect={handleLinkMethod}
       onClose={() => setShowMethodSelector(false)}
     />
