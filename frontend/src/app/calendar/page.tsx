@@ -1,61 +1,38 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { eventsApi } from "@/lib/local-api";
 import AppShell from "@/components/AppShell";
 import CalendarFeedsButton from "@/components/CalendarFeedsButton";
 import DayDetailDrawer from "@/components/DayDetailDrawer";
+import MonthView from "@/components/calendar/MonthView";
+import WeekView from "@/components/calendar/WeekView";
+import DayView from "@/components/calendar/DayView";
+import {
+  type CalendarItem,
+  type CalendarView,
+  EVENT_TYPE_COLORS,
+  formatTime,
+  toLocalDateString,
+} from "@/components/calendar/utils";
 import { useExternalEvents } from "@/lib/calendar/use-external-events";
 import type { Event, ExternalEvent } from "@/lib/types";
-
-type CalendarItem =
-  | { kind: "native"; event: Event }
-  | { kind: "external"; event: ExternalEvent };
 
 const DEFAULT_COLORS = [
   "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
   "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1",
 ];
 
-const EVENT_TYPE_COLORS: Record<string, string> = {
-  conference: "#8b5cf6",
-  deadline: "#ef4444",
-  meeting: "#3b82f6",
-  other: "#6b7280",
-};
-
-/** Format an HH:MM string into a compact 12h form, e.g. "9:00" → "9:00a",
- *  "13:30" → "1:30p", "00:00" → "12:00a". Returns "" for null/empty. */
-function formatTime(time: string | null | undefined): string {
-  if (!time) return "";
-  const m = time.match(/^(\d{1,2}):(\d{2})/);
-  if (!m) return "";
-  const hour = parseInt(m[1], 10);
-  const minute = m[2];
-  const period = hour >= 12 ? "p" : "a";
-  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
-  return minute === "00" ? `${hour12}${period}` : `${hour12}:${minute}${period}`;
-}
-
-/** Sort comparator that puts all-day events first, then sorts timed events by
- *  start_time ascending. */
-function eventTimeOrder(a: { start_time?: string | null }, b: { start_time?: string | null }): number {
-  const at = a.start_time ?? "";
-  const bt = b.start_time ?? "";
-  if (at === bt) return 0;
-  if (!at) return -1;
-  if (!bt) return 1;
-  return at.localeCompare(bt);
-}
-
 export default function CalendarPage() {
   const queryClient = useQueryClient();
+  const [view, setView] = useState<CalendarView>("month");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [creating, setCreating] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [prefilledStartDate, setPrefilledStartDate] = useState<string | null>(null);
+  const [prefilledStartTime, setPrefilledStartTime] = useState<string | null>(null);
 
   const { data: events = [] } = useQuery({
     queryKey: ["events"],
@@ -72,94 +49,77 @@ export default function CalendarPage() {
   const [selectedExternal, setSelectedExternal] = useState<ExternalEvent | null>(null);
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
 
-  // Get current month/year
-  const currentYear = currentDate.getFullYear();
-  const currentMonth = currentDate.getMonth();
-
-  // Generate calendar days for the current month
-  const calendarDays = useMemo(() => {
-    const firstDay = new Date(currentYear, currentMonth, 1);
-    const lastDay = new Date(currentYear, currentMonth + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startDayOfWeek = firstDay.getDay(); // 0 = Sunday
-
-    const days: { date: Date; isCurrentMonth: boolean }[] = [];
-
-    // Add days from previous month
-    const prevMonth = new Date(currentYear, currentMonth, 0);
-    const prevMonthDays = prevMonth.getDate();
-    for (let i = startDayOfWeek - 1; i >= 0; i--) {
-      days.push({
-        date: new Date(currentYear, currentMonth - 1, prevMonthDays - i),
-        isCurrentMonth: false,
+  // View-aware navigation: prev/next steps by month / week / day depending
+  // on the active view, so the controls feel native in each.
+  const stepDate = useCallback(
+    (dir: -1 | 1) => {
+      setCurrentDate((prev) => {
+        const next = new Date(prev);
+        if (view === "month") {
+          next.setDate(1);
+          next.setMonth(next.getMonth() + dir);
+        } else if (view === "week") {
+          next.setDate(next.getDate() + 7 * dir);
+        } else {
+          next.setDate(next.getDate() + dir);
+        }
+        return next;
       });
-    }
+    },
+    [view]
+  );
 
-    // Add days of current month
-    for (let i = 1; i <= daysInMonth; i++) {
-      days.push({
-        date: new Date(currentYear, currentMonth, i),
-        isCurrentMonth: true,
-      });
-    }
+  const goToToday = useCallback(() => setCurrentDate(new Date()), []);
 
-    // Add days from next month to fill the grid (6 rows)
-    const remainingDays = 42 - days.length;
-    for (let i = 1; i <= remainingDays; i++) {
-      days.push({
-        date: new Date(currentYear, currentMonth + 1, i),
-        isCurrentMonth: false,
-      });
-    }
-
-    return days;
-  }, [currentYear, currentMonth]);
-
-  // Get events for a specific date (native + external merged)
-  const getEventsForDate = useCallback((date: Date): CalendarItem[] => {
-    // Use local date components to avoid timezone issues
-    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-    const native: CalendarItem[] = events
-      .filter((event) => {
-        const startDate = event.start_date;
-        const endDate = event.end_date || event.start_date;
-        return dateStr >= startDate && dateStr <= endDate;
-      })
-      .map((event) => ({ kind: "native", event }));
-    const external: CalendarItem[] = externalEvents
-      .filter((event) => {
-        const startDate = event.start_date;
-        const endDate = event.end_date || event.start_date;
-        return dateStr >= startDate && dateStr <= endDate;
-      })
-      .map((event) => ({ kind: "external", event }));
-    return [...native, ...external];
-  }, [events, externalEvents]);
-
-  // Navigate months
-  const goToPrevMonth = useCallback(() => {
-    setCurrentDate(new Date(currentYear, currentMonth - 1, 1));
-  }, [currentYear, currentMonth]);
-
-  const goToNextMonth = useCallback(() => {
-    setCurrentDate(new Date(currentYear, currentMonth + 1, 1));
-  }, [currentYear, currentMonth]);
-
-  const goToToday = useCallback(() => {
-    setCurrentDate(new Date());
+  const openCreateAt = useCallback((dateStr: string, startTime: string | null) => {
+    setPrefilledStartDate(dateStr);
+    setPrefilledStartTime(startTime);
+    setCreating(true);
   }, []);
 
-  // Month names
+  const openDayView = useCallback((dateStr: string) => {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    setCurrentDate(new Date(y, m - 1, d));
+    setView("day");
+  }, []);
+
+  // Heading label depends on view
   const monthNames = [
     "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
+    "July", "August", "September", "October", "November", "December",
   ];
+  const headingLabel = (() => {
+    if (view === "month") {
+      return `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+    }
+    if (view === "week") {
+      const start = new Date(currentDate);
+      start.setHours(0, 0, 0, 0);
+      start.setDate(start.getDate() - start.getDay());
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      const sameMonth = start.getMonth() === end.getMonth();
+      const sameYear = start.getFullYear() === end.getFullYear();
+      const startStr = start.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      });
+      const endStr = end.toLocaleDateString(undefined, {
+        month: sameMonth ? undefined : "short",
+        day: "numeric",
+        year: sameYear ? undefined : "numeric",
+      });
+      return `${startStr} – ${endStr}${sameYear ? `, ${start.getFullYear()}` : ""}`;
+    }
+    return currentDate.toLocaleDateString(undefined, {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  })();
 
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-  // Use local date to avoid timezone issues (toISOString returns UTC)
-  const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const today = toLocalDateString(new Date());
 
   return (
     <AppShell>
@@ -203,161 +163,87 @@ export default function CalendarPage() {
           </div>
         )}
 
-        {/* Calendar */}
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          {/* Month navigation */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        {/* Navigation + view switcher */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
             <button
-              onClick={goToPrevMonth}
+              onClick={() => stepDate(-1)}
               className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
-              title="Previous month"
+              title={`Previous ${view}`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15 18l-6-6 6-6"/>
+                <path d="M15 18l-6-6 6-6" />
               </svg>
             </button>
-            <div className="flex items-center gap-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                {monthNames[currentMonth]} {currentYear}
-              </h3>
-              <button
-                onClick={goToToday}
-                className="px-3 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded-lg"
-              >
-                Today
-              </button>
-            </div>
+            <h3 className="text-lg font-semibold text-gray-900 min-w-[180px]">
+              {headingLabel}
+            </h3>
             <button
-              onClick={goToNextMonth}
+              onClick={() => stepDate(1)}
               className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
-              title="Next month"
+              title={`Next ${view}`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 18l6-6-6-6"/>
+                <path d="M9 18l6-6-6-6" />
               </svg>
+            </button>
+            <button
+              onClick={goToToday}
+              className="ml-2 px-3 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded-lg"
+            >
+              Today
             </button>
           </div>
-
-          {/* Day headers */}
-          <div className="grid grid-cols-7 border-b border-gray-100">
-            {dayNames.map((day) => (
-              <div
-                key={day}
-                className="px-2 py-3 text-xs font-semibold text-gray-500 text-center"
+          <div className="inline-flex bg-gray-100 rounded-lg p-0.5">
+            {(["month", "week", "day"] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={`px-3 py-1 text-xs font-medium rounded-md capitalize transition-colors ${
+                  view === v
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
               >
-                {day}
-              </div>
+                {v}
+              </button>
             ))}
           </div>
-
-          {/* Calendar grid */}
-          <div className="grid grid-cols-7">
-            {calendarDays.map((day, index) => {
-              // Use local date components to avoid timezone issues
-              const dateStr = `${day.date.getFullYear()}-${String(day.date.getMonth() + 1).padStart(2, "0")}-${String(day.date.getDate()).padStart(2, "0")}`;
-              const dayEvents = getEventsForDate(day.date);
-              const isToday = dateStr === today;
-
-              return (
-                <div
-                  key={index}
-                  onClick={() => setExpandedDate(dateStr)}
-                  onDoubleClick={() => {
-                    setPrefilledStartDate(dateStr);
-                    setCreating(true);
-                  }}
-                  title="Click to see all events · Double-click to add a new event"
-                  className={`min-h-[100px] border-b border-r border-gray-100 p-1 cursor-pointer ${
-                    day.isCurrentMonth ? "bg-white hover:bg-gray-50" : "bg-gray-50 hover:bg-gray-100"
-                  }`}
-                >
-                  <div
-                    className={`text-xs font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full ${
-                      isToday
-                        ? "bg-blue-600 text-white"
-                        : day.isCurrentMonth
-                        ? "text-gray-700"
-                        : "text-gray-400"
-                    }`}
-                  >
-                    {day.date.getDate()}
-                  </div>
-                  <div className="space-y-1">
-                    {[...dayEvents]
-                      .sort((a, b) => eventTimeOrder(a.event, b.event))
-                      .slice(0, 3)
-                      .map((item) =>
-                        item.kind === "native" ? (
-                          <button
-                            key={`n-${item.event.id}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedEvent(item.event);
-                            }}
-                            className="w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80"
-                            style={{
-                              backgroundColor:
-                                item.event.color || EVENT_TYPE_COLORS[item.event.event_type],
-                              color: "white",
-                            }}
-                          >
-                            {item.event.start_time && (
-                              <span className="font-semibold mr-1">
-                                {formatTime(item.event.start_time)}
-                              </span>
-                            )}
-                            {item.event.title}
-                          </button>
-                        ) : (
-                          <button
-                            key={`x-${item.event.id}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedExternal(item.event);
-                            }}
-                            title="Linked calendar event (read-only)"
-                            className="w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80 flex items-center gap-1"
-                            style={{
-                              backgroundColor: "white",
-                              color: item.event.color,
-                              border: `1px solid ${item.event.color}`,
-                            }}
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="8"
-                              height="8"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="3"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              className="flex-shrink-0"
-                            >
-                              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                            </svg>
-                            {item.event.start_time && (
-                              <span className="font-semibold flex-shrink-0">
-                                {formatTime(item.event.start_time)}
-                              </span>
-                            )}
-                            <span className="truncate">{item.event.title}</span>
-                          </button>
-                        )
-                      )}
-                    {dayEvents.length > 3 && (
-                      <p className="text-[10px] text-gray-400 px-1.5">
-                        +{dayEvents.length - 3} more
-                      </p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
         </div>
+
+        {/* Active view */}
+        {view === "month" && (
+          <MonthView
+            anchor={currentDate}
+            events={events}
+            externalEvents={externalEvents}
+            onDayClick={(dateStr) => setExpandedDate(dateStr)}
+            onDayDoubleClick={(dateStr) => openCreateAt(dateStr, null)}
+            onEventClick={setSelectedEvent}
+            onExternalClick={setSelectedExternal}
+          />
+        )}
+        {view === "week" && (
+          <WeekView
+            anchor={currentDate}
+            events={events}
+            externalEvents={externalEvents}
+            onDayHeaderClick={openDayView}
+            onEventClick={setSelectedEvent}
+            onExternalClick={setSelectedExternal}
+            onCreateAt={openCreateAt}
+          />
+        )}
+        {view === "day" && (
+          <DayView
+            anchor={currentDate}
+            events={events}
+            externalEvents={externalEvents}
+            onEventClick={setSelectedEvent}
+            onExternalClick={setSelectedExternal}
+            onCreateAt={openCreateAt}
+          />
+        )}
 
         {/* Upcoming events list */}
         <div className="mt-8">
@@ -528,9 +414,11 @@ export default function CalendarPage() {
       {creating && (
         <CreateEventModal
           defaultStartDate={prefilledStartDate || undefined}
+          defaultStartTime={prefilledStartTime || undefined}
           onClose={() => {
             setCreating(false);
             setPrefilledStartDate(null);
+            setPrefilledStartTime(null);
           }}
           onCreate={async (data) => {
             try {
@@ -539,6 +427,8 @@ export default function CalendarPage() {
                 event_type: data.event_type || "other",
                 start_date: data.start_date!,
                 end_date: data.end_date,
+                start_time: data.start_time,
+                end_time: data.end_time,
                 location: data.location,
                 url: data.url,
                 notes: data.notes,
@@ -547,6 +437,7 @@ export default function CalendarPage() {
               await queryClient.refetchQueries({ queryKey: ["events"] });
               setCreating(false);
               setPrefilledStartDate(null);
+              setPrefilledStartTime(null);
             } catch {
               alert("Failed to create event");
             }
@@ -811,10 +702,12 @@ function CreateEventModal({
   onClose,
   onCreate,
   defaultStartDate,
+  defaultStartTime,
 }: {
   onClose: () => void;
   onCreate: (data: Partial<Event>) => void;
   defaultStartDate?: string;
+  defaultStartTime?: string;
 }) {
   const [title, setTitle] = useState("");
   const [eventType, setEventType] = useState<Event["event_type"]>("conference");
@@ -825,7 +718,7 @@ function CreateEventModal({
   };
   const [startDate, setStartDate] = useState(defaultStartDate || getLocalDateString());
   const [endDate, setEndDate] = useState("");
-  const [startTime, setStartTime] = useState("");
+  const [startTime, setStartTime] = useState(defaultStartTime || "");
   const [endTime, setEndTime] = useState("");
   const [location, setLocation] = useState("");
   const [url, setUrl] = useState("");
