@@ -57,7 +57,13 @@ export async function attachImageToTask(opts: AttachImageOptions): Promise<Attac
 
   const relativePath = `Images/${finalFilename}`;
   const alt = opts.altText ?? opts.suggestedFilename;
-  const markdownSnippet = `\n![${alt}](${relativePath})\n`;
+  // Wrap the URL in CommonMark angle brackets so filenames with spaces
+  // (e.g. "Emile ID card-1.jpg") are valid link destinations. Without the
+  // brackets, react-markdown can't parse the URL and falls back to raw
+  // text — the image never renders. The GC regex strips the brackets
+  // when scanning references, and blob-url-resolver sees the stripped
+  // path naturally because react-markdown unwraps them.
+  const markdownSnippet = `\n![${alt}](<${relativePath}>)\n`;
 
   imageEvents.emitAttached({ basePath: base, relativePath });
 

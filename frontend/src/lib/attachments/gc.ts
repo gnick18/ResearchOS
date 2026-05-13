@@ -9,7 +9,11 @@
 
 import { fileService } from "@/lib/file-system/file-service";
 
-const IMG_REF_REGEX = /!\[[^\]]*\]\(([^)\s]+)/g;
+// Capture everything between (...) up to the closing paren, lazily. This
+// MUST tolerate whitespace inside the URL — filenames like "Emile ID
+// card-1.jpg" are legal on disk, and the original `[^)\s]+` truncated
+// them at the first space, which made GC sweep them as unreferenced.
+const IMG_REF_REGEX = /!\[[^\]]*\]\(([^)\n]+?)\)/g;
 const HTML_IMG_REF_REGEX = /<img\s+[^>]*src=["']([^"']+)["'][^>]*>/gi;
 
 export function referencedRelativeNames(
@@ -21,11 +25,16 @@ export function referencedRelativeNames(
   const collect = (regex: RegExp) => {
     let m: RegExpExecArray | null;
     while ((m = regex.exec(markdown)) !== null) {
-      let src = m[1];
+      let src = m[1].trim();
+      // Strip a CommonMark title: `url "title"` or `url 'title'`. The lazy
+      // regex above captures everything inside (...), title included; split
+      // here so the title doesn't pollute the path lookup.
+      const titleMatch = src.match(/^(.+?)\s+["'].*["']\s*$/);
+      if (titleMatch) src = titleMatch[1].trim();
+      // Strip angle brackets if the URL was bracketed for safe spaces.
+      if (src.startsWith("<") && src.endsWith(">")) src = src.slice(1, -1);
       if (src.startsWith("./")) src = src.slice(2);
-      // Strip query/anchor noise. Markdown image titles after the path are
-      // outside the captured src group already (regex stops at the first
-      // whitespace), so no further trimming needed.
+      // Strip query/anchor noise.
       const trimmed = src.split("#")[0].split("?")[0];
       if (!trimmed.includes(`${prefix}`)) continue;
 
