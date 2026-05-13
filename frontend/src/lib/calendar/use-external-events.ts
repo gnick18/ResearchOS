@@ -10,6 +10,7 @@ import {
 } from "./external-feeds-store";
 import { parseIcsToExternalEvents } from "./ics-parser";
 import { listEventsForFeed as listGoogleEvents } from "./google-client";
+import { listEventsForFeed as listOutlookEvents } from "./microsoft-client";
 
 const FEEDS_QUERY_KEY = ["calendar-feeds"] as const;
 const FEED_EVENTS_PREFIX = "calendar-feed-events";
@@ -40,9 +41,8 @@ async function fetchFeed(
       if (!username) return [];
       return listGoogleEvents(username, feed);
     case "outlook":
-      // M2: implemented when the Microsoft client lands. For now, an
-      // explicit no-op keeps disabled feeds from blocking the rest.
-      return [];
+      if (!username) return [];
+      return listOutlookEvents(username, feed);
   }
 }
 
