@@ -105,6 +105,13 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         const legacy = readLegacyLocalStorageSettings();
         if (legacy?.animationType) {
           settings = await patchUserSettings(username, { animationType: legacy.animationType });
+          // Consume the legacy blob so subsequent users (who never owned this
+          // localStorage key) don't inherit the same animation choice when
+          // they log in for the first time. The localStorage was tied to the
+          // browser, not the user — whoever migrates first wins.
+          if (typeof window !== "undefined") {
+            window.localStorage.removeItem("research-os-settings");
+          }
         }
       }
       useAppStore.getState().hydrateFromSettings({
