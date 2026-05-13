@@ -1,3 +1,4 @@
+import Link from "next/link";
 import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
 import Screenshot from "@/components/wiki/Screenshot";
@@ -44,7 +45,9 @@ export default function MethodsFeaturePage() {
         </Step>
         <Step>
           Write the protocol in markdown. Embed images by dragging them in or
-          using the toolbar.
+          using the toolbar. The body uses the same editor as experiments and
+          notes, with three modes and a full shortcut set, documented on{" "}
+          <Link href="/wiki/features/markdown-editor">The Markdown Editor</Link>.
         </Step>
         <Step>
           Save. The method appears in the folder tree on the left and is

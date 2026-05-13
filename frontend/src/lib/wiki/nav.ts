@@ -85,6 +85,11 @@ export const WIKI_NAV: WikiNode[] = [
         blurb: "Markdown notes, image strip, sub-tasks, PDF export.",
       },
       {
+        href: "/wiki/features/markdown-editor",
+        label: "The Markdown Editor",
+        blurb: "Three modes, keyboard shortcuts, image strip, code blocks.",
+      },
+      {
         href: "/wiki/features/methods",
         label: "Methods Library",
         blurb: "Shared protocols with per-experiment variations.",
