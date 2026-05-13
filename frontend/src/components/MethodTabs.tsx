@@ -10,6 +10,7 @@ import { migrateNoteImages } from "@/lib/notes/migrate-images";
 import type { Method, Task, TaskMethodAttachment, PCRProtocol, PCRGradient, PCRIngredient } from "@/lib/types";
 import { InteractiveGradientEditor } from "@/components/InteractiveGradientEditor";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
+import MethodPicker from "./MethodPicker";
 
 interface MethodTabsProps {
   task: Task;
@@ -308,11 +309,6 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
     }
   }, [task.id, activeMethodId, queryClient, onTaskUpdate]);
   
-  // Available methods to add (not already attached)
-  const availableMethods = allMethods.filter(m => 
-    !methodAttachments.some(a => a.method_id === m.id)
-  );
-  
   return (
     <div className="flex flex-col h-full">
       {/* Tab bar - browser-like */}
@@ -382,53 +378,17 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
         </div>
       </div>
       
-      {/* Method selector dropdown */}
-      {showMethodSelector && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/20" onClick={() => setShowMethodSelector(false)}>
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-              <h3 className="text-sm font-semibold text-gray-900">Add Method</h3>
-              <button onClick={() => setShowMethodSelector(false)} className="text-gray-400 hover:text-gray-600" title="Close">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M18 6L6 18M6 6l12 12"/>
-                </svg>
-              </button>
-            </div>
-            <div className="overflow-y-auto max-h-[60vh] p-2">
-              {availableMethods.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-4">All methods are already attached</p>
-              ) : (
-                availableMethods.map((method) => (
-                  <button
-                    key={method.id}
-                    onClick={() => handleAddMethod(method.id)}
-                    disabled={saving}
-                    className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors mb-1"
-                  >
-                    <div className="flex items-center gap-2">
-                      {method.method_type === "pcr" ? (
-                        <span className="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded">PCR</span>
-                      ) : (
-                        <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">MD</span>
-                      )}
-                      <span className="text-sm font-medium text-gray-900">{method.name}</span>
-                    </div>
-                    {method.tags && method.tags.length > 0 && (
-                      <div className="flex gap-1 mt-1">
-                        {method.tags.map((tag) => (
-                          <span key={tag} className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">
-                            #{tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Method picker modal */}
+      <MethodPicker
+        open={showMethodSelector}
+        currentMethodId={null}
+        currentProjectId={task.project_id}
+        excludeMethodIds={methodAttachments.map((a) => a.method_id)}
+        onSelect={(id) => {
+          void handleAddMethod(id);
+        }}
+        onClose={() => setShowMethodSelector(false)}
+      />
       
       {/* Tab content */}
       <div className="flex-1 overflow-y-auto">
