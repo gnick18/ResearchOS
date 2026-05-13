@@ -1351,6 +1351,18 @@ export default function HybridMarkdownEditor({
                         alt={originalAlt}
                         width={width}
                         className="max-w-full rounded-lg cursor-pointer"
+                        // Without draggable=false, the browser treats the
+                        // <img> as a drag source — and when a native OS
+                        // file is dragged over it, Chrome intercepts the
+                        // drop with its default "replace image" behavior
+                        // before React's outer drop handlers run. The
+                        // user sees no file attachment, just a wrong
+                        // toast. preventDefault on the image's own
+                        // dragover/drop ensures the synthetic event
+                        // bubbles cleanly to the editor's drop handler.
+                        draggable={false}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => e.preventDefault()}
                         onError={(e) => handleImageError(e, originalSrc)}
                         onClick={(e) => {
                           if (disabled) return;

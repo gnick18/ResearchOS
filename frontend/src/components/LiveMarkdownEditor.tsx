@@ -1954,6 +1954,15 @@ export default function LiveMarkdownEditor({
                             alt={originalAlt}
                             width={width}
                             className="max-w-full rounded-lg cursor-pointer"
+                            // See HybridMarkdownEditor's matching <img> handler
+                            // for why these three props are mandatory: without
+                            // them Chrome intercepts native file drops with its
+                            // "replace image" default before React's outer
+                            // handlers run, breaking attachments when the
+                            // cursor is over a rendered image.
+                            draggable={false}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={(e) => e.preventDefault()}
                             onError={(e) => handleImageError(e, originalSrc, originalAlt)}
                             onClick={(e) => {
                               if (disabled) return;
