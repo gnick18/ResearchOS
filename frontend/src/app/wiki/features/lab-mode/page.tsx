@@ -7,78 +7,139 @@ export default function LabModeFeaturePage() {
   return (
     <WikiPage
       title="Lab Mode"
-      intro="A single view that aggregates tasks, projects, methods, and purchases across every user in the folder."
+      intro="One view that pulls every user's projects, tasks, methods, and purchases together. Built for the times when you want to see what the lab as a whole is up to, not what one person is doing."
     >
       <Screenshot
         src="/wiki/screenshots/lab-mode.png"
-        alt="Lab Mode with the activity feed open and a combined Gantt below it."
-        caption="Lab Mode aggregates across every user in the folder."
+        alt="Lab Mode with the Activity tab open and a user filter chip in the corner."
+        caption="Lab Mode opens on Activity by default. The chip in the bottom-right is the user filter that drives every tab."
       />
 
-      <h2>What Lab Mode shows you</h2>
+      <h2>Who Lab Mode is for</h2>
       <p>
-        Normally you only see your own projects, tasks, methods, and
-        purchases. Lab Mode is the view where you see <em>everyone&apos;s</em>{" "}
-        at once — every active experiment in the lab, every method anyone has
-        written, every purchase against every funding account.
+        Normally each user only sees their own projects, tasks, methods, and
+        purchases. That works when you&apos;re heads-down on your own
+        experiments, but it turns &quot;what&apos;s the team up to this week?&quot;
+        into a chore of switching from user to user and trying to hold it all
+        in your head.
       </p>
       <p>
-        The header turns into a row of tabs (Activity, Gantt, Experiments,
-        Methods, Purchases, Roadmaps, Notes), each one showing the combined
-        view for that area. Bars and badges are tinted by user color rather
-        than project color so you can tell at a glance whose work you&apos;re
-        looking at.
+        Lab Mode is the answer to that. Some examples of when it earns its
+        keep:
       </p>
-      <p>
-        If you&apos;re the only person in the folder, Lab Mode still works,
-        you&apos;ll just be the only contributor in every list. It earns its
-        keep once two or more labmates share the same folder.
-      </p>
-
-      <h2>Get to Lab Mode</h2>
       <ul>
         <li>
-          Click the <strong>Lab</strong> tab in the header.
+          A <strong>PI prepping for lab meeting</strong> who wants a one-page
+          read on what every member is running this week and what just
+          wrapped.
         </li>
         <li>
-          Or, on the user-picker, sign in as the special user{" "}
-          <code>lab</code>. That user auto-redirects to Lab Mode.
+          A <strong>grad student about to start a new experiment</strong> who
+          wants to check whether anyone in the lab has already tried the same
+          method, and what the outcome was.
+        </li>
+        <li>
+          A <strong>lab admin scanning lab-wide spend</strong> against a grant
+          deadline to see how much budget is left on each funding account.
+        </li>
+        <li>
+          Anyone writing a <strong>progress report</strong> who needs a
+          shareable summary of the team&apos;s recent activity without
+          interrupting each person to ask.
+        </li>
+      </ul>
+      <p>
+        If you&apos;re the only person in the folder, Lab Mode still loads — you
+        just won&apos;t see anyone else&apos;s rows. It earns its keep once two
+        or more labmates share the same folder.
+      </p>
+
+      <h2>Getting to Lab Mode</h2>
+      <p>There are two paths into it:</p>
+      <ul>
+        <li>
+          Click the <strong>Lab</strong> tab in the header from anywhere in the
+          app.
+        </li>
+        <li>
+          On the user-picker, sign in as the special user <code>lab</code>.
+          That account auto-redirects into Lab Mode and is the right choice for
+          a wall-mounted TV in the lab or a recurring lab-meeting tab — no
+          private data exposed because the <code>lab</code> user only ever sees
+          aggregated views.
+        </li>
+      </ul>
+      <p>
+        Lab Mode is read-only. Clicking into a task opens the same popup you
+        see in your own dashboard, but the edit buttons are hidden — Lab Mode
+        never writes anything back.
+      </p>
+
+      <h2>What&apos;s inside</h2>
+      <p>
+        The header swaps in a row of tabs. Each one shows the same kind of
+        data, but rolled up across every user you have selected in the filter.
+      </p>
+      <ul>
+        <li>
+          <Link href="/wiki/features/lab-mode/activity">
+            <strong>Activity</strong>
+          </Link>{" "}
+          — the default tab. Three rolling sections: what&apos;s in flight
+          right now, what just wrapped, and which shared notes were updated
+          recently.
+        </li>
+        <li>
+          <Link href="/wiki/features/lab-mode/gantt">
+            <strong>GANTT</strong>
+          </Link>{" "}
+          — one combined timeline with every user&apos;s tasks overlaid. Bars
+          are tinted by the user&apos;s color so you can scan whose work
+          you&apos;re looking at.
+        </li>
+        <li>
+          <Link href="/wiki/features/lab-mode/purchases">
+            <strong>Purchases</strong>
+          </Link>{" "}
+          — funding-account budget cards at the top, then either a list of
+          purchase orders or a summary view with per-month, per-user, and
+          per-project spend rollups.
+        </li>
+        <li>
+          <Link href="/wiki/features/lab-mode/cross-user-lists">
+            <strong>Experiments, Methods, Roadmaps, and Notes</strong>
+          </Link>{" "}
+          — four cross-user lists. Each is a flat view of everyone&apos;s rows
+          for that area, with the contributor&apos;s avatar and color attached
+          to every line. The shape is the same across the four, with small
+          differences per list.
+        </li>
+        <li>
+          <strong>Search</strong> — the cross-user variant of the regular
+          search page. Same filter form, but results pull from every selected
+          user&apos;s data. See{" "}
+          <Link href="/wiki/features/search">Search</Link> for the filter
+          fields and how match-highlighting works.
         </li>
       </ul>
 
-      <h2>The tabs inside Lab Mode</h2>
-      <Screenshot
-        src="/wiki/screenshots/lab-mode-activity.png"
-        alt="The Activity feed in Lab Mode showing a chronological list of changes with contributor names."
-        caption="The Activity feed lists every change across the lab, with the contributor's name and a timestamp."
-      />
-      <ul>
-        <li>
-          <strong>Activity</strong> is a chronological feed of every change
-          (e.g., new task, completed experiment, edited method) with the
-          contributor&apos;s name and timestamp.
-        </li>
-        <li>
-          <strong>Gantt</strong> is one combined timeline with every
-          user&apos;s bars overlaid. Bars are tinted by user color, not
-          project color.
-        </li>
-        <li>
-          <strong>Experiments</strong>, <strong>Methods</strong>,{" "}
-          <strong>Purchases</strong>, <strong>Roadmaps</strong>, and{" "}
-          <strong>Notes</strong> are flat lists across all users, with each
-          row attributed to its owner.
-        </li>
-      </ul>
-
-      <h2>Filter by user</h2>
+      <h2>Filtering by user</h2>
       <p>
-        Click the user-filter button to toggle which users are included. Hide
-        teammates you don&apos;t need to see. The filter persists per
-        browser.
+        The floating <strong>Users</strong> chip in the bottom-right corner
+        controls who shows up on every tab at once. Click it to open the
+        picker, toggle users on or off, or open one user&apos;s side panel for
+        a focused read on that person&apos;s work.
+      </p>
+      <p>
+        The selection sticks per browser, and the chip itself is draggable if
+        it&apos;s in your way. See{" "}
+        <Link href="/wiki/features/lab-mode/user-filter">
+          The user filter
+        </Link>{" "}
+        for the full breakdown including the per-user detail panel.
       </p>
 
-      <Callout variant="tip" title="Shared lab account setup first">
+      <Callout variant="tip" title="Set up a shared folder first">
         Lab Mode only has data to aggregate if multiple users share the same
         folder. If you haven&apos;t set that up yet, read{" "}
         <Link href="/wiki/shared-lab-accounts">Shared Lab Accounts</Link>.
