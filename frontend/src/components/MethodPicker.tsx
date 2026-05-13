@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { methodsApi, fetchAllTasks } from "@/lib/local-api";
+import { methodsApi, fetchAllTasks, githubApi } from "@/lib/local-api";
 import type { Method, Task } from "@/lib/types";
+import RenderedMarkdown from "@/components/RenderedMarkdown";
 
 interface MethodPickerProps {
   open: boolean;
@@ -207,6 +208,11 @@ export default function MethodPicker({
     [flatRows]
   );
 
+  const highlightedMethod: Method | null = useMemo(() => {
+    const row = flatRows[highlightedIndex];
+    return row?.kind === "method" ? row.method : null;
+  }, [flatRows, highlightedIndex]);
+
   useEffect(() => {
     if (selectableIndices.length === 0) {
       setHighlightedIndex(-1);
@@ -264,8 +270,8 @@ export default function MethodPicker({
       onKeyDown={handleKeyDown}
     >
       <div
-        className="w-full max-w-2xl bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden"
-        style={{ maxHeight: "75vh" }}
+        className="w-full max-w-5xl bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden"
+        style={{ maxHeight: "80vh", minHeight: "min(80vh, 480px)" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
@@ -299,7 +305,8 @@ export default function MethodPicker({
           </button>
         </div>
 
-        <div ref={listRef} className="flex-1 overflow-y-auto">
+        <div className="flex-1 flex overflow-hidden">
+        <div ref={listRef} className="w-full md:w-[380px] md:shrink-0 overflow-y-auto md:border-r md:border-gray-100">
           {isLoading ? (
             <div className="px-4 py-8 text-center text-sm text-gray-400">
               Loading methods…
@@ -320,13 +327,18 @@ export default function MethodPicker({
           ) : (
             flatRows.map((row, index) => {
               if (row.kind === "header") {
+                const isPinned = row.sectionKey.startsWith("pinned-");
+                const headerCls = isPinned
+                  ? "sticky top-0 z-10 bg-blue-50/95 backdrop-blur px-4 py-2 text-[11px] uppercase tracking-wide font-semibold text-blue-700 border-b border-blue-200 border-l-2 border-l-blue-400"
+                  : "sticky top-0 z-10 bg-gray-100/95 backdrop-blur px-4 py-2 text-[11px] uppercase tracking-wide font-semibold text-gray-700 border-b border-gray-200";
                 return (
-                  <div
-                    key={`h:${row.sectionKey}`}
-                    className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur px-4 py-1.5 text-[11px] uppercase tracking-wide font-semibold text-gray-500 border-b border-gray-100"
-                  >
+                  <div key={`h:${row.sectionKey}`} className={headerCls}>
                     {row.label}
-                    <span className="ml-2 text-gray-400 normal-case tracking-normal font-normal">
+                    <span
+                      className={`ml-2 normal-case tracking-normal font-normal ${
+                        isPinned ? "text-blue-400" : "text-gray-400"
+                      }`}
+                    >
                       {row.count}
                     </span>
                   </div>
@@ -387,6 +399,10 @@ export default function MethodPicker({
             })
           )}
         </div>
+        <div className="hidden md:flex md:flex-1 flex-col bg-gray-50/40 overflow-hidden">
+          <MethodPreview method={highlightedMethod} />
+        </div>
+        </div>
 
         <div className="flex items-center gap-4 px-4 py-2 border-t border-gray-100 text-[11px] text-gray-400 bg-gray-50">
           <span>
@@ -411,6 +427,105 @@ export default function MethodPicker({
             close
           </span>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function MethodPreview({ method }: { method: Method | null }) {
+  const isPcr =
+    method?.method_type === "pcr" ||
+    (method?.github_path?.startsWith("pcr://") ?? false);
+  const isPdf =
+    method?.method_type === "pdf" ||
+    (method?.github_path?.toLowerCase().endsWith(".pdf") ?? false);
+  const canFetchMarkdown = !!method?.github_path && !isPcr && !isPdf;
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["method-preview", method?.id],
+    queryFn: () => githubApi.readFile(method!.github_path!),
+    enabled: canFetchMarkdown,
+    staleTime: 5 * 60_000,
+  });
+
+  if (!method) {
+    return (
+      <div className="h-full flex items-center justify-center p-8 text-center text-sm text-gray-400">
+        Hover or use ↑↓ to preview a method here.
+      </div>
+    );
+  }
+
+  const basePath = method.github_path?.includes("/")
+    ? method.github_path.split("/").slice(0, -1).join("/")
+    : undefined;
+
+  return (
+    <div className="h-full flex flex-col overflow-hidden">
+      <div className="px-5 pt-4 pb-3 border-b border-gray-100 bg-white">
+        <div className="flex items-center gap-2 flex-wrap">
+          <h3 className="text-sm font-semibold text-gray-900 truncate">
+            {method.name}
+          </h3>
+          {isPcr && (
+            <span className="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded shrink-0">
+              PCR
+            </span>
+          )}
+          {isPdf && (
+            <span className="text-xs px-1.5 py-0.5 bg-rose-100 text-rose-600 rounded shrink-0">
+              PDF
+            </span>
+          )}
+          {method.folder_path && (
+            <span className="text-xs text-gray-400 truncate">
+              {method.folder_path}
+            </span>
+          )}
+        </div>
+        {method.tags && method.tags.length > 0 && (
+          <div className="flex gap-1 mt-1.5 flex-wrap">
+            {method.tags.map((tag) => (
+              <span
+                key={tag}
+                className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded"
+              >
+                #{tag}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="flex-1 overflow-y-auto px-5 py-4">
+        {isPcr ? (
+          <div className="text-sm text-gray-500">
+            PCR protocol — select the method to view and edit its gradient and
+            recipe.
+          </div>
+        ) : isPdf ? (
+          <div className="text-sm text-gray-500">
+            PDF attachment — preview unavailable here. Select the method to
+            open it.
+          </div>
+        ) : !canFetchMarkdown ? (
+          <div className="text-sm text-gray-500">No content available.</div>
+        ) : isLoading ? (
+          <div className="text-sm text-gray-400 animate-pulse">
+            Loading preview…
+          </div>
+        ) : isError ? (
+          <div className="text-sm text-red-600">
+            Couldn&rsquo;t load preview.
+          </div>
+        ) : (
+          <div className="prose prose-sm prose-gray max-w-none">
+            <RenderedMarkdown
+              content={data?.content ?? ""}
+              basePath={basePath}
+              ownerUsername={method.owner}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
