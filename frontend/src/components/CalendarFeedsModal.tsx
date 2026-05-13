@@ -11,21 +11,14 @@ import {
 } from "@/lib/calendar/external-feeds-store";
 import { parseIcsToExternalEvents } from "@/lib/calendar/ics-parser";
 import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
-import {
-  clearTokens,
-  readTokens,
-  type OAuthTokens,
-} from "@/lib/calendar/oauth-tokens-store";
+import type { OAuthTokens } from "@/lib/calendar/oauth-tokens-store";
 import { isProviderConfigured } from "@/lib/calendar/oauth-config";
-import { connectProvider } from "@/lib/calendar/oauth-connect";
 import {
-  listCalendars as listGoogleCalendars,
-  type GoogleCalendarListItem,
-} from "@/lib/calendar/google-client";
-import type {
-  CalendarFeed,
-  CalendarFeedProvider,
-} from "@/lib/types";
+  useOAuthAccount,
+  type OAuthCalendar,
+  type OAuthProviderKey,
+} from "@/lib/calendar/use-oauth-account";
+import type { CalendarFeed, CalendarFeedProvider } from "@/lib/types";
 
 const PROVIDER_LABELS: Record<CalendarFeedProvider, string> = {
   google: "Google Calendar",
@@ -57,37 +50,21 @@ export default function CalendarFeedsModal({ onClose }: Props) {
   const [testing, setTesting] = useState(false);
   const [draftError, setDraftError] = useState<string | null>(null);
 
-  // ── Google OAuth section state ─────────────────────────────────────
+  // OAuth account state — one hook per provider, identical lifecycle.
   const googleConfigured = isProviderConfigured("google");
-  const [googleTokens, setGoogleTokens] = useState<OAuthTokens | null>(null);
-  const [googleCalendars, setGoogleCalendars] = useState<GoogleCalendarListItem[]>([]);
-  const [googleBusy, setGoogleBusy] = useState(false);
-  const [googleError, setGoogleError] = useState<string | null>(null);
+  const outlookConfigured = isProviderConfigured("outlook");
+  const google = useOAuthAccount(currentUser ?? null, "google");
+  const outlook = useOAuthAccount(currentUser ?? null, "outlook");
 
-  // Initial load.
+  // Initial feed-list load — OAuth state is owned by the hooks above.
   useEffect(() => {
     if (!currentUser) return;
     let cancelled = false;
     (async () => {
       const list = await listFeeds(currentUser);
-      const g = await readTokens(currentUser, "google");
-      if (cancelled) return;
-      setFeeds(list);
-      setGoogleTokens(g);
-      setLoading(false);
-      // If already connected, pull the calendar list so the user can
-      // toggle subscriptions immediately.
-      if (g) {
-        try {
-          const cals = await listGoogleCalendars(currentUser);
-          if (!cancelled) setGoogleCalendars(cals);
-        } catch (err) {
-          if (!cancelled) {
-            setGoogleError(
-              err instanceof Error ? err.message : "Couldn't fetch your Google calendars.",
-            );
-          }
-        }
+      if (!cancelled) {
+        setFeeds(list);
+        setLoading(false);
       }
     })();
     return () => {
@@ -191,28 +168,11 @@ export default function CalendarFeedsModal({ onClose }: Props) {
     invalidate();
   };
 
-  // ── Google OAuth handlers ──────────────────────────────────────────
-  const refreshGoogleCalendarList = useCallback(async () => {
-    if (!currentUser) return;
-    try {
-      const cals = await listGoogleCalendars(currentUser);
-      setGoogleCalendars(cals);
-      setGoogleError(null);
-    } catch (err) {
-      setGoogleError(
-        err instanceof Error ? err.message : "Couldn't fetch your Google calendars.",
-      );
-    }
-  }, [currentUser]);
-
-  const handleConnectGoogle = async () => {
-    if (!currentUser) return;
-    setGoogleBusy(true);
-    setGoogleError(null);
-    try {
-      const tokens = await connectProvider(currentUser, "google");
-      setGoogleTokens(tokens);
-      await refreshGoogleCalendarList();
+  // ── OAuth handlers (shared across Google + Outlook) ────────────────
+  const handleConnect = useCallback(
+    async (provider: OAuthProviderKey) => {
+      const acc = provider === "google" ? google : outlook;
+      await acc.connect();
       try {
         await ensureGitignoreEntries([
           "_calendar-oauth.json",
@@ -221,65 +181,65 @@ export default function CalendarFeedsModal({ onClose }: Props) {
       } catch {
         /* ignore */
       }
-    } catch (err) {
-      setGoogleError(err instanceof Error ? err.message : "Sign-in failed.");
-    } finally {
-      setGoogleBusy(false);
-    }
-  };
+    },
+    [google, outlook],
+  );
 
-  const handleDisconnectGoogle = async () => {
-    if (!currentUser) return;
-    const googleFeeds = feeds.filter((f) => f.kind === "google");
-    const ok = window.confirm(
-      googleFeeds.length === 0
-        ? "Disconnect your Google account?"
-        : `Disconnect your Google account? ${googleFeeds.length} subscribed calendar${
-            googleFeeds.length === 1 ? "" : "s"
-          } will be removed.`,
-    );
-    if (!ok) return;
-    setGoogleBusy(true);
-    try {
-      for (const f of googleFeeds) await deleteFeed(currentUser, f.id);
-      await clearTokens(currentUser, "google");
-      setGoogleTokens(null);
-      setGoogleCalendars([]);
-      setFeeds((prev) => prev.filter((f) => f.kind !== "google"));
+  const handleDisconnect = useCallback(
+    async (provider: OAuthProviderKey) => {
+      if (!currentUser) return;
+      const providerFeeds = feeds.filter((f) => f.kind === provider);
+      const ok = window.confirm(
+        providerFeeds.length === 0
+          ? `Disconnect your ${labelOf(provider)} account?`
+          : `Disconnect your ${labelOf(provider)} account? ${providerFeeds.length} subscribed calendar${
+              providerFeeds.length === 1 ? "" : "s"
+            } will be removed.`,
+      );
+      if (!ok) return;
+      for (const f of providerFeeds) await deleteFeed(currentUser, f.id);
+      const acc = provider === "google" ? google : outlook;
+      await acc.disconnect();
+      setFeeds((prev) => prev.filter((f) => f.kind !== provider));
       invalidate();
-    } finally {
-      setGoogleBusy(false);
-    }
-  };
+    },
+    [currentUser, feeds, google, outlook, invalidate],
+  );
 
-  const isGoogleCalendarSubscribed = (calId: string): CalendarFeed | undefined =>
-    feeds.find((f) => f.kind === "google" && f.oauthCalendarId === calId);
+  const subscribedFor = useCallback(
+    (provider: OAuthProviderKey, calId: string) =>
+      feeds.find((f) => f.kind === provider && f.oauthCalendarId === calId),
+    [feeds],
+  );
 
-  const handleToggleGoogleCalendar = async (cal: GoogleCalendarListItem) => {
-    if (!currentUser) return;
-    const existing = isGoogleCalendarSubscribed(cal.id);
-    if (existing) {
-      await deleteFeed(currentUser, existing.id);
-      setFeeds((prev) => prev.filter((f) => f.id !== existing.id));
+  const handleToggleCalendar = useCallback(
+    async (provider: OAuthProviderKey, cal: OAuthCalendar) => {
+      if (!currentUser) return;
+      const existing = subscribedFor(provider, cal.id);
+      if (existing) {
+        await deleteFeed(currentUser, existing.id);
+        setFeeds((prev) => prev.filter((f) => f.id !== existing.id));
+        invalidate();
+        return;
+      }
+      // Pick a colour: use the provider's hint when available, otherwise
+      // the next unused colour from our palette so concurrent calendars
+      // stay visually distinct.
+      const usedColors = new Set(feeds.map((f) => f.color));
+      const fallbackColor =
+        DEFAULT_COLORS.find((c) => !usedColors.has(c)) ?? DEFAULT_COLORS[0];
+      const created = await createFeed(currentUser, {
+        kind: provider,
+        provider,
+        label: cal.name,
+        oauthCalendarId: cal.id,
+        color: cal.colorHint ?? fallbackColor,
+      });
+      setFeeds((prev) => [...prev, created]);
       invalidate();
-      return;
-    }
-    // Subscribe — colour from Google's hint if we got one, otherwise pick
-    // the next colour from the default palette so multiple calendars stay
-    // visually distinct.
-    const usedColors = new Set(feeds.map((f) => f.color));
-    const fallbackColor =
-      DEFAULT_COLORS.find((c) => !usedColors.has(c)) ?? DEFAULT_COLORS[0];
-    const created = await createFeed(currentUser, {
-      kind: "google",
-      provider: "google",
-      label: cal.summary,
-      oauthCalendarId: cal.id,
-      color: cal.backgroundColor || fallbackColor,
-    });
-    setFeeds((prev) => [...prev, created]);
-    invalidate();
-  };
+    },
+    [currentUser, feeds, invalidate, subscribedFor],
+  );
 
   // ── Render ─────────────────────────────────────────────────────────
   return (
@@ -402,126 +362,24 @@ export default function CalendarFeedsModal({ onClose }: Props) {
               Connect an account
             </h4>
             <div className="space-y-3">
-              {!googleConfigured ? (
-                <div className="border border-gray-200 rounded-lg p-3">
-                  <p className="text-sm text-gray-700 font-medium">Google Calendar</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Not configured for this deployment. Set{" "}
-                    <code className="px-1 py-0.5 bg-gray-100 rounded">
-                      NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED=1
-                    </code>{" "}
-                    plus your client id/secret to enable.
-                  </p>
-                </div>
-              ) : !googleTokens ? (
-                <div className="border border-gray-200 rounded-lg p-3 flex items-center gap-3">
-                  <GoogleLogo />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900">Google Calendar</p>
-                    <p className="text-[11px] text-gray-500">
-                      Read events · edit time / title / location · delete. iCloud-only
-                      account? Use the ICS form below instead.
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleConnectGoogle}
-                    disabled={googleBusy}
-                    className="px-3 py-1.5 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
-                  >
-                    {googleBusy ? "Opening…" : "Connect"}
-                  </button>
-                </div>
-              ) : (
-                <div className="border border-emerald-200 bg-emerald-50/50 rounded-lg p-3 space-y-3">
-                  <div className="flex items-start gap-3">
-                    <GoogleLogo />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900">
-                        Connected to Google
-                      </p>
-                      {googleTokens.accountEmail && (
-                        <p className="text-[11px] text-gray-500 truncate">
-                          as {googleTokens.accountEmail}
-                        </p>
-                      )}
-                      {!googleTokens.refreshToken && (
-                        <p className="text-[11px] text-amber-700 mt-1">
-                          Google didn&apos;t return a refresh token. Access will expire
-                          in ~1 hour; reconnect to keep syncing.
-                        </p>
-                      )}
-                    </div>
-                    <button
-                      onClick={handleDisconnectGoogle}
-                      disabled={googleBusy}
-                      className="text-[11px] text-red-600 hover:underline disabled:opacity-50"
-                    >
-                      Disconnect
-                    </button>
-                  </div>
-
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
-                      Show events from
-                    </p>
-                    {googleError && (
-                      <p className="text-xs text-red-600 mb-2">{googleError}</p>
-                    )}
-                    {googleCalendars.length === 0 && !googleError ? (
-                      <p className="text-xs text-gray-400 italic">Loading calendars…</p>
-                    ) : (
-                      <ul className="space-y-1">
-                        {googleCalendars.map((cal) => {
-                          const sub = isGoogleCalendarSubscribed(cal.id);
-                          return (
-                            <li key={cal.id}>
-                              <label className="flex items-center gap-2 px-2 py-1 rounded hover:bg-white cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={!!sub}
-                                  onChange={() => handleToggleGoogleCalendar(cal)}
-                                />
-                                <span
-                                  className="inline-block w-2.5 h-2.5 rounded-sm"
-                                  style={{
-                                    backgroundColor: cal.backgroundColor || "#9ca3af",
-                                  }}
-                                />
-                                <span className="text-xs text-gray-800 truncate flex-1">
-                                  {cal.summary}
-                                  {cal.primary && (
-                                    <span className="ml-1 text-[10px] uppercase tracking-wide text-blue-600">
-                                      primary
-                                    </span>
-                                  )}
-                                </span>
-                                {cal.accessRole && cal.accessRole !== "owner" && (
-                                  <span className="text-[10px] text-gray-400">
-                                    {cal.accessRole}
-                                  </span>
-                                )}
-                              </label>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Outlook placeholder until M2 lands. */}
-              <div className="border border-gray-200 rounded-lg p-3 flex items-center gap-3 opacity-60">
-                <OutlookLogo />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900">Outlook / Microsoft 365</p>
-                  <p className="text-[11px] text-gray-500">
-                    OAuth coming next. For now, publish a calendar from Outlook and
-                    paste its ICS URL below.
-                  </p>
-                </div>
-                <span className="text-[11px] text-gray-400">Coming soon</span>
-              </div>
+              <OAuthCard
+                provider="google"
+                configured={googleConfigured}
+                account={google}
+                isSubscribed={(id) => !!subscribedFor("google", id)}
+                onConnect={() => handleConnect("google")}
+                onDisconnect={() => handleDisconnect("google")}
+                onToggleCalendar={(cal) => handleToggleCalendar("google", cal)}
+              />
+              <OAuthCard
+                provider="outlook"
+                configured={outlookConfigured}
+                account={outlook}
+                isSubscribed={(id) => !!subscribedFor("outlook", id)}
+                onConnect={() => handleConnect("outlook")}
+                onDisconnect={() => handleDisconnect("outlook")}
+                onToggleCalendar={(cal) => handleToggleCalendar("outlook", cal)}
+              />
             </div>
           </div>
 
@@ -635,6 +493,158 @@ export default function CalendarFeedsModal({ onClose }: Props) {
           OAuth-connected calendars become editable once write support ships. ICS
           subscriptions stay read-only.
         </div>
+      </div>
+    </div>
+  );
+}
+
+function labelOf(provider: OAuthProviderKey): string {
+  return provider === "google" ? "Google" : "Outlook";
+}
+
+function envHintFor(provider: OAuthProviderKey): string {
+  return provider === "google"
+    ? "NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED=1"
+    : "NEXT_PUBLIC_MICROSOFT_OAUTH_ENABLED=1";
+}
+
+interface OAuthCardProps {
+  provider: OAuthProviderKey;
+  configured: boolean;
+  account: {
+    tokens: OAuthTokens | null;
+    calendars: OAuthCalendar[];
+    busy: boolean;
+    error: string | null;
+  };
+  isSubscribed: (calId: string) => boolean;
+  onConnect: () => void | Promise<void>;
+  onDisconnect: () => void | Promise<void>;
+  onToggleCalendar: (cal: OAuthCalendar) => void | Promise<void>;
+}
+
+function OAuthCard({
+  provider,
+  configured,
+  account,
+  isSubscribed,
+  onConnect,
+  onDisconnect,
+  onToggleCalendar,
+}: OAuthCardProps) {
+  const Logo = provider === "google" ? GoogleLogo : OutlookLogo;
+  const fullName = provider === "google" ? "Google Calendar" : "Outlook / Microsoft 365";
+
+  if (!configured) {
+    return (
+      <div className="border border-gray-200 rounded-lg p-3">
+        <p className="text-sm text-gray-700 font-medium">{fullName}</p>
+        <p className="text-xs text-gray-500 mt-1">
+          Not configured for this deployment. Set{" "}
+          <code className="px-1 py-0.5 bg-gray-100 rounded">
+            {envHintFor(provider)}
+          </code>{" "}
+          plus your client id/secret to enable.
+        </p>
+      </div>
+    );
+  }
+
+  if (!account.tokens) {
+    return (
+      <div className="border border-gray-200 rounded-lg p-3 flex items-center gap-3">
+        <Logo />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-gray-900">{fullName}</p>
+          <p className="text-[11px] text-gray-500">
+            Read events · edit time / title / location · delete (write
+            support lands shortly).
+          </p>
+          {account.error && (
+            <p className="text-[11px] text-red-600 mt-1">{account.error}</p>
+          )}
+        </div>
+        <button
+          onClick={() => void onConnect()}
+          disabled={account.busy}
+          className="px-3 py-1.5 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+        >
+          {account.busy ? "Opening…" : "Connect"}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border border-emerald-200 bg-emerald-50/50 rounded-lg p-3 space-y-3">
+      <div className="flex items-start gap-3">
+        <Logo />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-gray-900">
+            Connected to {labelOf(provider)}
+          </p>
+          {account.tokens.accountEmail && (
+            <p className="text-[11px] text-gray-500 truncate">
+              as {account.tokens.accountEmail}
+            </p>
+          )}
+          {!account.tokens.refreshToken && (
+            <p className="text-[11px] text-amber-700 mt-1">
+              {labelOf(provider)} didn&apos;t return a refresh token. Access
+              will expire in ~1 hour; reconnect to keep syncing.
+            </p>
+          )}
+        </div>
+        <button
+          onClick={() => void onDisconnect()}
+          disabled={account.busy}
+          className="text-[11px] text-red-600 hover:underline disabled:opacity-50"
+        >
+          Disconnect
+        </button>
+      </div>
+
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
+          Show events from
+        </p>
+        {account.error && (
+          <p className="text-xs text-red-600 mb-2">{account.error}</p>
+        )}
+        {account.calendars.length === 0 && !account.error ? (
+          <p className="text-xs text-gray-400 italic">Loading calendars…</p>
+        ) : (
+          <ul className="space-y-1">
+            {account.calendars.map((cal) => (
+              <li key={cal.id}>
+                <label className="flex items-center gap-2 px-2 py-1 rounded hover:bg-white cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isSubscribed(cal.id)}
+                    onChange={() => void onToggleCalendar(cal)}
+                  />
+                  <span
+                    className="inline-block w-2.5 h-2.5 rounded-sm"
+                    style={{ backgroundColor: cal.colorHint ?? "#9ca3af" }}
+                  />
+                  <span className="text-xs text-gray-800 truncate flex-1">
+                    {cal.name}
+                    {cal.primary && (
+                      <span className="ml-1 text-[10px] uppercase tracking-wide text-blue-600">
+                        primary
+                      </span>
+                    )}
+                  </span>
+                  {cal.accessLabel && (
+                    <span className="text-[10px] text-gray-400">
+                      {cal.accessLabel}
+                    </span>
+                  )}
+                </label>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
