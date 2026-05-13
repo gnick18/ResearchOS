@@ -545,6 +545,8 @@ export const eventsApi = {
       ...data,
       event_type: data.event_type ?? "conference",
       end_date: data.end_date ?? null,
+      start_time: data.start_time ?? null,
+      end_time: data.end_time ?? null,
       location: data.location ?? null,
       url: data.url ?? null,
       notes: data.notes ?? null,
