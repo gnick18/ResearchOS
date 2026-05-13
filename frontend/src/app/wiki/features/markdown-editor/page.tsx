@@ -247,9 +247,9 @@ export default function MarkdownEditorPage() {
       <ul>
         <li>
           <strong>In Preview mode</strong>: click any rendered image to bring
-          up a size popover with <em>50%</em>, <em>75%</em>, <em>100%</em>,{" "}
-          <em>125%</em>, and <em>150%</em> options. The choice writes a width
-          attribute into the markdown so the size persists.
+          up a size popover with <em>25%</em>, <em>50%</em>, <em>75%</em>, and{" "}
+          <em>100%</em> options. The choice writes a width attribute into the
+          markdown so the size persists.
         </li>
         <li>
           <strong>In Edit mode</strong>: select the markdown image syntax
