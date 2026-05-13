@@ -246,7 +246,7 @@ export default function MethodPicker({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 backdrop-blur-sm pt-[10vh] px-4"
+      className="fixed inset-0 z-[60] flex items-start justify-center bg-black/30 backdrop-blur-sm pt-[10vh] px-4"
       onClick={onClose}
       onKeyDown={handleKeyDown}
     >

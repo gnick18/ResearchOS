@@ -8,6 +8,8 @@ import type { Method, Project, Task, Dependency, SubTask } from "@/lib/types";
 import { createNewFileContent } from "@/lib/stamp-utils";
 import { taskResultsBase } from "@/lib/tasks/results-paths";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import MethodPicker from "@/components/MethodPicker";
+import TaskPicker from "@/components/TaskPicker";
 
 interface TaskModalProps {
   projects: Project[];
@@ -71,6 +73,8 @@ export default function TaskModal({ projects }: TaskModalProps) {
 
   // Experiment-specific fields
   const [methodId, setMethodId] = useState<number | null>(null);
+  const [showMethodPicker, setShowMethodPicker] = useState(false);
+  const [showParentPicker, setShowParentPicker] = useState(false);
 
   // Sub-tasks for list type
   const [subTasks, setSubTasks] = useState<SubTask[]>([]);
@@ -629,20 +633,48 @@ export default function TaskModal({ projects }: TaskModalProps) {
                 <label className="block text-xs font-medium text-gray-500 mb-1">
                   Depends on Task
                 </label>
-                <select
-                  value={parentTaskId ?? ""}
-                  onChange={(e) =>
-                    setParentTaskId(e.target.value ? Number(e.target.value) : null)
-                  }
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select a task...</option>
-                  {availableParentTasks.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} ({t.start_date} to {t.end_date})
-                    </option>
-                  ))}
-                </select>
+                {selectedParentTask ? (
+                  <div className="flex items-center justify-between gap-2 px-3 py-2 border border-gray-200 rounded-lg bg-white text-sm">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-medium text-gray-900 truncate">
+                        {selectedParentTask.name}
+                      </span>
+                      <span className="text-xs text-gray-400 shrink-0">
+                        {selectedParentTask.start_date} → {selectedParentTask.end_date}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowParentPicker(true)}
+                      className="text-xs text-gray-500 hover:text-gray-700 shrink-0"
+                    >
+                      Change
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowParentPicker(true)}
+                    disabled={availableParentTasks.length === 0}
+                    className="w-full text-left px-3 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-blue-400 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {availableParentTasks.length === 0
+                      ? "No eligible experiments to depend on"
+                      : "Select a task this depends on…"}
+                  </button>
+                )}
+                <TaskPicker
+                  open={showParentPicker}
+                  availableTasks={availableParentTasks}
+                  currentProjectId={projectId}
+                  title="Depends on task"
+                  placeholder="Search experiments by name or #tag…"
+                  onSelect={(id) => {
+                    setParentTaskId(id);
+                    setShowParentPicker(false);
+                  }}
+                  onClose={() => setShowParentPicker(false)}
+                />
               </div>
 
               <div>
@@ -695,24 +727,63 @@ export default function TaskModal({ projects }: TaskModalProps) {
               <label className="block text-xs font-medium text-gray-500 mb-1">
                 Linked Method
               </label>
-              <select
-                value={methodId ?? ""}
-                onChange={(e) =>
-                  setMethodId(e.target.value ? Number(e.target.value) : null)
-                }
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">No method linked</option>
-                {methods.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
+              {(() => {
+                const selectedMethod = methodId
+                  ? methods.find((m) => m.id === methodId) ?? null
+                  : null;
+                return selectedMethod ? (
+                  <div className="flex items-center justify-between gap-2 px-3 py-2 border border-gray-200 rounded-lg bg-white text-sm">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-medium text-gray-900 truncate">
+                        {selectedMethod.name}
+                      </span>
+                      {selectedMethod.method_type === "pcr" && (
+                        <span className="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded shrink-0">
+                          PCR
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setShowMethodPicker(true)}
+                        className="text-xs text-gray-500 hover:text-gray-700"
+                      >
+                        Change
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMethodId(null)}
+                        className="text-xs text-gray-400 hover:text-gray-600"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowMethodPicker(true)}
+                    className="w-full text-left px-3 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-blue-400 hover:text-gray-700"
+                  >
+                    + Link a method (optional)
+                  </button>
+                );
+              })()}
               <p className="text-xs text-gray-400 mt-1">
                 Link a protocol from the Methods library. You can edit it later
                 and choose to save changes as notes or fork a new method.
               </p>
+              <MethodPicker
+                open={showMethodPicker}
+                currentMethodId={methodId}
+                currentProjectId={projectId}
+                onSelect={(id) => {
+                  setMethodId(id);
+                  setShowMethodPicker(false);
+                }}
+                onClose={() => setShowMethodPicker(false)}
+              />
             </div>
           )}
 
