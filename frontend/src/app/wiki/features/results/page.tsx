@@ -44,8 +44,10 @@ export default function ResultsFeaturePage() {
         </Step>
         <Step>
           Write a results summary in the markdown editor on the right. It&apos;s
-          the same editor as experiments, so inline images, headings, and
-          tables all work.
+          the same editor used everywhere else in the app, with three modes
+          and a full set of keyboard shortcuts. See{" "}
+          <Link href="/wiki/features/markdown-editor">The Markdown Editor</Link>{" "}
+          for details.
         </Step>
       </Steps>
 

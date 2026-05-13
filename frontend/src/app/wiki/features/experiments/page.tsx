@@ -58,10 +58,10 @@ export default function ExperimentsFeaturePage() {
           right (or full-screen on narrow windows).
         </Step>
         <Step>
-          The editor is markdown with live preview. Use{" "}
-          <strong>Cmd / Ctrl + B</strong> for bold,{" "}
-          <strong>Cmd / Ctrl + I</strong> for italic, and the toolbar for
-          headings, lists, and inline code.
+          The editor is markdown with live preview. The full shortcut set,
+          the three modes (Edit / Hybrid / Preview), and the image-strip
+          behaviors live on their own page:{" "}
+          <Link href="/wiki/features/markdown-editor">The Markdown Editor</Link>.
         </Step>
         <Step>
           Drag images into the editor (or use the paperclip button) to attach
