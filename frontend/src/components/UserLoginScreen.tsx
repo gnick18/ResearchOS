@@ -846,7 +846,27 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       )}
 
       {/* Beta: Support this project */}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4">
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4 flex-wrap justify-center max-w-[90vw]">
+        <a
+          href="/wiki/getting-started/creating-a-user"
+          className="text-slate-400 hover:text-white text-xs transition-colors flex items-center gap-1"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <circle cx="12" cy="12" r="10" />
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" strokeLinecap="round" strokeLinejoin="round" />
+            <line x1="12" y1="17" x2="12.01" y2="17" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          User & password help
+        </a>
+        <a
+          href="/wiki/shared-lab-accounts"
+          className="text-slate-400 hover:text-white text-xs transition-colors flex items-center gap-1"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-5.13a4 4 0 11-8 0 4 4 0 018 0zm6 0a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          Setting up a shared lab account?
+        </a>
         <button
           onClick={openBugReport}
           className="text-slate-500 hover:text-white text-xs transition-colors flex items-center gap-1"
