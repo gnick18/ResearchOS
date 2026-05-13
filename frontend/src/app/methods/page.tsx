@@ -148,7 +148,7 @@ export default function MethodsPage() {
         const newFolderPath = targetFolder === "Uncategorized" ? null : targetFolder;
         await methodsApi.update(draggedMethod.id, {
           name: draggedMethod.name,
-          github_path: draggedMethod.github_path ?? undefined,
+          source_path: draggedMethod.source_path ?? undefined,
           method_type: draggedMethod.method_type ?? undefined,
           folder_path: newFolderPath,
           parent_method_id: draggedMethod.parent_method_id,
@@ -171,19 +171,19 @@ export default function MethodsPage() {
       try {
         // Find the method to get its directory path
         const method = methods.find((m) => m.id === id);
-        if (method && method.github_path) {
+        if (method && method.source_path) {
           // Handle PCR methods differently
-          if (method.method_type === "pcr" && method.github_path.startsWith("pcr://protocol/")) {
-            const pcrId = parseInt(method.github_path.replace("pcr://protocol/", ""));
+          if (method.method_type === "pcr" && method.source_path.startsWith("pcr://protocol/")) {
+            const pcrId = parseInt(method.source_path.replace("pcr://protocol/", ""));
             try {
               await pcrApi.delete(pcrId);
             } catch {
               // Non-fatal — PCR protocol might not exist
             }
           } else {
-            const methodDir = method.github_path.substring(
+            const methodDir = method.source_path.substring(
               0,
-              method.github_path.lastIndexOf("/")
+              method.source_path.lastIndexOf("/")
             );
             // Delete the method's directory (includes images)
             try {
@@ -323,7 +323,7 @@ export default function MethodsPage() {
                           </h4>
                         </div>
                         <p className="text-xs text-gray-400 mt-1 truncate">
-                          {m.github_path}
+                          {m.source_path}
                         </p>
                          <div className="flex items-center gap-2 mt-2">
                            <span className={`text-[10px] px-2 py-0.5 rounded-full ${
@@ -658,17 +658,17 @@ function CreateMethodModal({
 
     try {
       if (uploadType === "markdown") {
-        const githubPath = `methods/${slug}/${slug}.md`;
+        const sourcePath = `methods/${slug}/${slug}.md`;
         // Write the markdown file
         await filesApi.writeFile(
-          githubPath,
+          sourcePath,
           mdContent || `# ${name}\n\n`,
           `Create method: ${name}`
         );
         // Create the method record
         await methodsApi.create({
           name: name.trim(),
-          github_path: githubPath,
+          source_path: sourcePath,
           method_type: "markdown",
           folder_path: folder.trim() || null,
           tags: tags
@@ -684,8 +684,8 @@ function CreateMethodModal({
           reader.onload = () => resolve((reader.result as string).split(",")[1]);
           reader.readAsDataURL(pdfFile);
         });
-        const githubPath = `methods/${slug}/${pdfFile.name}`;
-        const response = await filesApi.uploadImage(githubPath, base64, `Upload PDF: ${name}`);
+        const sourcePath = `methods/${slug}/${pdfFile.name}`;
+        const response = await filesApi.uploadImage(sourcePath, base64, `Upload PDF: ${name}`);
         if (response.warning) {
           setUploadWarning(response.warning);
         }
@@ -693,7 +693,7 @@ function CreateMethodModal({
         // Create the method record
         await methodsApi.create({
           name: name.trim(),
-          github_path: githubPath,
+          source_path: sourcePath,
           method_type: "pdf",
           folder_path: folder.trim() || null,
           tags: tags
@@ -713,7 +713,7 @@ function CreateMethodModal({
         });
         await methodsApi.create({
           name: name.trim(),
-          github_path: `pcr://protocol/${protocol.id}`,
+          source_path: `pcr://protocol/${protocol.id}`,
           method_type: "pcr",
           folder_path: folder.trim() || null,
           tags: tags
@@ -1296,7 +1296,7 @@ function MarkdownMethodViewer({
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
 
-  const methodDir = currentMethod.github_path?.substring(0, currentMethod.github_path.lastIndexOf("/")) || "";
+  const methodDir = currentMethod.source_path?.substring(0, currentMethod.source_path.lastIndexOf("/")) || "";
 
   const handleEditImageUpload = useCallback(
     async (files: FileList | File[]) => {
@@ -1343,18 +1343,18 @@ function MarkdownMethodViewer({
   );
 
   useEffect(() => {
-    if (!method.github_path) {
+    if (!method.source_path) {
       setContent("*Method file not found.*");
       setLoading(false);
       return;
     }
     let cancelled = false;
-    const githubPath = method.github_path;
+    const sourcePath = method.source_path;
     (async () => {
       try {
-        const file = await filesApi.readFile(githubPath);
+        const file = await filesApi.readFile(sourcePath);
         const raw = file.content;
-        const dir = githubPath.substring(0, githubPath.lastIndexOf("/"));
+        const dir = sourcePath.substring(0, sourcePath.lastIndexOf("/"));
         const slug = dir.split("/").pop() || dir;
         const legacyOwner = method.owner || method.created_by || undefined;
         const canMigrate = !method.is_public || method.created_by === currentUser;
@@ -1367,7 +1367,7 @@ function MarkdownMethodViewer({
         }
         const { content: migrated, didMigrate } = await migrateNoteImages(raw, slug, dir, legacyOwner);
         if (didMigrate) {
-          await filesApi.writeFile(githubPath, migrated, `Migrate image references for: ${method.name}`);
+          await filesApi.writeFile(sourcePath, migrated, `Migrate image references for: ${method.name}`);
         }
         if (!cancelled) {
           setContent(migrated);
@@ -1383,14 +1383,14 @@ function MarkdownMethodViewer({
     return () => {
       cancelled = true;
     };
-  }, [method.github_path, method.owner, method.created_by, method.is_public, method.name, currentUser]);
+  }, [method.source_path, method.owner, method.created_by, method.is_public, method.name, currentUser]);
 
   const handleSave = useCallback(async () => {
-    if (!method.github_path) return;
+    if (!method.source_path) return;
     setSaving(true);
     try {
       await filesApi.writeFile(
-        method.github_path,
+        method.source_path,
         content,
         `Update method: ${method.name}`
       );
@@ -1400,7 +1400,7 @@ function MarkdownMethodViewer({
     } finally {
       setSaving(false);
     }
-  }, [content, method.github_path, method.name]);
+  }, [content, method.source_path, method.name]);
 
   const handleTogglePublic = useCallback(async () => {
     try {
@@ -1422,7 +1422,7 @@ function MarkdownMethodViewer({
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>
             <MethodNameEditor method={currentMethod} onNameUpdated={(newName) => setCurrentMethod({ ...currentMethod, name: newName })} />
-            <p className="text-xs text-gray-400 mt-0.5">{currentMethod.github_path}</p>
+            <p className="text-xs text-gray-400 mt-0.5">{currentMethod.source_path}</p>
           </div>
           <div className="flex items-center gap-2">
             {!editing ? (
@@ -1517,7 +1517,7 @@ function MarkdownMethodViewer({
           ) : (
             <RenderedMarkdown
               content={content}
-              basePath={currentMethod.github_path?.substring(0, currentMethod.github_path.lastIndexOf("/")) || ""}
+              basePath={currentMethod.source_path?.substring(0, currentMethod.source_path.lastIndexOf("/")) || ""}
               className="p-6 prose prose-sm prose-gray max-w-none"
             />
           )}
@@ -1573,12 +1573,12 @@ function PdfViewer({
 
   useEffect(() => {
     // Read the PDF as base64 from disk, then create a blob URL
-    if (!method.github_path) {
+    if (!method.source_path) {
       setLoading(false);
       return;
     }
     filesApi
-      .readFile(method.github_path)
+      .readFile(method.source_path)
       .then((file) => {
         // The content comes back as base64 for binary files
         try {
@@ -1602,7 +1602,7 @@ function PdfViewer({
     return () => {
       if (pdfUrl) URL.revokeObjectURL(pdfUrl);
     };
-  }, [method.github_path]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [method.source_path]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
@@ -1611,7 +1611,7 @@ function PdfViewer({
           <div>
             <MethodNameEditor method={currentMethod} onNameUpdated={(newName) => setCurrentMethod({ ...currentMethod, name: newName })} />
             <p className="text-xs text-gray-400 mt-0.5">
-              PDF — {currentMethod.github_path}
+              PDF — {currentMethod.source_path}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -1715,9 +1715,9 @@ function PcrViewer({
   const [editingRecipe, setEditingRecipe] = useState(false);
   const [showSharePopup, setShowSharePopup] = useState(false);
 
-  // Extract PCR protocol ID from the github_path (format: pcr://protocol/{id})
-  const pcrId = method.github_path?.startsWith("pcr://protocol/")
-    ? parseInt(method.github_path.replace("pcr://protocol/", ""))
+  // Extract PCR protocol ID from the source_path (format: pcr://protocol/{id})
+  const pcrId = method.source_path?.startsWith("pcr://protocol/")
+    ? parseInt(method.source_path.replace("pcr://protocol/", ""))
     : null;
 
   useEffect(() => {

@@ -238,7 +238,7 @@ export const MethodAttachmentSchema = z.object({
 export const MethodSchema = z.object({
   id: z.number(),
   name: z.string(),
-  github_path: z.string().nullable(),
+  source_path: z.string().nullable(),
   method_type: z.enum(["markdown", "pdf", "pcr"]).nullable(),
   folder_path: z.string().nullable(),
   parent_method_id: z.number().nullable(),
@@ -252,7 +252,7 @@ export const MethodSchema = z.object({
 
 export const MethodCreateSchema = z.object({
   name: z.string(),
-  github_path: z.string().optional().nullable(),
+  source_path: z.string().optional().nullable(),
   method_type: z.enum(["markdown", "pdf", "pcr"]).optional(),
   folder_path: z.string().optional().nullable(),
   parent_method_id: z.number().optional().nullable(),
@@ -263,7 +263,7 @@ export const MethodCreateSchema = z.object({
 
 export const MethodUpdateSchema = z.object({
   name: z.string().optional(),
-  github_path: z.string().optional().nullable(),
+  source_path: z.string().optional().nullable(),
   method_type: z.enum(["markdown", "pdf", "pcr"]).optional().nullable(),
   folder_path: z.string().optional().nullable(),
   parent_method_id: z.number().optional().nullable(),

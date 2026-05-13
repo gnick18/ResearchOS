@@ -433,15 +433,15 @@ export default function MethodPicker({
 function MethodPreview({ method }: { method: Method | null }) {
   const isPcr =
     method?.method_type === "pcr" ||
-    (method?.github_path?.startsWith("pcr://") ?? false);
+    (method?.source_path?.startsWith("pcr://") ?? false);
   const isPdf =
     method?.method_type === "pdf" ||
-    (method?.github_path?.toLowerCase().endsWith(".pdf") ?? false);
-  const canFetchFile = !!method?.github_path && !isPcr;
+    (method?.source_path?.toLowerCase().endsWith(".pdf") ?? false);
+  const canFetchFile = !!method?.source_path && !isPcr;
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["method-preview", method?.id],
-    queryFn: () => filesApi.readFile(method!.github_path!),
+    queryFn: () => filesApi.readFile(method!.source_path!),
     enabled: canFetchFile,
     staleTime: 5 * 60_000,
   });
@@ -479,8 +479,8 @@ function MethodPreview({ method }: { method: Method | null }) {
     );
   }
 
-  const basePath = method.github_path?.includes("/")
-    ? method.github_path.split("/").slice(0, -1).join("/")
+  const basePath = method.source_path?.includes("/")
+    ? method.source_path.split("/").slice(0, -1).join("/")
     : undefined;
 
   return (

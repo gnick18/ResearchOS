@@ -483,25 +483,39 @@ export const dependenciesApi = {
   },
 };
 
+// Legacy field name: `source_path` was previously called `github_path` back
+// when method content lived in a GitHub repo. Files on disk for old methods
+// still carry `github_path` populated and `source_path` missing. This helper
+// promotes the legacy field in memory so downstream code can rely on
+// `source_path` exclusively. For one-shot disk cleanup, see
+// `methodsApi.repairSourcePaths`.
+function normalizeMethodRecord(raw: Method): Method {
+  const legacy = raw as Method & { github_path?: string | null };
+  if (raw.source_path == null && typeof legacy.github_path === "string") {
+    return { ...raw, source_path: legacy.github_path };
+  }
+  return raw;
+}
+
 export const methodsApi = {
   list: async (): Promise<Method[]> => {
     const privateMethods = await methodsStore.listAll();
     const publicMethods = await publicMethodsStore.listAll();
-    
+
     const marked = [
-      ...privateMethods.map((m) => ({ ...m, is_public: false })),
-      ...publicMethods.map((m) => ({ ...m, is_public: true })),
+      ...privateMethods.map((m) => normalizeMethodRecord({ ...m, is_public: false })),
+      ...publicMethods.map((m) => normalizeMethodRecord({ ...m, is_public: true })),
     ];
     return marked;
   },
-  
+
   get: async (id: number): Promise<Method | null> => {
     const method = await methodsStore.get(id);
-    if (method) return { ...method, is_public: false };
-    
+    if (method) return normalizeMethodRecord({ ...method, is_public: false });
+
     const publicMethod = await publicMethodsStore.get(id);
-    if (publicMethod) return { ...publicMethod, is_public: true };
-    
+    if (publicMethod) return normalizeMethodRecord({ ...publicMethod, is_public: true });
+
     return null;
   },
   
@@ -509,7 +523,7 @@ export const methodsApi = {
     if (data.is_public) {
       return publicMethodsStore.create({
         ...data,
-        github_path: data.github_path ?? null,
+        source_path: data.source_path ?? null,
         method_type: data.method_type ?? null,
         folder_path: data.folder_path ?? null,
         parent_method_id: data.parent_method_id ?? null,
@@ -523,7 +537,7 @@ export const methodsApi = {
     
     return methodsStore.create({
       ...data,
-      github_path: data.github_path ?? null,
+      source_path: data.source_path ?? null,
       method_type: data.method_type ?? null,
       folder_path: data.folder_path ?? null,
       parent_method_id: data.parent_method_id ?? null,
@@ -571,14 +585,14 @@ export const methodsApi = {
     }));
   },
   
-  fork: async (id: number, data: { new_name: string; new_github_path: string; deviations: string }): Promise<Method> => {
+  fork: async (id: number, data: { new_name: string; new_source_path: string; deviations: string }): Promise<Method> => {
     const original = await methodsApi.get(id);
     if (!original) throw new Error("Method not found");
     
     return methodsStore.create({
       ...original,
       name: data.new_name,
-      github_path: data.new_github_path,
+      source_path: data.new_source_path,
       parent_method_id: id,
       is_public: false,
     });
@@ -591,6 +605,45 @@ export const methodsApi = {
   delete: async (id: number): Promise<void> => {
     await methodsStore.delete(id);
     await publicMethodsStore.delete(id);
+  },
+
+  /**
+   * One-shot disk-level cleanup: walks every method (private + public) and
+   * rewrites any record that still carries the legacy `github_path` field
+   * into the new `source_path` shape, dropping the legacy key. The lazy
+   * `normalizeMethodRecord` covers in-memory reads already; this is for
+   * eagerly tidying the on-disk JSON for confidence and cleaner files.
+   */
+  repairSourcePaths: async (): Promise<{ scanned: number; repaired: number; alreadyCorrect: number; failed: number }> => {
+    const records: Array<{ method: Method; store: typeof methodsStore | typeof publicMethodsStore }> = [];
+    for (const m of await methodsStore.listAll()) records.push({ method: m, store: methodsStore });
+    for (const m of await publicMethodsStore.listAll()) records.push({ method: m, store: publicMethodsStore });
+
+    let repaired = 0;
+    let alreadyCorrect = 0;
+    let failed = 0;
+    for (const { method, store } of records) {
+      const legacy = method as Method & { github_path?: string | null };
+      const hasLegacyKey = "github_path" in (method as Record<string, unknown>);
+      const needsPromotion = method.source_path == null && typeof legacy.github_path === "string";
+      if (!needsPromotion && !hasLegacyKey) {
+        alreadyCorrect += 1;
+        continue;
+      }
+      try {
+        const next: Method = needsPromotion
+          ? { ...method, source_path: legacy.github_path as string }
+          : method;
+        const persisted: Record<string, unknown> = { ...next };
+        delete persisted.github_path;
+        await store.save(method.id, persisted as Method);
+        repaired += 1;
+      } catch (err) {
+        console.warn(`[repairSourcePaths] failed to repair method ${method.id}:`, err);
+        failed += 1;
+      }
+    }
+    return { scanned: records.length, repaired, alreadyCorrect, failed };
   },
 };
 

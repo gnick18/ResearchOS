@@ -2892,8 +2892,8 @@ function TaskExportButton({ task }: { task: Task }) {
       if (primaryMethodId != null) {
         try {
           method = await methodsApi.get(primaryMethodId);
-          if (method && method.github_path) {
-            const methodFile = await filesApi.readFile(method.github_path);
+          if (method && method.source_path) {
+            const methodFile = await filesApi.readFile(method.source_path);
             methodContent = methodFile.content;
           }
         } catch {
