@@ -550,32 +550,58 @@ export interface EventUpdate {
   color?: string | null;
 }
 
-// ── External Calendar Feeds (Google/Outlook/iCloud via ICS) ──────────────────
+// ── External Calendar Feeds (Google/Outlook/iCloud via ICS, plus OAuth) ──
 
 export type CalendarFeedProvider = "google" | "outlook" | "icloud" | "other";
 
+/** How the feed actually pulls events.
+ *
+ *  - `ics`     — anonymous fetch of a public iCal URL (read-only).
+ *  - `google`  — Google Calendar API via the user's OAuth tokens. Read/write.
+ *  - `outlook` — Microsoft Graph API via the user's OAuth tokens. Read/write.
+ *
+ *  `provider` (above) is purely a display hint so iCloud + arbitrary iCal
+ *  URLs can both render their own labels/icons.
+ */
+export type CalendarFeedKind = "ics" | "google" | "outlook";
+
 export interface CalendarFeed {
   id: number;
+  /** Display category — drives the icon and provider-specific help copy. */
   provider: CalendarFeedProvider;
+  /** Transport. Defaults to "ics" when missing (back-compat with files
+   *  written before OAuth landed). */
+  kind: CalendarFeedKind;
   label: string;
-  icsUrl: string;
+  /** Set when `kind === "ics"`. */
+  icsUrl: string | null;
+  /** For OAuth feeds, the provider-side calendar identifier (e.g. Google's
+   *  `primary` or a Microsoft Graph calendar id). Lets a single OAuth
+   *  account back several feeds (one per source calendar). */
+  oauthCalendarId: string | null;
   color: string;
   enabled: boolean;
   lastSyncAt: string | null;
 }
 
 export interface ExternalEvent {
-  /** Stable string id derived from feedId + ICS UID. */
+  /** Stable string id derived from feedId + provider event id. */
   id: string;
   feedId: number;
+  /** Mirrors the parent feed's kind so consumers can decide whether the
+   *  event is writable without doing a second lookup. */
+  feedKind: CalendarFeedKind;
+  /** Provider-side identifier — Google/Outlook event id, or ICS UID. Used
+   *  later for PATCH / DELETE calls against the source calendar. */
+  providerEventId: string;
   title: string;
   start_date: string;
   end_date: string | null;
-  /** Local time in HH:MM 24-hour form (preserved from VEVENT DTSTART when
-   *  the event isn't all-day). `null` means an all-day event. */
+  /** Local time in HH:MM 24-hour form (preserved from DTSTART / Graph
+   *  `start` when the event isn't all-day). `null` means an all-day event. */
   start_time: string | null;
-  /** Local time in HH:MM 24-hour form (from VEVENT DTEND). `null` means no
-   *  end time was specified. */
+  /** Local time in HH:MM 24-hour form (from DTEND / Graph `end`). `null`
+   *  means no end time was specified. */
   end_time: string | null;
   location: string | null;
   url: string | null;
