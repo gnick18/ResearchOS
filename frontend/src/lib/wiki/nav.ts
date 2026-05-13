@@ -116,12 +116,14 @@ export const WIKI_NAV: WikiNode[] = [
       {
         href: "/wiki/features/methods",
         label: "Methods Library",
-        blurb: "Shared protocols with per-experiment variations.",
-      },
-      {
-        href: "/wiki/features/pcr",
-        label: "PCR Protocols",
-        blurb: "Gradient editor and reagent lists.",
+        blurb: "Reusable protocols, with PCR programs as a specialized form.",
+        children: [
+          {
+            href: "/wiki/features/pcr",
+            label: "PCR Protocols",
+            blurb: "Visual thermal gradient editor and reagent table.",
+          },
+        ],
       },
       {
         href: "/wiki/features/purchases",
