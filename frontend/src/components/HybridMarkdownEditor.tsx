@@ -250,6 +250,14 @@ interface HybridMarkdownEditorProps {
   disabled?: boolean;
   showShortcutsHelper?: boolean;
   useBlobUrls?: boolean;
+  /** Caller-supplied handlers used when a native OS file is dropped directly
+   *  on a rendered <img> element. Chrome intercepts that drop with its
+   *  built-in "replace image" default, breaking the normal bubble path to
+   *  the outer editor wrapper. The img component below routes the drop
+   *  here directly to bypass that. */
+  onFileDrop?: (files: File[]) => void;
+  onImageDrop?: (files: File[]) => void;
+  allowAnyFileType?: boolean;
 }
 
 /**
@@ -389,6 +397,9 @@ export default function HybridMarkdownEditor({
   disabled = false,
   showShortcutsHelper = true,
   useBlobUrls = true,
+  onFileDrop,
+  onImageDrop,
+  allowAnyFileType = false,
 }: HybridMarkdownEditorProps) {
   // Track which block is currently being edited by its start offset
   // Using startOffset is more stable than block ID because it doesn't
@@ -1351,18 +1362,38 @@ export default function HybridMarkdownEditor({
                         alt={originalAlt}
                         width={width}
                         className="max-w-full rounded-lg cursor-pointer"
-                        // Without draggable=false, the browser treats the
-                        // <img> as a drag source — and when a native OS
-                        // file is dragged over it, Chrome intercepts the
-                        // drop with its default "replace image" behavior
-                        // before React's outer drop handlers run. The
-                        // user sees no file attachment, just a wrong
-                        // toast. preventDefault on the image's own
-                        // dragover/drop ensures the synthetic event
-                        // bubbles cleanly to the editor's drop handler.
+                        // Chrome's "drop on <img>" default behavior
+                        // intercepts native file drops before they bubble
+                        // to the outer editor wrapper, so we route the
+                        // drop here directly and stopPropagation so no
+                        // other handler runs. draggable=false also keeps
+                        // the browser from treating this img as a drag
+                        // source (which can confuse the file drop).
                         draggable={false}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => e.preventDefault()}
+                        onDragOver={(e) => {
+                          if (!Array.from(e.dataTransfer.types).includes("Files")) return;
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = "copy";
+                        }}
+                        onDrop={(e) => {
+                          if (!Array.from(e.dataTransfer.types).includes("Files")) return;
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const files = Array.from(e.dataTransfer.files);
+                          if (files.length === 0) return;
+                          const images = files.filter((f) => f.type.startsWith("image/"));
+                          const others = files.filter((f) => !f.type.startsWith("image/"));
+                          if (images.length > 0) {
+                            if (onImageDrop) {
+                              onImageDrop(images);
+                            } else if (allowAnyFileType && onFileDrop) {
+                              onFileDrop(images);
+                            }
+                          }
+                          if (others.length > 0 && allowAnyFileType && onFileDrop) {
+                            onFileDrop(others);
+                          }
+                        }}
                         onError={(e) => handleImageError(e, originalSrc)}
                         onClick={(e) => {
                           if (disabled) return;

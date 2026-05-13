@@ -2000,6 +2000,9 @@ export default function LiveMarkdownEditor({
               imageBasePath={imageBasePath}
               showShortcutsHelper={showShortcutsHelper}
               useBlobUrls
+              onFileDrop={onFileDrop}
+              onImageDrop={onImageDrop}
+              allowAnyFileType={allowAnyFileType}
             />
           ) : (
             <textarea
