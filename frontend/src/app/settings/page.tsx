@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import AppShell from "@/components/AppShell";
 import AccountPasswordPopup from "@/components/AccountPasswordPopup";
+import UserAvatar from "@/components/UserAvatar";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useAppStore } from "@/lib/store";
 import {
@@ -17,6 +19,7 @@ import {
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { ANIMATION_METADATA, type AnimationType } from "@/components/animations";
 import { hasPassword } from "@/lib/auth/password";
+import { USER_COLOR_QUERY_KEY } from "@/hooks/useUserColor";
 
 const USER_COLOR_PALETTE = [
   "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
@@ -62,6 +65,7 @@ export default function SettingsPage() {
 function SettingsBody() {
   const { currentUser, isConnected } = useFileSystem();
   const hydrateFromSettings = useAppStore((s) => s.hydrateFromSettings);
+  const queryClient = useQueryClient();
 
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -120,6 +124,11 @@ function SettingsBody() {
           sidebarShowCalendarEvents: saved.sidebarShowCalendarEvents,
           sidebarEventsHorizonDays: saved.sidebarEventsHorizonDays,
         });
+        // If color changed, invalidate the user-color map so every <UserAvatar />
+        // in the app re-renders with the new gradient on the next paint.
+        if (patch.color !== undefined) {
+          queryClient.invalidateQueries({ queryKey: USER_COLOR_QUERY_KEY });
+        }
         setRecentlySaved(true);
         // Auto-dismiss the "Saved" pill after 1.5s. Set in the handler (not
         // a sync useEffect) so we don't trip the no-setState-in-effect lint.
@@ -130,7 +139,7 @@ function SettingsBody() {
         setSaving(false);
       }
     },
-    [currentUser, settings, hydrateFromSettings],
+    [currentUser, settings, hydrateFromSettings, queryClient],
   );
 
   if (!isConnected || !currentUser) {
@@ -242,8 +251,25 @@ function ProfileSection({ settings, update }: SectionProps) {
   return (
     <SectionShell
       title="Profile"
-      description="How you appear in the app. Color is also written to the shared user metadata so other users see it on lab views."
+      description="How you appear in the app. The color flows everywhere your initial bubble appears — lab views, comments, the login screen, etc."
     >
+      {/* Live avatar preview — colorOverride uses the in-flight pick so the
+          gradient updates instantly before the save round-trip completes. */}
+      <div className="flex items-center gap-4">
+        {currentUser && (
+          <UserAvatar
+            username={currentUser}
+            size="xl"
+            letter={(draftName.charAt(0) || currentUser.charAt(0))}
+            colorOverride={settings.color}
+          />
+        )}
+        <div className="text-xs text-gray-500">
+          <p className="text-sm text-gray-800 font-medium">{draftName.trim() || currentUser}</p>
+          <p className="mt-0.5">Preview of your avatar gradient.</p>
+        </div>
+      </div>
+
       <div>
         <label className="block text-xs font-medium text-gray-700 mb-1">
           Display name

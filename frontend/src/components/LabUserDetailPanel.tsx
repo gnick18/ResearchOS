@@ -4,6 +4,7 @@ import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { labApi, LabTask } from "@/lib/local-api";
 import { useLabData } from "@/hooks/useLabData";
+import UserAvatar from "@/components/UserAvatar";
 import type { Note, PurchaseItem } from "@/lib/types";
 
 interface LabUserDetailPanelProps {
@@ -173,12 +174,7 @@ export default function LabUserDetailPanel({
       >
         {/* Header */}
         <div className="p-4 border-b border-gray-200 flex items-center gap-3">
-          <div
-            className="w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-semibold flex-shrink-0"
-            style={{ backgroundColor: user.color }}
-          >
-            {username.charAt(0).toUpperCase()}
-          </div>
+          <UserAvatar username={username} size="lg" />
           <div className="flex-1 min-w-0">
             <h2 className="text-lg font-semibold text-gray-900 truncate">{username}</h2>
             <p className="text-xs text-gray-500">

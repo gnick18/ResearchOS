@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { notesApi, usersApi, labApi } from "@/lib/local-api";
+import { notesApi, usersApi } from "@/lib/local-api";
+import UserAvatar from "@/components/UserAvatar";
 import type { Note, NoteComment } from "@/lib/types";
 
 interface NoteCommentsThreadProps {
@@ -41,18 +42,6 @@ export default function NoteCommentsThread({ note }: NoteCommentsThreadProps) {
   const canComment = author && author !== "lab";
 
   // Persisted color map so commenter avatars match the rest of the lab UI.
-  const { data: labUsers = [] } = useQuery({
-    queryKey: ["lab", "users"],
-    queryFn: () => labApi.getUsers().then((r) => r.users),
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
-  });
-  const colorFor = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const u of labUsers) map.set(u.username, u.color);
-    return (username: string) => map.get(username) ?? "#6b7280";
-  }, [labUsers]);
-
   const invalidateNotes = () => {
     queryClient.invalidateQueries({ queryKey: ["notes"] });
     queryClient.invalidateQueries({ queryKey: ["lab-notes"] });
@@ -113,13 +102,7 @@ export default function NoteCommentsThread({ note }: NoteCommentsThreadProps) {
             const mine = c.author === author;
             return (
               <li key={c.id} className="flex gap-2.5">
-                <div
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0"
-                  style={{ backgroundColor: colorFor(c.author) }}
-                  title={c.author}
-                >
-                  {c.author.charAt(0).toUpperCase()}
-                </div>
+                <UserAvatar username={c.author} size="sm" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 text-xs text-gray-500">
                     <span className="font-medium text-gray-700">{c.author}</span>

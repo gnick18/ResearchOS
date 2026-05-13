@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { LabTask } from "@/lib/local-api";
 import { useLabData } from "@/hooks/useLabData";
+import UserAvatar from "@/components/UserAvatar";
 
 interface LabExperimentsPanelProps {
   selectedUsernames: Set<string>;
@@ -13,7 +14,7 @@ export default function LabExperimentsPanel({
   selectedUsernames,
   onExperimentClick,
 }: LabExperimentsPanelProps) {
-  const { users, tasks, projects } = useLabData();
+  const { tasks, projects } = useLabData();
   const experiments = useMemo(
     () => tasks.filter((t) => t.task_type === "experiment"),
     [tasks],
@@ -21,12 +22,6 @@ export default function LabExperimentsPanel({
   const [sortBy, setSortBy] = useState<"username" | "project" | "date" | "name">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [viewMode, setViewMode] = useState<"grouped" | "table">("grouped");
-
-  // Get user color by username
-  const getUserColor = (username: string) => {
-    const user = users.find(u => u.username === username);
-    return user?.color || "#6b7280";
-  };
 
   // Get project name by ID
   const getProjectName = (projectId: number, username: string) => {
@@ -185,12 +180,7 @@ export default function LabExperimentsPanel({
             <div key={`${group.user}::${group.project}::${idx}`} className="border-b border-gray-200 last:border-b-0">
               {/* Group Header */}
               <div className="flex items-center gap-3 px-4 py-3 bg-gray-50">
-                <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium"
-                  style={{ backgroundColor: getUserColor(group.user) }}
-                >
-                  {group.user.charAt(0).toUpperCase()}
-                </div>
+                <UserAvatar username={group.user} size="sm" />
                 <div className="flex-1">
                   <span className="text-gray-900 font-medium">{group.user}</span>
                   <span className="text-gray-400 mx-2">•</span>
@@ -297,12 +287,7 @@ export default function LabExperimentsPanel({
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <div
-                          className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium"
-                          style={{ backgroundColor: getUserColor(exp.username) }}
-                        >
-                          {exp.username.charAt(0).toUpperCase()}
-                        </div>
+                        <UserAvatar username={exp.username} size="xs" />
                         <span className="text-gray-700">{exp.username}</span>
                       </div>
                     </td>

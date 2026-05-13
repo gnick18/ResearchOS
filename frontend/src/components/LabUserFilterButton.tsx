@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLabData } from "@/hooks/useLabData";
+import UserAvatar from "@/components/UserAvatar";
 
 interface LabUserFilterButtonProps {
   selectedUsernames: Set<string>;
@@ -204,12 +205,7 @@ export default function LabUserFilterButton({
                       className="flex items-center gap-2 px-3 py-2"
                       title={isSelected ? "Hide from view" : "Show in view"}
                     >
-                      <div
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-white text-sm font-medium"
-                        style={{ backgroundColor: user.color }}
-                      >
-                        {user.username.charAt(0).toUpperCase()}
-                      </div>
+                      <UserAvatar username={user.username} size="xs" />
                       <span className={isSelected ? "text-white" : "text-gray-500"}>
                         {user.username}
                       </span>

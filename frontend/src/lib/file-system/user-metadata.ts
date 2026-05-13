@@ -42,6 +42,16 @@ async function readMetadataFile(): Promise<UserMetadataFile> {
 }
 
 /**
+ * Read-only snapshot of the user metadata map for UI consumers. Does NOT
+ * mutate the file (unlike ensureLabUserMetadata). Returns an empty object
+ * when no folder is connected.
+ */
+export async function readAllUserMetadata(): Promise<Record<string, UserMetadataEntry>> {
+  const file = await readMetadataFile();
+  return file.users;
+}
+
+/**
  * Ensures every username has a persisted color and created_at in
  * users/_user_metadata.json. Returns the full metadata map.
  *

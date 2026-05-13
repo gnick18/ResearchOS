@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { labApi, LabGoal } from "@/lib/local-api";
 import { useLabData } from "@/hooks/useLabData";
+import UserAvatar from "@/components/UserAvatar";
 
 interface LabRoadmapsPanelProps {
   selectedUsernames: Set<string>;
@@ -154,11 +155,10 @@ export default function LabRoadmapsPanel({
                 type="button"
                 onClick={() => onUserClick?.(username)}
                 disabled={!onUserClick}
-                className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0 hover:ring-2 hover:ring-emerald-300 disabled:hover:ring-0 transition-shadow"
-                style={{ backgroundColor: userColor }}
+                className="rounded-full hover:ring-2 hover:ring-emerald-300 disabled:hover:ring-0 transition-shadow"
                 title={onUserClick ? `View ${username}'s dashboard` : username}
               >
-                {username.charAt(0).toUpperCase()}
+                <UserAvatar username={username} size="md" />
               </button>
               <div className="flex-1">
                 <h3 className="text-sm font-semibold text-gray-900">{username}</h3>
