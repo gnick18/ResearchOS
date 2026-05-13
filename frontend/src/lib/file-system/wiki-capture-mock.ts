@@ -41,6 +41,13 @@ const DEMO_PNG_PATHS = [
   "users/morgan/results/task-3/Images/gel-qpcr-products.png",
 ];
 
+/** JSON sidecars that live alongside the inbox PNG (caption / sender /
+ *  timestamp). Loaded into the `files` map so the inbox panel renders
+ *  the metadata next to each card. */
+const DEMO_JSON_SIDECAR_PATHS = [
+  "users/alex/inbox/Images/photo-2026-05-12.png.json",
+];
+
 /** Capture-mode variants. The default `"signed-in"` corresponds to
  *  `?wikiCapture=1` (the most common case) and gives you a fully signed-in
  *  session as user `alex` (the demo lab's PI). The `"picker"` variant
@@ -232,6 +239,26 @@ export async function installWikiCaptureFixture(
         addParentDirs(normalizePath(relPath), dirs);
       } catch (err) {
         console.warn(`[wiki-capture-mock] PNG fetch failed for ${relPath}:`, err);
+      }
+    }),
+  );
+
+  // Load the JSON sidecars that pair with the inbox PNGs (caption,
+  // sender, timestamp). The static fixture array can't carry these
+  // inline because they live next to the binary asset; pulling them
+  // alongside the PNG keeps the inbox panel's caption + timestamp
+  // visible in capture mode.
+  await Promise.all(
+    DEMO_JSON_SIDECAR_PATHS.map(async (relPath) => {
+      try {
+        const res = await fetch(`/demo-data/${relPath}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const norm = normalizePath(relPath);
+        files.set(norm, data);
+        addParentDirs(norm, dirs);
+      } catch (err) {
+        console.warn(`[wiki-capture-mock] sidecar fetch failed for ${relPath}:`, err);
       }
     }),
   );

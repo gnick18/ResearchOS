@@ -254,7 +254,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
           const signIn = captureVariant === "signed-in";
           await installWikiCaptureFixture({ signIn });
           if (signIn) {
-            await hydrateSettingsForUser("grant");
+            await hydrateSettingsForUser("alex");
           }
           setState((prev) => ({
             ...prev,
@@ -263,9 +263,9 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
             loadingStage: null,
             error: null,
             directoryName: "wiki-capture-fixture",
-            currentUser: signIn ? "grant" : null,
-            mainUser: signIn ? "grant" : null,
-            availableUsers: ["grant", "sarah"],
+            currentUser: signIn ? "alex" : null,
+            mainUser: signIn ? "alex" : null,
+            availableUsers: ["alex", "morgan"],
             needsInitialization: false,
             lastConnectedFolder: "wiki-capture-fixture",
           }));
