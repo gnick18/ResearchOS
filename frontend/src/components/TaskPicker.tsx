@@ -57,12 +57,19 @@ export default function TaskPicker({
   const listRef = useRef<HTMLDivElement | null>(null);
   const rowRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
 
-  useEffect(() => {
+  // Reset internal state when the picker is (re)opened. Compare-to-previous-
+  // prop pattern from the React docs, preferred over a syncing effect.
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (open) {
       setQuery("");
       setHighlightedIndex(0);
-      requestAnimationFrame(() => inputRef.current?.focus());
     }
+  }
+
+  useEffect(() => {
+    if (open) requestAnimationFrame(() => inputRef.current?.focus());
   }, [open]);
 
   const projectById = useMemo(() => {
@@ -142,8 +149,11 @@ export default function TaskPicker({
     [flatRows]
   );
 
+  // Clamp the highlighted index when the filtered list changes. Defensive
+  // sync against derived state — legitimately needs setState in an effect.
   useEffect(() => {
     if (selectableIndices.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHighlightedIndex(-1);
       return;
     }
