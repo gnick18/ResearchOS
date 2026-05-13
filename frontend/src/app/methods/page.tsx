@@ -7,6 +7,7 @@ import type { MethodUpdate } from "@/lib/local-api";
 import { fileService } from "@/lib/file-system/file-service";
 import { fileEvents } from "@/lib/attachments/file-events";
 import { migrateNoteImages } from "@/lib/notes/migrate-images";
+import { createNewFileContent, hasLegacyStampFormat, normalizeStampFormat } from "@/lib/stamp-utils";
 import AppShell from "@/components/AppShell";
 import LiveMarkdownEditor from "@/components/LiveMarkdownEditor";
 import RenderedMarkdown from "@/components/RenderedMarkdown";
@@ -725,12 +726,16 @@ function CreateMethodModal({
     try {
       if (uploadType === "markdown") {
         const sourcePath = `methods/${slug}/${slug}.md`;
-        // Write the markdown file
-        await filesApi.writeFile(
-          sourcePath,
-          mdContent || `# ${name}\n\n`,
-          `Create method: ${name}`
+        // Auto-stamp new method files the same way notes/results files get
+        // stamped on creation. If the user pasted markdown into the modal,
+        // prepend the stamp; otherwise the stamp is the only content.
+        const stampedScaffold = createNewFileContent(
+          name.trim(),
+          folder.trim() || "Methods",
+          "method"
         );
+        const body = mdContent ? `${stampedScaffold}\n${mdContent}` : stampedScaffold;
+        await filesApi.writeFile(sourcePath, body, `Create method: ${name}`);
         // Create the method record
         await methodsApi.create({
           name: name.trim(),
@@ -1453,11 +1458,17 @@ function MarkdownMethodViewer({
           return;
         }
         const { content: migrated, didMigrate } = await migrateNoteImages(raw, slug, dir, legacyOwner);
-        if (didMigrate) {
-          await filesApi.writeFile(sourcePath, migrated, `Migrate image references for: ${method.name}`);
+        // Lazy-normalize legacy stamp formats so the closing marker stops
+        // leaking into the rendered preview.
+        const stampNormalized = hasLegacyStampFormat(migrated)
+          ? normalizeStampFormat(migrated)
+          : migrated;
+        const stampDidNormalize = stampNormalized !== migrated;
+        if (didMigrate || stampDidNormalize) {
+          await filesApi.writeFile(sourcePath, stampNormalized, `Migrate image references for: ${method.name}`);
         }
         if (!cancelled) {
-          setContent(migrated);
+          setContent(stampNormalized);
           setLoading(false);
         }
       } catch {

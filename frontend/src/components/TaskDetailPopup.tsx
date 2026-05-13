@@ -59,7 +59,7 @@ import { useAppStore } from "@/lib/store";
 import { taskKey } from "@/lib/types";
 import type { Method, Task, Project, ShiftResult, SubTask } from "@/lib/types";
 import type { GitHubTreeItem } from "@/lib/types";
-import { createNewFileContent } from "@/lib/stamp-utils";
+import { createNewFileContent, normalizeStampFormat, hasLegacyStampFormat } from "@/lib/stamp-utils";
 import {
   exportSingleExperiment,
   type ExportOptions,
@@ -2000,6 +2000,14 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
   const notesPath = `${basePath}/notes.md`;
   const pdfsDir = `${basePath}/NotesPDFs`;
 
+  // Look up the project name so a fresh notes.md gets a real project in its
+  // stamp instead of "Unknown Project". Reuses the same query key as the
+  // export button (`TaskExportButton`).
+  const { data: stampProject } = useQuery({
+    queryKey: ["project", task.project_id],
+    queryFn: () => projectsApi.get(task.project_id),
+  });
+
   // Track if there are unsaved changes
   const hasUnsavedChanges = content !== originalContent && !loading;
 
@@ -2028,17 +2036,23 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
         const attachMig = await migrateTaskAttachmentsToFiles(resolved, raw);
         const startContent = attachMig.contentRewritten ? attachMig.content : raw;
         const { content: migrated, didMigrate } = await migrateNoteImages(startContent, task.id, resolved, legacyOwner);
-        if (didMigrate || attachMig.contentRewritten) {
-          await filesApi.writeFile(resolvedNotes, migrated, `Migrate image references for: ${task.name}`);
+        // Lazy-normalize legacy stamp formats so the rendered preview stops
+        // leaking the `[stamp-end]: # (hidden)` marker as visible text.
+        const stampNormalizedContent = hasLegacyStampFormat(migrated)
+          ? normalizeStampFormat(migrated)
+          : migrated;
+        const stampDidNormalize = stampNormalizedContent !== migrated;
+        if (didMigrate || attachMig.contentRewritten || stampDidNormalize) {
+          await filesApi.writeFile(resolvedNotes, stampNormalizedContent, `Migrate image references for: ${task.name}`);
         }
         if (!cancelled) {
-          setContent(migrated);
-          setOriginalContent(migrated);
+          setContent(stampNormalizedContent);
+          setOriginalContent(stampNormalizedContent);
           setLoading(false);
         }
       } catch {
         if (cancelled) return;
-        const projectName = "Unknown Project";
+        const projectName = stampProject?.name ?? "Unknown Project";
         const newContent = createNewFileContent(task.name, projectName, 'notes');
         setContent(newContent);
         setOriginalContent(newContent);
@@ -2048,7 +2062,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
     return () => {
       cancelled = true;
     };
-  }, [task.id, task.name, task.owner, currentUser, legacyOwner, readOnly]);
+  }, [task.id, task.name, task.owner, task.project_id, currentUser, legacyOwner, readOnly, stampProject?.name]);
 
   // Warn before navigating away with unsaved changes
   useEffect(() => {
@@ -2259,6 +2273,13 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
   const resultsPath = `${basePath}/results.md`;
   const pdfsDir = `${basePath}/ResultsPDFs`;
 
+  // See LabNotesTab — same lookup so a fresh results.md gets a real project
+  // name in its stamp instead of "Unknown Project".
+  const { data: stampProject } = useQuery({
+    queryKey: ["project", task.project_id],
+    queryFn: () => projectsApi.get(task.project_id),
+  });
+
   // Track if there are unsaved changes
   const hasUnsavedChanges = content !== originalContent && !loading;
 
@@ -2287,17 +2308,23 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
         const attachMig = await migrateTaskAttachmentsToFiles(resolved, raw);
         const startContent = attachMig.contentRewritten ? attachMig.content : raw;
         const { content: migrated, didMigrate } = await migrateNoteImages(startContent, task.id, resolved, legacyOwner);
-        if (didMigrate || attachMig.contentRewritten) {
-          await filesApi.writeFile(resolvedResults, migrated, `Migrate image references for: ${task.name}`);
+        // Lazy-normalize legacy stamp formats so the rendered preview stops
+        // leaking the `[stamp-end]: # (hidden)` marker as visible text.
+        const stampNormalizedContent = hasLegacyStampFormat(migrated)
+          ? normalizeStampFormat(migrated)
+          : migrated;
+        const stampDidNormalize = stampNormalizedContent !== migrated;
+        if (didMigrate || attachMig.contentRewritten || stampDidNormalize) {
+          await filesApi.writeFile(resolvedResults, stampNormalizedContent, `Migrate image references for: ${task.name}`);
         }
         if (!cancelled) {
-          setContent(migrated);
-          setOriginalContent(migrated);
+          setContent(stampNormalizedContent);
+          setOriginalContent(stampNormalizedContent);
           setLoading(false);
         }
       } catch {
         if (cancelled) return;
-        const projectName = "Unknown Project";
+        const projectName = stampProject?.name ?? "Unknown Project";
         const newContent = createNewFileContent(task.name, projectName, 'results');
         setContent(newContent);
         setOriginalContent(newContent);
@@ -2307,7 +2334,7 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
     return () => {
       cancelled = true;
     };
-  }, [task.id, task.name, task.owner, currentUser, legacyOwner, readOnly]);
+  }, [task.id, task.name, task.owner, task.project_id, currentUser, legacyOwner, readOnly, stampProject?.name]);
 
   // Warn before navigating away with unsaved changes
   useEffect(() => {
