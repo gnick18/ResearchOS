@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { eventsApi } from "@/lib/local-api";
 import AppShell from "@/components/AppShell";
@@ -10,13 +10,12 @@ import MonthView from "@/components/calendar/MonthView";
 import WeekView from "@/components/calendar/WeekView";
 import DayView from "@/components/calendar/DayView";
 import {
-  type CalendarItem,
   type CalendarView,
-  EVENT_TYPE_COLORS,
   formatTime,
-  toLocalDateString,
+  EVENT_TYPE_COLORS,
 } from "@/components/calendar/utils";
 import { useExternalEvents } from "@/lib/calendar/use-external-events";
+import { useCalendarNavStore } from "@/lib/calendar/calendar-nav-store";
 import type { Event, ExternalEvent } from "@/lib/types";
 
 const DEFAULT_COLORS = [
@@ -71,6 +70,22 @@ export default function CalendarPage() {
 
   const goToToday = useCallback(() => setCurrentDate(new Date()), []);
 
+  // React to navigation requests from the sidebar (clicking an upcoming
+  // event). Subscribed via zustand directly rather than via a selector +
+  // effect so we don't trigger a render cycle every time another piece of
+  // the page re-renders.
+  useEffect(() => {
+    const apply = (jump: { view: CalendarView; dateStr: string } | null) => {
+      if (!jump) return;
+      setView(jump.view);
+      const [yy, mm, dd] = jump.dateStr.split("-").map(Number);
+      setCurrentDate(new Date(yy, mm - 1, dd));
+      useCalendarNavStore.getState().clearJump();
+    };
+    apply(useCalendarNavStore.getState().pendingJump);
+    return useCalendarNavStore.subscribe((state) => apply(state.pendingJump));
+  }, []);
+
   const openCreateAt = useCallback((dateStr: string, startTime: string | null) => {
     setPrefilledStartDate(dateStr);
     setPrefilledStartTime(startTime);
@@ -119,7 +134,6 @@ export default function CalendarPage() {
     });
   })();
 
-  const today = toLocalDateString(new Date());
 
   return (
     <AppShell>
@@ -245,93 +259,6 @@ export default function CalendarPage() {
           />
         )}
 
-        {/* Upcoming events list */}
-        <div className="mt-8">
-          <h3 className="text-sm font-semibold text-gray-700 mb-4">Upcoming Events</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {([
-              ...events.map((e) => ({ kind: "native" as const, event: e })),
-              ...externalEvents.map((e) => ({ kind: "external" as const, event: e })),
-            ] as CalendarItem[])
-              .filter((it) => (it.event.end_date || it.event.start_date) >= today)
-              .sort((a, b) => a.event.start_date.localeCompare(b.event.start_date))
-              .slice(0, 6)
-              .map((item) => {
-                const color =
-                  item.kind === "native"
-                    ? item.event.color || EVENT_TYPE_COLORS[item.event.event_type]
-                    : item.event.color;
-                return (
-                  <div
-                    key={item.kind === "native" ? `n-${item.event.id}` : `x-${item.event.id}`}
-                    onClick={() =>
-                      item.kind === "native"
-                        ? setSelectedEvent(item.event)
-                        : setSelectedExternal(item.event)
-                    }
-                    className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all cursor-pointer"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div
-                        className="w-1 h-12 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: color }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <h4 className="text-sm font-medium text-gray-900 truncate">
-                            {item.event.title}
-                          </h4>
-                          {item.kind === "external" && (
-                            <span
-                              title="Linked calendar (read-only)"
-                              className="inline-flex flex-shrink-0 items-center justify-center"
-                              style={{ color }}
-                            >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="11"
-                                height="11"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2.5"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                              </svg>
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          {item.event.start_date}
-                          {item.event.end_date &&
-                            item.event.end_date !== item.event.start_date && (
-                              <> → {item.event.end_date}</>
-                            )}
-                          {item.event.start_time && (
-                            <>
-                              {" · "}
-                              {formatTime(item.event.start_time)}
-                              {item.event.end_time && (
-                                <> – {formatTime(item.event.end_time)}</>
-                              )}
-                            </>
-                          )}
-                        </p>
-                        {item.event.location && (
-                          <p className="text-xs text-gray-500 mt-1 truncate">
-                            {item.event.location}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-        </div>
       </div>
 
       {/* Event Detail/Edit Modal */}
