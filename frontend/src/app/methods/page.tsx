@@ -725,13 +725,8 @@ function CreateMethodModal({
       }
       onCreated();
     } catch (error: unknown) {
-      // Handle duplicate name error
-      const axiosError = error as { response?: { data?: { detail?: string } } };
-      if (axiosError.response?.data?.detail) {
-        alert(axiosError.response.data.detail);
-      } else {
-        alert("Failed to create method");
-      }
+      const msg = error instanceof Error ? error.message : "Failed to create method";
+      alert(msg);
     } finally {
       setSaving(false);
     }
@@ -1206,12 +1201,8 @@ function MethodNameEditor({
       onNameUpdated(name.trim());
       setEditingName(false);
     } catch (error: unknown) {
-      const axiosError = error as { response?: { data?: { detail?: string } } };
-      if (axiosError.response?.data?.detail) {
-        alert(axiosError.response.data.detail);
-      } else {
-        alert("Failed to rename method");
-      }
+      const msg = error instanceof Error ? error.message : "Failed to rename method";
+      alert(msg);
       setName(method.name);
     } finally {
       setSaving(false);

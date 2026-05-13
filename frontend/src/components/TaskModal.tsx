@@ -227,10 +227,8 @@ export default function TaskModal({ projects }: TaskModalProps) {
     } catch (error: unknown) {
       console.error("Failed to create task:", error);
       setGanttLoading(false);
-      // Type guard for axios error
-      const axiosError = error as { response?: { data?: { detail?: string } } };
-      const detail = axiosError?.response?.data?.detail;
-      alert(`Failed to create task: ${detail || "Unknown error"}`);
+      const msg = error instanceof Error ? error.message : "Unknown error";
+      alert(`Failed to create task: ${msg}`);
     }
   }, [
     name,
