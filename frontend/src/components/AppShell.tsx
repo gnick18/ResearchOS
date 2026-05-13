@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useMemo } from "react";
 import DailyTasksSidebar from "./DailyTasksSidebar";
 import CalendarSidebar from "./CalendarSidebar";
 import TelegramStatusBadge from "./TelegramStatusBadge";
@@ -12,7 +13,7 @@ import ReminderRunner from "./ReminderRunner";
 import DemoLabBanner from "./DemoLabBanner";
 import Tooltip from "./Tooltip";
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
-import { HELP_HREF } from "@/lib/wiki/nav";
+import { HELP_HREF, appRouteToWikiRoute } from "@/lib/wiki/nav";
 import { useAppStore } from "@/lib/store";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useUserColor } from "@/hooks/useUserColor";
@@ -22,10 +23,23 @@ const SETTINGS_HREF = "/settings";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const visibleTabs = useAppStore((s) => s.visibleTabs);
   const coloredHeader = useAppStore((s) => s.coloredHeader);
   const { currentUser } = useFileSystem();
   const baseColor = useUserColor(currentUser ?? "");
+
+  // The `?` help button routes to the wiki page that documents whatever
+  // view the user is currently looking at, and stashes the return path
+  // so the wiki's "Back to app" button can drop them back exactly where
+  // they were rather than the app home.
+  const helpHref = useMemo(() => {
+    const path = pathname ?? "/";
+    const wikiPath = appRouteToWikiRoute(path);
+    const qs = searchParams?.toString();
+    const returnPath = path + (qs ? `?${qs}` : "");
+    return `${wikiPath}?return=${encodeURIComponent(returnPath)}`;
+  }, [pathname, searchParams]);
 
   // Home is always shown so the user has a guaranteed safe landing tab even
   // if they hide everything else (or if Settings was wiped). Settings itself
@@ -104,7 +118,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <TelegramStatusBadge />
           <Tooltip label="Help & documentation" placement="bottom">
           <Link
-            href={HELP_HREF}
+            href={helpHref}
             aria-label="Open the ResearchOS wiki"
             className={`p-1.5 rounded-full transition-colors ${
               tinted

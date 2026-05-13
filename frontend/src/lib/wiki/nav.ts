@@ -1,5 +1,29 @@
 export const HELP_HREF = "/wiki";
 
+/** Maps an in-app route to the wiki page that documents that view. Used
+ *  by the `?` help button so clicking it from `/gantt` lands on
+ *  `/wiki/features/gantt` instead of always dumping the user on
+ *  Quickstart. Routes that don't have a dedicated wiki page fall back
+ *  to the wiki landing. */
+const APP_ROUTE_TO_WIKI: Record<string, string> = {
+  "/": "/wiki/features/home",
+  "/gantt": "/wiki/features/gantt",
+  "/experiments": "/wiki/features/experiments",
+  "/methods": "/wiki/features/methods",
+  "/pcr": "/wiki/features/pcr",
+  "/purchases": "/wiki/features/purchases",
+  "/results": "/wiki/features/results",
+  "/calendar": "/wiki/features/calendar",
+  "/lab": "/wiki/features/lab-mode",
+  "/search": "/wiki/features/search",
+  "/links": "/wiki/features/links",
+  "/settings": "/wiki/features/settings",
+};
+
+export function appRouteToWikiRoute(pathname: string): string {
+  return APP_ROUTE_TO_WIKI[pathname] ?? HELP_HREF;
+}
+
 export interface WikiNode {
   href: string;
   label: string;
