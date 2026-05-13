@@ -22,19 +22,3 @@ frontend/tsconfig.tsbuildinfo
 
 # OS files
 .DS_Store
-backend/.env
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-*.egg-info/
-dist/
-build/
-venv/
-.venv/
-
-# User data (runtime generated)
-backend/users/
