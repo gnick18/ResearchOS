@@ -69,6 +69,7 @@ import { useFileRenamePopup } from "@/components/FileRenamePopup";
 import { fileService } from "@/lib/file-system/file-service";
 import { migrateNoteImages } from "@/lib/notes/migrate-images";
 import { findExistingTaskResultsBase, resolveTaskResultsBase, taskResultsBase } from "@/lib/tasks/results-paths";
+import { migrateTaskAttachmentsToFiles } from "@/lib/tasks/migrate-attachments";
 import { attachImageToTask } from "@/lib/attachments/attach-image";
 import { fileEvents } from "@/lib/attachments/file-events";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -80,6 +81,10 @@ interface TaskDetailPopupProps {
   onNavigateToTask?: (task: Task) => void;
   readOnly?: boolean; // When true, all editing is disabled (for lab mode)
   username?: string; // When provided, fetch user-specific data (for lab mode)
+  /** Tab to land on when the popup opens. Falls back to "purchases" for
+   *  purchase tasks and "details" otherwise. Used by the /results route to
+   *  open straight into the Results tab. */
+  initialTab?: Tab;
 }
 
 type Tab = "details" | "notes" | "method" | "results" | "purchases";
@@ -91,12 +96,15 @@ export default function TaskDetailPopup({
   onNavigateToTask,
   readOnly = false,
   username,
+  initialTab,
 }: TaskDetailPopupProps) {
   const queryClient = useQueryClient();
   const isExperiment = initialTask.task_type === "experiment";
   const isPurchase = initialTask.task_type === "purchase";
   const isSimpleTask = initialTask.task_type === "list";
-  const [activeTab, setActiveTab] = useState<Tab>(isPurchase ? "purchases" : "details");
+  const [activeTab, setActiveTab] = useState<Tab>(
+    initialTab ?? (isPurchase ? "purchases" : "details")
+  );
   const [task, setTask] = useState(initialTask);
   const [isExpanded, setIsExpanded] = useState(false);
   const [animationPosition, setAnimationPosition] = useState<{ x: number; y: number } | null>(null);
@@ -2015,8 +2023,12 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
           }
           return;
         }
-        const { content: migrated, didMigrate } = await migrateNoteImages(raw, task.id, resolved, legacyOwner);
-        if (didMigrate) {
+        // Lazy-migrate any legacy `Attachments/` content into `Files/` on the
+        // owner's first read. Cheap no-op if the folder doesn't exist.
+        const attachMig = await migrateTaskAttachmentsToFiles(resolved, raw);
+        const startContent = attachMig.contentRewritten ? attachMig.content : raw;
+        const { content: migrated, didMigrate } = await migrateNoteImages(startContent, task.id, resolved, legacyOwner);
+        if (didMigrate || attachMig.contentRewritten) {
           await filesApi.writeFile(resolvedNotes, migrated, `Migrate image references for: ${task.name}`);
         }
         if (!cancelled) {
@@ -2270,8 +2282,12 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
           }
           return;
         }
-        const { content: migrated, didMigrate } = await migrateNoteImages(raw, task.id, resolved, legacyOwner);
-        if (didMigrate) {
+        // Lazy-migrate any legacy `Attachments/` content into `Files/` on the
+        // owner's first read. Cheap no-op if the folder doesn't exist.
+        const attachMig = await migrateTaskAttachmentsToFiles(resolved, raw);
+        const startContent = attachMig.contentRewritten ? attachMig.content : raw;
+        const { content: migrated, didMigrate } = await migrateNoteImages(startContent, task.id, resolved, legacyOwner);
+        if (didMigrate || attachMig.contentRewritten) {
           await filesApi.writeFile(resolvedResults, migrated, `Migrate image references for: ${task.name}`);
         }
         if (!cancelled) {

@@ -8,6 +8,7 @@ import UserAvatar from "@/components/UserAvatar";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useAppStore } from "@/lib/store";
 import { tasksApi, methodsApi } from "@/lib/local-api";
+import { repairAttachmentPaths } from "@/lib/tasks/migrate-attachments";
 import {
   patchUserSettings,
   readUserSettings,
@@ -611,6 +612,17 @@ function MaintenanceSection() {
         }
         run={methodsApi.repairSourcePaths}
         invalidateKey={["methods"]}
+      />
+      <RepairRow
+        title="Repair attachment paths"
+        description={
+          <>
+            Walks every task and moves anything still sitting in <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">results/task-N/Attachments/</code> into the canonical <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">Files/</code> folder, rewriting markdown links to match.
+            Older versions of the Results page wrote here instead of <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">Files/</code>; the app now folds these in on first open, but the button finishes any tail you have not visited yet.
+          </>
+        }
+        run={repairAttachmentPaths}
+        invalidateKey={["tasks"]}
       />
     </SectionShell>
   );

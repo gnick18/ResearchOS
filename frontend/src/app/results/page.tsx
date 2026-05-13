@@ -7,8 +7,8 @@ import { findExistingTaskResultsBase, taskResultsBase } from "@/lib/tasks/result
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
-import ResultsEditor from "@/components/ResultsEditor";
-import type { Task } from "@/lib/types";
+import TaskDetailPopup from "@/components/TaskDetailPopup";
+import type { Task, Project } from "@/lib/types";
 
 interface ResultCard {
   task: Task;
@@ -26,7 +26,7 @@ export default function ResultsPage() {
   const { currentUser: providerCurrentUser } = useCurrentUser();
   const currentUser = providerCurrentUser ?? "";
 
-  const { data: projects = [] } = useQuery({
+  const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["projects", currentUser],
     queryFn: fetchAllProjectsIncludingShared,
   });
@@ -75,16 +75,27 @@ export default function ResultsPage() {
     return map;
   }, [projects]);
 
-  // Check which tasks have results (notes.md or attachments)
+  // Check which tasks have results (results.md / notes.md + Files/ + Images/).
+  // The popup edits write into `${basePath}/Files/` and `${basePath}/Images/`;
+  // legacy ResultsEditor wrote into `${basePath}/Attachments/` and the lazy
+  // boundary in TaskDetailPopup folds those into Files/ on first open. Count
+  // Attachments/ here too so cards still surface the right badge for tasks
+  // whose attachments haven't been touched since the migration.
   const { data: resultCards = [] } = useQuery({
     queryKey: ["resultCards", resultTasks.map((t) => t.id)],
     queryFn: async (): Promise<ResultCard[]> => {
       const cards: ResultCard[] = [];
-      
+
+      const countDir = async (path: string): Promise<number> => {
+        try {
+          const items = await filesApi.listDirectory(path);
+          return items.filter((item) => item.type === "file").length;
+        } catch {
+          return 0;
+        }
+      };
+
       for (const task of resultTasks) {
-        // Read-only scan: probe the per-user path first, fall back to the
-        // legacy global path. Callers that mutate (popup edits) trigger the
-        // one-time copy via `resolveTaskResultsBase` separately.
         const resultDir = (await findExistingTaskResultsBase(task)) ?? taskResultsBase(task);
         let hasNotes = false;
         let attachmentCount = 0;
@@ -92,18 +103,17 @@ export default function ResultsPage() {
         try {
           const items = await filesApi.listDirectory(resultDir);
           for (const item of items) {
-            if (item.type === "file") {
-              if (item.name === "notes.md") {
-                hasNotes = true;
-              } else {
-                attachmentCount++;
-              }
+            if (item.type === "file" && (item.name === "results.md" || item.name === "notes.md")) {
+              hasNotes = true;
             }
           }
         } catch {
           // Directory doesn't exist
         }
-        
+        attachmentCount += await countDir(`${resultDir}/Files`);
+        attachmentCount += await countDir(`${resultDir}/Images`);
+        attachmentCount += await countDir(`${resultDir}/Attachments`);
+
         cards.push({
           task,
           projectName: projectNames[task.project_id] || "Unknown",
@@ -112,7 +122,7 @@ export default function ResultsPage() {
           attachmentCount,
         });
       }
-      
+
       return cards;
     },
     enabled: resultTasks.length > 0,
@@ -267,11 +277,16 @@ export default function ResultsPage() {
         )}
       </div>
 
-      {/* Results editor modal */}
+      {/* Task detail popup, opened straight on the Results tab. This is the
+          canonical editor (same component the rest of the app uses), so the
+          editor's content, file storage, and lazy migrations all stay in
+          lockstep with how a task is edited from /experiments or /gantt. */}
       {editingTask && (
-        <ResultsEditor
+        <TaskDetailPopup
           task={editingTask}
+          project={projects.find((p) => p.id === editingTask.project_id)}
           onClose={handleEditorClose}
+          initialTab="results"
         />
       )}
     </AppShell>
