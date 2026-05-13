@@ -244,10 +244,10 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     async function initialize() {
       // Wiki-screenshot capture mode: bypass the FS picker and silent reconnect
       // entirely. Seed an in-memory fixture. The "signed-in" variant
-      // (?wikiCapture=1) signs in as "grant" so feature pages render with
-      // realistic data. The "picker" variant (?wikiCapture=picker) leaves
-      // currentUser empty so the user-picker screen renders — used to
-      // capture user-login.png.
+      // (?wikiCapture=1) signs in as "alex" (the Demo Lab PI) so feature
+      // pages render with realistic data. The "picker" variant
+      // (?wikiCapture=picker) leaves currentUser empty so the user-picker
+      // screen renders — used to capture user-login.png.
       const captureVariant = getWikiCaptureVariant();
       if (captureVariant) {
         try {

@@ -48,6 +48,48 @@ const DEMO_JSON_SIDECAR_PATHS = [
   "users/alex/inbox/Images/photo-2026-05-12.png.json",
 ];
 
+/** Synthetic notes.md / results.md bodies seeded as text blobs so the
+ *  markdown editor renders a non-empty body (and inline images) when a
+ *  capture script opens a task popup. Without this, every task's Lab Notes
+ *  and Results tabs render the "new file" template — fine for screenshots
+ *  of the chrome, but no body content means no Hybrid-mode block to click
+ *  and no inline image to bring up the resize popover. Keyed identically
+ *  to the way `LabNotesTab` / `ResultsTab` resolve their on-disk paths
+ *  (`{taskResultsBase}/notes.md` etc). */
+const DEMO_MD_SEEDS: Array<{ path: string; content: string }> = [
+  {
+    path: "users/alex/results/task-2/notes.md",
+    content: `## Transformation notes — 2026-05-08
+
+- Strain: \`FakeYeast-001\`
+- Plasmid: \`pYES-GAL1::flbA\`, ~120 ng/rxn
+- 10 rxns; heat shock 38 min (interrupted)
+- Plated on SD-Ura; counted 40 colonies after 48 h.
+
+![Transformation plate](Images/transformation-plate.png)
+`,
+  },
+  {
+    path: "users/alex/results/task-2/results.md",
+    content: `## Results — yeast transformation
+
+- 40 / 200 µL plated → est. 200 transformants/µg DNA (demo numbers).
+- Eight clones patched onto fresh SD-Ura for downstream work.
+
+![Transformation plate](Images/transformation-plate.png)
+`,
+  },
+  {
+    path: "users/alex/results/task-3/notes.md",
+    content: `## Patch plate notes
+
+Patched 8 colonies onto a fresh SD-Ura plate. All eight took.
+
+![Patch plate](Images/patch-plate.png)
+`,
+  },
+];
+
 /** Capture-mode variants. The default `"signed-in"` corresponds to
  *  `?wikiCapture=1` (the most common case) and gives you a fully signed-in
  *  session as user `alex` (the demo lab's PI). The `"picker"` variant
@@ -262,6 +304,14 @@ export async function installWikiCaptureFixture(
       }
     }),
   );
+
+  // Seed synthetic markdown bodies so editor screenshots have a non-empty
+  // canvas (Hybrid block to click, body image to resize-popover).
+  for (const { path: mdPath, content } of DEMO_MD_SEEDS) {
+    const norm = normalizePath(mdPath);
+    blobs.set(norm, new Blob([content], { type: "text/markdown" }));
+    addParentDirs(norm, dirs);
+  }
 
   console.log(
     `[wiki-capture-mock] Installed. Seeded ${files.size} files, ${blobs.size} blobs, ${dirs.size} dirs.`,
