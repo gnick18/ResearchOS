@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { eventsApi } from "@/lib/local-api";
+import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
 import CalendarFeedsButton from "@/components/CalendarFeedsButton";
 import DayDetailDrawer from "@/components/DayDetailDrawer";
@@ -25,7 +26,11 @@ const DEFAULT_COLORS = [
 
 export default function CalendarPage() {
   const queryClient = useQueryClient();
-  const [view, setView] = useState<CalendarView>("month");
+  // View mode comes from the user's settings.json via Zustand; in-session
+  // changes update the store but don't write back to disk (use Settings →
+  // Defaults to change the persisted default).
+  const view: CalendarView = useAppStore((s) => s.calendarViewMode);
+  const setView = useAppStore((s) => s.setCalendarViewMode);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [creating, setCreating] = useState(false);
@@ -96,7 +101,7 @@ export default function CalendarPage() {
     const [y, m, d] = dateStr.split("-").map(Number);
     setCurrentDate(new Date(y, m - 1, d));
     setView("day");
-  }, []);
+  }, [setView]);
 
   // Heading label depends on view
   const monthNames = [

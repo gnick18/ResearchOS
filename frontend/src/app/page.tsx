@@ -14,7 +14,12 @@ import BetaDonationButton from "@/components/BetaDonationButton";
 import BugReportModal from "@/components/BugReportModal";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
+import { useAppStore } from "@/lib/store";
 import type { Project, Task } from "@/lib/types";
+
+// Only redirect to the user's default landing tab once per tab/session. If
+// they manually navigate back to "/" later, we respect that.
+let didLandingRedirect = false;
 
 const DEFAULT_COLORS = [
   "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
@@ -65,6 +70,21 @@ export default function HomePage() {
       router.push("/lab");
     }
   }, [currentUser, router]);
+
+  // One-shot redirect to the user's chosen default landing tab on first load.
+  // Subsequent manual visits to "/" are respected. Skipped for the "lab"
+  // user (handled by the dedicated redirect above).
+  const defaultLandingTab = useAppStore((s) => s.defaultLandingTab);
+  useEffect(() => {
+    if (didLandingRedirect) return;
+    if (!currentUser || currentUser.toLowerCase() === "lab") return;
+    if (defaultLandingTab && defaultLandingTab !== "/") {
+      didLandingRedirect = true;
+      router.replace(defaultLandingTab);
+    } else if (defaultLandingTab === "/") {
+      didLandingRedirect = true;
+    }
+  }, [currentUser, defaultLandingTab, router]);
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", currentUser],
