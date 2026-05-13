@@ -130,6 +130,12 @@ function SettingsBody() {
         if (patch.color !== undefined) {
           queryClient.invalidateQueries({ queryKey: USER_COLOR_QUERY_KEY });
         }
+        // If the lab-visibility flag changed, bust the lab-goals cache so the
+        // Roadmaps tab in Lab Mode reflects the change immediately.
+        if (patch.hideGoalsFromLab !== undefined) {
+          queryClient.invalidateQueries({ queryKey: ["lab", "goals"] });
+          queryClient.invalidateQueries({ queryKey: ["users", "hide-goals-from-lab"] });
+        }
         setRecentlySaved(true);
         // Auto-dismiss the "Saved" pill after 1.5s. Set in the handler (not
         // a sync useEffect) so we don't trip the no-setState-in-effect lint.
