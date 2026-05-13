@@ -439,14 +439,39 @@ function MethodPreview({ method }: { method: Method | null }) {
   const isPdf =
     method?.method_type === "pdf" ||
     (method?.github_path?.toLowerCase().endsWith(".pdf") ?? false);
-  const canFetchMarkdown = !!method?.github_path && !isPcr && !isPdf;
+  const canFetchFile = !!method?.github_path && !isPcr;
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["method-preview", method?.id],
     queryFn: () => githubApi.readFile(method!.github_path!),
-    enabled: canFetchMarkdown,
+    enabled: canFetchFile,
     staleTime: 5 * 60_000,
   });
+
+  // For PDFs, decode the base64 content into a blob URL for the <iframe>.
+  // Revoke when the method changes or the component unmounts so we don't
+  // leak object URLs while the user arrows through the list.
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isPdf || !data?.content) {
+      setPdfUrl(null);
+      return;
+    }
+    let url: string | null = null;
+    try {
+      const binary = atob(data.content);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const blob = new Blob([bytes], { type: "application/pdf" });
+      url = URL.createObjectURL(blob);
+      setPdfUrl(url);
+    } catch {
+      setPdfUrl(null);
+    }
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [isPdf, data?.content]);
 
   if (!method) {
     return (
@@ -496,34 +521,45 @@ function MethodPreview({ method }: { method: Method | null }) {
           </div>
         )}
       </div>
-      <div className="flex-1 overflow-y-auto px-5 py-4">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {isPcr ? (
-          <div className="text-sm text-gray-500">
+          <div className="overflow-y-auto px-5 py-4 text-sm text-gray-500">
             PCR protocol — select the method to view and edit its gradient and
             recipe.
           </div>
-        ) : isPdf ? (
-          <div className="text-sm text-gray-500">
-            PDF attachment — preview unavailable here. Select the method to
-            open it.
+        ) : !canFetchFile ? (
+          <div className="overflow-y-auto px-5 py-4 text-sm text-gray-500">
+            No content available.
           </div>
-        ) : !canFetchMarkdown ? (
-          <div className="text-sm text-gray-500">No content available.</div>
         ) : isLoading ? (
-          <div className="text-sm text-gray-400 animate-pulse">
+          <div className="overflow-y-auto px-5 py-4 text-sm text-gray-400 animate-pulse">
             Loading preview…
           </div>
         ) : isError ? (
-          <div className="text-sm text-red-600">
+          <div className="overflow-y-auto px-5 py-4 text-sm text-red-600">
             Couldn&rsquo;t load preview.
           </div>
-        ) : (
-          <div className="prose prose-sm prose-gray max-w-none">
-            <RenderedMarkdown
-              content={data?.content ?? ""}
-              basePath={basePath}
-              ownerUsername={method.owner}
+        ) : isPdf ? (
+          pdfUrl ? (
+            <iframe
+              src={pdfUrl}
+              className="flex-1 w-full bg-white border-0"
+              title={method.name}
             />
+          ) : (
+            <div className="overflow-y-auto px-5 py-4 text-sm text-gray-500">
+              Unable to display PDF.
+            </div>
+          )
+        ) : (
+          <div className="flex-1 overflow-y-auto px-5 py-4">
+            <div className="prose prose-sm prose-gray max-w-none">
+              <RenderedMarkdown
+                content={data?.content ?? ""}
+                basePath={basePath}
+                ownerUsername={method.owner}
+              />
+            </div>
           </div>
         )}
       </div>
