@@ -25,9 +25,7 @@ const UNCATEGORIZED = "Uncategorized";
 const RECENT_LIMIT = 5;
 
 function methodIdsOf(t: Task): number[] {
-  if (t.method_ids && t.method_ids.length > 0) return t.method_ids;
-  if (t.method_id != null) return [t.method_id];
-  return [];
+  return t.method_ids ?? [];
 }
 
 /**

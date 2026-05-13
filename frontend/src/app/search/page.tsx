@@ -144,14 +144,20 @@ export default function SearchPage() {
         continue;
       }
 
+      // Pick the primary method for filter/display purposes — the first one
+      // attached to this task (method_ids[0]). Legacy single-method tasks
+      // are normalised at the read boundary, so we don't have to think
+      // about the old top-level method_id field here.
+      const primaryMethodId: number | null = task.method_ids?.[0] ?? null;
+
       // Filter by method
-      if (filters.methodId !== null && task.method_id !== filters.methodId) {
+      if (filters.methodId !== null && primaryMethodId !== filters.methodId) {
         continue;
       }
 
       // Filter by method folder
       if (filters.methodFolder) {
-        const taskMethod = task.method_id ? methodLookup[task.method_id] : null;
+        const taskMethod = primaryMethodId != null ? methodLookup[primaryMethodId] : null;
         if (!taskMethod || taskMethod.folder_path !== filters.methodFolder) {
           continue;
         }
@@ -161,12 +167,12 @@ export default function SearchPage() {
       if (keywords.length > 0) {
         const taskName = task.name.toLowerCase();
         const taskTags = (task.tags || []).join(" ").toLowerCase();
-        const taskMethod = task.method_id ? methodLookup[task.method_id] : null;
+        const taskMethod = primaryMethodId != null ? methodLookup[primaryMethodId] : null;
         const methodName = taskMethod?.name.toLowerCase() || "";
         const methodTags = (taskMethod?.tags || []).join(" ").toLowerCase();
-        
+
         const searchableText = `${taskName} ${taskTags} ${methodName} ${methodTags}`;
-        
+
         // All keywords must match (AND logic)
         const allMatch = keywords.every((kw) => searchableText.includes(kw));
         if (!allMatch) {
@@ -180,7 +186,7 @@ export default function SearchPage() {
         results.push({
           task,
           project,
-          method: task.method_id ? methodLookup[task.method_id] : null,
+          method: primaryMethodId != null ? methodLookup[primaryMethodId] : null,
           color: projectColors[task.project_id] || DEFAULT_COLORS[0],
         });
       }

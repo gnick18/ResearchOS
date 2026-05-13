@@ -121,7 +121,6 @@ export interface Task {
   is_complete: boolean;
   task_type: "experiment" | "purchase" | "list";
   weekend_override: boolean | null;
-  method_id: number | null;  // Deprecated: first method in method_ids for backwards compat
   method_ids: number[];  // List of method IDs attached to this task
   deviation_log: string | null;
   tags: string[] | null;
@@ -157,7 +156,6 @@ export interface TaskCreate {
   is_high_level?: boolean;
   task_type?: "experiment" | "purchase" | "list";
   weekend_override?: boolean | null;
-  method_id?: number | null;  // Deprecated
   method_ids?: number[];  // List of method IDs to attach
   tags?: string[];
   sort_order?: number;
@@ -175,7 +173,6 @@ export interface TaskUpdate {
   is_complete?: boolean;
   task_type?: "experiment" | "purchase" | "list";
   weekend_override?: boolean | null;
-  method_id?: number | null;  // Deprecated
   method_ids?: number[];  // List of method IDs to attach
   deviation_log?: string | null;
   tags?: string[];

@@ -185,7 +185,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
         duration_days: durationDays,
         is_high_level: isHighLevel,
         task_type: taskType,
-        method_id: taskType === "experiment" ? methodId : null,
+        method_ids: taskType === "experiment" && methodId !== null ? [methodId] : [],
         sub_tasks: taskType === "list" && subTasks.length > 0 ? subTasks : undefined,
       });
 

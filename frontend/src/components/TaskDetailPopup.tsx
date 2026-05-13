@@ -2884,12 +2884,14 @@ function TaskExportButton({ task }: { task: Task }) {
         // Notes don't exist
       }
 
-      // Fetch method
+      // Fetch primary method (first attached). Multi-method export support
+      // would need to extend this; today the export bundle is single-method.
       let method: Method | null = null;
       let methodContent: string | null = null;
-      if (task.method_id) {
+      const primaryMethodId = task.method_ids?.[0];
+      if (primaryMethodId != null) {
         try {
-          method = await methodsApi.get(task.method_id);
+          method = await methodsApi.get(primaryMethodId);
           if (method && method.github_path) {
             const methodFile = await filesApi.readFile(method.github_path);
             methodContent = methodFile.content;

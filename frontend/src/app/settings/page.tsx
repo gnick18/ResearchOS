@@ -7,6 +7,7 @@ import AccountPasswordPopup from "@/components/AccountPasswordPopup";
 import UserAvatar from "@/components/UserAvatar";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useAppStore } from "@/lib/store";
+import { tasksApi } from "@/lib/local-api";
 import {
   patchUserSettings,
   readUserSettings,
@@ -192,6 +193,7 @@ function SettingsBody() {
         <DefaultsSection settings={settings} update={update} />
         <AnimationSection settings={settings} update={update} />
         <BehaviorSection settings={settings} update={update} />
+        <MaintenanceSection />
         <SecuritySection
           pwExists={pwExists}
           onOpen={() => setPwOpen(true)}
@@ -566,6 +568,78 @@ function BehaviorSection({ settings, update }: SectionProps) {
         checked={settings.hideGoalsFromLab}
         onChange={(v) => void update({ hideGoalsFromLab: v })}
       />
+    </SectionShell>
+  );
+}
+
+// ── Data maintenance ────────────────────────────────────────────────────────
+
+function MaintenanceSection() {
+  const queryClient = useQueryClient();
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<{
+    scanned: number;
+    repaired: number;
+    alreadyCorrect: number;
+    failed: number;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleRepair = useCallback(async () => {
+    setRunning(true);
+    setError(null);
+    setResult(null);
+    try {
+      const summary = await tasksApi.repairMethodLinks();
+      setResult(summary);
+      // Refresh task queries so any in-memory data picks up the disk changes.
+      await queryClient.refetchQueries({ queryKey: ["tasks"] });
+    } catch (err) {
+      console.error("[repairMethodLinks] failed:", err);
+      setError(err instanceof Error ? err.message : "Repair failed. See console for details.");
+    } finally {
+      setRunning(false);
+    }
+  }, [queryClient]);
+
+  return (
+    <SectionShell
+      title="Data maintenance"
+      description="Tools for normalising on-disk task data. Safe to run any time; reports what it changed."
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm text-gray-800">Repair method links</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Walks every task in your folder and rewrites the few that still
+            store their linked method in the old <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">method_id</code> field.
+            The app already understands the legacy shape on read; this
+            cleanup is for confidence and tidier files on disk.
+          </p>
+          {result && (
+            <p className="text-xs text-gray-600 mt-2">
+              Scanned <strong>{result.scanned}</strong> · repaired{" "}
+              <strong>{result.repaired}</strong> · already clean{" "}
+              <strong>{result.alreadyCorrect}</strong>
+              {result.failed > 0 && (
+                <>
+                  {" · "}
+                  <span className="text-red-600">failed <strong>{result.failed}</strong></span>
+                </>
+              )}
+            </p>
+          )}
+          {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+        </div>
+        <button
+          type="button"
+          onClick={handleRepair}
+          disabled={running}
+          className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
+        >
+          {running ? "Running…" : "Run repair"}
+        </button>
+      </div>
     </SectionShell>
   );
 }
