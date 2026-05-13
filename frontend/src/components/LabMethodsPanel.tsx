@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { labApi, LabTask, LabMethod } from "@/lib/local-api";
 import { useLabData } from "@/hooks/useLabData";
+import UserAvatar from "@/components/UserAvatar";
 
 interface LabMethodsPanelProps {
   selectedUsernames: Set<string>;
@@ -325,11 +326,10 @@ function MethodRowView({
                   onUserClick(u);
                 }
               }}
-              className="w-6 h-6 rounded-full ring-2 ring-white flex items-center justify-center text-white text-[10px] font-medium hover:ring-emerald-300 transition-shadow"
-              style={{ backgroundColor: userColorFor(u) }}
+              className="rounded-full ring-2 ring-white hover:ring-emerald-300 transition-shadow"
               title={onUserClick ? `View ${u}'s dashboard` : u}
             >
-              {u.charAt(0).toUpperCase()}
+              <UserAvatar username={u} size="xs" />
             </button>
           ))}
           {sortedUsers.length > 4 && (

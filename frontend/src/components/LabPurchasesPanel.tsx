@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { LabTask, purchasesApi, labApi } from "@/lib/local-api";
 import { useLabData } from "@/hooks/useLabData";
+import UserAvatar from "@/components/UserAvatar";
 
 interface LabPurchasesPanelProps {
   selectedUsernames: Set<string>;
@@ -467,12 +468,7 @@ export default function LabPurchasesPanel({
                 <div className="divide-y divide-gray-100">
                   {spentByUser.map(([username, total]) => (
                     <div key={username} className="flex items-center gap-3 px-4 py-2.5">
-                      <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0"
-                        style={{ backgroundColor: getUserColor(username) }}
-                      >
-                        {username.charAt(0).toUpperCase()}
-                      </div>
+                      <UserAvatar username={username} size="sm" />
                       <div className="flex-1 text-sm text-gray-900 truncate">{username}</div>
                       <div className="text-sm font-medium text-gray-700">${total.toFixed(2)}</div>
                     </div>
@@ -560,12 +556,7 @@ export default function LabPurchasesPanel({
                 className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors"
               >
                 {/* User avatar */}
-                <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0"
-                  style={{ backgroundColor: getUserColor(purchase.username) }}
-                >
-                  {purchase.username.charAt(0).toUpperCase()}
-                </div>
+                <UserAvatar username={purchase.username} size="md" />
 
                 {/* Main content */}
                 <div className="flex-1 min-w-0">

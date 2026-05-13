@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { labApi, LabTask } from "@/lib/local-api";
 import { useLabData } from "@/hooks/useLabData";
+import UserAvatar from "@/components/UserAvatar";
 import type { Note } from "@/lib/types";
 
 interface LabActivityPanelProps {
@@ -80,7 +81,6 @@ function TypeChip({ type }: { type: string }) {
 }
 
 interface RowProps {
-  userColor: string;
   username: string;
   title: string;
   type: string;
@@ -90,7 +90,7 @@ interface RowProps {
   onUserClick?: () => void;
 }
 
-function ActivityRow({ userColor, username, title, type, context, dateLabel, onClick, onUserClick }: RowProps) {
+function ActivityRow({ username, title, type, context, dateLabel, onClick, onUserClick }: RowProps) {
   return (
     <div
       onClick={onClick}
@@ -107,11 +107,10 @@ function ActivityRow({ userColor, username, title, type, context, dateLabel, onC
           }
         }}
         disabled={!onUserClick}
-        className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0 hover:ring-2 hover:ring-emerald-300 disabled:hover:ring-0 transition-shadow"
-        style={{ backgroundColor: userColor }}
+        className="rounded-full hover:ring-2 hover:ring-emerald-300 disabled:hover:ring-0 transition-shadow"
         title={onUserClick ? `View ${username}'s dashboard` : username}
       >
-        {username.charAt(0).toUpperCase()}
+        <UserAvatar username={username} size="md" />
       </button>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
@@ -166,7 +165,7 @@ export default function LabActivityPanel({
   onUserClick,
   onSwitchToNotes,
 }: LabActivityPanelProps) {
-  const { users, tasks, projects } = useLabData();
+  const { tasks, projects } = useLabData();
   // Shared notes only — matches what the Notes tab shows.
   const { data: notes = [] } = useQuery<Note[]>({
     queryKey: ["lab", "notes-shared"],
@@ -174,12 +173,6 @@ export default function LabActivityPanel({
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
-
-  const userColorFor = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const u of users) map.set(u.username, u.color);
-    return (username: string) => map.get(username) ?? "#6b7280";
-  }, [users]);
 
   const projectNameFor = useMemo(() => {
     const map = new Map<string, string>();
@@ -252,7 +245,6 @@ export default function LabActivityPanel({
             {runningNow.map((task) => (
               <ActivityRow
                 key={`run-${task.username}-${task.id}`}
-                userColor={userColorFor(task.username)}
                 username={task.username}
                 title={task.name}
                 type={task.task_type}
@@ -280,7 +272,6 @@ export default function LabActivityPanel({
             {recentlyCompleted.map((task) => (
               <ActivityRow
                 key={`done-${task.username}-${task.id}`}
-                userColor={userColorFor(task.username)}
                 username={task.username}
                 title={task.name}
                 type={task.task_type}
@@ -308,7 +299,6 @@ export default function LabActivityPanel({
             {recentNotes.map((note) => (
               <ActivityRow
                 key={`note-${note.username}-${note.id}`}
-                userColor={userColorFor(note.username)}
                 username={note.username}
                 title={note.title || "(untitled)"}
                 type="note"

@@ -3,6 +3,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Note, LabNote } from "@/lib/types";
 import { notesApi } from "@/lib/local-api";
+import UserAvatar from "@/components/UserAvatar";
 
 interface NoteCardProps {
   note: Note | LabNote;
@@ -164,12 +165,7 @@ export default function NoteCard({ note, onClick, isLabMode = false }: NoteCardP
         {/* User indicator in lab mode */}
         {isLabMode && isLabNote(note) && (
           <div className="flex items-center gap-1.5">
-            <div
-              className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium"
-              style={{ backgroundColor: note.user_color }}
-            >
-              {note.username.charAt(0).toUpperCase()}
-            </div>
+            <UserAvatar username={note.username} size="xs" />
             <span className="text-xs text-gray-500">{note.username}</span>
           </div>
         )}

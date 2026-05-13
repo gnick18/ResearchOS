@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useFileSystem, isFileSystemAccessSupported } from "@/lib/file-system/file-system-context";
 import BetaDonationButton from "@/components/BetaDonationButton";
 import BugReportModal from "@/components/BugReportModal";
+import UserAvatar from "@/components/UserAvatar";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
 
 interface ResearchFolderSetupProps {
@@ -159,9 +160,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                         onClick={() => handleSelectUser(user)}
                         className="w-full p-4 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-blue-500/50 rounded-lg transition-all text-left flex items-center gap-3"
                       >
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
-                          {user.charAt(0).toUpperCase()}
-                        </div>
+                        <UserAvatar username={user} size="md" />
                         <span className="text-white font-medium">{user}</span>
                       </button>
                     ))}
