@@ -15,6 +15,8 @@ import {
 } from "./indexeddb-store";
 import { clearCurrentUserCache } from "../storage/json-store";
 import { discoverUsers, validateResearchFolder, ensureFolderStructure } from "./user-discovery";
+import { readUserSettings, patchUserSettings, userSettingsFileExists, DEFAULT_SETTINGS } from "../settings/user-settings";
+import { useAppStore, readLegacyLocalStorageSettings } from "../store";
 
 /** Coarse-grained phase of the startup connect flow. Used by the loading
  *  screen so the user sees something change while OneDrive is being slow.
@@ -88,6 +90,42 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
 
     const users = await discoverUsers();
     setState((prev) => ({ ...prev, availableUsers: users }));
+  }, []);
+
+  /**
+   * Loads `users/{username}/settings.json` from disk into the Zustand store.
+   * On first run, migrates the legacy `research-os-settings` localStorage
+   * blob (animation choice only) into the new file. Safe to call repeatedly.
+   */
+  const hydrateSettingsForUser = useCallback(async (username: string) => {
+    try {
+      const exists = await userSettingsFileExists(username);
+      let settings = await readUserSettings(username);
+      if (!exists && fileService.isConnected()) {
+        const legacy = readLegacyLocalStorageSettings();
+        if (legacy?.animationType) {
+          settings = await patchUserSettings(username, { animationType: legacy.animationType });
+        }
+      }
+      useAppStore.getState().hydrateFromSettings({
+        animationType: settings.animationType,
+        viewMode: settings.defaultGanttViewMode,
+        calendarViewMode: settings.defaultCalendarViewMode,
+        showShared: settings.showSharedByDefault,
+        visibleTabs: settings.visibleTabs,
+        defaultLandingTab: settings.defaultLandingTab,
+      });
+    } catch (err) {
+      console.warn("[FileSystemProvider.hydrateSettingsForUser] failed", err);
+      useAppStore.getState().hydrateFromSettings({
+        animationType: DEFAULT_SETTINGS.animationType,
+        viewMode: DEFAULT_SETTINGS.defaultGanttViewMode,
+        calendarViewMode: DEFAULT_SETTINGS.defaultCalendarViewMode,
+        showShared: DEFAULT_SETTINGS.showSharedByDefault,
+        visibleTabs: DEFAULT_SETTINGS.visibleTabs,
+        defaultLandingTab: DEFAULT_SETTINGS.defaultLandingTab,
+      });
+    }
   }, []);
 
   const reverifyPermission = useCallback(async (): Promise<boolean> => {
@@ -164,6 +202,13 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
           lastConnectedFolder: handle.name,
         }));
 
+        // Once a user is known, load their preferences from disk into the
+        // Zustand store. Auto-login paths (single-user folder or silent
+        // reconnect) skip setCurrentUser, so we hydrate here too.
+        if (currentUser) {
+          await hydrateSettingsForUser(currentUser);
+        }
+
         return true;
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to connect to folder";
@@ -176,7 +221,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         return false;
       }
     },
-    []
+    [hydrateSettingsForUser]
   );
 
   useEffect(() => {
@@ -482,6 +527,10 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     await clearDirectoryHandle();
     await clearCurrentUser();
 
+    // Clear any hydrated user preferences so the next user's settings don't
+    // leak from the in-memory store.
+    useAppStore.getState().resetSettingsToDefaults();
+
     setState({
       isConnected: false,
       isLoading: false,
@@ -503,8 +552,9 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     await storeCurrentUser(username);
     console.log("[FileSystemProvider.setCurrentUser] Stored to IndexedDB");
     setState((prev) => ({ ...prev, currentUser: username }));
-    console.log("[FileSystemProvider.setCurrentUser] State updated");
-  }, []);
+    await hydrateSettingsForUser(username);
+    console.log("[FileSystemProvider.setCurrentUser] State updated + settings hydrated");
+  }, [hydrateSettingsForUser]);
 
   const createUser = useCallback(async (username: string): Promise<boolean> => {
     if (!fileService.isConnected()) return false;

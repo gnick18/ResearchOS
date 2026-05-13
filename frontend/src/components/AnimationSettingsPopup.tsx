@@ -2,6 +2,8 @@
 
 import { useState, useRef } from "react";
 import { useAppStore } from "@/lib/store";
+import { useFileSystem } from "@/lib/file-system/file-system-context";
+import { patchUserSettings } from "@/lib/settings/user-settings";
 import { ANIMATION_METADATA, AnimationType } from "./animations";
 import DynamicAnimation from "./DynamicAnimation";
 
@@ -16,6 +18,7 @@ export default function AnimationSettingsPopup({
 }: AnimationSettingsPopupProps) {
   const animationType = useAppStore((s) => s.animationType);
   const setAnimationType = useAppStore((s) => s.setAnimationType);
+  const { currentUser } = useFileSystem();
   const [previewAnimation, setPreviewAnimation] = useState<{ type: AnimationType; x: number; y: number } | null>(null);
   // Use a ref to track if we're currently showing a preview animation
   // This prevents re-triggering while an animation is playing
@@ -27,9 +30,14 @@ export default function AnimationSettingsPopup({
     // Don't trigger if already showing a preview animation or if same type
     if (isShowingPreviewRef.current) return;
     if (type === animationType) return;
-    
+
     isShowingPreviewRef.current = true;
     setAnimationType(type);
+    // Persist to settings.json so the choice survives reload / browser
+    // change. Fire-and-forget — Zustand has already updated the live UI.
+    if (currentUser) {
+      void patchUserSettings(currentUser, { animationType: type });
+    }
     // Show a preview animation at the clicked button position
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     setPreviewAnimation({ type, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
