@@ -9,7 +9,21 @@ export default function SearchFeaturePage() {
       <Screenshot
         src="/wiki/screenshots/search-results.png"
         alt="The Search page with a query in the box and results grouped by type."
+        caption="Results stream in as you type, grouped by entity type."
       />
+
+      <h2>What gets searched</h2>
+      <p>
+        Search runs against the JSON files in your folder live. There&apos;s
+        no persistent index. Every project, task, method, PCR protocol, note,
+        and experiment under your user (plus anything shared with you from
+        another user) is in scope.
+      </p>
+      <p>
+        Because the search reads from disk on demand, it stays in sync with
+        whatever&apos;s actually in the folder, including changes a teammate
+        just synced over from another machine.
+      </p>
 
       <h2>Search basics</h2>
       <ul>

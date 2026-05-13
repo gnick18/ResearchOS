@@ -12,7 +12,29 @@ export default function MethodsFeaturePage() {
       <Screenshot
         src="/wiki/screenshots/methods-library.png"
         alt="The Methods page showing a folder tree on the left and a markdown editor on the right."
+        caption="The Methods library: folder tree on the left, markdown editor on the right."
       />
+
+      <h2>What a method is</h2>
+      <p>
+        A <strong>method</strong> is a saved markdown protocol that lives in
+        your library and can be attached to any experiment. Think of it as the
+        clean, canonical version of how to do X (e.g., a DNA extraction, a
+        gel-run protocol, a buffer recipe).
+      </p>
+      <p>
+        Methods are <em>snapshot-on-attach</em>. When you attach a method to
+        an experiment, ResearchOS captures the method&apos;s parameters
+        (reagent volumes, temperatures, durations) onto that experiment. You
+        can then log per-run variations on the experiment without touching the
+        canonical method. The next experiment that attaches the same method
+        still gets the clean original.
+      </p>
+      <p>
+        Methods can be private (under your user) or shared lab-wide (in the{" "}
+        <strong>Shared</strong> folder, which writes to{" "}
+        <code>users/public/methods/</code>).
+      </p>
 
       <h2>Create a method</h2>
       <Steps>
@@ -43,20 +65,20 @@ export default function MethodsFeaturePage() {
         </li>
       </ul>
 
-      <h2>Variations on attach</h2>
+      <h2>Variations live on the experiment</h2>
       <p>
-        When you attach a method to an experiment, ResearchOS captures a
-        snapshot of the method&apos;s parameters (e.g., reagent volumes,
-        temperatures, durations). You can then log <em>variations</em> on the
-        experiment without touching the canonical method. The variation lives
-        on the experiment, and the method stays clean for the next run.
+        Once a method is attached to an experiment, edits to volumes,
+        temperatures, or durations stay on that experiment&apos;s copy. The
+        underlying method file is untouched. This is the whole point of the
+        library: one source of truth for the protocol, room to record what
+        actually happened on each run.
       </p>
 
       <Callout variant="tip" title="Search before you write">
-        Use the search box at the top of the Methods library to find existing
+        Use the search box at the top of the library to find existing
         protocols before authoring a new one. Many labs end up with five
-        slightly different copies of the same protocol, and search prevents
-        this.
+        slightly different copies of the same protocol, and a quick search
+        prevents that.
       </Callout>
     </WikiPage>
   );

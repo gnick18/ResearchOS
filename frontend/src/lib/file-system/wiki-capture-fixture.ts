@@ -213,6 +213,17 @@ export function buildWikiFixtures(): FixtureEntry[] {
       task_type: "experiment",
       is_complete: false,
       experiment_color: "#3b82f6",
+      sub_tasks: [
+        { id: "st1", text: "Linearize pUC19 vector (PCR)", is_complete: true },
+        { id: "st2", text: "Gel-purify all 5 fragments", is_complete: true },
+        { id: "st3", text: "Set up NEBuilder reaction (1:2 vector:insert)", is_complete: true },
+        { id: "st4", text: "Transform NEB 10-beta", is_complete: false },
+        { id: "st5", text: "Pick 8 colonies for colony PCR", is_complete: false },
+      ],
+      deviation_log: "Fragment 3 (ICS midsection) gel band was faint, re-amplified with extra 5 cycles. Ran second NEBuilder rxn in parallel using the original fragment 3 as a control.",
+      method_attachments: [
+        { method_id: 1, owner: "grant", snapshot_at: "2026-05-06T13:50:00Z" },
+      ],
     },
     {
       id: 2,
@@ -366,12 +377,24 @@ export function buildWikiFixtures(): FixtureEntry[] {
       folder_path: "Bioinformatics",
       parent_method_id: null,
       tags: ["bioinformatics", "BGC"],
-      attachments: [],
+      attachments: [
+        {
+          id: "att-1",
+          name: "Protocol",
+          attachment_type: "markdown",
+          path: "users/grant/methods/2.md",
+          order: 0,
+        },
+      ],
       is_public: false,
       created_by: "grant",
       owner: "grant",
       shared_with: [],
     },
+  ]);
+  entries.push([
+    "users/grant/methods/2.md",
+    "# antiSMASH 7 baseline run\n\nRuns the standard fungal BGC predictor on an assembled genome and parks the results in a comparable directory shape every time.\n\n## When to use this\n\n- First pass over any new fungal assembly.\n- Sanity check on a CASSIS or BiG-SCAPE prediction.\n\n## Inputs\n\n- A polished assembly in FASTA format (`assembly.fa`).\n- Optional: a known reference gbk to compare against.\n\n## Steps\n\n1. Place the FASTA at `inputs/<strain>/assembly.fa`.\n2. Run with:\n   ```bash\n   antismash --taxon fungi \\\n     --output-dir results/<strain>/ \\\n     --genefinding-tool glimmerhmm \\\n     --clusterhmmer --asf --cb-knownclusters --pfam2go \\\n     inputs/<strain>/assembly.fa\n   ```\n3. Open `index.html` in the results directory.\n4. Note the type and count of clusters in the lab notebook.\n\n## Common gotchas\n\n- Run with `--allow-long-headers` if your contig names are long.\n- The `--cb-knownclusters` flag is what makes the comparison-to-MIBiG view actually populate.\n",
   ]);
 
   // PCR protocols
@@ -770,6 +793,9 @@ type TaskFix = {
   task_type: "experiment" | "purchase" | "list";
   is_complete: boolean;
   experiment_color?: string;
+  sub_tasks?: { id: string; text: string; is_complete: boolean }[];
+  deviation_log?: string;
+  method_attachments?: { method_id: number; owner: string; snapshot_at: string }[];
 };
 
 function taskFiles(owner: string, tasks: TaskFix[]): FixtureEntry[] {
@@ -788,14 +814,14 @@ function taskFiles(owner: string, tasks: TaskFix[]): FixtureEntry[] {
       weekend_override: null,
       method_id: null,
       method_ids: [],
-      deviation_log: null,
+      deviation_log: t.deviation_log ?? null,
       tags: null,
       sort_order: t.id,
       experiment_color: t.experiment_color ?? null,
-      sub_tasks: null,
+      sub_tasks: t.sub_tasks ?? null,
       pcr_gradient: null,
       pcr_ingredients: null,
-      method_attachments: [],
+      method_attachments: t.method_attachments ?? [],
       owner,
       shared_with: [],
     },

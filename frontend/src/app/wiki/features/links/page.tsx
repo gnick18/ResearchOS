@@ -11,7 +11,17 @@ export default function LinksFeaturePage() {
       <Screenshot
         src="/wiki/screenshots/links.png"
         alt="The Lab Links page with grouped categories and a New Link button."
+        caption="Links grouped into categories. Every link is visible to every lab member."
       />
+
+      <h2>What Lab Links is</h2>
+      <p>
+        Lab Links is a flat bookmark list that lives under the shared{" "}
+        <code>lab/</code> tree, so every user in the folder sees the same
+        entries. Categories group related links (e.g., Bioinformatics,
+        Ordering, Journal access). Use it for the URLs every member of the
+        lab eventually needs to find.
+      </p>
 
       <h2>Add a link</h2>
       <Steps>
