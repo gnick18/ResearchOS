@@ -454,7 +454,7 @@ export default function LabGanttChart({
                           const spanInfo = getTaskSpanInWeek(task, weekDates, dates);
                           if (!spanInfo) return null;
 
-                          // Use the task's user_color directly from the backend
+                          // Use the task's user_color directly from the stored task
                           // This ensures consistent coloring based on user assignment
                           const userColor = task.user_color || getUserColor(task.username);
                           const completedStyle = task.is_complete

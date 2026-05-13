@@ -1564,7 +1564,7 @@ function PdfViewer({
   const canModify = !currentMethod.is_public || currentMethod.created_by === currentUser;
 
   useEffect(() => {
-    // Read the PDF as base64 from the backend, then create a blob URL
+    // Read the PDF as base64 from disk, then create a blob URL
     if (!method.github_path) {
       setLoading(false);
       return;

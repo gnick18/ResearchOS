@@ -161,8 +161,7 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
   }, [loadAttachments]);
 
   // Resolve every attachment to a blob URL so <img>, <iframe>, and <a download>
-  // tags can render directly from the File System Access folder. `getRawUrl`
-  // used to return a backend URL; under FSA we hand back a `blob:` URL instead.
+  // tags can render directly from the File System Access folder.
   useEffect(() => {
     if (attachments.length === 0) {
       setAttachmentUrls(new Map());
@@ -218,7 +217,7 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
             );
             await loadAttachments();
             
-            // Show warning if file is too large for GitHub
+            // Show warning if the file is unusually large
             if (response.warning) {
               setUploadWarning(response.warning);
             }
@@ -268,7 +267,7 @@ export default function ResultsEditor({ task, onClose }: ResultsEditorProps) {
              setContent((prev) => prev + imageMarkdown);
              await loadAttachments();
              
-             // Show warning if file is too large for GitHub
+             // Show warning if the file is unusually large
              if (response.warning) {
                setUploadWarning(response.warning);
              }

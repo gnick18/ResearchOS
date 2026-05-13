@@ -72,19 +72,10 @@ ResearchOS is a research project management application that has been migrated f
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### Legacy Architecture (Deprecated - Still in Repo)
-
-```
-Browser → Next.js Frontend → FastAPI Backend → Local JSON Files → Git Sync to GitHub
-```
-
-The backend directory still exists but is no longer required. It can be removed once all functionality is verified.
-
 ---
 
 ## Technology Stack
 
-### Frontend (Active)
 | Technology | Version | Purpose |
 |------------|---------|---------|
 | Next.js | 16.1.6 | React framework with App Router |
@@ -93,18 +84,10 @@ The backend directory still exists but is no longer required. It can be removed 
 | Tailwind CSS | 4.x | Styling |
 | React Query | 5.x | Server state management |
 | Zustand | 5.x | Client state management |
-| Zod | 3.x | Schema validation (converted from Pydantic) |
+| Zod | 3.x | Schema validation |
 | date-fns | 4.x | Date manipulation |
-| isomorphic-git | 1.37.x | Client-side git operations |
 | idb-keyval | 6.2.x | IndexedDB wrapper |
 | JSZip | 3.10.x | ZIP file handling |
-
-### Backend (Legacy - Can Be Removed)
-| Technology | Purpose |
-|------------|---------|
-| FastAPI | Python web framework |
-| Pydantic | Data validation |
-| uvicorn | ASGI server |
 
 ---
 
@@ -139,16 +122,7 @@ ResearchOS/
 │   ├── public/                  # Static assets
 │   └── package.json
 │
-├── backend/                     # LEGACY - CAN BE REMOVED
-│   ├── app/
-│   │   ├── main.py
-│   │   ├── config.py
-│   │   ├── storage.py
-│   │   ├── routers/             # 15 API endpoints (migrated to local-api.ts)
-│   │   └── engine/
-│   └── requirements.txt
-│
-├── installer/                   # Electron desktop installer
+├── installer/                   # Electron desktop installer (currently stale — see plans)
 │   ├── src/
 │   │   ├── main.js
 │   │   └── renderer/
@@ -181,14 +155,6 @@ ResearchOS/
 |------|---------|
 | `frontend/src/lib/engine/dates.ts` | Date calculations, weekend handling, business day math |
 | `frontend/src/lib/engine/shift.ts` | Dependency-aware task date shifting |
-
-### Git Integration
-
-| File | Purpose |
-|------|---------|
-| `frontend/src/lib/git/git-service.ts` | isomorphic-git wrapper for client-side git operations (created but not fully tested) |
-
----
 
 ## File System Access API Integration
 
@@ -460,8 +426,6 @@ npm run lint
 
 ### Remaining Work
 - [ ] Test all CRUD operations for edge cases
-- [ ] Test git sync with isomorphic-git
-- [ ] Remove backend directory when confident
 - [ ] Clean up debug console.log statements
 
 ### Known Limitations
@@ -558,11 +522,9 @@ export const TaskSchema = z.object({
 
 ## Future Considerations
 
-1. **Remove Backend**: Once all functionality is verified, delete `backend/` directory
-2. **Git Sync**: Test and finalize isomorphic-git integration for GitHub backup
-3. **Sharing**: Implement real sharing functionality (currently stubbed)
-4. **Performance**: Consider lazy loading for large datasets
-5. **Mobile**: File System Access API not available on mobile browsers
+1. **Sharing**: Implement real sharing functionality (currently stubbed)
+2. **Performance**: Consider lazy loading for large datasets
+3. **Mobile**: File System Access API not available on mobile browsers
 
 ---
 
