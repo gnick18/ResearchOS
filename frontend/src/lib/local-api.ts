@@ -528,13 +528,12 @@ export const methodsApi = {
         folder_path: data.folder_path ?? null,
         parent_method_id: data.parent_method_id ?? null,
         tags: data.tags ?? null,
-        attachments: data.attachments ?? [],
         created_by: null,
         owner: "",
         shared_with: [],
       });
     }
-    
+
     return methodsStore.create({
       ...data,
       source_path: data.source_path ?? null,
@@ -542,7 +541,6 @@ export const methodsApi = {
       folder_path: data.folder_path ?? null,
       parent_method_id: data.parent_method_id ?? null,
       tags: data.tags ?? null,
-      attachments: data.attachments ?? [],
       is_public: false,
       created_by: null,
       owner: "",

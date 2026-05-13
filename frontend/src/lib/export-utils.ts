@@ -10,7 +10,7 @@
 
 import { parseContent } from './stamp-utils';
 import { fileService } from './file-system/file-service';
-import type { Task, Method, MethodAttachment } from './types';
+import type { Task, Method } from './types';
 
 // Dynamic imports for PDF libraries (to avoid SSR issues)
 let jspdf: typeof import('jspdf') | null = null;
@@ -620,41 +620,3 @@ export async function fetchPdfData(path: string): Promise<ArrayBuffer> {
   return blob.arrayBuffer();
 }
 
-/**
- * Process method attachments and fetch PDF data
- */
-export async function processMethodAttachments(
-  method: Method,
-  methodOrder: number
-): Promise<{ content: string | null; pdfs: PdfAttachmentData[] }> {
-  let content: string | null = null;
-  const pdfs: PdfAttachmentData[] = [];
-  
-  // Sort attachments by order
-  const sortedAttachments = [...method.attachments].sort((a, b) => a.order - b.order);
-  
-  for (const attachment of sortedAttachments) {
-    if (attachment.attachment_type === 'pdf' && attachment.path) {
-      try {
-        const pdfData = await fetchPdfData(attachment.path);
-        const filename = attachment.path.split('/').pop() || 'attachment.pdf';
-        
-        pdfs.push({
-          filename,
-          originalPath: attachment.path,
-          data: pdfData,
-          methodId: method.id,
-          methodName: method.name,
-          order: methodOrder,
-        });
-      } catch (error) {
-        console.error(`Failed to fetch PDF ${attachment.path}:`, error);
-      }
-    } else if (attachment.attachment_type === 'markdown' && attachment.path) {
-      // For markdown, we'll return the content separately
-      // The caller will need to fetch this using filesApi.readFile
-    }
-  }
-  
-  return { content, pdfs };
-}

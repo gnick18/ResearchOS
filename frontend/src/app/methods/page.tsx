@@ -13,7 +13,7 @@ import MethodExperimentsSidebar from "@/components/MethodExperimentsSidebar";
 import { useFileRenamePopup } from "@/components/FileRenamePopup";
 import SharePopup from "@/components/SharePopup";
 import Tooltip from "@/components/Tooltip";
-import type { Method, MethodAttachment, PCRProtocol, PCRGradient, PCRStep, PCRIngredient, SharedUser } from "@/lib/types";
+import type { Method, PCRProtocol, PCRGradient, PCRStep, PCRIngredient, SharedUser } from "@/lib/types";
 
 async function pickUniqueImageName(dirPath: string, desired: string): Promise<string> {
   const dot = desired.lastIndexOf(".");
