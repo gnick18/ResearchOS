@@ -10,9 +10,7 @@ Your data lives in a folder on your disk — JSON and markdown, version-controll
 
 ### Option A — Use the hosted version
 
-Open the deployed app in **Chrome, Edge, or Brave** and connect a folder on your machine. Nothing installs on your computer; data never leaves your disk. (Hosted on Vercel. The server-side code is a thin proxy used only for fetching Telegram media and external calendar feeds — your notes and files are never sent to it.)
-
-> Hosted URL: _add the public Vercel URL here_
+Open **[research-os-xi.vercel.app](https://research-os-xi.vercel.app/)** in **Chrome, Edge, or Brave** and connect a folder on your machine. Nothing installs on your computer; data never leaves your disk. (Hosted on Vercel. The server-side code is a thin proxy used only for fetching Telegram media and external calendar feeds — your notes and files are never sent to it.)
 
 ### Option B — Run it locally
 
