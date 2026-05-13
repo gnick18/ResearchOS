@@ -6,7 +6,28 @@ import { notesApi } from "@/lib/local-api";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import NoteCommentsThread from "./NoteCommentsThread";
 import Tooltip from "./Tooltip";
-import { useDropWarning } from "@/lib/use-drop-warning";
+import { useFileRenamePopup } from "./FileRenamePopup";
+import { fileService } from "@/lib/file-system/file-service";
+import { attachImageToTask } from "@/lib/attachments/attach-image";
+import { fileEvents } from "@/lib/attachments/file-events";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+
+function splitFilenameExt(name: string): { stem: string; ext: string } {
+  const dot = name.lastIndexOf(".");
+  if (dot <= 0) return { stem: name, ext: "" };
+  return { stem: name.slice(0, dot), ext: name.slice(dot) };
+}
+
+async function pickUniqueFilename(dirPath: string, desired: string): Promise<string> {
+  const { stem, ext } = splitFilenameExt(desired);
+  let candidate = desired;
+  let n = 1;
+  while (await fileService.fileExists(`${dirPath}/${candidate}`)) {
+    candidate = `${stem}-${n}${ext}`;
+    n += 1;
+  }
+  return candidate;
+}
 
 interface NoteDetailPopupProps {
   note: Note;
@@ -83,16 +104,65 @@ export default function NoteDetailPopup({
   const [editingEntryDate, setEditingEntryDate] = useState(false);
   const [entryTitle, setEntryTitle] = useState("");
   const [entryDate, setEntryDate] = useState("");
-  
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
+  const { currentUser } = useCurrentUser();
+
+  // Per-note attachment folder. Mirrors how tasks use
+  // `users/{owner}/results/task-{id}/`. Falls back to the note's own
+  // `username` when there's no signed-in user (read-only / lab-mode views),
+  // so the path is still defined even if no upload can happen.
+  const basePath = `users/${currentUser ?? note.username}/notes/${note.id}`;
+
   // Track unsaved content for auto-save
   const unsavedContentRef = useRef<Map<string, string>>(new Map());
   const isSavingRef = useRef(false);
   const isClosingRef = useRef(false);
 
-  // Notes don't have a Files/ folder concept yet — flash a toast when the
-  // user drops a file onto the editor instead of silently swallowing it.
-  const { show: showDropWarning, toast: dropWarningToast } = useDropWarning(
-    "File attachments aren't supported on notes yet. Attach files via a task's Lab Notes or Results tab instead."
+  const handleImageUpload = useCallback(
+    async (files: File[]) => {
+      setUploading(true);
+      for (const file of files) {
+        if (!file.type.startsWith("image/")) continue;
+        const renamedFile = await requestRename(file);
+        if (!renamedFile) continue;
+        try {
+          await attachImageToTask({
+            ownerUsername: currentUser ?? note.username,
+            taskId: note.id,
+            basePath,
+            blob: renamedFile,
+            suggestedFilename: renamedFile.name,
+          });
+        } catch {
+          alert(`Failed to upload ${renamedFile.name}`);
+        }
+      }
+      setUploading(false);
+    },
+    [basePath, requestRename, currentUser, note.id, note.username]
+  );
+
+  const handleFileUpload = useCallback(
+    async (files: File[]) => {
+      setUploading(true);
+      const filesDir = `${basePath}/Files`;
+      for (const file of files) {
+        const renamedFile = await requestRename(file);
+        if (!renamedFile) continue;
+        try {
+          const finalName = await pickUniqueFilename(filesDir, renamedFile.name);
+          const destPath = `${filesDir}/${finalName}`;
+          await fileService.writeFileFromBlob(destPath, renamedFile);
+          fileEvents.emitAttached({ basePath, relativePath: `Files/${finalName}` });
+        } catch {
+          alert(`Failed to upload ${renamedFile.name}`);
+        }
+      }
+      setUploading(false);
+    },
+    [basePath, requestRename]
   );
 
   // Set initial active tab
@@ -401,6 +471,8 @@ export default function NoteDetailPopup({
   };
 
   return (
+    <>
+    <FileRenamePopup />
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={handleClose}>
       <div
         className={`bg-white rounded-2xl shadow-2xl w-full flex flex-col overflow-hidden transition-all duration-300 ${
@@ -527,7 +599,25 @@ export default function NoteDetailPopup({
                 </svg>
                 {isShared ? "Shared with lab" : "Private"}
               </button>
-              
+
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors disabled:opacity-50"
+              >
+                {uploading ? "Uploading..." : "📎 Add File"}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files) handleFileUpload(Array.from(e.target.files));
+                  e.target.value = "";
+                }}
+              />
+
               {/* Auto-save indicator */}
               {saving && (
                 <span className="text-xs text-gray-400 flex items-center gap-1">
@@ -691,7 +781,9 @@ export default function NoteDetailPopup({
                   placeholder="Write your meeting notes in Markdown..."
                   disabled={readOnly}
                   allowAnyFileType={true}
-                  onFileDrop={showDropWarning}
+                  onImageDrop={handleImageUpload}
+                  onFileDrop={handleFileUpload}
+                  imageBasePath={basePath}
                 />
               ) : (
                 <div className="flex items-center justify-center h-full text-gray-400">
@@ -711,7 +803,9 @@ export default function NoteDetailPopup({
                   placeholder="Write your meeting notes in Markdown..."
                   disabled={readOnly}
                   allowAnyFileType={true}
-                  onFileDrop={showDropWarning}
+                  onImageDrop={handleImageUpload}
+                  onFileDrop={handleFileUpload}
+                  imageBasePath={basePath}
                 />
               )
             )}
@@ -738,7 +832,7 @@ export default function NoteDetailPopup({
           </div>
         )}
       </div>
-      {dropWarningToast}
     </div>
+    </>
   );
 }
