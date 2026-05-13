@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { sharingApi } from "@/lib/local-api";
+import { useCalendarNavStore } from "@/lib/calendar/calendar-nav-store";
 import type { Notification } from "@/lib/types";
 
 interface NotificationPopupProps {
@@ -15,6 +17,8 @@ export default function NotificationPopup({
   onClose,
   onNotificationRead,
 }: NotificationPopupProps) {
+  const router = useRouter();
+  const jumpTo = useCalendarNavStore((s) => s.jumpTo);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const popupRef = useRef<HTMLDivElement>(null);
@@ -153,55 +157,128 @@ export default function NotificationPopup({
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {notifications.map((notification) => (
-              <div
-                key={notification.id}
-                className={`p-3 hover:bg-gray-50 transition-colors ${
-                  !notification.read ? "bg-blue-50" : ""
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <div
-                    className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
-                      notification.read ? "bg-gray-100 text-gray-500" : "bg-blue-100 text-blue-600"
-                    }`}
-                  >
-                    {getItemTypeIcon(notification.item_type)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900">
-                      <span className="font-medium">{notification.from_user}</span>
-                      {" shared "}
-                      <span className="font-medium">{notification.item_name}</span>
-                      {" with you"}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-gray-500">
-                        {formatTime(notification.created_at)}
-                      </span>
-                      <span className="text-xs text-gray-400">•</span>
-                      <span className="text-xs text-gray-500">
-                        {notification.permission === "edit" ? "Can edit" : "Can view"}
-                      </span>
-                    </div>
-                  </div>
-                  {!notification.read && (
-                    <button
-                      onClick={() => handleMarkRead(notification.id)}
-                      className="flex-shrink-0 text-blue-600 hover:text-blue-800"
-                      title="Mark as read"
+            {notifications.map((notification) => {
+              const isReminder = notification.type === "event_reminder";
+              const handleClickRow = () => {
+                if (isReminder) {
+                  jumpTo("day", notification.event_date);
+                  router.push("/calendar");
+                  if (!notification.read) {
+                    void handleMarkRead(notification.id);
+                  }
+                  onClose();
+                }
+              };
+              return (
+                <div
+                  key={notification.id}
+                  onClick={handleClickRow}
+                  className={`p-3 hover:bg-gray-50 transition-colors ${
+                    !notification.read ? "bg-blue-50" : ""
+                  } ${isReminder ? "cursor-pointer" : ""}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+                        notification.read ? "bg-gray-100 text-gray-500" : "bg-blue-100 text-blue-600"
+                      }`}
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </button>
-                  )}
+                      {isReminder
+                        ? getReminderIcon()
+                        : getItemTypeIcon(notification.item_type)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      {isReminder ? (
+                        <ReminderBody notification={notification} />
+                      ) : (
+                        <>
+                          <p className="text-sm text-gray-900">
+                            <span className="font-medium">{notification.from_user}</span>
+                            {" shared "}
+                            <span className="font-medium">{notification.item_name}</span>
+                            {" with you"}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs text-gray-500">
+                              {formatTime(notification.created_at)}
+                            </span>
+                            <span className="text-xs text-gray-400">•</span>
+                            <span className="text-xs text-gray-500">
+                              {notification.permission === "edit" ? "Can edit" : "Can view"}
+                            </span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    {!notification.read && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMarkRead(notification.id);
+                        }}
+                        className="flex-shrink-0 text-blue-600 hover:text-blue-800"
+                        title="Mark as read"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+function getReminderIcon() {
+  return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z"
+      />
+    </svg>
+  );
+}
+
+function ReminderBody({
+  notification,
+}: {
+  notification: import("@/lib/types").EventReminderNotification;
+}) {
+  const startMs = Date.parse(notification.event_start_iso);
+  const startDate = isFinite(startMs) ? new Date(startMs) : null;
+  const timeLabel = startDate
+    ? startDate.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+    : "";
+  return (
+    <>
+      <p className="text-sm text-gray-900">
+        <span className="font-medium">{notification.event_title}</span>
+        <span className="text-gray-500"> in {notification.offset_minutes} min</span>
+      </p>
+      <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+        <span>{timeLabel}</span>
+        {notification.event_location && (
+          <>
+            <span className="text-gray-400">•</span>
+            <span className="truncate">{notification.event_location}</span>
+          </>
+        )}
+        {notification.event_kind === "external" && (
+          <>
+            <span className="text-gray-400">•</span>
+            <span>Linked</span>
+          </>
+        )}
+      </div>
+    </>
   );
 }

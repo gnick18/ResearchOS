@@ -52,6 +52,8 @@ import type {
   ShareRequest,
   SharedItemEntry,
   Notification,
+  SharedItemNotification,
+  EventReminderNotification,
 } from "./schemas";
 
 const projectsStore = new JsonStore<Project>("projects");
@@ -1266,7 +1268,7 @@ async function writeNotificationsFile(username: string, data: NotificationFile):
   await fileService.writeJson(`users/${username}/_notifications.json`, data);
 }
 
-function notificationTypeFor(itemType: ItemType): Notification["type"] {
+function notificationTypeFor(itemType: ItemType): SharedItemNotification["type"] {
   if (itemType === "task") return "task_shared";
   if (itemType === "method") return "method_shared";
   return "project_shared";
@@ -1560,6 +1562,32 @@ export const sharingApi = {
       await writeNotificationsFile(currentUser, file);
     }
     return { status: "ok", dismissed_count: count };
+  },
+
+  /**
+   * Append a calendar event reminder to the user's notifications file. Used
+   * by the ReminderRunner when a scheduled timeout fires. Returns the new
+   * notification so callers can also surface an OS-level Notification API
+   * popup if the user has granted permission.
+   */
+  createEventReminder: async (
+    input: Omit<EventReminderNotification, "id" | "type" | "created_at" | "read">
+  ): Promise<EventReminderNotification> => {
+    const currentUser = await getCurrentUserCached();
+    const file = await readNotificationsFile(currentUser);
+    const notification: EventReminderNotification = {
+      ...input,
+      id:
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      type: "event_reminder",
+      created_at: new Date().toISOString(),
+      read: false,
+    };
+    file.notifications.push(notification);
+    await writeNotificationsFile(currentUser, file);
+    return notification;
   },
 };
 

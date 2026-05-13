@@ -7,6 +7,7 @@ import CalendarSidebar from "./CalendarSidebar";
 import TelegramStatusBadge from "./TelegramStatusBadge";
 import InboxBadge from "./InboxBadge";
 import InboxToast from "./InboxToast";
+import ReminderRunner from "./ReminderRunner";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home" },
@@ -65,6 +66,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <InboxToast />
+      <ReminderRunner />
     </div>
   );
 }

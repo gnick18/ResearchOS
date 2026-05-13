@@ -9,12 +9,18 @@ export default function NotificationBadge() {
   const [showPopup, setShowPopup] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Load unread count on mount and periodically
+  // Load unread count on mount and periodically. Also listen for
+  // "ros-notifications-changed" custom events so reminders fired locally
+  // bump the badge instantly without waiting for the 30s poll.
   useEffect(() => {
     loadUnreadCount();
-    // Poll every 30 seconds for new notifications
     const interval = setInterval(loadUnreadCount, 30000);
-    return () => clearInterval(interval);
+    const onChange = () => loadUnreadCount();
+    window.addEventListener("ros-notifications-changed", onChange);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("ros-notifications-changed", onChange);
+    };
   }, []);
 
   const loadUnreadCount = async () => {
