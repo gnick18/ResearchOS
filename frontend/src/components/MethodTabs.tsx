@@ -46,7 +46,10 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
   const handleTabDragOver = useCallback((e: React.DragEvent) => {
     if (!Array.from(e.dataTransfer.types).includes("Files")) return;
     e.preventDefault();
-    e.dataTransfer.dropEffect = "none";
+    // Use "copy" (not "none") so Chrome actually fires the drop event —
+    // dropEffect "none" cancels the drop and gives the user a silent
+    // "bounces back, nothing happens" with no toast.
+    e.dataTransfer.dropEffect = "copy";
   }, []);
   const handleTabDrop = useCallback((e: React.DragEvent) => {
     if (!Array.from(e.dataTransfer.types).includes("Files")) return;
