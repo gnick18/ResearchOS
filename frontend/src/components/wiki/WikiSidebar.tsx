@@ -36,7 +36,7 @@ export default function WikiSidebar() {
         id="wiki-sidebar-nav"
         className={`
           ${mobileOpen ? "block" : "hidden"} lg:block
-          lg:sticky lg:top-0 lg:h-screen lg:w-64 lg:flex-shrink-0
+          lg:sticky lg:top-[44px] lg:h-[calc(100vh-44px)] lg:w-64 lg:flex-shrink-0
           bg-white border-r border-gray-200 overflow-y-auto
         `}
       >
@@ -62,14 +62,6 @@ export default function WikiSidebar() {
           ))}
         </nav>
 
-        <div className="px-5 py-4 border-t border-gray-100">
-          <Link
-            href="/"
-            className="text-xs text-gray-500 hover:text-gray-900 hover:underline"
-          >
-            ← Back to ResearchOS
-          </Link>
-        </div>
       </aside>
     </>
   );
