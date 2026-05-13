@@ -211,8 +211,6 @@ export const tasksApi = {
       sort_order: data.sort_order ?? 0,
       experiment_color: data.experiment_color ?? null,
       sub_tasks: data.sub_tasks ?? null,
-      pcr_gradient: data.pcr_gradient ?? null,
-      pcr_ingredients: data.pcr_ingredients ?? null,
       method_attachments: (data.method_attachments ?? []).map((a) => ({
         method_id: a.method_id,
         pcr_gradient: a.pcr_gradient ?? null,
@@ -294,8 +292,6 @@ export const tasksApi = {
     }
 
     return updateTaskForCaller(id, {
-      pcr_gradient: null,
-      pcr_ingredients: null,
       method_attachments: task.method_attachments?.map((a) => ({
         ...a,
         pcr_gradient: null,

@@ -128,10 +128,7 @@ export interface Task {
   sort_order: number;
   experiment_color: string | null;
   sub_tasks: SubTask[] | null;
-  // PCR method copy fields - stored as JSON strings (deprecated, use method_attachments)
-  pcr_gradient: string | null;  // JSON string of PCRGradient
-  pcr_ingredients: string | null;  // JSON string of PCRIngredient[]
-  // New: method attachments with individual PCR data
+  // Per-method PCR data lives on each TaskMethodAttachment below.
   method_attachments: TaskMethodAttachment[];
   // Sharing fields
   owner: string;
@@ -166,8 +163,6 @@ export interface TaskCreate {
   sort_order?: number;
   experiment_color?: string | null;
   sub_tasks?: SubTask[];
-  pcr_gradient?: string | null;
-  pcr_ingredients?: string | null;
   method_attachments?: TaskMethodAttachment[];
 }
 
@@ -187,8 +182,6 @@ export interface TaskUpdate {
   sort_order?: number;
   experiment_color?: string | null;
   sub_tasks?: SubTask[];
-  pcr_gradient?: string | null;
-  pcr_ingredients?: string | null;
   method_attachments?: TaskMethodAttachment[];
 }
 
