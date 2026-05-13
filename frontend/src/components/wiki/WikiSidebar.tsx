@@ -104,7 +104,7 @@ function SidebarNode({
       >
         {node.label}
       </Link>
-      {node.children && (depth === 0 || hasActiveDescendant) ? (
+      {node.children && (depth === 0 || isActive || hasActiveDescendant) ? (
         <div className="ml-2 mt-0.5 border-l border-gray-100">
           {node.children.map((child) => (
             <SidebarNode
