@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: "Help and documentation for ResearchOS.",
 };
 
-/** Wiki uses its own shell — no AppShell, no DailyTasksSidebar, no
+/** Wiki uses its own shell. No AppShell, no DailyTasksSidebar, no
  *  FileSystem auth gate. This lets brand-new visitors read the setup
  *  guide before they ever pick a folder. */
 export default function WikiLayout({ children }: { children: ReactNode }) {

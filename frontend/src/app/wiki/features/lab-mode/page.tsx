@@ -21,26 +21,26 @@ export default function LabModeFeaturePage() {
         </li>
         <li>
           Or, on the user-picker, sign in as the special user{" "}
-          <code>lab</code> — that user auto-redirects to Lab Mode.
+          <code>lab</code>. That user auto-redirects to Lab Mode.
         </li>
       </ul>
 
       <h2>The tabs inside Lab Mode</h2>
       <ul>
         <li>
-          <strong>Activity</strong> — a chronological feed of every change
-          (new task, completed experiment, edited method) with the
+          <strong>Activity</strong> is a chronological feed of every change
+          (e.g., new task, completed experiment, edited method) with the
           contributor&apos;s name and timestamp.
         </li>
         <li>
-          <strong>Gantt</strong> — one combined timeline with every
+          <strong>Gantt</strong> is one combined timeline with every
           user&apos;s bars overlaid. Bars are tinted by user color, not
           project color.
         </li>
         <li>
           <strong>Experiments</strong>, <strong>Methods</strong>,{" "}
-          <strong>Purchases</strong>, <strong>Roadmaps</strong>,{" "}
-          <strong>Notes</strong> — flat lists across all users, each row
+          <strong>Purchases</strong>, <strong>Roadmaps</strong>, and{" "}
+          <strong>Notes</strong> are flat lists across all users, with each row
           attributed to its owner.
         </li>
       </ul>
@@ -48,7 +48,7 @@ export default function LabModeFeaturePage() {
       <h2>Filtering by user</h2>
       <p>
         Click the user-filter button to toggle which users are included. Hide
-        teammates you don&apos;t need to see; the filter persists per browser.
+        teammates you don&apos;t need to see. The filter persists per browser.
       </p>
 
       <Callout variant="tip" title="Shared lab account setup first">

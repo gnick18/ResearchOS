@@ -10,11 +10,11 @@ export default function OneDrivePage() {
       <h2>Get OneDrive</h2>
       <ul>
         <li>
-          <strong>Windows 10/11</strong> — pre-installed. Sign in via Settings →
+          <strong>Windows 10/11</strong>: pre-installed. Sign in via Settings →
           Accounts.
         </li>
         <li>
-          <strong>macOS</strong> — download from{" "}
+          <strong>macOS</strong>: download from{" "}
           <a
             href="https://www.microsoft.com/microsoft-365/onedrive/download"
             target="_blank"
@@ -29,8 +29,8 @@ export default function OneDrivePage() {
       <h2>Share the lab folder</h2>
       <Steps>
         <Step>
-          One member creates an empty folder inside their OneDrive — e.g.{" "}
-          <code>LabName-ResearchOS</code>.
+          One member creates an empty folder inside their OneDrive (e.g.,{" "}
+          <code>LabName-ResearchOS</code>).
         </Step>
         <Step>
           Right-click the folder → <strong>OneDrive</strong> →{" "}
@@ -39,8 +39,8 @@ export default function OneDrivePage() {
         </Step>
         <Step>
           Each invited member accepts the share. On Windows the folder appears
-          under <code>This PC → OneDrive → Shared</code>; on macOS it appears
-          in Finder under your OneDrive folder.
+          under <code>This PC → OneDrive → Shared</code>. On macOS it appears in
+          Finder under your OneDrive folder.
         </Step>
       </Steps>
 
@@ -66,21 +66,21 @@ export default function OneDrivePage() {
       </Steps>
 
       <Callout variant="warning" title="OneDrive Personal vs. Business / SharePoint">
-        Shared folders sometimes show up as <em>SharePoint</em> libraries or as
+        Shared folders sometimes show up as <em>SharePoint</em> libraries or in
         a separate &quot;Shared with me&quot; section. Microsoft&apos;s{" "}
         <strong>Add shortcut to My files</strong> button is the cleanest way to
-        get the shared folder into your normal OneDrive tree where{" "}
+        get the shared folder into your normal OneDrive tree, where{" "}
         <strong>Always keep on this device</strong> works reliably.
       </Callout>
 
       <h2>Common pitfalls</h2>
       <ul>
         <li>
-          <strong>Storage Sense</strong> on Windows can automatically un-pin
-          files you haven&apos;t opened recently. Open Settings → System →
-          Storage → Storage Sense and disable the &quot;content not opened in
-          N days&quot; option for the ResearchOS folder, or turn Storage Sense
-          off entirely.
+          <strong>Storage Sense</strong> on Windows can auto-unpin files you
+          haven&apos;t opened recently (i.e., move them back to cloud-only).
+          Open Settings → System → Storage → Storage Sense and either disable
+          the &quot;content not opened in N days&quot; option for the
+          ResearchOS folder, or turn Storage Sense off entirely.
         </li>
         <li>
           <strong>Cloud-only re-tag</strong> happens if you right-click and
@@ -91,7 +91,7 @@ export default function OneDrivePage() {
         <li>
           <strong>Mac users</strong>: confirm the option says &quot;Always keep
           on this device&quot; (Files On-Demand). The older OneDrive Mac client
-          stored files locally by default — newer versions don&apos;t.
+          stored files locally by default, but newer versions don&apos;t.
         </li>
       </ul>
 
@@ -103,7 +103,7 @@ export default function OneDrivePage() {
             target="_blank"
             rel="noopener noreferrer"
           >
-            OneDrive Files On-Demand — Microsoft Support
+            OneDrive Files On-Demand (Microsoft Support)
           </a>
         </li>
         <li>
@@ -112,7 +112,7 @@ export default function OneDrivePage() {
             target="_blank"
             rel="noopener noreferrer"
           >
-            Share OneDrive files and folders — Microsoft Support
+            Share OneDrive files and folders (Microsoft Support)
           </a>
         </li>
       </ul>

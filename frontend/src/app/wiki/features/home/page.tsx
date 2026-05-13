@@ -24,8 +24,8 @@ export default function HomeFeaturePage() {
         </Step>
         <Step>
           Toggle <strong>Weekend active</strong> on if work on this project
-          spills into weekends — the Gantt chart respects this when shifting
-          dates.
+          spills into weekends. The Gantt chart respects this setting when
+          shifting dates.
         </Step>
         <Step>
           Click <strong>Create</strong>. The project appears in the active grid.
@@ -44,7 +44,7 @@ export default function HomeFeaturePage() {
         </li>
         <li>
           Archived projects move to the <strong>Archived</strong> section below
-          the active grid. They keep all their tasks; nothing is deleted.
+          the active grid. They keep all their tasks, so nothing is deleted.
         </li>
       </ul>
 

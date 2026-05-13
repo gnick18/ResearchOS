@@ -7,7 +7,7 @@ import { Steps, Step } from "@/components/wiki/Steps";
 export default function ConnectingYourFolderPage() {
   return (
     <WikiPage
-      intro="Pick a folder on your disk. ResearchOS will read and write JSON files inside it — no cloud, no upload."
+      intro="Pick a folder on your disk. ResearchOS will read and write JSON files inside it (no cloud, no upload)."
     >
       <Screenshot
         src="/wiki/screenshots/folder-connect.png"
@@ -31,8 +31,8 @@ export default function ConnectingYourFolderPage() {
           <strong>Allow on every visit</strong> so you don&apos;t get reprompted.
         </Step>
         <Step>
-          ResearchOS initializes the folder structure (<code>users/</code>,{" "}
-          <code>shared/</code>, etc.) and shows the user-picker screen.
+          ResearchOS initializes the folder structure (e.g., <code>users/</code>,{" "}
+          <code>shared/</code>) and shows the user-picker screen.
         </Step>
       </Steps>
 
@@ -69,14 +69,14 @@ export default function ConnectingYourFolderPage() {
         After your first connect, ResearchOS remembers the folder via the
         browser&apos;s storage. On the next visit, it tries to reconnect
         silently. If the browser has forgotten the permission, you&apos;ll see a
-        small <strong>Allow</strong> dialog — much faster than picking the folder
-        again.
+        small <strong>Allow</strong> dialog. This is much faster than picking
+        the folder again.
       </p>
 
       <Callout variant="warning" title="Clearing site data disconnects you">
-        If you clear the site&apos;s data (browser settings → clear data), the
-        folder handle is wiped. Your data on disk is untouched — you just have
-        to pick the folder again next time you open ResearchOS.
+        If you clear the site&apos;s data (e.g., browser settings → clear data),
+        the folder handle is wiped. Your data on disk is untouched. You just
+        have to pick the folder again next time you open ResearchOS.
       </Callout>
 
       <h2>Setting up a shared lab folder</h2>

@@ -16,10 +16,10 @@ export default function CalendarFeedsIntegrationPage() {
 
       <h2>What it does</h2>
       <p>
-        ResearchOS subscribes to <strong>ICS feed URLs</strong> — the same
-        public URLs that Apple Calendar, Outlook, and Thunderbird use. Events
-        from those feeds show up faded on the Calendar page so you can plan
-        around them. They cannot be edited from ResearchOS.
+        ResearchOS subscribes to <strong>ICS feed URLs</strong>, which are the
+        same public URLs that Apple Calendar, Outlook, and Thunderbird use.
+        Events from those feeds show up faded on the Calendar page so you can
+        plan around them. They cannot be edited from ResearchOS.
       </p>
 
       <h2>Add a feed</h2>
@@ -73,7 +73,7 @@ export default function CalendarFeedsIntegrationPage() {
         <li>
           Tick <strong>Public Calendar</strong> and copy the{" "}
           <code>webcal://</code> URL. Paste it into ResearchOS as{" "}
-          <code>https://</code> — both work.
+          <code>https://</code> (both work).
         </li>
       </ol>
 
@@ -94,7 +94,7 @@ export default function CalendarFeedsIntegrationPage() {
       <Callout variant="info" title="Feeds refresh in the background">
         ResearchOS re-fetches each feed every few minutes while the app is
         open. If an event you just added in Google doesn&apos;t show up
-        immediately, give it a minute, or reload the page.
+        immediately, give it a minute or reload the page.
       </Callout>
     </WikiPage>
   );

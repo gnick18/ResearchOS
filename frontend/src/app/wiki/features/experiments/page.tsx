@@ -29,7 +29,7 @@ export default function ExperimentsFeaturePage() {
         </Step>
         <Step>
           Drag images into the editor (or use the paperclip button) to attach
-          them. They appear in the strip below the notes and inline at the
+          them. They appear in the strip below the notes, and inline at the
           drop point if you drop them inside the text.
         </Step>
       </Steps>
@@ -46,14 +46,14 @@ export default function ExperimentsFeaturePage() {
       <h2>Sub-tasks and deviation logs</h2>
       <ul>
         <li>
-          <strong>Sub-tasks</strong> — small checklist items inside the
-          experiment. Tick them off as you go; counts roll up to the parent
+          <strong>Sub-tasks</strong> are small checklist items inside the
+          experiment. Tick them off as you go, and counts roll up to the parent
           task.
         </li>
         <li>
-          <strong>Deviation log</strong> — a freeform list of &quot;I had to
-          change X mid-run.&quot; Each entry is timestamped. Use it when
-          something went wrong and you don&apos;t want to lose the record.
+          <strong>Deviation log</strong> is a freeform list of &quot;I had to
+          change X mid-run&quot; entries. Each entry is timestamped. Use it
+          when something went wrong and you don&apos;t want to lose the record.
         </li>
       </ul>
 
@@ -61,8 +61,8 @@ export default function ExperimentsFeaturePage() {
       <p>
         Click the <strong>Export</strong> menu in the experiment editor and
         choose <strong>PDF</strong>. The output bundles notes, image strip,
-        attached method, and PCR protocol into a single printable document —
-        useful for thesis chapters and IRB filings.
+        attached method, and PCR protocol into a single printable document.
+        Useful for thesis chapters and IRB filings.
       </p>
 
       <Callout variant="tip" title="Where results go">

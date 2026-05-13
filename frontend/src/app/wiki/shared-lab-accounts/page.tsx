@@ -13,40 +13,39 @@ export default function SharedLabAccountsPage() {
     >
       <h2>How it works</h2>
       <p>
-        The trick is simple: put your ResearchOS folder inside a cloud-synced
-        folder (OneDrive, Google Drive, Dropbox, or iCloud). Every lab member
-        points ResearchOS at that <strong>same</strong> folder on their own
-        computer. Inside the folder, each member picks a different username, so
-        their data lives at <code>users/sarah/</code>, <code>users/grant/</code>,
-        and so on.
+        Put your ResearchOS folder inside a cloud-synced folder (e.g., OneDrive,
+        Google Drive, Dropbox, or iCloud). Every lab member points ResearchOS at
+        that <strong>same</strong> folder on their own computer. Inside the
+        folder, each member picks a different username, so their data lives at{" "}
+        <code>users/sarah/</code>, <code>users/grant/</code>, and so on.
       </p>
       <p>
-        The cloud provider takes care of syncing files between machines.
-        ResearchOS has no idea any of this is happening — it just reads and
-        writes JSON files like normal.
+        The cloud provider handles syncing files between machines. ResearchOS
+        has no idea any of this is happening, it just reads and writes JSON
+        files like normal.
       </p>
 
       <Callout variant="danger" title="The one rule: keep the folder available offline">
-        ResearchOS needs to <strong>read and write the folder directly on
-        disk</strong>. If your cloud provider keeps the folder &quot;online
-        only&quot; (a placeholder file that downloads on demand), writes will
-        fail or be silently dropped. <strong>Every</strong> member needs to flip
-        the &quot;always keep local&quot; switch for the lab folder on{" "}
-        <strong>every</strong> laptop they use ResearchOS from.
+        ResearchOS NEEDS to read and write the folder directly on disk. If your
+        cloud provider keeps the folder &quot;online only&quot; (i.e., a
+        placeholder file that downloads on demand), writes will fail or be
+        silently dropped. EVERY member needs to flip the &quot;always keep
+        local&quot; switch for the lab folder on EVERY laptop they use
+        ResearchOS from.
       </Callout>
 
       <h2>Setup steps (every member runs these once)</h2>
       <Steps>
         <Step>
           Install the cloud provider&apos;s <strong>desktop app</strong> (not
-          just the website). OneDrive on Windows is pre-installed; Drive for
+          just the website). OneDrive on Windows is pre-installed. Drive for
           desktop, Dropbox, and iCloud Drive each ship as a separate download.
         </Step>
         <Step>
           One person creates an empty folder named e.g.{" "}
           <code>LabName-ResearchOS</code> inside the synced area, then shares it
-          with the rest of the lab via the cloud provider&apos;s normal
-          share flow.
+          with the rest of the lab via the cloud provider&apos;s normal share
+          flow.
         </Step>
         <Step>
           Each member accepts the share and confirms the folder is now visible
@@ -89,8 +88,8 @@ export default function SharedLabAccountsPage() {
       </p>
       <ul>
         <li>
-          Files show as fully downloaded — no cloud icon, no &quot;online
-          only&quot; badge, no &quot;available when online&quot; tag.
+          Files show as fully downloaded (i.e., no cloud icon, no &quot;online
+          only&quot; badge, no &quot;available when online&quot; tag).
         </li>
         <li>
           You can open a sample file with the network disconnected.
@@ -124,8 +123,8 @@ export default function SharedLabAccountsPage() {
         </li>
         <li>
           <strong>Don&apos;t edit files outside ResearchOS while the app is
-          open.</strong> The app caches data in memory; external edits won&apos;t
-          be picked up until you reload the page.
+          open.</strong> The app caches data in memory, so external edits
+          won&apos;t be picked up until you reload the page.
         </li>
       </ul>
     </WikiPage>

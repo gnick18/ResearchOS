@@ -6,7 +6,7 @@ export default function LinksFeaturePage() {
   return (
     <WikiPage
       title="Lab Links"
-      intro="A shared bookmark library for the lab — protocol databases, ordering portals, journal access pages."
+      intro="A shared bookmark library for the lab (e.g., protocol databases, ordering portals, journal access pages)."
     >
       <Screenshot
         src="/wiki/screenshots/links.png"

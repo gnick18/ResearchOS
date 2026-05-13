@@ -17,17 +17,17 @@ export default function WikiLandingPage() {
       intro={
         <>
           Everything you need to set up ResearchOS, share a folder with your lab,
-          and use each feature. Most users only need the first two sections —{" "}
-          <strong>Getting Started</strong> and <strong>Shared Lab Accounts</strong> —
+          and use each feature. Most users only need the first two sections,{" "}
+          <strong>Getting Started</strong> and <strong>Shared Lab Accounts</strong>,
           to be productive.
         </>
       }
     >
       <h2>60-second tour</h2>
       <p>
-        ResearchOS is a single-page research-management app. It reads and writes
-        directly to a folder on your computer — there is no server, no account,
-        and no sign-up. Your data lives in plain JSON files you fully own.
+        ResearchOS is a single-page research-management app that reads and writes
+        directly to a folder on your computer. There&apos;s no server, no account,
+        no sign-up. Your data lives in plain JSON files you fully own.
       </p>
       <ol className="my-4 list-decimal pl-6 space-y-2.5 text-gray-800 leading-relaxed marker:text-gray-500 marker:font-semibold">
         <li>
@@ -39,7 +39,7 @@ export default function WikiLandingPage() {
           on your disk. This is your ResearchOS folder.
         </li>
         <li>
-          Pick a username — your data lives under{" "}
+          Pick a username. Your data lives under{" "}
           <code>users/&lt;your-name&gt;/</code> inside that folder. You can set an
           optional password to gate access on a shared machine.
         </li>
@@ -53,9 +53,9 @@ export default function WikiLandingPage() {
         Read{" "}
         <Link href="/wiki/shared-lab-accounts">Shared Lab Accounts</Link> first.
         Putting the ResearchOS folder inside OneDrive, Google Drive, Dropbox, or
-        iCloud lets multiple lab members use the same folder — but you must
-        configure it to <strong>stay downloaded locally</strong>, or ResearchOS
-        won&apos;t be able to read and write reliably.
+        iCloud lets multiple lab members use the same folder, but you have to
+        configure it to <strong>stay downloaded locally</strong>. If you don&apos;t,
+        ResearchOS won&apos;t be able to read and write reliably.
       </Callout>
 
       <h2>Browse by section</h2>

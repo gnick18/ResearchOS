@@ -46,16 +46,17 @@ export default function MethodsFeaturePage() {
       <h2>Variations on attach</h2>
       <p>
         When you attach a method to an experiment, ResearchOS captures a
-        snapshot of the method&apos;s parameters (reagent volumes, temperatures,
-        durations). You can then log <em>variations</em> on the experiment
-        without touching the canonical method. The variation lives on the
-        experiment; the method stays clean for the next run.
+        snapshot of the method&apos;s parameters (e.g., reagent volumes,
+        temperatures, durations). You can then log <em>variations</em> on the
+        experiment without touching the canonical method. The variation lives
+        on the experiment, and the method stays clean for the next run.
       </p>
 
       <Callout variant="tip" title="Search before you write">
         Use the search box at the top of the Methods library to find existing
         protocols before authoring a new one. Many labs end up with five
-        slightly different copies of the same protocol — search prevents this.
+        slightly different copies of the same protocol, and search prevents
+        this.
       </Callout>
     </WikiPage>
   );

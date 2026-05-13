@@ -17,15 +17,15 @@ export default function DropboxPage() {
         >
           dropbox.com/install
         </a>
-        . You need the desktop client running — the web interface alone
+        . You need the desktop client running. The web interface alone
         won&apos;t expose Dropbox as a folder ResearchOS can read.
       </p>
 
       <h2>Share the lab folder</h2>
       <Steps>
         <Step>
-          One member creates an empty folder inside their Dropbox — e.g.{" "}
-          <code>LabName-ResearchOS</code>.
+          One member creates an empty folder inside their Dropbox (e.g.,{" "}
+          <code>LabName-ResearchOS</code>).
         </Step>
         <Step>
           Right-click the folder → <strong>Share</strong>. Add lab members by
@@ -61,28 +61,28 @@ export default function DropboxPage() {
       <Callout variant="warning" title="Smart Sync isn't on every plan">
         Smart Sync is included on Dropbox Plus, Family, Professional, and
         Business plans. On the free Basic plan, all files are local by default,
-        so you can skip the Smart Sync step entirely — but watch your storage
+        so you can skip the Smart Sync step entirely. Just watch your storage
         quota.
       </Callout>
 
       <h2>Common pitfalls</h2>
       <ul>
         <li>
-          <strong>Default to Online-only</strong> — Some Business plans default
+          <strong>Default to Online-only.</strong> Some Business plans default
           new shared folders to <em>Online-only</em>. Check the team admin
           settings if Smart Sync keeps reverting.
         </li>
         <li>
-          <strong>Selective Sync vs. Smart Sync</strong> — Selective Sync hides
-          the folder entirely from your disk; Smart Sync keeps a placeholder.
-          You want Smart Sync set to <em>Local</em>, not Selective Sync
-          excluded.
+          <strong>Selective Sync vs. Smart Sync.</strong> Selective Sync hides
+          the folder entirely from your disk, while Smart Sync keeps a
+          placeholder. You want Smart Sync set to <em>Local</em>, not Selective
+          Sync excluded.
         </li>
         <li>
-          <strong>LAN sync conflicts</strong> — If two members on the same
+          <strong>LAN sync conflicts.</strong> If two members on the same
           network edit the same file in quick succession, Dropbox can produce
           &quot;conflicted copy&quot; files. These appear next to the original.
-          Delete the conflicted copy in Finder / Explorer; ResearchOS only
+          Delete the conflicted copy in Finder / Explorer. ResearchOS only
           reads the canonical name.
         </li>
       </ul>
@@ -95,7 +95,7 @@ export default function DropboxPage() {
             target="_blank"
             rel="noopener noreferrer"
           >
-            How to use Smart Sync — Dropbox Help
+            How to use Smart Sync (Dropbox Help)
           </a>
         </li>
         <li>
@@ -104,7 +104,7 @@ export default function DropboxPage() {
             target="_blank"
             rel="noopener noreferrer"
           >
-            Share files and folders — Dropbox Help
+            Share files and folders (Dropbox Help)
           </a>
         </li>
       </ul>

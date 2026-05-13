@@ -7,7 +7,7 @@ export default function ICloudPage() {
     <WikiPage
       intro="iCloud Drive Optimize Storage offloads unused files. Mark the ResearchOS folder Keep Downloaded so it stays local."
     >
-      <Callout variant="warning" title="macOS only, in practice">
+      <Callout variant="warning" title="macOS only, realistically">
         iCloud Drive technically runs on Windows via the{" "}
         <a
           href="https://support.apple.com/guide/icloud-windows/welcome/icloud"
@@ -24,7 +24,7 @@ export default function ICloudPage() {
       <h2>Enable iCloud Drive</h2>
       <p>
         On macOS, open <strong>System Settings → Apple ID → iCloud →
-        iCloud Drive</strong>. Make sure it&apos;s turned on and that the{" "}
+        iCloud Drive</strong>. Make sure it&apos;s turned on, and that the{" "}
         <strong>Desktop &amp; Documents Folders</strong> sub-option is enabled
         if you plan to put the lab folder under <code>~/Documents</code>.
       </p>
@@ -32,8 +32,8 @@ export default function ICloudPage() {
       <h2>Share the lab folder</h2>
       <Steps>
         <Step>
-          One member creates an empty folder inside their iCloud Drive — e.g.{" "}
-          <code>LabName-ResearchOS</code>.
+          One member creates an empty folder inside their iCloud Drive (e.g.,{" "}
+          <code>LabName-ResearchOS</code>).
         </Step>
         <Step>
           Right-click the folder in Finder → <strong>Share</strong> →{" "}
@@ -71,18 +71,18 @@ export default function ICloudPage() {
         <li>
           <strong>Optimize Mac Storage</strong> (System Settings → Apple ID →
           iCloud) will re-offload files macOS decides you haven&apos;t used
-          recently. <em>Keep Downloaded</em> overrides this per folder — make
+          recently. <em>Keep Downloaded</em> overrides this per folder, so make
           sure it&apos;s set on the lab folder, not just on individual files.
         </li>
         <li>
           <strong>Permissions on shared collaborations</strong> are tracked by
           Apple ID. If someone&apos;s share is revoked, ResearchOS will see
-          empty / unreadable files. Reaccept the share via the email link.
+          empty or unreadable files. Reaccept the share via the email link.
         </li>
         <li>
           <strong>Hidden <code>.icloud</code> placeholder files</strong> appear
           if the file is online-only. If you see <code>.taskname.json.icloud</code>{" "}
-          instead of <code>taskname.json</code>, the file isn&apos;t local — run{" "}
+          instead of <code>taskname.json</code>, the file isn&apos;t local. Run{" "}
           <em>Keep Downloaded</em> again.
         </li>
       </ul>
@@ -95,7 +95,7 @@ export default function ICloudPage() {
             target="_blank"
             rel="noopener noreferrer"
           >
-            Use iCloud Drive on your Mac — Apple Support
+            Use iCloud Drive on your Mac (Apple Support)
           </a>
         </li>
         <li>
@@ -104,7 +104,7 @@ export default function ICloudPage() {
             target="_blank"
             rel="noopener noreferrer"
           >
-            Collaborate on folders with iCloud Drive — Apple Support
+            Collaborate on folders with iCloud Drive (Apple Support)
           </a>
         </li>
       </ul>

@@ -21,13 +21,13 @@ export default function PCRFeaturePage() {
           description.
         </Step>
         <Step>
-          Add steps in the gradient editor — each step has a temperature, a
+          Add steps in the gradient editor. Each step has a temperature, a
           duration, and an optional cycle count. Drag points on the chart to
           adjust visually, or type exact values in the table.
         </Step>
         <Step>
-          Fill in the <strong>Reagents</strong> table: name, stock
-          concentration, volume per reaction, final concentration. Totals
+          Fill in the <strong>Reagents</strong> table (e.g., name, stock
+          concentration, volume per reaction, final concentration). Totals
           recompute as you type.
         </Step>
         <Step>
@@ -45,7 +45,7 @@ export default function PCRFeaturePage() {
       </p>
 
       <Callout variant="tip" title="Variations stay on the experiment">
-        Same model as methods: when a PCR protocol is attached to an
+        Same model as methods. When a PCR protocol is attached to an
         experiment, you can override volumes or cycle counts for that run
         without modifying the shared protocol.
       </Callout>

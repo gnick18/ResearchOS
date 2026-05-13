@@ -27,7 +27,7 @@ export default function PurchasesFeaturePage() {
         </Step>
         <Step>
           The item lands in the <strong>Unpurchased</strong> column. When the
-          order goes in, mark it <strong>Purchased</strong> — it moves to the
+          order goes in, mark it <strong>Purchased</strong>. It moves to the
           right column and counts against the funding account&apos;s spend.
         </Step>
       </Steps>
@@ -35,9 +35,9 @@ export default function PurchasesFeaturePage() {
       <h2>Funding accounts</h2>
       <p>
         Click <strong>Manage Funding Accounts</strong> to add a new account
-        (grant name, code, total budget). The list is shared with everyone in
-        the lab folder. The Purchases page shows running totals per account so
-        you can see at a glance how much budget remains.
+        (e.g., grant name, code, total budget). The list is shared with
+        everyone in the lab folder. The Purchases page shows running totals
+        per account so you can see at a glance how much budget remains.
       </p>
 
       <Callout variant="tip" title="Quick filter">

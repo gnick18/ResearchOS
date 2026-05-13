@@ -7,7 +7,7 @@ export default function NotificationsFeaturePage() {
   return (
     <WikiPage
       title="Notifications & Inbox"
-      intro="The bell, the inbox tray, and event reminders in one place — all in the top-right of the header."
+      intro="The bell, the inbox tray, and event reminders in one place. All in the top-right of the header."
     >
       <Screenshot
         src="/wiki/screenshots/notifications.png"
@@ -39,9 +39,9 @@ export default function NotificationsFeaturePage() {
 
       <h2>Event reminders</h2>
       <p>
-        On the Calendar, set a reminder on any event (the bell button on the
-        event popover). When the reminder time arrives and ResearchOS is open
-        in a tab, a desktop notification fires. Browser notification
+        On the Calendar, set a reminder on any event (i.e., the bell button on
+        the event popover). When the reminder time arrives and ResearchOS is
+        open in a tab, a desktop notification fires. Browser notification
         permissions must be granted for this to work.
       </p>
 

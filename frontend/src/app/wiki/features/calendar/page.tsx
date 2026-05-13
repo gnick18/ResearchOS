@@ -17,13 +17,13 @@ export default function CalendarFeaturePage() {
       <h2>Switch views</h2>
       <ul>
         <li>
-          <strong>Month</strong> — a grid of days with task blocks per day.
+          <strong>Month</strong> is a grid of days with task blocks per day.
         </li>
         <li>
-          <strong>Week</strong> — a 7-day stack with hourly slots.
+          <strong>Week</strong> is a 7-day stack with hourly slots.
         </li>
         <li>
-          <strong>Day</strong> — focus mode for one day at a time. Useful
+          <strong>Day</strong> is focus mode for one day at a time. Useful
           first thing in the morning.
         </li>
       </ul>

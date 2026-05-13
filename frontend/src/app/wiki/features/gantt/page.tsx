@@ -6,7 +6,7 @@ import { Steps, Step } from "@/components/wiki/Steps";
 export default function GanttFeaturePage() {
   return (
     <WikiPage
-      intro="A timeline of every task across every project. Drag to reschedule; downstream dependencies cascade automatically."
+      intro="A timeline of every task across every project. Drag to reschedule, and downstream dependencies cascade automatically."
     >
       <Screenshot
         src="/wiki/screenshots/gantt-overview.png"
@@ -24,8 +24,8 @@ export default function GanttFeaturePage() {
           same amount. You&apos;ll see a brief flash on the affected bars.
         </Step>
         <Step>
-          To undo, drag back to the original position — there&apos;s no global
-          undo, but dependency math is reversible.
+          To undo, drag back to the original position. There&apos;s no global
+          undo, but the dependency math is reversible.
         </Step>
       </Steps>
 
@@ -41,16 +41,16 @@ export default function GanttFeaturePage() {
           your current set.
         </li>
         <li>
-          <strong>Weekdays only</strong> hides Saturday and Sunday columns —
-          useful unless you have weekend-active projects.
+          <strong>Weekdays only</strong> hides Saturday and Sunday columns.
+          Useful unless you have weekend-active projects.
         </li>
       </ul>
 
       <Callout variant="tip" title="Dependencies and weekend rules">
         Drag-shift respects each project&apos;s &quot;weekend active&quot;
         setting. If the parent project skips weekends, dropping a dependent
-        task on a Saturday lands it on the next Monday. Toggle weekend-active
-        from the project detail popup on the Home page.
+        task on a Saturday lands it on the next Monday. You can toggle
+        weekend-active from the project detail popup on the Home page.
       </Callout>
 
       <h2>Open a task</h2>
