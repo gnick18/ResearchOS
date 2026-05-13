@@ -1,5 +1,5 @@
 import { fileService } from "../file-system/file-service";
-import { setUserMetadataField } from "../file-system/user-metadata";
+import { setUserMetadataField, getUserMetadata } from "../file-system/user-metadata";
 import type { ViewMode } from "../types";
 import type { AnimationType } from "../store";
 import { ALL_TAB_HREFS, HOME_HREF, isValidTabHref } from "../nav";
@@ -112,7 +112,30 @@ function normalize(raw: Partial<UserSettings> | null | undefined): UserSettings 
 export async function readUserSettings(username: string): Promise<UserSettings> {
   if (!fileService.isConnected()) return { ...DEFAULT_SETTINGS };
   const raw = await fileService.readJson<Partial<UserSettings>>(settingsPath(username));
-  return normalize(raw);
+
+  // Seed `color` and `hideGoalsFromLab` from `_user_metadata.json` when
+  // they aren't in settings.json yet. Without this, the legacy-migration
+  // path (which calls patchUserSettings → writeUserSettings → mirror) would
+  // overwrite an existing user's metadata color with DEFAULT_SETTINGS.color
+  // the first time they're switched to on a browser that previously held a
+  // different user's settings. See the user-switch regression where a
+  // user's red color flipped to blue on first login.
+  const needsColorFallback = !raw || raw.color === undefined;
+  const needsHideFallback = !raw || raw.hideGoalsFromLab === undefined;
+  let metaSeed: Partial<UserSettings> = {};
+  if (needsColorFallback || needsHideFallback) {
+    const meta = await getUserMetadata(username);
+    if (meta) {
+      metaSeed = {
+        ...(needsColorFallback && meta.color ? { color: meta.color } : {}),
+        ...(needsHideFallback
+          ? { hideGoalsFromLab: meta.hide_goals_from_lab ?? false }
+          : {}),
+      };
+    }
+  }
+
+  return normalize({ ...metaSeed, ...(raw ?? {}) });
 }
 
 export async function userSettingsFileExists(username: string): Promise<boolean> {

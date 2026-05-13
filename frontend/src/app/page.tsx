@@ -14,6 +14,7 @@ import BetaDonationButton from "@/components/BetaDonationButton";
 import BugReportModal from "@/components/BugReportModal";
 import DevTestNotificationButton from "@/components/DevTestNotificationButton";
 import Tooltip from "@/components/Tooltip";
+import UserAvatar from "@/components/UserAvatar";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useAppStore } from "@/lib/store";
@@ -621,11 +622,13 @@ export default function HomePage() {
       >
       <button
         onClick={() => setShowUserSwitch(true)}
-        className="fixed bottom-6 right-20 w-12 h-12 bg-white border border-gray-200 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center text-gray-600 hover:text-gray-900 z-50"
+        className="fixed bottom-6 right-20 w-12 h-12 bg-white border border-gray-200 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center z-50"
       >
-        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-semibold">
-          {currentUser ? currentUser.charAt(0).toUpperCase() : "?"}
-        </div>
+        {currentUser ? (
+          <UserAvatar username={currentUser} size="sm" />
+        ) : (
+          <span className="text-gray-500 text-sm font-semibold">?</span>
+        )}
       </button>
       </Tooltip>
 
