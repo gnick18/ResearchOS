@@ -11,12 +11,17 @@ import NotificationBadge from "./NotificationBadge";
 import ReminderRunner from "./ReminderRunner";
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { useAppStore } from "@/lib/store";
+import { useFileSystem } from "@/lib/file-system/file-system-context";
+import { useUserColor } from "@/hooks/useUserColor";
+import { avatarGradient, hexToRgba } from "@/lib/colors";
 
 const SETTINGS_HREF = "/settings";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const visibleTabs = useAppStore((s) => s.visibleTabs);
+  const { currentUser } = useFileSystem();
+  const baseColor = useUserColor(currentUser ?? "");
 
   // Home is always shown so the user has a guaranteed safe landing tab even
   // if they hide everything else (or if Settings was wiped). Settings itself
@@ -25,10 +30,26 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     (item) => item.href === HOME_HREF || visibleTabs.includes(item.href),
   );
 
+  // Tint the header with the user's avatar gradient at low alpha (over the
+  // white base), and replace the gray bottom border with a saturated
+  // gradient stripe. Skipped pre-login so the setup/login screens stay
+  // neutral.
+  const [gradStop1, gradStop2] = avatarGradient(baseColor);
+  const hasUser = !!currentUser;
+  const headerTint = hasUser
+    ? `linear-gradient(to right, ${hexToRgba(gradStop1, 0.14)}, ${hexToRgba(gradStop2, 0.14)})`
+    : undefined;
+  const headerAccent = `linear-gradient(to right, ${gradStop1}, ${gradStop2})`;
+
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       {/* Header */}
-      <header className="border-b border-gray-200 bg-white px-6 py-3 flex items-center gap-6">
+      <header
+        className={`bg-white px-6 py-3 flex items-center gap-6 relative ${
+          hasUser ? "" : "border-b border-gray-200"
+        }`}
+        style={headerTint ? { backgroundImage: headerTint } : undefined}
+      >
         <h1 className="text-lg font-bold text-gray-900 tracking-tight">
           ResearchOS
         </h1>
@@ -82,6 +103,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </svg>
           </Link>
         </div>
+
+        {hasUser && (
+          <div
+            aria-hidden
+            className="absolute bottom-0 left-0 right-0 h-[2px] pointer-events-none"
+            style={{ background: headerAccent }}
+          />
+        )}
       </header>
 
       {/* Main content with route-specific sidebar */}
