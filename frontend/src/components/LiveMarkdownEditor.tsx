@@ -14,6 +14,7 @@ import { rewriteImageBySrcAlt, parseWidthPercent } from "@/lib/image-resize-util
 import ImageStrip from "./ImageStrip";
 import FileStrip, { FILE_STRIP_DRAG_MIME } from "./FileStrip";
 import ImageTrashDropZone from "./ImageTrashDropZone";
+import FileTrashDropZone from "./FileTrashDropZone";
 import { caretOffsetFromPoint } from "@/lib/utils/textarea-caret";
 
 // Transparent 1×1 GIF used as the `src` placeholder while the real blob URL
@@ -2176,6 +2177,7 @@ export default function LiveMarkdownEditor({
         </div>
       )}
       <ImageTrashDropZone value={value} onChange={onChange} basePath={imageBasePath} />
+      <FileTrashDropZone value={value} onChange={onChange} basePath={imageBasePath} />
 
       {/* Language Selector Popup */}
       {showLanguageSelector && (

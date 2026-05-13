@@ -188,7 +188,12 @@ export default function FileStrip({
                   `[${entry.filename}](Files/${entry.filename})`
                 );
                 e.dataTransfer.effectAllowed = "copyMove";
+                fileEvents.emitDragStart({
+                  basePath: basePath ?? "",
+                  filename: entry.filename,
+                });
               }}
+              onDragEnd={() => fileEvents.emitDragEnd()}
               className="group relative flex-shrink-0 w-28 h-16 rounded-md border border-gray-200 bg-white overflow-hidden hover:border-blue-400 hover:ring-2 hover:ring-blue-200 transition-all cursor-grab active:cursor-grabbing flex items-center gap-2 px-2"
               title={tooltip}
             >
