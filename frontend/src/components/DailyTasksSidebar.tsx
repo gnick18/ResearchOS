@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { projectsApi, fetchAllTasks, eventsApi } from "@/lib/local-api";
@@ -15,6 +15,7 @@ import {
 } from "@/components/calendar/utils";
 import TaskDetailPopup from "./TaskDetailPopup";
 import TaskQuickPopup from "./TaskQuickPopup";
+import SidebarContentsPopup from "./SidebarContentsPopup";
 import type { Task, Event, ExternalEvent } from "@/lib/types";
 
 /**
@@ -34,6 +35,9 @@ export default function DailyTasksSidebar() {
   const showTasks = useAppStore((s) => s.sidebarShowTasks);
   const showEvents = useAppStore((s) => s.sidebarShowCalendarEvents);
   const horizonDays = useAppStore((s) => s.sidebarEventsHorizonDays);
+
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const gearRef = useRef<HTMLButtonElement>(null);
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", currentUser],
@@ -140,7 +144,40 @@ export default function DailyTasksSidebar() {
 
   return (
     <>
-      <aside className="w-64 border-r border-gray-200 bg-white overflow-y-auto flex-shrink-0">
+      <aside className="relative w-64 border-r border-gray-200 bg-white overflow-y-auto flex-shrink-0">
+        {/* Floating gear in the top-right of the sidebar. Opens a small
+            popup with the same content toggles available in Settings ->
+            Sidebar, so users can flip them inline without leaving the
+            current page. */}
+        <button
+          ref={gearRef}
+          onClick={() => setSettingsOpen((v) => !v)}
+          title="Sidebar contents"
+          aria-label="Sidebar contents"
+          className="absolute top-2 right-2 z-20 p-1 text-gray-300 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+        </button>
+        {settingsOpen && (
+          <SidebarContentsPopup
+            onClose={() => setSettingsOpen(false)}
+            anchorRef={gearRef}
+          />
+        )}
+
         {!showTasks && !showEvents && (
           <div className="p-6 text-center text-xs text-gray-400">
             <p className="mb-2">Sidebar is empty.</p>
