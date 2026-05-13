@@ -170,12 +170,12 @@ export const WIKI_NAV: WikiNode[] = [
       {
         href: "/wiki/features/search",
         label: "Search",
-        blurb: "Full-text across projects, tasks, methods, notes.",
+        blurb: "Filter-driven task search across your projects.",
       },
       {
         href: "/wiki/features/links",
         label: "Lab Links",
-        blurb: "Shared library of external URLs.",
+        blurb: "Your personal bookmark wall, grouped by category.",
       },
       {
         href: "/wiki/features/results",

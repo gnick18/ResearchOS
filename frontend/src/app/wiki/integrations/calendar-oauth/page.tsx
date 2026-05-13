@@ -9,18 +9,18 @@ export default function CalendarOAuthSetupPage() {
       intro="One-time setup that turns the 'Connect Google Calendar' / 'Connect Outlook' buttons on for every user of your ResearchOS deployment."
     >
       <Callout variant="info" title="Who needs to read this?">
-        Only the person who deploys ResearchOS (i.e. owns the Vercel project,
-        or runs the local dev server). End users get a one-click connect
-        experience once these env vars are set — they never touch any of
-        this.
+        Only the person who deploys ResearchOS (i.e., owns the Vercel project,
+        or runs the local dev server). Labmates get a one-click{" "}
+        <strong>Connect</strong> button in the Linked Calendars modal once
+        these env vars are set — they never touch any of this.
       </Callout>
 
       <h2>What you&apos;re setting up</h2>
       <p>
-        ResearchOS uses real OAuth (PKCE flow) for Google Calendar and
-        Microsoft Outlook so users can read <em>and edit</em> events from
+        ResearchOS uses OAuth with PKCE for Google Calendar and Microsoft
+        Outlook so users can read <em>and edit</em> events from inside
         ResearchOS. That requires a one-time registration with each provider
-        plus a few env vars in your deployment. Apple/iCloud stays
+        plus a few env vars in your deployment. Apple / iCloud stays
         ICS-only — Apple doesn&apos;t expose a write API to third parties.
       </p>
 
@@ -31,7 +31,7 @@ export default function CalendarOAuthSetupPage() {
 
       <Callout variant="warning" title="Skip Google entirely if…">
         …you don&apos;t want to deal with Google&apos;s OAuth-app review. The{" "}
-        <code>calendar.events</code> scope is &ldquo;restricted&rdquo; — an
+        <code>calendar.events</code> scope is &ldquo;restricted&rdquo;: an
         unverified app shows a warning screen on first sign-in and is capped
         at 100 testers. For a closed lab that&apos;s usually fine. If you
         plan to ship publicly to thousands of users, Google requires a paid
@@ -195,13 +195,13 @@ export default function CalendarOAuthSetupPage() {
         </Step>
       </Steps>
 
-      <h2>Where data ends up</h2>
+      <h2>Where the tokens end up</h2>
       <p>
-        OAuth tokens live in the user&apos;s own data folder at{" "}
+        OAuth tokens are written into each user&apos;s own data folder at{" "}
         <code>users/[username]/_calendar-oauth.json</code> — they never sit
-        on a ResearchOS server. The first time the user connects, the file is
-        also added to the data folder&apos;s <code>.gitignore</code> so a
-        refresh token never accidentally lands in a git repo.
+        on a ResearchOS server. The first time a labmate connects, the file
+        path is also appended to the data folder&apos;s <code>.gitignore</code>{" "}
+        so a refresh token can&apos;t accidentally land in a git repo.
       </p>
 
       <h2>Troubleshooting</h2>
