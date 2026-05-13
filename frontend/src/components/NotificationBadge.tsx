@@ -4,7 +4,13 @@ import { useState, useEffect } from "react";
 import { sharingApi } from "@/lib/local-api";
 import NotificationPopup from "./NotificationPopup";
 
-export default function NotificationBadge() {
+interface NotificationBadgeProps {
+  /** When true, render with floating white-pill chrome so the bell sits
+   *  nicely on a colored header. Default keeps the transparent button. */
+  pill?: boolean;
+}
+
+export default function NotificationBadge({ pill = false }: NotificationBadgeProps = {}) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [showPopup, setShowPopup] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -42,7 +48,11 @@ export default function NotificationBadge() {
     <div className="relative">
       <button
         onClick={() => setShowPopup(!showPopup)}
-        className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+        className={`relative transition-colors ${
+          pill
+            ? "p-1.5 bg-white/75 hover:bg-white text-gray-700 hover:text-gray-900 rounded-full shadow-sm"
+            : "p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+        }`}
         title="Notifications"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
