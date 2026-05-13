@@ -164,21 +164,30 @@ export default function NotificationPopup({
   return (
     <div
       ref={popupRef}
-      className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden"
+      className="absolute right-0 top-full mt-2 w-96 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden"
     >
       {/* Header */}
-      <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-        <h3 className="font-semibold text-gray-900">Notifications</h3>
-        {notifications.length > 0 && (
-          <div className="flex items-center gap-3 text-xs">
+      <div className="px-4 pt-3 pb-2 border-b border-gray-200 bg-gray-50">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-gray-900">
+            Notifications
             {unreadCount > 0 && (
-              <button
-                onClick={handleMarkAllRead}
-                className="text-blue-600 hover:text-blue-800 font-medium"
-              >
-                Mark all read
-              </button>
+              <span className="ml-2 text-xs font-normal text-gray-500">
+                ({unreadCount} unread)
+              </span>
             )}
+          </h3>
+          {unreadCount > 0 && (
+            <button
+              onClick={handleMarkAllRead}
+              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+            >
+              Mark all read
+            </button>
+          )}
+        </div>
+        {notifications.length > 0 && (
+          <div className="mt-1.5 flex items-center justify-end gap-3 text-[11px]">
             {notifications.some((n) => n.read) && (
               <button
                 onClick={handleClearRead}
@@ -216,23 +225,36 @@ export default function NotificationPopup({
           <div className="divide-y divide-gray-100">
             {notifications.map((notification) => {
               const isReminder = notification.type === "event_reminder";
+              // Row click only acknowledges the entry — never navigates and
+              // never closes the popup. Navigation lives on an explicit
+              // "Open in calendar" link inside reminder rows.
               const handleClickRow = () => {
-                if (isReminder) {
-                  jumpTo("day", notification.event_date);
-                  router.push("/calendar");
-                  if (!notification.read) {
-                    void handleMarkRead(notification.id);
-                  }
-                  onClose();
+                if (!notification.read) {
+                  void handleMarkRead(notification.id);
                 }
+              };
+              const handleOpenReminder = (e: React.MouseEvent) => {
+                e.stopPropagation();
+                if (!isReminder) return;
+                jumpTo("day", notification.event_date);
+                router.push("/calendar");
+                if (!notification.read) {
+                  void handleMarkRead(notification.id);
+                }
+                onClose();
               };
               return (
                 <div
                   key={notification.id}
                   onClick={handleClickRow}
-                  className={`p-3 hover:bg-gray-50 transition-colors ${
+                  className={`p-3 hover:bg-gray-50 transition-colors cursor-pointer ${
                     !notification.read ? "bg-blue-50" : ""
-                  } ${isReminder ? "cursor-pointer" : ""}`}
+                  }`}
+                  title={
+                    notification.read
+                      ? undefined
+                      : "Click anywhere to mark as read"
+                  }
                 >
                   <div className="flex items-start gap-3">
                     <div
@@ -246,7 +268,15 @@ export default function NotificationPopup({
                     </div>
                     <div className="flex-1 min-w-0">
                       {isReminder ? (
-                        <ReminderBody notification={notification} />
+                        <>
+                          <ReminderBody notification={notification} />
+                          <button
+                            onClick={handleOpenReminder}
+                            className="mt-1.5 text-[11px] text-blue-600 hover:text-blue-800 font-medium"
+                          >
+                            Open in calendar →
+                          </button>
+                        </>
                       ) : (
                         <>
                           <p className="text-sm text-gray-900">
