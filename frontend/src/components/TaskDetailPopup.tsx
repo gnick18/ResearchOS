@@ -52,6 +52,7 @@ import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import PurchaseEditor from "./PurchaseEditor";
 import DynamicAnimation from "./DynamicAnimation";
 import MethodTabs from "./MethodTabs";
+import MethodPicker from "./MethodPicker";
 import SharePopup from "./SharePopup";
 import { useAppStore } from "@/lib/store";
 import { taskKey } from "@/lib/types";
@@ -2606,12 +2607,6 @@ function MethodTab({ task }: { task: Task }) {
   const [originalPcrIngredients, setOriginalPcrIngredients] = useState<PCRIngredient[]>([]);
   const [hasExperimentSpecificPcr, setHasExperimentSpecificPcr] = useState(false);
 
-  // Load all available methods
-  const { data: allMethods = [] } = useQuery({
-    queryKey: ["methods"],
-    queryFn: methodsApi.list,
-  });
-
   const { data: method } = useQuery({
     queryKey: ["method", task.method_id],
     queryFn: () => methodsApi.get(task.method_id!),
@@ -2852,68 +2847,36 @@ function MethodTab({ task }: { task: Task }) {
     }
   }, [forkName, method, methodContent, task.id, queryClient]);
 
-  // No method linked - show method selector
-  if (!task.method_id || showMethodSelector) {
+  // No method linked - show CTA and the picker modal
+  if (!task.method_id) {
     return (
-      <div className="flex flex-col h-full">
-        <div className="flex items-center justify-between px-6 py-3 border-b border-gray-50">
-          <span className="text-sm font-medium text-gray-700">
-            {task.method_id ? "Change Linked Method" : "Link a Method"}
-          </span>
-          {task.method_id && (
-            <button
-              onClick={() => setShowMethodSelector(false)}
-              className="text-xs text-gray-400 hover:text-gray-600"
-            >
-              Cancel
-            </button>
-          )}
-        </div>
-        <div className="flex-1 overflow-y-auto p-6">
-          <p className="text-sm text-gray-500 mb-4">
-            Select a method from the library to link to this experiment:
-          </p>
-          <div className="space-y-2">
-            {allMethods.length === 0 ? (
-              <p className="text-sm text-gray-400">No methods available. Create some in the Methods section first.</p>
-            ) : (
-              allMethods.map((m) => (
-                <button
-                  key={m.id}
-                  onClick={() => handleLinkMethod(m.id)}
-                  disabled={saving}
-                  className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
-                    m.id === task.method_id
-                      ? "border-green-300 bg-green-50"
-                      : "border-gray-200 hover:border-blue-300 hover:bg-blue-50"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-900">{m.name}</span>
-                      {m.method_type === "pcr" && (
-                        <span className="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded">PCR</span>
-                      )}
-                    </div>
-                    {m.id === task.method_id && (
-                      <span className="text-xs text-green-600">✓ Current</span>
-                    )}
-                  </div>
-                  {m.tags && m.tags.length > 0 && (
-                    <div className="flex gap-1 mt-1">
-                      {m.tags.map((tag) => (
-                        <span key={tag} className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">
-                          #{tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </button>
-              ))
-            )}
+      <>
+        <div className="flex flex-col h-full">
+          <div className="flex items-center px-6 py-3 border-b border-gray-50">
+            <span className="text-sm font-medium text-gray-700">Method</span>
+          </div>
+          <div className="flex-1 flex items-center justify-center p-6">
+            <div className="text-center max-w-sm">
+              <p className="text-sm text-gray-500 mb-4">
+                No method linked to this experiment.
+              </p>
+              <button
+                onClick={() => setShowMethodSelector(true)}
+                disabled={saving}
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                + Link a method
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+        <MethodPicker
+          open={showMethodSelector}
+          currentMethodId={task.method_id}
+          onSelect={handleLinkMethod}
+          onClose={() => setShowMethodSelector(false)}
+        />
+      </>
     );
   }
 
@@ -2925,6 +2888,13 @@ function MethodTab({ task }: { task: Task }) {
       (pcrIngredients && originalPcrIngredients && JSON.stringify(pcrIngredients) !== JSON.stringify(originalPcrIngredients));
     
     return (
+      <>
+      <MethodPicker
+        open={showMethodSelector}
+        currentMethodId={task.method_id}
+        onSelect={handleLinkMethod}
+        onClose={() => setShowMethodSelector(false)}
+      />
       <div className="flex flex-col h-full">
         <div className="flex items-center gap-2 px-6 py-3 border-b border-gray-50 bg-gray-50">
           <span className="text-sm font-medium text-gray-700">{pcrProtocol?.name || method?.name || "..."}</span>
@@ -3055,11 +3025,19 @@ function MethodTab({ task }: { task: Task }) {
           )}
         </div>
       </div>
+      </>
     );
   }
 
   // Standard Markdown Method rendering
   return (
+    <>
+    <MethodPicker
+      open={showMethodSelector}
+      currentMethodId={task.method_id}
+      onSelect={handleLinkMethod}
+      onClose={() => setShowMethodSelector(false)}
+    />
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-6 py-3 border-b border-gray-50 bg-gray-50">
         <span className="text-sm font-medium text-gray-700">{method?.name || "..."}</span>
@@ -3208,6 +3186,7 @@ function MethodTab({ task }: { task: Task }) {
         )}
       </div>
     </div>
+    </>
   );
 }
 
