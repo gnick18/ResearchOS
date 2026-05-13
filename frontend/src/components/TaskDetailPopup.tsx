@@ -1920,10 +1920,25 @@ function referencedRelativeNames(markdown: string, subdir: "Images" | "Files"): 
     while ((m = regex.exec(markdown)) !== null) {
       let src = m[1];
       if (src.startsWith("./")) src = src.slice(2);
-      if (src.startsWith(prefix)) {
-        const name = src.slice(prefix.length);
-        if (!name.includes("/")) referenced.add(name);
-      }
+      // Strip query/anchor noise. Markdown image titles after the path are
+      // outside the captured src group already (regex stops at the first
+      // whitespace), so no further trimming needed.
+      const trimmed = src.split("#")[0].split("?")[0];
+      if (!trimmed.includes(`${prefix}`)) continue;
+
+      // Treat both same-folder refs (`Images/foo.png`) and legacy
+      // subfolder refs (`Images/Mar-02-2026.../foo.png`) as protecting the
+      // top-level basename `foo.png` from GC. That's the *only* place
+      // GC can delete from anyway (`listFiles` doesn't recurse), so we
+      // need to avoid sweeping out files whose only references in the
+      // markdown happen to use a stale subdirectory path. Without this,
+      // dragging one image to the trash also wipes out any sibling whose
+      // only refs were subfolder-style.
+      const afterPrefix = trimmed.slice(trimmed.indexOf(prefix) + prefix.length);
+      if (!afterPrefix) continue;
+      const segments = afterPrefix.split("/").filter(Boolean);
+      const basename = segments[segments.length - 1];
+      if (basename) referenced.add(basename);
     }
   };
   collect(new RegExp(IMG_REF_REGEX.source, "g"));
