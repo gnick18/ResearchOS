@@ -8,7 +8,6 @@ import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import ProjectDetailPopup from "@/components/ProjectDetailPopup";
 import UserLoginScreen from "@/components/UserLoginScreen";
-import DevTestNotificationButton from "@/components/DevTestNotificationButton";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useAppStore } from "@/lib/store";
 import type { Project, Task } from "@/lib/types";
@@ -610,9 +609,6 @@ export default function HomePage() {
           </div>
         </div>
       )}
-
-      {/* Dev: Send Test Notification (only in development) */}
-      <DevTestNotificationButton />
     </AppShell>
   );
 }
