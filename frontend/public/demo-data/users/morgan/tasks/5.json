@@ -20,5 +20,7 @@
   "pcr_ingredients": null,
   "method_attachments": [],
   "owner": "morgan",
-  "shared_with": []
+  "shared_with": [
+    "alex"
+  ]
 }

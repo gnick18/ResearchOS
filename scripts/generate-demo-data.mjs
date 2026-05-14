@@ -303,7 +303,7 @@ function buildEntries() {
     {
       projects: 4,
       tasks: 15,
-      methods: 4,
+      methods: 5,
       events: 4,
       goals: 2,
       pcr_protocols: 1,
@@ -335,6 +335,23 @@ function buildEntries() {
       sidebarShowCalendarEvents: true,
       sidebarEventsHorizonDays: 7,
       coloredHeader: false,
+    },
+  ]);
+  // Alex receives one shared task and one shared project from morgan.
+  // This unlocks the receiver-side fixture coverage for shared sharing
+  // surfaces (hide-Share-button on receiver, listByProject threading for
+  // shared projects, fetchAllTasksIncludingShared shared-project path).
+  out.push([
+    "users/alex/_shared_with_me.json",
+    {
+      version: 1,
+      projects: [
+        { id: 1, owner: "morgan", permission: "view", shared_at: "2026-05-12T00:00:00Z" },
+      ],
+      tasks: [
+        { id: 5, owner: "morgan", permission: "view", shared_at: "2026-05-13T00:00:00Z" },
+      ],
+      methods: [],
     },
   ]);
 
@@ -394,6 +411,26 @@ function buildEntries() {
   out.push(["users/alex/methods/3.md", METHOD_MINIPREP_MD]);
   out.push(["users/alex/methods/4.json", methodJson("alex", 4, "[Demo protocol] Heat-shock survival assay", "Screening")]);
   out.push(["users/alex/methods/4.md", METHOD_HEATSHOCK_MD]);
+  // PCR-typed method entry — surfaces the existing pcr_protocols/1.json in
+  // the /methods list. Clicking opens the InteractiveGradientEditor view,
+  // which is the only way to reach that code path in fixture mode.
+  out.push([
+    "users/alex/methods/5.json",
+    {
+      id: 5,
+      name: "[Demo protocol] qPCR fakeGFP expression",
+      source_path: "pcr://protocol/1",
+      method_type: "pcr",
+      folder_path: "qPCR",
+      parent_method_id: null,
+      tags: ["demo", "qPCR"],
+      attachments: [],
+      is_public: false,
+      created_by: "alex",
+      owner: "alex",
+      shared_with: [],
+    },
+  ]);
 
   // alex PCR (private)
   out.push([
@@ -535,7 +572,12 @@ function buildEntries() {
   ]);
 
   out.push(...projects("morgan", [
-    { id: 1, name: "DEMO: 96-well fluorescence screen", color: "#10b981", tags: ["demo", "screening"], sort_order: 0 },
+    // Project 1 is shared with alex (view) so the fixture covers the
+    // shared-project surface area: listByProject threading, hide-Share-button
+    // on receiver-side project popup, and the fetchAllTasksIncludingShared
+    // shared-project path. Counterpart entry lives in
+    // users/alex/_shared_with_me.json above.
+    { id: 1, name: "DEMO: 96-well fluorescence screen", color: "#10b981", tags: ["demo", "screening"], sort_order: 0, shared_with: ["alex"] },
     { id: 2, name: "DEMO: Morgan dissertation milestones", color: "#06b6d4", tags: ["demo", "thesis"], sort_order: 1 },
   ]));
 
@@ -546,7 +588,9 @@ function buildEntries() {
     { id: 3, project_id: 1, name: "qPCR setup — verify GFP transcripts", start_date: "2026-05-16", duration_days: 1, end_date: "2026-05-16", task_type: "experiment", is_complete: false, experiment_color: "#10b981",
       method_attachments: [{ method_id: 2, owner: "morgan", snapshot_at: "2026-05-13T08:00:00Z" }] },
     { id: 4, project_id: 2, name: "Draft Chapter 2 outline", start_date: NEXT_WEEK, duration_days: 3, end_date: "2026-05-22", task_type: "list", is_complete: false },
-    { id: 5, project_id: 2, name: "Send draft figures to alex", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "list", is_complete: false },
+    // Task 5 is shared with alex (view) independently of any shared project,
+    // so the fixture covers the individually-shared task path too.
+    { id: 5, project_id: 2, name: "Send draft figures to alex", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "list", is_complete: false, shared_with: ["alex"] },
   ]));
 
   // morgan methods
@@ -598,7 +642,7 @@ function projects(owner, list) {
       is_archived: false,
       archived_at: null,
       owner,
-      shared_with: [],
+      shared_with: p.shared_with ?? [],
     },
   ]);
 }
@@ -628,7 +672,7 @@ function tasks(owner, list) {
       pcr_ingredients: null,
       method_attachments: t.method_attachments ?? [],
       owner,
-      shared_with: [],
+      shared_with: t.shared_with ?? [],
     },
   ]);
 }
