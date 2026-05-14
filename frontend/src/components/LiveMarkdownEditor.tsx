@@ -23,6 +23,19 @@ import { caretOffsetFromPoint } from "@/lib/utils/textarea-caret";
 const IMAGE_PLACEHOLDER =
   "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
+// Strip CommonMark title and surrounding angle brackets from a raw URL
+// captured between (...). Mirrors the helper in HybridMarkdownEditor — keeps
+// filenames with spaces routable through the blob-URL cache. The previous
+// `[^)\s]+` regex truncated at the first whitespace, so the cache key never
+// matched what react-markdown later passed to the <img> renderer.
+function canonicalizeRefSrc(raw: string): string {
+  let src = raw.trim();
+  const titleMatch = src.match(/^(.+?)\s+["'].*["']\s*$/);
+  if (titleMatch) src = titleMatch[1].trim();
+  if (src.startsWith("<") && src.endsWith(">")) src = src.slice(1, -1);
+  return src;
+}
+
 // Type for the helper panel tab
 type HelperTab = "shortcuts" | "styleguide";
 
@@ -323,11 +336,17 @@ const KEYBOARD_SHORTCUTS: ShortcutConfig[] = [
   },
 ];
 
-// Interface for broken image info
-interface BrokenImageInfo {
+// Interface for a broken inline reference. Covers both ![alt](Images/…) image
+// refs and [text](Files/…) file-link refs. `kind` decides whether we offer
+// the "search for a replacement" flow (images only) or jump straight to the
+// "remove from note" affordance (files — there's no equivalent file-search
+// API and the typical recovery is just to delete the dangling link).
+interface BrokenRefInfo {
   originalSrc: string;
+  /** Alt text for an image, link text for a file. */
   alt: string;
-  element: HTMLImageElement | null;
+  kind: "image" | "file";
+  element: Element | null;
 }
 
 // Interface for image search result
@@ -546,9 +565,12 @@ export default function LiveMarkdownEditor({
   const [codeBlockInsertPosition, setCodeBlockInsertPosition] = useState<number | null>(null);
   const [languageSearch, setLanguageSearch] = useState("");
   const [helperTab, setHelperTab] = useState<HelperTab>("shortcuts");
-  // Broken image detection state - queue-based approach
-  const [brokenImageQueue, setBrokenImageQueue] = useState<BrokenImageInfo[]>([]);
-  const [currentBrokenImage, setCurrentBrokenImage] = useState<BrokenImageInfo | null>(null);
+  // Broken-reference detection state — shared queue between image and file
+  // refs so the popup surfaces them one at a time. `currentBrokenImage.kind`
+  // decides whether to run the image-search flow or jump straight to the
+  // "Remove reference from note" affordance.
+  const [brokenImageQueue, setBrokenImageQueue] = useState<BrokenRefInfo[]>([]);
+  const [currentBrokenImage, setCurrentBrokenImage] = useState<BrokenRefInfo | null>(null);
   const [showBrokenImagePopup, setShowBrokenImagePopup] = useState(false);
   const [imageSearchResults, setImageSearchResults] = useState<ImageSearchResult[]>([]);
   const [isSearchingImage, setIsSearchingImage] = useState(false);
@@ -654,6 +676,9 @@ export default function LiveMarkdownEditor({
     [currentMode, setMode]
   );
   const processedBrokenSrcsRef = useRef<Set<string>>(new Set());
+  // Separate set for file refs so a `Files/foo.pdf` scan never collides with
+  // a same-named image src in the image-only processed set above.
+  const processedBrokenFileSrcsRef = useRef<Set<string>>(new Set());
   // Click-to-resize popover state (preview-mode click on rendered image)
   const [imageResize, setImageResize] = useState<{
     imageSrc: string;
@@ -669,11 +694,16 @@ export default function LiveMarkdownEditor({
   // still mounted (e.g. an aggressive sibling cleanup), switching modes will
   // re-populate freshly from disk so the new render doesn't show dead URLs.
   useEffect(() => {
-    const imageRegex = /!\[([^\]]*)\]\(([^)\s]+)/g;
+    // Capture lazily up to the closing paren so filenames with spaces survive,
+    // then canonicalize so the cache key matches whatever react-markdown
+    // hands the <img> override below. The old `[^)\s]+` form truncated
+    // `Images/Emile ID card-1.jpg` down to `Images/Emile` and the cache
+    // lookup always missed.
+    const imageRegex = /!\[[^\]]*\]\(([^)\n]+?)\)/g;
     const htmlRegex = /<img\s+[^>]*src=["']([^"']+)["']/gi;
     const srcs = new Set<string>();
     let m: RegExpExecArray | null;
-    while ((m = imageRegex.exec(value)) !== null) srcs.add(m[2]);
+    while ((m = imageRegex.exec(value)) !== null) srcs.add(canonicalizeRefSrc(m[1]));
     while ((m = htmlRegex.exec(value)) !== null) srcs.add(m[1]);
 
     let cancelled = false;
@@ -1181,59 +1211,70 @@ export default function LiveMarkdownEditor({
         if (prev.some(img => img.originalSrc === originalSrc)) {
           return prev;
         }
-        return [...prev, { originalSrc, alt, element: null }];
+        return [...prev, { originalSrc, alt, kind: "image", element: null }];
       });
     },
     []
   );
 
   /**
-   * Process the next broken image in the queue
+   * Process the next broken ref in the queue. For images we run a filename
+   * search across the user's data folder so the popup can offer concrete
+   * replacement candidates. For files we skip the search (there's no
+   * equivalent file-search API and the typical recovery is just to delete
+   * the dangling link) and surface the popup with the "Remove reference
+   * from note" button immediately.
    */
   useEffect(() => {
     // If we're currently showing a popup or searching, don't process
     if (showBrokenImagePopup || isSearchingImage) {
       return;
     }
-    
-    // If there are items in the queue and no current image being processed
+
+    // If there are items in the queue and no current ref being processed
     if (brokenImageQueue.length > 0 && !currentBrokenImage) {
-      const nextImage = brokenImageQueue[0];
-      
+      const nextRef = brokenImageQueue[0];
+
       // Extract filename from the src
       let filename = "";
-      
-      if (nextImage.originalSrc.includes("/")) {
-        filename = nextImage.originalSrc.split("/").pop() || "";
+
+      if (nextRef.originalSrc.includes("/")) {
+        filename = nextRef.originalSrc.split("/").pop() || "";
       } else {
-        filename = nextImage.originalSrc;
+        filename = nextRef.originalSrc;
       }
-      
+
       // Remove any query parameters
       filename = filename.split("?")[0];
-      
+
       // Remove timestamp prefixes
       const timestampMatch = filename.match(/^\d+-(.+)$/);
       if (timestampMatch) {
         filename = timestampMatch[1];
       }
-      
+
       if (!filename || !filename.includes(".")) {
         // Not a valid filename, skip and remove from queue
         setBrokenImageQueue(prev => prev.slice(1));
         return;
       }
-      
-      // Set current image and start search
-      setCurrentBrokenImage(nextImage);
-      setIsSearchingImage(true);
+
+      // Set current ref and open popup
+      setCurrentBrokenImage(nextRef);
       setShowBrokenImagePopup(true);
       setImageSearchResults([]);
-      
+
       // Remove from queue
       setBrokenImageQueue(prev => prev.slice(1));
-      
-      // Search for the image
+
+      // Files: skip the filename-search step and let the popup render its
+      // "no matches → Remove reference from note" branch immediately.
+      if (nextRef.kind === "file") {
+        return;
+      }
+
+      // Images: search for a likely replacement.
+      setIsSearchingImage(true);
       attachmentsApi.searchImageByFilename(filename)
         .then(result => {
           setImageSearchResults(result.matches);
@@ -1355,7 +1396,7 @@ export default function LiveMarkdownEditor({
           if (prev.some(img => img.originalSrc === src)) {
             return prev;
           }
-          return [...prev, { originalSrc: src, alt, element: null }];
+          return [...prev, { originalSrc: src, alt, kind: "image", element: null }];
         });
       }
       if (mutated) onChange(nextValue);
@@ -1363,6 +1404,90 @@ export default function LiveMarkdownEditor({
 
     checkImages();
   }, [previewMode, value, disabled, extractImageSources, checkImageExists, imageBasePath, onChange]);
+
+  /**
+   * Extract `[text](Files/…)` and `<a href="Files/…">text</a>` references
+   * from the markdown body. Mirrors `extractImageSources` but for non-image
+   * file links: the negative lookbehind in the markdown regex excludes the
+   * `!` form so an image with the same href isn't pulled into the file pass.
+   */
+  const extractFileSources = useCallback(
+    (content: string): { src: string; alt: string }[] => {
+      const files: { src: string; alt: string }[] = [];
+      const seenSrcs = new Set<string>();
+
+      // Markdown form: `[text](Files/...)` — `(?<!!)` keeps image syntax out.
+      const mdFileRegex = /(?<!!)\[([^\]]*)\]\(([^)\s]+)\)/g;
+      let match: RegExpExecArray | null;
+      while ((match = mdFileRegex.exec(content)) !== null) {
+        const src = match[2];
+        if (!src.startsWith("Files/") && !src.startsWith("./Files/")) continue;
+        if (seenSrcs.has(src)) continue;
+        seenSrcs.add(src);
+        files.push({ alt: match[1], src });
+      }
+
+      // HTML form: `<a href="Files/...">text</a>`.
+      const htmlAnchorRegex = /<a\s+[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+      while ((match = htmlAnchorRegex.exec(content)) !== null) {
+        const src = match[1];
+        if (!src.startsWith("Files/") && !src.startsWith("./Files/")) continue;
+        if (seenSrcs.has(src)) continue;
+        seenSrcs.add(src);
+        // Strip nested markup from the link text — best-effort, just for the
+        // popup display, never written back to the body.
+        const text = match[2].replace(/<[^>]+>/g, "").trim();
+        files.push({ alt: text, src });
+      }
+
+      return files;
+    },
+    [],
+  );
+
+  /**
+   * Check if a file ref points to a path that exists on disk. Falls through
+   * to `true` (treat as not-broken) for non-local paths (http/https/data/etc.)
+   * so the popup doesn't fire on real external links.
+   */
+  const checkFileExists = useCallback(
+    async (src: string): Promise<boolean> => {
+      if (!blobUrlResolver.isLocalPath(src)) return true;
+      const resolvedPath = blobUrlResolver.resolvePath(src, imageBasePath);
+      return await fileService.fileExists(resolvedPath);
+    },
+    [imageBasePath],
+  );
+
+  /**
+   * Scan for broken `[text](Files/…)` refs. Runs in every mode (edit, hybrid,
+   * preview) because the rendered `<a>` has no `onError` equivalent for
+   * 404 hrefs — without the pre-scan there's nothing to trigger the popup
+   * from the render side. Disabled (read-only) editors stay quiet so a
+   * shared note opened by another user doesn't pop a remove-button modal
+   * the viewer can't act on usefully.
+   */
+  useEffect(() => {
+    if (!value.trim() || disabled) return;
+
+    const files = extractFileSources(value);
+    if (files.length === 0) return;
+
+    const checkFiles = async () => {
+      for (const { src, alt } of files) {
+        if (processedBrokenFileSrcsRef.current.has(src)) continue;
+        const exists = await checkFileExists(src);
+        if (exists) continue;
+        processedBrokenFileSrcsRef.current.add(src);
+        setBrokenImageQueue(prev => {
+          if (prev.some(ref => ref.originalSrc === src)) return prev;
+          return [...prev, { originalSrc: src, alt, kind: "file", element: null }];
+        });
+      }
+    };
+
+    checkFiles();
+  }, [value, disabled, extractFileSources, checkFileExists]);
 
   /**
    * Apply the corrected image path to the markdown content.
@@ -1469,23 +1594,44 @@ export default function LiveMarkdownEditor({
   // Strip the broken reference from the markdown entirely. Same regex
   // shapes as applyImageCorrection's match logic — the difference is we
   // replace with an empty string instead of a corrected path.
+  //
+  // Branches on `kind` so file-link refs ([text](Files/foo.pdf) + HTML <a>)
+  // are stripped without the leading `!` that image syntax requires. The
+  // negative lookbehind on the markdown form keeps a sibling image with the
+  // same path from being matched by the file pass.
   const removeBrokenReference = useCallback(() => {
     if (!currentBrokenImage) return;
-    const { originalSrc, alt } = currentBrokenImage;
+    const { originalSrc, alt, kind } = currentBrokenImage;
     const escapedAlt = alt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const escapedSrc = originalSrc.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
     let newValue = value;
-    // Strip exact `![alt](src)` first so we don't accidentally over-match
-    // when alt is empty and a sibling image has the same src.
-    const exactMd = new RegExp(`!\\[${escapedAlt}\\]\\(${escapedSrc}\\)\\s*`, "g");
-    newValue = newValue.replace(exactMd, "");
-    // Fall back to any-alt match for the same src.
-    const anyAltMd = new RegExp(`!\\[[^\\]]*\\]\\(${escapedSrc}\\)\\s*`, "g");
-    newValue = newValue.replace(anyAltMd, "");
-    // HTML <img> tag with this src.
-    const htmlImg = new RegExp(`<img[^>]*src=["']${escapedSrc}["'][^>]*>\\s*`, "gi");
-    newValue = newValue.replace(htmlImg, "");
+    if (kind === "file") {
+      // Strip exact `[alt](src)` first (non-image; `!` lookbehind guards
+      // against matching the image-syntax form when src is shared).
+      const exactMd = new RegExp(`(?<!!)\\[${escapedAlt}\\]\\(${escapedSrc}\\)\\s*`, "g");
+      newValue = newValue.replace(exactMd, "");
+      // Fall back to any-text match for the same href.
+      const anyTextMd = new RegExp(`(?<!!)\\[[^\\]]*\\]\\(${escapedSrc}\\)\\s*`, "g");
+      newValue = newValue.replace(anyTextMd, "");
+      // HTML <a> tag with this href — strip the open tag, link text, and close.
+      const htmlAnchor = new RegExp(
+        `<a[^>]*href=["']${escapedSrc}["'][^>]*>[\\s\\S]*?<\\/a>\\s*`,
+        "gi",
+      );
+      newValue = newValue.replace(htmlAnchor, "");
+    } else {
+      // Strip exact `![alt](src)` first so we don't accidentally over-match
+      // when alt is empty and a sibling image has the same src.
+      const exactMd = new RegExp(`!\\[${escapedAlt}\\]\\(${escapedSrc}\\)\\s*`, "g");
+      newValue = newValue.replace(exactMd, "");
+      // Fall back to any-alt match for the same src.
+      const anyAltMd = new RegExp(`!\\[[^\\]]*\\]\\(${escapedSrc}\\)\\s*`, "g");
+      newValue = newValue.replace(anyAltMd, "");
+      // HTML <img> tag with this src.
+      const htmlImg = new RegExp(`<img[^>]*src=["']${escapedSrc}["'][^>]*>\\s*`, "gi");
+      newValue = newValue.replace(htmlImg, "");
+    }
 
     if (newValue !== value) {
       onChange(newValue);
@@ -2082,7 +2228,11 @@ export default function LiveMarkdownEditor({
                         const currentWidthPct = parseWidthPercent(width as string | number | undefined);
                         const originalSrc = String(src || "");
                         const originalAlt = String(alt || "");
-                        const cachedBlob = resolvedBlobUrls.get(originalSrc);
+                        // Canonicalize before the cache lookup so URLs with
+                        // CommonMark titles or angle brackets line up with
+                        // the entries the pre-resolve effect wrote.
+                        const cacheKey = canonicalizeRefSrc(originalSrc);
+                        const cachedBlob = resolvedBlobUrls.get(cacheKey);
                         // While we're waiting for the async blob URL for a
                         // local path, render a transparent placeholder so the
                         // browser doesn't request — and 404 on — the raw path.
@@ -2263,7 +2413,7 @@ export default function LiveMarkdownEditor({
         />
       )}
 
-      {/* Broken Image Fix Popup */}
+      {/* Broken Image / File Fix Popup */}
       {showBrokenImagePopup && currentBrokenImage && (
         <div
           ref={brokenImagePopupRef}
@@ -2274,7 +2424,9 @@ export default function LiveMarkdownEditor({
               <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
-              <p className="text-xs font-medium text-red-800">Image Not Found</p>
+              <p className="text-xs font-medium text-red-800">
+                {currentBrokenImage.kind === "file" ? "File Not Found" : "Image Not Found"}
+              </p>
               {brokenImageQueue.length > 0 && (
                 <span className="ml-auto text-xs text-red-600 bg-red-100 px-1.5 py-0.5 rounded">
                   +{brokenImageQueue.length} more
@@ -2285,9 +2437,26 @@ export default function LiveMarkdownEditor({
               {currentBrokenImage.originalSrc}
             </p>
           </div>
-          
+
           <div className="p-3">
-            {isSearchingImage ? (
+            {currentBrokenImage.kind === "file" ? (
+              // File refs: skip the search step entirely. There's no
+              // searchFileByFilename API, and the typical recovery for a
+              // dangling [name](Files/foo.pdf) is to remove the link.
+              <div className="py-4 text-center">
+                <p className="text-xs text-gray-500">This file isn&apos;t in the notes folder.</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  It may have been deleted or moved.
+                </p>
+                <button
+                  type="button"
+                  onClick={removeBrokenReference}
+                  className="mt-3 px-3 py-1.5 text-xs bg-red-500 hover:bg-red-600 text-white rounded transition-colors"
+                >
+                  Remove reference from note
+                </button>
+              </div>
+            ) : isSearchingImage ? (
               <div className="flex items-center justify-center py-4">
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
                 <span className="ml-2 text-xs text-gray-500">Searching for image...</span>
