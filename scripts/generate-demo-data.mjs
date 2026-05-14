@@ -644,7 +644,7 @@ function buildEntries() {
     // on receiver-side project popup, and the fetchAllTasksIncludingShared
     // shared-project path. Counterpart entry lives in
     // users/alex/_shared_with_me.json above.
-    { id: 1, name: "DEMO: 96-well fluorescence screen", color: "#10b981", tags: ["demo", "screening"], sort_order: 0, shared_with: ["alex"] },
+    { id: 1, name: "DEMO: 96-well fluorescence screen", color: "#10b981", tags: ["demo", "screening"], sort_order: 0, shared_with: [{ username: "alex", permission: "edit" }] },
     { id: 2, name: "DEMO: Morgan dissertation milestones", color: "#06b6d4", tags: ["demo", "thesis"], sort_order: 1 },
   ]));
 
@@ -660,7 +660,7 @@ function buildEntries() {
       ],
       method_attachments: [{ method_id: 1, owner: "morgan", snapshot_at: "2026-05-13T08:00:00Z" }] },
     { id: 3, project_id: 1, name: "qPCR setup — verify GFP transcripts", start_date: "2026-05-16", duration_days: 1, end_date: "2026-05-16", task_type: "experiment", is_complete: false, experiment_color: "#10b981",
-      method_attachments: [{ method_id: 2, owner: "morgan", snapshot_at: "2026-05-13T08:00:00Z" }], shared_with: ["alex"] },
+      method_attachments: [{ method_id: 2, owner: "morgan", snapshot_at: "2026-05-13T08:00:00Z" }], shared_with: [{ username: "alex", permission: "edit" }] },
     // Strategically-overdue: writing tasks slip. Stays 4 days overdue
     // regardless of when the demo is opened (see OVERDUE_* anchors).
     { id: 4, project_id: 2, name: "Draft Chapter 2 outline", start_date: OVERDUE_START, duration_days: 3, end_date: OVERDUE_END_4D, task_type: "list", is_complete: false },

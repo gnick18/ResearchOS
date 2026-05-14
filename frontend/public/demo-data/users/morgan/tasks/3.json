@@ -29,6 +29,9 @@
   ],
   "owner": "morgan",
   "shared_with": [
-    "alex"
+    {
+      "username": "alex",
+      "permission": "edit"
+    }
   ]
 }
