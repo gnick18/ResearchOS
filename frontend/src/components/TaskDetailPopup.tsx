@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState, useMemo } from "react"
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
-import { filesApi, methodsApi, projectsApi, dependenciesApi, fetchAllTasks, tasksApi as rawTasksApi, type DuplicateCheckResult } from "@/lib/local-api";
+import { filesApi, methodsApi, projectsApi, dependenciesApi, fetchAllTasks, fetchAllProjectsIncludingShared, tasksApi as rawTasksApi, type DuplicateCheckResult } from "@/lib/local-api";
 import { ownerScopedTasksApi } from "@/lib/tasks/owner-scoped-api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
@@ -89,11 +89,51 @@ export default function TaskDetailPopup({
   const [isExpanded, setIsExpanded] = useState(false);
   const [animationPosition, setAnimationPosition] = useState<{ x: number; y: number } | null>(null);
   const [showSharePopup, setShowSharePopup] = useState(false);
+  const { currentUser } = useCurrentUser();
 
   // Owner-aware view of tasksApi: when this popup is showing a task that was
   // shared to the current user with edit permission, every mutating call
   // routes through the owner's directory instead of the current user's.
   const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
+
+  // Cross-owner unshare: clears `external_project` on the task AND removes
+  // the manifest entry on the destination project's side. Available on the
+  // share badge near the title (only renders when the task IS hosted in a
+  // foreign project AND the current user is the task owner — receivers
+  // can't unshare what isn't theirs to host).
+  const [unsharingFromProjectTop, setUnsharingFromProjectTop] = useState(false);
+  const handleUnshareFromProjectTop = useCallback(async () => {
+    if (!task.external_project || !currentUser) return;
+    if (
+      !confirm(
+        `Remove this task from ${task.external_project.owner}'s project? ` +
+          "It stays in your library."
+      )
+    ) {
+      return;
+    }
+    setUnsharingFromProjectTop(true);
+    try {
+      const taskOwner = task.owner || currentUser;
+      await rawTasksApi.unshareFromProject(
+        taskOwner,
+        task.id,
+        task.external_project.owner,
+        task.external_project.id
+      );
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["tasks"] }),
+        queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] }),
+        queryClient.refetchQueries({ queryKey: ["projects"] }),
+        queryClient.refetchQueries({ queryKey: ["projects", "with-shared"] }),
+      ]);
+    } catch (err) {
+      console.error("Failed to unshare task:", err);
+      alert("Failed to unshare task from project");
+    } finally {
+      setUnsharingFromProjectTop(false);
+    }
+  }, [task, currentUser, queryClient]);
 
   // Universal drop: any file dragged anywhere onto the popup card uploads to
   // the most-recently-viewed editor tab's per-tab attachment folder
@@ -405,9 +445,65 @@ export default function TaskDetailPopup({
           <div className="flex items-center gap-3">
             <div className={`w-3 h-3 rounded-full ${isExperiment ? "bg-purple-500" : "bg-blue-500"}`} />
             <div>
-              <h3 className="text-base font-semibold text-gray-900">
-                {task.name}
-              </h3>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-base font-semibold text-gray-900">
+                  {task.name}
+                </h3>
+                {/* Cross-owner "shared into project" pill. The X removes the
+                    share — both the originating task owner AND the
+                    destination project owner are allowed to unshare in v1
+                    (this badge only renders for the task owner). */}
+                {task.external_project && !task.is_shared_with_me && !readOnly && (
+                  <Tooltip
+                    label={`Click X to remove from ${task.external_project.owner}'s project`}
+                    placement="bottom"
+                  >
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="11"
+                        height="11"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                        <polyline points="16 6 12 2 8 6" />
+                        <line x1="12" y1="2" x2="12" y2="15" />
+                      </svg>
+                      Shared into {task.external_project.owner}&apos;s project
+                      <button
+                        type="button"
+                        disabled={unsharingFromProjectTop}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleUnshareFromProjectTop();
+                        }}
+                        className="ml-0.5 -mr-0.5 rounded-full p-0.5 hover:bg-amber-100 disabled:opacity-50 disabled:cursor-wait"
+                        aria-label="Remove from project"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <line x1="18" y1="6" x2="6" y2="18" />
+                          <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                      </button>
+                    </span>
+                  </Tooltip>
+                )}
+              </div>
               <p className="text-xs text-gray-400 mt-0.5">
                 {project?.name && `${project.name} · `}
                 {task.start_date} → {task.end_date} · {task.duration_days} day
@@ -785,9 +881,30 @@ function DetailsTab({
 }) {
   const queryClient = useQueryClient();
   const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
+  const { currentUser } = useCurrentUser();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(task.name);
   const [projectId, setProjectId] = useState(task.project_id);
+  // Composite "<owner>:<id>" identifier for the project the user has selected
+  // in the edit-mode dropdown. Tracks BOTH own projects (where owner ===
+  // current user → falls through to a normal project_id update) and foreign
+  // projects (owner !== current user → triggers the cross-owner share flow).
+  // null = "no project". See `selectedProjectInfo` below for the resolved
+  // (owner, id) pair.
+  const initialProjectKey = (() => {
+    if (task.external_project) {
+      return `${task.external_project.owner}:${task.external_project.id}`;
+    }
+    return `${task.owner || currentUser || ""}:${task.project_id}`;
+  })();
+  const [selectedProjectKey, setSelectedProjectKey] = useState<string>(initialProjectKey);
+  // Cross-owner share confirmation modal state.
+  const [pendingShareTarget, setPendingShareTarget] = useState<{
+    owner: string;
+    id: number;
+    name: string;
+  } | null>(null);
+  const [sharingIntoProject, setSharingIntoProject] = useState(false);
   const [startDate, setStartDate] = useState(task.start_date);
   const [durationDays, setDurationDays] = useState(task.duration_days);
   const isComplete = task.is_complete;
@@ -835,6 +952,17 @@ function DetailsTab({
     setSubTasks(task.sub_tasks || []);
   }, [task.sub_tasks]);
 
+  // Sync selectedProjectKey when the task changes (e.g., right after a share
+  // mutation invalidates and refetches). Without this the dropdown stays
+  // stuck on stale state.
+  useEffect(() => {
+    if (task.external_project) {
+      setSelectedProjectKey(`${task.external_project.owner}:${task.external_project.id}`);
+    } else {
+      setSelectedProjectKey(`${task.owner || currentUser || ""}:${task.project_id}`);
+    }
+  }, [task.external_project, task.project_id, task.owner, currentUser]);
+
   // Whether the user has typed/changed anything since entering edit mode.
   // Drives the Save button's disabled state and the "Unsaved changes" label
   // — without this, the only edit-mode cue is a subtle focus ring on whichever
@@ -843,6 +971,7 @@ function DetailsTab({
     editing &&
     (name !== originalValues.name ||
       projectId !== originalValues.projectId ||
+      selectedProjectKey !== initialProjectKey ||
       startDate !== originalValues.startDate ||
       durationDays !== originalValues.durationDays ||
       weekendOverride !== originalValues.weekendOverride);
@@ -859,29 +988,52 @@ function DetailsTab({
     });
     setName(task.name);
     setProjectId(task.project_id);
+    setSelectedProjectKey(initialProjectKey);
     setStartDate(task.start_date);
     setDurationDays(task.duration_days);
     setWeekendOverride(task.weekend_override);
     setEditing(true);
-  }, [task]);
+  }, [task, initialProjectKey]);
 
   // Cancel: restore baseline values then leave edit mode. Without resetting
   // the in-memory form state, re-entering edit would resurrect dirty edits.
   const handleCancelEdit = useCallback(() => {
     setName(originalValues.name);
     setProjectId(originalValues.projectId);
+    setSelectedProjectKey(initialProjectKey);
     setStartDate(originalValues.startDate);
     setDurationDays(originalValues.durationDays);
     setWeekendOverride(originalValues.weekendOverride);
     setEditing(false);
-  }, [originalValues]);
+  }, [originalValues, initialProjectKey]);
 
-  // Load projects for the dropdown
+  // Load projects for the dropdown. Pulls own + cross-owner shared projects
+  // so users can host a task into someone else's project (Option C — see
+  // `lib/sharing/project-hosting.ts`). The select element distinguishes them
+  // by encoding the value as `<owner>:<id>` so per-user id collisions don't
+  // cause the wrong project to be picked.
   const { data: projects = [] } = useQuery({
-    queryKey: ["projects"],
-    queryFn: projectsApi.list,
+    queryKey: ["projects", "with-shared"],
+    queryFn: fetchAllProjectsIncludingShared,
     enabled: editing,
   });
+
+  // Resolve the selected dropdown value back to a (owner, id) pair.
+  const selectedProjectInfo = useMemo(() => {
+    const [owner, rawId] = selectedProjectKey.split(":");
+    const id = Number(rawId);
+    return { owner: owner ?? "", id: Number.isFinite(id) ? id : 0 };
+  }, [selectedProjectKey]);
+
+  // Whose-project-is-this-anyway sentinel. Drives the save flow's
+  // "share into project" vs "regular project_id update" branch.
+  const isSelectedProjectForeign = useMemo(() => {
+    if (!currentUser) return false;
+    // The task's own owner. For shared-with-me tasks (receiver editing),
+    // that's the owner field; for own tasks it's the current user.
+    const taskOwner = task.owner || currentUser;
+    return selectedProjectInfo.owner && selectedProjectInfo.owner !== taskOwner;
+  }, [currentUser, task.owner, selectedProjectInfo.owner]);
 
   // Load all tasks for dependency display
   const { data: allTasks = [] } = useQuery({
@@ -945,6 +1097,28 @@ function DetailsTab({
   }, [selectedNewParent, newDepType, durationDays, startDate]);
 
   const handleSave = useCallback(async () => {
+    // Cross-owner share branch: if the user picked a foreign project from
+    // the dropdown, defer to the confirmation modal. The modal owns the
+    // actual `tasksApi.shareIntoProject` call so the user can back out
+    // ("share into someone else's project" is a meaningful surface).
+    if (isSelectedProjectForeign) {
+      const target = projects.find(
+        (p) => p.owner === selectedProjectInfo.owner && p.id === selectedProjectInfo.id
+      );
+      if (!target) {
+        // Defensive: the selected project disappeared between dropdown
+        // open and save. Bail out of the share branch and revert the picker.
+        setSelectedProjectKey(initialProjectKey);
+        return;
+      }
+      setPendingShareTarget({
+        owner: target.owner,
+        id: target.id,
+        name: target.name,
+      });
+      return;
+    }
+
     setSaving(true);
     try {
       // Check for duplicate name if name has changed
@@ -1019,7 +1193,47 @@ function DetailsTab({
     } finally {
       setSaving(false);
     }
-  }, [task, tasksApi, name, projectId, startDate, durationDays, isComplete, weekendOverride, queryClient, dependentTasks.length, parentTasks.length]);
+  }, [task, tasksApi, name, projectId, startDate, durationDays, isComplete, weekendOverride, queryClient, dependentTasks.length, parentTasks.length, isSelectedProjectForeign, projects, selectedProjectInfo, initialProjectKey]);
+
+  // Cross-owner share confirmation flow. Triggered by `handleSave` when the
+  // user picked a project owned by someone else; the modal is the actual
+  // commit point. `pendingShareTarget` carries the destination project
+  // info; clearing it cancels.
+  const handleConfirmShareIntoProject = useCallback(async () => {
+    if (!pendingShareTarget || !currentUser) return;
+    setSharingIntoProject(true);
+    try {
+      // The task owner is the only legal `taskOwner` for v1 — receivers
+      // can't reshare a task they don't own. Defensive null-guard.
+      const taskOwner = task.owner || currentUser;
+      await rawTasksApi.shareIntoProject(
+        taskOwner,
+        task.id,
+        pendingShareTarget.owner,
+        pendingShareTarget.id
+      );
+      // Refresh both the task itself and the tasks/projects lists. Hosted
+      // tasks surface through `fetchAllTasksIncludingShared`, so that key
+      // must invalidate too.
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["tasks"] }),
+        queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] }),
+        queryClient.refetchQueries({ queryKey: ["projects"] }),
+        queryClient.refetchQueries({ queryKey: ["projects", "with-shared"] }),
+      ]);
+      setPendingShareTarget(null);
+      setEditing(false);
+    } catch (err) {
+      console.error("Failed to share task into project:", err);
+      alert(
+        err instanceof Error && err.message
+          ? `Failed to share: ${err.message}`
+          : "Failed to share task into project"
+      );
+    } finally {
+      setSharingIntoProject(false);
+    }
+  }, [pendingShareTarget, currentUser, task, queryClient]);
 
   // Function to proceed with save despite duplicate warning
   const handleProceedWithDuplicate = useCallback(async () => {
@@ -1755,22 +1969,56 @@ function DetailsTab({
             />
           </div>
 
-          {/* Project */}
+          {/* Project — own projects appear normally; cross-owner shared
+              projects appear under "Share into…" and trigger a confirmation
+              modal on save. */}
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">
               Project
             </label>
             <select
-              value={projectId}
-              onChange={(e) => setProjectId(Number(e.target.value))}
+              value={selectedProjectKey}
+              onChange={(e) => {
+                const next = e.target.value;
+                setSelectedProjectKey(next);
+                // Keep the legacy projectId state in sync for own-project
+                // picks so handleSave's existing `tasksApi.update` call
+                // gets the right id. Foreign picks branch off in handleSave.
+                const [nextOwner, nextRawId] = next.split(":");
+                const nextId = Number(nextRawId);
+                if (nextOwner === (task.owner || currentUser || "")) {
+                  setProjectId(Number.isFinite(nextId) ? nextId : 0);
+                }
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              {projects.map((p) => (
-                <option key={`${p.owner}:${p.id}`} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
+              <optgroup label="My projects">
+                {projects
+                  .filter((p) => !p.is_shared_with_me)
+                  .map((p) => (
+                    <option key={`${p.owner}:${p.id}`} value={`${p.owner}:${p.id}`}>
+                      {p.name}
+                    </option>
+                  ))}
+              </optgroup>
+              {projects.some((p) => p.is_shared_with_me) && (
+                <optgroup label="Share into someone else's project">
+                  {projects
+                    .filter((p) => p.is_shared_with_me)
+                    .map((p) => (
+                      <option key={`${p.owner}:${p.id}`} value={`${p.owner}:${p.id}`}>
+                        {p.name} (shared by {p.owner})
+                      </option>
+                    ))}
+                </optgroup>
+              )}
             </select>
+            {isSelectedProjectForeign && (
+              <p className="mt-1 text-xs text-amber-600">
+                This task will be shared into {selectedProjectInfo.owner}&apos;s project.
+                It stays in your library; {selectedProjectInfo.owner} will see it on their Gantt.
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -2073,6 +2321,65 @@ function DetailsTab({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Cross-owner share confirmation modal. Triggered by `handleSave`
+          when the user picked a project owned by someone else. The modal
+          is the actual commit point — picking the dropdown option doesn't
+          share, confirming here does. Fullscreen overlay so it sits above
+          the popup card. */}
+      {pendingShareTarget && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40"
+          onClick={() => {
+            if (!sharingIntoProject) setPendingShareTarget(null);
+          }}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-semibold text-gray-900 mb-2">
+              Share this task into {pendingShareTarget.owner}&apos;s project?
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              <strong>{pendingShareTarget.name}</strong> belongs to{" "}
+              <strong>{pendingShareTarget.owner}</strong>. Sharing this task
+              into it means:
+            </p>
+            <ul className="text-sm text-gray-600 list-disc pl-5 space-y-1 mb-4">
+              <li>
+                The task <strong>stays in your library</strong> — you remain
+                its owner and can keep editing.
+              </li>
+              <li>
+                {pendingShareTarget.owner} will see this task on the project
+                Gantt and project view, alongside their own tasks.
+              </li>
+              <li>
+                Either of you can remove the share later.
+              </li>
+            </ul>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={sharingIntoProject}
+                onClick={() => setPendingShareTarget(null)}
+                className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={sharingIntoProject}
+                onClick={handleConfirmShareIntoProject}
+                className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+              >
+                {sharingIntoProject ? "Sharing..." : "Share into project"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
