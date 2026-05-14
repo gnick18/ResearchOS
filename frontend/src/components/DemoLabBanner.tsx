@@ -94,7 +94,20 @@ export default function DemoLabBanner() {
         role="status"
         className="w-full bg-amber-100 border-b border-amber-300 text-amber-950 text-sm px-4 py-2 flex items-center gap-3"
       >
-        <span className="text-base leading-none" aria-hidden="true">🧪</span>
+        <svg
+          aria-hidden
+          className="w-4 h-4 flex-shrink-0"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
         <span className="flex-1">
           <strong className="font-semibold">You&apos;re viewing the Demo Lab.</strong>{" "}
           {isInBrowserDemo

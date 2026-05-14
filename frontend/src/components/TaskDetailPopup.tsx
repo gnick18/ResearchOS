@@ -2797,7 +2797,20 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
             {missingInline && missingInline.length > 0 && !readOnly && !task.is_shared_with_me && (
               <div className="px-6 py-3 bg-amber-50 border-b border-amber-200">
                 <div className="flex items-start gap-3">
-                  <span className="text-amber-500 text-base leading-tight">📷</span>
+                  <svg
+                    aria-hidden
+                    className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M3 16l4-8 4 4 5-10 5 14M3 20h18"
+                    />
+                  </svg>
                   <div className="flex-1">
                     <p className="text-sm font-medium text-amber-900">
                       {missingInline.length} inline image
