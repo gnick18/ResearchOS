@@ -15,7 +15,28 @@
   "tags": null,
   "sort_order": 4,
   "experiment_color": "#3b82f6",
-  "sub_tasks": null,
+  "sub_tasks": [
+    {
+      "id": "st1",
+      "text": "Resuspend cells in 200 µL lysis buffer",
+      "is_complete": true
+    },
+    {
+      "id": "st2",
+      "text": "Add glass beads + bead-beat 5 min",
+      "is_complete": true
+    },
+    {
+      "id": "st3",
+      "text": "Phenol-chloroform extract + EtOH precipitate",
+      "is_complete": true
+    },
+    {
+      "id": "st4",
+      "text": "Nanodrop quant — confirm A260/280 ≥ 1.8",
+      "is_complete": true
+    }
+  ],
   "pcr_gradient": null,
   "pcr_ingredients": null,
   "method_attachments": [],

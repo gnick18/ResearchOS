@@ -86,6 +86,12 @@
       "name": "Nuclease-free H2O",
       "concentration": "—",
       "amount_per_reaction": "15.75"
+    },
+    {
+      "id": "i8",
+      "name": "Total",
+      "concentration": "",
+      "amount_per_reaction": "25.0"
     }
   ],
   "notes": "Demo protocol — verifies integration of the `pYES-GAL1::flbA` cassette at the URA3 locus. Expected band: ~1.4 kb.",

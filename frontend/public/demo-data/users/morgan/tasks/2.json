@@ -15,10 +15,37 @@
   "tags": null,
   "sort_order": 2,
   "experiment_color": "#10b981",
-  "sub_tasks": null,
+  "sub_tasks": [
+    {
+      "id": "st1",
+      "text": "Pre-warm plate reader to 30 °C",
+      "is_complete": false
+    },
+    {
+      "id": "st2",
+      "text": "Read OD600 baseline (no shake)",
+      "is_complete": false
+    },
+    {
+      "id": "st3",
+      "text": "Read GFP — ex 485 / em 528, gain 60",
+      "is_complete": false
+    },
+    {
+      "id": "st4",
+      "text": "Export CSV + push to analysis notebook",
+      "is_complete": false
+    }
+  ],
   "pcr_gradient": null,
   "pcr_ingredients": null,
-  "method_attachments": [],
+  "method_attachments": [
+    {
+      "method_id": 1,
+      "owner": "morgan",
+      "snapshot_at": "2026-05-13T08:00:00Z"
+    }
+  ],
   "owner": "morgan",
   "shared_with": []
 }

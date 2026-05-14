@@ -249,6 +249,7 @@ function buildEntries() {
         { id: "i5", name: "Phusion polymerase", concentration: "2 U/µL", amount_per_reaction: "0.25" },
         { id: "i6", name: "gDNA template", concentration: "~50 ng/µL", amount_per_reaction: "1.0" },
         { id: "i7", name: "Nuclease-free H2O", concentration: "—", amount_per_reaction: "15.75" },
+        { id: "i8", name: "Total", concentration: "", amount_per_reaction: "25.0" },
       ],
       notes:
         "Demo protocol — verifies integration of the `pYES-GAL1::flbA` cassette at the URA3 locus. Expected band: ~1.4 kb.",
@@ -302,7 +303,7 @@ function buildEntries() {
     {
       projects: 4,
       tasks: 15,
-      methods: 4,
+      methods: 5,
       events: 4,
       goals: 2,
       pcr_protocols: 1,
@@ -336,6 +337,23 @@ function buildEntries() {
       coloredHeader: false,
     },
   ]);
+  // Alex receives one shared task and one shared project from morgan.
+  // This unlocks the receiver-side fixture coverage for shared sharing
+  // surfaces (hide-Share-button on receiver, listByProject threading for
+  // shared projects, fetchAllTasksIncludingShared shared-project path).
+  out.push([
+    "users/alex/_shared_with_me.json",
+    {
+      version: 1,
+      projects: [
+        { id: 1, owner: "morgan", permission: "view", shared_at: "2026-05-12T00:00:00Z" },
+      ],
+      tasks: [
+        { id: 5, owner: "morgan", permission: "view", shared_at: "2026-05-13T00:00:00Z" },
+      ],
+      methods: [],
+    },
+  ]);
 
   // Projects
   out.push(...projects("alex", [
@@ -362,8 +380,20 @@ function buildEntries() {
       ],
       deviation_log: "Demo: heat-shock ran 38 min instead of 40 (interrupted by timer reset). Noted for the colony count.",
       method_attachments: [{ method_id: 1, owner: "alex", snapshot_at: "2026-05-08T09:00:00Z" }] },
-    { id: 3, project_id: 1, name: "Patch positives on SD-Ura", start_date: "2026-05-11", duration_days: 1, end_date: "2026-05-11", task_type: "experiment", is_complete: true, experiment_color: "#3b82f6" },
-    { id: 4, project_id: 1, name: "Genomic DNA prep — top 8 transformants", start_date: YESTERDAY, duration_days: 1, end_date: YESTERDAY, task_type: "experiment", is_complete: true, experiment_color: "#3b82f6" },
+    { id: 3, project_id: 1, name: "Patch positives on SD-Ura", start_date: "2026-05-11", duration_days: 1, end_date: "2026-05-11", task_type: "experiment", is_complete: true, experiment_color: "#3b82f6",
+      sub_tasks: [
+        { id: "st1", text: "Pick 8 well-isolated colonies from primary plate", is_complete: true },
+        { id: "st2", text: "Streak onto fresh SD-Ura grid plate", is_complete: true },
+        { id: "st3", text: "Incubate 30 °C, 48 h", is_complete: true },
+        { id: "st4", text: "Photograph patch plate", is_complete: true },
+      ] },
+    { id: 4, project_id: 1, name: "Genomic DNA prep — top 8 transformants", start_date: YESTERDAY, duration_days: 1, end_date: YESTERDAY, task_type: "experiment", is_complete: true, experiment_color: "#3b82f6",
+      sub_tasks: [
+        { id: "st1", text: "Resuspend cells in 200 µL lysis buffer", is_complete: true },
+        { id: "st2", text: "Add glass beads + bead-beat 5 min", is_complete: true },
+        { id: "st3", text: "Phenol-chloroform extract + EtOH precipitate", is_complete: true },
+        { id: "st4", text: "Nanodrop quant — confirm A260/280 ≥ 1.8", is_complete: true },
+      ] },
     { id: 5, project_id: 1, name: "PCR-screen integrants", start_date: TODAY, duration_days: 1, end_date: TODAY, task_type: "experiment", is_complete: false, experiment_color: "#3b82f6",
       sub_tasks: [
         { id: "st1", text: "Run DemoCheck PCR — 16 rxns", is_complete: false },
@@ -377,6 +407,13 @@ function buildEntries() {
     { id: 10, project_id: 3, name: "Set up growth curves in YPD/glucose", start_date: "2026-05-15", duration_days: 1, end_date: "2026-05-15", task_type: "experiment", is_complete: false, experiment_color: "#f59e0b",
       method_attachments: [{ method_id: 2, owner: "alex", snapshot_at: "2026-05-13T08:00:00Z" }] },
     { id: 11, project_id: 3, name: "Heat-shock survival assay", start_date: "2026-05-18", duration_days: 1, end_date: "2026-05-18", task_type: "experiment", is_complete: false, experiment_color: "#f59e0b",
+      sub_tasks: [
+        { id: "st1", text: "Grow strains to OD600 ~0.6 in YPD", is_complete: false },
+        { id: "st2", text: "Split cultures: 30 °C control vs 50 °C heat shock (30 min)", is_complete: false },
+        { id: "st3", text: "Serial dilute 10-fold × 5", is_complete: false },
+        { id: "st4", text: "Spot on YPD plates, incubate 48 h", is_complete: false },
+        { id: "st5", text: "Count colonies + compute survival %", is_complete: false },
+      ],
       method_attachments: [{ method_id: 4, owner: "alex", snapshot_at: "2026-05-13T08:00:00Z" }] },
     { id: 12, project_id: 3, name: "Compile growth-curve results", start_date: "2026-05-19", duration_days: 1, end_date: "2026-05-19", task_type: "list", is_complete: false },
     { id: 13, project_id: 4, name: "Update lab onboarding doc", start_date: TODAY, duration_days: 1, end_date: TODAY, task_type: "list", is_complete: false },
@@ -393,6 +430,26 @@ function buildEntries() {
   out.push(["users/alex/methods/3.md", METHOD_MINIPREP_MD]);
   out.push(["users/alex/methods/4.json", methodJson("alex", 4, "[Demo protocol] Heat-shock survival assay", "Screening")]);
   out.push(["users/alex/methods/4.md", METHOD_HEATSHOCK_MD]);
+  // PCR-typed method entry — surfaces the existing pcr_protocols/1.json in
+  // the /methods list. Clicking opens the InteractiveGradientEditor view,
+  // which is the only way to reach that code path in fixture mode.
+  out.push([
+    "users/alex/methods/5.json",
+    {
+      id: 5,
+      name: "[Demo protocol] qPCR fakeGFP expression",
+      source_path: "pcr://protocol/1",
+      method_type: "pcr",
+      folder_path: "qPCR",
+      parent_method_id: null,
+      tags: ["demo", "qPCR"],
+      attachments: [],
+      is_public: false,
+      created_by: "alex",
+      owner: "alex",
+      shared_with: [],
+    },
+  ]);
 
   // alex PCR (private)
   out.push([
@@ -420,6 +477,7 @@ function buildEntries() {
         { id: "i3", name: "fakeGFP-rev", concentration: "10 µM", amount_per_reaction: "0.5" },
         { id: "i4", name: "cDNA template (1:5)", concentration: "—", amount_per_reaction: "2" },
         { id: "i5", name: "Nuclease-free H2O", concentration: "—", amount_per_reaction: "7" },
+        { id: "i6", name: "Total", concentration: "", amount_per_reaction: "20" },
       ],
       notes: "Demo qPCR — use ACT1 as housekeeping reference. Public version available at users/public.",
       tags: ["demo", "qPCR", "fakeGFP"],
@@ -533,18 +591,32 @@ function buildEntries() {
   ]);
 
   out.push(...projects("morgan", [
-    { id: 1, name: "DEMO: 96-well fluorescence screen", color: "#10b981", tags: ["demo", "screening"], sort_order: 0 },
+    // Project 1 is shared with alex (view) so the fixture covers the
+    // shared-project surface area: listByProject threading, hide-Share-button
+    // on receiver-side project popup, and the fetchAllTasksIncludingShared
+    // shared-project path. Counterpart entry lives in
+    // users/alex/_shared_with_me.json above.
+    { id: 1, name: "DEMO: 96-well fluorescence screen", color: "#10b981", tags: ["demo", "screening"], sort_order: 0, shared_with: ["alex"] },
     { id: 2, name: "DEMO: Morgan dissertation milestones", color: "#06b6d4", tags: ["demo", "thesis"], sort_order: 1 },
   ]));
 
   out.push(...tasks("morgan", [
     { id: 1, project_id: 1, name: "Plate FY-Δgal80 transformants on 96-well", start_date: TODAY, duration_days: 1, end_date: TODAY, task_type: "experiment", is_complete: false, experiment_color: "#10b981",
       method_attachments: [{ method_id: 1, owner: "morgan", snapshot_at: "2026-05-13T08:00:00Z" }] },
-    { id: 2, project_id: 1, name: "Run fluorescence reader scan", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "experiment", is_complete: false, experiment_color: "#10b981" },
+    { id: 2, project_id: 1, name: "Run fluorescence reader scan", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "experiment", is_complete: false, experiment_color: "#10b981",
+      sub_tasks: [
+        { id: "st1", text: "Pre-warm plate reader to 30 °C", is_complete: false },
+        { id: "st2", text: "Read OD600 baseline (no shake)", is_complete: false },
+        { id: "st3", text: "Read GFP — ex 485 / em 528, gain 60", is_complete: false },
+        { id: "st4", text: "Export CSV + push to analysis notebook", is_complete: false },
+      ],
+      method_attachments: [{ method_id: 1, owner: "morgan", snapshot_at: "2026-05-13T08:00:00Z" }] },
     { id: 3, project_id: 1, name: "qPCR setup — verify GFP transcripts", start_date: "2026-05-16", duration_days: 1, end_date: "2026-05-16", task_type: "experiment", is_complete: false, experiment_color: "#10b981",
       method_attachments: [{ method_id: 2, owner: "morgan", snapshot_at: "2026-05-13T08:00:00Z" }] },
     { id: 4, project_id: 2, name: "Draft Chapter 2 outline", start_date: NEXT_WEEK, duration_days: 3, end_date: "2026-05-22", task_type: "list", is_complete: false },
-    { id: 5, project_id: 2, name: "Send draft figures to alex", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "list", is_complete: false },
+    // Task 5 is shared with alex (view) independently of any shared project,
+    // so the fixture covers the individually-shared task path too.
+    { id: 5, project_id: 2, name: "Send draft figures to alex", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "list", is_complete: false, shared_with: ["alex"] },
   ]));
 
   // morgan methods
@@ -596,7 +668,7 @@ function projects(owner, list) {
       is_archived: false,
       archived_at: null,
       owner,
-      shared_with: [],
+      shared_with: p.shared_with ?? [],
     },
   ]);
 }
@@ -626,7 +698,7 @@ function tasks(owner, list) {
       pcr_ingredients: null,
       method_attachments: t.method_attachments ?? [],
       owner,
-      shared_with: [],
+      shared_with: t.shared_with ?? [],
     },
   ]);
 }
