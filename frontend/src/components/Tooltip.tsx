@@ -7,9 +7,11 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactElement,
+  type Ref,
 } from "react";
 import { createPortal } from "react-dom";
 
@@ -27,6 +29,28 @@ interface Props {
 }
 
 const GAP = 6;
+
+/**
+ * Merge an arbitrary number of refs (callback or RefObject, possibly null)
+ * into a single callback ref. Each consumer's ref is updated on mount /
+ * unmount, so wrapping a child with an existing `ref={…}` no longer loses
+ * that ref. Inline helper — no extra dependency.
+ */
+function composeRefs<T>(...refs: Array<Ref<T> | undefined | null>) {
+  return (node: T | null) => {
+    for (const ref of refs) {
+      if (!ref) continue;
+      if (typeof ref === "function") {
+        ref(node);
+      } else {
+        // React's MutableRefObject is intentionally writable; the readonly
+        // RefObject type used to bar this assignment but the runtime shape
+        // is identical, so cast to the mutable form.
+        (ref as { current: T | null }).current = node;
+      }
+    }
+  };
+}
 
 /**
  * Portal-rendered hover/focus tooltip.
@@ -125,18 +149,36 @@ export default function Tooltip({
     triggerElRef.current = el;
   }, []);
 
+  // Preserve the child's existing ref by composing it with our own
+  // captureRef. Without this, `cloneElement` would overwrite the
+  // original ref, breaking patterns like
+  // `<button ref={(el) => map.current.set(id, el)} />` inside <Tooltip>.
+  // The composed ref fans out the DOM node to every consumer.
+  //
+  // React 19 note: `ref` is now a regular prop (`element.ref` access is
+  // removed), so we read it from `child.props.ref`.
   const child = Children.only(children);
+  type ChildProps = { className?: string; ref?: Ref<HTMLElement> };
+  const original = (isValidElement(child) ? child.props : {}) as ChildProps;
+  const childRef = original.ref ?? null;
+  // captureRef and childRef are callback refs; composeRefs returns a new
+  // callback ref that React invokes with the DOM node at mount/unmount.
+  // Nothing reads `.current` during render.
+  const composedRef = useMemo(
+    // eslint-disable-next-line react-hooks/refs
+    () => composeRefs<HTMLElement>(captureRef, childRef),
+    [captureRef, childRef],
+  );
+
   if (!isValidElement(child)) return <>{children}</>;
 
-  type ChildProps = { className?: string };
-  const original = child.props as unknown as ChildProps;
   const merged: Record<string, unknown> = {
     className: [original.className, "group"].filter(Boolean).join(" "),
     onMouseEnter: handleEnter,
     onMouseLeave: handleLeave,
     onFocus: handleEnter,
     onBlur: handleLeave,
-    ref: captureRef,
+    ref: composedRef,
   };
 
   return (

@@ -697,23 +697,24 @@ function SimpleTaskChecklist({
               st.is_complete ? "opacity-50" : ""
             }`}
           >
-            <button
-              ref={(el) => { if (el) checkboxRefs.current.set(st.id, el); }}
-              onClick={readOnly ? undefined : (e) => handleToggleSubTask(st.id, e)}
-              disabled={saving || readOnly}
-              className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all flex-shrink-0 ${
-                st.is_complete
-                  ? "bg-blue-500 border-blue-500"
-                  : "border-gray-300 hover:border-blue-400"
-              } ${readOnly ? "cursor-default" : ""}`}
-              title={st.is_complete ? "Mark as incomplete" : "Mark as complete"}
-            >
-              {st.is_complete && (
-                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                </svg>
-              )}
-            </button>
+            <Tooltip label={st.is_complete ? "Mark as incomplete" : "Mark as complete"} placement="bottom">
+              <button
+                ref={(el) => { if (el) checkboxRefs.current.set(st.id, el); }}
+                onClick={readOnly ? undefined : (e) => handleToggleSubTask(st.id, e)}
+                disabled={saving || readOnly}
+                className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all flex-shrink-0 ${
+                  st.is_complete
+                    ? "bg-blue-500 border-blue-500"
+                    : "border-gray-300 hover:border-blue-400"
+                } ${readOnly ? "cursor-default" : ""}`}
+              >
+                {st.is_complete && (
+                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </button>
+            </Tooltip>
             <span className={`flex-1 text-base ${st.is_complete ? "line-through text-gray-400" : "text-gray-700"}`}>
               {st.text}
             </span>
@@ -1452,23 +1453,24 @@ function DetailsTab({
                   st.is_complete ? "opacity-60" : ""
                 }`}
               >
-                <button
-                  ref={(el) => { if (el) checkboxRefs.current.set(st.id, el); }}
-                  onClick={(e) => handleToggleSubTask(st.id, e)}
-                  disabled={saving}
-                  className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
-                    st.is_complete
-                      ? "bg-gradient-to-br from-orange-500 to-yellow-400 border-orange-400"
-                      : "border-gray-300 hover:border-orange-400"
-                  }`}
-                  title={st.is_complete ? "Mark as incomplete" : "Mark as complete"}
-                >
-                  {st.is_complete && (
-                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                </button>
+                <Tooltip label={st.is_complete ? "Mark as incomplete" : "Mark as complete"} placement="bottom">
+                  <button
+                    ref={(el) => { if (el) checkboxRefs.current.set(st.id, el); }}
+                    onClick={(e) => handleToggleSubTask(st.id, e)}
+                    disabled={saving}
+                    className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                      st.is_complete
+                        ? "bg-gradient-to-br from-orange-500 to-yellow-400 border-orange-400"
+                        : "border-gray-300 hover:border-orange-400"
+                    }`}
+                  >
+                    {st.is_complete && (
+                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </button>
+                </Tooltip>
                 <span className={`flex-1 text-sm ${st.is_complete ? "line-through text-gray-400" : "text-gray-700"}`}>
                   {st.text}
                 </span>
