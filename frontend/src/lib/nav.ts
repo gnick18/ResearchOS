@@ -10,7 +10,7 @@ export interface NavItem {
 // hidden.
 export const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Home" },
-  { href: "/experiments", label: "Lab Notes" },
+  { href: "/workbench", label: "Workbench" },
   { href: "/gantt", label: "GANTT" },
   { href: "/methods", label: "Methods" },
   { href: "/purchases", label: "Purchases" },

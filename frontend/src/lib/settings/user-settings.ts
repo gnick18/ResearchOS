@@ -86,14 +86,29 @@ function settingsPath(username: string): string {
  * default settings, dropping unknown tab hrefs and clamping the landing tab
  * to something the user can actually reach.
  */
+// Legacy href → current href. The `/experiments` route was renamed to
+// `/workbench` (EXPERIMENTS_STANDALONE_PROPOSAL.md); without this map a
+// user with `/experiments` in their saved tab list would silently lose
+// it on the first load post-rename.
+const LEGACY_HREF_RENAMES: Record<string, string> = {
+  "/experiments": "/workbench",
+};
+
+function migrateHref(href: string): string {
+  return LEGACY_HREF_RENAMES[href] ?? href;
+}
+
 function normalize(raw: Partial<UserSettings> | null | undefined): UserSettings {
   const merged: UserSettings = { ...DEFAULT_SETTINGS, ...(raw ?? {}) };
 
-  const visibleTabs = (merged.visibleTabs ?? []).filter(isValidTabHref);
+  const visibleTabs = (merged.visibleTabs ?? [])
+    .map(migrateHref)
+    .filter(isValidTabHref);
   // Home is always visible — it's the safe fallback landing tab.
   if (!visibleTabs.includes(HOME_HREF)) visibleTabs.unshift(HOME_HREF);
   merged.visibleTabs = visibleTabs;
 
+  merged.defaultLandingTab = migrateHref(merged.defaultLandingTab);
   if (!isValidTabHref(merged.defaultLandingTab) || !visibleTabs.includes(merged.defaultLandingTab)) {
     merged.defaultLandingTab = HOME_HREF;
   }
