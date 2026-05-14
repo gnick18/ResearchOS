@@ -282,7 +282,7 @@ Use this for any field rename. **Do NOT do hard on-disk cutovers** — rewrite-a
 
 (Master-bot context filled past 95% during a heavy Grant-driven verification + bot-spawning session. Handoff to next master mid-flight. Delete this subsection once the next session has picked up state.)
 
-**Origin tip**: `bd18a3a2`. **Local main**: `4f31dab3` — **3 commits ahead of origin, awaiting Grant's push** (auto-mode classifier blocked the master-bot push to main). The three are: `6252e704` (handoff refresh), `bcb578f5` (PCR template merge), `4f31dab3` (LabArchives merge). **Total commits today: 101.**
+**Origin tip**: `bd18a3a2`. **Local main**: `b84a1e35` — **4 commits ahead of origin, awaiting Grant's push** (auto-mode classifier blocked the master-bot push to main). The four are: `6252e704` (handoff refresh), `bcb578f5` (PCR template merge), `4f31dab3` (LabArchives merge), `b84a1e35` (LabArchives revamp: dedicated Settings section + wiki page).
 
 **Zero bots in flight.** All three bots that were running at context-end either merged or completed:
 
@@ -295,15 +295,16 @@ Use this for any field rename. **Do NOT do hard on-disk cutovers** — rewrite-a
 **LabArchives live-verification still owed.** Bot could not test against `api.labarchives.com` (no institutional creds in worktree). The HMAC signing math, URL construction, and XML-error parsing follow the published reference clients but haven't been exercised against the real API. To live-test:
 1. Request institutional API creds from LabArchives Support (see `https://www.labarchives.com/labarchives-knowledge-base/api/`).
 2. Set in `frontend/.env.local`: `LABARCHIVES_ACCESS_KEY_ID=...`, `LABARCHIVES_ACCESS_PASSWORD=...`, `NEXT_PUBLIC_LABARCHIVES_ENABLED=1`.
-3. Restart dev server. Settings → Data maintenance → "LabArchives connection" → Connect. Enter LabArchives email + password in popup. Row should flip to "Connected as ...".
+3. Restart dev server. Settings → LabArchives section → "Connect to LabArchives" card → click `Connect`. Enter LabArchives email + password in popup. Card should flip to "Connected as ..." (the section-header pill should already be green "Integration is configured" before this step).
 4. Open ELN import wizard, upload a real `.eln` ZIP with Form-B images. Wizard should surface a new "5 · Fetch images" step after Mapping. Click "Fetch N images" and watch the progress.
 5. Open a created task → confirm rehydrated images render from `Images/<name>` instead of `Images/missing-<orig>`.
 
 **LabArchives deferred items** (queue these into §8 if not addressed in live-test follow-up):
-- Regional API base URL (`LABARCHIVES_API_BASE_URL`) doesn't auto-detect; UK/AU/EU institutions need manual env var. Could add a region picker in the connect popup.
+- Regional API base URL (`LABARCHIVES_API_BASE_URL`) doesn't auto-detect; UK/AU/EU institutions need manual env var. Could add a region picker in the connect popup. Wiki page (added by `b84a1e35`) now documents the env var explicitly so deployers know to set it.
 - `baseUrl` not persisted in per-user `_labarchives.json` — refresh fails if env var changes mid-session.
-- No `/wiki/integrations/labarchives` page (mirror `/wiki/integrations/calendar-oauth`).
+- ✅ `/wiki/integrations/labarchives` page **landed at `b84a1e35`** (concept-first walkthrough covering both end-user import + Form-A/Form-B explanation + deployer setup recipe with env var names + smoke-test recipe). Linked from the in-wizard amber `ConfigMissingNotice` and from the new Settings → LabArchives section.
 - No automated test for the new wizard step or the `fetchedImages` rewrite/write path. `test-labarchives-apply.mjs` only covers backward-compat.
+- ✅ Settings UX revamp **landed at `b84a1e35`**. LabArchives is now its own top-level Settings section (not buried in Data maintenance) with two option cards — "Import from LabArchives" + "Connect to LabArchives" — each carrying a `?` info-toggle for the longer "why this exists" explanation and a link into the wiki page. Section header shows a configured/not-configured/demo-mode pill; the Connect button is greyed-out + tooltip-explained when env vars aren't set.
 
 **pcrApi.get owner threading** ✅ landed at `1d122fc0` earlier this session. Added `owner?: string` arg, no private-then-public fallback when owner provided. 3 call sites updated (MethodTabs, methods page PcrViewer, export extract.ts). Bot flagged `pcrApi.update` may have the same issue — queued in §8 above.
 
