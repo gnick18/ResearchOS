@@ -840,16 +840,28 @@ export const pcrApi = {
   
   get: async (id: number, owner?: string): Promise<PCRProtocol | null> => {
     // Owner routing matches the convention in projectsApi / tasksApi /
-    // methodsApi: when the caller is a receiver of a shared task, read the
-    // protocol from the owner's private store so private protocols still
-    // render on the receiver's side.
+    // methodsApi: when the caller knows the protocol's namespace (e.g. a
+    // receiver of a shared task, or a method whose source_path points at a
+    // public protocol), pass the explicit `owner`. Per-user id spaces mean
+    // a numeric id alone is ambiguous — alex's private pcr_protocols/1 and
+    // public pcr_protocols/1 are different records.
+    //
+    // Semantics:
+    //   - owner === "public": read only from users/public/pcr_protocols/{id}.json
+    //   - owner === <username>: read only from users/<owner>/pcr_protocols/{id}.json
+    //   - owner === undefined: legacy private-then-public fallback for callers
+    //     that genuinely don't know the namespace.
     if (owner) {
+      if (owner === "public") {
+        const publicProtocol = await publicPcrStore.get(id);
+        return publicProtocol ? { ...publicProtocol, is_public: true } : null;
+      }
       const ownerProtocol = await pcrStore.getForUser(id, owner);
-      if (ownerProtocol) return { ...ownerProtocol, is_public: false };
-    } else {
-      const protocol = await pcrStore.get(id);
-      if (protocol) return { ...protocol, is_public: false };
+      return ownerProtocol ? { ...ownerProtocol, is_public: false } : null;
     }
+
+    const protocol = await pcrStore.get(id);
+    if (protocol) return { ...protocol, is_public: false };
 
     const publicProtocol = await publicPcrStore.get(id);
     if (publicProtocol) return { ...publicProtocol, is_public: true };

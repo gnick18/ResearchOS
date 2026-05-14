@@ -64,10 +64,20 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
   const isPdfMethod = activeMethod?.method_type === "pdf" || (activeMethod?.source_path?.toLowerCase().endsWith(".pdf") ?? false);
   const pcrProtocolId = activeMethod?.source_path ? extractPCRProtocolId(activeMethod.source_path) : null;
   
-  // Load PCR protocol data if this is a PCR method
+  // Load PCR protocol data if this is a PCR method.
+  //
+  // Per-user id spaces mean a numeric protocol id alone is ambiguous:
+  // alex's private pcr_protocols/1 and public pcr_protocols/1 are different
+  // records. The protocol lives in the SAME namespace as the method that
+  // references it (a method's `source_path: "pcr://protocol/{id}"` is a
+  // relative reference within the method's own user dir), so we thread the
+  // method's owner through. Without this, attaching a public method whose
+  // protocol id collides with a private protocol on the current user would
+  // render the wrong protocol.
+  const pcrProtocolOwner = activeMethod?.owner || undefined;
   const { data: fetchedPcrProtocol } = useQuery({
-    queryKey: ["pcr-protocol", pcrProtocolId],
-    queryFn: () => pcrApi.get(pcrProtocolId!),
+    queryKey: ["pcr-protocol", pcrProtocolId, pcrProtocolOwner],
+    queryFn: () => pcrApi.get(pcrProtocolId!, pcrProtocolOwner),
     enabled: isPcrMethod && pcrProtocolId !== null,
   });
   
