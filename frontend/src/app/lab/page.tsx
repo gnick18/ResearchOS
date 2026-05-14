@@ -132,8 +132,15 @@ export default function LabModePage() {
     let targetUser = "";
     try {
       const mainUserResponse = await usersApi.getMainUser();
-      if (mainUserResponse.main_user) {
-        targetUser = mainUserResponse.main_user;
+      const candidate = mainUserResponse.main_user;
+      // Sanitize: never log back in as "lab" — that's the very state we're
+      // trying to escape. If mainUser somehow got persisted as "lab" (data
+      // corruption, dev-tool edit, etc.), fall through to the logout branch
+      // instead. Without this guard, getMainUser returning "lab" creates an
+      // exit-loop: usersApi.login("lab") + setCurrentUser("lab") just puts us
+      // right back where we started. Hit by Grant 2026-05-14.
+      if (candidate && candidate.toLowerCase() !== "lab") {
+        targetUser = candidate;
         await usersApi.login(targetUser);
       } else {
         await usersApi.logout();
