@@ -37,7 +37,10 @@ function cleanTreePath(
  *  - The FIRST element of the cleaned path is the project name candidate.
  *    This collapses deeper "Justin E / lab notes / page-name" paths under
  *    the same "Justin E" project that "Justin E / meetings" lives in.
- *  - When the cleaned path has < 2 elements, return `null` (orphan task).
+ *  - When cleaned is empty, return `null` (orphan task).
+ *  - When cleaned has exactly 1 element, the page sits at the export root
+ *    with no folder context — use the page name as both project name and
+ *    task name (the user can rename either).
  *
  * Why first-after-chrome rather than the brief's literal "second-to-last":
  * LabArchives notebooks file pages under per-person folders with category
@@ -53,7 +56,7 @@ function deriveMappingForPage(
   rootBreadcrumb: string[],
 ): { key: string; defaultProjectName: string | null } {
   const cleaned = cleanTreePath(page.treePath, notebookName, rootBreadcrumb);
-  if (cleaned.length < 2) {
+  if (cleaned.length === 0) {
     return {
       key: `__orphan__:${page.pageId}`,
       defaultProjectName: null,
@@ -74,7 +77,7 @@ function deriveMappingForPage(
  * Mapping defaults:
  *  - Any page with a non-null derived project name starts at "import-new"
  *    with `newProjectName` pre-filled to the derived name.
- *  - Orphan pages (cleaned treePath < 2 elements) start at "no-project"
+ *  - Orphan pages (cleaned treePath is empty) start at "no-project"
  *    and each gets its own mapping row so the wizard can decide
  *    case-by-case.
  *
