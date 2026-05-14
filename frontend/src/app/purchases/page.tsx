@@ -39,9 +39,17 @@ export default function PurchasesPage() {
     enabled: projects.length > 0,
   });
 
+  // Use the merged-view loader mirroring `fetchAllTasksIncludingShared`.
+  // `purchasesApi.listAll()` is current-user-only — shared purchase tasks
+  // would render rows but with 0 items and $0 totals (the
+  // multi-user-data-isolation gap flagged in AGENTS.md §6). The new loader
+  // also reads each shared-task owner's `purchase_items/` directory and
+  // decorates every item with `owner` so the composite-key map below routes
+  // each item to the correct task without colliding with our own.
   const { data: allPurchases = [] } = useQuery({
     queryKey: ["purchases-all", currentUser],
-    queryFn: purchasesApi.listAll,
+    queryFn: () => purchasesApi.listAllIncludingShared(currentUser),
+    enabled: !!currentUser,
   });
 
   const { data: fundingAccounts = [] } = useQuery({
@@ -55,21 +63,19 @@ export default function PurchasesPage() {
     [allTasks]
   );
 
-  // Group purchases by task. `purchasesApi.listAll()` only returns the
-  // current user's purchase items, so every `task_id` here is in the current
-  // user's namespace. Key on a composite `${owner}:${task_id}` so a shared
-  // task with the same numeric id as one of our own tasks doesn't pick up
-  // our purchase rows by accident.
+  // Group purchases by task. Items now carry `owner` (decorated by
+  // `listAllIncludingShared`), so the key is the same composite
+  // `${owner}:${task_id}` that the sweep fix at `8de2c24d` uses on the task
+  // side. Shared-task purchases land in their correct buckets automatically.
   const purchasesByTask = useMemo(() => {
     const map: Record<string, PurchaseItem[]> = {};
     for (const p of allPurchases) {
-      // Purchase items have no `owner` field — they're scoped to current user.
-      const key = `${currentUser}:${p.task_id}`;
+      const key = `${p.owner}:${p.task_id}`;
       if (!map[key]) map[key] = [];
       map[key].push(p);
     }
     return map;
-  }, [allPurchases, currentUser]);
+  }, [allPurchases]);
 
   // Grand total
   const grandTotal = useMemo(
@@ -135,12 +141,12 @@ export default function PurchasesPage() {
             {purchaseTasks
               .sort((a, b) => b.start_date.localeCompare(a.start_date))
               .map((task) => {
-                // Purchases live in the task owner's data folder; we only
-                // load the current user's purchase items via
-                // `purchasesApi.listAll()`. For shared tasks (different
-                // owner) the lookup will miss and `items` will be empty —
-                // that's correct rather than incorrect (no cross-user
-                // collision into MY purchases).
+                // Purchases live in the task owner's data folder. The
+                // merged-view loader (`listAllIncludingShared`) reads both
+                // the current user's items and each shared-task owner's
+                // items, so shared purchase tasks now render with their real
+                // items + totals. The composite key matches because each
+                // item is decorated with its on-disk `owner`.
                 const items = purchasesByTask[`${task.owner}:${task.id}`] || [];
                 const taskTotal = items.reduce(
                   (sum, i) => sum + (i.total_price ?? 0),

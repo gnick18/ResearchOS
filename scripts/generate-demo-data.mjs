@@ -615,12 +615,12 @@ function buildEntries() {
     "users/morgan/_counters.json",
     {
       projects: 2,
-      tasks: 5,
+      tasks: 6,
       methods: 2,
       events: 0,
       goals: 0,
       pcr_protocols: 0,
-      purchase_items: 2,
+      purchase_items: 3,
       lab_links: 4,
       notes: 1,
       dependencies: 2,
@@ -671,6 +671,12 @@ function buildEntries() {
     // Task 5 is shared with alex (view) independently of any shared project,
     // so the fixture covers the individually-shared task path too.
     { id: 5, project_id: 2, name: "Send draft figures to alex", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "list", is_complete: false },
+    // Task 6 is a PURCHASE task in morgan's shared project 1. Surfaces on
+    // alex's /purchases page via the shared-project surface in
+    // `fetchAllTasksIncludingShared`, and its items are visible to alex via
+    // `purchasesApi.listAllIncludingShared` — exercises the merged-view
+    // purchase loader.
+    { id: 6, project_id: 1, name: "Order fluorescent reagents for screen", start_date: TODAY, duration_days: 1, end_date: TODAY, task_type: "purchase", is_complete: false },
   ]));
 
   // morgan methods
@@ -679,9 +685,12 @@ function buildEntries() {
   out.push(["users/morgan/methods/2.json", methodJson("morgan", 2, "[Demo protocol] qPCR setup", "qPCR")]);
   out.push(["users/morgan/methods/2.md", METHOD_QPCR_MD]);
 
-  // morgan purchases
+  // morgan purchases. Item 3 hangs off the new purchase TASK (task 6) in
+  // morgan's shared project 1, so alex sees it via the merged-view loader
+  // `purchasesApi.listAllIncludingShared`.
   out.push(["users/morgan/purchase_items/1.json", { id: 1, task_id: 1, item_name: "96-well black-walled plates (demo)", quantity: 2, link: "https://example.org/demo-platesupply", cas: null, price_per_unit: 48, shipping_fees: 8, total_price: 104, notes: null, funding_string: "DEMO-Internal-Bridge" }]);
   out.push(["users/morgan/purchase_items/2.json", { id: 2, task_id: 2, item_name: "GFP recombinant standard (demo)", quantity: 1, link: "https://example.org/demo-gfp-std", cas: null, price_per_unit: 175, shipping_fees: 0, total_price: 175, notes: "For absolute quantification.", funding_string: "DEMO-DOE-EERE" }]);
+  out.push(["users/morgan/purchase_items/3.json", { id: 3, task_id: 6, item_name: "GFP fluorescence calibration kit (demo)", quantity: 1, link: "https://example.org/demo-fluo-kit", cas: null, price_per_unit: 320, shipping_fees: 12, total_price: 332, notes: "Demo reagents for the shared screen.", funding_string: "DEMO-DOE-EERE" }]);
 
   // morgan lab links (4)
   out.push(["users/morgan/lab_links/1.json", { id: 1, title: "Demo plate-reader software docs", url: "https://example.org/demo-reader-docs", description: "Manual for the demo BioTek H1.", category: "Bioinformatics tools", color: "#10b981", preview_image_url: null, sort_order: 0, created_at: "2026-02-01T00:00:00Z" }]);
