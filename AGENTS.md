@@ -282,7 +282,7 @@ Use this for any field rename. **Do NOT do hard on-disk cutovers** — rewrite-a
 
 **Currently in flight from the master bot's side:**
 
-- **Export feature revamp (manager-tier)** — chip queued, awaiting Grant's click. Will spawn 3-5 sub-bots itself. Owns the entire export pipeline (raw / HTML / PDF). Off-limits while active: `frontend/src/lib/export-utils.ts`, `frontend/src/lib/export/*`, `TaskExportButton`, `/search` page multi-select wiring. Brief locked: zip of per-experiment files on multi-select, single file otherwise; `/search` entry point in both user view + Lab Mode; raw format for cross-instance sharing (not import side); attachments inline + PDF appendix labeled by Notes/Results origin.
+- **Export feature revamp (manager-tier)** — all five sub-bots reported, manager-side integration complete on `claude/elegant-curie-92d6da` (commit-range `f77155dd` → tip). Sits on top of merged main. Verification: `npx tsc --noEmit` exit 0, `npx next build` ✓ Compiled successfully in 3.2s. Waiting on Grant's live verification before merge to main (data-shape change → merge-timing rule applies). New surface: `frontend/src/lib/export/{types,slug,markdown,extract,orchestrate,raw,html,pdf}.ts`, `frontend/src/components/ExportFormatDialog.tsx`, multi-select on `/search` (user view) + `LabSearchPanel` (Lab Mode), rewired `TaskExportButton`. Removed: `frontend/src/lib/export-utils.ts` (622 lines), `/experiments` bulk-export UI (293 lines). New deps: `@react-pdf/renderer`, `marked`. Plan doc at `EXPORT_REVAMP_PLAN.md` (delete after Grant verifies + merge to main).
 
 **Wiki manager (parallel session, not this chat)** — idle since their last screenshot bot landed at `1b28b87c`. Status: passive until Grant needs them.
 
