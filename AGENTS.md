@@ -374,6 +374,55 @@ _(Original "Handoff snapshot — late evening" body below was preserved for audi
 
 **Stale local branches worth pruning** (work landed elsewhere, branches just clutter `git branch`): `claude/epic-dubinsky-f36fb5` (Export Sub-bot F PCR-rendering), `claude/sharp-kirch-4345ef` (unknown), `claude/competent-tesla-1c0608` (the worktree that caused the stale-dev-server trap). Confirm-and-delete is safe but optional.
 
+### Recently landed (2026-05-14 — onboarding tips Phase 1+2: per-user sidecar, active-time trigger, beaker-bot mascot, 10-tip catalog)
+
+End-to-end feature for brand-new accounts. Phase 1 = planning artifact `ONBOARDING_TIPS_PROPOSAL.md` (proposal merged at `6af73b44`). Phase 2 = implementation by sub-bot `worktree-agent-afc87f47363b80e58`, merged at the next commit on `main`.
+
+**The shape:**
+- **Detection**: per-user sidecar `users/<u>/_onboarding.json` (NOT folder-root). Same idiom as `_telegram.json` / `_calendar-feeds.json`. Mirrors `external-feeds-store.ts`'s versioned read/normalize/lazy-default pattern.
+- **Trigger**: active-engagement-time based, NOT wall-clock. `active_seconds` ticks every 1000ms while `document.visibilityState === "visible" && document.hasFocus()`, flushed to sidecar every 30s and on visibility-hidden. Tips fire when: (1) user is on a route matching tip's `route` startsWith, (2) ≥30s of focused dwell on the route THIS session, (3) `active_seconds - last_tip_at >= 300` (5 min of active engagement since last tip), (4) no tip currently on screen, (5) tip not in `tips` history. Once eligible, orchestrator rolls 15% per 5s → "appears at random" feel Grant asked for.
+- **Brand-new threshold**: `active_seconds < 3600` (1h cumulative focus) AND `shown_count < 10` (= initial tip set size). Both must be true.
+- **Demo + wiki-capture exemption**: `isDemoOrWikiCapture()` short-circuits — orchestrator is not even mounted in those modes. No fixture pollution, no screenshot-bombing. Tested.
+- **Mascot**: `<BeakerBot>` component (`frontend/src/components/BeakerBot.tsx`, 79 LOC). Inline SVG, single-path stroke-only style matching the recent emoji-sweep commits (`f3e39af3`, `11054b2a`, `1bc9fe36`, `72b0c385`). Two poses (idle / pointing) + `direction: "left" | "right"` horizontal-mirror prop.
+- **Card UI**: `<OnboardingTipCard>` (`frontend/src/components/OnboardingTipCard.tsx`, 231 LOC). Portal-rendered at `bottom-20 right-4` (clear of AppShell cluster + FloatingLeaveDemoButton corner; demo + onboarding are exempt anyway so no real collision). SVG dotted pointer-line from card pointer-edge to target's bounding-rect center, rAF-debounced resize/scroll sync, single 300ms opacity pulse on entry. Three exits: close (X, permanent), Show me later (re-eligible next session), Stop showing tips (folder-wide off-switch). Plus implicit "Read more →" wiki link.
+- **Tip catalog**: 10 tips in `frontend/src/lib/onboarding/tips.ts` — drop-to-replace, telegram-send-to-task, duplicate-upload, cross-owner-share, appshell-cluster, labarchives-import, lab-mode, wiki-entry, high-level-goals, methods-folder-tree. Each has `{id, title, route, target, body, wikiPath, priority}`.
+- **Target registration**: `data-onboarding-target="<id>"` data-attribute (simpler than ref-passing for ~10 retrofit sites). Helper at `frontend/src/lib/onboarding/use-onboarding-target.ts`.
+- **Sub-bot deviations from proposal**: (1) routes were tightened from "or"-options to concrete paths after looking at where each affordance actually lives — e.g. `labarchives-import` → `/settings` (wizard lives in Settings, not `/methods`); `high-level-goals` → `/gantt` (`HighLevelGoalSidebar` only renders there); five other tips homed to `/` since their affordances live on the home page. (2) drop-to-replace / cross-owner-share / duplicate-upload all anchor to sub-regions of the FIRST project card on `/` (card wrapper / color bar / title) since the affordances themselves live inside `ProjectDetailPopup` — tip text narratively prompts the user to open the card. (3) "schedule-then-fire" was simplified to "roll-and-fire" — page-leave-cancels-scheduled is now a no-op (annotated in orchestrator).
+- **Replay**: Settings → new "Tips" section (between Maintenance and Security) → "Replay tips" button clears `tips`, sets `tips_off: false`, resets `last_tip_at` to current `active_seconds`. 4s status toast confirmation. Leaves `first_seen_at` + `active_seconds` so the freshness taper still applies.
+- **Tests**: 10 vitest cases in `frontend/src/lib/onboarding/orchestrator.test.ts` covering all gate predicates + sidecar normalization + catalog shape + demo-exemption short-circuit. Full suite 117/117 PASS, `npx tsc --noEmit` EXIT 0 post-merge on main.
+
+**Files (new)**:
+- `frontend/src/lib/onboarding/sidecar.ts` (179) — read/write `_onboarding.json`, `replayOnboarding()` helper.
+- `frontend/src/lib/onboarding/active-time.ts` (163) — cumulative engagement ticker.
+- `frontend/src/lib/onboarding/tips.ts` (178) — 10-tip catalog + tuning constants.
+- `frontend/src/lib/onboarding/use-onboarding-target.ts` (39) — `onboardingTarget(id)` spread helper + `findOnboardingTarget(id)` DOM lookup.
+- `frontend/src/lib/onboarding/orchestrator.tsx` (339) — provider + state machine.
+- `frontend/src/lib/onboarding/orchestrator.test.ts` (205) — vitest coverage.
+- `frontend/src/components/BeakerBot.tsx` (79) — mascot.
+- `frontend/src/components/OnboardingTipCard.tsx` (231) — card UI.
+- Total ~1413 LOC across 8 new files.
+
+**Files (modified)**: `frontend/src/lib/providers.tsx` (wrap `<AppContent>` with `<OnboardingProvider>` inside the non-demo branch), `frontend/src/app/settings/page.tsx` (new Tips section), `frontend/src/app/page.tsx` (3 retrofits on first project card), `frontend/src/app/lab/page.tsx`, `frontend/src/app/methods/page.tsx`, `frontend/src/components/AppShell.tsx`, `frontend/src/components/InboxToast.tsx`, `frontend/src/components/HighLevelGoalSidebar.tsx` — data-attr-only retrofits.
+
+**Open follow-ups (not blocking)**:
+- `cancelTip(id)` orchestrator API is wired but no caller hooks it yet. The "action-cancel" path described in the proposal (user does the thing before the tip fires → record `outcome: "action-cancel"`, never re-fire) is implemented but un-invoked. Follow-up: wire it into drop-to-replace's drop handler, duplicate-upload's upload-button click, telegram inbox image-click, share-affordance click, etc. Small handoff, ~15-line touch per call site.
+- Replay scope is currently "replay ALL tips including dismissed ones" per the proposal default. Tunable in 1 line if Grant wants "only un-engaged" semantics.
+- No `min_build` field on tips yet (proposal punted to "addable later when the second wave ships").
+
+**Live-test priorities for Grant** (this surface CANNOT be fixture/bot tested — both demo + wiki-capture short-circuit by design):
+1. Open a real research folder for the first time, click through home / methods / lab / gantt, leave the tab focused. Tips should fire after ~5 min of active engagement at 15%/5s rolls (so somewhere in the 5-7 min window after eligibility opens).
+2. Background the tab for 10 minutes, come back. `active_seconds` should NOT have ticked during the away time — the cooldown axis is engagement-time, not wall-clock.
+3. Settings → Tips → "Replay tips". History should clear; cooldown should restart at the current `active_seconds`. `first_seen_at` should NOT change.
+4. Demo (`/demo`) + wiki-capture (`?wikiCapture=1`): no tip card should ever surface. Both code paths short-circuit before provider mount (verified by passing test).
+5. `_onboarding.json` should appear under `users/<u>/` after the first eligible tip fires (sidecar is lazy-init on first write).
+
+**For the wiki manager**:
+- New section in `/wiki/features/settings` mentioning the "Tips" replay button.
+- A new wiki page documenting the tip system itself (e.g. `/wiki/features/settings/onboarding` or similar) was floated in the proposal — not written here. Wiki manager's call whether to draft it.
+- Existing tip-linked wiki paths the catalog references (verify each resolves, or queue creation): `/wiki/features/markdown-editor#drop-to-replace`, `/wiki/features/markdown-editor#duplicate-upload`, `/wiki/integrations/telegram`, `/wiki/features/links#cross-owner`, `/wiki/integrations/labarchives`, `/wiki/features/lab-mode`, `/wiki/features/home`, `/wiki/features/methods`, `/wiki/features/settings`.
+
+---
+
 ### Recently landed (2026-05-14 — `tasksApi.delete` cascade cleanup: deps + `_shared_with_me` + hosted-manifest)
 
 Closes the cascade gaps the /experiments take-3 debugger flagged on Grant's real data folder (orphan dep records + orphan `_shared_with_me.json` entries) AND the V-manager follow-up (orphan hosted-manifest entries when an alex-owned task hosted in morgan's project gets deleted). All three were the same shape: "task got deleted but its references in sibling sidecars survived." Closes items #1 + #2 in the "Other bugs noticed" list directly below this entry; item #3 (hosted-manifest) was the V follow-up.
