@@ -200,9 +200,14 @@ export default function MarkdownEditorPage() {
           or more files from disk.
         </li>
         <li>
-          <strong>Drag image files into the editor body</strong>. If you drop
-          inside text, the image inserts at that position. If you drop outside
-          text, it appends to the document.
+          <strong>Drag image files into the editor body</strong>. While
+          you&apos;re dragging from Finder, a blue ring lights up around the
+          popup or editor card so you know the drop will be caught. Release
+          inside text and the image inserts at that position; release outside
+          text and it appends to the bottom of the document. You can drop
+          straight onto a rendered image too, and the new file slots in beside
+          it (Chrome&apos;s default replace-image behavior is intercepted, so
+          nothing else happens).
         </li>
         <li>
           <strong>Paste from the clipboard</strong>. Copy a screenshot
@@ -221,7 +226,10 @@ export default function MarkdownEditorPage() {
         document on disk (e.g.,{" "}
         <code>users/&lt;you&gt;/results/task-12/Images/gel-2026-05-10.png</code>),
         and the markdown body references it with{" "}
-        <code>![caption](Images/gel-2026-05-10.png)</code>.
+        <code>![caption](Images/gel-2026-05-10.png)</code>. Filenames with
+        spaces render inline just fine; the reference looks like{" "}
+        <code>![](Images/Emile ID card-1.jpg)</code> and the editor resolves
+        it to the right file without any extra escaping.
       </p>
 
       <h3>The image strip</h3>
@@ -275,14 +283,100 @@ export default function MarkdownEditorPage() {
         </li>
       </ul>
 
-      <h3>Broken image auto-fix</h3>
+      <h3>Broken image references</h3>
       <p>
         If an image reference points at a file that no longer exists (e.g.,
         you renamed the file outside the app, or the relink hasn&apos;t
-        synced from a teammate yet), the editor shows a small &quot;fix
-        this&quot; popup with a list of similar-named files in the
-        document&apos;s <code>Images/</code> folder. Pick one and the
-        reference updates in place.
+        synced from a teammate yet), a small red &quot;Image Not Found&quot;
+        popup appears in the bottom-right corner of the editor. It lists
+        similar-named files in the document&apos;s <code>Images/</code>
+        folder. Click one and the reference rewrites in place. If nothing
+        looks right, the same popup offers a <em>Remove reference from
+        note</em> button to strip the dead snippet entirely, and a{" "}
+        <em>Dismiss all</em> button at the bottom to silence the queue.
+        Multiple broken refs queue up one at a time, with a <em>Skip</em>{" "}
+        link so you can step past one without touching it.
+      </p>
+
+      <h2>PDFs and other file attachments</h2>
+      <p>
+        Anything that isn&apos;t an image (PDFs, CSVs, sequence files,
+        protocols, archives) drops into a sibling{" "}
+        <code>Files/</code> folder and shows up as a clickable hyperlink in
+        the prose, not as an inline preview. The flow mirrors the image
+        flow: drag from Finder, paste, or pick from the toolbar.
+      </p>
+      <ul>
+        <li>
+          <strong>Drag a file from Finder</strong> anywhere over the editor.
+          The blue ring lights up while the file is hovering, and on release
+          the file copies into <code>Files/</code> and a markdown link
+          inserts at the cursor (or appends to the document if you dropped
+          outside text).
+        </li>
+        <li>
+          <strong>The file strip</strong> sits below the image strip and
+          lists every file in the current document&apos;s <code>Files/</code>
+          folder. Files already linked in the body look normal; files that
+          exist on disk but aren&apos;t referenced yet show a small blue dot
+          and an &quot;unlinked&quot; tag in the strip header. Drag a tile
+          into the editor to insert a link to it.
+        </li>
+        <li>
+          <strong>Drag a file tile to the red trash zone</strong> at the
+          bottom-right of the editor. ResearchOS asks for confirmation, then
+          deletes the file from disk and strips every link to it from the
+          markdown body, including links that stored the filename
+          URL-encoded (so <code>Files/READ%20ME.md</code> gets cleaned up
+          when the underlying <em>READ ME.md</em> is dragged out).
+        </li>
+      </ul>
+
+      <h3>Clicking a file link</h3>
+      <p>
+        Click any <code>[name](Files/…)</code> link in Hybrid or Preview mode
+        and a small <strong>View / Download</strong> popup appears centered
+        on screen.
+      </p>
+      <ul>
+        <li>
+          <strong>Text-like files</strong> (markdown, txt, csv, json, code,
+          sequence files like fasta and gbk) get a popup with{" "}
+          <em>Cancel</em>, <em>Download</em>, and <em>View</em> buttons.
+          Click <em>View</em> and the contents render in an inline monospace
+          viewer with its own <em>Download</em> button up top. Click{" "}
+          <em>Download</em> from either spot and the file saves locally.
+        </li>
+        <li>
+          <strong>PDFs</strong> get the same popup. Click <em>View</em> and
+          ResearchOS opens the PDF in a new browser tab so you can use the
+          browser&apos;s built-in PDF viewer. Click <em>Download</em> and a
+          copy lands on disk.
+        </li>
+        <li>
+          <strong>Everything else</strong> (zips, office docs, audio, video,
+          binaries) downloads immediately without a popup — there&apos;s
+          nothing meaningful to render inline.
+        </li>
+      </ul>
+      <Callout variant="tip" title="Filenames with spaces work too">
+        Spaces in filenames are stored as <code>%20</code> in the markdown
+        link (e.g., <code>[READ ME.md](Files/READ%20ME.md)</code>) so they
+        parse as a single, clickable target. The popup and inline viewer
+        decode them back to the human-readable name.
+      </Callout>
+
+      <h3>Broken file references</h3>
+      <p>
+        When a <code>[name](Files/…)</code> link points at a file that
+        isn&apos;t in the document&apos;s <code>Files/</code> folder, the
+        same red corner popup that handles broken images opens with a{" "}
+        <em>File Not Found</em> heading. There&apos;s no similar-name search
+        for files (the recovery is usually to remove the dead link), so the
+        popup goes straight to a <em>Remove reference from note</em> button.{" "}
+        <em>Dismiss all</em> closes the queue without touching the markdown,
+        and <em>Skip</em> moves to the next broken reference if there&apos;s
+        more than one.
       </p>
 
       <h2>Tables, lists, and other markdown</h2>
@@ -355,6 +449,15 @@ export default function MarkdownEditorPage() {
         outside the editor (or close the popup) to be sure the write has
         landed.
       </Callout>
+      <p>
+        On save, the editor also runs a quick cleanup pass over the
+        document&apos;s <code>Images/</code> and <code>Files/</code> folders:
+        anything sitting on disk that nothing in the markdown points at gets
+        deleted, so deleted snippets don&apos;t leave dangling files behind.
+        The sweep matches links the way the body writes them, so
+        URL-encoded file links (<code>Files/READ%20ME.md</code>) protect
+        their on-disk counterparts correctly.
+      </p>
 
       <h2>Things people miss</h2>
       <ul>
