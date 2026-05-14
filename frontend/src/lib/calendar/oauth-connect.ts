@@ -1,5 +1,6 @@
 "use client";
 
+import { configFor } from "./oauth-config";
 import { writeTokens, type OAuthTokens } from "./oauth-tokens-store";
 import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
 
@@ -40,7 +41,10 @@ export async function connectProvider(
   const left = Math.max(0, window.screenX + (window.outerWidth - POPUP_WIDTH) / 2);
   const top = Math.max(0, window.screenY + (window.outerHeight - POPUP_HEIGHT) / 2);
   const features = `width=${POPUP_WIDTH},height=${POPUP_HEIGHT},left=${left},top=${top}`;
-  const popup = window.open(`/api/auth/${provider}/login`, "researchos-oauth", features);
+  // The URL path segment can diverge from the provider id (Microsoft's
+  // routes live at `/api/auth/microsoft/*` even though provider === "outlook").
+  const urlSegment = configFor(provider).key;
+  const popup = window.open(`/api/auth/${urlSegment}/login`, "researchos-oauth", features);
   if (!popup) {
     throw new Error(
       "Couldn't open the sign-in window. Please allow popups for ResearchOS and try again.",
