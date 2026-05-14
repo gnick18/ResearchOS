@@ -219,7 +219,17 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         }
 
         let mainUser = await getMainUser();
-        if (!mainUser && currentUser) {
+        // Bootstrap mainUser from currentUser when it isn't set yet — but
+        // NEVER store "lab" as mainUser. "lab" is a sentinel for Lab Mode,
+        // not a real account. If the provider initializes with currentUser
+        // === "lab" (e.g. user just clicked Lab Mode and the page reloaded
+        // before mainUser was properly set to their real account), storing
+        // "lab" as mainUser creates an Exit-Lab-Mode trap: handleLogout
+        // tries to return to mainUser="lab" → useEffect bounces back to
+        // /lab → loop. Hit by Grant 2026-05-14; fixed defensively at the
+        // exit-handler level too (lab/page.tsx:3770b97f), but this is the
+        // source.
+        if (!mainUser && currentUser && currentUser.toLowerCase() !== "lab") {
           mainUser = currentUser;
           await storeMainUser(mainUser);
         }
