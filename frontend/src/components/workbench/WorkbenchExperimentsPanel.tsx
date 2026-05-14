@@ -408,23 +408,39 @@ export default function WorkbenchExperimentsPanel() {
           sharedIndicator={sharedIndicator}
         />
         {entry.section === "blocked" && entry.blockingParents.length > 0 && (
-          <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1 leading-snug">
-            <span className="font-medium">Blocked by:</span>{" "}
-            {entry.blockingParents.map((p, i) => (
-              <span key={p.id}>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleOpenTaskById(p.id);
-                  }}
-                  className="underline hover:text-amber-900"
-                >
-                  {p.name}
-                </button>
-                {i < entry.blockingParents.length - 1 ? ", " : ""}
-              </span>
-            ))}
+          <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1 leading-snug flex items-start gap-1">
+            <svg
+              aria-hidden
+              className="w-3 h-3 mt-0.5 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+            <span>
+              <span className="font-medium">Blocked by:</span>{" "}
+              {entry.blockingParents.map((p, i) => (
+                <span key={p.id}>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenTaskById(p.id);
+                    }}
+                    className="underline hover:text-amber-900"
+                  >
+                    {p.name}
+                  </button>
+                  {i < entry.blockingParents.length - 1 ? ", " : ""}
+                </span>
+              ))}
+            </span>
           </div>
         )}
         {entry.section === "running" && entry.nextInChain && (
@@ -434,10 +450,24 @@ export default function WorkbenchExperimentsPanel() {
               e.stopPropagation();
               setSelectedTask(entry.nextInChain!);
             }}
-            className="text-[11px] text-gray-600 hover:text-gray-900 text-left bg-gray-50 border border-gray-200 rounded-md px-2 py-1 leading-snug"
+            className="text-[11px] text-gray-600 hover:text-gray-900 text-left bg-gray-50 border border-gray-200 rounded-md px-2 py-1 leading-snug flex items-start gap-1"
           >
-            <span className="font-medium">Next:</span>{" "}
-            {entry.nextInChain.name}
+            <span className="font-medium">Next:</span>
+            <span className="flex-1">{entry.nextInChain.name}</span>
+            <svg
+              aria-hidden
+              className="w-3 h-3 mt-0.5 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
           </button>
         )}
       </div>
@@ -514,6 +544,64 @@ export default function WorkbenchExperimentsPanel() {
                   <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2 inline-block">
                     All recent experiments have results logged.
                   </div>
+                ) : key === "recent" ? (
+                  (() => {
+                    // Project-grouped layout (Recent results only).
+                    // Other stage-organized sections stay priority-ordered.
+                    const groups = new Map<string, SectionEntry[]>();
+                    for (const e of items) {
+                      const pk = `${e.task.owner}:${e.task.project_id}`;
+                      if (!groups.has(pk)) groups.set(pk, []);
+                      groups.get(pk)!.push(e);
+                    }
+                    const sortedProjectKeys = Array.from(groups.keys()).sort(
+                      (a, b) => {
+                        // Most-recent-result-within-project first
+                        // (smallest daysFromEnd wins).
+                        const aMin = Math.min(
+                          ...groups.get(a)!.map((e) => e.daysFromEnd ?? Infinity),
+                        );
+                        const bMin = Math.min(
+                          ...groups.get(b)!.map((e) => e.daysFromEnd ?? Infinity),
+                        );
+                        return aMin - bMin;
+                      },
+                    );
+                    const showProjectHeaders = sortedProjectKeys.length >= 2;
+                    return (
+                      <div className="space-y-5">
+                        {sortedProjectKeys.map((pk) => {
+                          const projectEntries = groups.get(pk)!;
+                          const firstTask = projectEntries[0].task;
+                          const pName = projectNameFor(firstTask);
+                          const pColor =
+                            projectColors[pk] ?? DEFAULT_COLORS[0];
+                          return (
+                            <div key={pk}>
+                              {showProjectHeaders && (
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span
+                                    className="w-2 h-2 rounded-full flex-shrink-0"
+                                    style={{ backgroundColor: pColor }}
+                                    aria-hidden
+                                  />
+                                  <span className="text-xs font-medium text-gray-600">
+                                    {pName}
+                                  </span>
+                                  <span className="text-xs text-gray-400">
+                                    ({projectEntries.length})
+                                  </span>
+                                </div>
+                              )}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                {projectEntries.map(renderCard)}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {items.map(renderCard)}
