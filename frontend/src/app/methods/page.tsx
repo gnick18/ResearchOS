@@ -1352,6 +1352,10 @@ function MarkdownMethodViewer({
   const queryClient = useQueryClient();
   const [currentMethod, setCurrentMethod] = useState(method);
   const [content, setContent] = useState("");
+  // Snapshot of the on-disk content as of the last successful read or save.
+  // Cancel resets `content` back to this; Save updates this after writing so
+  // subsequent unsaved-change detection compares against the new baseline.
+  const [originalContent, setOriginalContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1359,6 +1363,8 @@ function MarkdownMethodViewer({
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
   const [showSharePopup, setShowSharePopup] = useState(false);
   const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
+
+  const hasUnsavedChanges = content !== originalContent && !loading;
 
   // Owner-aware view: shared-with-edit methods write back to the owner's dir.
   const scopedMethodsApi = useMemo(() => ownerScopedMethodsApi(currentMethod), [currentMethod]);
@@ -1433,6 +1439,7 @@ function MarkdownMethodViewer({
         if (!canMigrate) {
           if (!cancelled) {
             setContent(raw);
+            setOriginalContent(raw);
             setLoading(false);
           }
           return;
@@ -1449,11 +1456,13 @@ function MarkdownMethodViewer({
         }
         if (!cancelled) {
           setContent(stampNormalized);
+          setOriginalContent(stampNormalized);
           setLoading(false);
         }
       } catch {
         if (!cancelled) {
           setContent("*Method file not found.*");
+          setOriginalContent("*Method file not found.*");
           setLoading(false);
         }
       }
@@ -1472,6 +1481,9 @@ function MarkdownMethodViewer({
         content,
         `Update method: ${method.name}`
       );
+      // Update the baseline so subsequent unsaved-change checks compare
+      // against the just-saved content.
+      setOriginalContent(content);
       setEditing(false);
     } catch {
       alert("Failed to save");
@@ -1479,6 +1491,15 @@ function MarkdownMethodViewer({
       setSaving(false);
     }
   }, [content, method.source_path, method.name]);
+
+  // Cancel discards in-memory edits by reverting `content` to the snapshot
+  // captured on read (or last successful save). Without this, clicking Cancel
+  // would leave `content` mutated; re-clicking Edit (without remounting the
+  // popup) would resurrect the dirty edits.
+  const handleCancel = useCallback(() => {
+    setContent(originalContent);
+    setEditing(false);
+  }, [originalContent]);
 
   // Check if current user can modify this method (owner of private method, or creator of public method)
   const canModify = !currentMethod.is_public || currentMethod.created_by === currentUser;
@@ -1518,16 +1539,23 @@ function MarkdownMethodViewer({
               </>
             ) : (
               <>
+                {hasUnsavedChanges && (
+                  <span className="text-xs text-amber-600 font-medium">Unsaved changes</span>
+                )}
                 <button
-                  onClick={() => setEditing(false)}
+                  onClick={handleCancel}
                   className="px-3 py-1.5 text-xs text-gray-600 rounded-lg hover:bg-gray-100"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSave}
-                  disabled={saving}
-                  className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+                  disabled={saving || !hasUnsavedChanges}
+                  className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                    hasUnsavedChanges
+                      ? "text-white bg-blue-600 hover:bg-blue-700"
+                      : "text-gray-400 bg-gray-200 cursor-not-allowed"
+                  } disabled:opacity-50`}
                 >
                   {saving ? "Saving..." : "Save"}
                 </button>
