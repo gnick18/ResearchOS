@@ -20,11 +20,15 @@ import type {
   ELNProjectMapping,
   ParsedNotebook,
 } from "@/lib/import/eln/types";
+import type { FetchedImage } from "@/lib/labarchives/api-client";
+import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
+import { isLabArchivesConfigured } from "@/lib/labarchives/config";
 import BulkSortScreen from "./BulkSortScreen";
 import PickFormatStep, { type ELNFormat } from "./steps/PickFormatStep";
 import UploadStep from "./steps/UploadStep";
 import PreviewStep from "./steps/PreviewStep";
 import ProjectMappingStep from "./steps/ProjectMappingStep";
+import LabArchivesSignInStep from "./steps/LabArchivesSignInStep";
 import ApplyProgressStep from "./steps/ApplyProgressStep";
 import DoneStep from "./steps/DoneStep";
 
@@ -34,6 +38,7 @@ type Step =
   | "parsing"
   | "preview"
   | "mapping"
+  | "fetch-images"
   | "applying"
   | "done"
   | "bulk-sort";
@@ -49,8 +54,9 @@ const STEP_TITLES: Record<Exclude<Step, "bulk-sort">, string> = {
   parsing: "3 · Reading notebook",
   preview: "3 · Preview notebook",
   mapping: "4 · Map projects",
-  applying: "5 · Importing",
-  done: "6 · Done",
+  "fetch-images": "5 · Fetch images",
+  applying: "6 · Importing",
+  done: "7 · Done",
 };
 
 export default function ImportELNDialog({ isOpen, onClose }: ImportELNDialogProps) {
@@ -66,6 +72,12 @@ export default function ImportELNDialog({ isOpen, onClose }: ImportELNDialogProp
   const [progress, setProgress] = useState<ELNApplyProgress | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [result, setResult] = useState<ELNImportResult | null>(null);
+  const [receiver, setReceiver] = useState<string>("");
+  // Held in state purely so an in-progress retry from the apply error screen
+  // can re-use the already-fetched bytes without re-prompting. The getter
+  // isn't read directly in JSX — the runApply caller reads from the closure
+  // capture instead.
+  const [, setFetchedImages] = useState<Map<string, FetchedImage>>(new Map());
 
   const reset = useCallback(() => {
     setStep("format");
@@ -79,6 +91,8 @@ export default function ImportELNDialog({ isOpen, onClose }: ImportELNDialogProp
     setProgress(null);
     setApplyError(null);
     setResult(null);
+    setReceiver("");
+    setFetchedImages(new Map());
   }, []);
 
   // Escape key closes the dialog except during phases where we don't want
@@ -118,8 +132,9 @@ export default function ImportELNDialog({ isOpen, onClose }: ImportELNDialogProp
       const out = await parseELNZip(file);
       setParsed(out);
       const startedAt = new Date().toISOString();
-      const receiver = (await getCurrentUserCached()) ?? "";
-      const defaultPlan = buildDefaultPlan(out, receiver, startedAt);
+      const user = (await getCurrentUserCached()) ?? "";
+      setReceiver(user);
+      const defaultPlan = buildDefaultPlan(out, user, startedAt);
       setMappings(defaultPlan.projectMappings);
       setPlan(defaultPlan);
       setStep("preview");
@@ -131,32 +146,71 @@ export default function ImportELNDialog({ isOpen, onClose }: ImportELNDialogProp
     }
   }, [file]);
 
-  const handleStartApply = useCallback(async () => {
-    if (!plan) return;
-    const planForApply: ELNImportPlan = { ...plan, projectMappings: mappings };
-    setPlan(planForApply);
-    setApplyError(null);
-    setProgress({ phase: "projects", current: 0, total: 0 });
-    setStep("applying");
-    try {
-      const r = await applyELNImportPlan(planForApply, {
-        onProgress: setProgress,
-      });
-      setResult(r);
-      setStep("done");
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      void queryClient.invalidateQueries({ queryKey: ["projects"] });
-    } catch (err) {
-      setApplyError(
-        err instanceof Error ? err.message : "Failed to import the notebook.",
-      );
+  /**
+   * Decide whether the LabArchives sign-in step is even reachable for this
+   * plan. We skip it when:
+   *  - the parsed notebook has no Form-B URLs (nothing to fetch); or
+   *  - the deployment has no LabArchives credentials configured; or
+   *  - we're in demo / wikiCapture mode (no real LabArchives credentials,
+   *    don't surface a sign-in flow that will reach the public LabArchives API).
+   */
+  const skipFetchStep = useMemo(() => {
+    if (!parsed) return true;
+    if (parsed.missingInlineImages.length === 0) return true;
+    if (!isLabArchivesConfigured()) return true;
+    if (isDemoOrWikiCapture()) return true;
+    return false;
+  }, [parsed]);
+
+  const runApply = useCallback(
+    async (fetched: Map<string, FetchedImage>) => {
+      if (!plan) return;
+      const planForApply: ELNImportPlan = { ...plan, projectMappings: mappings };
+      setPlan(planForApply);
+      setApplyError(null);
+      setProgress({ phase: "projects", current: 0, total: 0 });
+      setStep("applying");
+      try {
+        const r = await applyELNImportPlan(planForApply, {
+          onProgress: setProgress,
+          fetchedImages: fetched.size > 0 ? fetched : undefined,
+        });
+        setResult(r);
+        setStep("done");
+        void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+        void queryClient.invalidateQueries({ queryKey: ["projects"] });
+      } catch (err) {
+        setApplyError(
+          err instanceof Error ? err.message : "Failed to import the notebook.",
+        );
+      }
+    },
+    [plan, mappings, queryClient],
+  );
+
+  const handleStartApply = useCallback(() => {
+    // From the mapping step: jump to fetch-images when eligible, otherwise
+    // straight to applying with no rehydrated images.
+    if (skipFetchStep) {
+      void runApply(new Map());
+      return;
     }
-  }, [plan, mappings, queryClient]);
+    setStep("fetch-images");
+  }, [skipFetchStep, runApply]);
+
+  const handleContinueFromFetch = useCallback(
+    (fetched: Map<string, FetchedImage>) => {
+      setFetchedImages(fetched);
+      void runApply(fetched);
+    },
+    [runApply],
+  );
 
   const goToPrevStep = useCallback(() => {
     if (step === "upload") setStep("format");
     else if (step === "preview") setStep("upload");
     else if (step === "mapping") setStep("preview");
+    else if (step === "fetch-images") setStep("mapping");
   }, [step]);
 
   const goToNextFromPreview = useCallback(() => {
@@ -232,6 +286,14 @@ export default function ImportELNDialog({ isOpen, onClose }: ImportELNDialogProp
               mappings={mappings}
               onChange={setMappings}
               onValidityChange={setMappingValid}
+            />
+          )}
+          {step === "fetch-images" && parsed && (
+            <LabArchivesSignInStep
+              receiver={receiver}
+              missingImages={parsed.missingInlineImages}
+              onContinue={handleContinueFromFetch}
+              onBack={goToPrevStep}
             />
           )}
           {step === "applying" && (
@@ -314,7 +376,14 @@ function Footer({
   onStartApply: () => void;
   onCancel: () => void;
 }) {
-  if (step === "applying" || step === "parsing" || step === "done") return null;
+  if (
+    step === "applying" ||
+    step === "parsing" ||
+    step === "done" ||
+    step === "fetch-images"
+  ) {
+    return null;
+  }
 
   const primaryCls =
     "px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed";

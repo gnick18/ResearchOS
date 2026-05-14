@@ -155,10 +155,16 @@ export interface ELNAppliedTask {
   newProjectId: number | null;
   /** Dedup key — `ParsedPage.pageDedupRaw` when present, otherwise composed. */
   dedupKey: string;
-  /** Count of attachments written for this task (body + inline). */
+  /** Count of attachments written for this task (body + inline + rehydrated). */
   attachmentsWritten: number;
-  /** Form B online-only inline images surfaced for this task. */
+  /** Form B online-only inline images STILL missing after the (optional)
+   *  LabArchives image-fetch step. Zero when every Form-B URL was either
+   *  rehydrated or never present. */
   missingInlineImages: number;
+  /** Form B online-only inline images successfully rehydrated from
+   *  LabArchives during this apply pass. Zero when the sign-in step was
+   *  skipped. */
+  rehydratedInlineImages: number;
   /** Original tree path from the notebook root. Used by bulk-sort UI to show "from X/Y" subtitle. */
   treePath: string[];
   /** Display name of the page, used by bulk-sort UI as the task title. */
@@ -199,7 +205,13 @@ export interface ELNImportResult {
   tasksCreated: ELNAppliedTask[];
   tasksSkippedAsDuplicate: ELNSkippedTask[];
   projectsCreated: ELNCreatedProject[];
+  /** Count of Form-B online-only images still unresolved after the import.
+   *  Equals zero when every Form-B URL was rehydrated via LabArchives. */
   totalMissingInlineImages: number;
+  /** Count of Form-B online-only images successfully rehydrated from
+   *  LabArchives during this apply pass. Zero when the sign-in step was
+   *  skipped. */
+  totalRehydratedInlineImages: number;
   /** Per-page errors that did NOT halt the import (e.g. one page failed mid-way). */
   warnings: ELNImportWarning[];
 }
