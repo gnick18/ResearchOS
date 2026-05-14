@@ -3274,11 +3274,25 @@ export const fetchAllMethodsIncludingShared = async (): Promise<Method[]> => {
 
 // Mirror of `fetchAllTasksIncludingShared` for projects.
 export const fetchAllProjectsIncludingShared = async (): Promise<Project[]> => {
+  const currentUser = await getCurrentUserCached();
   const ownProjects = await projectsStore.listAll();
+  // Older projects on disk predate the `owner` field — they shipped without
+  // it because the original schema was single-user. The receiver-side merge
+  // gives each shared project an `owner` overlay (see below), but own
+  // projects with no on-disk `owner` field stayed as `undefined`. Downstream
+  // consumers that pair projects to tasks via `(id, owner)` strict equality
+  // — e.g. /experiments `groupedChains`, /search, /results, /purchases —
+  // then silently drop chains whose root task got an owner backfilled by
+  // `fetchAllTasksIncludingShared` because no project matched `(id, undefined)`.
+  // Backfill here, mirroring `withOwnerFallback` for tasks. The file on disk
+  // stays untouched until the next write through `projectsApi.update`; this
+  // is a read-time overlay only, same as task `withOwnerFallback`.
+  const ownProjectsWithOwner = ownProjects.map((p) =>
+    p.owner ? p : ({ ...p, owner: currentUser ?? "" } as Project),
+  );
 
   const sharedProjects: Project[] = [];
   try {
-    const currentUser = await getCurrentUserCached();
     const manifest = await fileService.readJson<SharedManifest>(
       `users/${currentUser}/_shared_with_me.json`
     );
@@ -3301,7 +3315,7 @@ export const fetchAllProjectsIncludingShared = async (): Promise<Project[]> => {
     console.warn("[fetchAllProjectsIncludingShared] failed to load shared projects:", err);
   }
 
-  return [...ownProjects, ...sharedProjects];
+  return [...ownProjectsWithOwner, ...sharedProjects];
 };
 
 export type {

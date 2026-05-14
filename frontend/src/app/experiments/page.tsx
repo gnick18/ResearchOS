@@ -323,6 +323,13 @@ export default function ExperimentsPage() {
   // The composite `key` is also carried out as `projectKey` on each bucket so
   // React keys downstream don't fall back to `projectName` (two different
   // projects can legitimately share a display name across owners).
+  //
+  // Orphan-project fallback: a task whose `project_id` references a project
+  // that's missing from `projects` (deleted, partial ELN import, etc.) used
+  // to drop silently — the bucket only got created when `projects.find(...)`
+  // matched. Header would still count the task ("13 completed") but the body
+  // would be short. Now: surface those under an "Unknown project" bucket so
+  // the count and the rendered cards always reconcile.
   const groupedChains = useMemo(() => {
     const map: Record<string, { projectKey: string; projectName: string; chains: ExperimentChain[]; color: string }> = {};
 
@@ -335,11 +342,16 @@ export default function ExperimentsPage() {
         if (project) {
           const color = project.color || DEFAULT_COLORS[projects.indexOf(project) % DEFAULT_COLORS.length];
           map[key] = { projectKey: key, projectName: project.name, chains: [], color };
+        } else {
+          map[key] = {
+            projectKey: key,
+            projectName: `Unknown project (#${chain.rootTask.project_id})`,
+            chains: [],
+            color: "#9ca3af",
+          };
         }
       }
-      if (map[key]) {
-        map[key].chains.push(chain);
-      }
+      map[key].chains.push(chain);
     }
 
     return Object.values(map);
@@ -358,11 +370,16 @@ export default function ExperimentsPage() {
         if (project) {
           const color = project.color || DEFAULT_COLORS[projects.indexOf(project) % DEFAULT_COLORS.length];
           map[key] = { projectKey: key, projectName: project.name, chains: [], color };
+        } else {
+          map[key] = {
+            projectKey: key,
+            projectName: `Unknown project (#${chain.rootTask.project_id})`,
+            chains: [],
+            color: "#9ca3af",
+          };
         }
       }
-      if (map[key]) {
-        map[key].chains.push(chain);
-      }
+      map[key].chains.push(chain);
     }
 
     return Object.values(map);
