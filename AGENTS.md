@@ -374,6 +374,40 @@ _(Original "Handoff snapshot — late evening" body below was preserved for audi
 
 **Stale local branches worth pruning** (work landed elsewhere, branches just clutter `git branch`): `claude/epic-dubinsky-f36fb5` (Export Sub-bot F PCR-rendering), `claude/sharp-kirch-4345ef` (unknown), `claude/competent-tesla-1c0608` (the worktree that caused the stale-dev-server trap). Confirm-and-delete is safe but optional.
 
+### Recently landed (2026-05-14 — Calendar event end-time awareness)
+
+Single commit (`8f9ec81f`, ~226 / –44 across 6 files) splits the "today's events" treatment between the left sidebar (drop ended) and the calendar page (strikethrough + grey).
+
+**Why**: Events stayed visible from midnight to midnight regardless of `end_time` — a 10am meeting still shrieked from the sidebar at 5pm. Grant flagged the UX gap.
+
+**Files**:
+- New `frontend/src/lib/calendar/event-status.ts` (~80 LOC) — shared `hasEnded(event, now)` helper.
+- `frontend/src/components/DailyTasksSidebar.tsx` — `todayItems` useMemo now filters out ended events; 60s `tick` state forces re-evaluation at minute boundaries.
+- `frontend/src/components/calendar/DayView.tsx`, `WeekView.tsx`, `MonthView.tsx`, `DayDetailDrawer.tsx` — ended events render with `line-through opacity-60`. Day/Week refactored from `nowMinutes: number | null` to `now: Date` so the same state drives both the red "now" line and the strikethrough; Month/Drawer gain a 60s tick they didn't have before.
+
+**`hasEnded` logic** (single source of truth, both surfaces agree):
+- All-day (no `start_time`): never ended on the covered day(s) — only past midnight after `end_date`.
+- Timed with `start_time` + `end_time`: ended once `now > end_time` on `end_date`.
+- Timed with `start_time` only: 1-hour default duration (`DEFAULT_EVENT_DURATION_MS = 60 * 60 * 1000`). Anchored to start on `start_date`.
+- Malformed dates: NEVER considered ended (fail open — better to show a confusing event than hide one with bad data).
+
+**Behavior split**:
+- **Sidebar (DailyTasksSidebar)**: ended events drop entirely from the today bucket. Upcoming-day events can't have ended (future date) so the filter is a no-op there.
+- **Calendar views (Month/Week/Day/DayDetailDrawer)**: ended events stay visible, render `line-through opacity-60`. Color accents (project pills, event_type colors) stay intact through the opacity — still identifiable but de-emphasized.
+
+**Edge cases NOT covered**:
+- All-day events spanning multi-day where today is mid-stretch: they stay visible all day on every covered day (no mid-event mid-day rollover, which is the right behavior — there's no end-time to compare against).
+- Events with malformed dates: silently kept visible. No log; the upstream stores shouldn't be writing malformed shapes.
+- Server-side render: all four surfaces are `"use client"` and the helper is called from `useEffect`/`useMemo` paths only. No SSR hydration mismatch risk.
+- Multi-day timed events with no `end_time` (rare, ICS importer always emits one): the helper anchors the 1h default to `start_date` not `end_date`. Conservative; in practice we don't see this shape.
+- Minor minute-tick drift: `setInterval(60_000)` can lag by a fraction of a minute under heavy CPU. Cosmetic — worst case an ended event hangs around for an extra ~5s.
+
+**Manual test recipe** (for Grant):
+1. Seed a fixture event with `start_date = today`, `start_time = "<5 minutes from now>"`, `end_time = "<2 minutes from now>"` (yes, end-before-start — the helper checks against `end_time` so this puts the event already-ended).
+2. Reload `/calendar`. Sidebar's Today's Events should NOT show it; the calendar grid should show it greyed-out + strikethrough.
+3. As a live transition test, set `end_time` to "current minute + 1". Wait 90 seconds: sidebar should drop the row, calendar should grey-out.
+4. Test the no-end-time path: seed an event with `start_time = "<70 minutes ago>"` and no `end_time`. Expected: sidebar drops (1h default duration says it ended 10m ago); calendar greys out.
+
 ### Recently landed (2026-05-14 — LabArchives institutional API removal)
 
 Three commits (`8b1eac3f` deletion + import reshuffle, `537471c8` restore `LabArchivesOptionCard` helper for the remaining Import card, `656c980c` drop now-unused `isDemoOrWikiCapture` import in settings) remove the institutional LabArchives signed-call setup entirely. Net –3296 / +127 across 25 files; the deleted surface itself was ~2050 LOC across 12 files.
