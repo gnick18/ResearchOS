@@ -14,7 +14,7 @@ import TaskDetailPopup from "@/components/TaskDetailPopup";
 import HighLevelGoalModal from "@/components/HighLevelGoalModal";
 import HighLevelGoalSidebar from "@/components/HighLevelGoalSidebar";
 import { taskKey } from "@/lib/types";
-import type { Project, HighLevelGoal } from "@/lib/types";
+import type { HighLevelGoal } from "@/lib/types";
 
 export default function Home() {
   const queryClient = useQueryClient();
@@ -30,7 +30,7 @@ export default function Home() {
   const setEditingGoal = useAppStore((s) => s.setEditingGoal);
   
   // State for delete confirmation
-  const [deletingGoal, setDeletingGoal] = useState<HighLevelGoal | null>(null);
+  const [, setDeletingGoal] = useState<HighLevelGoal | null>(null);
 
   const { currentUser: providerCurrentUser } = useCurrentUser();
   const currentUser = providerCurrentUser ?? "";

@@ -186,6 +186,7 @@ export default function AnimalsAnimation({ x, y, onComplete }: AnimalsAnimationP
   }, [x, y]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot init of mount-time random particles, then setInterval drives animation
     setParticles(createParticles());
     
     // Create sparkles

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { labApi, LabSearchResult, LabProject, LabMethod, LabTask } from "@/lib/local-api";
 import { useLabData } from "@/hooks/useLabData";
@@ -23,14 +23,8 @@ interface SearchFilters {
   username: string; // Specific user filter
 }
 
-const DEFAULT_COLORS = [
-  "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
-  "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1",
-];
-
 export default function LabSearchPanel({
   selectedUsernames,
-  onClose,
   onTaskClick,
 }: LabSearchPanelProps) {
   const { users, tasks } = useLabData();
@@ -70,44 +64,11 @@ export default function LabSearchPanel({
     refetchOnWindowFocus: false,
   });
 
-  // Get user color by username
-  const getUserColor = (username: string) => {
-    const user = users.find(u => u.username === username);
-    return user?.color || "#6b7280";
-  };
-
-  // Project colors
-  const projectColors = useMemo(() => {
-    const map: Record<string, string> = {};
-    projects.forEach((p, i) => {
-      map[`${p.username}-${p.id}`] = p.color || DEFAULT_COLORS[i % DEFAULT_COLORS.length];
-    });
-    return map;
-  }, [projects]);
-
-  // Method lookup
-  const methodLookup = useMemo(() => {
-    const map: Record<number, LabMethod> = {};
-    methods.forEach((m) => {
-      map[m.id] = m;
-    });
-    return map;
-  }, [methods]);
-
-  // Project lookup
-  const projectLookup = useMemo(() => {
-    const map: Record<string, LabProject> = {};
-    projects.forEach((p) => {
-      map[`${p.username}-${p.id}`] = p;
-    });
-    return map;
-  }, [projects]);
-
   // Perform search
-  const performSearch = async () => {
+  const performSearch = useCallback(async () => {
     setLoading(true);
     setHasSearched(true);
-    
+
     try {
       // Build usernames parameter
       let usernamesParam: string | undefined;
@@ -146,11 +107,11 @@ export default function LabSearchPanel({
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters, selectedUsernames]);
 
   const handleSearch = useCallback(() => {
     performSearch();
-  }, [filters, selectedUsernames]);
+  }, [performSearch]);
 
   const handleClear = useCallback(() => {
     setFilters({

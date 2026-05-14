@@ -46,6 +46,7 @@ export default function LabUserFilterButton({
       const saved = localStorage.getItem(POSITION_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot read of position from localStorage on mount
         setPosition(parsed);
       }
       // If no saved position, keep the default (bottom-right)

@@ -10,7 +10,7 @@ import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import TaskModal from "@/components/TaskModal";
 import NotesPanel from "@/components/NotesPanel";
-import type { Task, Dependency, Method } from "@/lib/types";
+import type { Task, Method } from "@/lib/types";
 import type { GitHubTreeItem } from "@/lib/types";
 import {
   exportMultipleExperiments,
@@ -266,46 +266,6 @@ export default function ExperimentsPage() {
     });
   }, [completedExperiments, dependencies, allTasks]);
 
-  // Group experiments by project
-  const groupedExperiments = useMemo(() => {
-    const map: Record<number, { projectName: string; experiments: Task[]; color: string }> = {};
-    
-    for (const exp of upcomingExperiments) {
-      if (!map[exp.project_id]) {
-        const project = projects.find((p) => p.id === exp.project_id);
-        if (project) {
-          const color = project.color || DEFAULT_COLORS[projects.indexOf(project) % DEFAULT_COLORS.length];
-          map[exp.project_id] = { projectName: project.name, experiments: [], color };
-        }
-      }
-      if (map[exp.project_id]) {
-        map[exp.project_id].experiments.push(exp);
-      }
-    }
-    
-    return Object.values(map);
-  }, [upcomingExperiments, projects]);
-
-  // Group completed experiments by project
-  const groupedCompletedExperiments = useMemo(() => {
-    const map: Record<number, { projectName: string; experiments: Task[]; color: string }> = {};
-    
-    for (const exp of completedExperiments) {
-      if (!map[exp.project_id]) {
-        const project = projects.find((p) => p.id === exp.project_id);
-        if (project) {
-          const color = project.color || DEFAULT_COLORS[projects.indexOf(project) % DEFAULT_COLORS.length];
-          map[exp.project_id] = { projectName: project.name, experiments: [], color };
-        }
-      }
-      if (map[exp.project_id]) {
-        map[exp.project_id].experiments.push(exp);
-      }
-    }
-    
-    return Object.values(map);
-  }, [completedExperiments, projects]);
-
   // Project colors for filter buttons
   const projectColors = useMemo(() => {
     const map: Record<number, string> = {};
@@ -519,25 +479,6 @@ export default function ExperimentsPage() {
       setExporting(false);
     }
   }, [selectedExperimentIds, allTasks, projects, clearSelection]);
-
-  // Categorize experiments by time
-  const categorizeExperiments = (experiments: Task[]) => {
-    const overdue: Task[] = [];
-    const todayExps: Task[] = [];
-    const upcoming: Task[] = [];
-    
-    for (const exp of experiments) {
-      if (exp.end_date < today) {
-        overdue.push(exp);
-      } else if (exp.start_date <= today && exp.end_date >= today) {
-        todayExps.push(exp);
-      } else {
-        upcoming.push(exp);
-      }
-    }
-    
-    return { overdue, todayExps, upcoming };
-  };
 
   // Group chains by project
   const groupedChains = useMemo(() => {

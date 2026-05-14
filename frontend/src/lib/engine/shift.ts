@@ -1,4 +1,4 @@
-import { addDays, subDays, parseISO, isValid } from "date-fns";
+import { addDays, subDays } from "date-fns";
 import { parseDate, formatDate, resolveWeekend, computeEndDate, isWeekendActiveForTask, computeStartDateFromEnd } from "./dates";
 import { JsonStore } from "../storage/json-store";
 import type { Task, Dependency, Project, ShiftedTask, ShiftWarning, ShiftResult } from "../types";
@@ -249,10 +249,6 @@ export async function shiftTask(
     const currentId = queue.shift()!;
     const currentTask = await getTaskForOwner(currentId, owner);
     if (!currentTask) continue;
-
-    const currentWa = await getTaskWeekendActive(currentTask, owner);
-    const currentStart = parseDate(currentTask.start_date);
-    const currentEnd = computeEndDate(currentStart, currentTask.duration_days, currentWa);
 
     const children = await getDependencyChildren(currentId, owner);
 

@@ -7,7 +7,7 @@ import rehypeRaw from "rehype-raw";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { filesApi, tasksApi, pcrApi, fetchAllMethodsIncludingShared } from "@/lib/local-api";
 import { migrateNoteImages } from "@/lib/notes/migrate-images";
-import type { Method, Task, TaskMethodAttachment, PCRProtocol, PCRGradient, PCRIngredient } from "@/lib/types";
+import type { Task, PCRGradient, PCRIngredient } from "@/lib/types";
 import { InteractiveGradientEditor } from "@/components/InteractiveGradientEditor";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import MethodPicker from "./MethodPicker";
@@ -18,11 +18,6 @@ interface MethodTabsProps {
   task: Task;
   onTaskUpdate?: (task: Task) => void;
   readOnly?: boolean; // When true, all editing is disabled (for lab mode)
-}
-
-// Helper to generate unique ID for new ingredients
-function generateIngredientId(): string {
-  return `ing_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
 // Helper function to extract PCR protocol ID from source_path
@@ -38,7 +33,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
   const [saving, setSaving] = useState(false);
   
   // Get method attachments from task
-  const methodAttachments = task.method_attachments || [];
+  const methodAttachments = useMemo(() => task.method_attachments || [], [task.method_attachments]);
   
   // Set initial active method
   useEffect(() => {

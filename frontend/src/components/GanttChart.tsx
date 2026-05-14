@@ -34,14 +34,6 @@ interface TaskPosition {
 // id with an own task don't clobber each other.
 type TaskElementMap = Map<string, { element: HTMLDivElement; weekIdx: number; rowIdx: number; spanInfo: { startIdx: number; span: number } }>;
 
-// Interface for row assignment
-interface TaskRowAssignment {
-  taskKey: string;
-  row: number;
-  chainId: number; // Which chain this task belongs to
-  positionInChain: number; // Position within the chain (0 = first, 1 = second, etc.)
-}
-
 // Darker versions of project colors for experiments
 const DARKER_EXPERIMENT_COLORS = [
   "#1e40af", // darker blue
@@ -55,11 +47,6 @@ const DARKER_EXPERIMENT_COLORS = [
   "#c2410c", // darker orange
   "#4338ca", // darker indigo
 ];
-
-// Helper to get darker color for experiments
-function getDarkerColor(index: number): string {
-  return DARKER_EXPERIMENT_COLORS[index % DARKER_EXPERIMENT_COLORS.length];
-}
 
 // Helper to adjust color brightness (factor < 1 darkens, > 1 lightens)
 function adjustColorBrightness(hexColor: string, factor: number): string {
@@ -512,14 +499,14 @@ export default function GanttChart({
   const [dragOverTask, setDragOverTask] = useState<Task | null>(null);
   
   // Goal hover state
-  const [hoveredGoal, setHoveredGoal] = useState<HighLevelGoal | null>(null);
+  const [, setHoveredGoal] = useState<HighLevelGoal | null>(null);
   
   // Use refs for task elements and positions to avoid render loops
   const taskElementsRef = useRef<TaskElementMap>(new Map());
   // Keyed by composite (owner, id) so two tasks with the same numeric id never
   // share a position entry.
-  const [taskPositions, setTaskPositions] = useState<Map<string, TaskPosition>>(new Map());
-  const [containerRect, setContainerRect] = useState<DOMRect | null>(null);
+  const [, setTaskPositions] = useState<Map<string, TaskPosition>>(new Map());
+  const [, setContainerRect] = useState<DOMRect | null>(null);
 
   const weeksToShow = useMemo(() => {
     switch (viewMode) {
@@ -540,7 +527,7 @@ export default function GanttChart({
   const filteredTasks = useMemo(() => {
     console.log("[GanttChart.filteredTasks] Input tasks:", tasks.length, "tasks:", tasks.map(t => ({ id: t.id, name: t.name, start: t.start_date, end: t.end_date, type: t.task_type })));
     
-    let result = tasks.filter(t => t.start_date && t.end_date);
+    const result = tasks.filter(t => t.start_date && t.end_date);
     console.log("[GanttChart.filteredTasks] After date filter:", result.length);
     
     if (!isLabMode) {
@@ -567,15 +554,6 @@ export default function GanttChart({
     return assignRowsDynamic(filteredTasks, dependencies, dates);
   }, [filteredTasks, dependencies, dates]);
 
-  // Get the maximum row number for rendering
-  const maxRow = useMemo(() => {
-    let max = 0;
-    rowAssignments.forEach(row => {
-      if (row > max) max = row;
-    });
-    return max;
-  }, [rowAssignments]);
-
   // Sort tasks: high-level first, then by start date
   const sortedTasks = useMemo(() => {
     return [...filteredTasks].sort((a, b) => {
@@ -584,12 +562,6 @@ export default function GanttChart({
       return a.start_date.localeCompare(b.start_date);
     });
   }, [filteredTasks]);
-
-  // Get dependencies that involve visible tasks
-  const visibleDependencies = useMemo(() => {
-    const taskIds = new Set(filteredTasks.map(t => t.id));
-    return dependencies.filter(d => taskIds.has(d.parent_id) && taskIds.has(d.child_id));
-  }, [dependencies, filteredTasks]);
 
   // Check if a task has dependents (children). Dependencies are loaded only
   // from the viewer's own directory, so a shared task never has dependents
@@ -823,7 +795,8 @@ export default function GanttChart({
         height: taskBounds.height,
       });
     });
-    
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- measure DOM after render via useLayoutEffect; classic sync-to-DOM pattern
     setTaskPositions(newPositions);
   }, [tasks, weeks]); // Re-calculate when tasks or weeks change
 
@@ -1412,7 +1385,7 @@ export default function GanttChart({
                         })}
 
                         {/* Render all tasks in this row */}
-                        {tasksInRow.map((task, taskIdxInRow) => {
+                        {tasksInRow.map((task) => {
                           const taskProject = projects.find(p => p.id === task.project_id);
                           const spanInfo = getTaskSpanInWeek(task, weekDates, taskProject, dates);
                           if (!spanInfo) return null;

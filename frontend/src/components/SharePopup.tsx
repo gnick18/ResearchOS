@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { sharingApi, usersApi, methodsApi } from "@/lib/local-api";
 import Tooltip from "@/components/Tooltip";
 import type { SharedUser, ShareRequest, DependencyChainResponse } from "@/lib/types";
@@ -35,27 +35,11 @@ export default function SharePopup({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [dependencyChain, setDependencyChain] = useState<DependencyChainResponse | null>(null);
-  const [showChainConfirm, setShowChainConfirm] = useState(false);
   const [includeChain, setIncludeChain] = useState(false);
   const [isPubliclyVisible, setIsPubliclyVisible] = useState(isPublic);
   const [shareWithAll, setShareWithAll] = useState(false);
 
-  // Load users on mount
-  useEffect(() => {
-    if (isOpen) {
-      loadUsers();
-      if (itemType === "task") {
-        loadDependencyChain();
-      }
-    }
-  }, [isOpen, itemType, itemId]);
-  
-  // Update isPubliclyVisible when prop changes
-  useEffect(() => {
-    setIsPubliclyVisible(isPublic);
-  }, [isPublic]);
-
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
       const response = await usersApi.list();
       // Filter out current user and owner
@@ -66,16 +50,31 @@ export default function SharePopup({
     } catch (err) {
       console.error("Failed to load users:", err);
     }
-  };
+  }, [currentOwner]);
 
-  const loadDependencyChain = async () => {
+  const loadDependencyChain = useCallback(async () => {
     try {
       const chain = await sharingApi.getTaskDependencyChain(itemId);
       setDependencyChain(chain);
     } catch (err) {
       console.error("Failed to load dependency chain:", err);
     }
-  };
+  }, [itemId]);
+
+  // Load users on mount
+  useEffect(() => {
+    if (isOpen) {
+      loadUsers();
+      if (itemType === "task") {
+        loadDependencyChain();
+      }
+    }
+  }, [isOpen, itemType, itemId, loadUsers, loadDependencyChain]);
+
+  // Update isPubliclyVisible when prop changes
+  useEffect(() => {
+    setIsPubliclyVisible(isPublic);
+  }, [isPublic]);
 
   const handleShare = async () => {
     // For "All Lab Users" option, we toggle public visibility
@@ -111,7 +110,7 @@ export default function SharePopup({
         await sharingApi.shareMethod(itemId, data);
         setSuccess(`Shared with ${selectedUser}`);
       } else if (itemType === "project") {
-        const result = await sharingApi.shareProject(itemId, data);
+        await sharingApi.shareProject(itemId, data);
         setSuccess(`Shared with ${selectedUser}`);
       }
 

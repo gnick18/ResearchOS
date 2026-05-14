@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { LabTask } from "@/lib/local-api";
 import { useLabData } from "@/hooks/useLabData";
 import UserAvatar from "@/components/UserAvatar";
@@ -24,10 +24,10 @@ export default function LabExperimentsPanel({
   const [viewMode, setViewMode] = useState<"grouped" | "table">("grouped");
 
   // Get project name by ID
-  const getProjectName = (projectId: number, username: string) => {
+  const getProjectName = useCallback((projectId: number, username: string) => {
     const project = projects.find(p => p.id === projectId && p.username === username);
     return project?.name || "Unknown Project";
-  };
+  }, [projects]);
 
   // Filter experiments by selected users
   const filteredExperiments = useMemo(() => {
@@ -56,7 +56,7 @@ export default function LabExperimentsPanel({
       return sortOrder === "asc" ? comparison : -comparison;
     });
     return sorted;
-  }, [filteredExperiments, sortBy, sortOrder]);
+  }, [filteredExperiments, sortBy, sortOrder, getProjectName]);
 
   // Toggle sort
   const toggleSort = (column: "username" | "project" | "date" | "name") => {

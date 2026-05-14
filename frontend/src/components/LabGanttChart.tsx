@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useMemo, useCallback, useEffect } from "react";
 import { LabTask } from "@/lib/local-api";
 import { useAppStore } from "@/lib/store";
 import { useLabData } from "@/hooks/useLabData";
@@ -262,15 +262,6 @@ export default function LabGanttChart({
   const rowAssignments = useMemo(() => {
     return assignRowsDynamic(filteredTasks, dates);
   }, [filteredTasks, dates]);
-
-  // Get the maximum row number
-  const maxRow = useMemo(() => {
-    let max = 0;
-    rowAssignments.forEach(row => {
-      if (row > max) max = row;
-    });
-    return max;
-  }, [rowAssignments]);
 
   // Sort tasks by start date
   const sortedTasks = useMemo(

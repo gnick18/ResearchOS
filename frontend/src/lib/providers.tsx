@@ -41,6 +41,7 @@ function AppContent({ children }: { children: ReactNode }) {
     console.log("AppContent useEffect:", { isLoading, isConnected, currentUser });
     if (!isLoading && !isConnected) {
       console.log("AppContent: showing setup (not connected)");
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- state machine: setup gate flips based on external fs-connection state transitions
       setShowSetup(true);
     } else if (isConnected && currentUser) {
       console.log("AppContent: hiding setup (connected with user)");

@@ -102,7 +102,7 @@ export default function CalendarPage() {
     };
     apply(useCalendarNavStore.getState().pendingJump);
     return useCalendarNavStore.subscribe((state) => apply(state.pendingJump));
-  }, []);
+  }, [setView, setCurrentDate]);
 
   const openCreateAt = useCallback((dateStr: string, startTime: string | null) => {
     setPrefilledStartDate(dateStr);

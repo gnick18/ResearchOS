@@ -23,6 +23,7 @@ export default function BugReportModal({ isOpen, onClose, prefilledError }: BugR
   
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset form when modal opens (sync state to prop transition)
       setDescription("");
       setCopied(false);
     }
@@ -119,7 +120,7 @@ export default function BugReportModal({ isOpen, onClose, prefilledError }: BugR
           </div>
 
           <p className="text-xs text-gray-400">
-            Clicking "Create GitHub Issue" will open a new tab where you can review and submit the issue. 
+            Clicking &quot;Create GitHub Issue&quot; will open a new tab where you can review and submit the issue.
             You&apos;ll need a GitHub account.
           </p>
         </div>

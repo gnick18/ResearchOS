@@ -16,7 +16,7 @@ import MethodExperimentsSidebar from "@/components/MethodExperimentsSidebar";
 import { useFileRenamePopup } from "@/components/FileRenamePopup";
 import SharePopup from "@/components/SharePopup";
 import Tooltip from "@/components/Tooltip";
-import type { Method, PCRProtocol, PCRGradient, PCRStep, PCRIngredient, SharedUser } from "@/lib/types";
+import type { Method, PCRProtocol, PCRGradient, PCRIngredient } from "@/lib/types";
 
 /**
  * When the current viewer is a receiver of a shared method with edit
@@ -339,7 +339,7 @@ export default function MethodsPage() {
                 {isEmpty ? (
                   <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center">
                     <p className="text-sm text-gray-400">No methods in this category</p>
-                    <p className="text-xs text-gray-300 mt-1">Drag a method here or click "Add Method" above</p>
+                    <p className="text-xs text-gray-300 mt-1">Drag a method here or click &quot;Add Method&quot; above</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -568,10 +568,8 @@ function CreateMethodModal({
 
   // Markdown state
   const [mdContent, setMdContent] = useState("");
-  const [mdPreview, setMdPreview] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [, setUploading] = useState(false);
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
   
   // Track uploaded image paths for cleanup on cancel
@@ -1357,10 +1355,9 @@ function MarkdownMethodViewer({
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [, setUploading] = useState(false);
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
   const [showSharePopup, setShowSharePopup] = useState(false);
-  const editFileInputRef = useRef<HTMLInputElement>(null);
   const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
 
   // Owner-aware view: shared-with-edit methods write back to the owner's dir.
@@ -1415,23 +1412,6 @@ function MarkdownMethodViewer({
       setUploading(false);
     },
     [methodDir, requestRename]
-  );
-
-  const handleEditPaste = useCallback(
-    (e: React.ClipboardEvent) => {
-      const items = Array.from(e.clipboardData.items);
-      const imageItems = items.filter((item) => item.type.startsWith("image/"));
-      if (imageItems.length > 0) {
-        e.preventDefault();
-        const files: File[] = [];
-        for (const item of imageItems) {
-          const file = item.getAsFile();
-          if (file) files.push(file);
-        }
-        if (files.length > 0) handleEditImageUpload(files);
-      }
-    },
-    [handleEditImageUpload]
   );
 
   useEffect(() => {
@@ -1499,17 +1479,6 @@ function MarkdownMethodViewer({
       setSaving(false);
     }
   }, [content, method.source_path, method.name]);
-
-  const handleTogglePublic = useCallback(async () => {
-    try {
-      const newIsPublic = !currentMethod.is_public;
-      await scopedMethodsApi.update(currentMethod.id, { is_public: newIsPublic });
-      setCurrentMethod({ ...currentMethod, is_public: newIsPublic });
-      await queryClient.refetchQueries({ queryKey: ["methods"] });
-    } catch {
-      alert("Failed to update method visibility");
-    }
-  }, [currentMethod, queryClient, scopedMethodsApi]);
 
   // Check if current user can modify this method (owner of private method, or creator of public method)
   const canModify = !currentMethod.is_public || currentMethod.created_by === currentUser;
@@ -1677,6 +1646,7 @@ function PdfViewer({
   useEffect(() => {
     // Read the PDF as base64 from disk, then create a blob URL
     if (!method.source_path) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- short-circuit when no source path means we can't load anything
       setLoading(false);
       return;
     }
