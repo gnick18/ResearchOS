@@ -251,8 +251,9 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
                   </button>
                 </Tooltip>
               )}
-              {/* Share button */}
-              {!isEditing && !isMiscellaneousProject && (
+              {/* Share button — hidden when the project was shared TO us
+                   (receivers can't re-share what isn't theirs to grant access to). */}
+              {!isEditing && !isMiscellaneousProject && !project.is_shared_with_me && (
                 <Tooltip label="Share project" placement="bottom">
                   <button
                     onClick={() => setShowSharePopup(true)}
