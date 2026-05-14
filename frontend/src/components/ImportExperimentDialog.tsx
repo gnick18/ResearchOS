@@ -338,6 +338,17 @@ function ReviewStage({
   const taskName = plan.payload.task.name;
   const sourceOwner = plan.payload.manifest.source_owner;
 
+  // Orphan method-origin attachments (i.e. `methods/unattached/<filename>` in
+  // the raw bundle) have no method id to bind to, so the apply pipeline drops
+  // them. In practice this set is empty — only the PDF-magic-bytes fallback
+  // in the export-side extractor emits anything here. Surface the drop so if
+  // anyone hits it they'll notice and report it. (AGENTS.md §8, option C.)
+  const droppedUnattached = plan.payload.attachments.filter(
+    (a) => a.origin === "methods" && a.sub === null && a.methodId === undefined,
+  );
+  const droppedPreview = droppedUnattached.slice(0, 3).map((a) => a.filename).join(", ");
+  const droppedExtra = droppedUnattached.length - 3;
+
   return (
     <div className="space-y-5">
       <div>
@@ -461,6 +472,31 @@ function ReviewStage({
             })}
           </div>
         </div>
+      )}
+
+      {droppedUnattached.length > 0 && (
+        <p className="text-xs text-slate-500 flex items-start gap-1.5">
+          <svg
+            aria-hidden
+            className="w-3.5 h-3.5 flex-shrink-0 mt-0.5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+          <span>
+            {droppedUnattached.length} file{droppedUnattached.length === 1 ? "" : "s"} in this
+            bundle {droppedUnattached.length === 1 ? "isn't" : "aren't"} attached to any method
+            and will be dropped: {droppedPreview}
+            {droppedExtra > 0 && <> and {droppedExtra} more</>}.
+          </span>
+        </p>
       )}
     </div>
   );
