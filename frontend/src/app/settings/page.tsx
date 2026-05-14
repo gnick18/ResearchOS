@@ -586,6 +586,7 @@ interface RepairSummary {
 }
 
 function MaintenanceSection() {
+  const { currentUser } = useFileSystem();
   const [importOpen, setImportOpen] = useState(false);
   const [elnImportOpen, setElnImportOpen] = useState(false);
   return (
@@ -607,6 +608,7 @@ function MaintenanceSection() {
           onClose={() => setElnImportOpen(false)}
         />
       )}
+      {currentUser && <LabArchivesConnectionRow username={currentUser} />}
       <RepairRow
         title="Repair method links"
         description={
@@ -677,6 +679,104 @@ function ImportRow({ onOpen }: { onOpen: () => void }) {
       >
         Import .zip
       </button>
+    </div>
+  );
+}
+
+function LabArchivesConnectionRow({ username }: { username: string }) {
+  const [connection, setConnection] = useState<{
+    uid: string;
+    fullname: string | null;
+    email: string | null;
+    connectedAt: string;
+  } | null>(null);
+  const [busy, setBusy] = useState<"none" | "connecting" | "disconnecting">("none");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void import("@/lib/labarchives/tokens-store").then(async (mod) => {
+      const c = await mod.readConnection(username);
+      if (!cancelled) setConnection(c);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [username]);
+
+  const handleConnect = useCallback(async () => {
+    setBusy("connecting");
+    setError(null);
+    try {
+      const mod = await import("@/lib/labarchives/connect");
+      const c = await mod.connectLabArchives(username);
+      setConnection(c);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sign-in failed.");
+    } finally {
+      setBusy("none");
+    }
+  }, [username]);
+
+  const handleDisconnect = useCallback(async () => {
+    if (typeof window !== "undefined") {
+      const ok = window.confirm(
+        "Disconnect LabArchives? You'll need to sign in again the next time you import a notebook with online-only images.",
+      );
+      if (!ok) return;
+    }
+    setBusy("disconnecting");
+    setError(null);
+    try {
+      const mod = await import("@/lib/labarchives/tokens-store");
+      await mod.clearConnection(username);
+      setConnection(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Disconnect failed.");
+    } finally {
+      setBusy("none");
+    }
+  }, [username]);
+
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm text-gray-800">LabArchives connection</p>
+        <p className="text-xs text-gray-500 mt-1">
+          Used during ELN import to fetch online-only inline images that
+          aren&apos;t bundled in the offline ZIP.
+        </p>
+        {connection && (
+          <p className="text-xs text-gray-700 mt-1">
+            Connected as{" "}
+            <span className="font-medium">
+              {connection.fullname ?? connection.email ?? connection.uid}
+            </span>
+          </p>
+        )}
+        {error && (
+          <p className="text-xs text-red-700 mt-1">{error}</p>
+        )}
+      </div>
+      {connection ? (
+        <button
+          type="button"
+          onClick={() => void handleDisconnect()}
+          disabled={busy !== "none"}
+          className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+        >
+          {busy === "disconnecting" ? "Disconnecting…" : "Disconnect"}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => void handleConnect()}
+          disabled={busy !== "none"}
+          className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+        >
+          {busy === "connecting" ? "Signing in…" : "Connect"}
+        </button>
+      )}
     </div>
   );
 }
