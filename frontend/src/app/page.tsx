@@ -7,15 +7,8 @@ import { projectsApi, fetchAllTasksIncludingShared, fetchAllProjectsIncludingSha
 import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import ProjectDetailPopup from "@/components/ProjectDetailPopup";
-import DataSetupScreen from "@/components/DataSetupScreen";
 import UserLoginScreen from "@/components/UserLoginScreen";
-import BetaDonationButton from "@/components/BetaDonationButton";
-import ReportBugButton from "@/components/ReportBugButton";
-import BugReportModal from "@/components/BugReportModal";
 import DevTestNotificationButton from "@/components/DevTestNotificationButton";
-import Tooltip from "@/components/Tooltip";
-import UserAvatar from "@/components/UserAvatar";
-import { useErrorReporting } from "@/hooks/useErrorReporting";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useAppStore } from "@/lib/store";
 import type { Project, Task } from "@/lib/types";
@@ -55,12 +48,9 @@ export default function HomePage() {
   const [newColor, setNewColor] = useState(DEFAULT_COLORS[0]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showUserSwitch, setShowUserSwitch] = useState(false);
   const { currentUser: providerCurrentUser, isLoading: fsLoading } = useFileSystem();
   const currentUser = providerCurrentUser ?? "";
   const checkingUser = fsLoading;
-  const { showBugReport, showErrorToast, currentError, openBugReport, closeBugReport, reportCurrentError, dismissErrorToast } = useErrorReporting();
 
   // Drag and drop state
   const [draggedProjectId, setDraggedProjectId] = useState<number | null>(null);
@@ -611,51 +601,6 @@ export default function HomePage() {
         />
       )}
 
-      {/* Data Folder Button - Bottom Right */}
-      <Tooltip label="Data folder · connect or switch" placement="top">
-      <button
-        onClick={() => setShowSettings(true)}
-        className="fixed bottom-6 right-6 w-12 h-12 bg-white border border-gray-200 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center text-gray-600 hover:text-gray-900 z-50"
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-        </svg>
-      </button>
-      </Tooltip>
-
-      {/* User Switch Button - Bottom Right */}
-      <Tooltip
-        label={`Switch user${currentUser ? ` (now: ${currentUser})` : ""}`}
-        placement="top"
-      >
-      <button
-        onClick={() => setShowUserSwitch(true)}
-        className="fixed bottom-6 right-20 w-12 h-12 bg-white border border-gray-200 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center z-50"
-      >
-        {currentUser ? (
-          <UserAvatar username={currentUser} size="sm" />
-        ) : (
-          <span className="text-gray-500 text-sm font-semibold">?</span>
-        )}
-      </button>
-      </Tooltip>
-
-      {/* Data Setup Screen */}
-      <DataSetupScreen
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
-      />
-
-      {/* User Switch Screen */}
-      {showUserSwitch && (
-        <UserLoginScreen
-          onLogin={() => {
-            setShowUserSwitch(false);
-            queryClient.invalidateQueries();
-          }}
-        />
-      )}
-
       {/* Loading overlay while checking user */}
       {checkingUser && (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-white/80 backdrop-blur-sm">
@@ -666,63 +611,8 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Beta: Donation Button */}
-      <BetaDonationButton position="sidebar-edge" />
-
-      {/* Beta: Report a Bug Button */}
-      <ReportBugButton onClick={openBugReport} position="sidebar-edge" />
-
-      {/* Dev: Test Error Button (only in development) */}
-      {process.env.NODE_ENV === "development" && (
-        <button
-          onClick={() => {
-            throw new Error("Test error for bug report feature");
-          }}
-          className="fixed bottom-20 left-[20rem] px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm rounded-lg shadow-lg transition-all flex items-center gap-2 z-40"
-          title="Trigger test error (dev only)"
-        >
-          Test Error
-        </button>
-      )}
-
       {/* Dev: Send Test Notification (only in development) */}
       <DevTestNotificationButton />
-
-      {/* Bug Report Modal */}
-      <BugReportModal
-        isOpen={showBugReport}
-        onClose={closeBugReport}
-        prefilledError={currentError}
-      />
-
-      {/* Error Toast */}
-      {showErrorToast && (
-        <div className="fixed bottom-36 left-[17rem] bg-red-600 text-white px-4 py-3 rounded-lg shadow-lg z-50 flex items-center gap-3 max-w-sm">
-          <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium">An error occurred</p>
-            <p className="text-xs opacity-90 truncate">{currentError?.message}</p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={reportCurrentError}
-              className="text-xs bg-white/20 hover:bg-white/30 px-2 py-1 rounded transition-colors"
-            >
-              Report
-            </button>
-            <button
-              onClick={dismissErrorToast}
-              className="text-xs hover:bg-white/20 px-1 rounded transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
     </AppShell>
   );
 }

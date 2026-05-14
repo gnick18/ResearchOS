@@ -6,13 +6,7 @@ import Tooltip from "@/components/Tooltip";
 
 interface BetaDonationButtonProps {
   variant?: "floating" | "link";
-  position?: "sidebar-edge" | "bottom-right";
 }
-
-const FLOATING_POSITION_CLASSES: Record<NonNullable<BetaDonationButtonProps["position"]>, string> = {
-  "sidebar-edge": "fixed bottom-6 left-[17rem] z-40",
-  "bottom-right": "fixed bottom-6 right-6 z-40",
-};
 
 /**
  * Stroke-style heart icon (Lucide-shape) — matches the rest of the app's
@@ -36,7 +30,7 @@ function HeartIcon({ className = "w-4 h-4" }: { className?: string }) {
   );
 }
 
-export default function BetaDonationButton({ variant = "floating", position = "sidebar-edge" }: BetaDonationButtonProps) {
+export default function BetaDonationButton({ variant = "floating" }: BetaDonationButtonProps) {
   const [showModal, setShowModal] = useState(false);
 
   if (!DONATION_CONFIG.enabled || !isDonationConfigured()) {
@@ -62,13 +56,10 @@ export default function BetaDonationButton({ variant = "floating", position = "s
     );
   }
 
-  // Floating variant: pill-shaped, consistent height/padding on every
-  // viewport. The previous `hidden sm:inline` label caused the button to
-  // visibly snap between icon-only and icon+text shapes at the 640px
-  // breakpoint with asymmetric gap padding around the icon. The new
-  // layout keeps the label visible on all sizes — "Support" is short
-  // enough to fit even on the narrowest phones — and pairs it with a
-  // <Tooltip> for the more descriptive context label.
+  // Floating variant: icon-only round button. Positioning comes from the
+  // AppShell floating cluster (flex row, fixed bottom-right), so the
+  // button itself just declares its size/colors. Pairs with `<Tooltip>`
+  // for the action label.
   return (
     <>
       <Tooltip label="Support this project" placement="top">
@@ -76,10 +67,9 @@ export default function BetaDonationButton({ variant = "floating", position = "s
           type="button"
           onClick={() => setShowModal(true)}
           aria-label="Support this project"
-          className={`${FLOATING_POSITION_CLASSES[position]} inline-flex items-center gap-2 rounded-full bg-rose-500 hover:bg-rose-600 active:bg-rose-700 text-white text-sm font-medium px-4 py-2.5 shadow-lg hover:shadow-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2`}
+          className="w-12 h-12 rounded-full bg-rose-500 hover:bg-rose-600 active:bg-rose-700 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2"
         >
-          <HeartIcon className="w-4 h-4" />
-          <span>Support</span>
+          <HeartIcon className="w-5 h-5" />
         </button>
       </Tooltip>
 
