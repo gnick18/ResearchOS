@@ -16,6 +16,7 @@ import Tooltip from "./Tooltip";
 import UserAvatar from "./UserAvatar";
 import ReportBugButton from "./ReportBugButton";
 import BetaDonationButton from "./BetaDonationButton";
+import DevTestNotificationButton from "./DevTestNotificationButton";
 import DataSetupScreen from "./DataSetupScreen";
 import UserLoginScreen from "./UserLoginScreen";
 import BugReportModal from "./BugReportModal";
@@ -221,6 +222,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           button inside just declares size/color/shape, so spacing stays
           uniform regardless of how many buttons live here. */}
       <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2">
+        <DevTestNotificationButton />
+
         <Tooltip label="Data folder · connect or switch" placement="top">
           <button
             onClick={() => setShowDataSetup(true)}
