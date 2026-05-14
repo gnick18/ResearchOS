@@ -126,24 +126,26 @@ function isFullDeps(d: Partial<ELNApplyDeps>): d is ELNApplyDeps {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function isoDatePortion(iso: string): string {
-  // Defensive slice — `iso` is YYYY-MM-DDT... in our parser, so a 10-char
-  // prefix gives us the date. Falls through to today if parse fails.
-  if (/^\d{4}-\d{2}-\d{2}/.test(iso)) return iso.slice(0, 10);
+export function isoDatePortion(iso: string): string {
+  // Convert an ISO timestamp to a YYYY-MM-DD string in the *local* timezone.
+  //
+  // The naïve `iso.slice(0, 10)` shortcut (previously used here) loses the
+  // timezone offset: e.g. `"2026-03-26T00:30:00Z"` parsed in a UTC-05:00 zone
+  // refers to 2026-03-25 19:30 locally, not 2026-03-26. Slicing produces the
+  // wrong calendar date for any timestamp whose UTC date doesn't match its
+  // local date. We use `toLocaleDateString("en-CA")` because the en-CA locale
+  // canonically formats as `YYYY-MM-DD` in the runtime's local zone.
   const d = new Date(iso);
   if (Number.isFinite(d.getTime())) {
-    const y = d.getUTCFullYear();
-    const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-    const day = String(d.getUTCDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
+    return d.toLocaleDateString("en-CA");
   }
-  const now = new Date();
-  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`;
+  // Parse failure: fall back to today, also in local-tz form so we stay
+  // consistent with the rest of the file.
+  return todayIsoDate();
 }
 
 function todayIsoDate(): string {
-  const d = new Date();
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+  return new Date().toLocaleDateString("en-CA");
 }
 
 function deriveStartDate(page: ParsedPage, parsed: ParsedNotebook): string {

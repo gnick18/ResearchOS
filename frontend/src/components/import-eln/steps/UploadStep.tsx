@@ -9,6 +9,13 @@ interface UploadStepProps {
   errorMessage?: string | null;
 }
 
+// Soft cap above which we warn the user that the in-browser parser
+// (JSZip + linkedom DOM) may OOM the tab. The parser holds the entire ZIP
+// in memory as Uint8Arrays plus a linkedom DOM tree per page, so multi-GB
+// notebooks can blow past Chrome's per-tab heap ceiling. The user can still
+// proceed — we just want them to know what they're signing up for.
+const MAX_RECOMMENDED_ZIP_BYTES = 500 * 1024 * 1024; // 500 MB
+
 function isZipFile(file: File): boolean {
   if (file.name.toLowerCase().endsWith(".zip")) return true;
   const type = file.type;
@@ -79,6 +86,7 @@ export default function UploadStep({
   }, []);
 
   const visibleError = errorMessage ?? localError;
+  const oversized = file !== null && file.size > MAX_RECOMMENDED_ZIP_BYTES;
 
   return (
     <div className="space-y-4">
@@ -133,6 +141,23 @@ export default function UploadStep({
           >
             Remove
           </button>
+        </div>
+      )}
+
+      {oversized && (
+        <div
+          role="alert"
+          className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+        >
+          <p className="font-medium">
+            Large notebook — import may run out of memory.
+          </p>
+          <p className="mt-1">
+            This ZIP is {formatBytes(file!.size)}. Notebooks larger than{" "}
+            {formatBytes(MAX_RECOMMENDED_ZIP_BYTES)} may exceed your browser&apos;s
+            memory and cause the import to fail. If you hit a crash, try splitting
+            the notebook in LabArchives before exporting.
+          </p>
         </div>
       )}
 
