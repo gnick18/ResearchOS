@@ -33,9 +33,16 @@ export default function DemoModePage() {
         tab has cross-user data to play with too.
       </p>
       <p>
-        The URL stays at <code>/demo</code> the whole time, so the page is
-        bookmark-friendly and shareable. Any nav click (Gantt, Methods,
-        Calendar, Lab) navigates normally; the demo state follows you.
+        Bare <code>/demo</code> stays at <code>/demo</code> in the URL bar
+        and renders the Home page. Click any nav link (Gantt, Methods,
+        Calendar, Lab) and the URL switches to the regular app path
+        (<code>/gantt</code>, <code>/methods</code>, etc.). Demo state
+        follows you through those navigations via a sticky session flag,
+        so the demo banner, the watermarked data, and the floating exit
+        button are all still there. Deep links like{" "}
+        <code>/demo/methods</code> also work: the app installs the fixture
+        first, then redirects to <code>/methods</code> so the shareable
+        link lands the visitor on the right view.
       </p>
 
       <Screenshot
@@ -54,8 +61,8 @@ export default function DemoModePage() {
       </p>
       <p>
         The amber <strong>You&apos;re viewing the Demo Lab</strong> banner sits
-        across the top of every page as a constant reminder, and it carries
-        the <strong>Leave Demo</strong> button described below.
+        across the top of every page as a constant reminder. The actual exit
+        button lives in the bottom-right of the window (described below).
       </p>
 
       <h2>Dates always feel current</h2>
@@ -74,10 +81,31 @@ export default function DemoModePage() {
         doesn&apos;t accumulate drift.
       </p>
 
+      <h2>Reading the docs from inside the demo</h2>
+      <p>
+        Alongside the exit button in the bottom-right, a darker{" "}
+        <strong>📖 Read the docs ↗</strong> button shows up whenever the view
+        you&apos;re on has a wiki page. Click it on <code>/methods</code> and
+        you land on the Methods wiki entry, ready to read about what you just
+        clicked. Browser-back puts you straight back inside the demo with
+        your state intact, since the demo flag survives the trip. The button
+        silently hides itself on views without a docs page yet.
+      </p>
+      <p>
+        The mirror move works from the wiki side: feature pages that have a
+        demo-able view show an amber inline call-out (
+        <strong>🧪 Try this in the demo →</strong>) that drops you into{" "}
+        <code>/demo/&lt;route&gt;</code> for that view. Reading about the PCR
+        editor on the wiki, click the call-out, and the next click is on the
+        live editor with the demo&apos;s seeded protocols already loaded.
+      </p>
+
       <h2>Leaving the demo</h2>
       <p>
-        Click <strong>Leave Demo</strong> in the banner and a dialog called{" "}
-        <strong>Leaving the demo</strong> opens with two ways out:
+        A floating amber <strong>Leave Demo</strong> button lives in the
+        bottom-right of every demo page (a second <strong>Leave Demo</strong>{" "}
+        link is also on the banner up top). Either one opens a dialog called{" "}
+        <strong>Leaving the demo</strong> with two ways out:
       </p>
       <ul>
         <li>
