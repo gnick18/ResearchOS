@@ -49,9 +49,13 @@ export async function GET(req: NextRequest): Promise<Response> {
   if (!TOKEN_RE.test(token)) {
     return new Response("Invalid token format", { status: 400 });
   }
+  // Real Telegram `file_path` values are well under 80 chars
+  // (e.g. `photos/file_15.jpg`, `documents/file_42.pdf`). Cap at 80 to keep a
+  // malicious caller from forcing a pathologically long signed URL or driving
+  // log-blow-up.
   if (
     path.length === 0 ||
-    path.length > 512 ||
+    path.length > 80 ||
     path.startsWith("/") ||
     path.includes("..") ||
     !TELEGRAM_PATH_RE.test(path)

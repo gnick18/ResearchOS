@@ -14,8 +14,10 @@ import { safeFetch } from "@/lib/api/url-guards";
  * The user supplies an arbitrary URL, so we treat every defence in the
  * `safeFetch` helper as load-bearing here:
  *
- *   - scheme allowlist (http + https only — no `file://`, `gopher://`, etc.;
- *     `webcal://` / `webcals://` are rewritten upstream of the guard),
+ *   - scheme allowlist (HTTPS only — `http://` was previously accepted for
+ *     a few legacy university calendars but a MITM on an HTTP feed could
+ *     inject malicious VCALENDAR entries; `webcal://` / `webcals://` are
+ *     rewritten to `https://` upstream of the guard),
  *   - DNS resolution and rejection of private / loopback / link-local /
  *     metadata IPs (including IPv4-mapped IPv6 forms),
  *   - manual redirect handling: each hop is re-validated, capped at 3 hops,
@@ -57,8 +59,17 @@ export async function GET(req: NextRequest): Promise<Response> {
 
   const normalized = normalizeUrl(raw);
 
+  // HTTPS only — `webcal://` is normalized to `https://` above; raw `http://`
+  // is rejected here with a clear message so users understand why.
+  if (normalized.startsWith("http://")) {
+    return new Response(
+      "Calendar feeds must use HTTPS for security.",
+      { status: 400 }
+    );
+  }
+
   const result = await safeFetch(normalized, {
-    allowedSchemes: ["https:", "http:"],
+    allowedSchemes: ["https:"],
     maxRedirects: 3,
     maxBytes: MAX_ICS_BYTES,
     timeoutMs: 20_000,

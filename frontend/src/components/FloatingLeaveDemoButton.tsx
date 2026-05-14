@@ -39,7 +39,7 @@ export default function FloatingLeaveDemoButton() {
       <button
         type="button"
         onClick={() => setModalOpen(true)}
-        className="fixed bottom-20 right-4 z-50 px-4 py-3 rounded-full bg-amber-500 hover:bg-amber-600 text-white font-medium shadow-xl flex items-center gap-2 transition-colors"
+        className="fixed bottom-20 right-4 z-50 px-4 py-3 rounded-full bg-amber-500 hover:bg-amber-600 text-white font-medium shadow-xl flex items-center gap-2 transition-colors focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2"
         aria-label="Leave demo"
       >
         <span aria-hidden>🚪</span>

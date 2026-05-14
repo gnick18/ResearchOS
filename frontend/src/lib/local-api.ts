@@ -908,17 +908,37 @@ export const pcrApi = {
     });
   },
   
-  update: async (id: number, data: PCRProtocolUpdate): Promise<PCRProtocol | null> => {
+  // Owner routing mirrors `pcrApi.get` (see commit 1d122fc0). When the caller
+  // knows the protocol's namespace (e.g. a receiver editing a shared task's
+  // PCR protocol, or a public-method PCR), pass the explicit `owner` so the
+  // write lands in the right user's directory rather than the legacy
+  // private-first scan that can silently target the current user's namespace.
+  //
+  // Semantics:
+  //   - owner === "public": write only to users/public/pcr_protocols/{id}.json
+  //   - owner === <username>: write only to users/<owner>/pcr_protocols/{id}.json
+  //   - owner === undefined: legacy private-then-public fallback (callers that
+  //     genuinely don't know the namespace)
+  update: async (id: number, data: PCRProtocolUpdate, owner?: string): Promise<PCRProtocol | null> => {
+    if (owner) {
+      if (owner === "public") {
+        const publicProtocol = await publicPcrStore.get(id);
+        return publicProtocol ? publicPcrStore.update(id, data) : null;
+      }
+      const ownerProtocol = await pcrStore.getForUser(id, owner);
+      return ownerProtocol ? pcrStore.updateForUser(id, data, owner) : null;
+    }
+
     let protocol = await pcrStore.get(id);
     if (protocol) {
       return pcrStore.update(id, data);
     }
-    
+
     protocol = await publicPcrStore.get(id);
     if (protocol) {
       return publicPcrStore.update(id, data);
     }
-    
+
     return null;
   },
   
