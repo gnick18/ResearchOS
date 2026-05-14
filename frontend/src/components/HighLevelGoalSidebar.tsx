@@ -104,7 +104,10 @@ export default function HighLevelGoalSidebar({
 
   if (activeGoals.length === 0) {
     return (
-      <div className="w-72 bg-white border-l border-gray-200 p-4 flex flex-col">
+      <div
+        className="w-72 bg-white border-l border-gray-200 p-4 flex flex-col"
+        data-onboarding-target="high-level-goals"
+      >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-gray-700">
             High Level Goals
@@ -118,7 +121,10 @@ export default function HighLevelGoalSidebar({
   }
 
   return (
-    <div className="w-72 bg-white border-l border-gray-200 flex flex-col overflow-hidden">
+    <div
+      className="w-72 bg-white border-l border-gray-200 flex flex-col overflow-hidden"
+      data-onboarding-target="high-level-goals"
+    >
       <div className="p-4 border-b border-gray-100">
         <h3 className="text-sm font-semibold text-gray-700">
           High Level Goals

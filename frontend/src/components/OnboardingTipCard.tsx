@@ -51,6 +51,7 @@ export default function OnboardingTipCard({
   // Portal is client-only — render nothing on the server (this is a
   // "use client" file but still gets a server pass for the React tree).
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot mount detection: render nothing on the server, then flip to mounted on client mount so createPortal(document.body) is safe to call.
     setMounted(true);
   }, []);
 
@@ -76,6 +77,7 @@ export default function OnboardingTipCard({
       if (raf !== 0) return;
       raf = window.requestAnimationFrame(sync);
     };
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- layout-sync: read the target's bounding-rect on mount + whenever the target ref changes, so the pointer-line draws to the right anchor before paint. The rAF-throttled `sync()` updates handle ongoing scroll/resize events; this initial pull is a one-shot.
     setTargetRect(target.getBoundingClientRect());
     window.addEventListener("resize", schedule, { passive: true });
     window.addEventListener("scroll", schedule, { passive: true, capture: true });

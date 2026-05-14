@@ -11,6 +11,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import GlobalDropGuard from "@/components/GlobalDropGuard";
 import FloatingLeaveDemoButton from "@/components/FloatingLeaveDemoButton";
 import OpenDocsButton from "@/components/OpenDocsButton";
+import { OnboardingProvider } from "@/lib/onboarding/orchestrator";
 import { initializeErrorHandlers } from "@/lib/error-reporting";
 
 function AppContent({ children }: { children: ReactNode }) {
@@ -122,8 +123,15 @@ function AppContent({ children }: { children: ReactNode }) {
   }
 
   console.log("AppContent: rendering main app with QueryClientProvider");
+  // Onboarding tips orchestrator. Wrapped inside the QueryClientProvider
+  // and only on the non-demo, signed-in code path. Demo + wiki-capture
+  // are exempt by design (they short-circuit the previous branch); the
+  // provider itself also asserts the exemption via isDemoOrWikiCapture()
+  // so a stray mount can't fire tips during a screenshot run.
   return (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+      <OnboardingProvider currentUser={currentUser}>{children}</OnboardingProvider>
+    </QueryClientProvider>
   );
 }
 

@@ -42,6 +42,7 @@ import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { ANIMATION_METADATA, type AnimationType } from "@/components/animations";
 import { hasPassword } from "@/lib/auth/password";
 import { USER_COLOR_QUERY_KEY } from "@/hooks/useUserColor";
+import { replayOnboarding } from "@/lib/onboarding/sidecar";
 
 const USER_COLOR_PALETTE = [
   "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
@@ -216,6 +217,7 @@ function SettingsBody() {
         <BehaviorSection settings={settings} update={update} />
         <LabArchivesSection />
         <MaintenanceSection />
+        <TipsSection />
         <SecuritySection
           pwExists={pwExists}
           onOpen={() => setPwOpen(true)}
@@ -733,6 +735,7 @@ function LabArchivesSection() {
           <button
             type="button"
             onClick={() => setElnImportOpen(true)}
+            data-onboarding-target="labarchives-import"
             className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
           >
             Open import…
@@ -980,6 +983,69 @@ function ReconcileRow() {
         {running ? "Running…" : "Run reconcile"}
       </button>
     </div>
+  );
+}
+
+/**
+ * Tips replay surface. Clicking the button clears the user's per-tip
+ * dismiss history, flips `tips_off` back on, and resets `last_tip_at`
+ * to the current `active_seconds` so the cooldown starts fresh. The
+ * orchestrator picks up the change on its next sidecar read (which it
+ * re-runs on every load), so there's no provider-side notify needed
+ * here — the user navigates back to the home page and the system
+ * fires when the dwell + cooldown allow.
+ *
+ * Toast is a single inline status message that auto-clears after 4s,
+ * mirroring the lightweight feedback pattern used by `RepairRow`.
+ */
+function TipsSection() {
+  const { currentUser } = useFileSystem();
+  const [status, setStatus] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const handleReplay = useCallback(async () => {
+    if (!currentUser) return;
+    setBusy(true);
+    setStatus(null);
+    try {
+      await replayOnboarding(currentUser);
+      setStatus("Tips re-enabled. They'll fire as you visit pages again.");
+      setTimeout(() => setStatus(null), 4000);
+    } catch (err) {
+      console.error("[Settings/Tips] replay failed", err);
+      setStatus("Couldn't reset tips. See console for details.");
+    } finally {
+      setBusy(false);
+    }
+  }, [currentUser]);
+
+  return (
+    <SectionShell
+      title="Tips"
+      description="Brand-new orientation tips show in a small card with a friendly mascot pointing at the affordance. Resetting brings the whole 10-tip sequence back from the start."
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm text-gray-800">
+            Show me the onboarding tips again
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            Re-fires all ten orientation tips. They land one at a time, every
+            5 minutes of focused use, only on pages where the affordance
+            actually exists.
+          </p>
+          {status && <p className="text-xs text-emerald-600 mt-2">{status}</p>}
+        </div>
+        <button
+          type="button"
+          onClick={handleReplay}
+          disabled={busy || !currentUser}
+          className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
+        >
+          {busy ? "Resetting…" : "Replay tips"}
+        </button>
+      </div>
+    </SectionShell>
   );
 }
 
