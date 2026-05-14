@@ -9,6 +9,7 @@ import ExportFormatDialog, { type ExportProgressUi } from "@/components/ExportFo
 // TODO(manager): unstub once Sub-bot A lands frontend/src/lib/export/orchestrate.ts.
 import {
   exportExperiments,
+  exportExperimentsToFile,
   downloadResult,
   estimateMultiExportSize,
   type ExportSizeEstimate,
@@ -240,6 +241,58 @@ export default function LabSearchPanel({
         console.error("Export failed:", error);
         alert(
           `Failed to export: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`
+        );
+      } finally {
+        setExporting(false);
+        setExportProgress(null);
+      }
+    },
+    [results, selectedTaskKeys, currentUser, cancelSelectMode]
+  );
+
+  // FSA streaming-to-disk variant of `handleExport`. Pipes the multi-zip
+  // output directly into the user-chosen file via `showSaveFilePicker`
+  // so the full archive never materializes as a Blob. Only invoked when
+  // the dialog renders the Save-to-disk section (gated on
+  // `supportsFileSystemAccessSave()` + `taskCount > 1`).
+  const handleExportToFile = useCallback(
+    async (format: ExportFormat) => {
+      const picks = results.filter(
+        (r) => r.type === "task" && selectedTaskKeys.has(labResultKey(r.username, r.id))
+      );
+      if (picks.length < 2) return;
+      setExporting(true);
+      setExportProgress(null);
+      try {
+        const fetched = await Promise.all(
+          picks.map((r) => tasksApi.get(r.id, r.username))
+        );
+        const tasksToExport = fetched.filter((t): t is Task => t != null);
+        if (tasksToExport.length < 2) {
+          throw new Error("Could not load enough of the selected experiments.");
+        }
+        const { saved } = await exportExperimentsToFile(
+          tasksToExport,
+          format,
+          currentUser,
+          (p) =>
+            setExportProgress({
+              current: p.current,
+              total: p.total,
+              taskName: p.task.name,
+              zipPercent: p.zipPercent,
+            }),
+        );
+        if (saved) {
+          setExportDialogOpen(false);
+          cancelSelectMode();
+        }
+      } catch (error) {
+        console.error("Export-to-file failed:", error);
+        alert(
+          `Failed to save: ${
             error instanceof Error ? error.message : "Unknown error"
           }`
         );
@@ -637,6 +690,7 @@ export default function LabSearchPanel({
         progress={exportProgress}
         onClose={() => setExportDialogOpen(false)}
         onExport={handleExport}
+        onExportToFile={handleExportToFile}
       />
     </div>
   );

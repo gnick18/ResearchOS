@@ -5,6 +5,7 @@ import type { ExportFormat } from "@/lib/export/types";
 import {
   formatBytes,
   isLargeExport,
+  supportsFileSystemAccessSave,
   type ExportSizeEstimate,
 } from "@/lib/export/stream-output";
 
@@ -26,6 +27,14 @@ interface ExportFormatDialogProps {
   progress?: ExportProgressUi | null;
   onClose: () => void;
   onExport: (format: ExportFormat) => void;
+  // Optional File System Access streaming path. When provided AND the
+  // browser exposes `showSaveFilePicker` (Chromium-based), the dialog
+  // renders a "Save to disk…" section under the format buttons. Clicking
+  // pops the native Save-As dialog and streams the multi-experiment ZIP
+  // directly to the chosen file — the full archive is never resident as a
+  // Blob. Hidden entirely in Firefox / Safari and when the prop is
+  // omitted (e.g. the single-task TaskDetailPopup caller).
+  onExportToFile?: (format: ExportFormat) => void;
 }
 
 /**
@@ -79,6 +88,7 @@ export default function ExportFormatDialog({
   progress,
   onClose,
   onExport,
+  onExportToFile,
 }: ExportFormatDialogProps) {
   // Once the user OKs the large-export warning we don't re-warn while the
   // dialog stays open. Reset on close so re-opening starts fresh. Tracked
@@ -90,6 +100,18 @@ export default function ExportFormatDialog({
     setPrevIsOpen(isOpen);
     if (!isOpen) setWarningAcknowledged(false);
   }
+
+  // Format chosen for the Save-to-disk path. Independent of the
+  // click-to-export Blob buttons above; defaults to "raw" since the
+  // power-user audience that reaches for streaming-to-disk is most likely
+  // sharing/archiving the full bundle.
+  const [saveToDiskFormat, setSaveToDiskFormat] = useState<ExportFormat>("raw");
+
+  // Render the streaming Save-to-disk section only when the caller wired
+  // up the callback AND the browser supports the underlying API. Hidden
+  // (entire section) in Firefox / Safari and when the prop is omitted.
+  const showSaveToDisk =
+    !!onExportToFile && supportsFileSystemAccessSave() && taskCount > 1;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -195,6 +217,44 @@ export default function ExportFormatDialog({
                   </div>
                 </button>
               ))}
+
+              {showSaveToDisk ? (
+                <div className="rounded-lg border border-gray-200 px-4 py-3 bg-gray-50">
+                  <div className="text-sm font-medium text-gray-900">
+                    Save as ZIP to a folder on your disk
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1 leading-relaxed">
+                    Streams the archive directly to a file you pick — keeps
+                    browser memory low for very large exports (Chrome / Edge
+                    only).
+                  </div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <label className="text-xs text-gray-600">Format:</label>
+                    <select
+                      value={saveToDiskFormat}
+                      onChange={(e) =>
+                        setSaveToDiskFormat(e.target.value as ExportFormat)
+                      }
+                      disabled={isExporting}
+                      className="text-xs border border-gray-300 rounded px-1.5 py-1 bg-white disabled:opacity-50"
+                    >
+                      {FORMAT_OPTIONS.map((opt) => (
+                        <option key={opt.format} value={opt.format}>
+                          {opt.title}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      disabled={isExporting}
+                      onClick={() => onExportToFile?.(saveToDiskFormat)}
+                      className="ml-auto px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Save to disk…
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <div className="px-4 pb-4 pt-1">

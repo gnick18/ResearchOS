@@ -10,6 +10,7 @@ import ExportFormatDialog, { type ExportProgressUi } from "@/components/ExportFo
 // TODO(manager): unstub once Sub-bot A lands frontend/src/lib/export/orchestrate.ts.
 import {
   exportExperiments,
+  exportExperimentsToFile,
   downloadResult,
   estimateMultiExportSize,
   type ExportSizeEstimate,
@@ -331,6 +332,53 @@ export default function SearchPage() {
         console.error("Export failed:", error);
         alert(
           `Failed to export: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`
+        );
+      } finally {
+        setExporting(false);
+        setExportProgress(null);
+      }
+    },
+    [searchResults, selectedTaskKeys, currentUser, cancelSelectMode]
+  );
+
+  // FSA streaming-to-disk variant. Same payload prep + progress wiring as
+  // `handleExport`, but pipes bytes straight into the user-chosen file via
+  // `showSaveFilePicker` so the full archive never materializes as a Blob.
+  // Only invoked when the dialog renders the Save-to-disk section (gated
+  // on `supportsFileSystemAccessSave()` and `taskCount > 1`).
+  const handleExportToFile = useCallback(
+    async (format: ExportFormat) => {
+      const tasksToExport = searchResults
+        .filter((r) => selectedTaskKeys.has(taskKey(r.task)))
+        .map((r) => r.task);
+      if (tasksToExport.length < 2) return;
+      setExporting(true);
+      setExportProgress(null);
+      try {
+        const { saved } = await exportExperimentsToFile(
+          tasksToExport,
+          format,
+          currentUser,
+          (p) =>
+            setExportProgress({
+              current: p.current,
+              total: p.total,
+              taskName: p.task.name,
+              zipPercent: p.zipPercent,
+            }),
+        );
+        if (saved) {
+          setExportDialogOpen(false);
+          cancelSelectMode();
+        }
+        // saved === false ⇒ user cancelled the picker; keep the dialog
+        // open so they can retry or pick a different format.
+      } catch (error) {
+        console.error("Export-to-file failed:", error);
+        alert(
+          `Failed to save: ${
             error instanceof Error ? error.message : "Unknown error"
           }`
         );
@@ -695,6 +743,7 @@ export default function SearchPage() {
         progress={exportProgress}
         onClose={() => setExportDialogOpen(false)}
         onExport={handleExport}
+        onExportToFile={handleExportToFile}
       />
     </AppShell>
   );
