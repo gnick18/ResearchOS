@@ -66,6 +66,16 @@ export default function ICloudPage() {
         </Step>
       </Steps>
 
+      <Callout variant="tip" title="Or keep all of iCloud Drive local">
+        If you&apos;d rather not have macOS offloading anything in iCloud,
+        open <strong>System Settings &rarr; Apple ID &rarr; iCloud</strong>{" "}
+        and turn off <strong>Optimize Mac Storage</strong>. Every file in
+        your iCloud Drive stays on disk from then on. Reasonable if you
+        have plenty of disk space and other iCloud folders that also need
+        to be always-local; the per-folder route above is the lighter
+        option.
+      </Callout>
+
       <h2>Common pitfalls</h2>
       <ul>
         <li>

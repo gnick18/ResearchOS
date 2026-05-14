@@ -73,6 +73,15 @@ export default function OneDrivePage() {
         <strong>Always keep on this device</strong> works reliably.
       </Callout>
 
+      <Callout variant="tip" title="Or keep all of OneDrive local">
+        If you&apos;d rather have your whole OneDrive on disk (not just the
+        lab folder), click the OneDrive icon in the menu-bar / tray →{" "}
+        <strong>Settings &rarr; Sync and backup &rarr; Advanced settings
+        &rarr; Files On-Demand</strong> and switch to{" "}
+        <strong>Download all OneDrive files now</strong>. Pick this if you
+        have other OneDrive folders you also need available offline.
+      </Callout>
+
       <h2>Common pitfalls</h2>
       <ul>
         <li>

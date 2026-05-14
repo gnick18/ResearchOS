@@ -65,6 +65,16 @@ export default function DropboxPage() {
         quota.
       </Callout>
 
+      <Callout variant="tip" title="Or keep all of Dropbox local">
+        If you&apos;re on a paid plan and want every Dropbox folder to stay
+        on disk by default, open the Dropbox menu-bar / tray icon →{" "}
+        <strong>Preferences &rarr; Sync &rarr; New folder default</strong>{" "}
+        and set it to <strong>Local</strong>. Existing folders keep their
+        current setting; only newly-added folders inherit the new default.
+        Pick this if you have multiple Dropbox folders besides the lab
+        folder that all need to be always-local.
+      </Callout>
+
       <h2>Common pitfalls</h2>
       <ul>
         <li>
