@@ -143,6 +143,54 @@ export const projectsApi = {
       ? projectsStore.updateForUser(id, patch, owner)
       : projectsStore.update(id, patch);
   },
+
+  /**
+   * Read this project's hosted-from-others manifest (`<id>-hosted.json`).
+   * Drift entries are dropped on read (with an async write-back of the
+   * repaired manifest). Caller gets the agreed entries — every one's task
+   * file is guaranteed to exist with a matching `external_project` ref.
+   *
+   * Returns the FULL Task objects (loaded from each owner's directory),
+   * decorated with `is_shared_with_me: true` and the host-project
+   * `external_project` ref so the merge layer can colour them by host
+   * project. Callers that only want the manifest entries should call
+   * `readHostedManifestNormalized` from `lib/sharing/project-hosting`
+   * directly.
+   */
+  listHostedTasks: async (
+    projectOwner: string,
+    projectId: number
+  ): Promise<Task[]> => {
+    const { readHostedManifestNormalized } = await import(
+      "./sharing/project-hosting"
+    );
+    const entries = await readHostedManifestNormalized(
+      projectOwner,
+      projectId,
+      async (owner, id) => tasksStore.getForUser(id, owner)
+    );
+    const tasks: Task[] = [];
+    for (const entry of entries) {
+      const raw = await tasksStore.getForUser(entry.taskId, entry.owner);
+      if (!raw) continue;
+      const normalized = normalizeTaskRecord(raw);
+      tasks.push(
+        computeTaskEndDate({
+          ...normalized,
+          owner: entry.owner,
+          // The current user is the destination project's owner (or someone
+          // viewing it). They aren't the task's owner, so flag it as
+          // "shared with me" at the Gantt/merge layer.
+          is_shared_with_me: true,
+          // Hosted tasks are display-only for the destination side. The
+          // task owner remains the only writer in v1; receivers see "view"
+          // even if the task owner has shared edit rights via `shared_with`.
+          shared_permission: "view",
+        })
+      );
+    }
+    return tasks;
+  },
 };
 
 // Reads/writes route to the owner's directory when `owner` is provided —
@@ -520,6 +568,64 @@ export const tasksApi = {
     owner?: string
   ): Promise<Task | null> => {
     return updateTaskForCaller(id, { task_type: newTaskType }, owner);
+  },
+
+  /**
+   * Cross-owner task → project sharing. Writes BOTH sides (task
+   * `external_project` + destination project's hosted manifest). See
+   * `frontend/src/lib/sharing/project-hosting.ts` for the contract,
+   * drift-detection, and repair pattern.
+   *
+   * `taskOwner` is the original owner of the task (where the file lives).
+   * Today this is always the current user — only the task's own owner can
+   * share it into a foreign project — but parametrize for symmetry with
+   * other `*Api` patterns and future delegated actions.
+   *
+   * Returns the updated task (with `external_project` set).
+   */
+  shareIntoProject: async (
+    taskOwner: string,
+    taskId: number,
+    projectOwner: string,
+    projectId: number
+  ): Promise<Task | null> => {
+    const sharedBy = (await getCurrentUserCached()) ?? taskOwner;
+    const { shareIntoProject } = await import("./sharing/project-hosting");
+    const result = await shareIntoProject(
+      { taskOwner, taskId, projectOwner, projectId },
+      {
+        loadTask: async (owner, id) => tasksStore.getForUser(id, owner),
+        saveTask: async (owner, task) => {
+          await tasksStore.saveForUser(task.id, task, owner);
+        },
+        sharedBy,
+      }
+    );
+    return result.task;
+  },
+
+  /**
+   * Cross-owner unshare. Clears `external_project` on the task AND removes
+   * the manifest entry. Symmetric for v1: both the originating task owner
+   * AND the destination project owner can call this.
+   */
+  unshareFromProject: async (
+    taskOwner: string,
+    taskId: number,
+    projectOwner: string,
+    projectId: number
+  ): Promise<Task | null> => {
+    const { unshareFromProject } = await import("./sharing/project-hosting");
+    const result = await unshareFromProject(
+      { taskOwner, taskId, projectOwner, projectId },
+      {
+        loadTask: async (owner, id) => tasksStore.getForUser(id, owner),
+        saveTask: async (owner, task) => {
+          await tasksStore.saveForUser(task.id, task, owner);
+        },
+      }
+    );
+    return result.task;
   },
 };
 
@@ -2604,6 +2710,83 @@ export const fetchAllTasksIncludingShared = async () => {
     }
   } catch (err) {
     console.warn("[fetchAllTasksIncludingShared] failed to load shared tasks:", err);
+  }
+
+  // Cross-owner host (Option C). For every project owned by the CURRENT
+  // user, read the `<projectId>-hosted.json` manifest and pull each foreign
+  // task that's been shared INTO it. The task file itself lives in its
+  // owner's namespace; surfacing it here means Gantt / project views /
+  // search all see it without each callsite re-implementing the join.
+  //
+  // We also surface hosted tasks belonging to projects the viewer has been
+  // SHARED into (shared-project receivers see hosted-from-others entries
+  // too, since the project's Gantt is meant to be the shared canonical view).
+  //
+  // Read-time normalize repairs drift in each manifest as it's read.
+  try {
+    const { readHostedManifestNormalized } = await import(
+      "./sharing/project-hosting"
+    );
+    const currentUser = currentUserForOwn;
+
+    // Set of (projectOwner, projectId) the viewer should consult for hosted
+    // entries: their own projects + shared-into projects.
+    const projectsToScan: Array<{ owner: string; id: number }> = [];
+    if (currentUser) {
+      for (const p of await projectsStore.listAll()) {
+        projectsToScan.push({ owner: currentUser, id: p.id });
+      }
+      try {
+        const manifest = await fileService.readJson<SharedWithMeManifest>(
+          `users/${currentUser}/_shared_with_me.json`
+        );
+        for (const projEntry of manifest?.projects ?? []) {
+          projectsToScan.push({ owner: projEntry.owner, id: projEntry.id });
+        }
+      } catch (err) {
+        console.warn(
+          "[fetchAllTasksIncludingShared] failed to list shared-project hosts:",
+          err
+        );
+      }
+    }
+
+    for (const { owner: projectOwner, id: projectId } of projectsToScan) {
+      let entries;
+      try {
+        entries = await readHostedManifestNormalized(
+          projectOwner,
+          projectId,
+          async (owner, id) => tasksStore.getForUser(id, owner)
+        );
+      } catch (err) {
+        console.warn(
+          `[fetchAllTasksIncludingShared] failed to read hosted manifest ${projectOwner}/${projectId}:`,
+          err
+        );
+        continue;
+      }
+      for (const entry of entries) {
+        const composite = `${entry.owner}:${entry.taskId}`;
+        if (seenComposite.has(composite)) continue;
+        const raw = await tasksStore.getForUser(entry.taskId, entry.owner);
+        if (!raw) continue;
+        seenComposite.add(composite);
+        sharedTasks.push({
+          ...raw,
+          owner: entry.owner,
+          is_shared_with_me: true,
+          // Hosted tasks are display-only for the destination side. v1
+          // doesn't grant edit rights to the destination project owner.
+          shared_permission: "view",
+        } as Task);
+      }
+    }
+  } catch (err) {
+    console.warn(
+      "[fetchAllTasksIncludingShared] failed to load hosted-from-others tasks:",
+      err
+    );
   }
 
   const ownStale: Task[] = [];
