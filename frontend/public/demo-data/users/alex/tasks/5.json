@@ -6,7 +6,7 @@
   "duration_days": 1,
   "end_date": "2026-05-13",
   "is_high_level": false,
-  "is_complete": false,
+  "is_complete": true,
   "task_type": "experiment",
   "weekend_override": null,
   "method_id": null,
@@ -21,17 +21,17 @@
     {
       "id": "st1",
       "text": "Run DemoCheck PCR — 16 rxns",
-      "is_complete": false
+      "is_complete": true
     },
     {
       "id": "st2",
       "text": "Pour 1% agarose gel",
-      "is_complete": false
+      "is_complete": true
     },
     {
       "id": "st3",
       "text": "Photograph + annotate gel",
-      "is_complete": false
+      "is_complete": true
     }
   ],
   "pcr_gradient": null,
@@ -44,5 +44,6 @@
     }
   ],
   "owner": "alex",
-  "shared_with": []
+  "shared_with": [],
+  "external_project": null
 }

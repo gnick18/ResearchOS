@@ -33,5 +33,6 @@
       "username": "alex",
       "permission": "edit"
     }
-  ]
+  ],
+  "external_project": null
 }

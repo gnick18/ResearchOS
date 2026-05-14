@@ -424,16 +424,25 @@ function buildEntries() {
         { id: "st3", text: "Phenol-chloroform extract + EtOH precipitate", is_complete: true },
         { id: "st4", text: "Nanodrop quant — confirm A260/280 ≥ 1.8", is_complete: true },
       ] },
-    { id: 5, project_id: 1, name: "PCR-screen integrants", start_date: TODAY, duration_days: 1, end_date: TODAY, task_type: "experiment", is_complete: false, experiment_color: "#3b82f6",
+    // Completed today — has both a results.md write-up and a gel image,
+    // so the outcome gallery renders it in the "Fresh results" section
+    // with a hero thumbnail.
+    { id: 5, project_id: 1, name: "PCR-screen integrants", start_date: TODAY, duration_days: 1, end_date: TODAY, task_type: "experiment", is_complete: true, experiment_color: "#3b82f6",
       sub_tasks: [
-        { id: "st1", text: "Run DemoCheck PCR — 16 rxns", is_complete: false },
-        { id: "st2", text: "Pour 1% agarose gel", is_complete: false },
-        { id: "st3", text: "Photograph + annotate gel", is_complete: false },
+        { id: "st1", text: "Run DemoCheck PCR — 16 rxns", is_complete: true },
+        { id: "st2", text: "Pour 1% agarose gel", is_complete: true },
+        { id: "st3", text: "Photograph + annotate gel", is_complete: true },
       ],
       method_attachments: [{ method_id: 2, owner: "public", snapshot_at: "2026-05-13T07:00:00Z" }] },
     { id: 6, project_id: 1, name: "Send sequencing — top 4", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "list", is_complete: false },
     { id: 7, project_id: 2, name: "Order DemoStrain ΔADE2 reagents", start_date: LAST_WEEK, duration_days: 1, end_date: LAST_WEEK, task_type: "purchase", is_complete: true },
-    { id: 8, project_id: 2, name: "Mini-prep candidate plasmids", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "experiment", is_complete: false, experiment_color: "#8b5cf6" },
+    // Completed 4 days ago but no results.md write-up and no images on
+    // disk yet — populates the "Awaiting results" fixture for the outcome
+    // gallery (and the future Workbench's "Awaiting writeup" section).
+    // results.md is intentionally an empty file (created, not missing) —
+    // a real lab user would `touch results.md` before forgetting to write
+    // it up. See the alex/results/task-8/results.md entry below.
+    { id: 8, project_id: 2, name: "Mini-prep candidate plasmids", start_date: "2026-05-09", duration_days: 1, end_date: "2026-05-09", task_type: "experiment", is_complete: true, experiment_color: "#8b5cf6" },
     { id: 9, project_id: 2, name: "Build pDEMO-fluo plasmid library", start_date: NEXT_WEEK, duration_days: 4, end_date: "2026-05-23", task_type: "experiment", is_complete: false, experiment_color: "#8b5cf6" },
     { id: 10, project_id: 3, name: "Set up growth curves in YPD/glucose", start_date: "2026-05-15", duration_days: 1, end_date: "2026-05-15", task_type: "experiment", is_complete: false, experiment_color: "#f59e0b",
       method_attachments: [{ method_id: 2, owner: "alex", snapshot_at: "2026-05-13T08:00:00Z" }] },
@@ -604,11 +613,22 @@ function buildEntries() {
     "- See `transformation-plate.png` for the colony plate.\n" +
     "- 40 / 200 µL plated → est. 200 transformants/µg DNA (demo numbers).\n"]);
   out.push(["users/alex/results/task-3/notes.md", DEMO_BANNER_MD + "## Patch plate notes\n\nPatched 8 colonies onto a fresh SD-Ura plate (see `patch-plate.png`).\n"]);
+  out.push(["users/alex/results/task-3/results.md", DEMO_BANNER_MD + "## Patch results\n\nAll 8 patched colonies grew on SD-Ura — pick top 4 for sequencing (demo data).\n"]);
   out.push(["users/alex/results/task-5/notes.md", DEMO_BANNER_MD + "## PCR screen — DemoCheck\n\nExpected band ~1.4 kb. See `gel-pcr-screen.png` for the demo gel.\n"]);
   out.push(["users/alex/results/task-5/results.md", DEMO_BANNER_MD + "## PCR-screen results\n\n6 / 16 transformants show the ~1.4 kb integration band (demo data).\n"]);
   out.push(["users/alex/results/task-4/notes.md", DEMO_BANNER_MD + "## gDNA quality check\n\nNanodrop A260/280: ~1.85. See `gel-gdna-quality.png`.\n"]);
+  out.push(["users/alex/results/task-4/results.md", DEMO_BANNER_MD + "## gDNA prep results\n\nAll 8 preps came back A260/280 ≥ 1.80, A260/230 ≥ 2.0 — ready for PCR screen (demo data).\n"]);
   out.push(["users/alex/results/task-10/notes.md", DEMO_BANNER_MD + "## Growth curves\n\nTwo strains × 4 glucose levels (demo). See `growth-curve-YPD.png`.\n"]);
   out.push(["users/alex/results/task-11/notes.md", DEMO_BANNER_MD + "## Heat-shock\n\nSee `heatshock-survival.png` for the survival fractions (demo).\n"]);
+
+  // task-8: empty results.md (explicitly created as a 0-byte file, not
+  // missing). Powers the gallery's "Awaiting results" section — completed
+  // tasks with no on-disk writeup or images. Different from a *missing*
+  // results.md (which would be the pre-touch state); this fixture mirrors
+  // the realistic "I made the file but forgot to fill it in" pattern.
+  // Per master 4.0's v3 ruling, notes.md content does NOT bail this task
+  // out of "Awaiting results," so we don't seed notes.md here either.
+  out.push(["users/alex/results/task-8/results.md", ""]);
 
   // ── User: morgan ──────────────────────────────────────────────────────────
   out.push([
@@ -653,7 +673,9 @@ function buildEntries() {
   ]));
 
   out.push(...tasks("morgan", [
-    { id: 1, project_id: 1, name: "Plate FY-Δgal80 transformants on 96-well", start_date: TODAY, duration_days: 1, end_date: TODAY, task_type: "experiment", is_complete: false, experiment_color: "#10b981",
+    // Completed today — has a fluorescence plate image AND a results.md
+    // write-up, so the gallery renders it in "Fresh results."
+    { id: 1, project_id: 1, name: "Plate FY-Δgal80 transformants on 96-well", start_date: TODAY, duration_days: 1, end_date: TODAY, task_type: "experiment", is_complete: true, experiment_color: "#10b981",
       method_attachments: [{ method_id: 1, owner: "morgan", snapshot_at: "2026-05-13T08:00:00Z" }] },
     { id: 2, project_id: 1, name: "Run fluorescence reader scan", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "experiment", is_complete: false, experiment_color: "#10b981",
       sub_tasks: [
@@ -724,6 +746,7 @@ function buildEntries() {
 
   // morgan result task markdown stubs
   out.push(["users/morgan/results/task-1/notes.md", DEMO_BANNER_MD + "## 96-well plate setup\n\nPlated 80 candidate transformants + 8 WT + 8 positive controls. See `plate-96-fluo.png`.\n"]);
+  out.push(["users/morgan/results/task-1/results.md", DEMO_BANNER_MD + "## Plate prep results\n\n80 / 80 wells inoculated cleanly — no cross-well contamination visible at 4× (demo data).\n"]);
   out.push(["users/morgan/results/task-2/notes.md", DEMO_BANNER_MD + "## Fluorescence scan\n\nReader run with default GFP settings (485/528). See `fluo-scan-results.png` for the heat-map.\n"]);
   out.push(["users/morgan/results/task-3/notes.md", DEMO_BANNER_MD + "## qPCR products\n\nProducts run on a 1.5% agarose gel — see `gel-qpcr-products.png`.\n"]);
 

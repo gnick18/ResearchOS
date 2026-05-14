@@ -1,13 +1,70 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
-import { LabTask } from "@/lib/local-api";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { labApi, LabMethod, LabTask } from "@/lib/local-api";
 import { useLabData } from "@/hooks/useLabData";
-import UserAvatar from "@/components/UserAvatar";
+import ExperimentResultCard, {
+  type ExperimentCardMethod,
+} from "@/components/experiments/ExperimentResultCard";
+import { type FreshnessKind } from "@/components/experiments/FreshnessTag";
+import {
+  probeTaskResults,
+  type TaskResultProbe,
+} from "@/lib/experiments/findTaskResultsBase";
 
 interface LabExperimentsPanelProps {
   selectedUsernames: Set<string>;
   onExperimentClick: (experiment: LabTask) => void;
+}
+
+const FRESHNESS_WINDOW_DAYS = 7;
+const VIEW_MODE_STORAGE_KEY = "researchos:experiments-view-mode";
+
+type ViewMode = "gallery" | "compare";
+type SectionKey = "fresh" | "active" | "awaiting" | "earlier";
+
+interface SectionEntry {
+  task: LabTask;
+  probe: TaskResultProbe;
+  section: SectionKey;
+  daysFromEnd: number | null;
+}
+
+const SECTION_LABEL: Record<SectionKey, string> = {
+  fresh: "Fresh results",
+  active: "Active",
+  awaiting: "Awaiting results",
+  earlier: "Earlier",
+};
+
+const SECTION_HELP: Record<SectionKey, string> = {
+  fresh: `Results posted in the last ${FRESHNESS_WINDOW_DAYS} days`,
+  active: "Running right now",
+  awaiting: "Completed, but no results.md or images on disk yet",
+  earlier: "Older results past the freshness window",
+};
+
+function todayIso(): string {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString().slice(0, 10);
+}
+
+function daysBetween(aIso: string, bIso: string): number {
+  const a = new Date(aIso + "T00:00:00Z").getTime();
+  const b = new Date(bIso + "T00:00:00Z").getTime();
+  return Math.round((a - b) / 86_400_000);
+}
+
+function readStoredViewMode(): ViewMode {
+  if (typeof window === "undefined") return "gallery";
+  try {
+    const v = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+    return v === "compare" ? "compare" : "gallery";
+  } catch {
+    return "gallery";
+  }
 }
 
 export default function LabExperimentsPanel({
@@ -15,100 +72,115 @@ export default function LabExperimentsPanel({
   onExperimentClick,
 }: LabExperimentsPanelProps) {
   const { tasks, projects } = useLabData();
-  const experiments = useMemo(
-    () => tasks.filter((t) => t.task_type === "experiment"),
-    [tasks],
-  );
-  const [sortBy, setSortBy] = useState<"username" | "project" | "date" | "name">("date");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [viewMode, setViewMode] = useState<"grouped" | "table">("grouped");
+  const { data: methods = [] } = useQuery<LabMethod[]>({
+    queryKey: ["lab", "methods"],
+    queryFn: () => labApi.getMethods(),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
 
-  // Get project name by ID
-  const getProjectName = useCallback((projectId: number, username: string) => {
-    const project = projects.find(p => p.id === projectId && p.username === username);
-    return project?.name || "Unknown Project";
+  const [viewMode, setViewMode] = useState<ViewMode>("gallery");
+  useEffect(() => {
+    setViewMode(readStoredViewMode());
+  }, []);
+  const setAndPersistMode = (next: ViewMode) => {
+    setViewMode(next);
+    try {
+      window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, next);
+    } catch {
+      // best-effort
+    }
+  };
+
+  const experiments = useMemo(
+    () =>
+      tasks
+        .filter((t) => t.task_type === "experiment")
+        .filter((t) => selectedUsernames.has(t.username)),
+    [tasks, selectedUsernames],
+  );
+
+  const projectNameFor = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of projects) map.set(`${p.username}:${p.id}`, p.name);
+    return (username: string, projectId: number) =>
+      map.get(`${username}:${projectId}`) ?? "Unknown project";
   }, [projects]);
 
-  // Filter experiments by selected users
-  const filteredExperiments = useMemo(() => {
-    return experiments.filter(e => selectedUsernames.has(e.username));
-  }, [experiments, selectedUsernames]);
-
-  // Sort experiments
-  const sortedExperiments = useMemo(() => {
-    const sorted = [...filteredExperiments];
-    sorted.sort((a, b) => {
-      let comparison = 0;
-      switch (sortBy) {
-        case "username":
-          comparison = a.username.localeCompare(b.username);
-          break;
-        case "project":
-          comparison = getProjectName(a.project_id, a.username).localeCompare(getProjectName(b.project_id, b.username));
-          break;
-        case "date":
-          comparison = a.start_date.localeCompare(b.start_date);
-          break;
-        case "name":
-          comparison = a.name.localeCompare(b.name);
-          break;
-      }
-      return sortOrder === "asc" ? comparison : -comparison;
-    });
-    return sorted;
-  }, [filteredExperiments, sortBy, sortOrder, getProjectName]);
-
-  // Toggle sort
-  const toggleSort = (column: "username" | "project" | "date" | "name") => {
-    if (sortBy === column) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-    } else {
-      setSortBy(column);
-      setSortOrder("asc");
+  const methodLookup = useMemo(() => {
+    const byOwnerId = new Map<string, LabMethod>();
+    for (const m of methods) {
+      byOwnerId.set(`${m.username}:${m.id}`, m);
     }
-  };
-
-  // Format date for display
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return "";
-    try {
-      return new Date(dateStr).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
-    } catch {
-      return dateStr;
+    const byIdOnly = new Map<number, LabMethod>();
+    for (const m of methods) {
+      if (!byIdOnly.has(m.id)) byIdOnly.set(m.id, m);
     }
-  };
+    return (task: LabTask, mid: number): LabMethod | null => {
+      return (
+        byOwnerId.get(`${task.username}:${mid}`) ??
+        byOwnerId.get(`public:${mid}`) ??
+        byIdOnly.get(mid) ??
+        null
+      );
+    };
+  }, [methods]);
 
-  // Group experiments by username and project
-  const groupedExperiments = useMemo(() => {
-    const groups = new Map<string, { user: string; project: string; experiments: LabTask[] }>();
-    
-    sortedExperiments.forEach(exp => {
-      const projectName = getProjectName(exp.project_id, exp.username);
-      const key = `${exp.username}::${projectName}`;
-      
-      if (!groups.has(key)) {
-        groups.set(key, {
-          user: exp.username,
-          project: projectName,
-          experiments: [],
-        });
+  const [probes, setProbes] = useState<Map<string, TaskResultProbe>>(new Map());
+
+  useEffect(() => {
+    let cancelled = false;
+    const next = new Map<string, TaskResultProbe>();
+    (async () => {
+      await Promise.all(
+        experiments.map(async (t) => {
+          const key = `${t.username}:${t.id}`;
+          const probe = await probeTaskResults({
+            id: t.id,
+            owner: t.username,
+          });
+          next.set(key, probe);
+        }),
+      );
+      if (!cancelled) setProbes(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [experiments]);
+
+  const today = todayIso();
+
+  const entries: SectionEntry[] = useMemo(() => {
+    return experiments.map((t) => {
+      const key = `${t.username}:${t.id}`;
+      const probe =
+        probes.get(key) ?? {
+          hasResult: false,
+          heroImagePath: null,
+          resultsPreview: null,
+        };
+      const daysFromEnd = t.end_date ? daysBetween(today, t.end_date) : null;
+      const isFresh =
+        probe.hasResult &&
+        daysFromEnd !== null &&
+        daysFromEnd >= 0 &&
+        daysFromEnd <= FRESHNESS_WINDOW_DAYS;
+      let section: SectionKey;
+      if (!t.is_complete) {
+        section = "active";
+      } else if (!probe.hasResult) {
+        section = "awaiting";
+      } else if (isFresh) {
+        section = "fresh";
+      } else {
+        section = "earlier";
       }
-      groups.get(key)!.experiments.push(exp);
+      return { task: t, probe, section, daysFromEnd };
     });
+  }, [experiments, probes, today]);
 
-    // Sort experiments within each group by date
-    groups.forEach(group => {
-      group.experiments.sort((a, b) => a.start_date.localeCompare(b.start_date));
-    });
-
-    return Array.from(groups.values());
-  }, [sortedExperiments, getProjectName]);
-
-  if (filteredExperiments.length === 0) {
+  if (experiments.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-gray-400 text-sm bg-white rounded-xl p-8 border border-gray-200">
         No experiments found for selected users.
@@ -116,220 +188,235 @@ export default function LabExperimentsPanel({
     );
   }
 
+  const cardFor = (entry: SectionEntry) => {
+    const t = entry.task;
+    const cardMethods: ExperimentCardMethod[] = (t.method_ids ?? [])
+      .map((mid) => methodLookup(t, mid))
+      .filter((m): m is LabMethod => m !== null)
+      .map((m) => ({ id: m.id, name: m.name, color: m.user_color }));
+
+    let freshnessKind: FreshnessKind;
+    let freshnessLabel: string | undefined;
+    if (entry.section === "active") {
+      freshnessKind = "running";
+      if (entry.daysFromEnd !== null) {
+        if (entry.daysFromEnd < 0) {
+          freshnessLabel = `Running • ends in ${-entry.daysFromEnd}d`;
+        } else if (entry.daysFromEnd === 0) {
+          freshnessLabel = "Running • due today";
+        } else {
+          freshnessLabel = `Running • ${entry.daysFromEnd}d overdue`;
+        }
+      }
+    } else if (entry.section === "awaiting") {
+      freshnessKind = "awaiting";
+      freshnessLabel =
+        entry.daysFromEnd !== null && entry.daysFromEnd > 0
+          ? `Completed ${entry.daysFromEnd}d ago • no write-up`
+          : "Completed • no write-up";
+    } else if (entry.section === "fresh") {
+      freshnessKind = "fresh";
+      if (entry.daysFromEnd === 0) freshnessLabel = "Result today";
+      else if (entry.daysFromEnd === 1) freshnessLabel = "Result yesterday";
+      else if (entry.daysFromEnd !== null)
+        freshnessLabel = `Result + ${entry.daysFromEnd}d`;
+    } else {
+      freshnessKind = "earlier";
+      freshnessLabel =
+        entry.daysFromEnd !== null ? `${entry.daysFromEnd}d ago` : "Earlier";
+    }
+
+    return (
+      <ExperimentResultCard
+        key={`${t.username}-${t.id}`}
+        task={{
+          id: t.id,
+          name: t.name,
+          username: t.username,
+          experiment_color: t.experiment_color,
+          project_name: projectNameFor(t.username, t.project_id),
+        }}
+        heroImagePath={entry.probe.heroImagePath}
+        resultsPreview={entry.probe.resultsPreview}
+        methods={cardMethods}
+        freshnessKind={freshnessKind}
+        freshnessLabel={freshnessLabel}
+        onClick={() => onExperimentClick(t)}
+      />
+    );
+  };
+
   return (
-    <div className="space-y-4">
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <p className="text-gray-500 text-sm">Total Experiments</p>
-          <p className="text-2xl font-bold text-gray-900">{filteredExperiments.length}</p>
-        </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <p className="text-gray-500 text-sm">Completed</p>
-          <p className="text-2xl font-bold text-emerald-600">
-            {filteredExperiments.filter(e => e.is_complete).length}
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">
+            {viewMode === "compare" ? "Comparing by method" : "Experiments"}
+          </h2>
+          <p className="text-sm text-gray-500">
+            {viewMode === "compare"
+              ? "Grouped by method to compare replicates."
+              : "Outcome cards led by results.md content or the first image in each task's Images folder."}
           </p>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <p className="text-gray-500 text-sm">In Progress</p>
-          <p className="text-2xl font-bold text-blue-600">
-            {filteredExperiments.filter(e => !e.is_complete).length}
-          </p>
-        </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <p className="text-gray-500 text-sm">Users</p>
-          <p className="text-2xl font-bold text-purple-600">
-            {new Set(filteredExperiments.map(e => e.username)).size}
-          </p>
+
+        <div className="inline-flex items-center bg-gray-100 rounded-lg p-1 text-sm">
+          <button
+            type="button"
+            onClick={() => setAndPersistMode("gallery")}
+            className={
+              "px-3 py-1 rounded-md transition " +
+              (viewMode === "gallery"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-500 hover:text-gray-900")
+            }
+          >
+            Gallery
+          </button>
+          <button
+            type="button"
+            onClick={() => setAndPersistMode("compare")}
+            className={
+              "px-3 py-1 rounded-md transition " +
+              (viewMode === "compare"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-500 hover:text-gray-900")
+            }
+          >
+            Compare
+          </button>
         </div>
       </div>
 
-      {/* View Toggle */}
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => setViewMode("grouped")}
-          className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-            viewMode === "grouped"
-              ? "bg-emerald-100 text-emerald-700"
-              : "bg-gray-100 text-gray-500 hover:text-gray-900"
-          }`}
-        >
-          Grouped View
-        </button>
-        <button
-          onClick={() => setViewMode("table")}
-          className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-            viewMode === "table"
-              ? "bg-emerald-100 text-emerald-700"
-              : "bg-gray-100 text-gray-500 hover:text-gray-900"
-          }`}
-        >
-          Table View
-        </button>
-      </div>
-
-      {viewMode === "grouped" ? (
-        /* Grouped View - organized by username AND project name */
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="p-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">Experiments by User & Project</h3>
-            <p className="text-sm text-gray-500">Organized by username and project name</p>
-          </div>
-
-          {groupedExperiments.map((group, idx) => (
-            <div key={`${group.user}::${group.project}::${idx}`} className="border-b border-gray-200 last:border-b-0">
-              {/* Group Header */}
-              <div className="flex items-center gap-3 px-4 py-3 bg-gray-50">
-                <UserAvatar username={group.user} size="sm" />
-                <div className="flex-1">
-                  <span className="text-gray-900 font-medium">{group.user}</span>
-                  <span className="text-gray-400 mx-2">•</span>
-                  <span className="text-gray-700">{group.project}</span>
-                </div>
-                <span className="text-xs text-gray-500 bg-gray-200 px-2 py-1 rounded">
-                  {group.experiments.length} experiment{group.experiments.length !== 1 ? "s" : ""}
-                </span>
-              </div>
-
-              {/* Experiments in this group */}
-              <div className="divide-y divide-gray-100">
-                {group.experiments.map((exp) => (
-                  <div
-                    key={exp.id}
-                    onClick={() => onExperimentClick(exp)}
-                    className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors"
-                  >
-                    {/* Experiment color indicator */}
-                    {exp.experiment_color && (
-                      <div
-                        className="w-3 h-3 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: exp.experiment_color }}
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-gray-900 font-medium truncate">{exp.name}</p>
-                      <p className="text-sm text-gray-500">
-                        {formatDate(exp.start_date)} → {formatDate(exp.end_date)} • {exp.duration_days} day{exp.duration_days !== 1 ? "s" : ""}
-                      </p>
-                    </div>
-                    {/* Methods indicator */}
-                    {exp.method_ids && exp.method_ids.length > 0 && (
-                      <span className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded">
-                        {exp.method_ids.length} method{exp.method_ids.length !== 1 ? "s" : ""}
-                      </span>
-                    )}
-                    <div className="flex items-center gap-2">
-                      {exp.is_complete ? (
-                        <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs rounded-full">
-                          Complete
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
-                          In Progress
-                        </span>
-                      )}
-                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+      {viewMode === "gallery" ? (
+        <GalleryLayout entries={entries} cardFor={cardFor} />
       ) : (
-        /* Table View */
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="p-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">All Experiments</h3>
-          </div>
-          
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th 
-                    onClick={() => toggleSort("username")}
-                    className="text-left px-4 py-3 text-sm font-medium text-gray-600 cursor-pointer hover:text-gray-900"
-                  >
-                    User {sortBy === "username" && (sortOrder === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th 
-                    onClick={() => toggleSort("project")}
-                    className="text-left px-4 py-3 text-sm font-medium text-gray-600 cursor-pointer hover:text-gray-900"
-                  >
-                    Project {sortBy === "project" && (sortOrder === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th 
-                    onClick={() => toggleSort("name")}
-                    className="text-left px-4 py-3 text-sm font-medium text-gray-600 cursor-pointer hover:text-gray-900"
-                  >
-                    Experiment {sortBy === "name" && (sortOrder === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th 
-                    onClick={() => toggleSort("date")}
-                    className="text-left px-4 py-3 text-sm font-medium text-gray-600 cursor-pointer hover:text-gray-900"
-                  >
-                    Start Date {sortBy === "date" && (sortOrder === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Duration</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Methods</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {sortedExperiments.map((exp) => (
-                  <tr
-                    key={`${exp.username}-${exp.id}`}
-                    onClick={() => onExperimentClick(exp)}
-                    className="hover:bg-gray-50 cursor-pointer transition-colors"
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <UserAvatar username={exp.username} size="xs" />
-                        <span className="text-gray-700">{exp.username}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-700">
-                      {getProjectName(exp.project_id, exp.username)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {exp.experiment_color && (
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: exp.experiment_color }}
-                          />
-                        )}
-                        <span className="text-gray-900 font-medium">{exp.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-700">{formatDate(exp.start_date)}</td>
-                    <td className="px-4 py-3 text-gray-700">
-                      {exp.duration_days} day{exp.duration_days !== 1 ? "s" : ""}
-                    </td>
-                    <td className="px-4 py-3">
-                      {exp.method_ids && exp.method_ids.length > 0 ? (
-                        <span className="text-purple-600">{exp.method_ids.length}</span>
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {exp.is_complete ? (
-                        <span className="text-emerald-600">Complete</span>
-                      ) : (
-                        <span className="text-blue-600">In Progress</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <CompareLayout
+          entries={entries}
+          cardFor={cardFor}
+          methodLookup={methodLookup}
+        />
       )}
+    </div>
+  );
+}
+
+function GalleryLayout({
+  entries,
+  cardFor,
+}: {
+  entries: SectionEntry[];
+  cardFor: (entry: SectionEntry) => React.ReactNode;
+}) {
+  const order: SectionKey[] = ["fresh", "active", "awaiting", "earlier"];
+  const grouped = new Map<SectionKey, SectionEntry[]>();
+  for (const key of order) grouped.set(key, []);
+  for (const e of entries) grouped.get(e.section)!.push(e);
+
+  // Sort fresh / earlier by recency; active by start_date asc; awaiting by recency.
+  grouped.get("fresh")!.sort((a, b) => (a.daysFromEnd ?? 0) - (b.daysFromEnd ?? 0));
+  grouped
+    .get("earlier")!
+    .sort((a, b) => (a.daysFromEnd ?? 0) - (b.daysFromEnd ?? 0));
+  grouped
+    .get("active")!
+    .sort((a, b) => a.task.start_date.localeCompare(b.task.start_date));
+  grouped
+    .get("awaiting")!
+    .sort((a, b) => (a.daysFromEnd ?? 0) - (b.daysFromEnd ?? 0));
+
+  return (
+    <div className="space-y-8">
+      {order.map((key) => {
+        const items = grouped.get(key)!;
+        if (items.length === 0) return null;
+        return (
+          <section key={key}>
+            <div className="flex items-baseline justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+                {SECTION_LABEL[key]}
+                <span className="ml-2 text-gray-400 normal-case font-normal">
+                  ({items.length})
+                </span>
+              </h3>
+              <span className="text-xs text-gray-400">{SECTION_HELP[key]}</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {items.map(cardFor)}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+function CompareLayout({
+  entries,
+  cardFor,
+  methodLookup,
+}: {
+  entries: SectionEntry[];
+  cardFor: (entry: SectionEntry) => React.ReactNode;
+  methodLookup: (task: LabTask, mid: number) => LabMethod | null;
+}) {
+  interface MethodGroup {
+    key: string;
+    label: string;
+    entries: SectionEntry[];
+  }
+  const groups = new Map<string, MethodGroup>();
+  const NO_METHOD_KEY = "__no_method__";
+  for (const e of entries) {
+    const mids = e.task.method_ids ?? [];
+    if (mids.length === 0) {
+      if (!groups.has(NO_METHOD_KEY)) {
+        groups.set(NO_METHOD_KEY, {
+          key: NO_METHOD_KEY,
+          label: "Experiments with no attached method",
+          entries: [],
+        });
+      }
+      groups.get(NO_METHOD_KEY)!.entries.push(e);
+      continue;
+    }
+    for (const mid of mids) {
+      const m = methodLookup(e.task, mid);
+      const key = m ? `${m.username}:${m.id}` : `unknown:${mid}`;
+      const label = m?.name ?? `Method #${mid}`;
+      if (!groups.has(key)) {
+        groups.set(key, { key, label, entries: [] });
+      }
+      groups.get(key)!.entries.push(e);
+    }
+  }
+
+  const sortedGroups = Array.from(groups.values()).sort((a, b) => {
+    if (a.key === NO_METHOD_KEY) return 1;
+    if (b.key === NO_METHOD_KEY) return -1;
+    if (b.entries.length !== a.entries.length)
+      return b.entries.length - a.entries.length;
+    return a.label.localeCompare(b.label);
+  });
+
+  return (
+    <div className="space-y-8">
+      {sortedGroups.map((group) => (
+        <section key={group.key}>
+          <div className="flex items-baseline justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-900">
+              {group.label}
+              <span className="ml-2 text-gray-400 font-normal">
+                {group.entries.length} run
+                {group.entries.length === 1 ? "" : "s"}
+              </span>
+            </h3>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {group.entries.map(cardFor)}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }
