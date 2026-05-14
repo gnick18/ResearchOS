@@ -103,66 +103,53 @@ export default function CalendarFeaturePage() {
       <h2>Linked calendars (Google, Outlook, iCloud)</h2>
       <Screenshot
         src="/wiki/screenshots/calendar-feeds-modal.png"
-        alt="The Linked Calendars modal showing the Connected list at top, a Connect-an-account section in the middle for Google and Outlook, and an iCal URL form at the bottom."
+        alt="The Linked Calendars modal showing the Connected list at top and an iCal URL form below."
       />
       <p>
         Click <strong>Linked Calendars</strong> in the top right (or{" "}
-        <strong>Manage</strong> in the sidebar) to open the modal. Three
-        connection options live here:
+        <strong>Manage</strong> in the sidebar) to open the modal. The
+        same iCal-URL flow works for all three providers:
       </p>
       <ul>
         <li>
-          <strong>Connect Google</strong> opens an OAuth popup. Once
-          authorized, every calendar on your Google account becomes a
-          checkbox in the modal. Subscribed calendars merge into the grid
-          and become <strong>two-way</strong>: edits and deletes you make
-          in ResearchOS sync back to Google within seconds.
+          <strong>Google Calendar</strong> exposes a per-calendar{" "}
+          <em>Secret address in iCal format</em> under Settings → Settings
+          for my calendars. Copy that URL, paste it into the form.
         </li>
         <li>
-          <strong>Connect Outlook</strong> works the same way for Microsoft
-          365 / Outlook calendars. Both providers have to be enabled on
-          this deployment first. If a provider isn&apos;t configured, its
-          card shows a{" "}
-          <Link href="/wiki/integrations/calendar-oauth">setup guide</Link>{" "}
-          link instead of a Connect button.
+          <strong>Outlook / Microsoft 365</strong> publishes a calendar
+          from Settings → Calendar → Shared calendars → Publish a calendar.
+          Copy the ICS link Outlook generates, paste it into the form.
         </li>
         <li>
-          <strong>Paste an iCal / ICS URL</strong> is the read-only path.
-          It&apos;s the only way to subscribe to iCloud (Apple doesn&apos;t
-          expose a third-party write API), and a fallback for any other
-          calendar that publishes a public ICS feed. Provider help under
-          the form walks you through finding the URL for Google, Outlook,
-          and iCloud.
+          <strong>iCloud / Apple Calendar</strong> shares via Calendar app
+          → right-click → Share Calendar → Public Calendar. Paste the{" "}
+          <code>webcal://</code> URL as-is; ResearchOS rewrites it
+          automatically.
         </li>
       </ul>
       <p>
         Every linked calendar gets a color in the sidebar legend. Toggle a
         feed on or off from either the modal or the legend. Remove a feed
-        with the <strong>Remove</strong> link in the modal. ICS feeds and
-        OAuth calendars both refetch every 15 minutes. If a feed fails to
-        fetch, an amber banner appears above the calendar grid with a{" "}
-        <strong>Retry now</strong> button.
+        with the <strong>Remove</strong> link in the modal. Feeds refetch
+        every 15 minutes. If a feed fails to fetch, an amber banner
+        appears above the calendar grid with a <strong>Retry now</strong>{" "}
+        button.
       </p>
       <p>
-        Clicking a linked event opens a read-only popover for ICS
-        subscriptions, or an editable one for Google and Outlook with{" "}
-        <strong>Edit</strong> and <strong>Delete</strong> buttons that
-        write through to the source calendar. For ICS feeds (including
-        iCloud), edit the event in its source app and the change shows up
-        in ResearchOS on the next 15-minute refresh.
+        Clicking a linked event opens a read-only popover with the title,
+        time, location, and any notes the source calendar published. To
+        edit a linked event, open it in its source app (Google Calendar,
+        Outlook, Apple Calendar) and the change shows up in ResearchOS on
+        the next 15-minute refresh.
       </p>
       <p>
-        Want the deep-dive on each path?{" "}
-        <Link href="/wiki/integrations/calendar-feeds">External Calendar
-        Feeds</Link> walks through ICS URL setup,{" "}
-        and{" "}
-        <Link href="/wiki/integrations/calendar-oauth">Calendar OAuth
-        Setup</Link>{" "}
-        covers the Google and Outlook OAuth client registration on a
-        self-hosted deployment.
+        Want the deep-dive?{" "}
+        <Link href="/wiki/integrations/calendar-feeds">Calendar Feeds</Link>{" "}
+        walks through per-provider setup with screenshots.
       </p>
 
-      <Callout variant="warning" title="ICS URLs are sensitive">
+      <Callout variant="warning" title="iCal URLs are sensitive">
         A public iCal URL grants read access to every event on that
         calendar to anyone who has the link. ResearchOS only stores it in
         your private data folder, but treat the URL itself like a password.

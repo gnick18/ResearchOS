@@ -6,7 +6,7 @@ import { Steps, Step } from "@/components/wiki/Steps";
 export default function CalendarFeedsIntegrationPage() {
   return (
     <WikiPage
-      title="External Calendar Feeds"
+      title="Calendar Feeds"
       intro="Overlay events from Google, Outlook, iCloud, or any public iCal URL on the ResearchOS calendar. Read-only, so you can plan around them without ResearchOS ever writing back to the source."
     >
       <Screenshot
@@ -22,14 +22,11 @@ export default function CalendarFeedsIntegrationPage() {
         location or notes the source calendar published.
       </p>
       <p>
-        This page only covers the paste-a-URL flow, where you copy a
-        public ICS link out of Google, Outlook, or iCloud and ResearchOS
-        re-reads it on a timer. The events are read-only. If you want to
-        drag, retitle, or delete events from inside ResearchOS, use the{" "}
-        <strong>Connect</strong> button for Google or Outlook on the same
-        panel and follow the{" "}
-        <a href="/wiki/integrations/calendar-oauth">Calendar OAuth Setup</a>{" "}
-        page instead.
+        Linked calendars are read-only. ResearchOS fetches a public iCal
+        (ICS) URL on a timer and overlays the events — it never writes
+        back to Google, Outlook, or Apple. To edit an event, open it in
+        its source app; the change syncs into ResearchOS on the next
+        15-minute refresh.
       </p>
 
       <h2>Open the Linked Calendars panel</h2>
@@ -242,20 +239,16 @@ export default function CalendarFeedsIntegrationPage() {
         stop showing up until you refresh the page from a closer date.
       </p>
 
-      <h2>Want to edit Google or Outlook events from ResearchOS?</h2>
+      <h2>Want to edit linked events from ResearchOS?</h2>
       <p>
-        The same panel has a <strong>Connect</strong> button for Google
-        and Outlook accounts above the paste-a-URL form. That path uses
-        OAuth instead of an ICS URL and lets you reschedule, retitle,
-        and delete events without leaving ResearchOS. It needs a
-        one-time setup on the deployment (an OAuth client registered
-        against Google or Microsoft). See{" "}
-        <a href="/wiki/integrations/calendar-oauth">Calendar OAuth Setup</a>{" "}
-        for the full walkthrough.
-      </p>
-      <p>
-        Apple doesn't expose a comparable write API, so iCloud calendars
-        stay read-only no matter which method you use.
+        Linked calendars are read-only by design. To make changes, open
+        the event in its source app (Google Calendar, Outlook, Apple
+        Calendar) — your edit shows up in ResearchOS on the next
+        15-minute refresh. Earlier ResearchOS builds had an
+        OAuth-backed two-way sync for Google and Outlook; that surface
+        was removed (2026-05-14) in favor of keeping the integration
+        simple and credential-free. The ICS subscription flow described
+        here is the only supported path now.
       </p>
     </WikiPage>
   );

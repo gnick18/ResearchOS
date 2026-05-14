@@ -165,9 +165,7 @@ export default function NotificationsFeaturePage() {
         OS popup will go off in the meantime. For phone-side or
         always-on-but-laptop-asleep reminders, link your external calendar
         instead, see{" "}
-        <Link href="/wiki/integrations/calendar-feeds">Calendar Feeds</Link>{" "}
-        or{" "}
-        <Link href="/wiki/integrations/calendar-oauth">Calendar OAuth</Link>.
+        <Link href="/wiki/integrations/calendar-feeds">Calendar Feeds</Link>.
       </Callout>
       <p>
         Reminder settings, the bell history, and the Telegram inbox are all
