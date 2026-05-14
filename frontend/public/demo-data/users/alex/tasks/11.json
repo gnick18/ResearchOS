@@ -15,7 +15,33 @@
   "tags": null,
   "sort_order": 11,
   "experiment_color": "#f59e0b",
-  "sub_tasks": null,
+  "sub_tasks": [
+    {
+      "id": "st1",
+      "text": "Grow strains to OD600 ~0.6 in YPD",
+      "is_complete": false
+    },
+    {
+      "id": "st2",
+      "text": "Split cultures: 30 °C control vs 50 °C heat shock (30 min)",
+      "is_complete": false
+    },
+    {
+      "id": "st3",
+      "text": "Serial dilute 10-fold × 5",
+      "is_complete": false
+    },
+    {
+      "id": "st4",
+      "text": "Spot on YPD plates, incubate 48 h",
+      "is_complete": false
+    },
+    {
+      "id": "st5",
+      "text": "Count colonies + compute survival %",
+      "is_complete": false
+    }
+  ],
   "pcr_gradient": null,
   "pcr_ingredients": null,
   "method_attachments": [

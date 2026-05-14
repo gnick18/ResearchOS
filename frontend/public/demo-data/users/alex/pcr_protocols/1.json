@@ -64,7 +64,7 @@
       "id": "i6",
       "name": "Total",
       "concentration": "",
-      "amount_per_reaction": ""
+      "amount_per_reaction": "20"
     }
   ],
   "notes": "Demo qPCR — use ACT1 as housekeeping reference. Public version available at users/public.",
