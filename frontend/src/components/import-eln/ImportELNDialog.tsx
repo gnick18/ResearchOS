@@ -198,7 +198,7 @@ export default function ImportELNDialog({ isOpen, onClose }: ImportELNDialogProp
               {renderedTitle}
             </p>
             <h2 className="text-base font-semibold text-gray-900 mt-0.5">
-              Import from another ELN
+              Import from LabArchives
             </h2>
           </div>
           {step !== "applying" && step !== "parsing" && (

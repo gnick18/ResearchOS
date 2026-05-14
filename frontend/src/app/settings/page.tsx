@@ -685,12 +685,18 @@ function ImportFromELNRow({ onOpen }: { onOpen: () => void }) {
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="min-w-0 flex-1">
-        <p className="text-sm text-gray-800">Import from another ELN</p>
+        <p className="text-sm text-gray-800">Import from LabArchives</p>
         <p className="text-xs text-gray-500 mt-1">
           Import a LabArchives Offline Notebook ZIP into ResearchOS. Each
           page becomes a task; folders can become projects. PDF formats are
-          coming in a later version.
+          coming in a later version. Other ELNs aren&apos;t supported yet.
         </p>
+        <a
+          href="/wiki/getting-started/labarchives-export"
+          className="mt-1 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 underline"
+        >
+          How to export from LabArchives →
+        </a>
       </div>
       <button
         type="button"
