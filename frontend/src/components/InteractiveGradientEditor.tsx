@@ -1325,7 +1325,7 @@ export function InteractiveGradientEditor({
       type: "cycle",
       cycleContainerIndex: cycleIndex, // Use the index in the cycleContainers array
     };
-    delete (newCycleStep as any).cycleIndex; // Will be set by rebuildBlocksAfterMove
+    delete newCycleStep.cycleIndex; // Will be set by rebuildBlocksAfterMove
     
     // Calculate insert position: after the container and any existing cycle steps
     // Adjust for the splice that removed the block
