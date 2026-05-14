@@ -13,7 +13,6 @@ import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
 import Tooltip from "@/components/Tooltip";
 import UserAvatar from "@/components/UserAvatar";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
-import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useAppStore } from "@/lib/store";
 import {
