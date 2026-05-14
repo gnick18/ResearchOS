@@ -366,7 +366,10 @@ export default function NoteDetailPopup({
           const destPath = `${filesDir}/${finalName}`;
           await fileService.writeFileFromBlob(destPath, renamedFile);
           fileEvents.emitAttached({ basePath, relativePath: `Files/${finalName}` });
-          snippets.push(`\n[${finalName}](Files/${finalName})\n`);
+          // URL-encode just the destination filename. CommonMark §6.4
+          // disallows unescaped whitespace in link destinations, so a name
+          // like "READ ME.md" otherwise renders as plain text.
+          snippets.push(`\n[${finalName}](Files/${encodeURIComponent(finalName)})\n`);
         } catch {
           alert(`Failed to upload ${renamedFile.name}`);
         }
