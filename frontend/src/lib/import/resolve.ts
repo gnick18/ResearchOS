@@ -66,28 +66,50 @@ export async function buildImportPlan(
     const ownCandidates = existingMethods
       .filter((m) => !m.is_shared_with_me)
       .map((m) => ({ id: m.id, name: m.name }));
-    const exactMatch = existingMethods.find(
-      (m) => !m.is_shared_with_me && normalizeName(m.name) === normalizeName(methodName),
-    );
-    methodResolutions.push(
-      exactMatch
-        ? {
-            sourceMethodId: entry.record.id,
-            sourceMethodName: methodName,
-            sourceMethodType: entry.record.method_type,
-            decision: "use-existing",
-            existingMethodId: exactMatch.id,
-            candidates: ownCandidates,
-          }
-        : {
-            sourceMethodId: entry.record.id,
-            sourceMethodName: methodName,
-            sourceMethodType: entry.record.method_type,
-            decision: "import-new",
-            existingMethodId: null,
-            candidates: ownCandidates,
-          },
-    );
+    // For PCR methods, only consider a name match as "use-existing" if the
+    // existing method is also PCR — pointing a PCR-typed task slot at a
+    // markdown/pdf method would render badly.
+    const exactMatch =
+      entry.record.method_type === "pcr"
+        ? existingMethods.find(
+            (m) =>
+              !m.is_shared_with_me &&
+              m.method_type === "pcr" &&
+              normalizeName(m.name) === normalizeName(methodName),
+          )
+        : existingMethods.find(
+            (m) =>
+              !m.is_shared_with_me &&
+              normalizeName(m.name) === normalizeName(methodName),
+          );
+
+    // import-new is only available for PCR when the bundle carried the
+    // protocol record. Without it, the importer has nothing to recreate
+    // from, so the default falls through to skip.
+    const importNewAvailable =
+      entry.record.method_type !== "pcr" || entry.pcrProtocol != null;
+
+    let decision: MethodResolution["decision"];
+    let existingMethodId: number | null;
+    if (exactMatch) {
+      decision = "use-existing";
+      existingMethodId = exactMatch.id;
+    } else if (importNewAvailable) {
+      decision = "import-new";
+      existingMethodId = null;
+    } else {
+      decision = "skip";
+      existingMethodId = null;
+    }
+
+    methodResolutions.push({
+      sourceMethodId: entry.record.id,
+      sourceMethodName: methodName,
+      sourceMethodType: entry.record.method_type,
+      decision,
+      existingMethodId,
+      candidates: ownCandidates,
+    });
   }
 
   return {
