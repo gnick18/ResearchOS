@@ -12,6 +12,7 @@
  * a styled placeholder; never notes.md).
  */
 import { fileService } from "../file-system/file-service";
+import { extractUserContent } from "../export/markdown";
 import {
   findExistingTaskResultsBase as findExistingTaskResultsBaseInner,
   legacyTaskResultsBase,
@@ -95,7 +96,10 @@ async function readResultsBody(base: string): Promise<string | null> {
   const blob = await fileService.readFileAsBlob(`${base}/results.md`);
   if (!blob || blob.size === 0) return null;
   const text = await blob.text();
-  return text.trim().length > 0 ? text : null;
+  // Strip the stamp block (HTML-comment metadata) so it doesn't leak into the
+  // preview text. Stamps-only files collapse to empty and read as "no content".
+  const userContent = extractUserContent(text);
+  return userContent.length > 0 ? userContent : null;
 }
 
 function previewLinesFrom(text: string, maxLines: number): string | null {
