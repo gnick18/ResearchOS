@@ -86,7 +86,9 @@ export default function Home() {
         console.log("[Gantt.activeTasks] Task", t.id, "is shared with me, keeping");
         return true;
       }
-      const project = projects.find((p) => p.id === t.project_id);
+      const project = projects.find(
+        (p) => p.id === t.project_id && p.owner === t.owner,
+      );
       const result = project && !project.is_archived;
       if (!project) {
         console.log("[Gantt.activeTasks] Task", t.id, "project", t.project_id, "not found in projects array");
@@ -154,6 +156,11 @@ export default function Home() {
     return Array.from(tagSet).sort();
   }, [activeProjects, activeTasks]);
 
+  // TODO(id-collision): this map is keyed by raw p.id, so a shared project and
+  // an own project that happen to share the numeric id will overwrite each
+  // other's color. The full fix is to key by composite `${owner}:${id}` and
+  // update GanttChart / Toolbar / SidebarTree (out of scope for this sweep).
+  // Today GanttChart/Toolbar/SidebarTree still take Record<number, string>.
   const projectColors = useMemo(() => {
     const defaultColors = [
       "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
@@ -208,7 +215,9 @@ export default function Home() {
     ? allTasks.find((t) => taskKey(t) === editingTaskKey)
     : null;
   const editingProject = editingTask
-    ? projects.find((p) => p.id === editingTask.project_id)
+    ? projects.find(
+        (p) => p.id === editingTask.project_id && p.owner === editingTask.owner,
+      )
     : undefined;
 
   return (
