@@ -12,7 +12,7 @@
     {
       "id": 5,
       "owner": "morgan",
-      "permission": "view",
+      "permission": "edit",
       "shared_at": "2026-05-13T00:00:00Z"
     }
   ],

@@ -388,7 +388,7 @@ function buildEntries() {
         { id: 1, owner: "morgan", permission: "view", shared_at: "2026-05-12T00:00:00Z" },
       ],
       tasks: [
-        { id: 5, owner: "morgan", permission: "view", shared_at: "2026-05-13T00:00:00Z" },
+        { id: 5, owner: "morgan", permission: "edit", shared_at: "2026-05-13T00:00:00Z" },
       ],
       methods: [],
     },
