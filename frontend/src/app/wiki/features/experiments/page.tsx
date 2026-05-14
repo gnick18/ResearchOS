@@ -164,20 +164,75 @@ export default function ExperimentsFeaturePage() {
 
       <h2>Export an experiment</h2>
       <p>
-        The download-arrow icon in the popup header (tooltip:{" "}
-        <em>Export experiment</em>) drops down a small menu with{" "}
-        <strong>📝 Markdown</strong> and <strong>📕 PDF</strong>. PDF bundles
-        the Lab Notes body, the Results body, the first attached method's
-        markdown, and any PDFs from <code>NotesPDFs/</code> and{" "}
-        <code>ResultsPDFs/</code> into a single printable document. Useful for
-        thesis chapters and IRB filings.
+        Click the down-arrow icon in the popup header (tooltip:{" "}
+        <em>Export experiment</em>) to open the <strong>Export</strong>{" "}
+        dialog. The dialog heading reads <em>Export &lt;experiment name&gt;</em>{" "}
+        and lists three format cards, each with a short description of what
+        you get and who it&apos;s for. Click a card and the file downloads
+        straight to your browser&apos;s Downloads folder.
       </p>
-      <Callout variant="tip" title="Bulk export from the tile grid">
-        Each tile has a checkbox in its bottom-right corner. Tick two or more
-        tiles and a green <strong>Export N selected</strong> button appears
-        at the top of the page with the same Markdown / PDF / Clear selection
-        choices. Bulk export iterates every attached method, not just the
-        first one.
+      <Screenshot
+        src="/wiki/screenshots/experiments-export-dialog.png"
+        alt="The Export dialog open over an experiment popup, showing three format cards: PDF report, HTML report, and Raw ResearchOS format."
+        caption="The Export dialog. Pick a format card to start the download; close with Cancel or the Escape key."
+      />
+      <ul>
+        <li>
+          <strong>PDF report</strong> — a professional, printable PDF with a
+          title page, a clickable table of contents, an outline pane
+          (bookmarks) for jumping between sections, and inline images. Lab
+          Notes, Results, every attached method (rendered, with per-run PCR
+          tweaks), Sub-tasks, the Deviation log, and a <em>Files
+          attached</em> appendix all live in the same document. Text is
+          selectable, so you can copy passages straight out into a thesis
+          chapter, IRB filing, or grant report.
+        </li>
+        <li>
+          <strong>HTML report</strong> — a single self-contained{" "}
+          <code>.html</code> page bundled in a <code>.zip</code> with its
+          attachments. Images are base64-inlined so the page renders even
+          offline; PDF methods and other non-image files sit alongside in{" "}
+          <code>attachments/Notes/</code>, <code>attachments/Results/</code>,
+          and <code>attachments/Methods/</code>. Open it in any browser, mail
+          the zip to a collaborator who doesn&apos;t run ResearchOS.
+        </li>
+        <li>
+          <strong>Raw ResearchOS format</strong> — the full experiment as a
+          sharable <code>.zip</code> bundle: <code>task.json</code>,{" "}
+          <code>project.json</code>, the raw <code>notes.md</code> and{" "}
+          <code>results.md</code>, each method as its own JSON file (PCR
+          protocols included), and every attached image and file in the same
+          folder layout the app uses on disk. This is the format another
+          ResearchOS user imports through{" "}
+          <strong>Settings → Import experiment</strong> to land the
+          experiment in their own folder with all the methods, PCR protocols,
+          and attachments wired up.
+        </li>
+      </ul>
+      <p>
+        While the file builds, the dialog shows a <em>Preparing export…</em>{" "}
+        spinner and disables every button (Escape and the backdrop are also
+        locked) so you can&apos;t kick off a second export by accident. If
+        anything goes wrong, an alert shows the error and the dialog stays
+        open for a retry.
+      </p>
+      <Callout variant="tip" title="Pick the format by where the file is going">
+        <strong>PDF</strong> for thesis chapters, IRB filings, lab-meeting
+        handouts, and anything destined for print. <strong>HTML</strong> for
+        sharing a polished read-only report with a collaborator who works
+        outside ResearchOS. <strong>Raw</strong> for archival, lab handoff,
+        or when another ResearchOS user is going to import the experiment
+        into their own folder.
+      </Callout>
+      <Callout variant="info" title="Exporting more than one at a time">
+        The Export icon on an experiment popup is single-experiment only. To
+        bundle a batch of experiments into one download, use{" "}
+        <strong>Select</strong> on the{" "}
+        <Link href="/wiki/features/search">Search</Link> page (or its Lab Mode
+        counterpart) — tick the result cards you want, click{" "}
+        <strong>Export selected</strong>, and the same dialog packages every
+        chosen experiment into an <code>experiments-&lt;YYYY-MM-DD&gt;.zip</code>{" "}
+        with one entry per experiment.
       </Callout>
 
       <Callout variant="info" title="Sub-tasks live on simple tasks, not experiments">

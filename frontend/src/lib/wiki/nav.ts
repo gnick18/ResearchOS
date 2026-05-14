@@ -106,7 +106,7 @@ export const WIKI_NAV: WikiNode[] = [
       {
         href: "/wiki/features/experiments",
         label: "Experiments & Notes",
-        blurb: "Markdown notes, image strip, sub-tasks, PDF export.",
+        blurb: "Tile grid, popup with Notes / Method / Results, PDF / HTML / Raw export.",
       },
       {
         href: "/wiki/features/markdown-editor",
