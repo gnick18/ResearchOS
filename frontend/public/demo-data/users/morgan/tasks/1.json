@@ -6,7 +6,7 @@
   "duration_days": 1,
   "end_date": "2026-05-13",
   "is_high_level": false,
-  "is_complete": false,
+  "is_complete": true,
   "task_type": "experiment",
   "weekend_override": null,
   "method_id": null,
@@ -28,5 +28,6 @@
     }
   ],
   "owner": "morgan",
-  "shared_with": []
+  "shared_with": [],
+  "external_project": null
 }

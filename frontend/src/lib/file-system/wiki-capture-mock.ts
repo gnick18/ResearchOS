@@ -89,6 +89,40 @@ Patched 8 colonies onto a fresh SD-Ura plate. All eight took.
 ![Patch plate](Images/patch-plate.png)
 `,
   },
+  {
+    path: "users/alex/results/task-3/results.md",
+    content: `## Patch results
+
+All 8 patched colonies grew on SD-Ura — pick top 4 for sequencing (demo data).
+`,
+  },
+  {
+    path: "users/alex/results/task-4/results.md",
+    content: `## gDNA prep results
+
+All 8 preps came back A260/280 ≥ 1.80, A260/230 ≥ 2.0 — ready for PCR screen (demo data).
+`,
+  },
+  {
+    path: "users/alex/results/task-5/results.md",
+    content: `## PCR-screen results
+
+6 / 16 transformants show the ~1.4 kb integration band (demo data).
+`,
+  },
+  // Empty file (created, not missing). Powers the gallery's "Awaiting
+  // results" fixture in capture mode the same way the on-disk demo does.
+  {
+    path: "users/alex/results/task-8/results.md",
+    content: "",
+  },
+  {
+    path: "users/morgan/results/task-1/results.md",
+    content: `## Plate prep results
+
+80 / 80 wells inoculated cleanly — no cross-well contamination visible at 4× (demo data).
+`,
+  },
 ];
 
 /** Capture-mode variants. The default `"signed-in"` corresponds to

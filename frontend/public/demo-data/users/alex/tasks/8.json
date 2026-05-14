@@ -2,11 +2,11 @@
   "id": 8,
   "project_id": 2,
   "name": "Mini-prep candidate plasmids",
-  "start_date": "2026-05-14",
+  "start_date": "2026-05-09",
   "duration_days": 1,
-  "end_date": "2026-05-14",
+  "end_date": "2026-05-09",
   "is_high_level": false,
-  "is_complete": false,
+  "is_complete": true,
   "task_type": "experiment",
   "weekend_override": null,
   "method_id": null,
@@ -20,5 +20,6 @@
   "pcr_ingredients": null,
   "method_attachments": [],
   "owner": "alex",
-  "shared_with": []
+  "shared_with": [],
+  "external_project": null
 }
