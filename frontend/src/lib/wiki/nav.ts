@@ -1,11 +1,12 @@
 export const HELP_HREF = "/wiki";
 
-/** Maps an in-app route to the wiki page that documents that view. Used
- *  by the `?` help button so clicking it from `/gantt` lands on
- *  `/wiki/features/gantt` instead of always dumping the user on
- *  Quickstart. Routes that don't have a dedicated wiki page fall back
- *  to the wiki landing. */
-const APP_ROUTE_TO_WIKI: Record<string, string> = {
+/** Canonical map of in-app feature route → wiki page that documents it.
+ *  Consumed by:
+ *    - the in-app `?` help icon (via `appRouteToWikiRoute`, falls back
+ *      to the wiki landing on unmapped routes)
+ *    - the demo-mode "Read the docs" button (via `getWikiForRoute`,
+ *      returns null on unmapped routes so the affordance hides) */
+export const APP_ROUTE_TO_WIKI: Record<string, string> = {
   "/": "/wiki/features/home",
   "/gantt": "/wiki/features/gantt",
   "/experiments": "/wiki/features/experiments",
@@ -20,8 +21,17 @@ const APP_ROUTE_TO_WIKI: Record<string, string> = {
   "/settings": "/wiki/features/settings",
 };
 
+/** Lookup with wiki-landing fallback. Use for affordances that should
+ *  always land somewhere reasonable (e.g. the `?` help icon). */
 export function appRouteToWikiRoute(pathname: string): string {
   return APP_ROUTE_TO_WIKI[pathname] ?? HELP_HREF;
+}
+
+/** Strict lookup. Returns null for unmapped routes; use for affordances
+ *  that should hide rather than dump the user on the landing page (e.g.
+ *  the demo-mode "Read the docs" button). */
+export function getWikiForRoute(pathname: string): string | null {
+  return APP_ROUTE_TO_WIKI[pathname] ?? null;
 }
 
 export interface WikiNode {
