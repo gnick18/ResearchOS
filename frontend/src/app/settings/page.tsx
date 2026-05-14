@@ -10,6 +10,13 @@ import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
 import Tooltip from "@/components/Tooltip";
 import UserAvatar from "@/components/UserAvatar";
 import { isLabArchivesConfigured } from "@/lib/labarchives/config";
+import {
+  clearDeployerCreds,
+  hasDeployerCreds,
+  readDeployerCreds,
+  writeDeployerCreds,
+  type DeployerCreds,
+} from "@/lib/labarchives/deployer-store";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useAppStore } from "@/lib/store";
@@ -680,9 +687,25 @@ function ImportRow({ onOpen }: { onOpen: () => void }) {
 
 // ── LabArchives section ─────────────────────────────────────────────────────
 
+/** Where the integration's institutional credentials are coming from on
+ *  the current deployment. Drives the status pill copy + which Settings
+ *  cards render expanded vs collapsed. `"env"` and `"sidecar"` both mean
+ *  "configured (signed calls will work)" — they differ only in source. */
+type LabArchivesConfigSource = "env" | "sidecar" | "none";
+
 function LabArchivesSection({ username }: { username: string }) {
   const [elnImportOpen, setElnImportOpen] = useState(false);
-  const configured = isLabArchivesConfigured();
+  // Env-flag source is sync (process.env), sidecar source is async (FSA).
+  // The env-flag answer is known immediately; the sidecar probe resolves
+  // after mount. Both feed into a single `source` value via useMemo so
+  // we don't store derivable state.
+  const envConfigured = isLabArchivesConfigured();
+  // Result of the FSA sidecar probe (false until proven otherwise).
+  const [sidecarPresent, setSidecarPresent] = useState(false);
+  // Bump this to force the deployer-setup card and the connection row to
+  // re-read after a Save/Clear.
+  const [sidecarRev, setSidecarRev] = useState(0);
+
   // In capture mode the wiki manager can opt out of the purple "Demo mode"
   // pill by setting `?labArchivesConfigured=…` — that lets them capture the
   // green ("configured") and amber ("not available yet") variants of the
@@ -690,12 +713,39 @@ function LabArchivesSection({ username }: { username: string }) {
   // `lib/labarchives/config.ts` for the param shape.
   const demoMode = isDemoOrWikiCapture() && !hasLabArchivesCaptureOverride();
 
+  // Skip the sidecar probe entirely in env-var mode (no value to show)
+  // and in capture mode (fixture folder must not surface as real creds).
+  const shouldProbeSidecar = !envConfigured && !demoMode && !isDemoOrWikiCapture();
+
+  // Probe the sidecar after mount. Returns null on skip; the effect only
+  // writes state from the async resolution path so the lint rule
+  // (`react-hooks/set-state-in-effect`) stays happy.
+  useEffect(() => {
+    if (!shouldProbeSidecar) return;
+    let cancelled = false;
+    void hasDeployerCreds().then((has) => {
+      if (!cancelled) setSidecarPresent(has);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [shouldProbeSidecar, sidecarRev]);
+
+  // Derived: which config source wins. Env > sidecar > none.
+  const source: LabArchivesConfigSource = envConfigured
+    ? "env"
+    : shouldProbeSidecar && sidecarPresent
+      ? "sidecar"
+      : "none";
+
+  const configured = source !== "none";
+
   return (
     <SectionShell
       title="LabArchives"
       description="Two ways to bring LabArchives data into ResearchOS — bulk-import offline notebooks, or connect your account so the importer can fetch online-only inline images."
     >
-      <LabArchivesConfigState configured={configured} demoMode={demoMode} />
+      <LabArchivesConfigState source={source} demoMode={demoMode} />
 
       <LabArchivesOptionCard
         title="Import from LabArchives"
@@ -773,7 +823,7 @@ function LabArchivesSection({ username }: { username: string }) {
           configured ? (
             <LabArchivesConnectionRow username={username} variant="card" />
           ) : (
-            <Tooltip label="Connection unavailable until a deployer sets the institutional API credentials.">
+            <Tooltip label="Connection unavailable until the institutional API credentials are set — either via env vars or the Deployer setup card below.">
               <button
                 type="button"
                 disabled
@@ -786,6 +836,18 @@ function LabArchivesSection({ username }: { username: string }) {
         }
         footer={null}
       />
+
+      {/* Deployer setup card — sidecar-mode credential entry. Hidden in
+          demo mode (we don't want anyone writing real creds into the
+          fixture folder) and hidden when env vars are already supplying
+          the creds (no need to override). */}
+      {!demoMode && source !== "env" && (
+        <LabArchivesDeployerSetupCard
+          configuredViaSidecar={source === "sidecar"}
+          onSaved={() => setSidecarRev((r) => r + 1)}
+          onCleared={() => setSidecarRev((r) => r + 1)}
+        />
+      )}
     </SectionShell>
   );
 }
@@ -804,10 +866,10 @@ function hasLabArchivesCaptureOverride(): boolean {
 }
 
 function LabArchivesConfigState({
-  configured,
+  source,
   demoMode,
 }: {
-  configured: boolean;
+  source: LabArchivesConfigSource;
   demoMode: boolean;
 }) {
   if (demoMode) {
@@ -818,23 +880,38 @@ function LabArchivesConfigState({
       </div>
     );
   }
-  if (configured) {
+  if (source === "env") {
     return (
       <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
-        <span className="font-medium">Integration is configured</span> on this
-        deployment. Both options below are live.
+        <span className="font-medium">Configured (server env vars)</span> —
+        the institutional API credentials are set in this deployment&apos;s
+        environment.
+      </div>
+    );
+  }
+  if (source === "sidecar") {
+    return (
+      <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+        <span className="font-medium">Configured (saved in your data folder)</span>{" "}
+        — the institutional API credentials are stored locally in{" "}
+        <code className="px-1 py-0.5 bg-emerald-100/60 rounded text-[10px]">
+          _labarchives-deployer.json
+        </code>
+        . Both options below are live.
       </div>
     );
   }
   return (
     <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 space-y-1">
       <p className="font-medium">
-        Image-fetch isn&apos;t available on this deployment yet.
+        Image-fetch isn&apos;t configured yet on this deployment.
       </p>
       <p>
         Importing offline ZIPs still works — but inline images that
-        LabArchives stores online won&apos;t come down automatically. A
-        deployer needs to set the institutional API credentials.{" "}
+        LabArchives stores online won&apos;t come down automatically.
+        Enter the institutional API credentials in the{" "}
+        <strong>Deployer setup</strong> card below, or have a deployer set
+        the matching env vars.{" "}
         <Link
           href="/wiki/integrations/labarchives#deployer-setup"
           className="underline hover:no-underline"
@@ -842,6 +919,314 @@ function LabArchivesConfigState({
           Setup guide →
         </Link>
       </p>
+    </div>
+  );
+}
+
+/** Sidecar-mode credential entry. Two password inputs (akid + access
+ *  password), an optional region picker (US/AU/EU), and Save / Clear /
+ *  Test buttons. Persists to `_labarchives-deployer.json` at the data
+ *  folder root via `deployer-store.ts`.
+ *
+ *  Trust-model reminder (mirrored in `deployer-store.ts`): the
+ *  `access_password` lives plaintext on disk. Equivalent to a plaintext
+ *  `.env.local`. Fine for local-first self-host; not recommended for
+ *  multi-tenant deployments. */
+function LabArchivesDeployerSetupCard({
+  configuredViaSidecar,
+  onSaved,
+  onCleared,
+}: {
+  configuredViaSidecar: boolean;
+  onSaved: () => void;
+  onCleared: () => void;
+}) {
+  // Collapsed when sidecar already configured — avoid offering the inputs
+  // by default because filling them again is destructive (overwrite).
+  // Expanded by default when not configured so first-run setup is obvious.
+  const [expanded, setExpanded] = useState(!configuredViaSidecar);
+  const [akid, setAkid] = useState("");
+  const [pw, setPw] = useState("");
+  const [region, setRegion] = useState<"us" | "au" | "eu" | "custom">("us");
+  const [customBaseUrl, setCustomBaseUrl] = useState("");
+  const [showExplainer, setShowExplainer] = useState(false);
+  const [busy, setBusy] = useState<"none" | "saving" | "clearing">("none");
+  const [error, setError] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+
+  // Load the existing sidecar (if any) when the user expands the card,
+  // so they can see / re-edit the existing entry rather than blindly
+  // overwriting it. We don't preload on mount — keeps the input boxes
+  // empty when collapsed for password-manager paranoia.
+  useEffect(() => {
+    if (!expanded) return;
+    let cancelled = false;
+    void readDeployerCreds().then((c) => {
+      if (cancelled || !c) return;
+      setAkid(c.accessKeyId);
+      setPw(c.accessPassword);
+      const url = c.baseUrl ?? "";
+      if (url === "" || url === "https://api.labarchives.com/api") {
+        setRegion("us");
+        setCustomBaseUrl("");
+      } else if (url === "https://auapi.labarchives.com/api") {
+        setRegion("au");
+        setCustomBaseUrl("");
+      } else if (url === "https://euapi.labarchives.com/api") {
+        setRegion("eu");
+        setCustomBaseUrl("");
+      } else {
+        setRegion("custom");
+        setCustomBaseUrl(url);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [expanded]);
+
+  const handleSave = useCallback(async () => {
+    setError(null);
+    setBusy("saving");
+    try {
+      const creds: DeployerCreds = {
+        accessKeyId: akid,
+        accessPassword: pw,
+      };
+      let url: string | undefined;
+      if (region === "au") url = "https://auapi.labarchives.com/api";
+      else if (region === "eu") url = "https://euapi.labarchives.com/api";
+      else if (region === "custom") {
+        const trimmed = customBaseUrl.trim();
+        if (trimmed !== "") url = trimmed;
+      }
+      // "us" → leave undefined (deployer-store uses default).
+      if (url !== undefined) creds.baseUrl = url;
+      await writeDeployerCreds(creds);
+      setSavedAt(new Date().toLocaleTimeString());
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed.");
+    } finally {
+      setBusy("none");
+    }
+  }, [akid, pw, region, customBaseUrl, onSaved]);
+
+  const handleClear = useCallback(async () => {
+    if (typeof window !== "undefined") {
+      const ok = window.confirm(
+        "Remove the saved LabArchives deployer credentials? You'll need to re-enter them before signed calls will work again.",
+      );
+      if (!ok) return;
+    }
+    setError(null);
+    setBusy("clearing");
+    try {
+      await clearDeployerCreds();
+      setAkid("");
+      setPw("");
+      setRegion("us");
+      setCustomBaseUrl("");
+      setSavedAt(null);
+      onCleared();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Clear failed.");
+    } finally {
+      setBusy("none");
+    }
+  }, [onCleared]);
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm font-medium text-gray-900">Deployer setup</p>
+            <Tooltip label={showExplainer ? "Hide details" : "Why this exists"}>
+              <button
+                type="button"
+                onClick={() => setShowExplainer((v) => !v)}
+                aria-expanded={showExplainer}
+                aria-label="Explain Deployer setup"
+                className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 text-[10px] font-semibold leading-none"
+              >
+                ?
+              </button>
+            </Tooltip>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            Enter the institutional LabArchives API credentials for this
+            ResearchOS install. Stored locally in your data folder as{" "}
+            <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
+              _labarchives-deployer.json
+            </code>
+            {configuredViaSidecar ? " (currently active)." : "."}
+          </p>
+          {showExplainer && (
+            <div className="mt-2 text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-md px-3 py-2 leading-relaxed space-y-1">
+              <p>
+                Two ways to configure the integration: (i) set{" "}
+                <code className="px-1 py-0.5 bg-white border border-gray-200 rounded text-[10px]">
+                  LABARCHIVES_ACCESS_KEY_ID
+                </code>{" "}
+                and{" "}
+                <code className="px-1 py-0.5 bg-white border border-gray-200 rounded text-[10px]">
+                  LABARCHIVES_ACCESS_PASSWORD
+                </code>{" "}
+                env vars on the deployment, or (ii) paste them here. Env
+                vars win when both are present.
+              </p>
+              <p className="text-amber-800">
+                <strong>Trade-off:</strong> the access password lives
+                plaintext on disk in your data folder. Equivalent to
+                plaintext{" "}
+                <code className="px-1 py-0.5 bg-white border border-amber-200 rounded text-[10px]">
+                  .env.local
+                </code>
+                ; fine for single-user local-first installs, not recommended
+                for shared deployments.
+              </p>
+              <div className="pt-0.5">
+                <Link
+                  href="/wiki/integrations/labarchives#deployer-setup"
+                  className="text-blue-600 hover:underline"
+                >
+                  Read more in the wiki →
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="shrink-0">
+          {expanded ? (
+            <Tooltip label="Hide the credential inputs">
+              <button
+                type="button"
+                onClick={() => setExpanded(false)}
+                className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg whitespace-nowrap"
+              >
+                Hide
+              </button>
+            </Tooltip>
+          ) : (
+            <Tooltip label="Show inputs to enter or update the credentials">
+              <button
+                type="button"
+                onClick={() => setExpanded(true)}
+                className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+              >
+                {configuredViaSidecar ? "Edit" : "Set up"}
+              </button>
+            </Tooltip>
+          )}
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="mt-4 space-y-3 border-t border-gray-100 pt-3">
+          <div>
+            <label
+              htmlFor="la-akid"
+              className="block text-xs font-medium text-gray-700 mb-1"
+            >
+              Access Key ID (akid)
+            </label>
+            <input
+              id="la-akid"
+              type="password"
+              autoComplete="off"
+              value={akid}
+              onChange={(e) => setAkid(e.target.value)}
+              className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Institutional access key id"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="la-pw"
+              className="block text-xs font-medium text-gray-700 mb-1"
+            >
+              Access Password
+            </label>
+            <input
+              id="la-pw"
+              type="password"
+              autoComplete="off"
+              value={pw}
+              onChange={(e) => setPw(e.target.value)}
+              className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Institutional access password"
+            />
+          </div>
+          <div>
+            <p className="block text-xs font-medium text-gray-700 mb-1">
+              Region
+            </p>
+            <div className="flex flex-wrap gap-3 text-xs text-gray-700">
+              {(["us", "au", "eu", "custom"] as const).map((r) => (
+                <label key={r} className="inline-flex items-center gap-1.5">
+                  <input
+                    type="radio"
+                    name="la-region"
+                    value={r}
+                    checked={region === r}
+                    onChange={() => setRegion(r)}
+                  />
+                  <span>
+                    {r === "us"
+                      ? "US (default)"
+                      : r === "au"
+                        ? "AU"
+                        : r === "eu"
+                          ? "EU / UK"
+                          : "Custom URL"}
+                  </span>
+                </label>
+              ))}
+            </div>
+            {region === "custom" && (
+              <input
+                type="text"
+                value={customBaseUrl}
+                onChange={(e) => setCustomBaseUrl(e.target.value)}
+                placeholder="https://api.labarchives.com/api"
+                className="mt-2 w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            )}
+          </div>
+          <div className="flex items-center justify-between pt-1">
+            <div className="text-[11px] text-gray-500">
+              {savedAt && !error ? (
+                <span className="text-emerald-700">Saved at {savedAt}.</span>
+              ) : error ? (
+                <span className="text-red-700">{error}</span>
+              ) : (
+                <>Credentials write to your data folder, not env vars.</>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {configuredViaSidecar && (
+                <button
+                  type="button"
+                  onClick={() => void handleClear()}
+                  disabled={busy !== "none"}
+                  className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {busy === "clearing" ? "Clearing…" : "Clear"}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => void handleSave()}
+                disabled={busy !== "none" || akid.trim() === "" || pw.trim() === ""}
+                className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {busy === "saving" ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
