@@ -4,6 +4,7 @@ import { projectsApi, methodsApi, filesApi } from "@/lib/local-api";
 import { buildExperimentPayload } from "./extract";
 import { resolveCollidingFilenames } from "./slug";
 import { buildRawZip } from "./raw";
+import { buildHtmlBundle } from "./html";
 import type {
   ExperimentExportPayload,
   ExportFormat,
@@ -12,19 +13,10 @@ import type {
 
 // ---------------------------------------------------------------------------
 // Format-specific builders — wired below as they land:
-//   ./raw  → buildRawZip (Sub-bot B, landed)
-//   ./html → buildHtmlBundle (Sub-bot C, pending integration)
+//   ./raw  → buildRawZip (Sub-bot B, integrated)
+//   ./html → buildHtmlBundle (Sub-bot C, integrated)
 //   ./pdf  → buildPdf (Sub-bot D, pending integration)
 // ---------------------------------------------------------------------------
-
-async function buildHtmlBundle(
-  _payload: ExperimentExportPayload,
-  _baseFilename: string
-): Promise<ExportResult> {
-  throw new Error(
-    "HTML export not yet integrated — manager-side pending."
-  );
-}
 
 async function buildPdf(
   _payload: ExperimentExportPayload,

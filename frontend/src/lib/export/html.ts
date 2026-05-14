@@ -16,115 +16,16 @@
 import { marked } from "marked";
 import JSZip from "jszip";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Type contract — TODO: replace with `import type { ... } from "./types"`
-// once Sub-bot A lands `frontend/src/lib/export/types.ts`. These local
-// declarations mirror EXPORT_REVAMP_PLAN.md §4. Inlined here only because
-// Sub-bot C's scope forbids creating other `lib/export/*.ts` files.
-// ─────────────────────────────────────────────────────────────────────────────
-
-type AttachmentOrigin = "notes" | "results" | "methods";
-
-interface ExperimentAttachment {
-  filename: string;
-  mimeType: string;
-  bytes: ArrayBuffer;
-  origin: AttachmentOrigin;
-  diskRef: string;
-}
-
-interface MethodLike {
-  id: number;
-  name: string;
-  method_type: "markdown" | "pdf" | "pcr" | null;
-}
-
-interface TaskMethodAttachmentLike {
-  method_id: number;
-  variation_notes: string | null;
-  pcr_gradient: string | null;
-  pcr_ingredients: string | null;
-}
-
-interface MethodPayload {
-  method: MethodLike;
-  bodyMarkdown: string | null;
-  attachment: TaskMethodAttachmentLike | null;
-}
-
-interface SubTaskLike {
-  id: string;
-  text: string;
-  is_complete: boolean;
-}
-
-interface TaskLike {
-  id: number;
-  name: string;
-  start_date: string;
-  end_date: string;
-  duration_days: number;
-  is_complete: boolean;
-  owner: string;
-  method_ids: number[];
-  deviation_log: string | null;
-  sub_tasks: SubTaskLike[] | null;
-}
-
-interface ProjectLike {
-  id: number;
-  name: string;
-}
-
-export interface ExperimentExportPayload {
-  task: TaskLike;
-  project: ProjectLike;
-  resolvedBase: string;
-  notesMarkdown: string | null;
-  resultsMarkdown: string | null;
-  methods: MethodPayload[];
-  attachments: ExperimentAttachment[];
-  meta: {
-    ownerLabel: string;
-    durationDays: number;
-    statusLabel: string;
-    methodNames: string[];
-    exportedAt: string;
-  };
-}
-
-export interface ExportResult {
-  blob: Blob;
-  filename: string;
-  mimeType: string;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Local fallbacks for helpers Sub-bot A owns — TODO: replace with imports
-// from `./slug` and `./markdown` once those land.
-// ─────────────────────────────────────────────────────────────────────────────
-
-function slugify(name: string): string {
-  const cleaned = (name || "")
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[^\x00-\x7F]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return (cleaned || "experiment").slice(0, 80).replace(/-+$/g, "") || "experiment";
-}
-
-function extractUserContent(content: string | null | undefined): string {
-  if (!content) return "";
-  return content
-    .replace(/<!--[\s\S]*?-->/g, "")
-    .replace(/^\s*#\s+(?:Lab Notes|Results):.*$/im, "")
-    .trim();
-}
-
-function hasUserContent(content: string | null | undefined): boolean {
-  return extractUserContent(content).length > 0;
-}
+import { slugify } from "./slug";
+import { extractUserContent, hasUserContent } from "./markdown";
+import type {
+  AttachmentOrigin,
+  ExperimentAttachment,
+  ExperimentExportPayload,
+  ExportResult,
+  MethodPayload,
+} from "./types";
+import type { Method } from "@/lib/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -386,29 +287,20 @@ function buildResultsSection(payload: ExperimentExportPayload): string {
   return `<section id="section-results"><h2>Results</h2>${body}</section>`;
 }
 
-// PDF-method attachment lookup: prefer a name-based match when possible
-// (Sub-bot A's `extract.ts` should set `diskRef` so we can pin a PDF method
-// to its Method record; until that exact convention lands, fall back to
-// matching the method's name against each candidate filename and finally to
-// any single remaining methods-origin attachment).
+// PDF-method attachment lookup via methodId — the extractor stamps
+// `methodId` on every methods-origin push, so this is a clean id match.
 function findMethodPdfAttachment(
-  method: MethodLike,
+  method: Method,
   attachments: ExperimentAttachment[],
-  consumed: Set<string>,
 ): ExperimentAttachment | undefined {
-  const candidates = attachments.filter(
-    (a) => a.origin === "methods" && !consumed.has(a.filename),
+  return attachments.find(
+    (a) => a.origin === "methods" && a.methodId === method.id,
   );
-  if (candidates.length === 0) return undefined;
-  const slug = slugify(method.name);
-  const byName = candidates.find((a) => slugify(a.filename).includes(slug) && slug.length > 0);
-  return byName ?? candidates[0];
 }
 
 function buildMethodBlock(
   mp: MethodPayload,
   attachments: ExperimentAttachment[],
-  consumed: Set<string>,
 ): string {
   const id = `section-methods-${mp.method.id}`;
   const name = escapeHtml(mp.method.name || "Untitled Method");
@@ -418,9 +310,8 @@ function buildMethodBlock(
     const md = extractUserContent(mp.bodyMarkdown);
     body = renderMarkdown(md);
   } else if (mp.method.method_type === "pdf") {
-    const att = findMethodPdfAttachment(mp.method, attachments, consumed);
+    const att = findMethodPdfAttachment(mp.method, attachments);
     if (att) {
-      consumed.add(att.filename);
       body = `<h4>PDF Method: ${escapeHtml(att.filename)}</h4>
 <p class="method-file-link"><a href="attachments/Methods/${encodeURIComponent(att.filename)}" download>Open ${escapeHtml(att.filename)}</a></p>`;
     } else {
@@ -445,9 +336,8 @@ function buildMethodBlock(
 
 function buildMethodsSection(payload: ExperimentExportPayload): string {
   if (payload.methods.length === 0) return "";
-  const consumed = new Set<string>();
   const blocks = payload.methods
-    .map((m) => buildMethodBlock(m, payload.attachments, consumed))
+    .map((m) => buildMethodBlock(m, payload.attachments))
     .join("");
   return `<section id="section-methods-wrapper"><h2>Methods</h2>${blocks}</section>`;
 }
@@ -522,8 +412,9 @@ ${buildDeviationSection(payload)}
 
 export async function buildHtmlBundle(
   payload: ExperimentExportPayload,
+  baseFilename?: string,
 ): Promise<ExportResult> {
-  const slug = slugify(payload.task.name);
+  const slug = baseFilename ?? slugify(payload.task.name);
   const html = buildDocument(payload);
 
   const zip = new JSZip();

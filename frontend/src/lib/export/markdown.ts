@@ -12,7 +12,7 @@ const HTML_IMG_REF_REGEX = /<img\s+[^>]*src=["']([^"']+)["'][^>]*>/gi;
  * "# Lab Notes: …" / "# Results: …" stamp header? Used by format generators
  * to skip empty notes/results sections.
  */
-export function hasUserContent(content: string): boolean {
+export function hasUserContent(content: string | null | undefined): boolean {
   if (!content || !content.trim()) return false;
   const parsed = parseContent(content);
   const userContent = parsed.content.trim();
@@ -26,7 +26,7 @@ export function hasUserContent(content: string): boolean {
  * Strip stamp metadata, returning just the user-authored body. Used by all
  * formats except `raw` (which keeps the raw stamped markdown verbatim).
  */
-export function extractUserContent(content: string): string {
+export function extractUserContent(content: string | null | undefined): string {
   if (!content) return "";
   const parsed = parseContent(content);
   return parsed.content.trim();
