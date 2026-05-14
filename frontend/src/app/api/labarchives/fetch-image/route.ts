@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { readLabArchivesCredsFromRequest } from "@/lib/labarchives/config";
 import { signedLabArchivesFetch } from "@/lib/labarchives/signed-fetch";
+import { withRateLimit } from "@/lib/api/rate-limit";
 
 /**
  * `POST /api/labarchives/fetch-image` — server-side proxy to
@@ -27,7 +28,7 @@ import { signedLabArchivesFetch } from "@/lib/labarchives/signed-fetch";
  * logged server-side via `console.warn`. Timeout + retry-on-401 logic
  * lives in `signedLabArchivesFetch`.
  */
-export async function POST(req: NextRequest): Promise<Response> {
+async function handlePost(req: NextRequest): Promise<Response> {
   let body: { uid?: string; entryPartId?: string; deployerCreds?: unknown };
   try {
     body = (await req.json()) as {
@@ -111,3 +112,11 @@ export async function POST(req: NextRequest): Promise<Response> {
     headers: { "content-type": contentType },
   });
 }
+
+// 100/min — the wizard fires this in bursts of 10-50 during import-image
+// rehydration, so we leave headroom above the typical batch ceiling.
+export const POST = withRateLimit(handlePost, {
+  limit: 100,
+  windowMs: 60_000,
+  name: "labarchives-fetch-image",
+});

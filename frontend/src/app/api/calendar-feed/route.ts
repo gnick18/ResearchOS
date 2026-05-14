@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { safeFetch } from "@/lib/api/url-guards";
+import { withRateLimit } from "@/lib/api/rate-limit";
 
 /**
  * Server-side proxy for external ICS calendar feeds (Google, Outlook, iCloud,
@@ -48,7 +49,7 @@ function normalizeUrl(input: string): string {
   return input;
 }
 
-export async function GET(req: NextRequest): Promise<Response> {
+async function handleGet(req: NextRequest): Promise<Response> {
   const raw = req.nextUrl.searchParams.get("url");
   if (!raw) {
     return new Response("Missing url query parameter", { status: 400 });
@@ -135,6 +136,12 @@ export async function GET(req: NextRequest): Promise<Response> {
     },
   });
 }
+
+export const GET = withRateLimit(handleGet, {
+  limit: 60,
+  windowMs: 60_000,
+  name: "calendar-feed",
+});
 
 function genericErrorMessage(status: number): string {
   if (status === 400) return "Bad request";

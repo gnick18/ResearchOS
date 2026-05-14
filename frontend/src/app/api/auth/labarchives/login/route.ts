@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { readLabArchivesCredsFromRequest } from "@/lib/labarchives/config";
 import { signedLabArchivesFetch } from "@/lib/labarchives/signed-fetch";
+import { withRateLimit } from "@/lib/api/rate-limit";
 
 /**
  * `POST /api/auth/labarchives/login` — exchange the user's LabArchives email
@@ -31,7 +32,7 @@ import { signedLabArchivesFetch } from "@/lib/labarchives/signed-fetch";
  * status code, parsed `<error>` body) is logged server-side via
  * `console.warn` for debugger access without fingerprinting the proxy.
  */
-export async function POST(req: NextRequest): Promise<Response> {
+async function handlePost(req: NextRequest): Promise<Response> {
   let body: {
     loginOrEmail?: string;
     password?: string;
@@ -133,3 +134,12 @@ export async function POST(req: NextRequest): Promise<Response> {
     email: emailMatch?.[1].trim(),
   });
 }
+
+// Tight limit because login validates against an upstream credential check —
+// the only legitimate caller is the connect popup, which fires once per
+// connection attempt.
+export const POST = withRateLimit(handlePost, {
+  limit: 10,
+  windowMs: 60_000,
+  name: "labarchives-login",
+});
