@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { projectsApi, fetchAllTasks, fetchAllProjectsIncludingShared } from "@/lib/local-api";
+import { projectsApi, fetchAllTasksIncludingShared, fetchAllProjectsIncludingShared } from "@/lib/local-api";
 import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import ProjectDetailPopup from "@/components/ProjectDetailPopup";
@@ -101,15 +101,23 @@ export default function HomePage() {
 
   const { data: allTasks = [] } = useQuery({
     queryKey: ["tasks", currentUser],
-    queryFn: fetchAllTasks,
+    queryFn: fetchAllTasksIncludingShared,
   });
 
   const today = new Date().toISOString().split("T")[0];
 
-  // Compute summaries per project
+  // Compute summaries per project. Numeric ids are namespaced per-user, so a
+  // shared project of id 5 and the receiver's own project of id 5 are
+  // distinct; gating membership on `task.owner === project.owner` avoids the
+  // collision (own project surfaces only own tasks; shared project surfaces
+  // only the owner's tasks for that project_id, supplied by
+  // `fetchAllTasksIncludingShared`).
   const projectSummaries = useMemo(() => {
     return projects.map((p, i) => {
-      const tasks = allTasks.filter((t) => t.project_id === p.id);
+      const projectOwner = p.is_shared_with_me ? p.owner : currentUser;
+      const tasks = allTasks.filter(
+        (t) => t.project_id === p.id && (t.owner ?? currentUser) === projectOwner
+      );
       const total = tasks.length;
       const completed = tasks.filter((t) => t.is_complete).length;
       const upcoming = tasks
@@ -127,7 +135,7 @@ export default function HomePage() {
 
       return { project: p, total, completed, upcoming, overdue, inProgress, color, displayColor };
     });
-  }, [projects, allTasks, today]);
+  }, [projects, allTasks, today, currentUser]);
 
   // Get summaries for active and archived projects
   const activeSummaries = useMemo(() => 
@@ -350,7 +358,7 @@ export default function HomePage() {
         {/* Active Project cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {activeSummaries.map(
-            ({ project, total, completed, upcoming, overdue, inProgress, color, displayColor }) => (
+            ({ project, total, completed, upcoming, overdue, inProgress, displayColor }) => (
               <div
                 key={project.id}
                 draggable
@@ -493,7 +501,7 @@ export default function HomePage() {
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {archivedSummaries.map(
-                ({ project, total, completed, color, displayColor }) => (
+                ({ project, total, completed, displayColor }) => (
                   <div
                     key={project.id}
                     onClick={() => setSelectedProject(project)}

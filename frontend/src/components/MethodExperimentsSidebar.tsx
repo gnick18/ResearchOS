@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { methodsApi, tasksApi, fetchAllProjectsIncludingShared, type MethodExperiment } from "@/lib/local-api";
-import type { Task, Project } from "@/lib/types";
+import type { Task } from "@/lib/types";
 import { useState, useCallback } from "react";
 import TaskDetailPopup from "./TaskDetailPopup";
 import TaskQuickPopup from "./TaskQuickPopup";
@@ -14,7 +14,6 @@ interface MethodExperimentsSidebarProps {
 
 export default function MethodExperimentsSidebar({
   methodId,
-  methodName,
 }: MethodExperimentsSidebarProps) {
   // For quick popup
   const [quickPopupTask, setQuickPopupTask] = useState<Task | null>(null);

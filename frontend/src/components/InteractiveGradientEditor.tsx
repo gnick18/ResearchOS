@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState, useRef, useEffect } from "react";
-import type { PCRGradient, PCRStep, PCRCycle } from "@/lib/types";
+import type { PCRGradient, PCRStep } from "@/lib/types";
 
 // ── Temperature Color Helper ───────────────────────────────────────────────────
 
@@ -1484,7 +1484,7 @@ export function InteractiveGradientEditor({
           <span>• Double-click to edit</span>
           {isErasing && <span className="text-red-500 font-medium">• Gradient Eraser: Click a block to erase it</span>}
           {isCycleErasing && <span className="text-purple-500 font-medium">• Cycle Eraser: Click a cycle badge to remove the cycle (keeps steps)</span>}
-          {!isErasing && !isCycleErasing && <span>• Use "Remove from Cycle" to move a step out of a cycle</span>}
+          {!isErasing && !isCycleErasing && <span>• Use &quot;Remove from Cycle&quot; to move a step out of a cycle</span>}
         </div>
       )}
       
@@ -1494,7 +1494,7 @@ export function InteractiveGradientEditor({
         
         {blocks.length === 0 && (
           <div className="text-sm text-gray-400 w-full text-center py-8">
-            No steps yet. Use "Add Step" to begin.
+            No steps yet. Use &quot;Add Step&quot; to begin.
           </div>
         )}
       </div>

@@ -12,8 +12,10 @@ import {
   type MarkdownBlock,
 } from "@/lib/markdown-block-parser";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
+import { fileService } from "@/lib/file-system/file-service";
 import { rewriteImageBySrcAlt, parseWidthPercent } from "@/lib/image-resize-utils";
 import ImageResizePopover from "./ImageResizePopover";
+import FileViewerModal, { classifyFileLink, type FileViewerKind } from "./FileViewerModal";
 
 // Transparent 1×1 GIF used as the `src` placeholder while the real blob URL
 // is being resolved asynchronously, so the browser never tries to fetch the
@@ -454,6 +456,15 @@ export default function HybridMarkdownEditor({
     y: number;
     currentWidth: number | null;
   } | null>(null);
+
+  // Active file-link click prompt — same shape and component as in
+  // LiveMarkdownEditor's preview mode so a Files/ link clicked in either
+  // editor surfaces the same View/Download flow.
+  const [fileViewerRequest, setFileViewerRequest] = useState<{
+    filename: string;
+    resolvedPath: string;
+    kind: FileViewerKind;
+  } | null>(null);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -639,6 +650,47 @@ export default function HybridMarkdownEditor({
   // them globally would dead-link the preview render. The parent
   // LiveMarkdownEditor handles cleanup on its own unmount, which is the
   // right scope.
+
+  /**
+   * Click handler for `[name](Files/…)` links rendered inside hybrid blocks.
+   * Mirrors the LiveMarkdownEditor preview-mode handler so both surfaces
+   * route through the same FileViewerModal flow.
+   */
+  const handleFileLinkClick = useCallback(
+    async (rawHref: string) => {
+      let cleanHref = rawHref;
+      try {
+        cleanHref = decodeURI(rawHref);
+      } catch {
+        // not valid percent-encoding — leave as-is
+      }
+      if (cleanHref.startsWith("./")) cleanHref = cleanHref.slice(2);
+      if (!cleanHref.startsWith("Files/")) return;
+      const filename =
+        cleanHref.slice("Files/".length).split("/").pop() ?? cleanHref;
+      const resolvedPath = blobUrlResolver.resolvePath(cleanHref, imageBasePath);
+      const decision = classifyFileLink(filename);
+      if (decision.type === "download") {
+        try {
+          const blob = await fileService.readFileAsBlob(resolvedPath);
+          if (!blob) return;
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch {
+          // best-effort; broken-link popup will fire on next pre-scan
+        }
+        return;
+      }
+      setFileViewerRequest({ filename, resolvedPath, kind: decision.kind });
+    },
+    [imageBasePath],
+  );
 
   /**
    * Filter languages based on search
@@ -1361,6 +1413,34 @@ export default function HybridMarkdownEditor({
                 remarkPlugins={[remarkGfm]}
                 rehypePlugins={[rehypeRaw, rehypeHighlight]}
                 components={{
+                  a: ({ href, children, ...aProps }) => {
+                    const rawHref = typeof href === "string" ? href : "";
+                    let decoded = rawHref;
+                    try {
+                      decoded = decodeURI(rawHref);
+                    } catch {
+                      // not valid percent-encoding — fall through
+                    }
+                    const isFileLink =
+                      decoded.startsWith("Files/") || decoded.startsWith("./Files/");
+                    if (!isFileLink) {
+                      return <a href={rawHref} {...aProps}>{children}</a>;
+                    }
+                    return (
+                      <a
+                        href={rawHref}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          void handleFileLinkClick(rawHref);
+                        }}
+                        className="text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                        {...aProps}
+                      >
+                        {children}
+                      </a>
+                    );
+                  },
                   img: ({ src, alt, width, ...props }) => {
                     const currentWidthPct = parseWidthPercent(width as string | number | undefined);
                     const originalSrc = String(src || "");
@@ -1460,6 +1540,7 @@ export default function HybridMarkdownEditor({
       handleEditBlur,
       handleEditKeyDown,
       handleImageError,
+      handleFileLinkClick,
       imageBasePath,
       placeholder,
       useBlobUrls,
@@ -1844,6 +1925,17 @@ export default function HybridMarkdownEditor({
           currentWidth={imageResize.currentWidth}
           onSelect={handleImageResizeSelect}
           onClose={() => setImageResize(null)}
+        />
+      )}
+
+      {/* File link click prompt — same component used by the parent
+          LiveMarkdownEditor's preview mode. */}
+      {fileViewerRequest && (
+        <FileViewerModal
+          filename={fileViewerRequest.filename}
+          resolvedPath={fileViewerRequest.resolvedPath}
+          kind={fileViewerRequest.kind}
+          onClose={() => setFileViewerRequest(null)}
         />
       )}
     </div>

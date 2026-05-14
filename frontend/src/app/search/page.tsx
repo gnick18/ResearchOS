@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { projectsApi, tasksApi, methodsApi, fetchAllMethodsIncludingShared, fetchAllProjectsIncludingShared } from "@/lib/local-api";
+import { tasksApi, fetchAllMethodsIncludingShared, fetchAllProjectsIncludingShared } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
@@ -115,7 +115,6 @@ export default function SearchPage() {
 
     const results: SearchResult[] = [];
     const keywords = filters.keywords.toLowerCase().trim().split(/\s+/).filter(Boolean);
-    const methodFilter = filters.methodId ? methodLookup[filters.methodId] : null;
 
     for (const task of allTasks) {
       // Filter by task type

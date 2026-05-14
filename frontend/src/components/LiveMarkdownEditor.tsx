@@ -15,6 +15,7 @@ import ImageStrip from "./ImageStrip";
 import FileStrip, { FILE_STRIP_DRAG_MIME } from "./FileStrip";
 import ImageTrashDropZone from "./ImageTrashDropZone";
 import FileTrashDropZone from "./FileTrashDropZone";
+import FileViewerModal, { classifyFileLink, type FileViewerKind } from "./FileViewerModal";
 import { caretOffsetFromPoint } from "@/lib/utils/textarea-caret";
 
 // Transparent 1×1 GIF used as the `src` placeholder while the real blob URL
@@ -575,6 +576,15 @@ export default function LiveMarkdownEditor({
   const [imageSearchResults, setImageSearchResults] = useState<ImageSearchResult[]>([]);
   const [isSearchingImage, setIsSearchingImage] = useState(false);
   const [resolvedBlobUrls, setResolvedBlobUrls] = useState<Map<string, string>>(new Map());
+  // Active file-link click prompt. The modal shows a View/Download choice for
+  // text-like + PDF files; binary types skip the prompt and download
+  // immediately from the click handler. `resolvedPath` is pre-resolved so the
+  // modal doesn't need to know about basePath conventions.
+  const [fileViewerRequest, setFileViewerRequest] = useState<{
+    filename: string;
+    resolvedPath: string;
+    kind: FileViewerKind;
+  } | null>(null);
   const [showAttachmentStrip, setShowAttachmentStrip] = useState(true);
   const [activeAttachmentTab, setActiveAttachmentTab] = useState<"images" | "files">("images");
   // Native-file drag affordance: light up the editor (or the surrounding popup)
@@ -1460,6 +1470,50 @@ export default function LiveMarkdownEditor({
   );
 
   /**
+   * Click handler shared by both editor modes' rendered `<a>` overrides for
+   * `Files/…` links. Decodes the URL (CommonMark stores spaces as `%20`),
+   * resolves to an on-disk path, and either downloads or shows the
+   * View/Download prompt depending on file extension.
+   */
+  const handleFileLinkClick = useCallback(
+    async (rawHref: string) => {
+      let cleanHref = rawHref;
+      try {
+        cleanHref = decodeURI(rawHref);
+      } catch {
+        // Leave the raw href alone if it isn't valid percent-encoding.
+      }
+      if (cleanHref.startsWith("./")) cleanHref = cleanHref.slice(2);
+      const prefix = cleanHref.startsWith("Files/") ? "Files/" : null;
+      if (!prefix) return false;
+      const filename = cleanHref.slice(prefix.length).split("/").pop() ?? cleanHref;
+      const resolvedPath = blobUrlResolver.resolvePath(cleanHref, imageBasePath);
+      const decision = classifyFileLink(filename);
+      if (decision.type === "download") {
+        try {
+          const blob = await fileService.readFileAsBlob(resolvedPath);
+          if (!blob) return true;
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch {
+          // Best-effort: silently fail (the broken-file popup will fire on
+          // the next pre-scan if the file truly doesn't exist).
+        }
+        return true;
+      }
+      setFileViewerRequest({ filename, resolvedPath, kind: decision.kind });
+      return true;
+    },
+    [imageBasePath],
+  );
+
+  /**
    * Scan for broken `[text](Files/…)` refs. Runs in every mode (edit, hybrid,
    * preview) because the rendered `<a>` has no `onError` equivalent for
    * 404 hrefs — without the pre-scan there's nothing to trigger the popup
@@ -2041,14 +2095,17 @@ export default function LiveMarkdownEditor({
                     n += 1;
                   }
                   await fileService.writeFileFromBlob(`${imageBasePath}/Files/${destName}`, blob);
-                  snippet = `[${destName}](Files/${destName})`;
+                  // URL-encode the filename so spaces (and other reserved chars)
+                  // produce a CommonMark-valid link destination. The display
+                  // label stays raw for readability.
+                  snippet = `[${destName}](Files/${encodeURIComponent(destName)})`;
                 }
               } catch {
                 // fall through to default snippet below
               }
             }
             if (!snippet) {
-              snippet = `[${parsed.filename}](Files/${parsed.filename})`;
+              snippet = `[${parsed.filename}](Files/${encodeURIComponent(parsed.filename)})`;
             }
           }
           if (!snippet) return;
@@ -2224,6 +2281,34 @@ export default function LiveMarkdownEditor({
                     remarkPlugins={[remarkGfm]}
                     rehypePlugins={[rehypeRaw, rehypeHighlight]}
                     components={{
+                      a: ({ href, children, ...aProps }) => {
+                        const rawHref = typeof href === "string" ? href : "";
+                        let decoded = rawHref;
+                        try {
+                          decoded = decodeURI(rawHref);
+                        } catch {
+                          // not valid percent-encoding — fall through
+                        }
+                        const isFileLink =
+                          decoded.startsWith("Files/") || decoded.startsWith("./Files/");
+                        if (!isFileLink) {
+                          // External / non-file refs render as a normal link.
+                          return <a href={rawHref} {...aProps}>{children}</a>;
+                        }
+                        return (
+                          <a
+                            href={rawHref}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              void handleFileLinkClick(rawHref);
+                            }}
+                            className="text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                            {...aProps}
+                          >
+                            {children}
+                          </a>
+                        );
+                      },
                       img: ({ src, alt, width, ...props }) => {
                         const currentWidthPct = parseWidthPercent(width as string | number | undefined);
                         const originalSrc = String(src || "");
@@ -2410,6 +2495,18 @@ export default function LiveMarkdownEditor({
           currentWidth={imageResize.currentWidth}
           onSelect={handleImageResizeSelect}
           onClose={() => setImageResize(null)}
+        />
+      )}
+
+      {/* File link click prompt — View / Download for text-like + PDF, with
+          inline text viewer for the View action. Binary types skip this and
+          download immediately from `handleFileLinkClick`. */}
+      {fileViewerRequest && (
+        <FileViewerModal
+          filename={fileViewerRequest.filename}
+          resolvedPath={fileViewerRequest.resolvedPath}
+          kind={fileViewerRequest.kind}
+          onClose={() => setFileViewerRequest(null)}
         />
       )}
 

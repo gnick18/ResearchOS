@@ -14,7 +14,7 @@ interface NotificationBadgeProps {
 export default function NotificationBadge({ pill = false }: NotificationBadgeProps = {}) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [showPopup, setShowPopup] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
 
   // Load unread count on mount and periodically. Also listen for
   // "ros-notifications-changed" custom events so reminders fired locally

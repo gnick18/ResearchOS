@@ -66,18 +66,6 @@ export default function PurchasesPage() {
     [allPurchases]
   );
 
-  // Group purchases by funding string
-  const purchasesByFundingString = useMemo(() => {
-    const map: Record<string, { total: number; count: number }> = {};
-    for (const p of allPurchases) {
-      const key = p.funding_string || "Uncategorized";
-      if (!map[key]) map[key] = { total: 0, count: 0 };
-      map[key].total += p.total_price ?? 0;
-      map[key].count += 1;
-    }
-    return map;
-  }, [allPurchases]);
-
   const handleDeleteTask = async (taskId: number) => {
     if (!confirm("Are you sure you want to delete this purchase order and all its items?")) {
       return;
@@ -88,7 +76,7 @@ export default function PurchasesPage() {
       setSelectedTask(null);
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["purchases-all"] });
-    } catch (error) {
+    } catch {
       alert("Failed to delete purchase order");
     } finally {
       setDeletingTaskId(null);

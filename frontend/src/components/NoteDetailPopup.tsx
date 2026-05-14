@@ -179,7 +179,7 @@ export default function NoteDetailPopup({
   );
 
   // Debounced save (1.5 seconds after user stops typing)
-  const { debounced: debouncedSave, flush: flushDebouncedSave, cancel: cancelDebouncedSave } = useDebouncedCallback(
+  const { debounced: debouncedSave, cancel: cancelDebouncedSave } = useDebouncedCallback(
     (entryId: string, content: string) => {
       saveEntryContent(entryId, content);
     },
@@ -366,7 +366,10 @@ export default function NoteDetailPopup({
           const destPath = `${filesDir}/${finalName}`;
           await fileService.writeFileFromBlob(destPath, renamedFile);
           fileEvents.emitAttached({ basePath, relativePath: `Files/${finalName}` });
-          snippets.push(`\n[${finalName}](Files/${finalName})\n`);
+          // URL-encode just the destination filename. CommonMark §6.4
+          // disallows unescaped whitespace in link destinations, so a name
+          // like "READ ME.md" otherwise renders as plain text.
+          snippets.push(`\n[${finalName}](Files/${encodeURIComponent(finalName)})\n`);
         } catch {
           alert(`Failed to upload ${renamedFile.name}`);
         }
@@ -834,7 +837,7 @@ export default function NoteDetailPopup({
                 />
               ) : (
                 <div className="flex items-center justify-center h-full text-gray-400">
-                  <p>No entries yet. Click "Add Entry" to get started.</p>
+                  <p>No entries yet. Click &quot;Add Entry&quot; to get started.</p>
                 </div>
               )
             ) : (

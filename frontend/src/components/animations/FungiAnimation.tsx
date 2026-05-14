@@ -176,6 +176,7 @@ export default function FungiAnimation({ x, y, onComplete }: FungiAnimationProps
   }, [x, y]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot init of mount-time random particles, then setInterval drives animation
     setParticles(createParticles());
     
     // Create spore cloud

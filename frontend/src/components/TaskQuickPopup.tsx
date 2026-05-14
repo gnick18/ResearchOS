@@ -21,7 +21,6 @@ interface TaskQuickPopupProps {
  */
 export default function TaskQuickPopup({
   task,
-  project,
   position,
   onClose,
   onExpand,
@@ -57,6 +56,7 @@ export default function TaskQuickPopup({
       x = Math.max(10, x);
       y = Math.max(10, y);
 
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- adjust position based on measured popup DOM size; classic sync-to-DOM pattern
       setAdjustedPosition({ x, y });
     }
   }, [position]);

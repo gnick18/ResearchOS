@@ -8,7 +8,7 @@ import TaskDetailPopup from "@/components/TaskDetailPopup";
 import TaskQuickPopup from "@/components/TaskQuickPopup";
 import SharePopup from "@/components/SharePopup";
 import Tooltip from "@/components/Tooltip";
-import type { Project, Task, ProjectCreate } from "@/lib/types";
+import type { Project, Task } from "@/lib/types";
 
 /**
  * When the current viewer is a receiver of a shared project with edit
@@ -76,10 +76,14 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
   // Check if this is the Miscellaneous project (protected)
   const isMiscellaneousProject = project.name === "Miscellaneous";
 
-  // Fetch tasks for this project
+  // Fetch tasks for this project. For shared projects, the tasks live in the
+  // owner's directory — read access only requires `is_shared_with_me`,
+  // independent of edit permission, so this thread-through differs from the
+  // edit-only `effectiveOwnerOf` used for mutations above.
+  const taskListOwner = project.is_shared_with_me ? project.owner : undefined;
   const { data: tasks = [] } = useQuery({
-    queryKey: ["tasks", project.id],
-    queryFn: () => tasksApi.listByProject(project.id),
+    queryKey: ["tasks", project.is_shared_with_me ? `${project.owner}:${project.id}` : `self:${project.id}`],
+    queryFn: () => tasksApi.listByProject(project.id, taskListOwner),
   });
 
   const today = new Date().toISOString().split("T")[0];
@@ -287,7 +291,7 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
                 Archived on {formatArchivedDate(project.archived_at)}
               </p>
               <p className="text-xs text-gray-400 mt-1">
-                This project is archived. Tasks won't appear in Gantt chart or task sidebar.
+                This project is archived. Tasks won&apos;t appear in Gantt chart or task sidebar.
               </p>
             </div>
           )}
@@ -438,7 +442,7 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
               {isMiscellaneousProject && (
                 <div className="pt-4 border-t border-gray-100">
                   <p className="text-xs text-gray-400 italic">
-                    The Miscellaneous project is a permanent category for standalone tasks that don't belong to a specific research project.
+                    The Miscellaneous project is a permanent category for standalone tasks that don&apos;t belong to a specific research project.
                   </p>
                 </div>
               )}
@@ -563,7 +567,7 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
             >
               <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Project?</h3>
               <p className="text-sm text-gray-600 mb-6">
-                Are you sure you want to delete "{project.name}"? This will also delete all tasks associated with this project. This action cannot be undone.
+                Are you sure you want to delete &quot;{project.name}&quot;? This will also delete all tasks associated with this project. This action cannot be undone.
               </p>
               <div className="flex justify-end gap-3">
                 <button
@@ -593,7 +597,7 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
             >
               <h3 className="text-lg font-bold text-gray-900 mb-2">Archive Project?</h3>
               <p className="text-sm text-gray-600 mb-4">
-                Are you sure you want to archive "{project.name}"?
+                Are you sure you want to archive &quot;{project.name}&quot;?
               </p>
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
                 <p className="text-xs text-amber-700">
