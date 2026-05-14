@@ -15,7 +15,7 @@ type FixtureEntry = [string, unknown];
 
 export function buildWikiFixtures(): FixtureEntry[] {
   return [
-    ["_demo_marker.json", {"is_demo":true,"version":"1.0","lab_title":"Demo Synthetic Biology Lab","generated_at":"2026-05-13T00:00:00Z","notice":"This folder is the ResearchOS demo lab. All projects, strains, and results are fabricated for tutorial purposes."}],
+    ["_demo_marker.json", {"is_demo":true,"version":"1.0","lab_title":"Demo Synthetic Biology Lab","generated_at":"2026-05-13T00:00:00Z","last_rebased_at":"2026-05-13","notice":"This folder is the ResearchOS demo lab. All projects, strains, and results are fabricated for tutorial purposes."}],
     ["users/_global_counters.json", {}],
     ["users/_user_metadata.json", {"alex":{"color":"#3b82f6","created_at":"2026-01-15T00:00:00Z"},"morgan":{"color":"#10b981","created_at":"2026-01-20T00:00:00Z"}}],
     ["users/public/_counters.json", {"methods":1,"pcr_protocols":1}],

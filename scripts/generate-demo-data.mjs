@@ -165,6 +165,11 @@ function buildEntries() {
   const out = [];
 
   // ── Demo marker ───────────────────────────────────────────────────────────
+  // `last_rebased_at` anchors the demo's date axis. On boot the app
+  // computes `today - last_rebased_at` and shifts every
+  // task/goal/event/project/shared date forward by that many days, so
+  // a stale demo lab (generated months ago) opens with fresh dates.
+  // See `frontend/src/lib/demo/rebase.ts`.
   out.push([
     "_demo_marker.json",
     {
@@ -172,6 +177,7 @@ function buildEntries() {
       version: "1.0",
       lab_title: "Demo Synthetic Biology Lab",
       generated_at: "2026-05-13T00:00:00Z",
+      last_rebased_at: TODAY,
       notice:
         "This folder is the ResearchOS demo lab. All projects, strains, and results are fabricated for tutorial purposes.",
     },
