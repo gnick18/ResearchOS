@@ -30,6 +30,7 @@
     "rehype-highlight": "^7.0.2",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
+    "turndown": "^7.2.4",
     "zustand": "^5.0.11"
   },
   "devDependencies": {
@@ -38,8 +39,10 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/turndown": "^5.0.6",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "linkedom": "^0.18.12",
     "playwright": "^1.60.0",
     "tailwindcss": "^4",
     "typescript": "^5",
