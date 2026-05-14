@@ -605,6 +605,82 @@ export async function reconcileHostedDrift(input: ReconcileInput): Promise<Recon
   };
 }
 
+/**
+ * Project-delete cleanup. Called from `projectsApi.delete` after (or as
+ * part of) destroying the project file.
+ *
+ * Two cleanups happen here:
+ *   1. For every task currently listed in the to-be-deleted project's
+ *      hosted manifest, clear that task's `external_project` field so it
+ *      doesn't render as "shared into a deleted project" on the next
+ *      load. (Mirror cleanup — the receiver-side reconcile sweep would
+ *      catch this too, but doing it proactively closes the visibility
+ *      window between delete and next reconcile.)
+ *   2. Delete the manifest sidecar (`<projectId>-hosted.json`) so it
+ *      doesn't sit orphaned on disk.
+ *
+ * Idempotent: missing manifest, malformed entries, missing tasks, or
+ * tasks whose `external_project` already points elsewhere are all
+ * silently fine. Errors anywhere in the pass are logged but never
+ * propagated — the project delete must succeed even if cleanup partially
+ * fails, and the next normalize-on-read pass repairs whatever's left.
+ */
+export async function cleanupHostedManifestOnProjectDelete(
+  projectOwner: string,
+  projectId: number,
+  loadTask: (owner: string, taskId: number) => Promise<Task | null>,
+  saveTask: (owner: string, task: Task) => Promise<void>
+): Promise<{ tasksCleared: number; sidecarDeleted: boolean }> {
+  let tasksCleared = 0;
+  let sidecarDeleted = false;
+  try {
+    const manifest = await readManifestRaw(projectOwner, projectId);
+    const entries = manifest.hostedTasks ?? [];
+    for (const entry of entries) {
+      try {
+        if (
+          !entry ||
+          typeof entry.owner !== "string" ||
+          typeof entry.taskId !== "number"
+        ) {
+          continue;
+        }
+        const task = await loadTask(entry.owner, entry.taskId);
+        if (!task) continue;
+        const ext = task.external_project;
+        if (!ext) continue;
+        // Only clear the ref if it actually pointed at THIS project.
+        // (Defensive: a drift-state task whose external_project already
+        // moved on shouldn't be clobbered.)
+        if (ext.owner !== projectOwner || ext.id !== projectId) continue;
+        await saveTask(entry.owner, { ...task, external_project: null });
+        tasksCleared += 1;
+      } catch (err) {
+        console.warn(
+          `[project-hosting] cleanupHostedManifestOnProjectDelete: failed to clear external_project on ${entry?.owner}/${entry?.taskId}:`,
+          err
+        );
+      }
+    }
+  } catch (err) {
+    console.warn(
+      `[project-hosting] cleanupHostedManifestOnProjectDelete: failed to read manifest ${projectOwner}/${projectId}:`,
+      err
+    );
+  }
+  try {
+    sidecarDeleted = await fileService.deleteFile(
+      hostedManifestPath(projectOwner, projectId)
+    );
+  } catch (err) {
+    console.warn(
+      `[project-hosting] cleanupHostedManifestOnProjectDelete: failed to delete sidecar ${projectOwner}/${projectId}:`,
+      err
+    );
+  }
+  return { tasksCleared, sidecarDeleted };
+}
+
 // Re-export internal helpers for the API layer.
 export const __testing__ = {
   readManifestRaw,

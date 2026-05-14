@@ -130,7 +130,39 @@ export const projectsApi = {
 
   // Delete is intentionally NOT owner-routed: only the original owner should
   // be able to destroy the file. Mirrors the convention in tasksApi.
+  //
+  // Cross-owner cleanup: if any foreign tasks were hosted INTO this project
+  // (Option C share), their `external_project` ref is cleared and the
+  // `<id>-hosted.json` sidecar is deleted. Without this the sidecar sits
+  // orphaned on disk and the hosted tasks render as "shared into a deleted
+  // project" until the next reconcile-sweep run. Cleanup is best-effort —
+  // errors are logged but never block the project delete.
   delete: async (id: number): Promise<void> => {
+    const currentUser = await getCurrentUserCached();
+    if (currentUser) {
+      try {
+        const { cleanupHostedManifestOnProjectDelete } = await import(
+          "./sharing/project-hosting"
+        );
+        await cleanupHostedManifestOnProjectDelete(
+          currentUser,
+          id,
+          async (owner, taskId) => tasksStore.getForUser(taskId, owner),
+          async (owner, task) => {
+            await tasksStore.updateForUser(
+              task.id,
+              { external_project: task.external_project },
+              owner
+            );
+          }
+        );
+      } catch (err) {
+        console.warn(
+          `[projectsApi.delete] hosted-manifest cleanup failed for project ${id}:`,
+          err
+        );
+      }
+    }
     await projectsStore.delete(id);
   },
 
@@ -1609,6 +1641,25 @@ function daysBetween(fromIso: string, toIso: string): number {
  * via `_seen-shift-alerts.json`; owners may occasionally compact stale
  * entries but it isn't required for correctness.
  */
+/**
+ * Owner-side retention window for `_shifted-alerts.json` entries. Anything
+ * older than this gets pruned on the next `recordShiftAlerts` call ("lazy
+ * normalize on write"). 30 days matches the typical task-scheduling window
+ * — receivers who haven't loaded the app in over a month will miss those
+ * alerts, which is the right trade-off: the sidecar must stay bounded for
+ * long-lived owners with many shared tasks, and the receiver-side dedup
+ * ledger (`_seen-shift-alerts.json`) is keyed by UUIDs and doesn't need
+ * matching pruning.
+ *
+ * Behavior on the FIRST `recordShiftAlerts` call after a long absence:
+ * pruning is unconditional — the cutoff is computed from `Date.now()`
+ * at call time, so entries with `shifted_at` older than 30 days from now
+ * are dropped regardless of how long it's been since the last write. The
+ * file shrinks immediately on that first write.
+ */
+const SHIFTED_ALERTS_RETENTION_DAYS = 30;
+const SHIFTED_ALERTS_RETENTION_MS = SHIFTED_ALERTS_RETENTION_DAYS * 86400 * 1000;
+
 async function recordShiftAlerts(
   shiftResult: ShiftResult,
   namespaceOwner: string | undefined
@@ -1651,6 +1702,24 @@ async function recordShiftAlerts(
     if (entries.length === 0) return;
 
     const file = await readShiftedAlerts(owner);
+    // Lazy retention pass: drop entries older than the retention window
+    // BEFORE appending the new ones, so the file size stays bounded even
+    // for owners with many shared tasks over long periods. Best-effort:
+    // unparseable `shifted_at` values are KEPT (don't lose data over a
+    // bad date string).
+    const cutoffMs = Date.now() - SHIFTED_ALERTS_RETENTION_MS;
+    const beforePrune = file.alerts.length;
+    file.alerts = file.alerts.filter((a) => {
+      const ts = Date.parse(a.shifted_at);
+      if (!isFinite(ts)) return true;
+      return ts >= cutoffMs;
+    });
+    const prunedCount = beforePrune - file.alerts.length;
+    if (prunedCount > 0) {
+      console.log(
+        `[shift-alerts] pruned ${prunedCount} entries older than ${SHIFTED_ALERTS_RETENTION_DAYS}d from ${owner}/_shifted-alerts.json`
+      );
+    }
     file.alerts.push(...entries);
     await writeShiftedAlerts(owner, file);
   } catch (err) {
@@ -1985,26 +2054,90 @@ export const sharingApi = {
     return { status: "ok", notification_id: notificationId };
   },
 
-  /** Clear every notification in the inbox. Returns how many were cleared. */
+  /**
+   * Clear every notification in the inbox. Returns how many were cleared.
+   *
+   * For `shift_alert` notifications we also append their `source_alert_id`
+   * into `_seen-shift-alerts.json` BEFORE dropping the row — otherwise the
+   * next `scanShiftAlerts` (mount-time) would re-mint a fresh notification
+   * for the same owner-side alert UUID and the user would see "cleared"
+   * shift alerts come back from the dead.
+   */
   dismissAllNotifications: async (): Promise<{ status: string; dismissed_count: number }> => {
     const currentUser = await getCurrentUserCached();
     const file = await readNotificationsFile(currentUser);
     const count = file.notifications.length;
     if (count > 0) {
+      // Mark every shift-alert's source UUID as seen so it doesn't re-mint
+      // on the next scan. Only writes the seen-list when there's something
+      // new to add — keeps the file untouched in the no-shift-alerts case.
+      const shiftAlertSourceIds = file.notifications
+        .filter(
+          (n): n is ShiftAlertNotification => n.type === "shift_alert"
+        )
+        .map((n) => n.source_alert_id);
+      if (shiftAlertSourceIds.length > 0) {
+        const seenFile = await readSeenShiftAlerts(currentUser);
+        const seenSet = new Set(seenFile.seen_ids);
+        let added = 0;
+        for (const id of shiftAlertSourceIds) {
+          if (!seenSet.has(id)) {
+            seenSet.add(id);
+            added += 1;
+          }
+        }
+        if (added > 0) {
+          await writeSeenShiftAlerts(currentUser, {
+            version: 1,
+            seen_ids: Array.from(seenSet),
+          });
+        }
+      }
       file.notifications = [];
       await writeNotificationsFile(currentUser, file);
     }
     return { status: "ok", dismissed_count: count };
   },
 
-  /** Clear notifications already marked read; leave unread ones in place. */
+  /**
+   * Clear notifications already marked read; leave unread ones in place.
+   *
+   * Same shift-alert "seen" sync as `dismissAllNotifications`, but only for
+   * read shift-alerts — unread ones stay in the inbox and stay in the
+   * not-yet-seen set so the dedup contract still holds.
+   */
   dismissReadNotifications: async (): Promise<{ status: string; dismissed_count: number }> => {
     const currentUser = await getCurrentUserCached();
     const file = await readNotificationsFile(currentUser);
     const before = file.notifications.length;
+    // Capture the shift-alerts we're about to drop so we can seed the
+    // seen-list (same rationale as dismissAllNotifications).
+    const droppedShiftAlertSourceIds = file.notifications
+      .filter(
+        (n): n is ShiftAlertNotification =>
+          n.type === "shift_alert" && n.read
+      )
+      .map((n) => n.source_alert_id);
     file.notifications = file.notifications.filter((n) => !n.read);
     const removed = before - file.notifications.length;
     if (removed > 0) {
+      if (droppedShiftAlertSourceIds.length > 0) {
+        const seenFile = await readSeenShiftAlerts(currentUser);
+        const seenSet = new Set(seenFile.seen_ids);
+        let added = 0;
+        for (const id of droppedShiftAlertSourceIds) {
+          if (!seenSet.has(id)) {
+            seenSet.add(id);
+            added += 1;
+          }
+        }
+        if (added > 0) {
+          await writeSeenShiftAlerts(currentUser, {
+            version: 1,
+            seen_ids: Array.from(seenSet),
+          });
+        }
+      }
       await writeNotificationsFile(currentUser, file);
     }
     return { status: "ok", dismissed_count: removed };
