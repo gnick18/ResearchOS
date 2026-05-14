@@ -374,6 +374,43 @@ _(Original "Handoff snapshot — late evening" body below was preserved for audi
 
 **Stale local branches worth pruning** (work landed elsewhere, branches just clutter `git branch`): `claude/epic-dubinsky-f36fb5` (Export Sub-bot F PCR-rendering), `claude/sharp-kirch-4345ef` (unknown), `claude/competent-tesla-1c0608` (the worktree that caused the stale-dev-server trap). Confirm-and-delete is safe but optional.
 
+### Recently landed (2026-05-14 — User-facing duplicate-filename upload prompt)
+
+Three commits (`144c5e85` Phase 1+2 + NoteDetailPopup, `d5b58774` TaskDetailPopup × 3 surfaces, `8444e14e` InboxPanel batch send) replace the silent auto-suffix behavior that lived in 5+ separate upload surfaces with a user-facing confirmation dialog.
+
+**Why**: Dropping `gel.png` onto a folder that already contained `gel.png` used to silently land as `gel-1.png` (or `gel (2).png` in the ELN pipeline) with no UI signal. Users had no way to opt for "replace existing" — every collision auto-suffixed.
+
+- **Phase 1 — `frontend/src/lib/attachments/duplicate-check.ts`** (new, +126 LOC). Pure helper module exporting `checkForDuplicates(files, existingNames)` and `suggestUniqueName(desired, existingNames)`. Partitions a dropped-files batch into `uniqueFiles` (safe to write) and `collisions` (need user decision). Within a single batch, two files with the same name surface as a collision against each other (`[foo.png, foo.png]` against an empty dest → first goes through `uniqueFiles`, second becomes a collision rather than silent overwrite). Suffix convention: `foo.png` → `foo (1).png` → `foo (2).png` if `(1)` is taken, etc. Mirrors the ELN apply pipeline's `pickUniqueImageFilename` style but starts from `(1)` because the dialog shows the suggestion to the user and `foo (2).png` reads weirdly when there is no `(1)`.
+- **Phase 2 — `frontend/src/components/DuplicateUploadDialog.tsx`** (new, +372 LOC). Modal showing the existing file + the dropped file (with size + last-modified) + three stacked buttons: primary blue **"Save as `<suggestedName>`"**, secondary slate **"Replace existing"**, tertiary ghost **"Cancel"**. When the collision queue has >1 entry, a checkbox below the buttons: "Apply this choice to the other N file(s) with name collisions". Companion hook `useDuplicateResolver()` walks the queue and returns a `Map<filename, Resolution>` — mirrors the existing `useFileRenamePopup()` promise-based pattern in the codebase. Esc / backdrop click cancels JUST the current collision (the user didn't make an explicit batch decision).
+- **Phase 3 — Integrated into the 5 user-facing surfaces** (the silent paths that were the source of the complaint):
+  - **NoteDetailPopup** `handleImageUpload` + `handleFileUpload` (the file picker + per-note `LiveMarkdownEditor` drop callbacks).
+  - **TaskDetailPopup**'s universal-drop on the popup card (drops outside an editor card; splits files by Images/Files routing, duplicate-checks each subdir separately, surfaces a merged collision queue).
+  - **LabNotesTab** `handleImageUpload` + `handleFileUpload` (Lab Notes' "Add File" button + per-tab editor drop).
+  - **ResultsTab** `handleImageUpload` + `handleFileUpload` (mirrors LabNotesTab on the Results tab).
+  - **InboxPanel** `sendSelectedToTask` (the picker-driven batch). Previously used `moveImageBetweenBasesUnique` for silent suffixing; now builds synthetic `File`s from each inbox image so the dialog has size + lastModified, then partitions via the helper. Replace path deletes the existing destination image + sidecar via `deleteImageFromBase` before writing. Rename path threads the user-chosen `finalName` through a hand-rolled move (because `moveImageBetweenBases` writes under the source filename).
+
+**Renaming-INTO-collision is caught**: each surface that already had a per-file rename popup (`FileRenamePopup` / `requestRename()`) runs duplicate-check on the RENAMED filenames AGAINST the destination directory. So a user who renames `bar.png` to `foo.png` (where `foo.png` already exists) still sees the dialog.
+
+**LabArchives sidecar-match exception**: the `interceptMissingImageDrop` path in `LiveMarkdownEditor.tsx` (capture-phase listener, see `b97193d9`) ALREADY returns only the *unmatched* residue to `onImageDrop` — the matched files get rehydrated in-place via the existing pipeline. So sidecar-matched drops correctly bypass the new duplicate dialog: the user is intentionally replacing a `Images/missing-<filename>` placeholder, not adding new content. Same exception applies to the per-image broken-image popup's "Replace from disk" path (see `90dca729`) — that path uses `pickUniqueImageFilename` (silent auto-suffix), which is the right behavior because the user is replacing a placeholder pre-image, not the on-disk image being suggested in the rename. Both exceptions documented in the new module's header comment.
+
+**Out of scope per design**: ELN bulk import (`lib/import/eln/apply.ts`) has its own conflict-resolution flow at `b3f79196` — per-file prompts on a 50-file import batch would be a UX disaster. Methods page also untouched: it already prefixes uploads with `Date.now()` so collisions are practically impossible.
+
+**Type-name dance**: the new module's result interface was renamed `DuplicateCheckResult` → `DuplicateUploadCheckResult` to avoid clashing with the existing task-duplicate detection interface in `lib/local-api.ts` (used by the new-task wizard's "task with this name already exists" flow).
+
+Files: `frontend/src/lib/attachments/duplicate-check.ts` (new), `frontend/src/components/DuplicateUploadDialog.tsx` (new), `frontend/src/components/NoteDetailPopup.tsx`, `frontend/src/components/TaskDetailPopup.tsx`, `frontend/src/components/InboxPanel.tsx`. Total ~990 LOC across 5 files (608 + 272 + 108 by phase). Typecheck clean, ESLint clean (1 unrelated pre-existing warning ignored).
+
+**Manual test recipe Grant can run in demo mode**:
+1. Drop a file with a name that collides — dialog appears with the three buttons and the suggested `(1)` name.
+2. Drop 3 files with 2 collisions — dialog appears for first collision with the "Apply to all" checkbox at the bottom; check it + click Rename → all remaining collisions resolve to `(1)`/`(2)`/etc. without further prompts.
+3. Drop a file that matches a `_import_source.json` sidecar entry — NO dialog (the LabArchives rehydration path runs instead).
+4. Click "Replace from disk" on a broken-image popup — NO dialog (placeholder replacement path).
+
+**Edge cases NOT covered** (worth flagging for future work):
+- Case sensitivity: comparison is exact-match. On case-insensitive filesystems (macOS default, Windows) a user-dropped `Foo.png` against an existing `foo.png` would slip through and silently overwrite via the OS layer.
+- Unicode normalization: `café.png` (NFC) and `café.png` (NFD) don't match in JS string compare; an NFD-encoded drop alongside an NFC-encoded existing file would slip through.
+- Renaming TO a colliding name: handled. The dialog walks both the destination set AND the in-batch claimed names when computing `suggestedName`, so a rename like "rename `bar.png` to `foo.png` while batch is also adding a new `foo.png`" correctly suggests `foo (1).png`.
+- Wiki implications: the dialog is user-facing copy + UI. Wiki manager will want to refresh any screenshots / GIFs of the drag-and-drop flow in `wiki/features/labnotes` or similar pages — the silent-suffix behavior is no longer accurate. Heads-up filed.
+
 ### Recently landed (2026-05-14 — LabArchives defensive-review follow-up nits)
 
 Single commit `d721cee9` closes 4 of the 5 low-priority nits from the §8 LabArchives defensive-review follow-ups list (a, b, c, d). Item (e) — regional API base URL picker in the connect popup — left open; it's a UI-design conversation, not a defensive fix.
