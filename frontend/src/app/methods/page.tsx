@@ -579,29 +579,29 @@ function CreateMethodModal({
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
 
-  // PCR state
+  // PCR state — standard PCR cycling defaults; user adjusts after Create.
   const [pcrGradient, setPcrGradient] = useState<PCRGradient>({
-    initial: [{ name: "Init. Denaturation", temperature: 95, duration: "2 min" }],
+    initial: [{ name: "Initial denaturation", temperature: 95, duration: "3 min" }],
     cycles: [{
-      repeats: 35,
+      repeats: 30,
       steps: [
-        { name: "Denaturation", temperature: 95, duration: "20 sec" },
-        { name: "Annealing", temperature: 58, duration: "20 sec" },
-        { name: "Extension", temperature: 72, duration: "2 min" }
-      ]
+        { name: "Denaturation", temperature: 95, duration: "15 sec" },
+        { name: "Annealing", temperature: 60, duration: "30 sec" },
+        { name: "Extension", temperature: 72, duration: "30 sec" },
+      ],
     }],
-    final: [{ name: "Final Extension", temperature: 72, duration: "3 min" }],
-    hold: { name: "Hold", temperature: 12, duration: "Indef." }
+    final: [{ name: "Final extension", temperature: 72, duration: "5 min" }],
+    hold: { name: "Hold", temperature: 12, duration: "Indef." },
   });
   const [pcrIngredients, setPcrIngredients] = useState<PCRIngredient[]>([
-    { id: "1", name: "Reaction Buffer", concentration: "", amount_per_reaction: "" },
-    { id: "2", name: "dNTPs", concentration: "", amount_per_reaction: "" },
-    { id: "3", name: "Primer F", concentration: "", amount_per_reaction: "" },
-    { id: "4", name: "Primer R", concentration: "", amount_per_reaction: "" },
-    { id: "5", name: "Polymerase", concentration: "", amount_per_reaction: "" },
-    { id: "6", name: "DNA", concentration: "", amount_per_reaction: "" },
-    { id: "7", name: "dH2O", concentration: "", amount_per_reaction: "" },
-    { id: "8", name: "Total", concentration: "", amount_per_reaction: "" },
+    { id: "i1", name: "Buffer", concentration: "5x", amount_per_reaction: "" },
+    { id: "i2", name: "dNTPs", concentration: "10 mM", amount_per_reaction: "" },
+    { id: "i3", name: "Forward primer", concentration: "10 µM", amount_per_reaction: "" },
+    { id: "i4", name: "Reverse primer", concentration: "10 µM", amount_per_reaction: "" },
+    { id: "i5", name: "Polymerase", concentration: "2 U/µL", amount_per_reaction: "" },
+    { id: "i6", name: "Template DNA", concentration: "", amount_per_reaction: "" },
+    { id: "i7", name: "Nuclease-free H2O", concentration: "—", amount_per_reaction: "" },
+    { id: "i8", name: "Total", concentration: "", amount_per_reaction: "" },
   ]);
   const [pcrNotes, setPcrNotes] = useState("");
 
