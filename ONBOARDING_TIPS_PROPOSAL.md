@@ -115,7 +115,7 @@ Read/write path mirrors `frontend/src/lib/calendar/external-feeds-store.ts`
 
   // Total tips successfully displayed to this user (not counting
   // action-cancel records). Used as a secondary off-switch: after
-  // 8 displays (= the entire initial set), system stops on its
+  // 10 displays (= the entire initial set), system stops on its
   // own even if active_seconds is still under the cap.
   "shown_count": 1
 }
@@ -147,7 +147,7 @@ introduced the system:
 1. `active_seconds < 3600` (less than 1 cumulative hour of focused
    in-app time). After 1 hour of real engagement the user has seen
    enough of the app to not need orientation tips.
-2. `shown_count < 8` (= the size of the initial tip set). After
+2. `shown_count < 10` (= the size of the initial tip set). After
    serving the whole set, system tapers off regardless.
 
 Both must be true. The cumulative-active-seconds model (rather than
@@ -420,10 +420,10 @@ you visit pages again." No retro-fire of the whole batch.
 
 ## Initial tip set
 
-Each tip is a `{id, title, route, target, body, wikiPath}` record
-loaded from a single source file
-(`frontend/src/lib/onboarding/tips.ts`). Eight initial tips, all
-pointing at features that landed in the last two weeks of work and
+**LOCKED 2026-05-14 (Grant): ship the 10-tip set below.** Each tip
+is a `{id, title, route, target, body, wikiPath}` record loaded from
+a single source file (`frontend/src/lib/onboarding/tips.ts`). All
+ten point at features that landed in the last two weeks of work and
 that a brand-new user is exactly the cohort least likely to discover
 unaided.
 
@@ -437,6 +437,8 @@ unaided.
 | 6 | `labarchives-import` | `/methods` or `/` | the LabArchives import affordance | "Import an entire LabArchives notebook as projects and tasks. The wizard walks you through page-to-project mapping; inline images are rehydrated automatically." | `/wiki/integrations/labarchives` |
 | 7 | `lab-mode` | `/lab` | the lab-tab strip | "Lab Mode is the multi-user roll-up. Eight tabs — Activity, Gantt, Experiments, Roadmaps, Methods, Notes, Search — each answers one question across the whole lab." | `/wiki/features/lab-mode` |
 | 8 | `wiki-entry` | any page | the docs button | "Every feature has a wiki page. Click the doc icon (bottom-right) any time you want the long version. No login, no separate tab management — it opens beside your work." | `/wiki/` |
+| 9 | `high-level-goals` | `/` | the High-Level Goals sidebar / button | "Every project carries roadmap goals. Open the goals sidebar to track them — useful in lab meetings or 1:1s." | `/wiki/features/home` |
+| 10 | `methods-folder-tree` | `/methods` | the folder tree on the left | "Protocols live in a folder tree. Drag and drop to reorganize; click a folder to bulk-edit its methods together." | `/wiki/features/methods` |
 
 (Numbering is the priority order. The orchestrator fires in priority
 order when multiple tips match the current page; route matches break
@@ -447,7 +449,7 @@ Each tip body is ≤140 chars in display and ends with the
 `target` element by ref or by `data-onboarding-target="<id>"` data-attr
 (simpler ref handoff for elements that don't already have a ref).
 
-**Why these eight:** they map directly onto the features Grant has
+**Why these ten:** they map directly onto the features Grant has
 shipped in the last two weeks of work that have **no obvious in-app
 discovery surface today**. Drop-to-replace, duplicate-upload, and
 send-to-task are all "you stumble onto this by trying the thing" —
@@ -455,11 +457,15 @@ brand-new users don't know to try. The cross-owner share, Lab Mode,
 and LabArchives import are big-ticket features hiding behind
 unobvious entry points. The 5-icon cluster is the highest-density
 discoverability problem in the app (5 icons in a corner, no labels
-unless you hover). The wiki entry point closes the loop.
+unless you hover). The wiki entry point closes the loop. The two
+additions (high-level goals + methods folder tree) cover the most
+common "I didn't know that existed" moments on the home page and on
+`/methods` respectively.
 
 Tips 1-4 are the highest-value (in-context "you can do this"
-prompts). Tips 5-8 are lower-priority orientation prompts that the
-orchestrator may or may not get to depending on the session-cap.
+prompts). Tips 5-10 are lower-priority orientation prompts that
+the orchestrator may or may not get to depending on the
+shown_count and active_seconds caps.
 
 ## Card surface
 
@@ -598,32 +604,33 @@ list below, or for implementation to make local calls on.
   constraint and randomized fire after eligibility opens. Default
   min-gap 300s of active time between tips; 30s of active time on
   a matching route before eligibility; 15%/5s roll for fire timing.
+- **Tip set:** Ten tips (table above). Tips 1-4 are in-context
+  affordance prompts, tips 5-10 are orientation prompts. Order is
+  priority order for tied-route firing.
 
-## Open questions still pending
+## Open questions (tunable, OK to default during Phase 2)
 
-1. **Initial tip set — ship the 8, trim, or expand?** Grant asked
-   for elaboration on the 8 tips (see the "Initial tip set" table
-   above — each row spells out the trigger route, target affordance,
-   one-line body, and linked wiki page). Once Grant confirms set
-   composition, Phase 2 implementation can begin. The current
-   recommendation is to ship all 8; with the 5-minute-of-active-time
-   gap, most users will see ~3 tips per hour-long session, so the
-   full set spreads naturally across the user's first ~5 hours of
-   real use.
-2. **Replay scope:** when the user clicks "Show me the onboarding
+These are tunable choices that don't block Phase 2 implementation
+— the orchestrator can default to the recommended value and Grant
+can dial them up or down once the system is wired and visible.
+
+1. **Replay scope:** when the user clicks "Show me the onboarding
    tips again" in Settings, should it replay ALL tips (including
    ones the user explicitly dismissed via X) or only ones they
-   didn't engage with? Proposal: all of them — replay means replay.
-   Tunable in 1 line.
-3. **Tip card placement:** bottom-right (proposed) keeps the center
+   didn't engage with? **Default for Phase 2:** all of them —
+   replay means replay. Tunable in 1 line.
+2. **Tip card placement:** bottom-right (default) keeps the center
    of the screen unobstructed and matches the
    `<FloatingLeaveDemoButton>` corner — but demo + onboarding are
    exempt from co-existing, so no collision in practice. Top-right
    and bottom-center are alternatives if bottom-right feels too
-   crowded against the AppShell's 5-icon cluster.
-4. **Future tip authoring:** is the catalog meant to grow over time
-   as new features ship, with each new release adding 1-2 tips? If
-   yes, the orchestrator should accept tips with a `min_build`
-   field so a tip pointing at a feature that only exists in builds
-   ≥ X isn't shown on stale builds. (Not in this proposal;
-   trivially addable later.)
+   crowded against the AppShell's 5-icon cluster. **Default:**
+   bottom-right at `bottom-20 right-4` (clear of the AppShell
+   cluster which sits at `bottom-6 right-6`).
+3. **Future tip authoring:** is the catalog meant to grow over
+   time as new features ship, with each new release adding 1-2
+   tips? If yes, the orchestrator should accept tips with a
+   `min_build` field so a tip pointing at a feature that only
+   exists in builds ≥ X isn't shown on stale builds.
+   **Default for Phase 2:** no `min_build` field; trivially
+   addable later when the second wave of tips ships.
