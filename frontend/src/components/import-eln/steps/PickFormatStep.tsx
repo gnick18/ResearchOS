@@ -24,13 +24,13 @@ const FORMATS: FormatCardSpec[] = [
   {
     id: "labarchives-pdf",
     title: "LabArchives Notebook-to-PDF",
-    subtitle: "Mid-fidelity PDF export. v2.",
+    subtitle: "Not supported yet — coming in a future release.",
     disabled: true,
   },
   {
     id: "chrome-pdf",
     title: "Chrome Print-to-PDF",
-    subtitle: "Browser-printed PDF of any LabArchives page. v2.",
+    subtitle: "Not supported yet — coming in a future release.",
     disabled: true,
   },
 ];
@@ -86,7 +86,8 @@ function FormatCard({
   const enabled = isSelected
     ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200"
     : "border-gray-200 hover:border-gray-400 bg-white";
-  const disabled = "border-gray-200 bg-gray-50 cursor-not-allowed opacity-70";
+  const disabled =
+    "border-dashed border-gray-300 bg-gray-50 cursor-not-allowed opacity-60 grayscale";
 
   return (
     <button

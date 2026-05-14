@@ -206,16 +206,23 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
 
               <div className="border-t border-white/10 pt-4 mt-6">
                 <h3 className="text-sm font-medium text-slate-300 mb-2">
-                  Coming from another ELN?
+                  Coming from LabArchives?
                 </h3>
                 <p className="text-xs text-slate-400 mb-3">
                   Import a LabArchives Offline Notebook ZIP into your
                   workspace. Pages become tasks, folders can become projects.
+                  Other ELNs (Benchling, Notion, paper notebooks) coming later.
                 </p>
                 <ImportFromELNButton
                   hasUser={Boolean(currentUser)}
                   onOpen={() => setElnImportOpen(true)}
                 />
+                <a
+                  href="/wiki/getting-started/labarchives-export"
+                  className="mt-2 inline-flex items-center gap-1 text-xs text-blue-300 hover:text-blue-200 underline"
+                >
+                  How to export from LabArchives →
+                </a>
               </div>
             </div>
           </div>
@@ -664,7 +671,7 @@ function ImportFromELNButton({
       disabled={!hasUser}
       className="w-full px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-blue-500/50 rounded-lg text-white text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white/5 disabled:hover:border-white/10"
     >
-      Import from another ELN
+      Import from LabArchives
     </button>
   );
   if (hasUser) return button;
