@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import AppShell from "@/components/AppShell";
 import AccountPasswordPopup from "@/components/AccountPasswordPopup";
+import ImportExperimentDialog from "@/components/ImportExperimentDialog";
 import UserAvatar from "@/components/UserAvatar";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useAppStore } from "@/lib/store";
@@ -584,11 +585,19 @@ interface RepairSummary {
 }
 
 function MaintenanceSection() {
+  const [importOpen, setImportOpen] = useState(false);
   return (
     <SectionShell
       title="Data maintenance"
       description="Tools for normalising on-disk task and method data. Safe to run any time; reports what it changed."
     >
+      <ImportRow onOpen={() => setImportOpen(true)} />
+      {importOpen && (
+        <ImportExperimentDialog
+          isOpen={importOpen}
+          onClose={() => setImportOpen(false)}
+        />
+      )}
       <RepairRow
         title="Repair method links"
         description={
@@ -639,6 +648,27 @@ function MaintenanceSection() {
         invalidateKey={["tasks"]}
       />
     </SectionShell>
+  );
+}
+
+function ImportRow({ onOpen }: { onOpen: () => void }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm text-gray-800">Import experiment</p>
+        <p className="text-xs text-gray-500 mt-1">
+          Bring an experiment exported by another ResearchOS user (a <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">-raw.zip</code> bundle) into your workspace.
+          You&apos;ll get a chance to match its project and methods against your own before anything is written.
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onOpen}
+        className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+      >
+        Import .zip
+      </button>
+    </div>
   );
 }
 
