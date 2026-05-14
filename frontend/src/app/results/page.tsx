@@ -137,24 +137,22 @@ export default function ResultsPage() {
     enabled: resultTasks.length > 0,
   });
 
-  // Group by project.
-  // TODO(id-collision): keyed by raw project_id, so result cards from alex's
-  // project 1 and morgan's project 1 merge into one bucket. The card itself
-  // already carries projectName/projectColor (resolved with composite-keyed
-  // lookups above), so the rendered card content is correct; only the
-  // grouping header may surface the wrong project name. Out of scope for
-  // this sweep — flagged for a follow-up.
+  // Group by project, keyed by composite `${owner}:${id}` so alex's project 1
+  // and morgan's project 1 stay in separate buckets. Each bucket carries its
+  // own resolved name/color (sourced from the first card's already-composite-
+  // keyed lookup), which the group header renders directly.
   const grouped = useMemo(() => {
-    const map: Record<number, { name: string; color: string; cards: ResultCard[] }> = {};
+    const map: Record<string, { name: string; color: string; cards: ResultCard[] }> = {};
     for (const card of resultCards) {
-      if (!map[card.task.project_id]) {
-        map[card.task.project_id] = {
+      const key = taskProjectKey(card.task);
+      if (!map[key]) {
+        map[key] = {
           name: card.projectName,
           color: card.projectColor,
           cards: [],
         };
       }
-      map[card.task.project_id].cards.push(card);
+      map[key].cards.push(card);
     }
     return map;
   }, [resultCards]);
