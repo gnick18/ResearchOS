@@ -110,3 +110,95 @@ export interface MissingInlineImage {
   revision?: string;
   version?: string;
 }
+
+// ─── Apply-pipeline contract ─────────────────────────────────────────────────
+// Types below describe the plan/result shape consumed by the wizard UI and
+// produced by `plan.ts` + `apply.ts`. Keep these stable; the wizard sub-bot
+// reads them.
+
+export type ELNProjectDecision = "use-existing" | "import-new" | "no-project";
+
+export interface ELNProjectMapping {
+  /**
+   * Slash-joined tree-path key used to group pages into a single mapping
+   * row, e.g. "Grant N/meetings". Built from the cleaned treePath (notebook
+   * name and "Notebooks" stripped) so multiple pages with the same parent
+   * folder share one mapping.
+   */
+  treePathKey: string;
+  /** Derived from the path. May be null when the cleaned path is too short. */
+  defaultProjectName: string | null;
+  /** Default decision: "import-new" for any non-null name, "no-project" for null. */
+  decision: ELNProjectDecision;
+  /** When decision === "use-existing". */
+  existingProjectId?: number;
+  /** When decision === "import-new" (editable by the wizard UI). */
+  newProjectName?: string;
+  /** All page IDs that hit this mapping. */
+  pageIds: string[];
+}
+
+export interface ELNImportPlan {
+  source: "labarchives-offline-zip";
+  parsed: ParsedNotebook;
+  /** One mapping per unique cleaned-treePath key across all pages. */
+  projectMappings: ELNProjectMapping[];
+  /** Receiver-side user that will own the imported tasks. */
+  receiver: string;
+  /** ISO timestamp of when the import was kicked off. */
+  startedAt: string;
+}
+
+export interface ELNAppliedTask {
+  pageId: string;
+  newTaskId: number;
+  newProjectId: number | null;
+  /** Dedup key — `ParsedPage.pageDedupRaw` when present, otherwise composed. */
+  dedupKey: string;
+  /** Count of attachments written for this task (body + inline). */
+  attachmentsWritten: number;
+  /** Form B online-only inline images surfaced for this task. */
+  missingInlineImages: number;
+}
+
+export interface ELNSkippedTask {
+  pageId: string;
+  existingTaskId: number;
+  dedupKey: string;
+}
+
+export interface ELNCreatedProject {
+  name: string;
+  id: number;
+}
+
+export interface ELNImportWarning {
+  pageId: string;
+  message: string;
+}
+
+export interface ELNImportResult {
+  tasksCreated: ELNAppliedTask[];
+  tasksSkippedAsDuplicate: ELNSkippedTask[];
+  projectsCreated: ELNCreatedProject[];
+  totalMissingInlineImages: number;
+  /** Per-page errors that did NOT halt the import (e.g. one page failed mid-way). */
+  warnings: ELNImportWarning[];
+}
+
+/**
+ * On-disk sidecar written to `<taskNotesBase>/_import_source.json` on first
+ * import. Used to detect re-imports of the same notebook page on a second
+ * apply pass.
+ */
+export interface ELNImportSidecar {
+  source: "labarchives-offline-zip";
+  imported_at: string;
+  imported_by: string;
+  dedupKey: string;
+  notebookName: string | null;
+  treePath: string[];
+  pageId: string;
+  entryCount: number;
+  missingInlineImages: MissingInlineImage[];
+}
