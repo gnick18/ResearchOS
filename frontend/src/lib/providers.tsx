@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, useEffect, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { FileSystemProvider, useFileSystem, isFileSystemAccessSupported } from "@/lib/file-system/file-system-context";
-import { isWikiCaptureMode } from "@/lib/file-system/wiki-capture-mock";
+import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import ResearchFolderSetupNew from "@/components/ResearchFolderSetupNew";
 import StagedLoadingScreen from "@/components/StagedLoadingScreen";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -61,11 +61,13 @@ function AppContent({ children }: { children: ReactNode }) {
     );
   }
 
-  // Capture mode (signed-in variant): FileSystemProvider has seeded fixture
-  // data and set state to connected/grant. Skip every gate. The "picker"
-  // variant leaves currentUser empty on purpose, so fall through to render
-  // the user-picker via ResearchFolderSetupNew below.
-  if (isWikiCaptureMode() && currentUser) {
+  // Fixture-backed modes (wiki-capture signed-in variant on localhost, or
+  // the public /demo route in any environment): FileSystemProvider has
+  // seeded the in-memory fixture and set state to connected. Skip every
+  // gate. The wiki-capture "picker" variant leaves currentUser empty on
+  // purpose, so it falls through to render the user-picker via
+  // ResearchFolderSetupNew below.
+  if (isDemoOrWikiCapture() && currentUser) {
     return (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );

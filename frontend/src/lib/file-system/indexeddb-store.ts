@@ -187,3 +187,11 @@ export async function clearCurrentUser(): Promise<void> {
     console.error("[indexeddb-store.clearCurrentUser] Error:", err);
   }
 }
+
+export async function clearMainUser(): Promise<void> {
+  try {
+    await del(MAIN_USER_KEY);
+  } catch (err) {
+    console.error("[indexeddb-store.clearMainUser] Error:", err);
+  }
+}
