@@ -16,9 +16,20 @@
  * localhost redirect (http://localhost:3000/api/auth/<provider>/callback).
  */
 
+/** Provider id used at the API surface and in persisted token files
+ *  (`_calendar-oauth.json` keys). Kept as the historical name so existing
+ *  on-disk connections keep working. */
+export type OAuthProviderId = "google" | "outlook";
+
+/** URL path segment for `/api/auth/<segment>/{login,callback,refresh}`.
+ *  Distinct from {@link OAuthProviderId} because Microsoft's routes live
+ *  at `/api/auth/microsoft/*` even though we identify the provider as
+ *  `"outlook"` in code and on disk. */
+export type OAuthUrlSegment = "google" | "microsoft";
+
 export interface ProviderConfig {
-  /** Lower-cased provider key; matches the URL path segment. */
-  key: "google" | "outlook";
+  /** URL path segment; matches the directory under `app/api/auth/`. */
+  key: OAuthUrlSegment;
   authUrl: string;
   tokenUrl: string;
   /** Scopes to request. Write-capable scopes by default so two-way sync
@@ -58,7 +69,9 @@ export const GOOGLE_CONFIG: ProviderConfig = {
 };
 
 export const MICROSOFT_CONFIG: ProviderConfig = {
-  key: "outlook",
+  // URL segment, not the provider id — routes live at /api/auth/microsoft/*
+  // while the in-code / on-disk provider id stays "outlook".
+  key: "microsoft",
   // The "common" tenant lets work, school, and personal accounts all sign
   // in through the same app registration.
   authUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
@@ -78,12 +91,13 @@ export function configFor(provider: "google" | "outlook"): ProviderConfig {
 
 /** Resolve the right redirect URI for the current environment. We register
  *  both prod + localhost redirects on the OAuth app so the same client id
- *  works in either context. */
+ *  works in either context. Takes the URL segment (e.g. `"microsoft"`),
+ *  not the provider id (`"outlook"`) — the two diverge for Microsoft. */
 export function redirectUriFor(
-  provider: "google" | "outlook",
+  urlSegment: OAuthUrlSegment,
   origin: string,
 ): string {
-  return `${origin}/api/auth/${provider}/callback`;
+  return `${origin}/api/auth/${urlSegment}/callback`;
 }
 
 interface ClientCredentials {
