@@ -18,6 +18,7 @@ import { discoverUsers, validateResearchFolder, ensureFolderStructure } from "./
 import { readUserSettings, patchUserSettings, userSettingsFileExists, DEFAULT_SETTINGS } from "../settings/user-settings";
 import { useAppStore, readLegacyLocalStorageSettings } from "../store";
 import { getWikiCaptureVariant, installWikiCaptureFixture } from "./wiki-capture-mock";
+import { rebaseDemoDates, isDemoLab } from "../demo/rebase";
 
 /** Coarse-grained phase of the startup connect flow. Used by the loading
  *  screen so the user sees something change while OneDrive is being slow.
@@ -188,6 +189,24 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         }
 
         await storeDirectoryHandle(handle);
+
+        // Demo-lab date rebase: if this folder is a demo (marker file
+        // says so), shift all task/goal/event/project/shared dates by
+        // `today - last_rebased_at` days. Idempotent — no-op when run
+        // twice on the same day. Strictly guarded by `is_demo: true`
+        // so real research folders never go through this code path.
+        try {
+          if (await isDemoLab(fileService)) {
+            const result = await rebaseDemoDates(fileService);
+            if (result.delta !== 0) {
+              console.log(
+                `[FileSystemProvider] Rebased demo dates by ${result.delta} day(s); ${result.filesWritten} file(s) updated.`,
+              );
+            }
+          }
+        } catch (err) {
+          console.warn("[FileSystemProvider] demo rebase failed:", err);
+        }
 
         setState((prev) => ({ ...prev, loadingStage: "discovering-users" }));
         const users = await discoverUsers();
