@@ -1,6 +1,11 @@
 import { taskKey } from "@/lib/types";
 import { slugify } from "./slug";
-import type { ExperimentExportPayload, ExportResult } from "./types";
+import {
+  buildSourceInstance,
+  type ExperimentExportPayload,
+  type ExportResult,
+  type RawManifest,
+} from "./types";
 
 function isImageMime(mimeType: string): boolean {
   return mimeType.toLowerCase().startsWith("image/");
@@ -13,12 +18,16 @@ export async function buildRawZip(
   const JSZip = (await import("jszip")).default;
   const zip = new JSZip();
 
-  const manifest = {
+  const manifest: RawManifest = {
     format: "researchos-experiment",
     version: 1,
     exported_at: payload.meta.exportedAt,
     exported_by: "ResearchOS",
     source_owner: payload.task.owner,
+    source_instance: buildSourceInstance(
+      payload.meta.ownerLabel,
+      payload.meta.exportedAt,
+    ),
     task_id: payload.task.id,
     task_key: taskKey(payload.task),
     project_id: payload.project.id,

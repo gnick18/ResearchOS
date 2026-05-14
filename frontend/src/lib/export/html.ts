@@ -18,12 +18,14 @@ import JSZip from "jszip";
 
 import { slugify } from "./slug";
 import { demoteHeadings, extractUserContent, hasUserContent } from "./markdown";
-import type {
-  AttachmentOrigin,
-  ExperimentAttachment,
-  ExperimentExportPayload,
-  ExportResult,
-  MethodPayload,
+import {
+  buildSourceInstance,
+  type AttachmentOrigin,
+  type ExperimentAttachment,
+  type ExperimentExportPayload,
+  type ExportResult,
+  type HtmlManifest,
+  type MethodPayload,
 } from "./types";
 import type {
   Method,
@@ -551,11 +553,15 @@ export async function buildHtmlBundle(
   // tools can detect "this came from a ResearchOS export" without sniffing
   // file structure. Field names mirror Raw's `_export-manifest.json`
   // (raw.ts ~line 16) where they overlap.
-  const manifest = {
+  const manifest: HtmlManifest = {
     format: "html",
     version: 1,
     exported_at: payload.meta.exportedAt,
     source_owner: payload.task.owner,
+    source_instance: buildSourceInstance(
+      payload.meta.ownerLabel,
+      payload.meta.exportedAt,
+    ),
     task_id: payload.task.id,
   };
   zip.file("_export-manifest.json", JSON.stringify(manifest, null, 2));
