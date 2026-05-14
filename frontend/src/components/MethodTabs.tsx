@@ -76,37 +76,42 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
   const [pcrIngredients, setPcrIngredients] = useState<PCRIngredient[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
-  // Initialize PCR state from attachment
+  // Initialize PCR state from attachment, falling back to the source protocol
+  // for any field the attachment doesn't override. `method_attachments` entries
+  // typically only carry `{method_id, owner, snapshot_at}` until the user edits
+  // the gradient/recipe inside the task; without the fallback the table renders
+  // empty even though the protocol on disk has real data.
   useEffect(() => {
-    if (activeAttachment) {
-      if (activeAttachment.pcr_gradient) {
-        try {
-          setPcrGradient(JSON.parse(activeAttachment.pcr_gradient));
-        } catch {
-          setPcrGradient(null);
-        }
-      } else {
-        setPcrGradient(null);
+    if (activeAttachment?.pcr_gradient) {
+      try {
+        setPcrGradient(JSON.parse(activeAttachment.pcr_gradient));
+      } catch {
+        setPcrGradient(fetchedPcrProtocol?.gradient ?? null);
       }
-      if (activeAttachment.pcr_ingredients) {
-        try {
-          const parsed = JSON.parse(activeAttachment.pcr_ingredients);
-          setPcrIngredients(Array.isArray(parsed) ? parsed : []);
-        } catch {
-          setPcrIngredients([]);
-        }
-      } else {
-        setPcrIngredients([]);
-      }
-      setHasUnsavedChanges(false);
     } else if (fetchedPcrProtocol) {
-      // Fall back to protocol data if no attachment data
       setPcrGradient(fetchedPcrProtocol.gradient ?? null);
+    } else if (!activeAttachment) {
+      setPcrGradient(null);
+    }
+
+    if (activeAttachment?.pcr_ingredients) {
+      try {
+        const parsed = JSON.parse(activeAttachment.pcr_ingredients);
+        setPcrIngredients(Array.isArray(parsed) ? parsed : []);
+      } catch {
+        setPcrIngredients(
+          Array.isArray(fetchedPcrProtocol?.ingredients) ? fetchedPcrProtocol!.ingredients : []
+        );
+      }
+    } else if (fetchedPcrProtocol) {
       setPcrIngredients(
         Array.isArray(fetchedPcrProtocol.ingredients) ? fetchedPcrProtocol.ingredients : []
       );
-      setHasUnsavedChanges(false);
+    } else if (!activeAttachment) {
+      setPcrIngredients([]);
     }
+
+    setHasUnsavedChanges(false);
   }, [activeAttachment, fetchedPcrProtocol]);
   
   // Method content for non-PCR methods
@@ -195,29 +200,34 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
     }
   }, [activeMethod?.source_path, isPcrMethod, isPdfMethod, readOnly]); // eslint-disable-line react-hooks/exhaustive-deps
   
-  // Track PCR changes
+  // Track PCR changes — original = attachment override if present, otherwise
+  // the source protocol value (mirrors the init effect above). Without this
+  // fallback, `hasUnsavedChanges` always evaluates against null/[] and the
+  // Save button reports false negatives when only the protocol-defined baseline
+  // is loaded.
   const originalPcrGradient = useMemo(() => {
     if (activeAttachment?.pcr_gradient) {
       try {
         return JSON.parse(activeAttachment.pcr_gradient);
       } catch {
-        return null;
+        return fetchedPcrProtocol?.gradient ?? null;
       }
     }
-    return null;
-  }, [activeAttachment?.pcr_gradient]);
-  
+    return fetchedPcrProtocol?.gradient ?? null;
+  }, [activeAttachment?.pcr_gradient, fetchedPcrProtocol]);
+
   const originalPcrIngredients = useMemo(() => {
     if (activeAttachment?.pcr_ingredients) {
       try {
-        return JSON.parse(activeAttachment.pcr_ingredients);
+        const parsed = JSON.parse(activeAttachment.pcr_ingredients);
+        return Array.isArray(parsed) ? parsed : [];
       } catch {
-        return [];
+        return Array.isArray(fetchedPcrProtocol?.ingredients) ? fetchedPcrProtocol!.ingredients : [];
       }
     }
-    return [];
-  }, [activeAttachment?.pcr_ingredients]);
-  
+    return Array.isArray(fetchedPcrProtocol?.ingredients) ? fetchedPcrProtocol.ingredients : [];
+  }, [activeAttachment?.pcr_ingredients, fetchedPcrProtocol]);
+
   useEffect(() => {
     if (isPcrMethod && pcrGradient && originalPcrGradient) {
       setHasUnsavedChanges(
