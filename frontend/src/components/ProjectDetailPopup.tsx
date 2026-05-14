@@ -248,10 +248,22 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
             )}
             <div className="flex items-center gap-2">
               {!isEditing && !project.is_archived && !isMiscellaneousProject && (
-                <Tooltip label="Edit project" placement="bottom">
+                <Tooltip
+                  label={
+                    isViewOnlyReceiver
+                      ? `Only the owner (${project.owner}) and edit-permission collaborators can edit this project`
+                      : "Edit project"
+                  }
+                  placement="bottom"
+                >
                   <button
+                    disabled={isViewOnlyReceiver}
                     onClick={() => setIsEditing(true)}
-                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    className={`p-2 rounded-lg transition-colors ${
+                      isViewOnlyReceiver
+                        ? "text-gray-300 cursor-not-allowed"
+                        : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                    }`}
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
