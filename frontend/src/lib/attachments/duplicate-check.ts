@@ -75,7 +75,7 @@ export interface DuplicateInfo {
   suggestedName: string;
 }
 
-export interface DuplicateCheckResult {
+export interface DuplicateUploadCheckResult {
   /** No collision — safe to write to disk as-is. */
   uniqueFiles: File[];
   /** Need user decision via the dialog. */
@@ -98,7 +98,7 @@ export interface DuplicateCheckResult {
 export function checkForDuplicates(
   files: readonly File[],
   existingNames: ReadonlySet<string>,
-): DuplicateCheckResult {
+): DuplicateUploadCheckResult {
   const uniqueFiles: File[] = [];
   const collisions: DuplicateInfo[] = [];
   // Track names that this batch has already "claimed" for uniqueFiles, so
