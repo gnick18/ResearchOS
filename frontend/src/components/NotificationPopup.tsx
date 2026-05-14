@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { sharingApi } from "@/lib/local-api";
 import { useCalendarNavStore } from "@/lib/calendar/calendar-nav-store";
 import Tooltip from "./Tooltip";
-import type { Notification } from "@/lib/types";
+import type { Notification, ShiftAlertNotification } from "@/lib/types";
 
 interface NotificationPopupProps {
   isOpen: boolean;
@@ -226,9 +226,11 @@ export default function NotificationPopup({
           <div className="divide-y divide-gray-100">
             {notifications.map((notification) => {
               const isReminder = notification.type === "event_reminder";
+              const isShiftAlert = notification.type === "shift_alert";
               // Row click only acknowledges the entry — never navigates and
               // never closes the popup. Navigation lives on an explicit
-              // "Open in calendar" link inside reminder rows.
+              // "Open in calendar" link inside reminder rows (or "View task"
+              // inside shift-alert rows).
               const handleClickRow = () => {
                 if (!notification.read) {
                   void handleMarkRead(notification.id);
@@ -236,13 +238,43 @@ export default function NotificationPopup({
               };
               const handleOpenReminder = (e: React.MouseEvent) => {
                 e.stopPropagation();
-                if (!isReminder) return;
+                if (notification.type !== "event_reminder") return;
                 jumpTo("day", notification.event_date);
                 router.push("/calendar");
                 if (!notification.read) {
                   void handleMarkRead(notification.id);
                 }
                 onClose();
+              };
+              const handleViewShiftedTask = (e: React.MouseEvent) => {
+                e.stopPropagation();
+                if (notification.type !== "shift_alert") return;
+                // Deep-link to the day-view of the new start date so the
+                // user sees the task in context. The TaskDetailPopup will
+                // be opened by Grant clicking the task chip — for v1 we
+                // skip auto-opening because the task may be in someone
+                // else's namespace and we don't have a robust shared-task
+                // direct-link route today.
+                jumpTo("day", notification.new_start);
+                router.push("/calendar");
+                if (!notification.read) {
+                  void handleMarkRead(notification.id);
+                }
+                onClose();
+              };
+              const handleDismissShiftAlert = async (e: React.MouseEvent) => {
+                e.stopPropagation();
+                if (notification.type !== "shift_alert") return;
+                try {
+                  await sharingApi.dismissShiftAlert(notification.id);
+                  setNotifications((prev) =>
+                    prev.filter((n) => n.id !== notification.id)
+                  );
+                  onNotificationRead();
+                  window.dispatchEvent(new CustomEvent("ros-notifications-changed"));
+                } catch (err) {
+                  console.error("Failed to dismiss shift alert:", err);
+                }
               };
               return (
                 <div
@@ -265,10 +297,16 @@ export default function NotificationPopup({
                     >
                       {isReminder
                         ? getReminderIcon()
-                        : getItemTypeIcon(notification.item_type)}
+                        : isShiftAlert
+                          ? getShiftAlertIcon()
+                          : notification.type === "task_shared" ||
+                              notification.type === "method_shared" ||
+                              notification.type === "project_shared"
+                            ? getItemTypeIcon(notification.item_type)
+                            : null}
                     </div>
                     <div className="flex-1 min-w-0">
-                      {isReminder ? (
+                      {notification.type === "event_reminder" ? (
                         <>
                           <ReminderBody notification={notification} />
                           <button
@@ -277,6 +315,24 @@ export default function NotificationPopup({
                           >
                             Open in calendar →
                           </button>
+                        </>
+                      ) : notification.type === "shift_alert" ? (
+                        <>
+                          <ShiftAlertBody notification={notification} />
+                          <div className="mt-1.5 flex items-center gap-3">
+                            <button
+                              onClick={handleViewShiftedTask}
+                              className="text-[11px] text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                              View task →
+                            </button>
+                            <button
+                              onClick={handleDismissShiftAlert}
+                              className="text-[11px] text-gray-500 hover:text-gray-700 font-medium"
+                            >
+                              Ignore
+                            </button>
+                          </div>
                         </>
                       ) : (
                         <>
@@ -383,6 +439,59 @@ function ReminderBody({
           </>
         )}
       </div>
+    </>
+  );
+}
+
+function getShiftAlertIcon() {
+  // Calendar with a circular-arrow overlay — "scheduled date moved".
+  return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M14 14l2 2-2 2m2-2H10"
+      />
+    </svg>
+  );
+}
+
+function ShiftAlertBody({
+  notification,
+}: {
+  notification: ShiftAlertNotification;
+}) {
+  // Use start_delta as the headline; UI says "+3d" / "-1d" / "+0d (end +2d)"
+  // (the last form covers duration-only changes if they're ever surfaced).
+  const startDelta = notification.start_delta_days;
+  const endDelta = notification.end_delta_days;
+  const formatDelta = (d: number): string => (d > 0 ? `+${d}d` : `${d}d`);
+  const headlineDelta = startDelta !== 0 ? formatDelta(startDelta) : formatDelta(endDelta);
+  return (
+    <>
+      <p className="text-sm text-gray-900">
+        <span className="font-medium">{notification.from_user}</span>
+        {" shifted "}
+        <span className="font-medium">{notification.item_name}</span>
+        {" by "}
+        <span className="font-medium text-amber-700">{headlineDelta}</span>
+      </p>
+      <p className="text-xs text-gray-600 mt-0.5">
+        {notification.old_start} → <span className="font-medium">{notification.new_start}</span>
+        {startDelta !== endDelta && (
+          <>
+            {"  ·  end "}
+            {notification.old_end} → <span className="font-medium">{notification.new_end}</span>
+          </>
+        )}
+      </p>
     </>
   );
 }

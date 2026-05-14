@@ -19,8 +19,24 @@ export default function NotificationBadge({ pill = false }: NotificationBadgePro
   // Load unread count on mount and periodically. Also listen for
   // "ros-notifications-changed" custom events so reminders fired locally
   // bump the badge instantly without waiting for the 30s poll.
+  //
+  // On first mount, also poll cross-user shift alerts. The `_shifted-alerts.json`
+  // sidecars are written by other users (or by the current user with edit
+  // permission on a shared task), and the only way for the current user to
+  // discover them is at load time. `scanShiftAlerts` is idempotent (seen-id
+  // dedup), so re-running on every mount is safe — but cheap to do once and
+  // skip on the 30s interval to keep the poll lightweight.
   useEffect(() => {
-    loadUnreadCount();
+    const init = async () => {
+      try {
+        await sharingApi.scanShiftAlerts();
+      } catch (err) {
+        // Best-effort; don't block badge mount on a sidecar read failure.
+        console.warn("[shift-alerts] initial scan failed:", err);
+      }
+      loadUnreadCount();
+    };
+    void init();
     const interval = setInterval(loadUnreadCount, 30000);
     const onChange = () => loadUnreadCount();
     window.addEventListener("ros-notifications-changed", onChange);

@@ -1,17 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 import { listImagesInFolder, type FolderImageEntry } from "@/lib/attachments/image-folder";
 import {
   deleteImageFromBase,
   moveImageBetweenBases,
+  moveImageBetweenBasesUnique,
   renameImageInPlace,
 } from "@/lib/attachments/move-image";
 import { resolveTaskResultsBase } from "@/lib/tasks/results-paths";
 import { useAppStore, type ActiveTask } from "@/lib/store";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import ImageMetadataPopup from "./ImageMetadataPopup";
+import SendToTaskPicker from "./SendToTaskPicker";
 
 interface InboxPanelProps {
   onClose: () => void;
@@ -25,13 +27,51 @@ function inboxBase(username: string): string {
   return `users/${username}/inbox`;
 }
 
+// "Lab Notes" attachments live in the per-tab `notes/` scope. The image
+// router on the receive side and the universal-drop handler on the popup
+// also target this scope, so dragging into the popup vs filing from here
+// land in the same folder.
+function taskNotesBase(taskResultsBase: string): string {
+  return `${taskResultsBase}/notes`;
+}
+
 export default function InboxPanel({ onClose }: InboxPanelProps) {
   const { currentUser } = useCurrentUser();
   const activeTask = useAppStore((s) => s.activeTask);
   const [entries, setEntries] = useState<InboxEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  // While the picker-driven batch send is running, lock the whole list so a
+  // user can't double-click and accidentally double-file an item. Replaces
+  // the per-row `busy` for batch operations.
+  const [batchBusy, setBatchBusy] = useState(false);
   const [popupFilename, setPopupFilename] = useState<string | null>(null);
+
+  // Multi-select state. `selectedIds` is the set of inbox-entry names that
+  // are highlighted. `anchorId` is the last single-click anchor — used as
+  // the range start for shift-click. Plain clicks reset the selection (with
+  // the caveat that clicking an already-selected item leaves the set
+  // intact so the user can right-click / send the whole group).
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [anchorId, setAnchorId] = useState<string | null>(null);
+
+  // Context menu: opens on right-click of an inbox row, or via the
+  // hover-only "…" button on the right side of each row.
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    anchorEntry: InboxEntry;
+  } | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  // Brief confirmation toast (drop-in, no library — same shape as the
+  // emerald drop-toast in TaskDetailPopup).
+  const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (!toast) return;
+    const t = window.setTimeout(() => setToast(null), 3000);
+    return () => window.clearTimeout(t);
+  }, [toast]);
 
   const refresh = useCallback(async () => {
     if (!currentUser) return;
@@ -45,6 +85,15 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
         withUrls.push({ ...e, blobUrl });
       }
       setEntries(withUrls);
+      // Drop any selection ids that no longer correspond to an entry — keeps
+      // the highlight honest after a delete / move from outside this list.
+      setSelectedIds((prev) => {
+        if (prev.size === 0) return prev;
+        const live = new Set(withUrls.map((e) => e.name));
+        const next = new Set<string>();
+        for (const id of prev) if (live.has(id)) next.add(id);
+        return next.size === prev.size ? prev : next;
+      });
     } finally {
       setLoading(false);
     }
@@ -53,6 +102,25 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Close the context menu on any outside click or Esc. Note we attach to
+  // the document so clicks on either the underlying list rows OR the
+  // backdrop dismiss it consistently.
+  useEffect(() => {
+    if (!contextMenu) return;
+    const onAny = () => setContextMenu(null);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setContextMenu(null);
+    };
+    window.addEventListener("click", onAny);
+    window.addEventListener("contextmenu", onAny);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("click", onAny);
+      window.removeEventListener("contextmenu", onAny);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [contextMenu]);
 
   const moveToActive = useCallback(
     async (entry: InboxEntry, task: ActiveTask) => {
@@ -91,6 +159,146 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
     [currentUser, refresh]
   );
 
+  // ---- Selection handlers --------------------------------------------------
+
+  const handleRowClick = useCallback(
+    (e: React.MouseEvent, entry: InboxEntry) => {
+      // Clicks on the action buttons themselves are stopPropagation'd
+      // upstream, so anything we see here is a row click. Open the
+      // metadata popup when the click is a plain single-select (i.e. not a
+      // modified click and the row is the only one in the active
+      // selection or no selection at all).
+      const isShift = e.shiftKey;
+      const isModifier = e.metaKey || e.ctrlKey;
+
+      if (isShift && anchorId) {
+        // Range select from anchor → this row.
+        const startIdx = entries.findIndex((x) => x.name === anchorId);
+        const endIdx = entries.findIndex((x) => x.name === entry.name);
+        if (startIdx >= 0 && endIdx >= 0) {
+          const [lo, hi] =
+            startIdx <= endIdx ? [startIdx, endIdx] : [endIdx, startIdx];
+          const next = new Set<string>();
+          for (let i = lo; i <= hi; i += 1) next.add(entries[i].name);
+          setSelectedIds(next);
+        }
+        return;
+      }
+
+      if (isModifier) {
+        // Add / remove this row from the selection without touching the rest.
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          if (next.has(entry.name)) next.delete(entry.name);
+          else next.add(entry.name);
+          return next;
+        });
+        setAnchorId(entry.name);
+        return;
+      }
+
+      // Plain click: if the click landed on an already-selected row AND the
+      // selection is multi-item, leave the selection alone (the user is
+      // about to right-click / drag the group). Otherwise this becomes a
+      // single-select and opens the metadata popup as the legacy click
+      // affordance.
+      const alreadyInGroup = selectedIds.has(entry.name) && selectedIds.size > 1;
+      if (alreadyInGroup) {
+        setAnchorId(entry.name);
+        return;
+      }
+      setSelectedIds(new Set([entry.name]));
+      setAnchorId(entry.name);
+      setPopupFilename(entry.name);
+    },
+    [entries, anchorId, selectedIds]
+  );
+
+  // Right-click on a row. If the row is not part of the current selection,
+  // the right-click resets the selection to just this row (so the menu's
+  // "Send to task…" affects the expected target).
+  const handleRowContextMenu = useCallback(
+    (e: React.MouseEvent, entry: InboxEntry) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!selectedIds.has(entry.name)) {
+        setSelectedIds(new Set([entry.name]));
+        setAnchorId(entry.name);
+      }
+      setContextMenu({ x: e.clientX, y: e.clientY, anchorEntry: entry });
+    },
+    [selectedIds]
+  );
+
+  // Click outside a row clears the selection. We hook this off the panel
+  // body — but NOT the list itself, since clicks on rows have their own
+  // handlers above.
+  const handleBodyClick = useCallback((e: React.MouseEvent) => {
+    if (e.target !== e.currentTarget) return;
+    setSelectedIds(new Set());
+    setAnchorId(null);
+  }, []);
+
+  // ---- Batch action: Send selected items to a task -------------------------
+
+  const sendSelectedToTask = useCallback(
+    async (task: Pick<ActiveTask, "id" | "owner" | "name">) => {
+      if (!currentUser) return;
+      const ids = Array.from(selectedIds);
+      if (ids.length === 0) return;
+
+      setBatchBusy(true);
+      try {
+        const taskBase = await resolveTaskResultsBase(
+          { id: task.id, owner: task.owner },
+          currentUser
+        );
+        const destBase = taskNotesBase(taskBase);
+
+        let succeeded = 0;
+        const failures: string[] = [];
+        for (const id of ids) {
+          try {
+            await moveImageBetweenBasesUnique(
+              inboxBase(currentUser),
+              destBase,
+              id
+            );
+            succeeded += 1;
+          } catch (err) {
+            console.error("[inbox] send-to-task failed for", id, err);
+            failures.push(id);
+          }
+        }
+
+        await refresh();
+        setSelectedIds(new Set());
+        setAnchorId(null);
+        setPickerOpen(false);
+
+        if (succeeded > 0) {
+          const noun = succeeded === 1 ? "item" : "items";
+          setToast(`Sent ${succeeded} ${noun} to ${task.name}.`);
+        }
+        if (failures.length > 0) {
+          alert(
+            `Some items failed to send (${failures.length}). Check the console for details.`
+          );
+        }
+      } finally {
+        setBatchBusy(false);
+      }
+    },
+    [currentUser, selectedIds, refresh]
+  );
+
+  // The context-menu / button label includes the count when >1 selected.
+  const selectedCount = selectedIds.size;
+  const sendMenuLabel = useMemo(() => {
+    if (selectedCount <= 1) return "Send to task…";
+    return `Send ${selectedCount} items to task…`;
+  }, [selectedCount]);
+
   return (
     <div
       className="fixed inset-0 z-[105] flex items-center justify-center bg-black/30 backdrop-blur-sm"
@@ -104,7 +312,9 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
           <div>
             <h3 className="text-base font-semibold text-gray-900">Inbox</h3>
             <p className="text-xs text-gray-500">
-              Photos sent via Telegram while no experiment was open.
+              Photos sent via Telegram while no experiment was open. Shift-click
+              or Cmd/Ctrl-click to select multiple, then right-click to file as
+              a batch.
             </p>
           </div>
           <button
@@ -116,7 +326,7 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-4" onClick={handleBodyClick}>
           {loading ? (
             <p className="text-sm text-gray-500 text-center py-8">Loading…</p>
           ) : entries.length === 0 ? (
@@ -128,12 +338,17 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
             <ul className="space-y-2">
               {entries.map((entry) => {
                 const caption = entry.sidecar?.caption;
+                const isSelected = selectedIds.has(entry.name);
                 return (
                   <li
                     key={entry.name}
-                    className="flex items-center gap-3 p-2 rounded-lg border border-gray-100 hover:border-blue-200 hover:bg-blue-50/30 cursor-pointer transition-colors"
-                    onClick={() => setPopupFilename(entry.name)}
-                    title="Click to edit caption, rename, or delete"
+                    className={`group flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-colors ${
+                      isSelected
+                        ? "border-blue-400 bg-blue-50 ring-2 ring-blue-200"
+                        : "border-gray-100 hover:border-blue-200 hover:bg-blue-50/30"
+                    }`}
+                    onClick={(e) => handleRowClick(e, entry)}
+                    onContextMenu={(e) => handleRowContextMenu(e, entry)}
                   >
                     {entry.blobUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -162,7 +377,7 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
                     >
                       <button
                         type="button"
-                        disabled={!activeTask || busy === entry.name}
+                        disabled={!activeTask || busy === entry.name || batchBusy}
                         onClick={() => activeTask && moveToActive(entry, activeTask)}
                         title={
                           activeTask
@@ -175,7 +390,33 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
                       </button>
                       <button
                         type="button"
-                        disabled={busy === entry.name}
+                        aria-label="More actions"
+                        disabled={batchBusy}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          // Treat the "…" button like a right-click on this
+                          // row: select-if-not-selected, then open the menu
+                          // at the button's anchor point.
+                          if (!selectedIds.has(entry.name)) {
+                            setSelectedIds(new Set([entry.name]));
+                            setAnchorId(entry.name);
+                          }
+                          const rect = (
+                            e.currentTarget as HTMLButtonElement
+                          ).getBoundingClientRect();
+                          setContextMenu({
+                            x: rect.left,
+                            y: rect.bottom + 4,
+                            anchorEntry: entry,
+                          });
+                        }}
+                        className="opacity-0 group-hover:opacity-100 focus:opacity-100 px-2 py-1.5 text-xs text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-all"
+                      >
+                        ⋯
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy === entry.name || batchBusy}
                         onClick={() => deleteInbox(entry)}
                         className="px-2 py-1.5 text-xs text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-40"
                       >
@@ -189,6 +430,82 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
           )}
         </div>
       </div>
+
+      {contextMenu && (
+        <div
+          className="fixed z-[115] min-w-[180px] rounded-md border border-gray-200 bg-white shadow-lg py-1"
+          style={{
+            left: Math.min(
+              contextMenu.x,
+              (typeof window !== "undefined" ? window.innerWidth : 1024) - 200,
+            ),
+            top: Math.min(
+              contextMenu.y,
+              (typeof window !== "undefined" ? window.innerHeight : 768) - 120,
+            ),
+          }}
+          onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setContextMenu(null);
+              setPickerOpen(true);
+            }}
+            className="w-full text-left px-3 py-1.5 text-sm text-gray-800 hover:bg-blue-50"
+          >
+            {sendMenuLabel}
+          </button>
+          <button
+            type="button"
+            disabled={!activeTask}
+            onClick={() => {
+              if (!activeTask) return;
+              setContextMenu(null);
+              void moveToActive(contextMenu.anchorEntry, activeTask);
+            }}
+            className="w-full text-left px-3 py-1.5 text-sm text-gray-800 hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {activeTask ? `Move to active (${activeTask.name})` : "Move to active"}
+          </button>
+          <div className="h-px bg-gray-100 my-1" />
+          <button
+            type="button"
+            onClick={() => {
+              setContextMenu(null);
+              void deleteInbox(contextMenu.anchorEntry);
+            }}
+            className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+          >
+            Delete
+          </button>
+        </div>
+      )}
+
+      {pickerOpen && (
+        <SendToTaskPicker
+          isOpen={pickerOpen}
+          selectedCount={Math.max(1, selectedIds.size)}
+          onClose={() => setPickerOpen(false)}
+          onPick={(task) => {
+            void sendSelectedToTask(task);
+          }}
+        />
+      )}
+
+      {toast && (
+        <div
+          className="fixed z-[120] right-6 bottom-6 max-w-sm rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 shadow-lg pointer-events-none"
+          role="status"
+        >
+          {toast}
+        </div>
+      )}
+
       {popupFilename && currentUser && (
         <ImageMetadataPopup
           basePath={inboxBase(currentUser)}

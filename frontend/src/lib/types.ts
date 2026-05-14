@@ -49,7 +49,81 @@ export interface EventReminderNotification {
   read: boolean;
 }
 
-export type Notification = SharedItemNotification | EventReminderNotification;
+/**
+ * Receiver-facing notification telling Morgan that Alex shifted a task Alex
+ * shared with her. Generated locally on Morgan's side at load time from
+ * polling Alex's `users/<owner>/_shifted-alerts.json` sidecar — it is NOT
+ * written across user boundaries. See `sharingApi.scanShiftAlerts`.
+ */
+export interface ShiftAlertNotification {
+  id: string;
+  type: "shift_alert";
+  /** Username of the task's owner (= shifter). Same convention as
+   *  `SharedItemNotification.from_user`. */
+  from_user: string;
+  /** Numeric task id in the owner's namespace. Combine with `from_user` to
+   *  uniquely identify the task. */
+  item_id: number;
+  /** Composite "<owner>:<id>" key — matches `taskKey(task)` for the
+   *  shared-in view. */
+  task_key: string;
+  /** Denormalized task name at the time of the shift. */
+  item_name: string;
+  /** UUID of the source alert in the owner's `_shifted-alerts.json`. Used
+   *  to dedup against `_seen-shift-alerts.json`. */
+  source_alert_id: string;
+  /** Shift deltas, in days. Positive = pushed later. */
+  start_delta_days: number;
+  end_delta_days: number;
+  /** ISO YYYY-MM-DD before and after the shift. */
+  old_start: string;
+  old_end: string;
+  new_start: string;
+  new_end: string;
+  /** When the alert was minted on Morgan's side (not when Alex shifted). */
+  created_at: string;
+  read: boolean;
+}
+
+export type Notification =
+  | SharedItemNotification
+  | EventReminderNotification
+  | ShiftAlertNotification;
+
+/**
+ * On-disk sidecar at `users/<owner>/_shifted-alerts.json`. Append-only on
+ * the writer (owner) side; the receiver never writes back here. Receivers
+ * keep their own `_seen-shift-alerts.json` for dedup. Owners may prune
+ * entries older than N days as housekeeping but the receiver-side seen-list
+ * is authoritative for "I've already handled this".
+ */
+export interface ShiftedAlertEntry {
+  /** UUID — stable across reads; receivers dedup on this. */
+  id: string;
+  task_id: number;
+  /** "<owner>:<id>" — owner is the writer's own username. */
+  task_key: string;
+  task_name: string;
+  start_delta_days: number;
+  end_delta_days: number;
+  old_start: string;
+  old_end: string;
+  new_start: string;
+  new_end: string;
+  shifted_at: string;
+  shifted_by_user: string;
+}
+
+export interface ShiftedAlertsFile {
+  version: 1;
+  alerts: ShiftedAlertEntry[];
+}
+
+export interface SeenShiftAlertsFile {
+  version: 1;
+  /** Alert UUIDs the receiver has acted on or dismissed. */
+  seen_ids: string[];
+}
 
 export interface DependencyChainResponse {
   task_id: number;
