@@ -391,6 +391,33 @@ Files: `frontend/src/app/api/auth/labarchives/login/route.ts`, `frontend/src/lib
 - (d) only handles the `_labarchives.json` file specifically — the same pattern would benefit `_labarchives-deployer.json` reads in `deployer-store.ts`, but that path wasn't in scope. Queueable.
 - None of the four fixes were exercised against the live `api.labarchives.com` — the standing "no institutional creds in worktree" caveat still applies.
 
+### Recently landed (2026-05-14 — /experiments completed-chain per-user ID collision)
+
+Closes the last surface that the 8-file "Per-user project-ID collision sweep" (commits `36816a9d` → `b086fb4c`, see entry under 2026-05-13 below) had missed. After an ELN import landed 5 completed experiments across 4 imported projects alongside Grant's existing shared and own tasks, the completed-dropdown header advertised **13 completed experiments** but only **1** rendered when expanded. The other 12 were silently dropped.
+
+- **Root cause: numeric task-id maps in chain builders** (`frontend/src/app/experiments/page.tsx:111-188` and `190-263` before fix). The dependency-chain `useMemo`s (one for upcoming, one for completed) built four maps keyed by **bare numeric ids** rather than the composite `taskKey(t)` ("self:<id>" / "<owner>:<id>") that the rest of the page already used for project bucketing:
+  - `taskMap = new Map<number, Task>()` — `allTasks.forEach(t => taskMap.set(t.id, t))` overwrote any prior task with the same numeric id, so morgan's task 5 and alex's task 5 collapsed into whichever order the forEach happened to land on.
+  - `chainMap = new Map<number, Task[]>()` keyed by `rootId`. Guard `if (!chainMap.has(rootId))` then made the *second* completed experiment with the same root id a no-op.
+  - `processedTasks = new Set<number>()` checked `processedTasks.has(exp.id)` — same numeric collision dropped any later same-id task entirely.
+  - `parentMap` / `childrenMap` keyed by numeric dep ids could also wrongly merge cross-owner deps (though dependenciesApi.list() only returns current-user deps, the lookups by bare id would still get hijacked by shared tasks happening to share numeric ids).
+- **Fix template** (mirrors `taskKey()` from `lib/types.ts` and the §8 sweep pattern): every map keyed by composite string. `taskMap: Map<string, Task>` keyed by `taskKey(t)`. `parentMap`/`childrenMap`: `Map<string, string>` / `Map<string, string[]>` keyed by `depKey(id) = "self:${id}"` — deps live in the current user's per-user store and only reference current-user task ids, so they always land in the "self:" namespace and shared tasks fall through `findRoot()` as standalone single-task chains (no cross-owner dep chains possible today, by design). `chainMap`/`processedTasks` keyed by `taskKey(rootTask)` / `taskKey(t)`.
+- **React-key collisions fixed too**: both bucket render loops used `key={projectName}` (or `` `completed-${projectName}` ``), which collide when two projects across owners share a display name. Each bucket now carries its own `projectKey: "<owner>:<id>"` and the loop reads `key={bucketKey}` / `key={`completed-${bucketKey}`}`. Inside each bucket the chain card was `key={rootTask.id}` (numeric, same collision class) — now `key={taskKey(rootTask)}`.
+
+**Before/after on Grant's data**: completed-chain map had **1 entry** (only the latest-overwriting "meetings" chain under GRANT N (IMPORTED)) before fix; **13 entries** (or close to it, modulo any legitimate chains) after fix. The visible completed-dropdown content now matches the header count.
+
+**Manual test recipe for Grant**:
+1. Open /experiments with the merged-view data that triggered the bug (Grant's real folder, the one with the ELN import landed).
+2. The "Hide N completed experiments" toggle still reads 13 (or whatever the actual current count is).
+3. Click to expand. Expect all N chains to render across their owner project buckets — not just 1 under "GRANT N (IMPORTED)".
+4. Sanity: the upcoming-experiments section should also render any shared upcoming experiments that the same bug class may have hidden (same fix lives in `experimentChains` not just `completedExperimentChains`).
+5. Demo-mode reproduce: `npm run dev` + `?wikiCapture=1` → /experiments → fixture has 2 users with cross-owner experiments, so the bucket count should reflect both.
+
+**Edge cases NOT covered (intentional)**:
+- The per-page `selectedProjectIds` filter (`experiments/page.tsx:81,98` — `selectedProjectIds.includes(t.project_id)`) still keys by bare numeric `project_id`. This is the same shape used by the global `useAppStore.selectedProjectIds: number[]` and affects multiple pages identically. Out of scope for the /experiments fix; would need a broader sweep across the store + every page that reads `selectedProjectIds`.
+- Cross-owner dependency chains. Deps don't carry `owner`, and `dependenciesApi.list()` only returns current-user deps. A shared task can never be in a "real" dep chain with the current user's tasks — it always renders as a 1-task standalone chain. That's a deliberate v1 simplification, not a missing feature.
+
+Files touched: `frontend/src/app/experiments/page.tsx` (+147 / −116). Typecheck + ESLint on the file clean. Per-user ID collision sweep is now genuinely closed; both /experiments chain builders join the canonical composite-key pattern.
+
 ### Recently landed (2026-05-14 — LabArchives drop-to-replace path converges with file-picker)
 
 Closes the drag-and-drop footgun in the per-image popup recovery flow (`90dca729`). The popup's "Find on LabArchives → Save → drop the saved image onto the note" workflow looked complete but only the **file-picker** branch ("Replace from disk") was actually wired to the sidecar matcher; the drag-and-drop branch fell through to `onImageDrop`, which writes the file as a fresh attachment with a generic name and leaves the `Images/missing-<filename>` placeholder still broken. Both branches now converge.

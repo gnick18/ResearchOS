@@ -9,7 +9,7 @@ import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import TaskModal from "@/components/TaskModal";
 import NotesPanel from "@/components/NotesPanel";
-import type { Project, Task } from "@/lib/types";
+import { taskKey, type Project, type Task } from "@/lib/types";
 
 // Composite key for project lookups: per-user ID spaces mean alex's project 1
 // and morgan's project 1 are different projects. Plain p.id keys collide when
@@ -17,6 +17,17 @@ import type { Project, Task } from "@/lib/types";
 const projectKey = (p: Pick<Project, "id" | "owner">) => `${p.owner}:${p.id}`;
 const taskProjectKey = (t: Pick<Task, "owner" | "project_id">) =>
   `${t.owner}:${t.project_id}`;
+
+// Dependencies are stored per-user (one user's `dependencies/` folder), so
+// `parent_id` and `child_id` are always references into the current user's
+// task namespace — i.e. "self:<id>" in the `taskKey()` scheme. We compose dep
+// map keys with the same "self:" prefix so they line up with the keys we use
+// for tasks in the merged view. Shared tasks pulled in from other owners
+// never participate in current-user dep chains (their parent/child ids live
+// in a different owner's namespace and the dep records aren't even fetched),
+// so they always fall through as standalone single-task chains. Mirrors the
+// per-user ID collision sweep documented in AGENTS.md §8.
+const depKey = (id: number) => `self:${id}`;
 
 const DEFAULT_COLORS = [
   "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
@@ -74,14 +85,14 @@ export default function ExperimentsPage() {
     let experiments = allTasks.filter(
       (t) => t.task_type === "experiment" && !t.is_complete
     );
-    
+
     // Apply project filter
     if (selectedProjectIds.length > 0) {
       experiments = experiments.filter((t) =>
         selectedProjectIds.includes(t.project_id)
       );
     }
-    
+
     // Sort by start date
     return experiments.sort((a, b) => a.start_date.localeCompare(b.start_date));
   }, [allTasks, selectedProjectIds]);
@@ -91,14 +102,14 @@ export default function ExperimentsPage() {
     let experiments = allTasks.filter(
       (t) => t.task_type === "experiment" && t.is_complete
     );
-    
+
     // Apply project filter
     if (selectedProjectIds.length > 0) {
       experiments = experiments.filter((t) =>
         selectedProjectIds.includes(t.project_id)
       );
     }
-    
+
     // Sort by end date (most recent first)
     return experiments.sort((a, b) => {
       const dateA = a.end_date || a.start_date;
@@ -107,154 +118,171 @@ export default function ExperimentsPage() {
     });
   }, [allTasks, selectedProjectIds]);
 
-  // Build dependency chains for experiments
+  // Build dependency chains for experiments.
+  //
+  // All map keys are composite `taskKey(t)` strings ("self:<id>" for own
+  // tasks, "<owner>:<id>" for shared) so that morgan's task 5 and alex's
+  // task 5 don't collide into the same bucket — that was the bug that hid
+  // 12 of 13 completed experiments after an ELN import landed alongside
+  // shared tasks (AGENTS.md §8 "Per-user project-ID collision sweep").
   const experimentChains = useMemo(() => {
-    // Build lookup maps
-    const taskMap = new Map<number, Task>();
-    allTasks.forEach(t => taskMap.set(t.id, t));
-    
-    // Map of child_id -> parent_id (a task has at most one parent in a chain)
-    const parentMap = new Map<number, number>();
-    // Map of parent_id -> child_ids (a task can have multiple children)
-    const childrenMap = new Map<number, number[]>();
-    
+    // Build lookup maps. taskMap is keyed by composite key, not bare t.id,
+    // so shared and own tasks with matching numeric ids stay distinct.
+    const taskMap = new Map<string, Task>();
+    allTasks.forEach((t) => taskMap.set(taskKey(t), t));
+
+    // Map of child key -> parent key (a task has at most one parent in a chain).
+    // Dependencies live in the current user's store and reference current-user
+    // task ids, so all entries get the "self:" namespace via depKey().
+    const parentMap = new Map<string, string>();
+    // Map of parent key -> child keys (a task can have multiple children).
+    const childrenMap = new Map<string, string[]>();
+
     for (const dep of dependencies) {
-      parentMap.set(dep.child_id, dep.parent_id);
-      const existing = childrenMap.get(dep.parent_id) || [];
-      existing.push(dep.child_id);
-      childrenMap.set(dep.parent_id, existing);
+      const childK = depKey(dep.child_id);
+      const parentK = depKey(dep.parent_id);
+      parentMap.set(childK, parentK);
+      const existing = childrenMap.get(parentK) || [];
+      existing.push(childK);
+      childrenMap.set(parentK, existing);
     }
-    
-    // Find root tasks (tasks with no parent) for the given experiments
-    const findRoot = (taskId: number): number => {
-      const parentId = parentMap.get(taskId);
-      if (parentId === undefined) return taskId;
-      return findRoot(parentId);
+
+    // Find root tasks (tasks with no parent) for the given experiments.
+    const findRoot = (key: string): string => {
+      const parentK = parentMap.get(key);
+      if (parentK === undefined) return key;
+      return findRoot(parentK);
     };
-    
-    // Build chain from root to all descendants
-    const buildChain = (rootId: number, visited: Set<number> = new Set()): Task[] => {
-      if (visited.has(rootId)) return [];
-      visited.add(rootId);
-      
-      const task = taskMap.get(rootId);
+
+    // Build chain from root to all descendants.
+    const buildChain = (rootKey: string, visited: Set<string> = new Set()): Task[] => {
+      if (visited.has(rootKey)) return [];
+      visited.add(rootKey);
+
+      const task = taskMap.get(rootKey);
       if (!task || task.task_type !== "experiment") return [];
-      
+
       const result: Task[] = [task];
-      const children = childrenMap.get(rootId) || [];
-      
-      for (const childId of children) {
-        const childChain = buildChain(childId, visited);
+      const children = childrenMap.get(rootKey) || [];
+
+      for (const childK of children) {
+        const childChain = buildChain(childK, visited);
         result.push(...childChain);
       }
-      
+
       return result;
     };
-    
-    // Group experiments by their root
-    const chainMap = new Map<number, Task[]>();
-    const processedTasks = new Set<number>();
-    
+
+    // Group experiments by their root.
+    const chainMap = new Map<string, Task[]>();
+    const processedTasks = new Set<string>();
+
     for (const exp of upcomingExperiments) {
-      if (processedTasks.has(exp.id)) continue;
-      
-      const rootId = findRoot(exp.id);
-      const rootTask = taskMap.get(rootId);
-      
+      const expKey = taskKey(exp);
+      if (processedTasks.has(expKey)) continue;
+
+      const rootKey = findRoot(expKey);
+      const rootTask = taskMap.get(rootKey);
+
       if (rootTask && rootTask.task_type === "experiment") {
-        if (!chainMap.has(rootId)) {
-          const chain = buildChain(rootId);
-          chainMap.set(rootId, chain);
-          chain.forEach(t => processedTasks.add(t.id));
+        if (!chainMap.has(rootKey)) {
+          const chain = buildChain(rootKey);
+          chainMap.set(rootKey, chain);
+          chain.forEach((t) => processedTasks.add(taskKey(t)));
         }
       } else {
-        // Standalone experiment (no dependencies)
-        chainMap.set(exp.id, [exp]);
-        processedTasks.add(exp.id);
+        // Standalone experiment (no dependencies).
+        chainMap.set(expKey, [exp]);
+        processedTasks.add(expKey);
       }
     }
-    
-    // Convert to array of chains
+
+    // Convert to array of chains.
     const chains: ExperimentChain[] = [];
-    for (const [rootId, chainTasks] of chainMap) {
-      const rootTask = taskMap.get(rootId);
+    for (const [rootKey, chainTasks] of chainMap) {
+      const rootTask = taskMap.get(rootKey);
       if (rootTask) {
         chains.push({ rootTask, chainTasks });
       }
     }
-    
-    // Sort chains by root task start date
+
+    // Sort chains by root task start date.
     return chains.sort((a, b) => a.rootTask.start_date.localeCompare(b.rootTask.start_date));
   }, [upcomingExperiments, dependencies, allTasks]);
 
-  // Build completed experiment chains
+  // Build completed experiment chains. Same composite-key contract as
+  // `experimentChains` above — see that comment for why every map key is a
+  // `taskKey()` string rather than a bare numeric id.
   const completedExperimentChains = useMemo(() => {
-    const taskMap = new Map<number, Task>();
-    allTasks.forEach(t => taskMap.set(t.id, t));
-    
-    const parentMap = new Map<number, number>();
-    const childrenMap = new Map<number, number[]>();
-    
+    const taskMap = new Map<string, Task>();
+    allTasks.forEach((t) => taskMap.set(taskKey(t), t));
+
+    const parentMap = new Map<string, string>();
+    const childrenMap = new Map<string, string[]>();
+
     for (const dep of dependencies) {
-      parentMap.set(dep.child_id, dep.parent_id);
-      const existing = childrenMap.get(dep.parent_id) || [];
-      existing.push(dep.child_id);
-      childrenMap.set(dep.parent_id, existing);
+      const childK = depKey(dep.child_id);
+      const parentK = depKey(dep.parent_id);
+      parentMap.set(childK, parentK);
+      const existing = childrenMap.get(parentK) || [];
+      existing.push(childK);
+      childrenMap.set(parentK, existing);
     }
-    
-    const findRoot = (taskId: number): number => {
-      const parentId = parentMap.get(taskId);
-      if (parentId === undefined) return taskId;
-      return findRoot(parentId);
+
+    const findRoot = (key: string): string => {
+      const parentK = parentMap.get(key);
+      if (parentK === undefined) return key;
+      return findRoot(parentK);
     };
-    
-    const buildChain = (rootId: number, visited: Set<number> = new Set()): Task[] => {
-      if (visited.has(rootId)) return [];
-      visited.add(rootId);
-      
-      const task = taskMap.get(rootId);
+
+    const buildChain = (rootKey: string, visited: Set<string> = new Set()): Task[] => {
+      if (visited.has(rootKey)) return [];
+      visited.add(rootKey);
+
+      const task = taskMap.get(rootKey);
       if (!task || task.task_type !== "experiment") return [];
-      
+
       const result: Task[] = [task];
-      const children = childrenMap.get(rootId) || [];
-      
-      for (const childId of children) {
-        const childChain = buildChain(childId, visited);
+      const children = childrenMap.get(rootKey) || [];
+
+      for (const childK of children) {
+        const childChain = buildChain(childK, visited);
         result.push(...childChain);
       }
-      
+
       return result;
     };
-    
-    const chainMap = new Map<number, Task[]>();
-    const processedTasks = new Set<number>();
-    
+
+    const chainMap = new Map<string, Task[]>();
+    const processedTasks = new Set<string>();
+
     for (const exp of completedExperiments) {
-      if (processedTasks.has(exp.id)) continue;
-      
-      const rootId = findRoot(exp.id);
-      const rootTask = taskMap.get(rootId);
-      
+      const expKey = taskKey(exp);
+      if (processedTasks.has(expKey)) continue;
+
+      const rootKey = findRoot(expKey);
+      const rootTask = taskMap.get(rootKey);
+
       if (rootTask && rootTask.task_type === "experiment") {
-        if (!chainMap.has(rootId)) {
-          const chain = buildChain(rootId);
-          chainMap.set(rootId, chain);
-          chain.forEach(t => processedTasks.add(t.id));
+        if (!chainMap.has(rootKey)) {
+          const chain = buildChain(rootKey);
+          chainMap.set(rootKey, chain);
+          chain.forEach((t) => processedTasks.add(taskKey(t)));
         }
       } else {
-        chainMap.set(exp.id, [exp]);
-        processedTasks.add(exp.id);
+        chainMap.set(expKey, [exp]);
+        processedTasks.add(expKey);
       }
     }
-    
+
     const chains: ExperimentChain[] = [];
-    for (const [rootId, chainTasks] of chainMap) {
-      const rootTask = taskMap.get(rootId);
+    for (const [rootKey, chainTasks] of chainMap) {
+      const rootTask = taskMap.get(rootKey);
       if (rootTask) {
         chains.push({ rootTask, chainTasks });
       }
     }
-    
+
     return chains.sort((a, b) => {
       const dateA = a.rootTask.end_date || a.rootTask.start_date;
       const dateB = b.rootTask.end_date || b.rootTask.start_date;
@@ -281,8 +309,11 @@ export default function ExperimentsPage() {
   // Group chains by project. Keyed by composite `${owner}:${id}` so two
   // numerically-equal project ids from different owners don't merge into one
   // bucket (a shared project would silently absorb the own-project chains).
+  // The composite `key` is also carried out as `projectKey` on each bucket so
+  // React keys downstream don't fall back to `projectName` (two different
+  // projects can legitimately share a display name across owners).
   const groupedChains = useMemo(() => {
-    const map: Record<string, { projectName: string; chains: ExperimentChain[]; color: string }> = {};
+    const map: Record<string, { projectKey: string; projectName: string; chains: ExperimentChain[]; color: string }> = {};
 
     for (const chain of experimentChains) {
       const key = taskProjectKey(chain.rootTask);
@@ -292,7 +323,7 @@ export default function ExperimentsPage() {
         );
         if (project) {
           const color = project.color || DEFAULT_COLORS[projects.indexOf(project) % DEFAULT_COLORS.length];
-          map[key] = { projectName: project.name, chains: [], color };
+          map[key] = { projectKey: key, projectName: project.name, chains: [], color };
         }
       }
       if (map[key]) {
@@ -305,7 +336,7 @@ export default function ExperimentsPage() {
 
   // Group completed chains by project (same composite-keying as above).
   const groupedCompletedChains = useMemo(() => {
-    const map: Record<string, { projectName: string; chains: ExperimentChain[]; color: string }> = {};
+    const map: Record<string, { projectKey: string; projectName: string; chains: ExperimentChain[]; color: string }> = {};
 
     for (const chain of completedExperimentChains) {
       const key = taskProjectKey(chain.rootTask);
@@ -315,7 +346,7 @@ export default function ExperimentsPage() {
         );
         if (project) {
           const color = project.color || DEFAULT_COLORS[projects.indexOf(project) % DEFAULT_COLORS.length];
-          map[key] = { projectName: project.name, chains: [], color };
+          map[key] = { projectKey: key, projectName: project.name, chains: [], color };
         }
       }
       if (map[key]) {
@@ -339,7 +370,7 @@ export default function ExperimentsPage() {
           <div>
             <h2 className="text-xl font-semibold text-gray-900">Lab Notes</h2>
             <p className="text-sm text-gray-400 mt-0.5">
-              {activeTab === "experiments" 
+              {activeTab === "experiments"
                 ? `${upcomingExperiments.length} upcoming experiment${upcomingExperiments.length !== 1 ? "s" : ""}`
                 : "Meeting notes and running logs"}
             </p>
@@ -433,11 +464,11 @@ export default function ExperimentsPage() {
           </div>
         ) : (
           <div className="space-y-8">
-            {groupedChains.map(({ projectName, chains, color }) => {
+            {groupedChains.map(({ projectKey: bucketKey, projectName, chains, color }) => {
               const totalExperiments = chains.reduce((sum, c) => sum + c.chainTasks.length, 0);
-              
+
               return (
-                <div key={projectName}>
+                <div key={bucketKey}>
                   {/* Project header */}
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
@@ -470,7 +501,7 @@ export default function ExperimentsPage() {
                       const rootTask = chain.rootTask;
                       const chainLength = chain.chainTasks.length;
                       const isChain = chainLength > 1;
-                      
+
                       // Determine status of the root task
                       let status: "overdue" | "inProgress" | "upcoming" = "upcoming";
                       if (rootTask.end_date < today) {
@@ -478,10 +509,10 @@ export default function ExperimentsPage() {
                       } else if (rootTask.start_date <= today && rootTask.end_date >= today) {
                         status = "inProgress";
                       }
-                      
+
                       return (
                         <div
-                           key={rootTask.id}
+                           key={taskKey(rootTask)}
                            className={`relative transition-all ${
                              isChain ? "stacked-card" : ""
                            }`}
@@ -493,7 +524,7 @@ export default function ExperimentsPage() {
                                <div className="absolute top-1 left-1 right-1 h-full bg-gray-50 border border-gray-200 rounded-lg -z-10" />
                              </>
                            )}
-                           
+
                            <div
                              className={`rounded-lg p-4 hover:shadow-md transition-all relative ${
                                status === "overdue"
@@ -512,16 +543,16 @@ export default function ExperimentsPage() {
                             {status === "inProgress" && (
                               <div className="mb-3">
                                 <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                  <div 
+                                  <div
                                     className="h-full bg-gradient-to-r from-emerald-400 to-green-500 transition-all duration-300"
-                                    style={{ 
-                                      width: `${Math.min(100, Math.max(0, ((new Date(today).getTime() - new Date(rootTask.start_date).getTime()) / (1000 * 60 * 60 * 24) / rootTask.duration_days) * 100))}%` 
+                                    style={{
+                                      width: `${Math.min(100, Math.max(0, ((new Date(today).getTime() - new Date(rootTask.start_date).getTime()) / (1000 * 60 * 60 * 24) / rootTask.duration_days) * 100))}%`
                                     }}
                                   />
                                 </div>
                               </div>
                             )}
-                            
+
                             <div className="flex items-start justify-between mb-2">
                               <h4 className="text-sm font-medium text-gray-900 line-clamp-2">
                                 {rootTask.name}
@@ -544,7 +575,7 @@ export default function ExperimentsPage() {
                                 )}
                               </div>
                             </div>
-                            
+
                             {status === "overdue" && (
                               <p className="text-xs text-red-500 mb-2">
                                 Ended {rootTask.end_date}
@@ -560,19 +591,19 @@ export default function ExperimentsPage() {
                                 Starts {rootTask.start_date}
                               </p>
                             )}
-                            
+
                             <div className="flex items-center gap-2 text-xs text-gray-400">
                               <span>{rootTask.start_date}</span>
                               <span>·</span>
                               <span>{rootTask.duration_days}d</span>
                             </div>
-                            
+
                             {rootTask.method_ids?.length > 0 && (
                               <span className="text-[10px] px-2 py-0.5 bg-purple-50 text-purple-600 rounded-full mt-2 inline-block">
                                 Has Method
                               </span>
                             )}
-                            
+
                             {isChain && (
                               <div className="mt-2 pt-2 border-t border-gray-100">
                                 <p className="text-[10px] text-gray-400">
@@ -614,11 +645,11 @@ export default function ExperimentsPage() {
 
             {showCompleted && (
               <div className="mt-4 space-y-8">
-                {groupedCompletedChains.map(({ projectName, chains, color }) => {
+                {groupedCompletedChains.map(({ projectKey: bucketKey, projectName, chains, color }) => {
                   const totalExperiments = chains.reduce((sum, c) => sum + c.chainTasks.length, 0);
-                  
+
                   return (
-                    <div key={`completed-${projectName}`}>
+                    <div key={`completed-${bucketKey}`}>
                       {/* Project header */}
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
@@ -645,10 +676,10 @@ export default function ExperimentsPage() {
                           const rootTask = chain.rootTask;
                           const chainLength = chain.chainTasks.length;
                           const isChain = chainLength > 1;
-                          
+
                           return (
                             <div
-                              key={rootTask.id}
+                              key={taskKey(rootTask)}
                               onClick={() => handleChainClick(chain)}
                               className={`relative cursor-pointer transition-all ${
                                 isChain ? "stacked-card" : ""
@@ -661,7 +692,7 @@ export default function ExperimentsPage() {
                                   <div className="absolute top-1 left-1 right-1 h-full bg-gray-100 border border-gray-200 rounded-lg -z-10" />
                                 </>
                               )}
-                              
+
                               <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all opacity-75 hover:opacity-100">
                                 <div className="flex items-start justify-between mb-2">
                                   <h4 className="text-sm font-medium text-gray-700 line-clamp-2">
