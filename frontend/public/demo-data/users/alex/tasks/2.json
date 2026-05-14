@@ -10,7 +10,9 @@
   "task_type": "experiment",
   "weekend_override": null,
   "method_id": null,
-  "method_ids": [],
+  "method_ids": [
+    1
+  ],
   "deviation_log": "Demo: heat-shock ran 38 min instead of 40 (interrupted by timer reset). Noted for the colony count.",
   "tags": null,
   "sort_order": 2,

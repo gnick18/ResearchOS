@@ -382,7 +382,16 @@ export async function buildExperimentPayload(
   );
 
   const methodIds = task.method_ids ?? [];
-  const methodAttachmentsForTask = task.method_attachments ?? [];
+  // Invariant: ∀ a ∈ method_attachments: a.method_id ∈ method_ids. Drift
+  // (orphan attachment rows for methods that were detached upstream) makes
+  // the Raw bundle self-inconsistent — `task.json` carries a per-method
+  // override pointing at a method id that no methods/ entry covers. Filter
+  // here so the serialized payload is always coherent regardless of
+  // upstream state. The lazy normalize in local-api.ts + the
+  // tasksApi.update boundary enforce the same invariant for live writes.
+  const methodAttachmentsForTask = (task.method_attachments ?? []).filter((a) =>
+    methodIds.includes(a.method_id)
+  );
 
   const methods: MethodPayload[] = [];
   const methodFileAttachments: ExperimentAttachment[] = [];
@@ -405,6 +414,13 @@ export async function buildExperimentPayload(
     ...methodFileAttachments,
   ]);
 
+  // Use the filtered attachments in the serialized task too, so the Raw
+  // bundle's `task.json` matches the methods/ entries in the same bundle.
+  const consistentTask: Task = {
+    ...task,
+    method_attachments: methodAttachmentsForTask,
+  };
+
   const meta: ExperimentExportPayload["meta"] = {
     ownerLabel: task.owner || "—",
     durationDays: computeDurationDays(task),
@@ -414,7 +430,7 @@ export async function buildExperimentPayload(
   };
 
   return {
-    task,
+    task: consistentTask,
     project,
     resolvedBase,
     notesMarkdown,
