@@ -20,9 +20,24 @@ import {
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useAppStore } from "@/lib/store";
-import { tasksApi, methodsApi } from "@/lib/local-api";
+import {
+  tasksApi,
+  methodsApi,
+  fetchAllTasksIncludingShared,
+  fetchAllProjectsIncludingShared,
+} from "@/lib/local-api";
 import { splitAllTaskAttachments } from "@/lib/tasks/migrate-attachments";
 import { repairStampFormats } from "@/lib/tasks/migrate-stamps";
+import {
+  reconcileHostedDrift,
+  hostedManifestPath,
+  type ReconcileReport,
+} from "@/lib/sharing/project-hosting";
+import { fileService } from "@/lib/file-system/file-service";
+import type {
+  ProjectHostedManifest,
+  ProjectHostedTaskEntry,
+} from "@/lib/types";
 import {
   patchUserSettings,
   readUserSettings,
@@ -660,6 +675,7 @@ function MaintenanceSection() {
         run={repairStampFormats}
         invalidateKey={["tasks"]}
       />
+      <ReconcileRow />
     </SectionShell>
   );
 }
@@ -1488,6 +1504,109 @@ function RepairRow({
         className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
       >
         {running ? "Running…" : "Run repair"}
+      </button>
+    </div>
+  );
+}
+
+// Cross-owner sharing reconciler. Mirrors RepairRow's inline status pattern
+// but renders the reconcile-specific tally (drops / appends / unknown
+// destinations) instead of scanned/repaired/alreadyCorrect/failed. Wires the
+// public `reconcileHostedDrift` helper from `lib/sharing/project-hosting`
+// using `fetchAllTasksIncludingShared` + `fetchAllProjectsIncludingShared`
+// for enumeration. `appendEntry` is implemented inline against `fileService`
+// because the project-hosting module keeps the manifest CRUD primitives
+// private (they're only re-exported under `__testing__`). Per-task save is
+// routed through `tasksApi.update` so any owner-routing rules stay honored.
+function ReconcileRow() {
+  const queryClient = useQueryClient();
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<ReconcileReport | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handle = useCallback(async () => {
+    setRunning(true);
+    setError(null);
+    setResult(null);
+    try {
+      const [allTasks, allProjects] = await Promise.all([
+        fetchAllTasksIncludingShared(),
+        fetchAllProjectsIncludingShared(),
+      ]);
+      const taskIndex = new Map<string, (typeof allTasks)[number]>();
+      for (const t of allTasks) taskIndex.set(`${t.owner}:${t.id}`, t);
+      const report = await reconcileHostedDrift({
+        hostedManifests: allProjects.map((p) => ({
+          projectOwner: p.owner,
+          projectId: p.id,
+        })),
+        tasks: allTasks,
+        loadTask: async (owner, id) => taskIndex.get(`${owner}:${id}`) ?? null,
+        appendEntry: async (projectOwner, projectId, entry) => {
+          const path = hostedManifestPath(projectOwner, projectId);
+          const current = await fileService.readJson<Partial<ProjectHostedManifest>>(path);
+          const existing: ProjectHostedTaskEntry[] = Array.isArray(current?.hostedTasks)
+            ? current!.hostedTasks!
+            : [];
+          const dedup = existing.some(
+            (e) => e.owner === entry.owner && e.taskId === entry.taskId
+          );
+          await fileService.writeJson<ProjectHostedManifest>(path, {
+            version: 1,
+            hostedTasks: dedup ? existing : [...existing, entry],
+          });
+        },
+        saveTask: async (owner, task) => {
+          // reconcileHostedDrift doesn't actually invoke saveTask today
+          // (mirror-drift fix only appends manifest entries); the input is
+          // wired for future "clear external_project on unknown destination"
+          // policy. Route through tasksApi.update so owner-scoped writes land
+          // in the correct dir. Narrow to the fields TaskUpdate accepts —
+          // passing a full Task as the patch is a type error.
+          await tasksApi.update(
+            task.id,
+            { external_project: task.external_project ?? null },
+            owner
+          );
+        },
+        apply: true,
+      });
+      setResult(report);
+      await queryClient.refetchQueries({ queryKey: ["tasks"] });
+    } catch (err) {
+      console.error("[Reconcile cross-owner project sharing] failed:", err);
+      setError(err instanceof Error ? err.message : "Reconcile failed. See console for details.");
+    } finally {
+      setRunning(false);
+    }
+  }, [queryClient]);
+
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm text-gray-800">Reconcile cross-owner project sharing</p>
+        <p className="text-xs text-gray-500 mt-1">
+          Walks every task and every project hosted manifest and fixes drift between the two sides
+          (a hosted task that&apos;s no longer marked as external on its origin, or a manifest entry
+          pointing at a deleted task). Safe to run anytime; no destructive operations beyond pruning
+          broken refs.
+        </p>
+        {result && (
+          <p className="text-xs text-gray-600 mt-2">
+            Reconcile complete: <strong>{result.manifestDropped.length}</strong> drops ·{" "}
+            <strong>{result.mirrorDriftAppended.length}</strong> appends ·{" "}
+            <strong>{result.unknownDestinations.length}</strong> unknown destinations
+          </p>
+        )}
+        {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+      </div>
+      <button
+        type="button"
+        onClick={handle}
+        disabled={running}
+        className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
+      >
+        {running ? "Running…" : "Run reconcile"}
       </button>
     </div>
   );
