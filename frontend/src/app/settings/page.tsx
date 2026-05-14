@@ -683,7 +683,12 @@ function ImportRow({ onOpen }: { onOpen: () => void }) {
 function LabArchivesSection({ username }: { username: string }) {
   const [elnImportOpen, setElnImportOpen] = useState(false);
   const configured = isLabArchivesConfigured();
-  const demoMode = isDemoOrWikiCapture();
+  // In capture mode the wiki manager can opt out of the purple "Demo mode"
+  // pill by setting `?labArchivesConfigured=…` — that lets them capture the
+  // green ("configured") and amber ("not available yet") variants of the
+  // status pill from a static fixture. See `isLabArchivesConfigured()` in
+  // `lib/labarchives/config.ts` for the param shape.
+  const demoMode = isDemoOrWikiCapture() && !hasLabArchivesCaptureOverride();
 
   return (
     <SectionShell
@@ -783,6 +788,19 @@ function LabArchivesSection({ username }: { username: string }) {
       />
     </SectionShell>
   );
+}
+
+/** True only when the page URL carries the `labArchivesConfigured` capture
+ *  override (any value). Lets the LabArchives section show its green /
+ *  amber pill states under `?wikiCapture=1` instead of the purple "Demo
+ *  mode" pill. Returns false on the server / before hydration. */
+function hasLabArchivesCaptureOverride(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return new URLSearchParams(window.location.search).get("labArchivesConfigured") !== null;
+  } catch {
+    return false;
+  }
 }
 
 function LabArchivesConfigState({
