@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { readLabArchivesCredsFromRequest } from "@/lib/labarchives/config";
 import { signedLabArchivesFetch } from "@/lib/labarchives/signed-fetch";
+import { withRateLimit } from "@/lib/api/rate-limit";
 
 /**
  * `POST /api/auth/labarchives/refresh` — re-validate a stored UID.
@@ -25,7 +26,7 @@ import { signedLabArchivesFetch } from "@/lib/labarchives/signed-fetch";
  * Client-facing messages are deliberately generic — detail is logged
  * server-side via `console.warn`.
  */
-export async function POST(req: NextRequest): Promise<Response> {
+async function handlePost(req: NextRequest): Promise<Response> {
   let body: { uid?: string; deployerCreds?: unknown };
   try {
     body = (await req.json()) as { uid?: string; deployerCreds?: unknown };
@@ -101,3 +102,11 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
   return Response.json({ ok: true });
 }
+
+// 20/min — refresh fires once per page load / reconnect probe, well below
+// this ceiling for any honest caller.
+export const POST = withRateLimit(handlePost, {
+  limit: 20,
+  windowMs: 60_000,
+  name: "labarchives-refresh",
+});

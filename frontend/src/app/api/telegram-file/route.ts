@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { safeFetch } from "@/lib/api/url-guards";
+import { withRateLimit } from "@/lib/api/rate-limit";
 
 /**
  * Server-side proxy for Telegram's file CDN.
@@ -39,7 +40,7 @@ const TELEGRAM_PATH_RE = /^[A-Za-z0-9_./-]+$/;
 const TELEGRAM_FILE_HOST = "api.telegram.org";
 const MAX_TELEGRAM_FILE_BYTES = 20 * 1024 * 1024; // Bot API hard cap is 20 MB.
 
-export async function GET(req: NextRequest): Promise<Response> {
+async function handleGet(req: NextRequest): Promise<Response> {
   const token = req.headers.get("x-telegram-token");
   const path = req.nextUrl.searchParams.get("path");
 
@@ -126,6 +127,12 @@ export async function GET(req: NextRequest): Promise<Response> {
 
   return new Response(result.body, { status: 200, headers });
 }
+
+export const GET = withRateLimit(handleGet, {
+  limit: 30,
+  windowMs: 60_000,
+  name: "telegram-file",
+});
 
 function genericErrorMessage(status: number): string {
   if (status === 400) return "Bad request";
