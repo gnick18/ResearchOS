@@ -124,6 +124,25 @@ async function openLabNotesTab(page) {
   } catch {}
 }
 
+// Click one of the Lab Mode top-level tabs ("Activity", "GANTT",
+// "Experiments", etc.). The buttons live in a tab strip inside the lab
+// header and contain the label as visible text. Match by exact text so
+// we don't accidentally hit a sidebar item with a similar word.
+async function switchLabTab(page, label) {
+  try {
+    const tab = page
+      .locator("button")
+      .filter({ hasText: new RegExp(`^${label}$`) })
+      .first();
+    if (await tab.count()) {
+      await tab.click({ timeout: 3000 });
+      await page.waitForTimeout(900);
+    }
+  } catch (err) {
+    console.warn(`  ⚠ switchLabTab(${label}): ${err.message}`);
+  }
+}
+
 // Switch the markdown editor's three-way mode toggle to "Edit", "Hybrid",
 // or "Preview". The buttons are <button>Edit</button> etc inside a small
 // segmented control; match the exact text so we don't catch the page's
@@ -345,6 +364,145 @@ const FIXTURE_ROUTES = [
     highlight: { text: "New Protocol" },
   },
   {
+    path: "/pcr",
+    file: "pcr-step-edit.png",
+    waitFor: "text=PCR",
+    settleMs: 800,
+    action: async (page) => {
+      // Open the protocol detail modal by clicking the first protocol card.
+      try {
+        const card = page
+          .locator("h3")
+          .filter({ hasText: /Demo protocol/i })
+          .first();
+        if (!(await card.count())) return;
+        await card.click({ timeout: 3000 });
+        await page.waitForTimeout(800);
+      } catch (err) {
+        console.warn(`  ⚠ pcr-step-edit open card: ${err.message}`);
+        return;
+      }
+      // Click the "Edit" button in the modal header to switch into edit mode.
+      try {
+        const editBtn = page
+          .locator("button")
+          .filter({ hasText: /^Edit$/ })
+          .first();
+        if (await editBtn.count()) {
+          await editBtn.click({ timeout: 3000 });
+          await page.waitForTimeout(700);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ pcr-step-edit click Edit: ${err.message}`);
+      }
+      // Click "Edit Cycle" on the gradient editor toolbar to enter
+      // the interactive (jiggling) mode where blocks are editable.
+      try {
+        const editCycleBtn = page
+          .locator("button")
+          .filter({ hasText: /^Edit Cycle$/ })
+          .first();
+        if (await editCycleBtn.count()) {
+          await editCycleBtn.click({ timeout: 3000 });
+          await page.waitForTimeout(700);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ pcr-step-edit click Edit Cycle: ${err.message}`);
+      }
+      // Double-click any temperature block to open the Edit Step popup.
+      // The temperature label is a <span class="font-semibold">95°C</span>
+      // inside each block; the dblclick handler lives two parents up but
+      // the event bubbles, so dblclick on the span fires the right handler.
+      try {
+        const tempLabel = page
+          .locator("span.font-semibold")
+          .filter({ hasText: /^\d+°C$/ })
+          .first();
+        if (await tempLabel.count()) {
+          await tempLabel.dblclick({ timeout: 3000 });
+          await page.waitForTimeout(900);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ pcr-step-edit dblclick block: ${err.message}`);
+      }
+    },
+  },
+  {
+    path: "/pcr",
+    file: "pcr-reagent-totals.png",
+    waitFor: "text=PCR",
+    settleMs: 800,
+    action: async (page) => {
+      try {
+        const card = page
+          .locator("h3")
+          .filter({ hasText: /Demo protocol/i })
+          .first();
+        if (!(await card.count())) return;
+        await card.click({ timeout: 3000 });
+        await page.waitForTimeout(800);
+      } catch (err) {
+        console.warn(`  ⚠ pcr-reagent-totals open card: ${err.message}`);
+        return;
+      }
+      // Scroll the modal's inner overflow container so the Reaction
+      // Recipe section sits at the top of the visible area, then compute
+      // a tight clip rectangle around the recipe section (label + table).
+      // Returning {clip} lets the caller use these coordinates for the
+      // screenshot instead of a static crop.
+      try {
+        const clip = await page.evaluate(() => {
+          const labels = Array.from(document.querySelectorAll("label"));
+          const recipeLabel = labels.find(
+            (el) => (el.textContent || "").trim() === "Reaction Recipe",
+          );
+          if (!recipeLabel) return null;
+          const section = recipeLabel.parentElement;
+          if (!section) return null;
+          // Walk up to the nearest scrollable ancestor (the modal's
+          // overflow-y-auto wrapper) and scroll the section to the top.
+          let scroller = section.parentElement;
+          while (scroller && scroller !== document.body) {
+            const cs = getComputedStyle(scroller);
+            if (
+              cs.overflowY === "auto" ||
+              cs.overflowY === "scroll" ||
+              scroller.scrollHeight > scroller.clientHeight + 4
+            ) {
+              break;
+            }
+            scroller = scroller.parentElement;
+          }
+          if (scroller && scroller !== document.body) {
+            const sRect = scroller.getBoundingClientRect();
+            const lRect = section.getBoundingClientRect();
+            scroller.scrollTop += lRect.top - sRect.top - 16;
+          }
+          // Re-measure after the scroll.
+          const r = section.getBoundingClientRect();
+          const pad = 12;
+          const x = Math.max(0, Math.floor(r.left - pad));
+          const y = Math.max(0, Math.floor(r.top - pad));
+          const width = Math.min(
+            Math.max(0, window.innerWidth - x),
+            Math.ceil(r.width + pad * 2),
+          );
+          const height = Math.min(
+            Math.max(0, window.innerHeight - y),
+            Math.ceil(r.height + pad * 2),
+          );
+          return { x, y, width, height };
+        });
+        await page.waitForTimeout(300); // let the scroll settle
+        if (clip && clip.width > 100 && clip.height > 100) {
+          return { clip };
+        }
+      } catch (err) {
+        console.warn(`  ⚠ pcr-reagent-totals clip calc: ${err.message}`);
+      }
+    },
+  },
+  {
     path: "/purchases",
     file: "purchases-list.png",
     waitFor: "text=Purchases",
@@ -379,6 +537,126 @@ const FIXTURE_ROUTES = [
     file: "lab-mode-activity.png",
     waitFor: "text=Activity, text=Lab",
     settleMs: 1200,
+  },
+  {
+    path: "/lab",
+    file: "lab-mode-gantt.png",
+    waitFor: "text=Activity, text=Lab",
+    settleMs: 1200,
+    action: async (page) => {
+      await switchLabTab(page, "GANTT");
+    },
+  },
+  {
+    path: "/lab",
+    file: "lab-mode-purchases.png",
+    waitFor: "text=Activity, text=Lab",
+    settleMs: 1200,
+    action: async (page) => {
+      await switchLabTab(page, "Purchases");
+    },
+  },
+  {
+    path: "/lab",
+    file: "lab-mode-cross-user-lists.png",
+    waitFor: "text=Activity, text=Lab",
+    settleMs: 1200,
+    action: async (page) => {
+      await switchLabTab(page, "Experiments");
+    },
+  },
+  {
+    path: "/lab",
+    file: "lab-mode-user-filter.png",
+    waitFor: "text=Activity, text=Lab",
+    settleMs: 1200,
+    action: async (page) => {
+      // The floating chip lives in the bottom-right corner. Match by the
+      // tooltip set on the inner clickable div.
+      try {
+        const chip = page.locator("[title='Filter users to display']").first();
+        if (await chip.count()) {
+          await chip.click({ timeout: 3000 });
+          await page.waitForTimeout(700);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ lab-mode-user-filter open chip: ${err.message}`);
+      }
+    },
+  },
+  {
+    path: "/lab",
+    file: "purchases-lab-funding-cards.png",
+    waitFor: "text=Activity, text=Lab",
+    settleMs: 1200,
+    action: async (page) => {
+      await switchLabTab(page, "Purchases");
+      // Compute a tight clip around the Funding Accounts Overview panel.
+      try {
+        const clip = await page.evaluate(() => {
+          const headings = Array.from(document.querySelectorAll("h2, h3, h4"));
+          const heading = headings.find(
+            (el) => (el.textContent || "").trim() === "Funding Accounts Overview",
+          );
+          if (!heading) return null;
+          // Walk up to find the panel wrapper that contains both heading
+          // and cards (a div with rounded border / background).
+          let panel = heading.parentElement;
+          for (let i = 0; i < 5 && panel; i++) {
+            const cs = getComputedStyle(panel);
+            if (cs.borderRadius && cs.borderRadius !== "0px") break;
+            panel = panel.parentElement;
+          }
+          if (!panel) return null;
+          const r = panel.getBoundingClientRect();
+          const pad = 24;
+          const x = Math.max(0, Math.floor(r.left - pad));
+          const y = Math.max(0, Math.floor(r.top - pad));
+          const width = Math.min(
+            Math.max(0, window.innerWidth - x),
+            Math.ceil(r.width + pad * 2),
+          );
+          const height = Math.min(
+            Math.max(0, window.innerHeight - y),
+            Math.ceil(r.height + pad * 2),
+          );
+          return { x, y, width, height };
+        });
+        if (clip && clip.width > 100 && clip.height > 100) {
+          return { clip };
+        }
+      } catch (err) {
+        console.warn(`  ⚠ purchases-lab-funding-cards clip: ${err.message}`);
+      }
+    },
+  },
+  {
+    path: "/lab",
+    file: "purchases-lab-list.png",
+    waitFor: "text=Activity, text=Lab",
+    settleMs: 1200,
+    action: async (page) => {
+      await switchLabTab(page, "Purchases");
+      // Scroll the page so the "Purchase Orders" list dominates the
+      // viewport (funding cards and summary tiles move off the top).
+      try {
+        await page.evaluate(() => {
+          // Try the most likely scroll containers in turn.
+          const headings = Array.from(document.querySelectorAll("h2, h3, h4"));
+          const heading = headings.find(
+            (el) => (el.textContent || "").trim() === "Purchase Orders",
+          );
+          if (heading) {
+            heading.scrollIntoView({ block: "start", behavior: "instant" });
+            // Nudge a bit further so we get more rows in view.
+            window.scrollBy(0, -16);
+          } else {
+            window.scrollTo(0, 600);
+          }
+        });
+        await page.waitForTimeout(400);
+      } catch {}
+    },
   },
   {
     path: "/search?q=DEMO",
@@ -601,9 +879,13 @@ async function _capturePageAt(page, route, url) {
     await Promise.race(races);
   }
   await page.waitForTimeout(route.settleMs ?? 600);
+  let dynamicClip = null;
   if (route.action) {
     try {
-      await route.action(page);
+      const result = await route.action(page);
+      if (result && typeof result === "object" && result.clip) {
+        dynamicClip = result.clip;
+      }
     } catch (err) {
       console.warn(`  ⚠ ${route.file} — action threw: ${err.message}`);
     }
@@ -612,8 +894,9 @@ async function _capturePageAt(page, route, url) {
   await applyHighlight(page, route.highlight);
   await page.waitForTimeout(200); // let style changes commit
   try {
-    if (route.crop) {
-      await page.screenshot({ path: out, clip: route.crop });
+    const clip = dynamicClip ?? route.crop ?? null;
+    if (clip) {
+      await page.screenshot({ path: out, clip });
     } else {
       await page.screenshot({ path: out, fullPage: false });
     }
