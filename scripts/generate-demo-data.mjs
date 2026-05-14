@@ -451,7 +451,11 @@ function buildEntries() {
     // 6 days overdue regardless of when the demo is opened (see
     // OVERDUE_* anchors). Demonstrates the overdue UI state to users.
     { id: 13, project_id: 4, name: "Update lab onboarding doc", start_date: OVERDUE_START, duration_days: 2, end_date: OVERDUE_END_6D, task_type: "list", is_complete: false },
-    { id: 14, project_id: 4, name: "Review morgan's draft figures", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "list", is_complete: false },
+    // alex's task 14 is HOSTED into morgan's dissertation project (Option
+    // C / cross-owner sharing). Both sides — `external_project` here and
+    // `users/morgan/projects/2-hosted.json` below — must agree or the
+    // read-time normalizer drops the orphan entry.
+    { id: 14, project_id: 4, name: "Review morgan's draft figures", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "list", is_complete: false, external_project: { owner: "morgan", id: 2, sharedAt: "2026-05-13T16:00:00Z" } },
     { id: 15, project_id: 4, name: "Order LC-MS solvents", start_date: TODAY, duration_days: 1, end_date: TODAY, task_type: "purchase", is_complete: false },
   ]));
 
@@ -694,6 +698,21 @@ function buildEntries() {
   out.push(["users/morgan/dependencies/1.json", { id: 1, parent_id: 1, child_id: 2, dep_type: "FS" }]);
   out.push(["users/morgan/dependencies/2.json", { id: 2, parent_id: 2, child_id: 3, dep_type: "FS" }]);
 
+  // Cross-owner hosted manifest. alex's task 14 ("Review morgan's draft
+  // figures") is hosted INTO morgan's dissertation project so it shows up
+  // on morgan's project view + Gantt alongside her own tasks. Both sides
+  // (task.external_project + this manifest) must agree or the read-time
+  // normalizer drops the orphan. See `lib/sharing/project-hosting.ts`.
+  out.push([
+    "users/morgan/projects/2-hosted.json",
+    {
+      version: 1,
+      hostedTasks: [
+        { owner: "alex", taskId: 14, sharedAt: "2026-05-13T16:00:00Z", sharedBy: "alex" },
+      ],
+    },
+  ]);
+
   // morgan result task markdown stubs
   out.push(["users/morgan/results/task-1/notes.md", DEMO_BANNER_MD + "## 96-well plate setup\n\nPlated 80 candidate transformants + 8 WT + 8 positive controls. See `plate-96-fluo.png`.\n"]);
   out.push(["users/morgan/results/task-2/notes.md", DEMO_BANNER_MD + "## Fluorescence scan\n\nReader run with default GFP settings (485/528). See `fluo-scan-results.png` for the heat-map.\n"]);
@@ -759,6 +778,11 @@ function tasks(owner, list) {
         method_attachments: methodAttachments,
         owner,
         shared_with: t.shared_with ?? [],
+        // Cross-owner host (Option C, AGENTS.md §6). When set, the task
+        // appears on the destination project's Gantt in addition to its
+        // native project_id. Mirror the manifest in `users/<destOwner>/
+        // projects/<destId>-hosted.json` — emitted separately below.
+        external_project: t.external_project ?? null,
       },
     ];
   });
