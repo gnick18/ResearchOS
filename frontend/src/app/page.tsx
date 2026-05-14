@@ -10,6 +10,7 @@ import ProjectDetailPopup from "@/components/ProjectDetailPopup";
 import DataSetupScreen from "@/components/DataSetupScreen";
 import UserLoginScreen from "@/components/UserLoginScreen";
 import BetaDonationButton from "@/components/BetaDonationButton";
+import ReportBugButton from "@/components/ReportBugButton";
 import BugReportModal from "@/components/BugReportModal";
 import DevTestNotificationButton from "@/components/DevTestNotificationButton";
 import Tooltip from "@/components/Tooltip";
@@ -666,19 +667,10 @@ export default function HomePage() {
       )}
 
       {/* Beta: Donation Button */}
-      <BetaDonationButton />
+      <BetaDonationButton position="sidebar-edge" />
 
       {/* Beta: Report a Bug Button */}
-      <button
-        onClick={openBugReport}
-        className="fixed bottom-20 left-6 px-3 py-2 bg-gray-800 hover:bg-gray-900 text-white text-sm rounded-lg shadow-lg hover:shadow-xl transition-all flex items-center gap-2 z-40"
-        title="Report a bug"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-        </svg>
-        <span className="hidden sm:inline">Report Bug</span>
-      </button>
+      <ReportBugButton onClick={openBugReport} position="sidebar-edge" />
 
       {/* Dev: Test Error Button (only in development) */}
       {process.env.NODE_ENV === "development" && (
@@ -686,7 +678,7 @@ export default function HomePage() {
           onClick={() => {
             throw new Error("Test error for bug report feature");
           }}
-          className="fixed bottom-20 left-36 px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm rounded-lg shadow-lg transition-all flex items-center gap-2 z-40"
+          className="fixed bottom-20 left-[20rem] px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm rounded-lg shadow-lg transition-all flex items-center gap-2 z-40"
           title="Trigger test error (dev only)"
         >
           Test Error
@@ -705,7 +697,7 @@ export default function HomePage() {
 
       {/* Error Toast */}
       {showErrorToast && (
-        <div className="fixed bottom-24 left-6 bg-red-600 text-white px-4 py-3 rounded-lg shadow-lg z-50 flex items-center gap-3 max-w-sm">
+        <div className="fixed bottom-36 left-[17rem] bg-red-600 text-white px-4 py-3 rounded-lg shadow-lg z-50 flex items-center gap-3 max-w-sm">
           <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>

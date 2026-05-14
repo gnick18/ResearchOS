@@ -5,10 +5,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
 import AccountPasswordPopup from "@/components/AccountPasswordPopup";
+import BetaDonationButton from "@/components/BetaDonationButton";
+import BugReportModal from "@/components/BugReportModal";
+import ReportBugButton from "@/components/ReportBugButton";
 import ImportExperimentDialog from "@/components/ImportExperimentDialog";
 import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
 import Tooltip from "@/components/Tooltip";
 import UserAvatar from "@/components/UserAvatar";
+import { useErrorReporting } from "@/hooks/useErrorReporting";
 import { isLabArchivesConfigured } from "@/lib/labarchives/config";
 import {
   clearDeployerCreds,
@@ -86,9 +90,17 @@ const TIME_FORMAT_OPTIONS: { value: TimeFormat; label: string }[] = [
 ];
 
 export default function SettingsPage() {
+  const { showBugReport, currentError, openBugReport, closeBugReport } = useErrorReporting();
   return (
     <AppShell>
       <SettingsBody />
+      <ReportBugButton onClick={openBugReport} position="bottom-right" />
+      <BetaDonationButton position="bottom-right" />
+      <BugReportModal
+        isOpen={showBugReport}
+        onClose={closeBugReport}
+        prefilledError={currentError}
+      />
     </AppShell>
   );
 }

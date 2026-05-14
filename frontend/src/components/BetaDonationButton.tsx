@@ -6,7 +6,13 @@ import Tooltip from "@/components/Tooltip";
 
 interface BetaDonationButtonProps {
   variant?: "floating" | "link";
+  position?: "sidebar-edge" | "bottom-right";
 }
+
+const FLOATING_POSITION_CLASSES: Record<NonNullable<BetaDonationButtonProps["position"]>, string> = {
+  "sidebar-edge": "fixed bottom-6 left-[17rem] z-40",
+  "bottom-right": "fixed bottom-6 right-6 z-40",
+};
 
 /**
  * Stroke-style heart icon (Lucide-shape) — matches the rest of the app's
@@ -30,7 +36,7 @@ function HeartIcon({ className = "w-4 h-4" }: { className?: string }) {
   );
 }
 
-export default function BetaDonationButton({ variant = "floating" }: BetaDonationButtonProps) {
+export default function BetaDonationButton({ variant = "floating", position = "sidebar-edge" }: BetaDonationButtonProps) {
   const [showModal, setShowModal] = useState(false);
 
   if (!DONATION_CONFIG.enabled || !isDonationConfigured()) {
@@ -70,7 +76,7 @@ export default function BetaDonationButton({ variant = "floating" }: BetaDonatio
           type="button"
           onClick={() => setShowModal(true)}
           aria-label="Support this project"
-          className="fixed bottom-6 left-6 z-40 inline-flex items-center gap-2 rounded-full bg-rose-500 hover:bg-rose-600 active:bg-rose-700 text-white text-sm font-medium px-4 py-2.5 shadow-lg hover:shadow-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2"
+          className={`${FLOATING_POSITION_CLASSES[position]} inline-flex items-center gap-2 rounded-full bg-rose-500 hover:bg-rose-600 active:bg-rose-700 text-white text-sm font-medium px-4 py-2.5 shadow-lg hover:shadow-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2`}
         >
           <HeartIcon className="w-4 h-4" />
           <span>Support</span>
