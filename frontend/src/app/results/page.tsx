@@ -2,13 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { tasksApi, filesApi, fetchAllProjectsIncludingShared } from "@/lib/local-api";
+import { filesApi, fetchAllProjectsIncludingShared, fetchAllTasksIncludingShared } from "@/lib/local-api";
 import { findExistingTaskResultsBase, taskResultsBase } from "@/lib/tasks/results-paths";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
-import type { Task, Project } from "@/lib/types";
+import { taskKey, type Task, type Project } from "@/lib/types";
 
 interface ResultCard {
   task: Task;
@@ -31,17 +31,19 @@ export default function ResultsPage() {
     queryFn: fetchAllProjectsIncludingShared,
   });
 
+  // Use the canonical merged-view loader instead of
+  // `projects.map(p => tasksApi.listByProject(...))`. The latter reads raw
+  // on-disk task files for each owner — it does NOT decorate shared tasks
+  // with `is_shared_with_me: true`, so `taskKey()` collapses to `self:<id>`
+  // for every task in this path and shared+own tasks with the same numeric
+  // id silently collide downstream. See `/experiments` fix at `caa22513`.
+  // `fetchAllTasksIncludingShared` is the canonical merged-view loader (used
+  // by `/`, `/gantt`, `/settings`, `/experiments`) — decorates with
+  // `is_shared_with_me: true`, surfaces Option-C hosted tasks, dedups via
+  // composite key, and has a dev-mode duplicate-key guardrail.
   const { data: allTasks = [] } = useQuery({
     queryKey: ["tasks", currentUser],
-    queryFn: async () => {
-      if (projects.length === 0) return [];
-      const results = await Promise.all(
-        projects.map((p) =>
-          tasksApi.listByProject(p.id, p.is_shared_with_me ? p.owner : undefined)
-        )
-      );
-      return results.flat();
-    },
+    queryFn: fetchAllTasksIncludingShared,
     enabled: projects.length > 0,
   });
 
@@ -91,7 +93,9 @@ export default function ResultsPage() {
   // Attachments/ here too so cards still surface the right badge for tasks
   // whose attachments haven't been touched since the migration.
   const { data: resultCards = [] } = useQuery({
-    queryKey: ["resultCards", resultTasks.map((t) => t.id)],
+    // Composite key — bare `t.id` collides across users when a shared task
+    // and an own task share the same numeric id.
+    queryKey: ["resultCards", resultTasks.map((t) => taskKey(t))],
     queryFn: async (): Promise<ResultCard[]> => {
       const cards: ResultCard[] = [];
 
@@ -213,7 +217,7 @@ export default function ResultsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {cards.map((card) => (
                 <div
-                  key={card.task.id}
+                  key={taskKey(card.task)}
                   onClick={() => handleTaskClick(card.task)}
                   className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all cursor-pointer hover:border-gray-300"
                 >
