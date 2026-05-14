@@ -125,7 +125,7 @@ export async function migrateNoteImages(
 
   // Build a prioritized list of candidate owners to probe for legacy sources.
   // Older tasks may have no recorded owner, so we fall back to every known user.
-  let candidateOwners: string[] = [];
+  const candidateOwners: string[] = [];
   if (ownerUsername) candidateOwners.push(ownerUsername);
   try {
     const allUsers = await discoverUsers();

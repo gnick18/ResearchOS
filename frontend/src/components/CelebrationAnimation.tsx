@@ -83,6 +83,7 @@ export default function CelebrationAnimation({ x, y, onComplete }: CelebrationAn
   }, [x, y]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot init of mount-time random particles, then setInterval drives animation
     setPieces(createPieces());
     
     // Create floating emojis

@@ -9,7 +9,7 @@ export interface ErrorInfo {
 }
 
 let lastError: ErrorInfo | null = null;
-let errorListeners: Set<(error: ErrorInfo) => void> = new Set();
+const errorListeners: Set<(error: ErrorInfo) => void> = new Set();
 
 export function getLastError(): ErrorInfo | null {
   return lastError;

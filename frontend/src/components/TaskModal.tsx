@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, useMemo } from "react";
 import { useAppStore } from "@/lib/store";
 import { tasksApi, filesApi, dependenciesApi, fetchAllMethodsIncludingShared, type DuplicateCheckResult } from "@/lib/local-api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Method, Project, Task, Dependency, SubTask } from "@/lib/types";
+import type { Project, SubTask } from "@/lib/types";
 import { createNewFileContent } from "@/lib/stamp-utils";
 import { taskResultsBase } from "@/lib/tasks/results-paths";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -105,13 +105,6 @@ export default function TaskModal({ projects }: TaskModalProps) {
     enabled: isCreatingTask && projects.length > 0,
   });
 
-  // Load existing dependencies for reference
-  const { data: existingDependencies = [] } = useQuery({
-    queryKey: ["dependencies"],
-    queryFn: () => dependenciesApi.list(),
-    enabled: isCreatingTask,
-  });
-
   // Filter tasks to show as potential parents (exclude tasks from different projects if needed)
   // Also exclude tasks from archived projects
   const availableParentTasks = useMemo(() => {
@@ -155,6 +148,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
   // Reset form when modal opens
   useEffect(() => {
     if (isCreatingTask) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- seed form fields when modal opens, based on parent-supplied props
       setProjectId(activeProjects[0]?.id || 0);
       // Use the newTaskStartDate if provided (from double-click on Gantt)
       if (newTaskStartDate) {
@@ -169,6 +163,22 @@ export default function TaskModal({ projects }: TaskModalProps) {
       }
     }
   }, [isCreatingTask, activeProjects, newTaskStartDate, restrictedTaskType]);
+
+  const resetForm = useCallback(() => {
+    setName("");
+    setDurationDays(1);
+    setIsHighLevel(false);
+    setTaskType("list");
+    setMethodId(null);
+    setSchedulingMode("date");
+    setParentTaskId(null);
+    setDepType("FS");
+    setNewTaskStartDate(null);
+    setRestrictedTaskType(null);
+    setDuplicateWarning(null);
+    setSubTasks([]);
+    setNewSubTaskText("");
+  }, [setNewTaskStartDate, setRestrictedTaskType]);
 
   const createTask = useCallback(async () => {
     setGanttLoading(true, "Creating task...");
@@ -238,7 +248,6 @@ export default function TaskModal({ projects }: TaskModalProps) {
     isHighLevel,
     taskType,
     methodId,
-    methods,
     queryClient,
     setIsCreatingTask,
     schedulingMode,
@@ -248,6 +257,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
     subTasks,
     setGanttLoading,
     projects,
+    resetForm,
   ]);
 
   const handleSubmit = useCallback(
@@ -288,21 +298,6 @@ export default function TaskModal({ projects }: TaskModalProps) {
     ]
   );
 
-  const resetForm = () => {
-    setName("");
-    setDurationDays(1);
-    setIsHighLevel(false);
-    setTaskType("list");
-    setMethodId(null);
-    setSchedulingMode("date");
-    setParentTaskId(null);
-    setDepType("FS");
-    setNewTaskStartDate(null);
-    setRestrictedTaskType(null);
-    setDuplicateWarning(null);
-    setSubTasks([]);
-    setNewSubTaskText("");
-  };
 
   // Sub-task handlers
   const handleAddSubTask = useCallback(() => {
@@ -480,7 +475,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
             </select>
             {projectId === 0 && (
               <p className="text-xs text-gray-400 mt-1">
-                Standalone tasks are perfect for daily lists, quick notes, or small items that don't belong to a specific research project.
+                Standalone tasks are perfect for daily lists, quick notes, or small items that don&apos;t belong to a specific research project.
               </p>
             )}
           </div>

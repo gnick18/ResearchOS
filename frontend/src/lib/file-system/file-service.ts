@@ -88,7 +88,7 @@ export class FileService {
         const nextHandle = await currentHandle.getDirectoryHandle(part);
         console.log("[getHandleByPath] Got directory:", part, "kind:", nextHandle.kind);
         currentHandle = nextHandle;
-      } catch (err) {
+      } catch {
         console.log("[getHandleByPath] getDirectoryHandle failed for:", part, "isLast:", isLast);
         if (isLast) {
           if (create) {

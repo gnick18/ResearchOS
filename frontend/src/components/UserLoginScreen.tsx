@@ -106,7 +106,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       ]);
       setUsers(usersResponse.users);
       setMainUser(mainUserResponse.main_user || null);
-    } catch (err) {
+    } catch {
       setError("Failed to load users. Please check your connection.");
     } finally {
       setLoading(false);
@@ -118,7 +118,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       await usersApi.login(username);
       await setCurrentUser(username);
       onLogin();
-    } catch (err) {
+    } catch {
       setError("Failed to login. Please try again.");
       setLoggingIn(null);
     }
@@ -178,7 +178,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       await usersApi.login("lab");
       await setCurrentUser("lab");
       onLogin();
-    } catch (err) {
+    } catch {
       setError("Failed to enter Lab Mode. Please try again.");
       setLoggingIn(null);
     }
@@ -203,7 +203,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       await usersApi.create(username);
       await setCurrentUser(username);
       onLogin();
-    } catch (err) {
+    } catch {
       setError("Failed to create user. Please try again.");
       setLoggingIn(null);
     }

@@ -1,4 +1,4 @@
-import { JsonStore, getPublicStore, getLabStore, AttachmentMetadataStore, getCurrentUserCached, clearCurrentUserCache } from "./storage/json-store";
+import { JsonStore, getPublicStore, getLabStore, getCurrentUserCached, clearCurrentUserCache } from "./storage/json-store";
 import { fileService } from "./file-system/file-service";
 import { getCurrentUser, getMainUser, storeCurrentUser, storeMainUser, clearCurrentUser } from "./file-system/indexeddb-store";
 import { shiftTask } from "./engine/shift";
@@ -70,8 +70,6 @@ const catalogStore = new JsonStore<CatalogItem>("item_catalog");
 const labLinksStore = new JsonStore<LabLink>("lab_links");
 const notesStore = new JsonStore<Note>("notes");
 const fundingAccountsStore = getLabStore<FundingAccount>("funding_accounts");
-const imageMetadataStore = new AttachmentMetadataStore<ImageMetadata>("Images");
-const fileMetadataStore = new AttachmentMetadataStore<FileMetadata>("Files");
 
 async function loadLabUsers(): Promise<{
   usernames: string[];
@@ -1275,14 +1273,6 @@ interface NotificationFile {
 
 const PERMISSION_DEFAULT = "edit";
 
-function emptyManifest(): SharedManifest {
-  return { version: 1, projects: [], tasks: [], methods: [] };
-}
-
-function emptyNotifications(): NotificationFile {
-  return { version: 1, notifications: [] };
-}
-
 async function readSharedWithMe(username: string): Promise<SharedManifest> {
   const path = `users/${username}/_shared_with_me.json`;
   const data = await fileService.readJson<Partial<SharedManifest>>(path);
@@ -1708,7 +1698,7 @@ export const labApi = {
     return { users };
   },
 
-  getTasks: async (params?: { exclude_goals?: boolean; usernames?: string }): Promise<LabTask[]> => {
+  getTasks: async (_params?: { exclude_goals?: boolean; usernames?: string }): Promise<LabTask[]> => {
     const { usernames, metadata } = await loadLabUsers();
     const tasks: LabTask[] = [];
 
@@ -1723,7 +1713,7 @@ export const labApi = {
     return tasks;
   },
 
-  getProjects: async (params?: { usernames?: string }): Promise<LabProject[]> => {
+  getProjects: async (_params?: { usernames?: string }): Promise<LabProject[]> => {
     const { usernames, metadata } = await loadLabUsers();
     const projects: LabProject[] = [];
 
@@ -1814,7 +1804,7 @@ export const labApi = {
     return out;
   },
 
-  getExperiments: async (params?: { usernames?: string }): Promise<LabTask[]> => {
+  getExperiments: async (_params?: { usernames?: string }): Promise<LabTask[]> => {
     const { usernames, metadata } = await loadLabUsers();
     const tasks: LabTask[] = [];
 
@@ -1830,7 +1820,7 @@ export const labApi = {
     return tasks;
   },
 
-  getPurchases: async (params?: { usernames?: string }): Promise<LabTask[]> => {
+  getPurchases: async (_params?: { usernames?: string }): Promise<LabTask[]> => {
     const { usernames, metadata } = await loadLabUsers();
     const tasks: LabTask[] = [];
 
@@ -2006,7 +1996,7 @@ export const labApi = {
   },
 
   getAllPurchaseItems: async (
-    params?: { shared_only?: boolean },
+    _params?: { shared_only?: boolean },
   ): Promise<Array<PurchaseItem & { username: string }>> => {
     const usernames = await discoverUsers();
     const items: Array<PurchaseItem & { username: string }> = [];

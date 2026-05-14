@@ -258,7 +258,7 @@ export function parseContent(content: string): ParsedContent {
     reopenedStamps.push(m[0]);
   }
 
-  let userContent = content
+  const userContent = content
     .replace(stampBlockPattern("g"), "")
     .replace(lastAccessLinePattern("g"), "")
     .replace(/___\s*\n\*Reopened on[^*]+\*\s*\n___/g, "")

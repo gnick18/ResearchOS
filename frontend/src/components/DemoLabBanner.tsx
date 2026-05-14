@@ -26,6 +26,7 @@ export default function DemoLabBanner() {
   useEffect(() => {
     try {
       const ss = typeof window !== "undefined" ? window.sessionStorage : null;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot read of dismissal state from sessionStorage on mount
       setDismissed(ss?.getItem(DISMISS_KEY) === "1");
     } catch {
       // sessionStorage can throw in privacy modes — leave dismissed=false.
@@ -35,6 +36,7 @@ export default function DemoLabBanner() {
   useEffect(() => {
     let cancelled = false;
     if (!isConnected) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear demo flag synchronously when fs disconnects
       setIsDemo(false);
       return;
     }

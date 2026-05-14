@@ -24,6 +24,7 @@ export default function FileRenamePopup({
   const originalBaseName = lastDotIndex !== -1 ? file.name.slice(0, lastDotIndex) : file.name;
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync controlled input to prop-derived initial value when file changes
     setNewName(originalBaseName);
     // Focus input after mount
     setTimeout(() => {

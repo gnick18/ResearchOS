@@ -561,7 +561,6 @@ function UpcomingDayGroup({
 
 function TaskItem({
   task,
-  projectColor,
   overdue,
   future,
   onClick,

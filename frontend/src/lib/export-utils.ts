@@ -308,7 +308,7 @@ export async function downloadMarkdownWithAttachments(
  */
 export async function generatePdfFromHtml(
   htmlElement: HTMLElement,
-  filename: string
+  _filename: string
 ): Promise<Uint8Array> {
   const { jsPDF, html2canvas: h2c } = await loadPdfLibraries();
   

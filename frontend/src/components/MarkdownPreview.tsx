@@ -32,6 +32,7 @@ export default function MarkdownPreview({
 
   useEffect(() => {
     if (!sourcePath) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mark loading before kicking off async file read; classic sync-to-async pattern
     setLoading(true);
     setError(null);
 

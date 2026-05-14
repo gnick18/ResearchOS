@@ -75,17 +75,6 @@ function generateBlockId(content: string, startLine: number): string {
 }
 
 /**
- * Count the number of newlines in a string
- */
-function countNewlines(str: string): number {
-  let count = 0;
-  for (const char of str) {
-    if (char === "\n") count++;
-  }
-  return count;
-}
-
-/**
  * Parse markdown content into an array of blocks
  * 
  * @param content - The markdown content to parse
@@ -153,7 +142,6 @@ export function parseMarkdownBlocks(content: string): MarkdownBlock[] {
         const codeBlockLines = [line];
         let codeEndLine = lineStartLine;
         let codeEndOffset = currentOffset;
-        let foundEnd = false;
 
         // Find the closing fence
         while (i + 1 < lines.length) {
@@ -167,7 +155,6 @@ export function parseMarkdownBlocks(content: string): MarkdownBlock[] {
 
           // Check for closing fence (must match or exceed opening fence length)
           if (nextLine.startsWith(fenceChar) && nextLine.match(new RegExp(`^${fenceChar.charAt(0)}{${fence.length},}`))) {
-            foundEnd = true;
             break;
           }
         }
@@ -286,7 +273,6 @@ export function parseMarkdownBlocks(content: string): MarkdownBlock[] {
       const listLines = [line];
       let listEndLine = lineStartLine;
       let listEndOffset = currentOffset;
-      const listIndent = (bulletMatch || orderedMatch)![1].length;
 
       // Collect consecutive list items (including nested items and blank lines between)
       while (i + 1 < lines.length) {

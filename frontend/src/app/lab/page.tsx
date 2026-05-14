@@ -70,6 +70,7 @@ export default function LabModePage() {
     if (seededSelection) return;
     if (isLoading) return;
     if (users.length === 0) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot seed of user-filter selection once async-loaded users arrive
     setSelectedUsers(new Set(users.map((u) => u.username)));
     setSeededSelection(true);
   }, [seededSelection, isLoading, users]);
@@ -180,7 +181,7 @@ export default function LabModePage() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Lab Mode</h1>
-                <p className="text-sm text-gray-500">View-only access to all researchers' work</p>
+                <p className="text-sm text-gray-500">View-only access to all researchers&apos; work</p>
               </div>
             </div>
             <button

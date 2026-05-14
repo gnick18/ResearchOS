@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import AppShell from "@/components/AppShell";
 import { labLinksApi } from "@/lib/local-api";
-import type { LabLink, LabLinkCreate, LabLinkUpdate } from "@/lib/types";
+import type { LabLink } from "@/lib/types";
 
 // Predefined colors for link cards
 const CARD_COLORS = [
@@ -96,7 +96,7 @@ export default function LabLinksPage() {
       queryClient.invalidateQueries({ queryKey: ["lab-links"] });
       resetForm();
       setIsCreating(false);
-    } catch (error) {
+    } catch {
       alert("Failed to create link");
     }
   };
@@ -116,7 +116,7 @@ export default function LabLinksPage() {
       queryClient.invalidateQueries({ queryKey: ["lab-links"] });
       setEditingLink(null);
       resetForm();
-    } catch (error) {
+    } catch {
       alert("Failed to update link");
     }
   };
@@ -126,7 +126,7 @@ export default function LabLinksPage() {
       await labLinksApi.delete(id);
       queryClient.invalidateQueries({ queryKey: ["lab-links"] });
       setDeleteConfirmId(null);
-    } catch (error) {
+    } catch {
       alert("Failed to delete link");
     }
   };

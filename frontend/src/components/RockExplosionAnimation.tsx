@@ -35,11 +35,6 @@ interface RockExplosionAnimationProps {
 
 const ROCK_EMOJIS = ["🎸", "🤘", "✈️", "🔥", "⚡", "💀", "🦅", "💣", "🚀", "🌟"];
 
-const FIRE_COLORS = [
-  "#ff4500", "#ff6600", "#ff8800", "#ffaa00", "#ffcc00",
-  "#ff0000", "#ff3300", "#ff5500",
-];
-
 export default function RockExplosionAnimation({ x, y, onComplete }: RockExplosionAnimationProps) {
   const [pieces, setPieces] = useState<RockPiece[]>([]);
   const [emojis, setEmojis] = useState<EmojiParticle[]>([]);
@@ -178,6 +173,7 @@ export default function RockExplosionAnimation({ x, y, onComplete }: RockExplosi
   }, [x, y]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot init of mount-time random particles, then setInterval drives animation
     setPieces(createPieces());
     
     // Create emoji particles

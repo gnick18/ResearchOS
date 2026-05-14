@@ -350,7 +350,7 @@ export default function HomePage() {
         {/* Active Project cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {activeSummaries.map(
-            ({ project, total, completed, upcoming, overdue, inProgress, color, displayColor }) => (
+            ({ project, total, completed, upcoming, overdue, inProgress, displayColor }) => (
               <div
                 key={project.id}
                 draggable
@@ -493,7 +493,7 @@ export default function HomePage() {
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {archivedSummaries.map(
-                ({ project, total, completed, color, displayColor }) => (
+                ({ project, total, completed, displayColor }) => (
                   <div
                     key={project.id}
                     onClick={() => setSelectedProject(project)}

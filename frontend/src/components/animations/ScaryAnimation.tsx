@@ -36,11 +36,6 @@ interface ScaryAnimationProps {
 
 const SCARY_EMOJIS = ["💀", "👻", "🧛", "🦇", "🕷️", "👁️", "🎃", "👹", "☠️", "🧟"];
 
-const SCARY_COLORS = [
-  "#1a1a1a", "#4a0000", "#2d0a4a", "#0d3d0d", "#4a1a1a",
-  "#333333", "#1c1c1c", "#0a0a0a", "#2a0a2a", "#1a0a0a",
-];
-
 export default function ScaryAnimation({ x, y, onComplete }: ScaryAnimationProps) {
   const [particles, setParticles] = useState<ScaryParticle[]>([]);
   const [emojis, setEmojis] = useState<EmojiParticle[]>([]);
@@ -187,6 +182,7 @@ export default function ScaryAnimation({ x, y, onComplete }: ScaryAnimationProps
   }, [x, y]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot init of mount-time random particles, then setInterval drives animation
     setParticles(createParticles());
     
     // Create fog

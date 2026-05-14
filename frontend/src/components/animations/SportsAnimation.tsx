@@ -173,6 +173,7 @@ export default function SportsAnimation({ x, y, onComplete }: SportsAnimationPro
   }, [x, y]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot init of mount-time random particles, then setInterval drives animation
     setParticles(createParticles());
     
     // Create emoji particles

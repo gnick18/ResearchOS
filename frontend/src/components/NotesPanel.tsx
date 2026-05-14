@@ -19,7 +19,6 @@ interface NotesPanelProps {
 export default function NotesPanel({
   isLabMode = false,
   selectedUsernames,
-  userColors = {},
 }: NotesPanelProps) {
   const queryClient = useQueryClient();
   const [selectedNote, setSelectedNote] = useState<Note | LabNote | null>(null);

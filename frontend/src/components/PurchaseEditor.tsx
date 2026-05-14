@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { purchasesApi, labApi } from "@/lib/local-api";
 import Tooltip from "@/components/Tooltip";
-import type { CatalogItem, PurchaseItem, FundingAccount } from "@/lib/types";
+import type { CatalogItem, PurchaseItem } from "@/lib/types";
 
 interface PurchaseEditorProps {
   taskId: number;
@@ -65,7 +65,7 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
   const [editingRow, setEditingRow] = useState<EditingRow>({ ...EMPTY_ROW });
   const [editSuggestions, setEditSuggestions] = useState<CatalogItem[]>([]);
   const [showEditSuggestions, setShowEditSuggestions] = useState(false);
-  const [editSelectedCatalogItem, setEditSelectedCatalogItem] = useState<CatalogItem | null>(null);
+  const [, setEditSelectedCatalogItem] = useState<CatalogItem | null>(null);
   const editSuggestionsRef = useRef<HTMLTableCellElement>(null);
 
   const { data: items = [], refetch } = useQuery({
