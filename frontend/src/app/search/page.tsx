@@ -6,7 +6,11 @@ import { tasksApi, fetchAllMethodsIncludingShared, fetchAllProjectsIncludingShar
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
-import type { Task, Method, Project } from "@/lib/types";
+import ExportFormatDialog from "@/components/ExportFormatDialog";
+// TODO(manager): unstub once Sub-bot A lands frontend/src/lib/export/orchestrate.ts.
+import { exportExperiments, downloadResult } from "@/lib/export/orchestrate";
+import type { ExportFormat } from "@/lib/export/types";
+import { taskKey, type Task, type Method, type Project } from "@/lib/types";
 
 const DEFAULT_COLORS = [
   "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
@@ -34,7 +38,11 @@ interface SearchResult {
 export default function SearchPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
-  
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedTaskKeys, setSelectedTaskKeys] = useState<Set<string>>(new Set());
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
   const [filters, setFilters] = useState<SearchFilters>({
     keywords: "",
     dateFrom: "",
@@ -217,6 +225,60 @@ export default function SearchPage() {
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
+  const toggleTaskSelection = useCallback((task: Task) => {
+    const key = taskKey(task);
+    setSelectedTaskKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const enterSelectMode = useCallback(() => {
+    setSelectMode(true);
+  }, []);
+
+  const cancelSelectMode = useCallback(() => {
+    setSelectMode(false);
+    setSelectedTaskKeys(new Set());
+  }, []);
+
+  const handleResultCardClick = useCallback(
+    (task: Task) => {
+      if (selectMode) toggleTaskSelection(task);
+      else setSelectedTask(task);
+    },
+    [selectMode, toggleTaskSelection]
+  );
+
+  const handleExport = useCallback(
+    async (format: ExportFormat) => {
+      const tasksToExport = searchResults
+        .filter((r) => selectedTaskKeys.has(taskKey(r.task)))
+        .map((r) => r.task);
+      if (tasksToExport.length === 0) return;
+
+      setExporting(true);
+      try {
+        const result = await exportExperiments(tasksToExport, format, currentUser);
+        downloadResult(result);
+        setExportDialogOpen(false);
+        cancelSelectMode();
+      } catch (error) {
+        console.error("Export failed:", error);
+        alert(
+          `Failed to export: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`
+        );
+      } finally {
+        setExporting(false);
+      }
+    },
+    [searchResults, selectedTaskKeys, currentUser, cancelSelectMode]
+  );
+
   return (
     <AppShell>
       <div className="flex-1 overflow-auto p-6">
@@ -383,10 +445,41 @@ export default function SearchPage() {
         {/* Results */}
         {hasSearched && (
           <div>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
               <h3 className="text-sm font-semibold text-gray-700">
                 {searchResults.length} result{searchResults.length !== 1 ? "s" : ""} found
               </h3>
+              {searchResults.length > 0 && (
+                <div className="flex items-center gap-2">
+                  {selectMode ? (
+                    <>
+                      <span className="text-xs text-gray-500">
+                        {selectedTaskKeys.size} selected
+                      </span>
+                      <button
+                        onClick={() => setExportDialogOpen(true)}
+                        disabled={selectedTaskKeys.size === 0}
+                        className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Export selected
+                      </button>
+                      <button
+                        onClick={cancelSelectMode}
+                        className="px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded-lg"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={enterSelectMode}
+                      className="px-3 py-1.5 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+                    >
+                      Select
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {searchResults.length === 0 ? (
@@ -395,15 +488,48 @@ export default function SearchPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {searchResults.map(({ task, project, method, color }) => (
+                {searchResults.map(({ task, project, method, color }) => {
+                  const key = taskKey(task);
+                  const isSelected = selectedTaskKeys.has(key);
+                  return (
                   <div
-                    key={task.id}
-                    onClick={() => setSelectedTask(task)}
-                    className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-all cursor-pointer"
+                    key={key}
+                    onClick={() => handleResultCardClick(task)}
+                    className={`bg-white border rounded-lg overflow-hidden hover:shadow-md transition-all cursor-pointer relative ${
+                      isSelected
+                        ? "border-blue-500 ring-2 ring-blue-200"
+                        : "border-gray-200"
+                    }`}
                   >
                     {/* Color bar */}
                     <div className="h-1" style={{ backgroundColor: color }} />
-                    
+
+                    {selectMode && (
+                      <div
+                        className={`absolute top-2 right-2 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                          isSelected
+                            ? "bg-blue-500 border-blue-500 text-white"
+                            : "border-gray-300 bg-white"
+                        }`}
+                      >
+                        {isSelected && (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M20 6L9 17l-5-5" />
+                          </svg>
+                        )}
+                      </div>
+                    )}
+
                     <div className="p-4">
                       {/* Header */}
                       <div className="flex items-start justify-between mb-2">
@@ -468,7 +594,8 @@ export default function SearchPage() {
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -493,6 +620,14 @@ export default function SearchPage() {
           onClose={() => setSelectedTask(null)}
         />
       )}
+
+      <ExportFormatDialog
+        isOpen={exportDialogOpen}
+        taskCount={selectedTaskKeys.size}
+        isExporting={exporting}
+        onClose={() => setExportDialogOpen(false)}
+        onExport={handleExport}
+      />
     </AppShell>
   );
 }

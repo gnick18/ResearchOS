@@ -57,19 +57,17 @@ import SharePopup from "./SharePopup";
 import Tooltip from "./Tooltip";
 import { useAppStore } from "@/lib/store";
 import { taskKey } from "@/lib/types";
-import type { Method, Task, Project, ShiftResult, SubTask } from "@/lib/types";
+import type { Task, Project, ShiftResult, SubTask } from "@/lib/types";
 import type { GitHubTreeItem } from "@/lib/types";
 import { createNewFileContent, normalizeStampFormat, hasLegacyStampFormat } from "@/lib/stamp-utils";
-import {
-  exportSingleExperiment,
-  type ExportOptions,
-  type ExperimentExportData,
-} from "@/lib/export-utils";
+// TODO(manager): unstub once Sub-bot A lands frontend/src/lib/export/orchestrate.ts.
+import { exportExperiments, downloadResult } from "@/lib/export/orchestrate";
+import type { ExportFormat } from "@/lib/export/types";
+import ExportFormatDialog from "@/components/ExportFormatDialog";
 import { useFileRenamePopup } from "@/components/FileRenamePopup";
 import { fileService } from "@/lib/file-system/file-service";
 import { migrateNoteImages } from "@/lib/notes/migrate-images";
 import {
-  findExistingTaskResultsBase,
   resolveTabAttachmentBase,
   resolveTaskResultsBase,
   taskNotesBase,
@@ -3086,151 +3084,88 @@ function PdfAttachmentsPanel({ pdfsDir, label }: { pdfsDir: string; label: strin
 // ── Task Export Button Component ───────────────────────────────────────────────
 
 function TaskExportButton({ task }: { task: Task }) {
-  const [showDropdown, setShowDropdown] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const { currentUser } = useCurrentUser();
 
-  // Fetch project name
-  const { data: project } = useQuery({
-    queryKey: ["project", task.project_id],
-    queryFn: () => projectsApi.get(task.project_id),
-  });
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowDropdown(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const handleExport = useCallback(async (format: 'markdown' | 'pdf') => {
-    setExporting(true);
-    setShowDropdown(false);
-
-    try {
-      const projectName = project?.name || "Unknown Project";
-      const base = (await findExistingTaskResultsBase(task)) ?? taskResultsBase(task);
-
-      // Fetch lab notes
-      let labNotes: string | null = null;
+  const handleExport = useCallback(
+    async (format: ExportFormat) => {
+      setExporting(true);
       try {
-        const notesFile = await filesApi.readFile(`${base}/notes.md`);
-        labNotes = notesFile.content;
-      } catch {
-        // Notes don't exist
+        const result = await exportExperiments([task], format, currentUser);
+        downloadResult(result);
+        setDialogOpen(false);
+      } catch (error) {
+        console.error("Export failed:", error);
+        alert(
+          `Failed to export experiment: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`
+        );
+      } finally {
+        setExporting(false);
       }
-
-      // Fetch primary method (first attached). Multi-method export support
-      // would need to extend this; today the export bundle is single-method.
-      let method: Method | null = null;
-      let methodContent: string | null = null;
-      const primaryMethodId = task.method_ids?.[0];
-      if (primaryMethodId != null) {
-        try {
-          method = await methodsApi.get(primaryMethodId);
-          if (method && method.source_path) {
-            const methodFile = await filesApi.readFile(method.source_path);
-            methodContent = methodFile.content;
-          }
-        } catch {
-          // Method doesn't exist
-        }
-      }
-
-      // Fetch results
-      let results: string | null = null;
-      try {
-        const resultsFile = await filesApi.readFile(`${base}/results.md`);
-        results = resultsFile.content;
-      } catch {
-        // Results don't exist
-      }
-
-      // Get PDF attachments
-      const pdfAttachments: string[] = [];
-      try {
-        const notesPdfs = await filesApi.listDirectory(`${base}/NotesPDFs`);
-        pdfAttachments.push(...notesPdfs.map((f: GitHubTreeItem) => f.path));
-      } catch {
-        // Directory doesn't exist
-      }
-      try {
-        const resultsPdfs = await filesApi.listDirectory(`${base}/ResultsPDFs`);
-        pdfAttachments.push(...resultsPdfs.map((f: GitHubTreeItem) => f.path));
-      } catch {
-        // Directory doesn't exist
-      }
-
-      const exportData: ExperimentExportData = {
-        task,
-        projectName,
-        labNotes,
-        method,
-        methodContent,
-        results,
-        pdfAttachments,
-      };
-
-      const options: ExportOptions = {
-        format,
-        includeLabNotes: true,
-        includeMethod: true,
-        includeResults: true,
-        includeAttachments: true,
-      };
-
-      await exportSingleExperiment(exportData, options);
-    } catch (error) {
-      console.error("Export failed:", error);
-      alert("Failed to export experiment");
-    } finally {
-      setExporting(false);
-    }
-  }, [task, project]);
+    },
+    [task, currentUser]
+  );
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <>
       <Tooltip label="Export experiment" placement="bottom">
-      <button
-        onClick={() => setShowDropdown(!showDropdown)}
-        disabled={exporting}
-        className="text-gray-400 hover:text-gray-600 p-1 disabled:opacity-50"
-      >
-        {exporting ? (
-          <svg className="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-        ) : (
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="7 10 12 15 17 10"/>
-            <line x1="12" y1="15" x2="12" y2="3"/>
-          </svg>
-        )}
-      </button>
+        <button
+          onClick={() => setDialogOpen(true)}
+          disabled={exporting}
+          className="text-gray-400 hover:text-gray-600 p-1 disabled:opacity-50"
+        >
+          {exporting ? (
+            <svg
+              className="animate-spin w-4 h-4"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
+            </svg>
+          ) : (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+          )}
+        </button>
       </Tooltip>
 
-      {showDropdown && (
-        <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 min-w-[140px]">
-          <button
-            onClick={() => handleExport('markdown')}
-            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-          >
-            <span>📝</span> Markdown
-          </button>
-          <button
-            onClick={() => handleExport('pdf')}
-            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-          >
-            <span>📕</span> PDF
-          </button>
-        </div>
-      )}
-    </div>
+      <ExportFormatDialog
+        isOpen={dialogOpen}
+        taskCount={1}
+        taskName={task.name}
+        isExporting={exporting}
+        onClose={() => setDialogOpen(false)}
+        onExport={handleExport}
+      />
+    </>
   );
 }

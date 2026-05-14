@@ -2,14 +2,24 @@
 
 import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { labApi, LabSearchResult, LabProject, LabMethod, LabTask } from "@/lib/local-api";
+import { labApi, tasksApi, LabSearchResult, LabProject, LabMethod, LabTask } from "@/lib/local-api";
 import { useLabData } from "@/hooks/useLabData";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import ExportFormatDialog from "@/components/ExportFormatDialog";
+// TODO(manager): unstub once Sub-bot A lands frontend/src/lib/export/orchestrate.ts.
+import { exportExperiments, downloadResult } from "@/lib/export/orchestrate";
+import type { ExportFormat } from "@/lib/export/types";
+import type { Task } from "@/lib/types";
 
 interface LabSearchPanelProps {
   selectedUsernames: Set<string>;
   onClose?: () => void;
   onTaskClick?: (task: LabTask) => void;
 }
+
+// Composite key for selecting lab task results across users — task ids are
+// per-user, so we namespace by owner.
+const labResultKey = (username: string, id: number) => `${username}:${id}`;
 
 interface SearchFilters {
   keywords: string;
@@ -28,10 +38,15 @@ export default function LabSearchPanel({
   onTaskClick,
 }: LabSearchPanelProps) {
   const { users, tasks } = useLabData();
+  const { currentUser } = useCurrentUser();
   const [results, setResults] = useState<LabSearchResult[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedTaskKeys, setSelectedTaskKeys] = useState<Set<string>>(new Set());
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const [filters, setFilters] = useState<SearchFilters>({
     keywords: "",
@@ -133,6 +148,63 @@ export default function LabSearchPanel({
   const updateFilter = <K extends keyof SearchFilters>(key: K, value: SearchFilters[K]) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
+
+  const toggleResultSelection = useCallback((result: LabSearchResult) => {
+    if (result.type !== "task") return;
+    const key = labResultKey(result.username, result.id);
+    setSelectedTaskKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const enterSelectMode = useCallback(() => {
+    setSelectMode(true);
+  }, []);
+
+  const cancelSelectMode = useCallback(() => {
+    setSelectMode(false);
+    setSelectedTaskKeys(new Set());
+  }, []);
+
+  const handleExport = useCallback(
+    async (format: ExportFormat) => {
+      // Resolve selected lab results into full Task records on disk. The
+      // owner is the result's username; tasksApi.get supports owner-scoped
+      // reads.
+      const picks = results.filter(
+        (r) => r.type === "task" && selectedTaskKeys.has(labResultKey(r.username, r.id))
+      );
+      if (picks.length === 0) return;
+
+      setExporting(true);
+      try {
+        const fetched = await Promise.all(
+          picks.map((r) => tasksApi.get(r.id, r.username))
+        );
+        const tasksToExport = fetched.filter((t): t is Task => t != null);
+        if (tasksToExport.length === 0) {
+          throw new Error("Could not load any of the selected experiments.");
+        }
+        const result = await exportExperiments(tasksToExport, format, currentUser);
+        downloadResult(result);
+        setExportDialogOpen(false);
+        cancelSelectMode();
+      } catch (error) {
+        console.error("Export failed:", error);
+        alert(
+          `Failed to export: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`
+        );
+      } finally {
+        setExporting(false);
+      }
+    },
+    [results, selectedTaskKeys, currentUser, cancelSelectMode]
+  );
 
   // Highlight search match in text
   const highlightMatch = (text: string, query: string) => {
@@ -335,10 +407,41 @@ export default function LabSearchPanel({
       {/* Results */}
       {hasSearched && (
         <div>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
             <h3 className="text-sm font-semibold text-gray-700">
               {totalCount} result{totalCount !== 1 ? "s" : ""} found
             </h3>
+            {results.some((r) => r.type === "task") && (
+              <div className="flex items-center gap-2">
+                {selectMode ? (
+                  <>
+                    <span className="text-xs text-gray-500">
+                      {selectedTaskKeys.size} selected
+                    </span>
+                    <button
+                      onClick={() => setExportDialogOpen(true)}
+                      disabled={selectedTaskKeys.size === 0}
+                      className="px-3 py-1.5 text-xs bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Export selected
+                    </button>
+                    <button
+                      onClick={cancelSelectMode}
+                      className="px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded-lg"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={enterSelectMode}
+                    className="px-3 py-1.5 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+                  >
+                    Select
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {results.length === 0 ? (
@@ -351,23 +454,63 @@ export default function LabSearchPanel({
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {results.map((result, index) => {
-                // Handle click on task result
+                const isTask = result.type === "task";
+                const selectionKey = isTask ? labResultKey(result.username, result.id) : null;
+                const isSelected = selectionKey !== null && selectedTaskKeys.has(selectionKey);
                 const handleClick = () => {
-                  if (result.type === "task" && onTaskClick) {
-                    // Find the matching task from the tasks array
+                  if (selectMode) {
+                    toggleResultSelection(result);
+                    return;
+                  }
+                  if (isTask && onTaskClick) {
                     const task = tasks.find(t => t.id === result.id && t.username === result.username);
                     if (task) {
                       onTaskClick(task);
                     }
                   }
                 };
-                
+
+                const selectableInThisMode = !selectMode || isTask;
+
                 return (
                   <div
                     key={`${result.type}-${result.id}-${index}`}
-                    className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-all cursor-pointer"
-                    onClick={handleClick}
+                    className={`bg-white border rounded-lg overflow-hidden transition-all relative ${
+                      isSelected
+                        ? "border-emerald-500 ring-2 ring-emerald-200"
+                        : "border-gray-200"
+                    } ${
+                      selectableInThisMode
+                        ? "hover:shadow-md cursor-pointer"
+                        : "opacity-60 cursor-not-allowed"
+                    }`}
+                    onClick={selectableInThisMode ? handleClick : undefined}
                   >
+                    {selectMode && isTask && (
+                      <div
+                        className={`absolute top-2 right-2 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                          isSelected
+                            ? "bg-emerald-500 border-emerald-500 text-white"
+                            : "border-gray-300 bg-white"
+                        }`}
+                      >
+                        {isSelected && (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M20 6L9 17l-5-5" />
+                          </svg>
+                        )}
+                      </div>
+                    )}
                   {/* Color bar */}
                   <div className="h-1" style={{ backgroundColor: result.user_color }} />
                   
@@ -432,6 +575,14 @@ export default function LabSearchPanel({
           </p>
         </div>
       )}
+
+      <ExportFormatDialog
+        isOpen={exportDialogOpen}
+        taskCount={selectedTaskKeys.size}
+        isExporting={exporting}
+        onClose={() => setExportDialogOpen(false)}
+        onExport={handleExport}
+      />
     </div>
   );
 }
