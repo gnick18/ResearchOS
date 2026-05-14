@@ -306,7 +306,12 @@ export default function LabModePage() {
         {/* Stats Bar — only on tabs where global counts add context.
             Activity / Methods / Roadmaps / Notes / Search each summarize
             themselves inside the panel, so this row would just be noise. */}
-        {(activeTab === "gantt" || activeTab === "experiments" || activeTab === "purchases") && (
+        {/* Purchases sub-tab dropped from this list 2026-05-14: LabPurchasesPanel
+            renders its own 4-card stats strip (Total / Completed / Pending / Spent),
+            so showing the lab-wide context strip above it on that tab created visual
+            duplication. Establishes the "each sub-tab owns its summary" pattern;
+            experiments-side drop comes with the Lab Experiments redesign. */}
+        {(activeTab === "gantt" || activeTab === "experiments") && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-white rounded-xl p-4 border border-gray-200">
               <p className="text-gray-500 text-sm">Users</p>
