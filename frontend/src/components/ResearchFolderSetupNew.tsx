@@ -600,7 +600,20 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
             href="/demo"
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-100 hover:text-white border border-amber-300/40 hover:border-amber-300/70 rounded-lg text-sm font-semibold transition-colors"
           >
-            <span aria-hidden="true">🧪</span>
+            <svg
+              aria-hidden
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M14 5l7 7m0 0l-7 7m7-7H3"
+              />
+            </svg>
             Explore demo in browser
           </a>
           <a
