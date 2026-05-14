@@ -5,27 +5,12 @@ import { buildExperimentPayload } from "./extract";
 import { resolveCollidingFilenames } from "./slug";
 import { buildRawZip } from "./raw";
 import { buildHtmlBundle } from "./html";
+import { buildPdf } from "./pdf";
 import type {
   ExperimentExportPayload,
   ExportFormat,
   ExportResult,
 } from "./types";
-
-// ---------------------------------------------------------------------------
-// Format-specific builders — wired below as they land:
-//   ./raw  → buildRawZip (Sub-bot B, integrated)
-//   ./html → buildHtmlBundle (Sub-bot C, integrated)
-//   ./pdf  → buildPdf (Sub-bot D, pending integration)
-// ---------------------------------------------------------------------------
-
-async function buildPdf(
-  _payload: ExperimentExportPayload,
-  _baseFilename: string
-): Promise<ExportResult> {
-  throw new Error(
-    "PDF export not yet integrated — manager-side pending."
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Orchestration

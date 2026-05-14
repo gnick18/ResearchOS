@@ -18,72 +18,18 @@
 
 import * as React from "react";
 import { marked, type Token, type Tokens } from "marked";
-import type { Task, Method, Project, TaskMethodAttachment } from "@/lib/types";
-import { parseContent } from "@/lib/stamp-utils";
 
-// ── Locked contract (mirror of EXPORT_REVAMP_PLAN.md §4) ────────────────────
-
-type AttachmentOrigin = "notes" | "results" | "methods";
-
-interface ExperimentAttachment {
-  filename: string;
-  mimeType: string;
-  bytes: ArrayBuffer;
-  origin: AttachmentOrigin;
-  diskRef: string;
-}
-
-interface MethodPayload {
-  method: Method;
-  bodyMarkdown: string | null;
-  attachment: TaskMethodAttachment | null;
-}
-
-export interface ExperimentExportPayload {
-  task: Task;
-  project: Project;
-  resolvedBase: string;
-  notesMarkdown: string | null;
-  resultsMarkdown: string | null;
-  methods: MethodPayload[];
-  attachments: ExperimentAttachment[];
-  meta: {
-    ownerLabel: string;
-    durationDays: number;
-    statusLabel: string;
-    methodNames: string[];
-    exportedAt: string;
-  };
-}
-
-export interface ExportResult {
-  blob: Blob;
-  filename: string;
-  mimeType: string;
-}
+import { slugify } from "./slug";
+import { extractUserContent, hasUserContent } from "./markdown";
+import type {
+  AttachmentOrigin,
+  ExperimentAttachment,
+  ExperimentExportPayload,
+  ExportResult,
+  MethodPayload,
+} from "./types";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-
-function slugify(name: string, max = 80): string {
-  const s = (name || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, max);
-  return s || "experiment";
-}
-
-function extractUserContent(content: string | null | undefined): string {
-  if (!content) return "";
-  return parseContent(content).content.trim();
-}
-
-function hasUserContent(content: string | null | undefined): boolean {
-  if (!content) return false;
-  const trimmed = extractUserContent(content);
-  if (!trimmed) return false;
-  return !/^#\s+(Lab Notes|Results):\s+.+\s*$/i.test(trimmed.trim());
-}
 
 function findAttachment(
   attachments: ExperimentAttachment[],
@@ -140,6 +86,7 @@ function isImage(mime: string): boolean {
 
 export async function buildPdf(
   payload: ExperimentExportPayload,
+  baseFilename?: string,
 ): Promise<ExportResult> {
   const ReactPDF: any = await import("@react-pdf/renderer");
   const { pdf, Document, Page, View, Text, Image, Link, StyleSheet } = ReactPDF;
@@ -804,11 +751,7 @@ export async function buildPdf(
       );
     } else if (method.method_type === "pdf") {
       const pdfAttachment = attachments.find(
-        (a) =>
-          a.origin === "methods" &&
-          a.filename.toLowerCase().endsWith(".pdf") &&
-          (a.diskRef.includes(String(method.id)) ||
-            a.filename.toLowerCase().includes(method.name.toLowerCase())),
+        (a) => a.origin === "methods" && a.methodId === method.id,
       );
       const label = pdfAttachment?.filename ?? `method-${method.id}.pdf`;
       children.push(
@@ -996,7 +939,7 @@ export async function buildPdf(
   const blob: Blob = await pdf(docTree).toBlob();
   return {
     blob,
-    filename: `${slugify(task.name)}.pdf`,
+    filename: `${baseFilename ?? slugify(task.name)}.pdf`,
     mimeType: "application/pdf",
   };
 }
