@@ -214,40 +214,46 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <InboxToast />
       <ReminderRunner />
 
-      {/* Universal floating utility cluster — ordered right-to-left by
-          expected frequency: Support, Report Bug, User Switch, Data folder. */}
-      <BetaDonationButton />
+      {/* Universal floating utility cluster — a single fixed flex row at
+          bottom-right, ordered right-to-left by expected frequency:
+          Support (rightmost), Report Bug, User Switch, Data folder. The
+          flex container owns the fixed positioning and z-index; each
+          button inside just declares size/color/shape, so spacing stays
+          uniform regardless of how many buttons live here. */}
+      <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2">
+        <Tooltip label="Data folder · connect or switch" placement="top">
+          <button
+            onClick={() => setShowDataSetup(true)}
+            aria-label="Open data folder settings"
+            className="w-12 h-12 rounded-full bg-white border border-gray-200 shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center text-gray-600 hover:text-gray-900"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+            </svg>
+          </button>
+        </Tooltip>
 
-      <ReportBugButton onClick={openBugReport} />
-
-      <Tooltip
-        label={`Switch user${currentUser ? ` (now: ${currentUser})` : ""}`}
-        placement="top"
-      >
-        <button
-          onClick={() => setShowUserSwitch(true)}
-          aria-label="Switch user"
-          className="fixed bottom-6 right-36 w-12 h-12 rounded-full bg-white border border-gray-200 shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center z-50"
+        <Tooltip
+          label={`Switch user${currentUser ? ` (now: ${currentUser})` : ""}`}
+          placement="top"
         >
-          {currentUser ? (
-            <UserAvatar username={currentUser} size="sm" />
-          ) : (
-            <span className="text-gray-500 text-sm font-semibold">?</span>
-          )}
-        </button>
-      </Tooltip>
+          <button
+            onClick={() => setShowUserSwitch(true)}
+            aria-label="Switch user"
+            className="w-12 h-12 rounded-full bg-white border border-gray-200 shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center"
+          >
+            {currentUser ? (
+              <UserAvatar username={currentUser} size="sm" />
+            ) : (
+              <span className="text-gray-500 text-sm font-semibold">?</span>
+            )}
+          </button>
+        </Tooltip>
 
-      <Tooltip label="Data folder · connect or switch" placement="top">
-        <button
-          onClick={() => setShowDataSetup(true)}
-          aria-label="Open data folder settings"
-          className="fixed bottom-6 right-52 w-12 h-12 rounded-full bg-white border border-gray-200 shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center text-gray-600 hover:text-gray-900 z-50"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-          </svg>
-        </button>
-      </Tooltip>
+        <ReportBugButton onClick={openBugReport} />
+
+        <BetaDonationButton />
+      </div>
 
       {/* Modals owned by the cluster */}
       <DataSetupScreen

@@ -56,11 +56,10 @@ export default function BetaDonationButton({ variant = "floating" }: BetaDonatio
     );
   }
 
-  // Floating variant: icon-only round button anchored bottom-right by
-  // AppShell's universal floating cluster. The button itself owns its
-  // fixed position so AppShell only has to render `<BetaDonationButton />`
-  // — no wrapping div, no positioning prop. Pairs with `<Tooltip>` for
-  // the action label.
+  // Floating variant: icon-only round button. Positioning comes from the
+  // AppShell floating cluster (flex row, fixed bottom-right), so the
+  // button itself just declares its size/colors. Pairs with `<Tooltip>`
+  // for the action label.
   return (
     <>
       <Tooltip label="Support this project" placement="top">
@@ -68,7 +67,7 @@ export default function BetaDonationButton({ variant = "floating" }: BetaDonatio
           type="button"
           onClick={() => setShowModal(true)}
           aria-label="Support this project"
-          className="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-rose-500 hover:bg-rose-600 active:bg-rose-700 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2 z-50"
+          className="w-12 h-12 rounded-full bg-rose-500 hover:bg-rose-600 active:bg-rose-700 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2"
         >
           <HeartIcon className="w-5 h-5" />
         </button>
