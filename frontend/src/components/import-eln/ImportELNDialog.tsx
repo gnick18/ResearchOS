@@ -22,10 +22,6 @@ import type {
 } from "@/lib/import/eln/types";
 import type { FetchedImage } from "@/lib/labarchives/api-client";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
-import {
-  isLabArchivesConfigured,
-  isLabArchivesConfiguredAsync,
-} from "@/lib/labarchives/config";
 import BulkSortScreen from "./BulkSortScreen";
 import PickFormatStep, { type ELNFormat } from "./steps/PickFormatStep";
 import UploadStep from "./steps/UploadStep";
@@ -150,39 +146,23 @@ export default function ImportELNDialog({ isOpen, onClose }: ImportELNDialogProp
   }, [file]);
 
   /**
-   * Decide whether the LabArchives sign-in step is even reachable for this
-   * plan. We skip it when:
+   * Decide whether the rehydration step is reachable for this plan. We skip
+   * it when:
    *  - the parsed notebook has no Form-B URLs (nothing to fetch); or
-   *  - the deployment has no LabArchives credentials configured (env vars
-   *    OR a sidecar in the data folder — async); or
-   *  - we're in demo / wikiCapture mode (no real LabArchives credentials,
-   *    don't surface a sign-in flow that will reach the public LabArchives API).
+   *  - we're in demo / wikiCapture mode (the step's API path would phone
+   *    home and the cred-less paths don't make sense against fixture data).
    *
-   * Env-var configured state is sync; sidecar state needs an FSA read. We
-   * start with the conservative sync answer (skip = true unless env is
-   * set) and refresh once the async probe resolves. The "fetch-images"
-   * step is only ever reached *after* the user clicks "Start import" on
-   * the mapping screen, so a brief flicker isn't user-visible.
+   * Note: as of the 2026-05-14 cred-less-paths revamp the step is reachable
+   * even when `isLabArchivesConfigured()` is false — the step itself
+   * surfaces the DevTools-script + manual-drop paths in that case, so the
+   * user always has a way to bring images in (or skip).
    */
-  const syncEnvConfigured = useMemo(() => isLabArchivesConfigured(), []);
-  const [sidecarConfigured, setSidecarConfigured] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    void isLabArchivesConfiguredAsync().then((ok) => {
-      // ok already includes the env-var case; storing the OR result here.
-      if (!cancelled) setSidecarConfigured(ok);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
   const skipFetchStep = useMemo(() => {
     if (!parsed) return true;
     if (parsed.missingInlineImages.length === 0) return true;
-    if (!(syncEnvConfigured || sidecarConfigured)) return true;
     if (isDemoOrWikiCapture()) return true;
     return false;
-  }, [parsed, syncEnvConfigured, sidecarConfigured]);
+  }, [parsed]);
 
   const runApply = useCallback(
     async (fetched: Map<string, FetchedImage>) => {
@@ -314,6 +294,7 @@ export default function ImportELNDialog({ isOpen, onClose }: ImportELNDialogProp
             <LabArchivesSignInStep
               receiver={receiver}
               missingImages={parsed.missingInlineImages}
+              notebookLabel={parsed.notebookName ?? undefined}
               onContinue={handleContinueFromFetch}
               onBack={goToPrevStep}
             />
