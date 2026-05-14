@@ -123,13 +123,13 @@ function AppContent({ children }: { children: ReactNode }) {
   );
 }
 
-let errorHandlersInitialized = false;
-
 export function Providers({ children }: { children: ReactNode }) {
-  if (!errorHandlersInitialized && typeof window !== "undefined") {
-    initializeErrorHandlers();
-    errorHandlersInitialized = true;
-  }
+  // Wire global error handlers on client mount. The module-level flag
+  // pattern this replaced ran during render — fine in practice but a side
+  // effect during render. Returning the cleanup lets React strict-mode
+  // double-mounts unwind correctly so we never end up with chained
+  // handlers.
+  useEffect(() => initializeErrorHandlers(), []);
 
   return (
     <ErrorBoundary>
