@@ -940,9 +940,20 @@ function LabArchivesConfigState({
 }
 
 /** Sidecar-mode credential entry. Two password inputs (akid + access
- *  password), an optional region picker (US/AU/EU), and Save / Clear /
- *  Test buttons. Persists to `_labarchives-deployer.json` at the data
- *  folder root via `deployer-store.ts`.
+ *  password), a region picker (US / Australia / UK-EU / Custom URL) that
+ *  writes to the sidecar's `baseUrl` field, and Save / Clear / Test
+ *  buttons. Persists to `_labarchives-deployer.json` at the data folder
+ *  root via `deployer-store.ts`.
+ *
+ *  Region → endpoint mapping (kept in sync with `lib/labarchives/sign.ts`
+ *  comments and the integrations/labarchives wiki page):
+ *   - "us" (default) → omit `baseUrl` (deployer-store + config.ts default
+ *     to `https://api.labarchives.com/api`).
+ *   - "au" → `https://auapi.labarchives.com/api`
+ *   - "eu" → `https://aueuapi.labarchives.com/api` (covers UK + Europe;
+ *     the LabArchives reference docs list these as a single endpoint).
+ *   - "custom" → free-text input, validated as a parseable `https://` URL
+ *     on Save (plaintext http:// and non-URL strings are rejected).
  *
  *  Trust-model reminder (mirrored in `deployer-store.ts`): the
  *  `access_password` lives plaintext on disk. Equivalent to a plaintext
@@ -988,7 +999,7 @@ function LabArchivesDeployerSetupCard({
       } else if (url === "https://auapi.labarchives.com/api") {
         setRegion("au");
         setCustomBaseUrl("");
-      } else if (url === "https://euapi.labarchives.com/api") {
+      } else if (url === "https://aueuapi.labarchives.com/api") {
         setRegion("eu");
         setCustomBaseUrl("");
       } else {
@@ -1011,10 +1022,26 @@ function LabArchivesDeployerSetupCard({
       };
       let url: string | undefined;
       if (region === "au") url = "https://auapi.labarchives.com/api";
-      else if (region === "eu") url = "https://euapi.labarchives.com/api";
+      else if (region === "eu") url = "https://aueuapi.labarchives.com/api";
       else if (region === "custom") {
         const trimmed = customBaseUrl.trim();
-        if (trimmed !== "") url = trimmed;
+        if (trimmed !== "") {
+          // Validate the custom URL is a parseable HTTPS URL — block
+          // plaintext http:// and non-URL strings before they reach the
+          // sidecar. (Server-side `readLabArchivesCredsFromRequest` accepts
+          // http(s) for back-compat, but for a fresh UI entry we hold the
+          // line at HTTPS — the LabArchives REST contract is HTTPS-only.)
+          let parsed: URL;
+          try {
+            parsed = new URL(trimmed);
+          } catch {
+            throw new Error("Custom base URL must be a valid URL.");
+          }
+          if (parsed.protocol !== "https:") {
+            throw new Error("Custom base URL must use https://.");
+          }
+          url = trimmed;
+        }
       }
       // "us" → leave undefined (deployer-store uses default).
       if (url !== undefined) creds.baseUrl = url;
@@ -1178,7 +1205,11 @@ function LabArchivesDeployerSetupCard({
             <p className="block text-xs font-medium text-gray-700 mb-1">
               Region
             </p>
-            <div className="flex flex-wrap gap-3 text-xs text-gray-700">
+            <p className="text-[11px] text-gray-500 mb-1.5">
+              LabArchives runs separate API endpoints by region. Pick the
+              one your institution uses; defaults to US.
+            </p>
+            <div className="flex flex-col gap-1.5 text-xs text-gray-700">
               {(["us", "au", "eu", "custom"] as const).map((r) => (
                 <label key={r} className="inline-flex items-center gap-1.5">
                   <input
@@ -1189,13 +1220,30 @@ function LabArchivesDeployerSetupCard({
                     onChange={() => setRegion(r)}
                   />
                   <span>
-                    {r === "us"
-                      ? "US (default)"
-                      : r === "au"
-                        ? "AU"
-                        : r === "eu"
-                          ? "EU / UK"
-                          : "Custom URL"}
+                    {r === "us" ? (
+                      <>
+                        US (default) —{" "}
+                        <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
+                          api.labarchives.com
+                        </code>
+                      </>
+                    ) : r === "au" ? (
+                      <>
+                        Australia —{" "}
+                        <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
+                          auapi.labarchives.com
+                        </code>
+                      </>
+                    ) : r === "eu" ? (
+                      <>
+                        UK / Europe —{" "}
+                        <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
+                          aueuapi.labarchives.com
+                        </code>
+                      </>
+                    ) : (
+                      <>Custom URL</>
+                    )}
                   </span>
                 </label>
               ))}

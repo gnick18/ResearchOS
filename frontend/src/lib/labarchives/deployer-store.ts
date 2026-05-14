@@ -61,10 +61,44 @@ interface DeployerFile {
  *
  * Caller-side responsibility: gate on `isDemoOrWikiCapture()` first so the
  * fixture-mode mock folder isn't probed for real credentials.
+ *
+ * On malformed JSON, emits a `console.warn` carrying the parse error
+ * before returning null — pure debugger signal so a deployer who
+ * hand-edited the file and corrupted it can see a breadcrumb in the
+ * console. Caller still sees `null` → "not configured", matching the
+ * file-not-found path so nothing else breaks. Mirrors the same pattern
+ * used in `tokens-store.ts` for `_labarchives.json`.
  */
 export async function readDeployerCreds(): Promise<DeployerCreds | null> {
-  const data = await fileService.readJson<DeployerFile>(SIDECAR_PATH);
-  if (!data) return null;
+  // Read raw bytes first so we can distinguish "no file" (normal —
+  // sidecar not configured yet) from "file exists but JSON is malformed"
+  // (deserves a console.warn). The plain `fileService.readJson` swallows
+  // both into a single `null` return, which is what we want for the
+  // happy path but loses the debug signal we want here.
+  const blob = await fileService.readFileAsBlob(SIDECAR_PATH);
+  if (!blob) return null;
+  let text: string;
+  try {
+    text = await blob.text();
+  } catch (err) {
+    console.warn(
+      `[labarchives] _labarchives-deployer.json could not be read: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+    return null;
+  }
+  let data: DeployerFile;
+  try {
+    data = JSON.parse(text) as DeployerFile;
+  } catch (err) {
+    console.warn(
+      `[labarchives] _labarchives-deployer.json is malformed: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+    return null;
+  }
   if (typeof data.accessKeyId !== "string" || data.accessKeyId.trim() === "") return null;
   if (typeof data.accessPassword !== "string" || data.accessPassword.trim() === "") return null;
   const out: DeployerCreds = {
