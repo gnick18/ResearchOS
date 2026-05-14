@@ -3,10 +3,23 @@ import type { ExperimentExportPayload } from "./types";
 
 const MAX_SLUG_LENGTH = 80;
 
+// Windows reserves these filenames (case-insensitive, with or without
+// extension). A file literally named `aux.pdf` or `con.html` fails to open
+// on Windows even though POSIX is fine with it. Append `-task` when the
+// slug exactly matches one so cross-platform receivers can open the export.
+// See: https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file
+const WINDOWS_RESERVED_NAMES = new Set([
+  "con", "prn", "aux", "nul",
+  "com1", "com2", "com3", "com4", "com5", "com6", "com7", "com8", "com9",
+  "lpt1", "lpt2", "lpt3", "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9",
+]);
+
 /**
  * Lowercase, alphanumeric + dashes only, max 80 chars. Empty input or input
  * that slugifies to an empty string falls back to "experiment" so we always
- * produce a usable filename stem.
+ * produce a usable filename stem. A slug that exactly matches a Windows
+ * reserved name (CON, PRN, AUX, NUL, COM1-9, LPT1-9) gets `-task` appended
+ * so the resulting filename is openable on Windows.
  */
 export function slugify(name: string): string {
   const cleaned = (name ?? "")
@@ -14,7 +27,9 @@ export function slugify(name: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
   const truncated = cleaned.slice(0, MAX_SLUG_LENGTH).replace(/-+$/g, "");
-  return truncated || "experiment";
+  const result = truncated || "experiment";
+  if (WINDOWS_RESERVED_NAMES.has(result)) return `${result}-task`;
+  return result;
 }
 
 /**
