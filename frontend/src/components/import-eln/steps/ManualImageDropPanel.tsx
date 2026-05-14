@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import type { FetchedImage } from "@/lib/labarchives/api-client";
-import type { MissingInlineImage } from "@/lib/import/eln/types";
+import type { FetchedImage, MissingInlineImage } from "@/lib/import/eln/types";
 import {
   collectDroppedFiles,
   expandZips,

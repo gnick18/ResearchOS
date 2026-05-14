@@ -19,10 +19,10 @@ import type {
   ELNImportPlan,
   ELNImportResult,
   ELNProjectMapping,
+  FetchedImage,
   ParsedNotebook,
 } from "@/lib/import/eln/types";
 import type { ChangedPage } from "@/lib/import/eln/apply";
-import type { FetchedImage } from "@/lib/labarchives/api-client";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import BulkSortScreen from "./BulkSortScreen";
 import PickFormatStep, { type ELNFormat } from "./steps/PickFormatStep";
@@ -73,7 +73,6 @@ export default function ImportELNDialog({ isOpen, onClose }: ImportELNDialogProp
   const [progress, setProgress] = useState<ELNApplyProgress | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [result, setResult] = useState<ELNImportResult | null>(null);
-  const [receiver, setReceiver] = useState<string>("");
   // Held in state purely so an in-progress retry from the apply error screen
   // can re-use the already-fetched bytes without re-prompting. The getter
   // isn't read directly in JSX — the runApply caller reads from the closure
@@ -102,7 +101,6 @@ export default function ImportELNDialog({ isOpen, onClose }: ImportELNDialogProp
     setProgress(null);
     setApplyError(null);
     setResult(null);
-    setReceiver("");
     setFetchedImages(new Map());
     setChangedPages([]);
     setOverwritePageIds(new Set());
@@ -148,7 +146,6 @@ export default function ImportELNDialog({ isOpen, onClose }: ImportELNDialogProp
       setParsed(out);
       const startedAt = new Date().toISOString();
       const user = (await getCurrentUserCached()) ?? "";
-      setReceiver(user);
       const defaultPlan = buildDefaultPlan(out, user, startedAt);
       setMappings(defaultPlan.projectMappings);
       setPlan(defaultPlan);
@@ -329,7 +326,6 @@ export default function ImportELNDialog({ isOpen, onClose }: ImportELNDialogProp
           )}
           {step === "fetch-images" && parsed && (
             <LabArchivesSignInStep
-              receiver={receiver}
               missingImages={parsed.missingInlineImages}
               notebookLabel={parsed.notebookName ?? undefined}
               onContinue={handleContinueFromFetch}

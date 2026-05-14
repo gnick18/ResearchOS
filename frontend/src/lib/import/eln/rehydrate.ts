@@ -29,8 +29,7 @@
  */
 
 import { fileService } from "@/lib/file-system/file-service";
-import type { FetchedImage } from "@/lib/labarchives/api-client";
-import type { ELNImportSidecar, MissingInlineImage } from "./types";
+import type { ELNImportSidecar, FetchedImage, MissingInlineImage } from "./types";
 
 const SIDECAR_FILENAME = "_import_source.json";
 

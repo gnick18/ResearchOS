@@ -8,6 +8,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAppStore } from "@/lib/store";
 import { useExternalEvents } from "@/lib/calendar/use-external-events";
 import { useCalendarNavStore } from "@/lib/calendar/calendar-nav-store";
+import { hasEnded } from "@/lib/calendar/event-status";
 import {
   EVENT_TYPE_COLORS,
   formatTime,
@@ -384,6 +385,16 @@ function CalendarEventsSection({
   });
   const { events: externalEvents } = useExternalEvents();
 
+  // Re-render every minute so events transition out of the "today" bucket
+  // as their end-time passes. Cheap — sidebar is light and `tick` only
+  // forces the `todayItems` useMemo to re-evaluate. Aligned with the
+  // calendar views, which also use a 60s tick for the "now" line.
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   const todayStr = toLocalDateString(new Date());
   const horizonStr = useMemo(() => {
     const d = new Date();
@@ -396,10 +407,18 @@ function CalendarEventsSection({
       | { kind: "native"; event: Event; sortKey: string }
       | { kind: "external"; event: ExternalEvent; sortKey: string };
     const all: Item[] = [];
+    // Sidebar quick-look behavior: an event that has already ended today
+    // shouldn't clutter "what's next." Drop ended events from the today
+    // bucket; upcoming-day events can never have ended yet (their date is
+    // in the future), so the filter is effectively a no-op there.
+    const now = new Date();
+    void tick; // re-run on minute tick — keeps `now` fresh
     for (const e of events) {
       const end = e.end_date || e.start_date;
       if (end < todayStr || e.start_date > horizonStr) continue;
       const anchor = e.start_date < todayStr ? todayStr : e.start_date;
+      const isTodayBucket = (anchor === todayStr);
+      if (isTodayBucket && hasEnded(e, now)) continue;
       all.push({
         kind: "native",
         event: e,
@@ -410,6 +429,8 @@ function CalendarEventsSection({
       const end = e.end_date || e.start_date;
       if (end < todayStr || e.start_date > horizonStr) continue;
       const anchor = e.start_date < todayStr ? todayStr : e.start_date;
+      const isTodayBucket = (anchor === todayStr);
+      if (isTodayBucket && hasEnded(e, now)) continue;
       all.push({
         kind: "external",
         event: e,
@@ -429,7 +450,7 @@ function CalendarEventsSection({
       }
     }
     return { todayItems: today, upcomingByDate: upcoming };
-  }, [events, externalEvents, todayStr, horizonStr]);
+  }, [events, externalEvents, todayStr, horizonStr, tick]);
 
   const handleClickEvent = (dateStr: string) => {
     jumpTo("day", dateStr);

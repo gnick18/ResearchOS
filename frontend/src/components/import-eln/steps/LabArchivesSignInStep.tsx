@@ -1,42 +1,33 @@
 "use client";
 
 /**
- * Thin wizard-step wrapper around the reusable 3-tab fetch panel.
+ * Thin wizard-step wrapper around the reusable 2-tab fetch panel.
  *
- * The tab-switching core (API / DevTools / Drop) moved to
- * `components/labarchives/RehydrateMissingImagesPanel.tsx` on 2026-05-14
- * Phase 1 so the same UI is available from the post-import banner in
- * `TaskDetailPopup`'s Lab Notes tab (via `RehydrateMissingImagesModal`).
+ * The tab-switching core (DevTools / Drop) lives in
+ * `components/labarchives/RehydrateMissingImagesPanel.tsx` so the same UI
+ * is also reachable from the post-import banner in `TaskDetailPopup`'s
+ * Lab Notes tab (via `RehydrateMissingImagesModal`).
  *
- * This file's only remaining job is the wizard-specific glue: the
- * Back / Skip / Continue buttons at the bottom of the dialog. The panel
- * owns its own state; we read the most recent staged map via
- * `onMatchesChange` and hand it off when the user clicks Continue.
+ * History: until 2026-05-14 this step also offered a third path —
+ * "Connect via API" — that required institutional LabArchives access
+ * credentials. That tab was removed alongside the rest of the
+ * institutional-API surface (see AGENTS.md §8 "LabArchives institutional
+ * API removal") because the cred-less DevTools-script and folder-drop
+ * paths already cover the use case.
  */
 
 import { useCallback, useState } from "react";
 import RehydrateMissingImagesPanel from "@/components/labarchives/RehydrateMissingImagesPanel";
-import type { FetchedImage } from "@/lib/labarchives/api-client";
-import type { MissingInlineImage } from "@/lib/import/eln/types";
+import type { FetchedImage, MissingInlineImage } from "@/lib/import/eln/types";
 
 interface Props {
-  /** Receiver-side username; the panel reads/writes `_labarchives.json`
-   *  for this user when the API path is taken. */
-  receiver: string;
-  /** Form-B inline images we know about from the Preview step. */
   missingImages: MissingInlineImage[];
-  /** Optional notebook label used in the DevTools-script's ZIP filename. */
   notebookLabel?: string;
-  /** Fire when the user chooses to continue. The map is keyed by
-   *  `MissingInlineImage.originalUrl` and may be empty (the user opted to
-   *  skip the rehydration step entirely). */
   onContinue: (fetched: Map<string, FetchedImage>) => void;
-  /** Fire when the user backs out of this step. */
   onBack: () => void;
 }
 
 export default function LabArchivesSignInStep({
-  receiver,
   missingImages,
   notebookLabel,
   onContinue,
@@ -53,7 +44,6 @@ export default function LabArchivesSignInStep({
   return (
     <div className="space-y-4">
       <RehydrateMissingImagesPanel
-        username={receiver}
         missingImages={missingImages}
         notebookLabel={notebookLabel}
         onMatchesChange={handleMatches}

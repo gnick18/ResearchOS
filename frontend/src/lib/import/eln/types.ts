@@ -111,6 +111,23 @@ export interface MissingInlineImage {
   version?: string;
 }
 
+
+
+/**
+ * One pre-fetched Form-B inline image, staged by either the DevTools paste-
+ * script panel or the manual folder/ZIP drop panel. Used by the apply pass
+ * (`apply.ts`) and the post-import rehydration helper (`rehydrate.ts`) to
+ * write bytes to disk and rewrite the markdown ref.
+ *
+ * Originally lived in `lib/labarchives/api-client.ts` (and was returned by
+ * the deleted `fetchInlineImages` function); when the institutional API
+ * setup was removed 2026-05-14, this shape was inlined here so the cred-
+ * less paths still have a stable type to flow through.
+ */
+export type FetchedImage =
+  | { kind: "ok"; blob: Blob; contentType: string }
+  | { kind: "error"; message: string };
+
 // ─── Apply-pipeline contract ─────────────────────────────────────────────────
 // Types below describe the plan/result shape consumed by the wizard UI and
 // produced by `plan.ts` + `apply.ts`. Keep these stable; the wizard sub-bot

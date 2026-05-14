@@ -1,8 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { FetchedImage } from "@/lib/labarchives/api-client";
-import type { MissingInlineImage } from "@/lib/import/eln/types";
+import type { FetchedImage, MissingInlineImage } from "@/lib/import/eln/types";
 import { buildDevToolsFetchScript } from "@/lib/labarchives/devtools-script";
 import ManualImageDropPanel from "./ManualImageDropPanel";
 

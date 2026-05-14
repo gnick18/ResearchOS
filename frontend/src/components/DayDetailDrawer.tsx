@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Event, ExternalEvent } from "@/lib/types";
+import { hasEnded } from "@/lib/calendar/event-status";
 import Tooltip from "./Tooltip";
+
+const ENDED_CLASSES = "line-through opacity-60";
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
   conference: "#8b5cf6",
@@ -57,6 +60,13 @@ export default function DayDetailDrawer({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  // 60s tick so the drawer's strikethrough state updates live while open.
+  const [now, setNow] = useState<Date>(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const { allDay, timed } = useMemo(() => {
     const allDay: Array<{ kind: "native"; event: Event } | { kind: "external"; event: ExternalEvent }> = [];
@@ -133,6 +143,7 @@ export default function DayDetailDrawer({
                     item={item}
                     onSelectNative={onSelectNative}
                     onSelectExternal={onSelectExternal}
+                    now={now}
                   />
                 ))}
               </ul>
@@ -151,6 +162,7 @@ export default function DayDetailDrawer({
                     item={item}
                     onSelectNative={onSelectNative}
                     onSelectExternal={onSelectExternal}
+                    now={now}
                   />
                 ))}
               </ul>
@@ -189,12 +201,14 @@ function DayDetailRow({
   item,
   onSelectNative,
   onSelectExternal,
+  now,
 }: {
   item:
     | { kind: "native"; event: Event }
     | { kind: "external"; event: ExternalEvent };
   onSelectNative: (event: Event) => void;
   onSelectExternal: (event: ExternalEvent) => void;
+  now: Date;
 }) {
   const color =
     item.kind === "native"
@@ -210,12 +224,13 @@ function DayDetailRow({
           item.event.end_time ? ` – ${formatTime(item.event.end_time)}` : ""
         }`
       : "All-day";
+  const ended = hasEnded(item.event, now);
 
   return (
     <li>
       <button
         onClick={onClick}
-        className="w-full text-left flex items-start gap-3 px-3 py-2 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors"
+        className={`w-full text-left flex items-start gap-3 px-3 py-2 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors ${ended ? ENDED_CLASSES : ""}`}
       >
         <span
           className="w-1 self-stretch rounded-full flex-shrink-0 mt-0.5"

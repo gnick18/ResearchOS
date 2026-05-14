@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Event, ExternalEvent } from "@/lib/types";
+import { hasEnded } from "@/lib/calendar/event-status";
 import {
   assignLanes,
   type CalendarItem,
@@ -14,6 +15,8 @@ import {
   timeToMinutes,
   toLocalDateString,
 } from "./utils";
+
+const ENDED_CLASSES = "line-through opacity-60";
 
 interface Props {
   anchor: Date;
@@ -72,18 +75,13 @@ export default function WeekView({
     scrollRef.current.scrollTop = Math.max(0, (targetMinutes / 60) * HOUR_HEIGHT);
   }, [weekDays, todayStr]);
 
-  // "Now" line: live-update every minute
-  const [nowMinutes, setNowMinutes] = useState<number | null>(() => {
-    const n = new Date();
-    return n.getHours() * 60 + n.getMinutes();
-  });
+  // 60s tick drives both the red "now" line and the ended-event greying.
+  const [now, setNow] = useState<Date>(() => new Date());
   useEffect(() => {
-    const id = setInterval(() => {
-      const n = new Date();
-      setNowMinutes(n.getHours() * 60 + n.getMinutes());
-    }, 60_000);
+    const id = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(id);
   }, []);
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col">
@@ -121,6 +119,7 @@ export default function WeekView({
         itemsByDate={itemsByDate}
         onEventClick={onEventClick}
         onExternalClick={onExternalClick}
+        now={now}
       />
 
       {/* Hourly time grid (scrollable) */}
@@ -176,7 +175,7 @@ export default function WeekView({
                 ))}
 
                 {/* "Now" line on today */}
-                {isToday && nowMinutes !== null && (
+                {isToday && (
                   <div
                     className="absolute left-0 right-0 pointer-events-none z-10"
                     style={{ top: (nowMinutes / 60) * HOUR_HEIGHT }}
@@ -197,6 +196,7 @@ export default function WeekView({
                     laneCount={laneCount}
                     onEventClick={onEventClick}
                     onExternalClick={onExternalClick}
+                    now={now}
                   />
                 ))}
               </div>
@@ -215,11 +215,13 @@ function AllDayStrip({
   itemsByDate,
   onEventClick,
   onExternalClick,
+  now,
 }: {
   weekDays: Date[];
   itemsByDate: Map<string, CalendarItem[]>;
   onEventClick: (event: Event) => void;
   onExternalClick: (event: ExternalEvent) => void;
+  now: Date;
 }) {
   // For each day, all-day items (single-day all-day or multi-day events).
   const allDayByDate = useMemo(() => {
@@ -256,12 +258,13 @@ function AllDayStrip({
             className="border-l border-gray-100 px-1 py-1 space-y-0.5 overflow-hidden"
             style={{ minHeight: stripHeight }}
           >
-            {visible.map((item) =>
-              item.kind === "native" ? (
+            {visible.map((item) => {
+              const ended = hasEnded(item.event, now);
+              return item.kind === "native" ? (
                 <button
                   key={`n-${item.event.id}`}
                   onClick={() => onEventClick(item.event)}
-                  className="w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80"
+                  className={`w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80 ${ended ? ENDED_CLASSES : ""}`}
                   style={{
                     backgroundColor:
                       item.event.color || EVENT_TYPE_COLORS[item.event.event_type],
@@ -280,7 +283,7 @@ function AllDayStrip({
                   key={`x-${item.event.id}`}
                   onClick={() => onExternalClick(item.event)}
                   title="Linked calendar event (read-only)"
-                  className="w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80 flex items-center gap-1"
+                  className={`w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80 flex items-center gap-1 ${ended ? ENDED_CLASSES : ""}`}
                   style={{
                     backgroundColor: "white",
                     color: item.event.color,
@@ -294,8 +297,8 @@ function AllDayStrip({
                   )}
                   <span className="truncate">{item.event.title}</span>
                 </button>
-              )
-            )}
+              );
+            })}
             {extra > 0 && (
               <p className="text-[10px] text-gray-400 px-1.5">+{extra} more</p>
             )}
@@ -314,12 +317,14 @@ function TimedEventBlock({
   laneCount,
   onEventClick,
   onExternalClick,
+  now,
 }: {
   item: CalendarItem;
   lane: number;
   laneCount: number;
   onEventClick: (event: Event) => void;
   onExternalClick: (event: ExternalEvent) => void;
+  now: Date;
 }) {
   const start = timeToMinutes(item.event.start_time) ?? 0;
   const end = timeToMinutes(item.event.end_time) ?? start + 30;
@@ -337,6 +342,7 @@ function TimedEventBlock({
       : () => onExternalClick(item.event);
 
   const isShort = height < 32;
+  const ended = hasEnded(item.event, now);
 
   return (
     <button
@@ -344,7 +350,7 @@ function TimedEventBlock({
         e.stopPropagation();
         handleClick();
       }}
-      className="absolute rounded-md px-1.5 py-0.5 text-left overflow-hidden hover:opacity-90 transition-opacity z-10"
+      className={`absolute rounded-md px-1.5 py-0.5 text-left overflow-hidden hover:opacity-90 transition-opacity z-10 ${ended ? ENDED_CLASSES : ""}`}
       style={{
         top,
         height: height - 1,

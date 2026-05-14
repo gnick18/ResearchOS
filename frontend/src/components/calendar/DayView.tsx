@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Event, ExternalEvent } from "@/lib/types";
+import { hasEnded } from "@/lib/calendar/event-status";
 import {
   assignLanes,
   type CalendarItem,
@@ -13,6 +14,11 @@ import {
   timeToMinutes,
   toLocalDateString,
 } from "./utils";
+
+// Tailwind classes layered on top of any color styles when an event has
+// passed. Keeps the original color accent visible (via the chip background
+// / border) but de-emphasizes the row.
+const ENDED_CLASSES = "line-through opacity-60";
 
 interface Props {
   anchor: Date;
@@ -68,17 +74,15 @@ export default function DayView({
     scrollRef.current.scrollTop = Math.max(0, (targetMinutes / 60) * HOUR_HEIGHT);
   }, [isToday]);
 
-  const [nowMinutes, setNowMinutes] = useState<number | null>(() => {
-    const n = new Date();
-    return n.getHours() * 60 + n.getMinutes();
-  });
+  // 60s tick drives both the red "now" line and the ended-event greying.
+  // We keep a Date so the `hasEnded` helper has its full input shape (the
+  // sidebar shares the same helper — single source of truth for cutoff).
+  const [now, setNow] = useState<Date>(() => new Date());
   useEffect(() => {
-    const id = setInterval(() => {
-      const n = new Date();
-      setNowMinutes(n.getHours() * 60 + n.getMinutes());
-    }, 60_000);
+    const id = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(id);
   }, []);
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
   const heading = anchor.toLocaleDateString(undefined, {
     weekday: "long",
@@ -105,12 +109,13 @@ export default function DayView({
             All-day
           </p>
           <div className="space-y-1">
-            {sortedAllDay.map((item) =>
-              item.kind === "native" ? (
+            {sortedAllDay.map((item) => {
+              const ended = hasEnded(item.event, now);
+              return item.kind === "native" ? (
                 <button
                   key={`n-${item.event.id}`}
                   onClick={() => onEventClick(item.event)}
-                  className="w-full text-left px-2 py-1 text-xs rounded hover:opacity-90"
+                  className={`w-full text-left px-2 py-1 text-xs rounded hover:opacity-90 ${ended ? ENDED_CLASSES : ""}`}
                   style={{
                     backgroundColor:
                       item.event.color || EVENT_TYPE_COLORS[item.event.event_type],
@@ -129,7 +134,7 @@ export default function DayView({
                   key={`x-${item.event.id}`}
                   onClick={() => onExternalClick(item.event)}
                   title="Linked calendar event (read-only)"
-                  className="w-full text-left px-2 py-1 text-xs rounded hover:opacity-90 flex items-center gap-1"
+                  className={`w-full text-left px-2 py-1 text-xs rounded hover:opacity-90 flex items-center gap-1 ${ended ? ENDED_CLASSES : ""}`}
                   style={{
                     backgroundColor: "white",
                     color: item.event.color,
@@ -158,8 +163,8 @@ export default function DayView({
                   )}
                   <span className="truncate">{item.event.title}</span>
                 </button>
-              )
-            )}
+              );
+            })}
           </div>
         </div>
       )}
@@ -206,7 +211,7 @@ export default function DayView({
               />
             ))}
 
-            {isToday && nowMinutes !== null && (
+            {isToday && (
               <div
                 className="absolute left-0 right-0 pointer-events-none z-10"
                 style={{ top: (nowMinutes / 60) * HOUR_HEIGHT }}
@@ -231,6 +236,7 @@ export default function DayView({
                 item.kind === "native"
                   ? () => onEventClick(item.event)
                   : () => onExternalClick(item.event);
+              const ended = hasEnded(item.event, now);
 
               return (
                 <button
@@ -239,7 +245,7 @@ export default function DayView({
                     e.stopPropagation();
                     handleClick();
                   }}
-                  className="absolute rounded-md px-2 py-1 text-left overflow-hidden hover:opacity-90 z-10"
+                  className={`absolute rounded-md px-2 py-1 text-left overflow-hidden hover:opacity-90 z-10 ${ended ? ENDED_CLASSES : ""}`}
                   style={{
                     top,
                     height: height - 1,
