@@ -1,22 +1,28 @@
 import { fileService } from "@/lib/file-system/file-service";
 import type {
   CalendarFeed,
-  CalendarFeedKind,
   CalendarFeedProvider,
 } from "@/lib/types";
 
 /**
  * Persistence layer for linked external calendar subscriptions (Google /
- * Outlook / iCloud / arbitrary public ICS URLs, plus OAuth-backed
- * Google / Outlook accounts).
+ * Outlook / iCloud / arbitrary public ICS URLs).
  *
  * Stored as a single JSON file `users/{username}/_calendar-feeds.json`,
  * mirroring the `_telegram.json` pattern. One file is fine — most users
  * will have at most a handful of feeds, so a directory-per-feed
  * (`JsonStore`) would be unnecessary I/O overhead.
+ *
+ * Schema history:
+ *   - v1: ICS-only feeds.
+ *   - v2: Added OAuth-backed `kind: "google" | "outlook"` feeds.
+ *   - v3 (2026-05-14): OAuth integrations removed. Legacy OAuth feeds
+ *     written under v2 are silently filtered out on read — they reference
+ *     OAuth tokens that no longer exist. Users with OAuth feeds need to
+ *     resubscribe via the ICS URL flow.
  */
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 interface FeedsFile {
   version: number;
@@ -26,23 +32,39 @@ interface FeedsFile {
   nextId: number;
 }
 
-function feedsPath(username: string): string {
-  return `users/${username}/_calendar-feeds.json`;
+/** Raw record shape we accept when reading older files. v2 added
+ *  `kind` + `oauthCalendarId`; we tolerate both. */
+interface LegacyFeedRecord {
+  id: number;
+  provider?: CalendarFeedProvider;
+  /** v2 may have written "google" or "outlook" for OAuth feeds. We treat
+   *  anything other than "ics" as a legacy OAuth feed and skip it. */
+  kind?: string;
+  label?: string;
+  icsUrl?: string | null;
+  /** v2-only field — ignored on read. */
+  oauthCalendarId?: string | null;
+  color?: string;
+  enabled?: boolean;
+  lastSyncAt?: string | null;
 }
 
-/** Back-fill missing fields on feeds written before the OAuth schema bump.
- *  Older entries don't have `kind` or `oauthCalendarId`; assume they're
- *  ICS-backed since OAuth flows didn't exist yet. */
-function normalizeFeed(raw: Partial<CalendarFeed> & { id: number }): CalendarFeed {
-  const kind: CalendarFeedKind =
-    raw.kind === "google" || raw.kind === "outlook" ? raw.kind : "ics";
+/** Back-fill missing fields on feeds written before the v3 schema bump.
+ *  Returns `null` for legacy OAuth-backed feeds (kind === "google" |
+ *  "outlook"), which the caller filters out. */
+function normalizeFeed(raw: LegacyFeedRecord): CalendarFeed | null {
+  // Legacy OAuth feeds carry kind === "google" | "outlook" and reference
+  // OAuth tokens that no longer exist. Drop them silently — the user's
+  // record file is orphaned but their ICS subscriptions still work.
+  if (raw.kind && raw.kind !== "ics") return null;
+  // Need an ICS URL to be useful.
+  if (!raw.icsUrl) return null;
   return {
     id: raw.id,
     provider: (raw.provider ?? "other") as CalendarFeedProvider,
-    kind,
+    kind: "ics",
     label: raw.label ?? "(unnamed)",
-    icsUrl: raw.icsUrl ?? null,
-    oauthCalendarId: raw.oauthCalendarId ?? null,
+    icsUrl: raw.icsUrl,
     color: raw.color ?? "#3b82f6",
     enabled: raw.enabled ?? true,
     lastSyncAt: raw.lastSyncAt ?? null,
@@ -52,16 +74,23 @@ function normalizeFeed(raw: Partial<CalendarFeed> & { id: number }): CalendarFee
 async function readFile(username: string): Promise<FeedsFile> {
   const data = await fileService.readJson<FeedsFile>(feedsPath(username));
   if (!data) return { version: SCHEMA_VERSION, feeds: [], nextId: 1 };
-  const rawFeeds: Array<Partial<CalendarFeed> & { id: number }> = Array.isArray(
-    data.feeds,
-  )
-    ? (data.feeds as Array<Partial<CalendarFeed> & { id: number }>)
+  const rawFeeds: LegacyFeedRecord[] = Array.isArray(data.feeds)
+    ? (data.feeds as LegacyFeedRecord[])
     : [];
+  const normalized: CalendarFeed[] = [];
+  for (const r of rawFeeds) {
+    const f = normalizeFeed(r);
+    if (f) normalized.push(f);
+  }
   return {
     version: SCHEMA_VERSION,
-    feeds: rawFeeds.map(normalizeFeed),
+    feeds: normalized,
     nextId: typeof data.nextId === "number" ? data.nextId : (rawFeeds.length ?? 0) + 1,
   };
+}
+
+function feedsPath(username: string): string {
+  return `users/${username}/_calendar-feeds.json`;
 }
 
 async function writeFile(username: string, data: FeedsFile): Promise<void> {
@@ -82,56 +111,21 @@ export interface CreateIcsFeedInput {
   enabled?: boolean;
 }
 
-/** Input shape for adding an OAuth-backed feed (Google / Outlook). */
-export interface CreateOAuthFeedInput {
-  kind: "google" | "outlook";
-  /** Display category — for an OAuth feed this almost always equals `kind`,
-   *  but kept separate so a future "Google Workspace" rebrand or similar
-   *  stays a 1-line cosmetic change. */
-  provider: CalendarFeedProvider;
-  label: string;
-  oauthCalendarId: string;
-  color: string;
-  enabled?: boolean;
-}
-
 export async function createFeed(
   username: string,
   input: CreateIcsFeedInput,
-): Promise<CalendarFeed>;
-export async function createFeed(
-  username: string,
-  input: CreateOAuthFeedInput,
-): Promise<CalendarFeed>;
-export async function createFeed(
-  username: string,
-  input: CreateIcsFeedInput | CreateOAuthFeedInput,
 ): Promise<CalendarFeed> {
   const file = await readFile(username);
-  const isOAuth = "kind" in input;
-  const feed: CalendarFeed = isOAuth
-    ? {
-        id: file.nextId,
-        provider: input.provider,
-        kind: input.kind,
-        label: input.label,
-        icsUrl: null,
-        oauthCalendarId: input.oauthCalendarId,
-        color: input.color,
-        enabled: input.enabled ?? true,
-        lastSyncAt: null,
-      }
-    : {
-        id: file.nextId,
-        provider: input.provider,
-        kind: "ics",
-        label: input.label,
-        icsUrl: input.icsUrl,
-        oauthCalendarId: null,
-        color: input.color,
-        enabled: input.enabled ?? true,
-        lastSyncAt: null,
-      };
+  const feed: CalendarFeed = {
+    id: file.nextId,
+    provider: input.provider,
+    kind: "ics",
+    label: input.label,
+    icsUrl: input.icsUrl,
+    color: input.color,
+    enabled: input.enabled ?? true,
+    lastSyncAt: null,
+  };
   await writeFile(username, {
     version: SCHEMA_VERSION,
     feeds: [...file.feeds, feed],

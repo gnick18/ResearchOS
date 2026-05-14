@@ -21,13 +21,6 @@ import {
   useExternalEvents,
 } from "@/lib/calendar/use-external-events";
 import { useCalendarNavStore } from "@/lib/calendar/calendar-nav-store";
-import {
-  deleteExternalEvent,
-  isFeedWritable,
-  updateExternalEvent,
-  type ExternalEventPatch,
-} from "@/lib/calendar/external-events-write";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
 import type { CalendarFeed, Event, ExternalEvent } from "@/lib/types";
 
 const DEFAULT_COLORS = [
@@ -54,7 +47,6 @@ export default function CalendarPage() {
     queryFn: eventsApi.list,
   });
 
-  const { currentUser } = useCurrentUser();
   const { data: feeds = [] } = useCalendarFeeds();
   const {
     events: externalEvents,
@@ -349,19 +341,12 @@ export default function CalendarPage() {
         />
       )}
 
-      {/* External Event Modal — editable for OAuth feeds, read-only for ICS */}
+      {/* External Event Modal — read-only (ICS subscriptions can't be edited) */}
       {selectedExternal && (
         <ExternalEventModal
           event={selectedExternal}
           feed={feeds.find((f) => f.id === selectedExternal.feedId) ?? null}
-          currentUser={currentUser ?? null}
           onClose={() => setSelectedExternal(null)}
-          onMutated={async () => {
-            // Refetch every feed's events so the local cache reflects the
-            // upstream change without making the user wait the 15-min
-            // staleTime out.
-            await refetchExternal();
-          }}
         />
       )}
 
@@ -850,72 +835,12 @@ function CreateEventModal({
 function ExternalEventModal({
   event,
   feed,
-  currentUser,
   onClose,
-  onMutated,
 }: {
   event: ExternalEvent;
   feed: CalendarFeed | null;
-  currentUser: string | null;
   onClose: () => void;
-  onMutated: () => Promise<void> | void;
 }) {
-  const writable = !!feed && !!currentUser && isFeedWritable(feed);
-  const [mode, setMode] = useState<"view" | "edit">("view");
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  const [title, setTitle] = useState(event.title);
-  const [startDate, setStartDate] = useState(event.start_date);
-  const [endDate, setEndDate] = useState(event.end_date ?? "");
-  const [startTime, setStartTime] = useState(event.start_time ?? "");
-  const [endTime, setEndTime] = useState(event.end_time ?? "");
-  const [location, setLocation] = useState(event.location ?? "");
-  const [notes, setNotes] = useState(event.notes ?? "");
-
-  const handleSave = async () => {
-    if (!feed || !currentUser) return;
-    setSaving(true);
-    setErrorMsg(null);
-    try {
-      const patch: ExternalEventPatch = {
-        title: title.trim() || event.title,
-        start_date: startDate,
-        end_date: endDate || null,
-        start_time: startTime || null,
-        end_time: endTime || null,
-        location: location.trim() ? location.trim() : null,
-        notes: notes.trim() ? notes.trim() : null,
-      };
-      await updateExternalEvent(currentUser, feed, event, patch);
-      await onMutated();
-      onClose();
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "Update failed.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!feed || !currentUser) return;
-    const ok = window.confirm(
-      `Delete "${event.title}" from ${feed.label}? This removes it from the source calendar.`,
-    );
-    if (!ok) return;
-    setDeleting(true);
-    setErrorMsg(null);
-    try {
-      await deleteExternalEvent(currentUser, feed, event);
-      await onMutated();
-      onClose();
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "Delete failed.");
-      setDeleting(false);
-    }
-  };
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
@@ -932,18 +857,11 @@ function ExternalEventModal({
               style={{ backgroundColor: event.color }}
             />
             <h3 className="text-base font-semibold text-gray-900">
-              {mode === "edit" ? "Edit Linked Event" : "Linked Event"}
+              Linked Event
             </h3>
-            {!writable && (
-              <span className="text-[10px] uppercase tracking-wide text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">
-                Read-only
-              </span>
-            )}
-            {writable && feed && (
-              <span className="text-[10px] uppercase tracking-wide text-emerald-700 border border-emerald-200 bg-emerald-50 rounded px-1.5 py-0.5">
-                Two-way · {feed.kind === "google" ? "Google" : "Outlook"}
-              </span>
-            )}
+            <span className="text-[10px] uppercase tracking-wide text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">
+              Read-only
+            </span>
           </div>
           <Tooltip label="Close" placement="bottom">
             <button
@@ -955,190 +873,51 @@ function ExternalEventModal({
           </Tooltip>
         </div>
 
-        {mode === "view" && (
-          <div className="p-6 space-y-4">
-            <h4 className="text-lg font-semibold text-gray-900">{event.title}</h4>
-            <p className="text-sm text-gray-600">
-              {event.start_date}
-              {event.end_date && event.end_date !== event.start_date && (
-                <> → {event.end_date}</>
-              )}
-              {event.start_time && (
-                <>
-                  {" · "}
-                  {formatTime(event.start_time)}
-                  {event.end_time && <> – {formatTime(event.end_time)}</>}
-                </>
-              )}
-            </p>
-            {event.location && (
-              <p className="text-sm text-gray-600">Location: {event.location}</p>
+        <div className="p-6 space-y-4">
+          <h4 className="text-lg font-semibold text-gray-900">{event.title}</h4>
+          <p className="text-sm text-gray-600">
+            {event.start_date}
+            {event.end_date && event.end_date !== event.start_date && (
+              <> → {event.end_date}</>
             )}
-            {event.url && (
-              <a
-                href={event.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block text-sm text-blue-600 hover:underline break-all"
-              >
-                {event.url}
-              </a>
+            {event.start_time && (
+              <>
+                {" · "}
+                {formatTime(event.start_time)}
+                {event.end_time && <> – {formatTime(event.end_time)}</>}
+              </>
             )}
-            {event.notes && (
-              <p className="text-sm text-gray-600 whitespace-pre-wrap">{event.notes}</p>
-            )}
-            <p className="text-[11px] text-gray-400 pt-2 border-t border-gray-100">
-              {writable
-                ? "Edits and deletes sync back to the source calendar within seconds."
-                : "From a linked iCloud / ICS subscription. Apple doesn't expose a write API to third parties, so edit this event in its source app — changes will sync back within 15 min."}
-            </p>
-            {errorMsg && (
-              <p className="text-xs text-red-600">{errorMsg}</p>
-            )}
-          </div>
-        )}
-
-        {mode === "edit" && writable && (
-          <div className="p-6 space-y-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Title</label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Start Date</label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">End Date</label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
-                  Start Time <span className="text-gray-300 font-normal">(blank = all-day)</span>
-                </label>
-                <input
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">End Time</label>
-                <input
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-            {(startTime || endTime) && (
-              <button
-                type="button"
-                onClick={() => {
-                  setStartTime("");
-                  setEndTime("");
-                }}
-                className="text-[11px] text-blue-600 hover:underline -mt-2"
-              >
-                Clear times (make all-day)
-              </button>
-            )}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Location</label>
-              <input
-                type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Notes</label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            {errorMsg && (
-              <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded p-2">
-                {errorMsg}
-              </p>
-            )}
-          </div>
-        )}
+          </p>
+          {event.location && (
+            <p className="text-sm text-gray-600">Location: {event.location}</p>
+          )}
+          {event.url && (
+            <a
+              href={event.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block text-sm text-blue-600 hover:underline break-all"
+            >
+              {event.url}
+            </a>
+          )}
+          {event.notes && (
+            <p className="text-sm text-gray-600 whitespace-pre-wrap">{event.notes}</p>
+          )}
+          <p className="text-[11px] text-gray-400 pt-2 border-t border-gray-100">
+            {feed
+              ? `From "${feed.label}" (linked iCal subscription). Edit this event in its source app — your change will sync back within 15 minutes.`
+              : "From a linked iCal subscription. Edit this event in its source app — your change will sync back within 15 minutes."}
+          </p>
+        </div>
 
         <div className="flex gap-3 justify-end px-6 py-4 border-t border-gray-100">
-          {mode === "view" ? (
-            <>
-              {writable && (
-                <button
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  className="px-4 py-2 text-sm text-red-500 hover:bg-red-50 rounded-lg disabled:opacity-50"
-                >
-                  {deleting ? "Deleting…" : "Delete"}
-                </button>
-              )}
-              {writable && (
-                <button
-                  onClick={() => setMode("edit")}
-                  className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
-                >
-                  Edit
-                </button>
-              )}
-              {!writable && (
-                <button
-                  onClick={onClose}
-                  className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
-                >
-                  Close
-                </button>
-              )}
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() => {
-                  setMode("view");
-                  setErrorMsg(null);
-                }}
-                disabled={saving}
-                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
-              >
-                {saving ? "Saving…" : "Save to source"}
-              </button>
-            </>
-          )}
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+          >
+            Close
+          </button>
         </div>
       </div>
     </div>

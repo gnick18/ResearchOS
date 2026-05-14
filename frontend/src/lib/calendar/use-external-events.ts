@@ -9,8 +9,6 @@ import {
   markFeedSynced,
 } from "./external-feeds-store";
 import { parseIcsToExternalEvents } from "./ics-parser";
-import { listEventsForFeed as listGoogleEvents } from "./google-client";
-import { listEventsForFeed as listOutlookEvents } from "./microsoft-client";
 
 const FEEDS_QUERY_KEY = ["calendar-feeds"] as const;
 const FEED_EVENTS_PREFIX = "calendar-feed-events";
@@ -28,22 +26,6 @@ async function fetchIcsFeed(feed: CalendarFeed): Promise<ExternalEvent[]> {
   }
   const ics = await res.text();
   return parseIcsToExternalEvents(ics, feed);
-}
-
-async function fetchFeed(
-  feed: CalendarFeed,
-  username: string | null,
-): Promise<ExternalEvent[]> {
-  switch (feed.kind) {
-    case "ics":
-      return fetchIcsFeed(feed);
-    case "google":
-      if (!username) return [];
-      return listGoogleEvents(username, feed);
-    case "outlook":
-      if (!username) return [];
-      return listOutlookEvents(username, feed);
-  }
 }
 
 export function useCalendarFeeds() {
@@ -73,14 +55,9 @@ export function useExternalEvents() {
 
   const perFeed = useQueries({
     queries: enabledFeeds.map((feed) => ({
-      queryKey: [
-        FEED_EVENTS_PREFIX,
-        feed.id,
-        feed.kind,
-        feed.icsUrl ?? feed.oauthCalendarId,
-      ] as const,
+      queryKey: [FEED_EVENTS_PREFIX, feed.id, feed.kind, feed.icsUrl] as const,
       queryFn: async () => {
-        const events = await fetchFeed(feed, currentUser);
+        const events = await fetchIcsFeed(feed);
         if (currentUser) {
           try {
             await markFeedSynced(currentUser, feed.id);
