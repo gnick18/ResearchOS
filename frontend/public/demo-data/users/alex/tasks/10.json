@@ -10,7 +10,9 @@
   "task_type": "experiment",
   "weekend_override": null,
   "method_id": null,
-  "method_ids": [],
+  "method_ids": [
+    2
+  ],
   "deviation_log": null,
   "tags": null,
   "sort_order": 10,
