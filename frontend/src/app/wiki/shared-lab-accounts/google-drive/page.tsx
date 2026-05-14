@@ -22,30 +22,50 @@ export default function GoogleDrivePage() {
         creates the local filesystem folder you point ResearchOS at.
       </p>
 
-      <h2>Choose Mirror mode (the important step)</h2>
+      <h2>Make the lab folder always available offline</h2>
       <p>
-        Drive for desktop offers two modes when you set up the &quot;My
-        Drive&quot; folder:
+        Drive for desktop has two ways of keeping a folder on disk:{" "}
+        <strong>Stream files</strong> (download on demand) and{" "}
+        <strong>Mirror files</strong> (always local). ResearchOS reads
+        directly from disk, so anything still in Stream mode breaks. Most
+        labs don&apos;t want the whole Drive switched to Mirror (your
+        unrelated personal files, downloads, photos all get pulled local).
+        Instead, mark just the lab folder as offline.
       </p>
-      <ul>
-        <li>
-          <strong>Stream files</strong>: files live in the cloud and download
-          on demand. Lighter on disk, but <strong>not compatible</strong> with
-          ResearchOS unless you per-folder mark &quot;Available offline&quot;.
-        </li>
-        <li>
-          <strong>Mirror files</strong>: every file is kept on your local
-          drive. <strong>This is the mode you want.</strong> Use it on every
-          laptop where you&apos;ll run ResearchOS.
-        </li>
-      </ul>
+      <Steps>
+        <Step>
+          Open the lab folder in Finder (macOS) or Explorer (Windows). It
+          shows up wherever Drive mounts (see &quot;Where the folder lives
+          on disk&quot; below).
+        </Step>
+        <Step>
+          Right-click the folder. The Drive menu adds an{" "}
+          <strong>Offline access</strong> submenu.
+        </Step>
+        <Step>
+          Click <strong>Available offline</strong>. The folder gets a small
+          green check icon, and Drive starts pulling every file inside it
+          down to disk.
+        </Step>
+        <Step>
+          Wait for the green check on every file inside. Cloud icons mean
+          the file isn&apos;t local yet — ResearchOS won&apos;t be able to
+          read those until they download.
+        </Step>
+      </Steps>
+      <p>
+        Each member has to do this on every laptop they use ResearchOS
+        from. Drive doesn&apos;t carry the &quot;available offline&quot;
+        flag across machines.
+      </p>
 
-      <Callout variant="tip" title="Switching modes later">
-        Already running in Stream mode? In Drive for desktop&apos;s
-        Preferences → My Drive → Mirror files → Confirm. Drive will download
-        everything to your disk over the next few minutes or hours depending
-        on size. Or, per-folder, right-click the lab folder →{" "}
-        <strong>Make available offline</strong>.
+      <Callout variant="tip" title="Or switch the whole Drive to Mirror">
+        If you want all of Drive locally (not just the lab folder), open
+        Drive for desktop&apos;s <strong>Preferences → My Drive → Mirror
+        files</strong> and confirm. Drive will download everything you have
+        in My Drive over the next few minutes or hours depending on size.
+        Pick this if you don&apos;t mind the extra disk use or you have
+        other folders besides the lab folder that need to stay local.
       </Callout>
 
       <h2>Share the lab folder</h2>
@@ -90,9 +110,11 @@ export default function GoogleDrivePage() {
       <h2>Common pitfalls</h2>
       <ul>
         <li>
-          <strong>Stream mode by accident.</strong> If files show a cloud icon
-          or take seconds to open, you&apos;re in Stream mode without
-          per-folder offline. Switch to Mirror.
+          <strong>Stream mode by accident.</strong> If files in the lab
+          folder show a cloud icon or take seconds to open, the folder
+          isn&apos;t marked offline yet. Right-click the lab folder and
+          pick <strong>Available offline</strong> (or switch your whole
+          Drive to Mirror if you prefer that).
         </li>
         <li>
           <strong>&quot;Shared with me&quot; is not synced.</strong> A shared
