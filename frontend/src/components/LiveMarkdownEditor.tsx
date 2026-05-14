@@ -20,8 +20,13 @@ import { caretOffsetFromPoint } from "@/lib/utils/textarea-caret";
 import {
   lookupMissingInlineImage,
   pickUniqueImageFilename,
+  readImportSidecar,
   removeMissingInlineImageFromSidecar,
 } from "@/lib/import/eln/sidecar-lookup";
+import {
+  matchDroppedFilesToMissing,
+  type DroppedFile,
+} from "@/lib/import/imageDropMatcher";
 import type { MissingInlineImage } from "@/lib/import/eln/types";
 
 // Transparent 1×1 GIF used as the `src` placeholder while the real blob URL
@@ -372,6 +377,17 @@ interface LiveMarkdownEditorProps {
   onFileDrop?: (files: File[]) => void;
   /** Base path in the data repo for resolving relative image URLs (e.g. "results/task-5") */
   imageBasePath?: string;
+  /** Optional disk path to the markdown file backing `value`. When set AND the
+   *  task has an `_import_source.json` sidecar with outstanding
+   *  `missingInlineImages`, native image drops will be filename-matched
+   *  against the sidecar and routed through the LabArchives Form-B
+   *  rehydration path (write to `Images/<final>`, rewrite the
+   *  `Images/missing-<filename>` ref, shrink the sidecar) instead of landing
+   *  as a fresh attachment. Unmatched drops fall through to the existing
+   *  `onImageDrop`. Currently plumbed by `TaskDetailPopup`'s Lab Notes tab —
+   *  Results tab passes its own `results.md` path so a drop on Results with
+   *  a stray Form-B placeholder there also rehydrates (rare but correct). */
+  notesMarkdownPath?: string;
   /** Whether to show the toolbar with Preview and Add Image buttons */
   showToolbar?: boolean;
   /** Callback when Add Image button is clicked (if not provided, uses internal file input) */
@@ -537,6 +553,7 @@ export default function LiveMarkdownEditor({
   onImageDrop,
   onFileDrop,
   imageBasePath,
+  notesMarkdownPath,
   showToolbar = true,
   onAddImage,
   onBrowseImages,
@@ -591,6 +608,19 @@ export default function LiveMarkdownEditor({
   const [labArchivesMatch, setLabArchivesMatch] = useState<MissingInlineImage | null>(null);
   const [isReplacingFromDisk, setIsReplacingFromDisk] = useState(false);
   const replaceFromDiskInputRef = useRef<HTMLInputElement>(null);
+  // Transient confirmation toast for filename-matched auto-rehydration on
+  // native image drop. Mirrors the emerald drop-toast pattern in
+  // `TaskDetailPopup`'s universal-drop handler. Auto-clears after ~3.5s so
+  // the user notices but isn't blocked. Tracks the matched filenames so the
+  // copy can include up to two names + " and N more" without re-querying
+  // state from inside the drop handler.
+  const [missingImageRehydrateToast, setMissingImageRehydrateToast] =
+    useState<{ filenames: string[] } | null>(null);
+  useEffect(() => {
+    if (!missingImageRehydrateToast) return;
+    const id = window.setTimeout(() => setMissingImageRehydrateToast(null), 3500);
+    return () => window.clearTimeout(id);
+  }, [missingImageRehydrateToast]);
   const [resolvedBlobUrls, setResolvedBlobUrls] = useState<Map<string, string>>(new Map());
   // Active file-link click prompt. The modal shows a View/Download choice for
   // text-like + PDF files; binary types skip the prompt and download
@@ -611,6 +641,14 @@ export default function LiveMarkdownEditor({
   const dragCounterRef = useRef(0);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const editorContentRef = useRef<HTMLDivElement>(null);
+  // Forward-reference to the LabArchives Form-B drop interceptor (defined
+  // further down once its callback deps — value/onChange/etc — are in
+  // scope). The capture-phase native drop listener below reads through this
+  // ref so we don't need to re-bind the listener on every value change AND
+  // don't trip the "used before declaration" hoisting error.
+  const interceptMissingImageDropRef = useRef<
+    ((files: File[]) => Promise<File[]>) | null
+  >(null);
 
   // Capture-phase native drop listener. Chrome's default behavior for
   // native file drops on rendered <img> elements (the markdown preview
@@ -631,7 +669,7 @@ export default function LiveMarkdownEditor({
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
     };
-    const handleNativeDrop = (e: DragEvent) => {
+    const handleNativeDrop = async (e: DragEvent) => {
       if (!e.dataTransfer) return;
       if (!Array.from(e.dataTransfer.types).includes("Files")) return;
       e.preventDefault();
@@ -640,11 +678,21 @@ export default function LiveMarkdownEditor({
       if (files.length === 0) return;
       const images = files.filter((f) => f.type.startsWith("image/"));
       const others = files.filter((f) => !f.type.startsWith("image/"));
-      if (images.length > 0) {
+      // Route images first through the LabArchives Form-B sidecar matcher:
+      // matches get rehydrated in-place (markdown ref rewritten, sidecar
+      // shrunk), non-matches fall through to the generic-attachment
+      // onImageDrop. Drops on editors without notesMarkdownPath wired
+      // (NoteDetailPopup, methods) short-circuit and behave exactly as
+      // before. Indirected through a ref so the listener doesn't re-bind
+      // every render.
+      const intercept = interceptMissingImageDropRef.current;
+      const unmatchedImages =
+        images.length > 0 && intercept ? await intercept(images) : images;
+      if (unmatchedImages.length > 0) {
         if (onImageDrop) {
-          onImageDrop(images);
+          onImageDrop(unmatchedImages);
         } else if (allowAnyFileType && onFileDrop) {
-          onFileDrop(images);
+          onFileDrop(unmatchedImages);
         }
       }
       if (others.length > 0 && allowAnyFileType && onFileDrop) {
@@ -1899,6 +1947,164 @@ export default function LiveMarkdownEditor({
   );
 
   /**
+   * Intercept native image drops that filename-match an outstanding Form-B
+   * `MissingInlineImage` entry in the task's `_import_source.json` sidecar,
+   * and route them through the same recovery pipeline as the broken-image
+   * popup's "Replace from disk" file picker.
+   *
+   * Why this exists: the per-image popup's file-picker already converged with
+   * the rehydrate helper for matched files. But dragging the saved image
+   * onto the note (the natural follow-up to "Find on LabArchives → Save
+   * As") did NOT match — drag-and-drop fell through to `onImageDrop`, which
+   * writes the file as a fresh attachment with a generic name, leaving the
+   * `Images/missing-<filename>` placeholder still broken. This bridges the
+   * two paths.
+   *
+   * Returns the *unmatched* subset of `files` so the caller can pass them
+   * to the existing `onImageDrop` (generic-attachment) path. The mixed-drop
+   * case (3 sidecar matches + 2 unrelated images) ends up with the matched
+   * 3 rehydrated and the unmatched 2 going through the normal flow.
+   *
+   * Pre-conditions: `notesMarkdownPath` and `imageBasePath` are both set
+   * AND the sidecar exists with non-empty `missingInlineImages`. Otherwise
+   * we short-circuit and return the input unchanged.
+   *
+   * We deliberately call the SAME primitives as `handleReplaceFromDiskFile`
+   * (`pickUniqueImageFilename` + in-memory `value` rewrite +
+   * `removeMissingInlineImageFromSidecar`) rather than the disk-only
+   * `rehydrateMissingImages` helper from `lib/import/eln/rehydrate.ts`,
+   * because this surface owns the `value` state and autosave is what
+   * eventually flushes it to disk — calling the helper would read from
+   * (possibly stale) disk and rewrite it, racing with the editor's
+   * autosave on the next `onChange`. The helper's matching + sidecar-shrink
+   * primitives are reused via the `sidecar-lookup.ts` + `imageDropMatcher.ts`
+   * exports the helper itself layers on top of.
+   */
+  const interceptMissingImageDrop = useCallback(
+    async (files: File[]): Promise<File[]> => {
+      if (files.length === 0) return files;
+      if (!imageBasePath || !notesMarkdownPath) return files;
+
+      const sidecar = await readImportSidecar(imageBasePath);
+      if (!sidecar || sidecar.missingInlineImages.length === 0) return files;
+
+      const dropped: DroppedFile[] = files.map((f) => ({
+        file: f,
+        displayPath: f.name,
+      }));
+      const matchResult = matchDroppedFilesToMissing(
+        dropped,
+        sidecar.missingInlineImages,
+      );
+      if (matchResult.matched.length === 0) return files;
+
+      // Build the (File, MissingInlineImage) pair list. The matcher's
+      // `byUrl` map carries the matched File as the `blob` field on each
+      // `FetchedInlineImage` (File extends Blob), so we just read it back
+      // out. The matcher already enforced first-match-wins, so there's no
+      // double-pairing risk.
+      const matchedFileSet = new Set<File>();
+      const pairs: Array<{ file: File; entry: MissingInlineImage }> = [];
+      for (const entry of matchResult.matched) {
+        const fetched = matchResult.byUrl.get(entry.originalUrl);
+        if (!fetched || fetched.kind !== "ok") continue;
+        // The matcher stores the original File on `blob` (File extends
+        // Blob), which is what we need to write to disk + count toward the
+        // matched set. The cast is safe because `dropped` always holds raw
+        // File objects (no ZIP-synthesized Files here — the drop surface
+        // is the editor body, not the wizard's ZIP-accepting panel).
+        const file = fetched.blob as File;
+        matchedFileSet.add(file);
+        pairs.push({ file, entry });
+      }
+      const unmatchedOut = files.filter((f) => !matchedFileSet.has(f));
+
+      if (pairs.length === 0) return files;
+
+      const imagesDir = `${imageBasePath}/Images`;
+      // Apply rewrites to the current `value` in a single pass so multiple
+      // matched drops in the same batch don't fight each other through
+      // sequential `onChange` calls.
+      let nextValue = value;
+      const matchedFilenames: string[] = [];
+      const takenInBatch = new Set<string>();
+      for (const { file, entry } of pairs) {
+        try {
+          const desiredName = file.name || entry.filename;
+          // pickUniqueImageFilename only checks disk — augment with an
+          // in-batch set so two simultaneous matches with the same desired
+          // name don't both resolve to the same on-disk filename.
+          let finalName = await pickUniqueImageFilename(imagesDir, desiredName);
+          while (takenInBatch.has(finalName.toLowerCase())) {
+            const dot = finalName.lastIndexOf(".");
+            const stem = dot <= 0 ? finalName : finalName.slice(0, dot);
+            const ext = dot <= 0 ? "" : finalName.slice(dot);
+            finalName = `${stem} (${takenInBatch.size + 1})${ext}`;
+          }
+          takenInBatch.add(finalName.toLowerCase());
+          await fileService.writeFileFromBlob(
+            `${imagesDir}/${finalName}`,
+            file,
+          );
+
+          const oldRef = `Images/missing-${entry.filename}`;
+          const newRef = `Images/${finalName}`;
+          // Rewrite every shape of ref that can appear in the markdown body
+          // — markdown image syntax (any alt) AND HTML <img src=> — by
+          // matching on the raw substring. Same idea as the helper in
+          // `rehydrate.ts`'s `applyMarkdownRewrites`, but applied to the
+          // in-memory `value` so autosave preserves it.
+          const escapedOld = oldRef.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          nextValue = nextValue.replace(new RegExp(escapedOld, "g"), newRef);
+
+          // Shrink the sidecar (best-effort — a write failure leaves the
+          // entry behind and the banner re-fires next session, which is
+          // recoverable).
+          try {
+            await removeMissingInlineImageFromSidecar(
+              imageBasePath,
+              entry.filename,
+            );
+          } catch (err) {
+            console.warn(
+              "[LiveMarkdownEditor] Failed to shrink _import_source.json after drop-matched rehydration:",
+              err,
+            );
+          }
+          matchedFilenames.push(entry.filename);
+        } catch (err) {
+          console.error(
+            "[LiveMarkdownEditor] Drop-matched rehydration failed for",
+            entry.filename,
+            err,
+          );
+          // Bytes failed to write — fall back to the generic-attachment path
+          // for THIS file so the user still sees it land somewhere.
+          unmatchedOut.push(file);
+        }
+      }
+
+      if (matchedFilenames.length > 0) {
+        if (nextValue !== value) {
+          onChange(nextValue);
+        }
+        setMissingImageRehydrateToast({ filenames: matchedFilenames });
+      }
+      return unmatchedOut;
+    },
+    [imageBasePath, notesMarkdownPath, value, onChange],
+  );
+
+  // Keep the capture-phase listener's forward reference in sync with the
+  // latest `interceptMissingImageDrop` closure. This is the bridge that
+  // lets the listener (registered once in the early useEffect) call the
+  // current callback without re-binding native listeners on every value
+  // change.
+  useEffect(() => {
+    interceptMissingImageDropRef.current = interceptMissingImageDrop;
+  }, [interceptMissingImageDrop]);
+
+  /**
    * Dismiss the broken image popup and optionally clear the queue
    */
   const dismissBrokenImagePopup = useCallback((clearQueue: boolean = false) => {
@@ -2209,13 +2415,22 @@ export default function LiveMarkdownEditor({
             // sees "nothing happened."
             const imageFiles = nativeFiles.filter((f) => f.type.startsWith("image/"));
             const otherFiles = nativeFiles.filter((f) => !f.type.startsWith("image/"));
-            if (imageFiles.length > 0) {
+            // Route image drops through the LabArchives Form-B sidecar matcher
+            // first; matched files rehydrate in-place (markdown rewrite +
+            // sidecar shrink) and only the unmatched remainder reaches the
+            // generic onImageDrop. Mirrors the capture-phase listener path
+            // for drops over the editor body (vs over a rendered <img>).
+            const unmatchedImageFiles =
+              imageFiles.length > 0
+                ? await interceptMissingImageDrop(imageFiles)
+                : imageFiles;
+            if (unmatchedImageFiles.length > 0) {
               if (onImageDrop) {
-                onImageDrop(imageFiles);
+                onImageDrop(unmatchedImageFiles);
               } else if (allowAnyFileType && onFileDrop) {
                 // No image-specific handler: caller wants all files, so route
                 // images through the file path as a fallback.
-                onFileDrop(imageFiles);
+                onFileDrop(unmatchedImageFiles);
               }
             }
             if (otherFiles.length > 0 && allowAnyFileType && onFileDrop) {
@@ -2901,6 +3116,36 @@ export default function LiveMarkdownEditor({
           </div>
         </div>
       )}
+      {missingImageRehydrateToast && (
+        // Confirmation toast for drop-matched LabArchives Form-B
+        // rehydration. Pinned to the editor's bottom-right corner (relative
+        // to the wrapperRef's positioning context) so it overlays the
+        // editor body without colliding with the popup's own toasts.
+        // Same emerald styling as `TaskDetailPopup`'s universal-drop toast
+        // so the success affordance feels familiar.
+        <div
+          className="fixed bottom-6 right-6 z-50 max-w-sm rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 shadow-lg pointer-events-none"
+          role="status"
+          aria-live="polite"
+        >
+          {formatRehydrateToastMessage(missingImageRehydrateToast.filenames)}
+        </div>
+      )}
     </div>
   );
+}
+
+/**
+ * Compose the confirmation copy for the drop-matched rehydration toast.
+ * Truncates at 2 names + " and N more" so a 5-image batch reads
+ * "Replaced 5 missing images: foo.png, bar.png and 3 more" — informative
+ * without paint-bleeding the toast width.
+ */
+function formatRehydrateToastMessage(filenames: string[]): string {
+  if (filenames.length === 0) return "";
+  const noun = filenames.length === 1 ? "image" : "images";
+  const shown = filenames.slice(0, 2).join(", ");
+  const rest = filenames.length - 2;
+  const tail = rest > 0 ? ` and ${rest} more` : "";
+  return `Replaced ${filenames.length} missing ${noun}: ${shown}${tail}`;
 }

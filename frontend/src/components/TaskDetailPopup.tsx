@@ -2855,6 +2855,12 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                   onFileDrop={handleFileUpload}
                   allowAnyFileType={true}
                   imageBasePath={attachBase}
+                  // Plumbs the disk path so native image drops can be
+                  // filename-matched against the task's
+                  // `_import_source.json` sidecar and routed through the
+                  // LabArchives Form-B rehydration path. No-op when the
+                  // sidecar is absent (= not an ELN-imported task).
+                  notesMarkdownPath={notesPath}
                   showToolbar={true}
                 />
               )}
@@ -3215,6 +3221,12 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
                 onFileDrop={handleFileUpload}
                 allowAnyFileType={true}
                 imageBasePath={attachBase}
+                // Results tab generally won't have a sidecar (the ELN
+                // importer puts it under `notes/`), but plumbing the path
+                // keeps behavior consistent if the user ever drops an image
+                // here whose filename happens to match a Form-B entry. The
+                // sidecar read short-circuits cleanly when absent.
+                notesMarkdownPath={resultsPath}
                 showToolbar={true}
               />
             )}
