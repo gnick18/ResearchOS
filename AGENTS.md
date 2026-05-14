@@ -255,18 +255,9 @@ Use this for any field rename. **Do NOT do hard on-disk cutovers** — rewrite-a
 - **Wiki screenshot recapture** — queued, managed by the parallel manager session. Full re-capture against Demo Lab data now that the fixture infrastructure landed (`6acf27c1`). Plus 5 new shots (markdown-editor language picker + Hybrid block selection + image resize, Results list, Telegram inbox), 2 re-specs (gantt-zoom-controls labels, purchases-funding-panel-not-modal), and the existing `results-editor.png` retired in favor of new `results-list.png` + `results-tab.png`. Off-limits to other sessions: `frontend/src/app/wiki/`, `frontend/src/components/wiki/`, `scripts/capture-wiki-screenshots.mjs`, `frontend/src/lib/file-system/wiki-capture-fixture.ts`.
 - **Calendar integrations** — `claude/festive-spence-378806`. Recent: Google Calendar OAuth M1, Outlook OAuth M2, two-way sync M3, calendar OAuth setup wiki, wiki top bar. Status: possibly idle but branch still alive. Off-limits: `frontend/src/lib/calendar/`, `frontend/src/app/calendar/`, `/api/calendar-feed/`.
 
-### Master-bot's spawned bots — 2026-05-13 late afternoon, chips clicked and running
+### Handoff snapshot — 2026-05-13 evening (master-bot session rollover)
 
-(Delete this subsection once all four have landed and merged.)
-
-- **Outlook OAuth 404 fix** — `claude/festive-curran-aad95c`, commit `4deb8009`. **Reported back**: split `ProviderConfig.key` into `OAuthProviderId` ("outlook") for caller-facing / persistence and `OAuthUrlSegment` ("microsoft") for URL paths so the popup hits `/api/auth/microsoft/login` instead of the 404 `/api/auth/outlook/login`. 2 files, 25 lines. No persisted-state migration needed. Merge into main and push when next session catches up. Off-limits to other sessions during merge: `frontend/src/lib/calendar/oauth-config.ts`, `frontend/src/lib/calendar/oauth-connect.ts`.
-- **Markdown editor follow-ups** — chip running (branch TBD). Spec: (1) Mirror the broken-image "Remove reference from note" popup for broken `[name](Files/foo.pdf)` references; (2) Fix `HybridMarkdownEditor.tsx` line ~568 pre-resolve regex (`[^)\s]+` truncates at whitespace, so filenames with spaces don't render inline) using the same fix pattern as `gc.ts` `IMG_REF_REGEX`. ~40 lines, files in scope: `LiveMarkdownEditor.tsx`, `HybridMarkdownEditor.tsx`. Off-limits during merge.
-- **API route hardening** — chip running (branch TBD). Spec: SSRF guards, scheme allowlist, response-size caps, redirect limits, content-type allowlists on `/api/telegram-file/route.ts` and `/api/calendar-feed/route.ts`. Files in scope: those two route files plus any small shared helper. Off-limits during merge.
-- **Project-wide lint pass** — chip running (branch TBD). Spec: sweep ESLint warnings, real-fix exhaustive-deps + set-state-in-effect where they're real bugs, suppress with one-line comments where they're false positives. **Skip list baked in** (markdown editor, API routes, OAuth config, wiki) so it doesn't collide with the other three. Lower warning count, zero new errors.
-
-### Handoff snapshot — 2026-05-13 late afternoon
-
-(Master-bot session about to roll over to a fresh chat due to context-window limits. Delete this subsection once the new session confirms it's picked up the state.)
+(Master-bot session rolled over due to context-window limit. Delete this subsection once the new session confirms it's picked up the state and is comfortable on its own.)
 
 **Punch list — items Grant has verified ✓:**
 1. Note popup GC
@@ -276,15 +267,24 @@ Use this for any field rename. **Do NOT do hard on-disk cutovers** — rewrite-a
 5. File drag-to-delete via `FileTrashDropZone`
 6. "Remove reference from note" button on broken image popup
 7. Per-tab attachment isolation (basic per-tab flow; migration scenarios optional)
+8. Spaces-in-filename inline image render
 
 **Punch list — items still pending Grant's live test:**
 - **ResultsEditor consolidation** — `/results` card → opens TaskDetailPopup on Results tab?
 - **Universal drop on Details tab** — drop a PDF on Details → green toast, file lands in last-active-tab's `Files/`?
 - **(Optional polish)** Settings → "Split Lab Notes / Results attachments" button → run on real data, confirm sensible scanned/repaired counts.
+- **Outlook OAuth flow end-to-end** — requires production env vars (`MICROSOFT_OAUTH_CLIENT_ID` / `MICROSOFT_OAUTH_CLIENT_SECRET`); landed `4c0c079e` but full live test in prod.
+- **File-link UX bot's output** (file links clickable + View/Download prompt) — landed `claude/trusting-wright-f1b4ad`; not yet eyeballed.
+- **Project-sharing audit's TESTING.md** — 6 scenarios documented (A-F) at `TESTING.md`; run them when convenient.
+- **Lint pass** — landed `claude/sharp-turing-5f32ab`; check for any new regressions in normal flows (low risk per scope guards).
 
-**Status of the four spawned bots** — see "Master-bot's spawned bots" subsection above. Outlook OAuth has reported; the other three are still running.
+**Currently in flight from the master bot's side:**
 
-**Wiki manager (parallel session)** — idle except for one queued screenshot bot (8 missing PNGs + 3 editor-*.png wirings + 3 stale capture-script selector fixes). Not blocking the master bot.
+- **Export feature revamp (manager-tier)** — chip queued, awaiting Grant's click. Will spawn 3-5 sub-bots itself. Owns the entire export pipeline (raw / HTML / PDF). Off-limits while active: `frontend/src/lib/export-utils.ts`, `frontend/src/lib/export/*`, `TaskExportButton`, `/search` page multi-select wiring. Brief locked: zip of per-experiment files on multi-select, single file otherwise; `/search` entry point in both user view + Lab Mode; raw format for cross-instance sharing (not import side); attachments inline + PDF appendix labeled by Notes/Results origin.
+
+**Wiki manager (parallel session, not this chat)** — idle since their last screenshot bot landed at `1b28b87c`. Status: passive until Grant needs them.
+
+**Project-sharing audit caught a real regression** that the bot fixed in-scope: `fetchAllTasksIncludingShared` only loaded individually-shared tasks, missing tasks belonging to shared *projects*. Fix landed in `b0e8d0c7`. Five out-of-scope follow-ups flagged — see §8 Queued backlog.
 
 ### Recently landed (2026-05-13)
 
@@ -298,6 +298,13 @@ Use this for any field rename. **Do NOT do hard on-disk cutovers** — rewrite-a
 - **Results consolidation** (`eb9a4fb3`): `/results` is now a list of result-worthy tasks that opens via `TaskDetailPopup`; `ResultsEditor.tsx` deleted. **Wiki page is now stale** and needs a rewrite (queued, next on the manager-tier list).
 - **Per-tab attachment isolation** (`1613be79`, merged on `43932f01`): each task popup's Lab Notes and Results tabs have their own `Files/` and `Images/` under `results/task-N/notes/` and `results/task-N/results/`. Lazy fallback to legacy shared folder, plus eager Settings → Data maintenance → "Split Lab Notes / Results attachments" button.
 - **Drop-routing endgame** (commits `7f670d05` through `58a5e000`): final pass on the file-attachments stack. GlobalDropGuard now ignores supported popups so the misleading "not supported" toast no longer appears on Lab Notes. Drops on rendered `<img>` elements route correctly (Chrome's image-replace default no longer eats the event — solved with a native capture-phase listener on the editor wrapper). Images go to `onImageDrop` even when `onFileDrop` is also wired (the routing split bug that landed PNGs in `Files/`). File-strip entries drag-to-trash like image-strip entries do (`FileTrashDropZone` + `fileEvents.emitDragStart/End`). Broken `![alt](Images/missing.png)` references get a "Remove from note" button in the not-found popup.
+- **Outlook OAuth 404 fix** (`4c0c079e`): split `ProviderConfig.key` into `OAuthProviderId` ("outlook", caller-facing) and `OAuthUrlSegment` ("microsoft", URL path) so the popup hits the existing `/api/auth/microsoft/*` routes instead of 404'ing on `/api/auth/outlook/*`. No persisted-state migration; caller-facing "outlook" identifier preserved.
+- **API route hardening** (`18b7f0c3`): SSRF + scheme allowlist + private-IP/IPv6 guards + DNS-rebinding mitigation + redirect cap (3 hops) + response-size cap (20 MiB Telegram, 10 MiB ICS) + content-type denylist + 30s timeout on `/api/telegram-file` and `/api/calendar-feed`. Shared helper at `frontend/src/lib/api/url-guards.ts` so future proxies inherit the same posture. 24 curl probes verified rejection of localhost/metadata-IP/scheme/credentials-in-URL/nip.io-rebinding attacks; legit Telegram and ICS feeds still proxy correctly.
+- **Markdown editor follow-ups** (`f1d21366`): spaces-in-filename images render inline now (regex updated in `HybridMarkdownEditor` line 585 + `LiveMarkdownEditor` line 694, plus a `canonicalizeRefSrc` helper that strips CommonMark titles and angle brackets so the blob-URL cache key stays consistent). Broken file-link popup extended from the existing broken-image popup with a `kind: "image" | "file"` discriminant — same queue, same dismiss flow.
+- **File-link UX revamp** (`claude/trusting-wright-f1b4ad`, merged): file-link snippets now URL-encode the filename so `[READ ME.md](Files/READ%20ME.md)` parses as a clickable hyperlink. Custom `<a>` click handler intercepts file-link clicks and prompts View (text-like + PDF inline via blob URL) vs Download (binary). New `FileViewerModal` component renders text-like files inline.
+- **Project-wide lint pass** (`claude/sharp-turing-5f32ab`, merged): swept ESLint warnings across the codebase. 51 files changed, ~340 lines removed (unused imports, dead code), real-fix exhaustive-deps + set-state-in-effect where they were genuine bugs, one-line eslint-disable comments where they were false positives. Skip-list honored the in-flight bot territories.
+- **Project-sharing audit + first regression fix** (`claude/beautiful-moore-3682dd`, merged): caught and fixed a real regression — `fetchAllTasksIncludingShared` only loaded individually-shared tasks, missing tasks that belonged to a shared *project*. Extended the fetcher to also pull from each shared-project's owner directory, with composite-key de-dup. Updated `tasksApi.listByProject` to accept optional `owner` and route to `tasksStore.listAllForUser`. `ProjectDetailPopup` threads `project.owner` through. `app/page.tsx` (home) gates the `t.project_id === p.id` membership predicate on `t.owner === project.owner` to dodge per-user id collisions. New `TESTING.md` at the repo root documents 6 manual-test scenarios (A-F) for the sharing flow. Five follow-ups flagged in §8 Queued.
+- **Quick-win chip sweep** (`62ad62c0`, `991dab16`, `66658558`, 2026-05-13 evening): three small backlog chips landed inline (each its own atomic commit on `main`). (1) `projectsApi.create` now persists `currentUser` as `owner` instead of `""`, matching the equivalent in `tasksApi.create`. (2) Share button now hidden on tasks / projects / methods (markdown / PDF / PCR variants) when the item was shared TO the current user — receivers can't grant access to something that isn't theirs. (3) `FileTrashDropZone.stripReferences` now runs its regex against both the raw filename and `encodeURIComponent(filename)`, so `Files/READ%20ME.md` links get cleaned when the underlying file is dragged to trash (previously the disk file deleted but the markdown ref survived).
 
 ### Queued (confirm before spawning)
 
