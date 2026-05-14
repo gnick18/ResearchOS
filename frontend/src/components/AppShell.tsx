@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import DailyTasksSidebar from "./DailyTasksSidebar";
 import CalendarSidebar from "./CalendarSidebar";
 import TelegramStatusBadge from "./TelegramStatusBadge";
@@ -12,11 +13,18 @@ import NotificationBadge from "./NotificationBadge";
 import ReminderRunner from "./ReminderRunner";
 import DemoLabBanner from "./DemoLabBanner";
 import Tooltip from "./Tooltip";
+import UserAvatar from "./UserAvatar";
+import ReportBugButton from "./ReportBugButton";
+import BetaDonationButton from "./BetaDonationButton";
+import DataSetupScreen from "./DataSetupScreen";
+import UserLoginScreen from "./UserLoginScreen";
+import BugReportModal from "./BugReportModal";
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { HELP_HREF, appRouteToWikiRoute } from "@/lib/wiki/nav";
 import { useAppStore } from "@/lib/store";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useUserColor } from "@/hooks/useUserColor";
+import { useErrorReporting } from "@/hooks/useErrorReporting";
 import { headerGradient } from "@/lib/colors";
 
 const SETTINGS_HREF = "/settings";
@@ -24,10 +32,25 @@ const SETTINGS_HREF = "/settings";
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const visibleTabs = useAppStore((s) => s.visibleTabs);
   const coloredHeader = useAppStore((s) => s.coloredHeader);
   const { currentUser } = useFileSystem();
   const baseColor = useUserColor(currentUser ?? "");
+
+  // Floating-cluster state lives in AppShell so the cluster is available
+  // on every AppShell-wrapped route — no per-page duplication.
+  const [showDataSetup, setShowDataSetup] = useState(false);
+  const [showUserSwitch, setShowUserSwitch] = useState(false);
+  const {
+    showBugReport,
+    showErrorToast,
+    currentError,
+    openBugReport,
+    closeBugReport,
+    reportCurrentError,
+    dismissErrorToast,
+  } = useErrorReporting();
 
   // The `?` help button routes to the wiki page that documents whatever
   // view the user is currently looking at, and stashes the return path
@@ -190,6 +213,93 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       <InboxToast />
       <ReminderRunner />
+
+      {/* Universal floating utility cluster — ordered right-to-left by
+          expected frequency: Support, Report Bug, User Switch, Data folder. */}
+      <BetaDonationButton />
+
+      <ReportBugButton onClick={openBugReport} />
+
+      <Tooltip
+        label={`Switch user${currentUser ? ` (now: ${currentUser})` : ""}`}
+        placement="top"
+      >
+        <button
+          onClick={() => setShowUserSwitch(true)}
+          aria-label="Switch user"
+          className="fixed bottom-6 right-36 w-12 h-12 rounded-full bg-white border border-gray-200 shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center z-50"
+        >
+          {currentUser ? (
+            <UserAvatar username={currentUser} size="sm" />
+          ) : (
+            <span className="text-gray-500 text-sm font-semibold">?</span>
+          )}
+        </button>
+      </Tooltip>
+
+      <Tooltip label="Data folder · connect or switch" placement="top">
+        <button
+          onClick={() => setShowDataSetup(true)}
+          aria-label="Open data folder settings"
+          className="fixed bottom-6 right-52 w-12 h-12 rounded-full bg-white border border-gray-200 shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center text-gray-600 hover:text-gray-900 z-50"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+          </svg>
+        </button>
+      </Tooltip>
+
+      {/* Modals owned by the cluster */}
+      <DataSetupScreen
+        isOpen={showDataSetup}
+        onClose={() => setShowDataSetup(false)}
+      />
+
+      {showUserSwitch && (
+        <UserLoginScreen
+          onLogin={() => {
+            setShowUserSwitch(false);
+            queryClient.invalidateQueries();
+          }}
+        />
+      )}
+
+      <BugReportModal
+        isOpen={showBugReport}
+        onClose={closeBugReport}
+        prefilledError={currentError}
+      />
+
+      {/* Error toast — stacks above the cluster on the right edge so it
+          doesn't collide with any of the four icon buttons at bottom-6. */}
+      {showErrorToast && currentError && (
+        <div className="fixed bottom-24 right-6 bg-red-600 text-white px-4 py-3 rounded-lg shadow-lg z-50 flex items-center gap-3 max-w-sm">
+          <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium">An error occurred</p>
+            <p className="text-xs opacity-90 truncate">{currentError.message}</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={reportCurrentError}
+              className="text-xs bg-white/20 hover:bg-white/30 px-2 py-1 rounded transition-colors"
+            >
+              Report
+            </button>
+            <button
+              onClick={dismissErrorToast}
+              aria-label="Dismiss error toast"
+              className="text-xs hover:bg-white/20 px-1 rounded transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
