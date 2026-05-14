@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { FileSystemProvider, useFileSystem, isFileSystemAccessSupported } from "@/lib/file-system/file-system-context";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import ResearchFolderSetupNew from "@/components/ResearchFolderSetupNew";
+import UserLoginScreen from "@/components/UserLoginScreen";
 import StagedLoadingScreen from "@/components/StagedLoadingScreen";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import GlobalDropGuard from "@/components/GlobalDropGuard";
@@ -68,8 +69,13 @@ function AppContent({ children }: { children: ReactNode }) {
   // the public /demo route in any environment): FileSystemProvider has
   // seeded the in-memory fixture and set state to connected. Skip every
   // gate. The wiki-capture "picker" variant leaves currentUser empty on
-  // purpose, so it falls through to render the user-picker via
-  // ResearchFolderSetupNew below.
+  // purpose, so it falls through to render UserLoginScreen below (the
+  // !currentUser branch). Note (2026-05-14): this used to fall through
+  // to ResearchFolderSetupNew; that gate was split so the post-exit-Lab-
+  // Mode and any "folder-connected-but-no-user-picked" state renders
+  // the cleaner UserLoginScreen with its proper Lab Mode CTA. Wiki
+  // screenshots that captured the picker UI in this mode may need
+  // recapturing — flagged in §8 for the wiki manager.
   if (isDemoOrWikiCapture() && currentUser) {
     return (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
@@ -102,19 +108,48 @@ function AppContent({ children }: { children: ReactNode }) {
     );
   }
 
-  if (showSetup || !isConnected || !currentUser) {
+  if (showSetup || !isConnected) {
     console.log("AppContent: rendering ResearchFolderSetupNew because:", { showSetup, isConnected, currentUser });
     // Wrapped in QueryClientProvider because the user-picker renders
     // <UserAvatar> which calls useUserColor() → useQuery(). Without the
     // provider, the picker throws "No QueryClient set" the moment there
     // are existing users to choose from (notably in wiki-capture picker
     // mode, where the fixture exposes two users).
+    //
+    // Note (2026-05-14): the !currentUser branch was split out below so
+    // exit-Lab-Mode (and any other "folder is connected but no user is
+    // picked" state) routes to the cleaner UserLoginScreen — same user-
+    // picker UI Grant sees on a fresh app open, with the Lab Mode CTA in
+    // its proper place. ResearchFolderSetupNew now only fires when the
+    // user genuinely needs folder setup (showSetup=true) or hasn't
+    // connected a folder yet (!isConnected).
     return (
       <QueryClientProvider client={queryClient}>
         <ResearchFolderSetupNew
           onComplete={() => {
             console.log("onComplete callback called in AppContent");
             setShowSetup(false);
+            queryClient.invalidateQueries();
+          }}
+        />
+      </QueryClientProvider>
+    );
+  }
+
+  // Folder is connected but no user is picked — show the clean account
+  // picker (UserLoginScreen). This is the post-exit-Lab-Mode flow as well
+  // as any other "need to choose an account" state on an already-connected
+  // folder. UserLoginScreen has the proper Lab Mode CTA + footer affordances
+  // (User & password help, shared lab setup, Report Bug, Support) that
+  // ResearchFolderSetupNew's "Select Account" sub-step doesn't carry.
+  // QueryClientProvider needed for the same useUserColor() useQuery() reason
+  // as the ResearchFolderSetupNew branch above.
+  if (!currentUser) {
+    console.log("AppContent: rendering UserLoginScreen (connected, no user)");
+    return (
+      <QueryClientProvider client={queryClient}>
+        <UserLoginScreen
+          onLogin={() => {
             queryClient.invalidateQueries();
           }}
         />
