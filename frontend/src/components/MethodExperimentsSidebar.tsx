@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { methodsApi, tasksApi, fetchAllProjectsIncludingShared, type MethodExperiment } from "@/lib/local-api";
+import { tasksApi, fetchAllProjectsIncludingShared } from "@/lib/local-api";
 import type { Task } from "@/lib/types";
 import { useState, useCallback } from "react";
 import TaskDetailPopup from "./TaskDetailPopup";
@@ -19,15 +19,36 @@ export default function MethodExperimentsSidebar({
   const [quickPopupTask, setQuickPopupTask] = useState<Task | null>(null);
   const [quickPopupPosition, setQuickPopupPosition] = useState({ x: 0, y: 0 });
   
+  // Local row type: a Task with the per-method variation_notes lifted off
+  // the matching TaskMethodAttachment. Carrying the full Task (and thus
+  // `owner`) is what lets us do composite-key project lookups below.
+  type ExperimentRow = Task & { variation_notes: string | null };
+
   // For full detail popup
   const [selectedExperiment, setSelectedExperiment] = useState<Task | null>(null);
-  const [hoveredExperiment, setHoveredExperiment] = useState<MethodExperiment | null>(null);
+  const [hoveredExperiment, setHoveredExperiment] = useState<ExperimentRow | null>(null);
   const [popupPosition, setPopupPosition] = useState({ x: 0, y: 0 });
 
-  // Fetch experiments using this method - always fetch fresh data
-  const { data: experiments = [], isLoading, error } = useQuery({
+  // Fetch experiments using this method - always fetch fresh data.
+  // Switched from `methodsApi.getExperiments` (which returns a lighter
+  // `MethodExperiment` shape with no `owner`) to `tasksApi.listByMethod`
+  // so we have the owner needed for composite-key project lookups
+  // (per-user ID spaces — see AGENTS.md §2 + §6). `variation_notes` lives
+  // on the matching `TaskMethodAttachment`, not on Task itself, so lift it
+  // here to preserve the existing hover-popup contract.
+  const { data: experiments = [], isLoading, error } = useQuery<ExperimentRow[]>({
     queryKey: ["method-experiments", methodId],
-    queryFn: () => methodsApi.getExperiments(methodId),
+    queryFn: async () => {
+      const tasks = await tasksApi.listByMethod(methodId);
+      return tasks
+        .filter((t) => t.task_type === "experiment")
+        .map((t) => ({
+          ...t,
+          variation_notes:
+            t.method_attachments?.find((a) => a.method_id === methodId)
+              ?.variation_notes ?? null,
+        }));
+    },
     staleTime: 0, // Always fetch fresh data
     refetchOnMount: true, // Refetch when component mounts
   });
@@ -39,9 +60,13 @@ export default function MethodExperimentsSidebar({
     staleTime: 60000, // Cache projects for 1 minute
   });
 
-  // Get project by ID
+  // Get project by composite (owner, id). Per-user ID spaces mean alex's
+  // project 1 and morgan's project 1 are different projects — a numeric-id-
+  // only lookup picks whichever happens to be first in the array. Callers
+  // pass `{ owner, id }`; for tasks that's `{ owner, id: project_id }`.
   const getProject = useCallback(
-    (projectId: number) => projects.find((p) => p.id === projectId),
+    (ref: { owner: string; id: number }) =>
+      projects.find((p) => p.id === ref.id && p.owner === ref.owner),
     [projects]
   );
 
@@ -52,7 +77,7 @@ export default function MethodExperimentsSidebar({
   };
 
   // Get status badge color
-  const getStatusColor = (exp: MethodExperiment) => {
+  const getStatusColor = (exp: Task) => {
     const today = new Date().toISOString().split("T")[0];
     if (exp.is_complete) return "bg-green-100 text-green-700";
     if (exp.end_date < today) return "bg-red-100 text-red-700";
@@ -61,7 +86,7 @@ export default function MethodExperimentsSidebar({
   };
 
   // Get status text
-  const getStatusText = (exp: MethodExperiment) => {
+  const getStatusText = (exp: Task) => {
     const today = new Date().toISOString().split("T")[0];
     if (exp.is_complete) return "Complete";
     if (exp.end_date < today) return "Overdue";
@@ -70,9 +95,13 @@ export default function MethodExperimentsSidebar({
   };
 
   // Handle clicking on an experiment - show quick popup
-  const handleExperimentClick = useCallback(async (exp: MethodExperiment, event: React.MouseEvent) => {
+  const handleExperimentClick = useCallback(async (exp: Task, event: React.MouseEvent) => {
     try {
-      const task = await tasksApi.get(exp.id);
+      // Route shared tasks to their owner so we get the right per-user record.
+      const task = await tasksApi.get(
+        exp.id,
+        exp.is_shared_with_me ? exp.owner : undefined,
+      );
       setQuickPopupTask(task);
       setQuickPopupPosition({ x: event.clientX, y: event.clientY });
     } catch (error) {
@@ -153,10 +182,10 @@ export default function MethodExperimentsSidebar({
         {/* Experiment cards */}
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
           {experiments.map((exp) => {
-            const project = getProject(exp.project_id);
+            const project = getProject({ owner: exp.owner, id: exp.project_id });
             return (
               <button
-                key={exp.id}
+                key={`${exp.owner}:${exp.id}`}
                 onClick={(e) => handleExperimentClick(exp, e)}
                 onMouseEnter={(e) => {
                   if (exp.variation_notes) {
@@ -235,7 +264,10 @@ export default function MethodExperimentsSidebar({
       {quickPopupTask && (
         <TaskQuickPopup
           task={quickPopupTask}
-          project={getProject(quickPopupTask.project_id)}
+          project={getProject({
+            owner: quickPopupTask.owner,
+            id: quickPopupTask.project_id,
+          })}
           position={quickPopupPosition}
           onClose={() => setQuickPopupTask(null)}
           onExpand={handleExpandToDetail}
@@ -246,7 +278,10 @@ export default function MethodExperimentsSidebar({
       {selectedExperiment && (
         <TaskDetailPopup
           task={selectedExperiment}
-          project={getProject(selectedExperiment.project_id)}
+          project={getProject({
+            owner: selectedExperiment.owner,
+            id: selectedExperiment.project_id,
+          })}
           onClose={() => setSelectedExperiment(null)}
         />
       )}
