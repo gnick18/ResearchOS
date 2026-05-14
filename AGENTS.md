@@ -318,6 +318,16 @@ Use this for any field rename. **Do NOT do hard on-disk cutovers** — rewrite-a
 - **Settings/migration UI cleanup.** Big chunk landed already; one more pass to delete `DataSetupScreen` / `DataPathCheckPopup` / `ResearchFolderSetup` if confirmed unused.
 - **API route hardening.** The Telegram + calendar proxies have basic SSRF guards; a security pass wouldn't hurt.
 
+### For the wiki manager (handoff from export-revamp manager, 2026-05-13)
+
+The export feature was rebuilt end-to-end. Wiki implications worth a sweep when the wiki manager picks this up:
+
+1. **`/wiki/features/experiments` blurb is stale.** `nav.ts:109` reads "Markdown notes, image strip, sub-tasks, PDF export." PDF export is still accurate but the export feature now has three formats (PDF / HTML / Raw ResearchOS) and a different entry point. Update the blurb + the page body if it details the old PDF-only export.
+2. **`/wiki/features/search` should mention multi-select export.** Multi-select + format picker on `/search` is the canonical multi-experiment export entry point (user view + Lab Mode). Worth a short subsection with a screenshot of the format-picker dialog.
+3. **New `/wiki/features/export` page worth creating.** Concept-first: what each format is for (raw = cross-instance sharing, HTML = polished self-contained report, PDF = printable report with files appendix), what "self-contained" means, when to pick which. Screenshots: `ExportFormatDialog`, a sample PDF outline pane showing bookmarks, a sample HTML rendered in a browser. Register in `WIKI_NAV` under the "Features" group.
+4. **`TaskExportButton` icon hasn't changed**, but the dropdown is replaced by a dialog. Any existing screenshot of the old "📝 Markdown / 📕 PDF" dropdown is stale — recapture against Demo Lab when convenient.
+5. **Plan doc (`EXPORT_REVAMP_PLAN.md` at repo root) will get deleted** after Grant verifies + the export branch merges to main. Don't link to it from wiki content.
+
 ---
 
 ## 9. Quick-start playbook for the master bot
