@@ -64,7 +64,9 @@ export default function SearchPage() {
     queryFn: async () => {
       if (projects.length === 0) return [];
       const results = await Promise.all(
-        projects.map((p) => tasksApi.listByProject(p.id))
+        projects.map((p) =>
+          tasksApi.listByProject(p.id, p.is_shared_with_me ? p.owner : undefined)
+        )
       );
       return results.flat();
     },
