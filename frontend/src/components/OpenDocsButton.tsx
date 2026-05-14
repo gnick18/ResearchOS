@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { getDemoMode } from "@/lib/file-system/wiki-capture-mock";
-import { getWikiForRoute } from "@/lib/demo/route-to-wiki";
+import { getWikiForRoute } from "@/lib/wiki/nav";
 
 /**
  * Secondary affordance shown alongside `<FloatingLeaveDemoButton>` while
