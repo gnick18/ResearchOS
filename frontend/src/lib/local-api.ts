@@ -2188,7 +2188,7 @@ export const usersApi = {
       throw new Error("Users directory not found");
     }
     
-    const userDir = await (usersDir as any).getDirectoryHandle(username, { create: false });
+    const userDir = await usersDir.getDirectoryHandle(username, { create: false });
     if (!userDir) {
       throw new Error(`User '${username}' not found`);
     }
@@ -2196,15 +2196,18 @@ export const usersApi = {
     const zip = new JSZip();
     
     const addFolderToZip = async (dirHandle: FileSystemDirectoryHandle, zipFolder: JSZip) => {
-      for await (const entry of (dirHandle as any).values()) {
+      for await (const entry of dirHandle.values()) {
+        // FSA's FileSystemHandle isn't a discriminated union in lib.dom,
+        // so TypeScript can't narrow to FileHandle/DirHandle on `kind`.
+        // Narrow manually with a single cast per branch.
         if (entry.kind === "file") {
-          const file = await entry.getFile();
+          const file = await (entry as FileSystemFileHandle).getFile();
           const content = await file.arrayBuffer();
           zipFolder.file(entry.name, content);
         } else if (entry.kind === "directory") {
           const subFolder = zipFolder.folder(entry.name);
           if (subFolder) {
-            await addFolderToZip(entry, subFolder);
+            await addFolderToZip(entry as FileSystemDirectoryHandle, subFolder);
           }
         }
       }
@@ -2239,7 +2242,7 @@ export const usersApi = {
           return { status: "error", deleted_username: "", message: "Users directory not found" };
         }
         
-        await (usersDir as any).removeEntry(username, { recursive: true });
+        await usersDir.removeEntry(username, { recursive: true });
         
         return { 
           status: "ok", 

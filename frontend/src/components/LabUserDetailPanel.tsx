@@ -133,6 +133,18 @@ export default function LabUserDetailPanel({
       );
   }, [notes, windowStart]);
 
+  // Top funding accounts for this user (in-view spend). Must stay above the
+  // `if (!user) return null` guard below — calling a hook only on some
+  // renders violates rules-of-hooks and breaks the hook-order invariant.
+  const topFunding = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const item of items) {
+      const key = item.funding_string || "Uncategorized";
+      totals.set(key, (totals.get(key) ?? 0) + (item.total_price ?? 0));
+    }
+    return Array.from(totals.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  }, [items]);
+
   // If the user isn't in the cache yet (data still loading, or username
   // doesn't exist), bail. The page-level open-panel guard usually prevents
   // this, but we still want a safe fallback.
@@ -147,16 +159,6 @@ export default function LabUserDetailPanel({
   const completionPct =
     totalExperiments === 0 ? 0 : Math.round((completedExperiments / totalExperiments) * 100);
   const totalSpent = items.reduce((acc, i) => acc + (i.total_price ?? 0), 0);
-
-  // Top funding accounts for this user (in-view spend).
-  const topFunding = useMemo(() => {
-    const totals = new Map<string, number>();
-    for (const item of items) {
-      const key = item.funding_string || "Uncategorized";
-      totals.set(key, (totals.get(key) ?? 0) + (item.total_price ?? 0));
-    }
-    return Array.from(totals.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  }, [items]);
 
   return (
     <>

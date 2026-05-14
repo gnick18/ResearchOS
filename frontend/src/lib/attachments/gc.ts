@@ -15,6 +15,12 @@ import { fileService } from "@/lib/file-system/file-service";
 // them at the first space, which made GC sweep them as unreferenced.
 const IMG_REF_REGEX = /!\[[^\]]*\]\(([^)\n]+?)\)/g;
 const HTML_IMG_REF_REGEX = /<img\s+[^>]*src=["']([^"']+)["'][^>]*>/gi;
+// Non-image markdown link: [label](url). The `(?<!!)` lookbehind keeps
+// this from double-matching the image syntax above. Needed so that
+// `[doc.pdf](Files/doc.pdf)` protects `doc.pdf` from GC when the
+// `Files/` subdir is being swept.
+const LINK_REF_REGEX = /(?<!!)\[[^\]]*\]\(([^)\n]+?)\)/g;
+const HTML_LINK_REF_REGEX = /<a\s+[^>]*href=["']([^"']+)["'][^>]*>/gi;
 
 export function referencedRelativeNames(
   markdown: string,
@@ -50,11 +56,22 @@ export function referencedRelativeNames(
       if (!afterPrefix) continue;
       const segments = afterPrefix.split("/").filter(Boolean);
       const basename = segments[segments.length - 1];
-      if (basename) referenced.add(basename);
+      if (!basename) continue;
+      // File links are URL-encoded (`Files/READ%20ME.md` for a filename
+      // with a space) by the file-link UX. Decode so the basename matches
+      // the raw filename returned by `listFiles`. Malformed encodings
+      // (dangling `%`) fall back to the raw form.
+      try {
+        referenced.add(decodeURIComponent(basename));
+      } catch {
+        referenced.add(basename);
+      }
     }
   };
   collect(new RegExp(IMG_REF_REGEX.source, "g"));
   collect(new RegExp(HTML_IMG_REF_REGEX.source, "gi"));
+  collect(new RegExp(LINK_REF_REGEX.source, "g"));
+  collect(new RegExp(HTML_LINK_REF_REGEX.source, "gi"));
   return referenced;
 }
 
