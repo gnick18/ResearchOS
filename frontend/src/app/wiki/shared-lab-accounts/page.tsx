@@ -114,8 +114,8 @@ export default function SharedLabAccountsPage() {
         combined Gantt, activity feed, methods library, and purchases view
         across every member. See{" "}
         <Link href="/wiki/features/lab-mode">Lab Mode</Link>. If you only
-        want one labmate&apos;s work surfaced on your own Home page —
-        rather than the whole lab — they can share an individual project
+        want one labmate&apos;s work surfaced on your own Home page (rather
+        than the whole lab), they can share an individual project
         or task with you instead; see{" "}
         <Link href="/wiki/features/home">Home &amp; Projects</Link>.
       </Callout>

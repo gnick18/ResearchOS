@@ -7,7 +7,7 @@ export default function LinksFeaturePage() {
   return (
     <WikiPage
       title="Lab Links"
-      intro="Your own bookmark wall — link cards with preview images, grouped into categories, stored under your user."
+      intro="Your own bookmark wall: link cards with preview images, grouped into categories, stored under your user."
     >
       <Screenshot
         src="/wiki/screenshots/links.png"
@@ -19,7 +19,7 @@ export default function LinksFeaturePage() {
       <p>
         Each saved link is a card with a preview image (or a solid colored
         block if no image), the link title, a short description, and the
-        hostname. Cards are grouped into category sections — the section
+        hostname. Cards are grouped into category sections. The section
         header is the category name, and links without a category land
         under <em>Other</em>. Clicking a card opens its URL in a new tab.
       </p>
@@ -27,7 +27,7 @@ export default function LinksFeaturePage() {
       <Callout variant="info" title="Per-user, not lab-wide">
         Lab Links sit in your own folder under{" "}
         <code>users/{`<you>`}/lab_links/</code>. Each labmate keeps their own
-        wall — adding a link doesn&apos;t share it with anyone else.
+        wall. Adding a link doesn&apos;t share it with anyone else.
       </Callout>
 
       <h2>Add a link</h2>
@@ -38,7 +38,7 @@ export default function LinksFeaturePage() {
         </Step>
         <Step>
           Paste a URL into the <strong>URL</strong> field. Click the small
-          image-icon button next to it to fetch a preview — that fills in
+          image-icon button next to it to fetch a preview. That fills in
           the title, description, and preview image automatically (the
           fields are still editable afterward).
         </Step>
@@ -63,7 +63,7 @@ export default function LinksFeaturePage() {
         Hover a card. Two small icons appear in the top-right corner of the
         preview image: a pencil to edit (reopens the same form pre-filled),
         and a trash can to delete (prompts for confirmation). The hostname
-        line at the bottom of each card is auto-derived from the URL — you
+        line at the bottom of each card is auto-derived from the URL. You
         only ever set the title, not the URL display.
       </p>
 
@@ -71,7 +71,7 @@ export default function LinksFeaturePage() {
       <p>
         Per the on-disk JSON: a title, a URL, an optional description, an
         optional category, a color, and an optional preview image URL.
-        That&apos;s it — there&apos;s no per-link sharing toggle, no
+        That&apos;s it. There&apos;s no per-link sharing toggle, no
         cross-user visibility, no labmate ordering. If a labmate needs the
         same set of URLs, paste them into their own Lab Links page.
       </p>

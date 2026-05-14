@@ -178,7 +178,7 @@ export default function ExperimentsFeaturePage() {
       />
       <ul>
         <li>
-          <strong>PDF report</strong> — a professional, printable PDF with a
+          <strong>PDF report</strong>: a professional, printable PDF with a
           title page, a clickable table of contents, an outline pane
           (bookmarks) for jumping between sections, and inline images. Lab
           Notes, Results, every attached method (rendered, with per-run PCR
@@ -188,7 +188,7 @@ export default function ExperimentsFeaturePage() {
           chapter, IRB filing, or grant report.
         </li>
         <li>
-          <strong>HTML report</strong> — a single self-contained{" "}
+          <strong>HTML report</strong>: a single self-contained{" "}
           <code>.html</code> page bundled in a <code>.zip</code> with its
           attachments. Images are base64-inlined so the page renders even
           offline; PDF methods and other non-image files sit alongside in{" "}
@@ -197,7 +197,7 @@ export default function ExperimentsFeaturePage() {
           the zip to a collaborator who doesn&apos;t run ResearchOS.
         </li>
         <li>
-          <strong>Raw ResearchOS format</strong> — the full experiment as a
+          <strong>Raw ResearchOS format</strong>: the full experiment as a
           sharable <code>.zip</code> bundle: <code>task.json</code>,{" "}
           <code>project.json</code>, the raw <code>notes.md</code> and{" "}
           <code>results.md</code>, each method as its own JSON file (PCR
@@ -229,7 +229,7 @@ export default function ExperimentsFeaturePage() {
         bundle a batch of experiments into one download, use{" "}
         <strong>Select</strong> on the{" "}
         <Link href="/wiki/features/search">Search</Link> page (or its Lab Mode
-        counterpart) — tick the result cards you want, click{" "}
+        counterpart). Tick the result cards you want, click{" "}
         <strong>Export selected</strong>, and the same dialog packages every
         chosen experiment into an <code>experiments-&lt;YYYY-MM-DD&gt;.zip</code>{" "}
         with one entry per experiment.

@@ -355,7 +355,7 @@ export default function MarkdownEditorPage() {
         </li>
         <li>
           <strong>Everything else</strong> (zips, office docs, audio, video,
-          binaries) downloads immediately without a popup — there&apos;s
+          binaries) downloads immediately without a popup. There&apos;s
           nothing meaningful to render inline.
         </li>
       </ul>

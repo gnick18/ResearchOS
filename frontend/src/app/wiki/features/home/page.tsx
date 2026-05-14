@@ -27,7 +27,7 @@ export default function HomeFeaturePage() {
         dragged.
       </p>
       <p>
-        The color you pick follows the project everywhere — the bar on the{" "}
+        The color you pick follows the project everywhere: the bar on the{" "}
         <Link href="/wiki/features/gantt">Gantt</Link>, the badge in{" "}
         <Link href="/wiki/features/lab-mode">Lab Mode</Link>, and the
         overlay on the calendar. Pick distinct colors early so a busy Gantt
@@ -35,7 +35,7 @@ export default function HomeFeaturePage() {
       </p>
       <p>
         Clicking a task name <em>inside</em> the <strong>Next Up</strong>{" "}
-        list opens that task&apos;s detail popup directly — it
+        list opens that task&apos;s detail popup directly. It
         doesn&apos;t open the project popup. Clicking anywhere else on the
         card opens the project popup described next.
       </p>
@@ -66,15 +66,15 @@ export default function HomeFeaturePage() {
       <p>
         When a labmate shares a project with you, its card slides into the
         Home grid right next to your own. The card looks the same as any
-        other — the project&apos;s color bar, the same progress bar and{" "}
-        <strong>Next Up</strong> list — there&apos;s no special badge or
+        other (the project&apos;s color bar, the same progress bar and{" "}
+        <strong>Next Up</strong> list). There&apos;s no special badge or
         owner pill marking it as shared. If you want to know which projects
         came from someone else, the project popup spells it out once you
         open the card.
       </p>
       <p>
         The tasks listed inside the popup are the <em>owner&apos;s</em>{" "}
-        tasks for that project — the same tasks they see on their own
+        tasks for that project, the same tasks they see on their own
         Home page. The progress bar and the stats counts on the card all
         reflect those tasks too.
       </p>
@@ -91,7 +91,7 @@ export default function HomeFeaturePage() {
         <li>
           <strong>The delete button stays on the owner&apos;s side.</strong>{" "}
           Even with edit permission, the trash action only lives in the
-          owner&apos;s copy of the popup — your edit form will be missing
+          owner&apos;s copy of the popup. Your edit form will be missing
           the red <em>Delete Project</em> button.
         </li>
       </ul>
@@ -101,14 +101,14 @@ export default function HomeFeaturePage() {
       </p>
       <ul>
         <li>
-          <strong>Edit permission</strong> — the pencil, the archive
+          <strong>Edit permission</strong>: the pencil, the archive
           button, and the task edits inside the popup all save back to the
           original owner&apos;s copy of the data. Your changes show up on
           their Home page too (after their next refresh, since each
           person&apos;s app reads from disk on its own schedule).
         </li>
         <li>
-          <strong>View permission</strong> — leave the popup&apos;s edit
+          <strong>View permission</strong>: leave the popup&apos;s edit
           mode alone. Treat the project as read-only and use it as a
           window into the owner&apos;s work.
         </li>
@@ -118,8 +118,8 @@ export default function HomeFeaturePage() {
         was shared to you (either directly or by belonging to a shared
         project), the share icon vanishes and the delete button greys out
         with a tooltip pointing back to the owner. If you have edit
-        permission, edits to the task — completion toggle, dates, lab
-        notes, results, sub-tasks — save back to the owner&apos;s task
+        permission, edits to the task (completion toggle, dates, lab
+        notes, results, sub-tasks) save back to the owner&apos;s task
         file.
       </p>
 
@@ -134,7 +134,7 @@ export default function HomeFeaturePage() {
       <Callout variant="info" title="The Miscellaneous project is permanent">
         A built-in project called <strong>Miscellaneous</strong> holds
         standalone tasks that don&apos;t belong to a research project. Its
-        popup hides the edit, archive, and delete actions — you can share
+        popup hides the edit, archive, and delete actions. You can share
         it and open its tasks, but the project itself can&apos;t be renamed
         or removed.
       </Callout>
