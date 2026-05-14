@@ -16,6 +16,21 @@ import type {
   ParsedPage,
 } from "./types";
 
+/**
+ * Result of pre-fetching a Form-B inline image during the optional
+ * LabArchives sign-in step. Mirrors the shape returned by
+ * `lib/labarchives/api-client.ts#fetchInlineImages` so the wizard can
+ * pass its result straight through.
+ *
+ * Keyed by `MissingInlineImage.originalUrl`. Missing entries (URL not in
+ * the map) and `{ kind: "error" }` entries both fall back to the existing
+ * "missing image" placeholder — failures are non-fatal.
+ */
+export type FetchedInlineImage =
+  | { kind: "ok"; blob: Blob; contentType: string }
+  | { kind: "error"; message: string };
+export type FetchedInlineImageMap = Map<string, FetchedInlineImage>;
+
 // ─── Dependency seam ─────────────────────────────────────────────────────────
 // Apply needs to write files, create projects/tasks, and look up the
 // receiver. In production it wires the real services; in tests the
@@ -67,6 +82,15 @@ export interface ELNApplyDeps {
    * (phase: "tasks"). The wizard UI uses this to drive a progress bar.
    */
   onProgress?: (progress: ELNApplyProgress) => void;
+  /**
+   * Optional Form-B inline images pre-fetched from LabArchives. When
+   * provided, the apply pass writes them to `Images/<filename>` and
+   * rewrites the markdown ref instead of emitting the "missing image"
+   * placeholder. URLs not present in the map (or that resolved as
+   * `{ kind: "error" }`) fall through to the original placeholder
+   * behavior.
+   */
+  fetchedImages?: FetchedInlineImageMap;
 }
 
 /**
@@ -197,13 +221,41 @@ function attachmentSubdir(att: ParsedAttachment): "Files" | "Images" {
   return att.isImage ? "Images" : "Files";
 }
 
+/**
+ * Map of `Images/missing-<originalFilename>` → `Images/<finalFilename>`
+ * for inline images that were successfully pre-fetched. The parser writes
+ * `<img src="Images/missing-<filename>">` into the entry HTML for every
+ * Form-B URL; once the LabArchives step has the bytes, we swap each ref to
+ * the real on-disk path before turndown's output hits notes.md.
+ *
+ * Keys include the `Images/missing-` prefix so the regex replace can't
+ * accidentally hit a filename that happens to start with "missing-" in
+ * another context.
+ */
+type RehydratedImageRewrite = Map<string, string>;
+
+function applyImageRewrites(
+  body: string,
+  rewrites: RehydratedImageRewrite,
+): string {
+  if (rewrites.size === 0) return body;
+  let out = body;
+  for (const [from, to] of rewrites) {
+    // Escape regex metacharacters in the filename before building the RE.
+    const safeFrom = from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    out = out.replace(new RegExp(safeFrom, "g"), to);
+  }
+  return out;
+}
+
 function renderEntryBody(
   entry: ParsedEntry,
   filenameMap: Map<string, string>,
+  imageRewrites: RehydratedImageRewrite,
 ): string {
   if (entry.type === "text" || entry.type === "heading" || entry.type === "plain_text") {
     const body = (entry.bodyMarkdown ?? "").trim();
-    return body;
+    return applyImageRewrites(body, imageRewrites);
   }
   if (entry.type === "attachment") {
     const att = entry.attachments[0];
@@ -220,10 +272,13 @@ function renderEntryBody(
   return "";
 }
 
-function renderMissingInlineNote(missing: MissingInlineImage[]): string {
-  if (missing.length === 0) return "";
+/** Render the trailing "online-only images" note. Only lists images that
+ *  are still missing AFTER the LabArchives sign-in step (or all of them
+ *  when that step was skipped). */
+function renderMissingInlineNote(stillMissing: MissingInlineImage[]): string {
+  if (stillMissing.length === 0) return "";
   const lines = ["", "> Missing online-only images (relink manually via LabArchives login):"];
-  for (const m of missing) {
+  for (const m of stillMissing) {
     lines.push(`> - \`Images/missing-${m.filename}\` — original: \`${m.originalUrl}\``);
   }
   return lines.join("\n");
@@ -257,12 +312,20 @@ function renderPageHeader(page: ParsedPage, parsed: ParsedNotebook, startedAt: s
  * `filenameMap` is shared across this page — keys are `body:{filename}` and
  * `inline:{filename}` so the attachment-write step and the markdown-emit
  * step agree on the final on-disk name after collision suffixing.
+ *
+ * `imageRewritesByEntry` maps entry id → rehydrated-image rewrites for
+ * that entry's body (`Images/missing-<orig>` → `Images/<final>`). Empty
+ * map for entries with no fetched images. `stillMissingByEntry` is the
+ * complement — Form-B images we couldn't fetch, listed in the trailing
+ * note for manual recovery.
  */
 function renderPageMarkdown(
   page: ParsedPage,
   parsed: ParsedNotebook,
   startedAt: string,
   filenameMap: Map<string, string>,
+  imageRewritesByEntry: Map<string, RehydratedImageRewrite>,
+  stillMissingByEntry: Map<string, MissingInlineImage[]>,
 ): string {
   const sections: string[] = [renderPageHeader(page, parsed, startedAt)];
 
@@ -276,11 +339,14 @@ function renderPageMarkdown(
     parts.push("");
     parts.push(heading);
     parts.push("");
-    const body = renderEntryBody(entry, filenameMap);
+    const rewrites = imageRewritesByEntry.get(entry.entryId) ?? new Map();
+    const body = renderEntryBody(entry, filenameMap, rewrites);
     if (body.length > 0) {
       parts.push(body);
     }
-    const missingNote = renderMissingInlineNote(entry.missingInlineImages);
+    const stillMissing =
+      stillMissingByEntry.get(entry.entryId) ?? entry.missingInlineImages;
+    const missingNote = renderMissingInlineNote(stillMissing);
     if (missingNote.length > 0) {
       parts.push(missingNote);
     }
@@ -486,14 +552,64 @@ async function applyPage(
     attachmentsWritten++;
   }
 
+  // Stage rehydrated Form-B images: anything in deps.fetchedImages with a
+  // kind === "ok" record gets written to Images/<finalName> and rewrites
+  // the `Images/missing-<orig>` markdown ref. Anything else (no record, or
+  // kind === "error") falls through to the existing placeholder.
+  const imageRewritesByEntry = new Map<string, RehydratedImageRewrite>();
+  const stillMissingByEntry = new Map<string, MissingInlineImage[]>();
+  let rehydratedCount = 0;
+
+  if (deps.fetchedImages && deps.fetchedImages.size > 0) {
+    for (const entry of page.entries) {
+      const rewrites: RehydratedImageRewrite = new Map();
+      const stillMissing: MissingInlineImage[] = [];
+      for (const m of entry.missingInlineImages) {
+        const fetched = deps.fetchedImages.get(m.originalUrl);
+        if (!fetched || fetched.kind !== "ok") {
+          stillMissing.push(m);
+          continue;
+        }
+        const finalName = pickUniqueFilename(m.filename, usedNames);
+        await deps.fileService.writeFileFromBlob(
+          `${notesBase}/Images/${finalName}`,
+          fetched.blob,
+        );
+        attachmentsWritten++;
+        rehydratedCount++;
+        rewrites.set(`Images/missing-${m.filename}`, `Images/${finalName}`);
+      }
+      imageRewritesByEntry.set(entry.entryId, rewrites);
+      stillMissingByEntry.set(entry.entryId, stillMissing);
+    }
+  }
+
   // Render + write notes.md AFTER attachment names are pinned.
-  const md = renderPageMarkdown(page, parsed, startedAt, filenameMap);
+  const md = renderPageMarkdown(
+    page,
+    parsed,
+    startedAt,
+    filenameMap,
+    imageRewritesByEntry,
+    stillMissingByEntry,
+  );
   await deps.fileService.writeFileFromBlob(
     `users/${receiver}/results/task-${newTask.id}/notes.md`,
     new Blob([md], { type: "text/markdown" }),
   );
 
   // Sidecars for dedup + forensic recovery of unsupported entries.
+  // `missingInlineImages` records only the still-missing set so a future
+  // wizard re-run can know which images still need recovery.
+  const stillMissingFlat: MissingInlineImage[] = [];
+  for (const entry of page.entries) {
+    const m = stillMissingByEntry.get(entry.entryId);
+    if (m) {
+      stillMissingFlat.push(...m);
+    } else {
+      stillMissingFlat.push(...entry.missingInlineImages);
+    }
+  }
   const sidecar: ELNImportSidecar = {
     source: "labarchives-offline-zip",
     imported_at: startedAt,
@@ -503,7 +619,7 @@ async function applyPage(
     treePath: page.treePath,
     pageId: page.pageId,
     entryCount: page.entries.length,
-    missingInlineImages: page.entries.flatMap((e) => e.missingInlineImages),
+    missingInlineImages: stillMissingFlat,
   };
   await deps.fileService.writeJson(`${notesBase}/_import_source.json`, sidecar);
 
@@ -528,6 +644,7 @@ async function applyPage(
     dedupKey,
     attachmentsWritten,
     missingInlineImages: sidecar.missingInlineImages.length,
+    rehydratedInlineImages: rehydratedCount,
     treePath: page.treePath,
     pageName: name,
   };
@@ -581,6 +698,7 @@ export async function applyELNImportPlan(
       tasksSkippedAsDuplicate: skipped,
       projectsCreated: [],
       totalMissingInlineImages: 0,
+      totalRehydratedInlineImages: 0,
       warnings: [],
     };
   }
@@ -598,6 +716,7 @@ export async function applyELNImportPlan(
   const tasksCreated: ELNAppliedTask[] = [];
   const warnings: ELNImportWarning[] = [];
   let totalMissing = 0;
+  let totalRehydrated = 0;
 
   for (let i = 0; i < pagesToApply.length; i++) {
     const page = pagesToApply[i];
@@ -620,6 +739,7 @@ export async function applyELNImportPlan(
       );
       tasksCreated.push(result);
       totalMissing += result.missingInlineImages;
+      totalRehydrated += result.rehydratedInlineImages;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       warnings.push({ pageId: page.pageId, message });
@@ -636,6 +756,7 @@ export async function applyELNImportPlan(
     tasksSkippedAsDuplicate: skipped,
     projectsCreated: created,
     totalMissingInlineImages: totalMissing,
+    totalRehydratedInlineImages: totalRehydrated,
     warnings,
   };
 }
