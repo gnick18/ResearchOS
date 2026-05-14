@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { tasksApi, dependenciesApi, fetchAllProjectsIncludingShared } from "@/lib/local-api";
+import { dependenciesApi, fetchAllProjectsIncludingShared, fetchAllTasksIncludingShared } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
@@ -59,17 +59,24 @@ export default function ExperimentsPage() {
     queryFn: fetchAllProjectsIncludingShared,
   });
 
+  // Use the canonical merged-view loader. `tasksApi.listByProject(id, owner)`
+  // looked correct but skipped two things `fetchAllTasksIncludingShared` does:
+  //   1. **Decorates shared tasks with `is_shared_with_me: true`.** Without
+  //      it, `taskKey(t)` collapses to `self:<id>` for both own and shared
+  //      tasks (its `ns` branch is `task.is_shared_with_me ? task.owner :
+  //      "self"`). So a shared `morgan:5` and an own `alex:5` both keyed to
+  //      `self:5` and collided in `taskMap`/`processedTasks`. That broke the
+  //      prior fix at `a323cb7b`: the chain builders DID use `taskKey()` but
+  //      `taskKey()` was an id-only namespace for these load-path tasks, so
+  //      the collision the fix was trying to close re-opened one layer down.
+  //   2. Surfaces **Option-C hosted tasks** (foreign-owned tasks shared INTO
+  //      a project via `<projectId>-hosted.json` manifests). `listByProject`
+  //      filtered on bare `project_id` in one owner's namespace, so a hosted
+  //      task whose own `project_id` lives in a different owner's namespace
+  //      silently disappeared.
   const { data: allTasks = [] } = useQuery({
     queryKey: ["tasks", currentUser],
-    queryFn: async () => {
-      if (projects.length === 0) return [];
-      const results = await Promise.all(
-        projects.map((p) =>
-          tasksApi.listByProject(p.id, p.is_shared_with_me ? p.owner : undefined)
-        )
-      );
-      return results.flat();
-    },
+    queryFn: fetchAllTasksIncludingShared,
     enabled: projects.length > 0,
   });
 
@@ -78,7 +85,11 @@ export default function ExperimentsPage() {
     queryFn: () => dependenciesApi.list(),
   });
 
-  const today = new Date().toISOString().split("T")[0];
+  // Local-tz YYYY-MM-DD. The naïve `toISOString().split("T")[0]` returns the
+  // UTC date, which drifts off-by-one for evening users in negative-UTC zones
+  // (e.g. 9 PM CDT = next day in UTC). Same fix Batch B applied to
+  // `isoDatePortion` in `lib/import/eln/apply.ts` (2026-05-14, `2958850c`).
+  const today = new Date().toLocaleDateString("en-CA");
 
   // Filter for upcoming/current experiments (not complete, task_type = experiment)
   const upcomingExperiments = useMemo(() => {

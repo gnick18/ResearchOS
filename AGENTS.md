@@ -374,6 +374,45 @@ _(Original "Handoff snapshot — late evening" body below was preserved for audi
 
 **Stale local branches worth pruning** (work landed elsewhere, branches just clutter `git branch`): `claude/epic-dubinsky-f36fb5` (Export Sub-bot F PCR-rendering), `claude/sharp-kirch-4345ef` (unknown), `claude/competent-tesla-1c0608` (the worktree that caused the stale-dev-server trap). Confirm-and-delete is safe but optional.
 
+### Recently landed (2026-05-14 — /experiments shared-task collision, take 2: switch to `fetchAllTasksIncludingShared`)
+
+Closes the `/experiments` rendering bug that the prior fix at `a323cb7b` thought it had closed but only half-closed. After that merge, Grant re-verified and reported (a) NONE of the overdue experiments showing and (b) most completed experiments still missing — plus the completed dropdown displaying tasks that aren't even complete.
+
+- **Root cause** (one layer below the prior fix): the chain builders correctly switched to `taskKey(t)` keys, but `taskKey()` itself collapses to `self:<id>` for any task without `is_shared_with_me: true`:
+  ```ts
+  // lib/types.ts
+  export function taskKey(task) {
+    const ns = task.is_shared_with_me ? (task.owner || "shared") : "self";
+    return `${ns}:${task.id}`;
+  }
+  ```
+  The page's loader was building tasks via `projects.map(p => tasksApi.listByProject(p.id, p.is_shared_with_me ? p.owner : undefined))`. `tasksApi.listByProject(id, owner)` reads the owner's raw on-disk tasks and **does NOT decorate them with `is_shared_with_me: true`**. So `taskKey(morgan_task_5)` → `self:5` and `taskKey(alex_task_5)` → `self:5` — collision. The composite key the prior fix introduced was therefore a no-op for any task coming through this load path.
+- **Concrete effect on the demo fixture** (re-verified in-browser at `?wikiCapture=1`, before/after with same data set):
+  - **Before fix**: 5 upcoming cards rendered (header advertised 8). Morgan's tasks 2 (Run fluorescence reader scan) and 3 (qPCR setup — verify GFP transcripts) were absorbed into morgan task 1's chain (id-collision pulled them through `taskMap.get("self:2")` / `"self:3"` which had been overwritten). The completed dropdown advertised "3 completed" but rendered morgan tasks 2 and 3 (uncompleted experiments!) plus one real completed task. So tasks weren't just hidden — wrong-bucket tasks were SHOWN.
+  - **After fix**: 7 upcoming cards (one is a legit 2-task chain), all 8 raw experiments accounted for. Completed dropdown renders the 3 actual completed tasks (alex 2, 3, 4) and nothing else.
+- **Also surfaced**: the prior load path **never read Option-C hosted tasks** (foreign tasks shared INTO a project via `<projectId>-hosted.json` manifests). `listByProject` filters bare `project_id` in one owner's namespace; a hosted task whose own `project_id` lives in a different owner's namespace silently disappeared. `fetchAllTasksIncludingShared` reads the hosted manifest. Grant's overdue-experiment miss was likely partly this.
+- **Fix** (`frontend/src/app/experiments/page.tsx`, ~−14 / +25 net): drop the `tasksApi.listByProject(...)` loop and just call `fetchAllTasksIncludingShared` as the `useQuery` `queryFn`. That's the canonical merged-view loader — does decoration (`is_shared_with_me: true`, `owner` overlay, `shared_permission`), pulls hosted tasks, dedups across the two share-paths via composite key, and has a dev-mode guardrail that errors on duplicate composite keys. Other pages already use this (`page.tsx`, `gantt/page.tsx`, `settings/page.tsx`); the experiments page was an outlier.
+- **Also rolled in**: `today` was using `new Date().toISOString().split("T")[0]` (UTC date, drifts off-by-one in negative-UTC evening) → swap to `new Date().toLocaleDateString("en-CA")` to match the Batch B `isoDatePortion` fix (`2958850c`). Same `YYYY-MM-DD` shape, local timezone.
+
+**Manual test recipe for Grant**:
+1. Open `/experiments` with the real-folder data that broke before.
+2. Header upcoming count and the visible card count should match (modulo chains, which compress N tasks into 1 card with an "N tasks" badge).
+3. Any overdue experiment (`end_date < today`) should render a red border + "Overdue" badge — confirm at least one is visible if you have any in your folder.
+4. Click "Show N completed experiments". The expanded list should contain ONLY tasks where `is_complete === true` and `task_type === "experiment"`. No uncompleted tasks should appear in the completed dropdown.
+5. Cross-check sidebar's "Overdue (N)" count: should equal the number of overdue-badged cards on the page.
+
+**Same-bug-pattern audit on sibling pages** (which use the same `projects.map(p => tasksApi.listByProject(p.id, p.is_shared_with_me ? p.owner : undefined))` shape — vulnerable to the same `taskKey()` collision class):
+- `frontend/src/app/results/page.tsx:40` — same shape, same risk.
+- `frontend/src/app/purchases/page.tsx:32` — same shape, same risk.
+- `frontend/src/app/search/page.tsx:85` — same shape, same risk.
+Pages already on `fetchAllTasksIncludingShared` (safe): `page.tsx` (home), `gantt/page.tsx`, `settings/page.tsx` (audit panel), `SendToTaskPicker.tsx`. The `36816a9d` → `b086fb4c` sweep evidently keyed off `taskKey()` everywhere but didn't realize the loader path matters too. Queue follow-up tasks for results/purchases/search if Grant observes similar symptoms there.
+
+**Edge cases NOT covered (intentional)**:
+- `selectedProjectIds` is still `number[]` and still keys by bare `project_id` (lines 90, 107). Not the culprit (the filter is only active when the user clicks a project chip), and the broader store migration to composite keys is its own backlog item.
+- Cross-owner dependency chains. Same as the prior fix: `dependenciesApi.list()` only returns the current user's deps; shared tasks always render as 1-task standalone chains.
+
+Files touched: `frontend/src/app/experiments/page.tsx` (+25 / −14). Typecheck + ESLint clean on the file. Verified in `?wikiCapture=1` browser session: before/after card counts confirmed in DOM, including the inverse symptom (wrong completed cards before).
+
 ### Recently landed (2026-05-14 — LabArchives institutional API removal)
 
 Three commits (`8b1eac3f` deletion + import reshuffle, `537471c8` restore `LabArchivesOptionCard` helper for the remaining Import card, `656c980c` drop now-unused `isDemoOrWikiCapture` import in settings) remove the institutional LabArchives signed-call setup entirely. Net –3296 / +127 across 25 files; the deleted surface itself was ~2050 LOC across 12 files.
