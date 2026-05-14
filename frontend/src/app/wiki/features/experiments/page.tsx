@@ -3,6 +3,7 @@ import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
 import Screenshot from "@/components/wiki/Screenshot";
 import { Steps, Step } from "@/components/wiki/Steps";
+import { TryInDemo } from "@/components/wiki/TryInDemo";
 
 export default function ExperimentsFeaturePage() {
   return (
@@ -15,6 +16,8 @@ export default function ExperimentsFeaturePage() {
         alt="The Experiments tab with experiment tiles grouped by project, each showing status badges and duration."
         caption="Every active experiment, grouped by project, with status pills and a Show N completed experiments disclosure at the bottom."
       />
+
+      <TryInDemo href="/experiments">Try the experiments view</TryInDemo>
 
       <h2>The Experiments tab</h2>
       <p>
