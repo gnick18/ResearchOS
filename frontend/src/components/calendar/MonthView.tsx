@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Event, ExternalEvent } from "@/lib/types";
+import { hasEnded } from "@/lib/calendar/event-status";
 import {
   type CalendarItem,
   EVENT_TYPE_COLORS,
@@ -9,6 +10,8 @@ import {
   formatTime,
   toLocalDateString,
 } from "./utils";
+
+const ENDED_CLASSES = "line-through opacity-60";
 
 interface Props {
   anchor: Date;
@@ -81,7 +84,16 @@ export default function MonthView({
     [events, externalEvents]
   );
 
-  const today = toLocalDateString(new Date());
+  // 60s tick so ended-event greying transitions live without a page reload.
+  // Multi-day-month view doesn't have a "now" line; the tick is purely for
+  // the strikethrough state.
+  const [now, setNow] = useState<Date>(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const today = toLocalDateString(now);
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -128,15 +140,16 @@ export default function MonthView({
                 {day.date.getDate()}
               </div>
               <div className="space-y-1">
-                {sorted.slice(0, 3).map((item) =>
-                  item.kind === "native" ? (
+                {sorted.slice(0, 3).map((item) => {
+                  const ended = hasEnded(item.event, now);
+                  return item.kind === "native" ? (
                     <button
                       key={`n-${item.event.id}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         onEventClick(item.event);
                       }}
-                      className="w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80"
+                      className={`w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80 ${ended ? ENDED_CLASSES : ""}`}
                       style={{
                         backgroundColor:
                           item.event.color || EVENT_TYPE_COLORS[item.event.event_type],
@@ -158,7 +171,7 @@ export default function MonthView({
                         onExternalClick(item.event);
                       }}
                       title="Linked calendar event (read-only)"
-                      className="w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80 flex items-center gap-1"
+                      className={`w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80 flex items-center gap-1 ${ended ? ENDED_CLASSES : ""}`}
                       style={{
                         backgroundColor: "white",
                         color: item.event.color,
@@ -187,8 +200,8 @@ export default function MonthView({
                       )}
                       <span className="truncate">{item.event.title}</span>
                     </button>
-                  )
-                )}
+                  );
+                })}
                 {sorted.length > 3 && (
                   <p className="text-[10px] text-gray-400 px-1.5">
                     +{sorted.length - 3} more
