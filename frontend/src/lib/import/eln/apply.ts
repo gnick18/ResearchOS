@@ -1,5 +1,6 @@
 import { format as formatDate } from "date-fns";
 import type {
+  ELNApplyProgress,
   ELNAppliedTask,
   ELNImportPlan,
   ELNImportResult,
@@ -59,6 +60,12 @@ export interface ELNApplyDeps {
   tasksApi: ELNApplyTasksApi;
   getCurrentUser: () => Promise<string>;
   pickProjectName: (baseName: string) => Promise<string>;
+  /**
+   * Optional progress callback. Fired at the start of project-creation
+   * (phase: "projects") and at the start of each page-apply iteration
+   * (phase: "tasks"). The wizard UI uses this to drive a progress bar.
+   */
+  onProgress?: (progress: ELNApplyProgress) => void;
 }
 
 /**
@@ -369,6 +376,12 @@ async function resolveProjects(
   const idByKey = new Map<string, number | null>();
   const created: Array<{ name: string; id: number }> = [];
 
+  // Only the "import-new" mappings represent actual creation work for the
+  // progress bar. "use-existing" / "no-project" rows are resolved in
+  // memory and don't deserve a tick.
+  const newCount = mappings.filter((m) => m.decision === "import-new").length;
+  let newIdx = 0;
+
   for (const m of mappings) {
     if (m.decision === "no-project") {
       idByKey.set(m.treePathKey, null);
@@ -381,11 +394,21 @@ async function resolveProjects(
     // import-new: collision-suffix via pickImportedProjectName so the
     // receiver's workspace never gets two projects with the same name.
     const baseName = m.newProjectName ?? m.defaultProjectName ?? m.treePathKey;
+    deps.onProgress?.({
+      phase: "projects",
+      current: newIdx,
+      total: newCount,
+      label: baseName,
+    });
     const finalName = await deps.pickProjectName(baseName);
     const proj = await deps.projectsApi.create({ name: finalName });
     idByKey.set(m.treePathKey, proj.id);
     created.push({ name: proj.name, id: proj.id });
+    newIdx++;
   }
+
+  // Final tick so the bar reports complete even when newCount === 0.
+  deps.onProgress?.({ phase: "projects", current: newCount, total: newCount });
 
   return { idByKey, created };
 }
@@ -511,6 +534,8 @@ async function applyPage(
     dedupKey,
     attachmentsWritten,
     missingInlineImages: sidecar.missingInlineImages.length,
+    treePath: page.treePath,
+    pageName: name,
   };
 }
 
@@ -580,7 +605,14 @@ export async function applyELNImportPlan(
   const warnings: ELNImportWarning[] = [];
   let totalMissing = 0;
 
-  for (const page of pagesToApply) {
+  for (let i = 0; i < pagesToApply.length; i++) {
+    const page = pagesToApply[i];
+    deps.onProgress?.({
+      phase: "tasks",
+      current: i,
+      total: pagesToApply.length,
+      label: pageName(page),
+    });
     try {
       const key = projectKeyForPage(page, plan.projectMappings);
       const projectId = idByKey.has(key) ? (idByKey.get(key) ?? null) : null;
@@ -599,6 +631,11 @@ export async function applyELNImportPlan(
       warnings.push({ pageId: page.pageId, message });
     }
   }
+  deps.onProgress?.({
+    phase: "tasks",
+    current: pagesToApply.length,
+    total: pagesToApply.length,
+  });
 
   return {
     tasksCreated,
