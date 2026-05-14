@@ -125,16 +125,32 @@ export function isWikiCaptureMode(): boolean {
   return getWikiCaptureVariant() !== null;
 }
 
-/** Public in-browser demo mode. True when the URL pathname is exactly
- *  `/demo` or starts with `/demo/`, OR when `?demo=1` is set. Unlike the
- *  wiki-capture flag, this has **no** production / localhost guard — the
- *  whole point is to let a public Vercel visitor explore ResearchOS at
- *  `researchos.app/demo`. The route `/demo-lab.zip` is a static asset
- *  served from `public/` and never lands on the React client, but we
- *  exclude any path starting with `/demo-lab` defensively. SSR-safe:
- *  returns false on the server. */
+/** sessionStorage key for the sticky demo-mode flag. Set once on first
+ *  successful fixture install (see `markDemoMode()`); cleared by
+ *  `<LeaveDemoModal>` on the way out. Survives in-tab navigation so demo
+ *  mode persists when the user clicks off `/demo` into `/methods`, etc. */
+const DEMO_MODE_KEY = "researchos:demo-mode";
+
+/** Public in-browser demo mode. True when:
+ *  - the sticky `sessionStorage` flag is set (continuation across in-tab
+ *    navigation, set by `markDemoMode()` after a successful fixture install), OR
+ *  - an entry trigger is active on the current URL: pathname is exactly
+ *    `/demo`, starts with `/demo/`, or has `?demo=1`.
+ *
+ *  Pure read — never writes. Writes happen in `markDemoMode()` from a
+ *  `useEffect`, so render passes stay side-effect-free. SSR-safe:
+ *  returns false on the server.
+ *
+ *  Unlike the wiki-capture flag, this has **no** production / localhost
+ *  guard — the whole point is to let a public Vercel visitor explore
+ *  ResearchOS at `researchos.app/demo`. */
 export function getDemoMode(): boolean {
   if (typeof window === "undefined") return false;
+  try {
+    if (window.sessionStorage.getItem(DEMO_MODE_KEY) === "1") return true;
+  } catch {
+    // sessionStorage can throw in privacy modes; fall through to URL detection.
+  }
   try {
     const path = window.location.pathname;
     if (path === "/demo" || path.startsWith("/demo/")) return true;
@@ -143,6 +159,30 @@ export function getDemoMode(): boolean {
     return false;
   } catch {
     return false;
+  }
+}
+
+/** Set the sticky demo-mode flag. Only call from a `useEffect` (never
+ *  during render). After this fires, `getDemoMode()` returns true across
+ *  all future in-tab navigation until `clearDemoMode()` runs. */
+export function markDemoMode(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(DEMO_MODE_KEY, "1");
+  } catch {
+    // best-effort
+  }
+}
+
+/** Clear the sticky demo-mode flag. Called from `<LeaveDemoModal>` so
+ *  the next page load lands on the folder picker instead of silently
+ *  re-entering demo mode. */
+export function clearDemoMode(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(DEMO_MODE_KEY);
+  } catch {
+    // best-effort
   }
 }
 

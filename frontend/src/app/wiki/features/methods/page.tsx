@@ -3,6 +3,7 @@ import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
 import Screenshot from "@/components/wiki/Screenshot";
 import { Steps, Step } from "@/components/wiki/Steps";
+import { TryInDemo } from "@/components/wiki/TryInDemo";
 
 export default function MethodsFeaturePage() {
   return (
@@ -15,6 +16,8 @@ export default function MethodsFeaturePage() {
         alt="The Methods page showing categories of method cards, with type pills marking PDF, PCR, and markdown."
         caption="The Method Library: cards grouped under category headings, with type pills on each card."
       />
+
+      <TryInDemo href="/methods">Try methods in the demo</TryInDemo>
 
       <h2>What you see on the page</h2>
       <p>

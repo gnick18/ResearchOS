@@ -18,7 +18,7 @@ import { clearCurrentUserCache } from "../storage/json-store";
 import { discoverUsers, validateResearchFolder, ensureFolderStructure } from "./user-discovery";
 import { readUserSettings, patchUserSettings, userSettingsFileExists, DEFAULT_SETTINGS } from "../settings/user-settings";
 import { useAppStore, readLegacyLocalStorageSettings } from "../store";
-import { getWikiCaptureVariant, getDemoMode, installWikiCaptureFixture } from "./wiki-capture-mock";
+import { getWikiCaptureVariant, getDemoMode, markDemoMode, installWikiCaptureFixture } from "./wiki-capture-mock";
 import { rebaseDemoDates, isDemoLab } from "../demo/rebase";
 
 /** Coarse-grained phase of the startup connect flow. Used by the loading
@@ -275,6 +275,12 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         try {
           const signIn = demoMode || captureVariant === "signed-in";
           await installWikiCaptureFixture({ signIn });
+          if (demoMode) {
+            // Set the sticky flag now that the fixture is ready, so the
+            // banner + floating exit button + future consumers see
+            // demo mode across in-tab navigation (e.g., /demo → /methods).
+            markDemoMode();
+          }
           if (signIn) {
             await hydrateSettingsForUser("alex");
           }

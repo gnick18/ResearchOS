@@ -7,6 +7,7 @@ import {
   clearDirectoryHandle,
   clearMainUser,
 } from "@/lib/file-system/indexeddb-store";
+import { clearDemoMode } from "@/lib/file-system/wiki-capture-mock";
 
 interface Props {
   isOpen: boolean;
@@ -44,6 +45,9 @@ export default function LeaveDemoModal({ isOpen, onClose }: Props) {
       // Best-effort cleanup; even if IndexedDB throws, the reload below
       // gives the user a way out via the folder picker.
     }
+    // Clear the sticky sessionStorage flag so the next visit to `/`
+    // doesn't silently re-enter demo mode from a stale flag.
+    clearDemoMode();
     window.location.replace("/");
   }, []);
 
