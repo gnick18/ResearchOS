@@ -1747,12 +1747,29 @@ export default function LiveMarkdownEditor({
    * Opens the original online URL in a new tab. The user is presumed
    * logged into LabArchives there; once the image renders they can
    * right-click → Save and feed it back into "Replace from disk".
+   *
+   * The `originalUrl` stored in the sidecar is typically a relative
+   * path like `/attachments/inline_image/...` (that's how LabArchives's
+   * offline HTML stores them). Without a host prefix, `window.open`
+   * resolves the URL against the CURRENT origin (= localhost:3000),
+   * landing the user on a dead page. Prefix with the LabArchives
+   * notebook host so the open actually reaches LabArchives.
+   *
+   * Regional default is the US host `mynotebook.labarchives.com`. UK/AU/EU
+   * institutions use different hosts (e.g. `aumynotebook.labarchives.com`);
+   * surfacing a region picker is a deferred follow-up.
+   *
    * `noopener,noreferrer` keeps the opened tab from accessing this
    * window via `window.opener`.
    */
   const findOnLabArchives = useCallback(() => {
     if (!labArchivesMatch) return;
-    window.open(labArchivesMatch.originalUrl, "_blank", "noopener,noreferrer");
+    const url = labArchivesMatch.originalUrl;
+    const isAbsolute = /^https?:\/\//i.test(url);
+    const absoluteUrl = isAbsolute
+      ? url
+      : `https://mynotebook.labarchives.com${url.startsWith("/") ? "" : "/"}${url}`;
+    window.open(absoluteUrl, "_blank", "noopener,noreferrer");
   }, [labArchivesMatch]);
 
   /**
