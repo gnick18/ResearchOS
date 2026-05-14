@@ -5,7 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { filesApi, tasksApi, pcrApi, fetchAllMethodsIncludingShared } from "@/lib/local-api";
+import { filesApi, pcrApi, fetchAllMethodsIncludingShared } from "@/lib/local-api";
 import { migrateNoteImages } from "@/lib/notes/migrate-images";
 import type { Task, PCRGradient, PCRIngredient } from "@/lib/types";
 import { InteractiveGradientEditor } from "@/components/InteractiveGradientEditor";
@@ -13,6 +13,7 @@ import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import MethodPicker from "./MethodPicker";
 import Tooltip from "./Tooltip";
 import { useDropWarning } from "@/lib/use-drop-warning";
+import { ownerScopedTasksApi } from "@/lib/tasks/owner-scoped-api";
 
 interface MethodTabsProps {
   task: Task;
@@ -28,6 +29,12 @@ function extractPCRProtocolId(sourcePath: string): number | null {
 
 export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: MethodTabsProps) {
   const queryClient = useQueryClient();
+  // Receivers editing a shared task with `edit` permission must route every
+  // mutation back to the OWNER's directory. Without this wrapper, the four
+  // direct calls below (addMethod/removeMethod/updateMethodPcr/resetPcr)
+  // default to the current user's namespace and silently fork the task on
+  // disk (orphan write under users/{receiver}/tasks/...).
+  const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
   const [activeMethodId, setActiveMethodId] = useState<number | null>(null);
   const [showMethodSelector, setShowMethodSelector] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -408,7 +415,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
           <div className="flex-1 flex flex-col h-full">
             {/* Variation Notes Panel */}
             <VariationNotesPanel
-              taskId={task.id}
+              task={task}
               methodId={activeMethodId!}
               variationNotes={activeAttachment?.variation_notes || null}
               onSaved={() => {
@@ -433,7 +440,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
           <div className="flex flex-col h-full">
             {/* Variation Notes Panel */}
             <VariationNotesPanel
-              taskId={task.id}
+              task={task}
               methodId={activeMethodId!}
               variationNotes={activeAttachment?.variation_notes || null}
               onSaved={() => {
@@ -520,7 +527,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
           <div className="flex flex-col h-full">
             {/* Variation Notes Panel */}
             <VariationNotesPanel
-              taskId={task.id}
+              task={task}
               methodId={activeMethodId!}
               variationNotes={activeAttachment?.variation_notes || null}
               onSaved={() => {
@@ -606,14 +613,17 @@ function removeVariationEntry(markdown: string, entryIndex: number): string {
 }
 
 interface VariationNotesPanelProps {
-  taskId: number;
+  task: Task;
   methodId: number;
   variationNotes: string | null;
   onSaved: () => void;
   readOnly?: boolean; // When true, all editing is disabled (for lab mode)
 }
 
-function VariationNotesPanel({ taskId, methodId, variationNotes, onSaved, readOnly = false }: VariationNotesPanelProps) {
+function VariationNotesPanel({ task, methodId, variationNotes, onSaved, readOnly = false }: VariationNotesPanelProps) {
+  // Match MethodTabs: thread owner through saveVariationNote when this is a
+  // shared-with-edit task — otherwise writes land in the wrong namespace.
+  const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [content, setContent] = useState(variationNotes || "");
@@ -670,7 +680,7 @@ function VariationNotesPanel({ taskId, methodId, variationNotes, onSaved, readOn
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
-      await tasksApi.saveVariationNote(taskId, methodId, content);
+      await tasksApi.saveVariationNote(task.id, methodId, content);
       setOriginalContent(content); // Update original content after successful save
       onSaved();
       setIsEditing(false);
@@ -680,7 +690,7 @@ function VariationNotesPanel({ taskId, methodId, variationNotes, onSaved, readOn
     } finally {
       setSaving(false);
     }
-  }, [taskId, methodId, content, onSaved]);
+  }, [tasksApi, task.id, methodId, content, onSaved]);
   
   // Cancel editing
   const handleCancel = useCallback(() => {
@@ -697,7 +707,7 @@ function VariationNotesPanel({ taskId, methodId, variationNotes, onSaved, readOn
       const updated = removeVariationEntry(variationNotes, entryIndex);
       setSaving(true);
       try {
-        await tasksApi.saveVariationNote(taskId, methodId, updated);
+        await tasksApi.saveVariationNote(task.id, methodId, updated);
         onSaved();
       } catch (err) {
         console.error("Failed to delete variation note:", err);
@@ -706,7 +716,7 @@ function VariationNotesPanel({ taskId, methodId, variationNotes, onSaved, readOn
         setSaving(false);
       }
     },
-    [variationNotes, taskId, methodId, onSaved],
+    [tasksApi, variationNotes, task.id, methodId, onSaved],
   );
 
   // Split rendered notes into individual entries so each gets its own delete button.
