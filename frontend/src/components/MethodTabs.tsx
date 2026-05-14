@@ -418,9 +418,16 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
               task={task}
               methodId={activeMethodId!}
               variationNotes={activeAttachment?.variation_notes || null}
-              onSaved={() => {
-                queryClient.refetchQueries({ queryKey: ["task", task.id] });
+              onSaved={(updatedTask) => {
+                // Local state update mirrors the pattern used by every other
+                // mutating handler in this file (handleAddMethod, etc). The
+                // ["task", task.id] refetch below is a no-op for the popup's
+                // actual query key (`["task", taskKey(task)]`), but the
+                // `["tasks"] / ["allTasks"]` refetches still matter for the
+                // calendar/Gantt views that key on a plain tasks list.
+                if (updatedTask) onTaskUpdate?.(updatedTask);
                 queryClient.refetchQueries({ queryKey: ["tasks"] });
+                queryClient.refetchQueries({ queryKey: ["allTasks"] });
               }}
               readOnly={readOnly}
             />
@@ -443,9 +450,10 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
               task={task}
               methodId={activeMethodId!}
               variationNotes={activeAttachment?.variation_notes || null}
-              onSaved={() => {
-                queryClient.refetchQueries({ queryKey: ["task", task.id] });
+              onSaved={(updatedTask) => {
+                if (updatedTask) onTaskUpdate?.(updatedTask);
                 queryClient.refetchQueries({ queryKey: ["tasks"] });
+                queryClient.refetchQueries({ queryKey: ["allTasks"] });
               }}
               readOnly={readOnly}
             />
@@ -530,9 +538,10 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
               task={task}
               methodId={activeMethodId!}
               variationNotes={activeAttachment?.variation_notes || null}
-              onSaved={() => {
-                queryClient.refetchQueries({ queryKey: ["task", task.id] });
+              onSaved={(updatedTask) => {
+                if (updatedTask) onTaskUpdate?.(updatedTask);
                 queryClient.refetchQueries({ queryKey: ["tasks"] });
+                queryClient.refetchQueries({ queryKey: ["allTasks"] });
               }}
               readOnly={readOnly}
             />
@@ -616,7 +625,15 @@ interface VariationNotesPanelProps {
   task: Task;
   methodId: number;
   variationNotes: string | null;
-  onSaved: () => void;
+  // Called after a successful save/delete with the freshly persisted task
+  // (or null if the API somehow returned no record). Parent threads this
+  // into `onTaskUpdate` so the popup's local `task` state — and therefore
+  // the `variationNotes` prop we read on the next render — reflects the
+  // write. The earlier implementation relied on `queryClient.refetchQueries`
+  // with key `["task", task.id]`, which doesn't match the popup's actual
+  // key `["task", taskKey(task)]` (a composite owner-scoped string), so the
+  // refetch was a no-op and the saved note never reappeared.
+  onSaved: (updatedTask: Task | null) => void;
   readOnly?: boolean; // When true, all editing is disabled (for lab mode)
 }
 
@@ -680,9 +697,9 @@ function VariationNotesPanel({ task, methodId, variationNotes, onSaved, readOnly
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
-      await tasksApi.saveVariationNote(task.id, methodId, content);
+      const updated = await tasksApi.saveVariationNote(task.id, methodId, content);
       setOriginalContent(content); // Update original content after successful save
-      onSaved();
+      onSaved(updated);
       setIsEditing(false);
     } catch (err) {
       console.error("Failed to save variation notes:", err);
@@ -704,11 +721,11 @@ function VariationNotesPanel({ task, methodId, variationNotes, onSaved, readOnly
     async (entryIndex: number) => {
       if (!variationNotes) return;
       if (!window.confirm("Delete this variation note? This can't be undone.")) return;
-      const updated = removeVariationEntry(variationNotes, entryIndex);
+      const updatedMarkdown = removeVariationEntry(variationNotes, entryIndex);
       setSaving(true);
       try {
-        await tasksApi.saveVariationNote(task.id, methodId, updated);
-        onSaved();
+        const updatedTask = await tasksApi.saveVariationNote(task.id, methodId, updatedMarkdown);
+        onSaved(updatedTask);
       } catch (err) {
         console.error("Failed to delete variation note:", err);
         alert("Failed to delete variation note");
