@@ -79,6 +79,18 @@ export async function buildRawZip(
     }
   }
 
+  // Deterministic zip-entry mtimes: stamp every entry with the export
+  // timestamp instead of `new Date()` at file-add time. Without this,
+  // re-exporting the same task produces zips that differ only in entry
+  // mtimes (verified 2026-05-14 audit; see AGENTS.md §8). With this,
+  // re-exports of the same task are byte-identical at the zip-frame level.
+  // (JSZip 3 stores `date` on each ZipObject; we mutate after adding so the
+  // override applies uniformly without threading the option through every
+  // `zip.file()` call.)
+  const exportDate = new Date(payload.meta.exportedAt);
+  for (const entry of Object.values(zip.files)) {
+    entry.date = exportDate;
+  }
   const blob = await zip.generateAsync({ type: "blob" });
   const slug = baseFilename ?? slugify(payload.task.name);
   return {

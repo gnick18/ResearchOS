@@ -547,6 +547,19 @@ export async function buildHtmlBundle(
   const zip = new JSZip();
   zip.file(`${slug}.html`, html);
 
+  // Provenance marker: a tiny manifest alongside the HTML so downstream
+  // tools can detect "this came from a ResearchOS export" without sniffing
+  // file structure. Field names mirror Raw's `_export-manifest.json`
+  // (raw.ts ~line 16) where they overlap.
+  const manifest = {
+    format: "html",
+    version: 1,
+    exported_at: payload.meta.exportedAt,
+    source_owner: payload.task.owner,
+    task_id: payload.task.id,
+  };
+  zip.file("_export-manifest.json", JSON.stringify(manifest, null, 2));
+
   // Image attachments are already base64-inlined into the HTML via
   // rewriteMarkdownRefs (`html.ts` ~line 110). Copying them again under
   // attachments/{Notes,Results}/ wastes bytes (a 148KB PNG becomes ~700KB
@@ -566,6 +579,12 @@ export async function buildHtmlBundle(
     }
   }
 
+  // Deterministic zip-entry mtimes — see comment in raw.ts. Same rationale:
+  // re-exports of the same task hash identically at the zip frame.
+  const exportDate = new Date(payload.meta.exportedAt);
+  for (const entry of Object.values(zip.files)) {
+    entry.date = exportDate;
+  }
   const blob = await zip.generateAsync({
     type: "blob",
     mimeType: "application/zip",

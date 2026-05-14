@@ -1188,15 +1188,33 @@ export async function buildPdf(
       ...contentChildren,
     );
 
+  // Provenance manifest, embedded as PDF metadata so downstream tooling can
+  // detect "this came from a ResearchOS export" without inspecting content.
+  // PDF (unlike a zip) can't hold a sidecar file, but the Document
+  // `keywords` field carries arbitrary text — JSON-stringify the manifest
+  // there. `subject` is left as `project.name` (semantically the right
+  // place for that). Field names mirror Raw's `_export-manifest.json`.
+  const manifest = {
+    format: "pdf",
+    version: 1,
+    exported_at: meta.exportedAt,
+    source_owner: task.owner,
+    task_id: task.id,
+  };
+
+  // Deterministic creationDate — use `meta.exportedAt` instead of
+  // `new Date()` so re-exports of the same task don't differ only in PDF
+  // metadata. Mirrors the JSZip `date:` story for raw / html.
   const docTree = h(
     Document,
     {
       title: task.name,
       author: meta.ownerLabel,
       subject: project.name,
+      keywords: JSON.stringify(manifest),
       creator: "ResearchOS",
       producer: "ResearchOS",
-      creationDate: new Date(),
+      creationDate: new Date(meta.exportedAt),
     },
     h(TitlePage, { key: "title" }),
     tocEntries.length ? h(TocPage, { key: "toc" }) : null,
