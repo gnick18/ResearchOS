@@ -718,15 +718,16 @@ function SimpleTaskChecklist({
               {st.text}
             </span>
             {!readOnly && (
-              <button
-                onClick={() => handleDeleteSubTask(st.id)}
-                className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-opacity"
-                title="Delete item"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M18 6L6 18M6 6l12 12"/>
-                </svg>
-              </button>
+              <Tooltip label="Delete item" placement="bottom">
+                <button
+                  onClick={() => handleDeleteSubTask(st.id)}
+                  className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-opacity"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                  </svg>
+                </button>
+              </Tooltip>
             )}
           </div>
         ))}
@@ -743,14 +744,15 @@ function SimpleTaskChecklist({
             placeholder="Add item..."
             className="flex-1 px-4 py-2.5 text-base border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
           />
-          <button
-            onClick={handleAddSubTask}
-            disabled={!newSubTaskText.trim() || saving}
-            className="px-4 py-2.5 text-base bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Add item"
-          >
-            +
-          </button>
+          <Tooltip label="Add item" placement="bottom">
+            <button
+              onClick={handleAddSubTask}
+              disabled={!newSubTaskText.trim() || saving}
+              className="px-4 py-2.5 text-base bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              +
+            </button>
+          </Tooltip>
         </div>
       )}
     </div>
@@ -1470,13 +1472,14 @@ function DetailsTab({
                 <span className={`flex-1 text-sm ${st.is_complete ? "line-through text-gray-400" : "text-gray-700"}`}>
                   {st.text}
                 </span>
-                <button
-                  onClick={() => handleDeleteSubTask(st.id)}
-                  className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 text-xs transition-opacity"
-                  title="Delete sub-task"
-                >
-                  ✕
-                </button>
+                <Tooltip label="Delete sub-task" placement="bottom">
+                  <button
+                    onClick={() => handleDeleteSubTask(st.id)}
+                    className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 text-xs transition-opacity"
+                  >
+                    ✕
+                  </button>
+                </Tooltip>
               </div>
             ))}
           </div>
@@ -2323,13 +2326,14 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                   <div className="flex-1">
                     <p className="text-sm text-amber-800">{uploadWarning}</p>
                   </div>
-                  <button
-                    onClick={() => setUploadWarning(null)}
-                    className="text-amber-400 hover:text-amber-600 text-sm"
-                    title="Dismiss warning"
-                  >
-                    ✕
-                  </button>
+                  <Tooltip label="Dismiss warning" placement="bottom">
+                    <button
+                      onClick={() => setUploadWarning(null)}
+                      className="text-amber-400 hover:text-amber-600 text-sm"
+                    >
+                      ✕
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
             )}
@@ -2667,13 +2671,14 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
                 <div className="flex-1">
                   <p className="text-sm text-amber-800">{uploadWarning}</p>
                 </div>
-                <button
-                  onClick={() => setUploadWarning(null)}
-                  className="text-amber-400 hover:text-amber-600 text-sm"
-                  title="Dismiss warning"
-                >
-                  ✕
-                </button>
+                <Tooltip label="Dismiss warning" placement="bottom">
+                  <button
+                    onClick={() => setUploadWarning(null)}
+                    className="text-amber-400 hover:text-amber-600 text-sm"
+                  >
+                    ✕
+                  </button>
+                </Tooltip>
               </div>
             </div>
           )}
@@ -3021,16 +3026,17 @@ function PdfAttachmentsPanel({ pdfsDir, label }: { pdfsDir: string; label: strin
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteFile(file);
-                  }}
-                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 transition-all"
-                  title="Delete file"
-                >
-                  ✕
-                </button>
+                <Tooltip label="Delete file" placement="bottom">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteFile(file);
+                    }}
+                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 transition-all"
+                  >
+                    ✕
+                  </button>
+                </Tooltip>
               </div>
             ))}
           </div>

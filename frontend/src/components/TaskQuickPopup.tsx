@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { tasksApi } from "@/lib/local-api";
 import type { Task, Project } from "@/lib/types";
 import DynamicAnimation from "./DynamicAnimation";
+import Tooltip from "./Tooltip";
 import { useAppStore } from "@/lib/store";
 
 interface TaskQuickPopupProps {
@@ -136,30 +137,32 @@ export default function TaskQuickPopup({
         <div className="w-px h-6 bg-gray-200" />
 
         {/* Complete checkbox */}
-        <button
-          onClick={handleToggleComplete}
-          className={`p-2 rounded-lg transition-all ${
-            task.is_complete
-              ? "bg-green-100 text-green-600 hover:bg-green-200"
-              : "text-gray-400 hover:text-green-500 hover:bg-green-50"
-          }`}
-          title={task.is_complete ? "Mark as incomplete" : "Mark as complete"}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20 6L9 17l-5-5"/>
-          </svg>
-        </button>
+        <Tooltip label={task.is_complete ? "Mark as incomplete" : "Mark as complete"} placement="bottom">
+          <button
+            onClick={handleToggleComplete}
+            className={`p-2 rounded-lg transition-all ${
+              task.is_complete
+                ? "bg-green-100 text-green-600 hover:bg-green-200"
+                : "text-gray-400 hover:text-green-500 hover:bg-green-50"
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 6L9 17l-5-5"/>
+            </svg>
+          </button>
+        </Tooltip>
 
         {/* Expand button */}
-        <button
-          onClick={handleExpand}
-          className="p-2 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-all"
-          title="Open full details"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
-          </svg>
-        </button>
+        <Tooltip label="Open full details" placement="bottom">
+          <button
+            onClick={handleExpand}
+            className="p-2 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-all"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+            </svg>
+          </button>
+        </Tooltip>
       </div>
 
       {/* Celebration animation */}

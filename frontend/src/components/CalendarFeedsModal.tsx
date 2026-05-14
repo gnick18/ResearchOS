@@ -19,6 +19,7 @@ import {
   type OAuthProviderKey,
 } from "@/lib/calendar/use-oauth-account";
 import type { CalendarFeed, CalendarFeedProvider } from "@/lib/types";
+import Tooltip from "./Tooltip";
 
 const PROVIDER_LABELS: Record<CalendarFeedProvider, string> = {
   google: "Google Calendar",
@@ -259,13 +260,14 @@ export default function CalendarFeedsModal({ onClose }: Props) {
               Google can be two-way; Outlook coming soon; iCloud is read-only.
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-lg"
-            title="Close"
-          >
-            ✕
-          </button>
+          <Tooltip label="Close" placement="bottom">
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 text-lg"
+            >
+              ✕
+            </button>
+          </Tooltip>
         </div>
 
         <div className="overflow-y-auto px-5 py-4 space-y-6">

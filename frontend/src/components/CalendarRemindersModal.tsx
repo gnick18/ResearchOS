@@ -10,6 +10,7 @@ import {
   writePrefs,
   type NotificationPrefs,
 } from "@/lib/calendar/notification-prefs-store";
+import Tooltip from "./Tooltip";
 
 interface Props {
   onClose: () => void;
@@ -94,13 +95,14 @@ export default function CalendarRemindersModal({ onClose }: Props) {
               Get a heads-up before timed events start.
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-lg"
-            title="Close"
-          >
-            ✕
-          </button>
+          <Tooltip label="Close" placement="bottom">
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 text-lg"
+            >
+              ✕
+            </button>
+          </Tooltip>
         </div>
 
         <div className="px-5 py-4 space-y-5">
