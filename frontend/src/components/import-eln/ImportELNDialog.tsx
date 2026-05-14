@@ -10,6 +10,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   applyELNImportPlan,
   buildDefaultPlan,
+  detectChangedPagesAgainstDisk,
   parseELNZip,
 } from "@/lib/import/eln/orchestrate";
 import { getCurrentUserCached } from "@/lib/storage/json-store";
@@ -20,6 +21,7 @@ import type {
   ELNProjectMapping,
   ParsedNotebook,
 } from "@/lib/import/eln/types";
+import type { ChangedPage } from "@/lib/import/eln/apply";
 import type { FetchedImage } from "@/lib/labarchives/api-client";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import BulkSortScreen from "./BulkSortScreen";
@@ -77,6 +79,16 @@ export default function ImportELNDialog({ isOpen, onClose }: ImportELNDialogProp
   // isn't read directly in JSX — the runApply caller reads from the closure
   // capture instead.
   const [, setFetchedImages] = useState<Map<string, FetchedImage>>(new Map());
+  // Pages whose dedupKey matches an existing on-disk task BUT whose content
+  // has changed since the last import. Populated in `handleParse` and shown
+  // in the Preview step.
+  const [changedPages, setChangedPages] = useState<ChangedPage[]>([]);
+  // Per-page user opt-in for the overwrite path. Defaults to empty Set, so
+  // unless the user explicitly ticks pages, the historical silent-skip
+  // behavior is preserved.
+  const [overwritePageIds, setOverwritePageIds] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   const reset = useCallback(() => {
     setStep("format");
@@ -92,6 +104,8 @@ export default function ImportELNDialog({ isOpen, onClose }: ImportELNDialogProp
     setResult(null);
     setReceiver("");
     setFetchedImages(new Map());
+    setChangedPages([]);
+    setOverwritePageIds(new Set());
   }, []);
 
   // Escape key closes the dialog except during phases where we don't want
@@ -127,6 +141,8 @@ export default function ImportELNDialog({ isOpen, onClose }: ImportELNDialogProp
     setStep("parsing");
     setParseError(null);
     setParsed(null);
+    setChangedPages([]);
+    setOverwritePageIds(new Set());
     try {
       const out = await parseELNZip(file);
       setParsed(out);
@@ -136,6 +152,18 @@ export default function ImportELNDialog({ isOpen, onClose }: ImportELNDialogProp
       const defaultPlan = buildDefaultPlan(out, user, startedAt);
       setMappings(defaultPlan.projectMappings);
       setPlan(defaultPlan);
+      // Detect re-imported pages that have changed since their last import.
+      // Best-effort — a scan failure must not block the wizard.
+      if (user) {
+        try {
+          const changed = await detectChangedPagesAgainstDisk(out, user);
+          setChangedPages(changed);
+        } catch {
+          // Silent: the worst case is the user doesn't get the overwrite
+          // prompt and falls back to the existing silent-skip behavior.
+          setChangedPages([]);
+        }
+      }
       setStep("preview");
     } catch (err) {
       setParseError(
@@ -176,6 +204,8 @@ export default function ImportELNDialog({ isOpen, onClose }: ImportELNDialogProp
         const r = await applyELNImportPlan(planForApply, {
           onProgress: setProgress,
           fetchedImages: fetched.size > 0 ? fetched : undefined,
+          overwritePageIds:
+            overwritePageIds.size > 0 ? overwritePageIds : undefined,
         });
         setResult(r);
         setStep("done");
@@ -187,7 +217,7 @@ export default function ImportELNDialog({ isOpen, onClose }: ImportELNDialogProp
         );
       }
     },
-    [plan, mappings, queryClient],
+    [plan, mappings, queryClient, overwritePageIds],
   );
 
   const handleStartApply = useCallback(() => {
@@ -282,7 +312,14 @@ export default function ImportELNDialog({ isOpen, onClose }: ImportELNDialogProp
             />
           )}
           {step === "parsing" && <ParsingPanel />}
-          {step === "preview" && parsed && <PreviewStep parsed={parsed} />}
+          {step === "preview" && parsed && (
+            <PreviewStep
+              parsed={parsed}
+              changedPages={changedPages}
+              overwritePageIds={overwritePageIds}
+              onOverwriteChange={setOverwritePageIds}
+            />
+          )}
           {step === "mapping" && (
             <ProjectMappingStep
               mappings={mappings}

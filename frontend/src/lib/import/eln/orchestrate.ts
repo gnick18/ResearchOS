@@ -1,12 +1,30 @@
 import { parseLabArchivesOfflineZip } from "./adapters/labarchives";
-import { applyELNImportPlan } from "./apply";
+import { applyELNImportPlan, detectChangedPages } from "./apply";
 import { buildDefaultPlan } from "./plan";
-import type { ELNApplyDeps } from "./apply";
+import type { ELNApplyDeps, ELNApplyFileService, ChangedPage } from "./apply";
 import type { ELNImportPlan, ELNImportResult, ParsedNotebook } from "./types";
 
 export { buildDefaultPlan } from "./plan";
-export { applyELNImportPlan } from "./apply";
-export type { ELNApplyDeps } from "./apply";
+export { applyELNImportPlan, detectChangedPages } from "./apply";
+export type { ELNApplyDeps, ChangedPage } from "./apply";
+
+/**
+ * Wizard-side helper: scan the receiver's existing imports against a freshly
+ * parsed notebook and surface any pages whose content has drifted since the
+ * last import. The wizard's preview step uses this to decide which pages
+ * need the "overwrite?" prompt.
+ *
+ * Lazy-loads the production `fileService` so the function stays callable
+ * from contexts that don't already have apply-side deps wired up.
+ */
+export async function detectChangedPagesAgainstDisk(
+  parsed: ParsedNotebook,
+  receiver: string,
+  fsOverride?: ELNApplyFileService,
+): Promise<ChangedPage[]> {
+  const fs = fsOverride ?? (await import("../../file-system/file-service")).fileService;
+  return detectChangedPages(parsed, receiver, fs);
+}
 
 /**
  * Parse a LabArchives offline ZIP into the shared `ParsedNotebook` shape.

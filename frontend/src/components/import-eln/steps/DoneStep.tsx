@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Tooltip from "@/components/Tooltip";
 import type {
   ELNImportResult,
   ParsedNotebook,
@@ -142,26 +143,44 @@ function MissingImagesPanel({
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="w-full text-left px-4 py-2 flex items-center justify-between"
+        aria-expanded={open}
       >
         <span className="text-sm font-medium text-amber-900">
-          {count} online-only image{count === 1 ? "" : "s"} — relink manually
+          {count} inline image{count === 1 ? "" : "s"} didn&apos;t bundle —{" "}
+          <span className="underline">{open ? "hide" : "view"} list</span>
         </span>
-        <span className="text-amber-700 text-xs">{open ? "Hide" : "Show"} URLs</span>
+        <span className="text-amber-700 text-[11px]" aria-hidden>
+          {open ? "▾" : "▸"}
+        </span>
       </button>
       {open && (
-        <div className="border-t border-amber-200 px-4 py-2 max-h-64 overflow-y-auto">
-          <ul className="space-y-1 text-[11px] font-mono text-amber-900 break-all">
-            {images.length === 0 ? (
-              <li className="text-amber-700">URLs not surfaced — re-open the parsed notebook to view.</li>
-            ) : (
-              images.map((img, idx) => (
-                <li key={`${img.filename}:${idx}`}>
-                  <span className="font-semibold mr-2">{img.filename}</span>
-                  <span>{img.originalUrl}</span>
+        <div className="border-t border-amber-200">
+          {images.length === 0 ? (
+            <p className="text-[11px] text-amber-800 px-4 py-2">
+              URLs not surfaced — re-open the parsed notebook to view.
+            </p>
+          ) : (
+            <ul className="max-h-64 overflow-y-auto divide-y divide-amber-200/60">
+              {images.map((img, idx) => (
+                <li
+                  key={`${img.filename}:${idx}`}
+                  className="px-4 py-1.5 text-[11px] flex items-center gap-2"
+                >
+                  <span
+                    className="font-mono font-medium text-amber-900 truncate flex-shrink-0 max-w-[40%]"
+                    title={img.filename}
+                  >
+                    {img.filename}
+                  </span>
+                  <Tooltip label={img.originalUrl} placement="top">
+                    <span className="font-mono text-amber-700/90 truncate flex-1 min-w-0 cursor-help">
+                      {img.originalUrl}
+                    </span>
+                  </Tooltip>
                 </li>
-              ))
-            )}
-          </ul>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </div>

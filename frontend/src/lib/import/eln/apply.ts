@@ -43,6 +43,10 @@ export interface ELNApplyFileService {
   writeJson<T>(path: string, data: T): Promise<void>;
   readJson<T>(path: string): Promise<T | null>;
   listDirectories(dirPath: string): Promise<string[]>;
+  /** Used by the overwrite-on-reimport path to clear stale attachments. */
+  listFiles?(dirPath: string): Promise<string[]>;
+  /** Used by the overwrite-on-reimport path. Returns false if path doesn't exist. */
+  deleteFile?(path: string): Promise<boolean>;
 }
 
 export interface ELNApplyProjectsApi {
@@ -91,6 +95,20 @@ export interface ELNApplyDeps {
    * behavior.
    */
   fetchedImages?: FetchedInlineImageMap;
+  /**
+   * Set of page IDs the user has opted to overwrite. When a page's
+   * dedupKey matches an existing on-disk task AND its pageId is in this
+   * set, the apply pass replaces the existing task's `notes.md`, sidecar,
+   * and `Images/`/`Files/` instead of silent-skipping it.
+   *
+   * The task ID is preserved across the overwrite — this is important
+   * because `_shared_with_me.json` entries on other users' disks reference
+   * the task ID. Tearing down + recreating would orphan those references.
+   *
+   * Pages whose dedupKey matches but whose pageId is NOT in this set
+   * continue to follow the silent-skip path (current behavior).
+   */
+  overwritePageIds?: Set<string>;
 }
 
 /**
@@ -106,6 +124,9 @@ async function loadRealDeps(): Promise<ELNApplyDeps> {
     import("../../storage/json-store"),
   ]);
   return {
+    // `fileService` exposes both `listFiles` and `deleteFile`; the apply-side
+    // overwrite path uses them via optional-chaining so existing test mocks
+    // that don't implement them still work.
     fileService: fsMod.fileService,
     projectsApi: apiMod.projectsApi,
     tasksApi: apiMod.tasksApi,
@@ -384,6 +405,18 @@ function validatePlan(plan: ELNImportPlan): void {
 // ─── Dedup scan ──────────────────────────────────────────────────────────────
 
 /**
+ * Existing-import metadata used for both dedup-skip and the
+ * "page changed since last import" prompt in the wizard's preview step.
+ */
+export interface ExistingImportRecord {
+  taskId: number;
+  /** ISO timestamp the page was last imported (`_import_source.json.imported_at`). */
+  importedAt: string;
+  /** Number of entries the page had at last import. */
+  entryCount: number;
+}
+
+/**
  * Walk `users/{receiver}/results/task-*` and collect every `dedupKey` we
  * find in `notes/_import_source.json`. Maps dedup key → existing task id so
  * the apply pass can skip re-imports silently.
@@ -394,7 +427,27 @@ async function collectExistingDedupKeys(
   receiver: string,
   fs: ELNApplyFileService,
 ): Promise<Map<string, number>> {
+  const records = await collectExistingImportRecords(receiver, fs);
   const out = new Map<string, number>();
+  for (const [key, rec] of records) {
+    out.set(key, rec.taskId);
+  }
+  return out;
+}
+
+/**
+ * Same scan as `collectExistingDedupKeys` but returns the imported_at +
+ * entryCount alongside the task id. Used by `detectChangedPages` to decide
+ * whether a re-imported page should prompt for overwrite.
+ *
+ * Exported so the wizard's preview step can call it directly without going
+ * through the full apply pipeline.
+ */
+export async function collectExistingImportRecords(
+  receiver: string,
+  fs: ELNApplyFileService,
+): Promise<Map<string, ExistingImportRecord>> {
+  const out = new Map<string, ExistingImportRecord>();
   const resultsDir = `users/${receiver}/results`;
   let taskDirs: string[] = [];
   try {
@@ -411,13 +464,124 @@ async function collectExistingDedupKeys(
     try {
       const sidecar = await fs.readJson<ELNImportSidecar>(sidecarPath);
       if (sidecar && typeof sidecar.dedupKey === "string") {
-        out.set(sidecar.dedupKey, taskId);
+        out.set(sidecar.dedupKey, {
+          taskId,
+          importedAt: typeof sidecar.imported_at === "string" ? sidecar.imported_at : "",
+          entryCount: typeof sidecar.entryCount === "number" ? sidecar.entryCount : 0,
+        });
       }
     } catch {
       // Skip unreadable sidecars.
     }
   }
   return out;
+}
+
+/**
+ * A page that matches an existing dedupKey on disk AND whose content has
+ * drifted since last import. Surfaced in the wizard's preview step so the
+ * user can opt into overwriting.
+ */
+export interface ChangedPage {
+  pageId: string;
+  pageName: string;
+  treePath: string[];
+  dedupKey: string;
+  existingTaskId: number;
+  /** Reason the detector flagged this page (informational). */
+  reason: "entry-updated" | "entry-count-changed";
+  /** Most recent `entries[].updatedAt` across the page. */
+  latestEntryUpdatedAt: string | null;
+  /** `imported_at` from the matching on-disk sidecar. */
+  previouslyImportedAt: string;
+  /** Page's current entry count vs last-imported entry count. */
+  currentEntryCount: number;
+  previousEntryCount: number;
+}
+
+/**
+ * Compare a parsed notebook against the receiver's existing on-disk
+ * `_import_source.json` sidecars and return the pages whose content has
+ * changed since their last import.
+ *
+ * Detection signals (cheapest first; first match wins):
+ *  1. **Entry count changed** — a page that gained or lost entries between
+ *     exports is obviously different. Cheap, no parsing needed.
+ *  2. **Entry updatedAt is newer than imported_at** — any entry whose
+ *     `updatedAt` is strictly after the sidecar's `imported_at` means the
+ *     user edited that entry on LabArchives AFTER importing it.
+ *
+ * Pages whose dedupKey isn't on disk yet are NOT returned — those are fresh
+ * imports, not "changed re-imports."
+ *
+ * Best-effort and side-effect-free: never throws (a malformed sidecar gets
+ * skipped at the scan layer); returns an empty array when the receiver has
+ * no prior imports.
+ */
+export async function detectChangedPages(
+  parsed: ParsedNotebook,
+  receiver: string,
+  fs: ELNApplyFileService,
+): Promise<ChangedPage[]> {
+  const existing = await collectExistingImportRecords(receiver, fs);
+  if (existing.size === 0) return [];
+
+  const changed: ChangedPage[] = [];
+  for (const page of parsed.pages) {
+    const dedupKey = composedDedupKey(page, parsed);
+    const record = existing.get(dedupKey);
+    if (!record) continue;
+
+    const latestUpdatedAt = latestEntryUpdatedAt(page);
+    const currentEntryCount = page.entries.length;
+    const previousEntryCount = record.entryCount;
+
+    let reason: ChangedPage["reason"] | null = null;
+    if (previousEntryCount !== 0 && previousEntryCount !== currentEntryCount) {
+      // Skip the "previously 0" case — older sidecars (pre-2026-05) didn't
+      // populate entryCount; treat 0 as "unknown" rather than "changed."
+      reason = "entry-count-changed";
+    } else if (
+      latestUpdatedAt &&
+      record.importedAt &&
+      isStrictlyAfter(latestUpdatedAt, record.importedAt)
+    ) {
+      reason = "entry-updated";
+    }
+    if (reason === null) continue;
+
+    changed.push({
+      pageId: page.pageId,
+      pageName: pageName(page),
+      treePath: page.treePath,
+      dedupKey,
+      existingTaskId: record.taskId,
+      reason,
+      latestEntryUpdatedAt: latestUpdatedAt,
+      previouslyImportedAt: record.importedAt,
+      currentEntryCount,
+      previousEntryCount,
+    });
+  }
+  return changed;
+}
+
+function latestEntryUpdatedAt(page: ParsedPage): string | null {
+  let latest: string | null = null;
+  for (const e of page.entries) {
+    if (!e.updatedAt) continue;
+    if (latest === null || isStrictlyAfter(e.updatedAt, latest)) {
+      latest = e.updatedAt;
+    }
+  }
+  return latest;
+}
+
+function isStrictlyAfter(a: string, b: string): boolean {
+  const ta = Date.parse(a);
+  const tb = Date.parse(b);
+  if (!Number.isFinite(ta) || !Number.isFinite(tb)) return false;
+  return ta > tb;
 }
 
 // ─── Project resolution ─────────────────────────────────────────────────────
@@ -485,6 +649,19 @@ function projectKeyForPage(
 
 // ─── Per-page apply ──────────────────────────────────────────────────────────
 
+/**
+ * Options to `applyPage`. When `overwriteExistingTaskId` is set, the page's
+ * content is written into the existing task (preserving the task ID,
+ * project membership, name, share metadata, etc.) and any prior on-disk
+ * attachments are cleared before the fresh write.
+ *
+ * When `overwriteExistingTaskId` is undefined (the default), a new task is
+ * created via `tasksApi.create`.
+ */
+interface ApplyPageOptions {
+  overwriteExistingTaskId?: number;
+}
+
 async function applyPage(
   page: ParsedPage,
   parsed: ParsedNotebook,
@@ -492,34 +669,52 @@ async function applyPage(
   deps: ELNApplyDeps,
   startedAt: string,
   receiver: string,
+  options: ApplyPageOptions = {},
 ): Promise<ELNAppliedTask> {
   const name = pageName(page);
   const startDate = deriveStartDate(page, parsed);
   const dedupKey = composedDedupKey(page, parsed);
 
-  const newTask = await deps.tasksApi.create({
-    project_id: projectId,
-    name,
-    start_date: startDate,
-    duration_days: 1,
-    is_high_level: false,
-    task_type: "experiment",
-    weekend_override: null,
-    method_ids: [],
-    tags: [],
-    experiment_color: null,
-    sub_tasks: [],
-  });
+  let taskId: number;
+  let taskOwner: string;
+  let resolvedProjectId: number | null;
 
-  // is_complete + deviation_log aren't accepted by create — set via update.
-  await deps.tasksApi.update(newTask.id, {
-    is_complete: true,
-    deviation_log: null,
-  });
+  if (options.overwriteExistingTaskId !== undefined) {
+    // OVERWRITE MODE: keep the existing task record intact (id, name,
+    // project, sharing, dates, etc.) and only rewrite the on-disk content.
+    // This preserves `_shared_with_me.json` references on receiver disks
+    // because they key on task id.
+    taskId = options.overwriteExistingTaskId;
+    taskOwner = receiver;
+    resolvedProjectId = projectId; // reported but not written back
+    await clearPriorOnDiskContent(receiver, taskId, deps);
+  } else {
+    const newTask = await deps.tasksApi.create({
+      project_id: projectId,
+      name,
+      start_date: startDate,
+      duration_days: 1,
+      is_high_level: false,
+      task_type: "experiment",
+      weekend_override: null,
+      method_ids: [],
+      tags: [],
+      experiment_color: null,
+      sub_tasks: [],
+    });
+    // is_complete + deviation_log aren't accepted by create — set via update.
+    await deps.tasksApi.update(newTask.id, {
+      is_complete: true,
+      deviation_log: null,
+    });
+    taskId = newTask.id;
+    taskOwner = newTask.owner ?? receiver;
+    resolvedProjectId = projectId;
+  }
 
   const notesBase = taskNotesBase({
-    id: newTask.id,
-    owner: newTask.owner ?? receiver,
+    id: taskId,
+    owner: taskOwner,
   });
 
   // Stage attachment writes first so we know the final filenames before we
@@ -596,7 +791,7 @@ async function applyPage(
     stillMissingByEntry,
   );
   await deps.fileService.writeFileFromBlob(
-    `users/${receiver}/results/task-${newTask.id}/notes.md`,
+    `users/${receiver}/results/task-${taskId}/notes.md`,
     new Blob([md], { type: "text/markdown" }),
   );
 
@@ -641,8 +836,8 @@ async function applyPage(
 
   return {
     pageId: page.pageId,
-    newTaskId: newTask.id,
-    newProjectId: projectId,
+    newTaskId: taskId,
+    newProjectId: resolvedProjectId,
     dedupKey,
     attachmentsWritten,
     missingInlineImages: sidecar.missingInlineImages.length,
@@ -650,6 +845,60 @@ async function applyPage(
     treePath: page.treePath,
     pageName: name,
   };
+}
+
+/**
+ * Wipe the receiver's existing per-task `notes/` content before an overwrite
+ * re-import. Removes everything under `notes/Files/`, `notes/Images/`, plus
+ * the sidecars (`_import_source.json` and `_import_unsupported.json`) so the
+ * fresh write doesn't leave stale entries behind.
+ *
+ * **Does NOT touch the task record** (project membership, name, sharing,
+ * dates, etc.) — only the on-disk lab-notes scratch. This keeps
+ * `_shared_with_me.json` references intact across the overwrite.
+ *
+ * **Does NOT touch the Results tab** (`results/` or `results.md`) — only
+ * the Notes tab is sourced from the LabArchives page, so the Results tab
+ * is treated as user-owned and survives.
+ *
+ * **Does NOT touch `notes.md` directly** — the apply pass overwrites it
+ * with the freshly-rendered markdown immediately after this clear, so
+ * deleting + re-writing would only widen the failure window.
+ *
+ * Best-effort: missing files / unsupported FS service shape don't throw.
+ */
+async function clearPriorOnDiskContent(
+  receiver: string,
+  taskId: number,
+  deps: ELNApplyDeps,
+): Promise<void> {
+  const fs = deps.fileService;
+  const notesBase = `users/${receiver}/results/task-${taskId}/notes`;
+  // Wipe the two attachment subdirs. We don't recursively delete the
+  // directory itself because the apply pass writes back into the same paths
+  // moments later — leaving the parents intact is harmless.
+  if (fs.listFiles && fs.deleteFile) {
+    for (const sub of ["Files", "Images"] as const) {
+      try {
+        const names = await fs.listFiles(`${notesBase}/${sub}`);
+        for (const name of names) {
+          await fs.deleteFile(`${notesBase}/${sub}/${name}`);
+        }
+      } catch {
+        // Best-effort — missing directory or unreadable entry just gets
+        // overwritten on the fresh write.
+      }
+    }
+    // Stale sidecars: deleting them ensures the future re-run doesn't see
+    // a half-mutated record if the apply throws after writing notes.md.
+    for (const name of ["_import_source.json", "_import_unsupported.json"]) {
+      try {
+        await fs.deleteFile(`${notesBase}/${name}`);
+      } catch {
+        // Best-effort.
+      }
+    }
+  }
 }
 
 // ─── Public entrypoint ──────────────────────────────────────────────────────
@@ -664,7 +913,10 @@ async function applyPage(
  *
  * Idempotent on re-run: pages whose `dedupKey` already appears in an
  * `_import_source.json` sidecar in the receiver's results dir are skipped
- * silently.
+ * silently — unless the page's `pageId` is in `deps.overwritePageIds`, in
+ * which case the existing task's on-disk content is replaced. The task ID
+ * is preserved across the overwrite so cross-user share metadata in other
+ * users' `_shared_with_me.json` continues to resolve.
  */
 export async function applyELNImportPlan(
   plan: ELNImportPlan,
@@ -677,24 +929,35 @@ export async function applyELNImportPlan(
 
   validatePlan(plan);
   const receiver = plan.receiver;
+  const overwriteSet = deps.overwritePageIds ?? new Set<string>();
 
   const existingDedup = await collectExistingDedupKeys(receiver, deps.fileService);
 
   const skipped: ELNSkippedTask[] = [];
-  const pagesToApply: ParsedPage[] = [];
+  /** Pages that will be applied as a fresh task. */
+  const pagesToCreate: ParsedPage[] = [];
+  /** Pages that will overwrite an existing task. */
+  const pagesToOverwrite: Array<{ page: ParsedPage; existingTaskId: number }> = [];
+
   for (const page of plan.parsed.pages) {
     const key = composedDedupKey(page, plan.parsed);
     const existing = existingDedup.get(key);
     if (existing !== undefined) {
+      if (overwriteSet.has(page.pageId)) {
+        pagesToOverwrite.push({ page, existingTaskId: existing });
+        continue;
+      }
       skipped.push({ pageId: page.pageId, existingTaskId: existing, dedupKey: key });
       continue;
     }
-    pagesToApply.push(page);
+    pagesToCreate.push(page);
   }
+
+  const totalToApply = pagesToCreate.length + pagesToOverwrite.length;
 
   // If nothing to do, return early — avoids creating projects for a
   // re-import that's a complete duplicate.
-  if (pagesToApply.length === 0) {
+  if (totalToApply === 0) {
     return {
       tasksCreated: [],
       tasksSkippedAsDuplicate: skipped,
@@ -705,10 +968,12 @@ export async function applyELNImportPlan(
     };
   }
 
-  // Only resolve projects for mappings whose pages survive the dedup pass —
-  // otherwise we'd create unused project rows on every re-import.
+  // Only resolve projects for fresh-create pages. Overwrite pages reuse
+  // their existing task's project_id silently (the task record isn't
+  // touched, only its on-disk content). Otherwise we'd create unused
+  // project rows on every re-import.
   const survivingKeys = new Set(
-    pagesToApply.map((p) => projectKeyForPage(p, plan.projectMappings)),
+    pagesToCreate.map((p) => projectKeyForPage(p, plan.projectMappings)),
   );
   const mappingsToResolve = plan.projectMappings.filter((m) =>
     survivingKeys.has(m.treePathKey),
@@ -719,13 +984,14 @@ export async function applyELNImportPlan(
   const warnings: ELNImportWarning[] = [];
   let totalMissing = 0;
   let totalRehydrated = 0;
+  let appliedIdx = 0;
 
-  for (let i = 0; i < pagesToApply.length; i++) {
-    const page = pagesToApply[i];
+  // Fresh imports first (project resolution applies to these), then overwrites.
+  for (const page of pagesToCreate) {
     deps.onProgress?.({
       phase: "tasks",
-      current: i,
-      total: pagesToApply.length,
+      current: appliedIdx,
+      total: totalToApply,
       label: pageName(page),
     });
     try {
@@ -746,11 +1012,40 @@ export async function applyELNImportPlan(
       const message = err instanceof Error ? err.message : String(err);
       warnings.push({ pageId: page.pageId, message });
     }
+    appliedIdx++;
   }
+
+  for (const { page, existingTaskId } of pagesToOverwrite) {
+    deps.onProgress?.({
+      phase: "tasks",
+      current: appliedIdx,
+      total: totalToApply,
+      label: pageName(page),
+    });
+    try {
+      const result = await applyPage(
+        page,
+        plan.parsed,
+        null, // project_id is read-only for overwrite; not changed
+        deps,
+        plan.startedAt,
+        receiver,
+        { overwriteExistingTaskId: existingTaskId },
+      );
+      tasksCreated.push(result);
+      totalMissing += result.missingInlineImages;
+      totalRehydrated += result.rehydratedInlineImages;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      warnings.push({ pageId: page.pageId, message });
+    }
+    appliedIdx++;
+  }
+
   deps.onProgress?.({
     phase: "tasks",
-    current: pagesToApply.length,
-    total: pagesToApply.length,
+    current: totalToApply,
+    total: totalToApply,
   });
 
   return {
