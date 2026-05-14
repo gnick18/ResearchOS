@@ -95,3 +95,59 @@ export async function moveImageBetweenBases(
   imageEvents.emitAttached({ basePath: toBase, relativePath: `Images/${filename}` });
   imageEvents.emitDeleted({ basePath: fromBase, filename });
 }
+
+function splitExt(name: string): { stem: string; ext: string } {
+  const dot = name.lastIndexOf(".");
+  if (dot <= 0) return { stem: name, ext: "" };
+  return { stem: name.slice(0, dot), ext: name.slice(dot) };
+}
+
+/**
+ * Like `moveImageBetweenBases`, but auto-suffixes the destination filename
+ * when a collision would otherwise clobber an existing file in the target
+ * `Images/` folder. Returns the final filename written at the destination.
+ *
+ * Used by the inbox panel's "Send to task" picker so batch-filing a group
+ * of inbox photos into a task that already has files with the same stem
+ * doesn't silently overwrite the existing attachments.
+ */
+export async function moveImageBetweenBasesUnique(
+  fromBase: string,
+  toBase: string,
+  filename: string
+): Promise<string> {
+  if (fromBase === toBase) return filename;
+
+  const srcImage = `${fromBase}/Images/${filename}`;
+  const srcSidecar = sidecarPath(fromBase, filename);
+
+  // Pick a non-colliding filename in the destination folder.
+  const { stem, ext } = splitExt(filename);
+  let finalName = filename;
+  let n = 1;
+  while (await fileService.fileExists(`${toBase}/Images/${finalName}`)) {
+    finalName = `${stem}-${n}${ext}`;
+    n += 1;
+  }
+  const destImage = `${toBase}/Images/${finalName}`;
+  const destSidecar = sidecarPath(toBase, finalName);
+
+  const blob = await fileService.readFileAsBlob(srcImage);
+  if (!blob) throw new Error(`Source image not found: ${srcImage}`);
+
+  await fileService.writeFileFromBlob(destImage, blob);
+
+  const sidecar = await fileService.readJson<ImageSidecar>(srcSidecar);
+  if (sidecar) {
+    await fileService.writeJson(destSidecar, sidecar);
+  }
+
+  await fileService.deleteFile(srcImage);
+  await fileService.deleteFile(srcSidecar);
+  blobUrlResolver.revokePath(srcImage);
+
+  imageEvents.emitAttached({ basePath: toBase, relativePath: `Images/${finalName}` });
+  imageEvents.emitDeleted({ basePath: fromBase, filename });
+
+  return finalName;
+}
