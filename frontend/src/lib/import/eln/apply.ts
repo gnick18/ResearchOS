@@ -753,6 +753,20 @@ async function applyPage(
   // kind === "ok" record gets written to Images/<finalName> and rewrites
   // the `Images/missing-<orig>` markdown ref. Anything else (no record, or
   // kind === "error") falls through to the existing placeholder.
+  //
+  // Dedup-by-filename note: the parser stamps `Images/missing-<filename>`
+  // into the entry HTML, so two `missingInlineImages` records on the same
+  // entry that share a filename produce IDENTICAL body refs that the
+  // regex rewrite can't disambiguate. We therefore collapse same-filename
+  // duplicates within a single entry to the FIRST fetched record only:
+  // write its bytes once, rewrite the (shared) body ref to that final
+  // name, and silently drop the rest. Without this dedup the rewrite-map
+  // key `Images/missing-<filename>` would be overwritten by the second
+  // iteration, leaving the first blob orphaned on disk and ALL body refs
+  // pointing at only the second (collision-suffixed) copy. Low-likelihood
+  // edge case — Form-B URLs are typically epoch-millisecond-named — but
+  // the dedup keeps the on-disk state consistent with what the body refs
+  // can address.
   const imageRewritesByEntry = new Map<string, RehydratedImageRewrite>();
   const stillMissingByEntry = new Map<string, MissingInlineImage[]>();
   let rehydratedCount = 0;
@@ -761,10 +775,28 @@ async function applyPage(
     for (const entry of page.entries) {
       const rewrites: RehydratedImageRewrite = new Map();
       const stillMissing: MissingInlineImage[] = [];
+      // Track filenames already rewritten/written for THIS entry so a
+      // second record with the same filename can't overwrite the rewrite
+      // map (which is keyed on `Images/missing-<filename>`).
+      const seenFilenames = new Set<string>();
       for (const m of entry.missingInlineImages) {
         const fetched = deps.fetchedImages.get(m.originalUrl);
         if (!fetched || fetched.kind !== "ok") {
-          stillMissing.push(m);
+          // Only carry the first occurrence forward into stillMissing —
+          // the body has only one addressable `Images/missing-<filename>`
+          // ref for this filename, so listing it twice would produce a
+          // dup line in the trailing "still missing" note AND a dup
+          // sidecar record that the per-image popup couldn't tell apart.
+          if (!seenFilenames.has(m.filename)) {
+            stillMissing.push(m);
+            seenFilenames.add(m.filename);
+          }
+          continue;
+        }
+        if (seenFilenames.has(m.filename)) {
+          // Earlier iteration already wrote a blob + rewrite for this
+          // filename. The body has identical refs for both, so the
+          // second blob would be orphaned. Skip the write entirely.
           continue;
         }
         const finalName = pickUniqueFilename(m.filename, usedNames);
@@ -775,6 +807,7 @@ async function applyPage(
         attachmentsWritten++;
         rehydratedCount++;
         rewrites.set(`Images/missing-${m.filename}`, `Images/${finalName}`);
+        seenFilenames.add(m.filename);
       }
       imageRewritesByEntry.set(entry.entryId, rewrites);
       stillMissingByEntry.set(entry.entryId, stillMissing);

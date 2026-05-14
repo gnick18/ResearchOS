@@ -175,10 +175,25 @@ export async function rehydrateMissingImages(
   const takenInBatch = new Set<string>();
 
   // First pass: write the bytes to disk, building up the rewrite map.
+  //
+  // Dedup-by-filename note (mirrors `apply.ts`): the parser stamps
+  // `Images/missing-<filename>` into the body, so two sidecar records
+  // sharing a filename produce identical body refs. We honor the FIRST
+  // fetched record only — write its bytes once, rewrite the (shared) ref
+  // to that final name, drop the second one's bytes on the floor. Without
+  // this dedup the rewrite map's `Images/missing-<filename>` key would be
+  // overwritten by the second iteration, leaving the first blob orphaned
+  // on disk.
   const rewrites = new Map<string, string>();
   const successfullyRewrittenFilenames = new Set<string>();
 
   for (const missing of sidecar.missingInlineImages) {
+    if (successfullyRewrittenFilenames.has(missing.filename)) {
+      // Already wrote a blob + rewrite for this filename in an earlier
+      // iteration. The body has identical refs for both; the second blob
+      // would be orphaned. Skip.
+      continue;
+    }
     const f = fetched.get(missing.originalUrl);
     if (!f || f.kind !== "ok") continue;
     try {

@@ -354,10 +354,28 @@ targetEntry.missingInlineImages.push({
   entryPartId: "SYNTH-MISSING",
 });
 
-// Build the fetched-image map. Two `kind:"ok"` entries (real + colliding);
-// `stillMissingUrl` is intentionally absent so it falls through.
+// A fourth synthetic missing image: SAME filename as the real one, but a
+// DIFFERENT originalUrl. Exercises the duplicate-filename-shadowing edge
+// case — the body has identical `Images/missing-<realFilename>` refs for
+// both records, so the rewrite-map key `Images/missing-<filename>` would
+// be overwritten by this second iteration without the dedup guard, leaving
+// the first blob orphaned on disk. After the fix this record's bytes are
+// silently dropped (no disk write, no extra body rewrite).
+const dupFilenameUrl =
+  "/attachments/inline_image/SYNTH-DUP?ep_id=SYNTH-DUP&file_name=" +
+  realFilename;
+targetEntry.missingInlineImages.push({
+  filename: realFilename,
+  originalUrl: dupFilenameUrl,
+  entryPartId: "SYNTH-DUP",
+});
+
+// Build the fetched-image map. Three `kind:"ok"` entries (real + colliding
+// + dup-filename); `stillMissingUrl` is intentionally absent so it falls
+// through.
 const realBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0xde, 0xad]);
 const collidingBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0xbe, 0xef]);
+const dupFilenameBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0xca, 0xfe]);
 const fetchedImages = new Map();
 fetchedImages.set(realUrl, {
   kind: "ok",
@@ -367,6 +385,11 @@ fetchedImages.set(realUrl, {
 fetchedImages.set(collidingUrl, {
   kind: "ok",
   blob: new Blob([collidingBytes], { type: "image/jpeg" }),
+  contentType: "image/jpeg",
+});
+fetchedImages.set(dupFilenameUrl, {
+  kind: "ok",
+  blob: new Blob([dupFilenameBytes], { type: "image/jpeg" }),
   contentType: "image/jpeg",
 });
 
@@ -613,6 +636,62 @@ expect(
 expect(
   !notesMd.includes(`Images/missing-${COLLIDING_FILENAME}`),
   `notes.md should NOT flag the rehydrated colliding image as still-missing`,
+);
+
+// ── (7) Duplicate-filename shadowing: a second `missingInlineImages` record
+//        with the SAME filename as `realFilename` (but different URL) must
+//        NOT produce an orphaned `realFilename (2)` blob on disk. The body's
+//        `Images/missing-<realFilename>` ref is identical for both records,
+//        so the rewrite map can only address one; the apply path skips the
+//        second record's disk write to keep on-disk state consistent with
+//        what the body refs can actually point at.
+const { stem: realStem, ext: realExt } = (() => {
+  const dot = realFilename.lastIndexOf(".");
+  if (dot <= 0) return { stem: realFilename, ext: "" };
+  return { stem: realFilename.slice(0, dot), ext: realFilename.slice(dot) };
+})();
+const orphanedDupPath = `${taskBase}/Images/${realStem} (2)${realExt}`;
+expect(
+  !filesR.has(orphanedDupPath),
+  `duplicate-filename shadowing: orphaned dup-blob written at ${orphanedDupPath} — dup-bytes hex ${Array.from(
+    dupFilenameBytes,
+    (b) => b.toString(16).padStart(2, "0"),
+  ).join("")}`,
+);
+// The real blob must still contain the REAL bytes, not the dup bytes —
+// a regression where the second iteration overwrites the rewrite map AND
+// the disk would show dupFilenameBytes at the real path.
+if (realFile) {
+  const realWrote = realFile.data;
+  const looksLikeDup =
+    realWrote.length === dupFilenameBytes.length &&
+    realWrote.every((b, i) => b === dupFilenameBytes[i]);
+  expect(
+    !looksLikeDup,
+    `duplicate-filename shadowing: ${realImagePath} contains DUP bytes (second iteration overwrote the first write)`,
+  );
+}
+// Also: the dup-blob's bytes must not appear anywhere under the task's
+// Images/ tree (paranoid check in case the fix path picks an unexpected
+// suffix). Scan all blob files in Images/ and assert NONE match dup bytes.
+const dupBytesHex = Array.from(dupFilenameBytes, (b) =>
+  b.toString(16).padStart(2, "0"),
+).join("");
+let foundDupBytes = false;
+for (const [path, file] of filesR) {
+  if (!path.startsWith(`${taskBase}/Images/`)) continue;
+  if (file.type !== "blob") continue;
+  const fileHex = Array.from(file.data, (b) =>
+    b.toString(16).padStart(2, "0"),
+  ).join("");
+  if (fileHex === dupBytesHex) {
+    foundDupBytes = true;
+    break;
+  }
+}
+expect(
+  !foundDupBytes,
+  `duplicate-filename shadowing: dup-blob bytes leaked onto disk somewhere under ${taskBase}/Images/`,
 );
 
 // ─── Report ──────────────────────────────────────────────────────────────────
