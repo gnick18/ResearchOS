@@ -11,7 +11,10 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 interface GanttChartProps {
   tasks: Task[];
   dependencies: Dependency[];
-  projectColors: Record<number, string>;
+  // Keyed by composite `${owner}:${id}` (see `taskProjectKey` below) so a
+  // shared project and an own project with the same numeric id keep
+  // distinct colors. Matches the pattern in /search, /experiments, /results.
+  projectColors: Record<string, string>;
   projects: Project[];
   goals: HighLevelGoal[];
   onTaskClick: (taskKey: string) => void;
@@ -21,6 +24,11 @@ interface GanttChartProps {
   userColors?: Map<string, string>; // username -> color mapping for lab mode
   onTaskClickLab?: (task: Task & { username?: string }) => void; // callback with full task for lab mode
 }
+
+// Composite key for project lookups inside the chart. Mirrors the helper
+// in app/gantt/page.tsx where the projectColors map is built.
+const taskProjectKey = (t: Pick<Task, "owner" | "project_id">) =>
+  `${t.owner}:${t.project_id}`;
 
 interface TaskPosition {
   left: number;
@@ -1386,7 +1394,12 @@ export default function GanttChart({
 
                         {/* Render all tasks in this row */}
                         {tasksInRow.map((task) => {
-                          const taskProject = projects.find(p => p.id === task.project_id);
+                          // Match on both id and owner so a shared project doesn't
+                          // collide with an own project that happens to share the
+                          // numeric id (per-user id namespaces).
+                          const taskProject = projects.find(
+                            (p) => p.id === task.project_id && p.owner === task.owner,
+                          );
                           const spanInfo = getTaskSpanInWeek(task, weekDates, taskProject, dates);
                           if (!spanInfo) return null;
                           const tk = taskKey(task);
@@ -1409,7 +1422,7 @@ export default function GanttChart({
                           } else {
                             projectBaseColor = task.is_high_level
                               ? "#f59e0b"
-                              : projectColors[task.project_id] || "#3b82f6";
+                              : projectColors[taskProjectKey(task)] || "#3b82f6";
                           }
                           const completedStyle = task.is_complete
                             ? getCompletedTaskColor(projectBaseColor)

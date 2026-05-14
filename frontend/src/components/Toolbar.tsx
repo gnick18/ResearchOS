@@ -44,8 +44,14 @@ interface ToolbarProps {
   allTags: string[];
   onCreateTask: () => void;
   onCreateGoal: () => void;
-  projectColors?: Record<number, string>;
+  // Keyed by composite `${owner}:${id}` so a shared project and an own
+  // project with the same numeric id keep distinct colors.
+  projectColors?: Record<string, string>;
 }
+
+// Composite key for the projectColors lookup. Mirrors the helper in
+// app/gantt/page.tsx where the map is built.
+const projectKey = (p: Pick<Project, "id" | "owner">) => `${p.owner}:${p.id}`;
 
 export default function Toolbar({
   projects,
@@ -128,7 +134,7 @@ export default function Toolbar({
           const isSelected =
             selectedProjectIds.length === 0 ||
             selectedProjectIds.includes(p.id);
-          const projectColor = projectColors?.[p.id] || "#3b82f6";
+          const projectColor = projectColors?.[projectKey(p)] || "#3b82f6";
           return (
             <button
               key={p.id}
