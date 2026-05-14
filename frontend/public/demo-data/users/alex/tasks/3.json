@@ -15,7 +15,28 @@
   "tags": null,
   "sort_order": 3,
   "experiment_color": "#3b82f6",
-  "sub_tasks": null,
+  "sub_tasks": [
+    {
+      "id": "st1",
+      "text": "Pick 8 well-isolated colonies from primary plate",
+      "is_complete": true
+    },
+    {
+      "id": "st2",
+      "text": "Streak onto fresh SD-Ura grid plate",
+      "is_complete": true
+    },
+    {
+      "id": "st3",
+      "text": "Incubate 30 °C, 48 h",
+      "is_complete": true
+    },
+    {
+      "id": "st4",
+      "text": "Photograph patch plate",
+      "is_complete": true
+    }
+  ],
   "pcr_gradient": null,
   "pcr_ingredients": null,
   "method_attachments": [],
