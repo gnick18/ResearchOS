@@ -22,6 +22,10 @@ export interface ExperimentAttachment {
   // The disk-relative ref as it appears in markdown (e.g. "Images/foo.png").
   // Used to rewrite markdown links to the in-zip path.
   diskRef: string;
+  // Only set when origin === "methods": the Method.id this attachment was
+  // pushed for. Lets format generators bind a PDF-method's bytes to its
+  // entry without name-matching games.
+  methodId?: number;
 }
 
 export interface MethodPayload {

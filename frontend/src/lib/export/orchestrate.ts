@@ -3,6 +3,7 @@ import type { Task } from "@/lib/types";
 import { projectsApi, methodsApi, filesApi } from "@/lib/local-api";
 import { buildExperimentPayload } from "./extract";
 import { resolveCollidingFilenames } from "./slug";
+import { buildRawZip } from "./raw";
 import type {
   ExperimentExportPayload,
   ExportFormat,
@@ -10,27 +11,18 @@ import type {
 } from "./types";
 
 // ---------------------------------------------------------------------------
-// Format-specific builders — stubbed until Sub-bots B/C/D land their files.
-//
-// Once `./raw`, `./html`, `./pdf` exist, these imports + stubs can be deleted
-// and the orchestrator will pick them up unchanged.
+// Format-specific builders — wired below as they land:
+//   ./raw  → buildRawZip (Sub-bot B, landed)
+//   ./html → buildHtmlBundle (Sub-bot C, pending integration)
+//   ./pdf  → buildPdf (Sub-bot D, pending integration)
 // ---------------------------------------------------------------------------
-
-async function buildRawZip(
-  _payload: ExperimentExportPayload,
-  _baseFilename: string
-): Promise<ExportResult> {
-  throw new Error(
-    "Raw export not yet implemented — Sub-bot B owns `lib/export/raw.ts`."
-  );
-}
 
 async function buildHtmlBundle(
   _payload: ExperimentExportPayload,
   _baseFilename: string
 ): Promise<ExportResult> {
   throw new Error(
-    "HTML export not yet implemented — Sub-bot C owns `lib/export/html.ts`."
+    "HTML export not yet integrated — manager-side pending."
   );
 }
 
@@ -39,7 +31,7 @@ async function buildPdf(
   _baseFilename: string
 ): Promise<ExportResult> {
   throw new Error(
-    "PDF export not yet implemented — Sub-bot D owns `lib/export/pdf.ts`."
+    "PDF export not yet integrated — manager-side pending."
   );
 }
 
@@ -126,7 +118,7 @@ async function packMulti(
 export async function exportExperiments(
   tasks: Task[],
   format: ExportFormat,
-  currentUser: string
+  currentUser: string | null
 ): Promise<ExportResult> {
   if (tasks.length === 0) {
     throw new Error("Nothing to export: no tasks supplied.");

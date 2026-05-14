@@ -238,6 +238,7 @@ async function buildMethodPayload(
           bytes: base64ToArrayBuffer(content),
           origin: "methods",
           diskRef: filename,
+          methodId: method.id,
         };
       } else {
         bodyMarkdown = content;
@@ -261,6 +262,7 @@ async function buildMethodPayload(
         bytes,
         origin: "methods",
         diskRef: filename,
+        methodId: method.id,
       };
     } catch (err) {
       console.warn(
@@ -319,7 +321,7 @@ function computeDurationDays(task: Task): number {
  */
 export async function buildExperimentPayload(
   task: Task,
-  currentUser: string,
+  currentUser: string | null,
   deps: ExtractDeps
 ): Promise<ExperimentExportPayload> {
   void currentUser; // reserved for future scoping; signature is the contract.

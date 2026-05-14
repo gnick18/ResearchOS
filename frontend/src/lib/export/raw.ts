@@ -1,62 +1,6 @@
-import type { Method, Project, Task, TaskMethodAttachment } from "@/lib/types";
 import { taskKey } from "@/lib/types";
-
-// TODO(manager): swap to imports from `./types` once Sub-bot A's types.ts lands.
-// Mirror of the locked type contract in EXPORT_REVAMP_PLAN.md §4. Keep in sync.
-type AttachmentOrigin = "notes" | "results" | "methods";
-
-interface ExperimentAttachment {
-  filename: string;
-  mimeType: string;
-  bytes: ArrayBuffer;
-  origin: AttachmentOrigin;
-  diskRef: string;
-}
-
-interface MethodPayload {
-  method: Method;
-  bodyMarkdown: string | null;
-  attachment: TaskMethodAttachment | null;
-}
-
-export interface ExperimentExportPayload {
-  task: Task;
-  project: Project;
-  resolvedBase: string;
-  notesMarkdown: string | null;
-  resultsMarkdown: string | null;
-  methods: MethodPayload[];
-  attachments: ExperimentAttachment[];
-  meta: {
-    ownerLabel: string;
-    durationDays: number;
-    statusLabel: string;
-    methodNames: string[];
-    exportedAt: string;
-  };
-}
-
-export interface ExportResult {
-  blob: Blob;
-  filename: string;
-  mimeType: string;
-}
-
-// TODO(manager): replace with canonical helper from `./slug.ts` once Sub-bot A lands.
-function slugify(s: string): string {
-  return (
-    s
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")
-      .slice(0, 80) || "export"
-  );
-}
-
-function basename(p: string): string {
-  const ix = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"));
-  return ix >= 0 ? p.slice(ix + 1) : p;
-}
+import { slugify } from "./slug";
+import type { ExperimentExportPayload, ExportResult } from "./types";
 
 function isImageMime(mimeType: string): boolean {
   return mimeType.toLowerCase().startsWith("image/");
@@ -64,6 +8,7 @@ function isImageMime(mimeType: string): boolean {
 
 export async function buildRawZip(
   payload: ExperimentExportPayload,
+  baseFilename?: string,
 ): Promise<ExportResult> {
   const JSZip = (await import("jszip")).default;
   const zip = new JSZip();
@@ -91,6 +36,7 @@ export async function buildRawZip(
     zip.file("results.md", payload.resultsMarkdown);
   }
 
+  const claimedMethodAttachments = new Set<string>();
   for (const mp of payload.methods) {
     const id = mp.method.id;
     zip.file(
@@ -100,14 +46,12 @@ export async function buildRawZip(
     if (mp.bodyMarkdown !== null) {
       zip.file(`methods/method-${id}-body.md`, mp.bodyMarkdown);
     }
-    if (mp.method.source_path) {
-      const wanted = basename(mp.method.source_path);
-      const match = payload.attachments.find(
-        (a) => a.origin === "methods" && a.filename === wanted,
-      );
-      if (match) {
-        zip.file(`methods/method-${id}-${match.filename}`, match.bytes);
-      }
+    const match = payload.attachments.find(
+      (a) => a.origin === "methods" && a.methodId === id,
+    );
+    if (match) {
+      zip.file(`methods/method-${id}-${match.filename}`, match.bytes);
+      claimedMethodAttachments.add(`${match.origin}:${match.filename}`);
     }
   }
 
@@ -118,14 +62,19 @@ export async function buildRawZip(
     } else if (att.origin === "results") {
       const sub = isImageMime(att.mimeType) ? "Images" : "Files";
       zip.file(`results/${sub}/${att.filename}`, att.bytes);
+    } else if (att.origin === "methods") {
+      // Methods bound to a method via methodId were placed above. Anything
+      // unbound still gets carried so the bundle is complete; the receiving
+      // side can decide what to do with it.
+      const key = `${att.origin}:${att.filename}`;
+      if (!claimedMethodAttachments.has(key)) {
+        zip.file(`methods/unattached/${att.filename}`, att.bytes);
+      }
     }
-    // origin === "methods" attachments are placed alongside their method above.
-    // Any that didn't match a method's source_path basename are dropped — the
-    // raw bundle only carries methods that the task actually references.
   }
 
   const blob = await zip.generateAsync({ type: "blob" });
-  const slug = slugify(payload.task.name);
+  const slug = baseFilename ?? slugify(payload.task.name);
   return {
     blob,
     filename: `${slug}-raw.zip`,
