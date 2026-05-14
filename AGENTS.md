@@ -364,6 +364,35 @@ Use this for any field rename. **Do NOT do hard on-disk cutovers** — rewrite-a
 
 **Stale local branches worth pruning** (work landed elsewhere, branches just clutter `git branch`): `claude/epic-dubinsky-f36fb5` (Export Sub-bot F PCR-rendering), `claude/sharp-kirch-4345ef` (unknown), `claude/competent-tesla-1c0608` (the worktree that caused the stale-dev-server trap). Confirm-and-delete is safe but optional.
 
+### Recently landed (2026-05-14 — LabArchives banner-driven post-import rehydration)
+
+Closes the "wizard step 5 was the only way to fix online-only images" adoption wall. The cred-less paths (`fe9a100c`) made the wizard's `5 · Fetch images` panel reachable to any user; the per-image popup (`90dca729`) gave a one-at-a-time recovery for what slipped through. What was still missing: a **persistent, in-task** batch surface so a user who clicked away from the wizard, skipped the step, or only partially completed it could come back later and finish the rehydration without re-running the whole import.
+
+- **Phase 1 — reusable panel + apply helper** (commit `6a6810e7`, merge `d6007756`). The 3-tab fetch UI (API / DevTools / Drop) moved out of `components/import-eln/steps/LabArchivesSignInStep.tsx` into a standalone `components/labarchives/RehydrateMissingImagesPanel.tsx` (~360 LOC) plus a Modal wrapper `RehydrateMissingImagesModal.tsx` (~210 LOC). The disk-write + markdown-rewrite + sidecar-shrink path that lived inline in `apply.ts` got extracted into `lib/import/eln/rehydrate.ts` (~200 LOC) so post-import surfaces can call it without dragging the full wizard pipeline along. The wizard step refactored from 424 → 89 LOC — now just Back/Skip/Continue glue around the shared panel.
+- **Phase 2 — banner in Lab Notes tab** (commit `884fa42c`). `LabNotesTab` in `TaskDetailPopup.tsx` now probes `_import_source.json#missingInlineImages` on mount. Non-zero count → amber banner above the editor ("N inline images from your LabArchives import didn't come through · Pull them in →"). Click opens the Phase 1 modal; on apply, a reload key bumps so the editor re-reads `notes.md` (rewritten in place) and the sidecar probe re-runs to shrink the count or hide the banner entirely.
+
+**Gating decisions worth knowing about**:
+- **Banner hidden for shared-task receivers** (`task.is_shared_with_me`). The sidecar lives in the owner's namespace; only the owner has a clean write path. Showing a button that would fail silently for the receiver was worse than no surface at all.
+- **Banner hidden in readOnly mode** (lab view).
+- **Button disabled with explanatory tooltip when `hasUnsavedChanges`**. The rehydrate helper rewrites `notes.md` on disk and the reload-key bump re-reads from disk — in-flight editor edits would be clobbered. Cheapest way to dodge the data-loss footgun without plumbing optimistic concurrency through the helper.
+- **Demo / wiki-capture mode**: banner CAN show but the panel hides the API tab (gated on `isDemoOrWikiCapture()`); DevTools + Drop still work and write to the fixture file-service.
+
+**Edge cases NOT covered**:
+- The user has no way to dismiss the banner short of rehydrating or re-importing. Intentional today (the sidecar entries are the source of truth — if they're still there, the work isn't done), but if the user lives with the banner long-term we could add a `_banner-dismissed.json` companion so the count is still visible somewhere but the prominent CTA hides. Defer until anyone asks.
+- Sidecar corruption / partial JSON parse failure → banner silently doesn't render (caught + null'd). No on-screen "your sidecar is broken" affordance.
+- Task with no `notes.md` (e.g. only the sidecar was written): rehydrate helper still writes the image bytes + shrinks the sidecar but skips the markdown rewrite. A future editor save will pick the bytes up from disk.
+- Concurrent edits across two tabs (same task open in tab A's editor + tab B's modal) would race; the modal-side write happens last and wins.
+
+**Wiki implications** (for handoff to wiki manager): the `/wiki/integrations/labarchives` page should mention the banner as a peer to the wizard step. "Three paths" framing already needed updating for cred-less paths; now also needs "What if you missed step 5? Open the task → Lab Notes → the amber banner offers the same paths." Single wiki update can cover banner + wizard + per-image popup if folded together.
+
+**Manual test recipe for Grant**:
+1. Demo mode (`?wikiCapture=1` or `/demo`): the LabArchives integration is gated off, so unless the demo seed includes a task with a pre-populated `_import_source.json#missingInlineImages` array, the banner won't surface. To exercise the banner UI specifically, can either (a) seed a fixture task with a fake sidecar, or (b) do (2) below in a real folder.
+2. Real `.eln` import: open the ELN wizard, import `offline_14681.zip` (or any export with Form-B images), and either skip step 5 entirely OR pick the DevTools/Drop path and drop NOTHING (just Continue). Open one of the created tasks → Lab Notes tab → the amber banner should appear with the correct count. Click "Pull them in →" → modal opens with the same 3 tabs. Drop the images. Apply. Modal shows the success summary. Close. Banner count shrinks or banner disappears. Image strip + body refs render the rehydrated images.
+3. Non-owner case: open the task as the receiver of a shared task (or impersonate via a two-user setup). The banner should NOT appear even if the owner's sidecar has missing images.
+4. Unsaved-changes case: edit the body of a task that has a banner, don't save. The button should be disabled with a tooltip telling you to save first.
+
+Files: `frontend/src/components/labarchives/{RehydrateMissingImagesPanel,RehydrateMissingImagesModal}.tsx` (new), `frontend/src/lib/import/eln/rehydrate.ts` (new), `frontend/src/components/import-eln/steps/LabArchivesSignInStep.tsx` (refactored from 424 → 89 LOC), `frontend/src/components/TaskDetailPopup.tsx` (+95 LOC in `LabNotesTab`). Typecheck + ESLint clean; vitest 111/111; `test-labarchives-apply.mjs` PASS.
+
 ### Recently landed (2026-05-14 — LabArchives cred-less image rehydration)
 
 Closes the adoption-wall problem with the original API integration: users whose institution doesn't issue LabArchives API credentials now have two viable paths to bring Form-B inline images into their notes instead of hitting `Images/missing-<orig>` placeholder dead-ends. Lands at `83c7edf1` (merge `fe9a100c`, +1104/-97 across 7 files).
