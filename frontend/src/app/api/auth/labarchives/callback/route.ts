@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { isLabArchivesConfigured } from "@/lib/labarchives/config";
 
 /**
  * `GET /api/auth/labarchives/callback` — popup-window credential form.
@@ -15,15 +14,15 @@ import { isLabArchivesConfigured } from "@/lib/labarchives/config";
  * call to LabArchives), and on success postMessages the UID + display name
  * back to the opener tab.
  *
- * If the integration is not configured we render an error stub instead.
+ * Server-side we always render the form, because the deployer credentials
+ * may live either in env vars (visible here) or in a sidecar file in the
+ * user's data folder (only visible to the opener via FSA). The popup asks
+ * the opener for sidecar creds on load — if it gets them, it includes them
+ * in the POST body. The `/login` route does the final "is the integration
+ * configured?" check and surfaces a generic error if neither source
+ * supplied creds.
  */
 export async function GET(_req: NextRequest): Promise<Response> {
-  if (!isLabArchivesConfigured()) {
-    return new Response(errorHtml("LabArchives integration is not configured on this deployment."), {
-      status: 503,
-      headers: { "content-type": "text/html; charset=utf-8" },
-    });
-  }
   return new Response(formHtml(), {
     status: 200,
     headers: { "content-type": "text/html; charset=utf-8" },
@@ -65,6 +64,45 @@ function formHtml(): string {
       var btn = document.getElementById("btn");
       var errEl = document.getElementById("err");
 
+      // Deployer creds (sidecar mode) come from the opener via postMessage.
+      // In env-var mode the opener responds with null and we send the login
+      // request with no deployerCreds field; the server resolves the creds
+      // from env. In sidecar mode the opener reads the FSA sidecar and
+      // sends them back here.
+      var deployerCreds = null;
+      var deployerCredsReady = null; // Promise resolved once we hear back
+      function requestDeployerCreds() {
+        deployerCredsReady = new Promise(function (resolve) {
+          var done = false;
+          function settle(value) { if (!done) { done = true; resolve(value); } }
+          function onMessage(event) {
+            if (event.origin !== window.location.origin) return;
+            if (!event.data || event.data.source !== "researchos-labarchives-opener") return;
+            if (event.data.type !== "deployer-creds") return;
+            window.removeEventListener("message", onMessage);
+            settle(event.data.creds || null);
+          }
+          window.addEventListener("message", onMessage);
+          try {
+            if (window.opener && !window.opener.closed) {
+              window.opener.postMessage(
+                { source: "researchos-labarchives-popup", type: "request-deployer-creds" },
+                window.location.origin,
+              );
+            } else {
+              // No opener (popup opened directly?) — proceed without sidecar.
+              settle(null);
+            }
+          } catch (_) { settle(null); }
+          // Give the opener a generous window to reply before assuming
+          // env-var mode. The opener's reply path involves an async FSA
+          // read so 1.5s is conservative.
+          setTimeout(function () { settle(null); }, 1500);
+        });
+        deployerCredsReady.then(function (c) { deployerCreds = c; });
+      }
+      requestDeployerCreds();
+
       function postBack(payload) {
         try {
           if (window.opener && !window.opener.closed) {
@@ -83,13 +121,20 @@ function formHtml(): string {
         btn.textContent = "Signing in…";
 
         var data = new FormData(form);
-        fetch("/api/auth/labarchives/login", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
+        // Wait for the deployer-creds probe to settle before posting.
+        (deployerCredsReady || Promise.resolve(null)).then(function () {
+          var body = {
             loginOrEmail: data.get("loginOrEmail"),
             password: data.get("password"),
-          }),
+          };
+          if (deployerCreds && typeof deployerCreds === "object") {
+            body.deployerCreds = deployerCreds;
+          }
+          return fetch("/api/auth/labarchives/login", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(body),
+          });
         })
           .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
           .then(function (res) {
@@ -121,25 +166,3 @@ function formHtml(): string {
 </body></html>`;
 }
 
-function errorHtml(message: string): string {
-  return `<!doctype html>
-<html><head><meta charset="utf-8"><title>LabArchives</title>
-<style>
-  body { font-family: system-ui, sans-serif; padding: 2rem; text-align: center; color: #1f2937; }
-  .err { color: #b91c1c; }
-</style></head>
-<body>
-  <h2 class="err">Integration not configured</h2>
-  <p>${escapeHtml(message)}</p>
-  <p style="font-size: 0.8rem; color: #6b7280;">Ask the deployment admin to set LABARCHIVES_ACCESS_KEY_ID and LABARCHIVES_ACCESS_PASSWORD.</p>
-</body></html>`;
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}

@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { readLabArchivesCreds } from "@/lib/labarchives/config";
+import { readLabArchivesCredsFromRequest } from "@/lib/labarchives/config";
 import { signedLabArchivesFetch } from "@/lib/labarchives/signed-fetch";
 
 /**
@@ -10,11 +10,19 @@ import { signedLabArchivesFetch } from "@/lib/labarchives/signed-fetch";
  * auth dance, returns enough state to persist) but the underlying mechanism
  * is different: LabArchives has no OAuth consent screen, just an HMAC-signed
  * REST endpoint that validates credentials and returns the UID. The
- * institutional `akid` + `access_password` live in env vars; the per-user
- * UID gets persisted client-side via the same path the Google/Microsoft
- * routes use.
+ * institutional `akid` + `access_password` come from env vars (multi-tenant
+ * path) OR from `body.deployerCreds` (single-user sidecar path); the
+ * per-user UID gets persisted client-side via the same path the
+ * Google/Microsoft routes used.
  *
- * Body: `{ loginOrEmail: string; password: string }`.
+ * Body:
+ *   {
+ *     loginOrEmail: string;
+ *     password: string;
+ *     // Optional — only present when the client is in sidecar mode and
+ *     // env vars are not set on this deployment.
+ *     deployerCreds?: { accessKeyId: string; accessPassword: string; baseUrl?: string };
+ *   }
  * Returns: `{ uid: string; fullname?: string; email?: string }` on success,
  *   a 4xx with `{ error }` on bad credentials, 5xx on misconfiguration.
  *
@@ -24,25 +32,38 @@ import { signedLabArchivesFetch } from "@/lib/labarchives/signed-fetch";
  * `console.warn` for debugger access without fingerprinting the proxy.
  */
 export async function POST(req: NextRequest): Promise<Response> {
-  let creds;
+  let body: {
+    loginOrEmail?: string;
+    password?: string;
+    deployerCreds?: unknown;
+  };
   try {
-    creds = readLabArchivesCreds();
-  } catch (err) {
-    return Response.json(
-      { error: err instanceof Error ? err.message : "Integration not configured" },
-      { status: 500 },
-    );
-  }
-
-  let body: { loginOrEmail?: string; password?: string };
-  try {
-    body = (await req.json()) as { loginOrEmail?: string; password?: string };
+    body = (await req.json()) as {
+      loginOrEmail?: string;
+      password?: string;
+      deployerCreds?: unknown;
+    };
   } catch {
     return Response.json(
       { error: "Body must be JSON with { loginOrEmail, password }." },
       { status: 400 },
     );
   }
+
+  let creds;
+  try {
+    creds = readLabArchivesCredsFromRequest(req, body);
+  } catch (err) {
+    console.warn(
+      "[labarchives/login] no usable credentials",
+      err instanceof Error ? err.message : String(err),
+    );
+    return Response.json(
+      { error: "LabArchives integration is not configured on this deployment." },
+      { status: 500 },
+    );
+  }
+
   const loginOrEmail = body.loginOrEmail?.trim();
   const password = body.password;
   if (!loginOrEmail || !password) {

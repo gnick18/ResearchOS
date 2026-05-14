@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { readLabArchivesCreds } from "@/lib/labarchives/config";
+import { readLabArchivesCredsFromRequest } from "@/lib/labarchives/config";
 import { signedLabArchivesFetch } from "@/lib/labarchives/signed-fetch";
 
 /**
@@ -15,6 +15,10 @@ import { signedLabArchivesFetch } from "@/lib/labarchives/signed-fetch";
  *   {
  *     uid: string,             // per-user UID from /login
  *     entryPartId: string,     // parsed from Form-B ep_id ("eid" param)
+ *     // Optional — sidecar-mode deployer creds (Phase 2 of LabArchives
+ *     // local-first config). When env vars set the integration, this
+ *     // field is ignored.
+ *     deployerCreds?: { accessKeyId: string; accessPassword: string; baseUrl?: string };
  *   }
  *
  * Returns: image bytes on 200, JSON `{ error }` on 4xx/5xx. Client-facing
@@ -24,25 +28,34 @@ import { signedLabArchivesFetch } from "@/lib/labarchives/signed-fetch";
  * lives in `signedLabArchivesFetch`.
  */
 export async function POST(req: NextRequest): Promise<Response> {
-  let creds;
+  let body: { uid?: string; entryPartId?: string; deployerCreds?: unknown };
   try {
-    creds = readLabArchivesCreds();
-  } catch (err) {
-    return Response.json(
-      { error: err instanceof Error ? err.message : "Integration not configured" },
-      { status: 500 },
-    );
-  }
-
-  let body: { uid?: string; entryPartId?: string };
-  try {
-    body = (await req.json()) as { uid?: string; entryPartId?: string };
+    body = (await req.json()) as {
+      uid?: string;
+      entryPartId?: string;
+      deployerCreds?: unknown;
+    };
   } catch {
     return Response.json(
       { error: "Body must be JSON with { uid, entryPartId }." },
       { status: 400 },
     );
   }
+
+  let creds;
+  try {
+    creds = readLabArchivesCredsFromRequest(req, body);
+  } catch (err) {
+    console.warn(
+      "[labarchives/fetch-image] no usable credentials",
+      err instanceof Error ? err.message : String(err),
+    );
+    return Response.json(
+      { error: "LabArchives integration is not configured on this deployment." },
+      { status: 500 },
+    );
+  }
+
   const uid = body.uid?.trim();
   const eid = body.entryPartId?.trim();
   if (!uid || !eid) {

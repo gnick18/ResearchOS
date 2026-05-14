@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { readLabArchivesCreds } from "@/lib/labarchives/config";
+import { readLabArchivesCredsFromRequest } from "@/lib/labarchives/config";
 import { signedLabArchivesFetch } from "@/lib/labarchives/signed-fetch";
 
 /**
@@ -13,27 +13,40 @@ import { signedLabArchivesFetch } from "@/lib/labarchives/signed-fetch";
  * connect step; a 5xx is treated as a transient upstream failure (502
  * passthrough) so the UI can retry without nuking the stored connection.
  *
- * Body: `{ uid: string }`. Returns `{ ok: true }` on success, `{ error }` +
- * 4xx/5xx on failure. Client-facing messages are deliberately generic —
- * detail is logged server-side via `console.warn`.
+ * Body:
+ *   {
+ *     uid: string;
+ *     // Optional — sidecar-mode deployer creds (Phase 2 of LabArchives
+ *     // local-first config). When env vars set the integration, this
+ *     // field is ignored.
+ *     deployerCreds?: { accessKeyId: string; accessPassword: string; baseUrl?: string };
+ *   }
+ * Returns `{ ok: true }` on success, `{ error }` + 4xx/5xx on failure.
+ * Client-facing messages are deliberately generic — detail is logged
+ * server-side via `console.warn`.
  */
 export async function POST(req: NextRequest): Promise<Response> {
+  let body: { uid?: string; deployerCreds?: unknown };
+  try {
+    body = (await req.json()) as { uid?: string; deployerCreds?: unknown };
+  } catch {
+    return Response.json({ error: "Body must be JSON with { uid }." }, { status: 400 });
+  }
+
   let creds;
   try {
-    creds = readLabArchivesCreds();
+    creds = readLabArchivesCredsFromRequest(req, body);
   } catch (err) {
+    console.warn(
+      "[labarchives/refresh] no usable credentials",
+      err instanceof Error ? err.message : String(err),
+    );
     return Response.json(
-      { error: err instanceof Error ? err.message : "Integration not configured" },
+      { error: "LabArchives integration is not configured on this deployment." },
       { status: 500 },
     );
   }
 
-  let body: { uid?: string };
-  try {
-    body = (await req.json()) as { uid?: string };
-  } catch {
-    return Response.json({ error: "Body must be JSON with { uid }." }, { status: 400 });
-  }
   const uid = body.uid?.trim();
   if (!uid) {
     return Response.json({ error: "Missing uid." }, { status: 400 });
