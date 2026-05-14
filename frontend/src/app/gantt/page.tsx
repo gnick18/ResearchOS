@@ -163,7 +163,7 @@ export default function Home() {
 
   // Keyed by composite `${owner}:${id}` so a shared project and an own
   // project with the same numeric id keep distinct colors. The Gantt's
-  // child components (GanttChart / Toolbar / SidebarTree) take the same
+  // child components (GanttChart / Toolbar) take the same
   // composite-keyed shape — see `projectKey` / `taskProjectKey` helpers
   // at the top of this file for lookups.
   const projectColors = useMemo(() => {

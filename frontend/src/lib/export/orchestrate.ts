@@ -64,7 +64,8 @@ function todayStamp(): string {
 async function packMulti(
   results: ExportResult[],
   format: ExportFormat,
-  baseNames: string[]
+  baseNames: string[],
+  wrapperDate: Date,
 ): Promise<ExportResult> {
   const outer = new JSZip();
   for (let i = 0; i < results.length; i++) {
@@ -91,6 +92,16 @@ async function packMulti(
     }
   }
 
+  // Deterministic outer-zip mtimes: use a single shared timestamp (the first
+  // payload's `exportedAt`) for the wrapper. Inner per-experiment zips already
+  // carry their own per-payload `exportedAt` as their entry date, so they're
+  // deterministic in their own right. The wrapper getting a single shared
+  // value keeps re-exports of the same multi-task selection byte-identical.
+  // (JSZip 3 stores `date` per ZipObject; we mutate after adding to apply
+  // the override uniformly — same pattern as raw.ts / html.ts.)
+  for (const entry of Object.values(outer.files)) {
+    entry.date = wrapperDate;
+  }
   const blob = await outer.generateAsync({ type: "blob" });
   return {
     blob,
@@ -147,7 +158,12 @@ export async function exportExperiments(
     return perExperiment[0];
   }
 
-  return packMulti(perExperiment, format, baseNames);
+  // Pick the first payload's exportedAt as the shared wrapper date — see
+  // comment in packMulti. All payloads in a single export call are produced
+  // in the same loop with effectively-identical timestamps; the first is a
+  // clean, deterministic choice.
+  const wrapperDate = new Date(payloads[0].meta.exportedAt);
+  return packMulti(perExperiment, format, baseNames, wrapperDate);
 }
 
 /**

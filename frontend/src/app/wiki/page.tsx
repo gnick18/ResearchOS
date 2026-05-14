@@ -1,6 +1,7 @@
 import Link from "next/link";
 import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
+import { TryInDemo } from "@/components/wiki/TryInDemo";
 import { WIKI_NAV } from "@/lib/wiki/nav";
 
 export const metadata = {
@@ -23,6 +24,8 @@ export default function WikiLandingPage() {
         </>
       }
     >
+      <TryInDemo href="/">Explore the demo</TryInDemo>
+
       <h2>60-second tour</h2>
       <p>
         ResearchOS is a single-page research-management app that reads and writes

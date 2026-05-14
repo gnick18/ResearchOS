@@ -4,6 +4,7 @@ import Callout from "@/components/wiki/Callout";
 import Screenshot from "@/components/wiki/Screenshot";
 import Kbd from "@/components/wiki/Kbd";
 import { Steps, Step } from "@/components/wiki/Steps";
+import { TryInDemo } from "@/components/wiki/TryInDemo";
 
 export default function MarkdownEditorPage() {
   return (
@@ -16,6 +17,8 @@ export default function MarkdownEditorPage() {
         alt="The markdown editor open in an experiment, showing markdown notes, an image strip, and the side panel."
         caption="The editor as it appears inside an experiment. The same component mounts in task popups, results, methods, and notes."
       />
+
+      <TryInDemo href="/">Open the demo and try Lab Notes</TryInDemo>
 
       <h2>Where you&apos;ll see it</h2>
       <p>

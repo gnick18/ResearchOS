@@ -3,6 +3,7 @@ import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
 import Screenshot from "@/components/wiki/Screenshot";
 import { Steps, Step } from "@/components/wiki/Steps";
+import { TryInDemo } from "@/components/wiki/TryInDemo";
 
 export default function GanttFeaturePage() {
   return (
@@ -14,6 +15,8 @@ export default function GanttFeaturePage() {
         alt="The Gantt chart with multiple project bars color-coded across a timeline."
         caption="One row per packed group of tasks, color-coded by project, with goals as thin bars above each week."
       />
+
+      <TryInDemo href="/gantt">Try the Gantt view</TryInDemo>
 
       <h2>What you&apos;re looking at</h2>
       <p>
