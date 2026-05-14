@@ -63,6 +63,14 @@ interface OrchestratorContextValue {
    *  never fires again for this user. Safe to call before any sidecar
    *  read — the call will queue behind the in-flight read. */
   cancelTip: (tipId: string) => void;
+  /** Dev-only: bypass every gate and render the named tip immediately.
+   *  Polls for the target element for up to 3 seconds so the caller
+   *  can navigate to the right route just before invoking (the route
+   *  mount + ref attach can take a few hundred ms). Does NOT persist
+   *  to the sidecar — the force-fire is a preview, not a real serve.
+   *  No-op in demo/wiki-capture mode and when the tip id is unknown.
+   *  Only intended for `<DevForceTipButton>` to call. */
+  forceFireTip: (tipId: string) => void;
   /** Read-only snapshot of the sidecar for debug surfaces (settings,
    *  dev tools). May be null while the initial read is in flight. */
   sidecar: OnboardingSidecar | null;
@@ -251,6 +259,41 @@ export function OnboardingOrchestrator({
     };
   }, [sidecar, pathname, activeTip, recordShown]);
 
+  // ── Dev-only: force a specific tip to fire, polling for its target ──
+  const forceFireTip = useCallback((tipId: string) => {
+    if (isDemoOrWikiCapture()) return;
+    const tip = ONBOARDING_TIPS.find((t) => t.id === tipId);
+    if (!tip) return;
+
+    let cancelled = false;
+    let tries = 0;
+    const maxTries = 30; // 3 seconds at 100ms intervals
+    const tryFire = () => {
+      if (cancelled) return;
+      const el = findOnboardingTarget(tipId);
+      if (el) {
+        setActiveTip(tip);
+        setActiveTarget(el);
+        // Deliberately do NOT recordShown — the dev preview should not
+        // mark the tip served for this user. Sidecar state is preserved.
+        return;
+      }
+      tries += 1;
+      if (tries < maxTries) {
+        window.setTimeout(tryFire, 100);
+      } else {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[onboarding] forceFireTip: target for "${tipId}" never appeared in DOM after 3s`,
+        );
+      }
+    };
+    tryFire();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleDismiss = useCallback(
     (outcome: "x" | "later" | "stop" | "got-it" | "read") => {
       if (!activeTip) return;
@@ -271,8 +314,8 @@ export function OnboardingOrchestrator({
   );
 
   const value = useMemo<OrchestratorContextValue>(
-    () => ({ cancelTip, sidecar }),
-    [cancelTip, sidecar],
+    () => ({ cancelTip, forceFireTip, sidecar }),
+    [cancelTip, forceFireTip, sidecar],
   );
 
   return (

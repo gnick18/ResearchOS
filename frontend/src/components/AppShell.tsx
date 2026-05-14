@@ -17,6 +17,7 @@ import UserAvatar from "./UserAvatar";
 import ReportBugButton from "./ReportBugButton";
 import BetaDonationButton from "./BetaDonationButton";
 import DevTestNotificationButton from "./DevTestNotificationButton";
+import DevForceTipButton from "./DevForceTipButton";
 import DataSetupScreen from "./DataSetupScreen";
 import UserLoginScreen from "./UserLoginScreen";
 import BugReportModal from "./BugReportModal";
@@ -227,6 +228,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         data-onboarding-target="appshell-cluster"
       >
         <DevTestNotificationButton />
+
+        <DevForceTipButton />
 
         <Tooltip label="Data folder · connect or switch" placement="top">
           <button
