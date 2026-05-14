@@ -249,6 +249,7 @@ function buildEntries() {
         { id: "i5", name: "Phusion polymerase", concentration: "2 U/µL", amount_per_reaction: "0.25" },
         { id: "i6", name: "gDNA template", concentration: "~50 ng/µL", amount_per_reaction: "1.0" },
         { id: "i7", name: "Nuclease-free H2O", concentration: "—", amount_per_reaction: "15.75" },
+        { id: "i8", name: "Total", concentration: "", amount_per_reaction: "" },
       ],
       notes:
         "Demo protocol — verifies integration of the `pYES-GAL1::flbA` cassette at the URA3 locus. Expected band: ~1.4 kb.",
@@ -420,6 +421,7 @@ function buildEntries() {
         { id: "i3", name: "fakeGFP-rev", concentration: "10 µM", amount_per_reaction: "0.5" },
         { id: "i4", name: "cDNA template (1:5)", concentration: "—", amount_per_reaction: "2" },
         { id: "i5", name: "Nuclease-free H2O", concentration: "—", amount_per_reaction: "7" },
+        { id: "i6", name: "Total", concentration: "", amount_per_reaction: "" },
       ],
       notes: "Demo qPCR — use ACT1 as housekeeping reference. Public version available at users/public.",
       tags: ["demo", "qPCR", "fakeGFP"],
