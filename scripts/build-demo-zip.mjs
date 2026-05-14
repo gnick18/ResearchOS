@@ -31,10 +31,15 @@ const ZIP_ROOT = "DemoLab";
 const require = createRequire(path.join(REPO_ROOT, "frontend", "package.json"));
 const JSZip = require("jszip");
 
+// Sort entries so the zip's insertion order is identical across machines —
+// fs.readdirSync ordering is OS-dependent.
 function walk(dir) {
   /** @type {string[]} */
   const out = [];
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+  const entries = fs
+    .readdirSync(dir, { withFileTypes: true })
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  for (const entry of entries) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       out.push(...walk(full));
@@ -56,11 +61,16 @@ async function main() {
   const files = walk(DEMO_DIR);
   let totalBytes = 0;
 
+  // Pin every entry's mtime to a fixed epoch so the zip is byte-identical
+  // across machines and build times. (Without this, jszip stamps each entry
+  // with `new Date()`, producing a different zip on every build.)
+  const EPOCH = new Date(0);
+
   for (const abs of files) {
     const rel = path.relative(DEMO_DIR, abs).split(path.sep).join("/");
     const buf = fs.readFileSync(abs);
     totalBytes += buf.byteLength;
-    zip.file(`${ZIP_ROOT}/${rel}`, buf);
+    zip.file(`${ZIP_ROOT}/${rel}`, buf, { date: EPOCH });
   }
 
   // README inside the zip, to orient new users
@@ -77,12 +87,20 @@ async function main() {
     "3. Pick the `DemoLab` folder.\n" +
     "4. The app will show a yellow banner reminding you that all data is fake.\n\n" +
     "Everything in this folder is fabricated. Projects are prefixed `DEMO:`, methods are prefixed `[Demo protocol]`, and every image carries a visible `FAKE DEMO` watermark.\n";
-  zip.file(`${ZIP_ROOT}/README.txt`, readme);
+  zip.file(`${ZIP_ROOT}/README.txt`, readme, { date: EPOCH });
+
+  // jszip auto-creates folder entries when child files are added, and those
+  // implicit folders ignore the per-file `date` option (they pull `new Date()`
+  // at construction time). Force every entry's date to the epoch here.
+  for (const name of Object.keys(zip.files)) {
+    zip.files[name].date = EPOCH;
+  }
 
   const buf = await zip.generateAsync({
     type: "nodebuffer",
     compression: "DEFLATE",
-    compressionOptions: { level: 6 },
+    compressionOptions: { level: 9 },
+    platform: "UNIX",
   });
 
   fs.writeFileSync(ZIP_PATH, buf);
