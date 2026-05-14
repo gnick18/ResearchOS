@@ -55,7 +55,7 @@ ResearchOS/
 │   │       │   ├── dates.ts            ← weekend-aware date math
 │   │       │   └── shift.ts            ← shiftTask: dependency cascade (accepts optional owner)
 │   │       ├── notes/migrate-images.ts ← one-shot per-note image-ref rewriter
-│   │       ├── telegram/               ← bot client + polling hook + token store (IndexedDB only)
+│   │       ├── telegram/               ← bot client + polling hook + token store (writes users/<u>/_telegram.json + auto-appends a .gitignore rule)
 │   │       ├── calendar/               ← ICS parser + feed store + useExternalEvents hook
 │   │       ├── attachments/            ← image folder utils, move-image, image-events bus
 │   │       ├── auth/password.ts        ← PBKDF2 per-user password gate
@@ -96,7 +96,7 @@ Data folder layout (on user's disk):
 │   │   ├── _auth.json                  ← optional PBKDF2 password
 │   │   ├── _shared_with_me.json        ← entries from other users
 │   │   ├── _notifications.json
-│   │   └── _calendar_feeds.json        ← ICS subscriptions
+│   │   └── _calendar-feeds.json        ← ICS subscriptions
 │   ├── public/                         ← shared methods/PCR protocols (cross-user)
 │   ├── lab/
 │   └── _user_metadata.json             ← username → color/created_at/hide_goals_from_lab
@@ -175,13 +175,13 @@ Use this for any field rename. **Do NOT do hard on-disk cutovers** — rewrite-a
 ## 5. Integrations in flight
 
 ### Telegram (live)
-- One bot per user. Token paired via `TelegramPairingModal`, stored in IndexedDB (never on disk in the shared folder).
+- One bot per user. Token paired via `TelegramPairingModal`, written to `users/<u>/_telegram.json` with an auto-appended `.gitignore` rule so it doesn't get committed.
 - `lib/telegram/use-telegram-polling.ts` polls `getUpdates`. New photos land in `users/{user}/inbox/Images/` with `.json` sidecar containing caption / sender / received_at.
 - `/api/telegram-file/route.ts` is the Vercel function that proxies file CDN downloads through (CORS workaround).
 - `InboxPanel`, `InboxToast`, `InboxBadge`, `TelegramStatusBadge` render the inbox; `ImageStrip` reads from the inbox + task Images folder.
 
 ### External calendar (live)
-- `lib/calendar/external-feeds-store.ts` persists ICS subscriptions in `users/{user}/_calendar_feeds.json`.
+- `lib/calendar/external-feeds-store.ts` persists ICS subscriptions in `users/{user}/_calendar-feeds.json`.
 - `lib/calendar/ics-parser.ts` parses the feed text.
 - `/api/calendar-feed/route.ts` is the Vercel function proxy (15-min edge cache, SSRF-protected).
 - `useExternalEvents()` hook merges external events into the calendar view.
