@@ -28,5 +28,7 @@
     }
   ],
   "owner": "morgan",
-  "shared_with": []
+  "shared_with": [
+    "alex"
+  ]
 }

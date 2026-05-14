@@ -379,7 +379,7 @@ function buildEntries() {
         { id: 1, owner: "morgan", permission: "view", shared_at: "2026-05-12T00:00:00Z" },
       ],
       tasks: [
-        { id: 5, owner: "morgan", permission: "edit", shared_at: "2026-05-13T00:00:00Z" },
+        { id: 3, owner: "morgan", permission: "edit", shared_at: "2026-05-16T00:00:00Z" },
       ],
       methods: [],
     },
@@ -660,13 +660,13 @@ function buildEntries() {
       ],
       method_attachments: [{ method_id: 1, owner: "morgan", snapshot_at: "2026-05-13T08:00:00Z" }] },
     { id: 3, project_id: 1, name: "qPCR setup — verify GFP transcripts", start_date: "2026-05-16", duration_days: 1, end_date: "2026-05-16", task_type: "experiment", is_complete: false, experiment_color: "#10b981",
-      method_attachments: [{ method_id: 2, owner: "morgan", snapshot_at: "2026-05-13T08:00:00Z" }] },
+      method_attachments: [{ method_id: 2, owner: "morgan", snapshot_at: "2026-05-13T08:00:00Z" }], shared_with: ["alex"] },
     // Strategically-overdue: writing tasks slip. Stays 4 days overdue
     // regardless of when the demo is opened (see OVERDUE_* anchors).
     { id: 4, project_id: 2, name: "Draft Chapter 2 outline", start_date: OVERDUE_START, duration_days: 3, end_date: OVERDUE_END_4D, task_type: "list", is_complete: false },
     // Task 5 is shared with alex (view) independently of any shared project,
     // so the fixture covers the individually-shared task path too.
-    { id: 5, project_id: 2, name: "Send draft figures to alex", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "list", is_complete: false, shared_with: ["alex"] },
+    { id: 5, project_id: 2, name: "Send draft figures to alex", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "list", is_complete: false },
   ]));
 
   // morgan methods
