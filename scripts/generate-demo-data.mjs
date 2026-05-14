@@ -582,7 +582,21 @@ function buildEntries() {
   out.push(["users/alex/dependencies/7.json", { id: 7, parent_id: 8, child_id: 9, dep_type: "FS" }]);
 
   // alex result task notes/results markdown stubs (selected tasks)
+  //
+  // task-2 notes.md is intentionally prepended with a stamp header (the
+  // canonical HTML-comment format from `lib/stamp-utils.ts`) so the export
+  // pipeline's `extractUserContent` → `parseContent` strip path has a
+  // realistic fixture to exercise. Other tasks' notes/results stay
+  // stamp-free to mirror older legacy content.
   out.push(["users/alex/results/task-2/notes.md",
+    "<!-- stamp:start -->\n" +
+    "2026-05-08  \n" +
+    "9:42 AM  \n" +
+    "experiment: Yeast transformation: pYES-GAL1::flbA  \n" +
+    "project folder: DEMO: Engineer FakeYeast for biofuel  \n" +
+    "<!-- stamp:end -->\n" +
+    "___\n" +
+    "[last-access]: # (2026-05-08T14:30:00Z)\n\n" +
     DEMO_BANNER_MD +
     "## Transformation notes — 2026-05-08\n\n" +
     "- Strain: `FakeYeast-001`\n" +
