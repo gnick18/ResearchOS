@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { getDemoMode } from "@/lib/file-system/wiki-capture-mock";
 import LeaveDemoModal from "./LeaveDemoModal";
 
@@ -11,16 +12,25 @@ import LeaveDemoModal from "./LeaveDemoModal";
  * who bounce between `/wiki/features/methods` and `/methods` keep a
  * one-click escape hatch).
  *
+ * Re-reads `getDemoMode()` on every pathname change so demo state
+ * survives a hard-nav round trip (e.g., `<OpenDocsButton>`'s plain
+ * `<a href>` to a wiki page, then browser back). Without the pathname
+ * dep, a stale-state BFCache restore or a freshly-mounted-too-early
+ * read could leave `show=false` even though the sessionStorage flag is
+ * still set, so the button silently disappears.
+ *
  * Why not the banner: the existing `<DemoLabBanner>` is dismissible and
  * easy to overlook. This is the backup.
  */
 export default function FloatingLeaveDemoButton() {
+  const pathname = usePathname();
   const [show, setShow] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing local React state with the external sessionStorage demo flag on every route change
     setShow(getDemoMode());
-  }, []);
+  }, [pathname]);
 
   if (!show) return null;
 
