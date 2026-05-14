@@ -1688,7 +1688,7 @@ function PdfViewer({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {canModify && (
+            {canModify && !currentMethod.is_shared_with_me && (
               <button
                 onClick={() => setShowSharePopup(true)}
                 className={`px-3 py-1.5 text-xs rounded-lg ${
@@ -1872,7 +1872,7 @@ function PcrViewer({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {canModify && (
+            {canModify && !currentMethod.is_shared_with_me && (
               <button
                 onClick={() => setShowSharePopup(true)}
                 className={`px-3 py-1.5 text-xs rounded-lg ${

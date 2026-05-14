@@ -102,6 +102,7 @@ export const projectsApi = {
 
   create: async (data: ProjectCreate): Promise<Project> => {
     const now = new Date().toISOString();
+    const currentUser = (await getCurrentUserCached()) ?? "";
     const project = await projectsStore.create({
       name: data.name,
       weekend_active: data.weekend_active ?? false,
@@ -111,7 +112,7 @@ export const projectsApi = {
       sort_order: 0,
       is_archived: false,
       archived_at: null,
-      owner: "",
+      owner: currentUser,
       shared_with: [],
     });
     return project;

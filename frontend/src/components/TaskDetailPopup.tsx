@@ -499,8 +499,9 @@ export default function TaskDetailPopup({
             {isExperiment && (
               <TaskExportButton task={task} />
             )}
-            {/* Share button - hidden in readOnly mode */}
-            {!readOnly && (
+            {/* Share button - hidden in readOnly mode or when the task was shared TO us
+                 (receivers can't re-share what isn't theirs to grant access to). */}
+            {!readOnly && !task.is_shared_with_me && (
               <Tooltip label="Share task" placement="bottom">
               <button
                 onClick={() => setShowSharePopup(true)}

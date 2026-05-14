@@ -28,18 +28,25 @@ function escapeRegExp(s: string): string {
 }
 
 /** Remove every `[label](Files/<filename>)` and `<a ... href="...Files/<filename>...">label</a>`
- *  reference from a markdown body. */
+ *  reference from a markdown body. File links land in markdown URL-encoded
+ *  (e.g. `Files/READ%20ME.md` for a filename with a space), so we run the
+ *  match against both the raw and `encodeURIComponent`-encoded forms. */
 function stripReferences(markdown: string, filename: string): string {
-  const esc = escapeRegExp(filename);
-  // Markdown link: [label](Files/foo.pdf) — note no leading `!`, that's the
-  // image variant which the ImageTrashDropZone handles separately.
-  const mdRe = new RegExp(`(?<!!)\\[[^\\]]*\\]\\([^)]*Files/${esc}[^)]*\\)\\s*`, "g");
-  // HTML anchor: <a href="...Files/foo.pdf">label</a>
-  const htmlRe = new RegExp(
-    `<a\\s+[^>]*href=["'][^"']*Files/${esc}[^"']*["'][^>]*>[^<]*</a>\\s*`,
-    "gi"
-  );
-  return markdown.replace(mdRe, "").replace(htmlRe, "");
+  const variants = new Set([filename, encodeURIComponent(filename)]);
+  let next = markdown;
+  for (const variant of variants) {
+    const esc = escapeRegExp(variant);
+    // Markdown link: [label](Files/foo.pdf) — note no leading `!`, that's the
+    // image variant which the ImageTrashDropZone handles separately.
+    const mdRe = new RegExp(`(?<!!)\\[[^\\]]*\\]\\([^)]*Files/${esc}[^)]*\\)\\s*`, "g");
+    // HTML anchor: <a href="...Files/foo.pdf">label</a>
+    const htmlRe = new RegExp(
+      `<a\\s+[^>]*href=["'][^"']*Files/${esc}[^"']*["'][^>]*>[^<]*</a>\\s*`,
+      "gi"
+    );
+    next = next.replace(mdRe, "").replace(htmlRe, "");
+  }
+  return next;
 }
 
 export default function FileTrashDropZone({
