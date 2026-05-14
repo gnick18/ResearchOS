@@ -1,8 +1,14 @@
+import { register } from "node:module";
 import { readFileSync, existsSync } from "node:fs";
 import { dirname, resolve as resolvePath } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DOMParser } from "linkedom";
 
+// Teach Node's strip-types loader to resolve extensionless relative imports
+// the way bundlers and tsc do, so source modules can be loaded as-is. Must
+// run before any source-tree import.
+register("./lib/ts-resolver.mjs", import.meta.url);
+
+const { DOMParser } = await import("linkedom");
 globalThis.DOMParser = DOMParser;
 
 const __filename = fileURLToPath(import.meta.url);
