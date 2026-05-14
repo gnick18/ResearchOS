@@ -4,12 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node ../scripts/build-demo-zip.mjs",
+    "prebuild": "node ../scripts/check-wiki-coverage.mjs --ci && node ../scripts/build-demo-zip.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
     "wiki:screenshots": "node ../scripts/capture-wiki-screenshots.mjs",
+    "wiki:coverage": "node ../scripts/check-wiki-coverage.mjs",
     "demo:data": "node ../scripts/generate-demo-data.mjs",
     "demo:images": "node ../scripts/generate-demo-images.mjs",
     "demo:zip": "node ../scripts/build-demo-zip.mjs"

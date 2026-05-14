@@ -1,0 +1,191 @@
+#!/usr/bin/env node
+/**
+ * Wiki coverage check.
+ *
+ * Scans `frontend/src/app/` for top-level routes with a `page.tsx` file
+ * and compares them against the canonical `APP_ROUTE_TO_WIKI` map in
+ * `frontend/src/lib/wiki/nav.ts`. Reports three kinds of drift:
+ *
+ *   - UNMAPPED  — app route exists, no wiki entry
+ *   - STALE     — wiki entry exists, no app route
+ *   - ORPHANED  — wiki entry points at a `/wiki/...` page that doesn't
+ *                 exist on disk
+ *
+ * Two modes:
+ *
+ *   - `node scripts/check-wiki-coverage.mjs` (default) — prints a report
+ *     and exits 0. Useful for spot-checks or as a printable coverage
+ *     summary.
+ *   - `node scripts/check-wiki-coverage.mjs --ci` — exits 1 if any
+ *     UNMAPPED or ORPHANED routes are found. Wired as a `prebuild`
+ *     step so Vercel deploys + local `npm run build` both fail when
+ *     the map drifts from reality.
+ *
+ * Routes intentionally excluded from the check (alternate entry points,
+ * server-only paths, Next.js internals, the wiki itself):
+ */
+import { readdirSync, statSync, readFileSync, existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(__dirname, "..");
+const APP_DIR = path.join(REPO_ROOT, "frontend", "src", "app");
+const NAV_FILE = path.join(REPO_ROOT, "frontend", "src", "lib", "wiki", "nav.ts");
+const WIKI_DIR = path.join(REPO_ROOT, "frontend", "src", "app", "wiki");
+
+/** Routes that should never be in the wiki map. */
+const EXCLUDED_PREFIXES = [
+  "/wiki", // the wiki itself is the docs; doesn't need its own wiki page
+  "/api", // server-only proxy routes
+  "/demo", // alternate entry, documented under /wiki/getting-started/demo-mode
+];
+
+/** Next.js conventions to ignore when walking app/. */
+const IGNORED_SEGMENTS = new Set(["api"]);
+
+const isCi = process.argv.includes("--ci");
+
+/* ---------- find app routes ----------------------------------------- */
+
+/** Walk `frontend/src/app/` and yield every top-level directory that
+ *  carries a `page.tsx`. Treats `app/page.tsx` itself as the `/` route. */
+function discoverAppRoutes() {
+  const routes = new Set();
+  if (existsSync(path.join(APP_DIR, "page.tsx"))) routes.add("/");
+  for (const entry of readdirSync(APP_DIR)) {
+    if (entry.startsWith("_") || entry.startsWith(".")) continue;
+    if (IGNORED_SEGMENTS.has(entry)) continue;
+    // Skip parameterized / catch-all segments like `[id]` and `[[...slug]]` —
+    // those aren't a single concrete route.
+    if (entry.startsWith("[")) continue;
+    const full = path.join(APP_DIR, entry);
+    if (!statSync(full).isDirectory()) continue;
+    if (existsSync(path.join(full, "page.tsx"))) routes.add("/" + entry);
+  }
+  return routes;
+}
+
+function isExcluded(route) {
+  return EXCLUDED_PREFIXES.some(
+    (prefix) => route === prefix || route.startsWith(prefix + "/"),
+  );
+}
+
+/* ---------- parse the canonical map --------------------------------- */
+
+/** Pulls keys out of the `APP_ROUTE_TO_WIKI: Record<string, string>`
+ *  block in nav.ts via regex. We don't need a real TS parser — the map
+ *  literal has a stable shape (each key on its own line, double-quoted)
+ *  and the cost of pulling in tsx / typescript just to read 12 keys
+ *  isn't worth it. */
+function parseAppRouteToWiki() {
+  const source = readFileSync(NAV_FILE, "utf8");
+  const start = source.indexOf("APP_ROUTE_TO_WIKI");
+  if (start === -1) throw new Error("Couldn't find APP_ROUTE_TO_WIKI in nav.ts");
+  const openBrace = source.indexOf("{", start);
+  const closeBrace = source.indexOf("};", openBrace);
+  if (openBrace === -1 || closeBrace === -1) {
+    throw new Error("Couldn't locate APP_ROUTE_TO_WIKI braces");
+  }
+  const body = source.slice(openBrace + 1, closeBrace);
+  const pairs = new Map();
+  for (const match of body.matchAll(/"([^"]+)"\s*:\s*"([^"]+)"/g)) {
+    pairs.set(match[1], match[2]);
+  }
+  return pairs;
+}
+
+/* ---------- check wiki target exists -------------------------------- */
+
+function wikiPageExists(wikiHref) {
+  // /wiki/features/gantt -> frontend/src/app/wiki/features/gantt/page.tsx
+  // /wiki -> frontend/src/app/wiki/page.tsx
+  const rel = wikiHref.replace(/^\/wiki/, "");
+  const candidate = path.join(WIKI_DIR, rel, "page.tsx");
+  return existsSync(candidate);
+}
+
+/* ---------- main ---------------------------------------------------- */
+
+function main() {
+  const appRoutes = discoverAppRoutes();
+  const map = parseAppRouteToWiki();
+
+  const unmapped = [];
+  for (const route of appRoutes) {
+    if (isExcluded(route)) continue;
+    if (!map.has(route)) unmapped.push(route);
+  }
+
+  const stale = [];
+  for (const route of map.keys()) {
+    if (!appRoutes.has(route)) stale.push(route);
+  }
+
+  const orphaned = [];
+  for (const [route, wikiHref] of map.entries()) {
+    if (!wikiPageExists(wikiHref)) orphaned.push({ route, wikiHref });
+  }
+
+  const okCount =
+    map.size - stale.length - orphaned.length;
+
+  // -------- report --------------------------------------------------
+
+  const lines = [];
+  lines.push("Wiki coverage report");
+  lines.push("=".repeat(40));
+  lines.push(`App routes scanned:        ${appRoutes.size}`);
+  lines.push(`Routes in canonical map:   ${map.size}`);
+  lines.push(`OK (mapped + wiki exists): ${okCount}`);
+  lines.push(`UNMAPPED (gap):            ${unmapped.length}`);
+  lines.push(`STALE (map → missing app): ${stale.length}`);
+  lines.push(`ORPHANED (map → missing wiki page): ${orphaned.length}`);
+  lines.push("");
+
+  if (unmapped.length) {
+    lines.push("UNMAPPED app routes (add an entry to APP_ROUTE_TO_WIKI):");
+    for (const r of unmapped) lines.push(`  - ${r}`);
+    lines.push("");
+  }
+  if (stale.length) {
+    lines.push("STALE map entries (route no longer exists in app/):");
+    for (const r of stale) lines.push(`  - ${r}`);
+    lines.push("");
+  }
+  if (orphaned.length) {
+    lines.push("ORPHANED map entries (wiki page doesn't exist):");
+    for (const { route, wikiHref } of orphaned) {
+      lines.push(`  - ${route} -> ${wikiHref}`);
+    }
+    lines.push("");
+  }
+
+  process.stdout.write(lines.join("\n") + "\n");
+
+  if (isCi && (unmapped.length || orphaned.length)) {
+    process.stderr.write(
+      "\n✗ Wiki coverage check failed. " +
+        "Add the missing entries to APP_ROUTE_TO_WIKI in " +
+        "frontend/src/lib/wiki/nav.ts, or extend EXCLUDED_PREFIXES " +
+        "in scripts/check-wiki-coverage.mjs if the route is intentionally undocumented.\n",
+    );
+    process.exit(1);
+  }
+
+  if (isCi && stale.length) {
+    // STALE alone shouldn't block CI — it's typically caused by a route
+    // being renamed or moved and the map entry not getting updated. Worth
+    // a warning so it doesn't sit forever, but a build failure would be
+    // user-hostile.
+    process.stderr.write(
+      "\n⚠ STALE map entries present (warning only — not blocking CI). " +
+        "Remove them from APP_ROUTE_TO_WIKI when convenient.\n",
+    );
+  }
+
+  process.exit(0);
+}
+
+main();
