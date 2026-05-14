@@ -1394,12 +1394,20 @@ export default function GanttChart({
 
                         {/* Render all tasks in this row */}
                         {tasksInRow.map((task) => {
-                          // Match on both id and owner so a shared project doesn't
-                          // collide with an own project that happens to share the
-                          // numeric id (per-user id namespaces).
-                          const taskProject = projects.find(
-                            (p) => p.id === task.project_id && p.owner === task.owner,
-                          );
+                          // For Gantt grouping + coloring, prefer the
+                          // cross-owner host (Option C) when set: alex's
+                          // task hosted into morgan's project takes morgan's
+                          // project colour on her timeline, since "appearing
+                          // here" is the relevant semantic. Falls back to
+                          // (project_id, owner) match for normal tasks.
+                          const ext = task.external_project;
+                          const taskProject =
+                            (ext
+                              ? projects.find((p) => p.id === ext.id && p.owner === ext.owner)
+                              : undefined) ||
+                            projects.find(
+                              (p) => p.id === task.project_id && p.owner === task.owner,
+                            );
                           const spanInfo = getTaskSpanInWeek(task, weekDates, taskProject, dates);
                           if (!spanInfo) return null;
                           const tk = taskKey(task);
