@@ -108,6 +108,15 @@ function isImage(mime: string): boolean {
   return /^image\/(png|jpe?g|gif|webp|bmp|svg\+xml)$/i.test(mime);
 }
 
+// Module-level memo: `Font.register` is a no-op on success once react-pdf
+// has cached the family, but if the FIRST call throws (e.g. transient fetch
+// failure for the .ttf files), react-pdf does NOT cache the failure and
+// every subsequent `buildPdf` call re-attempts the registration. The flag
+// is set true ONLY after a successful `Font.register`, so failures still
+// re-attempt on the next export — which is what we want for transient
+// network blips during the local-asset fetch.
+let fontsRegistered = false;
+
 // ── PDF generator (dynamic import; all JSX lives inside) ────────────────────
 
 export async function buildPdf(
@@ -128,13 +137,22 @@ export async function buildPdf(
   // to Helvetica on a fetched-font error; it bubbles the failure up.
   // Local paths sidestep both issues. ~830 KB total for both weights —
   // negligible in the public assets bundle.
-  Font.register({
-    family: "Inter",
-    fonts: [
-      { src: "/fonts/Inter-Regular.ttf" },
-      { src: "/fonts/Inter-Bold.ttf", fontWeight: "bold" },
-    ],
-  });
+  //
+  // Memoized via module-level `fontsRegistered` flag: react-pdf caches
+  // successful registrations globally, but a FAILED registration is
+  // not cached and silently retries on every subsequent export. Set
+  // the flag only after the call returns without throwing so failures
+  // can retry.
+  if (!fontsRegistered) {
+    Font.register({
+      family: "Inter",
+      fonts: [
+        { src: "/fonts/Inter-Regular.ttf" },
+        { src: "/fonts/Inter-Bold.ttf", fontWeight: "bold" },
+      ],
+    });
+    fontsRegistered = true;
+  }
 
   // View/Text don't expose `bookmark` in the renderer's published types but the
   // runtime supports it (BaseProps in @react-pdf/types/node.d.ts). Cast once.
@@ -372,6 +390,26 @@ export async function buildPdf(
             ? renderInline(tt.tokens, ctx, key)
             : [tt.text ?? tt.href];
           if (looksLikeLocalFileRef(tt.href)) {
+            // If the body references a file that's no longer on disk (e.g.
+            // deleted before export), `filterByBodyRefs` drops the attachment.
+            // The "(see Files attached)" annotation would then be a lie — the
+            // file isn't there. Emit an inline `[missing file: …]` placeholder
+            // so the broken ref is visible rather than implied-present.
+            const att = findAttachment(ctx.attachments, ctx.origin, tt.href);
+            if (!att) {
+              const basename = (() => {
+                try {
+                  return decodeURIComponent(tt.href).split("/").pop() ?? tt.href;
+                } catch {
+                  return tt.href.split("/").pop() ?? tt.href;
+                }
+              })();
+              return h(
+                Text,
+                { key, style: styles.placeholder },
+                `[missing file: ${basename}]`,
+              );
+            }
             return h(
               Text,
               { key },

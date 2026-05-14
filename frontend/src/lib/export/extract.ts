@@ -229,7 +229,18 @@ async function fetchPCRProtocolSafe(
     // the original owner for shared methods.
     const owner = method.owner || (task.is_shared_with_me ? task.owner : undefined);
     const protocol = await pcrApi.get(id, owner);
-    return protocol ?? null;
+    if (!protocol) {
+      // `pcrApi.get` resolved cleanly but the protocol record is missing
+      // (deleted, namespace mismatch, etc). The HTML/PDF generators print
+      // a user-facing "PCR Method (protocol could not be loaded)" fallback;
+      // surfacing the signal here makes debugging that fallback possible
+      // without scraping the export output.
+      console.warn(
+        `[export] PCR protocol ${id} for method ${method.id} could not be loaded — falling back to "PCR Method (protocol could not be loaded)"`
+      );
+      return null;
+    }
+    return protocol;
   } catch (err) {
     console.warn(
       `[export.extract] failed to load PCR protocol ${id} for method ${method.id}:`,
