@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { fileService } from "@/lib/file-system/file-service";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { getDemoMode } from "@/lib/file-system/wiki-capture-mock";
@@ -28,6 +29,7 @@ type DemoMarker = {
  * folder.
  */
 export default function DemoLabBanner() {
+  const pathname = usePathname();
   const { isConnected, directoryName } = useFileSystem();
   const [isOnDiskDemo, setIsOnDiskDemo] = useState(false);
   const [isInBrowserDemo, setIsInBrowserDemo] = useState(false);
@@ -42,8 +44,17 @@ export default function DemoLabBanner() {
     } catch {
       // sessionStorage can throw in privacy modes — leave dismissed=false.
     }
-    setIsInBrowserDemo(getDemoMode());
   }, []);
+
+  // Re-evaluate demo mode on every pathname change so a hard-nav round
+  // trip — e.g., the `<OpenDocsButton>` plain `<a href>` to `/wiki/...`
+  // and back — doesn't leave a stale `isInBrowserDemo=false` after the
+  // browser back. The sessionStorage flag persists across the trip;
+  // re-reading it here keeps the banner in sync.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing local React state with the external sessionStorage demo flag on every route change
+    setIsInBrowserDemo(getDemoMode());
+  }, [pathname]);
 
   useEffect(() => {
     let cancelled = false;

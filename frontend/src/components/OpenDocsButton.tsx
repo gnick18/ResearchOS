@@ -19,9 +19,17 @@ export default function OpenDocsButton() {
   const pathname = usePathname() ?? "";
   const [inDemo, setInDemo] = useState(false);
 
+  // Re-check on every route change. The Read-the-docs link is a plain
+  // `<a href>` (full browser nav, so the wiki gets a fresh document); a
+  // browser-back from the wiki to `/methods` then runs a fresh page load
+  // (or a BFCache restore). Either way, the previous mount-only read
+  // could leave `inDemo=false` even though the sessionStorage demo flag
+  // is still set. Reading on every pathname change keeps the button in
+  // sync.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing local React state with the external sessionStorage demo flag on every route change
     setInDemo(getDemoMode());
-  }, []);
+  }, [pathname]);
 
   if (!inDemo) return null;
   // Wiki routes already are the docs; no value linking from wiki → wiki.
