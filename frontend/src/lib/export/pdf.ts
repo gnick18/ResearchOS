@@ -20,7 +20,7 @@ import * as React from "react";
 import { marked, type Token, type Tokens } from "marked";
 
 import { slugify } from "./slug";
-import { extractUserContent, hasUserContent } from "./markdown";
+import { demoteHeadings, extractUserContent, hasUserContent } from "./markdown";
 import type {
   AttachmentOrigin,
   ExperimentAttachment,
@@ -671,8 +671,8 @@ export async function buildPdf(
   // ── Document assembly ────────────────────────────────────────────────────
 
   const { task, project, attachments, meta, methods } = payload;
-  const notesUserMd = extractUserContent(payload.notesMarkdown);
-  const resultsUserMd = extractUserContent(payload.resultsMarkdown);
+  const notesUserMd = demoteHeadings(extractUserContent(payload.notesMarkdown));
+  const resultsUserMd = demoteHeadings(extractUserContent(payload.resultsMarkdown));
   const hasNotes = hasUserContent(payload.notesMarkdown);
   const hasResults = hasUserContent(payload.resultsMarkdown);
   const subTasks = task.sub_tasks ?? [];
@@ -1018,7 +1018,7 @@ export async function buildPdf(
     if (method.method_type === "markdown" && bodyMarkdown) {
       children.push(
         ...renderMarkdown(
-          extractUserContent(bodyMarkdown),
+          demoteHeadings(extractUserContent(bodyMarkdown)),
           { origin: "methods", attachments },
           `m${method.id}`,
         ),
