@@ -277,6 +277,43 @@ Use this for any field rename. **Do NOT do hard on-disk cutovers** — rewrite-a
 - **Wiki screenshot recapture** — queued, managed by the parallel manager session. Full re-capture against Demo Lab data now that the fixture infrastructure landed (`6acf27c1`). Plus 5 new shots (markdown-editor language picker + Hybrid block selection + image resize, Results list, Telegram inbox), 2 re-specs (gantt-zoom-controls labels, purchases-funding-panel-not-modal), and the existing `results-editor.png` retired in favor of new `results-list.png` + `results-tab.png`. Off-limits to other sessions: `frontend/src/app/wiki/`, `frontend/src/components/wiki/`, `scripts/capture-wiki-screenshots.mjs`, `frontend/src/lib/file-system/wiki-capture-fixture.ts`.
 - **Calendar integrations** — `claude/festive-spence-378806`. Recent: Google Calendar OAuth M1, Outlook OAuth M2, two-way sync M3, calendar OAuth setup wiki, wiki top bar. Status: possibly idle but branch still alive. Off-limits: `frontend/src/lib/calendar/`, `frontend/src/app/calendar/`, `/api/calendar-feed/`.
 
+### Handoff snapshot — 2026-05-14 late evening (mid-bot-cycle rollover)
+
+(Master-bot context filled to 95% during a heavy Grant-driven verification + bot-spawning session. Handoff to next master mid-flight. Delete this subsection once the next session has picked up state.)
+
+**Origin tip**: `496d19c8`. **Total commits today: 41.**
+
+**Bots in flight (worktree branches, not yet on main)** — reports route to whoever picks up master next:
+- **`worktree-agent-acc7e86cffabb569e`** — LabArchives OAuth + image rehydration (manager-tier, 5-phase brief). New OAuth route, API client, wizard step, apply pipeline integration. Probably hours of work.
+- **`worktree-agent-a0a7ba31ae8a167b6`** — Drop Google/Microsoft OAuth, revert calendar to read-only ICS. Coordinated with LabArchives bot to leave any `labarchives` refs intact.
+- **`worktree-agent-a9d183a95bbc2660d`** — `pcrApi.get` owner threading fix (private-protocol read priority bug, queued in §8 Queued, hit live during Tier 4 verification). Single file, surgical.
+
+**Bot landed but UNMERGED** (Grant didn't authorize merge):
+- **`worktree-agent-aac4352e069be583d`** at commit **`867ff526`** — "PCR method create: pre-fill standard cycling + reagent template" (`app/methods/page.tsx`). Ready to merge when Grant says go. Grant paused the merge to show a PCR-render screenshot that turned out to be a different bug entirely (now fixed at `01530db8`); the template fix is unrelated and still valid.
+
+**Today's late-cycle verification: completed tiers**
+- Tier 1 Demo v2: 10 PASS, 2 FAIL→fixed (R1 occlusion `82d3f5e4`, E4 back-nav `e2f3bb39`). E3 multi-tab retested → no leak.
+- Tier 2 ELN wizard against `offline_14681.zip`: 6 PASS.
+- Tier 3 PDF audit: 7 PASS. Bonus fixes: method body missing (`319fc5ea` lazy normalize), image dedup confirmed native (docs in `319fc5ea`).
+- Tier 4 MethodTabs owner-routing: SharePopup TypeError fixed (`8d198375` shared_with shape), variation-notes refetch fixed (`89a31237` onTaskUpdate bubble), PCR rendering fallback fixed (`01530db8` MethodTabs source-protocol fallback). Live tested all 4 method paths PASS post-fix. `pcrApi.get` priority bug surfaced live → debugger in flight.
+- Tier 5 Universal drop: PASS.
+
+**UX chips landed (need Grant's eye when convenient):**
+- Variation-notes autosave-as-you-type (`1391da94`). 700ms debounce, 4-state status pill, cleanup-on-unmount flush.
+- Edit-mode affordance on Details page (`496d19c8`). Border-color + focus-ring on 6 editable fields + Save/Cancel pattern mirroring `e2f3bb39`. Flagged a follow-up: sub-task checkbox/add-input autosaves silently — no Saved/Saving cue. Future polish.
+
+**Still queued in §8 (not started)**:
+- Methods editor hybrid mode glitches (structural in `HybridMarkdownEditor`)
+- `TaskDetailPopup.tsx:194-199` queryFn missing owner arg (dormant)
+- 4 tooltip design-call follow-ups
+- 5 API hardening round-3 items
+- 3 methods/unattached design follow-ups
+- `?wikiCapture=1` / `/demo` mode consolidation discussion (Grant's earlier question — could Playwright hide floating buttons via JS instead of separate mode?)
+- Sub-task autosave Saved indicator (just flagged by edit-affordance bot)
+- LabArchives OAuth + Google/MS OAuth removal chips (now in flight as bots above)
+
+---
+
 ### Handoff snapshot — 2026-05-14 end of day
 
 (Master-bot session winding down for the day. Delete or fold into Recently-landed once the next session has picked up state.)
