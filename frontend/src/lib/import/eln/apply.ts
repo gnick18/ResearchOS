@@ -1,4 +1,5 @@
 import { format as formatDate } from "date-fns";
+import { taskNotesBase } from "../../tasks/results-paths";
 import type {
   ELNAppliedTask,
   ELNImportPlan,
@@ -93,16 +94,6 @@ function isFullDeps(d: Partial<ELNApplyDeps>): d is ELNApplyDeps {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-/**
- * Canonical per-tab attachment base for the Lab Notes tab. Mirrors
- * `taskNotesBase` from `lib/tasks/results-paths.ts`. Inlined here so this
- * module stays loadable in Node test harnesses without dragging in the
- * file-service module chain.
- */
-function notesBaseFor(taskId: number, owner: string): string {
-  return `users/${owner}/results/task-${taskId}/notes`;
-}
 
 function isoDatePortion(iso: string): string {
   // Defensive slice — `iso` is YYYY-MM-DDT... in our parser, so a 10-char
@@ -435,7 +426,10 @@ async function applyPage(
     deviation_log: null,
   });
 
-  const notesBase = notesBaseFor(newTask.id, newTask.owner ?? receiver);
+  const notesBase = taskNotesBase({
+    id: newTask.id,
+    owner: newTask.owner ?? receiver,
+  });
 
   // Stage attachment writes first so we know the final filenames before we
   // render the markdown body — keeps the markdown refs in sync with disk.
