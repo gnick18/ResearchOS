@@ -223,6 +223,8 @@ Use this for any field rename. **Do NOT do hard on-disk cutovers** — rewrite-a
 
 - **Field renames sometimes outpace callers.** When you see a typecheck error in `local-api.ts` for a Notes/Project/etc field that doesn't exist on the inferred type, it's usually because an interface in `lib/types.ts` was renamed by another agent and a caller wasn't updated. The typical fix touches **three layers in lockstep**: (1) the TypeScript interface in `frontend/src/lib/types.ts`, (2) the corresponding `*Api` adapter in `frontend/src/lib/local-api.ts` (read/write/normalize paths, including any lazy migration), and (3) the React component callers that pass the field. Grep the old name across all three before declaring the rename complete — partial renames often typecheck because callers go through `any`-shaped intermediaries. **Note:** Zod runtime validation was consolidated out (commit `f1e3d7be`, 2026-05-13); types are now hand-written TS interfaces in `types.ts`. If runtime validation is ever wanted again, reintroduce it surgically at the call site rather than as a parallel schema file.
 
+- **Drops over `<img>` need native capture-phase listeners — React's `onDrop` doesn't win.** When a user drops a native OS file over a rendered `<img>` inside the markdown body, Chrome's per-element drop default ("replace image with file URL") fires BEFORE React's synthetic event delegation reaches inner element handlers. React's `onDrop` on the `<img>`, the markdown block, and the editor wrapper all silently miss the event; the file falls through to the window-level `GlobalDropGuard`. The fix that actually works: register a native `dragover`/`drop` listener via `useEffect` + `addEventListener(..., true)` (capture phase) on the editor's outer wrapper. Capture fires top-down BEFORE inner elements get the event. Pattern is in `frontend/src/components/LiveMarkdownEditor.tsx` around line 575 (added by `4ae53082`, 2026-05-13). Don't waste time trying React-side fixes for drops on `<img>` — skip straight to native capture-phase.
+
 ---
 
 ## 7. Recent landed work (top of `main`)
@@ -252,6 +254,37 @@ Use this for any field rename. **Do NOT do hard on-disk cutovers** — rewrite-a
 
 - **Wiki screenshot recapture** — queued, managed by the parallel manager session. Full re-capture against Demo Lab data now that the fixture infrastructure landed (`6acf27c1`). Plus 5 new shots (markdown-editor language picker + Hybrid block selection + image resize, Results list, Telegram inbox), 2 re-specs (gantt-zoom-controls labels, purchases-funding-panel-not-modal), and the existing `results-editor.png` retired in favor of new `results-list.png` + `results-tab.png`. Off-limits to other sessions: `frontend/src/app/wiki/`, `frontend/src/components/wiki/`, `scripts/capture-wiki-screenshots.mjs`, `frontend/src/lib/file-system/wiki-capture-fixture.ts`.
 - **Calendar integrations** — `claude/festive-spence-378806`. Recent: Google Calendar OAuth M1, Outlook OAuth M2, two-way sync M3, calendar OAuth setup wiki, wiki top bar. Status: possibly idle but branch still alive. Off-limits: `frontend/src/lib/calendar/`, `frontend/src/app/calendar/`, `/api/calendar-feed/`.
+
+### Master-bot's spawned bots — 2026-05-13 late afternoon, chips clicked and running
+
+(Delete this subsection once all four have landed and merged.)
+
+- **Outlook OAuth 404 fix** — `claude/festive-curran-aad95c`, commit `4deb8009`. **Reported back**: split `ProviderConfig.key` into `OAuthProviderId` ("outlook") for caller-facing / persistence and `OAuthUrlSegment` ("microsoft") for URL paths so the popup hits `/api/auth/microsoft/login` instead of the 404 `/api/auth/outlook/login`. 2 files, 25 lines. No persisted-state migration needed. Merge into main and push when next session catches up. Off-limits to other sessions during merge: `frontend/src/lib/calendar/oauth-config.ts`, `frontend/src/lib/calendar/oauth-connect.ts`.
+- **Markdown editor follow-ups** — chip running (branch TBD). Spec: (1) Mirror the broken-image "Remove reference from note" popup for broken `[name](Files/foo.pdf)` references; (2) Fix `HybridMarkdownEditor.tsx` line ~568 pre-resolve regex (`[^)\s]+` truncates at whitespace, so filenames with spaces don't render inline) using the same fix pattern as `gc.ts` `IMG_REF_REGEX`. ~40 lines, files in scope: `LiveMarkdownEditor.tsx`, `HybridMarkdownEditor.tsx`. Off-limits during merge.
+- **API route hardening** — chip running (branch TBD). Spec: SSRF guards, scheme allowlist, response-size caps, redirect limits, content-type allowlists on `/api/telegram-file/route.ts` and `/api/calendar-feed/route.ts`. Files in scope: those two route files plus any small shared helper. Off-limits during merge.
+- **Project-wide lint pass** — chip running (branch TBD). Spec: sweep ESLint warnings, real-fix exhaustive-deps + set-state-in-effect where they're real bugs, suppress with one-line comments where they're false positives. **Skip list baked in** (markdown editor, API routes, OAuth config, wiki) so it doesn't collide with the other three. Lower warning count, zero new errors.
+
+### Handoff snapshot — 2026-05-13 late afternoon
+
+(Master-bot session about to roll over to a fresh chat due to context-window limits. Delete this subsection once the new session confirms it's picked up the state.)
+
+**Punch list — items Grant has verified ✓:**
+1. Note popup GC
+2. Image regression (PNG drop → Images/)
+3. Drop on rendered image (capture-phase fix, see §6 above)
+4. Stamp redesign + "Repair stamp formats" Settings button
+5. File drag-to-delete via `FileTrashDropZone`
+6. "Remove reference from note" button on broken image popup
+7. Per-tab attachment isolation (basic per-tab flow; migration scenarios optional)
+
+**Punch list — items still pending Grant's live test:**
+- **ResultsEditor consolidation** — `/results` card → opens TaskDetailPopup on Results tab?
+- **Universal drop on Details tab** — drop a PDF on Details → green toast, file lands in last-active-tab's `Files/`?
+- **(Optional polish)** Settings → "Split Lab Notes / Results attachments" button → run on real data, confirm sensible scanned/repaired counts.
+
+**Status of the four spawned bots** — see "Master-bot's spawned bots" subsection above. Outlook OAuth has reported; the other three are still running.
+
+**Wiki manager (parallel session)** — idle except for one queued screenshot bot (8 missing PNGs + 3 editor-*.png wirings + 3 stale capture-script selector fixes). Not blocking the master bot.
 
 ### Recently landed (2026-05-13)
 
