@@ -7,28 +7,13 @@ import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import NoteCommentsThread from "./NoteCommentsThread";
 import Tooltip from "./Tooltip";
 import { useFileRenamePopup } from "./FileRenamePopup";
+import { useDuplicateResolver } from "./DuplicateUploadDialog";
 import { fileService } from "@/lib/file-system/file-service";
 import { attachImageToTask } from "@/lib/attachments/attach-image";
 import { fileEvents } from "@/lib/attachments/file-events";
 import { gcUnreferencedAttachments } from "@/lib/attachments/gc";
+import { checkForDuplicates } from "@/lib/attachments/duplicate-check";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-
-function splitFilenameExt(name: string): { stem: string; ext: string } {
-  const dot = name.lastIndexOf(".");
-  if (dot <= 0) return { stem: name, ext: "" };
-  return { stem: name.slice(0, dot), ext: name.slice(dot) };
-}
-
-async function pickUniqueFilename(dirPath: string, desired: string): Promise<string> {
-  const { stem, ext } = splitFilenameExt(desired);
-  let candidate = desired;
-  let n = 1;
-  while (await fileService.fileExists(`${dirPath}/${candidate}`)) {
-    candidate = `${stem}-${n}${ext}`;
-    n += 1;
-  }
-  return candidate;
-}
 
 interface NoteDetailPopupProps {
   note: Note;
@@ -108,6 +93,8 @@ export default function NoteDetailPopup({
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
+  const { resolve: resolveDuplicates, DialogComponent: DuplicateDialog } =
+    useDuplicateResolver();
   const { currentUser } = useCurrentUser();
 
   // Per-note attachment folder. Mirrors how tasks use
@@ -321,23 +308,80 @@ export default function NoteDetailPopup({
     async (files: File[]) => {
       setUploading(true);
       const snippets: string[] = [];
+
+      // Per-file rename popup first (existing UX). The renamed file is what
+      // we then duplicate-check against the destination — checking pre-rename
+      // would let the user rename INTO a colliding name without warning.
+      const renamedFiles: File[] = [];
       for (const file of files) {
         if (!file.type.startsWith("image/")) continue;
         const renamedFile = await requestRename(file);
         if (!renamedFile) continue;
+        renamedFiles.push(renamedFile);
+      }
+
+      // Partition into "safe to write" and "needs user decision".
+      const imagesDir = `${basePath}/Images`;
+      const existing = new Set(await fileService.listFiles(imagesDir));
+      const { uniqueFiles, collisions } = checkForDuplicates(
+        renamedFiles,
+        existing,
+      );
+
+      // Write the safe ones first via attachImageToTask. That helper still
+      // has its own (legacy `-N` style) suffixer as a defensive fallback,
+      // but for `uniqueFiles` we've already guaranteed no collision.
+      for (const file of uniqueFiles) {
         try {
           const { markdownSnippet } = await attachImageToTask({
             ownerUsername: currentUser ?? note.username,
             taskId: note.id,
             basePath,
-            blob: renamedFile,
-            suggestedFilename: renamedFile.name,
+            blob: file,
+            suggestedFilename: file.name,
           });
           snippets.push(markdownSnippet);
         } catch {
-          alert(`Failed to upload ${renamedFile.name}`);
+          alert(`Failed to upload ${file.name}`);
         }
       }
+
+      // Walk the collision queue.
+      if (collisions.length > 0) {
+        const resolutions = await resolveDuplicates(collisions);
+        for (const info of collisions) {
+          const choice = resolutions.get(info.existingName);
+          if (!choice || choice.action === "cancel") continue;
+          const finalName =
+            choice.action === "rename"
+              ? (choice.newName ?? info.suggestedName)
+              : info.existingName; // replace = overwrite existing
+          try {
+            // For "replace" we delete the existing image first so the
+            // sidecar / blob-url cache for the old bytes is cleared.
+            // attachImageToTask writes the bytes + emits events; calling
+            // it with a freshly-renamed File means its internal
+            // pickUniqueFilename returns `finalName` directly.
+            if (choice.action === "replace") {
+              await fileService.deleteFile(`${imagesDir}/${info.existingName}`);
+            }
+            const renamed = new File([info.file], finalName, {
+              type: info.file.type,
+            });
+            const { markdownSnippet } = await attachImageToTask({
+              ownerUsername: currentUser ?? note.username,
+              taskId: note.id,
+              basePath,
+              blob: renamed,
+              suggestedFilename: finalName,
+            });
+            snippets.push(markdownSnippet);
+          } catch {
+            alert(`Failed to upload ${finalName}`);
+          }
+        }
+      }
+
       setUploading(false);
       // Append all snippets to the active entry's body in one update so the
       // markdown actually references the uploaded files. Without this, the
@@ -350,7 +394,7 @@ export default function NoteDetailPopup({
         }
       }
     },
-    [basePath, requestRename, currentUser, note.id, note.username, activeTab, entries, updateEntryContent]
+    [basePath, requestRename, resolveDuplicates, currentUser, note.id, note.username, activeTab, entries, updateEntryContent]
   );
 
   const handleFileUpload = useCallback(
@@ -358,22 +402,56 @@ export default function NoteDetailPopup({
       setUploading(true);
       const filesDir = `${basePath}/Files`;
       const snippets: string[] = [];
+
+      // Per-file rename popup first, then batch duplicate-check.
+      const renamedFiles: File[] = [];
       for (const file of files) {
         const renamedFile = await requestRename(file);
         if (!renamedFile) continue;
+        renamedFiles.push(renamedFile);
+      }
+
+      const existing = new Set(await fileService.listFiles(filesDir));
+      const { uniqueFiles, collisions } = checkForDuplicates(
+        renamedFiles,
+        existing,
+      );
+
+      const writeOne = async (file: File, finalName: string) => {
+        const destPath = `${filesDir}/${finalName}`;
+        await fileService.writeFileFromBlob(destPath, file);
+        fileEvents.emitAttached({ basePath, relativePath: `Files/${finalName}` });
+        // URL-encode just the destination filename. CommonMark §6.4
+        // disallows unescaped whitespace in link destinations, so a name
+        // like "READ ME.md" otherwise renders as plain text.
+        snippets.push(`\n[${finalName}](Files/${encodeURIComponent(finalName)})\n`);
+      };
+
+      for (const file of uniqueFiles) {
         try {
-          const finalName = await pickUniqueFilename(filesDir, renamedFile.name);
-          const destPath = `${filesDir}/${finalName}`;
-          await fileService.writeFileFromBlob(destPath, renamedFile);
-          fileEvents.emitAttached({ basePath, relativePath: `Files/${finalName}` });
-          // URL-encode just the destination filename. CommonMark §6.4
-          // disallows unescaped whitespace in link destinations, so a name
-          // like "READ ME.md" otherwise renders as plain text.
-          snippets.push(`\n[${finalName}](Files/${encodeURIComponent(finalName)})\n`);
+          await writeOne(file, file.name);
         } catch {
-          alert(`Failed to upload ${renamedFile.name}`);
+          alert(`Failed to upload ${file.name}`);
         }
       }
+
+      if (collisions.length > 0) {
+        const resolutions = await resolveDuplicates(collisions);
+        for (const info of collisions) {
+          const choice = resolutions.get(info.existingName);
+          if (!choice || choice.action === "cancel") continue;
+          const finalName =
+            choice.action === "rename"
+              ? (choice.newName ?? info.suggestedName)
+              : info.existingName;
+          try {
+            await writeOne(info.file, finalName);
+          } catch {
+            alert(`Failed to upload ${finalName}`);
+          }
+        }
+      }
+
       setUploading(false);
       // Same GC-protection rationale as handleImageUpload above: the body
       // must reference the file or the debounced GC sweep will delete it.
@@ -384,7 +462,7 @@ export default function NoteDetailPopup({
         }
       }
     },
-    [basePath, requestRename, activeTab, entries, updateEntryContent]
+    [basePath, requestRename, resolveDuplicates, activeTab, entries, updateEntryContent]
   );
 
   // Add new entry
@@ -523,6 +601,7 @@ export default function NoteDetailPopup({
   return (
     <>
     <FileRenamePopup />
+    <DuplicateDialog />
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={handleClose}>
       <div
         className={`bg-white rounded-2xl shadow-2xl w-full flex flex-col overflow-hidden transition-all duration-300 ${
