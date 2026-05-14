@@ -91,11 +91,6 @@ export async function buildRawZip(
     zip.file("results.md", payload.resultsMarkdown);
   }
 
-  // Track which methods-origin attachments we've consumed as method bodies so
-  // we don't double-place them. (Same filename can't appear twice anyway —
-  // payload.attachments is pre-deduped — but explicit is better than implicit.)
-  const consumedMethodAttachments = new Set<string>();
-
   for (const mp of payload.methods) {
     const id = mp.method.id;
     zip.file(
@@ -112,7 +107,6 @@ export async function buildRawZip(
       );
       if (match) {
         zip.file(`methods/method-${id}-${match.filename}`, match.bytes);
-        consumedMethodAttachments.add(match.filename);
       }
     }
   }
