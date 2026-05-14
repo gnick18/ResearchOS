@@ -76,10 +76,14 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
   // Check if this is the Miscellaneous project (protected)
   const isMiscellaneousProject = project.name === "Miscellaneous";
 
-  // Fetch tasks for this project
+  // Fetch tasks for this project. For shared projects, the tasks live in the
+  // owner's directory — read access only requires `is_shared_with_me`,
+  // independent of edit permission, so this thread-through differs from the
+  // edit-only `effectiveOwnerOf` used for mutations above.
+  const taskListOwner = project.is_shared_with_me ? project.owner : undefined;
   const { data: tasks = [] } = useQuery({
-    queryKey: ["tasks", project.id],
-    queryFn: () => tasksApi.listByProject(project.id),
+    queryKey: ["tasks", project.is_shared_with_me ? `${project.owner}:${project.id}` : `self:${project.id}`],
+    queryFn: () => tasksApi.listByProject(project.id, taskListOwner),
   });
 
   const today = new Date().toISOString().split("T")[0];

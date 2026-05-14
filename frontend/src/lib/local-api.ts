@@ -178,8 +178,15 @@ function normalizeTaskRecord(raw: Task): Task {
 }
 
 export const tasksApi = {
-  listByProject: async (projectId: number): Promise<Task[]> => {
-    const tasks = await tasksStore.query({ project_id: projectId });
+  // When `owner` is set (the project being listed is shared with the current
+  // user), the query reads from the owner's tasks dir instead of the current
+  // user's. Without it, a receiver opening a shared project sees nothing —
+  // or worse, sees their own tasks whose numeric `project_id` collides with
+  // the shared project's id, since per-user id spaces are independent.
+  listByProject: async (projectId: number, owner?: string): Promise<Task[]> => {
+    const tasks = owner
+      ? (await tasksStore.listAllForUser(owner)).filter((t) => t.project_id === projectId)
+      : await tasksStore.query({ project_id: projectId });
     return tasks.map(computeTaskEndDate);
   },
 
@@ -2400,6 +2407,7 @@ function withOwnerFallback(task: Task, currentUser: string | null): Task {
 interface SharedWithMeManifest {
   version?: number;
   tasks?: Array<{ id: number; owner: string; permission?: string; shared_at?: string }>;
+  projects?: Array<{ id: number; owner: string; permission?: string; shared_at?: string }>;
 }
 
 export const fetchAllTasksIncludingShared = async () => {
@@ -2411,13 +2419,17 @@ export const fetchAllTasksIncludingShared = async () => {
   // Track shared tasks whose end_date needs healing, keyed by owner so the
   // write-back lands in the right user directory.
   const sharedToHeal: Array<{ task: Task; owner: string }> = [];
+  // De-dup across the two surfacing paths below: a task can be both
+  // individually shared AND a member of a shared project. Composite key —
+  // numeric ids are namespaced per-owner.
+  const seenComposite = new Set<string>();
   try {
     const currentUser = currentUserForOwn;
     const manifest = await fileService.readJson<SharedWithMeManifest>(
       `users/${currentUser}/_shared_with_me.json`
     );
-    const entries = manifest?.tasks ?? [];
-    for (const entry of entries) {
+    const taskEntries = manifest?.tasks ?? [];
+    for (const entry of taskEntries) {
       // Per-user ID spaces mean a shared task's numeric id can collide with one
       // of the viewer's own tasks. Both are surfaced; downstream code keys off
       // `taskKey(task)` (in `frontend/src/lib/types.ts`) to disambiguate.
@@ -2433,6 +2445,7 @@ export const fetchAllTasksIncludingShared = async () => {
         shared_permission: permission,
       } as Task;
       sharedTasks.push(withOwner);
+      seenComposite.add(`${entry.owner}:${task.id}`);
       // Only attempt heal-write for shared tasks the viewer is allowed to edit.
       // The raw on-disk task (sans the is_shared_with_me / shared_permission
       // overlays) is what gets persisted.
@@ -2440,6 +2453,44 @@ export const fetchAllTasksIncludingShared = async () => {
         const expected = canonicalEndDate(task);
         if (task.end_date !== expected) {
           sharedToHeal.push({ task: { ...task, end_date: expected }, owner: entry.owner });
+        }
+      }
+    }
+
+    // Also surface tasks belonging to shared PROJECTS. Sharing a project is
+    // meant to share its tasks too — without this loop, the receiver sees the
+    // project shell with zero tasks (or, worse, their own tasks whose numeric
+    // project_id collides with the shared project's id). The receiver inherits
+    // the project's permission for each pulled task.
+    const projectEntries = manifest?.projects ?? [];
+    for (const projEntry of projectEntries) {
+      const projPermission = projEntry.permission === "view" ? "view" : "edit";
+      let ownerTasks: Task[] = [];
+      try {
+        ownerTasks = await tasksStore.listAllForUser(projEntry.owner);
+      } catch (err) {
+        console.warn(
+          `[fetchAllTasksIncludingShared] failed to load tasks for shared project ${projEntry.owner}/${projEntry.id}:`,
+          err
+        );
+        continue;
+      }
+      for (const task of ownerTasks) {
+        if (task.project_id !== projEntry.id) continue;
+        const composite = `${projEntry.owner}:${task.id}`;
+        if (seenComposite.has(composite)) continue;
+        seenComposite.add(composite);
+        sharedTasks.push({
+          ...task,
+          owner: projEntry.owner,
+          is_shared_with_me: true,
+          shared_permission: projPermission,
+        } as Task);
+        if (projPermission === "edit") {
+          const expected = canonicalEndDate(task);
+          if (task.end_date !== expected) {
+            sharedToHeal.push({ task: { ...task, end_date: expected }, owner: projEntry.owner });
+          }
         }
       }
     }
