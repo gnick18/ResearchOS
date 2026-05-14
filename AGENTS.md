@@ -278,22 +278,34 @@ Use this for any field rename. **Do NOT do hard on-disk cutovers** — rewrite-a
 - **Wiki screenshot recapture** — queued, managed by the parallel manager session. Full re-capture against Demo Lab data now that the fixture infrastructure landed (`6acf27c1`). Plus 5 new shots (markdown-editor language picker + Hybrid block selection + image resize, Results list, Telegram inbox), 2 re-specs (gantt-zoom-controls labels, purchases-funding-panel-not-modal), and the existing `results-editor.png` retired in favor of new `results-list.png` + `results-tab.png`. Off-limits to other sessions: `frontend/src/app/wiki/`, `frontend/src/components/wiki/`, `scripts/capture-wiki-screenshots.mjs`, `frontend/src/lib/file-system/wiki-capture-fixture.ts`.
 - **Calendar OAuth removal** — landed via worker bot on this orchestrator's branch (2026-05-14). All OAuth surface gone; ICS-only going forward. The `claude/festive-spence-378806` branch is now stale (its M1/M2/M3 OAuth work is what got reverted). The `/api/calendar-feed/` proxy is the remaining live integration and stays untouched.
 
-### Handoff snapshot — 2026-05-14 late evening (mid-bot-cycle rollover) — UPDATED
+### Handoff snapshot — 2026-05-14 late evening (mid-bot-cycle rollover) — UPDATED 2x
 
 (Master-bot context filled past 95% during a heavy Grant-driven verification + bot-spawning session. Handoff to next master mid-flight. Delete this subsection once the next session has picked up state.)
 
-**Origin tip**: `bd18a3a2` (pushed). **Local main = origin/main.** **Total commits today: 98.**
+**Origin tip**: `bd18a3a2`. **Local main**: `4f31dab3` — **3 commits ahead of origin, awaiting Grant's push** (auto-mode classifier blocked the master-bot push to main). The three are: `6252e704` (handoff refresh), `bcb578f5` (PCR template merge), `4f31dab3` (LabArchives merge). **Total commits today: 101.**
 
-**Only one bot still in flight** — report routes to whoever picks up master next:
-- **`worktree-agent-acc7e86cffabb569e`** — LabArchives OAuth + image rehydration (manager-tier, 5-phase brief). New OAuth route, API client, wizard step, apply pipeline integration. Probably hours of work. Started during this session.
+**Zero bots in flight.** All three bots that were running at context-end either merged or completed:
 
-**Bot landed during context-end shutdown** (so the next master doesn't think it's still running):
-- **`worktree-agent-a0a7ba31ae8a167b6`** — Drop Google/Microsoft OAuth, revert calendar to read-only ICS. Merged at **`bd18a3a2`** (commits `f38faa1b` + `9bafac58` + `e3219026`, net –2887 LOC across 10 deleted files: all `/api/auth/{google,microsoft}/{login,callback,refresh}/route.ts` + `lib/calendar/{oauth-config,oauth-server,oauth-connect,oauth-tokens-store,use-oauth-account,google-client,microsoft-client,external-events-write}.ts` + `app/wiki/integrations/calendar-oauth/page.tsx`). ICS-only going forward. Coordinated to leave any `labarchives` refs intact. **Post-merge typecheck trap**: `.next/types/validator.ts` had stale references to the deleted routes; `rm -rf .next/types .next/dev/types && npx tsc --noEmit` confirmed EXIT=0 (no real errors — see §6 trap entry, second occurrence of this pattern).
+- **`worktree-agent-a0a7ba31ae8a167b6`** (Drop Google/Microsoft OAuth) — merged at **`bd18a3a2`**. Commits `f38faa1b` + `9bafac58` + `e3219026`. Net –2887 LOC across 10 deleted files: all `/api/auth/{google,microsoft}/*` routes + `lib/calendar/oauth-*` + `app/wiki/integrations/calendar-oauth/page.tsx`. ICS-only going forward. **Post-merge typecheck trap**: `.next/types/validator.ts` had stale references to the deleted routes; `rm -rf .next/types .next/dev/types && npx tsc --noEmit` confirmed EXIT=0. Second occurrence of the §6 stale-validator pattern.
+
+- **`worktree-agent-aac4352e069be583d`** (PCR method create template) — merged at **`bcb578f5`**. Single-file change to `app/methods/page.tsx` seeding standard cycling values (95/3min → 30× [95/15s, 60/30s, 72/30s] → 72/5min hold @ 12°) + reagent placeholders in the PCR create dialog. Existing protocols on disk untouched.
+
+- **`worktree-agent-acc7e86cffabb569e`** (LabArchives integration) — merged at **`4f31dab3`** (tip `08fc42f8`, 5 commits/5 phases). **Critical doc finding**: LabArchives does NOT use OAuth — the manager-tier brief was wrong on that. Actual mechanism is HMAC-SHA1 signed REST calls keyed by institutional `akid` + `access_password` (server-side env vars). Bot kept the brief's directory shape (`/api/auth/labarchives/{login,callback,refresh}` + popup → postMessage UX) for consistency with Google/Microsoft pattern, but underlying signing is different. Server-only secrets, per-user state = UID stored in `_labarchives.json`. New wizard step `fetch-images` rehydrates Form-B inline images post-mapping, gated on 4 conditions (parsed-and-has-missing-images, `isLabArchivesConfigured()`, `!isDemoOrWikiCapture()`). **Defensive review pre-merge confirmed clean**: no `NEXT_PUBLIC_` on secrets, HMAC math matches `mcmero/labarchives-py` + `marcellofuschi/labarchives-js`, backward-compat preserved when not configured, demo mode safely short-circuits.
+
+**LabArchives live-verification still owed.** Bot could not test against `api.labarchives.com` (no institutional creds in worktree). The HMAC signing math, URL construction, and XML-error parsing follow the published reference clients but haven't been exercised against the real API. To live-test:
+1. Request institutional API creds from LabArchives Support (see `https://www.labarchives.com/labarchives-knowledge-base/api/`).
+2. Set in `frontend/.env.local`: `LABARCHIVES_ACCESS_KEY_ID=...`, `LABARCHIVES_ACCESS_PASSWORD=...`, `NEXT_PUBLIC_LABARCHIVES_ENABLED=1`.
+3. Restart dev server. Settings → Data maintenance → "LabArchives connection" → Connect. Enter LabArchives email + password in popup. Row should flip to "Connected as ...".
+4. Open ELN import wizard, upload a real `.eln` ZIP with Form-B images. Wizard should surface a new "5 · Fetch images" step after Mapping. Click "Fetch N images" and watch the progress.
+5. Open a created task → confirm rehydrated images render from `Images/<name>` instead of `Images/missing-<orig>`.
+
+**LabArchives deferred items** (queue these into §8 if not addressed in live-test follow-up):
+- Regional API base URL (`LABARCHIVES_API_BASE_URL`) doesn't auto-detect; UK/AU/EU institutions need manual env var. Could add a region picker in the connect popup.
+- `baseUrl` not persisted in per-user `_labarchives.json` — refresh fails if env var changes mid-session.
+- No `/wiki/integrations/labarchives` page (mirror `/wiki/integrations/calendar-oauth`).
+- No automated test for the new wizard step or the `fetchedImages` rewrite/write path. `test-labarchives-apply.mjs` only covers backward-compat.
 
 **pcrApi.get owner threading** ✅ landed at `1d122fc0` earlier this session. Added `owner?: string` arg, no private-then-public fallback when owner provided. 3 call sites updated (MethodTabs, methods page PcrViewer, export extract.ts). Bot flagged `pcrApi.update` may have the same issue — queued in §8 above.
-
-**Bot landed but UNMERGED** (Grant didn't authorize merge):
-- **`worktree-agent-aac4352e069be583d`** at commit **`867ff526`** — "PCR method create: pre-fill standard cycling + reagent template" (`app/methods/page.tsx`). Ready to merge when Grant says go. Grant paused the merge to show a PCR-render screenshot that turned out to be a different bug entirely (now fixed at `01530db8`); the template fix is unrelated and still valid.
 
 **Today's late-cycle verification: completed tiers**
 - Tier 1 Demo v2: 10 PASS, 2 FAIL→fixed (R1 occlusion `82d3f5e4`, E4 back-nav `e2f3bb39`). E3 multi-tab retested → no leak.
