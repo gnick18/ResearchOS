@@ -169,7 +169,12 @@ export interface TaskCreate {
 }
 
 export interface TaskUpdate {
-  project_id?: number;
+  // `null` clears the project assignment (i.e. "no project"). The underlying
+  // JsonStore writer accepts whatever the caller provides (it only filters
+  // `undefined`), and the ELN-import bulk-sort screen relies on this to move
+  // a task back to the unfiled column. Keep `null` explicit in the type so
+  // callers don't have to cast through `Partial<Task>` to do it.
+  project_id?: number | null;
   name?: string;
   start_date?: string;
   duration_days?: number;

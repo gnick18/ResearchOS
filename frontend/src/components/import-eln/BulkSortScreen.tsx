@@ -128,14 +128,10 @@ export default function BulkSortScreen({ result, onDone }: BulkSortScreenProps) 
       setRowSaving(taskId, true);
       setRowError(taskId, null);
       try {
-        // TaskUpdate's project_id is typed as `number | undefined` but the
-        // underlying store accepts null too — that's how the create flow
-        // sets "no project" in the first place. Cast through so we can
-        // unassign a task here.
-        await tasksApi.update(
-          taskId,
-          { project_id: nextProjectId } as Parameters<typeof tasksApi.update>[1],
-        );
+        // TaskUpdate.project_id is `number | null | undefined`; passing `null`
+        // unassigns the task ("no project"). The JsonStore writer accepts any
+        // non-undefined value, so this round-trips to disk faithfully.
+        await tasksApi.update(taskId, { project_id: nextProjectId });
         invalidateTaskQueries();
       } catch (err) {
         patchRow(taskId, { projectId: original.projectId });

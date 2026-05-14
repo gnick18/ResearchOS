@@ -285,13 +285,29 @@ export const tasksApi = {
       duration_days: data.duration_days ?? existing.duration_days,
     });
 
+    // Normalize `project_id: null` → `0`. The persisted Task shape (see
+    // types.ts) has `project_id: number`, and the canonical "no project"
+    // sentinel on disk is `0` — this is how `tasksApi.create` records it
+    // (`project_id: data.project_id ?? 0`) and how `listByProject` and
+    // related filters expect it. Callers (notably the ELN-import
+    // BulkSortScreen) pass `null` to mean "unassign"; normalize here so a
+    // single boundary owns the convention and downstream reads can rely on
+    // `task.project_id` being a number.
+    const { project_id: rawProjectId, ...restData } = data;
+    const normalizedProjectId =
+      rawProjectId === null ? 0 : rawProjectId;
+
     // Invariant: ∀ a ∈ method_attachments: a.method_id ∈ method_ids. Whenever
     // a write touches either side of the method relationship, prune the
     // attachments array so per-task overrides (variation_notes, pcr_gradient,
     // pcr_ingredients) can't outlive the method link. addMethod/removeMethod
     // already keep both sides in sync; this guards arbitrary `update` payloads
     // (and reconciles drift carried in from a normalized read).
-    const writePatch: Partial<Task> = { ...data, end_date: endDate };
+    const writePatch: Partial<Task> = {
+      ...restData,
+      ...(normalizedProjectId !== undefined ? { project_id: normalizedProjectId } : {}),
+      end_date: endDate,
+    };
     if (data.method_ids !== undefined || data.method_attachments !== undefined) {
       const nextMethodIds = data.method_ids ?? existing.method_ids ?? [];
       const nextAttachments =
