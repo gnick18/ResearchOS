@@ -1,6 +1,7 @@
 "use client";
 
 import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
+import { readDeployerCreds } from "./deployer-store";
 import {
   writeConnection,
   type LabArchivesConnection,
@@ -13,6 +14,14 @@ import {
  * Shape mirrors `connectProvider` in `lib/calendar/oauth-connect.ts` so the
  * wizard step can treat all three integrations the same way. Throws an
  * Error with a user-friendly message on failure / cancellation.
+ *
+ * Sidecar-mode handshake (Phase 3 of LabArchives local-first config): the
+ * popup posts back asking for deployer creds shortly after load. We listen
+ * for that request, read the sidecar via FSA, and reply with the creds (or
+ * with `null` if there's no sidecar — env-var deployments just shrug it
+ * off). The popup then includes the creds in its `/login` POST body. The
+ * sync-style protocol means we don't have to plumb async state into the
+ * popup URL.
  */
 
 interface CallbackPayload {
@@ -56,6 +65,43 @@ export async function connectLabArchives(
 
     const onMessage = async (event: MessageEvent) => {
       if (event.origin !== expectedOrigin) return;
+      // Sidecar-mode handshake: the popup asks us for deployer creds; we
+      // read the FSA sidecar (returns null when absent) and reply. The
+      // popup uses the reply to populate `body.deployerCreds` in its
+      // /login POST. Listener stays installed until the auth payload
+      // arrives (in case the popup races and asks again).
+      const msg = event.data as
+        | { source?: string; type?: string }
+        | undefined;
+      if (msg && msg.source === "researchos-labarchives-popup" && msg.type === "request-deployer-creds") {
+        try {
+          const creds = await readDeployerCreds();
+          if (popup && !popup.closed) {
+            popup.postMessage(
+              {
+                source: "researchos-labarchives-opener",
+                type: "deployer-creds",
+                creds: creds, // null when no sidecar (env-var mode)
+              },
+              expectedOrigin,
+            );
+          }
+        } catch {
+          // Best-effort. If the sidecar read fails, reply with null so
+          // the popup doesn't hang past its 1.5s timeout.
+          if (popup && !popup.closed) {
+            popup.postMessage(
+              {
+                source: "researchos-labarchives-opener",
+                type: "deployer-creds",
+                creds: null,
+              },
+              expectedOrigin,
+            );
+          }
+        }
+        return;
+      }
       const data = event.data as
         | { source?: string; payload?: CallbackPayload }
         | undefined;

@@ -10,7 +10,10 @@ import {
   readConnection,
   type LabArchivesConnection,
 } from "@/lib/labarchives/tokens-store";
-import { isLabArchivesConfigured } from "@/lib/labarchives/config";
+import {
+  isLabArchivesConfigured,
+  isLabArchivesConfiguredAsync,
+} from "@/lib/labarchives/config";
 import type { MissingInlineImage } from "@/lib/import/eln/types";
 
 interface Props {
@@ -42,7 +45,10 @@ export default function LabArchivesSignInStep({
   const [connection, setConnection] = useState<LabArchivesConnection | null>(null);
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [fetched, setFetched] = useState<Map<string, FetchedImage> | null>(null);
-  const configured = isLabArchivesConfigured();
+  // Env-var configured state is sync (process.env); sidecar configured
+  // state lives in FSA and resolves after mount. We start with the sync
+  // answer so env-var deployments don't flicker.
+  const [configured, setConfigured] = useState<boolean>(() => isLabArchivesConfigured());
 
   // Check if the receiver already has a saved LabArchives connection — if
   // so we surface it as "already connected" and let them jump straight
@@ -56,6 +62,18 @@ export default function LabArchivesSignInStep({
       cancelled = true;
     };
   }, [receiver]);
+
+  // Re-probe the configured state with the sidecar-aware async check —
+  // lights up the wizard for self-host deployers who set up creds via UI.
+  useEffect(() => {
+    let cancelled = false;
+    void isLabArchivesConfiguredAsync().then((ok) => {
+      if (!cancelled) setConfigured(ok);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleConnect = useCallback(async () => {
     setPhase({ kind: "connecting" });

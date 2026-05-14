@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { isLabArchivesConfigured } from "./config";
+import type { NextRequest } from "next/server";
+import {
+  isLabArchivesConfigured,
+  readLabArchivesCredsFromRequest,
+} from "./config";
 
 /**
  * Node-env tests for the capture-mode override on `isLabArchivesConfigured`.
@@ -114,5 +118,106 @@ describe("isLabArchivesConfigured", () => {
       storage: { "researchos:demo-mode": "1" },
     });
     expect(isLabArchivesConfigured()).toBe(true);
+  });
+});
+
+describe("readLabArchivesCredsFromRequest", () => {
+  const ORIG_KEY = process.env.LABARCHIVES_ACCESS_KEY_ID;
+  const ORIG_PW = process.env.LABARCHIVES_ACCESS_PASSWORD;
+  const ORIG_URL = process.env.LABARCHIVES_API_BASE_URL;
+  const fakeReq = {} as NextRequest;
+
+  beforeEach(() => {
+    delete process.env.LABARCHIVES_ACCESS_KEY_ID;
+    delete process.env.LABARCHIVES_ACCESS_PASSWORD;
+    delete process.env.LABARCHIVES_API_BASE_URL;
+  });
+
+  afterEach(() => {
+    if (ORIG_KEY === undefined) delete process.env.LABARCHIVES_ACCESS_KEY_ID;
+    else process.env.LABARCHIVES_ACCESS_KEY_ID = ORIG_KEY;
+    if (ORIG_PW === undefined) delete process.env.LABARCHIVES_ACCESS_PASSWORD;
+    else process.env.LABARCHIVES_ACCESS_PASSWORD = ORIG_PW;
+    if (ORIG_URL === undefined) delete process.env.LABARCHIVES_API_BASE_URL;
+    else process.env.LABARCHIVES_API_BASE_URL = ORIG_URL;
+  });
+
+  it("env vars win over the body's deployerCreds", () => {
+    process.env.LABARCHIVES_ACCESS_KEY_ID = "env-akid";
+    process.env.LABARCHIVES_ACCESS_PASSWORD = "env-pw";
+    const out = readLabArchivesCredsFromRequest(fakeReq, {
+      deployerCreds: { accessKeyId: "body-akid", accessPassword: "body-pw" },
+    });
+    expect(out.accessKeyId).toBe("env-akid");
+    expect(out.accessPassword).toBe("env-pw");
+    expect(out.baseUrl).toBe("https://api.labarchives.com/api");
+  });
+
+  it("falls back to body.deployerCreds when env vars are unset", () => {
+    const out = readLabArchivesCredsFromRequest(fakeReq, {
+      deployerCreds: {
+        accessKeyId: "body-akid",
+        accessPassword: "body-pw",
+        baseUrl: "https://auapi.labarchives.com/api",
+      },
+    });
+    expect(out.accessKeyId).toBe("body-akid");
+    expect(out.accessPassword).toBe("body-pw");
+    expect(out.baseUrl).toBe("https://auapi.labarchives.com/api");
+  });
+
+  it("defaults baseUrl to the US endpoint when body omits it", () => {
+    const out = readLabArchivesCredsFromRequest(fakeReq, {
+      deployerCreds: { accessKeyId: "a", accessPassword: "b" },
+    });
+    expect(out.baseUrl).toBe("https://api.labarchives.com/api");
+  });
+
+  it("throws when neither env nor body supplies creds", () => {
+    expect(() => readLabArchivesCredsFromRequest(fakeReq, {})).toThrow(
+      /not configured/i,
+    );
+    expect(() => readLabArchivesCredsFromRequest(fakeReq, null)).toThrow(
+      /not configured/i,
+    );
+  });
+
+  it("rejects empty / non-string deployerCreds fields", () => {
+    expect(() =>
+      readLabArchivesCredsFromRequest(fakeReq, {
+        deployerCreds: { accessKeyId: "", accessPassword: "b" },
+      }),
+    ).toThrow(/malformed/i);
+    expect(() =>
+      readLabArchivesCredsFromRequest(fakeReq, {
+        deployerCreds: { accessKeyId: "a", accessPassword: 42 },
+      }),
+    ).toThrow(/malformed/i);
+  });
+
+  it("rejects absurdly long fields", () => {
+    const big = "x".repeat(2000);
+    expect(() =>
+      readLabArchivesCredsFromRequest(fakeReq, {
+        deployerCreds: { accessKeyId: big, accessPassword: "b" },
+      }),
+    ).toThrow(/too long/i);
+    expect(() =>
+      readLabArchivesCredsFromRequest(fakeReq, {
+        deployerCreds: { accessKeyId: "a", accessPassword: big },
+      }),
+    ).toThrow(/too long/i);
+  });
+
+  it("rejects baseUrl that isn't http(s)", () => {
+    expect(() =>
+      readLabArchivesCredsFromRequest(fakeReq, {
+        deployerCreds: {
+          accessKeyId: "a",
+          accessPassword: "b",
+          baseUrl: "file:///etc/passwd",
+        },
+      }),
+    ).toThrow(/http.s/i);
   });
 });

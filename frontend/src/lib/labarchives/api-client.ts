@@ -1,6 +1,7 @@
 "use client";
 
 import type { MissingInlineImage } from "@/lib/import/eln/types";
+import { readDeployerCreds, type DeployerCreds } from "./deployer-store";
 import { readConnection } from "./tokens-store";
 
 /**
@@ -13,6 +14,12 @@ import { readConnection } from "./tokens-store";
  * keep a small concurrency window so we don't hammer their API, retry on
  * transient errors, and bubble per-image failures up to the caller
  * (non-fatal, the wizard renders the existing placeholder for misses).
+ *
+ * Sidecar-mode wiring (Phase 3 of LabArchives local-first config): we read
+ * the FSA `_labarchives-deployer.json` sidecar ONCE per `fetchInlineImages`
+ * call and include the creds in every `/api/labarchives/fetch-image` POST
+ * body. The server reads env vars first and only falls back to the body
+ * when env is unset, so this is a no-op for shared deployments.
  */
 
 /** How many image fetches we keep in flight at once. LabArchives doesn't
@@ -54,11 +61,15 @@ export interface FetchImagesResult {
  * Fetch the bytes for a single Form-B inline image. Used internally; tests
  * import this directly to verify the per-image path without spinning up
  * a concurrency queue.
+ *
+ * `deployerCreds` is the optional sidecar-mode creds payload. When set, the
+ * server-side route reads them out of the body instead of from env vars.
  */
 export async function fetchOneImage(
   uid: string,
   image: MissingInlineImage,
   signal?: AbortSignal,
+  deployerCreds?: DeployerCreds | null,
 ): Promise<FetchedImage> {
   // Without an entryPartId we can't address the LabArchives entry — surface
   // a clear error so the caller knows the original URL wasn't parseable.
@@ -77,10 +88,16 @@ export async function fetchOneImage(
   if (signal) signal.addEventListener("abort", onParentAbort);
 
   try {
+    const bodyObj: {
+      uid: string;
+      entryPartId: string;
+      deployerCreds?: DeployerCreds;
+    } = { uid, entryPartId: image.entryPartId };
+    if (deployerCreds) bodyObj.deployerCreds = deployerCreds;
     const res = await fetch("/api/labarchives/fetch-image", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ uid, entryPartId: image.entryPartId }),
+      body: JSON.stringify(bodyObj),
       signal: ctrl.signal,
     });
     if (!res.ok) {
@@ -128,6 +145,17 @@ export async function fetchInlineImages(
   let successCount = 0;
   let errorCount = 0;
 
+  // Read the sidecar once at the start of the batch — saves N FSA reads,
+  // and the deployer creds don't change mid-import. `readDeployerCreds`
+  // returns null when no sidecar exists (env-var mode), so the workers
+  // just don't send the field and the server resolves from env.
+  let deployerCreds: DeployerCreds | null = null;
+  try {
+    deployerCreds = await readDeployerCreds();
+  } catch {
+    // Best-effort. Network 5xx from the server will surface clearly.
+  }
+
   let nextIndex = 0;
   async function worker(): Promise<void> {
     while (true) {
@@ -135,7 +163,12 @@ export async function fetchInlineImages(
       const idx = nextIndex++;
       if (idx >= total) return;
       const image = options.images[idx];
-      const result = await fetchOneImage(options.uid, image, options.signal);
+      const result = await fetchOneImage(
+        options.uid,
+        image,
+        options.signal,
+        deployerCreds,
+      );
       byUrl.set(image.originalUrl, result);
       done++;
       if (result.kind === "ok") successCount++;

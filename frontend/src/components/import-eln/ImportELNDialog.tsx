@@ -22,7 +22,10 @@ import type {
 } from "@/lib/import/eln/types";
 import type { FetchedImage } from "@/lib/labarchives/api-client";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
-import { isLabArchivesConfigured } from "@/lib/labarchives/config";
+import {
+  isLabArchivesConfigured,
+  isLabArchivesConfiguredAsync,
+} from "@/lib/labarchives/config";
 import BulkSortScreen from "./BulkSortScreen";
 import PickFormatStep, { type ELNFormat } from "./steps/PickFormatStep";
 import UploadStep from "./steps/UploadStep";
@@ -150,17 +153,36 @@ export default function ImportELNDialog({ isOpen, onClose }: ImportELNDialogProp
    * Decide whether the LabArchives sign-in step is even reachable for this
    * plan. We skip it when:
    *  - the parsed notebook has no Form-B URLs (nothing to fetch); or
-   *  - the deployment has no LabArchives credentials configured; or
+   *  - the deployment has no LabArchives credentials configured (env vars
+   *    OR a sidecar in the data folder — async); or
    *  - we're in demo / wikiCapture mode (no real LabArchives credentials,
    *    don't surface a sign-in flow that will reach the public LabArchives API).
+   *
+   * Env-var configured state is sync; sidecar state needs an FSA read. We
+   * start with the conservative sync answer (skip = true unless env is
+   * set) and refresh once the async probe resolves. The "fetch-images"
+   * step is only ever reached *after* the user clicks "Start import" on
+   * the mapping screen, so a brief flicker isn't user-visible.
    */
+  const syncEnvConfigured = useMemo(() => isLabArchivesConfigured(), []);
+  const [sidecarConfigured, setSidecarConfigured] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void isLabArchivesConfiguredAsync().then((ok) => {
+      // ok already includes the env-var case; storing the OR result here.
+      if (!cancelled) setSidecarConfigured(ok);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const skipFetchStep = useMemo(() => {
     if (!parsed) return true;
     if (parsed.missingInlineImages.length === 0) return true;
-    if (!isLabArchivesConfigured()) return true;
+    if (!(syncEnvConfigured || sidecarConfigured)) return true;
     if (isDemoOrWikiCapture()) return true;
     return false;
-  }, [parsed]);
+  }, [parsed, syncEnvConfigured, sidecarConfigured]);
 
   const runApply = useCallback(
     async (fetched: Map<string, FetchedImage>) => {
