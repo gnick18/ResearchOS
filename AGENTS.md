@@ -278,17 +278,19 @@ Use this for any field rename. **Do NOT do hard on-disk cutovers** — rewrite-a
 - **Wiki screenshot recapture** — queued, managed by the parallel manager session. Full re-capture against Demo Lab data now that the fixture infrastructure landed (`6acf27c1`). Plus 5 new shots (markdown-editor language picker + Hybrid block selection + image resize, Results list, Telegram inbox), 2 re-specs (gantt-zoom-controls labels, purchases-funding-panel-not-modal), and the existing `results-editor.png` retired in favor of new `results-list.png` + `results-tab.png`. Off-limits to other sessions: `frontend/src/app/wiki/`, `frontend/src/components/wiki/`, `scripts/capture-wiki-screenshots.mjs`, `frontend/src/lib/file-system/wiki-capture-fixture.ts`.
 - **Calendar OAuth removal** — landed via worker bot on this orchestrator's branch (2026-05-14). All OAuth surface gone; ICS-only going forward. The `claude/festive-spence-378806` branch is now stale (its M1/M2/M3 OAuth work is what got reverted). The `/api/calendar-feed/` proxy is the remaining live integration and stays untouched.
 
-### Handoff snapshot — 2026-05-14 late evening (mid-bot-cycle rollover)
+### Handoff snapshot — 2026-05-14 late evening (mid-bot-cycle rollover) — UPDATED
 
-(Master-bot context filled to 95% during a heavy Grant-driven verification + bot-spawning session. Handoff to next master mid-flight. Delete this subsection once the next session has picked up state.)
+(Master-bot context filled past 95% during a heavy Grant-driven verification + bot-spawning session. Handoff to next master mid-flight. Delete this subsection once the next session has picked up state.)
 
-**Origin tip**: `496d19c8`. **Total commits today: 41.**
+**Origin tip**: `bd18a3a2` (pushed). **Local main = origin/main.** **Total commits today: 98.**
 
-**Bots in flight (worktree branches, not yet on main)** — reports route to whoever picks up master next:
-- **`worktree-agent-acc7e86cffabb569e`** — LabArchives OAuth + image rehydration (manager-tier, 5-phase brief). New OAuth route, API client, wizard step, apply pipeline integration. Probably hours of work.
-- **`worktree-agent-a0a7ba31ae8a167b6`** — Drop Google/Microsoft OAuth, revert calendar to read-only ICS. Coordinated with LabArchives bot to leave any `labarchives` refs intact.
+**Only one bot still in flight** — report routes to whoever picks up master next:
+- **`worktree-agent-acc7e86cffabb569e`** — LabArchives OAuth + image rehydration (manager-tier, 5-phase brief). New OAuth route, API client, wizard step, apply pipeline integration. Probably hours of work. Started during this session.
 
-**pcrApi.get owner threading** ✅ landed at `1d122fc0` while writing this handoff. Added `owner?: string` arg, no private-then-public fallback when owner provided. 3 call sites updated (MethodTabs, methods page PcrViewer, export extract.ts). Bot flagged `pcrApi.update` may have the same issue — queued in §8 above.
+**Bot landed during context-end shutdown** (so the next master doesn't think it's still running):
+- **`worktree-agent-a0a7ba31ae8a167b6`** — Drop Google/Microsoft OAuth, revert calendar to read-only ICS. Merged at **`bd18a3a2`** (commits `f38faa1b` + `9bafac58` + `e3219026`, net –2887 LOC across 10 deleted files: all `/api/auth/{google,microsoft}/{login,callback,refresh}/route.ts` + `lib/calendar/{oauth-config,oauth-server,oauth-connect,oauth-tokens-store,use-oauth-account,google-client,microsoft-client,external-events-write}.ts` + `app/wiki/integrations/calendar-oauth/page.tsx`). ICS-only going forward. Coordinated to leave any `labarchives` refs intact. **Post-merge typecheck trap**: `.next/types/validator.ts` had stale references to the deleted routes; `rm -rf .next/types .next/dev/types && npx tsc --noEmit` confirmed EXIT=0 (no real errors — see §6 trap entry, second occurrence of this pattern).
+
+**pcrApi.get owner threading** ✅ landed at `1d122fc0` earlier this session. Added `owner?: string` arg, no private-then-public fallback when owner provided. 3 call sites updated (MethodTabs, methods page PcrViewer, export extract.ts). Bot flagged `pcrApi.update` may have the same issue — queued in §8 above.
 
 **Bot landed but UNMERGED** (Grant didn't authorize merge):
 - **`worktree-agent-aac4352e069be583d`** at commit **`867ff526`** — "PCR method create: pre-fill standard cycling + reagent template" (`app/methods/page.tsx`). Ready to merge when Grant says go. Grant paused the merge to show a PCR-render screenshot that turned out to be a different bug entirely (now fixed at `01530db8`); the template fix is unrelated and still valid.
