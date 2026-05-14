@@ -25,7 +25,14 @@ import type {
   ExportResult,
   MethodPayload,
 } from "./types";
-import type { Method } from "@/lib/types";
+import type {
+  Method,
+  PCRCycle,
+  PCRGradient,
+  PCRIngredient,
+  PCRProtocol,
+  PCRStep,
+} from "@/lib/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -205,6 +212,20 @@ function buildStyles(): string {
     .method-block { margin-bottom: 2rem; }
     .method-file-link { font-size: 0.95rem; color: var(--muted); }
 
+    table.pcr { width: 100%; border-collapse: collapse; margin: 0.5rem 0 1.25rem; }
+    table.pcr th, table.pcr td { border: 1px solid var(--rule); padding: 0.4rem 0.6rem; font-size: 0.95rem; }
+    table.pcr th { background: #f9fafb; text-align: left; color: var(--muted); font-weight: 500; }
+    table.pcr td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    table.pcr tr.cycle-header td {
+      background: #eff6ff; color: var(--accent); font-weight: 600;
+      border-top: 2px solid var(--accent); border-bottom: 1px solid var(--rule);
+    }
+    table.pcr tr.cycle-step td:first-child { padding-left: 1.5rem; }
+    table.pcr tr.hold td { background: #f9fafb; font-style: italic; }
+    p.pcr-notes { color: var(--muted); font-style: italic; margin: 0.5rem 0 1rem; }
+    .pcr-deviation { margin-top: 1rem; }
+    .pcr-deviation > h4 { color: #92400e; }
+
     ul.subtasks { list-style: none; padding-left: 0.25rem; }
     ul.subtasks li { margin: 0.3rem 0; }
     ul.subtasks .box { display: inline-block; width: 1.25em; color: var(--accent); font-family: ui-monospace, SFMono-Regular, monospace; }
@@ -298,6 +319,114 @@ function findMethodPdfAttachment(
   );
 }
 
+// ── PCR rendering ────────────────────────────────────────────────────────────
+
+function formatTemperature(t: number): string {
+  return `${t}°C`;
+}
+
+function renderPcrStepRow(step: PCRStep, rowClass: string): string {
+  return `<tr class="${rowClass}">
+<td>${escapeHtml(step.name)}</td>
+<td class="num">${formatTemperature(step.temperature)}</td>
+<td>${escapeHtml(step.duration)}</td>
+</tr>`;
+}
+
+function renderPcrGradientTable(gradient: PCRGradient): string {
+  const rows: string[] = [];
+  for (const s of gradient.initial) rows.push(renderPcrStepRow(s, "step"));
+  gradient.cycles.forEach((cycle: PCRCycle, idx: number) => {
+    const repeats = Number.isFinite(cycle.repeats) ? cycle.repeats : 1;
+    rows.push(
+      `<tr class="cycle-header"><td colspan="3">Cycle ${idx + 1} — ${repeats}×</td></tr>`,
+    );
+    for (const s of cycle.steps) rows.push(renderPcrStepRow(s, "cycle-step"));
+  });
+  for (const s of gradient.final) rows.push(renderPcrStepRow(s, "step"));
+  if (gradient.hold) rows.push(renderPcrStepRow(gradient.hold, "hold"));
+  return `<table class="pcr">
+<thead><tr><th>Step</th><th>Temperature</th><th>Duration</th></tr></thead>
+<tbody>${rows.join("")}</tbody>
+</table>`;
+}
+
+function renderPcrIngredientsTable(ingredients: PCRIngredient[]): string {
+  if (ingredients.length === 0) {
+    return `<p class="method-file-link">No reagents recorded for this protocol.</p>`;
+  }
+  const rows = ingredients
+    .map(
+      (i) => `<tr>
+<td>${escapeHtml(i.name)}</td>
+<td>${escapeHtml(i.concentration)}</td>
+<td class="num">${escapeHtml(i.amount_per_reaction)} μL</td>
+</tr>`,
+    )
+    .join("");
+  return `<table class="pcr">
+<thead><tr><th>Reagent</th><th>Concentration</th><th>Volume / reaction</th></tr></thead>
+<tbody>${rows}</tbody>
+</table>`;
+}
+
+function parseGradientOverride(json: string): PCRGradient | null {
+  try {
+    const parsed = JSON.parse(json) as PCRGradient;
+    if (parsed && Array.isArray(parsed.initial) && Array.isArray(parsed.cycles) && Array.isArray(parsed.final)) {
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function parseIngredientsOverride(json: string): PCRIngredient[] | null {
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? (parsed as PCRIngredient[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+function buildPcrMethodBody(mp: MethodPayload): string {
+  const protocol: PCRProtocol | null = mp.pcrProtocol ?? null;
+  if (!protocol) {
+    return `<p class="method-file-link">PCR Method (protocol could not be loaded).</p>`;
+  }
+
+  const parts: string[] = [];
+  parts.push(`<h4>Thermocycler program</h4>`);
+  parts.push(renderPcrGradientTable(protocol.gradient));
+  parts.push(`<h4>Reagents</h4>`);
+  parts.push(renderPcrIngredientsTable(protocol.ingredients));
+  if (protocol.notes && protocol.notes.trim()) {
+    parts.push(`<p class="pcr-notes">${escapeHtml(protocol.notes.trim())}</p>`);
+  }
+
+  const att = mp.attachment;
+  if (att?.pcr_gradient && att.pcr_gradient.trim()) {
+    const override = parseGradientOverride(att.pcr_gradient);
+    if (override) {
+      parts.push(
+        `<div class="pcr-deviation"><h4>Gradient deviations for this task</h4>${renderPcrGradientTable(override)}</div>`,
+      );
+    }
+  }
+  if (att?.pcr_ingredients && att.pcr_ingredients.trim()) {
+    const override = parseIngredientsOverride(att.pcr_ingredients);
+    if (override) {
+      parts.push(
+        `<div class="pcr-deviation"><h4>Reagent deviations for this task</h4>${renderPcrIngredientsTable(override)}</div>`,
+      );
+    }
+  }
+
+  return parts.join("");
+}
+
 function buildMethodBlock(
   mp: MethodPayload,
   attachments: ExperimentAttachment[],
@@ -318,9 +447,7 @@ function buildMethodBlock(
       body = `<p class="method-file-link">PDF method file is not bundled with this export.</p>`;
     }
   } else if (mp.method.method_type === "pcr") {
-    // Placeholder per brief — PCR table rendering improved later. For now,
-    // surface the method record so the reader knows it exists.
-    body = `<p class="method-file-link">PCR Method (table rendering pending; see method record <code>${escapeHtml(String(mp.method.id))}</code> in ResearchOS).</p>`;
+    body = buildPcrMethodBody(mp);
   } else {
     body = `<p class="method-file-link">No method body available.</p>`;
   }
