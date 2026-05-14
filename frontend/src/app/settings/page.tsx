@@ -770,6 +770,65 @@ function LabArchivesSection() {
   );
 }
 
+/** One option card inside the LabArchives section. Layout matches the rest
+ *  of the Settings page: title, short description, "?" tooltip with the
+ *  longer "why" explanation, action button, optional footer. */
+function LabArchivesOptionCard({
+  title,
+  whatItDoes,
+  whyExplainer,
+  helpHref,
+  action,
+  footer,
+}: {
+  title: string;
+  whatItDoes: React.ReactNode;
+  whyExplainer: React.ReactNode;
+  helpHref: string;
+  action: React.ReactNode;
+  footer: React.ReactNode;
+}) {
+  const [showExplainer, setShowExplainer] = useState(false);
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm font-medium text-gray-900">{title}</p>
+            <Tooltip label={showExplainer ? "Hide details" : "Why this exists"}>
+              <button
+                type="button"
+                onClick={() => setShowExplainer((v) => !v)}
+                aria-expanded={showExplainer}
+                aria-label={`Explain ${title}`}
+                className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 text-[10px] font-semibold leading-none"
+              >
+                ?
+              </button>
+            </Tooltip>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">{whatItDoes}</p>
+          {showExplainer && (
+            <div className="mt-2 text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-md px-3 py-2 leading-relaxed">
+              {whyExplainer}
+              <div className="mt-1.5">
+                <Link
+                  href={helpHref}
+                  className="text-blue-600 hover:underline"
+                >
+                  Read more in the wiki →
+                </Link>
+              </div>
+            </div>
+          )}
+          {footer && <div className="mt-2">{footer}</div>}
+        </div>
+        <div className="shrink-0">{action}</div>
+      </div>
+    </div>
+  );
+}
+
 function RepairRow({
   title,
   description,
