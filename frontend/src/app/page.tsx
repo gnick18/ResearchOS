@@ -360,7 +360,7 @@ export default function HomePage() {
           {activeSummaries.map(
             ({ project, total, completed, upcoming, overdue, inProgress, displayColor }) => (
               <div
-                key={project.id}
+                key={`${project.owner}:${project.id}`}
                 draggable
                 onDragStart={(e) => handleDragStart(e, project.id)}
                 onDragOver={(e) => handleDragOver(e, project.id)}
@@ -503,7 +503,7 @@ export default function HomePage() {
               {archivedSummaries.map(
                 ({ project, total, completed, displayColor }) => (
                   <div
-                    key={project.id}
+                    key={`${project.owner}:${project.id}`}
                     onClick={() => setSelectedProject(project)}
                     className="bg-gray-50 border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer opacity-75 hover:opacity-100"
                   >

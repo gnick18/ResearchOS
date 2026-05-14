@@ -181,7 +181,7 @@ export default function ResultsPage() {
                 selectedProjectIds.includes(p.id);
               return (
                 <button
-                  key={p.id}
+                  key={`${p.owner}:${p.id}`}
                   onClick={() => useAppStore.getState().toggleProject(p.id)}
                   className={`px-2.5 py-1 text-xs rounded-full transition-colors ${
                     isSelected

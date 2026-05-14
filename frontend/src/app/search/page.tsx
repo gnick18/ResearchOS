@@ -375,7 +375,7 @@ export default function SearchPage() {
               >
                 <option value="">All Projects</option>
                 {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
+                  <option key={`${p.owner}:${p.id}`} value={p.id}>
                     {p.name}
                   </option>
                 ))}

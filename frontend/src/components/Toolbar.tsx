@@ -137,7 +137,7 @@ export default function Toolbar({
           const projectColor = projectColors?.[projectKey(p)] || "#3b82f6";
           return (
             <button
-              key={p.id}
+              key={`${p.owner}:${p.id}`}
               onClick={() => toggleProject(p.id)}
               className={`
                 px-2.5 py-1 text-xs rounded-full transition-colors

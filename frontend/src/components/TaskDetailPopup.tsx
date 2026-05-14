@@ -1714,7 +1714,7 @@ function DetailsTab({
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {projects.map((p) => (
-                <option key={p.id} value={p.id}>
+                <option key={`${p.owner}:${p.id}`} value={p.id}>
                   {p.name}
                 </option>
               ))}
