@@ -2,12 +2,13 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { projectsApi as rawProjectsApi, tasksApi } from "@/lib/local-api";
+import { projectsApi as rawProjectsApi, tasksApi as rawTasksApi } from "@/lib/local-api";
 import type { ProjectUpdate } from "@/lib/local-api";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import TaskQuickPopup from "@/components/TaskQuickPopup";
 import SharePopup from "@/components/SharePopup";
 import Tooltip from "@/components/Tooltip";
+import { taskKey } from "@/lib/types";
 import type { Project, Task } from "@/lib/types";
 
 /**
@@ -91,8 +92,71 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
   const taskListOwner = project.is_shared_with_me ? project.owner : undefined;
   const { data: tasks = [] } = useQuery({
     queryKey: ["tasks", project.is_shared_with_me ? `${project.owner}:${project.id}` : `self:${project.id}`],
-    queryFn: () => tasksApi.listByProject(project.id, taskListOwner),
+    queryFn: () => rawTasksApi.listByProject(project.id, taskListOwner),
   });
+
+  // Cross-owner "hosted from others" tasks (Option C). Foreign-owned tasks
+  // shared INTO this project surface here so the popup's task list shows the
+  // full picture, not just the owner's native tasks. Drift in the manifest
+  // is repaired on read by `lib/sharing/project-hosting.ts`.
+  //
+  // Always-on for own projects; suppressed for shared-into projects to keep
+  // the surface tight (v1 — the destination project's owner is the only one
+  // who really cares about who's hosted here).
+  const { data: hostedTasks = [] } = useQuery({
+    queryKey: [
+      "projects",
+      project.owner,
+      project.id,
+      "hosted-tasks",
+    ],
+    queryFn: () => rawProjectsApi.listHostedTasks(project.owner, project.id),
+    enabled: !project.is_archived,
+  });
+
+  // Per-task removal-in-progress flag, keyed by composite key. Lets us
+  // disable the X mid-flight without blocking other rows.
+  const [removingHosted, setRemovingHosted] = useState<Set<string>>(new Set());
+  const handleRemoveHostedTask = useCallback(
+    async (hosted: Task) => {
+      const key = taskKey(hosted);
+      if (
+        !confirm(
+          `Remove "${hosted.name}" from this project? ${hosted.owner} keeps the task in their library; it just won't appear on this project's Gantt anymore.`
+        )
+      ) {
+        return;
+      }
+      setRemovingHosted((prev) => new Set(prev).add(key));
+      try {
+        // `unshareFromProject` is symmetric — either the task owner OR the
+        // destination project owner can call it. Here the destination
+        // owner is the caller (the project belongs to them).
+        await rawTasksApi.unshareFromProject(
+          hosted.owner,
+          hosted.id,
+          project.owner,
+          project.id
+        );
+        await Promise.all([
+          queryClient.refetchQueries({
+            queryKey: ["projects", project.owner, project.id, "hosted-tasks"],
+          }),
+          queryClient.refetchQueries({ queryKey: ["tasks"] }),
+        ]);
+      } catch (err) {
+        console.error("Failed to remove hosted task:", err);
+        alert("Failed to remove task from project");
+      } finally {
+        setRemovingHosted((prev) => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
+      }
+    },
+    [project.owner, project.id, queryClient]
+  );
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -605,8 +669,86 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
               </div>
             )}
 
+            {/* Hosted from others — cross-owner tasks (Option C). Foreign
+                tasks shared INTO this project show here so the project view
+                is the complete picture, not just native tasks. The X removes
+                a single hosted task; the task owner retains the file in
+                their library, the manifest entry on this project just goes
+                away. */}
+            {hostedTasks.length > 0 && (
+              <div className="p-4 border-t border-amber-100 bg-amber-50/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="text-xs font-bold text-amber-700 uppercase tracking-wider">
+                    Hosted from others ({hostedTasks.length})
+                  </h3>
+                  <Tooltip
+                    label="Tasks owned by other users that have been shared into this project. They appear here so this project's view stays complete; the task file itself lives in the original owner's library."
+                    placement="bottom"
+                  >
+                    <span className="text-xs text-amber-500 cursor-help">?</span>
+                  </Tooltip>
+                </div>
+                <div className="space-y-1.5">
+                  {hostedTasks.map((t) => {
+                    const key = taskKey(t);
+                    const removing = removingHosted.has(key);
+                    return (
+                      <div
+                        key={key}
+                        onClick={(e) => handleTaskClick(t, e)}
+                        className="flex items-center justify-between gap-2 p-2 rounded-lg hover:bg-amber-100/50 cursor-pointer group bg-white border border-amber-100"
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {t.task_type === "experiment" && (
+                            <div className="w-1 h-4 rounded-full bg-purple-400 flex-shrink-0" />
+                          )}
+                          <span className="text-sm text-gray-700 truncate">{t.name}</span>
+                          <span className="text-[10px] text-amber-600 bg-amber-100 rounded px-1.5 py-0.5 flex-shrink-0">
+                            by {t.owner}
+                          </span>
+                        </div>
+                        <span className="text-xs text-gray-400 group-hover:text-gray-600">
+                          {formatDate(t.start_date)}
+                        </span>
+                        <Tooltip
+                          label={`Remove from this project (keeps the task in ${t.owner}'s library)`}
+                          placement="bottom"
+                        >
+                          <button
+                            type="button"
+                            disabled={removing}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveHostedTask(t);
+                            }}
+                            className="text-amber-500 hover:text-amber-700 p-1 rounded-full hover:bg-amber-100 disabled:opacity-50 disabled:cursor-wait"
+                            aria-label="Remove from project"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <line x1="18" y1="6" x2="6" y2="18" />
+                              <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                          </button>
+                        </Tooltip>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* No tasks message */}
-            {futureTasks.length === 0 && tasksByStatus.overdue.length === 0 && (
+            {futureTasks.length === 0 && tasksByStatus.overdue.length === 0 && hostedTasks.length === 0 && (
               <div className="p-8 text-center">
                 <p className="text-gray-400 text-sm">No active tasks in this project</p>
               </div>
