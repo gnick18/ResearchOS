@@ -223,6 +223,11 @@ export const WIKI_NAV: WikiNode[] = [
         label: "Calendar Feeds",
         blurb: "Subscribe to Google, Outlook, or iCloud calendars via iCal URL.",
       },
+      {
+        href: "/wiki/integrations/labarchives",
+        label: "LabArchives",
+        blurb: "Import Offline Notebook ZIPs and (optionally) connect your account so the importer can fetch online-only inline images.",
+      },
     ],
   },
 ];

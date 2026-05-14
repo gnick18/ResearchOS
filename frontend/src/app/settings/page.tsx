@@ -2,11 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import AppShell from "@/components/AppShell";
 import AccountPasswordPopup from "@/components/AccountPasswordPopup";
 import ImportExperimentDialog from "@/components/ImportExperimentDialog";
 import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
+import Tooltip from "@/components/Tooltip";
 import UserAvatar from "@/components/UserAvatar";
+import { isLabArchivesConfigured } from "@/lib/labarchives/config";
+import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useAppStore } from "@/lib/store";
 import { tasksApi, methodsApi } from "@/lib/local-api";
@@ -197,6 +201,7 @@ function SettingsBody() {
         <DefaultsSection settings={settings} update={update} />
         <AnimationSection settings={settings} update={update} />
         <BehaviorSection settings={settings} update={update} />
+        <LabArchivesSection username={currentUser} />
         <MaintenanceSection />
         <SecuritySection
           pwExists={pwExists}
@@ -586,9 +591,7 @@ interface RepairSummary {
 }
 
 function MaintenanceSection() {
-  const { currentUser } = useFileSystem();
   const [importOpen, setImportOpen] = useState(false);
-  const [elnImportOpen, setElnImportOpen] = useState(false);
   return (
     <SectionShell
       title="Data maintenance"
@@ -601,14 +604,6 @@ function MaintenanceSection() {
           onClose={() => setImportOpen(false)}
         />
       )}
-      <ImportFromELNRow onOpen={() => setElnImportOpen(true)} />
-      {elnImportOpen && (
-        <ImportELNDialog
-          isOpen={elnImportOpen}
-          onClose={() => setElnImportOpen(false)}
-        />
-      )}
-      {currentUser && <LabArchivesConnectionRow username={currentUser} />}
       <RepairRow
         title="Repair method links"
         description={
@@ -683,7 +678,216 @@ function ImportRow({ onOpen }: { onOpen: () => void }) {
   );
 }
 
-function LabArchivesConnectionRow({ username }: { username: string }) {
+// ── LabArchives section ─────────────────────────────────────────────────────
+
+function LabArchivesSection({ username }: { username: string }) {
+  const [elnImportOpen, setElnImportOpen] = useState(false);
+  const configured = isLabArchivesConfigured();
+  const demoMode = isDemoOrWikiCapture();
+
+  return (
+    <SectionShell
+      title="LabArchives"
+      description="Two ways to bring LabArchives data into ResearchOS — bulk-import offline notebooks, or connect your account so the importer can fetch online-only inline images."
+    >
+      <LabArchivesConfigState configured={configured} demoMode={demoMode} />
+
+      <LabArchivesOptionCard
+        title="Import from LabArchives"
+        whatItDoes={
+          <>
+            Bring a LabArchives <strong>Offline Notebook</strong> ZIP into
+            ResearchOS. Each notebook page becomes a task; folders become
+            projects you can map to your existing project list.
+          </>
+        }
+        whyExplainer={
+          <>
+            LabArchives is read-only inside ResearchOS — there&apos;s no
+            live two-way sync. The offline ZIP is the canonical hand-off
+            from LabArchives to anywhere else, and this wizard is what
+            turns that ZIP into native ResearchOS tasks. PDF formats are
+            coming in a later version. Other ELNs aren&apos;t supported
+            yet.
+          </>
+        }
+        helpHref="/wiki/integrations/labarchives#import"
+        action={
+          <button
+            type="button"
+            onClick={() => setElnImportOpen(true)}
+            className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+          >
+            Open import…
+          </button>
+        }
+        footer={
+          <a
+            href="/wiki/integrations/labarchives#exporting-from-labarchives"
+            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 underline"
+          >
+            How to export from LabArchives →
+          </a>
+        }
+      />
+      {elnImportOpen && (
+        <ImportELNDialog
+          isOpen={elnImportOpen}
+          onClose={() => setElnImportOpen(false)}
+        />
+      )}
+
+      <LabArchivesOptionCard
+        title="Connect to LabArchives"
+        whatItDoes={
+          <>
+            Sign in to your LabArchives account so ResearchOS can fetch the{" "}
+            <strong>inline images that aren&apos;t bundled</strong> in the
+            offline ZIP and write them into your imported notes.
+          </>
+        }
+        whyExplainer={
+          <>
+            LabArchives stores inline images two ways: as binary files
+            inside the notebook page (called Form-A), and as URLs back to
+            their cloud (called Form-B). When you generate an offline
+            export ZIP, only the Form-A images come along — the Form-B
+            ones are left as broken references. Connecting your account
+            lets the import wizard call the LabArchives API for each
+            Form-B URL, download the bytes, and rewrite the markdown to
+            point at the local copy. Without it, those references stay as
+            <code className="px-1 py-0.5 mx-0.5 bg-gray-100 rounded text-[10px]">
+              missing-…
+            </code>{" "}
+            placeholders you can clean up later from the broken-image
+            popup.
+          </>
+        }
+        helpHref="/wiki/integrations/labarchives#connecting-your-account"
+        action={
+          configured ? (
+            <LabArchivesConnectionRow username={username} variant="card" />
+          ) : (
+            <Tooltip label="Connection unavailable until a deployer sets the institutional API credentials.">
+              <button
+                type="button"
+                disabled
+                className="px-3 py-2 text-sm bg-gray-100 text-gray-400 rounded-lg whitespace-nowrap cursor-not-allowed"
+              >
+                Connect
+              </button>
+            </Tooltip>
+          )
+        }
+        footer={null}
+      />
+    </SectionShell>
+  );
+}
+
+function LabArchivesConfigState({
+  configured,
+  demoMode,
+}: {
+  configured: boolean;
+  demoMode: boolean;
+}) {
+  if (demoMode) {
+    return (
+      <div className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-xs text-purple-900">
+        Demo mode — LabArchives requests are skipped and the buttons below
+        won&apos;t reach the real API.
+      </div>
+    );
+  }
+  if (configured) {
+    return (
+      <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+        <span className="font-medium">Integration is configured</span> on this
+        deployment. Both options below are live.
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 space-y-1">
+      <p className="font-medium">
+        Image-fetch isn&apos;t available on this deployment yet.
+      </p>
+      <p>
+        Importing offline ZIPs still works — but inline images that
+        LabArchives stores online won&apos;t come down automatically. A
+        deployer needs to set the institutional API credentials.{" "}
+        <Link
+          href="/wiki/integrations/labarchives#deployer-setup"
+          className="underline hover:no-underline"
+        >
+          Setup guide →
+        </Link>
+      </p>
+    </div>
+  );
+}
+
+/** One option card inside the LabArchives section. Layout matches the rest
+ *  of the Settings page: title, short description, "?" tooltip with the
+ *  longer "why" explanation, action button, optional footer. */
+function LabArchivesOptionCard({
+  title,
+  whatItDoes,
+  whyExplainer,
+  helpHref,
+  action,
+  footer,
+}: {
+  title: string;
+  whatItDoes: React.ReactNode;
+  whyExplainer: React.ReactNode;
+  helpHref: string;
+  action: React.ReactNode;
+  footer: React.ReactNode;
+}) {
+  const [showExplainer, setShowExplainer] = useState(false);
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm font-medium text-gray-900">{title}</p>
+            <Tooltip label={showExplainer ? "Hide details" : "Why this exists"}>
+              <button
+                type="button"
+                onClick={() => setShowExplainer((v) => !v)}
+                aria-expanded={showExplainer}
+                aria-label={`Explain ${title}`}
+                className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 text-[10px] font-semibold leading-none"
+              >
+                ?
+              </button>
+            </Tooltip>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">{whatItDoes}</p>
+          {showExplainer && (
+            <div className="mt-2 text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-md px-3 py-2 leading-relaxed">
+              {whyExplainer}
+              <div className="mt-1.5">
+                <Link
+                  href={helpHref}
+                  className="text-blue-600 hover:underline"
+                >
+                  Read more in the wiki →
+                </Link>
+              </div>
+            </div>
+          )}
+          {footer && <div className="mt-2">{footer}</div>}
+        </div>
+        <div className="shrink-0">{action}</div>
+      </div>
+    </div>
+  );
+}
+
+function LabArchivesConnectionRow({ username, variant = "row" }: { username: string; variant?: "row" | "card" }) {
   const [connection, setConnection] = useState<{
     uid: string;
     fullname: string | null;
@@ -738,6 +942,47 @@ function LabArchivesConnectionRow({ username }: { username: string }) {
     }
   }, [username]);
 
+  // Card variant: just the status pill + connect/disconnect button —
+  // descriptive copy lives on the parent `<LabArchivesOptionCard>`.
+  if (variant === "card") {
+    return (
+      <div className="flex flex-col items-end gap-1.5">
+        {connection ? (
+          <>
+            <button
+              type="button"
+              onClick={() => void handleDisconnect()}
+              disabled={busy !== "none"}
+              className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+            >
+              {busy === "disconnecting" ? "Disconnecting…" : "Disconnect"}
+            </button>
+            <p className="text-[11px] text-emerald-700 text-right">
+              Connected as{" "}
+              <span className="font-medium">
+                {connection.fullname ?? connection.email ?? connection.uid}
+              </span>
+            </p>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => void handleConnect()}
+            disabled={busy !== "none"}
+            className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+          >
+            {busy === "connecting" ? "Signing in…" : "Connect"}
+          </button>
+        )}
+        {error && (
+          <p className="text-[11px] text-red-700 text-right max-w-[14rem]">{error}</p>
+        )}
+      </div>
+    );
+  }
+
+  // Legacy "row" variant — preserved in case any other surface still
+  // wants the standalone row layout. Not currently rendered.
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="min-w-0 flex-1">
@@ -777,34 +1022,6 @@ function LabArchivesConnectionRow({ username }: { username: string }) {
           {busy === "connecting" ? "Signing in…" : "Connect"}
         </button>
       )}
-    </div>
-  );
-}
-
-function ImportFromELNRow({ onOpen }: { onOpen: () => void }) {
-  return (
-    <div className="flex items-start justify-between gap-4">
-      <div className="min-w-0 flex-1">
-        <p className="text-sm text-gray-800">Import from LabArchives</p>
-        <p className="text-xs text-gray-500 mt-1">
-          Import a LabArchives Offline Notebook ZIP into ResearchOS. Each
-          page becomes a task; folders can become projects. PDF formats are
-          coming in a later version. Other ELNs aren&apos;t supported yet.
-        </p>
-        <a
-          href="/wiki/getting-started/labarchives-export"
-          className="mt-1 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 underline"
-        >
-          How to export from LabArchives →
-        </a>
-      </div>
-      <button
-        type="button"
-        onClick={onOpen}
-        className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
-      >
-        Open import…
-      </button>
     </div>
   );
 }

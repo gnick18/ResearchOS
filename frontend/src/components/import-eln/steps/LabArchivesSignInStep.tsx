@@ -194,7 +194,20 @@ function ConfigMissingNotice() {
       </p>
       <p className="text-xs text-amber-800 mt-1">
         Online-only images will be written as placeholders. Skip this step to
-        finish the import — you can relink them manually later.
+        finish the import — you can relink them manually later from the
+        broken-image popup.
+      </p>
+      <p className="text-xs text-amber-900 mt-2">
+        Whoever runs this deployment can flip it on by following the{" "}
+        <a
+          href="/wiki/integrations/labarchives#deployer-setup"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline font-medium hover:no-underline"
+        >
+          deployer setup guide
+        </a>
+        .
       </p>
     </div>
   );
