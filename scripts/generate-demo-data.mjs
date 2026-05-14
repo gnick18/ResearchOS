@@ -212,20 +212,11 @@ function buildEntries() {
     {
       id: 1,
       name: "[Demo protocol] Plasmid mini-prep",
-      source_path: null,
+      source_path: "users/public/methods/1.md",
       method_type: "markdown",
       folder_path: "DNA",
       parent_method_id: null,
       tags: ["DNA", "plasmid", "demo"],
-      attachments: [
-        {
-          id: "att-1",
-          name: "Protocol",
-          attachment_type: "markdown",
-          path: "users/public/methods/1.md",
-          order: 0,
-        },
-      ],
       is_public: true,
       created_by: "alex",
       owner: "public",
@@ -774,23 +765,21 @@ function tasks(owner, list) {
 }
 
 function methodJson(owner, id, name, folder) {
+  // The Method type in frontend/src/lib/types.ts uses `source_path` to point
+  // at the markdown body — there is no `attachments` field on Method. Earlier
+  // versions of this seed wrote `source_path: null` and stashed the .md path
+  // in an `attachments[0].path` slot, which left every demo method body
+  // unreadable to the methods page and PDF/HTML exporters (they both read
+  // method.source_path). `normalizeMethodRecord` in local-api.ts lazy-heals
+  // the legacy shape, but new seeds should write the canonical field.
   return {
     id,
     name,
-    source_path: null,
+    source_path: `users/${owner}/methods/${id}.md`,
     method_type: "markdown",
     folder_path: folder,
     parent_method_id: null,
     tags: ["demo"],
-    attachments: [
-      {
-        id: "att-1",
-        name: "Protocol",
-        attachment_type: "markdown",
-        path: `users/${owner}/methods/${id}.md`,
-        order: 0,
-      },
-    ],
     is_public: false,
     created_by: owner,
     owner,

@@ -1,21 +1,12 @@
 {
   "id": 3,
   "name": "[Demo protocol] Plasmid mini-prep (private fork)",
-  "source_path": null,
+  "source_path": "users/alex/methods/3.md",
   "method_type": "markdown",
   "folder_path": "Cloning",
   "parent_method_id": null,
   "tags": [
     "demo"
-  ],
-  "attachments": [
-    {
-      "id": "att-1",
-      "name": "Protocol",
-      "attachment_type": "markdown",
-      "path": "users/alex/methods/3.md",
-      "order": 0
-    }
   ],
   "is_public": false,
   "created_by": "alex",
