@@ -36,7 +36,7 @@ export function readLabArchivesCreds(): LabArchivesCreds {
     throw new Error(
       "LabArchives integration is not configured — set LABARCHIVES_ACCESS_KEY_ID " +
         "and LABARCHIVES_ACCESS_PASSWORD in the environment. Request institutional " +
-        "API credentials at https://www.labarchives.com/labarchives-knowledge-base/api/",
+        "API credentials at https://mynotebook.labarchives.com/share/LabArchives%2520API/MC4wfDI3LzAvVHJlZU5vZGUvMjQzMzE3ODYzM3wwLjA=",
     );
   }
   return { accessKeyId, accessPassword, baseUrl };

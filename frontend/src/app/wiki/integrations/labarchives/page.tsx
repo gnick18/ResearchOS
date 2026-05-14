@@ -213,7 +213,7 @@ export default function LabArchivesIntegrationPage() {
       <p>
         More detail in the official{" "}
         <a
-          href="https://www.labarchives.com/labarchives-knowledge-base/api/"
+          href="https://mynotebook.labarchives.com/share/LabArchives%2520API/MC4wfDI3LzAvVHJlZU5vZGUvMjQzMzE3ODYzM3wwLjA="
           target="_blank"
           rel="noopener noreferrer"
         >
