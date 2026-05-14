@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import AppShell from "@/components/AppShell";
 import AccountPasswordPopup from "@/components/AccountPasswordPopup";
 import ImportExperimentDialog from "@/components/ImportExperimentDialog";
+import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
 import UserAvatar from "@/components/UserAvatar";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useAppStore } from "@/lib/store";
@@ -586,6 +587,7 @@ interface RepairSummary {
 
 function MaintenanceSection() {
   const [importOpen, setImportOpen] = useState(false);
+  const [elnImportOpen, setElnImportOpen] = useState(false);
   return (
     <SectionShell
       title="Data maintenance"
@@ -596,6 +598,13 @@ function MaintenanceSection() {
         <ImportExperimentDialog
           isOpen={importOpen}
           onClose={() => setImportOpen(false)}
+        />
+      )}
+      <ImportFromELNRow onOpen={() => setElnImportOpen(true)} />
+      {elnImportOpen && (
+        <ImportELNDialog
+          isOpen={elnImportOpen}
+          onClose={() => setElnImportOpen(false)}
         />
       )}
       <RepairRow
@@ -667,6 +676,28 @@ function ImportRow({ onOpen }: { onOpen: () => void }) {
         className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
       >
         Import .zip
+      </button>
+    </div>
+  );
+}
+
+function ImportFromELNRow({ onOpen }: { onOpen: () => void }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm text-gray-800">Import from another ELN</p>
+        <p className="text-xs text-gray-500 mt-1">
+          Import a LabArchives Offline Notebook ZIP into ResearchOS. Each
+          page becomes a task; folders can become projects. PDF formats are
+          coming in a later version.
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onOpen}
+        className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+      >
+        Open import…
       </button>
     </div>
   );

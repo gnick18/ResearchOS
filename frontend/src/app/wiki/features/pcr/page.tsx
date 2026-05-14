@@ -8,7 +8,7 @@ export default function PCRFeaturePage() {
   return (
     <WikiPage
       title="PCR Protocols"
-      intro="Save reusable PCR programs — temperature steps plus reagent mix — and attach them to experiments the same way you attach a method."
+      intro="Save reusable PCR programs (temperature steps plus reagent mix) and attach them to experiments the same way you attach a method."
     >
       <Screenshot
         src="/wiki/screenshots/pcr-editor.png"
@@ -51,12 +51,12 @@ export default function PCRFeaturePage() {
       </p>
       <ul>
         <li>
-          <strong>Initial steps</strong> — one or more blocks that run once
+          <strong>Initial steps</strong>: one or more blocks that run once
           before the cycled section. Typically initial denaturation around
           95 °C for two minutes, painted red.
         </li>
         <li>
-          <strong>Cycled block</strong> — a group of blocks wrapped in a
+          <strong>Cycled block</strong>: a group of blocks wrapped in a
           purple dashed rectangle, repeated end-to-end by the count on the
           purple badge above it (35 by default). The usual three are
           denaturation, annealing, and extension. Steps inside this block
@@ -64,12 +64,12 @@ export default function PCRFeaturePage() {
           are inside the cycle.
         </li>
         <li>
-          <strong>Final steps</strong> — one or more blocks after the cycled
+          <strong>Final steps</strong>: one or more blocks after the cycled
           block that run once. Typically final extension at 72 °C for three
           minutes.
         </li>
         <li>
-          <strong>Hold</strong> — a single block at the right end with the
+          <strong>Hold</strong>: a single block at the right end with the
           duration <em>Indef.</em>, parking the thermocycler at a low
           temperature (12 °C by default) until you come back to it. Painted
           blue.
@@ -108,8 +108,8 @@ export default function PCRFeaturePage() {
           <strong>Reorder.</strong> Single-click a block to select it (a blue
           ring appears) and a pair of <strong>← →</strong> arrow buttons drop
           in above the block. The arrows swap the block with its neighbor.
-          The arrows step <em>around</em> the cycled block rather than into it
-          — a block outside the cycle stays outside, and a block inside the
+          The arrows step <em>around</em> the cycled block rather than into
+          it: a block outside the cycle stays outside, and a block inside the
           cycle stays inside.
         </Step>
         <Step>
@@ -130,12 +130,12 @@ export default function PCRFeaturePage() {
           <strong>Add or remove blocks.</strong> The toolbar has{" "}
           <strong>+ Add Step</strong> (drops a new block at the far right,
           just before the hold) and <strong>+ Add Cycle</strong> (drops a new
-          empty cycled rectangle next to the existing one — fill it by
+          empty cycled rectangle next to the existing one, which you fill by
           adding steps and using <em>Add to Cycle</em>). To delete, switch on
           the red <strong>Gradient Eraser</strong> and click any block to
-          remove it. The purple <strong>Cycle Eraser</strong> is different —
-          click a <code>x35</code> badge and it removes just the cycle
-          rectangle, leaving its steps behind as ordinary final steps.{" "}
+          remove it. The purple <strong>Cycle Eraser</strong> works
+          differently: click a <code>x35</code> badge and it removes just the
+          cycle rectangle, leaving its steps behind as ordinary final steps.{" "}
           <strong>Clear All</strong> wipes the whole gradient back to empty.
         </Step>
         <Step>
@@ -168,14 +168,14 @@ export default function PCRFeaturePage() {
       <h2>Attaching a protocol to an experiment</h2>
       <p>
         From an experiment popup, the <strong>Attach PCR Protocol</strong>{" "}
-        picker shows every protocol in your library — your own and any in the
+        picker shows every protocol in your library, your own and any in the
         Shared folder. Pick one and ResearchOS copies the gradient and the
         reagent table onto that experiment.
       </p>
       <p>
         From that point on, the experiment carries its own copy. Bump the
         annealing temperature by a degree, add another microliter of primer,
-        knock the cycle count down to 28 for a low-template run — the
+        knock the cycle count down to 28 for a low-template run. The
         experiment records the variation and the library protocol stays
         exactly as you left it. The next experiment that attaches the same
         protocol starts from the unedited values.

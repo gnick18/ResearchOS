@@ -9,7 +9,14 @@ import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import TaskModal from "@/components/TaskModal";
 import NotesPanel from "@/components/NotesPanel";
-import type { Task } from "@/lib/types";
+import type { Project, Task } from "@/lib/types";
+
+// Composite key for project lookups: per-user ID spaces mean alex's project 1
+// and morgan's project 1 are different projects. Plain p.id keys collide when
+// shared projects sit alongside own projects. Mirrors search/page.tsx.
+const projectKey = (p: Pick<Project, "id" | "owner">) => `${p.owner}:${p.id}`;
+const taskProjectKey = (t: Pick<Task, "owner" | "project_id">) =>
+  `${t.owner}:${t.project_id}`;
 
 const DEFAULT_COLORS = [
   "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
@@ -255,11 +262,12 @@ export default function ExperimentsPage() {
     });
   }, [completedExperiments, dependencies, allTasks]);
 
-  // Project colors for filter buttons
+  // Project colors for filter buttons — keyed by composite `${owner}:${id}` so
+  // shared projects don't overwrite own-project colors at the same numeric id.
   const projectColors = useMemo(() => {
-    const map: Record<number, string> = {};
+    const map: Record<string, string> = {};
     projects.forEach((p, i) => {
-      map[p.id] = p.color || DEFAULT_COLORS[i % DEFAULT_COLORS.length];
+      map[projectKey(p)] = p.color || DEFAULT_COLORS[i % DEFAULT_COLORS.length];
     });
     return map;
   }, [projects]);
@@ -270,45 +278,51 @@ export default function ExperimentsPage() {
     setIsCreatingTask(true);
   }, [setIsCreatingTask, setNewTaskStartDate, setRestrictedTaskType]);
 
-  // Group chains by project
+  // Group chains by project. Keyed by composite `${owner}:${id}` so two
+  // numerically-equal project ids from different owners don't merge into one
+  // bucket (a shared project would silently absorb the own-project chains).
   const groupedChains = useMemo(() => {
-    const map: Record<number, { projectName: string; chains: ExperimentChain[]; color: string }> = {};
-    
+    const map: Record<string, { projectName: string; chains: ExperimentChain[]; color: string }> = {};
+
     for (const chain of experimentChains) {
-      const projectId = chain.rootTask.project_id;
-      if (!map[projectId]) {
-        const project = projects.find((p) => p.id === projectId);
+      const key = taskProjectKey(chain.rootTask);
+      if (!map[key]) {
+        const project = projects.find(
+          (p) => p.id === chain.rootTask.project_id && p.owner === chain.rootTask.owner,
+        );
         if (project) {
           const color = project.color || DEFAULT_COLORS[projects.indexOf(project) % DEFAULT_COLORS.length];
-          map[projectId] = { projectName: project.name, chains: [], color };
+          map[key] = { projectName: project.name, chains: [], color };
         }
       }
-      if (map[projectId]) {
-        map[projectId].chains.push(chain);
+      if (map[key]) {
+        map[key].chains.push(chain);
       }
     }
-    
+
     return Object.values(map);
   }, [experimentChains, projects]);
 
-  // Group completed chains by project
+  // Group completed chains by project (same composite-keying as above).
   const groupedCompletedChains = useMemo(() => {
-    const map: Record<number, { projectName: string; chains: ExperimentChain[]; color: string }> = {};
-    
+    const map: Record<string, { projectName: string; chains: ExperimentChain[]; color: string }> = {};
+
     for (const chain of completedExperimentChains) {
-      const projectId = chain.rootTask.project_id;
-      if (!map[projectId]) {
-        const project = projects.find((p) => p.id === projectId);
+      const key = taskProjectKey(chain.rootTask);
+      if (!map[key]) {
+        const project = projects.find(
+          (p) => p.id === chain.rootTask.project_id && p.owner === chain.rootTask.owner,
+        );
         if (project) {
           const color = project.color || DEFAULT_COLORS[projects.indexOf(project) % DEFAULT_COLORS.length];
-          map[projectId] = { projectName: project.name, chains: [], color };
+          map[key] = { projectName: project.name, chains: [], color };
         }
       }
-      if (map[projectId]) {
-        map[projectId].chains.push(chain);
+      if (map[key]) {
+        map[key].chains.push(chain);
       }
     }
-    
+
     return Object.values(map);
   }, [completedExperimentChains, projects]);
 
@@ -378,7 +392,7 @@ export default function ExperimentsPage() {
                 selectedProjectIds.includes(p.id);
               return (
                 <button
-                  key={p.id}
+                  key={`${p.owner}:${p.id}`}
                   onClick={() => useAppStore.getState().toggleProject(p.id)}
                   className={`px-2.5 py-1 text-xs rounded-full transition-colors ${
                     isSelected
@@ -387,7 +401,7 @@ export default function ExperimentsPage() {
                   }`}
                   style={
                     isSelected
-                      ? { backgroundColor: projectColors[p.id] }
+                      ? { backgroundColor: projectColors[projectKey(p)] }
                       : undefined
                   }
                 >
@@ -704,7 +718,10 @@ export default function ExperimentsPage() {
       {selectedTask && (
         <TaskDetailPopup
           task={selectedTask}
-          project={projects.find((p) => p.id === selectedTask.project_id)}
+          project={projects.find(
+            (p) =>
+              p.id === selectedTask.project_id && p.owner === selectedTask.owner,
+          )}
           onClose={() => setSelectedTask(null)}
           onNavigateToTask={(task) => setSelectedTask(task)}
         />

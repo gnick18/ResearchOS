@@ -73,12 +73,12 @@ export default function ResultsFeaturePage() {
       <ul>
         <li>
           The <strong>Lab Notes</strong> tab inside the popup is for the
-          during-the-run record — running observations, sub-task ticks, the
+          during-the-run record: running observations, sub-task ticks, the
           deviation log, photos you took at the bench.
         </li>
         <li>
           The <strong>Results</strong> tab (this page&apos;s entry point) is
-          for the final outputs — the gel image you want in a paper, the
+          for the final outputs: the gel image you want in a paper, the
           plot for a thesis chapter, the short summary of what the experiment
           showed.
         </li>

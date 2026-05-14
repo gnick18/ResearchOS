@@ -23,18 +23,18 @@ export default function LabModeActivityPage() {
       </p>
       <ul>
         <li>
-          <strong>Running now</strong> — experiments and purchases whose
+          <strong>Running now</strong>: experiments and purchases whose
           window covers today (i.e., the task is started but not yet complete
           and the end date is still ahead or today). Sorted by end date, so
           the things wrapping soonest are at the top.
         </li>
         <li>
-          <strong>Recently completed</strong> — experiments and purchases
+          <strong>Recently completed</strong>: experiments and purchases
           marked complete with an end date in the last 30 days. Sorted by
           end date, newest first.
         </li>
         <li>
-          <strong>Recent shared notes</strong> — shared notes (running logs
+          <strong>Recent shared notes</strong>: shared notes (running logs
           included) that were updated in the last 30 days, newest first.
           Personal notes that the author hasn&apos;t marked as shared never
           show up here.
@@ -49,25 +49,25 @@ export default function LabModeActivityPage() {
       <p>Every row is built the same way:</p>
       <ul>
         <li>
-          <strong>Avatar on the left</strong> — circular, tinted with the
+          <strong>Avatar on the left</strong>: circular, tinted with the
           contributor&apos;s user color. Click it (not the row) to open that
-          person&apos;s detail panel — useful when you spot something and want
+          person&apos;s detail panel. Useful when you spot something and want
           to drill into their full dashboard rather than just that one task.
         </li>
         <li>
-          <strong>Title and type chip</strong> — the task or note name, with a
+          <strong>Title and type chip</strong>: the task or note name, with a
           colored pill next to it that says <code>experiment</code>,{" "}
           <code>purchase</code>, or <code>note</code>. The chip uses the same
           color family as the rest of the app (blue for experiments, amber for
           purchases, emerald for notes).
         </li>
         <li>
-          <strong>Context line</strong> — the contributor&apos;s username, a
+          <strong>Context line</strong>: the contributor&apos;s username, a
           dot, then the project name (for tasks) or &quot;Note&quot; / &quot;Running log&quot;
           (for notes).
         </li>
         <li>
-          <strong>Date label on the right</strong> — relative for in-flight
+          <strong>Date label on the right</strong>: relative for in-flight
           rows (<em>ends tomorrow</em>, <em>ends in 3d</em>), absolute month/day
           for completed rows.
         </li>
@@ -90,7 +90,7 @@ export default function LabModeActivityPage() {
         <Link href="/wiki/features/lab-mode/user-filter">
           per-user detail panel
         </Link>{" "}
-        on the right side of the screen — a focused dashboard for just that
+        on the right side of the screen, a focused dashboard for just that
         person.
       </p>
 
@@ -104,7 +104,7 @@ export default function LabModeActivityPage() {
       <ul>
         <li>
           The 30-day window applies to both Recently completed and Recent
-          shared notes. There is no UI to widen it — for longer-range queries,
+          shared notes. There is no UI to widen it. For longer-range queries,
           use the Search tab.
         </li>
         <li>

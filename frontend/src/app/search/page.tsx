@@ -92,11 +92,20 @@ export default function SearchPage() {
     return Array.from(folders).sort();
   }, [methods]);
 
+  // Composite key for project lookups: alex's project 1 and morgan's
+  // project 1 are different projects and must not collide. Mirrors the
+  // `taskKey` pattern in lib/types.ts. Cross-user views (Lab Mode, shared
+  // projects) hit this — without it, lookups silently return whichever
+  // project the array iteration order happened to surface last.
+  const projectKey = (p: Pick<Project, "id" | "owner">) => `${p.owner}:${p.id}`;
+  const taskProjectKey = (t: Pick<Task, "owner" | "project_id">) =>
+    `${t.owner}:${t.project_id}`;
+
   // Project colors
   const projectColors = useMemo(() => {
-    const map: Record<number, string> = {};
+    const map: Record<string, string> = {};
     projects.forEach((p, i) => {
-      map[p.id] = p.color || DEFAULT_COLORS[i % DEFAULT_COLORS.length];
+      map[projectKey(p)] = p.color || DEFAULT_COLORS[i % DEFAULT_COLORS.length];
     });
     return map;
   }, [projects]);
@@ -112,9 +121,9 @@ export default function SearchPage() {
 
   // Project lookup
   const projectLookup = useMemo(() => {
-    const map: Record<number, Project> = {};
+    const map: Record<string, Project> = {};
     projects.forEach((p) => {
-      map[p.id] = p;
+      map[projectKey(p)] = p;
     });
     return map;
   }, [projects]);
@@ -190,13 +199,14 @@ export default function SearchPage() {
       }
 
       // Task passed all filters
-      const project = projectLookup[task.project_id];
+      const lookupKey = taskProjectKey(task);
+      const project = projectLookup[lookupKey];
       if (project) {
         results.push({
           task,
           project,
           method: primaryMethodId != null ? methodLookup[primaryMethodId] : null,
-          color: projectColors[task.project_id] || DEFAULT_COLORS[0],
+          color: projectColors[lookupKey] || DEFAULT_COLORS[0],
         });
       }
     }
@@ -365,7 +375,7 @@ export default function SearchPage() {
               >
                 <option value="">All Projects</option>
                 {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
+                  <option key={`${p.owner}:${p.id}`} value={p.id}>
                     {p.name}
                   </option>
                 ))}
@@ -618,7 +628,10 @@ export default function SearchPage() {
       {selectedTask && (
         <TaskDetailPopup
           task={selectedTask}
-          project={projects.find((p) => p.id === selectedTask.project_id)}
+          project={projects.find(
+            (p) =>
+              p.id === selectedTask.project_id && p.owner === selectedTask.owner,
+          )}
           onClose={() => setSelectedTask(null)}
         />
       )}

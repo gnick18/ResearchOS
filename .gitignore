@@ -22,3 +22,7 @@ frontend/tsconfig.tsbuildinfo
 
 # OS files
 .DS_Store
+
+# ELN-import sub-bot scratch (sample ZIP recon dir + ad-hoc parser dump)
+scratch-labarchives-recon/
+frontend/scratch-parse-output.json

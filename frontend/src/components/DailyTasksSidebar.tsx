@@ -17,7 +17,28 @@ import TaskDetailPopup from "./TaskDetailPopup";
 import TaskQuickPopup from "./TaskQuickPopup";
 import SidebarContentsPopup from "./SidebarContentsPopup";
 import Tooltip from "./Tooltip";
-import type { Task, Event, ExternalEvent } from "@/lib/types";
+import type { Task, Project, Event, ExternalEvent } from "@/lib/types";
+
+// Composite project keys: per-user ID spaces mean alex's project 1 and
+// morgan's project 1 are different projects, so we key lookups / groupings
+// by `${owner}:${id}`. Module-level so the function identity is stable
+// across renders (otherwise the useMemos that call groupByProject would
+// re-run every render via react-hooks/exhaustive-deps).
+const projectKey = (p: Pick<Project, "id" | "owner">) => `${p.owner}:${p.id}`;
+const taskProjectKey = (t: Pick<Task, "owner" | "project_id">) =>
+  `${t.owner}:${t.project_id}`;
+
+const groupByProject = (tasks: Task[]): Record<string, Task[]> => {
+  const groups: Record<string, Task[]> = {};
+  for (const task of tasks) {
+    const key = taskProjectKey(task);
+    if (!groups[key]) {
+      groups[key] = [];
+    }
+    groups[key].push(task);
+  }
+  return groups;
+};
 
 /**
  * Always-visible sidebar showing today's tasks.
@@ -71,7 +92,9 @@ export default function DailyTasksSidebar() {
     }
     
     const filtered = allTasks.filter((t) => {
-      const project = projects.find((p) => p.id === t.project_id);
+      const project = projects.find(
+        (p) => p.id === t.project_id && p.owner === t.owner,
+      );
       return project && !project.is_archived;
     });
     
@@ -100,32 +123,36 @@ export default function DailyTasksSidebar() {
     return { todaysTasks: todayTasks, overdueTasks: overdue, futureTasks: future };
   }, [activeTasks, today]);
 
-  // Group tasks by project
-  const groupByProject = (tasks: Task[]): Record<number, Task[]> => {
-    const groups: Record<number, Task[]> = {};
-    for (const task of tasks) {
-      if (!groups[task.project_id]) {
-        groups[task.project_id] = [];
-      }
-      groups[task.project_id].push(task);
-    }
-    return groups;
-  };
-
+  // Group tasks by project. The bucket is keyed by composite `${owner}:${id}`
+  // (see module-level `groupByProject`) so alex's project 1 and morgan's
+  // project 1 stay in separate buckets. The render below iterates
+  // `activeProjects` and reads back with `projectKey(project)`.
   const todaysTasksByProject = useMemo(() => groupByProject(todaysTasks), [todaysTasks]);
   const futureTasksByProject = useMemo(() => groupByProject(futureTasks), [futureTasks]);
 
   const selectedProject = selectedTask
-    ? projects.find((p) => p.id === selectedTask.project_id)
+    ? projects.find(
+        (p) => p.id === selectedTask.project_id && p.owner === selectedTask.owner,
+      )
     : undefined;
 
   const quickPopupProject = quickPopupTask
-    ? projects.find((p) => p.id === quickPopupTask.project_id)
+    ? projects.find(
+        (p) =>
+          p.id === quickPopupTask.project_id && p.owner === quickPopupTask.owner,
+      )
     : undefined;
 
-  // Get project color
-  const getProjectColor = (projectId: number): string => {
-    const project = projects.find((p) => p.id === projectId);
+  // Get project color by composite (owner, id). Per-user ID spaces mean
+  // alex's project 1 and morgan's project 1 are different projects — a
+  // numeric-id-only lookup picks whichever happens to be first in the array.
+  // Callers pass `{ owner, id }`; for tasks that's `{ owner, id: project_id }`.
+  const getProjectColor = (
+    ref: { owner: string; id: number },
+  ): string => {
+    const project = projects.find(
+      (p) => p.id === ref.id && p.owner === ref.owner,
+    );
     return project?.color || "#3b82f6";
   };
 
@@ -208,7 +235,7 @@ export default function DailyTasksSidebar() {
                     <TaskItem
                       key={t.id}
                       task={t}
-                      projectColor={getProjectColor(t.project_id)}
+                      projectColor={getProjectColor({ owner: t.owner, id: t.project_id })}
                       overdue
                       onClick={handleTaskClick}
                     />
@@ -230,14 +257,14 @@ export default function DailyTasksSidebar() {
                 </p>
               ) : (
                 activeProjects.map((project) => {
-                  const projectTasks = todaysTasksByProject[project.id] || [];
+                  const projectTasks = todaysTasksByProject[projectKey(project)] || [];
                   if (projectTasks.length === 0) return null;
                   return (
-                    <div key={project.id} className="mb-3">
+                    <div key={projectKey(project)} className="mb-3">
                       <div className="flex items-center gap-1.5 mb-1 px-1">
                         <div
                           className="w-2 h-2 rounded-full"
-                          style={{ backgroundColor: getProjectColor(project.id) }}
+                          style={{ backgroundColor: getProjectColor({ owner: project.owner, id: project.id }) }}
                         />
                         <span className="text-xs font-medium text-gray-500">
                           {project.name}
@@ -247,7 +274,7 @@ export default function DailyTasksSidebar() {
                         <TaskItem
                           key={t.id}
                           task={t}
-                          projectColor={getProjectColor(t.project_id)}
+                          projectColor={getProjectColor({ owner: t.owner, id: t.project_id })}
                           onClick={handleTaskClick}
                         />
                       ))}
@@ -267,7 +294,7 @@ export default function DailyTasksSidebar() {
                 </div>
                 <div className="p-3">
                   {activeProjects.map((project) => {
-                    const projectTasks = futureTasksByProject[project.id] || [];
+                    const projectTasks = futureTasksByProject[projectKey(project)] || [];
                     if (projectTasks.length === 0) return null;
                     // Sort by start date
                     projectTasks.sort((a, b) => a.start_date.localeCompare(b.start_date));
@@ -275,11 +302,11 @@ export default function DailyTasksSidebar() {
                     const displayTasks = projectTasks.slice(0, 3);
                     const hasMore = projectTasks.length > 3;
                     return (
-                      <div key={project.id} className="mb-3">
+                      <div key={projectKey(project)} className="mb-3">
                         <div className="flex items-center gap-1.5 mb-1 px-1">
                           <div
                             className="w-2 h-2 rounded-full"
-                            style={{ backgroundColor: getProjectColor(project.id) }}
+                            style={{ backgroundColor: getProjectColor({ owner: project.owner, id: project.id }) }}
                           />
                           <span className="text-xs font-medium text-gray-500">
                             {project.name}
@@ -294,7 +321,7 @@ export default function DailyTasksSidebar() {
                           <TaskItem
                             key={t.id}
                             task={t}
-                            projectColor={getProjectColor(t.project_id)}
+                            projectColor={getProjectColor({ owner: t.owner, id: t.project_id })}
                             future
                             onClick={handleTaskClick}
                           />

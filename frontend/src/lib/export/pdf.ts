@@ -100,21 +100,20 @@ export async function buildPdf(
     ReactPDF;
   const h = React.createElement;
 
-  // Inter typography — fetched from jsDelivr at PDF render time. If the
-  // network is down, react-pdf falls back to Helvetica with a console
-  // warning, so the export still produces a valid (less pretty) PDF.
-  // Registering inside `buildPdf` (vs module scope) keeps the FS bundle
-  // free of side effects until someone actually triggers an export.
+  // Inter typography — served from `frontend/public/fonts/` so PDF
+  // export works offline and stays immune to CDN URL changes. The
+  // previous jsDelivr URL (gh/rsms/inter@v3.19/docs/font-files/) went
+  // dead in 2026 — the `docs/font-files/` path was removed from the
+  // Inter repo, every PDF export threw "Failed to fetch font ... 404"
+  // and no blob was produced. react-pdf doesn't gracefully fall back
+  // to Helvetica on a fetched-font error; it bubbles the failure up.
+  // Local paths sidestep both issues. ~830 KB total for both weights —
+  // negligible in the public assets bundle.
   Font.register({
     family: "Inter",
     fonts: [
-      {
-        src: "https://cdn.jsdelivr.net/gh/rsms/inter@v3.19/docs/font-files/Inter-Regular.ttf",
-      },
-      {
-        src: "https://cdn.jsdelivr.net/gh/rsms/inter@v3.19/docs/font-files/Inter-Bold.ttf",
-        fontWeight: "bold",
-      },
+      { src: "/fonts/Inter-Regular.ttf" },
+      { src: "/fonts/Inter-Bold.ttf", fontWeight: "bold" },
     ],
   });
 

@@ -14,7 +14,12 @@ import TaskDetailPopup from "@/components/TaskDetailPopup";
 import HighLevelGoalModal from "@/components/HighLevelGoalModal";
 import HighLevelGoalSidebar from "@/components/HighLevelGoalSidebar";
 import { taskKey } from "@/lib/types";
-import type { HighLevelGoal } from "@/lib/types";
+import type { HighLevelGoal, Project } from "@/lib/types";
+
+// Composite key for project lookups: shared and own projects can share a
+// numeric id and must not collide. Mirrors the `taskKey` pattern in
+// lib/types.ts and the helper used on /search, /experiments, /results.
+const projectKey = (p: Pick<Project, "id" | "owner">) => `${p.owner}:${p.id}`;
 
 export default function Home() {
   const queryClient = useQueryClient();
@@ -86,7 +91,9 @@ export default function Home() {
         console.log("[Gantt.activeTasks] Task", t.id, "is shared with me, keeping");
         return true;
       }
-      const project = projects.find((p) => p.id === t.project_id);
+      const project = projects.find(
+        (p) => p.id === t.project_id && p.owner === t.owner,
+      );
       const result = project && !project.is_archived;
       if (!project) {
         console.log("[Gantt.activeTasks] Task", t.id, "project", t.project_id, "not found in projects array");
@@ -154,14 +161,19 @@ export default function Home() {
     return Array.from(tagSet).sort();
   }, [activeProjects, activeTasks]);
 
+  // Keyed by composite `${owner}:${id}` so a shared project and an own
+  // project with the same numeric id keep distinct colors. The Gantt's
+  // child components (GanttChart / Toolbar / SidebarTree) take the same
+  // composite-keyed shape — see `projectKey` / `taskProjectKey` helpers
+  // at the top of this file for lookups.
   const projectColors = useMemo(() => {
     const defaultColors = [
       "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
       "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1",
     ];
-    const map: Record<number, string> = {};
+    const map: Record<string, string> = {};
     activeProjects.forEach((p, i) => {
-      map[p.id] = p.color || defaultColors[i % defaultColors.length];
+      map[projectKey(p)] = p.color || defaultColors[i % defaultColors.length];
     });
     return map;
   }, [activeProjects]);
@@ -208,7 +220,9 @@ export default function Home() {
     ? allTasks.find((t) => taskKey(t) === editingTaskKey)
     : null;
   const editingProject = editingTask
-    ? projects.find((p) => p.id === editingTask.project_id)
+    ? projects.find(
+        (p) => p.id === editingTask.project_id && p.owner === editingTask.owner,
+      )
     : undefined;
 
   return (

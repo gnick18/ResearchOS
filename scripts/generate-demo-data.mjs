@@ -43,6 +43,15 @@ const NEXT_WEEK = "2026-05-20";
 const LAST_WEEK = "2026-05-06";
 const TWO_WEEKS = "2026-05-27";
 
+// Strategic-overdue anchors. Tasks set to these dates ALWAYS appear N days
+// overdue regardless of when the demo is opened, because the rebase math
+// (in lib/demo/rebase.ts) shifts every date by the same `(today - BASE_DATE)`
+// delta — so a task ending 6 days before BASE_DATE stays 6 days before
+// today. Used for 2 demo tasks so the user sees the overdue UI state.
+const OVERDUE_START = "2026-05-06"; // BASE_DATE - 7 (started a week ago, never finished)
+const OVERDUE_END_4D = "2026-05-09"; // BASE_DATE - 4
+const OVERDUE_END_6D = "2026-05-07"; // BASE_DATE - 6
+
 const ALEX_COLOR = "#3b82f6";   // blue
 const MORGAN_COLOR = "#10b981"; // emerald
 
@@ -196,7 +205,7 @@ function buildEntries() {
   // Public methods + PCR — cross-user resources
   out.push([
     "users/public/_counters.json",
-    { methods: 1, pcr_protocols: 1 },
+    { methods: 2, pcr_protocols: 1 },
   ]);
   out.push([
     "users/public/methods/1.json",
@@ -224,6 +233,30 @@ function buildEntries() {
     },
   ]);
   out.push(["users/public/methods/1.md", METHOD_MINIPREP_MD]);
+
+  // PCR-typed method entry surfacing the public DemoCheck PCR protocol in
+  // the methods list. Without this, the pcr_protocols/1.json file exists
+  // but no /methods row points at it — tasks can't attach the protocol
+  // because method_attachments references method id+owner, not pcr_protocol
+  // directly. The source_path uses the canonical pcr://protocol/{id}
+  // convention from the upload UI in app/methods/page.tsx.
+  out.push([
+    "users/public/methods/2.json",
+    {
+      id: 2,
+      name: "[Demo protocol] DemoCheck PCR — pYES integration",
+      source_path: "pcr://protocol/1",
+      method_type: "pcr",
+      folder_path: "qPCR",
+      parent_method_id: null,
+      tags: ["PCR", "demo", "screen"],
+      attachments: [],
+      is_public: true,
+      created_by: "alex",
+      owner: "public",
+      shared_with: [],
+    },
+  ]);
 
   out.push([
     "users/public/pcr_protocols/1.json",
@@ -405,7 +438,8 @@ function buildEntries() {
         { id: "st1", text: "Run DemoCheck PCR — 16 rxns", is_complete: false },
         { id: "st2", text: "Pour 1% agarose gel", is_complete: false },
         { id: "st3", text: "Photograph + annotate gel", is_complete: false },
-      ] },
+      ],
+      method_attachments: [{ method_id: 2, owner: "public", snapshot_at: "2026-05-13T07:00:00Z" }] },
     { id: 6, project_id: 1, name: "Send sequencing — top 4", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "list", is_complete: false },
     { id: 7, project_id: 2, name: "Order DemoStrain ΔADE2 reagents", start_date: LAST_WEEK, duration_days: 1, end_date: LAST_WEEK, task_type: "purchase", is_complete: true },
     { id: 8, project_id: 2, name: "Mini-prep candidate plasmids", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "experiment", is_complete: false, experiment_color: "#8b5cf6" },
@@ -422,7 +456,10 @@ function buildEntries() {
       ],
       method_attachments: [{ method_id: 4, owner: "alex", snapshot_at: "2026-05-13T08:00:00Z" }] },
     { id: 12, project_id: 3, name: "Compile growth-curve results", start_date: "2026-05-19", duration_days: 1, end_date: "2026-05-19", task_type: "list", is_complete: false },
-    { id: 13, project_id: 4, name: "Update lab onboarding doc", start_date: TODAY, duration_days: 1, end_date: TODAY, task_type: "list", is_complete: false },
+    // Strategically-overdue: started a week ago, kept slipping. Stays
+    // 6 days overdue regardless of when the demo is opened (see
+    // OVERDUE_* anchors). Demonstrates the overdue UI state to users.
+    { id: 13, project_id: 4, name: "Update lab onboarding doc", start_date: OVERDUE_START, duration_days: 2, end_date: OVERDUE_END_6D, task_type: "list", is_complete: false },
     { id: 14, project_id: 4, name: "Review morgan's draft figures", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "list", is_complete: false },
     { id: 15, project_id: 4, name: "Order LC-MS solvents", start_date: TODAY, duration_days: 1, end_date: TODAY, task_type: "purchase", is_complete: false },
   ]));
@@ -619,7 +656,9 @@ function buildEntries() {
       method_attachments: [{ method_id: 1, owner: "morgan", snapshot_at: "2026-05-13T08:00:00Z" }] },
     { id: 3, project_id: 1, name: "qPCR setup — verify GFP transcripts", start_date: "2026-05-16", duration_days: 1, end_date: "2026-05-16", task_type: "experiment", is_complete: false, experiment_color: "#10b981",
       method_attachments: [{ method_id: 2, owner: "morgan", snapshot_at: "2026-05-13T08:00:00Z" }] },
-    { id: 4, project_id: 2, name: "Draft Chapter 2 outline", start_date: NEXT_WEEK, duration_days: 3, end_date: "2026-05-22", task_type: "list", is_complete: false },
+    // Strategically-overdue: writing tasks slip. Stays 4 days overdue
+    // regardless of when the demo is opened (see OVERDUE_* anchors).
+    { id: 4, project_id: 2, name: "Draft Chapter 2 outline", start_date: OVERDUE_START, duration_days: 3, end_date: OVERDUE_END_4D, task_type: "list", is_complete: false },
     // Task 5 is shared with alex (view) independently of any shared project,
     // so the fixture covers the individually-shared task path too.
     { id: 5, project_id: 2, name: "Send draft figures to alex", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "list", is_complete: false, shared_with: ["alex"] },

@@ -125,7 +125,54 @@ export function isWikiCaptureMode(): boolean {
   return getWikiCaptureVariant() !== null;
 }
 
+/** Public in-browser demo mode. True when the URL pathname is exactly
+ *  `/demo` or starts with `/demo/`, OR when `?demo=1` is set. Unlike the
+ *  wiki-capture flag, this has **no** production / localhost guard — the
+ *  whole point is to let a public Vercel visitor explore ResearchOS at
+ *  `researchos.app/demo`. The route `/demo-lab.zip` is a static asset
+ *  served from `public/` and never lands on the React client, but we
+ *  exclude any path starting with `/demo-lab` defensively. SSR-safe:
+ *  returns false on the server. */
+export function getDemoMode(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const path = window.location.pathname;
+    if (path === "/demo" || path.startsWith("/demo/")) return true;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("demo") === "1") return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/** True for either the localhost screenshot fixture (`?wikiCapture=…`) or
+ *  the production-allowed public demo (`/demo`). Both seed the same
+ *  in-memory fixture, so callers that want "is the fixture active?" use
+ *  this. */
+export function isDemoOrWikiCapture(): boolean {
+  return isWikiCaptureMode() || getDemoMode();
+}
+
 let installed = false;
+
+/** Hoisted to module scope so `getFixtureSnapshot()` can read them after
+ *  install. The mock initializes these on first install and patches
+ *  fileService methods to read/write through them. */
+const fixtureFiles = new Map<string, unknown>();
+const fixtureDirs = new Set<string>();
+const fixtureBlobs = new Map<string, Blob>();
+
+/** Read-only snapshot of the fixture's in-memory storage. Returned by
+ *  reference (not a clone) so the demo ZIP exporter sees live state,
+ *  including the user's in-session edits. Only meaningful after
+ *  `installWikiCaptureFixture()` has resolved. */
+export function getFixtureSnapshot(): {
+  files: ReadonlyMap<string, unknown>;
+  blobs: ReadonlyMap<string, Blob>;
+} {
+  return { files: fixtureFiles, blobs: fixtureBlobs };
+}
 
 interface InstallOptions {
   /** When true, skip writing the IndexedDB current-user entry, so the
@@ -146,9 +193,9 @@ export async function installWikiCaptureFixture(
   installed = true;
 
   const fixtures = buildWikiFixtures();
-  const files = new Map<string, unknown>();
-  const dirs = new Set<string>();
-  const blobs = new Map<string, Blob>();
+  const files = fixtureFiles;
+  const dirs = fixtureDirs;
+  const blobs = fixtureBlobs;
 
   for (const [path, content] of fixtures) {
     const norm = normalizePath(path);

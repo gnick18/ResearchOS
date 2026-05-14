@@ -12,7 +12,7 @@ export default function CalendarOAuthSetupPage() {
         Only the person who deploys ResearchOS (i.e., owns the Vercel project,
         or runs the local dev server). Labmates get a one-click{" "}
         <strong>Connect</strong> button in the Linked Calendars modal once
-        these env vars are set — they never touch any of this.
+        these env vars are set. They never touch any of this.
       </Callout>
 
       <h2>What you&apos;re setting up</h2>
@@ -21,7 +21,7 @@ export default function CalendarOAuthSetupPage() {
         Outlook so users can read <em>and edit</em> events from inside
         ResearchOS. That requires a one-time registration with each provider
         plus a few env vars in your deployment. Apple / iCloud stays
-        ICS-only — Apple doesn&apos;t expose a write API to third parties.
+        ICS-only. Apple doesn&apos;t expose a write API to third parties.
       </p>
 
       <p>
@@ -87,7 +87,7 @@ export default function CalendarOAuthSetupPage() {
         </Step>
         <Step>
           Click <strong>Create</strong>. Copy the <strong>Client ID</strong>{" "}
-          and <strong>Client secret</strong> — you&apos;ll paste them into
+          and <strong>Client secret</strong>. You&apos;ll paste them into
           Vercel in Step 3.
         </Step>
       </Steps>
@@ -131,7 +131,7 @@ export default function CalendarOAuthSetupPage() {
         <Step>
           Left nav → <strong>Certificates &amp; secrets</strong> →{" "}
           <strong>New client secret</strong>. Pick an expiry (24 months is
-          the max). <strong>Copy the secret value immediately</strong> —
+          the max). <strong>Copy the secret value immediately</strong>.
           Microsoft shows it once, then hides it forever.
         </Step>
         <Step>
@@ -198,7 +198,7 @@ export default function CalendarOAuthSetupPage() {
       <h2>Where the tokens end up</h2>
       <p>
         OAuth tokens are written into each user&apos;s own data folder at{" "}
-        <code>users/[username]/_calendar-oauth.json</code> — they never sit
+        <code>users/[username]/_calendar-oauth.json</code>. They never sit
         on a ResearchOS server. The first time a labmate connects, the file
         path is also appended to the data folder&apos;s <code>.gitignore</code>{" "}
         so a refresh token can&apos;t accidentally land in a git repo.
@@ -229,7 +229,7 @@ export default function CalendarOAuthSetupPage() {
         Make sure the requested scope list includes{" "}
         <code>offline_access</code> (ResearchOS does this for you; the
         warning means the user clicked through without granting it). The fix
-        is reconnect — the consent screen will list offline access again.
+        is reconnect. The consent screen will list offline access again.
       </p>
     </WikiPage>
   );

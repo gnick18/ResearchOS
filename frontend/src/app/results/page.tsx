@@ -56,23 +56,30 @@ export default function ResultsPage() {
     );
   }, [allTasks, selectedProjectIds]);
 
-  // Project colors
+  // Composite key for project lookups: per-user ID spaces mean alex's project
+  // 1 and morgan's project 1 are different projects; indexing maps by just
+  // p.id silently merges them. Mirrors search/page.tsx.
+  const projectKey = (p: Pick<Project, "id" | "owner">) => `${p.owner}:${p.id}`;
+  const taskProjectKey = (t: Pick<Task, "owner" | "project_id">) =>
+    `${t.owner}:${t.project_id}`;
+
+  // Project colors, keyed by composite `${owner}:${id}`.
   const projectColors = useMemo(() => {
     const defaultColors = [
       "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
     ];
-    const map: Record<number, string> = {};
+    const map: Record<string, string> = {};
     projects.forEach((p, i) => {
-      map[p.id] = p.color || defaultColors[i % defaultColors.length];
+      map[projectKey(p)] = p.color || defaultColors[i % defaultColors.length];
     });
     return map;
   }, [projects]);
 
-  // Project names
+  // Project names, keyed by composite `${owner}:${id}`.
   const projectNames = useMemo(() => {
-    const map: Record<number, string> = {};
+    const map: Record<string, string> = {};
     projects.forEach((p) => {
-      map[p.id] = p.name;
+      map[projectKey(p)] = p.name;
     });
     return map;
   }, [projects]);
@@ -118,8 +125,8 @@ export default function ResultsPage() {
 
         cards.push({
           task,
-          projectName: projectNames[task.project_id] || "Unknown",
-          projectColor: projectColors[task.project_id] || "#6b7280",
+          projectName: projectNames[taskProjectKey(task)] || "Unknown",
+          projectColor: projectColors[taskProjectKey(task)] || "#6b7280",
           hasNotes,
           attachmentCount,
         });
@@ -130,18 +137,22 @@ export default function ResultsPage() {
     enabled: resultTasks.length > 0,
   });
 
-  // Group by project
+  // Group by project, keyed by composite `${owner}:${id}` so alex's project 1
+  // and morgan's project 1 stay in separate buckets. Each bucket carries its
+  // own resolved name/color (sourced from the first card's already-composite-
+  // keyed lookup), which the group header renders directly.
   const grouped = useMemo(() => {
-    const map: Record<number, { name: string; color: string; cards: ResultCard[] }> = {};
+    const map: Record<string, { name: string; color: string; cards: ResultCard[] }> = {};
     for (const card of resultCards) {
-      if (!map[card.task.project_id]) {
-        map[card.task.project_id] = {
+      const key = taskProjectKey(card.task);
+      if (!map[key]) {
+        map[key] = {
           name: card.projectName,
           color: card.projectColor,
           cards: [],
         };
       }
-      map[card.task.project_id].cards.push(card);
+      map[key].cards.push(card);
     }
     return map;
   }, [resultCards]);
@@ -170,7 +181,7 @@ export default function ResultsPage() {
                 selectedProjectIds.includes(p.id);
               return (
                 <button
-                  key={p.id}
+                  key={`${p.owner}:${p.id}`}
                   onClick={() => useAppStore.getState().toggleProject(p.id)}
                   className={`px-2.5 py-1 text-xs rounded-full transition-colors ${
                     isSelected
@@ -179,7 +190,7 @@ export default function ResultsPage() {
                   }`}
                   style={
                     isSelected
-                      ? { backgroundColor: projectColors[p.id] }
+                      ? { backgroundColor: projectColors[projectKey(p)] }
                       : undefined
                   }
                 >
@@ -286,7 +297,10 @@ export default function ResultsPage() {
       {editingTask && (
         <TaskDetailPopup
           task={editingTask}
-          project={projects.find((p) => p.id === editingTask.project_id)}
+          project={projects.find(
+            (p) =>
+              p.id === editingTask.project_id && p.owner === editingTask.owner,
+          )}
           onClose={handleEditorClose}
           initialTab="results"
         />

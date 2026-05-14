@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useFileSystem, isFileSystemAccessSupported } from "@/lib/file-system/file-system-context";
 import BetaDonationButton from "@/components/BetaDonationButton";
 import BugReportModal from "@/components/BugReportModal";
+import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
+import Tooltip from "@/components/Tooltip";
 import UserAvatar from "@/components/UserAvatar";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
 
@@ -34,6 +36,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
   const [createError, setCreateError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const [elnImportOpen, setElnImportOpen] = useState(false);
   const { showBugReport, currentError, openBugReport, closeBugReport } = useErrorReporting();
 
   console.log("ResearchFolderSetupNew render:", { 
@@ -200,6 +203,20 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                   <p className="text-red-400 text-sm mt-2">{createError}</p>
                 )}
               </div>
+
+              <div className="border-t border-white/10 pt-4 mt-6">
+                <h3 className="text-sm font-medium text-slate-300 mb-2">
+                  Coming from another ELN?
+                </h3>
+                <p className="text-xs text-slate-400 mb-3">
+                  Import a LabArchives Offline Notebook ZIP into your
+                  workspace. Pages become tasks, folders can become projects.
+                </p>
+                <ImportFromELNButton
+                  hasUser={Boolean(currentUser)}
+                  onOpen={() => setElnImportOpen(true)}
+                />
+              </div>
             </div>
           </div>
 
@@ -222,6 +239,12 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
           onClose={closeBugReport}
           prefilledError={currentError}
         />
+        {elnImportOpen && (
+          <ImportELNDialog
+            isOpen={elnImportOpen}
+            onClose={() => setElnImportOpen(false)}
+          />
+        )}
       </div>
     );
   }
@@ -566,15 +589,19 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
         )}
 
         <div className="mt-4 flex flex-col items-center gap-2">
-          <button
-            onClick={() => {
-              window.location.href = "/demo-lab.zip";
-            }}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-amber-200 hover:text-amber-100 border border-amber-300/30 hover:border-amber-300/60 rounded-lg text-sm font-medium transition-colors"
+          <a
+            href="/demo"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-100 hover:text-white border border-amber-300/40 hover:border-amber-300/70 rounded-lg text-sm font-semibold transition-colors"
           >
             <span aria-hidden="true">🧪</span>
-            Try the Demo Lab
-          </button>
+            Explore demo in browser
+          </a>
+          <a
+            href="/demo-lab.zip"
+            className="text-xs text-slate-400 hover:text-amber-200 underline-offset-2 hover:underline transition-colors"
+          >
+            Or download as a starter folder
+          </a>
           <p className="text-xs text-slate-500">
             An entirely fake yeast-lab dataset to explore the app with.
           </p>
@@ -620,5 +647,30 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
         prefilledError={currentError}
       />
     </div>
+  );
+}
+
+function ImportFromELNButton({
+  hasUser,
+  onOpen,
+}: {
+  hasUser: boolean;
+  onOpen: () => void;
+}) {
+  const button = (
+    <button
+      type="button"
+      onClick={hasUser ? onOpen : undefined}
+      disabled={!hasUser}
+      className="w-full px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-blue-500/50 rounded-lg text-white text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white/5 disabled:hover:border-white/10"
+    >
+      Import from another ELN
+    </button>
+  );
+  if (hasUser) return button;
+  return (
+    <Tooltip label="Sign in to a user first." placement="top">
+      <span className="block">{button}</span>
+    </Tooltip>
   );
 }

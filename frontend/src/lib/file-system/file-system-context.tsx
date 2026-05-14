@@ -12,12 +12,13 @@ import {
   storeMainUser,
   getMainUser,
   clearCurrentUser,
+  clearMainUser,
 } from "./indexeddb-store";
 import { clearCurrentUserCache } from "../storage/json-store";
 import { discoverUsers, validateResearchFolder, ensureFolderStructure } from "./user-discovery";
 import { readUserSettings, patchUserSettings, userSettingsFileExists, DEFAULT_SETTINGS } from "../settings/user-settings";
 import { useAppStore, readLegacyLocalStorageSettings } from "../store";
-import { getWikiCaptureVariant, installWikiCaptureFixture } from "./wiki-capture-mock";
+import { getWikiCaptureVariant, getDemoMode, installWikiCaptureFixture } from "./wiki-capture-mock";
 import { rebaseDemoDates, isDemoLab } from "../demo/rebase";
 
 /** Coarse-grained phase of the startup connect flow. Used by the loading
@@ -261,16 +262,18 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     async function initialize() {
-      // Wiki-screenshot capture mode: bypass the FS picker and silent reconnect
-      // entirely. Seed an in-memory fixture. The "signed-in" variant
-      // (?wikiCapture=1) signs in as "alex" (the Demo Lab PI) so feature
-      // pages render with realistic data. The "picker" variant
-      // (?wikiCapture=picker) leaves currentUser empty so the user-picker
-      // screen renders — used to capture user-login.png.
+      // Wiki-screenshot capture mode (?wikiCapture=… on localhost) and the
+      // public in-browser demo (/demo, allowed in production) both bypass
+      // the FS picker and silent reconnect and seed the same in-memory
+      // fixture. The "picker" wiki-capture variant leaves currentUser
+      // empty so the user-picker screen renders — used to capture
+      // user-login.png. Every other path signs in as "alex" (the Demo
+      // Lab PI) so feature pages render with realistic data.
       const captureVariant = getWikiCaptureVariant();
-      if (captureVariant) {
+      const demoMode = getDemoMode();
+      if (captureVariant || demoMode) {
         try {
-          const signIn = captureVariant === "signed-in";
+          const signIn = demoMode || captureVariant === "signed-in";
           await installWikiCaptureFixture({ signIn });
           if (signIn) {
             await hydrateSettingsForUser("alex");
@@ -290,7 +293,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
           }));
           return;
         } catch (err) {
-          console.error("[FileSystemProvider] wiki-capture init failed:", err);
+          console.error("[FileSystemProvider] fixture init failed:", err);
           setState((prev) => ({ ...prev, isLoading: false }));
           return;
         }
@@ -305,6 +308,33 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         ]);
 
         console.log("[FileSystemProvider.initialize] meta:", meta, "hasHandle:", !!storedHandle);
+
+        // Stale wiki-capture state cleanup. `installWikiCaptureFixture`
+        // seeds IDB with a `name: "wiki-capture-fixture"` fake handle +
+        // currentUser/mainUser so the in-page flow works. If the user
+        // leaves `?wikiCapture=1` and navigates to `/` without an explicit
+        // exit, those entries persist and the next visit hits the
+        // silent-reconnect path with a non-FSA fake handle — surfaces as
+        // a broken "Reconnect to wiki-capture-fixture" screen because
+        // queryPermission on the fake throws. We're not in wiki-capture
+        // or demo mode here (already early-returned above if we were),
+        // so the sentinel-named handle is unambiguously stale. Clear
+        // everything and fall through to the normal first-time path.
+        if (storedHandle?.name === "wiki-capture-fixture") {
+          await Promise.all([
+            clearDirectoryHandle(),
+            clearCurrentUser(),
+            clearMainUser(),
+          ]);
+          setState((prev) => ({
+            ...prev,
+            isLoading: false,
+            lastConnectedFolder: null,
+            currentUser: null,
+            mainUser: null,
+          }));
+          return;
+        }
 
         // Try a silent reconnect: if Chrome still remembers the readwrite
         // grant on this handle, we can skip the OS picker entirely. We

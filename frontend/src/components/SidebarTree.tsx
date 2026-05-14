@@ -9,9 +9,15 @@ interface SidebarTreeProps {
   projects: Project[];
   tasksByProject: Record<number, Task[]>;
   dependencies: Dependency[];
-  projectColors: Record<number, string>;
+  // Keyed by composite `${owner}:${id}` so a shared project and an own
+  // project with the same numeric id keep distinct colors.
+  projectColors: Record<string, string>;
   onTaskClick: (taskId: number) => void;
 }
+
+// Composite key for the projectColors lookup. Mirrors the helper in
+// app/gantt/page.tsx where the map is built.
+const projectKey = (p: Pick<Project, "id" | "owner">) => `${p.owner}:${p.id}`;
 
 /**
  * Build a tree structure from flat tasks + dependencies.
@@ -240,7 +246,7 @@ export default function SidebarTree({
             tasks.some((t) => t.id === d.parent_id || t.id === d.child_id)
           );
           const { roots, childrenMap } = buildTree(tasks, projectDeps);
-          const projectColor = projectColors[project.id] || "#3b82f6";
+          const projectColor = projectColors[projectKey(project)] || "#3b82f6";
 
           return (
             <div key={project.id} className="mb-4">

@@ -112,7 +112,9 @@ export default function TaskModal({ projects }: TaskModalProps) {
   const availableParentTasks = useMemo(() => {
     return allTasks.filter((t) => {
       if (t.project_id !== projectId) return false;
-      const project = projects.find((p) => p.id === t.project_id);
+      const project = projects.find(
+        (p) => p.id === t.project_id && p.owner === t.owner,
+      );
       return project && !project.is_archived;
     });
   }, [allTasks, projectId, projects]);
@@ -218,7 +220,14 @@ export default function TaskModal({ projects }: TaskModalProps) {
       // If experiment, create the lab notes file scaffold
       if (taskType === "experiment") {
         const notesPath = `${taskResultsBase(task)}/notes.md`;
-        const projectName = projects.find((p) => p.id === projectId)?.name || "Unknown Project";
+        // The modal creates tasks under the active user, so when resolving
+        // projectId we exclude shared projects — otherwise alex's project 1
+        // and morgan's-shared-with-alex project 1 collide on the id alone.
+        // Legacy own projects have `owner: ""` on disk, so we filter on the
+        // shared flag rather than current-user owner equality.
+        const projectName =
+          projects.find((p) => p.id === projectId && !p.is_shared_with_me)
+            ?.name || "Unknown Project";
         const template = createNewFileContent(name.trim(), projectName, 'notes');
         try {
           await filesApi.writeFile(
@@ -268,7 +277,11 @@ export default function TaskModal({ projects }: TaskModalProps) {
       if (!name.trim() || !projectId) return;
 
       // Check if project is archived
-      const selectedProject = projects.find((p) => p.id === projectId);
+      // See note above on createTask: TaskModal creates under the active
+      // user, so resolve projectId against own (non-shared) projects only.
+      const selectedProject = projects.find(
+        (p) => p.id === projectId && !p.is_shared_with_me,
+      );
       if (selectedProject?.is_archived) {
         alert("Cannot create tasks in an archived project. Please unarchive the project first.");
         return;
@@ -470,7 +483,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {activeProjects.map((p) => (
-                <option key={p.id} value={p.id}>
+                <option key={`${p.owner}:${p.id}`} value={p.id}>
                   {p.name === "Miscellaneous" ? "📋 Miscellaneous (standalone tasks)" : p.name}
                 </option>
               ))}

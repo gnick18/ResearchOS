@@ -60,6 +60,11 @@ export const WIKI_NAV: WikiNode[] = [
         label: "Creating a User",
         blurb: "Pick a username, set an optional password.",
       },
+      {
+        href: "/wiki/getting-started/demo-mode",
+        label: "Demo Mode",
+        blurb: "Try ResearchOS in the browser with a seeded yeast lab.",
+      },
     ],
   },
   {
@@ -106,7 +111,7 @@ export const WIKI_NAV: WikiNode[] = [
       {
         href: "/wiki/features/experiments",
         label: "Experiments & Notes",
-        blurb: "Markdown notes, image strip, sub-tasks, PDF export.",
+        blurb: "Tile grid, popup with Notes / Method / Results, PDF / HTML / Raw export.",
       },
       {
         href: "/wiki/features/markdown-editor",

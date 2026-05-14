@@ -49,7 +49,7 @@ export default function LabModeFeaturePage() {
         </li>
       </ul>
       <p>
-        If you&apos;re the only person in the folder, Lab Mode still loads — you
+        If you&apos;re the only person in the folder, Lab Mode still loads. You
         just won&apos;t see anyone else&apos;s rows. It earns its keep once two
         or more labmates share the same folder.
       </p>
@@ -64,16 +64,26 @@ export default function LabModeFeaturePage() {
         <li>
           On the user-picker, sign in as the special user <code>lab</code>.
           That account auto-redirects into Lab Mode and is the right choice for
-          a wall-mounted TV in the lab or a recurring lab-meeting tab — no
-          private data exposed because the <code>lab</code> user only ever sees
+          a wall-mounted TV in the lab or a recurring lab-meeting tab. No
+          private data is exposed because the <code>lab</code> user only ever sees
           aggregated views.
         </li>
       </ul>
       <p>
         Lab Mode is read-only. Clicking into a task opens the same popup you
-        see in your own dashboard, but the edit buttons are hidden — Lab Mode
+        see in your own dashboard, but the edit buttons are hidden. Lab Mode
         never writes anything back.
       </p>
+
+      <Callout variant="info" title="Lab Mode shows everyone regardless of sharing">
+        Project-level sharing (the share icon on a project popup) lets one
+        labmate surface a specific project to a specific other labmate&apos;s{" "}
+        <Link href="/wiki/features/home">Home page</Link>. Lab Mode is the
+        broader view. Every labmate in the folder shows up on every tab
+        whether they shared anything with you or not. Use sharing when you
+        want a labmate&apos;s project on your own Home; use Lab Mode when
+        you want a lab-wide read-only roll-up.
+      </Callout>
 
       <h2>What&apos;s inside</h2>
       <p>
@@ -84,38 +94,38 @@ export default function LabModeFeaturePage() {
         <li>
           <Link href="/wiki/features/lab-mode/activity">
             <strong>Activity</strong>
-          </Link>{" "}
-          — the default tab. Three rolling sections: what&apos;s in flight
+          </Link>
+          : the default tab. Three rolling sections: what&apos;s in flight
           right now, what just wrapped, and which shared notes were updated
           recently.
         </li>
         <li>
           <Link href="/wiki/features/lab-mode/gantt">
             <strong>GANTT</strong>
-          </Link>{" "}
-          — one combined timeline with every user&apos;s tasks overlaid. Bars
+          </Link>
+          : one combined timeline with every user&apos;s tasks overlaid. Bars
           are tinted by the user&apos;s color so you can scan whose work
           you&apos;re looking at.
         </li>
         <li>
           <Link href="/wiki/features/lab-mode/purchases">
             <strong>Purchases</strong>
-          </Link>{" "}
-          — funding-account budget cards at the top, then either a list of
+          </Link>
+          : funding-account budget cards at the top, then either a list of
           purchase orders or a summary view with per-month, per-user, and
           per-project spend rollups.
         </li>
         <li>
           <Link href="/wiki/features/lab-mode/cross-user-lists">
             <strong>Experiments, Methods, Roadmaps, and Notes</strong>
-          </Link>{" "}
-          — four cross-user lists. Each is a flat view of everyone&apos;s rows
+          </Link>
+          : four cross-user lists. Each is a flat view of everyone&apos;s rows
           for that area, with the contributor&apos;s avatar and color attached
           to every line. The shape is the same across the four, with small
           differences per list.
         </li>
         <li>
-          <strong>Search</strong> — the cross-user variant of the regular
+          <strong>Search</strong>: the cross-user variant of the regular
           search page. Same filter form, but results pull from every selected
           user&apos;s data. See{" "}
           <Link href="/wiki/features/search">Search</Link> for the filter

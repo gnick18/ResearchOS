@@ -1,3 +1,4 @@
+import Link from "next/link";
 import WikiPage from "@/components/wiki/WikiPage";
 import Screenshot from "@/components/wiki/Screenshot";
 import Callout from "@/components/wiki/Callout";
@@ -31,7 +32,7 @@ export default function SearchFeaturePage() {
       <h2>The filters</h2>
       <p>
         Every filter is optional. Leave them blank to match everything, or
-        combine as many as you want — all filters AND together.
+        combine as many as you want. All filters AND together.
       </p>
       <ul>
         <li>
@@ -54,7 +55,7 @@ export default function SearchFeaturePage() {
         <li>
           <strong>Specific Method</strong> matches tasks whose first attached
           method is the one you pick.{" "}
-          <strong>Method Category</strong> is the broader version — it matches
+          <strong>Method Category</strong> is the broader version: it matches
           on the method&apos;s folder.
         </li>
         <li>
@@ -74,6 +75,57 @@ export default function SearchFeaturePage() {
         you&apos;d get from clicking the task on the GANTT or Home page.
       </p>
 
+      <h2>Export experiments from search results</h2>
+      <p>
+        The Search page doubles as the launch pad for bulk exports. Click the{" "}
+        <strong>Select</strong> button next to the result count and the cards
+        sprout a checkbox in the top-right corner. Tick one or more result
+        cards (a blue ring and the checked mark show selection), and the
+        header swaps in a counter (<em>N selected</em>), a blue{" "}
+        <strong>Export selected</strong> button, and a <strong>Cancel</strong>{" "}
+        button that drops you out of select mode.
+      </p>
+      <Screenshot
+        src="/wiki/screenshots/search-export-selected.png"
+        alt="Search results in select mode: three cards ticked with blue rings and the Export selected button visible at the top of the results list."
+        caption="Select mode on Search. Tick the cards you want and click Export selected to open the format dialog."
+      />
+      <p>
+        Clicking <strong>Export selected</strong> opens the same{" "}
+        <strong>Export</strong> dialog the experiment popup uses, with three
+        format cards: <strong>PDF report</strong>, <strong>HTML report</strong>,
+        and <strong>Raw ResearchOS format</strong>. The dialog heading reads{" "}
+        <em>Export N experiments</em> with a reminder that multi-experiment
+        exports produce a zip with one file per experiment.
+      </p>
+      <ul>
+        <li>
+          <strong>PDF</strong> packages each experiment as its own selectable-text
+          PDF with table of contents and outline pane, then drops every PDF
+          into a single <code>experiments-&lt;YYYY-MM-DD&gt;.zip</code>.
+        </li>
+        <li>
+          <strong>HTML</strong> gives each experiment its own subfolder inside
+          the zip (one self-contained HTML page plus an{" "}
+          <code>attachments/</code> tree), so you can open each report
+          independently without an extra unzip step.
+        </li>
+        <li>
+          <strong>Raw</strong> nests one <code>&lt;name&gt;-raw.zip</code>{" "}
+          per experiment inside the outer zip, keeping each bundle ready to
+          drop into another ResearchOS user&apos;s{" "}
+          <strong>Settings → Import experiment</strong> dialog.
+        </li>
+      </ul>
+      <p>
+        See{" "}
+        <Link href="/wiki/features/experiments">
+          Export an experiment
+        </Link>{" "}
+        on the Experiments page for a deeper walkthrough of what each format
+        bundles and which one to pick.
+      </p>
+
       <h2>Search in Lab Mode</h2>
       <p>
         Lab Mode has its own search panel (find it on the Lab tab). The form
@@ -83,10 +135,18 @@ export default function SearchFeaturePage() {
         returns project and method cards alongside task cards, badged with
         the owner&apos;s name and color.
       </p>
+      <p>
+        Lab search inherits the same <strong>Select</strong> →{" "}
+        <strong>Export selected</strong> flow. Project and method cards stay
+        non-selectable (the export pipeline only packages tasks), but you can
+        tick experiments across multiple labmates in one selection and the
+        Export dialog resolves each owner&apos;s data automatically. The
+        action button is green to match Lab Mode&apos;s accent.
+      </p>
 
       <Callout variant="tip" title="What gets searched, and what doesn't">
         Keywords match against task names, task tags, and method
-        names/tags — not against note bodies, results text, or PCR protocol
+        names/tags, not against note bodies, results text, or PCR protocol
         contents. Use the Notes page or a method&apos;s own editor to search
         the inside of those files.
       </Callout>

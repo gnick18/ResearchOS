@@ -34,7 +34,13 @@
   ],
   "pcr_gradient": null,
   "pcr_ingredients": null,
-  "method_attachments": [],
+  "method_attachments": [
+    {
+      "method_id": 2,
+      "owner": "public",
+      "snapshot_at": "2026-05-13T07:00:00Z"
+    }
+  ],
   "owner": "alex",
   "shared_with": []
 }

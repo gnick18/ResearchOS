@@ -11,6 +11,14 @@ export default function SharedLabAccountsPage() {
     <WikiPage
       intro="One folder, shared across your whole lab. Everyone keeps their own data, and Lab Mode rolls it all up."
     >
+      <Callout variant="info" title="Want to feel out Lab Mode first?">
+        Open{" "}
+        <Link href="/wiki/getting-started/demo-mode">Demo Mode</Link> for a
+        no-setup preview. It seeds two researchers (alex and morgan) into one
+        shared folder, so the Lab tab already has cross-user data to click
+        around in.
+      </Callout>
+
       <h2>How it works</h2>
       <p>
         Put your ResearchOS folder inside a cloud-synced folder (e.g., OneDrive,
@@ -105,7 +113,11 @@ export default function SharedLabAccountsPage() {
         <code>lab</code> user (or click the <strong>Lab</strong> tab) to see a
         combined Gantt, activity feed, methods library, and purchases view
         across every member. See{" "}
-        <Link href="/wiki/features/lab-mode">Lab Mode</Link>.
+        <Link href="/wiki/features/lab-mode">Lab Mode</Link>. If you only
+        want one labmate&apos;s work surfaced on your own Home page (rather
+        than the whole lab), they can share an individual project
+        or task with you instead; see{" "}
+        <Link href="/wiki/features/home">Home &amp; Projects</Link>.
       </Callout>
 
       <h2>Pitfalls to avoid</h2>
