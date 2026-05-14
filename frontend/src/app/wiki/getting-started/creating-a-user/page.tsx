@@ -17,9 +17,9 @@ export default function CreatingAUserPage() {
 
       <h2>What &quot;user&quot; means here</h2>
       <p>
-        ResearchOS has no central account system. A &quot;user&quot; is just a
-        named subdirectory inside <code>users/</code> in your folder. Each user
-        has their own projects, tasks, methods, and notes.
+        ResearchOS has no central account system. Each &quot;user&quot; is
+        a named folder inside <code>users/</code> in your data directory,
+        with their own projects, tasks, methods, and notes underneath.
       </p>
       <p>
         In this model, <strong>the folder is the lab</strong>. Anyone with
