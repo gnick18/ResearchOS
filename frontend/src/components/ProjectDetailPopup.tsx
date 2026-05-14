@@ -76,6 +76,14 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
   // Check if this is the Miscellaneous project (protected)
   const isMiscellaneousProject = project.name === "Miscellaneous";
 
+  // Receiver gates. View-only receivers cannot archive/unarchive because
+  // `projectsApi.archive` is owner-routed only when `shared_permission === "edit"`;
+  // any receiver (view OR edit) cannot delete because `projectsApi.delete` is
+  // intentionally NOT owner-routed — only the original owner should destroy the file.
+  const isViewOnlyReceiver =
+    project.is_shared_with_me === true && project.shared_permission === "view";
+  const isAnyReceiver = project.is_shared_with_me === true;
+
   // Fetch tasks for this project. For shared projects, the tasks live in the
   // owner's directory — read access only requires `is_shared_with_me`,
   // independent of edit permission, so this thread-through differs from the
@@ -343,15 +351,32 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
               </label>
 
               <div className="flex justify-between pt-4 border-t border-gray-100">
-                {/* Hide delete button for Miscellaneous project */}
+                {/* Hide delete button for Miscellaneous project; disable for
+                    any receiver (view OR edit). `projectsApi.delete` is not
+                    owner-routed, so a receiver's click would silently write
+                    to their own (nonexistent) directory and diverge from the
+                    owner's copy. */}
                 {!isMiscellaneousProject && (
-                  <button
-                    onClick={() => setShowDeleteConfirm(true)}
-                    disabled={deleting}
-                    className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                  <Tooltip
+                    label={
+                      isAnyReceiver
+                        ? `Only the owner (${project.owner}) can delete this project`
+                        : "Delete this project"
+                    }
+                    placement="top"
                   >
-                    Delete Project
-                  </button>
+                    <button
+                      onClick={() => setShowDeleteConfirm(true)}
+                      disabled={deleting || isAnyReceiver}
+                      className={`px-4 py-2 text-sm rounded-lg transition-colors disabled:opacity-50 ${
+                        isAnyReceiver
+                          ? "text-gray-300 cursor-not-allowed"
+                          : "text-red-600 hover:bg-red-50"
+                      }`}
+                    >
+                      Delete Project
+                    </button>
+                  </Tooltip>
                 )}
                 {isMiscellaneousProject && <div />}
                 <div className="flex gap-3">
@@ -411,31 +436,61 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
                 )}
               </div>
 
-              {/* Archive/Unarchive buttons - hide for Miscellaneous project */}
+              {/* Archive/Unarchive buttons - hide for Miscellaneous project.
+                  Disabled for view-only receivers: `projectsApi.archive` is
+                  only owner-routed when `shared_permission === "edit"`, so a
+                  view-only click would silently write to the receiver's own
+                  directory and diverge from the owner's copy. */}
               {!isMiscellaneousProject && (
                 <div className="flex gap-3 pt-4 border-t border-gray-100">
                   {project.is_archived ? (
-                    <button
-                      onClick={handleUnarchive}
-                      disabled={archiving}
-                      className="px-4 py-2 text-sm text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+                    <Tooltip
+                      label={
+                        isViewOnlyReceiver
+                          ? `Only the owner (${project.owner}) and edit-permission collaborators can unarchive this project`
+                          : "Unarchive this project"
+                      }
+                      placement="top"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                      {archiving ? "Unarchiving..." : "Unarchive Project"}
-                    </button>
+                      <button
+                        onClick={handleUnarchive}
+                        disabled={archiving || isViewOnlyReceiver}
+                        className={`px-4 py-2 text-sm rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2 ${
+                          isViewOnlyReceiver
+                            ? "text-gray-300 cursor-not-allowed"
+                            : "text-green-600 hover:bg-green-50"
+                        }`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        {archiving ? "Unarchiving..." : "Unarchive Project"}
+                      </button>
+                    </Tooltip>
                   ) : (
-                    <button
-                      onClick={() => setShowArchiveConfirm(true)}
-                      disabled={archiving}
-                      className="px-4 py-2 text-sm text-amber-600 hover:bg-amber-50 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+                    <Tooltip
+                      label={
+                        isViewOnlyReceiver
+                          ? `Only the owner (${project.owner}) and edit-permission collaborators can archive this project`
+                          : "Archive this project"
+                      }
+                      placement="top"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                      </svg>
-                      Archive Project
-                    </button>
+                      <button
+                        onClick={() => setShowArchiveConfirm(true)}
+                        disabled={archiving || isViewOnlyReceiver}
+                        className={`px-4 py-2 text-sm rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2 ${
+                          isViewOnlyReceiver
+                            ? "text-gray-300 cursor-not-allowed"
+                            : "text-amber-600 hover:bg-amber-50"
+                        }`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                        </svg>
+                        Archive Project
+                      </button>
+                    </Tooltip>
                   )}
                 </div>
               )}
