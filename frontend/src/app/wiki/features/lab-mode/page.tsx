@@ -75,6 +75,16 @@ export default function LabModeFeaturePage() {
         never writes anything back.
       </p>
 
+      <Callout variant="info" title="Lab Mode shows everyone regardless of sharing">
+        Project-level sharing (the share icon on a project popup) lets one
+        labmate surface a specific project to a specific other labmate&apos;s{" "}
+        <Link href="/wiki/features/home">Home page</Link>. Lab Mode is the
+        broader view — every labmate in the folder shows up on every tab
+        whether they shared anything with you or not. Use sharing when you
+        want a labmate&apos;s project on your own Home; use Lab Mode when
+        you want a lab-wide read-only roll-up.
+      </Callout>
+
       <h2>What&apos;s inside</h2>
       <p>
         The header swaps in a row of tabs. Each one shows the same kind of
