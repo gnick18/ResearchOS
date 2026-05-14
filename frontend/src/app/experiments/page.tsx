@@ -1,24 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { tasksApi, dependenciesApi, methodsApi, filesApi, fetchAllProjectsIncludingShared } from "@/lib/local-api";
-import { findExistingTaskResultsBase, taskResultsBase } from "@/lib/tasks/results-paths";
+import { tasksApi, dependenciesApi, fetchAllProjectsIncludingShared } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import TaskModal from "@/components/TaskModal";
 import NotesPanel from "@/components/NotesPanel";
-import type { Task, Method } from "@/lib/types";
-import type { GitHubTreeItem } from "@/lib/types";
-import {
-  exportMultipleExperiments,
-  fetchPdfData,
-  type ExportOptions,
-  type ExperimentExportData,
-  type PdfAttachmentData,
-} from "@/lib/export-utils";
+import type { Task } from "@/lib/types";
 
 const DEFAULT_COLORS = [
   "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
@@ -36,11 +27,7 @@ type TabType = "experiments" | "notes";
 export default function ExperimentsPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
-  const [selectedExperimentIds, setSelectedExperimentIds] = useState<Set<number>>(new Set());
-  const [showExportDropdown, setShowExportDropdown] = useState(false);
-  const [exporting, setExporting] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("experiments");
-  const exportDropdownRef = useRef<HTMLDivElement>(null);
   const selectedProjectIds = useAppStore((s) => s.selectedProjectIds);
   const setIsCreatingTask = useAppStore((s) => s.setIsCreatingTask);
   const setNewTaskStartDate = useAppStore((s) => s.setNewTaskStartDate);
@@ -281,205 +268,6 @@ export default function ExperimentsPage() {
     setIsCreatingTask(true);
   }, [setIsCreatingTask, setNewTaskStartDate, setRestrictedTaskType]);
 
-  // Toggle experiment selection for bulk export
-  const toggleExperimentSelection = useCallback((taskId: number) => {
-    setSelectedExperimentIds((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(taskId)) {
-        newSet.delete(taskId);
-      } else {
-        newSet.add(taskId);
-      }
-      return newSet;
-    });
-  }, []);
-
-  // Clear all selections
-  const clearSelection = useCallback(() => {
-    setSelectedExperimentIds(new Set());
-  }, []);
-
-  // Close export dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (exportDropdownRef.current && !exportDropdownRef.current.contains(event.target as Node)) {
-        setShowExportDropdown(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // Handle bulk export
-  const handleBulkExport = useCallback(async (format: 'markdown' | 'pdf') => {
-    if (selectedExperimentIds.size === 0) return;
-    
-    setExporting(true);
-    setShowExportDropdown(false);
-    
-    try {
-      const exportDataList: ExperimentExportData[] = [];
-      
-      for (const taskId of selectedExperimentIds) {
-        const task = allTasks.find(t => t.id === taskId);
-        if (!task) continue;
-        
-        const project = projects.find(p => p.id === task.project_id);
-        const projectName = project?.name || "Unknown Project";
-
-        // Read from the per-user results dir, falling back to the legacy
-        // global location so older un-migrated tasks still export.
-        const resultsBase = (await findExistingTaskResultsBase(task)) ?? taskResultsBase(task);
-
-        // Fetch lab notes
-        let labNotes: string | null = null;
-        try {
-          const notesFile = await filesApi.readFile(`${resultsBase}/notes.md`);
-          labNotes = notesFile.content;
-        } catch {
-          // Notes don't exist
-        }
-
-        // Fetch method(s) - handle both legacy method_id and new method_ids
-        let method: Method | null = null;
-        let methodContent: string | null = null;
-        const methodPdfs: PdfAttachmentData[] = [];
-        
-        // Get all method IDs to process. Legacy single-method tasks are
-        // already normalised at the read boundary (see normalizeTaskRecord
-        // in local-api.ts), so method_ids is the only thing we need to read.
-        const methodIdsToProcess = task.method_ids ?? [];
-        
-        for (let i = 0; i < methodIdsToProcess.length; i++) {
-          const methodId = methodIdsToProcess[i];
-          try {
-            const methodData = await methodsApi.get(methodId);
-
-            if (!methodData) continue;
-
-            // For the first method, set as the primary method
-            if (i === 0) {
-              method = methodData;
-            }
-
-            // A method's content lives at methodData.source_path — either a
-            // markdown file path or a `pcr://protocol/{id}` URI for PCR
-            // methods. PCR methods aren't packaged into the export PDF
-            // bundle; only file-backed methods are.
-            if (!methodData.source_path || methodData.source_path.startsWith("pcr://")) {
-              continue;
-            }
-
-            const isPdfByPath = methodData.source_path.toLowerCase().endsWith('.pdf');
-            const isPdfByType = methodData.method_type === 'pdf';
-
-            if (isPdfByType || isPdfByPath) {
-              try {
-                const pdfData = await fetchPdfData(methodData.source_path);
-                const filename = methodData.source_path.split('/').pop() || 'attachment.pdf';
-
-                methodPdfs.push({
-                  filename,
-                  originalPath: methodData.source_path,
-                  data: pdfData,
-                  methodId: methodData.id,
-                  methodName: methodData.name,
-                  order: 0,
-                });
-              } catch (error) {
-                console.error(`Failed to fetch PDF ${methodData.source_path}:`, error);
-              }
-            } else {
-              // Try to fetch as markdown, but detect if it's actually a PDF
-              // (filesApi returns base64 for binary files; "JVBERi0" is the
-              // base64 prefix for the PDF magic bytes "%PDF-1").
-              try {
-                const methodFile = await filesApi.readFile(methodData.source_path);
-                const isBase64Pdf = methodFile.content.startsWith('JVBERi0');
-
-                if (isBase64Pdf) {
-                  const binaryString = atob(methodFile.content);
-                  const bytes = new Uint8Array(binaryString.length);
-                  for (let j = 0; j < binaryString.length; j++) {
-                    bytes[j] = binaryString.charCodeAt(j);
-                  }
-                  const filename = methodData.source_path.split('/').pop() || 'attachment.pdf';
-
-                  methodPdfs.push({
-                    filename,
-                    originalPath: methodData.source_path,
-                    data: bytes.buffer,
-                    methodId: methodData.id,
-                    methodName: methodData.name,
-                    order: 0,
-                  });
-                } else if (!methodContent) {
-                  // Use the first markdown method as the primary content
-                  methodContent = methodFile.content;
-                }
-              } catch {
-                // Failed to fetch method content
-              }
-            }
-          } catch {
-            // Method doesn't exist
-          }
-        }
-
-        // Fetch results
-        let results: string | null = null;
-        try {
-          const resultsFile = await filesApi.readFile(`${resultsBase}/results.md`);
-          results = resultsFile.content;
-        } catch {
-          // Results don't exist
-        }
-
-        // Get PDF attachments
-        const pdfAttachments: string[] = [];
-        try {
-          const notesPdfs = await filesApi.listDirectory(`${resultsBase}/NotesPDFs`);
-          pdfAttachments.push(...notesPdfs.map((f: GitHubTreeItem) => f.path));
-        } catch {
-          // Directory doesn't exist
-        }
-        try {
-          const resultsPdfs = await filesApi.listDirectory(`${resultsBase}/ResultsPDFs`);
-          pdfAttachments.push(...resultsPdfs.map((f: GitHubTreeItem) => f.path));
-        } catch {
-          // Directory doesn't exist
-        }
-
-        exportDataList.push({
-          task,
-          projectName,
-          labNotes,
-          method,
-          methodContent,
-          results,
-          pdfAttachments,
-          methodPdfs,
-        });
-      }
-
-      const options: ExportOptions = {
-        format,
-        includeLabNotes: true,
-        includeMethod: true,
-        includeResults: true,
-        includeAttachments: true,
-      };
-
-      await exportMultipleExperiments(exportDataList, options);
-      clearSelection();
-    } catch (error) {
-      console.error("Bulk export failed:", error);
-      alert("Failed to export experiments");
-    } finally {
-      setExporting(false);
-    }
-  }, [selectedExperimentIds, allTasks, projects, clearSelection]);
-
   // Group chains by project
   const groupedChains = useMemo(() => {
     const map: Record<number, { projectName: string; chains: ExperimentChain[]; color: string }> = {};
@@ -582,58 +370,6 @@ export default function ExperimentsPage() {
           <>
             {/* Project filter */}
             <div className="flex items-center gap-2 mb-6">
-              {/* Bulk export button */}
-              {selectedExperimentIds.size > 0 && (
-              <div className="relative" ref={exportDropdownRef}>
-                <button
-                  onClick={() => setShowExportDropdown(!showExportDropdown)}
-                  disabled={exporting}
-                  className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 disabled:opacity-50"
-                >
-                  {exporting ? (
-                    <>
-                      <svg className="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Exporting...
-                    </>
-                  ) : (
-                    <>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
-                      </svg>
-                      Export {selectedExperimentIds.size} selected
-                    </>
-                  )}
-                </button>
-                {showExportDropdown && (
-                  <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 min-w-[140px]">
-                    <button
-                      onClick={() => handleBulkExport('markdown')}
-                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                    >
-                      <span>📝</span> Markdown
-                    </button>
-                    <button
-                      onClick={() => handleBulkExport('pdf')}
-                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                    >
-                      <span>📕</span> PDF
-                    </button>
-                    <hr className="my-1 border-gray-100" />
-                    <button
-                      onClick={clearSelection}
-                      className="w-full px-4 py-2 text-left text-sm text-gray-500 hover:bg-gray-50"
-                    >
-                      Clear selection
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
             {projects.map((p) => {
               const isSelected =
                 selectedProjectIds.length === 0 ||
@@ -749,29 +485,8 @@ export default function ExperimentsPage() {
                                  : status === "inProgress"
                                  ? "bg-white border-2 border-emerald-200"
                                  : "bg-white border border-gray-200"
-                             } ${selectedExperimentIds.has(rootTask.id) ? "ring-2 ring-green-500" : ""}`}
+                             }`}
                            >
-                             {/* Checkbox for bulk selection */}
-                             <div 
-                               className="absolute bottom-2 right-2 z-10"
-                               onClick={(e) => {
-                                 e.stopPropagation();
-                                 toggleExperimentSelection(rootTask.id);
-                               }}
-                             >
-                               <div className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors ${
-                                 selectedExperimentIds.has(rootTask.id)
-                                   ? "bg-green-500 border-green-500 text-white"
-                                   : "border-gray-300 hover:border-green-400 bg-white"
-                               }`}>
-                                 {selectedExperimentIds.has(rootTask.id) && (
-                                   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                     <path d="M20 6L9 17l-5-5"/>
-                                   </svg>
-                                 )}
-                               </div>
-                             </div>
-                             
                              {/* Clickable area for opening experiment */}
                              <div
                                onClick={() => handleChainClick(chain)}
