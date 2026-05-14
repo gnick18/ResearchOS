@@ -26,6 +26,9 @@ import ExportFormatDialog from "@/components/ExportFormatDialog";
 import { useFileRenamePopup } from "@/components/FileRenamePopup";
 import { fileService } from "@/lib/file-system/file-service";
 import { migrateNoteImages } from "@/lib/notes/migrate-images";
+import RehydrateMissingImagesModal from "@/components/labarchives/RehydrateMissingImagesModal";
+import { readMissingInlineImageCount } from "@/lib/import/eln/rehydrate";
+import type { MissingInlineImage } from "@/lib/import/eln/types";
 import {
   resolveTabAttachmentBase,
   resolveTaskResultsBase,
@@ -2419,6 +2422,16 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
   const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
   const { currentUser } = useCurrentUser();
 
+  // LabArchives-import rehydration banner state. Populated by an
+  // _import_source.json probe; banner is rendered iff `missing.length > 0`
+  // AND the current user owns the task (receivers can't rehydrate someone
+  // else's import — see comment on the render site for the gating rule).
+  const [missingInline, setMissingInline] = useState<MissingInlineImage[] | null>(null);
+  const [rehydrateModalOpen, setRehydrateModalOpen] = useState(false);
+  // Bumped after a successful apply so the markdown body re-reads from
+  // disk (the rehydrate helper rewrites `Images/missing-…` refs in place).
+  const [rehydrateReloadKey, setRehydrateReloadKey] = useState(0);
+
   // Resolved lazily: the per-user path is canonical, but if legacy global
   // `results/task-{id}/` is the only one with data we read from there until
   // the owner triggers a one-time copy (see resolveTaskResultsBase).
@@ -2513,7 +2526,28 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
     return () => {
       cancelled = true;
     };
-  }, [task.id, task.name, task.owner, task.project_id, currentUser, legacyOwner, readOnly, stampProject?.name]);
+  }, [task.id, task.name, task.owner, task.project_id, currentUser, legacyOwner, readOnly, stampProject?.name, rehydrateReloadKey]);
+
+  // LabArchives import sidecar probe. Drives the rehydration banner: a
+  // non-zero `missing` count surfaces a callout above the editor letting
+  // the owner pull the still-online images in via the same 3-tab UI the
+  // wizard's step 5 uses. Re-runs on `rehydrateReloadKey` bumps so the
+  // count refreshes after a successful apply.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const probe = await readMissingInlineImageCount(attachBase);
+        if (cancelled) return;
+        setMissingInline(probe ? probe.missing : []);
+      } catch {
+        if (!cancelled) setMissingInline([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [attachBase, rehydrateReloadKey]);
 
   // Warn before navigating away with unsaved changes
   useEffect(() => {
@@ -2748,6 +2782,50 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
               </div>
             )}
 
+            {/* LabArchives rehydration banner — persistent rescue path for
+                Form-B inline images that didn't come through at import
+                time. Only shown to the task owner (receivers can't
+                rehydrate someone else's import; the sidecar lives in the
+                owner's namespace). Hidden in readOnly mode (lab view).
+
+                Gated on `!hasUnsavedChanges` because the rehydrate helper
+                rewrites notes.md on disk and we then bump rehydrateReloadKey
+                to re-read; any in-flight editor edits would get clobbered.
+                When the user has unsaved work we still surface the banner
+                so they know there's something to do, but the button asks
+                them to save first. */}
+            {missingInline && missingInline.length > 0 && !readOnly && !task.is_shared_with_me && (
+              <div className="px-6 py-3 bg-amber-50 border-b border-amber-200">
+                <div className="flex items-start gap-3">
+                  <span className="text-amber-500 text-base leading-tight">📷</span>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-amber-900">
+                      {missingInline.length} inline image
+                      {missingInline.length === 1 ? "" : "s"} from your
+                      LabArchives import didn&apos;t come through
+                    </p>
+                    <p className="text-xs text-amber-800 mt-0.5">
+                      They were stored online by LabArchives and weren&apos;t bundled in
+                      the offline ZIP. Pull them in now so they render inline.
+                    </p>
+                  </div>
+                  <Tooltip
+                    label={hasUnsavedChanges ? "Save your notes first — the rehydrate flow rewrites notes.md on disk." : "Open the 3-tab fetch panel"}
+                    placement="bottom"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setRehydrateModalOpen(true)}
+                      disabled={hasUnsavedChanges}
+                      className="shrink-0 px-3 py-1.5 text-xs font-medium bg-amber-600 hover:bg-amber-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Pull them in →
+                    </button>
+                  </Tooltip>
+                </div>
+              </div>
+            )}
+
             {/* Editor — give it a sized flex slot so the editor scrolls
                 internally (the markdown body, toolbar, and image strip
                 stay anchored) instead of pushing the whole popup tab
@@ -2773,6 +2851,22 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
           <PdfAttachmentsPanel pdfsDir={pdfsDir} label="Lab Notes" />
         )}
       </div>
+
+      {rehydrateModalOpen && missingInline && missingInline.length > 0 && currentUser && (
+        <RehydrateMissingImagesModal
+          username={currentUser}
+          notesBase={attachBase}
+          notesMarkdownPath={notesPath}
+          missingImages={missingInline}
+          onApplied={() => {
+            // Bump the reload key so the markdown re-reads from disk
+            // (rehydrate.ts rewrote the body in place) and the sidecar
+            // probe re-runs to shrink the banner count.
+            setRehydrateReloadKey((k) => k + 1);
+          }}
+          onClose={() => setRehydrateModalOpen(false)}
+        />
+      )}
     </>
   );
 }
