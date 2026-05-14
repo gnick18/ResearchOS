@@ -218,7 +218,16 @@ async function fetchPCRProtocolSafe(
   const id = extractPCRProtocolId(method.source_path);
   if (id === null) return null;
   try {
-    const owner = task.is_shared_with_me ? task.owner : undefined;
+    // The protocol lives in the same namespace as the method that
+    // references it (`source_path: "pcr://protocol/{id}"` is a relative
+    // ref within the method's user dir). Use the METHOD's owner, not
+    // the task's: a task can attach a public method whose protocol id
+    // collides with a private protocol on the task owner — without
+    // explicit owner threading, `pcrApi.get`'s private-first fallback
+    // would silently return the wrong record. `method.owner` is
+    // "public" for public methods, the user for owned methods, and
+    // the original owner for shared methods.
+    const owner = method.owner || (task.is_shared_with_me ? task.owner : undefined);
     const protocol = await pcrApi.get(id, owner);
     return protocol ?? null;
   } catch (err) {

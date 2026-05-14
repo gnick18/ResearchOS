@@ -1830,7 +1830,13 @@ function PcrViewer({
       return;
     }
     
-    pcrApi.get(pcrId)
+    // Route the read explicitly to the method's namespace. Without this,
+    // a private protocol whose id collides with a public one would shadow
+    // the intended record (per-user id spaces are NOT globally unique).
+    // `method.owner` is "public" for public methods, the receiver's user
+    // for owned methods, and the original owner for shared methods.
+    const protocolOwner = method.owner || undefined;
+    pcrApi.get(pcrId, protocolOwner)
       .then((data) => {
         if (!data) {
           setLoading(false);
@@ -1845,7 +1851,7 @@ function PcrViewer({
       .catch(() => {
         setLoading(false);
       });
-  }, [pcrId]);
+  }, [pcrId, method.owner]);
 
   // Auto-save gradient changes
   const handleGradientChange = useCallback(async (newGradient: PCRGradient) => {
