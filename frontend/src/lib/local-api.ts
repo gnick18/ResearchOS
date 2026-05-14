@@ -2060,23 +2060,27 @@ export const usersApi = {
     if (!fileService.isConnected()) {
       return { users: [], current_user: "" };
     }
-    
-    const usersDir = await fileService.getDirectory("users");
-    if (!usersDir) {
-      return { users: [], current_user: "" };
-    }
-    
-    const skipDirs = new Set(["public", "lab", "_no_user_", "_global_counters.json", "_user_metadata.json"]);
-    const users: string[] = [];
-    
-    for await (const entry of (usersDir as unknown as { values: () => AsyncIterable<FileSystemHandle> }).values()) {
-      if (entry.kind === "directory" && !skipDirs.has(entry.name)) {
-        users.push(entry.name);
-      }
-    }
-    
+
+    // Route through `fileService.listDirectories` instead of iterating
+    // `getDirectory("users").values()` directly. The wiki-capture / /demo
+    // mock patches `listDirectories` to enumerate seeded user dirs but
+    // can't expose an FSA-shaped `values()` on its fake handle — calling
+    // `.values()` on the stub throws and surfaces as
+    // "Failed to load users. Please check your connection." in the
+    // UserLoginScreen. Same fix `user-discovery.ts:discoverUsers` already
+    // applied; this brings `usersApi.list` in line with it.
+    const skipDirs = new Set([
+      "public",
+      "lab",
+      "_no_user_",
+      "_global_counters.json",
+      "_user_metadata.json",
+    ]);
+    const allDirs = await fileService.listDirectories("users");
+    const users = allDirs.filter((name) => !skipDirs.has(name)).sort();
+
     const currentUser = await getCurrentUser();
-    return { users: users.sort(), current_user: currentUser || "" };
+    return { users, current_user: currentUser || "" };
   },
   
   login: async (username: string): Promise<{ status: string; current_user: string }> => {
