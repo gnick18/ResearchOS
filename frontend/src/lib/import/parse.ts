@@ -1,5 +1,5 @@
 import JSZip from "jszip";
-import type { Method, Project, Task } from "@/lib/types";
+import type { Method, PCRProtocol, Project, Task } from "@/lib/types";
 import type {
   ImportAttachment,
   ImportManifest,
@@ -9,6 +9,7 @@ import type {
 
 const METHOD_JSON_RE = /^methods\/method-(\d+)\.json$/;
 const METHOD_BODY_MD_RE = /^methods\/method-(\d+)-body\.md$/;
+const METHOD_PCR_PROTOCOL_RE = /^methods\/method-(\d+)-pcr-protocol\.json$/;
 const METHOD_FILE_RE = /^methods\/method-(\d+)-(.+)$/;
 const METHOD_UNATTACHED_RE = /^methods\/unattached\/(.+)$/;
 const NOTES_ATTACHMENT_RE = /^notes\/(Files|Images)\/(.+)$/;
@@ -112,6 +113,7 @@ export async function parseImportBundle(file: Blob): Promise<ImportPayload> {
   const methodRecords = new Map<number, Method>();
   const methodBodies = new Map<number, string>();
   const methodFiles = new Map<number, { filename: string; bytes: ArrayBuffer }>();
+  const methodPcrProtocols = new Map<number, PCRProtocol>();
   const attachments: ImportAttachment[] = [];
 
   // Iterate every file. `zip.files` is a Record<string, JSZipObject>.
@@ -139,6 +141,18 @@ export async function parseImportBundle(file: Blob): Promise<ImportPayload> {
     if (methodBodyMatch) {
       const id = Number(methodBodyMatch[1]);
       methodBodies.set(id, await entry.async("string"));
+      continue;
+    }
+
+    const pcrProtocolMatch = path.match(METHOD_PCR_PROTOCOL_RE);
+    if (pcrProtocolMatch) {
+      const id = Number(pcrProtocolMatch[1]);
+      try {
+        const protocol = JSON.parse(await entry.async("string")) as PCRProtocol;
+        methodPcrProtocols.set(id, protocol);
+      } catch (err) {
+        console.warn(`[import.parse] failed to parse ${path}:`, err);
+      }
       continue;
     }
 
@@ -204,11 +218,13 @@ export async function parseImportBundle(file: Blob): Promise<ImportPayload> {
     }
     const body = methodBodies.get(id) ?? null;
     const file = methodFiles.get(id) ?? null;
+    const pcrProtocol = methodPcrProtocols.get(id) ?? null;
     methods.push({
       record,
       bodyMarkdown: body,
       bytes: file?.bytes ?? null,
       pdfFilename: file?.filename ?? null,
+      pcrProtocol,
     });
     // Also surface the PDF bytes as a method-origin attachment so callers
     // who care about file shape (Files appendix etc.) see it consistently.

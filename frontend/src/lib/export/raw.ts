@@ -46,6 +46,12 @@ export async function buildRawZip(
     if (mp.bodyMarkdown !== null) {
       zip.file(`methods/method-${id}-body.md`, mp.bodyMarkdown);
     }
+    if (mp.method.method_type === "pcr" && mp.pcrProtocol != null) {
+      zip.file(
+        `methods/method-${id}-pcr-protocol.json`,
+        JSON.stringify(mp.pcrProtocol, null, 2),
+      );
+    }
     const match = payload.attachments.find(
       (a) => a.origin === "methods" && a.methodId === id,
     );
