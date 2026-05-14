@@ -24,9 +24,9 @@ type DemoMarker = {
  * fall-through for the "downloaded the zip, picked the folder" path.
  *
  * Inside the in-browser demo we also surface a "Leave Demo" CTA that
- * opens `<LeaveDemoModal>` — that flow offers to either export the
- * current fixture state as a starter ZIP or discard and pick a real
- * folder.
+ * opens `<LeaveDemoModal>` — a single confirm-and-go-home path. The
+ * demo is intentionally an ephemeral play sandbox; there's no
+ * save-as-ZIP affordance.
  */
 export default function DemoLabBanner() {
   const pathname = usePathname();

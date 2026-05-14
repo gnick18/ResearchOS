@@ -42,7 +42,20 @@ export default function FloatingLeaveDemoButton() {
         className="fixed bottom-20 right-4 z-50 px-4 py-3 rounded-full bg-amber-500 hover:bg-amber-600 text-white font-medium shadow-xl flex items-center gap-2 transition-colors focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2"
         aria-label="Leave demo"
       >
-        <span aria-hidden>🚪</span>
+        <svg
+          aria-hidden
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+          />
+        </svg>
         <span>Leave Demo</span>
       </button>
       <LeaveDemoModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
