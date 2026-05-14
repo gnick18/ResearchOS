@@ -42,6 +42,14 @@ export default function ConnectingYourFolderPage() {
         exactly as you left them.
       </Callout>
 
+      <Callout variant="info" title="Just kicking the tires?">
+        Skip the folder picker and visit{" "}
+        <Link href="/wiki/getting-started/demo-mode">Demo Mode</Link> instead.
+        It opens the app at <code>/demo</code> with a seeded fake yeast lab
+        you can click around in. No folder, no install, edits disappear on
+        reload.
+      </Callout>
+
       <h2>What gets created inside the folder</h2>
       <p>
         ResearchOS creates a simple tree the first time you connect:

@@ -11,6 +11,14 @@ export default function SharedLabAccountsPage() {
     <WikiPage
       intro="One folder, shared across your whole lab. Everyone keeps their own data, and Lab Mode rolls it all up."
     >
+      <Callout variant="info" title="Want to feel out Lab Mode first?">
+        Open{" "}
+        <Link href="/wiki/getting-started/demo-mode">Demo Mode</Link> for a
+        no-setup preview. It seeds two researchers (alex and morgan) into one
+        shared folder, so the Lab tab already has cross-user data to click
+        around in.
+      </Callout>
+
       <h2>How it works</h2>
       <p>
         Put your ResearchOS folder inside a cloud-synced folder (e.g., OneDrive,

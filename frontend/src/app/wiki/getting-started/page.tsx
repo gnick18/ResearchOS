@@ -7,7 +7,7 @@ export default function GettingStartedIndex() {
   const children = node?.children ?? [];
   return (
     <WikiPage
-      intro="Three short pages that take you from a brand-new visitor to a working ResearchOS install."
+      intro="Short pages that take you from a brand-new visitor to a working ResearchOS install — or skip ahead to the in-browser demo."
     >
       <p>Work through these in order:</p>
       <div className="grid gap-3 not-prose mt-3">

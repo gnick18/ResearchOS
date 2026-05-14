@@ -60,6 +60,11 @@ export const WIKI_NAV: WikiNode[] = [
         label: "Creating a User",
         blurb: "Pick a username, set an optional password.",
       },
+      {
+        href: "/wiki/getting-started/demo-mode",
+        label: "Demo Mode",
+        blurb: "Try ResearchOS in the browser with a seeded yeast lab.",
+      },
     ],
   },
   {
