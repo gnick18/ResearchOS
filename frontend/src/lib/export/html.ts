@@ -100,6 +100,21 @@ function findAttachment(
  *
  * TODO: when Sub-bot A's `./markdown.ts` lands `rewriteMarkdownRefs`, prefer
  * that — this is the regex-based fallback per the brief.
+ *
+ * Duplicate-image inlining (2026-05-14, sub-bot Tier-3 audit): when the same
+ * image bytes appear under both notes/Images/ and results/Images/, this
+ * function is called twice (once per section) and emits TWO `<img src="data:…">`
+ * tags with identical base64 payloads in the same HTML document. That is
+ * intentional: the export's contract is that the .html file renders standalone
+ * (no `attachments/` folder needed for images — see the zip-skip at the
+ * bottom of buildHtmlBundle), and pulling the byte stream up into a single
+ * shared object would break that contract for any reader that only saved the
+ * .html. The pre-zip cost is 2x the base64 string per duplicated image, but
+ * DEFLATE compression in the zip frame collapses identical runs reasonably
+ * well within its 32KB sliding window (less effective for >32KB images, but
+ * still nontrivial). If a future change reintroduces per-section attachment
+ * folders, prefer pointing both `<img>` tags at a single attachments/ entry
+ * over keeping two base64 inlines — but do NOT do both.
  */
 function rewriteMarkdownRefs(
   markdown: string,

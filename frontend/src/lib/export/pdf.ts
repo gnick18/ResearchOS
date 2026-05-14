@@ -76,6 +76,23 @@ function attachmentToImageSrc(att: ExperimentAttachment): string {
   // @react-pdf/renderer's Image accepts a data URI string in browser contexts.
   // Using a string keeps us off the Node `Buffer` global, which isn't
   // guaranteed in the client bundle.
+  //
+  // Duplicate-image dedup (2026-05-14, sub-bot Tier-3 audit): when the same
+  // image bytes are referenced by multiple sections (e.g. the same plate
+  // photo embedded under both notes/Images/ and results/Images/), they arrive
+  // here as two `ExperimentAttachment`s with identical `bytes` but different
+  // `origin`. The base64 conversion is deterministic on byte content, so the
+  // resulting data URI strings are byte-identical. @react-pdf/renderer keys
+  // its image-embed cache off the full data URI (see
+  // @react-pdf/layout `fetchImage`: `node.image.key = source.uri`), and the
+  // renderer's per-document `imageCache` (render/lib/index.js) keys the
+  // embedded XObject off `image.key`. Net effect: a single PDF XObject is
+  // embedded for the byte stream regardless of how many <Image> nodes
+  // reference it, AND pdfkit's `_imageRegistry` provides a second dedup
+  // layer keyed by the same string. Do NOT try to "optimize" this by
+  // hand-deduping at the React-tree level — the underlying stack already
+  // does the right thing, and using anything other than a content-stable
+  // data URI as the src would break the dedup.
   return `data:${att.mimeType};base64,${arrayBufferToBase64(att.bytes)}`;
 }
 
