@@ -195,11 +195,12 @@ Use this for any field rename. **Do NOT do hard on-disk cutovers** — rewrite-a
 - `/api/telegram-file/route.ts` is the Vercel function that proxies file CDN downloads through (CORS workaround).
 - `InboxPanel`, `InboxToast`, `InboxBadge`, `TelegramStatusBadge` render the inbox; `ImageStrip` reads from the inbox + task Images folder.
 
-### External calendar (live)
+### External calendar (live, ICS-only)
 - `lib/calendar/external-feeds-store.ts` persists ICS subscriptions in `users/{user}/_calendar-feeds.json`.
 - `lib/calendar/ics-parser.ts` parses the feed text.
 - `/api/calendar-feed/route.ts` is the Vercel function proxy (15-min edge cache, SSRF-protected).
 - `useExternalEvents()` hook merges external events into the calendar view.
+- **OAuth (Google + Microsoft) was removed 2026-05-14.** Earlier builds had read/write OAuth integrations under `/api/auth/{google,microsoft}/*` writing tokens to `users/{user}/_calendar-oauth.json`. Grant decided the maintenance overhead (PKCE flow, refresh-token rotation, deployer-side OAuth-client registration, Google's CASA verification) wasn't worth it; ICS subscriptions cover the read use case. The whole surface is gone (routes, lib clients, UI). Legacy `_calendar-oauth.json` files in users' folders are orphaned but harmless. Legacy `kind: "google"|"outlook"` entries in `_calendar-feeds.json` are silently filtered out by the v3 normalizer in `external-feeds-store.ts` (they can't be fetched anymore — user resubscribes via ICS). Wiki page `/wiki/integrations/calendar-oauth` deleted; `/wiki/integrations/calendar-feeds` is now the only calendar-integration doc.
 
 ### Wiki + screenshot pipeline
 
@@ -275,7 +276,7 @@ Use this for any field rename. **Do NOT do hard on-disk cutovers** — rewrite-a
 `claude/*` branches with unmerged work, or parallel manager-session work that's still landing commits. Spawn scopes must not collide with these areas. **Update this list as bots land or spawn** — it's the manager bot's quickest read on what's off-limits to a new spawn.
 
 - **Wiki screenshot recapture** — queued, managed by the parallel manager session. Full re-capture against Demo Lab data now that the fixture infrastructure landed (`6acf27c1`). Plus 5 new shots (markdown-editor language picker + Hybrid block selection + image resize, Results list, Telegram inbox), 2 re-specs (gantt-zoom-controls labels, purchases-funding-panel-not-modal), and the existing `results-editor.png` retired in favor of new `results-list.png` + `results-tab.png`. Off-limits to other sessions: `frontend/src/app/wiki/`, `frontend/src/components/wiki/`, `scripts/capture-wiki-screenshots.mjs`, `frontend/src/lib/file-system/wiki-capture-fixture.ts`.
-- **Calendar integrations** — `claude/festive-spence-378806`. Recent: Google Calendar OAuth M1, Outlook OAuth M2, two-way sync M3, calendar OAuth setup wiki, wiki top bar. Status: possibly idle but branch still alive. Off-limits: `frontend/src/lib/calendar/`, `frontend/src/app/calendar/`, `/api/calendar-feed/`.
+- **Calendar OAuth removal** — landed via worker bot on this orchestrator's branch (2026-05-14). All OAuth surface gone; ICS-only going forward. The `claude/festive-spence-378806` branch is now stale (its M1/M2/M3 OAuth work is what got reverted). The `/api/calendar-feed/` proxy is the remaining live integration and stays untouched.
 
 ### Handoff snapshot — 2026-05-14 end of day
 
@@ -292,7 +293,7 @@ Use this for any field rename. **Do NOT do hard on-disk cutovers** — rewrite-a
 2. **ELN wizard against `offline_14681.zip`** — critical-path before ELN feature ships. **Concrete page→project mapping from ELN manager** (5 pages → 4 projects per the cleaned[0] rule): page 10 "meetings" → Sam O; page 11 "meetings" → Grant N; page 12 "meetings" → Justin E; page 56 "del_laeA del_slaeA del_slaeB" → Justin E (shares project_id with page 12); page 92 "meetings" → Daniel CG. Projects rendered as `<name> (imported)`. Pages 10 and 12 are entry-empty (header-only `notes.md`); page 11 has 8 entries, page 56 has 2, page 92 has 2. **Quick correctness signal**: after apply, `ls users/<you>/projects/ | wc -l` jumps by 4; `ls users/<you>/tasks/ | wc -l` by 5. Per-task: `start_date = max(entry.updatedAt)`, `is_complete = true`, `task_type = "experiment"`. Per-task disk shape: `results/task-{id}/{notes.md, notes/Files/*, notes/Images/missing-*, notes/_import_source.json}`. After sign-off, ELN manager queues wiki handoff.
 3. **PDF export audit** — Inter local-bundle (`dedac195`) closed the jsdelivr URL risk. Now needs `pdftotext`/`pdffonts`/`pdfinfo` confirmation on a fresh PDF export. Combine with stamp-stripping check (export a task whose notes were authored via the editor) to also close that audit gap.
 4. **MethodTabs owner-routing live test** — `44a3f12c` patched 6 callsites (addMethod, removeMethod, updateMethodPcr, resetPcr, saveVariationNote ×2) to route through `ownerScopedTasksApi`. Bot couldn't drive the browser; fixture's task 5 is `permission: "view"` so the bug path isn't exercised by `?wikiCapture=1`. To live-confirm: switch fixture task 5 to `"edit"` and attach a method as morgan, OR use a real two-user folder.
-5. **Older backlog** still pending (no time pressure): ResultsEditor consolidation walkthrough, Universal drop on Details, Outlook OAuth (needs prod env vars), File-link UX, `TESTING.md` A-F scenarios, lint pass spot-check, Export-revamp 5-scenario panel (cross-user round-trip needs real two-user setup).
+5. **Older backlog** still pending (no time pressure): ResultsEditor consolidation walkthrough, Universal drop on Details, File-link UX, `TESTING.md` A-F scenarios, lint pass spot-check, Export-revamp 5-scenario panel (cross-user round-trip needs real two-user setup). (Outlook OAuth dropped from this list — the whole calendar OAuth surface was removed 2026-05-14.)
 
 **Items already verified by Grant ✓** (from prior sessions): Note popup GC, image regression, drop on rendered image, stamp redesign, file drag-to-delete, broken-image popup, per-tab attachment isolation, spaces-in-filename inline image render. R6 (file-link UX clickable + View/Download modal) confirmed by Grant during 2026-05-13 session.
 
