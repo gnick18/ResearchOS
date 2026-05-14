@@ -213,6 +213,62 @@ export interface Task {
   inherited_from_project?: number | null;
   is_shared_with_me?: boolean;  // True if this task is shared WITH the current user (not owned by them)
   shared_permission?: "view" | "edit";  // Only set when is_shared_with_me=true; the level the receiver was granted
+  /**
+   * Cross-owner project host — null/undefined means the task only appears in
+   * `project_id` (its native project, in its own owner's namespace). When set,
+   * the task ALSO appears in the destination owner's project Gantt/timeline.
+   * The task file itself stays in this task's owner directory; only the
+   * destination project's `<id>-hosted.json` manifest changes on share.
+   * See `frontend/src/lib/sharing/project-hosting.ts` for the contract.
+   */
+  external_project?: ExternalProjectRef | null;
+}
+
+/**
+ * Cross-owner "hosted" association on a task. When alex's task is shared
+ * INTO morgan's project (Option C / Option 3, AGENTS.md §8), the task file
+ * stays in alex's directory but carries this composite ref. The destination
+ * project also gets a `<projectId>-hosted.json` manifest entry — both sides
+ * must agree.
+ *
+ * Singular for v1. If a task ever needs to be hosted in multiple foreign
+ * projects, widen `Task.external_project` to `ExternalProjectRef[]`.
+ */
+export interface ExternalProjectRef {
+  /** Username of the destination project's owner. */
+  owner: string;
+  /** Numeric project id in the destination owner's namespace. */
+  id: number;
+  /** ISO timestamp of when the share landed. */
+  sharedAt: string;
+}
+
+/**
+ * One hosted-from-others entry on a project. The manifest of tasks hosted
+ * INTO `users/<projectOwner>/projects/<projectId>.json` lives at the
+ * sidecar `users/<projectOwner>/projects/<projectId>-hosted.json`.
+ *
+ * Drift contract: an entry here is only valid if the referenced
+ * `users/<owner>/tasks/<taskId>.json` exists AND its `external_project`
+ * points back to (projectOwner, projectId). Anything else is drift and the
+ * read-time normalizer drops it.
+ */
+export interface ProjectHostedTaskEntry {
+  /** Username of the task's owner (where the task file actually lives). */
+  owner: string;
+  /** Numeric task id in the task owner's namespace. */
+  taskId: number;
+  /** ISO timestamp of when the share landed. Mirrors `external_project.sharedAt`. */
+  sharedAt: string;
+  /** Who initiated the share. Today this is always the task owner, but
+   *  carrying it explicitly keeps the door open for delegated-action audits. */
+  sharedBy: string;
+}
+
+/** On-disk shape of `users/<projectOwner>/projects/<projectId>-hosted.json`. */
+export interface ProjectHostedManifest {
+  version: 1;
+  hostedTasks: ProjectHostedTaskEntry[];
 }
 
 // Each user has its own auto-incrementing id space, so `task.id` alone is not
@@ -263,6 +319,8 @@ export interface TaskUpdate {
   experiment_color?: string | null;
   sub_tasks?: SubTask[];
   method_attachments?: TaskMethodAttachment[];
+  /** Cross-owner host. `null` clears (unshare); an object sets/replaces. */
+  external_project?: ExternalProjectRef | null;
 }
 
 export interface TaskMoveRequest {
