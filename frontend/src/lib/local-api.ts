@@ -167,13 +167,30 @@ async function updateTaskForCaller(id: number, data: Partial<Task>, owner?: stri
 // one-shot disk cleanup, see `tasksApi.repairMethodLinks`.
 function normalizeTaskRecord(raw: Task): Task {
   const legacy = raw as Task & { method_id?: number | null };
+  let normalized: Task = raw;
   if (
     (!raw.method_ids || raw.method_ids.length === 0) &&
     typeof legacy.method_id === "number"
   ) {
-    return { ...raw, method_ids: [legacy.method_id] };
+    normalized = { ...raw, method_ids: [legacy.method_id] };
   }
-  return raw;
+  // Invariant: ∀ a ∈ method_attachments: a.method_id ∈ method_ids. On-disk
+  // files predating the tasksApi.update invariant guard (and any task seeded
+  // by an earlier demo generator) may carry attachment rows for methods that
+  // have since been detached. Drop them on read so callers, the export
+  // extractor, and the UI never see the inconsistent shape. The next write
+  // through tasksApi.update persists the cleaned form — old files self-heal.
+  const methodIds = normalized.method_ids ?? [];
+  const attachments = normalized.method_attachments ?? [];
+  if (attachments.some((a) => !methodIds.includes(a.method_id))) {
+    normalized = {
+      ...normalized,
+      method_attachments: attachments.filter((a) =>
+        methodIds.includes(a.method_id)
+      ),
+    };
+  }
+  return normalized;
 }
 
 export const tasksApi = {
@@ -268,7 +285,23 @@ export const tasksApi = {
       duration_days: data.duration_days ?? existing.duration_days,
     });
 
-    return updateTaskForCaller(id, { ...data, end_date: endDate }, owner);
+    // Invariant: ∀ a ∈ method_attachments: a.method_id ∈ method_ids. Whenever
+    // a write touches either side of the method relationship, prune the
+    // attachments array so per-task overrides (variation_notes, pcr_gradient,
+    // pcr_ingredients) can't outlive the method link. addMethod/removeMethod
+    // already keep both sides in sync; this guards arbitrary `update` payloads
+    // (and reconciles drift carried in from a normalized read).
+    const writePatch: Partial<Task> = { ...data, end_date: endDate };
+    if (data.method_ids !== undefined || data.method_attachments !== undefined) {
+      const nextMethodIds = data.method_ids ?? existing.method_ids ?? [];
+      const nextAttachments =
+        data.method_attachments ?? existing.method_attachments ?? [];
+      writePatch.method_attachments = nextAttachments.filter((a) =>
+        nextMethodIds.includes(a.method_id)
+      );
+    }
+
+    return updateTaskForCaller(id, writePatch, owner);
   },
 
   // Note: delete is intentionally not owner-routed — only the task's owner

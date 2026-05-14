@@ -719,33 +719,44 @@ function projects(owner, list) {
 }
 
 function tasks(owner, list) {
-  return list.map((t) => [
-    `users/${owner}/tasks/${t.id}.json`,
-    {
-      id: t.id,
-      project_id: t.project_id,
-      name: t.name,
-      start_date: t.start_date,
-      duration_days: t.duration_days,
-      end_date: t.end_date,
-      is_high_level: false,
-      is_complete: t.is_complete,
-      task_type: t.task_type,
-      weekend_override: null,
-      method_id: null,
-      method_ids: [],
-      deviation_log: t.deviation_log ?? null,
-      tags: null,
-      sort_order: t.id,
-      experiment_color: t.experiment_color ?? null,
-      sub_tasks: t.sub_tasks ?? null,
-      pcr_gradient: null,
-      pcr_ingredients: null,
-      method_attachments: t.method_attachments ?? [],
-      owner,
-      shared_with: t.shared_with ?? [],
-    },
-  ]);
+  return list.map((t) => {
+    // Invariant: ∀ a ∈ method_attachments: a.method_id ∈ method_ids. The
+    // canonical "methods attached to this task" list is method_ids; the
+    // attachments array carries per-method overrides keyed by method_id.
+    // Earlier revisions of this seed hard-coded `method_ids: []` while
+    // populating `method_attachments`, which produced orphan rows that the
+    // Raw exporter then serialized verbatim. Derive method_ids from the
+    // attachments so the two sides stay in sync.
+    const methodAttachments = t.method_attachments ?? [];
+    const methodIds = methodAttachments.map((a) => a.method_id);
+    return [
+      `users/${owner}/tasks/${t.id}.json`,
+      {
+        id: t.id,
+        project_id: t.project_id,
+        name: t.name,
+        start_date: t.start_date,
+        duration_days: t.duration_days,
+        end_date: t.end_date,
+        is_high_level: false,
+        is_complete: t.is_complete,
+        task_type: t.task_type,
+        weekend_override: null,
+        method_id: null,
+        method_ids: methodIds,
+        deviation_log: t.deviation_log ?? null,
+        tags: null,
+        sort_order: t.id,
+        experiment_color: t.experiment_color ?? null,
+        sub_tasks: t.sub_tasks ?? null,
+        pcr_gradient: null,
+        pcr_ingredients: null,
+        method_attachments: methodAttachments,
+        owner,
+        shared_with: t.shared_with ?? [],
+      },
+    ];
+  });
 }
 
 function methodJson(owner, id, name, folder) {
