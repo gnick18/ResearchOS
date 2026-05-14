@@ -3014,7 +3014,6 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
 
       {rehydrateModalOpen && missingInline && missingInline.length > 0 && currentUser && (
         <RehydrateMissingImagesModal
-          username={currentUser}
           notesBase={attachBase}
           notesMarkdownPath={notesPath}
           missingImages={missingInline}

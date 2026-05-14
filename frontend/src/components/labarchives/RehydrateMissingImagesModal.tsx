@@ -15,27 +15,22 @@
  * + sidecar-shrink behavior the wizard runs at apply time, extracted into a
  * function callable post-import.
  *
- * Demo / wiki-capture mode: the API tab inside the panel is hidden in demo
- * (handled by the panel itself); the DevTools + Drop paths still work
- * because their staged blobs come from the user's own browser, not the
- * LabArchives backend. Apply-side rehydration writes to the demo's fixture
- * file-service, which is fine — the demo banner re-renders with the new
- * count next session.
+ * Demo / wiki-capture mode: both panel paths (DevTools + Drop) work in
+ * demo because their staged blobs come from the user's own browser, not
+ * from any LabArchives backend. Apply-side rehydration writes to the demo's
+ * fixture file-service, which is fine — the demo banner re-renders with the
+ * new count next session.
  */
 
 import { useCallback, useState } from "react";
 import RehydrateMissingImagesPanel from "./RehydrateMissingImagesPanel";
-import type { FetchedImage } from "@/lib/labarchives/api-client";
-import type { MissingInlineImage } from "@/lib/import/eln/types";
+import type { FetchedImage, MissingInlineImage } from "@/lib/import/eln/types";
 import {
   rehydrateMissingImages,
   type RehydrateResult,
 } from "@/lib/import/eln/rehydrate";
 
 interface Props {
-  /** Username whose `_labarchives.json` we read/write for the API path.
-   *  Typically the task owner. */
-  username: string;
   /** Task notes base (`taskNotesBase({ id, owner })`). Used as the disk
    *  root for the Images/ folder + the `_import_source.json` sidecar. */
   notesBase: string;
@@ -64,7 +59,6 @@ type ApplyState =
   | { kind: "error"; message: string };
 
 export default function RehydrateMissingImagesModal({
-  username,
   notesBase,
   notesMarkdownPath,
   missingImages,
@@ -137,7 +131,6 @@ export default function RehydrateMissingImagesModal({
             <ApplySummary result={applyState.result} />
           ) : (
             <RehydrateMissingImagesPanel
-              username={username}
               missingImages={missingImages}
               notebookLabel={notebookLabel}
               onMatchesChange={setStaged}
