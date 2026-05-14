@@ -274,35 +274,30 @@ Use this for any field rename. **Do NOT do hard on-disk cutovers** — rewrite-a
 - **Wiki screenshot recapture** — queued, managed by the parallel manager session. Full re-capture against Demo Lab data now that the fixture infrastructure landed (`6acf27c1`). Plus 5 new shots (markdown-editor language picker + Hybrid block selection + image resize, Results list, Telegram inbox), 2 re-specs (gantt-zoom-controls labels, purchases-funding-panel-not-modal), and the existing `results-editor.png` retired in favor of new `results-list.png` + `results-tab.png`. Off-limits to other sessions: `frontend/src/app/wiki/`, `frontend/src/components/wiki/`, `scripts/capture-wiki-screenshots.mjs`, `frontend/src/lib/file-system/wiki-capture-fixture.ts`.
 - **Calendar integrations** — `claude/festive-spence-378806`. Recent: Google Calendar OAuth M1, Outlook OAuth M2, two-way sync M3, calendar OAuth setup wiki, wiki top bar. Status: possibly idle but branch still alive. Off-limits: `frontend/src/lib/calendar/`, `frontend/src/app/calendar/`, `/api/calendar-feed/`.
 
-### Handoff snapshot — 2026-05-13 evening (master-bot session rollover)
+### Handoff snapshot — 2026-05-14 end of day
 
-(Master-bot session rolled over due to context-window limit. Delete this subsection once the new session confirms it's picked up the state and is comfortable on its own.)
+(Master-bot session winding down for the day. Delete or fold into Recently-landed once the next session has picked up state.)
 
-**Punch list — items Grant has verified ✓:**
-1. Note popup GC
-2. Image regression (PNG drop → Images/)
-3. Drop on rendered image (capture-phase fix, see §6 above)
-4. Stamp redesign + "Repair stamp formats" Settings button
-5. File drag-to-delete via `FileTrashDropZone`
-6. "Remove reference from note" button on broken image popup
-7. Per-tab attachment isolation (basic per-tab flow; migration scenarios optional)
-8. Spaces-in-filename inline image render
+**Manager sessions:**
+- **Wiki manager** — active during the day; landed 5+ commits including a 10-bot verify sweep, Demo v2 wiki update (`4df9951c`), and an em-dash voice pass. Status at EOD: idle, caught up. PNG state 36/36 referenced/on-disk.
+- **Export-revamp manager** — closed cleanly with end-of-session report. Audit-driven follow-up arc fully shipped: B2 method_attachments hygiene + demo regen + MethodTabs owner-routing (6-callsite scope, wider than briefed) + `ownerScopedTasksApi` extracted to leaf module `lib/tasks/owner-scoped-api.ts` to fix circular import. Their session queue is empty.
+- **ELN-import manager** — still active. Wizard sub-bot landed (`412a9fe0`), apply-pipeline orphan-rule fix (`3aa1aadb`). Awaiting Grant's live verification against `offline_14681.zip`.
+- **HR (retired master)** — standing by. Spawned Demo v2 chip (`74ecd115`) + consolidation chip (`06cd33e5`) earlier today.
 
-**Punch list — items still pending Grant's live test:**
-- **ResultsEditor consolidation** — `/results` card → opens TaskDetailPopup on Results tab?
-- **Universal drop on Details tab** — drop a PDF on Details → green toast, file lands in last-active-tab's `Files/`?
-- **(Optional polish)** Settings → "Split Lab Notes / Results attachments" button → run on real data, confirm sensible scanned/repaired counts.
-- **Outlook OAuth flow end-to-end** — requires production env vars (`MICROSOFT_OAUTH_CLIENT_ID` / `MICROSOFT_OAUTH_CLIENT_SECRET`); landed `4c0c079e` but full live test in prod.
-- **File-link UX bot's output** (file links clickable + View/Download prompt) — landed `claude/trusting-wright-f1b4ad`; not yet eyeballed.
-- **Project-sharing audit's TESTING.md** — 6 scenarios documented (A-F) at `TESTING.md`; run them when convenient.
-- **Lint pass** — landed `claude/sharp-turing-5f32ab`; check for any new regressions in normal flows (low risk per scope guards).
-- **Export-revamp arc** — five live scenarios from the export-revamp manager's final report: (1) export PDF / HTML / Raw single-experiment from any task, confirm PDF text-selectable + bookmarks pane populated + Inter font rendered (or Helvetica fallback if offline); (2) multi-select 2-3 experiments on `/search`, export each format, confirm zip structures (flat `.pdf` entries for PDF, per-experiment folders for HTML, nested zips for Raw); (3) Raw round-trip — export from user A, switch users, Settings → Import → walk resolution dialog → confirm task lands with notes/results/methods/files all wired; (4) PCR round-trip — export a PCR-method task to Raw, import in fresh user, confirm protocol lands in `pcr_protocols/` + method's `source_path` rewritten to the receiver's id; (5) Lab Mode multi-select export resolves cross-user via `tasksApi.get(id, owner)`. A verification bot covered the fixture-doable subset (E1–E5) — see its report when it lands; the round-trip scenarios need a real two-user setup that's not fixture-doable.
+**Items Grant needs to live-verify (priority order):**
+1. **Demo v2 R1–R7** — floating Leave button + catch-all `/demo/[[...slug]]` + sessionStorage stickiness + URL strip + Read-the-docs round-trip + LeaveDemoModal (don't click final actions) + `?wikiCapture=1` still works. Earlier verification bot was INCONCLUSIVE because the `:3001` dev server was running from a stale worktree at `412a9fe0` — see §6 entry on the stale-worktree-dev-server trap. Restart from main checkout first.
+2. **ELN wizard against `offline_14681.zip`** — critical-path before ELN feature ships. After sign-off, ELN manager queues wiki handoff.
+3. **PDF export audit** — Inter local-bundle (`dedac195`) closed the jsdelivr URL risk. Now needs `pdftotext`/`pdffonts`/`pdfinfo` confirmation on a fresh PDF export. Combine with stamp-stripping check (export a task whose notes were authored via the editor) to also close that audit gap.
+4. **MethodTabs owner-routing live test** — `44a3f12c` patched 6 callsites (addMethod, removeMethod, updateMethodPcr, resetPcr, saveVariationNote ×2) to route through `ownerScopedTasksApi`. Bot couldn't drive the browser; fixture's task 5 is `permission: "view"` so the bug path isn't exercised by `?wikiCapture=1`. To live-confirm: switch fixture task 5 to `"edit"` and attach a method as morgan, OR use a real two-user folder.
+5. **Older backlog** still pending (no time pressure): ResultsEditor consolidation walkthrough, Universal drop on Details, Outlook OAuth (needs prod env vars), File-link UX, `TESTING.md` A-F scenarios, lint pass spot-check, Export-revamp 5-scenario panel (cross-user round-trip needs real two-user setup).
 
-**Wiki manager (parallel session, not this chat)** — idle since their last screenshot bot landed at `1b28b87c`. Status: passive until Grant needs them.
+**Items already verified by Grant ✓** (from prior sessions): Note popup GC, image regression, drop on rendered image, stamp redesign, file drag-to-delete, broken-image popup, per-tab attachment isolation, spaces-in-filename inline image render. R6 (file-link UX clickable + View/Download modal) confirmed by Grant during 2026-05-13 session.
 
-**Export-revamp manager (parallel session, closed 2026-05-13 late evening)** — arc fully shipped, seven sub-bots integrated (A–G plus follow-up H for PCR cross-instance round-trip). Manager session stood down with a clean handoff. See the "Export revamp — full arc shipped" entry in the Recently-landed list below for the full integration breakdown.
+**Spawned bots running at EOD** (will report into next session if EOD-pinged early):
+- `source_instance` field worker (closes §8 export-audit item #3)
+- Native `title=` → `<Tooltip>` migration audit worker (long-standing §8 entry, read-mostly audit)
 
-**Project-sharing audit caught a real regression** that the bot fixed in-scope: `fetchAllTasksIncludingShared` only loaded individually-shared tasks, missing tasks belonging to shared *projects*. Fix landed in `b0e8d0c7`. Five out-of-scope follow-ups flagged — see §8 Queued backlog.
+**Stale local branches worth pruning** (work landed elsewhere, branches just clutter `git branch`): `claude/epic-dubinsky-f36fb5` (Export Sub-bot F PCR-rendering), `claude/sharp-kirch-4345ef` (unknown), `claude/competent-tesla-1c0608` (the worktree that caused the stale-dev-server trap). Confirm-and-delete is safe but optional.
 
 ### Recently landed (2026-05-14)
 
