@@ -89,8 +89,27 @@ export async function buildPdf(
   baseFilename?: string,
 ): Promise<ExportResult> {
   const ReactPDF: any = await import("@react-pdf/renderer");
-  const { pdf, Document, Page, View, Text, Image, Link, StyleSheet } = ReactPDF;
+  const { pdf, Document, Page, View, Text, Image, Link, StyleSheet, Font } =
+    ReactPDF;
   const h = React.createElement;
+
+  // Inter typography — fetched from jsDelivr at PDF render time. If the
+  // network is down, react-pdf falls back to Helvetica with a console
+  // warning, so the export still produces a valid (less pretty) PDF.
+  // Registering inside `buildPdf` (vs module scope) keeps the FS bundle
+  // free of side effects until someone actually triggers an export.
+  Font.register({
+    family: "Inter",
+    fonts: [
+      {
+        src: "https://cdn.jsdelivr.net/gh/rsms/inter@v3.19/docs/font-files/Inter-Regular.ttf",
+      },
+      {
+        src: "https://cdn.jsdelivr.net/gh/rsms/inter@v3.19/docs/font-files/Inter-Bold.ttf",
+        fontWeight: "bold",
+      },
+    ],
+  });
 
   // View/Text don't expose `bookmark` in the renderer's published types but the
   // runtime supports it (BaseProps in @react-pdf/types/node.d.ts). Cast once.
@@ -109,22 +128,22 @@ export async function buildPdf(
       paddingBottom: 72,
       paddingHorizontal: 72,
       fontSize: 11,
-      fontFamily: "Helvetica",
+      fontFamily: "Inter",
       lineHeight: 1.4,
       color: "#111",
     },
-    titleH1: { fontSize: 24, fontFamily: "Helvetica-Bold", marginBottom: 28 },
+    titleH1: { fontSize: 24, fontFamily: "Inter", fontWeight: "bold", marginBottom: 28 },
     metaRow: { fontSize: 11, marginBottom: 6 },
-    metaLabel: { fontFamily: "Helvetica-Bold" },
+    metaLabel: { fontFamily: "Inter", fontWeight: "bold" },
     generatedNote: { fontSize: 10, color: "#666", marginTop: 36 },
 
-    tocTitle: { fontSize: 18, fontFamily: "Helvetica-Bold", marginBottom: 18 },
+    tocTitle: { fontSize: 18, fontFamily: "Inter", fontWeight: "bold", marginBottom: 18 },
     tocEntry: { fontSize: 12, marginBottom: 8, color: "#0066cc" },
 
     sectionWrap: { marginBottom: 12 },
     h2: {
       fontSize: 16,
-      fontFamily: "Helvetica-Bold",
+      fontFamily: "Inter", fontWeight: "bold",
       marginTop: 14,
       marginBottom: 10,
       paddingBottom: 6,
@@ -134,13 +153,13 @@ export async function buildPdf(
     },
     h3: {
       fontSize: 13,
-      fontFamily: "Helvetica-Bold",
+      fontFamily: "Inter", fontWeight: "bold",
       marginTop: 12,
       marginBottom: 6,
     },
     h4: {
       fontSize: 11,
-      fontFamily: "Helvetica-Bold",
+      fontFamily: "Inter", fontWeight: "bold",
       marginTop: 10,
       marginBottom: 4,
     },
@@ -192,7 +211,7 @@ export async function buildPdf(
     methodIntro: { fontSize: 10, color: "#666", marginBottom: 8 },
     methodVariationHeading: {
       fontSize: 11,
-      fontFamily: "Helvetica-Bold",
+      fontFamily: "Inter", fontWeight: "bold",
       marginTop: 8,
       marginBottom: 4,
     },
@@ -200,7 +219,7 @@ export async function buildPdf(
     filesAppendixGroup: { marginTop: 10 },
     filesAppendixGroupHeading: {
       fontSize: 12,
-      fontFamily: "Helvetica-Bold",
+      fontFamily: "Inter", fontWeight: "bold",
       marginBottom: 4,
     },
     filesAppendixItem: { fontSize: 11, marginBottom: 3, marginLeft: 12 },
@@ -216,7 +235,7 @@ export async function buildPdf(
       flex: 1,
       padding: 4,
       fontSize: 10,
-      fontFamily: "Helvetica-Bold",
+      fontFamily: "Inter", fontWeight: "bold",
       backgroundColor: "#f3f3f3",
     },
   });
@@ -254,7 +273,7 @@ export async function buildPdf(
           const tt = t as Tokens.Strong;
           return h(
             Text,
-            { key, style: { fontFamily: "Helvetica-Bold", ...extraStyle } },
+            { key, style: { fontFamily: "Inter", fontWeight: "bold", ...extraStyle } },
             renderInline(tt.tokens, ctx, key),
           );
         }
