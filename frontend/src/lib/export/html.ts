@@ -17,7 +17,7 @@ import { marked } from "marked";
 import JSZip from "jszip";
 
 import { slugify } from "./slug";
-import { extractUserContent, hasUserContent } from "./markdown";
+import { demoteHeadings, extractUserContent, hasUserContent } from "./markdown";
 import type {
   AttachmentOrigin,
   ExperimentAttachment,
@@ -294,7 +294,7 @@ function buildNav(entries: NavEntry[]): string {
 
 function buildLabNotesSection(payload: ExperimentExportPayload): string {
   if (!hasUserContent(payload.notesMarkdown)) return "";
-  const md = extractUserContent(payload.notesMarkdown);
+  const md = demoteHeadings(extractUserContent(payload.notesMarkdown));
   const rewritten = rewriteMarkdownRefs(md, "notes", payload.attachments);
   const body = renderMarkdown(rewritten);
   return `<section id="section-labnotes"><h2>Lab Notes</h2>${body}</section>`;
@@ -302,7 +302,7 @@ function buildLabNotesSection(payload: ExperimentExportPayload): string {
 
 function buildResultsSection(payload: ExperimentExportPayload): string {
   if (!hasUserContent(payload.resultsMarkdown)) return "";
-  const md = extractUserContent(payload.resultsMarkdown);
+  const md = demoteHeadings(extractUserContent(payload.resultsMarkdown));
   const rewritten = rewriteMarkdownRefs(md, "results", payload.attachments);
   const body = renderMarkdown(rewritten);
   return `<section id="section-results"><h2>Results</h2>${body}</section>`;
@@ -436,7 +436,7 @@ function buildMethodBlock(
   let body = "";
 
   if (mp.method.method_type === "markdown" && mp.bodyMarkdown) {
-    const md = extractUserContent(mp.bodyMarkdown);
+    const md = demoteHeadings(extractUserContent(mp.bodyMarkdown));
     body = renderMarkdown(md);
   } else if (mp.method.method_type === "pdf") {
     const att = findMethodPdfAttachment(mp.method, attachments);
@@ -547,11 +547,22 @@ export async function buildHtmlBundle(
   const zip = new JSZip();
   zip.file(`${slug}.html`, html);
 
-  const attachmentsDir = zip.folder("attachments");
-  if (attachmentsDir) {
-    for (const att of payload.attachments) {
-      const sub = attachmentsDir.folder(originFolder(att.origin));
-      sub?.file(att.filename, att.bytes);
+  // Image attachments are already base64-inlined into the HTML via
+  // rewriteMarkdownRefs (`html.ts` ~line 110). Copying them again under
+  // attachments/{Notes,Results}/ wastes bytes (a 148KB PNG becomes ~700KB
+  // of bundle for nothing) and the HTML never references those copies.
+  // Skip images; keep file attachments + method PDFs since the HTML links
+  // out to those.
+  const filesOnly = payload.attachments.filter(
+    (a) => !a.mimeType.toLowerCase().startsWith("image/")
+  );
+  if (filesOnly.length > 0) {
+    const attachmentsDir = zip.folder("attachments");
+    if (attachmentsDir) {
+      for (const att of filesOnly) {
+        const sub = attachmentsDir.folder(originFolder(att.origin));
+        sub?.file(att.filename, att.bytes);
+      }
     }
   }
 

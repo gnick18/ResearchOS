@@ -32,6 +32,18 @@ export function extractUserContent(content: string | null | undefined): string {
   return parsed.content.trim();
 }
 
+/**
+ * Demote every markdown heading by one level (# → ##, ## → ###, etc.). Used
+ * by HTML/PDF format generators when rendering Lab Notes / Results / Methods
+ * sections so user-authored body H2s don't visually collide with the
+ * section-wrapper H2 ("Lab Notes", "Results", method name). H6 (the deepest
+ * level) is left alone — going to H7 would just emit `####### ` literal.
+ */
+export function demoteHeadings(markdown: string): string {
+  if (!markdown) return markdown;
+  return markdown.replace(/^(#{1,5})(\s)/gm, "$1#$2");
+}
+
 function parseCandidateRef(raw: string): string | null {
   let src = raw.trim();
   // Strip CommonMark title: `url "title"` or `url 'title'`.

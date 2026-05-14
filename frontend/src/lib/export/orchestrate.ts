@@ -6,11 +6,27 @@ import { resolveCollidingFilenames } from "./slug";
 import { buildRawZip } from "./raw";
 import { buildHtmlBundle } from "./html";
 import { buildPdf } from "./pdf";
+import { hasUserContent } from "./markdown";
 import type {
   ExperimentExportPayload,
   ExportFormat,
   ExportResult,
 } from "./types";
+
+/**
+ * A payload is "empty" when none of the rendered formats would have any
+ * non-title-page content. Used to block exports that would otherwise produce
+ * a near-empty HTML/PDF (just the title page + footer) and force the user to
+ * either fill the experiment in or pick a different one.
+ */
+function payloadIsEmpty(payload: ExperimentExportPayload): boolean {
+  if (hasUserContent(payload.notesMarkdown)) return false;
+  if (hasUserContent(payload.resultsMarkdown)) return false;
+  if (payload.methods.length > 0) return false;
+  if (payload.task.sub_tasks && payload.task.sub_tasks.length > 0) return false;
+  if (payload.task.deviation_log && payload.task.deviation_log.trim()) return false;
+  return true;
+}
 
 // ---------------------------------------------------------------------------
 // Orchestration
@@ -105,6 +121,20 @@ export async function exportExperiments(
   const payloads = await Promise.all(
     tasks.map((t) => buildExperimentPayload(t, currentUser, deps))
   );
+
+  // Block exports whose every section would be empty — the user would
+  // otherwise get a download whose only content is the title page.
+  // Format generators already skip empty sections individually; this just
+  // catches the all-empty case at the orchestrator so the UI can show a
+  // friendlier error than "file downloaded but the file looks broken".
+  const empty = payloads.filter(payloadIsEmpty);
+  if (empty.length > 0) {
+    const names = empty.map((p) => p.task.name).join(", ");
+    const verb = empty.length === 1 ? "is" : "are";
+    throw new Error(
+      `${names} ${verb} empty — no notes, results, methods, sub-tasks, or deviations to export.`
+    );
+  }
 
   const baseNames = resolveCollidingFilenames(payloads);
 
