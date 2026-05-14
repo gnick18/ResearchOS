@@ -1,21 +1,12 @@
 {
   "id": 2,
   "name": "[Demo protocol] Growth curve in 96-well",
-  "source_path": null,
+  "source_path": "users/alex/methods/2.md",
   "method_type": "markdown",
   "folder_path": "Screening",
   "parent_method_id": null,
   "tags": [
     "demo"
-  ],
-  "attachments": [
-    {
-      "id": "att-1",
-      "name": "Protocol",
-      "attachment_type": "markdown",
-      "path": "users/alex/methods/2.md",
-      "order": 0
-    }
   ],
   "is_public": false,
   "created_by": "alex",

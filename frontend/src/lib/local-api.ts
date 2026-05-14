@@ -535,10 +535,30 @@ export const dependenciesApi = {
 // promotes the legacy field in memory so downstream code can rely on
 // `source_path` exclusively. For one-shot disk cleanup, see
 // `methodsApi.repairSourcePaths`.
+//
+// Also handles the demo-seed shape (scripts/generate-demo-data.mjs's
+// `methodJson()`), which writes `source_path: null` and stashes the body
+// path under `attachments[0].path` with `attachment_type: "markdown"`.
+// The `attachments` array isn't part of the Method type — readJson
+// passes the field through verbatim, but no consumer looks at it. Promote
+// the first markdown attachment's path into `source_path` so the methods
+// page, export pipeline, etc. find the body via the canonical field.
+type LegacyMethodAttachment = { attachment_type?: string; path?: string };
 function normalizeMethodRecord(raw: Method): Method {
-  const legacy = raw as Method & { github_path?: string | null };
+  const legacy = raw as Method & {
+    github_path?: string | null;
+    attachments?: LegacyMethodAttachment[];
+  };
   if (raw.source_path == null && typeof legacy.github_path === "string") {
     return { ...raw, source_path: legacy.github_path };
+  }
+  if (raw.source_path == null && Array.isArray(legacy.attachments)) {
+    const mdAttachment = legacy.attachments.find(
+      (a) => a?.attachment_type === "markdown" && typeof a.path === "string"
+    );
+    if (mdAttachment?.path) {
+      return { ...raw, source_path: mdAttachment.path };
+    }
   }
   return raw;
 }
