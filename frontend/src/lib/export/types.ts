@@ -84,3 +84,57 @@ export interface ExportResult {
   filename: string;
   mimeType: string;
 }
+
+// Manifest shapes emitted alongside each format. Kept in sync across raw /
+// html / pdf so downstream tooling can rely on the same field names regardless
+// of which format it ingests. The raw bundle writes this as a sidecar
+// `_export-manifest.json`; html does the same; pdf JSON-stringifies it into
+// the Document `keywords` field (pdfs have no sidecar story).
+//
+// `source_instance` is an OPTIONAL free-text lineage hint added 2026-05-14 to
+// disambiguate exports of the same task across machines / folders. v1
+// manifests without it remain valid — receivers must treat it as optional.
+// Current format: `<ownerLabel>@<YYYY-MM-DD>` (e.g. "alex@2026-05-14"). The
+// scheme is intentionally free-text so future iterations can fold in
+// hostname or folder-display-name without bumping `version`.
+
+export interface RawManifest {
+  format: "researchos-experiment";
+  version: 1;
+  exported_at: string;
+  exported_by: string;
+  source_owner: string;
+  source_instance?: string;
+  task_id: number;
+  task_key: string;
+  project_id: number;
+  method_ids: number[];
+}
+
+export interface HtmlManifest {
+  format: "html";
+  version: 1;
+  exported_at: string;
+  source_owner: string;
+  source_instance?: string;
+  task_id: number;
+}
+
+export interface PdfManifest {
+  format: "pdf";
+  version: 1;
+  exported_at: string;
+  source_owner: string;
+  source_instance?: string;
+  task_id: number;
+}
+
+// Build the `source_instance` lineage hint from the available `meta` fields.
+// Centralized so raw / html / pdf all emit the same value for a given
+// payload — re-export determinism + audit consistency both rely on this.
+export function buildSourceInstance(
+  ownerLabel: string,
+  exportedAtIso: string,
+): string {
+  return `${ownerLabel}@${exportedAtIso.slice(0, 10)}`;
+}

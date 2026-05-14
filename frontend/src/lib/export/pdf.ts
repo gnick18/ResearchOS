@@ -21,12 +21,14 @@ import { marked, type Token, type Tokens } from "marked";
 
 import { slugify } from "./slug";
 import { demoteHeadings, extractUserContent, hasUserContent } from "./markdown";
-import type {
-  AttachmentOrigin,
-  ExperimentAttachment,
-  ExperimentExportPayload,
-  ExportResult,
-  MethodPayload,
+import {
+  buildSourceInstance,
+  type AttachmentOrigin,
+  type ExperimentAttachment,
+  type ExperimentExportPayload,
+  type ExportResult,
+  type MethodPayload,
+  type PdfManifest,
 } from "./types";
 import type {
   PCRCycle,
@@ -1194,11 +1196,12 @@ export async function buildPdf(
   // `keywords` field carries arbitrary text — JSON-stringify the manifest
   // there. `subject` is left as `project.name` (semantically the right
   // place for that). Field names mirror Raw's `_export-manifest.json`.
-  const manifest = {
+  const manifest: PdfManifest = {
     format: "pdf",
     version: 1,
     exported_at: meta.exportedAt,
     source_owner: task.owner,
+    source_instance: buildSourceInstance(meta.ownerLabel, meta.exportedAt),
     task_id: task.id,
   };
 
