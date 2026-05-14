@@ -10,6 +10,7 @@ export const APP_ROUTE_TO_WIKI: Record<string, string> = {
   "/": "/wiki/features/home",
   "/gantt": "/wiki/features/gantt",
   "/experiments": "/wiki/features/experiments",
+  "/workbench": "/wiki/features/experiments",
   "/methods": "/wiki/features/methods",
   "/pcr": "/wiki/features/pcr",
   "/purchases": "/wiki/features/purchases",
