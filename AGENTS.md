@@ -160,6 +160,19 @@ Reliable recipe for a spawn prompt:
 - ESLint warnings are fine; new errors are not.
 - **Icon-only buttons** → wrap in `<Tooltip>` from `frontend/src/components/Tooltip.tsx`. Native HTML `title=` is functionally invisible in this app (custom rendering layer hides it) — never use it for tooltips on new code. The native-tooltip migration sweep is mostly done; any new component should default to `<Tooltip>`.
 
+### Bot-driven UI verification (2026-05-13)
+
+The master bot can spawn a sub-agent with Chrome MCP access to verify UI fixes against `?wikiCapture=1` fixture mode (`mcp__Claude_in_Chrome__*`). The constraint set that proved necessary on the first run:
+
+- **Never load `localhost:3000`.** That's the live app pointed at the user's real research folder. Drive the parallel `localhost:3001` instance instead (start it ahead of time with `next build && next start -p 3001`). Re-check before each navigation — a redirect can quietly land on `/`.
+- **Append `?wikiCapture=1` to every URL** to skip the File System Access picker and seed fixture data (2 users: alex + morgan). The mock signs in as alex by default. The fixture covers the methods/PCR/results/lab-mode surfaces today; `users/alex/_shared_with_me.json` seeds a shared project (morgan/1) and a shared task (morgan/5) for receiver-side verification.
+- **Use `mcp__Claude_in_Chrome__tabs_create_mcp` for every navigation.** Bots should not navigate the user's existing tabs. Close every MCP tab via `tabs_close_mcp` when done.
+- **React `onClick` handlers don't appear as inline `onclick` attributes in the DOM** — they're bound on the React fiber. A bot that greps the rendered HTML for `onclick=` will erroneously report "no handler wired" when the click handler is actually there. Brief the bot explicitly on this so it doesn't false-FAIL React-handled events. Use `tabs_context_mcp` + actual click events to test, not DOM inspection.
+- **Unsaved-changes "Leave site?" guards trap tab close.** If the bot edits any markdown body during verification, the popup's beforeunload guard will block subsequent `tabs_close_mcp` calls. Either don't edit (read-only verification only), or dismiss the dialog before closing.
+- **Bot brief shape that worked:** project one-liner → expected commit hash → setup steps (ToolSearch deferred tools, list_connected_browsers sanity check, dev-server URL) → hard rules (no :3000, no non-fixture URLs, read-only, MCP tabs only, time budget) → recipe table (one row per fix with explicit pass/fail criteria) → cleanup step → report format (one line per recipe, max 300 words). See the chip-sweep verification recipe in the 2026-05-13 session for a working template.
+
+Fixture coverage gaps to think about when adding new verifications: if a recipe needs `is_shared_with_me` data, extend `scripts/generate-demo-data.mjs` (the fixture is regenerated from there into `wiki-capture-fixture.ts`). If a recipe needs to verify a real-data behavior (the user's actual files on disk, real telegram/calendar tokens, prod OAuth env), it's not bot-doable — punt to the user.
+
 ### Field migrations
 
 When a field on Task / Method / Project / Note / etc. is renamed or restructured, follow the **lazy-normalize + on-demand-repair** pattern the cleanup pass landed (commit `147db270`, 2026-05-13). The whole point is that shared on-disk files from other users with legacy shapes keep working transparently — no flag-day cutovers, no broken receivers.
