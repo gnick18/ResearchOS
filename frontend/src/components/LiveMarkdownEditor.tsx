@@ -17,6 +17,12 @@ import ImageTrashDropZone from "./ImageTrashDropZone";
 import FileTrashDropZone from "./FileTrashDropZone";
 import FileViewerModal, { classifyFileLink, type FileViewerKind } from "./FileViewerModal";
 import { caretOffsetFromPoint } from "@/lib/utils/textarea-caret";
+import {
+  lookupMissingInlineImage,
+  pickUniqueImageFilename,
+  removeMissingInlineImageFromSidecar,
+} from "@/lib/import/eln/sidecar-lookup";
+import type { MissingInlineImage } from "@/lib/import/eln/types";
 
 // Transparent 1×1 GIF used as the `src` placeholder while the real blob URL
 // is being resolved asynchronously, so the browser never tries to fetch the
@@ -575,6 +581,16 @@ export default function LiveMarkdownEditor({
   const [showBrokenImagePopup, setShowBrokenImagePopup] = useState(false);
   const [imageSearchResults, setImageSearchResults] = useState<ImageSearchResult[]>([]);
   const [isSearchingImage, setIsSearchingImage] = useState(false);
+  // LabArchives Form-B placeholder recovery. When the broken-image popup opens
+  // we async-check whether the missing ref matches an entry in the task's
+  // `_import_source.json` sidecar. If so, the popup surfaces "Find on
+  // LabArchives" + "Replace from disk" buttons in addition to the existing
+  // "Remove reference from note" affordance. `null` = either the lookup
+  // hasn't finished yet OR the ref isn't a LabArchives placeholder (in which
+  // case the legacy popup shape is what renders).
+  const [labArchivesMatch, setLabArchivesMatch] = useState<MissingInlineImage | null>(null);
+  const [isReplacingFromDisk, setIsReplacingFromDisk] = useState(false);
+  const replaceFromDiskInputRef = useRef<HTMLInputElement>(null);
   const [resolvedBlobUrls, setResolvedBlobUrls] = useState<Map<string, string>>(new Map());
   // Active file-link click prompt. The modal shows a View/Download choice for
   // text-like + PDF files; binary types skip the prompt and download
@@ -1300,6 +1316,37 @@ export default function LiveMarkdownEditor({
   }, [brokenImageQueue, currentBrokenImage, showBrokenImagePopup, isSearchingImage]);
 
   /**
+   * Detect whether the currently-surfaced broken image is a LabArchives
+   * Form-B placeholder by looking up the ref in the per-task
+   * `_import_source.json` sidecar. Runs once per popup-open. The result
+   * gates the two new buttons ("Find on LabArchives" + "Replace from
+   * disk"); a `null` result means we render the legacy popup shape
+   * unchanged.
+   *
+   * Files (`kind === "file"`) skip this lookup — the sidecar tracks
+   * inline-image refs only.
+   */
+  useEffect(() => {
+    if (!currentBrokenImage || currentBrokenImage.kind !== "image") {
+      setLabArchivesMatch(null);
+      return;
+    }
+    let cancelled = false;
+    lookupMissingInlineImage(imageBasePath, currentBrokenImage.originalSrc)
+      .then((result) => {
+        if (cancelled) return;
+        setLabArchivesMatch(result ? result.entry : null);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLabArchivesMatch(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentBrokenImage, imageBasePath]);
+
+  /**
    * Clear processed srcs when value changes (new document)
    * Note: We don't clear on every value change because that would reset
    * the queue while the user is fixing images. Instead, we clear when
@@ -1696,12 +1743,152 @@ export default function LiveMarkdownEditor({
   }, [currentBrokenImage, value, onChange]);
 
   /**
+   * LabArchives placeholder recovery — "Find on LabArchives" button.
+   * Opens the original online URL in a new tab. The user is presumed
+   * logged into LabArchives there; once the image renders they can
+   * right-click → Save and feed it back into "Replace from disk".
+   * `noopener,noreferrer` keeps the opened tab from accessing this
+   * window via `window.opener`.
+   */
+  const findOnLabArchives = useCallback(() => {
+    if (!labArchivesMatch) return;
+    window.open(labArchivesMatch.originalUrl, "_blank", "noopener,noreferrer");
+  }, [labArchivesMatch]);
+
+  /**
+   * LabArchives placeholder recovery — "Replace from disk" file picker.
+   * Triggers the hidden `<input type="file">`. The actual write happens
+   * in `handleReplaceFromDiskFile` once the user picks a file.
+   */
+  const triggerReplaceFromDisk = useCallback(() => {
+    if (!labArchivesMatch || isReplacingFromDisk) return;
+    replaceFromDiskInputRef.current?.click();
+  }, [labArchivesMatch, isReplacingFromDisk]);
+
+  /**
+   * Handle the user picking a local file to replace a LabArchives Form-B
+   * placeholder. Pipeline:
+   *
+   *   1. Pick a collision-free filename under `${imageBasePath}/Images/`,
+   *      matching the ` (N)` suffix style used by the ELN apply pipeline
+   *      (see `pickUniqueImageFilename` in `sidecar-lookup.ts`).
+   *   2. Write the bytes to disk.
+   *   3. Rewrite the markdown ref in `value` from `Images/missing-<orig>`
+   *      to `Images/<finalName>` and flush via `onChange`. Save logic is
+   *      owned by the editor's parent component, which autosaves on
+   *      `onChange` like every other markdown edit.
+   *   4. Remove the entry from `_import_source.json`'s
+   *      `missingInlineImages` so re-opening the note doesn't re-surface
+   *      this image in the broken-image popup.
+   *   5. Close the popup. The next `<img>` render attempts the new path,
+   *      blobUrlResolver hits the cache, and the image displays inline.
+   */
+  const handleReplaceFromDiskFile = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const input = event.target;
+      const file = input.files?.[0] ?? null;
+      // Clear the input's value so re-picking the same file later still fires
+      // onChange. Done before any early-return so the user can retry.
+      input.value = "";
+      if (!file) return;
+      if (!currentBrokenImage || !labArchivesMatch || !imageBasePath) return;
+      setIsReplacingFromDisk(true);
+      try {
+        const desiredName = file.name || labArchivesMatch.filename;
+        const imagesDir = `${imageBasePath}/Images`;
+        const finalName = await pickUniqueImageFilename(imagesDir, desiredName);
+        await fileService.writeFileFromBlob(`${imagesDir}/${finalName}`, file);
+
+        const newPath = `Images/${finalName}`;
+        const { originalSrc, alt } = currentBrokenImage;
+        const escapedAlt = alt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const escapedSrc = originalSrc.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        let newValue = value;
+        let replaced = false;
+
+        const mdExact = new RegExp(`!\\[${escapedAlt}\\]\\(${escapedSrc}\\)`, "g");
+        if (mdExact.test(newValue)) {
+          newValue = newValue.replace(
+            new RegExp(`!\\[${escapedAlt}\\]\\(${escapedSrc}\\)`, "g"),
+            `![${alt}](${newPath})`,
+          );
+          replaced = true;
+        }
+        if (!replaced) {
+          const mdAnyAlt = new RegExp(`!\\[[^\\]]*\\]\\(${escapedSrc}\\)`, "g");
+          if (mdAnyAlt.test(newValue)) {
+            newValue = newValue.replace(
+              new RegExp(`!\\[[^\\]]*\\]\\(${escapedSrc}\\)`, "g"),
+              (match) => match.replace(originalSrc, newPath),
+            );
+            replaced = true;
+          }
+        }
+        if (!replaced) {
+          const htmlImg = new RegExp(
+            `<img([^>]*)src=["']${escapedSrc}["']`,
+            "gi",
+          );
+          if (htmlImg.test(newValue)) {
+            newValue = newValue.replace(
+              new RegExp(`<img([^>]*)src=["']${escapedSrc}["']`, "gi"),
+              `<img$1src="${newPath}"`,
+            );
+            replaced = true;
+          }
+        }
+
+        if (replaced) {
+          onChange(newValue);
+        }
+
+        // Prune the entry from the sidecar so we don't re-surface this
+        // image on the next open. Best-effort — if the sidecar can't be
+        // written we still want to close the popup (the on-disk image +
+        // rewritten markdown are the source of truth for the popup not
+        // re-firing on re-render anyway).
+        try {
+          await removeMissingInlineImageFromSidecar(
+            imageBasePath,
+            labArchivesMatch.filename,
+          );
+        } catch (err) {
+          console.warn(
+            "[LiveMarkdownEditor] Failed to update _import_source.json sidecar after replacing missing image:",
+            err,
+          );
+        }
+
+        setShowBrokenImagePopup(false);
+        setCurrentBrokenImage(null);
+        setImageSearchResults([]);
+        setLabArchivesMatch(null);
+      } catch (err) {
+        console.error("[LiveMarkdownEditor] Replace from disk failed:", err);
+        alert(
+          "Couldn't write the picked file into the notes folder. The markdown reference was left unchanged.",
+        );
+      } finally {
+        setIsReplacingFromDisk(false);
+      }
+    },
+    [
+      currentBrokenImage,
+      labArchivesMatch,
+      imageBasePath,
+      value,
+      onChange,
+    ],
+  );
+
+  /**
    * Dismiss the broken image popup and optionally clear the queue
    */
   const dismissBrokenImagePopup = useCallback((clearQueue: boolean = false) => {
     setShowBrokenImagePopup(false);
     setCurrentBrokenImage(null);
     setImageSearchResults([]);
+    setLabArchivesMatch(null);
     if (clearQueue) {
       setBrokenImageQueue([]);
     }
@@ -1714,6 +1901,7 @@ export default function LiveMarkdownEditor({
     setShowBrokenImagePopup(false);
     setCurrentBrokenImage(null);
     setImageSearchResults([]);
+    setLabArchivesMatch(null);
     // The queue processing useEffect will pick up the next item
   }, []);
 
@@ -2580,6 +2768,71 @@ export default function LiveMarkdownEditor({
                   ))}
                 </div>
               </>
+            ) : labArchivesMatch ? (
+              // LabArchives Form-B placeholder recovery path. The image was
+              // intentionally left as a `missing-<filename>` ref by the
+              // importer because LabArchives keeps it online-only. Surface
+              // two recovery affordances:
+              //   • "Find on LabArchives" — open the original URL in a new
+              //     tab (user is presumed logged in there, can right-click
+              //     → Save).
+              //   • "Replace from disk" — pick a local file, write it into
+              //     Images/, rewrite the markdown ref, prune the sidecar.
+              // The legacy "Remove reference from note" affordance stays
+              // available as a fallback for users who decide the image is
+              // unrecoverable.
+              <div className="py-2">
+                <p className="text-xs text-gray-600">
+                  This image was imported from LabArchives but kept online-only. Open it in LabArchives to find the original, then drop the saved copy back in here.
+                </p>
+                <div className="mt-3 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={findOnLabArchives}
+                    className="w-full px-3 py-2 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    Find on LabArchives
+                  </button>
+                  <button
+                    type="button"
+                    onClick={triggerReplaceFromDisk}
+                    disabled={isReplacingFromDisk}
+                    className="w-full px-3 py-2 text-xs bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    {isReplacingFromDisk ? (
+                      <>
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                        Saving…
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                        Replace from disk
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={removeBrokenReference}
+                    disabled={isReplacingFromDisk}
+                    className="w-full px-3 py-1.5 text-xs text-red-600 hover:text-red-800 disabled:text-gray-400 transition-colors"
+                  >
+                    Remove reference from note
+                  </button>
+                </div>
+                <input
+                  ref={replaceFromDiskInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleReplaceFromDiskFile}
+                />
+              </div>
             ) : (
               <div className="py-4 text-center">
                 <p className="text-xs text-gray-500">No matching images found.</p>
