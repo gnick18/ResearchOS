@@ -602,7 +602,10 @@ export default function HomePage() {
       {selectedTask && (
         <TaskDetailPopup
           task={selectedTask}
-          project={projects.find((p) => p.id === selectedTask.project_id)}
+          project={projects.find(
+            (p) =>
+              p.id === selectedTask.project_id && p.owner === selectedTask.owner,
+          )}
           onClose={() => setSelectedTask(null)}
         />
       )}

@@ -71,7 +71,9 @@ export default function DailyTasksSidebar() {
     }
     
     const filtered = allTasks.filter((t) => {
-      const project = projects.find((p) => p.id === t.project_id);
+      const project = projects.find(
+        (p) => p.id === t.project_id && p.owner === t.owner,
+      );
       return project && !project.is_archived;
     });
     
@@ -100,7 +102,12 @@ export default function DailyTasksSidebar() {
     return { todaysTasks: todayTasks, overdueTasks: overdue, futureTasks: future };
   }, [activeTasks, today]);
 
-  // Group tasks by project
+  // Group tasks by project.
+  // TODO(id-collision): keyed by raw project_id, so tasks from alex's project
+  // 1 and morgan's project 1 land in the same bucket. The render reads back
+  // with `groups[project.id]` which means each side-project will display the
+  // union. Full fix is to key by composite `${owner}:${id}` and read with
+  // the same key — left for a follow-up sweep so this PR stays scoped.
   const groupByProject = (tasks: Task[]): Record<number, Task[]> => {
     const groups: Record<number, Task[]> = {};
     for (const task of tasks) {
@@ -116,16 +123,28 @@ export default function DailyTasksSidebar() {
   const futureTasksByProject = useMemo(() => groupByProject(futureTasks), [futureTasks]);
 
   const selectedProject = selectedTask
-    ? projects.find((p) => p.id === selectedTask.project_id)
+    ? projects.find(
+        (p) => p.id === selectedTask.project_id && p.owner === selectedTask.owner,
+      )
     : undefined;
 
   const quickPopupProject = quickPopupTask
-    ? projects.find((p) => p.id === quickPopupTask.project_id)
+    ? projects.find(
+        (p) =>
+          p.id === quickPopupTask.project_id && p.owner === quickPopupTask.owner,
+      )
     : undefined;
 
-  // Get project color
-  const getProjectColor = (projectId: number): string => {
-    const project = projects.find((p) => p.id === projectId);
+  // Get project color by composite (owner, id). Per-user ID spaces mean
+  // alex's project 1 and morgan's project 1 are different projects — a
+  // numeric-id-only lookup picks whichever happens to be first in the array.
+  // Callers pass `{ owner, id }`; for tasks that's `{ owner, id: project_id }`.
+  const getProjectColor = (
+    ref: { owner: string; id: number },
+  ): string => {
+    const project = projects.find(
+      (p) => p.id === ref.id && p.owner === ref.owner,
+    );
     return project?.color || "#3b82f6";
   };
 
@@ -208,7 +227,7 @@ export default function DailyTasksSidebar() {
                     <TaskItem
                       key={t.id}
                       task={t}
-                      projectColor={getProjectColor(t.project_id)}
+                      projectColor={getProjectColor({ owner: t.owner, id: t.project_id })}
                       overdue
                       onClick={handleTaskClick}
                     />
@@ -237,7 +256,7 @@ export default function DailyTasksSidebar() {
                       <div className="flex items-center gap-1.5 mb-1 px-1">
                         <div
                           className="w-2 h-2 rounded-full"
-                          style={{ backgroundColor: getProjectColor(project.id) }}
+                          style={{ backgroundColor: getProjectColor({ owner: project.owner, id: project.id }) }}
                         />
                         <span className="text-xs font-medium text-gray-500">
                           {project.name}
@@ -247,7 +266,7 @@ export default function DailyTasksSidebar() {
                         <TaskItem
                           key={t.id}
                           task={t}
-                          projectColor={getProjectColor(t.project_id)}
+                          projectColor={getProjectColor({ owner: t.owner, id: t.project_id })}
                           onClick={handleTaskClick}
                         />
                       ))}
@@ -279,7 +298,7 @@ export default function DailyTasksSidebar() {
                         <div className="flex items-center gap-1.5 mb-1 px-1">
                           <div
                             className="w-2 h-2 rounded-full"
-                            style={{ backgroundColor: getProjectColor(project.id) }}
+                            style={{ backgroundColor: getProjectColor({ owner: project.owner, id: project.id }) }}
                           />
                           <span className="text-xs font-medium text-gray-500">
                             {project.name}
@@ -294,7 +313,7 @@ export default function DailyTasksSidebar() {
                           <TaskItem
                             key={t.id}
                             task={t}
-                            projectColor={getProjectColor(t.project_id)}
+                            projectColor={getProjectColor({ owner: t.owner, id: t.project_id })}
                             future
                             onClick={handleTaskClick}
                           />
