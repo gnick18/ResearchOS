@@ -84,6 +84,11 @@ export default function MarkdownEditorPage() {
       </Callout>
 
       <h2>Writing in Hybrid mode</h2>
+      <Screenshot
+        src="/wiki/screenshots/editor-hybrid-selected.png"
+        alt="A paragraph block in Hybrid mode with a blue selection ring around it and inline Edit and Delete buttons in the top-right corner."
+        caption="A single click on a block selects it. The blue ring marks the selection, and the inline Edit and Delete buttons act on just that block."
+      />
       <p>
         Hybrid is the default and where most editing happens. The editor
         parses your markdown into logical blocks (paragraphs, headings, code
@@ -136,6 +141,12 @@ export default function MarkdownEditorPage() {
         list narrows. Hit <Kbd>Enter</Kbd> and ResearchOS completes the code
         block with the language tag, ready for you to type.
       </p>
+      <Screenshot
+        src="/wiki/screenshots/editor-language-picker.png"
+        alt="The language picker popup open beneath three backticks in Edit mode, with a search field at the top and a scrollable list of language names."
+        caption="Type three backticks in Edit mode and the language picker drops in. The search field narrows the list as you type; Enter inserts the highlighted language."
+      />
+
       <Callout variant="info" title="Languages with syntax highlighting">
         Around 20 popular languages get highlighting on render: JavaScript,
         TypeScript, Python, Bash, JSON, HTML, CSS, SQL, Java, C, C++, C#, Go,
@@ -241,6 +252,11 @@ export default function MarkdownEditorPage() {
       </ul>
 
       <h3>Resizing an image</h3>
+      <Screenshot
+        src="/wiki/screenshots/editor-image-resize.png"
+        alt="The image resize popover open over a body image in Preview mode, with 25%, 50%, 75%, and 100% size options."
+        caption="Click any rendered image in Preview mode and the size popover opens. The selected percentage is written into the markdown so it sticks."
+      />
       <p>
         Two ways:
       </p>
