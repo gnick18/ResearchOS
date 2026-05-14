@@ -120,24 +120,43 @@ export default function LabModePage() {
   // also have to call `setCurrentUser` from the provider so the home page's
   // lab-redirect useEffect sees the new value (otherwise it bounces us
   // straight back to /lab).
+  //
+  // Bulletproof shape: ALWAYS call setCurrentUser to a non-"lab" value before
+  // navigating, even if upstream user-switching fails. Otherwise any thrown
+  // error from usersApi.getMainUser / login / logout leaves currentUser ==="lab"
+  // in React state, and the home page's useEffect at app/page.tsx:60 bounces
+  // straight back to /lab — producing the "Exit Lab Mode button doesn't work"
+  // symptom Grant hit 2026-05-14. Each step is independently try/catch'd so a
+  // downstream failure can't prevent the clear.
   const handleLogout = async () => {
+    let targetUser = "";
     try {
       const mainUserResponse = await usersApi.getMainUser();
-      const mainUser = mainUserResponse.main_user;
-
-      if (mainUser) {
-        await usersApi.login(mainUser);
-        await setCurrentUser(mainUser);
-        router.push("/");
+      if (mainUserResponse.main_user) {
+        targetUser = mainUserResponse.main_user;
+        await usersApi.login(targetUser);
       } else {
         await usersApi.logout();
-        await setCurrentUser("");
-        router.push("/");
       }
     } catch (err) {
-      console.error("Failed to exit lab mode:", err);
-      router.push("/");
+      console.error("Failed to switch user during exit lab mode:", err);
+      // Best-effort: try to log out cleanly, but don't let a second throw
+      // prevent the currentUser clear below.
+      try {
+        await usersApi.logout();
+      } catch {
+        // swallow — we're recovering toward a known-good state
+      }
+      targetUser = "";
     }
+    try {
+      await setCurrentUser(targetUser);
+    } catch (err) {
+      console.error("Failed to clear currentUser on exit lab mode:", err);
+      // Even if setCurrentUser throws, we still navigate — better to land on
+      // a confused / page than to leave the user trapped in /lab.
+    }
+    router.push("/");
   };
 
   if (isLoading) {
