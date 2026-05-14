@@ -12,13 +12,13 @@ export default function LabModeUserFilterPage() {
       <Screenshot
         src="/wiki/screenshots/lab-mode-user-filter.png"
         alt="The user filter chip expanded into a picker showing each lab member as a colored chip."
-        caption="Click the chip to expand it. Each user shows up as a colored tile — selected ones are filled, deselected ones are washed out."
+        caption="Click the chip to expand it. Each user shows up as a colored tile: selected ones are filled, deselected ones are washed out."
       />
 
       <h2>What it controls</h2>
       <p>
-        Every Lab Mode tab — Activity, GANTT, Experiments, Purchases,
-        Roadmaps, Methods, Notes, Search — pulls from the same set of selected
+        Every Lab Mode tab (Activity, GANTT, Experiments, Purchases,
+        Roadmaps, Methods, Notes, Search) pulls from the same set of selected
         users. The chip is the one place you change that selection. Toggling a
         user off here makes their rows disappear from all tabs at once.
       </p>
@@ -26,7 +26,7 @@ export default function LabModeUserFilterPage() {
         The first time you load Lab Mode in a browser, every user in the
         folder is selected by default. After that, your selections stick per
         browser. If someone joins the lab later, they don&apos;t get
-        auto-added — they show up in the picker as deselected, waiting for you
+        auto-added. They show up in the picker as deselected, waiting for you
         to click them in.
       </p>
 
@@ -59,7 +59,7 @@ export default function LabModeUserFilterPage() {
       </ul>
       <p>
         Click anywhere outside the panel to close it. The chip itself can also
-        be dragged anywhere on the screen — handy if it&apos;s covering
+        be dragged anywhere on the screen, handy if it&apos;s covering
         something on a small display. Its position is saved per browser.
       </p>
 
@@ -74,28 +74,28 @@ export default function LabModeUserFilterPage() {
       <p>The panel layout, top to bottom:</p>
       <ul>
         <li>
-          <strong>Header</strong> — large avatar, username, and a &quot;Member
+          <strong>Header</strong>: large avatar, username, and a &quot;Member
           since&quot; line if their join date is on file.
         </li>
         <li>
-          <strong>Stat grid</strong> — Active projects, Experiments
+          <strong>Stat grid</strong>: Active projects, Experiments
           (done/total), Completion percentage, Total spent.
         </li>
         <li>
-          <strong>Active experiments</strong> — experiments running today,
+          <strong>Active experiments</strong>: experiments running today,
           sorted by end date. Click any row to open its task popup.
         </li>
         <li>
-          <strong>Recently completed</strong> — experiments and purchases
+          <strong>Recently completed</strong>: experiments and purchases
           finished in the last 30 days, newest first.
         </li>
         <li>
-          <strong>Top funding accounts</strong> — the top five accounts by
+          <strong>Top funding accounts</strong>: the top five accounts by
           total spend for this user, if there are any. A quick read on which
           grants the person is drawing from.
         </li>
         <li>
-          <strong>Recent shared notes</strong> — shared notes updated in the
+          <strong>Recent shared notes</strong>: shared notes updated in the
           last 30 days.
         </li>
       </ul>
@@ -123,7 +123,7 @@ export default function LabModeUserFilterPage() {
           data resets both.
         </li>
         <li>
-          The chip can&apos;t leave the viewport — drag it to the edge and
+          The chip can&apos;t leave the viewport. Drag it to the edge and
           it&apos;ll snap inside the available area.
         </li>
       </ul>
@@ -131,15 +131,15 @@ export default function LabModeUserFilterPage() {
       <h2>Related pages</h2>
       <ul>
         <li>
-          <Link href="/wiki/features/lab-mode">Lab Mode overview</Link> — the
+          <Link href="/wiki/features/lab-mode">Lab Mode overview</Link>: the
           big picture and what each tab is for.
         </li>
         <li>
-          <Link href="/wiki/features/lab-mode/activity">Activity</Link> — the
+          <Link href="/wiki/features/lab-mode/activity">Activity</Link>: the
           page where avatar clicks open the detail panel the most often.
         </li>
         <li>
-          <Link href="/wiki/shared-lab-accounts">Shared Lab Accounts</Link> —
+          <Link href="/wiki/shared-lab-accounts">Shared Lab Accounts</Link>:
           how to get multiple users into the folder in the first place so the
           filter has something to do.
         </li>

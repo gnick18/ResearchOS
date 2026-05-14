@@ -32,7 +32,7 @@ export default function SearchFeaturePage() {
       <h2>The filters</h2>
       <p>
         Every filter is optional. Leave them blank to match everything, or
-        combine as many as you want — all filters AND together.
+        combine as many as you want. All filters AND together.
       </p>
       <ul>
         <li>
@@ -55,7 +55,7 @@ export default function SearchFeaturePage() {
         <li>
           <strong>Specific Method</strong> matches tasks whose first attached
           method is the one you pick.{" "}
-          <strong>Method Category</strong> is the broader version — it matches
+          <strong>Method Category</strong> is the broader version: it matches
           on the method&apos;s folder.
         </li>
         <li>
@@ -146,7 +146,7 @@ export default function SearchFeaturePage() {
 
       <Callout variant="tip" title="What gets searched, and what doesn't">
         Keywords match against task names, task tags, and method
-        names/tags — not against note bodies, results text, or PCR protocol
+        names/tags, not against note bodies, results text, or PCR protocol
         contents. Use the Notes page or a method&apos;s own editor to search
         the inside of those files.
       </Callout>

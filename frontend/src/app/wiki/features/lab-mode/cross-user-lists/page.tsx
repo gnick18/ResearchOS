@@ -18,27 +18,27 @@ export default function LabModeCrossUserListsPage() {
       <h2>What these four tabs share</h2>
       <p>
         The Experiments, Methods, Roadmaps, and Notes tabs aren&apos;t four
-        different ideas — they&apos;re the same flat-list-across-the-lab idea
+        different ideas. They&apos;re the same flat-list-across-the-lab idea
         applied to four different kinds of records. Once you know how to read
         one of them, the others click into place.
       </p>
       <p>Every row carries:</p>
       <ul>
         <li>
-          <strong>A user color marker</strong> — either an avatar on the left
+          <strong>A user color marker</strong>: either an avatar on the left
           or a small colored dot. This is the contributor&apos;s color from
           the lab&apos;s user metadata.
         </li>
         <li>
-          <strong>The title</strong> — the experiment, method, goal, or note
+          <strong>The title</strong>: the experiment, method, goal, or note
           name.
         </li>
         <li>
-          <strong>The owner&apos;s username</strong> — usually inline in a
+          <strong>The owner&apos;s username</strong>: usually inline in a
           context line, sometimes as a colored chip.
         </li>
         <li>
-          <strong>A way to drill in</strong> — clicking a row opens either the
+          <strong>A way to drill in</strong>: clicking a row opens either the
           task popup, the per-user detail panel, or an inline expansion with
           more detail.
         </li>
@@ -54,7 +54,7 @@ export default function LabModeCrossUserListsPage() {
       <p>Two view modes:</p>
       <ul>
         <li>
-          <strong>Grouped View</strong> — organized first by user, then by
+          <strong>Grouped View</strong>: organized first by user, then by
           project name. A header row for each group shows the avatar, the
           project name, and a count badge. Underneath, each experiment is a
           row with a small color dot, name, dates, duration, a methods
@@ -62,7 +62,7 @@ export default function LabModeCrossUserListsPage() {
           <em>In Progress</em>). Click a row to open the read-only task popup.
         </li>
         <li>
-          <strong>Table View</strong> — a flat sortable table with columns for
+          <strong>Table View</strong>: a flat sortable table with columns for
           user, project, experiment, start date, duration, methods, and
           status. Click a column header to sort by it. Click again to flip the
           direction.
@@ -76,12 +76,12 @@ export default function LabModeCrossUserListsPage() {
       </p>
       <ul>
         <li>
-          <strong>Methods in use</strong> — methods attached to at least one
+          <strong>Methods in use</strong>: methods attached to at least one
           experiment within the last 90 days. Useful for spotting which
           protocols are active in the lab right now.
         </li>
         <li>
-          <strong>Unused</strong> — methods that haven&apos;t been touched in
+          <strong>Unused</strong>: methods that haven&apos;t been touched in
           90+ days or have never been attached to an experiment. Rows are
           dimmed to keep them visually subordinate.
         </li>
@@ -89,8 +89,8 @@ export default function LabModeCrossUserListsPage() {
       <p>
         Each row shows the method name, a <code>public</code> or owner-username
         chip, and a one-line stat (<em>X uses across Y users · last used …</em>).
-        On the right is a cluster of avatars — every lab member who&apos;s
-        attached this method to one of their experiments. Click any avatar in
+        On the right is a cluster of avatars, one for every lab member
+        who&apos;s attached this method to one of their experiments. Click any avatar in
         the cluster to open that user&apos;s detail panel. Click the row body
         to expand it inline; the expansion lists every experiment using the
         method, newest first, each with a status pill and a click target that
@@ -119,13 +119,13 @@ export default function LabModeCrossUserListsPage() {
         </li>
       </ul>
       <p>
-        Click a goal to expand it and see the SMART sub-goal checklist —
-        completed sub-goals get a green check and strikethrough; pending ones
+        Click a goal to expand it and see the SMART sub-goal checklist.
+        Completed sub-goals get a green check and strikethrough; pending ones
         show as an empty box.
       </p>
       <p>
-        Personal goals — ones a user attached to themselves rather than to a
-        project — never appear in Lab Mode. Users can also flip a switch on
+        Personal goals (ones a user attached to themselves rather than to a
+        project) never appear in Lab Mode. Users can also flip a switch on
         their own Home page to hide all their goals from the lab view.
         That&apos;s why a user with goals might still not show up on the
         Roadmaps tab.

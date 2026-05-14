@@ -49,7 +49,7 @@ export default function GoogleDrivePage() {
         </Step>
         <Step>
           Wait for the green check on every file inside. Cloud icons mean
-          the file isn&apos;t local yet — ResearchOS won&apos;t be able to
+          the file isn&apos;t local yet. ResearchOS won&apos;t be able to
           read those until they download.
         </Step>
       </Steps>

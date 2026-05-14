@@ -25,11 +25,11 @@ export default function LabModePurchasesPage() {
       <p>The page is two stacked layers:</p>
       <ul>
         <li>
-          <strong>Funding accounts overview</strong> on top — a card per
+          <strong>Funding accounts overview</strong> on top: a card per
           account with budget, total spent, in-view spent, and remaining.
         </li>
         <li>
-          <strong>Purchase orders</strong> on the bottom — either a flat list
+          <strong>Purchase orders</strong> on the bottom: either a flat list
           of orders or a summary view with per-month, per-user, and
           per-project rollups.
         </li>
@@ -39,20 +39,20 @@ export default function LabModePurchasesPage() {
       <p>Each card shows four numbers and a progress bar:</p>
       <ul>
         <li>
-          <strong>Spent</strong> — the total burned on this account across the
+          <strong>Spent</strong>: the total burned on this account across the
           whole lab, regardless of who&apos;s selected in the user filter.
         </li>
         <li>
-          <strong>In view</strong> — the subset of that spend coming from the
+          <strong>In view</strong>: the subset of that spend coming from the
           users you have currently selected. Lets you scope to one person or a
           subteam.
         </li>
         <li>
-          <strong>Budget</strong> — the total budget set on the account when
+          <strong>Budget</strong>: the total budget set on the account when
           it was created. Edit this from the personal Purchases page.
         </li>
         <li>
-          <strong>Remaining</strong> — budget minus spent. Goes red when
+          <strong>Remaining</strong>: budget minus spent. Goes red when
           you&apos;re over budget, amber when less than 10% is left, emerald
           otherwise.
         </li>
@@ -77,7 +77,7 @@ export default function LabModePurchasesPage() {
         or hit <strong>Clear filter</strong>, to widen back out.
       </p>
       <p>
-        Filtering by funding account stacks with the user filter — you can ask
+        Filtering by funding account stacks with the user filter. You can ask
         &quot;what did Alex and Morgan spend on the NIH grant last month?&quot;
         by selecting two users in the floating chip and clicking one funding
         card.
@@ -90,15 +90,15 @@ export default function LabModePurchasesPage() {
       </p>
       <ul>
         <li>
-          <strong>List</strong> — one row per purchase order, newest first.
+          <strong>List</strong>: one row per purchase order, newest first.
           Each row shows the buyer&apos;s avatar, the order name, project,
           date, and a status pill (<em>Complete</em> or <em>Pending</em>).
           Click a row to open the order&apos;s task popup.
         </li>
         <li>
-          <strong>Summary</strong> — three rollups in one view: a bar chart of
+          <strong>Summary</strong>: three rollups in one view (a bar chart of
           monthly spend over the last twelve months, a &quot;Spend by user&quot;
-          table, and a &quot;Spend by project&quot; table. All three respect
+          table, and a &quot;Spend by project&quot; table). All three respect
           the current user filter and funding filter, so the numbers always
           match what&apos;s in the list.
         </li>
@@ -107,7 +107,7 @@ export default function LabModePurchasesPage() {
       <h2>Export CSV</h2>
       <p>
         The <strong>Export CSV</strong> button in the top-right writes one row
-        per line item — not per order — with username, task id, task name,
+        per line item (not per order) with username, task id, task name,
         date, project, item name, quantity, unit price, shipping, total,
         funding account, link, and CAS number. The export respects every
         active filter, so a finance request like &quot;all NIH spend Q1&quot;
