@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { readLabArchivesCreds } from "@/lib/labarchives/config";
-import { buildSignedParams } from "@/lib/labarchives/sign";
+import { signedLabArchivesFetch } from "@/lib/labarchives/signed-fetch";
 
 /**
  * `POST /api/labarchives/fetch-image` — server-side proxy to
@@ -17,7 +17,11 @@ import { buildSignedParams } from "@/lib/labarchives/sign";
  *     entryPartId: string,     // parsed from Form-B ep_id ("eid" param)
  *   }
  *
- * Returns: image bytes on 200, JSON `{ error }` on 4xx/5xx.
+ * Returns: image bytes on 200, JSON `{ error }` on 4xx/5xx. Client-facing
+ * error messages are generic — see the round-2 hardening note in
+ * `lib/api/url-guards.ts`. Upstream status / parsed `<error>` body are
+ * logged server-side via `console.warn`. Timeout + retry-on-401 logic
+ * lives in `signedLabArchivesFetch`.
  */
 export async function POST(req: NextRequest): Promise<Response> {
   let creds;
@@ -49,37 +53,38 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
 
   const apiMethod = "entry_attachment";
-  const signed = buildSignedParams(creds.accessKeyId, creds.accessPassword, apiMethod);
-  const url = new URL(`${creds.baseUrl}/entries/${apiMethod}`);
-  url.searchParams.set("akid", signed.akid);
-  url.searchParams.set("expires", signed.expires);
-  url.searchParams.set("sig", signed.sig);
-  url.searchParams.set("uid", uid);
-  url.searchParams.set("eid", eid);
+  const result = await signedLabArchivesFetch(
+    creds,
+    apiMethod,
+    `/entries/${apiMethod}`,
+    { params: { uid, eid } },
+  );
 
-  let res: Response;
-  try {
-    res = await fetch(url.toString(), { method: "GET", cache: "no-store" });
-  } catch (err) {
+  if (result.kind === "network-error") {
+    console.warn(
+      "[labarchives/fetch-image] upstream network error",
+      result.aborted ? "(timeout)" : "",
+      result.error.message,
+    );
     return Response.json(
-      {
-        error: `LabArchives API unreachable: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      },
+      { error: "Image fetch failed — could not reach LabArchives." },
       { status: 502 },
     );
   }
 
+  const { res } = result;
   if (!res.ok) {
-    const text = await res.text();
+    const text = await res.text().catch(() => "");
     const m = text.match(/<error[^>]*>([\s\S]*?)<\/error>/i);
+    console.warn(
+      "[labarchives/fetch-image] upstream error",
+      `status=${res.status}`,
+      m ? `detail=${m[1].trim()}` : `(bodyLen=${text.length})`,
+    );
+    // Authentication failures bubble up as 401 so the wizard can prompt
+    // a reconnect. Everything else collapses to 502.
     return Response.json(
-      {
-        error: m
-          ? `LabArchives error: ${m[1].trim()}`
-          : `LabArchives error (HTTP ${res.status}).`,
-      },
+      { error: "Image fetch failed." },
       { status: res.status === 401 || res.status === 403 ? 401 : 502 },
     );
   }
