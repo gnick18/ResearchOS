@@ -1,14 +1,19 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { tasksApi, fetchAllMethodsIncludingShared, fetchAllProjectsIncludingShared } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
-import ExportFormatDialog from "@/components/ExportFormatDialog";
+import ExportFormatDialog, { type ExportProgressUi } from "@/components/ExportFormatDialog";
 // TODO(manager): unstub once Sub-bot A lands frontend/src/lib/export/orchestrate.ts.
-import { exportExperiments, downloadResult } from "@/lib/export/orchestrate";
+import {
+  exportExperiments,
+  downloadResult,
+  estimateMultiExportSize,
+  type ExportSizeEstimate,
+} from "@/lib/export/orchestrate";
 import type { ExportFormat } from "@/lib/export/types";
 import { taskKey, type Task, type Method, type Project } from "@/lib/types";
 
@@ -42,6 +47,10 @@ export default function SearchPage() {
   const [selectedTaskKeys, setSelectedTaskKeys] = useState<Set<string>>(new Set());
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportSizeEstimate, setExportSizeEstimate] =
+    useState<ExportSizeEstimate | null>(null);
+  const [exportProgress, setExportProgress] =
+    useState<ExportProgressUi | null>(null);
 
   const [filters, setFilters] = useState<SearchFilters>({
     keywords: "",
@@ -264,6 +273,33 @@ export default function SearchPage() {
     [selectMode, toggleTaskSelection]
   );
 
+  // Cheap up-front size walk so the export dialog can show a soft warning
+  // for big multi-selects. Runs when the dialog opens; cleared when it
+  // closes. The estimate is bounded by attachment file-system metadata
+  // reads — no byte content is loaded.
+  useEffect(() => {
+    if (!exportDialogOpen) {
+      setExportSizeEstimate(null);
+      return;
+    }
+    const tasksToExport = searchResults
+      .filter((r) => selectedTaskKeys.has(taskKey(r.task)))
+      .map((r) => r.task);
+    if (tasksToExport.length < 2) return;
+    let cancelled = false;
+    estimateMultiExportSize(tasksToExport)
+      .then((estimate) => {
+        if (!cancelled) setExportSizeEstimate(estimate);
+      })
+      .catch(() => {
+        // Estimate failures are non-fatal — the dialog just won't show
+        // a size hint or the large-export warning.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [exportDialogOpen, searchResults, selectedTaskKeys]);
+
   const handleExport = useCallback(
     async (format: ExportFormat) => {
       const tasksToExport = searchResults
@@ -272,8 +308,20 @@ export default function SearchPage() {
       if (tasksToExport.length === 0) return;
 
       setExporting(true);
+      setExportProgress(null);
       try {
-        const result = await exportExperiments(tasksToExport, format, currentUser);
+        const result = await exportExperiments(
+          tasksToExport,
+          format,
+          currentUser,
+          (p) =>
+            setExportProgress({
+              current: p.current,
+              total: p.total,
+              taskName: p.task.name,
+              zipPercent: p.zipPercent,
+            }),
+        );
         downloadResult(result);
         setExportDialogOpen(false);
         cancelSelectMode();
@@ -286,6 +334,7 @@ export default function SearchPage() {
         );
       } finally {
         setExporting(false);
+        setExportProgress(null);
       }
     },
     [searchResults, selectedTaskKeys, currentUser, cancelSelectMode]
@@ -640,6 +689,8 @@ export default function SearchPage() {
         isOpen={exportDialogOpen}
         taskCount={selectedTaskKeys.size}
         isExporting={exporting}
+        sizeEstimate={exportSizeEstimate}
+        progress={exportProgress}
         onClose={() => setExportDialogOpen(false)}
         onExport={handleExport}
       />

@@ -443,3 +443,123 @@ describe("buildPdf — happy path", () => {
     expect(text).toContain("Yeast metabolism"); // project name → subject
   });
 });
+
+// ── Streaming output (lib/export/stream-output.ts) ──────────────────────────
+
+describe("packZipStreaming — multi-experiment output via generateInternalStream", () => {
+  it("produces a valid zip Blob whose entries match what generateAsync would emit", async () => {
+    // Same archive built two ways:
+    //   1. The OLD path: zip.generateAsync({ type: "blob" }).
+    //   2. The NEW path: zip.generateInternalStream() → Blob[] → new Blob.
+    // The unzipped contents must be byte-identical for both — JSZip's
+    // streaming output is supposed to be just a different way of
+    // serializing the same zip. This guards against accidentally losing
+    // entries or breaking the streamed path's wiring.
+    const JSZip = (await import("jszip")).default;
+    const { packZipStreaming } = await import("../stream-output");
+
+    const a = new JSZip();
+    a.file("hello.txt", "world");
+    a.file("nested/data.json", JSON.stringify({ k: 1 }));
+    const bufferedBlob = await a.generateAsync({ type: "blob" });
+
+    const b = new JSZip();
+    b.file("hello.txt", "world");
+    b.file("nested/data.json", JSON.stringify({ k: 1 }));
+    const streamedBlob = await packZipStreaming(b);
+
+    expect(streamedBlob).toBeInstanceOf(Blob);
+    expect(streamedBlob.type).toBe("application/zip");
+
+    // Unzip both and compare logical entry contents (compressed bytes
+    // may differ run-to-run due to internal buffering choices, but the
+    // logical file contents are stable).
+    const bufferedZip = await JSZip.loadAsync(await bufferedBlob.arrayBuffer());
+    const streamedZip = await JSZip.loadAsync(await streamedBlob.arrayBuffer());
+    // Compare file entries only (JSZip surfaces directory entries via
+    // `files` too — those have no `.file()` content and trip the test
+    // for nested paths like "nested/data.json").
+    const bufferedNames = Object.keys(bufferedZip.files)
+      .filter((n) => !bufferedZip.files[n].dir)
+      .sort();
+    const streamedNames = Object.keys(streamedZip.files)
+      .filter((n) => !streamedZip.files[n].dir)
+      .sort();
+    expect(streamedNames).toEqual(bufferedNames);
+    for (const name of bufferedNames) {
+      const ba = await bufferedZip.file(name)!.async("string");
+      const sa = await streamedZip.file(name)!.async("string");
+      expect(sa).toBe(ba);
+    }
+  });
+
+  it("reports progress percentages monotonically through the stream", async () => {
+    const JSZip = (await import("jszip")).default;
+    const { packZipStreaming } = await import("../stream-output");
+    const zip = new JSZip();
+    // Add enough entries that JSZip emits multiple data events.
+    for (let i = 0; i < 20; i++) {
+      zip.file(`entry-${i}.txt`, "x".repeat(2048));
+    }
+    const percents: number[] = [];
+    await packZipStreaming(zip, (p) => percents.push(p));
+    expect(percents.length).toBeGreaterThan(0);
+    // Final percent should reach (or be very close to) 100 — JSZip emits
+    // it as the last event before "end".
+    expect(percents[percents.length - 1]).toBeCloseTo(100, 0);
+    // Sequence is non-decreasing.
+    for (let i = 1; i < percents.length; i++) {
+      expect(percents[i]).toBeGreaterThanOrEqual(percents[i - 1]);
+    }
+  });
+});
+
+describe("isLargeExport — soft-warning threshold", () => {
+  it("flags at 50+ tasks regardless of size", async () => {
+    const { isLargeExport } = await import("../stream-output");
+    expect(
+      isLargeExport(50, {
+        attachmentCount: 0,
+        totalBytes: 0,
+        perTaskBytes: [],
+      }),
+    ).toBe(true);
+    expect(
+      isLargeExport(49, {
+        attachmentCount: 0,
+        totalBytes: 0,
+        perTaskBytes: [],
+      }),
+    ).toBe(false);
+  });
+
+  it("flags at >500 MB total bytes regardless of task count", async () => {
+    const { isLargeExport } = await import("../stream-output");
+    const mb = 1024 * 1024;
+    expect(
+      isLargeExport(2, {
+        attachmentCount: 100,
+        totalBytes: 600 * mb,
+        perTaskBytes: [],
+      }),
+    ).toBe(true);
+    expect(
+      isLargeExport(2, {
+        attachmentCount: 100,
+        totalBytes: 100 * mb,
+        perTaskBytes: [],
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("formatBytes — UI helper", () => {
+  it("formats across B / KB / MB / GB ranges", async () => {
+    const { formatBytes } = await import("../stream-output");
+    expect(formatBytes(0)).toBe("0 B");
+    expect(formatBytes(512)).toBe("512 B");
+    expect(formatBytes(2048)).toBe("2.0 KB");
+    expect(formatBytes(5 * 1024 * 1024)).toBe("5.0 MB");
+    expect(formatBytes(2 * 1024 * 1024 * 1024)).toBe("2.00 GB");
+  });
+});

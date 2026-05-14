@@ -1,15 +1,46 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { ExportFormat } from "@/lib/export/types";
+import {
+  formatBytes,
+  isLargeExport,
+  type ExportSizeEstimate,
+} from "@/lib/export/stream-output";
 
 interface ExportFormatDialogProps {
   isOpen: boolean;
   taskCount: number;
   taskName?: string;
   isExporting?: boolean;
+  // Optional size estimate computed by the caller (cheap walk of the
+  // task results folders). When provided AND the export is "large"
+  // (50+ tasks or >500 MB attachments) the dialog shows a soft warning
+  // that requires an explicit Continue tap before the format buttons go
+  // live. `null` means "not yet measured"; `undefined` means "caller
+  // doesn't compute estimates" — both treat the export as small.
+  sizeEstimate?: ExportSizeEstimate | null;
+  // Optional progress signal — when the orchestrator emits per-experiment
+  // progress + zip-pack progress, the dialog renders a status line and
+  // a determinate progress bar. `null` means no progress yet.
+  progress?: ExportProgressUi | null;
   onClose: () => void;
   onExport: (format: ExportFormat) => void;
+}
+
+/**
+ * Subset of `lib/export/orchestrate.ts`'s ExportProgress that's safe to
+ * pass into the dialog: no Task object dependency (we just want a name +
+ * counts so the dialog can render `Exporting "{name}" — 12 of 50`).
+ */
+export interface ExportProgressUi {
+  current: number;
+  total: number;
+  taskName: string;
+  // 0-100 ZIP packaging percent — set only during the multi-task
+  // wrapper step. `undefined` while we're still building per-experiment
+  // results.
+  zipPercent?: number;
 }
 
 interface FormatOption {
@@ -44,9 +75,22 @@ export default function ExportFormatDialog({
   taskCount,
   taskName,
   isExporting = false,
+  sizeEstimate,
+  progress,
   onClose,
   onExport,
 }: ExportFormatDialogProps) {
+  // Once the user OKs the large-export warning we don't re-warn while the
+  // dialog stays open. Reset on close so re-opening starts fresh. Tracked
+  // via a derived `prevIsOpen` rather than an effect so React's
+  // set-state-in-effect lint rule stays clean.
+  const [warningAcknowledged, setWarningAcknowledged] = useState(false);
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (prevIsOpen !== isOpen) {
+    setPrevIsOpen(isOpen);
+    if (!isOpen) setWarningAcknowledged(false);
+  }
+
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -67,6 +111,18 @@ export default function ExportFormatDialog({
     if (!isExporting) onClose();
   };
 
+  // Decide whether to show the soft warning. We only show it when:
+  //   - The caller actually supplied an estimate (no estimate ⇒ assume
+  //     small / caller didn't bother measuring).
+  //   - `isLargeExport` returns true (50+ tasks or >500 MB).
+  //   - The user hasn't already acknowledged it in this open session.
+  //   - The export isn't already running (post-acknowledge state).
+  const showWarning =
+    !!sizeEstimate &&
+    !warningAcknowledged &&
+    !isExporting &&
+    isLargeExport(taskCount, sizeEstimate);
+
   return (
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
@@ -86,62 +142,148 @@ export default function ExportFormatDialog({
           </p>
         </div>
 
-        <div className="p-4 space-y-2">
-          {FORMAT_OPTIONS.map((opt) => (
-            <button
-              key={opt.format}
-              type="button"
-              disabled={isExporting}
-              onClick={() => onExport(opt.format)}
-              className="w-full text-left rounded-lg border border-gray-200 px-4 py-3 hover:border-blue-400 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:bg-white"
-            >
-              <div className="text-sm font-medium text-gray-900">
-                {opt.title}
+        {showWarning ? (
+          // Soft warning gate: blocks the format-picker until the user
+          // explicitly clicks Continue. Estimate is approximate (sum of
+          // attachment file sizes + per-task text overhead; uncompressed
+          // ceiling, so the eventual download is typically smaller).
+          <div className="p-5 space-y-3">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+              <div className="text-sm font-medium text-amber-900">
+                Large export
               </div>
-              <div className="text-xs text-gray-500 mt-1 leading-relaxed">
-                {opt.description}
+              <div className="text-xs text-amber-800 mt-1 leading-relaxed">
+                Exporting {taskCount} experiments (~
+                {formatBytes(sizeEstimate.totalBytes)} of attachments). This
+                may take a minute and use significant memory. The browser may
+                slow down while the archive is built.
               </div>
-            </button>
-          ))}
-        </div>
-
-        <div className="px-4 pb-4 pt-1 flex items-center justify-between">
-          <div className="text-xs text-gray-500 min-h-[1.25rem]">
-            {isExporting && (
-              <span className="inline-flex items-center gap-2">
-                <svg
-                  className="animate-spin w-3.5 h-3.5"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
-                Preparing export…
-              </span>
-            )}
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => setWarningAcknowledged(true)}
+                className="px-3 py-1.5 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg"
+              >
+                Continue
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isExporting}
-            className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Cancel
-          </button>
-        </div>
+        ) : (
+          <>
+            <div className="p-4 space-y-2">
+              {FORMAT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.format}
+                  type="button"
+                  disabled={isExporting}
+                  onClick={() => onExport(opt.format)}
+                  className="w-full text-left rounded-lg border border-gray-200 px-4 py-3 hover:border-blue-400 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:bg-white"
+                >
+                  <div className="text-sm font-medium text-gray-900">
+                    {opt.title}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1 leading-relaxed">
+                    {opt.description}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="px-4 pb-4 pt-1">
+              {isExporting && progress ? (
+                <ExportProgressLine progress={progress} />
+              ) : isExporting ? (
+                <div className="text-xs text-gray-500 flex items-center gap-2">
+                  <Spinner />
+                  Preparing export…
+                </div>
+              ) : (
+                <div className="text-xs text-gray-500 min-h-[1.25rem]">
+                  {sizeEstimate && taskCount > 1 ? (
+                    <span>
+                      ~{formatBytes(sizeEstimate.totalBytes)} of attachments
+                      across {taskCount} experiments.
+                    </span>
+                  ) : null}
+                </div>
+              )}
+              <div className="flex justify-end mt-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={isExporting}
+                  className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Spinner() {
+  return (
+    <svg
+      className="animate-spin w-3.5 h-3.5"
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      />
+    </svg>
+  );
+}
+
+function ExportProgressLine({ progress }: { progress: ExportProgressUi }) {
+  const { current, total, taskName, zipPercent } = progress;
+  // Per-experiment progress (zipPercent undefined) → ratio of completed
+  // experiments. ZIP-pack progress → use the streamed percent directly.
+  const percent =
+    typeof zipPercent === "number"
+      ? zipPercent
+      : Math.round(((current - 1) / Math.max(total, 1)) * 100);
+  const label =
+    typeof zipPercent === "number"
+      ? `Packaging archive… ${Math.round(zipPercent)}%`
+      : total > 1
+        ? `Exporting "${taskName}" — ${current} of ${total}`
+        : `Exporting "${taskName}"`;
+
+  return (
+    <div className="space-y-1.5">
+      <div className="text-xs text-gray-600 flex items-center gap-2">
+        <Spinner />
+        <span className="line-clamp-1">{label}</span>
+      </div>
+      <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+        <div
+          className="h-full bg-blue-500 transition-all duration-200"
+          style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
+        />
       </div>
     </div>
   );

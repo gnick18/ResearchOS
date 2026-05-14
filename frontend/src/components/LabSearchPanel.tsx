@@ -5,9 +5,14 @@ import { useQuery } from "@tanstack/react-query";
 import { labApi, tasksApi, LabSearchResult, LabProject, LabMethod, LabTask } from "@/lib/local-api";
 import { useLabData } from "@/hooks/useLabData";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import ExportFormatDialog from "@/components/ExportFormatDialog";
+import ExportFormatDialog, { type ExportProgressUi } from "@/components/ExportFormatDialog";
 // TODO(manager): unstub once Sub-bot A lands frontend/src/lib/export/orchestrate.ts.
-import { exportExperiments, downloadResult } from "@/lib/export/orchestrate";
+import {
+  exportExperiments,
+  downloadResult,
+  estimateMultiExportSize,
+  type ExportSizeEstimate,
+} from "@/lib/export/orchestrate";
 import type { ExportFormat } from "@/lib/export/types";
 import type { Task } from "@/lib/types";
 
@@ -47,6 +52,10 @@ export default function LabSearchPanel({
   const [selectedTaskKeys, setSelectedTaskKeys] = useState<Set<string>>(new Set());
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportSizeEstimate, setExportSizeEstimate] =
+    useState<ExportSizeEstimate | null>(null);
+  const [exportProgress, setExportProgress] =
+    useState<ExportProgressUi | null>(null);
 
   const [filters, setFilters] = useState<SearchFilters>({
     keywords: "",
@@ -169,6 +178,29 @@ export default function LabSearchPanel({
     setSelectedTaskKeys(new Set());
   }, []);
 
+  // Estimate the eventual on-disk size of the export when the dialog
+  // opens, so the soft "Large export" warning can fire for 50+ tasks or
+  // >500 MB. The lab-panel needs to resolve the selected results into
+  // real Task records first — those records are what the size walker
+  // walks. Failures are swallowed (the warning just won't show).
+  const computeExportEstimate = useCallback(async () => {
+    const picks = results.filter(
+      (r) => r.type === "task" && selectedTaskKeys.has(labResultKey(r.username, r.id))
+    );
+    if (picks.length < 2) return;
+    try {
+      const fetched = await Promise.all(
+        picks.map((r) => tasksApi.get(r.id, r.username))
+      );
+      const tasks = fetched.filter((t): t is Task => t != null);
+      if (tasks.length < 2) return;
+      const estimate = await estimateMultiExportSize(tasks);
+      setExportSizeEstimate(estimate);
+    } catch {
+      // estimate failure is non-fatal
+    }
+  }, [results, selectedTaskKeys]);
+
   const handleExport = useCallback(
     async (format: ExportFormat) => {
       // Resolve selected lab results into full Task records on disk. The
@@ -180,6 +212,7 @@ export default function LabSearchPanel({
       if (picks.length === 0) return;
 
       setExporting(true);
+      setExportProgress(null);
       try {
         const fetched = await Promise.all(
           picks.map((r) => tasksApi.get(r.id, r.username))
@@ -188,7 +221,18 @@ export default function LabSearchPanel({
         if (tasksToExport.length === 0) {
           throw new Error("Could not load any of the selected experiments.");
         }
-        const result = await exportExperiments(tasksToExport, format, currentUser);
+        const result = await exportExperiments(
+          tasksToExport,
+          format,
+          currentUser,
+          (p) =>
+            setExportProgress({
+              current: p.current,
+              total: p.total,
+              taskName: p.task.name,
+              zipPercent: p.zipPercent,
+            }),
+        );
         downloadResult(result);
         setExportDialogOpen(false);
         cancelSelectMode();
@@ -201,6 +245,7 @@ export default function LabSearchPanel({
         );
       } finally {
         setExporting(false);
+        setExportProgress(null);
       }
     },
     [results, selectedTaskKeys, currentUser, cancelSelectMode]
@@ -419,7 +464,15 @@ export default function LabSearchPanel({
                       {selectedTaskKeys.size} selected
                     </span>
                     <button
-                      onClick={() => setExportDialogOpen(true)}
+                      onClick={() => {
+                        setExportDialogOpen(true);
+                        setExportSizeEstimate(null);
+                        // Fire-and-forget — the dialog renders a normal
+                        // format-picker until the estimate resolves, then
+                        // gates behind a soft warning if it crosses the
+                        // large-export thresholds.
+                        void computeExportEstimate();
+                      }}
                       disabled={selectedTaskKeys.size === 0}
                       className="px-3 py-1.5 text-xs bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -580,6 +633,8 @@ export default function LabSearchPanel({
         isOpen={exportDialogOpen}
         taskCount={selectedTaskKeys.size}
         isExporting={exporting}
+        sizeEstimate={exportSizeEstimate}
+        progress={exportProgress}
         onClose={() => setExportDialogOpen(false)}
         onExport={handleExport}
       />
