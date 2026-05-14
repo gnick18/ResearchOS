@@ -298,6 +298,8 @@ The previous "Handoff snapshot — late evening (UPDATED 2x)" and "Handoff snaps
 
 **For the next master session picking this up**: state is fully reconstructable from `git log --oneline -50` from `/Users/gnickles/Desktop/ResearchOS` plus the "Active bot branches (in flight)" section above. The Recently-landed subsections below cover what happened today. No mid-flight rollover left behind.
 
+_(Original "Handoff snapshot — late evening" body below was preserved for audit-trail until 2026-05-14 evening cleanup. Its content is now fully reflected in the Recently-landed subsections + the live-verify carry-forward above. Skip past it.)_
+
 **Origin tip**: `bd18a3a2`. **Local main**: `b84a1e35` — **4 commits ahead of origin, awaiting Grant's push** (auto-mode classifier blocked the master-bot push to main). The four are: `6252e704` (handoff refresh), `bcb578f5` (PCR template merge), `4f31dab3` (LabArchives merge), `b84a1e35` (LabArchives revamp: dedicated Settings section + wiki page).
 
 **Zero bots in flight.** All three bots that were running at context-end either merged or completed:
