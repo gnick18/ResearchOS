@@ -51,78 +51,109 @@ Grant input before implementation kicks off.
 
 ## What "brand-new" means here
 
-Today the only folder-root sidecar that signals folder identity is
-`_demo_marker.json` (`frontend/src/components/DemoLabBanner.tsx:68`),
-which carries `{is_demo: true, lab_title, version}` and gets read on
-every mount of the banner. The folder-root JSON pattern is the
-established idiom — `_telegram.json`, `_calendar-feeds.json`,
-`_labarchives.json`, `_labarchives-deployer.json` all live at the
-per-user level, but folder-level marker files use the unprefixed root
-(`_demo_marker.json` precedent). The onboarding sidecar follows the
-same shape.
+**LOCKED 2026-05-14 (Grant):** sidecar lives **per-user** at
+`users/<u>/_onboarding.json`. Each user that signs into a folder gets
+her own brand-new sequence — co-PIs sharing a laptop each get
+onboarded independently. The trade-off is that a single human who
+opens the same folder from a second machine sees tips again (since
+identity is per-user-on-this-folder, not per-actual-human); judged
+acceptable given there's no way to detect cross-machine humans
+without server-side identity.
 
-**Proposed sidecar:** `_onboarding.json` at the folder root.
+This is the same shape as `_telegram.json`, `_calendar-feeds.json`,
+`_labarchives.json` — per-user sidecars at `users/<u>/_<feature>.json`.
+Read/write path mirrors `frontend/src/lib/calendar/external-feeds-store.ts`
+(version field, normalize-on-read, lazy default if missing).
+
+**Sidecar shape (`users/<u>/_onboarding.json`):**
 
 ```jsonc
 {
   "version": 1,
-  // ISO timestamp of the first time any user opened this folder under
-  // a build that has the onboarding system. Set on first read if the
-  // file doesn't exist. Used to compute "days since folder created"
-  // for the taper-off rule.
+  // ISO timestamp of the first time THIS USER opened this folder
+  // under a build that has the onboarding system. Set on first read
+  // if the file is missing. Pure record-keeping; not used for the
+  // freshness taper anymore (Grant's trigger model uses
+  // active_seconds, see below).
   "first_seen_at": "2026-05-14T20:14:33.221Z",
-  // Per-tip dismissal record. Keyed by tip id (e.g. "drop-to-replace").
-  // null if never shown, ISO timestamp if dismissed or marked-done.
-  // Tips that have a record here are not re-shown.
-  "dismissed": {
-    "drop-to-replace": "2026-05-14T20:18:01.000Z"
+
+  // Total wall-clock seconds the user has spent with at least one
+  // ResearchOS tab visible-and-focused. Ticks at +1 every second
+  // while document.visibilityState === "visible" AND document has
+  // focus. Persisted to sidecar every ~30s + on visibility-hidden.
+  // Used as the "time on website" budget Grant's trigger asked for.
+  // After active_seconds > 3600 (1h cumulative), the taper rule
+  // turns the system off — the user is no longer "brand new."
+  "active_seconds": 412,
+
+  // Last time any tip was successfully shown to this user, in
+  // active-seconds (not wall-clock). The trigger fires only when
+  // (active_seconds - last_tip_at) >= MIN_GAP_SECONDS (default
+  // 300s = 5 minutes of active engagement). Initialized to 0.
+  "last_tip_at": 180,
+
+  // Per-tip dismissal record. Keyed by tip id (e.g.
+  // "drop-to-replace"). Each entry is { shown_at: ISO,
+  // dismissed_at: ISO|null, outcome: "x"|"later"|"got-it"|"read"
+  //                          |"action-cancel" }.
+  // outcome="action-cancel" means the user did the thing before
+  // the tip fired — the tip never showed; we just record it as
+  // already-served. outcome="later" means re-fire eligible next
+  // session.
+  "tips": {
+    "drop-to-replace": {
+      "shown_at": "2026-05-14T20:17:55.000Z",
+      "dismissed_at": "2026-05-14T20:18:01.000Z",
+      "outcome": "x"
+    }
   },
-  // Global off-switch. Set when the user clicks "Stop showing tips" in
-  // any tip popup, or when the taper-off threshold trips. When true,
-  // no tip ever fires regardless of `dismissed`.
+
+  // Global off-switch. Set when the user clicks "Stop showing tips"
+  // in any tip popup, or when the taper-off threshold trips. When
+  // true, no tip ever fires regardless of `tips` state.
   "tips_off": false,
-  // Total tips shown across all users of this folder. Used as a
-  // secondary off-switch (after N tips, taper). Increments on every
-  // successful tip display, not on every render attempt.
-  "shown_count": 3
+
+  // Total tips successfully displayed to this user (not counting
+  // action-cancel records). Used as a secondary off-switch: after
+  // 8 displays (= the entire initial set), system stops on its
+  // own even if active_seconds is still under the cap.
+  "shown_count": 1
 }
 ```
 
 Three things to notice about the shape:
 
-- **Folder-scoped, not user-scoped.** If alex and morgan share the same
-  research folder (two co-PIs on one laptop), and alex already worked
-  through the tips, morgan does not get re-fired. The trade is that
-  "shared-laptop, second human, never seen the tips before" silently
-  miss out — judged better than morgan-on-her-own-laptop getting
-  re-onboarded after alex's folder gets cloned across.
+- **Per-user, not folder-root.** Mirrors `_telegram.json` /
+  `_calendar-feeds.json` / `_labarchives.json` — sits under
+  `users/<u>/` so each user's onboarding sequence is independent.
+  Locked in design call (2026-05-14).
 - **No telemetry.** ResearchOS has no server backend for the data
   folder; the only file readers are the user(s) who picked the folder.
-  `shown_count` is purely an off-switch input.
-- **`tips_off` is sticky and folder-wide.** Once off, off for everyone.
-  Re-entry is via Settings → "Replay onboarding tips" (clears
-  `dismissed` and `tips_off`, leaves `first_seen_at` so the freshness
-  taper still applies).
+  `shown_count` and `active_seconds` are purely off-switch inputs.
+- **`tips_off` is sticky per-user.** Once a user turns tips off, they
+  stay off for that user (other users in the same folder are
+  unaffected). Re-entry is via Settings → "Replay onboarding tips"
+  (clears `tips`, sets `tips_off: false`, resets `last_tip_at` to
+  `active_seconds` so the cooldown starts fresh; leaves
+  `first_seen_at` + `active_seconds` so the freshness taper still
+  applies).
 
 **Brand-new threshold:**
 
-Two heuristics are blended so a stale folder that hasn't been opened in
-months but was just connected for the first time on a new build doesn't
-get treated as brand-new:
+Two heuristics are blended so a stale account that hasn't been opened
+in a while doesn't get treated as brand-new just because a new build
+introduced the system:
 
-1. `first_seen_at` is missing OR within the last **14 days**. Older →
-   not brand-new.
-2. `shown_count < 10`. After 10 tips, the system tapers off regardless.
+1. `active_seconds < 3600` (less than 1 cumulative hour of focused
+   in-app time). After 1 hour of real engagement the user has seen
+   enough of the app to not need orientation tips.
+2. `shown_count < 8` (= the size of the initial tip set). After
+   serving the whole set, system tapers off regardless.
 
-Both must be true. A folder that the user has touched daily for 3 weeks
-but never seen a tip (e.g. build was older than the feature) gets
-tapered out by rule 1. A folder created today but already 10 tips deep
-because the user power-used the app gets tapered by rule 2.
-
-(The 14-day threshold mirrors Lab Activity's `RECENT_WINDOW_DAYS = 30`
-(`frontend/src/components/LabActivityPanel.tsx:17`), halved because
-onboarding is a sharper signal than "recently active." Grant
-confirmation on the threshold is one of the open questions below.)
+Both must be true. The cumulative-active-seconds model (rather than
+days since creation) is the active-engagement signal Grant asked for
+in the trigger spec: it doesn't matter how long ago the user created
+the account, only how much time they've actually spent using it.
 
 ## Demo + wiki-capture exemption
 
@@ -276,40 +307,83 @@ scroll (passive listener, debounced 16ms).
 
 ## Trigger pattern
 
-Three trigger families were considered. Recommended: **hybrid —
-page-visit + idle-time, with action-debounce**.
+**LOCKED 2026-05-14 (Grant):** the trigger is driven by
+**cumulative active-engagement time** on the website, not wall-clock
+time. The sidecar's `active_seconds` field is incremented every
+second the user has at least one tab visible-and-focused. Tips fire
+when (a) the user is on a route that has an eligible un-shown tip,
+and (b) at least **5 minutes of active engagement (300s)** have
+passed since the last tip fired (`active_seconds - last_tip_at >=
+300`). Only one tip on screen at a time — if a tip is currently
+displayed, no other tip can fire under any condition.
 
-| Family | When it fires | Pro | Con |
-|---|---|---|---|
-| Page-visit | First time the user lands on a route within this folder | Predictable; one tip per route at most | Doesn't catch features inside a page the user has visited but not used |
-| Action | Right after the user does something — e.g. uploads a file, opens a task | In-context, the affordance is on screen | Risk of double-firing (the user just did the thing; telling them about it is patronizing) |
-| Idle-time | After N seconds of inactivity on a screen with a callable affordance | "You looked at this for a while and didn't try it" — perfect prompt | Harder to scope; can fire at a bad moment |
+The cumulative-active-time approach is what Grant specifically asked
+for: a wall-clock cooldown ("30s ago a tip fired") punishes the user
+who put the browser in the background, came back 20 minutes later,
+and is now eligible by clock but not by engagement. Tracking
+active-seconds means "we've shown you a tip recently in terms of
+your actual time using ResearchOS" — which is the right axis.
 
-**Recommended hybrid:**
+**Rules:**
 
-1. **Page-visit is the primary trigger.** On first visit to a route
-   within the folder (per `_onboarding.json` `visited_routes` set —
-   not shown in the schema above but written on mount), schedule the
-   tip whose `route` matches.
-2. **Action triggers cancel and replace.** If the user starts doing
-   the thing the tip would have explained (e.g. clicks the upload
-   button before the upload tip has fired), cancel the scheduled tip
-   for that page, mark it `dismissed: <now>` with a special "did it
-   themselves" flag, and move on. No "I see you just uploaded! Did you
-   know you could upload?" condescension.
-3. **Idle gate.** Page-visit tips wait **6 seconds** after the
-   relevant affordance scrolls into view before firing. Most users
-   either click the obvious thing within 6s or pause to read the page
-   — the pause is the prompt.
-4. **Hard cooldown.** **No more than one tip per 90 seconds of
-   wall-clock time, across the whole session.** Prevents tip-tsunami
-   when the user click-tours every page in a minute.
-5. **Hard cap.** **No more than 3 tips per session.** After 3, the
-   orchestrator goes quiet until the next page-load.
+1. **One tip at a time.** If a tip is rendered (card visible on
+   screen), no other tip is scheduled or fires. Period.
+2. **Min gap is active-time-based, not wall-clock.** Default 300s
+   (5 min) of *active* engagement between tips. So 5 minutes of
+   actually using the app between any two consecutive tips, even if
+   the user left the tab for an hour in between.
+3. **Eligibility is "on the right page."** Each tip has a `route`
+   matcher (pathname startsWith, e.g. `/`, `/methods`, `/lab`,
+   `/inbox`). A tip becomes eligible when the user is on a matching
+   route AND has spent at least **30 seconds of active time on that
+   route in this session** (so we're not firing the instant they
+   land — the page has to be the focused context for a moment).
+4. **Random firing within eligibility.** Once eligible (right page,
+   enough active time since last tip, page has been focused for
+   ≥30s this session, tip is not in `tips` already), the
+   orchestrator rolls a fire decision every ~5 seconds with a small
+   probability (~15% per check). This produces the "appears sort of
+   at random" feel Grant asked for — the tip lands somewhere in the
+   minute or two after eligibility opens, not at a predictable beat
+   right at the 300s mark.
+5. **Action triggers cancel.** If the user starts doing the thing
+   the tip would have explained (e.g. clicks the upload button
+   before the duplicate-upload tip has fired), the tip is marked
+   `outcome: "action-cancel"` in the sidecar and never re-fires.
+   No condescending "I see you just uploaded!" tips.
+6. **Page-leave cancels scheduled.** If the user navigates away
+   from a tip's matching route before the random fire lands, the
+   schedule is dropped (tip stays eligible to re-roll next time
+   they're on that route).
+7. **Tips_off and shown_count gates** sit above all of the above —
+   neither fires anything when off.
 
-The combination is conservative on purpose — better to under-fire and
-let the user discover wiki entry points organically than to under-fire
-once, get dismissed forever, and miss the moment.
+The randomness is deliberate: Grant explicitly asked for "sort of
+at random" so the experience feels organic rather than triggered.
+A 15%/5s roll gives an expected firing time of ~33 seconds after
+eligibility opens, with the variance that makes consecutive
+sessions feel different.
+
+Time accounting details:
+
+- `active_seconds` only ticks while `document.visibilityState ===
+  "visible" && document.hasFocus()`. Tab in background, tab without
+  focus (clicked another window), and tab unloaded all stop the
+  counter.
+- Counter is in-memory + flushed to sidecar every 30s and on
+  `visibilitychange` (to "hidden"). A crash mid-session loses at
+  most 30s of count, which is fine.
+- `last_tip_at` is in the same units (active-seconds), so the
+  "5 minutes of active engagement since last tip" math is a plain
+  subtraction.
+- Implementation lives in
+  `frontend/src/lib/onboarding/active-time.ts` — pure module-level
+  state + a React hook that returns the current count. No
+  setInterval-driven re-render of consumers (Grant's polling
+  pattern from §6 is a useful reminder that setInterval-counters
+  don't survive long FSA blocks; this counter explicitly does
+  NOT need to be reactive at consumer level — the orchestrator
+  reads it on its 5s roll tick).
 
 ## Cadence + dismissal
 
@@ -515,39 +589,41 @@ list below, or for implementation to make local calls on.
 
 ---
 
-## Open questions to confirm with Grant before implementation kicks off
+## Decision log (locked 2026-05-14)
 
-1. **Brand-new threshold (14 days + 10 tips):** is the time window
-   right, or should it be more conservative (7 days?) or less (30
-   days?)? Affects how often a user who connects a folder they last
-   touched 3 weeks ago gets re-tipped.
-2. **Mascot direction:** beaker-bot (recommended), origami-fox, or
-   pencil-sprite? The SVG draft above is for beaker-bot — switching
-   directions changes the look but not the orchestration plumbing.
-3. **Tip set priority:** the eight tips above cover features that
-   shipped recently. Is the priority order right, or are there
-   features that should outrank these? (E.g. the High-Level Goals
-   sidebar or the Methods folder-tree could each be added; held back
-   in this draft to keep the initial set at 8.)
-4. **Cross-user scope:** if alex and morgan both use the same folder,
-   should each user see her own tip sequence (per-user state under
-   `users/<u>/_onboarding.json`) or one shared sequence (folder-root
-   `_onboarding.json`)? Proposal picks shared because the brief
-   framing was "brand-new account," not "brand-new user." Flag for
-   confirmation.
-5. **Replay scope:** when the user clicks "Show me the onboarding tips
-   again" in Settings, should it replay ALL tips (including ones the
-   user explicitly dismissed) or only ones they didn't engage with?
-   Proposal: all of them — replay means replay.
-6. **Tip card placement:** bottom-right matches the existing
-   `<FloatingLeaveDemoButton>` corner but isn't a constraint. Top-
-   right or bottom-center are alternatives. Bottom-right keeps the
-   center of the screen unobstructed and reuses an established corner
-   for "ResearchOS is talking to you," which is what the docs button
-   already implies.
-7. **Future tip authoring:** is the catalog meant to grow over time
+- **Mascot:** Beaker-bot (Direction 1). SVG draft above is the
+  starting shape; refinement during Phase 2 is fine.
+- **Sidecar scope:** Per-user at `users/<u>/_onboarding.json`.
+- **Trigger:** Active-engagement time-based, with one-at-a-time
+  constraint and randomized fire after eligibility opens. Default
+  min-gap 300s of active time between tips; 30s of active time on
+  a matching route before eligibility; 15%/5s roll for fire timing.
+
+## Open questions still pending
+
+1. **Initial tip set — ship the 8, trim, or expand?** Grant asked
+   for elaboration on the 8 tips (see the "Initial tip set" table
+   above — each row spells out the trigger route, target affordance,
+   one-line body, and linked wiki page). Once Grant confirms set
+   composition, Phase 2 implementation can begin. The current
+   recommendation is to ship all 8; with the 5-minute-of-active-time
+   gap, most users will see ~3 tips per hour-long session, so the
+   full set spreads naturally across the user's first ~5 hours of
+   real use.
+2. **Replay scope:** when the user clicks "Show me the onboarding
+   tips again" in Settings, should it replay ALL tips (including
+   ones the user explicitly dismissed via X) or only ones they
+   didn't engage with? Proposal: all of them — replay means replay.
+   Tunable in 1 line.
+3. **Tip card placement:** bottom-right (proposed) keeps the center
+   of the screen unobstructed and matches the
+   `<FloatingLeaveDemoButton>` corner — but demo + onboarding are
+   exempt from co-existing, so no collision in practice. Top-right
+   and bottom-center are alternatives if bottom-right feels too
+   crowded against the AppShell's 5-icon cluster.
+4. **Future tip authoring:** is the catalog meant to grow over time
    as new features ship, with each new release adding 1-2 tips? If
-   yes, the orchestrator should accept tips with a `min_build` field
-   so a tip pointing at a feature that only exists in builds ≥ X
-   isn't shown on stale builds. (Not in this proposal; trivially
-   addable later.)
+   yes, the orchestrator should accept tips with a `min_build`
+   field so a tip pointing at a feature that only exists in builds
+   ≥ X isn't shown on stale builds. (Not in this proposal;
+   trivially addable later.)
