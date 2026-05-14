@@ -21,6 +21,19 @@ import ImageResizePopover from "./ImageResizePopover";
 const IMAGE_PLACEHOLDER =
   "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
+// Strip a CommonMark title and surrounding angle brackets from a raw URL
+// captured between (...). Filenames with spaces (e.g. "Emile ID card-1.jpg")
+// must round-trip the regex / cache lookup unchanged — the earlier `[^)\s]+`
+// capture truncated at the first space so the cache key never matched what
+// react-markdown handed back to the img renderer.
+function canonicalizeRefSrc(raw: string): string {
+  let src = raw.trim();
+  const titleMatch = src.match(/^(.+?)\s+["'].*["']\s*$/);
+  if (titleMatch) src = titleMatch[1].trim();
+  if (src.startsWith("<") && src.endsWith(">")) src = src.slice(1, -1);
+  return src;
+}
+
 // Type for the helper panel tab
 type HelperTab = "shortcuts" | "styleguide";
 
@@ -576,11 +589,16 @@ export default function HybridMarkdownEditor({
 
     let cancelled = false;
     (async () => {
-      const imageRegex = /!\[([^\]]*)\]\(([^)\s]+)/g;
+      // Lazy capture up to the closing paren so filenames with spaces survive
+      // (the old `[^)\s]+` form truncated at the first whitespace). Post-
+      // process via canonicalizeRefSrc to drop the CommonMark title and any
+      // surrounding angle brackets so the cache key matches whatever
+      // react-markdown actually hands the <img> renderer below.
+      const imageRegex = /!\[[^\]]*\]\(([^)\n]+?)\)/g;
       const htmlRegex = /<img\s+[^>]*src=["']([^"']+)["']/gi;
       const srcs = new Set<string>();
       let m: RegExpExecArray | null;
-      while ((m = imageRegex.exec(value)) !== null) srcs.add(m[2]);
+      while ((m = imageRegex.exec(value)) !== null) srcs.add(canonicalizeRefSrc(m[1]));
       while ((m = htmlRegex.exec(value)) !== null) srcs.add(m[1]);
 
       const newPairs: Array<[string, string]> = [];
@@ -1347,7 +1365,12 @@ export default function HybridMarkdownEditor({
                     const currentWidthPct = parseWidthPercent(width as string | number | undefined);
                     const originalSrc = String(src || "");
                     const originalAlt = String(alt || "");
-                    const cachedBlob = useBlobUrls ? resolvedBlobUrls.get(originalSrc) : undefined;
+                    // Canonicalize before the cache lookup so the entry written
+                    // by the pre-resolve effect above (which already strips
+                    // titles + angle brackets) is reachable when react-markdown
+                    // hands us the same URL with surrounding noise intact.
+                    const cacheKey = canonicalizeRefSrc(originalSrc);
+                    const cachedBlob = useBlobUrls ? resolvedBlobUrls.get(cacheKey) : undefined;
                     // While we're waiting for the async blob URL for a local
                     // path, render a transparent placeholder so the browser
                     // doesn't request — and 404 on — the raw local path.
