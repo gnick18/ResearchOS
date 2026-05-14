@@ -1,5 +1,5 @@
 import { fileService } from "@/lib/file-system/file-service";
-import { methodsApi, projectsApi, tasksApi } from "@/lib/local-api";
+import { methodsApi, pcrApi, projectsApi, tasksApi } from "@/lib/local-api";
 import { getCurrentUserCached } from "@/lib/storage/json-store";
 import { taskNotesBase, taskResultsBase, taskResultsTabBase } from "@/lib/tasks/results-paths";
 import type { TaskMethodAttachment } from "@/lib/types";
@@ -59,11 +59,14 @@ async function applyProjectResolution(plan: ImportPlan): Promise<number | null> 
  * the receiver's library), then for PDF/markdown methods copies the body
  * file into `methods/{slug}/...` and updates the new record's `source_path`.
  *
- * PCR methods are dropped on "import-new" with a warning — the source's
- * `pcr://protocol/{id}` ref points to the source's PCR id space, which
- * means nothing in the receiver's workspace. (Bringing the PCR record
- * over is a larger spec the importer doesn't tackle yet.) The user can
- * pick "use-existing" instead if they want to attach a real PCR.
+ * For PCR methods, "import-new" requires the bundle to have carried the
+ * source's `PCRProtocol` record (parsed onto `entry.pcrProtocol`). When
+ * present, the protocol is recreated in the receiver's namespace first;
+ * the new method's `source_path` is rewritten to point at the receiver's
+ * fresh protocol id. When absent, the PCR method is dropped with a warning
+ * — the source's `pcr://protocol/{id}` ref means nothing in the receiver's
+ * workspace and the resolver should have steered the user away from
+ * "import-new" already.
  */
 async function applyMethodResolutions(
   plan: ImportPlan,
@@ -93,9 +96,30 @@ async function applyMethodResolutions(
     }
 
     if (entry.record.method_type === "pcr") {
-      console.warn(
-        `[import.apply] PCR method '${res.sourceMethodName}' cannot be cleanly imported (the protocol id space doesn't transfer). Skipping; user can attach a local PCR after the import.`,
-      );
+      if (entry.pcrProtocol == null) {
+        console.warn(
+          `[import.apply] PCR method '${res.sourceMethodName}' was marked import-new but the bundle did not carry the protocol record. Skipping.`,
+        );
+        continue;
+      }
+      const newName = await pickImportedMethodName(res.sourceMethodName);
+      const newProtocol = await pcrApi.create({
+        name: entry.pcrProtocol.name,
+        gradient: entry.pcrProtocol.gradient,
+        ingredients: entry.pcrProtocol.ingredients,
+        notes: entry.pcrProtocol.notes,
+        is_public: false,
+      });
+      const newMethod = await methodsApi.create({
+        name: newName,
+        source_path: `pcr://protocol/${newProtocol.id}`,
+        method_type: "pcr",
+        folder_path: entry.record.folder_path,
+        tags: entry.record.tags ?? undefined,
+        is_public: false,
+      });
+      mapping[res.sourceMethodId] = newMethod.id;
+      resultMethodIds.push(newMethod.id);
       continue;
     }
 

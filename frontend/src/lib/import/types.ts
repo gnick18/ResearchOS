@@ -3,7 +3,7 @@
 // Type contract for the experiment-import pipeline. The receiver side of
 // the Raw ResearchOS export format defined in EXPORT_REVAMP_PLAN.md §3.3.
 
-import type { Method, Project, Task } from "@/lib/types";
+import type { Method, PCRProtocol, Project, Task } from "@/lib/types";
 
 export interface ImportManifest {
   format: "researchos-experiment";
@@ -44,6 +44,12 @@ export interface ImportMethodEntry {
   // Original filename of the PDF body (e.g. "western-blot.pdf"). Used to
   // build the receiver-side source_path.
   pdfFilename: string | null;
+  // The source-side PCRProtocol record, carried in the bundle as
+  // `methods/method-{id}-pcr-protocol.json`. Only populated for PCR methods
+  // whose protocol was bundled. When null on a PCR method, "import-new" is
+  // not offered (the importer has nothing to recreate); only "use-existing"
+  // or "skip" remain.
+  pcrProtocol?: PCRProtocol | null;
 }
 
 export interface ImportPayload {

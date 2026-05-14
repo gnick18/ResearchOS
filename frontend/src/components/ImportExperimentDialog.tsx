@@ -402,57 +402,63 @@ function ReviewStage({
             Methods ({plan.methods.length})
           </p>
           <div className="mt-2 space-y-3">
-            {plan.methods.map((m, idx) => (
-              <div key={`${m.sourceMethodId}:${idx}`} className="rounded-lg border border-gray-200 p-3">
-                <p className="text-sm text-gray-900">
-                  <strong>{m.sourceMethodName}</strong>
-                  <span className="ml-2 text-xs text-gray-500">
-                    ({m.sourceMethodType ?? "unknown type"})
-                  </span>
-                </p>
-                <div className="mt-2 space-y-1">
-                  <DecisionRow
-                    checked={m.decision === "use-existing"}
-                    onSelect={() => {
-                      const first = m.candidates[0];
-                      if (first) setMethodDecision(idx, "use-existing", first.id);
-                    }}
-                    disabled={m.candidates.length === 0}
-                  >
-                    Use my existing method
-                    {m.decision === "use-existing" && m.candidates.length > 0 && (
-                      <select
-                        value={m.existingMethodId ?? ""}
-                        onChange={(e) => setMethodDecision(idx, "use-existing", Number(e.target.value))}
-                        className="ml-2 text-xs border border-gray-200 rounded px-2 py-1"
-                      >
-                        {m.candidates.map((c) => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </select>
-                    )}
-                  </DecisionRow>
-                  <DecisionRow
-                    checked={m.decision === "import-new"}
-                    onSelect={() => setMethodDecision(idx, "import-new")}
-                    disabled={m.sourceMethodType === "pcr"}
-                  >
-                    {m.sourceMethodType === "pcr"
-                      ? "Import as new (not supported for PCR methods yet)"
-                      : "Import as a new method"}
-                    {m.decision === "import-new" && methodImportedNames[idx] && (
-                      <span className="ml-2 text-xs text-gray-500">→ &ldquo;{methodImportedNames[idx]}&rdquo;</span>
-                    )}
-                  </DecisionRow>
-                  <DecisionRow
-                    checked={m.decision === "skip"}
-                    onSelect={() => setMethodDecision(idx, "skip")}
-                  >
-                    Skip this method
-                  </DecisionRow>
+            {plan.methods.map((m, idx) => {
+              const entry = plan.payload.methods[idx];
+              const isPcr = m.sourceMethodType === "pcr";
+              const pcrProtocolBundled = isPcr && entry?.pcrProtocol != null;
+              const importNewDisabled = isPcr && !pcrProtocolBundled;
+              return (
+                <div key={`${m.sourceMethodId}:${idx}`} className="rounded-lg border border-gray-200 p-3">
+                  <p className="text-sm text-gray-900">
+                    <strong>{m.sourceMethodName}</strong>
+                    <span className="ml-2 text-xs text-gray-500">
+                      ({m.sourceMethodType ?? "unknown type"})
+                    </span>
+                  </p>
+                  <div className="mt-2 space-y-1">
+                    <DecisionRow
+                      checked={m.decision === "use-existing"}
+                      onSelect={() => {
+                        const first = m.candidates[0];
+                        if (first) setMethodDecision(idx, "use-existing", first.id);
+                      }}
+                      disabled={m.candidates.length === 0}
+                    >
+                      Use my existing method
+                      {m.decision === "use-existing" && m.candidates.length > 0 && (
+                        <select
+                          value={m.existingMethodId ?? ""}
+                          onChange={(e) => setMethodDecision(idx, "use-existing", Number(e.target.value))}
+                          className="ml-2 text-xs border border-gray-200 rounded px-2 py-1"
+                        >
+                          {m.candidates.map((c) => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                      )}
+                    </DecisionRow>
+                    <DecisionRow
+                      checked={m.decision === "import-new"}
+                      onSelect={() => setMethodDecision(idx, "import-new")}
+                      disabled={importNewDisabled}
+                    >
+                      {importNewDisabled
+                        ? "Import as new (this bundle didn't carry the PCR protocol record)"
+                        : "Import as a new method"}
+                      {m.decision === "import-new" && methodImportedNames[idx] && (
+                        <span className="ml-2 text-xs text-gray-500">→ &ldquo;{methodImportedNames[idx]}&rdquo;</span>
+                      )}
+                    </DecisionRow>
+                    <DecisionRow
+                      checked={m.decision === "skip"}
+                      onSelect={() => setMethodDecision(idx, "skip")}
+                    >
+                      Skip this method
+                    </DecisionRow>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
