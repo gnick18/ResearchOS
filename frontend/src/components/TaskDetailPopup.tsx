@@ -786,6 +786,17 @@ function DetailsTab({
   const [durationDays, setDurationDays] = useState(task.duration_days);
   const isComplete = task.is_complete;
   const [weekendOverride, setWeekendOverride] = useState<boolean | null>(task.weekend_override);
+  // Snapshot of the values as they were when edit mode was entered. Used to
+  // compute `hasUnsavedChanges` (so Save can be disabled when clean and we
+  // can surface an "Unsaved changes" cue) and to restore on Cancel. Mirrors
+  // the methods-editor pattern from commit e2f3bb39.
+  const [originalValues, setOriginalValues] = useState({
+    name: task.name,
+    projectId: task.project_id,
+    startDate: task.start_date,
+    durationDays: task.duration_days,
+    weekendOverride: task.weekend_override,
+  });
   const [saving, setSaving] = useState(false);
   const [showShiftConfirm, setShowShiftConfirm] = useState(false);
   const [shiftResult, setShiftResult] = useState<ShiftResult | null>(null);
@@ -817,6 +828,47 @@ function DetailsTab({
   useEffect(() => {
     setSubTasks(task.sub_tasks || []);
   }, [task.sub_tasks]);
+
+  // Whether the user has typed/changed anything since entering edit mode.
+  // Drives the Save button's disabled state and the "Unsaved changes" label
+  // — without this, the only edit-mode cue is a subtle focus ring on whichever
+  // field has focus, which the user can lose by tabbing to a button.
+  const hasUnsavedChanges =
+    editing &&
+    (name !== originalValues.name ||
+      projectId !== originalValues.projectId ||
+      startDate !== originalValues.startDate ||
+      durationDays !== originalValues.durationDays ||
+      weekendOverride !== originalValues.weekendOverride);
+
+  // Enter edit mode: snapshot current values as the baseline so Cancel
+  // restores them and hasUnsavedChanges has a stable reference.
+  const handleEnterEdit = useCallback(() => {
+    setOriginalValues({
+      name: task.name,
+      projectId: task.project_id,
+      startDate: task.start_date,
+      durationDays: task.duration_days,
+      weekendOverride: task.weekend_override,
+    });
+    setName(task.name);
+    setProjectId(task.project_id);
+    setStartDate(task.start_date);
+    setDurationDays(task.duration_days);
+    setWeekendOverride(task.weekend_override);
+    setEditing(true);
+  }, [task]);
+
+  // Cancel: restore baseline values then leave edit mode. Without resetting
+  // the in-memory form state, re-entering edit would resurrect dirty edits.
+  const handleCancelEdit = useCallback(() => {
+    setName(originalValues.name);
+    setProjectId(originalValues.projectId);
+    setStartDate(originalValues.startDate);
+    setDurationDays(originalValues.durationDays);
+    setWeekendOverride(originalValues.weekendOverride);
+    setEditing(false);
+  }, [originalValues]);
 
   // Load projects for the dropdown
   const { data: projects = [] } = useQuery({
@@ -946,6 +998,15 @@ function DetailsTab({
         await queryClient.refetchQueries({ queryKey: ["tasks"] });
         await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
       }
+      // Refresh the baseline so a subsequent edit cycle (without remounting
+      // the popup) compares against the just-saved values, not stale ones.
+      setOriginalValues({
+        name: name.trim(),
+        projectId,
+        startDate,
+        durationDays,
+        weekendOverride,
+      });
       setEditing(false);
     } catch {
       alert("Failed to update task");
@@ -996,6 +1057,15 @@ function DetailsTab({
         await queryClient.refetchQueries({ queryKey: ["tasks"] });
         await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
       }
+      // Refresh the baseline so a subsequent edit cycle compares against the
+      // just-saved values.
+      setOriginalValues({
+        name: name.trim(),
+        projectId,
+        startDate,
+        durationDays,
+        weekendOverride,
+      });
       setEditing(false);
     } catch {
       alert("Failed to update task");
@@ -1018,13 +1088,21 @@ function DetailsTab({
       setShowShiftConfirm(false);
       setShiftResult(null);
       setPendingStartDate(null);
+      // Refresh the baseline after the shift-confirmed save lands.
+      setOriginalValues({
+        name: name.trim(),
+        projectId,
+        startDate: pendingStartDate,
+        durationDays,
+        weekendOverride,
+      });
       setEditing(false);
     } catch {
       alert("Failed to move task");
     } finally {
       setSaving(false);
     }
-  }, [task, tasksApi, pendingStartDate, queryClient]);
+  }, [task, tasksApi, pendingStartDate, queryClient, name, projectId, durationDays, weekendOverride]);
 
   const handleDelete = useCallback(async () => {
     if (!confirm(`Delete task "${task.name}"?`)) return;
@@ -1319,10 +1397,14 @@ function DetailsTab({
       {!readOnly && (
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setEditing(!editing)}
-            className="px-4 py-2 text-sm bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200"
+            onClick={() => (editing ? handleCancelEdit() : handleEnterEdit())}
+            className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+              editing
+                ? "bg-blue-100 text-blue-700 ring-1 ring-blue-300 hover:bg-blue-200"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
           >
-            Edit
+            {editing ? "Exit edit mode" : "Edit"}
           </button>
           <button
             onClick={() => {
@@ -1663,7 +1745,7 @@ function DetailsTab({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
 
@@ -1675,7 +1757,7 @@ function DetailsTab({
             <select
               value={projectId}
               onChange={(e) => setProjectId(Number(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               {projects.map((p) => (
                 <option key={`${p.owner}:${p.id}`} value={p.id}>
@@ -1696,7 +1778,7 @@ function DetailsTab({
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
                 {dependentTasks.length > 0 && startDate !== task.start_date && (
                   <p className="text-xs text-orange-500 mt-1">
@@ -1714,7 +1796,7 @@ function DetailsTab({
                 min={1}
                 value={durationDays}
                 onChange={(e) => setDurationDays(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
           </div>
@@ -1749,7 +1831,7 @@ function DetailsTab({
                       type="date"
                       value={removeStartDate}
                       onChange={(e) => setRemoveStartDate(e.target.value)}
-                      className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                     />
                     <button
                       type="button"
@@ -1808,7 +1890,7 @@ function DetailsTab({
                     <select
                       value={newDepType}
                       onChange={(e) => setNewDepType(e.target.value as "FS" | "SS" | "SF")}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="FS">Start after (after parent ends)</option>
                       <option value="SS">Start at same time (as parent)</option>
@@ -1880,17 +1962,30 @@ function DetailsTab({
             );
           })()}
 
-          <div className="flex gap-3">
+          <div className="flex items-center gap-3">
+            {/* "Unsaved changes" cue mirrors the methods-editor pattern
+                (commit e2f3bb39). Without this, the only edit-mode signal
+                is the focus ring on whichever field has focus — easy to
+                miss if focus is on a button or has been lost. */}
+            {hasUnsavedChanges && (
+              <span className="text-xs text-amber-600 font-medium">
+                Unsaved changes
+              </span>
+            )}
             <button
-              onClick={() => setEditing(false)}
+              onClick={handleCancelEdit}
               className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
-              disabled={saving}
-              className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+              disabled={saving || !hasUnsavedChanges}
+              className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+                hasUnsavedChanges
+                  ? "text-white bg-blue-600 hover:bg-blue-700"
+                  : "text-gray-400 bg-gray-200 cursor-not-allowed"
+              } disabled:opacity-50`}
             >
               {saving ? "Saving..." : "Save Changes"}
             </button>
