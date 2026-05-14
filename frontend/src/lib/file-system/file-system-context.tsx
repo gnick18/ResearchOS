@@ -12,6 +12,7 @@ import {
   storeMainUser,
   getMainUser,
   clearCurrentUser,
+  clearMainUser,
 } from "./indexeddb-store";
 import { clearCurrentUserCache } from "../storage/json-store";
 import { discoverUsers, validateResearchFolder, ensureFolderStructure } from "./user-discovery";
@@ -307,6 +308,33 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         ]);
 
         console.log("[FileSystemProvider.initialize] meta:", meta, "hasHandle:", !!storedHandle);
+
+        // Stale wiki-capture state cleanup. `installWikiCaptureFixture`
+        // seeds IDB with a `name: "wiki-capture-fixture"` fake handle +
+        // currentUser/mainUser so the in-page flow works. If the user
+        // leaves `?wikiCapture=1` and navigates to `/` without an explicit
+        // exit, those entries persist and the next visit hits the
+        // silent-reconnect path with a non-FSA fake handle — surfaces as
+        // a broken "Reconnect to wiki-capture-fixture" screen because
+        // queryPermission on the fake throws. We're not in wiki-capture
+        // or demo mode here (already early-returned above if we were),
+        // so the sentinel-named handle is unambiguously stale. Clear
+        // everything and fall through to the normal first-time path.
+        if (storedHandle?.name === "wiki-capture-fixture") {
+          await Promise.all([
+            clearDirectoryHandle(),
+            clearCurrentUser(),
+            clearMainUser(),
+          ]);
+          setState((prev) => ({
+            ...prev,
+            isLoading: false,
+            lastConnectedFolder: null,
+            currentUser: null,
+            mainUser: null,
+          }));
+          return;
+        }
 
         // Try a silent reconnect: if Chrome still remembers the readwrite
         // grant on this handle, we can skip the OS picker entirely. We
