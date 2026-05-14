@@ -348,7 +348,7 @@ export default function HomePage() {
         {/* Active Project cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {activeSummaries.map(
-            ({ project, total, completed, upcoming, overdue, inProgress, displayColor }) => (
+            ({ project, total, completed, upcoming, overdue, inProgress, displayColor }, cardIdx) => (
               <div
                 key={`${project.owner}:${project.id}`}
                 draggable
@@ -358,16 +358,41 @@ export default function HomePage() {
                 onDrop={(e) => handleDrop(e, project.id)}
                 onDragEnd={handleDragEnd}
                 onClick={() => setSelectedProject(project)}
+                // Onboarding-tip targets: only the first card carries
+                // them so the orchestrator has a single anchor to point
+                // its mascot at. The same card doubles as the
+                // drop-to-replace + cross-owner-share + duplicate-upload
+                // anchor because there's no per-action button visible
+                // at home-page-level — the tip is about the existence of
+                // these affordances, not a specific button.
+                {...(cardIdx === 0 && {
+                  "data-onboarding-target": "drop-to-replace",
+                })}
                 className={`bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer ${
                   draggedProjectId === project.id ? "opacity-50 scale-95" : ""
                 } ${dragOverProjectId === project.id ? "ring-2 ring-blue-400 ring-offset-2" : ""}`}
               >
-                {/* Color bar */}
-                <div className="h-1.5" style={{ backgroundColor: displayColor }} />
+                {/* Color bar — also doubles as the cross-owner-share +
+                    duplicate-upload onboarding anchor on the first card
+                    (a separate data attribute per id so the orchestrator
+                    can disambiguate). The user clicks the card to open
+                    the detail popup where the real affordances live. */}
+                <div
+                  className="h-1.5"
+                  style={{ backgroundColor: displayColor }}
+                  {...(cardIdx === 0 && {
+                    "data-onboarding-target": "cross-owner-share",
+                  })}
+                />
 
                 <div className="p-5">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-base font-semibold text-gray-900">
+                    <h3
+                      className="text-base font-semibold text-gray-900"
+                      {...(cardIdx === 0 && {
+                        "data-onboarding-target": "duplicate-upload",
+                      })}
+                    >
                       {project.name}
                     </h3>
                     <div className="flex items-center gap-2">

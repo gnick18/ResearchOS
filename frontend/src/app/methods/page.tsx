@@ -265,7 +265,10 @@ export default function MethodsPage() {
 
   return (
     <AppShell>
-      <div className="flex-1 overflow-auto p-6">
+      <div
+        className="flex-1 overflow-auto p-6"
+        data-onboarding-target="methods-folder-tree"
+      >
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-gray-900">
             Method Library

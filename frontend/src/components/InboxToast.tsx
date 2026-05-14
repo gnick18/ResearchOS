@@ -121,10 +121,14 @@ export default function InboxToast() {
                 <img
                   src={item.thumbUrl}
                   alt={item.filename}
+                  data-onboarding-target="telegram-send-to-task"
                   className="w-12 h-12 rounded-lg object-cover flex-shrink-0 bg-gray-100"
                 />
               ) : (
-                <div className="w-12 h-12 rounded-lg bg-gray-100 flex-shrink-0" />
+                <div
+                  data-onboarding-target="telegram-send-to-task"
+                  className="w-12 h-12 rounded-lg bg-gray-100 flex-shrink-0"
+                />
               )}
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-gray-800 truncate">
