@@ -1853,25 +1853,30 @@ function PcrViewer({
       });
   }, [pcrId, method.owner]);
 
+  // Thread the same namespace used for the read at :1838 so the write lands
+  // in the matching directory. Public methods carry `method.owner === ""`, so
+  // `|| undefined` collapses to the legacy private-then-public fallback.
+  const protocolOwnerForUpdate = method.owner || undefined;
+
   // Auto-save gradient changes
   const handleGradientChange = useCallback(async (newGradient: PCRGradient) => {
     setGradient(newGradient);
-    
+
     // Auto-save after a short delay
     if (!pcrId) return;
-    
+
     try {
       await pcrApi.update(pcrId, {
         name: protocol?.name || method.name,
         gradient: newGradient,
         ingredients,
         notes: notes || null,
-      });
+      }, protocolOwnerForUpdate);
       await queryClient.refetchQueries({ queryKey: ["methods"] });
     } catch {
       // Silent fail for auto-save
     }
-  }, [pcrId, protocol, method.name, ingredients, notes, queryClient]);
+  }, [pcrId, protocol, method.name, ingredients, notes, queryClient, protocolOwnerForUpdate]);
 
   const handleSaveRecipe = useCallback(async () => {
     if (!pcrId || !gradient) return;
@@ -1882,7 +1887,7 @@ function PcrViewer({
         gradient,
         ingredients,
         notes: notes || null,
-      });
+      }, protocolOwnerForUpdate);
       setEditingRecipe(false);
       await queryClient.refetchQueries({ queryKey: ["methods"] });
     } catch {
@@ -1890,7 +1895,7 @@ function PcrViewer({
     } finally {
       setSaving(false);
     }
-  }, [pcrId, protocol, method.name, gradient, ingredients, notes, queryClient]);
+  }, [pcrId, protocol, method.name, gradient, ingredients, notes, queryClient, protocolOwnerForUpdate]);
 
   // Check if current user can modify this method (owner of private method, or creator of public method)
   const canModify = !currentMethod.is_public || currentMethod.created_by === currentUser;

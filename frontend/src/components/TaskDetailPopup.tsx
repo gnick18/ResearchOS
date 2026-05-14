@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState, useMemo } from "react"
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
-import { filesApi, methodsApi, projectsApi, dependenciesApi, fetchAllTasks, type DuplicateCheckResult } from "@/lib/local-api";
+import { filesApi, methodsApi, projectsApi, dependenciesApi, fetchAllTasks, tasksApi as rawTasksApi, type DuplicateCheckResult } from "@/lib/local-api";
 import { ownerScopedTasksApi } from "@/lib/tasks/owner-scoped-api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
@@ -191,9 +191,15 @@ export default function TaskDetailPopup({
   // user's directory and each user has their own ID space, so refetching here
   // would silently overwrite the popup with whatever task happens to share the
   // same numeric id in the viewer's folder — the "screen freakout" symptom.
+  // For shared tasks the on-disk record lives in the owner's directory, so the
+  // refetch must thread `initialTask.owner` (mirrors the read-side pattern in
+  // ProjectDetailPopup). Distinct from `ownerScopedTasksApi`, which only routes
+  // when `shared_permission === "edit"` — reads should follow the same
+  // directory regardless of whether the receiver can mutate.
+  const ownerForTask = initialTask.is_shared_with_me ? initialTask.owner : undefined;
   const { data: freshTask } = useQuery({
     queryKey: ["task", taskKey(initialTask)],
-    queryFn: () => tasksApi.get(initialTask.id),
+    queryFn: () => rawTasksApi.get(initialTask.id, ownerForTask),
     initialData: initialTask,
     enabled: !readOnly,
   });

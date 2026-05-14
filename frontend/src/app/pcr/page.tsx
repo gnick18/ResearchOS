@@ -651,12 +651,17 @@ function ViewPCRModal({
     if (!name.trim()) return;
     setSaving(true);
     try {
+      // Route the write to the protocol's namespace explicitly. Without this,
+      // `pcrApi.update`'s legacy private-then-public scan could write a public
+      // protocol's edit into the current user's private store (a real collision
+      // when ids overlap across the two namespaces).
+      const protocolOwner = protocol.is_public ? "public" : undefined;
       await pcrApi.update(protocol.id, {
         name: name.trim(),
         gradient,
         ingredients,
         notes: notes || null,
-      });
+      }, protocolOwner);
       setEditing(false);
       onUpdated();
     } catch {
