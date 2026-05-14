@@ -225,6 +225,15 @@ export async function safeFetch(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
+  // Wrap every early-return so the timer is always cleared. Without this,
+  // any error path (size cap, content-type denial, upstream 5xx, redirect
+  // budget exhausted) leaves a dangling setTimeout that holds the
+  // serverless function alive until the full timeout elapses.
+  const fail = (status: number, error: string): SafeFetchResult => {
+    clearTimeout(timer);
+    return { ok: false, status, error };
+  };
+
   let currentUrl = rawUrl;
   let redirectsLeft = maxRedirects;
 
@@ -234,11 +243,11 @@ export async function safeFetch(
 
     while (true) {
       const guard = await assertSafeUrl(currentUrl, opts);
-      if (!guard.ok) return guard;
+      if (!guard.ok) return fail(guard.status, guard.error);
 
       const canonical = guard.url.toString();
       if (visited.has(canonical)) {
-        return { ok: false, status: 502, error: "Redirect loop detected" };
+        return fail(502, "Redirect loop detected");
       }
       visited.add(canonical);
 
@@ -253,10 +262,10 @@ export async function safeFetch(
         });
       } catch (err) {
         if ((err as { name?: string } | undefined)?.name === "AbortError") {
-          return { ok: false, status: 504, error: "Upstream fetch timed out" };
+          return fail(504, "Upstream fetch timed out");
         }
         const msg = err instanceof Error ? err.message : "Unknown fetch error";
-        return { ok: false, status: 502, error: `Upstream fetch failed: ${msg}` };
+        return fail(502, `Upstream fetch failed: ${msg}`);
       }
 
       // Manual redirect handling: revalidate the target through assertSafeUrl
@@ -267,26 +276,26 @@ export async function safeFetch(
         // Drain the redirect body so the connection is released.
         upstream.body?.cancel().catch(() => {});
         if (!location) {
-          return { ok: false, status: 502, error: "Upstream redirect missing Location header" };
+          return fail(502, "Upstream redirect missing Location header");
         }
         if (redirectsLeft <= 0) {
-          return { ok: false, status: 502, error: "Too many redirects" };
+          return fail(502, "Too many redirects");
         }
         redirectsLeft--;
         try {
           currentUrl = new URL(location, guard.url).toString();
         } catch {
-          return { ok: false, status: 502, error: "Upstream redirect to malformed URL" };
+          return fail(502, "Upstream redirect to malformed URL");
         }
         continue;
       }
 
       if (!upstream.ok) {
-        return {
-          ok: false,
-          status: upstream.status >= 500 ? 502 : upstream.status,
-          error: `Upstream returned ${upstream.status}`,
-        };
+        upstream.body?.cancel().catch(() => {});
+        return fail(
+          upstream.status >= 500 ? 502 : upstream.status,
+          `Upstream returned ${upstream.status}`,
+        );
       }
 
       const contentType = (upstream.headers.get("content-type") ?? "").toLowerCase();
@@ -296,11 +305,10 @@ export async function safeFetch(
         );
         if (!allowed) {
           upstream.body?.cancel().catch(() => {});
-          return {
-            ok: false,
-            status: 415,
-            error: `Disallowed upstream content-type: ${contentType || "(missing)"}`,
-          };
+          return fail(
+            415,
+            `Disallowed upstream content-type: ${contentType || "(missing)"}`,
+          );
         }
       }
       if (opts.forbiddenContentTypes) {
@@ -309,11 +317,7 @@ export async function safeFetch(
         );
         if (forbidden) {
           upstream.body?.cancel().catch(() => {});
-          return {
-            ok: false,
-            status: 415,
-            error: `Forbidden upstream content-type: ${contentType}`,
-          };
+          return fail(415, `Forbidden upstream content-type: ${contentType}`);
         }
       }
 
@@ -322,20 +326,20 @@ export async function safeFetch(
         const declared = Number(contentLengthHeader);
         if (Number.isFinite(declared) && declared > maxBytes) {
           upstream.body?.cancel().catch(() => {});
-          return {
-            ok: false,
-            status: 413,
-            error: `Upstream advertised ${declared} bytes (cap is ${maxBytes})`,
-          };
+          return fail(
+            413,
+            `Upstream advertised ${declared} bytes (cap is ${maxBytes})`,
+          );
         }
       }
 
       if (!upstream.body) {
-        return { ok: false, status: 502, error: "Upstream returned no body" };
+        return fail(502, "Upstream returned no body");
       }
 
       // Wrap the body so we can enforce the byte cap as the stream drains
-      // and clear the connect/read timeout once the body completes.
+      // and clear the connect/read timeout once the body completes (success
+      // path) or errors out (size-cap abort).
       const limited = withSizeLimit(upstream.body, maxBytes, () => clearTimeout(timer));
       return {
         ok: true,
@@ -346,9 +350,8 @@ export async function safeFetch(
       };
     }
   } catch (err) {
-    clearTimeout(timer);
     const msg = err instanceof Error ? err.message : "Unknown fetch error";
-    return { ok: false, status: 502, error: `Safe-fetch crashed: ${msg}` };
+    return fail(502, `Safe-fetch crashed: ${msg}`);
   }
 }
 

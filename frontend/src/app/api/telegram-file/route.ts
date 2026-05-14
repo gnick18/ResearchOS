@@ -99,7 +99,15 @@ export async function GET(req: NextRequest): Promise<Response> {
   });
 
   if (!result.ok) {
-    return new Response(result.error, { status: result.status });
+    // Don't echo `result.error` to the client — it may contain upstream
+    // status codes, internal node error messages, advertised-byte counts,
+    // etc. that fingerprint the proxy or the upstream. The status code is
+    // enough; log the detail server-side for debugging.
+    console.warn("[telegram-file] upstream failed", {
+      status: result.status,
+      error: result.error,
+    });
+    return new Response(genericErrorMessage(result.status), { status: result.status });
   }
 
   const headers = new Headers();
@@ -113,4 +121,14 @@ export async function GET(req: NextRequest): Promise<Response> {
   headers.set("x-content-type-options", "nosniff");
 
   return new Response(result.body, { status: 200, headers });
+}
+
+function genericErrorMessage(status: number): string {
+  if (status === 400) return "Bad request";
+  if (status === 403) return "Forbidden";
+  if (status === 404) return "Upstream not found";
+  if (status === 413) return "Response too large";
+  if (status === 415) return "Unsupported response content type";
+  if (status === 504) return "Upstream timed out";
+  return "Upstream fetch failed";
 }
