@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { safeFetch } from "@/lib/api/url-guards";
 
 /**
  * Server-side proxy for external ICS calendar feeds (Google, Outlook, iCloud,
@@ -10,28 +11,29 @@ import { NextRequest } from "next/server";
  * locally, Vercel function in production) and proxies the bytes through with
  * a stable text/calendar content type.
  *
- * The endpoint refuses to fetch private / loopback / link-local hosts so it
- * can't be used as an SSRF jump-box against internal Vercel infrastructure.
+ * The user supplies an arbitrary URL, so we treat every defence in the
+ * `safeFetch` helper as load-bearing here:
+ *
+ *   - scheme allowlist (http + https only — no `file://`, `gopher://`, etc.;
+ *     `webcal://` / `webcals://` are rewritten upstream of the guard),
+ *   - DNS resolution and rejection of private / loopback / link-local /
+ *     metadata IPs (including IPv4-mapped IPv6 forms),
+ *   - manual redirect handling: each hop is re-validated, capped at 3 hops,
+ *   - 10 MiB streamed body cap (largest published ICS feeds I've seen are
+ *     well under a megabyte; 10 MiB is generous headroom),
+ *   - 20 s end-to-end timeout,
+ *   - content-type denylist for HTML so a login redirect can't reach the
+ *     iCal parser as text/calendar,
+ *   - body sanity check: the payload must start with `BEGIN:VCALENDAR`
+ *     (handles servers that misreport content-type as text/plain or
+ *     application/octet-stream).
  *
  * Returns 200 with the raw ICS text on success. Cache-Control: max-age=900
  * (15 min) so Vercel's edge cache absorbs repeat hits — keeps the function
  * invocation budget close to zero even with many users.
  */
 
-const FORBIDDEN_HOST_PATTERNS = [
-  /^localhost$/i,
-  /^127\./,
-  /^0\./,
-  /^10\./,
-  /^172\.(1[6-9]|2\d|3[01])\./,
-  /^192\.168\./,
-  /^169\.254\./, // link-local
-  /^fe80:/i, // ipv6 link-local
-  /^fc00:/i, // ipv6 unique local
-  /^fd00:/i, // ipv6 unique local
-  /^::1$/,
-  /^\[::1\]$/,
-];
+const MAX_ICS_BYTES = 10 * 1024 * 1024;
 
 function normalizeUrl(input: string): string {
   // iCloud share links arrive as `webcal://` — same wire protocol as HTTPS for
@@ -41,23 +43,6 @@ function normalizeUrl(input: string): string {
   return input;
 }
 
-function isAllowedUrl(raw: string): { ok: true; url: URL } | { ok: false; error: string } {
-  let url: URL;
-  try {
-    url = new URL(raw);
-  } catch {
-    return { ok: false, error: "Malformed URL" };
-  }
-  if (url.protocol !== "https:" && url.protocol !== "http:") {
-    return { ok: false, error: "Only http(s) URLs are supported" };
-  }
-  const host = url.hostname;
-  if (FORBIDDEN_HOST_PATTERNS.some((re) => re.test(host))) {
-    return { ok: false, error: "Private / loopback hosts are not allowed" };
-  }
-  return { ok: true, url };
-}
-
 export async function GET(req: NextRequest): Promise<Response> {
   const raw = req.nextUrl.searchParams.get("url");
   if (!raw) {
@@ -65,38 +50,48 @@ export async function GET(req: NextRequest): Promise<Response> {
   }
 
   const normalized = normalizeUrl(raw);
-  const check = isAllowedUrl(normalized);
-  if (!check.ok) {
-    return new Response(check.error, { status: 400 });
+
+  const result = await safeFetch(normalized, {
+    allowedSchemes: ["https:", "http:"],
+    maxRedirects: 3,
+    maxBytes: MAX_ICS_BYTES,
+    timeoutMs: 20_000,
+    headers: {
+      "user-agent": "ResearchOS-calendar-sync/1.0",
+      accept: "text/calendar, text/plain;q=0.9, */*;q=0.5",
+    },
+    // No allowlist — users legitimately subscribe to feeds from arbitrary
+    // hosts (random university calendars, individual Google share links, …).
+    // The IP-level SSRF guard inside safeFetch is the real defence.
+    forbiddenContentTypes: [
+      "text/html",
+      "application/xhtml+xml",
+      "application/javascript",
+      "text/javascript",
+    ],
+  });
+
+  if (!result.ok) {
+    return new Response(result.error, { status: result.status });
   }
 
-  let upstream: Response;
+  // Drain to text behind a try/catch: the stream errors with `Response exceeds
+  // N bytes` if the upstream blew past the cap, and we want that to surface
+  // as a 413 instead of a 500.
+  let text: string;
   try {
-    upstream = await fetch(check.url.toString(), {
-      headers: {
-        "user-agent": "ResearchOS-calendar-sync/1.0",
-        accept: "text/calendar, text/plain;q=0.9, */*;q=0.5",
-      },
-      // The upstream caches are usually fine; we don't want Next's own data
-      // cache to retain these (cache lives one layer up on the response).
-      cache: "no-store",
-      redirect: "follow",
-    });
+    text = await new Response(result.body).text();
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown fetch error";
-    return new Response(`Upstream fetch failed: ${message}`, { status: 502 });
+    const msg = err instanceof Error ? err.message : "Unknown stream error";
+    const status = msg.includes("exceeds") ? 413 : 502;
+    return new Response(`Upstream body read failed: ${msg}`, { status });
   }
 
-  if (!upstream.ok) {
-    return new Response(`Upstream returned ${upstream.status}`, {
-      status: upstream.status >= 500 ? 502 : upstream.status,
-    });
-  }
-
-  const text = await upstream.text();
   // Loose sanity check: published iCal feeds begin with `BEGIN:VCALENDAR`,
   // possibly preceded by a BOM. A login redirect to e.g. Outlook would return
-  // HTML, which would crash the client parser otherwise.
+  // HTML, which would crash the client parser otherwise. This is also a
+  // backstop in case a server serves the file under a permissive content-type
+  // (text/plain / application/octet-stream) that we couldn't reject upstream.
   const stripped = text.replace(/^﻿/, "").trimStart();
   if (!stripped.startsWith("BEGIN:VCALENDAR")) {
     return new Response(
@@ -111,6 +106,7 @@ export async function GET(req: NextRequest): Promise<Response> {
     headers: {
       "content-type": "text/calendar; charset=utf-8",
       "cache-control": "public, max-age=900, stale-while-revalidate=3600",
+      "x-content-type-options": "nosniff",
     },
   });
 }
