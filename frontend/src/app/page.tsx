@@ -241,6 +241,15 @@ export default function HomePage() {
     );
   }
 
+  // Race fix: when currentUser flips to "lab" via UserLoginScreen.handleLabModeLogin,
+  // React re-renders this home page BEFORE the useEffect-scheduled router.push("/lab")
+  // fires — causing a flash of the empty home view for the "lab" sentinel user (visible
+  // to the user as "a blank user page named lab" before /lab loads). Skip paint
+  // entirely on that transition; the useEffect above will navigate within the same tick.
+  if (currentUser && currentUser.toLowerCase() === "lab") {
+    return null;
+  }
+
   return (
     <AppShell>
       <div className="flex-1 overflow-auto p-6">
