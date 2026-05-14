@@ -34,6 +34,12 @@ export type FetchedImage =
   | { kind: "ok"; blob: Blob; contentType: string }
   | { kind: "error"; message: string };
 
+/** Coarse classification of why a single image fetch failed. Used by the
+ *  batch path to decide whether ALL failures share a likely-systemic root
+ *  cause (connection dead, network down) vs being a mixed bag of one-off
+ *  issues. Per-image granularity beyond this isn't useful to the UI. */
+export type FetchFailureKind = "auth" | "network" | "config" | "parse" | "other";
+
 export interface FetchImagesOptions {
   /** UID returned by the connect step. Required. */
   uid: string;
@@ -55,6 +61,17 @@ export interface FetchImagesResult {
   byUrl: Map<string, FetchedImage>;
   successCount: number;
   errorCount: number;
+  /** True when EVERY image failed (`successCount === 0 && errorCount > 0`)
+   *  AND there was at least one image attempted. Caller uses this to decide
+   *  whether to surface a top-level "your connection may have expired"
+   *  banner instead of (or alongside) the per-row error list. */
+  allFailed: boolean;
+  /** When `allFailed` is true AND every failure shared the same classified
+   *  kind, this is that kind. Lets the UI render a more specific banner
+   *  ("your connection has expired" for auth, "network looks down" for
+   *  network, etc.). Null when failures were a mixed bag, when no failures
+   *  occurred, or when `allFailed` is false. */
+  dominantFailureKind: FetchFailureKind | null;
 }
 
 /**
@@ -71,12 +88,33 @@ export async function fetchOneImage(
   signal?: AbortSignal,
   deployerCreds?: DeployerCreds | null,
 ): Promise<FetchedImage> {
+  const tagged = await fetchOneImageTagged(uid, image, signal, deployerCreds);
+  if (tagged.kind === "ok") {
+    return { kind: "ok", blob: tagged.blob, contentType: tagged.contentType };
+  }
+  return { kind: "error", message: tagged.message };
+}
+
+/** Internal variant of `fetchOneImage` that carries a coarse failure-kind
+ *  tag for batch-level aggregation. We don't expose the tag on the public
+ *  `FetchedImage` shape because per-image callers don't need it — only the
+ *  `allFailed` banner does. */
+async function fetchOneImageTagged(
+  uid: string,
+  image: MissingInlineImage,
+  signal?: AbortSignal,
+  deployerCreds?: DeployerCreds | null,
+): Promise<
+  | { kind: "ok"; blob: Blob; contentType: string }
+  | { kind: "error"; message: string; failureKind: FetchFailureKind }
+> {
   // Without an entryPartId we can't address the LabArchives entry — surface
   // a clear error so the caller knows the original URL wasn't parseable.
   if (!image.entryPartId) {
     return {
       kind: "error",
       message: "Original URL did not include a parseable ep_id.",
+      failureKind: "parse",
     };
   }
 
@@ -108,18 +146,35 @@ export async function fetchOneImage(
       } catch {
         /* ignore body parse failures — keep the status code */
       }
-      return { kind: "error", message };
+      // Map HTTP status to a coarse failure kind for batch aggregation.
+      // 401/403 → auth (stored UID rejected by upstream → connection rot);
+      // 500 → config (server-side env-var / sidecar issue);
+      // 502 → network (upstream timeout / 5xx — pass-through from
+      // `signedLabArchivesFetch`); everything else falls into "other".
+      let failureKind: FetchFailureKind;
+      if (res.status === 401 || res.status === 403) failureKind = "auth";
+      else if (res.status === 500) failureKind = "config";
+      else if (res.status === 502 || res.status === 503 || res.status === 504) failureKind = "network";
+      else failureKind = "other";
+      return { kind: "error", message, failureKind };
     }
     const contentType = res.headers.get("content-type") ?? "application/octet-stream";
     const blob = await res.blob();
     return { kind: "ok", blob, contentType };
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
-      return { kind: "error", message: "Request timed out or was cancelled." };
+      return {
+        kind: "error",
+        message: "Request timed out or was cancelled.",
+        failureKind: "network",
+      };
     }
+    // Browser-level fetch rejection (DNS failure, offline, CORS) is a
+    // network problem from the user's perspective.
     return {
       kind: "error",
       message: err instanceof Error ? err.message : String(err),
+      failureKind: "network",
     };
   } finally {
     clearTimeout(timer);
@@ -144,6 +199,7 @@ export async function fetchInlineImages(
   let done = 0;
   let successCount = 0;
   let errorCount = 0;
+  const failureKinds = new Set<FetchFailureKind>();
 
   // Read the sidecar once at the start of the batch — saves N FSA reads,
   // and the deployer creds don't change mid-import. `readDeployerCreds`
@@ -163,16 +219,28 @@ export async function fetchInlineImages(
       const idx = nextIndex++;
       if (idx >= total) return;
       const image = options.images[idx];
-      const result = await fetchOneImage(
+      const tagged = await fetchOneImageTagged(
         options.uid,
         image,
         options.signal,
         deployerCreds,
       );
-      byUrl.set(image.originalUrl, result);
+      if (tagged.kind === "ok") {
+        byUrl.set(image.originalUrl, {
+          kind: "ok",
+          blob: tagged.blob,
+          contentType: tagged.contentType,
+        });
+        successCount++;
+      } else {
+        byUrl.set(image.originalUrl, {
+          kind: "error",
+          message: tagged.message,
+        });
+        errorCount++;
+        failureKinds.add(tagged.failureKind);
+      }
       done++;
-      if (result.kind === "ok") successCount++;
-      else errorCount++;
       options.onProgress?.(done, total, image);
     }
   }
@@ -183,7 +251,24 @@ export async function fetchInlineImages(
   }
   await Promise.all(workers);
 
-  return { byUrl, successCount, errorCount };
+  // "All failed" gives the UI a single boolean to gate a top-level banner.
+  // When every failure shared one kind, surface it so the banner copy can
+  // be more specific ("connection expired" vs "network looks down"). A
+  // mixed bag leaves `dominantFailureKind` null and the banner falls back
+  // to a generic "all images failed" message.
+  const allFailed = total > 0 && successCount === 0 && errorCount > 0;
+  const dominantFailureKind: FetchFailureKind | null =
+    allFailed && failureKinds.size === 1
+      ? (failureKinds.values().next().value as FetchFailureKind)
+      : null;
+
+  return {
+    byUrl,
+    successCount,
+    errorCount,
+    allFailed,
+    dominantFailureKind,
+  };
 }
 
 /** Quick helper for the wizard step: is the receiver already connected to

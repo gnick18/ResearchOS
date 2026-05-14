@@ -35,9 +35,36 @@ function path(username: string): string {
 }
 
 async function readFile(username: string): Promise<LabArchivesFile> {
-  const data = await fileService.readJson<LabArchivesFile>(path(username));
-  if (!data) return { version: SCHEMA_VERSION };
-  return { version: SCHEMA_VERSION, connection: data.connection };
+  // Read raw bytes first so we can distinguish "no file" (which is the
+  // normal not-connected state) from "file exists but the JSON is
+  // malformed" (which a debugger bot deserves a log line for). The default
+  // `fileService.readJson` swallows both into a single `null` return.
+  const blob = await fileService.readFileAsBlob(path(username));
+  if (!blob) return { version: SCHEMA_VERSION };
+  let text: string;
+  try {
+    text = await blob.text();
+  } catch (err) {
+    console.warn(
+      `[labarchives] _labarchives.json for ${username} could not be read: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+    return { version: SCHEMA_VERSION };
+  }
+  try {
+    const data = JSON.parse(text) as LabArchivesFile;
+    return { version: SCHEMA_VERSION, connection: data.connection };
+  } catch (err) {
+    // Differentiating signal — `null` would be silent. Callers still see
+    // "not connected" so nothing breaks; this is purely a debug breadcrumb.
+    console.warn(
+      `[labarchives] _labarchives.json for ${username} is malformed: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+    return { version: SCHEMA_VERSION };
+  }
 }
 
 async function writeFile(username: string, data: LabArchivesFile): Promise<void> {

@@ -74,6 +74,33 @@ async function handlePost(req: NextRequest): Promise<Response> {
     );
   }
 
+  // Defensive length caps to keep a malicious caller from forcing a very
+  // large signed URL. Real LabArchives passwords are well under 100 chars
+  // and emails are bounded by RFC 5321 to 320 chars (local 64 + "@" + 255).
+  // Use a generic error message so we don't fingerprint the limits.
+  const MAX_PASSWORD_LEN = 256;
+  const MAX_LOGIN_LEN = 320;
+  if (password.length > MAX_PASSWORD_LEN) {
+    console.warn(
+      "[labarchives/login] oversize password rejected",
+      `len=${password.length}`,
+    );
+    return Response.json(
+      { error: "Invalid sign-in request." },
+      { status: 400 },
+    );
+  }
+  if (loginOrEmail.length > MAX_LOGIN_LEN) {
+    console.warn(
+      "[labarchives/login] oversize loginOrEmail rejected",
+      `len=${loginOrEmail.length}`,
+    );
+    return Response.json(
+      { error: "Invalid sign-in request." },
+      { status: 400 },
+    );
+  }
+
   const apiMethod = "user_access_info";
   const result = await signedLabArchivesFetch(
     creds,

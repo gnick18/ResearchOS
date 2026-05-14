@@ -65,6 +65,23 @@ export async function connectLabArchives(
 
     const onMessage = async (event: MessageEvent) => {
       if (event.origin !== expectedOrigin) return;
+      // Synthesized cancellation from the popup-close detector below.
+      // Routing close-detection through the same `message` channel as the
+      // real auth payload means the listener is the single resolution
+      // point — we can't race a `null` from the closed-popup poll against
+      // a real success message arriving on the same tick.
+      const cancelMsg = event.data as
+        | { source?: string; type?: string }
+        | undefined;
+      if (
+        cancelMsg &&
+        cancelMsg.source === "researchos-labarchives-opener" &&
+        cancelMsg.type === "cancelled"
+      ) {
+        cleanup();
+        reject(new Error("Sign-in window was closed."));
+        return;
+      }
       // Sidecar-mode handshake: the popup asks us for deployer creds; we
       // read the FSA sidecar (returns null when absent) and reply. The
       // popup uses the reply to populate `body.deployerCreds` in its
@@ -146,8 +163,27 @@ export async function connectLabArchives(
       resolve(connection);
     };
 
+    // Popup-close detector. If LabArchives is slow to respond and the user
+    // closes the popup mid-flight, naively rejecting from here can race a
+    // real `postMessage` arriving on the same tick. Instead we post a
+    // structured `cancelled` event to ourselves and let `onMessage` resolve
+    // the promise — guaranteed single resolution path.
+    let cancelPosted = false;
     const closedInterval = window.setInterval(() => {
-      if (popup.closed) {
+      if (!popup.closed || cancelPosted) return;
+      cancelPosted = true;
+      try {
+        window.postMessage(
+          {
+            source: "researchos-labarchives-opener",
+            type: "cancelled",
+          },
+          expectedOrigin,
+        );
+      } catch {
+        // postMessage to self with a same-origin target should never throw,
+        // but if it does, fall back to direct rejection so the caller
+        // doesn't hang.
         cleanup();
         reject(new Error("Sign-in window was closed."));
       }

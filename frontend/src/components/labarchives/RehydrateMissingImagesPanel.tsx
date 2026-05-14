@@ -38,6 +38,7 @@ import { connectLabArchives } from "@/lib/labarchives/connect";
 import {
   fetchInlineImages,
   type FetchedImage,
+  type FetchFailureKind,
 } from "@/lib/labarchives/api-client";
 import {
   readConnection,
@@ -58,7 +59,18 @@ type ApiPhase =
   | { kind: "idle" }
   | { kind: "connecting" }
   | { kind: "fetching"; current: number; total: number }
-  | { kind: "done"; success: number; errors: number }
+  | {
+      kind: "done";
+      success: number;
+      errors: number;
+      /** When every image failed, the panel renders a top-level callout
+       *  ("your LabArchives connection may have expired") in addition to
+       *  the per-row error messages. The `dominantFailureKind` tunes the
+       *  copy: auth → "expired", network → "network looks down", config →
+       *  "deployment misconfigured", null → generic. */
+      allFailed: boolean;
+      dominantFailureKind: FetchFailureKind | null;
+    }
   | { kind: "error"; message: string };
 
 export interface RehydrateMissingImagesPanelProps {
@@ -153,6 +165,8 @@ export default function RehydrateMissingImagesPanel({
         kind: "done",
         success: result.successCount,
         errors: result.errorCount,
+        allFailed: result.allFailed,
+        dominantFailureKind: result.dominantFailureKind,
       });
     } catch (err) {
       setApiPhase({
@@ -223,7 +237,16 @@ export default function RehydrateMissingImagesPanel({
               <FetchProgress current={apiPhase.current} total={apiPhase.total} />
             )}
             {apiPhase.kind === "done" && (
-              <FetchSummary success={apiPhase.success} errors={apiPhase.errors} />
+              <>
+                {apiPhase.allFailed && (
+                  <AllFailedBanner
+                    total={apiPhase.errors}
+                    failureKind={apiPhase.dominantFailureKind}
+                    onReconnect={handleConnect}
+                  />
+                )}
+                <FetchSummary success={apiPhase.success} errors={apiPhase.errors} />
+              </>
             )}
             {apiPhase.kind === "error" && (
               <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
@@ -423,6 +446,64 @@ function FetchProgress({ current, total }: { current: number; total: number }) {
           style={{ width: `${pct}%` }}
         />
       </div>
+    </div>
+  );
+}
+
+function AllFailedBanner({
+  total,
+  failureKind,
+  onReconnect,
+}: {
+  total: number;
+  failureKind: FetchFailureKind | null;
+  onReconnect: () => void;
+}) {
+  // Per-kind copy: `auth` is the most actionable (reconnect button), the
+  // others are read-only suggestions. We default to the auth message when
+  // the kind is unclassified-but-all-failed because rotted connections are
+  // by far the most common cause in the wild.
+  let headline: string;
+  let detail: string;
+  let showReconnect = false;
+  switch (failureKind) {
+    case "auth":
+      headline = `All ${total} images failed — your LabArchives connection may have expired.`;
+      detail = "Reconnect and try fetching again.";
+      showReconnect = true;
+      break;
+    case "network":
+      headline = `All ${total} images failed — LabArchives or your network appears unreachable.`;
+      detail = "Check your connection and try again in a moment.";
+      break;
+    case "config":
+      headline = `All ${total} images failed — the LabArchives integration looks misconfigured on this deployment.`;
+      detail = "Ask whoever runs this deployment to verify the institutional credentials.";
+      break;
+    case "parse":
+      headline = `All ${total} images failed — none of the URLs in your import carried a recognisable ID.`;
+      detail =
+        "Try a different path (Drop your own images / Generate browser script).";
+      break;
+    default:
+      headline = `All ${total} images failed.`;
+      detail = "Your LabArchives connection may have expired — try reconnecting.";
+      showReconnect = true;
+      break;
+  }
+  return (
+    <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 space-y-2">
+      <p className="text-xs font-medium text-amber-900">{headline}</p>
+      <p className="text-[11px] text-amber-800">{detail}</p>
+      {showReconnect && (
+        <button
+          type="button"
+          onClick={onReconnect}
+          className="text-[11px] font-medium text-amber-900 underline hover:no-underline"
+        >
+          Reconnect to LabArchives
+        </button>
+      )}
     </div>
   );
 }
