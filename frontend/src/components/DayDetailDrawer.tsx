@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import type { Event, ExternalEvent } from "@/lib/types";
+import Tooltip from "./Tooltip";
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
   conference: "#8b5cf6",
@@ -103,13 +104,14 @@ export default function DayDetailDrawer({
                 : `${totalCount} event${totalCount === 1 ? "" : "s"}`}
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-lg"
-            title="Close (Esc)"
-          >
-            ✕
-          </button>
+          <Tooltip label="Close (Esc)" placement="bottom">
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 text-lg"
+            >
+              ✕
+            </button>
+          </Tooltip>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">

@@ -2,6 +2,7 @@
 
 import { useCallback, useState, useRef, useEffect } from "react";
 import type { PCRGradient, PCRStep } from "@/lib/types";
+import Tooltip from "./Tooltip";
 
 // ── Temperature Color Helper ───────────────────────────────────────────────────
 
@@ -274,36 +275,38 @@ function StepBlock({
       {/* Arrow buttons and action buttons - shown when selected */}
       {isSelected && isEditing && !isErasing && !isCycleErasing && (
         <div className="absolute -top-14 flex items-center gap-1 z-10">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onMoveLeft(block.id);
-            }}
-            disabled={!canMoveLeft}
-            className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-              canMoveLeft
-                ? "bg-blue-500 text-white hover:bg-blue-600"
-                : "bg-gray-200 text-gray-400 cursor-not-allowed"
-            }`}
-            title="Move left"
-          >
-            ←
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onMoveRight(block.id);
-            }}
-            disabled={!canMoveRight}
-            className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-              canMoveRight
-                ? "bg-blue-500 text-white hover:bg-blue-600"
-                : "bg-gray-200 text-gray-400 cursor-not-allowed"
-            }`}
-            title="Move right"
-          >
-            →
-          </button>
+          <Tooltip label="Move left" placement="top">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoveLeft(block.id);
+              }}
+              disabled={!canMoveLeft}
+              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                canMoveLeft
+                  ? "bg-blue-500 text-white hover:bg-blue-600"
+                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+              }`}
+            >
+              ←
+            </button>
+          </Tooltip>
+          <Tooltip label="Move right" placement="top">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoveRight(block.id);
+              }}
+              disabled={!canMoveRight}
+              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                canMoveRight
+                  ? "bg-blue-500 text-white hover:bg-blue-600"
+                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+              }`}
+            >
+              →
+            </button>
+          </Tooltip>
           
           {/* Remove from Cycle button - only shown for steps inside a cycle */}
           {isInCycle && onRemoveFromCycle && (

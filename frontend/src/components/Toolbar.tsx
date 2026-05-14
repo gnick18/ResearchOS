@@ -5,6 +5,7 @@ import { useAppStore } from "@/lib/store";
 import type { Project, ViewMode } from "@/lib/types";
 import AnimationSettingsPopup from "@/components/AnimationSettingsPopup";
 import { ANIMATION_METADATA } from "@/components/animations";
+import Tooltip from "@/components/Tooltip";
 
 const VIEW_MODES: { label: string; value: ViewMode }[] = [
   { label: "1W", value: "1week" },
@@ -255,30 +256,32 @@ export default function Toolbar({
       </button>
 
       {/* Animation settings button */}
-      <button
-        onClick={() => setShowAnimationSettings(true)}
-        className="px-2.5 py-1.5 text-sm bg-white border border-gray-200 text-gray-700 rounded-lg hover:border-gray-300 hover:shadow-sm transition-all flex items-center gap-1.5 hover:animate-jiggle"
-        title="Animation Settings"
-      >
-        <span className="text-base">{ANIMATION_METADATA[animationType].icon}</span>
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 20h9"/>
-          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-        </svg>
-      </button>
+      <Tooltip label="Animation Settings" placement="bottom">
+        <button
+          onClick={() => setShowAnimationSettings(true)}
+          className="px-2.5 py-1.5 text-sm bg-white border border-gray-200 text-gray-700 rounded-lg hover:border-gray-300 hover:shadow-sm transition-all flex items-center gap-1.5 hover:animate-jiggle"
+        >
+          <span className="text-base">{ANIMATION_METADATA[animationType].icon}</span>
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 20h9"/>
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+          </svg>
+        </button>
+      </Tooltip>
 
       {/* Week navigation controls */}
       <div className="flex items-center gap-1.5 border-l border-gray-200 pl-4">
         {/* Previous week button */}
-        <button
-          onClick={() => ganttNavigateWeeks(-1)}
-          className="px-2 py-1.5 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors flex items-center"
-          title="Go back 1 week"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
+        <Tooltip label="Go back 1 week" placement="bottom">
+          <button
+            onClick={() => ganttNavigateWeeks(-1)}
+            className="px-2 py-1.5 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors flex items-center"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+        </Tooltip>
         
         {/* Date picker */}
         <div className="flex items-center gap-1.5">
@@ -292,15 +295,16 @@ export default function Toolbar({
         </div>
 
         {/* Next week button */}
-        <button
-          onClick={() => ganttNavigateWeeks(1)}
-          className="px-2 py-1.5 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors flex items-center"
-          title="Go forward 1 week"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
+        <Tooltip label="Go forward 1 week" placement="bottom">
+          <button
+            onClick={() => ganttNavigateWeeks(1)}
+            className="px-2 py-1.5 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors flex items-center"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </Tooltip>
 
         {/* Reset button - only show when viewing a custom date */}
         {ganttStartDate && (

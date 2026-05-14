@@ -6,6 +6,7 @@ import { goalsApi } from "@/lib/local-api";
 import { useAppStore } from "@/lib/store";
 import type { HighLevelGoal } from "@/lib/types";
 import DynamicAnimation from "./DynamicAnimation";
+import Tooltip from "./Tooltip";
 import { useState } from "react";
 
 interface HighLevelGoalSidebarProps {
@@ -146,34 +147,10 @@ export default function HighLevelGoalSidebar({
               style={{ borderLeftColor: goal.color || "#f59e0b" }}
             >
               <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                  onClick={() => onEditGoal(goal)}
-                  className="text-gray-400 hover:text-gray-600 p-1"
-                  title="Edit goal"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                    />
-                  </svg>
-                </button>
-                {onDeleteGoal && (
+                <Tooltip label="Edit goal" placement="bottom">
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDeleteGoal(goal);
-                    }}
-                    className="text-gray-400 hover:text-red-500 p-1"
-                    title="Delete goal"
+                    onClick={() => onEditGoal(goal)}
+                    className="text-gray-400 hover:text-gray-600 p-1"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -186,10 +163,36 @@ export default function HighLevelGoalSidebar({
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
                       />
                     </svg>
                   </button>
+                </Tooltip>
+                {onDeleteGoal && (
+                  <Tooltip label="Delete goal" placement="bottom">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteGoal(goal);
+                      }}
+                      className="text-gray-400 hover:text-red-500 p-1"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    </button>
+                  </Tooltip>
                 )}
               </div>
 
@@ -267,18 +270,19 @@ export default function HighLevelGoalSidebar({
                         >
                           {sg.text}
                         </span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteSmartGoal(goal, sg.id);
-                          }}
-                          className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-opacity flex-shrink-0"
-                          title="Delete sub-goal"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M18 6L6 18M6 6l12 12"/>
-                          </svg>
-                        </button>
+                        <Tooltip label="Delete sub-goal" placement="bottom">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteSmartGoal(goal, sg.id);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-opacity flex-shrink-0"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M18 6L6 18M6 6l12 12"/>
+                            </svg>
+                          </button>
+                        </Tooltip>
                       </div>
                     ))}
                   </div>

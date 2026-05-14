@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { useAppStore } from "@/lib/store";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import Tooltip from "./Tooltip";
 import {
   patchUserSettings,
   SIDEBAR_HORIZON_CHOICES,
@@ -86,13 +87,14 @@ export default function SidebarContentsPopup({ onClose, anchorRef }: Props) {
     >
       <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-900">Sidebar contents</h3>
-        <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 text-base"
-          title="Close"
-        >
-          ✕
-        </button>
+        <Tooltip label="Close" placement="bottom">
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 text-base"
+          >
+            ✕
+          </button>
+        </Tooltip>
       </div>
 
       <div className="p-4 space-y-3">
