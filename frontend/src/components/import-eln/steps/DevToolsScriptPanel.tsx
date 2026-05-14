@@ -45,19 +45,29 @@ export default function DevToolsScriptPanel({
 
   return (
     <div className="space-y-3">
+      {notebookLabel && (
+        <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+          <span className="font-medium">Fetching {missing.length} image
+          {missing.length === 1 ? "" : "s"} from:</span>{" "}
+          <span className="font-mono">{notebookLabel}</span>
+        </div>
+      )}
+
       <p className="text-xs text-gray-600">
         No API credentials? You can still pull your images down by pasting
-        a short script into your browser&apos;s DevTools while you have your
-        LabArchives notebook open. The script uses your existing browser
-        session, packages the {missing.length} image
-        {missing.length === 1 ? "" : "s"} into a ZIP, and triggers a single
-        download — drop the ZIP back here.
+        a short script into your browser&apos;s DevTools while signed into
+        LabArchives. The script uses your existing browser session, packages
+        the {missing.length} image{missing.length === 1 ? "" : "s"} into a
+        ZIP, and triggers a single download — drop the ZIP back here.
       </p>
 
       <ol className="text-xs text-gray-700 list-decimal pl-5 space-y-1">
         <li>
-          Open your notebook in LabArchives in a separate tab and make sure
-          you&apos;re signed in.
+          Open <strong>any</strong> page on{" "}
+          <code className="text-[10px]">labarchives.com</code> in a separate
+          tab and make sure you&apos;re signed in. You do <strong>not</strong>{" "}
+          need to navigate to the specific notebook — your session cookies
+          authenticate the fetches regardless of which page is loaded.
         </li>
         <li>
           Press <kbd className="px-1 py-0.5 bg-gray-100 border border-gray-300 rounded text-[10px]">F12</kbd>{" "}
