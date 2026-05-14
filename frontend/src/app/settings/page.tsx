@@ -204,11 +204,11 @@ function SettingsBody() {
             half-typed display-name draft to user B. */}
         <ProfileSection key={`profile-${currentUser}`} settings={settings} update={update} />
         <TabsSection settings={settings} update={update} />
+        <LabArchivesSection username={currentUser} />
         <SidebarSection settings={settings} update={update} />
         <DefaultsSection settings={settings} update={update} />
         <AnimationSection settings={settings} update={update} />
         <BehaviorSection settings={settings} update={update} />
-        <LabArchivesSection username={currentUser} />
         <MaintenanceSection />
         <SecuritySection
           pwExists={pwExists}
