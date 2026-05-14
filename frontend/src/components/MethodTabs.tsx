@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -637,6 +637,67 @@ interface VariationNotesPanelProps {
   readOnly?: boolean; // When true, all editing is disabled (for lab mode)
 }
 
+// Debounce window for autosave-on-input. 700ms strikes a balance between
+// "feels instant after you stop typing" and "doesn't fire mid-word." Mirrors
+// the running-log auto-save cadence in NoteDetailPopup.
+const AUTOSAVE_DEBOUNCE_MS = 700;
+// How long the "Saved" affordance lingers after a successful write before
+// the indicator fades back to idle. Long enough to register, short enough
+// not to feel sticky.
+const SAVED_INDICATOR_LINGER_MS = 1500;
+
+type SaveStatus = "idle" | "saving" | "saved" | "error";
+
+/**
+ * Tiny status pill for the autosave loop. Three visible states:
+ * - `saving`  → spinner + "Saving..."
+ * - `saved`   → check + "Saved" (briefly, then auto-fades to idle)
+ * - `error`   → red "Save failed — retry will happen on next edit"
+ * Idle with no pending changes renders nothing. Idle with pending changes
+ * (hasUnsavedChanges=true) renders a muted "Unsaved changes" so the user
+ * isn't left wondering whether their typing is being captured.
+ */
+function SaveStatusIndicator({
+  status,
+  hasUnsavedChanges,
+}: {
+  status: SaveStatus;
+  hasUnsavedChanges: boolean;
+}) {
+  if (status === "saving") {
+    return (
+      <span className="text-xs text-gray-500 flex items-center gap-1">
+        <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        Saving...
+      </span>
+    );
+  }
+  if (status === "saved") {
+    return (
+      <span className="text-xs text-emerald-600 flex items-center gap-1">
+        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+        </svg>
+        Saved
+      </span>
+    );
+  }
+  if (status === "error") {
+    return (
+      <span className="text-xs text-red-600 flex items-center gap-1" title="Will retry on the next edit">
+        Save failed
+      </span>
+    );
+  }
+  if (hasUnsavedChanges) {
+    return <span className="text-xs text-amber-600 flex items-center">Unsaved changes</span>;
+  }
+  return null;
+}
+
 function VariationNotesPanel({ task, methodId, variationNotes, onSaved, readOnly = false }: VariationNotesPanelProps) {
   // Match MethodTabs: thread owner through saveVariationNote when this is a
   // shared-with-edit task — otherwise writes land in the wrong namespace.
@@ -644,47 +705,167 @@ function VariationNotesPanel({ task, methodId, variationNotes, onSaved, readOnly
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [content, setContent] = useState(variationNotes || "");
-  const [originalContent, setOriginalContent] = useState(variationNotes || "");
-  const [saving, setSaving] = useState(false);
+  // Baseline = the last value we know is durably on disk. Cancel reverts to
+  // this; the autosave loop compares against this to skip no-op writes.
+  // (Previously called `originalContent` and only updated on explicit Save.)
+  const [lastSavedContent, setLastSavedContent] = useState(variationNotes || "");
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 
   // Variation notes are stored inline in the Task JSON, not in a Files/
   // folder — so dropping a file here has nowhere to go. Flash a toast.
   const { show: showDropWarning, toast: dropWarningToast } = useDropWarning(
     "File attachments aren't supported on variation notes. Attach files via the method's main page or a task's Lab Notes / Results tab."
   );
-  
-  // Track unsaved changes
-  const hasUnsavedChanges = content !== originalContent;
-  
+
+  // Track unsaved changes (drives the "Unsaved..." → "Saving..." → "Saved"
+  // status indicator; the Save button is gone now).
+  const hasUnsavedChanges = content !== lastSavedContent;
+
+  // Autosave timer + "saved" lingering timer. Both kept in refs so renders
+  // never cancel a pending save.
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const savedLingerTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // The latest content the user has typed, mirrored as a ref so the unmount
+  // flush below can read it without depending on state closure.
+  const contentRef = useRef(content);
+  // Last value we actually wrote to disk. Used to skip duplicate writes when
+  // the debounce fires but nothing changed since the last save.
+  const lastWrittenRef = useRef(variationNotes || "");
+  // Track which `variationNotes` value seeded `content`. Stops the external-
+  // sync `useEffect` below from clobbering in-flight typed edits whenever
+  // the parent re-renders (e.g. after onSaved updates the parent task).
+  const seededFromRef = useRef(variationNotes || "");
+  // Latest `tasksApi`/`methodId`/`task.id`/`onSaved` mirrored to refs so the
+  // unmount-flush effect can run a final save without re-binding (and
+  // therefore re-running) every time one of those changes.
+  const tasksApiRef = useRef(tasksApi);
+  const methodIdRef = useRef(methodId);
+  const taskIdRef = useRef(task.id);
+  const onSavedRef = useRef(onSaved);
+  useEffect(() => { tasksApiRef.current = tasksApi; }, [tasksApi]);
+  useEffect(() => { methodIdRef.current = methodId; }, [methodId]);
+  useEffect(() => { taskIdRef.current = task.id; }, [task.id]);
+  useEffect(() => { onSavedRef.current = onSaved; }, [onSaved]);
+  useEffect(() => { contentRef.current = content; }, [content]);
+
   // Count the number of variation entries (### headers)
   const noteCount = useMemo(() => {
     if (!variationNotes) return 0;
     const matches = variationNotes.match(/^###\s+Variation/gm);
     return matches ? matches.length : 0;
   }, [variationNotes]);
-  
-  // Reset content when notes change externally
+
+  // Reset content when notes change externally (e.g. server-side update,
+  // owner refetch). Guarded: only re-seed when the incoming `variationNotes`
+  // is actually different from what we last seeded with, otherwise typing
+  // would race against parent re-renders triggered by our own autosave.
   useEffect(() => {
-    setContent(variationNotes || "");
-    setOriginalContent(variationNotes || "");
+    const next = variationNotes || "";
+    if (next === seededFromRef.current) return;
+    seededFromRef.current = next;
+    lastWrittenRef.current = next;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot reseed of editor buffer when the parent passes a genuinely new variationNotes value (e.g. after an external save, or task switch); skips the no-op case so in-flight typing isn't clobbered
+    setContent(next);
+    setLastSavedContent(next);
   }, [variationNotes]);
-  
+
+  // Core save fn — single source of truth for both the debounced autosave
+  // and the per-entry delete handler. Skips no-op writes (same content as
+  // the last successful save).
+  const saveNow = useCallback(
+    async (next: string) => {
+      if (next === lastWrittenRef.current) return null;
+      setSaveStatus("saving");
+      try {
+        const updated = await tasksApiRef.current.saveVariationNote(
+          taskIdRef.current,
+          methodIdRef.current,
+          next,
+        );
+        lastWrittenRef.current = next;
+        // Mirror the seed-ref so the external-sync useEffect doesn't fire
+        // when the parent re-renders with the value we just wrote.
+        seededFromRef.current = next;
+        setLastSavedContent(next);
+        onSavedRef.current(updated);
+        setSaveStatus("saved");
+        if (savedLingerTimerRef.current) clearTimeout(savedLingerTimerRef.current);
+        savedLingerTimerRef.current = setTimeout(() => {
+          setSaveStatus("idle");
+        }, SAVED_INDICATOR_LINGER_MS);
+        return updated;
+      } catch (err) {
+        console.error("Failed to save variation notes:", err);
+        setSaveStatus("error");
+        return null;
+      }
+    },
+    [],
+  );
+
+  // Schedule a debounced autosave whenever `content` diverges from the last
+  // written baseline. Runs only while the editor is open (Edit mode) and the
+  // task isn't read-only — otherwise typed edits in the read view (which
+  // shouldn't happen, but defensively) are inert.
+  useEffect(() => {
+    if (readOnly || !isEditing) return;
+    if (content === lastWrittenRef.current) return;
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      saveNow(content);
+    }, AUTOSAVE_DEBOUNCE_MS);
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, [content, isEditing, readOnly, saveNow]);
+
+  // Flush pending edits on unmount. This is the critical safety net for the
+  // "type → hit Escape → popup closes → panel unmounts" path that used to
+  // discard work. We bypass `saveNow`'s state setters (component is going
+  // away) and fire the API call directly.
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+      if (savedLingerTimerRef.current) {
+        clearTimeout(savedLingerTimerRef.current);
+        savedLingerTimerRef.current = null;
+      }
+      const pending = contentRef.current;
+      if (pending !== lastWrittenRef.current) {
+        // Best-effort fire-and-forget. We can't await on unmount, and the
+        // panel is gone so there's no UI to surface an error on. Errors
+        // will land in the console.
+        tasksApiRef.current
+          .saveVariationNote(taskIdRef.current, methodIdRef.current, pending)
+          .then((updated) => {
+            onSavedRef.current(updated);
+          })
+          .catch((err) => {
+            console.error("Failed to flush variation notes on unmount:", err);
+          });
+      }
+    };
+  }, []);
+
   // Generate a new timestamped entry
   const generateTimestamp = () => {
     const now = new Date();
-    const dateStr = now.toLocaleDateString("en-US", { 
-      year: "numeric", 
-      month: "long", 
-      day: "numeric" 
+    const dateStr = now.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric"
     });
-    const timeStr = now.toLocaleTimeString("en-US", { 
-      hour: "numeric", 
+    const timeStr = now.toLocaleTimeString("en-US", {
+      hour: "numeric",
       minute: "2-digit",
-      hour12: true 
+      hour12: true
     });
     return `${dateStr} ${timeStr}`;
   };
-  
+
   // Add a new note entry
   const handleAddNote = useCallback(() => {
     const timestamp = generateTimestamp();
@@ -692,49 +873,37 @@ function VariationNotesPanel({ task, methodId, variationNotes, onSaved, readOnly
     setContent(prev => newEntry + prev);
     setIsEditing(true);
   }, []);
-  
-  // Save the notes
-  const handleSave = useCallback(async () => {
-    setSaving(true);
-    try {
-      const updated = await tasksApi.saveVariationNote(task.id, methodId, content);
-      setOriginalContent(content); // Update original content after successful save
-      onSaved(updated);
-      setIsEditing(false);
-    } catch (err) {
-      console.error("Failed to save variation notes:", err);
-      alert("Failed to save variation notes");
-    } finally {
-      setSaving(false);
-    }
-  }, [tasksApi, task.id, methodId, content, onSaved]);
-  
-  // Cancel editing
-  const handleCancel = useCallback(() => {
-    setContent(variationNotes || "");
-    setOriginalContent(variationNotes || "");
-    setIsEditing(false);
-  }, [variationNotes]);
 
-  // Delete a single variation entry (in-place; no Edit All needed)
+  // Cancel editing — explicit revert to last-saved baseline. Cancels any
+  // pending debounced autosave so the just-reverted content isn't
+  // re-overwritten on the next tick.
+  const handleCancel = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    setContent(lastSavedContent);
+    setIsEditing(false);
+    setSaveStatus("idle");
+  }, [lastSavedContent]);
+
+  // Delete a single variation entry (in-place; no Edit All needed).
+  // Bypasses the debounce — destructive actions should be immediate.
   const handleDeleteEntry = useCallback(
     async (entryIndex: number) => {
       if (!variationNotes) return;
       if (!window.confirm("Delete this variation note? This can't be undone.")) return;
       const updatedMarkdown = removeVariationEntry(variationNotes, entryIndex);
-      setSaving(true);
-      try {
-        const updatedTask = await tasksApi.saveVariationNote(task.id, methodId, updatedMarkdown);
-        onSaved(updatedTask);
-      } catch (err) {
-        console.error("Failed to delete variation note:", err);
-        alert("Failed to delete variation note");
-      } finally {
-        setSaving(false);
-      }
+      await saveNow(updatedMarkdown);
+      // Sync the in-memory editor buffer to the post-delete content so the
+      // next edit cycle starts from the right baseline.
+      setContent(updatedMarkdown);
     },
-    [tasksApi, variationNotes, task.id, methodId, onSaved],
+    [variationNotes, saveNow],
   );
+
+  // `saving` flag for disabling Cancel / delete buttons mid-write.
+  const saving = saveStatus === "saving";
 
   // Split rendered notes into individual entries so each gets its own delete button.
   const entries = useMemo(() => parseVariationEntries(variationNotes || ""), [variationNotes]);
@@ -787,28 +956,30 @@ function VariationNotesPanel({ task, methodId, variationNotes, onSaved, readOnly
                 allowAnyFileType={true}
                 onFileDrop={() => showDropWarning()}
               />
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={handleCancel}
-                  disabled={saving}
-                  className="px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                {hasUnsavedChanges && (
-                  <span className="text-xs text-amber-600 font-medium flex items-center">Unsaved changes</span>
-                )}
-                <button
-                  onClick={handleSave}
-                  disabled={saving || !hasUnsavedChanges}
-                  className={`px-3 py-1.5 text-xs rounded-lg disabled:opacity-50 ${
-                    hasUnsavedChanges
-                      ? "text-white bg-amber-600 hover:bg-amber-700"
-                      : "text-gray-400 bg-gray-200 cursor-not-allowed"
-                  }`}
-                >
-                  {saving ? "Saving..." : "Save Notes"}
-                </button>
+              <div className="flex justify-end items-center gap-2">
+                {/* Autosave status indicator. Replaces the explicit Save
+                    button — input is debounced-persisted (700ms) and the
+                    label is the only visible save affordance. Hidden when
+                    fully idle so the panel stays calm at rest. */}
+                <SaveStatusIndicator status={saveStatus} hasUnsavedChanges={hasUnsavedChanges} />
+                <Tooltip label="Revert to last saved value">
+                  <button
+                    onClick={handleCancel}
+                    disabled={saving}
+                    className="px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </Tooltip>
+                <Tooltip label="Close the editor (your edits are saved automatically)">
+                  <button
+                    onClick={() => setIsEditing(false)}
+                    disabled={saving}
+                    className="px-3 py-1.5 text-xs text-white bg-amber-600 hover:bg-amber-700 rounded-lg disabled:opacity-50"
+                  >
+                    Done
+                  </button>
+                </Tooltip>
               </div>
             </div>
           ) : (
