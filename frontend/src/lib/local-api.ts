@@ -407,7 +407,100 @@ export const tasksApi = {
   // Note: delete is intentionally not owner-routed — only the task's owner
   // should remove the file. Receivers with edit permission can modify the
   // task but not destroy it.
+  //
+  // Cascade cleanup (all best-effort; failures are logged but never block
+  // the task delete or each other):
+  //   1. Dependency records in `users/<owner>/dependencies/` referencing this
+  //      task as parent or child. Orphan deps were surfaced by the
+  //      /experiments take-3 debugger on Grant's real data folder.
+  //   2. Receivers' `_shared_with_me.json` entries that point at this task.
+  //      Without this, receivers see ghost rows for tasks the owner deleted.
+  //   3. Cross-owner hosted-manifest entry, if this task was hosted into a
+  //      foreign project (`external_project` set). Reuses
+  //      `unshareFromProject` for the bidirectional cleanup.
+  //
+  // Cleanups run BEFORE the file delete so we can still read fields like
+  // `shared_with` and `external_project`.
   delete: async (id: number): Promise<void> => {
+    const currentUser = await getCurrentUserCached();
+    const task = await tasksStore.get(id);
+
+    if (task && currentUser) {
+      // 1. Orphan dependencies.
+      try {
+        const allDeps = await dependenciesStore.listAll();
+        const orphans = allDeps.filter(
+          (d) => d.parent_id === id || d.child_id === id
+        );
+        for (const dep of orphans) {
+          try {
+            await dependenciesStore.delete(dep.id);
+          } catch (err) {
+            console.warn(
+              `[tasksApi.delete] failed to delete dep record ${dep.id} for task ${id}:`,
+              err
+            );
+          }
+        }
+      } catch (err) {
+        console.warn(
+          `[tasksApi.delete] dependency cleanup failed for task ${id}:`,
+          err
+        );
+      }
+
+      // 2. Receivers' `_shared_with_me.json` entries.
+      try {
+        const recipients = (task.shared_with ?? [])
+          .map((s) => s.username)
+          .filter((u): u is string => typeof u === "string" && u.length > 0);
+        for (const username of recipients) {
+          try {
+            await removeReceiverShare(username, "task", id, currentUser);
+          } catch (err) {
+            console.warn(
+              `[tasksApi.delete] failed to remove _shared_with_me entry for ${username}/${id}:`,
+              err
+            );
+          }
+        }
+      } catch (err) {
+        console.warn(
+          `[tasksApi.delete] shared_with cleanup failed for task ${id}:`,
+          err
+        );
+      }
+
+      // 3. Cross-owner hosted-manifest entry.
+      if (task.external_project) {
+        try {
+          const { unshareFromProject } = await import(
+            "./sharing/project-hosting"
+          );
+          await unshareFromProject(
+            {
+              taskOwner: currentUser,
+              taskId: id,
+              projectOwner: task.external_project.owner,
+              projectId: task.external_project.id,
+            },
+            {
+              loadTask: async (owner, taskId) =>
+                tasksStore.getForUser(taskId, owner),
+              saveTask: async (owner, t) => {
+                await tasksStore.saveForUser(t.id, t, owner);
+              },
+            }
+          );
+        } catch (err) {
+          console.warn(
+            `[tasksApi.delete] hosted-manifest cleanup failed for task ${id}:`,
+            err
+          );
+        }
+      }
+    }
+
     await tasksStore.delete(id);
   },
 
@@ -1141,7 +1234,114 @@ export const purchasesApi = {
       total_price: item.total_price ?? (item.price_per_unit ?? 0) * item.quantity + (item.shipping_fees ?? 0),
     }));
   },
-  
+
+  // Merged-view loader mirroring `fetchAllTasksIncludingShared` for purchase
+  // items. `purchasesApi.listAll()` only reads the current user's
+  // `purchase_items/` directory, so shared purchase tasks render with empty
+  // item rows + $0 totals on the purchases page (AGENTS.md §6 multi-user-
+  // data-isolation gap). This loader also reads each shared-task owner's
+  // `purchase_items/` directory and filters to the shared task ids.
+  //
+  // Returns purchases decorated with `owner` so callers can key the
+  // `purchasesByTask` map on the same composite `${owner}:${task_id}` shape
+  // that the sweep fix at `8de2c24d` introduced on the consuming page. The
+  // current user's own items get `owner: currentUser` (no schema change —
+  // mirrors the `withOwnerFallback` overlay used for tasks/projects).
+  //
+  // Surfacing rules match `fetchAllTasksIncludingShared`:
+  //   - individually-shared tasks (`_shared_with_me.json#tasks`)
+  //   - tasks belonging to shared projects (`_shared_with_me.json#projects`,
+  //     filtered to that owner's tasks whose `project_id` matches)
+  // Cross-owner hosted tasks (Option C) are intentionally NOT included —
+  // hosted tasks are display-only at the destination side; the host's
+  // purchases live on the source side and surface via the host's own
+  // purchases page.
+  listAllIncludingShared: async (
+    currentUser: string,
+  ): Promise<Array<PurchaseItem & { owner: string }>> => {
+    const own = await purchaseItemsStore.listAll();
+    const ownDecorated: Array<PurchaseItem & { owner: string }> = own.map((item) => ({
+      ...item,
+      owner: currentUser,
+      total_price:
+        item.total_price ??
+        (item.price_per_unit ?? 0) * item.quantity + (item.shipping_fees ?? 0),
+    }));
+
+    // Build the set of (owner, taskId) pairs the viewer can see via shares.
+    const sharedPairs: Array<{ owner: string; taskId: number }> = [];
+    try {
+      const manifest = await fileService.readJson<SharedManifest>(
+        `users/${currentUser}/_shared_with_me.json`,
+      );
+      const seen = new Set<string>(); // dedup across the two surfaces below
+      for (const entry of manifest?.tasks ?? []) {
+        const key = `${entry.owner}:${entry.id}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        sharedPairs.push({ owner: entry.owner, taskId: entry.id });
+      }
+      for (const projEntry of manifest?.projects ?? []) {
+        let ownerTasks;
+        try {
+          ownerTasks = await tasksStore.listAllForUser(projEntry.owner);
+        } catch (err) {
+          console.warn(
+            `[purchasesApi.listAllIncludingShared] failed to load tasks for shared project ${projEntry.owner}/${projEntry.id}:`,
+            err,
+          );
+          continue;
+        }
+        for (const t of ownerTasks) {
+          if (t.project_id !== projEntry.id) continue;
+          const key = `${projEntry.owner}:${t.id}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          sharedPairs.push({ owner: projEntry.owner, taskId: t.id });
+        }
+      }
+    } catch (err) {
+      console.warn(
+        "[purchasesApi.listAllIncludingShared] failed to read shared manifest:",
+        err,
+      );
+    }
+
+    // Group shared pairs by owner so we read each owner's purchase_items
+    // directory at most once, then filter to the visible task ids per owner.
+    const byOwner = new Map<string, Set<number>>();
+    for (const { owner, taskId } of sharedPairs) {
+      if (!byOwner.has(owner)) byOwner.set(owner, new Set());
+      byOwner.get(owner)!.add(taskId);
+    }
+
+    const shared: Array<PurchaseItem & { owner: string }> = [];
+    for (const [owner, visibleTaskIds] of byOwner) {
+      let ownerItems: PurchaseItem[];
+      try {
+        ownerItems = await purchaseItemsStore.listAllForUser(owner);
+      } catch (err) {
+        console.warn(
+          `[purchasesApi.listAllIncludingShared] failed to load purchases for ${owner}:`,
+          err,
+        );
+        continue;
+      }
+      for (const item of ownerItems) {
+        if (!visibleTaskIds.has(item.task_id)) continue;
+        shared.push({
+          ...item,
+          owner,
+          total_price:
+            item.total_price ??
+            (item.price_per_unit ?? 0) * item.quantity + (item.shipping_fees ?? 0),
+        });
+      }
+    }
+
+    return [...ownDecorated, ...shared];
+  },
+
   create: async (data: PurchaseItemCreate): Promise<PurchaseItem> => {
     const total = (data.price_per_unit ?? 0) * data.quantity + (data.shipping_fees ?? 0);
     return purchaseItemsStore.create({
