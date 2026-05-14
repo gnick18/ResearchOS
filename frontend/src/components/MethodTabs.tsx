@@ -13,7 +13,7 @@ import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import MethodPicker from "./MethodPicker";
 import Tooltip from "./Tooltip";
 import { useDropWarning } from "@/lib/use-drop-warning";
-import { ownerScopedTasksApi } from "./TaskDetailPopup";
+import { ownerScopedTasksApi } from "@/lib/tasks/owner-scoped-api";
 
 interface MethodTabsProps {
   task: Task;

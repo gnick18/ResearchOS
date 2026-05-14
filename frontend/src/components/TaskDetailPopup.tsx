@@ -4,49 +4,8 @@ import React, { useCallback, useEffect, useRef, useState, useMemo } from "react"
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
-import { filesApi, methodsApi, projectsApi, tasksApi as rawTasksApi, dependenciesApi, fetchAllTasks, type DuplicateCheckResult } from "@/lib/local-api";
-import type { TaskUpdate, TaskMoveRequest } from "@/lib/local-api";
-
-/**
- * When the current viewer is a receiver of a shared task with edit
- * permission, every mutation needs to write back to the OWNER's directory
- * (e.g. `users/Kritika/tasks/1.json`), not the current user's. Plain own
- * tasks (or read-only views) pass undefined and the writes go to the
- * current user's directory.
- */
-function effectiveOwnerOf(task: Task): string | undefined {
-  return task.is_shared_with_me && task.shared_permission === "edit" ? task.owner : undefined;
-}
-
-/**
- * Build a shadowed `tasksApi` that automatically threads the right owner
- * into every mutating call. Used at the top of each component that calls
- * `tasksApi` so the existing call sites don't need to be touched.
- */
-export function ownerScopedTasksApi(task: Task) {
-  const owner = effectiveOwnerOf(task);
-  return {
-    ...rawTasksApi,
-    get: (id: number) => rawTasksApi.get(id, owner),
-    update: (id: number, data: TaskUpdate) => rawTasksApi.update(id, data, owner),
-    move: (id: number, data: TaskMoveRequest) => rawTasksApi.move(id, data, owner),
-    convertType: (id: number, type: "experiment" | "purchase" | "list") =>
-      rawTasksApi.convertType(id, type, owner),
-    resetPcr: (id: number, methodId?: number) => rawTasksApi.resetPcr(id, methodId, owner),
-    addMethod: (taskId: number, methodId: number) => rawTasksApi.addMethod(taskId, methodId, owner),
-    removeMethod: (taskId: number, methodId: number) =>
-      rawTasksApi.removeMethod(taskId, methodId, owner),
-    updateMethodPcr: (
-      taskId: number,
-      methodId: number,
-      data: { pcr_gradient?: string; pcr_ingredients?: string }
-    ) => rawTasksApi.updateMethodPcr(taskId, methodId, data, owner),
-    saveVariationNote: (taskId: number, methodId: number, notes: string) =>
-      rawTasksApi.saveVariationNote(taskId, methodId, notes, owner),
-    // `delete` intentionally not owner-routed: only the original owner
-    // should be able to destroy the file.
-  };
-}
+import { filesApi, methodsApi, projectsApi, dependenciesApi, fetchAllTasks, type DuplicateCheckResult } from "@/lib/local-api";
+import { ownerScopedTasksApi } from "@/lib/tasks/owner-scoped-api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import PurchaseEditor from "./PurchaseEditor";
