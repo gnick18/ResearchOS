@@ -159,6 +159,24 @@ export interface ELNAppliedTask {
   attachmentsWritten: number;
   /** Form B online-only inline images surfaced for this task. */
   missingInlineImages: number;
+  /** Original tree path from the notebook root. Used by bulk-sort UI to show "from X/Y" subtitle. */
+  treePath: string[];
+  /** Display name of the page, used by bulk-sort UI as the task title. */
+  pageName: string;
+}
+
+/**
+ * Progress callback shape used by the wizard UI to drive its progress bar.
+ * Apply fires this at the project-creation loop and the page-apply loop.
+ *
+ * `total` is 0 if the phase has no work (e.g. all pages were dedup-skipped).
+ */
+export interface ELNApplyProgress {
+  phase: "projects" | "tasks";
+  current: number;
+  total: number;
+  /** Most recently-seen item label, e.g. project name or page name. */
+  label?: string;
 }
 
 export interface ELNSkippedTask {
