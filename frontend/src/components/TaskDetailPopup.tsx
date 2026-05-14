@@ -23,7 +23,7 @@ function effectiveOwnerOf(task: Task): string | undefined {
  * into every mutating call. Used at the top of each component that calls
  * `tasksApi` so the existing call sites don't need to be touched.
  */
-function ownerScopedTasksApi(task: Task) {
+export function ownerScopedTasksApi(task: Task) {
   const owner = effectiveOwnerOf(task);
   return {
     ...rawTasksApi,
