@@ -57,6 +57,12 @@ export default function DoneStep({
             text={`Skipped ${skippedCount} duplicate page${skippedCount === 1 ? "" : "s"} from prior imports.`}
           />
         )}
+        {result.totalRehydratedInlineImages > 0 && (
+          <SummaryLine
+            ok
+            text={`Fetched ${result.totalRehydratedInlineImages} online-only image${result.totalRehydratedInlineImages === 1 ? "" : "s"} from LabArchives.`}
+          />
+        )}
         {warningCount > 0 && (
           <SummaryLine
             warn
