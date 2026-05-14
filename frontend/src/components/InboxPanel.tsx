@@ -6,14 +6,18 @@ import { listImagesInFolder, type FolderImageEntry } from "@/lib/attachments/ima
 import {
   deleteImageFromBase,
   moveImageBetweenBases,
-  moveImageBetweenBasesUnique,
   renameImageInPlace,
 } from "@/lib/attachments/move-image";
+import { checkForDuplicates } from "@/lib/attachments/duplicate-check";
+import { fileService } from "@/lib/file-system/file-service";
+import { sidecarPath, type ImageSidecar } from "@/lib/attachments/image-folder";
+import { imageEvents } from "@/lib/attachments/image-events";
 import { resolveTaskResultsBase } from "@/lib/tasks/results-paths";
 import { useAppStore, type ActiveTask } from "@/lib/store";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import ImageMetadataPopup from "./ImageMetadataPopup";
 import SendToTaskPicker from "./SendToTaskPicker";
+import { useDuplicateResolver } from "./DuplicateUploadDialog";
 
 interface InboxPanelProps {
   onClose: () => void;
@@ -38,6 +42,8 @@ function taskNotesBase(taskResultsBase: string): string {
 export default function InboxPanel({ onClose }: InboxPanelProps) {
   const { currentUser } = useCurrentUser();
   const activeTask = useAppStore((s) => s.activeTask);
+  const { resolve: resolveDuplicates, DialogComponent: DuplicateDialog } =
+    useDuplicateResolver();
   const [entries, setEntries] = useState<InboxEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -254,20 +260,105 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
           currentUser
         );
         const destBase = taskNotesBase(taskBase);
+        const fromBase = inboxBase(currentUser);
+
+        // List the destination's existing Images/ filenames so we can
+        // surface collisions to the user instead of silently auto-suffixing.
+        // Previously this batch used `moveImageBetweenBasesUnique`, which
+        // appended `-1`, `-2` to the filename without any UI signal.
+        const existingDest = new Set(
+          await fileService.listFiles(`${destBase}/Images`)
+        );
+
+        // Build synthetic File objects so the duplicate-check helper has
+        // size + last-modified for the dialog. The bytes are already on
+        // disk — we just need a File handle for the partition logic.
+        // This batch only touches inbox images, all of which were
+        // previously written via image-folder helpers, so reading them
+        // back as Blobs is safe.
+        const idsAsFiles: File[] = [];
+        for (const id of ids) {
+          const blob = await fileService.readFileAsBlob(
+            `${fromBase}/Images/${id}`
+          );
+          if (!blob) {
+            // Source vanished between selection and send — log and skip.
+            console.warn("[inbox] source image missing:", id);
+            continue;
+          }
+          const file = new File([blob], id, {
+            type: blob.type,
+            lastModified: Date.now(),
+          });
+          idsAsFiles.push(file);
+        }
+
+        const { uniqueFiles, collisions } = checkForDuplicates(
+          idsAsFiles,
+          existingDest
+        );
 
         let succeeded = 0;
         const failures: string[] = [];
-        for (const id of ids) {
+
+        // Safe-to-write: move bytes as-is. Reuses the legacy
+        // moveImageBetweenBases primitive (no suffix logic — the
+        // partition already guarantees uniqueness).
+        for (const file of uniqueFiles) {
           try {
-            await moveImageBetweenBasesUnique(
-              inboxBase(currentUser),
-              destBase,
-              id
-            );
+            await moveImageBetweenBases(fromBase, destBase, file.name);
             succeeded += 1;
           } catch (err) {
-            console.error("[inbox] send-to-task failed for", id, err);
-            failures.push(id);
+            console.error("[inbox] send-to-task failed for", file.name, err);
+            failures.push(file.name);
+          }
+        }
+
+        // Collisions: walk the dialog queue.
+        if (collisions.length > 0) {
+          const resolutions = await resolveDuplicates(collisions);
+          for (const info of collisions) {
+            const choice = resolutions.get(info.existingName);
+            if (!choice || choice.action === "cancel") continue;
+            const finalName =
+              choice.action === "rename"
+                ? (choice.newName ?? info.suggestedName)
+                : info.existingName;
+            try {
+              if (choice.action === "replace") {
+                // Drop the existing destination image + its sidecar.
+                await deleteImageFromBase(destBase, info.existingName);
+              }
+              // Write the source bytes under finalName, then delete from
+              // inbox + emit events. Mirrors the body of
+              // moveImageBetweenBases but with a renamed destination.
+              const srcImage = `${fromBase}/Images/${info.existingName}`;
+              const srcSidecar = sidecarPath(fromBase, info.existingName);
+              const destImage = `${destBase}/Images/${finalName}`;
+              const destSidecar = sidecarPath(destBase, finalName);
+              const blob = await fileService.readFileAsBlob(srcImage);
+              if (!blob) throw new Error(`Source image not found: ${srcImage}`);
+              await fileService.writeFileFromBlob(destImage, blob);
+              const sidecar = await fileService.readJson<ImageSidecar>(srcSidecar);
+              if (sidecar) {
+                await fileService.writeJson(destSidecar, sidecar);
+              }
+              await fileService.deleteFile(srcImage);
+              await fileService.deleteFile(srcSidecar);
+              blobUrlResolver.revokePath(srcImage);
+              imageEvents.emitAttached({
+                basePath: destBase,
+                relativePath: `Images/${finalName}`,
+              });
+              imageEvents.emitDeleted({
+                basePath: fromBase,
+                filename: info.existingName,
+              });
+              succeeded += 1;
+            } catch (err) {
+              console.error("[inbox] send-to-task failed for", finalName, err);
+              failures.push(finalName);
+            }
           }
         }
 
@@ -289,7 +380,7 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
         setBatchBusy(false);
       }
     },
-    [currentUser, selectedIds, refresh]
+    [currentUser, selectedIds, refresh, resolveDuplicates]
   );
 
   // The context-menu / button label includes the count when >1 selected.
@@ -300,6 +391,12 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
   }, [selectedCount]);
 
   return (
+    <>
+    {/* DuplicateDialog uses higher z-index (200) than the inbox backdrop
+        (105), so clicks land on it correctly even though it's a sibling.
+        Mounted outside the backdrop so the backdrop's onClick={onClose}
+        doesn't fire when the user interacts with the dialog. */}
+    <DuplicateDialog />
     <div
       className="fixed inset-0 z-[105] flex items-center justify-center bg-black/30 backdrop-blur-sm"
       onClick={onClose}
@@ -531,5 +628,6 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
         />
       )}
     </div>
+    </>
   );
 }

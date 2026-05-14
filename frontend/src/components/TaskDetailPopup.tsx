@@ -24,6 +24,8 @@ import { exportExperiments, downloadResult } from "@/lib/export/orchestrate";
 import type { ExportFormat } from "@/lib/export/types";
 import ExportFormatDialog from "@/components/ExportFormatDialog";
 import { useFileRenamePopup } from "@/components/FileRenamePopup";
+import { useDuplicateResolver } from "@/components/DuplicateUploadDialog";
+import { checkForDuplicates } from "@/lib/attachments/duplicate-check";
 import { fileService } from "@/lib/file-system/file-service";
 import { migrateNoteImages } from "@/lib/notes/migrate-images";
 import RehydrateMissingImagesModal from "@/components/labarchives/RehydrateMissingImagesModal";
@@ -150,6 +152,10 @@ export default function TaskDetailPopup({
   const [universalDropToast, setUniversalDropToast] = useState<
     { msg: string; x: number; y: number } | null
   >(null);
+  const {
+    resolve: resolveUniversalDuplicates,
+    DialogComponent: UniversalDuplicateDialog,
+  } = useDuplicateResolver();
   const handleUniversalDragOver = useCallback((e: React.DragEvent) => {
     if (!Array.from(e.dataTransfer.types).includes("Files")) return;
     e.preventDefault();
@@ -181,24 +187,90 @@ export default function TaskDetailPopup({
         : `${popupBasePath}/notes`;
       const labelForTab = lastEditorTab === "results" ? "Results" : "Lab Notes";
 
-      for (const file of files) {
-        const isImage = file.type.startsWith("image/");
+      // Partition by Images/Files routing AND duplicate-check status. The
+      // universal drop routes images to Images/ and other files to Files/,
+      // so we check each subdir's existing set separately.
+      const imageFiles = files.filter((f) => f.type.startsWith("image/"));
+      const otherFiles = files.filter((f) => !f.type.startsWith("image/"));
+      const imagesDir = `${tabRoot}/Images`;
+      const filesDir = `${tabRoot}/Files`;
+      const [existingImages, existingFiles] = await Promise.all([
+        imageFiles.length > 0
+          ? fileService.listFiles(imagesDir).then((n) => new Set(n))
+          : Promise.resolve(new Set<string>()),
+        otherFiles.length > 0
+          ? fileService.listFiles(filesDir).then((n) => new Set(n))
+          : Promise.resolve(new Set<string>()),
+      ]);
+      const imagePartition = checkForDuplicates(imageFiles, existingImages);
+      const filePartition = checkForDuplicates(otherFiles, existingFiles);
+
+      const writeOne = async (
+        file: File,
+        finalName: string,
+        isImage: boolean,
+      ) => {
         const folder = isImage ? "Images" : "Files";
         const dir = `${tabRoot}/${folder}`;
+        await fileService.writeFileFromBlob(`${dir}/${finalName}`, file);
+        const detail = { basePath: tabRoot, relativePath: `${folder}/${finalName}` };
+        if (isImage) imageEvents.emitAttached(detail);
+        else fileEvents.emitAttached(detail);
+        landed.push(finalName);
+      };
+
+      // Safe-to-write files go through immediately.
+      for (const file of imagePartition.uniqueFiles) {
         try {
-          const finalName = await pickUniqueFilename(dir, file.name);
-          await fileService.writeFileFromBlob(`${dir}/${finalName}`, file);
-          const detail = { basePath: tabRoot, relativePath: `${folder}/${finalName}` };
-          if (isImage) {
-            imageEvents.emitAttached(detail);
-          } else {
-            fileEvents.emitAttached(detail);
-          }
-          landed.push(finalName);
+          await writeOne(file, file.name, true);
         } catch (err) {
           console.error("Failed to upload", file.name, err);
         }
       }
+      for (const file of filePartition.uniqueFiles) {
+        try {
+          await writeOne(file, file.name, false);
+        } catch (err) {
+          console.error("Failed to upload", file.name, err);
+        }
+      }
+
+      // Surface collisions via dialog. Images and Files share the same
+      // resolver instance — the user sees one merged queue. The dialog
+      // doesn't care about the destination split; the per-collision
+      // resolution carries enough info for us to route on the back end.
+      const allCollisions = [
+        ...imagePartition.collisions,
+        ...filePartition.collisions,
+      ];
+      if (allCollisions.length > 0) {
+        const resolutions = await resolveUniversalDuplicates(allCollisions);
+        const writeCollision = async (
+          info: { file: File; existingName: string; suggestedName: string },
+          isImage: boolean,
+        ) => {
+          const choice = resolutions.get(info.existingName);
+          if (!choice || choice.action === "cancel") return;
+          const finalName =
+            choice.action === "rename"
+              ? (choice.newName ?? info.suggestedName)
+              : info.existingName;
+          try {
+            if (choice.action === "replace") {
+              const folder = isImage ? "Images" : "Files";
+              await fileService.deleteFile(
+                `${tabRoot}/${folder}/${info.existingName}`,
+              );
+            }
+            await writeOne(info.file, finalName, isImage);
+          } catch (err) {
+            console.error("Failed to upload", finalName, err);
+          }
+        };
+        for (const info of imagePartition.collisions) await writeCollision(info, true);
+        for (const info of filePartition.collisions) await writeCollision(info, false);
+      }
+
       if (landed.length > 0) {
         const msg =
           landed.length === 1
@@ -208,7 +280,7 @@ export default function TaskDetailPopup({
         window.setTimeout(() => setUniversalDropToast(null), 3000);
       }
     },
-    [lastEditorTab, popupBasePath]
+    [lastEditorTab, popupBasePath, resolveUniversalDuplicates]
   );
 
   // Get the selected animation type from the store
@@ -695,6 +767,11 @@ export default function TaskDetailPopup({
         currentSharedWith={task.shared_with || []}
         onShared={() => queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] })}
       />
+      {/* Universal-drop duplicate-name resolver. Inner tabs (LabNotesTab,
+          ResultsTab) own their OWN resolver instances since their upload
+          handlers are gated on per-tab state. This one fires only for
+          drops that land outside an editor card. */}
+      <UniversalDuplicateDialog />
     </div>
   );
 }
@@ -2393,23 +2470,6 @@ function DetailsTab({
 
 type ContentSubTab = "markdown" | "pdfs";
 
-function splitFilenameExt(name: string): { stem: string; ext: string } {
-  const dot = name.lastIndexOf(".");
-  if (dot <= 0) return { stem: name, ext: "" };
-  return { stem: name.slice(0, dot), ext: name.slice(dot) };
-}
-
-async function pickUniqueFilename(dirPath: string, desired: string): Promise<string> {
-  const { stem, ext } = splitFilenameExt(desired);
-  let candidate = desired;
-  let n = 1;
-  while (await fileService.fileExists(`${dirPath}/${candidate}`)) {
-    candidate = `${stem}-${n}${ext}`;
-    n += 1;
-  }
-  return candidate;
-}
-
 function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; readOnly?: boolean; ownerUsername?: string }) {
   const [activeSubTab, setActiveSubTab] = useState<ContentSubTab>("markdown");
   const [content, setContent] = useState("");
@@ -2420,6 +2480,8 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
+  const { resolve: resolveDuplicates, DialogComponent: DuplicateDialog } =
+    useDuplicateResolver();
   const { currentUser } = useCurrentUser();
 
   // LabArchives-import rehydration banner state. Populated by an
@@ -2626,26 +2688,71 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
         setContent(split.notesContent);
         setOriginalContent(split.notesContent);
       }
+
+      // Per-file rename popup first, then batch duplicate-check.
+      const renamedFiles: File[] = [];
       for (const file of files) {
         if (!file.type.startsWith("image/")) continue;
         const renamedFile = await requestRename(file);
         if (!renamedFile) continue;
+        renamedFiles.push(renamedFile);
+      }
+
+      const imagesDir = `${tabBase}/Images`;
+      const existing = new Set(await fileService.listFiles(imagesDir));
+      const { uniqueFiles, collisions } = checkForDuplicates(
+        renamedFiles,
+        existing,
+      );
+
+      for (const file of uniqueFiles) {
         try {
           const { markdownSnippet } = await attachImageToTask({
             ownerUsername: task.owner,
             taskId: task.id,
             basePath: tabBase,
-            blob: renamedFile,
-            suggestedFilename: renamedFile.name,
+            blob: file,
+            suggestedFilename: file.name,
           });
           setContent((prev) => prev + markdownSnippet);
         } catch {
-          alert(`Failed to upload ${renamedFile.name}`);
+          alert(`Failed to upload ${file.name}`);
         }
       }
+
+      if (collisions.length > 0) {
+        const resolutions = await resolveDuplicates(collisions);
+        for (const info of collisions) {
+          const choice = resolutions.get(info.existingName);
+          if (!choice || choice.action === "cancel") continue;
+          const finalName =
+            choice.action === "rename"
+              ? (choice.newName ?? info.suggestedName)
+              : info.existingName;
+          try {
+            if (choice.action === "replace") {
+              await fileService.deleteFile(`${imagesDir}/${info.existingName}`);
+            }
+            const renamed = new File([info.file], finalName, {
+              type: info.file.type,
+            });
+            const { markdownSnippet } = await attachImageToTask({
+              ownerUsername: task.owner,
+              taskId: task.id,
+              basePath: tabBase,
+              blob: renamed,
+              suggestedFilename: finalName,
+            });
+            setContent((prev) => prev + markdownSnippet);
+          } catch {
+            alert(`Failed to upload ${finalName}`);
+          }
+        }
+      }
+
       setUploading(false);
     },
-    [content, ensureAttachmentsSplit, requestRename, tabBase, task.id, task.owner]
+    [content, ensureAttachmentsSplit, requestRename, resolveDuplicates, tabBase, task.id, task.owner]
   );
 
   const handleFileUpload = useCallback(
@@ -2658,21 +2765,54 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
         setOriginalContent(split.notesContent);
       }
       const filesDir = `${tabBase}/Files`;
+
+      const renamedFiles: File[] = [];
       for (const file of files) {
         const renamedFile = await requestRename(file);
         if (!renamedFile) continue;
+        renamedFiles.push(renamedFile);
+      }
+
+      const existing = new Set(await fileService.listFiles(filesDir));
+      const { uniqueFiles, collisions } = checkForDuplicates(
+        renamedFiles,
+        existing,
+      );
+
+      const writeOne = async (file: File, finalName: string) => {
+        const destPath = `${filesDir}/${finalName}`;
+        await fileService.writeFileFromBlob(destPath, file);
+        fileEvents.emitAttached({ basePath: tabBase, relativePath: `Files/${finalName}` });
+      };
+
+      for (const file of uniqueFiles) {
         try {
-          const finalName = await pickUniqueFilename(filesDir, renamedFile.name);
-          const destPath = `${filesDir}/${finalName}`;
-          await fileService.writeFileFromBlob(destPath, renamedFile);
-          fileEvents.emitAttached({ basePath: tabBase, relativePath: `Files/${finalName}` });
+          await writeOne(file, file.name);
         } catch {
-          alert(`Failed to upload ${renamedFile.name}`);
+          alert(`Failed to upload ${file.name}`);
         }
       }
+
+      if (collisions.length > 0) {
+        const resolutions = await resolveDuplicates(collisions);
+        for (const info of collisions) {
+          const choice = resolutions.get(info.existingName);
+          if (!choice || choice.action === "cancel") continue;
+          const finalName =
+            choice.action === "rename"
+              ? (choice.newName ?? info.suggestedName)
+              : info.existingName;
+          try {
+            await writeOne(info.file, finalName);
+          } catch {
+            alert(`Failed to upload ${finalName}`);
+          }
+        }
+      }
+
       setUploading(false);
     },
-    [content, ensureAttachmentsSplit, requestRename, tabBase]
+    [content, ensureAttachmentsSplit, requestRename, resolveDuplicates, tabBase]
   );
 
   const handleSave = useCallback(async () => {
@@ -2697,6 +2837,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
   return (
     <>
       <FileRenamePopup />
+      <DuplicateDialog />
       <div className="flex flex-col h-full">
         {/* Sub-tabs for Markdown and PDFs */}
         <div className="flex items-center gap-1 px-6 py-2 bg-gray-50 border-b border-gray-100">
@@ -2902,6 +3043,8 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
+  const { resolve: resolveDuplicates, DialogComponent: DuplicateDialog } =
+    useDuplicateResolver();
   const { currentUser } = useCurrentUser();
 
   // See LabNotesTab for the per-user / legacy fallback rules. `outerBase`
@@ -3053,26 +3196,70 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
         setContent(split.resultsContent);
         setOriginalContent(split.resultsContent);
       }
+
+      const renamedFiles: File[] = [];
       for (const file of files) {
         if (!file.type.startsWith("image/")) continue;
         const renamedFile = await requestRename(file);
         if (!renamedFile) continue;
+        renamedFiles.push(renamedFile);
+      }
+
+      const imagesDir = `${tabBase}/Images`;
+      const existing = new Set(await fileService.listFiles(imagesDir));
+      const { uniqueFiles, collisions } = checkForDuplicates(
+        renamedFiles,
+        existing,
+      );
+
+      for (const file of uniqueFiles) {
         try {
           const { markdownSnippet } = await attachImageToTask({
             ownerUsername: task.owner,
             taskId: task.id,
             basePath: tabBase,
-            blob: renamedFile,
-            suggestedFilename: renamedFile.name,
+            blob: file,
+            suggestedFilename: file.name,
           });
           setContent((prev) => prev + markdownSnippet);
         } catch {
-          alert(`Failed to upload ${renamedFile.name}`);
+          alert(`Failed to upload ${file.name}`);
         }
       }
+
+      if (collisions.length > 0) {
+        const resolutions = await resolveDuplicates(collisions);
+        for (const info of collisions) {
+          const choice = resolutions.get(info.existingName);
+          if (!choice || choice.action === "cancel") continue;
+          const finalName =
+            choice.action === "rename"
+              ? (choice.newName ?? info.suggestedName)
+              : info.existingName;
+          try {
+            if (choice.action === "replace") {
+              await fileService.deleteFile(`${imagesDir}/${info.existingName}`);
+            }
+            const renamed = new File([info.file], finalName, {
+              type: info.file.type,
+            });
+            const { markdownSnippet } = await attachImageToTask({
+              ownerUsername: task.owner,
+              taskId: task.id,
+              basePath: tabBase,
+              blob: renamed,
+              suggestedFilename: finalName,
+            });
+            setContent((prev) => prev + markdownSnippet);
+          } catch {
+            alert(`Failed to upload ${finalName}`);
+          }
+        }
+      }
+
       setUploading(false);
     },
-    [content, ensureAttachmentsSplit, requestRename, tabBase, task.id, task.owner]
+    [content, ensureAttachmentsSplit, requestRename, resolveDuplicates, tabBase, task.id, task.owner]
   );
 
   const handleFileUpload = useCallback(
@@ -3085,21 +3272,54 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
         setOriginalContent(split.resultsContent);
       }
       const filesDir = `${tabBase}/Files`;
+
+      const renamedFiles: File[] = [];
       for (const file of files) {
         const renamedFile = await requestRename(file);
         if (!renamedFile) continue;
+        renamedFiles.push(renamedFile);
+      }
+
+      const existing = new Set(await fileService.listFiles(filesDir));
+      const { uniqueFiles, collisions } = checkForDuplicates(
+        renamedFiles,
+        existing,
+      );
+
+      const writeOne = async (file: File, finalName: string) => {
+        const destPath = `${filesDir}/${finalName}`;
+        await fileService.writeFileFromBlob(destPath, file);
+        fileEvents.emitAttached({ basePath: tabBase, relativePath: `Files/${finalName}` });
+      };
+
+      for (const file of uniqueFiles) {
         try {
-          const finalName = await pickUniqueFilename(filesDir, renamedFile.name);
-          const destPath = `${filesDir}/${finalName}`;
-          await fileService.writeFileFromBlob(destPath, renamedFile);
-          fileEvents.emitAttached({ basePath: tabBase, relativePath: `Files/${finalName}` });
+          await writeOne(file, file.name);
         } catch {
-          alert(`Failed to upload ${renamedFile.name}`);
+          alert(`Failed to upload ${file.name}`);
         }
       }
+
+      if (collisions.length > 0) {
+        const resolutions = await resolveDuplicates(collisions);
+        for (const info of collisions) {
+          const choice = resolutions.get(info.existingName);
+          if (!choice || choice.action === "cancel") continue;
+          const finalName =
+            choice.action === "rename"
+              ? (choice.newName ?? info.suggestedName)
+              : info.existingName;
+          try {
+            await writeOne(info.file, finalName);
+          } catch {
+            alert(`Failed to upload ${finalName}`);
+          }
+        }
+      }
+
       setUploading(false);
     },
-    [content, ensureAttachmentsSplit, requestRename, tabBase]
+    [content, ensureAttachmentsSplit, requestRename, resolveDuplicates, tabBase]
   );
 
   const handleSave = useCallback(async () => {
@@ -3121,6 +3341,7 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
   return (
     <>
       <FileRenamePopup />
+      <DuplicateDialog />
       <div className="flex flex-col h-full">
         {/* Sub-tabs for Markdown and PDFs */}
         <div className="flex items-center gap-1 px-6 py-2 bg-gray-50 border-b border-gray-100">
