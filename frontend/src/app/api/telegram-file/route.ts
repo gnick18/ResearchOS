@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { safeFetch } from "@/lib/api/url-guards";
 
 /**
  * Server-side proxy for Telegram's file CDN.
@@ -14,9 +15,29 @@ import { NextRequest } from "next/server";
  * The bot token is passed via `x-telegram-token` header rather than a query
  * parameter so it doesn't end up in URL access logs. Token shape is
  * validated to keep this from being abused as a generic SSRF proxy.
+ *
+ * Defenses layered here:
+ *   - Token shape regex (numeric:base64-ish).
+ *   - File-path allowlist: only chars Telegram itself uses; no `..`, no
+ *     leading slash, no query/fragment splicing, no percent-encoding tricks.
+ *   - Final URL parsed via `new URL()` and asserted to live on `api.telegram.org`
+ *     even after construction.
+ *   - `safeFetch` enforces: HTTPS only, host pinned to api.telegram.org,
+ *     manual redirects re-validated through the same allowlist (3 hops max),
+ *     20 MiB body cap (Telegram's bot-API file cap), 30 s timeout,
+ *     content-type denylist (HTML / JS to keep this from being weaponised
+ *     as an XSS open-redirect via a malicious upstream).
  */
 
 const TOKEN_RE = /^\d+:[A-Za-z0-9_-]+$/;
+// Telegram file paths look like `photos/file_15.jpg`, `documents/file_42.pdf`,
+// `videos/file_3.mp4`, etc. Be strict: letters, digits, `_`, `-`, `.`, `/`.
+// No `..`, no leading `/`, no query/fragment characters, no percent-encoding
+// (so `%2e%2e` traversal can't sneak through).
+const TELEGRAM_PATH_RE = /^[A-Za-z0-9_./-]+$/;
+
+const TELEGRAM_FILE_HOST = "api.telegram.org";
+const MAX_TELEGRAM_FILE_BYTES = 20 * 1024 * 1024; // Bot API hard cap is 20 MB.
 
 export async function GET(req: NextRequest): Promise<Response> {
   const token = req.headers.get("x-telegram-token");
@@ -28,35 +49,68 @@ export async function GET(req: NextRequest): Promise<Response> {
   if (!TOKEN_RE.test(token)) {
     return new Response("Invalid token format", { status: 400 });
   }
-  // Telegram file paths look like `photos/file_15.jpg` or `documents/file_…`.
-  // Reject anything that could resolve outside that namespace.
-  if (path.startsWith("/") || path.includes("..")) {
+  if (
+    path.length === 0 ||
+    path.length > 512 ||
+    path.startsWith("/") ||
+    path.includes("..") ||
+    !TELEGRAM_PATH_RE.test(path)
+  ) {
     return new Response("Invalid path", { status: 400 });
   }
 
-  const upstream = await fetch(
-    `https://api.telegram.org/file/bot${token}/${path}`,
-    {
-      // The CDN doesn't honor a User-Agent override, but force a stable one
-      // anyway in case Vercel's outbound fetch surfaces something Telegram
-      // doesn't like by default.
-      headers: { "user-agent": "ResearchOS/1.0" },
-      cache: "no-store",
-    }
-  );
+  // Build the URL via `new URL` so the runtime parser, not string interpolation,
+  // determines the final host. Then re-assert the host as belt-and-suspenders;
+  // a malformed token wouldn't get this far thanks to TOKEN_RE, but parsing
+  // catches edge cases (e.g. unicode normalisation) we'd rather not chase.
+  let target: URL;
+  try {
+    target = new URL(`https://${TELEGRAM_FILE_HOST}/file/bot${token}/${path}`);
+  } catch {
+    return new Response("Invalid path", { status: 400 });
+  }
+  if (target.hostname !== TELEGRAM_FILE_HOST) {
+    return new Response("Invalid path", { status: 400 });
+  }
 
-  if (!upstream.ok || !upstream.body) {
-    return new Response(`Upstream returned ${upstream.status}`, {
-      status: upstream.status,
-    });
+  const result = await safeFetch(target.toString(), {
+    allowedSchemes: ["https:"],
+    allowedHosts: [TELEGRAM_FILE_HOST],
+    maxRedirects: 3,
+    maxBytes: MAX_TELEGRAM_FILE_BYTES,
+    timeoutMs: 30_000,
+    headers: { "user-agent": "ResearchOS/1.0" },
+    // Block content types that could become XSS vectors if a downstream
+    // caller naively opens the proxied URL in a new tab. The legitimate
+    // Telegram surface is images / video / audio / pdf / generic binaries,
+    // none of which need text/html or application/javascript.
+    forbiddenContentTypes: [
+      "text/html",
+      "application/xhtml+xml",
+      "application/javascript",
+      "text/javascript",
+      "application/ecmascript",
+      "text/ecmascript",
+      // SVG can execute scripts when loaded as a top-level document; the
+      // client only uses these via blob URLs in <img>, but denying SVG
+      // here is cheap defence-in-depth.
+      "image/svg+xml",
+    ],
+  });
+
+  if (!result.ok) {
+    return new Response(result.error, { status: result.status });
   }
 
   const headers = new Headers();
-  const contentType = upstream.headers.get("content-type");
+  const contentType = result.headers.get("content-type");
   if (contentType) headers.set("content-type", contentType);
-  const contentLength = upstream.headers.get("content-length");
+  const contentLength = result.headers.get("content-length");
   if (contentLength) headers.set("content-length", contentLength);
   headers.set("cache-control", "no-store");
+  // Defence in depth: even if a bad content-type slips through, tell the
+  // browser not to sniff it into something executable.
+  headers.set("x-content-type-options", "nosniff");
 
-  return new Response(upstream.body, { status: 200, headers });
+  return new Response(result.body, { status: 200, headers });
 }
