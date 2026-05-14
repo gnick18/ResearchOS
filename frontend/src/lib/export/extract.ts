@@ -1,0 +1,392 @@
+import type {
+  Method,
+  Project,
+  Task,
+  TaskMethodAttachment,
+} from "@/lib/types";
+import { fileService } from "@/lib/file-system/file-service";
+import {
+  findExistingTaskResultsBase,
+  tabScopedFolderHasContent,
+  taskResultsBase,
+} from "@/lib/tasks/results-paths";
+import { projectsApi, methodsApi, filesApi } from "@/lib/local-api";
+import { extractMarkdownRefs } from "./markdown";
+import type {
+  AttachmentOrigin,
+  ExperimentAttachment,
+  ExperimentExportPayload,
+  MethodPayload,
+} from "./types";
+
+export interface ExtractDeps {
+  projectsApi: typeof projectsApi;
+  methodsApi: typeof methodsApi;
+  filesApi: typeof filesApi;
+}
+
+// Base64-encoded PDF magic bytes (`%PDF-`). `filesApi.readFile` returns a
+// base64 string for non-UTF-8 bytes (see `readBlobAsText` in local-api.ts),
+// so a markdown-typed method whose `source_path` was overwritten with a PDF
+// surfaces here. Treat those as PDF methods instead of inlining gibberish.
+const PDF_BASE64_PREFIX = "JVBERi0";
+
+const MIME_BY_EXT: Record<string, string> = {
+  pdf: "application/pdf",
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  svg: "image/svg+xml",
+  tiff: "image/tiff",
+  tif: "image/tiff",
+  bmp: "image/bmp",
+  heic: "image/heic",
+  txt: "text/plain",
+  md: "text/markdown",
+  csv: "text/csv",
+  json: "application/json",
+  xml: "application/xml",
+  html: "text/html",
+  zip: "application/zip",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ppt: "application/vnd.ms-powerpoint",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  fcs: "application/octet-stream",
+};
+
+function mimeFromFilename(filename: string): string {
+  const dot = filename.lastIndexOf(".");
+  if (dot < 0) return "application/octet-stream";
+  const ext = filename.slice(dot + 1).toLowerCase();
+  return MIME_BY_EXT[ext] ?? "application/octet-stream";
+}
+
+function base64ToArrayBuffer(b64: string): ArrayBuffer {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+
+async function readTextSafe(path: string): Promise<string | null> {
+  try {
+    const blob = await fileService.readFileAsBlob(path);
+    if (!blob) return null;
+    return await blob.text();
+  } catch (err) {
+    console.warn(`[export.extract] failed to read ${path}:`, err);
+    return null;
+  }
+}
+
+async function readBytesSafe(path: string): Promise<ArrayBuffer | null> {
+  try {
+    const blob = await fileService.readFileAsBlob(path);
+    if (!blob) return null;
+    return await blob.arrayBuffer();
+  } catch (err) {
+    console.warn(`[export.extract] failed to read bytes for ${path}:`, err);
+    return null;
+  }
+}
+
+/**
+ * Read every file under `${attachmentBase}/${subdir}` and return one
+ * `ExperimentAttachment` per filename. Caller is responsible for filtering
+ * the result against the markdown body refs.
+ */
+async function collectAttachmentsFromDir(
+  attachmentBase: string,
+  subdir: "Images" | "Files",
+  origin: AttachmentOrigin
+): Promise<ExperimentAttachment[]> {
+  const dirPath = `${attachmentBase}/${subdir}`;
+  let names: string[] = [];
+  try {
+    names = await fileService.listFiles(dirPath);
+  } catch {
+    return [];
+  }
+  const out: ExperimentAttachment[] = [];
+  for (const name of names) {
+    if (name.startsWith(".")) continue;
+    const bytes = await readBytesSafe(`${dirPath}/${name}`);
+    if (!bytes) continue;
+    out.push({
+      filename: name,
+      mimeType: mimeFromFilename(name),
+      bytes,
+      origin,
+      diskRef: `${subdir}/${name}`,
+    });
+  }
+  return out;
+}
+
+/**
+ * For a single tab (`notes` or `results`), figure out which folder actually
+ * holds attachments and return Images + Files from it. If the per-tab folder
+ * is empty, fall back to the legacy outer base (`${outerBase}/Files` +
+ * `${outerBase}/Images`). The fallback is only used when the per-tab folder
+ * is empty — do NOT merge both, per the plan §1 (the legacy folder is the
+ * pre-isolation shared layout and is in the process of being migrated).
+ */
+async function collectTabAttachments(
+  outerBase: string,
+  tab: "notes" | "results"
+): Promise<ExperimentAttachment[]> {
+  const origin: AttachmentOrigin = tab;
+  const tabBase = `${outerBase}/${tab}`;
+  if (await tabScopedFolderHasContent(tabBase)) {
+    return [
+      ...(await collectAttachmentsFromDir(tabBase, "Images", origin)),
+      ...(await collectAttachmentsFromDir(tabBase, "Files", origin)),
+    ];
+  }
+  // Legacy fallback: pre-isolation tasks stored every tab's attachments in
+  // the outer `Files/` and `Images/` folders. Tag with the requested origin
+  // anyway — the Files-appendix label is still correct ("from Lab Notes" /
+  // "from Results") because the body that's referencing them is the right
+  // tab's body.
+  return [
+    ...(await collectAttachmentsFromDir(outerBase, "Images", origin)),
+    ...(await collectAttachmentsFromDir(outerBase, "Files", origin)),
+  ];
+}
+
+function filterByBodyRefs(
+  attachments: ExperimentAttachment[],
+  body: string | null
+): ExperimentAttachment[] {
+  if (!body) return [];
+  const refImages = extractMarkdownRefs(body, "Images");
+  const refFiles = extractMarkdownRefs(body, "Files");
+  return attachments.filter((a) => {
+    const expected = a.diskRef.startsWith("Images/") ? refImages : refFiles;
+    return expected.has(a.filename);
+  });
+}
+
+/**
+ * Resolve the Project record for the task. For shared tasks (`is_shared_with_me`),
+ * read from the owner's directory so the export reflects the project the task
+ * actually lives in, not whatever the receiver happens to have a project_id
+ * collision with.
+ */
+async function resolveProject(
+  task: Task,
+  deps: ExtractDeps
+): Promise<Project> {
+  const owner = task.is_shared_with_me ? task.owner : undefined;
+  const project = await deps.projectsApi.get(task.project_id, owner);
+  if (project) return project;
+  // Fall back to a synthetic placeholder so the export still renders. The
+  // title page will read "—" for the project name.
+  return {
+    id: task.project_id,
+    name: "(Unknown project)",
+    weekend_active: false,
+    tags: null,
+    color: null,
+    created_at: "",
+    sort_order: 0,
+    is_archived: false,
+    archived_at: null,
+    owner: task.owner,
+    shared_with: [],
+  };
+}
+
+async function buildMethodPayload(
+  methodId: number,
+  taskAttachments: TaskMethodAttachment[],
+  deps: ExtractDeps,
+  task: Task
+): Promise<{
+  payload: MethodPayload | null;
+  pdfAttachment: ExperimentAttachment | null;
+}> {
+  const method = await deps.methodsApi.get(
+    methodId,
+    task.is_shared_with_me ? task.owner : undefined
+  );
+  if (!method) return { payload: null, pdfAttachment: null };
+
+  const attachment =
+    taskAttachments.find((a) => a.method_id === methodId) ?? null;
+
+  let bodyMarkdown: string | null = null;
+  let pdfAttachment: ExperimentAttachment | null = null;
+
+  if (method.method_type === "markdown" && method.source_path) {
+    try {
+      const file = await deps.filesApi.readFile(method.source_path);
+      const content = file.content;
+      if (content.startsWith(PDF_BASE64_PREFIX)) {
+        // A PDF stashed at the markdown path — fold into the attachment list
+        // so the PDF generator surfaces it via the Files appendix instead of
+        // dumping base64 into the body.
+        const filename = method.source_path.split("/").pop() ?? `method-${method.id}.pdf`;
+        pdfAttachment = {
+          filename,
+          mimeType: "application/pdf",
+          bytes: base64ToArrayBuffer(content),
+          origin: "methods",
+          diskRef: filename,
+        };
+      } else {
+        bodyMarkdown = content;
+      }
+    } catch (err) {
+      console.warn(
+        `[export.extract] failed to read markdown method ${method.id} (${method.source_path}):`,
+        err
+      );
+    }
+  } else if (method.method_type === "pdf" && method.source_path) {
+    try {
+      const file = await deps.filesApi.readFile(method.source_path);
+      const filename = method.source_path.split("/").pop() ?? `method-${method.id}.pdf`;
+      const bytes = file.content.startsWith(PDF_BASE64_PREFIX)
+        ? base64ToArrayBuffer(file.content)
+        : new TextEncoder().encode(file.content).buffer;
+      pdfAttachment = {
+        filename,
+        mimeType: "application/pdf",
+        bytes,
+        origin: "methods",
+        diskRef: filename,
+      };
+    } catch (err) {
+      console.warn(
+        `[export.extract] failed to read PDF method ${method.id} (${method.source_path}):`,
+        err
+      );
+    }
+  }
+  // For PCR methods, both `bodyMarkdown` and `pdfAttachment` stay null —
+  // the generator renders the protocol from the Method record itself plus
+  // any per-task overrides in `attachment.pcr_gradient` / `.pcr_ingredients`.
+
+  return {
+    payload: { method, bodyMarkdown, attachment },
+    pdfAttachment,
+  };
+}
+
+function dedupeAttachments(
+  attachments: ExperimentAttachment[]
+): ExperimentAttachment[] {
+  const seen = new Set<string>();
+  const out: ExperimentAttachment[] = [];
+  for (const a of attachments) {
+    const key = `${a.origin}:${a.filename}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(a);
+  }
+  return out;
+}
+
+function methodTypeLabel(method: Method): string {
+  return method.name;
+}
+
+function statusLabel(task: Task): string {
+  return task.is_complete ? "Complete" : "In Progress";
+}
+
+function computeDurationDays(task: Task): number {
+  if (typeof task.duration_days === "number" && task.duration_days > 0) {
+    return task.duration_days;
+  }
+  return 1;
+}
+
+/**
+ * Build the complete `ExperimentExportPayload` for one task. Reads every
+ * required file off disk and returns a pure data object — no DOM, no I/O
+ * once it resolves. Format generators consume this verbatim.
+ *
+ * `currentUser` is the logged-in user; it isn't passed through directly but
+ * is reserved here so the signature can grow (e.g. credential-scoped reads)
+ * without breaking callers.
+ */
+export async function buildExperimentPayload(
+  task: Task,
+  currentUser: string,
+  deps: ExtractDeps
+): Promise<ExperimentExportPayload> {
+  void currentUser; // reserved for future scoping; signature is the contract.
+
+  const resolvedBase =
+    (await findExistingTaskResultsBase(task)) ?? taskResultsBase(task);
+
+  const [notesMarkdown, resultsMarkdown] = await Promise.all([
+    readTextSafe(`${resolvedBase}/notes.md`),
+    readTextSafe(`${resolvedBase}/results.md`),
+  ]);
+
+  const [notesAttachmentsRaw, resultsAttachmentsRaw] = await Promise.all([
+    collectTabAttachments(resolvedBase, "notes"),
+    collectTabAttachments(resolvedBase, "results"),
+  ]);
+
+  // Critical filter: only keep attachments that are actually referenced by
+  // the matching tab's markdown body. Otherwise the export bundles every
+  // file ever dropped into the folder — including stuff the user removed
+  // from the body but left in the orphan-GC window.
+  const notesAttachments = filterByBodyRefs(notesAttachmentsRaw, notesMarkdown);
+  const resultsAttachments = filterByBodyRefs(
+    resultsAttachmentsRaw,
+    resultsMarkdown
+  );
+
+  const methodIds = task.method_ids ?? [];
+  const methodAttachmentsForTask = task.method_attachments ?? [];
+
+  const methods: MethodPayload[] = [];
+  const methodFileAttachments: ExperimentAttachment[] = [];
+  for (const id of methodIds) {
+    const { payload, pdfAttachment } = await buildMethodPayload(
+      id,
+      methodAttachmentsForTask,
+      deps,
+      task
+    );
+    if (payload) methods.push(payload);
+    if (pdfAttachment) methodFileAttachments.push(pdfAttachment);
+  }
+
+  const project = await resolveProject(task, deps);
+
+  const attachments = dedupeAttachments([
+    ...notesAttachments,
+    ...resultsAttachments,
+    ...methodFileAttachments,
+  ]);
+
+  const meta: ExperimentExportPayload["meta"] = {
+    ownerLabel: task.owner || "—",
+    durationDays: computeDurationDays(task),
+    statusLabel: statusLabel(task),
+    methodNames: methods.map((m) => methodTypeLabel(m.method)),
+    exportedAt: new Date().toISOString(),
+  };
+
+  return {
+    task,
+    project,
+    resolvedBase,
+    notesMarkdown,
+    resultsMarkdown,
+    methods,
+    attachments,
+    meta,
+  };
+}
