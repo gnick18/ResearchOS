@@ -34,6 +34,9 @@ import { safeFetch } from "@/lib/api/url-guards";
  */
 
 const MAX_ICS_BYTES = 10 * 1024 * 1024;
+// Plausible ICS share-URLs are well under a kilobyte. Cap the input to keep
+// pathologically long inputs from doing log-blow-up or regex work upstream.
+const MAX_URL_LENGTH = 2048;
 
 function normalizeUrl(input: string): string {
   // iCloud share links arrive as `webcal://` — same wire protocol as HTTPS for
@@ -47,6 +50,9 @@ export async function GET(req: NextRequest): Promise<Response> {
   const raw = req.nextUrl.searchParams.get("url");
   if (!raw) {
     return new Response("Missing url query parameter", { status: 400 });
+  }
+  if (raw.length > MAX_URL_LENGTH) {
+    return new Response("URL too long", { status: 414 });
   }
 
   const normalized = normalizeUrl(raw);
@@ -72,7 +78,14 @@ export async function GET(req: NextRequest): Promise<Response> {
   });
 
   if (!result.ok) {
-    return new Response(result.error, { status: result.status });
+    // Don't leak `result.error` (internal node messages, byte counts, upstream
+    // status codes, "Host failed DNS resolution", etc.) to the client. The
+    // status code is enough; log the detail server-side.
+    console.warn("[calendar-feed] upstream failed", {
+      status: result.status,
+      error: result.error,
+    });
+    return new Response(genericErrorMessage(result.status), { status: result.status });
   }
 
   // Drain to text behind a try/catch: the stream errors with `Response exceeds
@@ -84,7 +97,8 @@ export async function GET(req: NextRequest): Promise<Response> {
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown stream error";
     const status = msg.includes("exceeds") ? 413 : 502;
-    return new Response(`Upstream body read failed: ${msg}`, { status });
+    console.warn("[calendar-feed] body drain failed", { status, msg });
+    return new Response(genericErrorMessage(status), { status });
   }
 
   // Loose sanity check: published iCal feeds begin with `BEGIN:VCALENDAR`,
@@ -109,4 +123,16 @@ export async function GET(req: NextRequest): Promise<Response> {
       "x-content-type-options": "nosniff",
     },
   });
+}
+
+function genericErrorMessage(status: number): string {
+  if (status === 400) return "Bad request";
+  if (status === 403) return "Forbidden";
+  if (status === 404) return "Upstream not found";
+  if (status === 413) return "Response too large";
+  if (status === 414) return "URL too long";
+  if (status === 415) return "Unsupported response content type";
+  if (status === 422) return "Upstream did not return an iCal feed";
+  if (status === 504) return "Upstream timed out";
+  return "Upstream fetch failed";
 }
