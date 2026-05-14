@@ -54,6 +54,10 @@ import type {
   Notification,
   SharedItemNotification,
   EventReminderNotification,
+  ShiftAlertNotification,
+  ShiftedAlertEntry,
+  ShiftedAlertsFile,
+  SeenShiftAlertsFile,
 } from "./types";
 
 const projectsStore = new JsonStore<Project>("projects");
@@ -334,7 +338,14 @@ export const tasksApi = {
 
   move: async (id: number, data: TaskMoveRequest, owner?: string): Promise<ShiftResult> => {
     const newStartDate = parseDate(data.new_start_date);
-    return shiftTask(id, newStartDate, data.confirmed ?? false, owner);
+    const result = await shiftTask(id, newStartDate, data.confirmed ?? false, owner);
+    // Append a `_shifted-alerts.json` entry for every affected task that's
+    // shared with someone, so receivers can decide whether to realign their
+    // own dependent work on their next load. Best-effort; never throws.
+    if (!result.requires_confirmation) {
+      await recordShiftAlerts(result, owner);
+    }
+    return result;
   },
   
   replicate: async (id: number, count: number, offsetDays: number): Promise<Task[]> => {
@@ -1406,6 +1417,144 @@ async function writeSharedWithMe(username: string, data: SharedManifest): Promis
   await fileService.writeJson(`users/${username}/_shared_with_me.json`, data);
 }
 
+// ── Shift-alert sidecars ────────────────────────────────────────────────────
+//
+// Cross-user shift propagation is "notify-on-receive" (Option C). When alex
+// shifts a task that's been shared with morgan, the cascade STAYS in alex's
+// namespace (the ownership invariant we don't want to break); morgan instead
+// learns at her next load that the task moved and can decide whether to
+// realign her own dependents.
+//
+// Two sidecars cooperate to keep that loop local-first and cycle-safe:
+//   - `users/<owner>/_shifted-alerts.json` is append-only on the writer
+//     (owner) side. Every `tasksApi.move` that mutates a task with
+//     `shared_with.length > 0` appends one entry.
+//   - `users/<receiver>/_seen-shift-alerts.json` is the receiver's
+//     dedup ledger — UUIDs of alerts she has already acted on or dismissed.
+//
+// The receiver-side scan (`sharingApi.scanShiftAlerts`) reads each owner's
+// alert sidecar based on the receiver's `_shared_with_me.json`, filters out
+// already-seen IDs, and synthesizes `ShiftAlertNotification` entries into
+// the receiver's own `_notifications.json`. The receiver never writes back
+// to the owner's sidecar; nothing the owner writes is mutated cross-user.
+//
+// See AGENTS.md §6 "Cross-user dependency cascade is namespace-bounded" for
+// why the cascade itself remains intra-namespace and this sidecar exists.
+
+const SHIFTED_ALERTS_FILENAME = "_shifted-alerts.json";
+const SEEN_SHIFT_ALERTS_FILENAME = "_seen-shift-alerts.json";
+
+async function readShiftedAlerts(owner: string): Promise<ShiftedAlertsFile> {
+  const path = `users/${owner}/${SHIFTED_ALERTS_FILENAME}`;
+  const data = await fileService.readJson<Partial<ShiftedAlertsFile>>(path);
+  return {
+    version: 1,
+    alerts: data?.alerts ?? [],
+  };
+}
+
+async function writeShiftedAlerts(owner: string, data: ShiftedAlertsFile): Promise<void> {
+  await fileService.writeJson(`users/${owner}/${SHIFTED_ALERTS_FILENAME}`, data);
+}
+
+async function readSeenShiftAlerts(username: string): Promise<SeenShiftAlertsFile> {
+  const path = `users/${username}/${SEEN_SHIFT_ALERTS_FILENAME}`;
+  const data = await fileService.readJson<Partial<SeenShiftAlertsFile>>(path);
+  return {
+    version: 1,
+    seen_ids: data?.seen_ids ?? [],
+  };
+}
+
+async function writeSeenShiftAlerts(username: string, data: SeenShiftAlertsFile): Promise<void> {
+  await fileService.writeJson(`users/${username}/${SEEN_SHIFT_ALERTS_FILENAME}`, data);
+}
+
+function newAlertId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function daysBetween(fromIso: string, toIso: string): number {
+  // Both inputs are YYYY-MM-DD; treat as local-noon to avoid TZ drift in the
+  // delta computation. Returns whole-day delta (toIso - fromIso).
+  const from = new Date(`${fromIso}T12:00:00`);
+  const to = new Date(`${toIso}T12:00:00`);
+  const diffMs = to.getTime() - from.getTime();
+  return Math.round(diffMs / 86400000);
+}
+
+/**
+ * Append `_shifted-alerts.json` entries for every affected task that has
+ * recipients in `shared_with`. Called from `tasksApi.move` after `shiftTask`
+ * returns. Silent on no-op (zero shared affected tasks); never throws —
+ * sidecar failure must not break the shift itself.
+ *
+ * `namespaceOwner` is whose directory we write into:
+ *   - `undefined` → current user's namespace (owner is shifting their own task)
+ *   - `<username>` → that user's namespace (receiver shifting a shared task
+ *     via edit permission; the cascade ran in `<username>`'s data and the
+ *     alerts belong to that namespace too)
+ *
+ * Note: this writes ONE sidecar update per shift call, regardless of how
+ * many tasks in the cascade are shared. The append-only file grows by
+ * `affected_tasks_with_shares` entries per shift. Pruning is receiver-side
+ * via `_seen-shift-alerts.json`; owners may occasionally compact stale
+ * entries but it isn't required for correctness.
+ */
+async function recordShiftAlerts(
+  shiftResult: ShiftResult,
+  namespaceOwner: string | undefined
+): Promise<void> {
+  try {
+    if (shiftResult.affected_tasks.length === 0) return;
+
+    const owner = namespaceOwner ?? (await getCurrentUserCached());
+    if (!owner) return;
+    const shiftedByUser = await getCurrentUserCached();
+
+    const entries: ShiftedAlertEntry[] = [];
+    const shiftedAtIso = new Date().toISOString();
+
+    for (const affected of shiftResult.affected_tasks) {
+      const onDisk = await tasksStore.getForUser(affected.task_id, owner);
+      if (!onDisk) continue;
+      if (!onDisk.shared_with || onDisk.shared_with.length === 0) continue;
+      if (affected.old_start === affected.new_start && affected.old_end === affected.new_end) {
+        // No-op dates (e.g. a shift that resolved to the same weekday after
+        // weekend-skip). Don't surface as an alert.
+        continue;
+      }
+      entries.push({
+        id: newAlertId(),
+        task_id: affected.task_id,
+        task_key: `${owner}:${affected.task_id}`,
+        task_name: affected.name,
+        start_delta_days: daysBetween(affected.old_start, affected.new_start),
+        end_delta_days: daysBetween(affected.old_end, affected.new_end),
+        old_start: affected.old_start,
+        old_end: affected.old_end,
+        new_start: affected.new_start,
+        new_end: affected.new_end,
+        shifted_at: shiftedAtIso,
+        shifted_by_user: shiftedByUser ?? owner,
+      });
+    }
+
+    if (entries.length === 0) return;
+
+    const file = await readShiftedAlerts(owner);
+    file.alerts.push(...entries);
+    await writeShiftedAlerts(owner, file);
+  } catch (err) {
+    // Sidecar writes are best-effort. Surfacing the error here would
+    // mask a successful shift behind a notification-system bug, which
+    // is worse than the missed alert.
+    console.warn("[shift-alerts] failed to record alerts:", err);
+  }
+}
+
 async function readNotificationsFile(username: string): Promise<NotificationFile> {
   const path = `users/${username}/_notifications.json`;
   const data = await fileService.readJson<Partial<NotificationFile>>(path);
@@ -1779,6 +1928,141 @@ export const sharingApi = {
     file.notifications.push(notification);
     await writeNotificationsFile(currentUser, file);
     return notification;
+  },
+
+  /**
+   * Receiver-side: scan owners' `_shifted-alerts.json` sidecars for shifts
+   * to tasks shared *with* the current user (via `_shared_with_me.json`),
+   * dedup against the current user's `_seen-shift-alerts.json`, and
+   * synthesize a `ShiftAlertNotification` in the current user's
+   * `_notifications.json` for each new alert.
+   *
+   * Idempotent: calling repeatedly without new owner-side alerts is a no-op
+   * (the seen-list grows by every alert the receiver has acknowledged into
+   * a notification — even if she hasn't yet dismissed the notification — so
+   * we don't re-mint duplicates on every load).
+   *
+   * Best-effort: errors are swallowed and logged. A failure in one owner's
+   * sidecar shouldn't block the rest.
+   *
+   * Returns the count of newly minted notifications so callers (e.g.
+   * AppShell) can show a "+N" toast or simply refresh their unread count.
+   */
+  scanShiftAlerts: async (): Promise<{ new_notification_count: number }> => {
+    const currentUser = await getCurrentUserCached();
+    if (!currentUser) return { new_notification_count: 0 };
+
+    // Build the set of (owner, taskId) pairs the current user is receiving
+    // shares for. The alert.task_key is "<owner>:<id>"; the receiver only
+    // cares about alerts whose key is in this set.
+    const manifest = await readSharedWithMe(currentUser);
+    const receiverShareKeys = new Set<string>();
+    const ownersToScan = new Set<string>();
+    for (const entry of manifest.tasks) {
+      receiverShareKeys.add(`${entry.owner}:${entry.id}`);
+      ownersToScan.add(entry.owner);
+    }
+    // Also include the current user's OWN namespace — alex still wants to
+    // know if morgan (with edit permission) shifted alex's task. The
+    // `shifted_by_user !== currentUser` filter below avoids self-noise.
+    ownersToScan.add(currentUser);
+
+    if (ownersToScan.size === 0) {
+      return { new_notification_count: 0 };
+    }
+
+    // Load seen-list once; we'll write back at the end if anything changed.
+    const seenFile = await readSeenShiftAlerts(currentUser);
+    const seenIds = new Set(seenFile.seen_ids);
+    const initialSeenCount = seenIds.size;
+
+    // Aggregate new notifications across owners, then write once.
+    const notificationsFile = await readNotificationsFile(currentUser);
+    let minted = 0;
+
+    for (const owner of ownersToScan) {
+      try {
+        const alertsFile = await readShiftedAlerts(owner);
+        for (const alert of alertsFile.alerts) {
+          if (seenIds.has(alert.id)) continue;
+          // Skip self-authored shifts — alex doesn't need to notify herself
+          // that she just moved her own task.
+          if (alert.shifted_by_user === currentUser) {
+            seenIds.add(alert.id);
+            continue;
+          }
+          // For owner === currentUser, accept all alerts in that namespace
+          // (someone else with edit permission shifted alex's task).
+          // For other owners, gate on the receiver's `_shared_with_me`
+          // entry: morgan should only see alerts for tasks actually shared
+          // with her, not every shift alex ever made.
+          if (owner !== currentUser && !receiverShareKeys.has(alert.task_key)) {
+            continue;
+          }
+          const notification: ShiftAlertNotification = {
+            id: newAlertId(),
+            type: "shift_alert",
+            from_user: alert.shifted_by_user,
+            item_id: alert.task_id,
+            task_key: alert.task_key,
+            item_name: alert.task_name,
+            source_alert_id: alert.id,
+            start_delta_days: alert.start_delta_days,
+            end_delta_days: alert.end_delta_days,
+            old_start: alert.old_start,
+            old_end: alert.old_end,
+            new_start: alert.new_start,
+            new_end: alert.new_end,
+            created_at: new Date().toISOString(),
+            read: false,
+          };
+          notificationsFile.notifications.push(notification);
+          seenIds.add(alert.id);
+          minted += 1;
+        }
+      } catch (err) {
+        console.warn(`[shift-alerts] scan failed for owner=${owner}:`, err);
+      }
+    }
+
+    if (minted > 0) {
+      await writeNotificationsFile(currentUser, notificationsFile);
+    }
+    if (seenIds.size !== initialSeenCount) {
+      await writeSeenShiftAlerts(currentUser, {
+        version: 1,
+        seen_ids: Array.from(seenIds),
+      });
+    }
+
+    return { new_notification_count: minted };
+  },
+
+  /**
+   * Receiver-side: mark a synthesized `ShiftAlertNotification` as
+   * "handled" (acted on or ignored). Removes it from the inbox AND ensures
+   * the underlying `source_alert_id` won't re-mint on the next
+   * `scanShiftAlerts`. Idempotent.
+   */
+  dismissShiftAlert: async (
+    notificationId: string
+  ): Promise<{ status: string; notification_id: string }> => {
+    const currentUser = await getCurrentUserCached();
+    const file = await readNotificationsFile(currentUser);
+    const target = file.notifications.find(
+      (n) => n.id === notificationId && n.type === "shift_alert"
+    );
+    file.notifications = file.notifications.filter((n) => n.id !== notificationId);
+    await writeNotificationsFile(currentUser, file);
+
+    if (target && target.type === "shift_alert") {
+      const seenFile = await readSeenShiftAlerts(currentUser);
+      if (!seenFile.seen_ids.includes(target.source_alert_id)) {
+        seenFile.seen_ids.push(target.source_alert_id);
+        await writeSeenShiftAlerts(currentUser, seenFile);
+      }
+    }
+    return { status: "ok", notification_id: notificationId };
   },
 };
 
