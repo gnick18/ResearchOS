@@ -185,7 +185,10 @@ export default function FileStrip({
                 e.dataTransfer.setData(FILE_STRIP_DRAG_MIME, JSON.stringify(payload));
                 e.dataTransfer.setData(
                   "text/plain",
-                  `[${entry.filename}](Files/${entry.filename})`
+                  // URL-encode just the filename so spaces (and other reserved
+                  // chars) produce a CommonMark-valid link destination when
+                  // the receiving editor falls back to the text/plain payload.
+                  `[${entry.filename}](Files/${encodeURIComponent(entry.filename)})`
                 );
                 e.dataTransfer.effectAllowed = "copyMove";
                 fileEvents.emitDragStart({
