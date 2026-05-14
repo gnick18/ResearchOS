@@ -28,6 +28,13 @@ import type {
   ExportResult,
   MethodPayload,
 } from "./types";
+import type {
+  PCRCycle,
+  PCRGradient,
+  PCRIngredient,
+  PCRProtocol,
+  PCRStep,
+} from "@/lib/types";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -237,6 +244,47 @@ export async function buildPdf(
       fontSize: 10,
       fontFamily: "Inter", fontWeight: "bold",
       backgroundColor: "#f3f3f3",
+    },
+
+    pcrCycleHeaderRow: {
+      flexDirection: "row",
+      backgroundColor: "#eff6ff",
+      borderTopWidth: 1,
+      borderTopColor: "#0066cc",
+      borderTopStyle: "solid",
+      borderBottomWidth: 1,
+      borderBottomColor: "#dddddd",
+      borderBottomStyle: "solid",
+    },
+    pcrCycleHeaderCell: {
+      flex: 1,
+      padding: 4,
+      fontSize: 10,
+      fontFamily: "Inter", fontWeight: "bold",
+      color: "#0066cc",
+    },
+    pcrCycleStepIndent: { paddingLeft: 14 },
+    pcrHoldRow: {
+      flexDirection: "row",
+      borderBottomWidth: 1,
+      borderBottomColor: "#dddddd",
+      borderBottomStyle: "solid",
+      backgroundColor: "#f9fafb",
+    },
+    pcrTable: { marginBottom: 10 },
+    pcrNotes: {
+      fontSize: 10,
+      color: "#666",
+      fontStyle: "italic",
+      marginTop: 4,
+      marginBottom: 10,
+    },
+    pcrDeviationHeading: {
+      fontSize: 11,
+      fontFamily: "Inter", fontWeight: "bold",
+      color: "#92400e",
+      marginTop: 8,
+      marginBottom: 4,
     },
   });
 
@@ -753,6 +801,213 @@ export async function buildPdf(
     );
   }
 
+  // ── PCR rendering ────────────────────────────────────────────────────────
+
+  function formatTemperature(t: number): string {
+    return `${t}°C`;
+  }
+
+  function renderPcrStepRow(
+    step: PCRStep,
+    key: string,
+    indent: boolean,
+  ): React.ReactNode {
+    const firstCellStyle = indent
+      ? [styles.tableCell, styles.pcrCycleStepIndent]
+      : styles.tableCell;
+    return h(
+      View,
+      { key, style: styles.tableRow, wrap: false },
+      h(Text, { style: firstCellStyle }, step.name),
+      h(Text, { style: styles.tableCell }, formatTemperature(step.temperature)),
+      h(Text, { style: styles.tableCell }, step.duration),
+    );
+  }
+
+  function renderPcrHoldRow(step: PCRStep, key: string): React.ReactNode {
+    return h(
+      View,
+      { key, style: styles.pcrHoldRow, wrap: false },
+      h(Text, { style: styles.tableCell }, step.name),
+      h(Text, { style: styles.tableCell }, formatTemperature(step.temperature)),
+      h(Text, { style: styles.tableCell }, step.duration),
+    );
+  }
+
+  function renderPcrGradientTable(
+    gradient: PCRGradient,
+    keyPrefix: string,
+  ): React.ReactNode {
+    const rows: React.ReactNode[] = [];
+    rows.push(
+      h(
+        View,
+        { key: `${keyPrefix}-head`, style: styles.tableRow, wrap: false },
+        h(Text, { style: styles.tableCellHeader }, "Step"),
+        h(Text, { style: styles.tableCellHeader }, "Temperature"),
+        h(Text, { style: styles.tableCellHeader }, "Duration"),
+      ),
+    );
+    gradient.initial.forEach((s, i) =>
+      rows.push(renderPcrStepRow(s, `${keyPrefix}-init-${i}`, false)),
+    );
+    gradient.cycles.forEach((cycle: PCRCycle, ci: number) => {
+      const repeats = Number.isFinite(cycle.repeats) ? cycle.repeats : 1;
+      rows.push(
+        h(
+          View,
+          {
+            key: `${keyPrefix}-c${ci}-header`,
+            style: styles.pcrCycleHeaderRow,
+            wrap: false,
+          },
+          h(
+            Text,
+            { style: styles.pcrCycleHeaderCell },
+            `Cycle ${ci + 1} — ${repeats}×`,
+          ),
+        ),
+      );
+      cycle.steps.forEach((s, si) =>
+        rows.push(renderPcrStepRow(s, `${keyPrefix}-c${ci}-s${si}`, true)),
+      );
+    });
+    gradient.final.forEach((s, i) =>
+      rows.push(renderPcrStepRow(s, `${keyPrefix}-fin-${i}`, false)),
+    );
+    if (gradient.hold) {
+      rows.push(renderPcrHoldRow(gradient.hold, `${keyPrefix}-hold`));
+    }
+    return h(
+      View,
+      { key: keyPrefix, style: styles.pcrTable },
+      ...rows,
+    );
+  }
+
+  function renderPcrIngredientsTable(
+    ingredients: PCRIngredient[],
+    keyPrefix: string,
+  ): React.ReactNode {
+    if (ingredients.length === 0) {
+      return h(
+        Text,
+        { key: `${keyPrefix}-empty`, style: styles.methodIntro },
+        "No reagents recorded for this protocol.",
+      );
+    }
+    const rows: React.ReactNode[] = [
+      h(
+        View,
+        { key: `${keyPrefix}-head`, style: styles.tableRow, wrap: false },
+        h(Text, { style: styles.tableCellHeader }, "Reagent"),
+        h(Text, { style: styles.tableCellHeader }, "Concentration"),
+        h(Text, { style: styles.tableCellHeader }, "Volume / reaction"),
+      ),
+    ];
+    ingredients.forEach((ing, i) =>
+      rows.push(
+        h(
+          View,
+          { key: `${keyPrefix}-r${i}`, style: styles.tableRow, wrap: false },
+          h(Text, { style: styles.tableCell }, ing.name),
+          h(Text, { style: styles.tableCell }, ing.concentration),
+          h(Text, { style: styles.tableCell }, `${ing.amount_per_reaction} μL`),
+        ),
+      ),
+    );
+    return h(View, { key: keyPrefix, style: styles.pcrTable }, ...rows);
+  }
+
+  function parseGradientOverride(json: string): PCRGradient | null {
+    try {
+      const parsed = JSON.parse(json) as PCRGradient;
+      if (
+        parsed &&
+        Array.isArray(parsed.initial) &&
+        Array.isArray(parsed.cycles) &&
+        Array.isArray(parsed.final)
+      ) {
+        return parsed;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  function parseIngredientsOverride(json: string): PCRIngredient[] | null {
+    try {
+      const parsed = JSON.parse(json);
+      return Array.isArray(parsed) ? (parsed as PCRIngredient[]) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function renderPcrMethodBody(mp: MethodPayload): React.ReactNode[] {
+    const protocol: PCRProtocol | null = mp.pcrProtocol ?? null;
+    if (!protocol) {
+      return [
+        h(
+          Text,
+          { key: "pcr-missing", style: styles.methodIntro },
+          "PCR Method (protocol could not be loaded).",
+        ),
+      ];
+    }
+    const out: React.ReactNode[] = [];
+    out.push(
+      h(Text, { key: "pcr-program-h", style: styles.h4 }, "Thermocycler program"),
+    );
+    out.push(renderPcrGradientTable(protocol.gradient, `m${mp.method.id}-grad`));
+    out.push(h(Text, { key: "pcr-reagents-h", style: styles.h4 }, "Reagents"));
+    out.push(
+      renderPcrIngredientsTable(protocol.ingredients, `m${mp.method.id}-ing`),
+    );
+    if (protocol.notes && protocol.notes.trim()) {
+      out.push(
+        h(
+          Text,
+          { key: "pcr-notes", style: styles.pcrNotes },
+          protocol.notes.trim(),
+        ),
+      );
+    }
+    const att = mp.attachment;
+    if (att?.pcr_gradient && att.pcr_gradient.trim()) {
+      const override = parseGradientOverride(att.pcr_gradient);
+      if (override) {
+        out.push(
+          h(
+            Text,
+            { key: "pcr-dev-grad-h", style: styles.pcrDeviationHeading },
+            "Gradient deviations for this task",
+          ),
+        );
+        out.push(
+          renderPcrGradientTable(override, `m${mp.method.id}-grad-dev`),
+        );
+      }
+    }
+    if (att?.pcr_ingredients && att.pcr_ingredients.trim()) {
+      const override = parseIngredientsOverride(att.pcr_ingredients);
+      if (override) {
+        out.push(
+          h(
+            Text,
+            { key: "pcr-dev-ing-h", style: styles.pcrDeviationHeading },
+            "Reagent deviations for this task",
+          ),
+        );
+        out.push(
+          renderPcrIngredientsTable(override, `m${mp.method.id}-ing-dev`),
+        );
+      }
+    }
+    return out;
+  }
+
   function MethodSubsection({ mp }: { mp: MethodPayload }) {
     const { method, bodyMarkdown, attachment } = mp;
     const variation = (attachment?.variation_notes ?? "").trim();
@@ -781,13 +1036,7 @@ export async function buildPdf(
         ),
       );
     } else if (method.method_type === "pcr") {
-      children.push(
-        h(
-          Text,
-          { style: styles.methodIntro },
-          "PCR method. Reagents and thermocycler protocol live in the Methods library; per-task overrides appear below if recorded.",
-        ),
-      );
+      children.push(...renderPcrMethodBody(mp));
     } else {
       children.push(
         h(

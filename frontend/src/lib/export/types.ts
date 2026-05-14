@@ -4,7 +4,13 @@
 // import from here; do not modify without manager sign-off. See
 // EXPORT_REVAMP_PLAN.md §4 for the full spec.
 
-import type { Task, Method, Project, TaskMethodAttachment } from "@/lib/types";
+import type {
+  Task,
+  Method,
+  Project,
+  TaskMethodAttachment,
+  PCRProtocol,
+} from "@/lib/types";
 
 export type ExportFormat = "pdf" | "html" | "raw";
 
@@ -32,11 +38,18 @@ export interface MethodPayload {
   method: Method;
   // For markdown methods: the body text. For PDF methods: null (the bytes
   // live in `attachments` with origin: "methods"). For PCR methods: null
-  // (rendered from the Method record itself).
+  // (rendered from `pcrProtocol` below plus any per-task overrides on
+  // `attachment.pcr_gradient` / `.pcr_ingredients`).
   bodyMarkdown: string | null;
   // The TaskMethodAttachment for THIS task — variation_notes, pcr_gradient,
   // pcr_ingredients. May be null if the task has no per-method overrides.
   attachment: TaskMethodAttachment | null;
+  // Only populated for `method.method_type === "pcr"`. The canonical PCRProtocol
+  // record (referenced by `method.source_path === "pcr://protocol/{id}"`),
+  // pre-fetched by the extractor so format generators don't need async lookups.
+  // `null` when the protocol couldn't be loaded (e.g. shared-task PCR pointing
+  // at a private protocol in another user's namespace).
+  pcrProtocol?: PCRProtocol | null;
 }
 
 export interface ExperimentExportPayload {

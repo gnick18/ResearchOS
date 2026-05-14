@@ -1,5 +1,6 @@
 import type {
   Method,
+  PCRProtocol,
   Project,
   Task,
   TaskMethodAttachment,
@@ -10,7 +11,7 @@ import {
   tabScopedFolderHasContent,
   taskResultsBase,
 } from "@/lib/tasks/results-paths";
-import { projectsApi, methodsApi, filesApi } from "@/lib/local-api";
+import { projectsApi, methodsApi, filesApi, pcrApi } from "@/lib/local-api";
 import { extractMarkdownRefs } from "./markdown";
 import type {
   AttachmentOrigin,
@@ -202,6 +203,33 @@ async function resolveProject(
   };
 }
 
+// Matches `pcr://protocol/{id}` source_path format used throughout the app
+// (methods/page.tsx, MethodTabs.tsx, generate-demo-data.mjs).
+function extractPCRProtocolId(sourcePath: string | null | undefined): number | null {
+  if (!sourcePath) return null;
+  const match = sourcePath.match(/^pcr:\/\/protocol\/(\d+)$/);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+async function fetchPCRProtocolSafe(
+  method: Method,
+  task: Task
+): Promise<PCRProtocol | null> {
+  const id = extractPCRProtocolId(method.source_path);
+  if (id === null) return null;
+  try {
+    const owner = task.is_shared_with_me ? task.owner : undefined;
+    const protocol = await pcrApi.get(id, owner);
+    return protocol ?? null;
+  } catch (err) {
+    console.warn(
+      `[export.extract] failed to load PCR protocol ${id} for method ${method.id}:`,
+      err
+    );
+    return null;
+  }
+}
+
 async function buildMethodPayload(
   methodId: number,
   taskAttachments: TaskMethodAttachment[],
@@ -222,6 +250,7 @@ async function buildMethodPayload(
 
   let bodyMarkdown: string | null = null;
   let pdfAttachment: ExperimentAttachment | null = null;
+  let pcrProtocol: PCRProtocol | null = null;
 
   if (method.method_type === "markdown" && method.source_path) {
     try {
@@ -272,11 +301,14 @@ async function buildMethodPayload(
     }
   }
   // For PCR methods, both `bodyMarkdown` and `pdfAttachment` stay null —
-  // the generator renders the protocol from the Method record itself plus
-  // any per-task overrides in `attachment.pcr_gradient` / `.pcr_ingredients`.
+  // the generator renders the protocol from `pcrProtocol` (pre-fetched here)
+  // plus any per-task overrides in `attachment.pcr_gradient` / `.pcr_ingredients`.
+  if (method.method_type === "pcr") {
+    pcrProtocol = await fetchPCRProtocolSafe(method, task);
+  }
 
   return {
-    payload: { method, bodyMarkdown, attachment },
+    payload: { method, bodyMarkdown, attachment, pcrProtocol },
     pdfAttachment,
   };
 }

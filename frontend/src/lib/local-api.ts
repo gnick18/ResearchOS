@@ -785,13 +785,22 @@ export const pcrApi = {
     ];
   },
   
-  get: async (id: number): Promise<PCRProtocol | null> => {
-    const protocol = await pcrStore.get(id);
-    if (protocol) return { ...protocol, is_public: false };
-    
+  get: async (id: number, owner?: string): Promise<PCRProtocol | null> => {
+    // Owner routing matches the convention in projectsApi / tasksApi /
+    // methodsApi: when the caller is a receiver of a shared task, read the
+    // protocol from the owner's private store so private protocols still
+    // render on the receiver's side.
+    if (owner) {
+      const ownerProtocol = await pcrStore.getForUser(id, owner);
+      if (ownerProtocol) return { ...ownerProtocol, is_public: false };
+    } else {
+      const protocol = await pcrStore.get(id);
+      if (protocol) return { ...protocol, is_public: false };
+    }
+
     const publicProtocol = await publicPcrStore.get(id);
     if (publicProtocol) return { ...publicProtocol, is_public: true };
-    
+
     return null;
   },
   
