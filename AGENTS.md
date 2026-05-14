@@ -302,6 +302,10 @@ Use this for any field rename. **Do NOT do hard on-disk cutovers** — rewrite-a
 
 **Project-sharing audit caught a real regression** that the bot fixed in-scope: `fetchAllTasksIncludingShared` only loaded individually-shared tasks, missing tasks belonging to shared *projects*. Fix landed in `b0e8d0c7`. Five out-of-scope follow-ups flagged — see §8 Queued backlog.
 
+### Recently landed (2026-05-14)
+
+- **Dead-code sweep — `SidebarTree.tsx` deleted + §8 audit pass** (worker bot `53bc46a8`, merged). Confirmed orphan removed (285 LOC) + stale comment cleaned in `app/gantt/page.tsx:166`. Audited the three "Settings/migration UI cleanup" candidates from §8 Queued — all three entries were stale: `DataSetupScreen.tsx` is **not** an orphan (actively imported by `app/page.tsx:10`), `DataPathCheckPopup.tsx` already deleted in a prior pass, `ResearchFolderSetup.tsx` already deleted (only `ResearchFolderSetupNew.tsx` remains). Both §8 Queued entries removed. Net: -286 LOC, zero behavior change.
+
 ### Recently landed (2026-05-13)
 
 - **`?wikiCapture=1` stale-state regression fix** (`2be9af8c`): the `/demo` author flagged but didn't fix this — visiting `?wikiCapture=1` then navigating to `/` left `name: "wiki-capture-fixture"` fake handle + `currentUser` + `mainUser` in IndexedDB, breaking the next visit with a "Reconnect to wiki-capture-fixture" screen because `queryPermission` on the fake throws. In `initialize()`, detect the sentinel-named handle and clear all three IDB entries before the silent-reconnect path runs. Same helpers `<LeaveDemoModal>` Discard uses.
