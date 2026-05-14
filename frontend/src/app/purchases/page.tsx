@@ -2,12 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { tasksApi, purchasesApi, fetchAllProjectsIncludingShared } from "@/lib/local-api";
+import { tasksApi, purchasesApi, fetchAllProjectsIncludingShared, fetchAllTasksIncludingShared } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import AppShell from "@/components/AppShell";
 import PurchaseEditor from "@/components/PurchaseEditor";
 import Tooltip from "@/components/Tooltip";
-import type { Task, PurchaseItem, FundingAccount } from "@/lib/types";
+import { taskKey, type Task, type PurchaseItem, type FundingAccount } from "@/lib/types";
 
 export default function PurchasesPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -23,17 +23,19 @@ export default function PurchasesPage() {
     queryFn: fetchAllProjectsIncludingShared,
   });
 
+  // Use the canonical merged-view loader instead of
+  // `projects.map(p => tasksApi.listByProject(...))`. The latter reads raw
+  // on-disk task files for each owner — it does NOT decorate shared tasks
+  // with `is_shared_with_me: true`, so `taskKey()` collapses to `self:<id>`
+  // for every task in this path and shared+own tasks with the same numeric
+  // id silently collide downstream. See `/experiments` fix at `caa22513`.
+  // `fetchAllTasksIncludingShared` is the canonical merged-view loader (used
+  // by `/`, `/gantt`, `/settings`, `/experiments`) — decorates with
+  // `is_shared_with_me: true`, surfaces Option-C hosted tasks, dedups via
+  // composite key, and has a dev-mode duplicate-key guardrail.
   const { data: allTasks = [] } = useQuery({
     queryKey: ["tasks", currentUser],
-    queryFn: async () => {
-      if (projects.length === 0) return [];
-      const results = await Promise.all(
-        projects.map((p) =>
-          tasksApi.listByProject(p.id, p.is_shared_with_me ? p.owner : undefined)
-        )
-      );
-      return results.flat();
-    },
+    queryFn: fetchAllTasksIncludingShared,
     enabled: projects.length > 0,
   });
 
@@ -53,15 +55,21 @@ export default function PurchasesPage() {
     [allTasks]
   );
 
-  // Group purchases by task
+  // Group purchases by task. `purchasesApi.listAll()` only returns the
+  // current user's purchase items, so every `task_id` here is in the current
+  // user's namespace. Key on a composite `${owner}:${task_id}` so a shared
+  // task with the same numeric id as one of our own tasks doesn't pick up
+  // our purchase rows by accident.
   const purchasesByTask = useMemo(() => {
-    const map: Record<number, PurchaseItem[]> = {};
+    const map: Record<string, PurchaseItem[]> = {};
     for (const p of allPurchases) {
-      if (!map[p.task_id]) map[p.task_id] = [];
-      map[p.task_id].push(p);
+      // Purchase items have no `owner` field — they're scoped to current user.
+      const key = `${currentUser}:${p.task_id}`;
+      if (!map[key]) map[key] = [];
+      map[key].push(p);
     }
     return map;
-  }, [allPurchases]);
+  }, [allPurchases, currentUser]);
 
   // Grand total
   const grandTotal = useMemo(
@@ -127,27 +135,36 @@ export default function PurchasesPage() {
             {purchaseTasks
               .sort((a, b) => b.start_date.localeCompare(a.start_date))
               .map((task) => {
-                const items = purchasesByTask[task.id] || [];
+                // Purchases live in the task owner's data folder; we only
+                // load the current user's purchase items via
+                // `purchasesApi.listAll()`. For shared tasks (different
+                // owner) the lookup will miss and `items` will be empty —
+                // that's correct rather than incorrect (no cross-user
+                // collision into MY purchases).
+                const items = purchasesByTask[`${task.owner}:${task.id}`] || [];
                 const taskTotal = items.reduce(
                   (sum, i) => sum + (i.total_price ?? 0),
                   0
                 );
+                // Project lookup must compare both `id` AND `owner` — per-user
+                // ID spaces mean alex's project 1 and morgan's project 1 are
+                // different projects.
                 const project = projects.find(
-                  (p) => p.id === task.project_id
+                  (p) => p.id === task.project_id && p.owner === task.owner
                 );
+                const tkey = taskKey(task);
+                const isOpen = selectedTask !== null && taskKey(selectedTask) === tkey;
 
                 return (
                   <div
-                    key={task.id}
+                    key={tkey}
                     className="bg-white border border-gray-200 rounded-xl overflow-hidden"
                   >
                     {/* Task header */}
                     <div
                       className={`flex items-center justify-between px-5 py-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${task.is_complete ? "bg-green-50/50" : ""}`}
                       onClick={() =>
-                        setSelectedTask(
-                          selectedTask?.id === task.id ? null : task
-                        )
+                        setSelectedTask(isOpen ? null : task)
                       }
                     >
                       <div className="flex items-center gap-3">
@@ -172,13 +189,13 @@ export default function PurchasesPage() {
                           ${taskTotal.toFixed(2)}
                         </span>
                         <span className="text-gray-400">
-                          {selectedTask?.id === task.id ? "▲" : "▼"}
+                          {isOpen ? "▲" : "▼"}
                         </span>
                       </div>
                     </div>
 
                     {/* Expanded purchase editor */}
-                    {selectedTask?.id === task.id && (
+                    {isOpen && (
                       <div className="relative">
                         <PurchaseEditor taskId={task.id} />
                         {/* Action buttons */}

@@ -374,6 +374,31 @@ _(Original "Handoff snapshot — late evening" body below was preserved for audi
 
 **Stale local branches worth pruning** (work landed elsewhere, branches just clutter `git branch`): `claude/epic-dubinsky-f36fb5` (Export Sub-bot F PCR-rendering), `claude/sharp-kirch-4345ef` (unknown), `claude/competent-tesla-1c0608` (the worktree that caused the stale-dev-server trap). Confirm-and-delete is safe but optional.
 
+### Recently landed (2026-05-14 — same-bug-pattern sweep on /results, /purchases, /search)
+
+Closes the three flagged follow-ups from the `/experiments` fix at `caa22513` (see entry directly below). Same loader-swap pattern applied to each: replace `projects.map(p => tasksApi.listByProject(p.id, p.is_shared_with_me ? p.owner : undefined))` with `fetchAllTasksIncludingShared` as the `useQuery` `queryFn`. Without the swap, `taskKey()` collapses to `self:<id>` for every task that flows through this load path (the `listByProject` reader skips the `is_shared_with_me: true` decoration), so cross-user same-id tasks silently collide downstream.
+
+**Files touched** (single commit):
+- `frontend/src/app/results/page.tsx` — loader swap. Also bumped the `["resultCards", …]` queryKey from `t.id` to `taskKey(t)` (composite) and changed the card React key from `card.task.id` to `taskKey(card.task)`. The `grouped` map and `projectColors` / `projectNames` were already composite-keyed; the chain of correct keys runs end-to-end now.
+- `frontend/src/app/purchases/page.tsx` — loader swap + two downstream id-collision spots fixed:
+  1. `purchasesByTask` was `Record<number, PurchaseItem[]>` keyed on bare `p.task_id`. Now `Record<string, PurchaseItem[]>` keyed on `${currentUser}:${p.task_id}`. Purchase items are scoped to current user (`purchasesApi.listAll()` only reads the current user's directory) so the composite key is `${currentUser}:${task_id}`. The bucket lookup at render time becomes `purchasesByTask[\`${task.owner}:${task.id}\`]` — for shared tasks (different owner) the lookup misses and `items` is `[]`, which is correct (current user has no local purchase rows for foreign-owned tasks; foreign-owned task purchases live in their owner's folder).
+  2. `selectedTask?.id === task.id` was the toggle predicate — same id-collision class. Switched to `taskKey(selectedTask) === taskKey(task)` via a derived `isOpen` boolean. Map key `key={task.id}` → `key={taskKey(task)}`.
+  - Also tightened the `projects.find` to compare `p.owner === task.owner` alongside `p.id === task.project_id` (was previously bare-id match — would have surfaced the wrong project's name on the row header for cross-user same-id projects).
+- `frontend/src/app/search/page.tsx` — loader swap only. The page already keyed `selectedTaskKeys` off `taskKey(task)` and rendered cards with `key={taskKey(task)}`, so no downstream patching was needed once the loader stopped collapsing the namespace.
+
+**Date-fix audit**: grep for `toISOString().split("T")[0]` returned 0 hits in any of the three files. The Batch B local-tz fix that the `/experiments` page needed was not relevant here — these pages don't compute "today" client-side.
+
+**Edge cases NOT covered (intentional)**:
+- `purchases`: `purchasesApi.listAll()` only returns the current user's purchase items. A shared task whose owner has a populated `purchaseItems/` directory still renders the row but with `items.length === 0` and `taskTotal === $0.00`. This is the same multi-user-data-isolation gap that exists everywhere a non-owner-scoped store reader is used; surfacing a `listAllIncludingShared` for purchases is its own backlog item.
+- `results`: `selectedProjectIds` is still `number[]` in the project-chip filter (line 52: `selectedProjectIds.includes(t.project_id)`). Same intentional skip as the `/experiments` fix — clicking a project chip in a cross-user view that has two same-id projects will pull tasks from both. Store-wide migration to composite project IDs is its own item.
+- `search`: `filters.projectId` is `number | null` from the project-picker `<select>` — clicking "Project 1" with two same-id projects across users matches both. Same intentional skip. The picker dropdown options already use composite `${owner}:${id}` as React keys but submit just the numeric id.
+- Cross-user purchase aggregation: the page's grand total (`grandTotal = allPurchases.reduce(...)`) sums only the current user's purchase items. With shared tasks now visible in the list, a viewer might expect the grand total to include foreign-owned purchases on shared tasks. It does not. Out of scope for this loader fix.
+
+**Verification**:
+- `npx tsc --noEmit` — EXIT 0.
+- `npx eslint frontend/src/app/{results,purchases,search}/page.tsx` — EXIT 0.
+- Live verification at `?wikiCapture=1` after merge: see commit message for before/after counts.
+
 ### Recently landed (2026-05-14 — /experiments shared-task collision, take 2: switch to `fetchAllTasksIncludingShared`)
 
 Closes the `/experiments` rendering bug that the prior fix at `a323cb7b` thought it had closed but only half-closed. After that merge, Grant re-verified and reported (a) NONE of the overdue experiments showing and (b) most completed experiments still missing — plus the completed dropdown displaying tasks that aren't even complete.
@@ -402,10 +427,10 @@ Closes the `/experiments` rendering bug that the prior fix at `a323cb7b` thought
 5. Cross-check sidebar's "Overdue (N)" count: should equal the number of overdue-badged cards on the page.
 
 **Same-bug-pattern audit on sibling pages** (which use the same `projects.map(p => tasksApi.listByProject(p.id, p.is_shared_with_me ? p.owner : undefined))` shape — vulnerable to the same `taskKey()` collision class):
-- `frontend/src/app/results/page.tsx:40` — same shape, same risk.
-- `frontend/src/app/purchases/page.tsx:32` — same shape, same risk.
-- `frontend/src/app/search/page.tsx:85` — same shape, same risk.
-Pages already on `fetchAllTasksIncludingShared` (safe): `page.tsx` (home), `gantt/page.tsx`, `settings/page.tsx` (audit panel), `SendToTaskPicker.tsx`. The `36816a9d` → `b086fb4c` sweep evidently keyed off `taskKey()` everywhere but didn't realize the loader path matters too. Queue follow-up tasks for results/purchases/search if Grant observes similar symptoms there.
+- ✅ `frontend/src/app/results/page.tsx` — closed in the follow-up sweep below.
+- ✅ `frontend/src/app/purchases/page.tsx` — closed in the follow-up sweep below.
+- ✅ `frontend/src/app/search/page.tsx` — closed in the follow-up sweep below.
+Pages already on `fetchAllTasksIncludingShared` (safe): `page.tsx` (home), `gantt/page.tsx`, `settings/page.tsx` (audit panel), `SendToTaskPicker.tsx`. The `36816a9d` → `b086fb4c` sweep evidently keyed off `taskKey()` everywhere but didn't realize the loader path matters too.
 
 **Edge cases NOT covered (intentional)**:
 - `selectedProjectIds` is still `number[]` and still keys by bare `project_id` (lines 90, 107). Not the culprit (the filter is only active when the user clicks a project chip), and the broader store migration to composite keys is its own backlog item.

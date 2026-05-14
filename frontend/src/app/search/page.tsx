@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { tasksApi, fetchAllMethodsIncludingShared, fetchAllProjectsIncludingShared } from "@/lib/local-api";
+import { fetchAllMethodsIncludingShared, fetchAllProjectsIncludingShared, fetchAllTasksIncludingShared } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
@@ -76,17 +76,19 @@ export default function SearchPage() {
     queryFn: fetchAllMethodsIncludingShared,
   });
 
+  // Use the canonical merged-view loader instead of
+  // `projects.map(p => tasksApi.listByProject(...))`. The latter reads raw
+  // on-disk task files for each owner — it does NOT decorate shared tasks
+  // with `is_shared_with_me: true`, so `taskKey()` collapses to `self:<id>`
+  // for every task in this path and shared+own tasks with the same numeric
+  // id silently collide downstream. See `/experiments` fix at `caa22513`.
+  // `fetchAllTasksIncludingShared` is the canonical merged-view loader (used
+  // by `/`, `/gantt`, `/settings`, `/experiments`) — decorates with
+  // `is_shared_with_me: true`, surfaces Option-C hosted tasks, dedups via
+  // composite key, and has a dev-mode duplicate-key guardrail.
   const { data: allTasks = [] } = useQuery({
     queryKey: ["tasks", currentUser],
-    queryFn: async () => {
-      if (projects.length === 0) return [];
-      const results = await Promise.all(
-        projects.map((p) =>
-          tasksApi.listByProject(p.id, p.is_shared_with_me ? p.owner : undefined)
-        )
-      );
-      return results.flat();
-    },
+    queryFn: fetchAllTasksIncludingShared,
     enabled: projects.length > 0,
   });
 
