@@ -374,6 +374,18 @@ Two deferred-from-Workbench-redesign (`d4030e3b`) polish items closed in one pas
 - **OOS nit (flagged, not fixed)**: the project-grouping IIFE inside the main `SECTION_ORDER.map` callback is verbose enough that a future refactor could lift it into a small `<RecentResultsGroup>` component. Acceptable as-is for one section; would be worth it if a second section ever needs project grouping. Not extracted now to keep the commit small.
 - **Browser verification**: not run by the worker bot (out of remit). Grant to spot-check live; behavior is the same when there's only one project (collapses to flat grid) and adds a colored-dot project sub-header when there are 2+. Worker bot did NOT touch the four stage-organized sections — verified by reading the diff before commit.
 
+### Recently landed (2026-05-15 — Tutorial-aware Leave Demo flow + providers carve-out)
+
+Two follow-up fixes after Phase 4 landed.
+
+**1. Tutorial-aware Leave Demo.** Grant flagged that clicking "Leave Demo" inside the guided tutorial tab routed users to the folder-setup screen instead of back to their real folder. Root cause: `LeaveDemoModal`'s `goHome()` was calling `clearDirectoryHandle()` / `clearCurrentUser()` / `clearMainUser()` unconditionally, then reloading `/`. Those IndexedDB keys are SHARED across tabs (same origin), so the tutorial tab was destroying the user's parent-tab folder connection along with its own. Bot `worktree-agent-a31ffb590c1c9d4ca` branched the flow on `isTutorialMode()`: tutorial users skip the IndexedDB nuke, run `clearDemoMode()`, try `window.close()` (works for tabs JS opened via the welcome modal's `window.open`), and fall back to `window.location.replace("/")` after a 150ms timeout. The reload finds the still-stored real folder handle and reconnects automatically. Public-demo users (arrived at `/demo` from the website without an existing folder) keep the unchanged "nuke IndexedDB + route to picker" behavior. Copy in [LeaveDemoModal.tsx](frontend/src/components/LeaveDemoModal.tsx), [FloatingLeaveDemoButton.tsx](frontend/src/components/FloatingLeaveDemoButton.tsx), [DemoLabBanner.tsx](frontend/src/components/DemoLabBanner.tsx) all flip on `isTutorialMode()` — tutorial = "End the tour?" + "Back to my folder" + "Exit Tour"; public = "Leave the demo?" + "Leave demo".
+
+**2. providers.tsx carve-out.** Phase 4's `<OnboardingProvider>` had an `isTutorialMode()` carve-out to mount `<OnboardingTutorialSequencer />` in demo+tutorial mode, but the carve-out was unreachable: providers.tsx had a pre-existing short-circuit at `if (isDemoOrWikiCapture() && currentUser) return <QueryClientProvider>{children}</QueryClientProvider>` that returned BEFORE OnboardingProvider ever mounted. Fix at `1574cbfc`: wrap the demo branch's return in `<OnboardingProvider currentUser={currentUser}>` so its internal logic can fire. Pure no-op for non-tutorial demo / `?wikiCapture=1` screenshots — those still pass through unchanged via OnboardingProvider's own internal pass-through.
+
+Both fixes integrated; 150/150 tests pass; typecheck EXIT=0.
+
+---
+
 ### Recently landed (2026-05-15 — BeakerBot opaque body fill + DevForceTipButton reuses the component)
 
 Two-line follow-up to Phase 4. Grant flagged the mascot reads poorly against busy backgrounds (project chips, colorful buttons): the upper body section was transparent, so eyes/smile/cheek-dashes bleed through whatever's behind the SVG.
