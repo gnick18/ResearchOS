@@ -1611,6 +1611,57 @@ const FIXTURE_ROUTES = [
       }
     },
   },
+  // ─────────────────────────────────────────────────────────────────────
+  // ELN import wizard.
+  //
+  // The wizard mounts as <ImportELNDialog> from two entry points: the
+  // first-run setup screen and Settings → LabArchives. Settings is the
+  // stable choice for wiki capture (no folder-setup state required, the
+  // ?wikiCapture=1 fixture brings the page up already signed in).
+  //
+  // Reach paths:
+  //   - Step 1 "Choose format" is reachable by clicking the "Open import…"
+  //     button. The format-picker renders with no upstream state, so the
+  //     capture is reliable.
+  //   - Steps 2-6 (Upload / Preview / Project mapping / Fetch images /
+  //     Apply / Done) all require an actual notebook .zip parsed through
+  //     JSZip + linkedom. The wiki-capture fixture does NOT seed a
+  //     pre-parsed wizard state, and Playwright can't reliably hand a
+  //     File object to the wizard's <input type="file">. Those steps are
+  //     documented in prose on /wiki/features/import-from-eln with a
+  //     "screenshots pending" callout; rerun this script against a
+  //     future fixture that seeds parsed wizard state to fill them in.
+  //   - BulkSortScreen requires a completed import to mount. Same
+  //     fixture gap — deferred.
+  {
+    path: "/settings",
+    file: "import-eln-format-pick.png",
+    waitFor: "text=Settings, text=LabArchives",
+    settleMs: 1000,
+    action: async (page) => {
+      // The "Open import…" button is the action slot inside the
+      // LabArchivesOptionCard. data-onboarding-target="labarchives-import"
+      // is the most stable selector since the button text could be
+      // tweaked by future copy edits.
+      try {
+        const btn = page
+          .locator('[data-onboarding-target="labarchives-import"]')
+          .first();
+        if (await btn.count()) {
+          await btn.click({ timeout: 3000 });
+          // Wait for the wizard's Step 1 header ("1 · Choose format") so
+          // the format-picker cards have laid out before we capture.
+          await page
+            .waitForSelector("text=Choose format", { timeout: 3000 })
+            .catch(() => {});
+          await page.waitForTimeout(600);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ import-eln-format-pick open wizard: ${err.message}`);
+      }
+    },
+    highlight: { text: "LabArchives Offline Notebook ZIP" },
+  },
   {
     // The Report-an-Issue modal, embedded by /wiki/security to make the
     // "you see the body before anything leaves the browser" claim

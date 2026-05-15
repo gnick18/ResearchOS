@@ -75,6 +75,11 @@ export const WIKI_NAV: WikiNode[] = [
         label: "Demo Mode",
         blurb: "Try ResearchOS in the browser with a seeded yeast lab.",
       },
+      {
+        href: "/wiki/getting-started/labarchives-export",
+        label: "Exporting from LabArchives",
+        blurb: "Generate the Offline Notebook ZIP that ResearchOS imports.",
+      },
     ],
   },
   {
@@ -196,6 +201,11 @@ export const WIKI_NAV: WikiNode[] = [
         href: "/wiki/features/results",
         label: "Results (moved)",
         blurb: "Where the standalone Results page's surfaces moved to.",
+      },
+      {
+        href: "/wiki/features/import-from-eln",
+        label: "Import from LabArchives",
+        blurb: "The 6-step wizard, page-as-task semantics, and idempotent re-runs.",
       },
       {
         href: "/wiki/features/settings",
