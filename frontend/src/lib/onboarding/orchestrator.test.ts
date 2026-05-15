@@ -233,11 +233,15 @@ describe("sidecar action-cancel persistence", () => {
     expect(sc.mode).toBeNull();
   });
 
-  it("setOnboardingMode persists the pick and resets last_tip_at", async () => {
-    // Bootstrap with a previously-served sidecar where last_tip_at sits
-    // in the past so the cooldown is satisfied. Mode-setter should
-    // bump last_tip_at to active_seconds so the next tip doesn't fire
-    // immediately after the welcome-modal pick.
+  it("setOnboardingMode persists the pick and sets last_tip_at to the cooldown-bypass sentinel", async () => {
+    // Bootstrap with a previously-served sidecar. Mode-setter sets
+    // `last_tip_at` to `active_seconds - 999_999` so the cooldown
+    // gate (`now - last_tip_at >= minGap`) is already satisfied at
+    // pick-time and the FIRST tip after the welcome-modal pick can
+    // fire as soon as a target is in the DOM on a matching route.
+    // Subsequent tips obey the real cooldown because `recordShown()`
+    // bumps `last_tip_at` to the current `active_seconds` on each
+    // fire. See sidecar.ts `setOnboardingMode()` for the rationale.
     await patchOnboarding(USER, (cur) => ({
       ...cur,
       active_seconds: 5000,
@@ -245,7 +249,7 @@ describe("sidecar action-cancel persistence", () => {
     }));
     const after = await setOnboardingMode(USER, "tutorial");
     expect(after.mode).toBe("tutorial");
-    expect(after.last_tip_at).toBe(after.active_seconds);
+    expect(after.last_tip_at).toBe(after.active_seconds - 999_999);
   });
 });
 
