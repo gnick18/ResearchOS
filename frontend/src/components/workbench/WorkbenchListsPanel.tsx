@@ -3,7 +3,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  fetchAllProjectsIncludingShared,
   fetchAllTasksIncludingShared,
   tasksApi,
 } from "@/lib/local-api";
@@ -89,7 +88,11 @@ function dateSignalFor(task: Task, today: string): DateSignal {
   return { text: `Starts in ${days}d`, kind: "upcoming" };
 }
 
-export default function WorkbenchListsPanel() {
+interface Props {
+  projects: Project[];
+}
+
+export default function WorkbenchListsPanel({ projects }: Props) {
   const queryClient = useQueryClient();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [earlierOpen, setEarlierOpen] = useState(false);
@@ -100,11 +103,6 @@ export default function WorkbenchListsPanel() {
 
   const { currentUser: providerCurrentUser } = useCurrentUser();
   const currentUser = providerCurrentUser ?? "";
-
-  const { data: projects = [] } = useQuery({
-    queryKey: ["projects", currentUser],
-    queryFn: fetchAllProjectsIncludingShared,
-  });
 
   const { data: allTasks = [] } = useQuery({
     queryKey: ["tasks", currentUser],
@@ -229,34 +227,10 @@ export default function WorkbenchListsPanel() {
 
   return (
     <div data-current-tab="lists">
-      {/* Project filter */}
-      <div className="flex items-center gap-2 mb-6 flex-wrap">
-        {projects.map((p) => {
-          const isSelected =
-            selectedProjectIds.length === 0 ||
-            selectedProjectIds.includes(p.id);
-          return (
-            <button
-              key={`${p.owner}:${p.id}`}
-              onClick={() => useAppStore.getState().toggleProject(p.id)}
-              className={`px-2.5 py-1 text-xs rounded-full transition-colors ${
-                isSelected
-                  ? "text-white font-medium"
-                  : "bg-gray-100 text-gray-400"
-              }`}
-              style={
-                isSelected
-                  ? { backgroundColor: projectColors[projectKey(p)] }
-                  : undefined
-              }
-            >
-              {p.name}
-            </button>
-          );
-        })}
+      <div className="flex justify-end mb-4">
         <button
           onClick={handleCreateListTask}
-          className="px-3 py-1.5 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 ml-2"
+          className="px-3 py-1.5 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700"
         >
           + New List Task
         </button>

@@ -5,7 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import {
   dependenciesApi,
   fetchAllMethodsIncludingShared,
-  fetchAllProjectsIncludingShared,
   fetchAllTasksIncludingShared,
 } from "@/lib/local-api";
 import { useAppStore } from "@/lib/store";
@@ -124,7 +123,11 @@ function freshnessFor(entry: SectionEntry): {
   return { kind: "earlier" };
 }
 
-export default function WorkbenchExperimentsPanel() {
+interface Props {
+  projects: Project[];
+}
+
+export default function WorkbenchExperimentsPanel({ projects }: Props) {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [earlierLayout, setEarlierLayout] = useState<"flat" | "grouped">(
     "flat",
@@ -136,11 +139,6 @@ export default function WorkbenchExperimentsPanel() {
 
   const { currentUser: providerCurrentUser } = useCurrentUser();
   const currentUser = providerCurrentUser ?? "";
-
-  const { data: projects = [] } = useQuery({
-    queryKey: ["projects", currentUser],
-    queryFn: fetchAllProjectsIncludingShared,
-  });
 
   const { data: allTasks = [] } = useQuery({
     queryKey: ["tasks", currentUser],
@@ -454,34 +452,10 @@ export default function WorkbenchExperimentsPanel() {
 
   return (
     <div data-current-tab="experiments">
-      {/* Project filter */}
-      <div className="flex items-center gap-2 mb-6 flex-wrap">
-        {projects.map((p) => {
-          const isSelected =
-            selectedProjectIds.length === 0 ||
-            selectedProjectIds.includes(p.id);
-          return (
-            <button
-              key={`${p.owner}:${p.id}`}
-              onClick={() => useAppStore.getState().toggleProject(p.id)}
-              className={`px-2.5 py-1 text-xs rounded-full transition-colors ${
-                isSelected
-                  ? "text-white font-medium"
-                  : "bg-gray-100 text-gray-400"
-              }`}
-              style={
-                isSelected
-                  ? { backgroundColor: projectColors[projectKey(p)] }
-                  : undefined
-              }
-            >
-              {p.name}
-            </button>
-          );
-        })}
+      <div className="flex justify-end mb-4">
         <button
           onClick={handleCreateExperiment}
-          className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 ml-2"
+          className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           + New Experiment
         </button>
