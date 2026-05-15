@@ -18,7 +18,12 @@
  */
 
 import { fileService } from "./file-service";
-import { storeCurrentUser, storeMainUser, storeDirectoryHandle } from "./indexeddb-store";
+import {
+  storeCurrentUser,
+  storeMainUser,
+  storeDirectoryHandle,
+  backupRealHandleForDemo,
+} from "./indexeddb-store";
 import { buildWikiFixtures } from "./wiki-capture-fixture";
 import { rebaseDemoDates, isDemoLab } from "../demo/rebase";
 
@@ -467,7 +472,16 @@ export async function installWikiCaptureFixture(
   // Seed IndexedDB so getCurrentUser / getMainUser / reconnectWithStoredHandle
   // see "alex" without needing the OS folder picker. Skipped in picker
   // mode so the app stays on the user-selection screen.
+  //
+  // BUT first, if a real folder is currently connected (the user navigated
+  // to /demo from inside their connected app, or opened /demo in another
+  // tab on the same origin), back up the real handle + current/main user
+  // into the pre-demo keys so LeaveDemoModal can restore them. Without
+  // this, our seed below silently overwrites the real folder grant.
+  // Idempotent across repeated demo entries via a fixture-handle sentinel
+  // check inside `backupRealHandleForDemo`.
   try {
+    await backupRealHandleForDemo();
     if (signIn) {
       await storeCurrentUser("alex");
       await storeMainUser("alex");
