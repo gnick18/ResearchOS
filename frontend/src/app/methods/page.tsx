@@ -116,6 +116,33 @@ export default function MethodsPage() {
   });
   const currentUser = userData?.current_user || "";
 
+  // Deep-link: `/methods?openMethod=<id>` opens the method detail panel
+  // (`viewingMethod`) for the matching method once the methods list has
+  // loaded, then strips just that param so a reload doesn't re-trigger.
+  // Used by the Phase-4 tutorial sequencer to land on /methods with
+  // the `public-methods` tip target (the Private/Public toggle button)
+  // already in the DOM. Other params (notably `?tutorial=1`) pass
+  // through untouched. Resolves the method from the current user's
+  // own list first, then falls back to the public namespace so demo
+  // IDs like `users/public/methods/1` work too.
+  useEffect(() => {
+    if (!searchParams) return;
+    const wantsMethod = searchParams.get("openMethod");
+    if (!wantsMethod) return;
+    const mid = Number(wantsMethod);
+    if (!Number.isFinite(mid)) return;
+    const match =
+      methods.find((m) => m.id === mid && m.owner === currentUser) ??
+      methods.find((m) => m.id === mid && m.owner === "public") ??
+      methods.find((m) => m.id === mid);
+    if (!match) return;
+    setViewingMethod(match);
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("openMethod");
+    const query = next.toString();
+    router.replace(query ? `/methods?${query}` : "/methods");
+  }, [searchParams, methods, currentUser, router]);
+
   // Save empty categories to localStorage when they change (only after hydration)
   useEffect(() => {
     if (isHydrated) {

@@ -23,7 +23,14 @@ import type { OnboardingMode } from "@/lib/onboarding/sidecar";
 interface OnboardingWelcomeModalProps {
   /** Called when the user picks a mode. Parent (orchestrator) is
    *  responsible for persisting to the sidecar and unmounting this
-   *  component. */
+   *  component.
+   *
+   *  For "tutorial", the modal also opens `/demo?tutorial=1` in a new
+   *  tab BEFORE calling `onPick("tutorial")` — the actual guided tour
+   *  runs in that new tab against the demo lab fixture, while the
+   *  user's real folder stays in this tab with the sidecar's
+   *  `mode: "tutorial"` flag persisted (which the orchestrator's
+   *  current-tab roll-loop honors with the 60s tutorial cooldown). */
   onPick: (mode: Exclude<OnboardingMode, null>) => void;
 }
 
@@ -36,6 +43,20 @@ export default function OnboardingWelcomeModal({
     // eslint-disable-next-line react-hooks/set-state-in-effect -- portal target is client-only; flip mounted after the first client render.
     setMounted(true);
   }, []);
+
+  /** Tutorial pick: open the guided tour in a new tab against the
+   *  demo lab, and persist `mode: "tutorial"` to the user's sidecar
+   *  (so this tab + future sessions reflect the choice — even though
+   *  the actual walkthrough lives in the demo tab). The new tab is
+   *  opened FIRST because some browsers block window.open if it
+   *  follows an async setState pathway; doing it synchronously inside
+   *  the click handler keeps the popup-blocker happy. */
+  const handleTutorialPick = () => {
+    if (typeof window !== "undefined") {
+      window.open("/demo?tutorial=1", "_blank", "noopener");
+    }
+    onPick("tutorial");
+  };
 
   if (!mounted) return null;
 
@@ -75,10 +96,12 @@ export default function OnboardingWelcomeModal({
             </p>
 
             <div className="mt-5 flex flex-col gap-2.5">
-              {/* Tutorial — secondary outlined button. */}
+              {/* Tutorial — opens the guided tour in a new tab
+                  pointed at the demo lab, while persisting the mode
+                  pick in this tab's sidecar. */}
               <button
                 type="button"
-                onClick={() => onPick("tutorial")}
+                onClick={handleTutorialPick}
                 className="w-full px-4 py-2.5 text-base font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Walk me through it

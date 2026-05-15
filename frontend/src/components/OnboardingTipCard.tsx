@@ -51,10 +51,39 @@ interface AssemblyAnchor {
   side: AssemblySide;
 }
 
+/** Tutorial-mode controls. When supplied, the card swaps the normal
+ *  "Show me later / Stop showing / setupAction / Read more" footer
+ *  for tour navigation (Back / Skip / Next + progress text + an End
+ *  link). The X close button calls `onEnd` instead of `onClose("x")`
+ *  so the user gets a confirm prompt before bailing on the rest of
+ *  the tour. The setupAction button is suppressed entirely — the
+ *  tutorial is for discovery, not setup. */
+export interface OnboardingTipCardTutorialControls {
+  /** 0-based position in the tour. Used to render "<i+1> of <n>" and
+   *  to disable Back on the first tip. */
+  currentIndex: number;
+  /** Total number of tips in the tour (the catalog length). */
+  totalCount: number;
+  /** Walk back one tip. Disabled when `currentIndex === 0`. */
+  onBack: () => void;
+  /** Skip this tip (treated as "next" without serving). The
+   *  sequencer is the source of truth for the underlying state — the
+   *  card just renders the button. */
+  onSkip: () => void;
+  /** Advance to the next tip. */
+  onNext: () => void;
+  /** End the tour entirely. Used both by the X close button (after
+   *  inline confirm) and the small "End tutorial" link in the footer. */
+  onEnd: () => void;
+}
+
 interface OnboardingTipCardProps {
   tip: OnboardingTip;
   /** The DOM element the pointer-line aims at. Null = no line drawn. */
   target: HTMLElement | null;
+  /** Footer mode. Omitted for the normal orchestrator card; present
+   *  for the Phase-4 tutorial sequencer. */
+  tutorial?: OnboardingTipCardTutorialControls;
   onClose: (outcome: "x" | "later" | "stop" | "got-it" | "read") => void;
 }
 
@@ -123,6 +152,7 @@ function BurstShotRenderer({
 export default function OnboardingTipCard({
   tip,
   target,
+  tutorial,
   onClose,
 }: OnboardingTipCardProps) {
   const router = useRouter();
@@ -133,6 +163,11 @@ export default function OnboardingTipCard({
     target ? target.getBoundingClientRect() : null,
   );
   const [burst, setBurst] = useState<BurstShot[]>([]);
+  /** Inline confirm shown when the user clicks the X in tutorial
+   *  mode — replaces the normal "Skip the rest of the tour?" copy +
+   *  "Yes, end / Keep going" buttons. Only consulted when `tutorial`
+   *  is set; ignored otherwise. */
+  const [confirmingEnd, setConfirmingEnd] = useState(false);
 
   // Portal is client-only — render nothing on the server (this is a
   // "use client" file but still gets a server pass for the React tree).
@@ -506,8 +541,16 @@ export default function OnboardingTipCard({
           </h3>
           <button
             type="button"
-            onClick={() => onClose("x")}
-            aria-label="Dismiss this tip"
+            onClick={() => {
+              if (tutorial) {
+                setConfirmingEnd(true);
+              } else {
+                onClose("x");
+              }
+            }}
+            aria-label={
+              tutorial ? "End the tutorial" : "Dismiss this tip"
+            }
             className="flex-shrink-0 -mt-1 -mr-1 p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100"
           >
             <svg
@@ -528,47 +571,126 @@ export default function OnboardingTipCard({
         </div>
         <p className="mt-2 text-sm text-gray-700 leading-relaxed">{tip.body}</p>
 
-        {/* Secondary dismissals — small text links above the primary
-            action row so they're available without competing for
-            attention with the CTA. */}
-        <div className="mt-3 flex items-center gap-3 text-xs">
-          <button
-            type="button"
-            onClick={() => onClose("later")}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            Show me later
-          </button>
-          <span className="text-gray-300" aria-hidden>·</span>
-          <button
-            type="button"
-            onClick={() => onClose("stop")}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            Stop showing
-          </button>
-        </div>
+        {tutorial ? (
+          // Phase-4 tutorial footer. Inline-confirm replaces the
+          // controls when the user clicks the X — keeps the affordance
+          // weight even (no separate modal stack), and the user can
+          // back out without losing the current tip's context.
+          confirmingEnd ? (
+            <div className="mt-3 flex flex-col gap-2">
+              <p className="text-xs text-gray-700">
+                Skip the rest of the tour?
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={tutorial.onEnd}
+                  className="px-3 py-1.5 text-xs font-medium bg-gray-700 hover:bg-gray-800 text-white rounded-lg transition-colors"
+                >
+                  Yes, end tour
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingEnd(false)}
+                  className="px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                >
+                  Keep going
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Top row: progress + small "End tutorial" link as the
+                  understated escape hatch. */}
+              <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
+                <span>
+                  {tutorial.currentIndex + 1} of {tutorial.totalCount}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingEnd(true)}
+                  className="text-gray-400 hover:text-gray-700"
+                >
+                  End tutorial
+                </button>
+              </div>
 
-        {/* Primary action row — filled setupAction button (if present)
-            + outlined Read-more button as the secondary CTA. */}
-        <div className="mt-2 flex items-center gap-2">
-          {tip.setupAction && (
-            <button
-              type="button"
-              onClick={handleSetupAction}
-              className="px-3 py-2 text-sm font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg shadow-sm transition-colors"
-            >
-              {tip.setupAction.label}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={handleReadMore}
-            className="px-3 py-2 text-sm font-medium border border-sky-300 text-sky-700 hover:bg-sky-50 rounded-lg transition-colors"
-          >
-            Read more →
-          </button>
-        </div>
+              {/* Primary tutorial controls — Back / Skip on the left,
+                  Next on the right (filled sky-500 so it reads as the
+                  forward action). */}
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={tutorial.onBack}
+                    disabled={tutorial.currentIndex === 0}
+                    className="px-3 py-2 text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    ← Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={tutorial.onSkip}
+                    className="px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-lg transition-colors"
+                  >
+                    Skip
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={tutorial.onNext}
+                  className="px-3 py-2 text-sm font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg shadow-sm transition-colors"
+                >
+                  Next →
+                </button>
+              </div>
+            </>
+          )
+        ) : (
+          <>
+            {/* Secondary dismissals — small text links above the primary
+                action row so they're available without competing for
+                attention with the CTA. */}
+            <div className="mt-3 flex items-center gap-3 text-xs">
+              <button
+                type="button"
+                onClick={() => onClose("later")}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                Show me later
+              </button>
+              <span className="text-gray-300" aria-hidden>·</span>
+              <button
+                type="button"
+                onClick={() => onClose("stop")}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                Stop showing
+              </button>
+            </div>
+
+            {/* Primary action row — filled setupAction button (if present)
+                + outlined Read-more button as the secondary CTA. */}
+            <div className="mt-2 flex items-center gap-2">
+              {tip.setupAction && (
+                <button
+                  type="button"
+                  onClick={handleSetupAction}
+                  className="px-3 py-2 text-sm font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg shadow-sm transition-colors"
+                >
+                  {tip.setupAction.label}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleReadMore}
+                className="px-3 py-2 text-sm font-medium border border-sky-300 text-sky-700 hover:bg-sky-50 rounded-lg transition-colors"
+              >
+                Read more →
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Animation-burst overlay — fires for tips with
