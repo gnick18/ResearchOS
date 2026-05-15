@@ -5,6 +5,7 @@ import { useAppStore } from "@/lib/store";
 import { tasksApi, filesApi, dependenciesApi, fetchAllMethodsIncludingShared, type DuplicateCheckResult } from "@/lib/local-api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Project, SubTask } from "@/lib/types";
+import { getMethodTypeMeta } from "@/lib/methods/method-type-registry";
 import { createNewFileContent } from "@/lib/stamp-utils";
 import { taskResultsBase } from "@/lib/tasks/results-paths";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -747,11 +748,14 @@ export default function TaskModal({ projects }: TaskModalProps) {
                       <span className="font-medium text-gray-900 truncate">
                         {selectedMethod.name}
                       </span>
-                      {selectedMethod.method_type === "pcr" && (
-                        <span className="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded shrink-0">
-                          PCR
-                        </span>
-                      )}
+                      {selectedMethod.method_type && selectedMethod.method_type !== "markdown" && (() => {
+                        const meta = getMethodTypeMeta(selectedMethod.method_type);
+                        return (
+                          <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${meta.color.bg} ${meta.color.text}`}>
+                            {meta.shortLabel}
+                          </span>
+                        );
+                      })()}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <button

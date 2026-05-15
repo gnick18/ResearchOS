@@ -18,6 +18,11 @@ import { useFileRenamePopup } from "@/components/FileRenamePopup";
 import SharePopup from "@/components/SharePopup";
 import Tooltip from "@/components/Tooltip";
 import type { Method, PCRProtocol, PCRGradient, PCRIngredient } from "@/lib/types";
+import {
+  getMethodTypeMeta,
+  getMethodTypesByCategory,
+  type MethodTypeId,
+} from "@/lib/methods/method-type-registry";
 
 /**
  * When the current viewer is a receiver of a shared method with edit
@@ -415,15 +420,14 @@ export default function MethodsPage() {
                           {m.source_path}
                         </p>
                          <div className="flex items-center gap-2 mt-2">
-                           <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                             m.method_type === "pdf" 
-                               ? "bg-orange-100 text-orange-600" 
-                               : m.method_type === "pcr"
-                               ? "bg-purple-100 text-purple-600"
-                               : "bg-gray-100 text-gray-500"
-                           }`}>
-                             {m.method_type === "pdf" ? "PDF" : m.method_type === "pcr" ? "PCR" : "Markdown"}
-                           </span>
+                           {(() => {
+                             const meta = getMethodTypeMeta(m.method_type);
+                             return (
+                               <span className={`text-[10px] px-2 py-0.5 rounded-full ${meta.color.bg} ${meta.color.text}`}>
+                                 {meta.label}
+                               </span>
+                             );
+                           })()}
                            {m.is_public && (
                              <span className="text-[10px] px-2 py-0.5 bg-green-50 text-green-600 rounded-full">
                                Public
@@ -505,6 +509,92 @@ export default function MethodsPage() {
         />
       )}
     </AppShell>
+  );
+}
+
+// ── Method Type Picker (Standard / Structured) ──────────────────────────────
+
+/**
+ * New-method type picker. Renders two grouped sections — Standard methods
+ * (markdown/pdf) and Structured methods (PCR, plus future v1 types) — using
+ * the cosmetic registry as the source of truth. Adding a new method type is
+ * a registry edit; the section it lands in is determined by its `category`.
+ */
+function MethodTypeCategoryPicker({
+  uploadType,
+  onSelect,
+}: {
+  uploadType: MethodTypeId;
+  onSelect: (id: MethodTypeId) => void;
+}) {
+  const standard = getMethodTypesByCategory("standard");
+  const structured = getMethodTypesByCategory("structured");
+
+  return (
+    <div className="space-y-4">
+      <MethodTypeSection
+        heading="Standard methods"
+        types={standard}
+        selectedId={uploadType}
+        onSelect={onSelect}
+      />
+      {structured.length > 0 && (
+        <MethodTypeSection
+          heading="Structured methods"
+          types={structured}
+          selectedId={uploadType}
+          onSelect={onSelect}
+        />
+      )}
+    </div>
+  );
+}
+
+function MethodTypeSection({
+  heading,
+  types,
+  selectedId,
+  onSelect,
+}: {
+  heading: string;
+  types: ReturnType<typeof getMethodTypesByCategory>;
+  selectedId: MethodTypeId;
+  onSelect: (id: MethodTypeId) => void;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-500 mb-2">
+        {heading}
+      </label>
+      <div className="flex flex-wrap gap-2">
+        {types.map((meta) => {
+          const Icon = meta.icon;
+          const selected = selectedId === meta.id;
+          return (
+            <button
+              key={meta.id}
+              type="button"
+              onClick={() => onSelect(meta.id)}
+              className={`flex-1 min-w-[180px] text-left px-4 py-3 rounded-lg border transition-colors ${
+                selected
+                  ? `${meta.color.bg} ${meta.color.text} border-current font-medium`
+                  : "border-gray-200 text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Icon className="w-4 h-4" />
+                <span className="text-sm">{meta.label}</span>
+              </div>
+              {meta.description && (
+                <p className={`mt-1 text-xs ${selected ? "" : "text-gray-400"}`}>
+                  {meta.description}
+                </p>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -616,7 +706,7 @@ function CreateMethodModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
-  const [uploadType, setUploadType] = useState<"markdown" | "pdf" | "pcr">("markdown");
+  const [uploadType, setUploadType] = useState<MethodTypeId>("markdown");
   const [name, setName] = useState("");
   const [folder, setFolder] = useState(prefilledFolder || "");
   const [tags, setTags] = useState("");
@@ -878,47 +968,13 @@ function CreateMethodModal({
 
         <div className="flex-1 overflow-y-auto p-6">
           <div className="space-y-4">
-            {/* Upload type toggle */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-2">
-                Method Format
-              </label>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setUploadType("markdown")}
-                  className={`flex-1 px-4 py-2.5 text-sm rounded-lg border transition-colors ${
-                    uploadType === "markdown"
-                      ? "bg-blue-50 border-blue-300 text-blue-700 font-medium"
-                      : "border-gray-200 text-gray-500 hover:bg-gray-50"
-                  }`}
-                >
-                  Markdown
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setUploadType("pdf")}
-                  className={`flex-1 px-4 py-2.5 text-sm rounded-lg border transition-colors ${
-                    uploadType === "pdf"
-                      ? "bg-orange-50 border-orange-300 text-orange-700 font-medium"
-                      : "border-gray-200 text-gray-500 hover:bg-gray-50"
-                  }`}
-                >
-                  PDF Upload
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setUploadType("pcr")}
-                  className={`flex-1 px-4 py-2.5 text-sm rounded-lg border transition-colors ${
-                    uploadType === "pcr"
-                      ? "bg-purple-50 border-purple-300 text-purple-700 font-medium"
-                      : "border-gray-200 text-gray-500 hover:bg-gray-50"
-                  }`}
-                >
-                  PCR Reaction
-                </button>
-              </div>
-            </div>
+            {/* Upload type picker — grouped into Standard / Structured.
+                Structured types own a per-type protocol record alongside
+                the Method row; standard types just point at a file. */}
+            <MethodTypeCategoryPicker
+              uploadType={uploadType}
+              onSelect={setUploadType}
+            />
 
             {/* Name */}
             <div>

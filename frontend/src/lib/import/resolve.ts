@@ -1,4 +1,5 @@
 import { methodsApi, projectsApi } from "@/lib/local-api";
+import { getMethodTypeMeta } from "@/lib/methods/method-type-registry";
 import type {
   ImportPayload,
   ImportPlan,
@@ -66,28 +67,27 @@ export async function buildImportPlan(
     const ownCandidates = existingMethods
       .filter((m) => !m.is_shared_with_me)
       .map((m) => ({ id: m.id, name: m.name }));
-    // For PCR methods, only consider a name match as "use-existing" if the
-    // existing method is also PCR — pointing a PCR-typed task slot at a
-    // markdown/pdf method would render badly.
-    const exactMatch =
-      entry.record.method_type === "pcr"
-        ? existingMethods.find(
-            (m) =>
-              !m.is_shared_with_me &&
-              m.method_type === "pcr" &&
-              normalizeName(m.name) === normalizeName(methodName),
-          )
-        : existingMethods.find(
-            (m) =>
-              !m.is_shared_with_me &&
-              normalizeName(m.name) === normalizeName(methodName),
-          );
+    // For structured methods (PCR today; LC/plate/cell-culture in v1),
+    // only consider a name match as "use-existing" if the existing method
+    // shares the same method_type — pointing a structured-typed task slot
+    // at a markdown/pdf method (or at a *different* structured type) would
+    // render badly. Standard types stay name-match-only.
+    const sourceMeta = getMethodTypeMeta(entry.record.method_type);
+    const requireSameType = sourceMeta.hasStructuredProtocol;
+    const exactMatch = existingMethods.find(
+      (m) =>
+        !m.is_shared_with_me &&
+        (!requireSameType || m.method_type === entry.record.method_type) &&
+        normalizeName(m.name) === normalizeName(methodName),
+    );
 
-    // import-new is only available for PCR when the bundle carried the
-    // protocol record. Without it, the importer has nothing to recreate
-    // from, so the default falls through to skip.
+    // import-new is only available for structured types when the bundle
+    // carried the protocol record. Without it, the importer has nothing
+    // to recreate from, so the default falls through to skip. Today PCR
+    // is the only structured type with a carrier field; future structured
+    // types will add their own gates here.
     const importNewAvailable =
-      entry.record.method_type !== "pcr" || entry.pcrProtocol != null;
+      !sourceMeta.hasStructuredProtocol || entry.pcrProtocol != null;
 
     let decision: MethodResolution["decision"];
     let existingMethodId: number | null;

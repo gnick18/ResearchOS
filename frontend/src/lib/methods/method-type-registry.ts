@@ -1,0 +1,98 @@
+/**
+ * Cosmetic-only registry for method types — labels, colors, icons, picker
+ * tile metadata. Mirrors PCR-shaped affordances (badge, picker tile, sidebar
+ * icon) across every type so cosmetic sites stay in sync as new types land.
+ *
+ * Deliberately excluded:
+ *  - Viewer / editor components. Per-type viewers are dispatched via a
+ *    switch in MethodTabs.tsx (and methods/page.tsx) so each viewer's bundle
+ *    can be code-split. A registry of components would couple bundle weight
+ *    to every registered type.
+ *  - Repair functions. User-initiated per-type buttons import directly.
+ *  - API surfaces (`pcrApi` etc). Each per-type API is imported by the page
+ *    that needs it; cross-type batch operations are vanishingly rare.
+ *
+ * `MethodTypeId` is an alias of the source-of-truth literal union on
+ * `Method.method_type` in types.ts:411. The two widen in lockstep as new
+ * types land.
+ */
+
+import type { ComponentType } from "react";
+import { MarkdownIcon, PcrIcon, PdfIcon } from "./method-type-icons";
+
+export type MethodTypeId = "markdown" | "pdf" | "pcr";
+
+export interface MethodTypeMeta {
+  /** The discriminator value as written to disk. */
+  id: MethodTypeId;
+  /** Display label for badges and picker tiles. */
+  label: string;
+  /** Compact label for tight spaces (badge pills, picker sub-lines). */
+  shortLabel: string;
+  /** Tailwind color pair applied to badge pills (bg + text). */
+  color: { bg: string; text: string };
+  /** Per-type icon component (inline SVG). */
+  icon: ComponentType<{ className?: string; size?: number }>;
+  /** Optional one-line description shown under the picker tile. */
+  description?: string;
+  /** True when the type has a structured protocol record alongside the
+   * Method row (e.g. PCR's PCRProtocol). Drives "is this a structured
+   * editor?" gating. */
+  hasStructuredProtocol: boolean;
+  /** Picker grouping. Structured types appear in the "Structured methods"
+   * section; standard types in "Standard methods". */
+  category: "standard" | "structured";
+}
+
+export const METHOD_TYPE_REGISTRY: Record<MethodTypeId, MethodTypeMeta> = {
+  markdown: {
+    id: "markdown",
+    label: "Markdown",
+    shortLabel: "Markdown",
+    color: { bg: "bg-gray-100", text: "text-gray-500" },
+    icon: MarkdownIcon,
+    description: "Free-form protocol text with images and tables.",
+    hasStructuredProtocol: false,
+    category: "standard",
+  },
+  pdf: {
+    id: "pdf",
+    label: "PDF",
+    shortLabel: "PDF",
+    color: { bg: "bg-orange-100", text: "text-orange-600" },
+    icon: PdfIcon,
+    description: "Upload an existing PDF protocol.",
+    hasStructuredProtocol: false,
+    category: "standard",
+  },
+  pcr: {
+    id: "pcr",
+    label: "PCR",
+    shortLabel: "PCR",
+    color: { bg: "bg-purple-100", text: "text-purple-600" },
+    icon: PcrIcon,
+    description: "Thermocycler program + reaction recipe.",
+    hasStructuredProtocol: true,
+    category: "structured",
+  },
+};
+
+/**
+ * Look up cosmetic meta for a method type. Null falls back to markdown
+ * (the historical default for legacy records written before `method_type`
+ * was added).
+ */
+export function getMethodTypeMeta(id: MethodTypeId | null | undefined): MethodTypeMeta {
+  if (!id) return METHOD_TYPE_REGISTRY.markdown;
+  return METHOD_TYPE_REGISTRY[id] ?? METHOD_TYPE_REGISTRY.markdown;
+}
+
+/**
+ * All registered types belonging to the given picker category. Used by the
+ * new-method dialog to render the Standard / Structured sections.
+ */
+export function getMethodTypesByCategory(
+  category: "standard" | "structured",
+): MethodTypeMeta[] {
+  return Object.values(METHOD_TYPE_REGISTRY).filter((m) => m.category === category);
+}

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchAllTasks, fetchAllMethodsIncludingShared, filesApi } from "@/lib/local-api";
 import type { Method, Task } from "@/lib/types";
+import { getMethodTypeMeta } from "@/lib/methods/method-type-registry";
 import RenderedMarkdown from "@/components/RenderedMarkdown";
 
 interface MethodPickerProps {
@@ -378,16 +379,14 @@ export default function MethodPicker({
                       <span className="text-sm font-medium text-gray-900 truncate">
                         {m.name}
                       </span>
-                      {m.method_type === "pcr" && (
-                        <span className="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded shrink-0">
-                          PCR
-                        </span>
-                      )}
-                      {m.method_type === "pdf" && (
-                        <span className="text-xs px-1.5 py-0.5 bg-rose-100 text-rose-600 rounded shrink-0">
-                          PDF
-                        </span>
-                      )}
+                      {m.method_type && m.method_type !== "markdown" && (() => {
+                        const meta = getMethodTypeMeta(m.method_type);
+                        return (
+                          <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${meta.color.bg} ${meta.color.text}`}>
+                            {meta.shortLabel}
+                          </span>
+                        );
+                      })()}
                     </div>
                     {isCurrent && (
                       <span className="text-xs text-green-600 shrink-0">
