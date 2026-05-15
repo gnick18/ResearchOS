@@ -1,0 +1,59 @@
+{
+  "id": 1,
+  "name": "[Demo protocol] HeLa passaging — weekly 1:5 split",
+  "description": "Demo passaging schedule for HeLa cells. Feed every 2 days, observe day 6, split 1:5 on day 7. Mid-execution actual events logged per experiment.",
+  "cell_line": {
+    "name": "HeLa (demo)",
+    "species": "Homo sapiens",
+    "tissue": "Cervix (adenocarcinoma)",
+    "notes": "Demo strain — fake ATCC ref. Mycoplasma-negative."
+  },
+  "media": {
+    "base_medium": "DMEM (high glucose, 4.5 g/L)",
+    "serum_percent": 10,
+    "supplements": [
+      {
+        "name": "PenStrep",
+        "concentration": "1",
+        "units": "%"
+      },
+      {
+        "name": "L-Glutamine",
+        "concentration": "2",
+        "units": "mM"
+      }
+    ]
+  },
+  "planned_events": [
+    {
+      "day_offset": 0,
+      "event_type": "observe",
+      "notes": "Seed plate; record initial confluence"
+    },
+    {
+      "day_offset": 2,
+      "event_type": "feed"
+    },
+    {
+      "day_offset": 4,
+      "event_type": "feed"
+    },
+    {
+      "day_offset": 6,
+      "event_type": "observe",
+      "notes": "Check confluence before split"
+    },
+    {
+      "day_offset": 7,
+      "event_type": "split",
+      "split_ratio": "1:5",
+      "notes": "Trypsinize, re-seed 1:5"
+    }
+  ],
+  "created_at": "2026-04-08T00:00:00Z",
+  "updated_at": "2026-04-08T00:00:00Z",
+  "is_public": false,
+  "created_by": "alex",
+  "owner": "alex",
+  "shared_with": []
+}

@@ -342,11 +342,12 @@ function buildEntries() {
     {
       projects: 4,
       tasks: 29,
-      methods: 6,
+      methods: 7,
       events: 4,
       goals: 2,
       pcr_protocols: 1,
       lc_gradients: 1,
+      cell_culture_schedules: 1,
       purchase_items: 20,
       lab_links: 6,
       notes: 2,
@@ -469,6 +470,38 @@ function buildEntries() {
         // exercised in fixture mode (Phase 1a live-smoke chip). The PCR
         // demo at task 5 already covers PcrMethodTabContent.
         { method_id: 6, owner: "alex", snapshot_at: "2026-05-13T08:00:00Z" },
+        // Phase 2D: cell culture passaging schedule attached so the
+        // CellCultureMethodTabContent path renders in fixture mode. The
+        // pre-seeded actual_events snapshot below demonstrates the
+        // "Modified from source" diff chip + actual-events log surface.
+        {
+          method_id: 7,
+          owner: "alex",
+          snapshot_at: "2026-05-13T08:00:00Z",
+          cell_culture_schedule: JSON.stringify({
+            planned_events: [
+              { day_offset: 0, event_type: "observe", notes: "Seed plate; record initial confluence" },
+              { day_offset: 2, event_type: "feed" },
+              { day_offset: 4, event_type: "feed" },
+              { day_offset: 6, event_type: "observe", notes: "Check confluence before split" },
+              { day_offset: 7, event_type: "split", split_ratio: "1:5" },
+            ],
+            actual_events: [
+              {
+                timestamp: "2026-05-11T09:15:00Z",
+                event_type: "observe",
+                observation_text: "Plated 5e5 cells per dish. Confluence ~30% post-attachment.",
+                confluence_percent: 30,
+              },
+              {
+                timestamp: "2026-05-13T09:00:00Z",
+                event_type: "feed",
+                observation_text: "Cells looking healthy, ~70% confluent.",
+                confluence_percent: 70,
+              },
+            ],
+          }),
+        },
       ] },
     { id: 11, project_id: 3, name: "Heat-shock survival assay", start_date: "2026-05-18", duration_days: 1, end_date: "2026-05-18", task_type: "experiment", is_complete: false, experiment_color: "#f59e0b",
       sub_tasks: [
@@ -627,6 +660,28 @@ function buildEntries() {
     },
   ]);
 
+  // Cell-culture-typed method entry surfacing alex's private passaging
+  // schedule (Phase 2D). Clicking opens the CellCultureViewer — the only
+  // way to reach that code path in fixture mode. Source path uses the
+  // canonical cell_culture://protocol/{id} scheme from app/methods/page.tsx.
+  out.push([
+    "users/alex/methods/7.json",
+    {
+      id: 7,
+      name: "[Demo protocol] HeLa passaging — weekly 1:5 split",
+      source_path: "cell_culture://protocol/1",
+      method_type: "cell_culture",
+      folder_path: "Cell culture",
+      parent_method_id: null,
+      tags: ["demo", "cell culture", "HeLa"],
+      attachments: [],
+      is_public: false,
+      created_by: "alex",
+      owner: "alex",
+      shared_with: [],
+    },
+  ]);
+
   // alex LC gradient (private). Realistic-but-fake reverse-phase HPLC for
   // peptide separation — 5%→95% acetonitrile + 0.1% formic acid over 25 min
   // at 0.3 mL/min on a 1.7 µm C18 column, 214 nm detection. The numbers are
@@ -678,6 +733,49 @@ function buildEntries() {
       ],
       created_at: "2026-04-12T00:00:00Z",
       updated_at: "2026-04-12T00:00:00Z",
+      is_public: false,
+      created_by: "alex",
+      owner: "alex",
+      shared_with: [],
+    },
+  ]);
+
+  // alex cell culture passaging schedule (private). Realistic-but-fake HeLa
+  // weekly passaging cadence — DMEM + 10% FBS + PenStrep/L-Gln, feed M/W,
+  // observe before split, split 1:5 on day 7. Cell line metadata mirrors
+  // ATCC's HeLa entry (CCL-2) without claiming any real reagent provenance.
+  // This is the source-side template; the per-task snapshot on alex/task 10
+  // overlays actual_events to demonstrate the diff display.
+  out.push([
+    "users/alex/cell_culture_schedules/1.json",
+    {
+      id: 1,
+      name: "[Demo protocol] HeLa passaging — weekly 1:5 split",
+      description:
+        "Demo passaging schedule for HeLa cells. Feed every 2 days, observe day 6, split 1:5 on day 7. Mid-execution actual events logged per experiment.",
+      cell_line: {
+        name: "HeLa (demo)",
+        species: "Homo sapiens",
+        tissue: "Cervix (adenocarcinoma)",
+        notes: "Demo strain — fake ATCC ref. Mycoplasma-negative.",
+      },
+      media: {
+        base_medium: "DMEM (high glucose, 4.5 g/L)",
+        serum_percent: 10,
+        supplements: [
+          { name: "PenStrep", concentration: "1", units: "%" },
+          { name: "L-Glutamine", concentration: "2", units: "mM" },
+        ],
+      },
+      planned_events: [
+        { day_offset: 0, event_type: "observe", notes: "Seed plate; record initial confluence" },
+        { day_offset: 2, event_type: "feed" },
+        { day_offset: 4, event_type: "feed" },
+        { day_offset: 6, event_type: "observe", notes: "Check confluence before split" },
+        { day_offset: 7, event_type: "split", split_ratio: "1:5", notes: "Trypsinize, re-seed 1:5" },
+      ],
+      created_at: "2026-04-08T00:00:00Z",
+      updated_at: "2026-04-08T00:00:00Z",
       is_public: false,
       created_by: "alex",
       owner: "alex",
