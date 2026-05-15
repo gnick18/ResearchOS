@@ -43,7 +43,6 @@ import {
 import { migrateTaskAttachmentsToFiles, splitTaskAttachments } from "@/lib/tasks/migrate-attachments";
 import { attachImageToTask } from "@/lib/attachments/attach-image";
 import { fileEvents } from "@/lib/attachments/file-events";
-import { gcUnreferencedAttachments } from "@/lib/attachments/gc";
 import { imageEvents } from "@/lib/attachments/image-events";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
@@ -2847,10 +2846,6 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
       const split = await ensureAttachmentsSplit(content);
       const toWrite = split.migrated ? split.notesContent : content;
       await filesApi.writeFile(notesPath, toWrite, `Update lab notes for: ${task.name}`);
-      // GC scans only the per-tab scoped folder — legacy shared attachments
-      // (if any survived migration as orphans) are left alone until the
-      // user runs the Settings split button.
-      await gcUnreferencedAttachments(toWrite, tabBase);
       setContent(toWrite);
       setOriginalContent(toWrite);
     } catch {
@@ -2858,7 +2853,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
     } finally {
       setSaving(false);
     }
-  }, [content, ensureAttachmentsSplit, notesPath, tabBase, task.name]);
+  }, [content, ensureAttachmentsSplit, notesPath, task.name]);
 
   return (
     <>
@@ -3353,7 +3348,6 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
       const split = await ensureAttachmentsSplit(content);
       const toWrite = split.migrated ? split.resultsContent : content;
       await filesApi.writeFile(resultsPath, toWrite, `Update results: ${task.name}`);
-      await gcUnreferencedAttachments(toWrite, tabBase);
       setContent(toWrite);
       setOriginalContent(toWrite);
     } catch {
@@ -3361,7 +3355,7 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
     } finally {
       setSaving(false);
     }
-  }, [content, ensureAttachmentsSplit, resultsPath, tabBase, task.name]);
+  }, [content, ensureAttachmentsSplit, resultsPath, task.name]);
 
   return (
     <>

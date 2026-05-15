@@ -522,8 +522,11 @@ export async function buildExperimentPayload(
 
   // Critical filter: only keep attachments that are actually referenced by
   // the matching tab's markdown body. Otherwise the export bundles every
-  // file ever dropped into the folder — including stuff the user removed
-  // from the body but left in the orphan-GC window.
+  // file ever dropped into the folder, including files the user attached
+  // but never inlined. (Pre-paradigm-shift this filter also caught
+  // attached-then-removed orphans; post-shift those are intentional and a
+  // separate follow-up should decide whether the export bundle wants the
+  // body-only subset or the full corpus.)
   const notesAttachments = filterByBodyRefs(notesAttachmentsRaw, notesMarkdown);
   const resultsAttachments = filterByBodyRefs(
     resultsAttachmentsRaw,
