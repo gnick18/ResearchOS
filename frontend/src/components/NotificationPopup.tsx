@@ -481,7 +481,9 @@ function ShiftAlertBody({
         {" shifted "}
         <span className="font-medium">{notification.item_name}</span>
         {" by "}
-        <span className="font-medium text-amber-700">{headlineDelta}</span>
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-xs font-semibold align-baseline">
+          {headlineDelta}
+        </span>
       </p>
       <p className="text-xs text-gray-600 mt-0.5">
         {notification.old_start} → <span className="font-medium">{notification.new_start}</span>
