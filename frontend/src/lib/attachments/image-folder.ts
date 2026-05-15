@@ -21,6 +21,10 @@ export interface ImageSidecar {
   source?: "telegram" | "upload" | "import";
   telegramMessageId?: number;
   telegramChatId?: number;
+  /** True when the photo arrived during the guided tutorial's first-photo
+   *  step. Used by `lib/telegram/tutorial-cleanup.ts` to scan the inbox
+   *  on tutorial-end and delete leftover test photos. */
+  tutorial_test?: boolean;
 }
 
 export interface FolderImageEntry {
@@ -30,7 +34,7 @@ export interface FolderImageEntry {
   sidecar?: ImageSidecar;
 }
 
-function hasImageExtension(name: string): boolean {
+export function hasImageExtension(name: string): boolean {
   const dot = name.lastIndexOf(".");
   if (dot < 0) return false;
   return IMAGE_EXTENSIONS.has(name.slice(dot).toLowerCase());

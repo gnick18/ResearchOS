@@ -314,6 +314,12 @@ export async function routeTelegramMessage(
     receivedAt: new Date(message.date * 1000).toISOString(),
     telegramMessageId: message.message_id,
     telegramChatId: ctx.chatId,
+    // Marker for the post-tutorial inbox cleanup pass. Only stamped when
+    // the photo flowed through this tutorial pass-through branch (i.e.
+    // tutorial.tutorial_active is true at this point — the non-tutorial
+    // path returned earlier via routeSinglePhotoThroughBatch / batch).
+    // See lib/telegram/tutorial-cleanup.ts.
+    tutorial_test: true,
   });
 
   if (!message.caption) {

@@ -49,6 +49,7 @@ import {
   clearTelegramTutorial,
   startTelegramTutorialStep,
 } from "@/lib/telegram/tutorial-store";
+import { cleanupTutorialTestPhotos } from "@/lib/telegram/tutorial-cleanup";
 
 /**
  * The orchestrator that owns the tip state machine. It:
@@ -310,6 +311,11 @@ export function OnboardingOrchestrator({
       if (signal.type === "tutorial-state") {
         if (signal.step === null) {
           void clearTelegramTutorial(username);
+          // Tutorial ended (advance past first-photo, skip, End, unmount,
+          // 90s timeout). Sweep the inbox for any test photos the user
+          // sent during the tour. Inbox-only by design — see
+          // lib/telegram/tutorial-cleanup.ts.
+          void cleanupTutorialTestPhotos(username);
         } else {
           void startTelegramTutorialStep(username, signal.step);
         }
