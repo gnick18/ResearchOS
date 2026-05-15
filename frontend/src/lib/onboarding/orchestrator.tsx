@@ -252,11 +252,17 @@ export function OnboardingOrchestrator({
         setSidecar(next);
         // Reset route-dwell baseline so the first tip after mode pick
         // can fire without waiting another 30s of focused dwell on
-        // the current route. Cooldown is already bypassed by
-        // setOnboardingMode's `last_tip_at = active_seconds - 999_999`
-        // sentinel. Combined, the first eligible tip fires within
-        // one roll tick (≤5s) of mode pick.
-        routeEnterActiveRef.current = 0;
+        // the current route. The dwell gate is
+        //   `now - routeEnterActiveRef.current < ROUTE_DWELL_SECONDS`
+        // so we need the ref to be at least ROUTE_DWELL_SECONDS in
+        // the past relative to current active_seconds. A brand-new
+        // user with active_seconds≈5 and a baseline of 0 still fails
+        // (5 - 0 < 30); -999_999 unconditionally satisfies. Cooldown
+        // is already bypassed by setOnboardingMode's
+        // `last_tip_at = active_seconds - 999_999` sentinel. Combined,
+        // the first eligible tip fires within one roll tick (≤5s) of
+        // mode pick.
+        routeEnterActiveRef.current = -999_999;
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error("[onboarding] setMode failed", err);
