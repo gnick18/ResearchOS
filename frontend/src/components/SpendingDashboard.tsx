@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Bar,
   BarChart,
@@ -17,6 +18,7 @@ import type {
   Project,
   FundingAccount,
 } from "@/lib/types";
+import Tooltip from "@/components/Tooltip";
 
 // SAFEGUARD: aggregations scope to PurchaseItem by identity, not field name.
 // LabLink also has a `category` field (~10 instances in wiki-capture fixture);
@@ -348,22 +350,32 @@ export default function SpendingDashboard({
             {filteredItems.length === 1 ? "" : "s"} in window
           </p>
         </div>
-        <button
-          onClick={handleExportCsv}
-          disabled={exportDisabled}
-          className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
-            exportDisabled
-              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-          }`}
-          title={
-            exportDisabled
-              ? "No items in current window"
-              : "Download CSV of items in current scope"
-          }
-        >
-          Export CSV
-        </button>
+        <div className="flex items-center gap-3">
+          <Tooltip label="Cross-lab spending view">
+            <Link
+              href="/lab?tab=purchases"
+              className="text-xs text-emerald-700 hover:text-emerald-800 hover:underline"
+            >
+              View in Lab Mode →
+            </Link>
+          </Tooltip>
+          <button
+            onClick={handleExportCsv}
+            disabled={exportDisabled}
+            className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
+              exportDisabled
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+            }`}
+            title={
+              exportDisabled
+                ? "No items in current window"
+                : "Download CSV of items in current scope"
+            }
+          >
+            Export CSV
+          </button>
+        </div>
       </div>
 
       {/* Top controls: time range + project-filter override */}
