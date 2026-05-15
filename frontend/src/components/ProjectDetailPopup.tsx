@@ -70,6 +70,12 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
   
   // For full detail popup
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  // When opening the detail popup straight from the "Recently completed"
+  // section, land on the Results tab — same behavior the dead /results page
+  // used to provide.
+  const [selectedTaskInitialTab, setSelectedTaskInitialTab] = useState<
+    "results" | undefined
+  >(undefined);
   
   // For share popup
   const [showSharePopup, setShowSharePopup] = useState(false);
@@ -172,7 +178,16 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
     const inProgress = futureTasks.filter((t) => t.start_date <= today && t.end_date >= today);
     const upcoming = futureTasks.filter((t) => t.start_date > today);
     const overdue = tasks.filter((t) => !t.is_complete && t.end_date < today);
-    return { inProgress, upcoming, overdue };
+    // 30-day completion window — chip 1 of the /results kill rollout (see
+    // RESULTS_PAGE_PROPOSAL.md @ ba8d10f4). Hardcoded window/all-types by
+    // design; no filter UI in v1.
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400_000)
+      .toISOString()
+      .slice(0, 10);
+    const recentlyCompleted = tasks
+      .filter((t) => t.is_complete && t.end_date >= thirtyDaysAgo)
+      .sort((a, b) => b.end_date.localeCompare(a.end_date));
+    return { inProgress, upcoming, overdue, recentlyCompleted };
   }, [futureTasks, tasks, today]);
 
   const handleSave = async () => {
@@ -280,6 +295,14 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
       setQuickPopupTask(null);
     }
   }, [quickPopupTask]);
+
+  // Completed-task click: skip the quick popup and open the full detail popup
+  // on the Results tab. Mirrors how the (now-defunct) /results page surfaced
+  // a finished task.
+  const handleCompletedTaskClick = useCallback((task: Task) => {
+    setSelectedTaskInitialTab("results");
+    setSelectedTask(task);
+  }, []);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
@@ -669,6 +692,42 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
               </div>
             )}
 
+            {/* Recently completed — 30-day window, all task types. Replaces
+                the /results page (chip 1 of 4 in the kill rollout). Clicking
+                opens the task detail popup straight to the Results tab. */}
+            {tasksByStatus.recentlyCompleted.length > 0 && (
+              <div className="p-4 border-t border-gray-100">
+                <h3 className="text-xs font-bold text-green-600 uppercase tracking-wider mb-2">
+                  Recently completed ({tasksByStatus.recentlyCompleted.length})
+                </h3>
+                <div className="space-y-1.5">
+                  {tasksByStatus.recentlyCompleted.map((t) => (
+                    <div
+                      key={t.id}
+                      onClick={() => handleCompletedTaskClick(t)}
+                      className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div
+                          className={`w-1 h-4 rounded-full flex-shrink-0 ${
+                            t.task_type === "experiment"
+                              ? "bg-purple-400"
+                              : t.task_type === "purchase"
+                                ? "bg-blue-400"
+                                : "bg-gray-400"
+                          }`}
+                        />
+                        <span className="text-sm text-gray-700 truncate">{t.name}</span>
+                      </div>
+                      <span className="text-xs text-gray-400 group-hover:text-gray-600 flex-shrink-0 ml-2">
+                        Completed {formatDate(t.end_date)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Hosted from others — cross-owner tasks (Option C). Foreign
                 tasks shared INTO this project show here so the project view
                 is the complete picture, not just native tasks. The X removes
@@ -857,7 +916,11 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
           <TaskDetailPopup
             task={selectedTask}
             project={project}
-            onClose={() => setSelectedTask(null)}
+            initialTab={selectedTaskInitialTab}
+            onClose={() => {
+              setSelectedTask(null);
+              setSelectedTaskInitialTab(undefined);
+            }}
           />
         )}
 
