@@ -342,9 +342,14 @@ export default function OnboardingTipCard({
     return { botPose: "pointing", botDirection: dx < 0 ? "left" : "right" };
   }, [targetRect, mascotCenter]);
 
-  // Pulsing red-glow highlight on the target element, applied via
-  // a class so we can keep the styling co-located in the injected
-  // <style> tag below. Cleaned up on unmount / target change.
+  // Target-element class toggle. Adds an `onboarding-tip-highlight`
+  // class so the target itself can carry the red border treatment
+  // (CSS rules below). Some targets are inside their own stacking
+  // context that suppresses or clips the box-shadow, so we ALSO
+  // render an absolutely-positioned overlay ring at the target's
+  // bounding rect (see `<div data-onboarding-tip-overlay-ring>`
+  // below). The overlay is the bulletproof signal; the class is
+  // there as a redundant in-place cue for unobstructed targets.
   useEffect(() => {
     if (!target) return;
     target.classList.add("onboarding-tip-highlight");
@@ -368,7 +373,6 @@ export default function OnboardingTipCard({
         .onboarding-tip-highlight {
           position: relative;
           z-index: 200 !important;
-          border-radius: 8px;
           animation: onboarding-tip-pulse 1.4s ease-in-out infinite;
         }
         @keyframes onboarding-tip-pulse {
@@ -385,7 +389,46 @@ export default function OnboardingTipCard({
               0 0 24px 10px rgba(239, 68, 68, 0.35);
           }
         }
+        @keyframes onboarding-tip-overlay-pulse {
+          0%, 100% {
+            box-shadow:
+              0 0 0 3px rgba(239, 68, 68, 0.95),
+              0 0 0 6px rgba(239, 68, 68, 0.35),
+              0 0 22px 8px rgba(239, 68, 68, 0.55);
+            border-color: rgba(239, 68, 68, 1);
+          }
+          50% {
+            box-shadow:
+              0 0 0 3px rgba(239, 68, 68, 0.7),
+              0 0 0 8px rgba(239, 68, 68, 0.2),
+              0 0 28px 12px rgba(239, 68, 68, 0.35);
+            border-color: rgba(239, 68, 68, 0.85);
+          }
+        }
       `}</style>
+
+      {/* Bulletproof overlay ring — absolutely positioned to the
+          target's bounding rect, sits at z-[202] (above the tip card
+          + mascot). The class-on-target approach above can be
+          suppressed by stacking-context contained ancestors (eg. an
+          ancestor with `overflow: hidden` or its own positioned
+          z-index lower than the page chrome); this overlay lives at
+          the document root and is independent of any ancestor
+          chain. */}
+      {targetRect && (
+        <div
+          aria-hidden
+          className="fixed pointer-events-none rounded-lg border-2"
+          style={{
+            left: `${targetRect.left - 4}px`,
+            top: `${targetRect.top - 4}px`,
+            width: `${targetRect.width + 8}px`,
+            height: `${targetRect.height + 8}px`,
+            zIndex: 202,
+            animation: "onboarding-tip-overlay-pulse 1.4s ease-in-out infinite",
+          }}
+        />
+      )}
 
       {/* Mascot — standalone, sits at the LEFT end of the assembly.
           Pose adapts to where the target is relative to the mascot
