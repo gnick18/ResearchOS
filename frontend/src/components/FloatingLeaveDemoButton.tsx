@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { getDemoMode } from "@/lib/file-system/wiki-capture-mock";
+import {
+  getDemoMode,
+  isTutorialMode,
+} from "@/lib/file-system/wiki-capture-mock";
 import LeaveDemoModal from "./LeaveDemoModal";
 
 /**
@@ -25,14 +28,24 @@ import LeaveDemoModal from "./LeaveDemoModal";
 export default function FloatingLeaveDemoButton() {
   const pathname = usePathname();
   const [show, setShow] = useState(false);
+  const [tutorial, setTutorial] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing local React state with the external sessionStorage demo flag on every route change
     setShow(getDemoMode());
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- same pathname-tied resync for the tutorial flag (URL-derived)
+    setTutorial(isTutorialMode());
   }, [pathname]);
 
   if (!show) return null;
+
+  // Tutorial copy reframes the button as "exit the practice tour" rather
+  // than "wipe the public demo" — same handler underneath, copy is the
+  // only difference here. (The actual close-vs-IndexedDB-nuke branching
+  // lives in `<LeaveDemoModal>`.)
+  const label = tutorial ? "Exit Tour" : "Leave Demo";
+  const aria = tutorial ? "Exit tutorial tour" : "Leave demo";
 
   return (
     <>
@@ -40,7 +53,7 @@ export default function FloatingLeaveDemoButton() {
         type="button"
         onClick={() => setModalOpen(true)}
         className="fixed bottom-20 right-4 z-50 px-4 py-3 rounded-full bg-amber-500 hover:bg-amber-600 text-white font-medium shadow-xl flex items-center gap-2 transition-colors focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2"
-        aria-label="Leave demo"
+        aria-label={aria}
       >
         <svg
           aria-hidden
@@ -56,7 +69,7 @@ export default function FloatingLeaveDemoButton() {
             d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
           />
         </svg>
-        <span>Leave Demo</span>
+        <span>{label}</span>
       </button>
       <LeaveDemoModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
     </>
