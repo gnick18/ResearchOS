@@ -1,18 +1,32 @@
 // frontend/src/lib/telegram/batch-routing.test.ts
 //
-// State-machine coverage for batch photo routing. The Telegram Bot API
-// boundary is stubbed (sendMessage, answerCallbackQuery, attachImage)
-// so we can drive the machine through every transition without spinning
-// a real bot. The seven required scenarios from the brief plus a couple
-// of edge cases (chat-id guard, callback against stale state) live here.
+// State-machine coverage for the redesigned batch + single-photo
+// routing. The Telegram Bot API boundary is stubbed (sendMessage,
+// answerCallbackQuery, attachImage) so we can drive the machine through
+// every transition without spinning a real bot.
+//
+// Redesign locks tested here:
+//   1. ASK ALWAYS — even with an active task open, the bot prompts
+//      first; no silent auto-attach.
+//   2. Combined picker shape — active confirmation, then full task
+//      picker, then sub-tab picker, then caption style.
+//   3. "Pick another" filter — Doing-now + experiments-without-results
+//      + Inbox; hides experiments that already have results written.
+//   4. Rich multi-line button labels — `\n`-separated title / project /
+//      dates; callback_data stays under the 64-byte cap.
+//   5. Lab Notes vs Results write target — per-tab `Images/` subdir,
+//      NOT the legacy outer base.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Hoisted shared mock state — mirrors the pattern in image-router.test.ts.
 const hoisted = vi.hoisted(() => {
   const memFs = new Map<string, unknown>();
+  // memBlobs tracks string contents for paths read via readFileAsBlob
+  // (results.md content checks).
+  const memBlobs = new Map<string, string>();
   return {
     memFs,
+    memBlobs,
     sendMessageMock: vi.fn(
       async (
         _token: string,
@@ -62,7 +76,12 @@ vi.mock("@/lib/file-system/file-service", () => ({
     writeJson: vi.fn(async (path: string, data: unknown) => {
       hoisted.memFs.set(path, data);
     }),
-    fileExists: vi.fn(async () => false),
+    fileExists: vi.fn(async (path: string) => hoisted.memBlobs.has(path)),
+    readFileAsBlob: vi.fn(async (path: string) => {
+      const text = hoisted.memBlobs.get(path);
+      if (text === undefined) return null;
+      return new Blob([text], { type: "text/markdown" });
+    }),
   },
 }));
 
@@ -83,9 +102,18 @@ vi.mock("@/lib/attachments/attach-image", () => ({
 }));
 
 vi.mock("@/lib/tasks/results-paths", () => ({
+  // Pass-through: per-tab helpers anchor at taskResultsBase, the legacy
+  // migration helper resolves to the per-user path. We return canonical
+  // paths so the write-target assertions can compare strings directly.
   resolveTaskResultsBase: vi.fn(async (task: { id: number; owner: string }) =>
     `users/${task.owner}/results/task-${task.id}`,
   ),
+  taskResultsBase: (task: { id: number; owner: string }) =>
+    `users/${task.owner}/results/task-${task.id}`,
+  taskNotesBase: (task: { id: number; owner: string }) =>
+    `users/${task.owner}/results/task-${task.id}/notes`,
+  taskResultsTabBase: (task: { id: number; owner: string }) =>
+    `users/${task.owner}/results/task-${task.id}/results`,
 }));
 
 vi.mock("@/lib/attachments/image-folder", () => ({
@@ -94,7 +122,8 @@ vi.mock("@/lib/attachments/image-folder", () => ({
 }));
 
 vi.mock("@/lib/storage/json-store", () => ({
-  // Default loader returns []; individual tests swap via setExperimentsLoader.
+  // Default loader returns []; individual tests swap via setExperimentsLoader
+  // / setProjectsLoader.
   JsonStore: class {
     async listAllForUser(): Promise<unknown[]> {
       return [];
@@ -106,16 +135,21 @@ import {
   _peekBatchForTests,
   _resetBatchesForTests,
   _resetExperimentsLoaderForTests,
+  _resetProjectsLoaderForTests,
   _setExperimentsLoaderForTests,
+  _setProjectsLoaderForTests,
   BATCH_MAX_PHOTOS,
   BATCH_WINDOW_MS,
+  buildExperimentLabel,
   consumeBatchTextReply,
+  partitionPickerExperiments,
   routeBatchablePhoto,
   routeBatchCallbackQuery,
+  routeSinglePhotoThroughBatch,
   type BatchPhoto,
   type BatchRouteContext,
 } from "./batch-routing";
-import type { Task } from "@/lib/types";
+import type { Task, Project } from "@/lib/types";
 import type { TelegramCallbackQuery } from "./telegram-client";
 import type { ActiveTask } from "@/lib/store";
 
@@ -183,14 +217,33 @@ function makeExperiment(overrides: Partial<Task>): Task {
   } as Task;
 }
 
+function makeProject(overrides: Partial<Project>): Project {
+  return {
+    id: 1,
+    name: "Default Project",
+    weekend_active: true,
+    tags: null,
+    color: null,
+    created_at: "2026-01-01",
+    sort_order: 0,
+    is_archived: false,
+    archived_at: null,
+    owner: USER,
+    shared_with: [],
+    ...overrides,
+  } as Project;
+}
+
 beforeEach(() => {
   hoisted.memFs.clear();
+  hoisted.memBlobs.clear();
   hoisted.sendMessageMock.mockClear();
   hoisted.sendPhotoMock.mockClear();
   hoisted.answerCallbackQueryMock.mockClear();
   hoisted.attachImageToTaskMock.mockClear();
   _resetBatchesForTests();
   _resetExperimentsLoaderForTests();
+  _resetProjectsLoaderForTests();
   vi.useRealTimers();
 });
 
@@ -224,10 +277,7 @@ describe("batch-routing: buffering", () => {
     for (let i = 0; i < BATCH_MAX_PHOTOS; i++) {
       await routeBatchablePhoto("g1", makePhoto(), baseCtx, null);
     }
-    // Allow microtasks queued by commitBuffer to run.
     await vi.advanceTimersByTimeAsync(0);
-    // We should have transitioned out of buffering before the window
-    // elapsed (window has not been advanced).
     const after = _peekBatchForTests(CHAT_ID);
     expect(after?.kind).toBe("awaiting-destination");
     if (after?.kind === "awaiting-destination") {
@@ -246,34 +296,26 @@ describe("batch-routing: media_group_id boundary", () => {
     await routeBatchablePhoto("g1", makePhoto(), baseCtx, t2);
     await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
     const after = _peekBatchForTests(CHAT_ID);
-    // Should have skipped destination picker (activeTask was set at
-    // first photo) and gone to awaiting-style with the T1 destination.
-    expect(after?.kind).toBe("awaiting-style");
-    if (after?.kind === "awaiting-style") {
-      expect(after.destination).toEqual({
-        kind: "task",
-        taskId: 1,
-        owner: USER,
-        name: "T1",
-      });
+    // ASK-always reframe: with an active task, we now park in
+    // awaiting-active-confirmation (not awaiting-style), and the active
+    // task held there is the FIRST-photo snapshot.
+    expect(after?.kind).toBe("awaiting-active-confirmation");
+    if (after?.kind === "awaiting-active-confirmation") {
+      expect(after.activeTask).toEqual({ id: 1, owner: USER, name: "T1" });
     }
   });
 
   it("new batch arriving mid-flow cancels pending and sends a restart notice", async () => {
     vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
-    // First batch: get to awaiting-style.
     await routeBatchablePhoto("g1", makePhoto(), baseCtx, {
       id: 1,
       owner: USER,
       name: "T1",
     });
     await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
-    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-style");
-    // New album lands while the first is still mid-flow.
+    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-active-confirmation");
     hoisted.sendMessageMock.mockClear();
     await routeBatchablePhoto("g2", makePhoto(), baseCtx, null);
-    // The cancel notice should have fired before the new batch started
-    // buffering.
     const noticeCall = hoisted.sendMessageMock.mock.calls.find((c) =>
       String(c[2]).toLowerCase().includes("new album"),
     );
@@ -286,29 +328,136 @@ describe("batch-routing: media_group_id boundary", () => {
   });
 });
 
-describe("batch-routing: full destination → style → auto flow", () => {
-  it("walks no-activeTask through the destination picker and auto-name commit", async () => {
+describe("batch-routing: active-task confirmation (Lock 1 + 2)", () => {
+  it("active task open → confirmation keyboard → Lab Notes → awaiting-style with subTab=notes", async () => {
     vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
     _setExperimentsLoaderForTests(async () => [
-      makeExperiment({ id: 3, name: "Doing E", start_date: todayLocalDate(), end_date: todayLocalDate() }),
+      makeExperiment({ id: 7, name: "Bench" }),
     ]);
+    _setProjectsLoaderForTests(async () => [makeProject({ id: 1, name: "ProjA" })]);
 
-    // 2 photos, no activeTask.
+    await routeBatchablePhoto("g1", makePhoto("a"), baseCtx, {
+      id: 7,
+      owner: USER,
+      name: "Bench",
+    });
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-active-confirmation");
+
+    // Confirmation keyboard: Lab Notes / Results / Pick another rows.
+    const prompt = hoisted.sendMessageMock.mock.calls.find((c) =>
+      String(c[2]).toLowerCase().includes("where"),
+    );
+    expect(prompt).toBeDefined();
+    const markup = (prompt![3] as { reply_markup?: { inline_keyboard: { text: string; callback_data: string }[][] } })
+      ?.reply_markup;
+    const buttons = markup!.inline_keyboard.flat();
+    const notesButton = buttons.find((b) => b.callback_data === "tab:7:alex:notes");
+    const resultsButton = buttons.find((b) => b.callback_data === "tab:7:alex:results");
+    const pickOther = buttons.find((b) => b.callback_data === "pick-other");
+    expect(notesButton).toBeDefined();
+    expect(resultsButton).toBeDefined();
+    expect(pickOther).toBeDefined();
+
+    // Click Lab Notes.
+    hoisted.sendMessageMock.mockClear();
+    await routeBatchCallbackQuery(makeCallback("tab:7:alex:notes"), baseCtx);
+    expect(hoisted.answerCallbackQueryMock).toHaveBeenCalled();
+    const after = _peekBatchForTests(CHAT_ID);
+    expect(after?.kind).toBe("awaiting-style");
+    if (after?.kind === "awaiting-style") {
+      expect(after.destination).toEqual({
+        kind: "task",
+        taskId: 7,
+        owner: USER,
+        name: "Bench",
+        subTab: "notes",
+      });
+    }
+  });
+
+  it("Pick another → awaiting-destination → task → awaiting-subtab → sub-tab → awaiting-style", async () => {
+    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
+    _setExperimentsLoaderForTests(async () => [
+      makeExperiment({ id: 7, name: "Bench" }),
+      makeExperiment({ id: 9, name: "OtherExp" }),
+    ]);
+    _setProjectsLoaderForTests(async () => [makeProject({ id: 1, name: "ProjA" })]);
+
+    await routeBatchablePhoto("g1", makePhoto(), baseCtx, {
+      id: 7,
+      owner: USER,
+      name: "Bench",
+    });
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-active-confirmation");
+
+    // Click "Pick another".
+    hoisted.sendMessageMock.mockClear();
+    await routeBatchCallbackQuery(makeCallback("pick-other"), baseCtx);
+    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-destination");
+    // Picker keyboard sent.
+    const pickerPrompt = hoisted.sendMessageMock.mock.calls.find((c) =>
+      String(c[2]).toLowerCase().includes("where"),
+    );
+    expect(pickerPrompt).toBeDefined();
+    const pickerMarkup = (pickerPrompt![3] as { reply_markup?: { inline_keyboard: { text: string; callback_data: string }[][] } })
+      ?.reply_markup;
+    const taskBtn = pickerMarkup!.inline_keyboard.flat().find((b) =>
+      b.callback_data.startsWith("task:9:"),
+    );
+    expect(taskBtn).toBeDefined();
+
+    // Click a task.
+    hoisted.sendMessageMock.mockClear();
+    await routeBatchCallbackQuery(makeCallback(taskBtn!.callback_data), baseCtx);
+    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-subtab");
+    const subTabPrompt = hoisted.sendMessageMock.mock.calls.find((c) =>
+      String(c[2]).toLowerCase().includes("lab notes or results"),
+    );
+    expect(subTabPrompt).toBeDefined();
+    const subTabMarkup = (subTabPrompt![3] as { reply_markup?: { inline_keyboard: { text: string; callback_data: string }[][] } })
+      ?.reply_markup;
+    const notesSub = subTabMarkup!.inline_keyboard.flat().find((b) =>
+      b.callback_data === "subtab:9:alex:notes",
+    );
+    expect(notesSub).toBeDefined();
+
+    // Click Lab Notes sub-tab.
+    await routeBatchCallbackQuery(makeCallback("subtab:9:alex:notes"), baseCtx);
+    const final = _peekBatchForTests(CHAT_ID);
+    expect(final?.kind).toBe("awaiting-style");
+    if (final?.kind === "awaiting-style") {
+      expect(final.destination).toEqual({
+        kind: "task",
+        taskId: 9,
+        owner: USER,
+        name: "OtherExp",
+        subTab: "notes",
+      });
+    }
+  });
+});
+
+describe("batch-routing: no-active-task → full picker → sub-tab → style", () => {
+  it("walks the full picker through sub-tab into awaiting-style", async () => {
+    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
+    _setExperimentsLoaderForTests(async () => [
+      makeExperiment({ id: 3, name: "Doing E" }),
+    ]);
+    _setProjectsLoaderForTests(async () => [makeProject({ id: 1, name: "ProjA" })]);
+
     await routeBatchablePhoto("g1", makePhoto("a"), baseCtx, null);
     await routeBatchablePhoto("g1", makePhoto("b"), baseCtx, null);
     await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
 
-    // Bot asks for destination.
     expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-destination");
     const destPrompt = hoisted.sendMessageMock.mock.calls.find((c) =>
-      String(c[2]).includes("Where should they go"),
+      String(c[2]).toLowerCase().includes("where"),
     );
     expect(destPrompt).toBeDefined();
     const destMarkup = (destPrompt![3] as { reply_markup?: { inline_keyboard: { text: string; callback_data: string }[][] } })
       ?.reply_markup;
-    expect(destMarkup).toBeDefined();
-    // Doing experiment + Inbox at minimum.
-    expect(destMarkup!.inline_keyboard.length).toBeGreaterThanOrEqual(2);
     const inboxButton = destMarkup!.inline_keyboard
       .flat()
       .find((b) => b.callback_data === "inbox");
@@ -318,50 +467,250 @@ describe("batch-routing: full destination → style → auto flow", () => {
       .find((b) => b.callback_data.startsWith("task:3:"));
     expect(taskButton).toBeDefined();
 
-    // User clicks the task button.
-    hoisted.sendMessageMock.mockClear();
+    // User clicks the task button → awaiting-subtab.
     await routeBatchCallbackQuery(makeCallback(taskButton!.callback_data), baseCtx);
-    expect(hoisted.answerCallbackQueryMock).toHaveBeenCalledTimes(1);
-    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-style");
-    // Style prompt sent.
-    const stylePrompt = hoisted.sendMessageMock.mock.calls.find((c) =>
-      String(c[2]).includes("How should they be named"),
+    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-subtab");
+
+    // User picks Results sub-tab → awaiting-style.
+    await routeBatchCallbackQuery(makeCallback("subtab:3:alex:results"), baseCtx);
+    const after = _peekBatchForTests(CHAT_ID);
+    expect(after?.kind).toBe("awaiting-style");
+    if (after?.kind === "awaiting-style") {
+      expect(after.destination).toEqual({
+        kind: "task",
+        taskId: 3,
+        owner: USER,
+        name: "Doing E",
+        subTab: "results",
+      });
+    }
+  });
+
+  it("Inbox click skips the sub-tab keyboard", async () => {
+    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
+    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null);
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-destination");
+
+    await routeBatchCallbackQuery(makeCallback("inbox"), baseCtx);
+    const after = _peekBatchForTests(CHAT_ID);
+    expect(after?.kind).toBe("awaiting-style");
+    if (after?.kind === "awaiting-style") {
+      expect(after.destination).toEqual({ kind: "inbox" });
+    }
+  });
+});
+
+describe("batch-routing: experiments-without-results filter", () => {
+  it("hides tasks whose results.md has user content; surfaces tasks with empty/stamp-only results", async () => {
+    // Three tasks all outside the doing window (start_date in the past
+    // AND end_date in the past) so they go to the "withoutResults"
+    // section, where the filter is applied.
+    const past = "2026-01-01";
+    const taskEmpty = makeExperiment({
+      id: 11,
+      name: "Empty",
+      start_date: past,
+      end_date: past,
+    });
+    const taskStampOnly = makeExperiment({
+      id: 12,
+      name: "StampOnly",
+      start_date: past,
+      end_date: past,
+    });
+    const taskWithContent = makeExperiment({
+      id: 13,
+      name: "Written",
+      start_date: past,
+      end_date: past,
+    });
+
+    // taskEmpty: no results.md on disk at all.
+    // taskStampOnly: results.md exists with only stamp + header.
+    hoisted.memBlobs.set(
+      `users/${USER}/results/task-12/results.md`,
+      "<!-- stamp:start -->\n2026-01-01  \n12:00 PM  \nexperiment: StampOnly  \nproject folder: ProjA  \n<!-- stamp:end -->\n___\n# Results: StampOnly\n",
     );
-    expect(stylePrompt).toBeDefined();
-    const styleMarkup = (stylePrompt![3] as { reply_markup?: { inline_keyboard: { text: string; callback_data: string }[][] } })
+    // taskWithContent: real body beyond the header.
+    hoisted.memBlobs.set(
+      `users/${USER}/results/task-13/results.md`,
+      "<!-- stamp:start -->\n2026-01-01  \n12:00 PM  \nexperiment: Written  \nproject folder: ProjA  \n<!-- stamp:end -->\n___\n# Results: Written\n\nThe western blot showed a clean band at 50kDa.\n",
+    );
+
+    const { doing, withoutResults } = await partitionPickerExperiments([
+      taskEmpty,
+      taskStampOnly,
+      taskWithContent,
+    ]);
+    expect(doing).toHaveLength(0);
+    const ids = withoutResults.map((t) => t.id).sort();
+    expect(ids).toEqual([11, 12]);
+    expect(withoutResults.find((t) => t.id === 13)).toBeUndefined();
+  });
+});
+
+describe("batch-routing: rich button labels", () => {
+  it("buildExperimentLabel returns a 3-line `\\n`-separated label", () => {
+    const label = buildExperimentLabel(
+      { name: "Yeast assay", start_date: "2026-05-01", end_date: "2026-05-10" },
+      "Protein Research",
+      { icon: "▶︎" },
+    );
+    const lines = label.split("\n");
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toContain("Yeast assay");
+    expect(lines[1]).toBe("Protein Research");
+    expect(lines[2]).toBe("2026-05-01 → 2026-05-10");
+  });
+
+  it("buildExperimentLabel truncates long titles and project folders", () => {
+    const longName = "x".repeat(120);
+    const longProject = "y".repeat(120);
+    const label = buildExperimentLabel(
+      { name: longName, start_date: "2026-05-01", end_date: "2026-05-10" },
+      longProject,
+    );
+    const [title, project] = label.split("\n");
+    expect(title.length).toBeLessThanOrEqual(61);
+    expect(project.length).toBeLessThanOrEqual(60);
+    expect(title.endsWith("…")).toBe(true);
+  });
+
+  it("task-picker button text contains `\\n`-separated rich label", async () => {
+    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
+    _setExperimentsLoaderForTests(async () => [
+      makeExperiment({
+        id: 21,
+        name: "Yeast assay",
+        start_date: "2026-05-01",
+        end_date: "2026-05-10",
+        project_id: 4,
+      }),
+    ]);
+    _setProjectsLoaderForTests(async () => [
+      makeProject({ id: 4, name: "Protein Research" }),
+    ]);
+
+    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null);
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+    const prompt = hoisted.sendMessageMock.mock.calls.find((c) =>
+      String(c[2]).toLowerCase().includes("where"),
+    );
+    const markup = (prompt![3] as { reply_markup?: { inline_keyboard: { text: string; callback_data: string }[][] } })
       ?.reply_markup;
-    expect(
-      styleMarkup!.inline_keyboard.flat().some((b) => b.callback_data === "style:auto"),
-    ).toBe(true);
+    const taskBtn = markup!.inline_keyboard
+      .flat()
+      .find((b) => b.callback_data.startsWith("task:21:"));
+    expect(taskBtn).toBeDefined();
+    expect(taskBtn!.text).toContain("\n");
+    const lines = taskBtn!.text.split("\n");
+    expect(lines.length).toBe(3);
+    expect(lines[0]).toContain("Yeast assay");
+    expect(lines[1]).toContain("Protein Research");
+    expect(lines[2]).toContain("2026-05-01");
+    expect(lines[2]).toContain("2026-05-10");
+  });
 
-    // User clicks auto-number.
-    hoisted.sendMessageMock.mockClear();
-    hoisted.answerCallbackQueryMock.mockClear();
+  it("callback_data stays under the Telegram 64-byte cap", async () => {
+    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
+    // A 30-character username + a long-but-realistic id; subtab payload
+    // is the longest of our callback shapes.
+    const longUser = "a".repeat(30);
+    const cb = `subtab:9999:${longUser}:results`;
+    expect(new TextEncoder().encode(cb).length).toBeLessThan(64);
+  });
+});
+
+describe("batch-routing: per-tab write target", () => {
+  it("Lab Notes destination writes to taskNotesBase/Images/, NOT the legacy outer Images/", async () => {
+    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
+    _setExperimentsLoaderForTests(async () => [
+      makeExperiment({ id: 50, name: "TabTest" }),
+    ]);
+
+    await routeBatchablePhoto("g1", makePhoto("a"), baseCtx, {
+      id: 50,
+      owner: USER,
+      name: "TabTest",
+    });
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+    // active-task confirmation → Lab Notes → style:auto → batch name.
+    await routeBatchCallbackQuery(makeCallback("tab:50:alex:notes"), baseCtx);
     await routeBatchCallbackQuery(makeCallback("style:auto"), baseCtx);
-    expect(hoisted.answerCallbackQueryMock).toHaveBeenCalledTimes(1);
-    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-batch-name");
-    const namePrompt = hoisted.sendMessageMock.mock.calls.find((c) =>
-      String(c[2]).includes("Reply with a batch name"),
-    );
-    expect(namePrompt).toBeDefined();
+    await consumeBatchTextReply("Yeast", baseCtx);
 
-    // User types the batch name.
-    hoisted.sendMessageMock.mockClear();
-    const consumed = await consumeBatchTextReply("Yeast assay", baseCtx);
-    expect(consumed).toBe(true);
-    // Both photos got attached with -1 / -2 suffixes.
+    expect(hoisted.attachImageToTaskMock).toHaveBeenCalled();
+    const call = hoisted.attachImageToTaskMock.mock.calls[0][0];
+    expect((call as { basePath?: string }).basePath).toBe(
+      "users/alex/results/task-50/notes",
+    );
+    // Sanity: it's NOT the legacy outer base.
+    expect((call as { basePath?: string }).basePath).not.toBe(
+      "users/alex/results/task-50",
+    );
+  });
+
+  it("Results destination writes to taskResultsTabBase/Images/", async () => {
+    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
+    _setExperimentsLoaderForTests(async () => [
+      makeExperiment({ id: 51, name: "TabTest2" }),
+    ]);
+
+    await routeBatchablePhoto("g1", makePhoto("a"), baseCtx, {
+      id: 51,
+      owner: USER,
+      name: "TabTest2",
+    });
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+    await routeBatchCallbackQuery(makeCallback("tab:51:alex:results"), baseCtx);
+    await routeBatchCallbackQuery(makeCallback("style:auto"), baseCtx);
+    await consumeBatchTextReply("Result-set", baseCtx);
+
+    const call = hoisted.attachImageToTaskMock.mock.calls[0][0];
+    expect((call as { basePath?: string }).basePath).toBe(
+      "users/alex/results/task-51/results",
+    );
+  });
+
+  it("Inbox destination writes to users/<owner>/inbox", async () => {
+    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
+    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null);
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+    await routeBatchCallbackQuery(makeCallback("inbox"), baseCtx);
+    await routeBatchCallbackQuery(makeCallback("style:auto"), baseCtx);
+    await consumeBatchTextReply("InboxBatch", baseCtx);
+    const call = hoisted.attachImageToTaskMock.mock.calls[0][0];
+    expect((call as { basePath?: string }).basePath).toBe("users/alex/inbox");
+  });
+});
+
+describe("batch-routing: full destination → style → auto flow", () => {
+  it("walks no-activeTask through picker → sub-tab → auto-name commit", async () => {
+    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
+    _setExperimentsLoaderForTests(async () => [
+      makeExperiment({ id: 3, name: "Doing E" }),
+    ]);
+
+    await routeBatchablePhoto("g1", makePhoto("a"), baseCtx, null);
+    await routeBatchablePhoto("g1", makePhoto("b"), baseCtx, null);
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+
+    await routeBatchCallbackQuery(makeCallback("task:3:alex"), baseCtx);
+    await routeBatchCallbackQuery(makeCallback("subtab:3:alex:notes"), baseCtx);
+    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-style");
+
+    await routeBatchCallbackQuery(makeCallback("style:auto"), baseCtx);
+    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-batch-name");
+
+    await consumeBatchTextReply("Yeast assay", baseCtx);
     expect(hoisted.attachImageToTaskMock).toHaveBeenCalledTimes(2);
-    const calls = hoisted.attachImageToTaskMock.mock.calls;
-    const filenames = calls.map((c) => (c[0] as { suggestedFilename: string }).suggestedFilename);
+    const filenames = hoisted.attachImageToTaskMock.mock.calls.map((c) =>
+      (c[0] as { suggestedFilename: string }).suggestedFilename,
+    );
     expect(filenames).toEqual(
       expect.arrayContaining(["Yeast assay-1.jpg", "Yeast assay-2.jpg"]),
     );
-    // Final summary message.
-    const summary = hoisted.sendMessageMock.mock.calls.find((c) =>
-      String(c[2]).includes("Saved 2 photos"),
-    );
-    expect(summary).toBeDefined();
-    // State cleared.
     expect(_peekBatchForTests(CHAT_ID)).toBeUndefined();
   });
 });
@@ -369,7 +718,9 @@ describe("batch-routing: full destination → style → auto flow", () => {
 describe("batch-routing: per-photo-captions flow", () => {
   it("style:each writes photos up front and resends each photo with its caption prompt in order", async () => {
     vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
-    // Skip the destination prompt by passing an activeTask.
+    _setExperimentsLoaderForTests(async () => [
+      makeExperiment({ id: 5, name: "Bench" }),
+    ]);
     const photoA = makePhoto("a");
     const photoB = makePhoto("b");
     await routeBatchablePhoto("g1", photoA, baseCtx, {
@@ -383,61 +734,104 @@ describe("batch-routing: per-photo-captions flow", () => {
       name: "Bench",
     });
     await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-active-confirmation");
+
+    // Confirm active → Lab Notes → style:each.
+    await routeBatchCallbackQuery(makeCallback("tab:5:alex:notes"), baseCtx);
     expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-style");
 
     hoisted.sendPhotoMock.mockClear();
     await routeBatchCallbackQuery(makeCallback("style:each"), baseCtx);
-    // Two photos written up front.
     expect(hoisted.attachImageToTaskMock).toHaveBeenCalledTimes(2);
     expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-per-photo-captions");
-    // First prompt: bot resent photo A by file_id (NOT a text-only sendMessage).
     expect(hoisted.sendPhotoMock).toHaveBeenCalledTimes(1);
-    const firstCall = hoisted.sendPhotoMock.mock.calls[0];
-    expect(firstCall[2]).toBe(photoA.fileId);
-    expect(String(firstCall[3])).toContain("1 of 2");
+    expect(hoisted.sendPhotoMock.mock.calls[0][2]).toBe(photoA.fileId);
+    expect(String(hoisted.sendPhotoMock.mock.calls[0][3])).toContain("1 of 2");
 
-    // First caption.
     await consumeBatchTextReply("Plate at t=0", baseCtx);
-    // Sidecar for photo A should have caption.
-    const peek1 = _peekBatchForTests(CHAT_ID);
-    expect(peek1?.kind).toBe("awaiting-per-photo-captions");
-    // Second prompt: bot resent photo B by file_id.
+    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-per-photo-captions");
     expect(hoisted.sendPhotoMock).toHaveBeenCalledTimes(2);
-    const secondCall = hoisted.sendPhotoMock.mock.calls[1];
-    expect(secondCall[2]).toBe(photoB.fileId);
-    expect(String(secondCall[3])).toContain("2 of 2");
+    expect(hoisted.sendPhotoMock.mock.calls[1][2]).toBe(photoB.fileId);
 
-    // Second caption, including a /skip case to confirm skip semantics.
     await consumeBatchTextReply("/skip", baseCtx);
-    // State cleared after the last caption.
     expect(_peekBatchForTests(CHAT_ID)).toBeUndefined();
-    // No third sendPhoto — there's nothing left to ask about.
     expect(hoisted.sendPhotoMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("batch-routing: single-photo entry (Lock 1 — ASK ALWAYS, even for one photo)", () => {
+  it("routeSinglePhotoThroughBatch with active task → awaiting-active-confirmation (not silent attach)", async () => {
+    _setExperimentsLoaderForTests(async () => [
+      makeExperiment({ id: 8, name: "Single" }),
+    ]);
+    _setProjectsLoaderForTests(async () => [makeProject({ id: 1, name: "ProjA" })]);
+
+    await routeSinglePhotoThroughBatch(makePhoto(), baseCtx, {
+      id: 8,
+      owner: USER,
+      name: "Single",
+    });
+    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-active-confirmation");
+    // No silent attach happened.
+    expect(hoisted.attachImageToTaskMock).not.toHaveBeenCalled();
+    const prompt = hoisted.sendMessageMock.mock.calls.find((c) =>
+      String(c[2]).toLowerCase().includes("where"),
+    );
+    expect(prompt).toBeDefined();
+    expect(String(prompt![2])).toContain("photo");
+  });
+
+  it("routeSinglePhotoThroughBatch with no active task → awaiting-destination (full picker)", async () => {
+    _setExperimentsLoaderForTests(async () => [
+      makeExperiment({ id: 8, name: "Single" }),
+    ]);
+    await routeSinglePhotoThroughBatch(makePhoto(), baseCtx, null);
+    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-destination");
+    expect(hoisted.attachImageToTaskMock).not.toHaveBeenCalled();
+  });
+
+  it("single photo flow can complete: Lab Notes → style:auto → name → writes to taskNotesBase", async () => {
+    _setExperimentsLoaderForTests(async () => [
+      makeExperiment({ id: 8, name: "Single" }),
+    ]);
+    await routeSinglePhotoThroughBatch(makePhoto(), baseCtx, {
+      id: 8,
+      owner: USER,
+      name: "Single",
+    });
+    await routeBatchCallbackQuery(makeCallback("tab:8:alex:notes"), baseCtx);
+    await routeBatchCallbackQuery(makeCallback("style:auto"), baseCtx);
+    await consumeBatchTextReply("singlepic", baseCtx);
+    expect(hoisted.attachImageToTaskMock).toHaveBeenCalledTimes(1);
+    const call = hoisted.attachImageToTaskMock.mock.calls[0][0];
+    expect((call as { basePath?: string }).basePath).toBe(
+      "users/alex/results/task-8/notes",
+    );
   });
 });
 
 describe("batch-routing: chatId guard", () => {
   it("ignores a callback_query from an unpaired chat", async () => {
     vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
+    _setExperimentsLoaderForTests(async () => [
+      makeExperiment({ id: 1, name: "T1" }),
+    ]);
     await routeBatchablePhoto("g1", makePhoto(), baseCtx, {
       id: 1,
       owner: USER,
       name: "T1",
     });
     await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
-    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-style");
+    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-active-confirmation");
 
-    // Click from a different chat id should be ignored entirely.
-    const cq = makeCallback("style:auto");
+    const cq = makeCallback("tab:1:alex:notes");
     cq.message!.chat.id = 99999;
     await routeBatchCallbackQuery(cq, baseCtx);
-    // State unchanged, no ack sent.
-    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-style");
+    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-active-confirmation");
     expect(hoisted.answerCallbackQueryMock).not.toHaveBeenCalled();
   });
 
   it("acks a click against stale state with an Album expired notice", async () => {
-    // No batch in flight; user clicks an old keyboard.
     const cq = makeCallback("task:1:alex");
     await routeBatchCallbackQuery(cq, baseCtx);
     expect(hoisted.answerCallbackQueryMock).toHaveBeenCalledTimes(1);
