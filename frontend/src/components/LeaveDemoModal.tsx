@@ -1,11 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import {
-  clearCurrentUser,
-  clearDirectoryHandle,
-  clearMainUser,
-} from "@/lib/file-system/indexeddb-store";
+import { restorePreDemoStateOrClear } from "@/lib/file-system/indexeddb-store";
 import {
   clearDemoMode,
   isTutorialMode,
@@ -35,11 +31,17 @@ interface Props {
  *    `/` detects the existing IndexedDB handle and reconnects to the
  *    user's real folder.
  *
- * 2. Public-demo path (current behavior, unchanged) — visitor arrived at
- *    `/demo` without an existing folder; the IndexedDB state holds only
- *    the fake fixture handle (which has no real `queryPermission` and
- *    would deadlock the post-reload reconnect screen). Clear all three
- *    keys, clear the demo flag, reload to the folder picker.
+ * 2. Public-demo path — visitor came in via `/demo` from somewhere. Two
+ *    sub-cases handled by `restorePreDemoStateOrClear`:
+ *    a. Real folder pre-existed (user navigated to /demo from inside their
+ *       connected app, or opened it in another same-origin tab):
+ *       `installWikiCaptureFixture` saved the real handle + users into
+ *       pre-demo backup keys before overwriting IDB with the fixture's
+ *       fake handle. Restore those keys onto the main keys, clear the
+ *       backup, reload — `/` then silent-reconnects to the real folder.
+ *    b. True public visitor (no real folder ever connected): no backup
+ *       exists; clear the main keys (which hold only the fake fixture
+ *       handle + "alex"), reload to the folder picker.
  */
 export default function LeaveDemoModal({ isOpen, onClose }: Props) {
   // Read once on mount so the same value drives both copy and behavior.
@@ -70,11 +72,7 @@ export default function LeaveDemoModal({ isOpen, onClose }: Props) {
     }
 
     try {
-      await Promise.all([
-        clearDirectoryHandle(),
-        clearCurrentUser(),
-        clearMainUser(),
-      ]);
+      await restorePreDemoStateOrClear();
     } catch {
       // Best-effort cleanup; even if IndexedDB throws, the reload below
       // gives the user a way out via the folder picker.

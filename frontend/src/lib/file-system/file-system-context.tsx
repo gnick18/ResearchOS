@@ -12,7 +12,7 @@ import {
   storeMainUser,
   getMainUser,
   clearCurrentUser,
-  clearMainUser,
+  restorePreDemoStateOrClear,
 } from "./indexeddb-store";
 import { clearCurrentUserCache } from "../storage/json-store";
 import { discoverUsers, validateResearchFolder, ensureFolderStructure } from "./user-discovery";
@@ -316,7 +316,12 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
       }
 
       try {
-        const [storedHandle, meta, currentUser, mainUser] = await Promise.all([
+        // `let` so the stale-fixture-handle restore branch below can
+        // re-read after `restorePreDemoStateOrClear` swaps the live IDB
+        // state. `meta` is read-only and stays const-shaped via the
+        // initial assignment.
+        // eslint-disable-next-line prefer-const -- destructured reassignment below
+        let [storedHandle, meta, currentUser, mainUser] = await Promise.all([
           getStoredDirectoryHandle(),
           getStoredDirectoryMeta(),
           getCurrentUser(),
@@ -325,31 +330,44 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
 
         console.log("[FileSystemProvider.initialize] meta:", meta, "hasHandle:", !!storedHandle);
 
-        // Stale wiki-capture state cleanup. `installWikiCaptureFixture`
+        // Stale wiki-capture / demo state cleanup. `installWikiCaptureFixture`
         // seeds IDB with a `name: "wiki-capture-fixture"` fake handle +
         // currentUser/mainUser so the in-page flow works. If the user
-        // leaves `?wikiCapture=1` and navigates to `/` without an explicit
-        // exit, those entries persist and the next visit hits the
-        // silent-reconnect path with a non-FSA fake handle — surfaces as
-        // a broken "Reconnect to wiki-capture-fixture" screen because
+        // leaves `?wikiCapture=1` or closes a `/demo` tab and lands on `/`
+        // without going through `<LeaveDemoModal>`, those entries persist
+        // and the next visit hits the silent-reconnect path with a
+        // non-FSA fake handle — surfaces as a broken
+        // "Reconnect to wiki-capture-fixture" screen because
         // queryPermission on the fake throws. We're not in wiki-capture
         // or demo mode here (already early-returned above if we were),
-        // so the sentinel-named handle is unambiguously stale. Clear
-        // everything and fall through to the normal first-time path.
+        // so the sentinel-named handle is unambiguously stale.
+        //
+        // Two sub-cases (handled by `restorePreDemoStateOrClear`):
+        //   - real folder was backed up before demo → restore it onto the
+        //     main keys and fall through to the silent-reconnect path,
+        //     so the user reconnects to their real folder transparently.
+        //   - no backup (true wiki-capture orphan or true public-demo
+        //     orphan) → clear main keys and stop on the welcome screen.
         if (storedHandle?.name === "wiki-capture-fixture") {
-          await Promise.all([
-            clearDirectoryHandle(),
-            clearCurrentUser(),
-            clearMainUser(),
-          ]);
-          setState((prev) => ({
-            ...prev,
-            isLoading: false,
-            lastConnectedFolder: null,
-            currentUser: null,
-            mainUser: null,
-          }));
-          return;
+          const restored = await restorePreDemoStateOrClear();
+          if (restored) {
+            // Re-read so the silent-reconnect path below sees the
+            // restored real handle + users instead of the stale fake.
+            [storedHandle, currentUser, mainUser] = await Promise.all([
+              getStoredDirectoryHandle(),
+              getCurrentUser(),
+              getMainUser(),
+            ]);
+          } else {
+            setState((prev) => ({
+              ...prev,
+              isLoading: false,
+              lastConnectedFolder: null,
+              currentUser: null,
+              mainUser: null,
+            }));
+            return;
+          }
         }
 
         // Try a silent reconnect: if Chrome still remembers the readwrite
