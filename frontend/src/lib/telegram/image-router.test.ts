@@ -248,6 +248,28 @@ describe("image-router photo handling, tutorial-aware reply", () => {
     });
   });
 
+  it("stamps tutorial_test:true in the sidecar when the photo arrives in tutorial mode", async () => {
+    await startTelegramTutorialStep(USER, "first-photo");
+    await routeTelegramMessage(photoMessage(), baseCtx);
+    // attachImageToTaskMock returns finalFilename "photo-final.jpg"; the
+    // inbox base is users/alex/inbox (no active task in this test).
+    const written = hoisted.memFs.get(
+      "users/alex/inbox/Images/photo-final.jpg.json",
+    ) as { tutorial_test?: boolean; source?: string } | undefined;
+    expect(written).toBeDefined();
+    expect(written?.tutorial_test).toBe(true);
+    expect(written?.source).toBe("telegram");
+  });
+
+  it("does NOT stamp tutorial_test when tutorial is inactive (non-tutorial path delegates to batch)", async () => {
+    // Tutorial sidecar not started → tutorial.tutorial_active is false →
+    // image-router returns early at routeSinglePhotoThroughBatch before
+    // the tutorial-mode writeSidecar block. No sidecar is written by the
+    // router at all in this branch (batch-routing owns that write).
+    await routeTelegramMessage(photoMessage(), baseCtx);
+    expect(hoisted.memFs.get("users/alex/inbox/Images/photo-final.jpg.json")).toBeUndefined();
+  });
+
   it("tutorial photo-arrived carries task id when active task is open", async () => {
     await startTelegramTutorialStep(USER, "first-photo");
     hoisted.activeTaskRef.current = {
