@@ -635,11 +635,38 @@ interface RepairSummary {
 
 function MaintenanceSection() {
   const [importOpen, setImportOpen] = useState(false);
+  const [orphanNotice, setOrphanNotice] = useState<number | null>(null);
+
+  // Passive boot-time probe: if the orphan LabArchives sidecars (see
+  // SECURITY_AUDIT.md §3.4) are still on disk, surface an amber notice
+  // above the section pointing at the cleanup row. Read-only — the user
+  // still has to click the button to delete anything.
+  useEffect(() => {
+    let cancelled = false;
+    void scanOrphanLabArchivesFiles()
+      .then((found) => {
+        if (cancelled) return;
+        setOrphanNotice(found.length > 0 ? found.length : null);
+      })
+      .catch((err) => {
+        console.warn("[Settings/Maintenance] orphan scan failed:", err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <SectionShell
       title="Data maintenance"
       description="Tools for normalising on-disk task and method data. Safe to run any time; reports what it changed."
     >
+      {orphanNotice !== null && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          Orphaned LabArchives credential file(s) detected ({orphanNotice}). See the
+          &ldquo;Clean up orphaned LabArchives credentials&rdquo; button below.
+        </div>
+      )}
       <ImportRow onOpen={() => setImportOpen(true)} />
       {importOpen && (
         <ImportExperimentDialog
@@ -697,7 +724,128 @@ function MaintenanceSection() {
         invalidateKey={["tasks"]}
       />
       <ReconcileRow />
+      <LabArchivesOrphanCleanupRow />
     </SectionShell>
+  );
+}
+
+// ── Orphan LabArchives credential cleanup ───────────────────────────────────
+//
+// The institutional LabArchives API was removed at 8b1eac3f. Two sidecar
+// files it used to write may persist on existing users' disks with plaintext
+// credentials in them:
+//   - users/<u>/_labarchives.json — connection state
+//   - _labarchives-deployer.json (at folder ROOT) — institutional access
+//     password in plaintext per AGENTS.md §6 LabArchives trust-model note
+// Nothing reads or writes these anymore. Closes SECURITY_AUDIT.md §3.4.
+
+const DEPLOYER_SIDECAR = "_labarchives-deployer.json";
+const USER_SIDECAR = "_labarchives.json";
+
+async function scanOrphanLabArchivesFiles(): Promise<string[]> {
+  const found: string[] = [];
+  if (await fileService.fileExists(DEPLOYER_SIDECAR)) {
+    found.push(DEPLOYER_SIDECAR);
+  }
+  const users = await fileService.listDirectories("users");
+  for (const u of users) {
+    const path = `users/${u}/${USER_SIDECAR}`;
+    if (await fileService.fileExists(path)) {
+      found.push(path);
+    }
+  }
+  return found;
+}
+
+function LabArchivesOrphanCleanupRow() {
+  const [running, setRunning] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+  const [statusKind, setStatusKind] = useState<"info" | "ok" | "err">("info");
+  const [orphans, setOrphans] = useState<string[] | null>(null);
+
+  const flashStatus = useCallback((text: string, kind: "ok" | "err") => {
+    setStatus(text);
+    setStatusKind(kind);
+    setTimeout(() => setStatus(null), 4000);
+  }, []);
+
+  const handle = useCallback(async () => {
+    setRunning(true);
+    setStatus(null);
+    setOrphans(null);
+    try {
+      const found = await scanOrphanLabArchivesFiles();
+      if (found.length === 0) {
+        flashStatus("No orphaned LabArchives files found.", "ok");
+        return;
+      }
+      const ok = window.confirm(
+        `Permanently delete ${found.length} orphaned LabArchives credential file(s)?\n\n${found.join("\n")}\n\nThese files were written by the removed institutional API and may contain plaintext credentials.`,
+      );
+      if (!ok) {
+        setOrphans(found);
+        return;
+      }
+      let deleted = 0;
+      for (const path of found) {
+        const removed = await fileService.deleteFile(path);
+        if (removed) deleted += 1;
+      }
+      flashStatus(
+        `Deleted ${deleted} orphaned LabArchives credential file(s).`,
+        deleted === found.length ? "ok" : "err",
+      );
+    } catch (err) {
+      console.error("[LabArchives orphan cleanup] failed:", err);
+      flashStatus(
+        err instanceof Error ? err.message : "Cleanup failed. See console for details.",
+        "err",
+      );
+    } finally {
+      setRunning(false);
+    }
+  }, [flashStatus]);
+
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm text-gray-800">Clean up orphaned LabArchives credentials</p>
+        <p className="text-xs text-gray-500 mt-1">
+          The institutional LabArchives API was removed, but earlier setups may
+          have left two sidecar files on disk: <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">{DEPLOYER_SIDECAR}</code>{" "}
+          at the folder root (institutional access password, plaintext) and{" "}
+          <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">users/&lt;u&gt;/{USER_SIDECAR}</code>{" "}
+          per user. Scans for them and offers to delete; nothing reads or writes
+          these files anymore.
+        </p>
+        {orphans && orphans.length > 0 && !status && (
+          <p className="text-xs text-amber-700 mt-2">
+            Cancelled. {orphans.length} orphan file(s) still on disk: {orphans.join(", ")}
+          </p>
+        )}
+        {status && (
+          <p
+            className={`text-xs mt-2 ${
+              statusKind === "ok"
+                ? "text-emerald-700"
+                : statusKind === "err"
+                ? "text-red-600"
+                : "text-gray-600"
+            }`}
+          >
+            {status}
+          </p>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={handle}
+        disabled={running}
+        className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
+      >
+        {running ? "Scanning…" : "Scan + clean"}
+      </button>
+    </div>
   );
 }
 
