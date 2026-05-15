@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
+  fetchAllProjectsIncludingShared,
   fetchAllTasksIncludingShared,
 } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -11,8 +12,17 @@ import AppShell from "@/components/AppShell";
 import NotesPanel from "@/components/NotesPanel";
 import WorkbenchExperimentsPanel from "@/components/workbench/WorkbenchExperimentsPanel";
 import WorkbenchListsPanel from "@/components/workbench/WorkbenchListsPanel";
+import WorkbenchProjectFilterPills from "@/components/workbench/WorkbenchProjectFilterPills";
+import type { Project } from "@/lib/types";
 
 type TabType = "experiments" | "notes" | "lists";
+
+const DEFAULT_COLORS = [
+  "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
+  "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1",
+];
+
+const projectKey = (p: Pick<Project, "id" | "owner">) => `${p.owner}:${p.id}`;
 
 export default function WorkbenchPage() {
   // Sub-tab state stays purely local. The onboarding orchestrator's
@@ -29,6 +39,11 @@ export default function WorkbenchPage() {
   const { currentUser: providerCurrentUser } = useCurrentUser();
   const currentUser = providerCurrentUser ?? "";
 
+  const { data: projects = [] } = useQuery({
+    queryKey: ["projects", currentUser],
+    queryFn: fetchAllProjectsIncludingShared,
+  });
+
   // The header only needs a top-line count; the panel does its own fetches
   // and section assignment. Sharing the same query key (["tasks", user])
   // means the cache is reused.
@@ -36,6 +51,14 @@ export default function WorkbenchPage() {
     queryKey: ["tasks", currentUser],
     queryFn: fetchAllTasksIncludingShared,
   });
+
+  const projectColors = useMemo(() => {
+    const map: Record<string, string> = {};
+    projects.forEach((p, i) => {
+      map[projectKey(p)] = p.color || DEFAULT_COLORS[i % DEFAULT_COLORS.length];
+    });
+    return map;
+  }, [projects]);
 
   const upcomingCount = useMemo(() => {
     let xs = allTasks.filter(
@@ -120,9 +143,21 @@ export default function WorkbenchPage() {
           </button>
         </div>
 
+        {/* Project filter — hidden on Notes (project-agnostic). */}
+        {activeTab !== "notes" && (
+          <WorkbenchProjectFilterPills
+            projects={projects}
+            projectColors={projectColors}
+          />
+        )}
+
         {activeTab === "notes" && <NotesPanel />}
-        {activeTab === "experiments" && <WorkbenchExperimentsPanel />}
-        {activeTab === "lists" && <WorkbenchListsPanel />}
+        {activeTab === "experiments" && (
+          <WorkbenchExperimentsPanel projects={projects} />
+        )}
+        {activeTab === "lists" && (
+          <WorkbenchListsPanel projects={projects} />
+        )}
       </div>
     </AppShell>
   );
