@@ -645,7 +645,22 @@ export const tasksApi = {
     }, owner);
   },
 
-  addMethod: async (taskId: number, methodId: number, owner?: string): Promise<Task | null> => {
+  // `methodOwner` is the picker-resolved owner namespace of the method
+  // being attached (e.g. "public" for a public method, a username for
+  // someone's private method, `null` for same-user-as-task / locally-owned).
+  // Threading it directly from the picker context sidesteps the bare-id
+  // `allMethods.filter` collision class — when two methods share the same
+  // id across namespaces, `candidates[0]` is non-deterministic. Callers
+  // that already know the owner pass it; callers that don't (legacy paths,
+  // tasksApi.update with method_ids drift) fall back to the lookup, which
+  // resolves correctly when there's no collision and degrades to "first
+  // match" when there is.
+  addMethod: async (
+    taskId: number,
+    methodId: number,
+    methodOwner?: string | null,
+    owner?: string,
+  ): Promise<Task | null> => {
     const task = await getTaskForCaller(taskId, owner);
     if (!task) return null;
 
@@ -656,27 +671,22 @@ export const tasksApi = {
 
     const attachments = [...(task.method_attachments || [])];
     if (!attachments.find((a) => a.method_id === methodId)) {
-      // Resolve the method's owner so the attachment can disambiguate
-      // against per-user id collisions later (e.g. attaching public method
-      // id 2 when the current user also has a private method with id 2).
-      // Falls back to `null` (= same user as the task) if the lookup fails
-      // for any reason; the read-side lookup degrades to current-user-first
-      // behavior in that case, matching legacy attachments.
-      let methodOwner: string | null = null;
-      try {
-        const allMethods = await fetchAllMethodsIncludingShared();
-        const candidates = allMethods.filter((m) => m.id === methodId);
-        if (candidates.length === 1) {
-          methodOwner = candidates[0].owner ?? null;
-        } else if (candidates.length > 1) {
-          methodOwner = candidates[0].owner ?? null;
+      let resolvedOwner: string | null =
+        methodOwner === undefined ? null : methodOwner;
+      if (methodOwner === undefined) {
+        try {
+          const allMethods = await fetchAllMethodsIncludingShared();
+          const candidates = allMethods.filter((m) => m.id === methodId);
+          if (candidates.length > 0) {
+            resolvedOwner = candidates[0].owner ?? null;
+          }
+        } catch (err) {
+          console.warn("[addMethod] could not resolve method owner:", err);
         }
-      } catch (err) {
-        console.warn("[addMethod] could not resolve method owner:", err);
       }
       attachments.push({
         method_id: methodId,
-        owner: methodOwner,
+        owner: resolvedOwner,
         pcr_gradient: null,
         pcr_ingredients: null,
         lc_gradient: null,
@@ -1145,9 +1155,18 @@ export const methodsApi = {
   },
 
   // When `owner` is set, the read targets the owner's private methods dir
-  // (used by receivers viewing a shared method). Public methods live in the
-  // shared `users/public/` store and are never owner-routed.
+  // (used by receivers viewing a shared method). The sentinel `"public"`
+  // routes to the shared public store, so callers can thread an
+  // attachment's `owner` field uniformly without special-casing — public
+  // method attachments carry `owner: "public"` per the routing-fix
+  // contract (3f8b42d2).
   get: async (id: number, owner?: string): Promise<Method | null> => {
+    if (owner === "public") {
+      const publicMethod = await publicMethodsStore.get(id);
+      return publicMethod
+        ? normalizeMethodRecord({ ...publicMethod, is_public: true })
+        : null;
+    }
     if (owner) {
       const ownerMethod = await methodsStore.getForUser(id, owner);
       if (ownerMethod) return normalizeMethodRecord({ ...ownerMethod, is_public: false });

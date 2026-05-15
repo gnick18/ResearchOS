@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchAllMethodsIncludingShared } from "@/lib/local-api";
-import type { Method, Task, TaskMethodAttachment } from "@/lib/types";
+import type { Task } from "@/lib/types";
+import { resolveMethodForAttachment } from "@/lib/methods/lookup";
 import MethodPicker from "./MethodPicker";
 import Tooltip from "./Tooltip";
 import { ownerScopedTasksApi } from "@/lib/tasks/owner-scoped-api";
@@ -13,36 +14,6 @@ import PcrMethodTabContent from "./methods/PcrMethodTabContent";
 import LcMethodTabContent from "./methods/LcMethodTabContent";
 import PlateMethodTabContent from "./methods/PlateMethodTabContent";
 import CellCultureMethodTabContent from "./methods/CellCultureMethodTabContent";
-
-/**
- * Resolve a method record for a given attachment, honoring the attachment's
- * `owner` field to disambiguate against per-user id collisions (e.g. alex's
- * private method id 2 vs public method id 2). When the attachment owner is
- * non-null, match `(id, owner)` strictly. When null (legacy attachments or
- * locally-owned methods), match by id and prefer the task owner's own
- * method, falling back to the first match for backwards compatibility.
- */
-function resolveMethodForAttachment(
-  attachment: Pick<TaskMethodAttachment, "method_id" | "owner"> | undefined,
-  methods: Method[],
-  taskOwner: string | undefined,
-): Method | undefined {
-  if (!attachment) return undefined;
-  if (attachment.owner) {
-    return methods.find(
-      (m) => m.id === attachment.method_id && m.owner === attachment.owner,
-    );
-  }
-  // owner === null: legacy or same-user-as-task. Prefer the task owner's
-  // own method when there's an id collision; fall back to first match.
-  const candidates = methods.filter((m) => m.id === attachment.method_id);
-  if (candidates.length === 0) return undefined;
-  if (taskOwner) {
-    const own = candidates.find((m) => m.owner === taskOwner);
-    if (own) return own;
-  }
-  return candidates[0];
-}
 
 interface MethodTabsProps {
   task: Task;
@@ -85,11 +56,14 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
   const activeAttachment = methodAttachments.find(a => a.method_id === activeMethodId);
   const activeMethod = resolveMethodForAttachment(activeAttachment, allMethods, task.owner);
 
-  // Add method to task
-  const handleAddMethod = useCallback(async (methodId: number) => {
+  // Add method to task. `methodOwner` is the picker-selected method's owner
+  // namespace ("public" / a username); the API persists it on the new
+  // attachment so future reads disambiguate against per-user id collisions
+  // without re-resolving from a list where the bare id is ambiguous.
+  const handleAddMethod = useCallback(async (methodId: number, methodOwner: string) => {
     setSaving(true);
     try {
-      const updatedTask = await tasksApi.addMethod(task.id, methodId);
+      const updatedTask = await tasksApi.addMethod(task.id, methodId, methodOwner);
       await queryClient.refetchQueries({ queryKey: ["tasks"] });
       await queryClient.refetchQueries({ queryKey: ["task", task.id] });
       setActiveMethodId(methodId);
@@ -212,9 +186,15 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
         open={showMethodSelector}
         currentMethodId={null}
         currentProjectId={task.project_id}
-        excludeMethodIds={methodAttachments.map((a) => a.method_id)}
-        onSelect={(id) => {
-          void handleAddMethod(id);
+        excludeMethods={methodAttachments.map((a) => ({
+          method_id: a.method_id,
+          // null = same user as task; resolve to the task's owner so the
+          // picker can match strictly against `m.owner` without needing
+          // the task context.
+          owner: a.owner ?? task.owner,
+        }))}
+        onSelect={(id, owner) => {
+          void handleAddMethod(id, owner);
         }}
         onClose={() => setShowMethodSelector(false)}
       />

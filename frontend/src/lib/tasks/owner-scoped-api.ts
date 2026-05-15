@@ -32,7 +32,8 @@ export function ownerScopedTasksApi(task: Task) {
     resetPcr: (id: number, methodId?: number) => rawTasksApi.resetPcr(id, methodId, owner),
     resetLc: (id: number, methodId?: number) => rawTasksApi.resetLc(id, methodId, owner),
     resetPlate: (id: number, methodId?: number) => rawTasksApi.resetPlate(id, methodId, owner),
-    addMethod: (taskId: number, methodId: number) => rawTasksApi.addMethod(taskId, methodId, owner),
+    addMethod: (taskId: number, methodId: number, methodOwner?: string | null) =>
+      rawTasksApi.addMethod(taskId, methodId, methodOwner, owner),
     removeMethod: (taskId: number, methodId: number) =>
       rawTasksApi.removeMethod(taskId, methodId, owner),
     updateMethodPcr: (

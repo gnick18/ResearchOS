@@ -17,6 +17,7 @@ import {
 } from "@/lib/export/orchestrate";
 import type { ExportFormat } from "@/lib/export/types";
 import { taskKey, type Task, type Method, type Project } from "@/lib/types";
+import { resolveMethodById } from "@/lib/methods/lookup";
 
 const DEFAULT_COLORS = [
   "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
@@ -122,14 +123,18 @@ export default function SearchPage() {
     return map;
   }, [projects]);
 
-  // Method lookup
-  const methodLookup = useMemo(() => {
-    const map: Record<number, Method> = {};
-    methods.forEach((m) => {
-      map[m.id] = m;
-    });
-    return map;
-  }, [methods]);
+  // Per-task method resolver: routes through `task.method_attachments` so
+  // each attachment's `owner` disambiguates against per-user id collisions
+  // (e.g. alex's task attaching public method 2 when alex also owns a
+  // private method id 2). Bare `method_ids[0]` entries without a matching
+  // attachment (newly-created tasks pre-backfill) fall back to task-owner-
+  // first byId resolution.
+  const resolveTaskMethod = useCallback(
+    (task: Task, methodId: number): Method | null =>
+      resolveMethodById(methodId, task.method_attachments, methods, task.owner) ??
+      null,
+    [methods],
+  );
 
   // Project lookup
   const projectLookup = useMemo(() => {
@@ -187,7 +192,7 @@ export default function SearchPage() {
 
       // Filter by method folder
       if (filters.methodFolder) {
-        const taskMethod = primaryMethodId != null ? methodLookup[primaryMethodId] : null;
+        const taskMethod = primaryMethodId != null ? resolveTaskMethod(task, primaryMethodId) : null;
         if (!taskMethod || taskMethod.folder_path !== filters.methodFolder) {
           continue;
         }
@@ -197,7 +202,7 @@ export default function SearchPage() {
       if (keywords.length > 0) {
         const taskName = task.name.toLowerCase();
         const taskTags = (task.tags || []).join(" ").toLowerCase();
-        const taskMethod = primaryMethodId != null ? methodLookup[primaryMethodId] : null;
+        const taskMethod = primaryMethodId != null ? resolveTaskMethod(task, primaryMethodId) : null;
         const methodName = taskMethod?.name.toLowerCase() || "";
         const methodTags = (taskMethod?.tags || []).join(" ").toLowerCase();
 
@@ -217,7 +222,7 @@ export default function SearchPage() {
         results.push({
           task,
           project,
-          method: primaryMethodId != null ? methodLookup[primaryMethodId] : null,
+          method: primaryMethodId != null ? resolveTaskMethod(task, primaryMethodId) : null,
           color: projectColors[lookupKey] || DEFAULT_COLORS[0],
         });
       }
@@ -225,7 +230,7 @@ export default function SearchPage() {
 
     // Sort by start date (most recent first)
     return results.sort((a, b) => b.task.start_date.localeCompare(a.task.start_date));
-  }, [hasSearched, filters, allTasks, methodLookup, projectLookup, projectColors]);
+  }, [hasSearched, filters, allTasks, resolveTaskMethod, projectLookup, projectColors]);
 
   const handleSearch = useCallback(() => {
     setHasSearched(true);
