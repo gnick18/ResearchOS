@@ -39,6 +39,7 @@ const EXCLUDED_PREFIXES = [
   "/wiki", // the wiki itself is the docs; doesn't need its own wiki page
   "/api", // server-only proxy routes
   "/demo", // alternate entry, documented under /wiki/getting-started/demo-mode
+  "/results", // redirect-only transitional route → /workbench (page killed per RESULTS_PAGE_PROPOSAL.md)
 ];
 
 /** Next.js conventions to ignore when walking app/. */

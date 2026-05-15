@@ -42,10 +42,10 @@ export default function SettingsFeaturePage() {
       <h2>Tabs</h2>
       <p>
         A two-column grid of checkboxes for every tab in the header (Home,
-        Lab Notes, GANTT, Methods, Purchases, Results, Calendar, Search, Lab
-        Links). Uncheck a tab to hide it from your header. Home is grayed out
-        with an &ldquo;always on&rdquo; tag so you can&apos;t accidentally
-        hide every tab at once.
+        Workbench, GANTT, Methods, Purchases, Calendar, Search, Lab Links).
+        Uncheck a tab to hide it from your header. Home is grayed out with
+        an &ldquo;always on&rdquo; tag so you can&apos;t accidentally hide
+        every tab at once.
       </p>
       <p>
         Below the grid, the <strong>Default landing tab</strong> dropdown
@@ -178,8 +178,8 @@ export default function SettingsFeaturePage() {
           field to the current name. Same value, just under a new key.
         </li>
         <li>
-          <strong>Split Lab Notes / Results attachments</strong>: walks every
-          task you own and splits the shared per-task <code>Files/</code> and{" "}
+          <strong>Split Lab Notes attachments</strong>: walks every task you
+          own and splits the shared per-task <code>Files/</code> and{" "}
           <code>Images/</code> folders into per-tab folders (one set under{" "}
           <em>notes/</em>, one under <em>results/</em>), copying each file into
           whichever tab body references it and rewriting markdown links to

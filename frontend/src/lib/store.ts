@@ -135,7 +135,6 @@ const DEFAULT_VISIBLE_TABS = [
   "/gantt",
   "/methods",
   "/purchases",
-  "/results",
   "/calendar",
   "/search",
   "/links",
