@@ -5,14 +5,38 @@
  * same route.
  *
  * Each tip points at a real, shipped feature whose entry point is
- * non-obvious to a brand-new user. Content matches the LOCKED 10-tip
- * set from `ONBOARDING_TIPS_PROPOSAL.md` §"Initial tip set".
+ * non-obvious to a brand-new user. Tips can optionally carry:
+ *   - `setupAction`  — extra footer button that navigates somewhere
+ *                      (auto-opens a modal via deep-link query param).
+ *   - `onShow`       — string hook fired when the card mounts (e.g. the
+ *                      "animation-burst" 5-burst sequence for the
+ *                      gantt-animations tip).
+ *   - `gate`         — extra eligibility predicate beyond `route` (e.g.
+ *                      `workbench-experiments-tab` checks the workbench
+ *                      page's active sub-tab).
+ *
+ * The 10th tip in the proposal — `lab-mode-picker` — is NOT in this
+ * catalog. It's a standalone tip rendered inside `UserLoginScreen` with
+ * its own sessionStorage-backed gate; see
+ * `components/OnboardingLabModePickerTip.tsx`.
  */
 
+export type OnboardingTipOnShow = "animation-burst";
+export type OnboardingTipGate = "workbench-experiments-tab";
+
+export interface OnboardingTipSetupAction {
+  /** Button label rendered in the tip-card footer. */
+  label: string;
+  /** Today only `"navigate"`. `"modal"` reserved for future use. */
+  kind: "navigate" | "modal";
+  /** Required when `kind === "navigate"`. The orchestrator calls
+   *  `router.push(href)` and then dismisses the tip with the `got-it`
+   *  outcome so it counts as served. */
+  href?: string;
+}
+
 export interface OnboardingTip {
-  /** Stable identifier used as the sidecar `tips` key. Must match the
-   *  `data-onboarding-target` attribute of the DOM element this tip
-   *  points at. */
+  /** Stable identifier used as the sidecar `tips` key. */
   id: string;
   /** Display title on the tip card. */
   title: string;
@@ -24,116 +48,146 @@ export interface OnboardingTip {
    *  scheduling. The orchestrator drops the schedule if the element
    *  isn't present at fire time. */
   target: string;
-  /** Body copy. ≤140 chars in display (so the card stays compact). */
+  /** Body copy. */
   body: string;
-  /** Wiki path to open when the user clicks "Read more →". Plain
-   *  `<a href>` — full page nav, like the rest of the wiki entry
-   *  points in the app. */
+  /** Wiki path to open when the user clicks "Read more →". */
   wikiPath: string;
   /** Display priority. Lower wins when multiple tips share a route. */
   priority: number;
+  /** Optional CTA — adds a button to the card footer that navigates
+   *  somewhere helpful (settings deep-link, modal opener, etc.). */
+  setupAction?: OnboardingTipSetupAction;
+  /** Optional hook fired when the card mounts. Today only
+   *  `"animation-burst"` (used by `gantt-animations`). */
+  onShow?: OnboardingTipOnShow;
+  /** Optional extra eligibility predicate. Today only
+   *  `"workbench-experiments-tab"` — the orchestrator skips the tip
+   *  unless the workbench page's active sub-tab is "experiments". */
+  gate?: OnboardingTipGate;
 }
 
 export const ONBOARDING_TIPS: OnboardingTip[] = [
   {
-    id: "drop-to-replace",
-    title: "Drop to replace images",
-    route: "/",
-    target: "drop-to-replace",
-    body:
-      "Drop a new image onto any existing image to replace it in place — no need to open the editor first.",
-    wikiPath: "/wiki/features/markdown-editor#drop-to-replace",
-    priority: 1,
-  },
-  {
     id: "telegram-send-to-task",
-    title: "Inbox photos → tasks",
+    title: "Your phone is a lab notebook",
+    body:
+      "Text me a photo while an experiment is open and I'll auto-attach it to that task on your laptop. Reply with a caption and I'll save that too.",
     route: "/",
     target: "telegram-send-to-task",
-    body:
-      "Photos from your Telegram bot land in your Inbox. Click any image and pick a task to attach it to — no manual filing.",
     wikiPath: "/wiki/integrations/telegram",
-    priority: 2,
+    priority: 1,
+    setupAction: {
+      label: "Pair Telegram",
+      kind: "navigate",
+      href: "/settings#telegram",
+    },
   },
   {
-    id: "duplicate-upload",
-    title: "Same-name uploads ask first",
-    route: "/",
-    target: "duplicate-upload",
+    id: "personalize-colors",
+    title: "Make it yours",
     body:
-      "Upload a file with a name that already exists and ResearchOS will ask: dedupe, replace, or rename. No silent overwrites.",
-    wikiPath: "/wiki/features/markdown-editor#duplicate-upload",
+      "Feeling bored? Customize your profile color in the Settings. Even the top bar can wear it!",
+    route: "/",
+    target: "personalize-colors",
+    wikiPath: "/wiki/features/settings",
+    priority: 2,
+    setupAction: {
+      label: "Open Settings",
+      kind: "navigate",
+      href: "/settings#personalize",
+    },
+  },
+  {
+    id: "archive-projects",
+    title: "Archive, don't delete",
+    body:
+      "Done with a project? Archive it instead. I promise nothing gets deleted, and your tasks, results, and images stay right where they are. Unarchive any time.",
+    route: "/",
+    target: "drop-to-replace",
+    wikiPath: "/wiki/features/home",
     priority: 3,
   },
   {
-    id: "cross-owner-share",
-    title: "Host a colleague's task",
-    route: "/",
-    target: "cross-owner-share",
+    id: "link-calendars",
+    title: "Link your calendars",
     body:
-      "Drop a colleague's task into your project to host it. Both their Gantt and yours stay in sync — they own the data, you see it in your timeline.",
-    wikiPath: "/wiki/features/links#cross-owner",
+      "Bring your other calendars in: Google, Apple, Outlook, or any public ICS URL. They show up next to your experiments so you stop juggling tabs.",
+    route: "/calendar",
+    target: "link-calendars",
+    wikiPath: "/wiki/integrations/calendar-feeds",
     priority: 4,
+    setupAction: {
+      label: "Add a calendar",
+      kind: "navigate",
+      href: "/calendar?addFeed=1",
+    },
   },
   {
-    id: "appshell-cluster",
-    title: "Bottom-right quick actions",
-    route: "/",
-    target: "appshell-cluster",
+    id: "public-methods",
+    title: "Make a method public",
     body:
-      "Bottom-right corner has five quick actions: data folder, user switch, bug report, support, and a notification test button. Hover to see labels.",
-    wikiPath: "/wiki/features/settings",
-    priority: 5,
-  },
-  {
-    id: "labarchives-import",
-    title: "Import a LabArchives notebook",
-    route: "/settings",
-    target: "labarchives-import",
-    body:
-      "Import an entire LabArchives notebook as projects and tasks. The wizard walks you through page-to-project mapping; inline images are rehydrated automatically.",
-    wikiPath: "/wiki/integrations/labarchives",
+      "Want to share a protocol with the lab? Check 'Make this method public' when you create or edit a method.",
+    route: "/methods",
+    target: "public-methods",
+    wikiPath: "/wiki/features/methods",
     priority: 6,
+    setupAction: {
+      label: "Start a public method",
+      kind: "navigate",
+      href: "/methods?createMethod=public",
+    },
   },
   {
-    id: "lab-mode",
-    title: "Lab Mode rolls everything up",
-    route: "/lab",
-    target: "lab-mode",
+    id: "gantt-animations",
+    title: "Pick your vibe",
     body:
-      "Lab Mode is the multi-user roll-up. Eight tabs — Activity, Gantt, Experiments, Roadmaps, Methods, Notes, Search — each answers one question across the whole lab.",
-    wikiPath: "/wiki/features/lab-mode",
-    priority: 7,
-  },
-  {
-    id: "wiki-entry",
-    title: "Every feature has a wiki page",
-    route: "/",
-    target: "wiki-entry",
-    body:
-      "Click the docs icon any time you want the long version. No login, no separate tab management — it opens beside your work.",
-    wikiPath: "/wiki/",
-    priority: 8,
-  },
-  {
-    id: "high-level-goals",
-    title: "Roadmap goals per project",
+      "Sorry for the jump scare. You can pick a different vibe for task completions any time.",
     route: "/gantt",
-    target: "high-level-goals",
+    target: "gantt-animations",
+    wikiPath: "/wiki/features/gantt",
+    priority: 7,
+    setupAction: {
+      label: "Pick an animation",
+      kind: "navigate",
+      href: "/gantt?animations=1",
+    },
+    onShow: "animation-burst",
+  },
+  {
+    id: "workbench-notes",
+    title: "There's a Notes tab too",
     body:
-      "Every project carries roadmap goals. Open the goals sidebar to track them — useful in lab meetings or 1:1s.",
+      "Notice the Notes tab? It's where meeting notes and running logs live. Things that don't fit on a single experiment but you still want to find later.",
+    route: "/workbench",
+    target: "workbench-notes",
     wikiPath: "/wiki/features/home",
+    priority: 8,
+    gate: "workbench-experiments-tab",
+  },
+  {
+    id: "fullscreen-task",
+    title: "Need more room?",
+    body:
+      "Need more room? Hit the expand button to make the task fullscreen. Esc or the same button exits.",
+    route: "/",
+    target: "fullscreen-task",
+    wikiPath: "/wiki/features/markdown-editor",
     priority: 9,
   },
   {
-    id: "methods-folder-tree",
-    title: "Methods folder tree",
-    route: "/methods",
-    target: "methods-folder-tree",
+    id: "goals-vs-tasks",
+    title: "Goals vs Tasks",
     body:
-      "Protocols live in a folder tree. Drag and drop to reorganize; click a folder to bulk-edit its methods together.",
-    wikiPath: "/wiki/features/methods",
+      "Confused about Goal vs Task? Tasks are day-to-day stuff (run a PCR, order primers). Goals are the milestones they roll up to (finish a chapter, submit the paper).",
+    route: "/gantt",
+    target: "create-goal",
+    wikiPath: "/wiki/features/gantt",
     priority: 10,
+    setupAction: {
+      label: "Create a goal",
+      kind: "navigate",
+      href: "/gantt?createGoal=1",
+    },
   },
 ];
 
@@ -159,6 +213,14 @@ export const TIP_SHOWN_CAP = ONBOARDING_TIPS.length;
 /** Minimum active-seconds between consecutive tip fires (5 minutes of
  *  active engagement, see proposal §"Trigger pattern"). */
 export const MIN_GAP_SECONDS = 300;
+
+/** Tutorial mode uses a shorter cooldown so the full set sweeps
+ *  through the user's first session faster. */
+export const TUTORIAL_MIN_GAP_SECONDS = 60;
+
+/** Tutorial mode skips the random roll and force-fires the highest-
+ *  priority eligible tip on each tick. */
+export const TUTORIAL_FORCE_FIRE = true;
 
 /** Cumulative active-seconds cap (1 hour). After this much real
  *  engagement, the user is no longer brand-new. */
