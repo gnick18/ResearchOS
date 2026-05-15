@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { getUpdates, TelegramApiError } from "./telegram-client";
 import { readPairing, updateLastUpdateId } from "./telegram-store";
 import { routeTelegramMessage } from "./image-router";
+import { routeBatchCallbackQuery } from "./batch-routing";
 import { setPollingHealth } from "./telegram-runtime";
 
 const TAB_LOCK_KEY = "telegram-poller-tab";
@@ -111,6 +112,21 @@ export function useTelegramPolling(username: string | null): void {
                 });
               } catch (err) {
                 console.error("[telegram-poll] route failed", err);
+              }
+            }
+            if (update.callback_query) {
+              // Inline-keyboard click. Only batch-routing emits these
+              // today (destination + caption-style pickers). Errors are
+              // swallowed so a failed callback ack doesn't poison the
+              // poll cursor — the user can re-click.
+              try {
+                await routeBatchCallbackQuery(update.callback_query, {
+                  username,
+                  botToken: pairing.botToken,
+                  chatId: pairing.chatId,
+                });
+              } catch (err) {
+                console.error("[telegram-poll] callback failed", err);
               }
             }
             if (update.update_id > maxId) maxId = update.update_id;

@@ -116,6 +116,18 @@ vi.mock("./tutorial-signal", () => ({
   broadcastTutorialSignal: (signal: unknown) => hoisted.broadcastMock(signal),
 }));
 
+// Spy on batch-routing so the tutorial-mode pass-through test can confirm
+// `routeBatchablePhoto` is NOT invoked even when the photo has a
+// media_group_id.
+const batchSpy = vi.hoisted(() => ({
+  routeBatchablePhotoMock: vi.fn(async (..._args: unknown[]) => {}),
+  consumeBatchTextReplyMock: vi.fn(async () => false),
+}));
+vi.mock("./batch-routing", () => ({
+  routeBatchablePhoto: batchSpy.routeBatchablePhotoMock,
+  consumeBatchTextReply: batchSpy.consumeBatchTextReplyMock,
+}));
+
 import {
   routeTelegramMessage,
   START_REPLY,
@@ -168,6 +180,9 @@ beforeEach(() => {
   hoisted.getFileMock.mockClear();
   hoisted.attachImageToTaskMock.mockClear();
   hoisted.broadcastMock.mockClear();
+  batchSpy.routeBatchablePhotoMock.mockClear();
+  batchSpy.consumeBatchTextReplyMock.mockClear();
+  batchSpy.consumeBatchTextReplyMock.mockImplementation(async () => false);
   hoisted.activeTaskRef.current = null;
   _resetTutorialCacheForTests();
 });
@@ -248,5 +263,51 @@ describe("image-router photo handling, tutorial-aware reply", () => {
       taskId: 7,
       fromInbox: false,
     });
+  });
+});
+
+describe("image-router photo handling, media_group_id branch", () => {
+  function albumPhotoMessage(): TelegramMessage {
+    return {
+      message_id: 5,
+      date: Math.floor(Date.now() / 1000),
+      chat: { id: CHAT_ID, type: "private" },
+      photo: [
+        {
+          file_id: "f-album",
+          file_unique_id: "u-album",
+          width: 100,
+          height: 100,
+          file_size: 1000,
+        },
+      ],
+      media_group_id: "album-1",
+    };
+  }
+
+  it("routes a media_group_id photo to batch-routing when tutorial is inactive", async () => {
+    await routeTelegramMessage(albumPhotoMessage(), baseCtx);
+    expect(batchSpy.routeBatchablePhotoMock).toHaveBeenCalledTimes(1);
+    const args = batchSpy.routeBatchablePhotoMock.mock.calls[0];
+    expect(args[0]).toBe("album-1");
+    // The single-photo flow's attach + reply should NOT have run for an
+    // album photo (batch-routing handles it).
+    expect(hoisted.attachImageToTaskMock).not.toHaveBeenCalled();
+    expect(hoisted.sendMessageMock).not.toHaveBeenCalled();
+  });
+
+  it("falls through to the per-photo flow when tutorial is active, even with media_group_id", async () => {
+    // Tutorial active → batch flow short-circuits so the demo
+    // sequencer's first-photo broadcast still fires per photo.
+    await startTelegramTutorialStep(USER, "first-photo");
+    await routeTelegramMessage(albumPhotoMessage(), baseCtx);
+    // Batch routing skipped.
+    expect(batchSpy.routeBatchablePhotoMock).not.toHaveBeenCalled();
+    // Single-photo path ran: attach + tutorial-aware reply + broadcast.
+    expect(hoisted.attachImageToTaskMock).toHaveBeenCalledTimes(1);
+    expect(hoisted.sendMessageMock).toHaveBeenCalledTimes(1);
+    expect(hoisted.broadcastMock).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "photo-arrived" }),
+    );
   });
 });

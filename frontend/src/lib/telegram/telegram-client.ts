@@ -51,11 +51,37 @@ export interface TelegramMessage {
   caption?: string;
   photo?: TelegramPhotoSize[];
   document?: TelegramDocument;
+  /** Set by Telegram when the user sends an album (multiple photos as a
+   *  single message in the client). Photos sharing this id arrive as
+   *  separate Update objects within ~1s, in order. */
+  media_group_id?: string;
+}
+
+/** Sent when the user clicks an inline-keyboard button. The Bot API
+ *  requires us to acknowledge with `answerCallbackQuery` (otherwise the
+ *  client shows a spinner until it times out). */
+export interface TelegramCallbackQuery {
+  id: string;
+  from: TelegramUser;
+  message?: TelegramMessage;
+  /** The opaque token we set on the button (≤64 bytes). */
+  data?: string;
 }
 
 export interface TelegramUpdate {
   update_id: number;
   message?: TelegramMessage;
+  callback_query?: TelegramCallbackQuery;
+}
+
+/** Inline keyboard markup shape. Telegram accepts this verbatim on
+ *  `sendMessage` as `reply_markup`. Each inner array is one row. */
+export interface InlineKeyboardButton {
+  text: string;
+  callback_data: string;
+}
+export interface InlineKeyboardMarkup {
+  inline_keyboard: InlineKeyboardButton[][];
 }
 
 export interface TelegramFile {
@@ -119,7 +145,10 @@ export async function getUpdates(
     {
       offset: opts.offset,
       timeout: opts.timeout ?? 25,
-      allowed_updates: ["message"],
+      // `callback_query` rides the same long-poll so inline-keyboard
+      // clicks (the batch-routing destination + style pickers) reach the
+      // router with the same end-to-end latency as a text message.
+      allowed_updates: ["message", "callback_query"],
     },
     { signal: opts.signal }
   );
@@ -151,12 +180,36 @@ export async function sendMessage(
   token: string,
   chatId: number,
   text: string,
-  opts: { reply_to_message_id?: number } = {}
+  opts: {
+    reply_to_message_id?: number;
+    /** Optional inline keyboard. Telegram limits 100 buttons total and
+     *  64 bytes per `callback_data`; callers should keep keyboards
+     *  small enough to scan on a phone (the batch-routing pickers cap
+     *  at ~10 rows + Inbox). */
+    reply_markup?: InlineKeyboardMarkup;
+  } = {}
 ): Promise<TelegramMessage> {
   return tg<TelegramMessage>(token, "sendMessage", {
     chat_id: chatId,
     text,
     reply_to_message_id: opts.reply_to_message_id,
+    reply_markup: opts.reply_markup,
+  });
+}
+
+/** Acknowledge an inline-keyboard click. Required by the Bot API —
+ *  without it the client UI keeps a loading spinner on the tapped
+ *  button until the request times out (~30s). Best-effort: errors here
+ *  shouldn't block the actual state transition that the click drove. */
+export async function answerCallbackQuery(
+  token: string,
+  callbackQueryId: string,
+  opts: { text?: string; show_alert?: boolean } = {}
+): Promise<true> {
+  return tg<true>(token, "answerCallbackQuery", {
+    callback_query_id: callbackQueryId,
+    text: opts.text,
+    show_alert: opts.show_alert,
   });
 }
 

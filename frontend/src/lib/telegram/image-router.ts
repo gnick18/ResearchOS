@@ -16,6 +16,11 @@ import {
   type TelegramTutorialState,
 } from "./tutorial-store";
 import { broadcastTutorialSignal } from "./tutorial-signal";
+import {
+  consumeBatchTextReply,
+  routeBatchablePhoto,
+  type BatchPhoto,
+} from "./batch-routing";
 
 interface PendingCaption {
   basePath: string;
@@ -154,11 +159,18 @@ export async function routeTelegramMessage(
 ): Promise<void> {
   if (message.chat.id !== ctx.chatId) return;
 
-  // Text-only message: either a slash command or a caption reply for the
-  // most recent photo from this chat.
+  // Text-only message: either a slash command, a batch-routing prompt
+  // reply (batch name or per-photo caption), or a caption reply for the
+  // most recent single-photo arrival from this chat.
   if (message.text && !message.photo && !message.document) {
     const text = message.text.trim();
     if (await handleTextCommand(text, ctx)) return;
+
+    // Batch-routing prompts are stricter about what's expected next, so
+    // give them first crack. They return `true` when they consumed the
+    // text, leaving normal single-photo caption handling for unrelated
+    // typing.
+    if (await consumeBatchTextReply(text, ctx)) return;
 
     const pending = pendingCaptions.get(ctx.chatId);
     if (text === "/skip") {
@@ -210,6 +222,24 @@ export async function routeTelegramMessage(
   // both the reply-copy branch and the broadcast branch agree on the
   // same snapshot.
   const tutorial = await readTutorialCached(ctx.username);
+
+  // Album branch: photos sharing a `media_group_id` get buffered into a
+  // single batch decision instead of prompting per-photo. Skipped when
+  // the tutorial is active so the first-photo signal still fires once
+  // per actual photo (the demo sequencer expects per-photo broadcasts;
+  // batching would swallow them under the destination prompt).
+  if (message.media_group_id && !tutorial.tutorial_active) {
+    const batchPhoto: BatchPhoto = {
+      messageId: message.message_id,
+      date: message.date,
+      caption: message.caption ?? null,
+      blob,
+      suggestedStem,
+      suggestedExt,
+    };
+    await routeBatchablePhoto(message.media_group_id, batchPhoto, ctx, active);
+    return;
+  }
 
   let basePath: string;
   let savedFilename: string;
