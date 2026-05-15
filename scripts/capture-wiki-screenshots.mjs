@@ -667,36 +667,51 @@ const FIXTURE_ROUTES = [
     // task-popup Purchases tab. The warning is therefore not currently
     // surfaced through normal UI navigation against this fixture.
     //
-    // Best-effort: open the workbench, click into alex's task 11
-    // ("Heat-shock survival assay" — task_type:experiment, has one
-    // purchase item id=20), switch to the Purchases tab. The screenshot
-    // shows the PurchaseEditor table on a non-purchase task even though
-    // the amber banner is suppressed. The wiki prose will describe the
-    // banner in words and cite the dashboard's "Items on non-purchase
-    // tasks" line (purchases-non-purchase-panel-expanded.png) as the
-    // formal user-facing surface.
+    // Open alex's task 11 ("Heat-shock survival assay" — task_type:
+    // experiment, has linked purchase item id=20) from the Workbench
+    // page, then switch to the Purchases tab inside the TaskDetailPopup.
+    // Since chip a713f899 threaded task.task_type through TaskDetailPopup
+    // → PurchaseEditor, the amber non-purchase warning banner now renders
+    // here. Earlier rounds captured the wrong shot because:
+    //   (a) tile.getByText matched the sidebar entry, not the card; and
+    //   (b) the popup-mount wasn't waited for.
+    // Fix: target h3 specifically (the TaskCard heading), then poll for
+    // the popup's stable text marker before clicking the Purchases tab.
     path: "/experiments",
     file: "purchases-non-purchase-warning.png",
     waitFor: "h1, h2, text=Lab Notes",
     settleMs: 1000,
     action: async (page) => {
       try {
-        // Task 11 ("Heat-shock survival assay") is incomplete, so it
-        // renders without needing to expand the "Show N completed"
-        // disclosure. Click directly.
-        const tile = page
-          .getByText(/Heat-shock survival assay/i)
+        // h3 with exactly the task name is the card title in the
+        // Workbench grid; the sidebar entry uses a different element.
+        const card = page
+          .locator("h3")
+          .filter({ hasText: /^Heat-shock survival assay$/ })
           .first();
-        if (await tile.count()) {
-          await tile.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
-          await tile.click({ timeout: 3000 });
-          await page.waitForTimeout(900);
+        if (await card.count()) {
+          await card.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+          await card.click({ timeout: 3000 });
         }
       } catch (err) {
-        console.warn(`  ⚠ purchases-non-purchase-warning open task: ${err.message}`);
+        console.warn(`  ⚠ purchases-non-purchase-warning open card: ${err.message}`);
+        return;
+      }
+      // Wait for the popup to mount before reaching for the Purchases
+      // tab. TaskDetailPopup renders "Details" / "Lab Notes" / "Method"
+      // / "Results" / "Purchases" tabs in a horizontal strip; the
+      // "Lab Notes" label is stable for both experiment and purchase
+      // task types so it's a safe popup-mounted indicator.
+      try {
+        await page.waitForSelector(
+          'button:has-text("Lab Notes"), [role="dialog"] :text("Lab Notes")',
+          { timeout: 5000 },
+        );
+      } catch {
+        console.warn("  ⚠ purchases-non-purchase-warning popup never mounted");
+        return;
       }
       try {
-        // Switch to the Purchases tab inside the TaskDetailPopup.
         const tab = page
           .locator("button")
           .filter({ hasText: /^Purchases$/ })
@@ -1225,10 +1240,16 @@ const FIXTURE_ROUTES = [
     },
   },
   {
+    // The Lists tab renders 5 stages stacked top-to-bottom (Overdue /
+    // Doing / Upcoming / Recently done / Earlier). The viewport-clipped
+    // screenshot only catches the first 3; chip 529b4d0d populated the
+    // bottom two but they sit below 900px, so fullPage is required to
+    // show all five sections in one shot.
     path: "/workbench",
     file: "workbench-lists.png",
     waitFor: "text=Workbench, text=Lists",
     settleMs: 800,
+    fullPage: true,
     action: async (page) => {
       // Click the Lists tab in the Workbench tab bar.
       try {
@@ -1736,6 +1757,24 @@ async function capturePublicPage(page, route, baseUrl) {
 
 async function _capturePageAt(page, route, url) {
   const out = path.join(OUT_DIR, route.file);
+  // Clear the sticky demo-mode sessionStorage flag before every route
+  // EXCEPT the demo-mode-* shots which need it. Without this, captures
+  // that run after demo-mode-banner.png / demo-mode-leave.png inherit
+  // the flag (Playwright preserves sessionStorage across page.goto in a
+  // single context) and getDemoMode() returns true on non-/demo URLs.
+  // The chip 9de214fe fix gates FloatingLeaveDemoButton + OpenDocsButton
+  // on `!isWikiCaptureMode()`, but DemoLabBanner's inline "Leave Demo"
+  // pill renders on `getDemoMode()` alone, so the sticky flag leaks the
+  // pill into later shots. Clearing it here is the surgical fix.
+  if (!route.path.startsWith("/demo")) {
+    try {
+      await page.evaluate(() => {
+        try {
+          window.sessionStorage.removeItem("researchos:demo-mode");
+        } catch {}
+      });
+    } catch {}
+  }
   try {
     await page.goto(url, { waitUntil: "networkidle", timeout: 30000 });
   } catch (err) {
