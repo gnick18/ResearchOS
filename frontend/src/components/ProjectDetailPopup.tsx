@@ -578,6 +578,7 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
                       <button
                         onClick={() => setShowArchiveConfirm(true)}
                         disabled={archiving || isViewOnlyReceiver}
+                        data-onboarding-target="archive-projects"
                         className={`px-4 py-2 text-sm rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2 ${
                           isViewOnlyReceiver
                             ? "text-gray-300 cursor-not-allowed"
