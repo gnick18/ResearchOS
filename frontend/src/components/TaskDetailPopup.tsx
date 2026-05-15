@@ -742,7 +742,7 @@ export default function TaskDetailPopup({
             />
           )}
           {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly} ownerUsername={username} />}
-          {activeTab === "purchases" && <PurchaseEditor taskId={task.id} readOnly={readOnly} username={username} />}
+          {activeTab === "purchases" && <PurchaseEditor taskId={task.id} readOnly={readOnly} username={username} taskType={task.task_type} />}
         </div>
         {universalDropToast && (
           <div
