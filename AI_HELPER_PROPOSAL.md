@@ -1,5 +1,32 @@
 # AI Helper — proposal
 
+## Decisions locked (Grant 2026-05-15)
+
+Four design calls answered before chip burst. The rest of the proposal still reflects the original analysis — these supersede where they conflict, and the "Maintenance model" + "Open questions for Grant" sections below are annotated accordingly.
+
+1. **Ship all three size variants** (full / lean / minimal). **Strong automation is non-negotiable** — the refresh path has to be streamlined enough that Grant can keep all three current from his laptop with near-zero manual work, with as much of the mechanism built into the app itself as possible. This elevates the build script from "nice to have" to "core deliverable" and pulls in additional surfaces beyond what the original proposal sketched. See expanded "Automation contract" subsection below.
+2. **Add the 11th onboarding tip** (`ai-helper-prompt`) pointing at the Settings card. Surfaces in suggestions mode + walks through in tutorial mode.
+3. **Hybrid build script** (schemas / examples / wiki-refs auto; prose partials hand-written).
+4. **Wiki path: `/wiki/integrations/ai-helper`** (peer of telegram, calendar-feeds, labarchives).
+
+## Automation contract (elevated per Grant's lock-in)
+
+Goal: Grant runs **one** command (or zero, if a git hook fires) and all three size variants are current with the live code repo state. The Settings card always shows whether the served prompts are stale relative to the latest commit. No drift between what's deployed and what's documented.
+
+**Layered automation, ordered cheapest to most-automatic:**
+
+1. **`npm run ai-helper:build`** — the manual one-liner. Stitches partials + auto-extracted sections into `frontend/public/ai-helper/{full,lean,minimal}.md`. Stamps a `helper_built: { commit, date, schema_hash }` JSON sidecar at `frontend/public/ai-helper/manifest.json` for the Settings card to display.
+2. **`npm run ai-helper:refresh`** — the auto-commit variant. Runs `ai-helper:build` then `git add public/ai-helper/* && git commit -m "AI Helper: refresh prompts (auto)"` if and only if anything changed. Safe to run from any branch; no-op if prompts are already current. Grant can `npm run ai-helper:refresh` after a feature lands and have a clean refresh commit ready to merge.
+3. **`prebuild` hook integration** — `ai-helper:build` runs as part of `npm run prebuild` (same hook as `wiki:coverage` and `wiki:screenshots`, see [AGENTS.md:217](AGENTS.md:217)). Vercel deploys auto-refresh the deployed prompts; local `npm run build` does too. The deployed prompts are always current with the deploy SHA.
+4. **`npm run ai-helper:check` CI gate** — failed-build checksum gate. Compares the schema hash extracted from the current `types.ts` against the hash baked into the last committed `manifest.json`. If they differ AND the prompts haven't been rebuilt, the build fails with a clear "run `npm run ai-helper:refresh`" message. Forces drift to be caught at commit-time, not in production. Lives in `prebuild` alongside `wiki:coverage`'s coverage gate.
+5. **Settings card: live freshness indicator** — the AI Helper Settings card reads `manifest.json` on mount and displays the build's commit SHA + date. If the served `manifest.json` shows a SHA older than the running app's commit, surfaces an amber "These prompts are from <hash>; the running app is at <hash>. The hosted version at research-os-xi.vercel.app/ai-helper/ is always current." note. Self-explaining drift detection — no out-of-band tooling needed.
+6. **In-app refresh-from-deploy button** (Settings card) — a "Pull latest from research-os-xi.vercel.app" button that fetches the live deployed `manifest.json` + size-variant URLs via `fetch()`, compares hashes to local, and lets the user copy the live version directly to clipboard if their local copy is stale. Useful for users running their own self-hosted instance who haven't rebuilt; useful for Grant on his dev machine when he wants the live version without a local rebuild. Cross-origin (going from localhost to research-os-xi.vercel.app) needs a permissive CORS header on the public `/ai-helper/*.md` files; Vercel's default static-asset CORS is `*` for `.md` so this should work without config. Verify during chip 3.
+7. **Optional GitHub Action** — `on: push` to main, runs `npm run ai-helper:check`; if drift is detected, opens a draft PR titled "AI Helper: auto-refresh prompts" with the rebuilt files. Hands-off maintenance for Grant: he merges the auto-PR (or it auto-merges if green) and the prompts are current. Defer to v1.5 if v1's `prebuild` gate proves enough.
+
+**The combined effect:** Grant's day-to-day flow is "edit `types.ts` → build runs locally → CI gate catches stale prompts → either rebuild or the deploy hook does it for me." The Settings card keeps everyone honest about what version is served. The "pull from deploy" button gives the trapdoor for users on stale local builds.
+
+**One more piece worth flagging:** the prompt's `helper_version` integer (footer §11) bumps automatically when the schema-section hash changes. That's the version users can cite back when asking the AI questions ("I'm on helper_version 7, the app says version 9 — does anything important changed?"). Mechanism is simple: build script reads the previous `manifest.json`'s helper_version, increments by 1 if any non-prose section content changed, leaves it alone otherwise.
+
 ## Context
 
 ResearchOS is local-first, no backend, no API budget for shipping a built-in chatbot. But every researcher who uses it already has at least one general-purpose chatbot account (Claude, ChatGPT, Gemini, often more than one). Grant's framing:
@@ -287,23 +314,47 @@ If Grant has a clear preference on any of these, I'll fold it in before chip bur
 
 ## Deliverables + chip burst plan
 
-Once this proposal is green-lit:
+Updated post-Grant-lock-in. Automation work (chip 1) gets the bigger scope.
 
-**Chip 1 — Build script + partials skeleton.** Land `scripts/build-ai-helper.mjs` + `ai-helper/partials/*.md` + `npm run ai-helper:build` + the CI checksum gate. Empty partials are fine; chip 2 fills them. Produces empty-shell `public/ai-helper/{full,lean,minimal}.md`. ~250 LOC.
+**Chip 1 — Build script + partials skeleton + automation surface.** The expanded "Automation contract" section above drives the bulk. Lands:
+- `scripts/build-ai-helper.mjs` (~400 LOC: schema extraction from `types.ts`, fixture extraction from `frontend/public/demo-data/users/{alex,morgan}/`, wiki-nav extraction from `frontend/src/lib/wiki/nav.ts`, partials stitching, three-variant derivation, hash + manifest emission).
+- `scripts/check-ai-helper.mjs` (~80 LOC: reads `frontend/public/ai-helper/manifest.json`, recomputes the schema hash from current `types.ts`, exits non-zero with the "run npm run ai-helper:refresh" message if drift).
+- Empty `ai-helper/partials/{1-identity,2-architecture,3-mental-model,6-features,7-workflows,8-behavior,9-drafting}.md` (chip 2 fills).
+- `package.json` scripts: `ai-helper:build`, `ai-helper:refresh`, `ai-helper:check`. `prebuild` extended to call `ai-helper:build` then `ai-helper:check`.
+- Empty-shell `frontend/public/ai-helper/{full,lean,minimal}.md` + `manifest.json`.
+- Doc at `scripts/AI_HELPER_BUILD.md` with the rebuild + drift recovery recipe.
 
-**Chip 2 — Author the partials.** The actual writing pass. Identity preamble, architecture summary, mental model, feature inventory, workflows, behavior rules. ~6,000-8,000 tokens of prose across 7 partial files. Sized for a single dedicated chip session.
+~600 LOC total for the chip. The script is doing more than the original sketch — automation lift is real.
 
-**Chip 3 — Settings affordance.** Add `<AIHelperSection>` to `app/settings/page.tsx`. Fetches the three sizes lazily, copy-to-clipboard, "open in provider" buttons, footer with version stamp. Uses existing `<SectionShell>`, `<Tooltip>`, no new primitives. ~150 LOC + ~50 LOC of toast plumbing if not already shared.
+**Chip 2 — Author the partials.** The actual writing pass. Identity preamble, architecture summary, mental model, feature inventory, workflows, behavior rules, drafting templates. ~6,000-8,000 tokens of prose across 7 partial files. Sized for a single dedicated chip session. Verifies the build script renders all three sizes correctly with real prose.
 
-**Chip 4 — Onboarding tip.** Add the 11th tip to `tips.ts`, `setupAction.href = "/settings#ai-helper"`. Reuses existing tip infra. ~30 LOC.
+**Chip 3 — Settings affordance with full automation surface.** Add `<AIHelperSection>` to `app/settings/page.tsx`. Reads `frontend/public/ai-helper/manifest.json` on mount. Renders:
+- Size picker (full / lean / minimal radio).
+- Copy-to-clipboard primary button.
+- "Open in Claude / ChatGPT / Gemini" buttons.
+- "Last refreshed: <date> · helper_version <N> · ResearchOS @ <hash>" footer.
+- "Pull latest from research-os-xi.vercel.app" trapdoor button (per Automation contract item 6).
+- Stale-prompt amber callout if local manifest commit hash != running-app commit hash.
+- "Read setup guide →" → `/wiki/integrations/ai-helper`.
+- "View prompt source →" → opens raw `.md`.
 
-**Chip 5 — Wiki handoff.** Master relays a wiki-page brief to the wiki manager covering: the integration page itself + per-provider setup subsections + screenshot list (Settings card, the three "Open in" tabs landing, an example chat exchange in each provider). I write the technical brief; wiki manager owns voice + screenshots + WIKI_NAV registration.
+Uses existing `<SectionShell>`, `<Tooltip>`, no new primitives. ~250 LOC (up from the original ~150 estimate due to the freshness indicator + pull-from-deploy machinery).
 
-**Chip 6 — Security review.** Once chip 2 lands, route the draft prompt to the security manager for the threats-1-3 review pass. Their findings drive a chip 6.5 if anything material surfaces.
+**Chip 4 — Onboarding tip.** Add the 11th tip (`ai-helper-prompt`) to `frontend/src/lib/onboarding/tips.ts`, `route: "/"`, `setupAction: { kind: "navigate", href: "/settings#ai-helper", label: "Open AI Helper" }`. Add `data-onboarding-target="ai-helper-prompt"` to the AI Helper Settings section. Reuses existing tip infra. ~50 LOC. Tutorial mode catalog walks through it as part of the tour.
 
-**Estimated total time-to-ship for v1:** 5-7 working sessions across the chip sequence above. Most expensive piece is chip 2 (the actual prose), which is a single dedicated session.
+**Chip 5 — Wiki handoff.** Master relays a wiki-page brief to the wiki manager covering: the integration page itself + per-provider setup subsections (Claude paste vs Project, ChatGPT paste vs Custom GPT vs Project, Gemini paste vs Gem) + screenshot list (Settings card, the three "Open in" tabs landing, an example chat exchange demonstrating schema-aware drafting). AI Helper manager writes the technical brief; wiki manager owns voice + screenshots + WIKI_NAV registration.
 
-**Maintenance contract once landed:** every domain manager (methods-expansion, /purchases, etc.) flags AI Helper implications in their final report when their feature ships. AI Helper manager (this role) periodically refreshes partials based on those flags + runs `npm run ai-helper:build` to roll out. CI checksum gate forces re-builds when `types.ts` schemas change — caught at build-time, not in production.
+**Chip 6 — Security review.** Once chip 2 lands, route the draft prompt to the security manager for the threats-1-3 review pass (architecture-disclosure footgun, prompt-injection vectors, drafting-mode footgun — see "Security manager handoff" section). Their findings drive a chip 6.5 if anything material surfaces.
+
+**Chip 7 (deferred) — GitHub Action auto-PR.** Per Automation contract item 7. Defer until we see whether the `prebuild` gate alone is enough discipline.
+
+**Estimated total time-to-ship for v1:** 5-7 working sessions. Most expensive pieces: chip 1 (automation scaffolding) and chip 2 (the actual prose). Chips 3-6 are smaller, scoped, and largely independent.
+
+**Maintenance contract once landed:**
+- Domain managers (methods-expansion, /purchases, etc.) flag AI Helper implications in their final report when their feature ships.
+- AI Helper manager (this role) periodically refreshes partials based on those flags. Schema changes auto-flow through the build script — only the prose partials need touch.
+- `npm run ai-helper:refresh` from any branch produces a clean refresh commit. `prebuild` gate catches stale schemas in CI before deploy.
+- The Settings-card freshness indicator + pull-from-deploy trapdoor cover the "user's local copy might be stale" case without out-of-band tooling.
 
 ---
 
