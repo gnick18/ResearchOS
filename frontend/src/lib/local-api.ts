@@ -279,11 +279,12 @@ function normalizeTaskRecord(raw: Task): Task {
   const filtered = attachments.some((a) => !methodIds.includes(a.method_id))
     ? attachments.filter((a) => methodIds.includes(a.method_id))
     : attachments;
-  // Backfill the lc_gradient / body_override / plate_annotation fields on
-  // attachments written before their respective features landed (LC Phase 1a,
-  // Markdown Phase 2B, Plate Phase 2C). Without this, the field is `undefined`
-  // at runtime for any older task, which trips strict null checks in the
-  // per-type tab content's snapshot-vs-source branching. Each new structured
+  // Backfill on attachments written before their respective features landed
+  // (LC Phase 1a, Markdown Phase 2B, Plate Phase 2C, owner-disambiguation
+  // routing-fix). Without this, the field is `undefined` at runtime for any
+  // older task, which trips strict null checks in the per-type tab content's
+  // snapshot-vs-source branching. For `owner`, null = same user as the task
+  // (legacy current-user-first behavior preserved). Each new structured
   // method type that adds a `_*: string | null` slot on TaskMethodAttachment
   // appends one more clause here.
   const needsLcBackfill = filtered.some(
@@ -295,7 +296,10 @@ function normalizeTaskRecord(raw: Task): Task {
   const needsPlateBackfill = filtered.some(
     (a) => !Object.prototype.hasOwnProperty.call(a, "plate_annotation"),
   );
-  if (filtered !== attachments || needsLcBackfill || needsBodyOverrideBackfill || needsPlateBackfill) {
+  const needsOwnerBackfill = filtered.some(
+    (a) => !Object.prototype.hasOwnProperty.call(a, "owner"),
+  );
+  if (filtered !== attachments || needsLcBackfill || needsBodyOverrideBackfill || needsPlateBackfill || needsOwnerBackfill) {
     normalized = {
       ...normalized,
       method_attachments: filtered.map((a) => {
@@ -308,6 +312,9 @@ function normalizeTaskRecord(raw: Task): Task {
         }
         if (!Object.prototype.hasOwnProperty.call(next, "plate_annotation")) {
           next = { ...next, plate_annotation: null };
+        }
+        if (!Object.prototype.hasOwnProperty.call(next, "owner")) {
+          next = { ...next, owner: null };
         }
         return next;
       }),
@@ -356,7 +363,7 @@ export const tasksApi = {
     sub_tasks?: Array<{ id: string; text: string; is_complete: boolean }>;
     pcr_gradient?: string | null;
     pcr_ingredients?: string | null;
-    method_attachments?: Array<{ method_id: number; pcr_gradient?: string | null; pcr_ingredients?: string | null; lc_gradient?: string | null; body_override?: string | null; plate_annotation?: string | null; variation_notes?: string | null }>;
+    method_attachments?: Array<{ method_id: number; owner?: string | null; pcr_gradient?: string | null; pcr_ingredients?: string | null; lc_gradient?: string | null; body_override?: string | null; plate_annotation?: string | null; variation_notes?: string | null }>;
   }): Promise<Task> => {
     const durationDays = data.duration_days || 1;
     const endDate = canonicalEndDate({ start_date: data.start_date, duration_days: durationDays });
@@ -385,6 +392,7 @@ export const tasksApi = {
       sub_tasks: data.sub_tasks ?? null,
       method_attachments: (data.method_attachments ?? []).map((a) => ({
         method_id: a.method_id,
+        owner: a.owner ?? null,
         pcr_gradient: a.pcr_gradient ?? null,
         pcr_ingredients: a.pcr_ingredients ?? null,
         lc_gradient: a.lc_gradient ?? null,
@@ -618,8 +626,27 @@ export const tasksApi = {
 
     const attachments = [...(task.method_attachments || [])];
     if (!attachments.find((a) => a.method_id === methodId)) {
+      // Resolve the method's owner so the attachment can disambiguate
+      // against per-user id collisions later (e.g. attaching public method
+      // id 2 when the current user also has a private method with id 2).
+      // Falls back to `null` (= same user as the task) if the lookup fails
+      // for any reason; the read-side lookup degrades to current-user-first
+      // behavior in that case, matching legacy attachments.
+      let methodOwner: string | null = null;
+      try {
+        const allMethods = await fetchAllMethodsIncludingShared();
+        const candidates = allMethods.filter((m) => m.id === methodId);
+        if (candidates.length === 1) {
+          methodOwner = candidates[0].owner ?? null;
+        } else if (candidates.length > 1) {
+          methodOwner = candidates[0].owner ?? null;
+        }
+      } catch (err) {
+        console.warn("[addMethod] could not resolve method owner:", err);
+      }
       attachments.push({
         method_id: methodId,
+        owner: methodOwner,
         pcr_gradient: null,
         pcr_ingredients: null,
         lc_gradient: null,

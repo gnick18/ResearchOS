@@ -178,6 +178,12 @@ export interface SubTask {
 
 export interface TaskMethodAttachment {
   method_id: number;
+  // Explicit owner of the referenced method. `null` = same user as the task
+  // (legacy / locally-owned attachments). Non-null disambiguates against
+  // per-user id collisions: e.g. `method_id: 2, owner: "public"` references
+  // the public method even when the current user also has a private method
+  // with id 2. Required for cross-user public/shared method attachments.
+  owner: string | null;
   // PCR method copy fields - stored as JSON strings (only for PCR methods)
   pcr_gradient: string | null;  // JSON string of PCRGradient
   pcr_ingredients: string | null;  // JSON string of PCRIngredient[]

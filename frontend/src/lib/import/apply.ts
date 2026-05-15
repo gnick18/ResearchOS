@@ -228,6 +228,10 @@ function remapMethodAttachments(
     if (newId == null) continue;
     out.push({
       method_id: newId,
+      // Import remaps id-space into the receiver's namespace, so the new
+      // method is locally owned by the importing user. `null` = same user
+      // as the (newly imported) task.
+      owner: null,
       pcr_gradient: att.pcr_gradient,
       pcr_ingredients: att.pcr_ingredients,
       lc_gradient: att.lc_gradient ?? null,
