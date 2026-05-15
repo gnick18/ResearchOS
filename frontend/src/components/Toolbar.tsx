@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAppStore } from "@/lib/store";
 import type { Project, ViewMode } from "@/lib/types";
 import AnimationSettingsPopup from "@/components/AnimationSettingsPopup";
@@ -75,6 +76,27 @@ export default function Toolbar({
   const ganttNavigateWeeks = useAppStore((s) => s.ganttNavigateWeeks);
   
   const [showAnimationSettings, setShowAnimationSettings] = useState(false);
+
+  // Deep-link hooks. `/gantt?animations=1` auto-opens the animation
+  // settings popup (used by the `gantt-animations` onboarding tip's
+  // "Pick an animation" setupAction). `/gantt?createGoal=1` fires the
+  // create-goal flow. Each strips its param after acting so a reload
+  // doesn't re-trigger.
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (!searchParams) return;
+    const wantsAnimations = searchParams.get("animations") === "1";
+    const wantsCreateGoal = searchParams.get("createGoal") === "1";
+    if (!wantsAnimations && !wantsCreateGoal) return;
+    if (wantsAnimations) setShowAnimationSettings(true);
+    if (wantsCreateGoal) onCreateGoal();
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("animations");
+    next.delete("createGoal");
+    const query = next.toString();
+    router.replace(query ? `/gantt?${query}` : "/gantt");
+  }, [searchParams, router, onCreateGoal]);
 
   // Calculate weeks to show based on view mode
   const weeksToShow = useMemo(() => {
@@ -237,6 +259,7 @@ export default function Toolbar({
       {/* Add goal button */}
       <button
         onClick={onCreateGoal}
+        data-onboarding-target="create-goal"
         className="px-3 py-1.5 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors flex items-center gap-1"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -259,6 +282,7 @@ export default function Toolbar({
       <Tooltip label="Animation Settings" placement="bottom">
         <button
           onClick={() => setShowAnimationSettings(true)}
+          data-onboarding-target="gantt-animations"
           className="px-2.5 py-1.5 text-sm bg-white border border-gray-200 text-gray-700 rounded-lg hover:border-gray-300 hover:shadow-sm transition-all flex items-center gap-1.5 hover:animate-jiggle"
         >
           <span className="text-base">{ANIMATION_METADATA[animationType].icon}</span>
