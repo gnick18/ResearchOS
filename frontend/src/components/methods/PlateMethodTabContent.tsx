@@ -13,6 +13,7 @@ import type {
 } from "@/lib/types";
 import PlateLayoutEditor, { regionLabelsToWells } from "@/components/PlateLayoutEditor";
 import { ownerScopedTasksApi } from "@/lib/tasks/owner-scoped-api";
+import type { NestedSnapshotAdapter } from "@/lib/methods/nested-snapshot";
 import VariationNotesPanel from "./VariationNotesPanel";
 
 interface PlateMethodTabContentProps {
@@ -22,6 +23,15 @@ interface PlateMethodTabContentProps {
   attachment: TaskMethodAttachment | undefined;
   onTaskUpdate?: (task: Task) => void;
   readOnly?: boolean;
+  /** When this viewer renders as a child inside a CompoundMethodTabContent,
+   *  the parent passes a `nestedSnapshot` adapter that routes per-child
+   *  reads/writes through `compound_snapshots[child_id]` instead of the
+   *  task's top-level `plate_annotation` attachment field. Absent for
+   *  standalone (non-nested) attachments. */
+  nestedSnapshot?: NestedSnapshotAdapter<PlateAnnotationSnapshot>;
+  /** Hide the VariationNotesPanel; the compound parent owns variation
+   *  notes once for the whole compound, not per-child. */
+  hideVariationNotes?: boolean;
 }
 
 function extractPlateProtocolId(sourcePath: string): number | null {
@@ -58,6 +68,8 @@ export default function PlateMethodTabContent({
   attachment,
   onTaskUpdate,
   readOnly = false,
+  nestedSnapshot,
+  hideVariationNotes = false,
 }: PlateMethodTabContentProps) {
   const queryClient = useQueryClient();
   const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
@@ -84,17 +96,38 @@ export default function PlateMethodTabContent({
     [sourceProtocol],
   );
 
+  // Synthesize an attachment-shaped record from the nested-snapshot adapter
+  // when this viewer is rendering as a compound child. Lets the existing
+  // `snapshotOrSource` helper work unchanged in both modes.
+  const nestedRead = nestedSnapshot?.read;
+  const effectiveAttachment: TaskMethodAttachment | undefined = useMemo(() => {
+    if (!nestedRead) return attachment;
+    const snap = nestedRead();
+    return {
+      method_id: methodId,
+      owner: null,
+      pcr_gradient: null,
+      pcr_ingredients: null,
+      lc_gradient: null,
+      body_override: null,
+      plate_annotation: snap ? JSON.stringify(snap) : null,
+      cell_culture_schedule: null,
+      variation_notes: null,
+      compound_snapshots: null,
+    };
+  }, [nestedRead, attachment, methodId]);
+
   useEffect(() => {
     if (!sourceProtocol) return;
-    const seed = snapshotOrSource(attachment, sourceProtocol);
+    const seed = snapshotOrSource(effectiveAttachment, sourceProtocol);
     setWells(seed.wells);
     setHasUnsavedChanges(false);
-  }, [attachment, sourceProtocol]);
+  }, [effectiveAttachment, sourceProtocol]);
 
   // Track unsaved changes vs. whatever the editor was initialized from.
   const lastSeed = useMemo(
-    () => snapshotOrSource(attachment, sourceProtocol),
-    [attachment, sourceProtocol],
+    () => snapshotOrSource(effectiveAttachment, sourceProtocol),
+    [effectiveAttachment, sourceProtocol],
   );
 
   useEffect(() => {
@@ -110,50 +143,61 @@ export default function PlateMethodTabContent({
     setSaving(true);
     try {
       const snapshot: PlateAnnotationSnapshot = { wells };
-      const updatedTask = await tasksApi.updateMethodPlate(task.id, methodId, {
-        plate_annotation: JSON.stringify(snapshot),
-      });
-      await queryClient.refetchQueries({ queryKey: ["tasks"] });
-      await queryClient.refetchQueries({ queryKey: ["task", task.id] });
-      setHasUnsavedChanges(false);
-      if (updatedTask) onTaskUpdate?.(updatedTask);
+      if (nestedSnapshot) {
+        await nestedSnapshot.write(snapshot);
+        setHasUnsavedChanges(false);
+      } else {
+        const updatedTask = await tasksApi.updateMethodPlate(task.id, methodId, {
+          plate_annotation: JSON.stringify(snapshot),
+        });
+        await queryClient.refetchQueries({ queryKey: ["tasks"] });
+        await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+        setHasUnsavedChanges(false);
+        if (updatedTask) onTaskUpdate?.(updatedTask);
+      }
     } catch (err) {
       console.error("Failed to save plate annotations:", err);
       alert("Failed to save plate annotations");
     } finally {
       setSaving(false);
     }
-  }, [task.id, methodId, sourceProtocol, wells, queryClient, onTaskUpdate, tasksApi]);
+  }, [task.id, methodId, sourceProtocol, wells, queryClient, onTaskUpdate, tasksApi, nestedSnapshot]);
 
   const handleReset = useCallback(async () => {
     if (!confirm("Reset plate annotations to match the source method? Your changes will be lost.")) return;
     setSaving(true);
     try {
-      const updatedTask = await tasksApi.resetPlate(task.id, methodId);
-      await queryClient.refetchQueries({ queryKey: ["tasks"] });
-      await queryClient.refetchQueries({ queryKey: ["task", task.id] });
-      if (updatedTask) onTaskUpdate?.(updatedTask);
+      if (nestedSnapshot) {
+        await nestedSnapshot.reset();
+      } else {
+        const updatedTask = await tasksApi.resetPlate(task.id, methodId);
+        await queryClient.refetchQueries({ queryKey: ["tasks"] });
+        await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+        if (updatedTask) onTaskUpdate?.(updatedTask);
+      }
     } catch (err) {
       console.error("Failed to reset plate:", err);
       alert("Failed to reset plate data");
     } finally {
       setSaving(false);
     }
-  }, [task.id, methodId, queryClient, onTaskUpdate, tasksApi]);
+  }, [task.id, methodId, queryClient, onTaskUpdate, tasksApi, nestedSnapshot]);
 
   return (
     <div className="flex flex-col h-full">
-      <VariationNotesPanel
-        task={task}
-        methodId={methodId}
-        variationNotes={attachment?.variation_notes || null}
-        onSaved={(updatedTask) => {
-          if (updatedTask) onTaskUpdate?.(updatedTask);
-          queryClient.refetchQueries({ queryKey: ["tasks"] });
-          queryClient.refetchQueries({ queryKey: ["allTasks"] });
-        }}
-        readOnly={readOnly}
-      />
+      {!hideVariationNotes && (
+        <VariationNotesPanel
+          task={task}
+          methodId={methodId}
+          variationNotes={attachment?.variation_notes || null}
+          onSaved={(updatedTask) => {
+            if (updatedTask) onTaskUpdate?.(updatedTask);
+            queryClient.refetchQueries({ queryKey: ["tasks"] });
+            queryClient.refetchQueries({ queryKey: ["allTasks"] });
+          }}
+          readOnly={readOnly}
+        />
+      )}
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

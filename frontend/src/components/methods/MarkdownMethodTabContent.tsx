@@ -20,6 +20,7 @@ import {
 } from "@/lib/methods/diff-display";
 import Tooltip from "@/components/Tooltip";
 import type { Method, Task, TaskMethodAttachment } from "@/lib/types";
+import type { NestedSnapshotAdapter } from "@/lib/methods/nested-snapshot";
 import VariationNotesPanel from "./VariationNotesPanel";
 
 interface MarkdownMethodTabContentProps {
@@ -29,6 +30,11 @@ interface MarkdownMethodTabContentProps {
   attachment: TaskMethodAttachment | undefined;
   onTaskUpdate?: (task: Task) => void;
   readOnly?: boolean;
+  /** Compound-child mode: route the body override into the compound's
+   *  `compound_snapshots[child_id]` slot. Snapshot shape is
+   *  `{ body_override: string }`. */
+  nestedSnapshot?: NestedSnapshotAdapter<{ body_override: string }>;
+  hideVariationNotes?: boolean;
 }
 
 // Tailwind utility bundles for the diff-line highlights. Kept inline rather
@@ -83,6 +89,8 @@ export default function MarkdownMethodTabContent({
   attachment,
   onTaskUpdate,
   readOnly = false,
+  nestedSnapshot,
+  hideVariationNotes = false,
 }: MarkdownMethodTabContentProps) {
   const queryClient = useQueryClient();
   const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
@@ -90,11 +98,13 @@ export default function MarkdownMethodTabContent({
   const [sourceBody, setSourceBody] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // Persisted override mirror. Tracks `attachment.body_override` so the
-  // editor's "have unsaved changes" pill and the diff view can both read
-  // from a single source. Re-seeds whenever the parent passes a new
-  // attachment reference (e.g. after onTaskUpdate refreshes the task).
-  const savedOverride = attachment?.body_override ?? null;
+  // Persisted override mirror. In compound-child mode the override comes
+  // from the nested-snapshot adapter; otherwise it's the attachment's
+  // standalone `body_override` field.
+  const nestedRead = nestedSnapshot?.read;
+  const savedOverride: string | null = nestedRead
+    ? (nestedRead()?.body_override ?? null)
+    : (attachment?.body_override ?? null);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editorContent, setEditorContent] = useState("");
@@ -183,22 +193,27 @@ export default function MarkdownMethodTabContent({
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
-      const updated = await tasksApi.updateMethodMarkdownOverride(
-        task.id,
-        methodId,
-        editorContent,
-      );
-      await queryClient.refetchQueries({ queryKey: ["tasks"] });
-      await queryClient.refetchQueries({ queryKey: ["task", task.id] });
-      if (updated) onTaskUpdate?.(updated);
-      setIsEditing(false);
+      if (nestedSnapshot) {
+        await nestedSnapshot.write({ body_override: editorContent });
+        setIsEditing(false);
+      } else {
+        const updated = await tasksApi.updateMethodMarkdownOverride(
+          task.id,
+          methodId,
+          editorContent,
+        );
+        await queryClient.refetchQueries({ queryKey: ["tasks"] });
+        await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+        if (updated) onTaskUpdate?.(updated);
+        setIsEditing(false);
+      }
     } catch (err) {
       console.error("Failed to save markdown override:", err);
       alert("Failed to save method body changes");
     } finally {
       setSaving(false);
     }
-  }, [task.id, methodId, editorContent, tasksApi, queryClient, onTaskUpdate]);
+  }, [task.id, methodId, editorContent, tasksApi, queryClient, onTaskUpdate, nestedSnapshot]);
 
   const handleReset = useCallback(async () => {
     if (
@@ -210,20 +225,25 @@ export default function MarkdownMethodTabContent({
     }
     setSaving(true);
     try {
-      const updated = await tasksApi.resetMarkdownOverride(task.id, methodId);
-      await queryClient.refetchQueries({ queryKey: ["tasks"] });
-      await queryClient.refetchQueries({ queryKey: ["task", task.id] });
-      if (updated) onTaskUpdate?.(updated);
-      // Drop the editor open if it was. The next view-mode render will
-      // re-seed editorContent from the now-cleared override (= source).
-      setIsEditing(false);
+      if (nestedSnapshot) {
+        await nestedSnapshot.reset();
+        setIsEditing(false);
+      } else {
+        const updated = await tasksApi.resetMarkdownOverride(task.id, methodId);
+        await queryClient.refetchQueries({ queryKey: ["tasks"] });
+        await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+        if (updated) onTaskUpdate?.(updated);
+        // Drop the editor open if it was. The next view-mode render will
+        // re-seed editorContent from the now-cleared override (= source).
+        setIsEditing(false);
+      }
     } catch (err) {
       console.error("Failed to reset markdown override:", err);
       alert("Failed to reset method body");
     } finally {
       setSaving(false);
     }
-  }, [task.id, methodId, tasksApi, queryClient, onTaskUpdate]);
+  }, [task.id, methodId, tasksApi, queryClient, onTaskUpdate, nestedSnapshot]);
 
   const handleCancelEdit = useCallback(() => {
     setEditorContent(baselineForDirtyCheck);
@@ -238,17 +258,19 @@ export default function MarkdownMethodTabContent({
 
   return (
     <div className="flex flex-col h-full">
-      <VariationNotesPanel
-        task={task}
-        methodId={methodId}
-        variationNotes={attachment?.variation_notes || null}
-        onSaved={(updatedTask) => {
-          if (updatedTask) onTaskUpdate?.(updatedTask);
-          queryClient.refetchQueries({ queryKey: ["tasks"] });
-          queryClient.refetchQueries({ queryKey: ["allTasks"] });
-        }}
-        readOnly={readOnly}
-      />
+      {!hideVariationNotes && (
+        <VariationNotesPanel
+          task={task}
+          methodId={methodId}
+          variationNotes={attachment?.variation_notes || null}
+          onSaved={(updatedTask) => {
+            if (updatedTask) onTaskUpdate?.(updatedTask);
+            queryClient.refetchQueries({ queryKey: ["tasks"] });
+            queryClient.refetchQueries({ queryKey: ["allTasks"] });
+          }}
+          readOnly={readOnly}
+        />
+      )}
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {/* Toolbar: chip + edit/reset/save controls */}
         <div className="flex items-center justify-between">

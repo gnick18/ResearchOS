@@ -20,6 +20,7 @@
 import type { ComponentType } from "react";
 import {
   CellCultureIcon,
+  CompoundIcon,
   LcGradientIcon,
   MarkdownIcon,
   PcrIcon,
@@ -33,7 +34,8 @@ export type MethodTypeId =
   | "pcr"
   | "lc_gradient"
   | "plate"
-  | "cell_culture";
+  | "cell_culture"
+  | "compound";
 
 export interface MethodTypeMeta {
   /** The discriminator value as written to disk. */
@@ -115,6 +117,16 @@ export const METHOD_TYPE_REGISTRY: Record<MethodTypeId, MethodTypeMeta> = {
     color: { bg: "bg-rose-100", text: "text-rose-600" },
     icon: CellCultureIcon,
     description: "Passaging schedule + media + cell line, with per-task passage history.",
+    hasStructuredProtocol: true,
+    category: "structured",
+  },
+  compound: {
+    id: "compound",
+    label: "Compound method (kit)",
+    shortLabel: "Compound",
+    color: { bg: "bg-indigo-100", text: "text-indigo-600" },
+    icon: CompoundIcon,
+    description: "Bundle existing methods into one attachable kit (e.g. plate + assay PDF).",
     hasStructuredProtocol: true,
     category: "structured",
   },

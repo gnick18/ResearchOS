@@ -14,6 +14,7 @@ import type {
 } from "@/lib/types";
 import LcGradientEditor from "@/components/LcGradientEditor";
 import { ownerScopedTasksApi } from "@/lib/tasks/owner-scoped-api";
+import type { NestedSnapshotAdapter } from "@/lib/methods/nested-snapshot";
 import VariationNotesPanel from "./VariationNotesPanel";
 
 interface LcMethodTabContentProps {
@@ -23,6 +24,11 @@ interface LcMethodTabContentProps {
   attachment: TaskMethodAttachment | undefined;
   onTaskUpdate?: (task: Task) => void;
   readOnly?: boolean;
+  /** Compound-child mode: write the snapshot into the compound's
+   *  `compound_snapshots[child_id]` slot instead of the task's top-level
+   *  `lc_gradient` attachment field. See nested-snapshot.ts. */
+  nestedSnapshot?: NestedSnapshotAdapter<LCGradientProtocol>;
+  hideVariationNotes?: boolean;
 }
 
 function extractLcProtocolId(sourcePath: string): number | null {
@@ -57,6 +63,8 @@ export default function LcMethodTabContent({
   attachment,
   onTaskUpdate,
   readOnly = false,
+  nestedSnapshot,
+  hideVariationNotes = false,
 }: LcMethodTabContentProps) {
   const queryClient = useQueryClient();
   const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
@@ -84,9 +92,30 @@ export default function LcMethodTabContent({
   // the diff-display contract compares the live state against.
   const sourceProtocol = fetchedProtocol ?? null;
 
+  // When rendering as a compound child, the parent's nestedSnapshot adapter
+  // owns the per-child snapshot; synthesize an attachment-shaped record so
+  // the existing seed + diff logic works in both modes.
+  const nestedRead = nestedSnapshot?.read;
+  const effectiveAttachment: TaskMethodAttachment | undefined = useMemo(() => {
+    if (!nestedRead) return attachment;
+    const snap = nestedRead();
+    return {
+      method_id: methodId,
+      owner: null,
+      pcr_gradient: null,
+      pcr_ingredients: null,
+      lc_gradient: snap ? JSON.stringify(snap) : null,
+      body_override: null,
+      plate_annotation: null,
+      cell_culture_schedule: null,
+      variation_notes: null,
+      compound_snapshots: null,
+    };
+  }, [nestedRead, attachment, methodId]);
+
   // Initialize editor state from snapshot if present, else from source.
   useEffect(() => {
-    const seed = snapshotOrSource(attachment, sourceProtocol);
+    const seed = snapshotOrSource(effectiveAttachment, sourceProtocol);
     if (!seed) {
       // Source not loaded yet AND no snapshot — keep empties; the effect
       // re-runs once fetchedProtocol resolves.
@@ -101,7 +130,7 @@ export default function LcMethodTabContent({
     // attachment.lc_gradient is the JSON-stringified snapshot; depending on
     // attachment itself (not just .lc_gradient) keeps us in sync when the
     // task object reference changes via owner-scoped writes.
-  }, [attachment, sourceProtocol]);
+  }, [effectiveAttachment, sourceProtocol]);
 
   // The "baseline" for diff-display is the SNAPSHOT if present (so users
   // see "modified from snapshot" after saving once on the task), otherwise
@@ -114,8 +143,8 @@ export default function LcMethodTabContent({
   // Track edit state — compare the live editor state to whatever the editor
   // was last initialized from.
   const lastSeed = useMemo(
-    () => snapshotOrSource(attachment, sourceProtocol),
-    [attachment, sourceProtocol],
+    () => snapshotOrSource(effectiveAttachment, sourceProtocol),
+    [effectiveAttachment, sourceProtocol],
   );
 
   useEffect(() => {
@@ -146,13 +175,18 @@ export default function LcMethodTabContent({
         description,
         ingredients,
       };
-      const updatedTask = await tasksApi.updateMethodLc(task.id, methodId, {
-        lc_gradient: JSON.stringify(snapshot),
-      });
-      await queryClient.refetchQueries({ queryKey: ["tasks"] });
-      await queryClient.refetchQueries({ queryKey: ["task", task.id] });
-      setHasUnsavedChanges(false);
-      if (updatedTask) onTaskUpdate?.(updatedTask);
+      if (nestedSnapshot) {
+        await nestedSnapshot.write(snapshot);
+        setHasUnsavedChanges(false);
+      } else {
+        const updatedTask = await tasksApi.updateMethodLc(task.id, methodId, {
+          lc_gradient: JSON.stringify(snapshot),
+        });
+        await queryClient.refetchQueries({ queryKey: ["tasks"] });
+        await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+        setHasUnsavedChanges(false);
+        if (updatedTask) onTaskUpdate?.(updatedTask);
+      }
     } catch (err) {
       console.error("Failed to save LC changes:", err);
       alert("Failed to save LC changes");
@@ -171,37 +205,44 @@ export default function LcMethodTabContent({
     queryClient,
     onTaskUpdate,
     tasksApi,
+    nestedSnapshot,
   ]);
 
   const handleReset = useCallback(async () => {
     if (!confirm("Reset LC data to match the original method? Your changes will be lost.")) return;
     setSaving(true);
     try {
-      const updatedTask = await tasksApi.resetLc(task.id, methodId);
-      await queryClient.refetchQueries({ queryKey: ["tasks"] });
-      await queryClient.refetchQueries({ queryKey: ["task", task.id] });
-      if (updatedTask) onTaskUpdate?.(updatedTask);
+      if (nestedSnapshot) {
+        await nestedSnapshot.reset();
+      } else {
+        const updatedTask = await tasksApi.resetLc(task.id, methodId);
+        await queryClient.refetchQueries({ queryKey: ["tasks"] });
+        await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+        if (updatedTask) onTaskUpdate?.(updatedTask);
+      }
     } catch (err) {
       console.error("Failed to reset LC:", err);
       alert("Failed to reset LC data");
     } finally {
       setSaving(false);
     }
-  }, [task.id, methodId, queryClient, onTaskUpdate, tasksApi]);
+  }, [task.id, methodId, queryClient, onTaskUpdate, tasksApi, nestedSnapshot]);
 
   return (
     <div className="flex flex-col h-full">
-      <VariationNotesPanel
-        task={task}
-        methodId={methodId}
-        variationNotes={attachment?.variation_notes || null}
-        onSaved={(updatedTask) => {
-          if (updatedTask) onTaskUpdate?.(updatedTask);
-          queryClient.refetchQueries({ queryKey: ["tasks"] });
-          queryClient.refetchQueries({ queryKey: ["allTasks"] });
-        }}
-        readOnly={readOnly}
-      />
+      {!hideVariationNotes && (
+        <VariationNotesPanel
+          task={task}
+          methodId={methodId}
+          variationNotes={attachment?.variation_notes || null}
+          onSaved={(updatedTask) => {
+            if (updatedTask) onTaskUpdate?.(updatedTask);
+            queryClient.refetchQueries({ queryKey: ["tasks"] });
+            queryClient.refetchQueries({ queryKey: ["allTasks"] });
+          }}
+          readOnly={readOnly}
+        />
+      )}
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
