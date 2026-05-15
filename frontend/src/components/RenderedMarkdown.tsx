@@ -5,6 +5,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import rehypeHighlight from "rehype-highlight";
+import rehypeSanitize from "rehype-sanitize";
+import { markdownSanitizeSchema } from "@/lib/markdown/sanitize-schema";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 
 interface RenderedMarkdownProps {
@@ -80,7 +82,9 @@ export default function RenderedMarkdown({
     };
   }, [content, basePath, ownerUsername]);
 
-  const rehypePlugins = enableSyntaxHighlight ? [rehypeRaw, rehypeHighlight] : [rehypeRaw];
+  const rehypePlugins: import("unified").PluggableList = enableSyntaxHighlight
+    ? [rehypeRaw, [rehypeSanitize, markdownSanitizeSchema], rehypeHighlight]
+    : [rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]];
 
   return (
     <div className={className}>
