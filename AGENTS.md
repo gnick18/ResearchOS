@@ -980,6 +980,8 @@ Audit pass against actual export artifacts surfaced findings beyond what unit-le
 
 3. **3 screenshot recaptures** (wiki manager EOD report): (a) `demo-mode-banner.png` — currently shows banner-only; v2's floating bottom-right Leave Demo + 📖 Read the docs ↗ buttons aren't visible. Recapture with corner buttons in frame. (b) NEW `home-shared-project-popup.png` — popup opened on a shared-to-me project showing disabled pencil + Archive + Delete + tooltips. Fixture already seeds `users/alex/_shared_with_me.json` with morgan's project, so shot is feasible. (c) NEW `home-shared-task-popup.png` — TaskDetailPopup on a shared task showing disabled Delete + tooltip.
 
+3a. **Picker-UI screenshot regression** (`88dd976e` 2026-05-14). The `?wikiCapture=picker` mode now renders `UserLoginScreen` instead of `ResearchFolderSetupNew` — the providers gate at `providers.tsx:105` was split to route the `isConnected && !currentUser` state to the clean picker with Lab Mode CTA instead of the folder-setup flow. Any wiki page that screenshots the picker UI in that mode needs recapturing. `ResearchFolderSetupNew` is still reachable when `showSetup=true` or `!isConnected` (genuine first-folder-connection flows) — its capture path needs documenting if any wiki page covers the multi-step setup specifically.
+
 4. **Stale `scripts/WIKI_SCREENSHOTS.md`** — some shots added (`editor-`, `lab-mode-`), some retired (`results-editor.png`). Re-syncing isn't urgent but worth a 10-min pass. Wiki manager has this flagged.
 
 5. **Plan doc (`EXPORT_REVAMP_PLAN.md` at repo root) — already deleted** during the export-arc cleanup at `c5de0eb3`. Removed from this list as resolved.
