@@ -131,6 +131,7 @@ interface AppState extends ConnectionState {
 // importing) to avoid a circular load between store and nav consumers.
 const DEFAULT_VISIBLE_TABS = [
   "/",
+  "/workbench",
   "/gantt",
   "/methods",
   "/purchases",
