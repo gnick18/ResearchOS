@@ -374,6 +374,18 @@ Two deferred-from-Workbench-redesign (`d4030e3b`) polish items closed in one pas
 - **OOS nit (flagged, not fixed)**: the project-grouping IIFE inside the main `SECTION_ORDER.map` callback is verbose enough that a future refactor could lift it into a small `<RecentResultsGroup>` component. Acceptable as-is for one section; would be worth it if a second section ever needs project grouping. Not extracted now to keep the commit small.
 - **Browser verification**: not run by the worker bot (out of remit). Grant to spot-check live; behavior is the same when there's only one project (collapses to flat grid) and adds a colored-dot project sub-header when there are 2+. Worker bot did NOT touch the four stage-organized sections — verified by reading the diff before commit.
 
+### Recently landed (2026-05-15 — Cleanup: drop unused alternative mascots + dev gallery)
+
+Tip manager spawned this as a chip-spinoff once Grant verified the entire onboarding feature live (Phase 1 → Phase 4 + every post-merge fix). BeakerBot is the locked, in-production mascot; the four alternatives that lived under `frontend/src/components/onboarding-mascots/` (TardigradeBot, PetriDishBot, OwlBot, PipetteBot) plus the dev-only `/dev/mascot-gallery/page.tsx` were kept around during the picking phase and were no longer referenced anywhere except the gallery itself.
+
+Bot landed at `5b30c823` on `claude/nervous-ishizaka-c2dcc5`: 5 files removed, 531 lines deleted, both empty parent directories cleaned (`onboarding-mascots/` and `dev/mascot-gallery/`; `app/dev/` itself also removed since it had no other pages). Pre-deletion grep confirmed the gallery was the only consumer of the four alternative components.
+
+Post-merge stale-validator trap (§6 again): `.next/types/validator.ts` retained a stale reference to the deleted gallery page (`Cannot find module '../../src/app/dev/mascot-gallery/page.js'`). Standard fix — `rm -rf .next/types .next/dev/types && npx tsc --noEmit` → EXIT=0. Test suite still 150/150.
+
+— tip manager
+
+---
+
 ### Recently landed (2026-05-15 — Tutorial-aware Leave Demo flow + providers carve-out)
 
 Two follow-up fixes after Phase 4 landed.
