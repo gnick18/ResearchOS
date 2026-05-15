@@ -1,0 +1,15 @@
+{
+  "id": 9,
+  "task_id": 25,
+  "item_name": "96-well PCR plates (skirted)",
+  "quantity": 5,
+  "link": "https://example.org/demo-thermo",
+  "cas": null,
+  "price_per_unit": 48,
+  "shipping_fees": 15,
+  "total_price": 255,
+  "notes": null,
+  "funding_string": "DEMO-DOE-EERE",
+  "vendor": "Thermo",
+  "category": "Plasticware"
+}

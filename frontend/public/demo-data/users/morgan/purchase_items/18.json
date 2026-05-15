@@ -1,0 +1,15 @@
+{
+  "id": 18,
+  "task_id": 13,
+  "item_name": "Antibody reference standard (demo)",
+  "quantity": 1,
+  "link": "https://example.org/demo-sigma",
+  "cas": null,
+  "price_per_unit": 325,
+  "shipping_fees": 15,
+  "total_price": 340,
+  "notes": "Awaiting funding source — likely DOE renewal.",
+  "funding_string": null,
+  "vendor": "Sigma-Aldrich",
+  "category": "Reagents"
+}

@@ -1,0 +1,15 @@
+{
+  "id": 13,
+  "task_id": 26,
+  "item_name": "384-well clear-bottom assay plates",
+  "quantity": 4,
+  "link": "https://example.org/demo-thermo",
+  "cas": null,
+  "price_per_unit": 76,
+  "shipping_fees": 12,
+  "total_price": 316,
+  "notes": null,
+  "funding_string": "DEMO-DOE-EERE",
+  "vendor": "Thermo",
+  "category": "Plasticware"
+}

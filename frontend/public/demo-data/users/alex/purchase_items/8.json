@@ -1,0 +1,15 @@
+{
+  "id": 8,
+  "task_id": 25,
+  "item_name": "Gibson assembly master mix",
+  "quantity": 2,
+  "link": "https://example.org/demo-neb",
+  "cas": null,
+  "price_per_unit": 245,
+  "shipping_fees": 20,
+  "total_price": 510,
+  "notes": null,
+  "funding_string": "DEMO-NIH-GM999999",
+  "vendor": "NEB",
+  "category": "Reagents"
+}

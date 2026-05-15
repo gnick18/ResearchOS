@@ -1,0 +1,15 @@
+{
+  "id": 15,
+  "task_id": 12,
+  "item_name": "SYBR qPCR master mix (2x, 5 mL)",
+  "quantity": 1,
+  "link": "https://example.org/demo-thermo",
+  "cas": null,
+  "price_per_unit": 245,
+  "shipping_fees": 0,
+  "total_price": 245,
+  "notes": null,
+  "funding_string": "DEMO-DOE-EERE",
+  "vendor": "Thermo",
+  "category": "Reagents"
+}

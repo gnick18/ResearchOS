@@ -1,0 +1,15 @@
+{
+  "id": 20,
+  "task_id": 11,
+  "item_name": "Pipette tip refills (P1000)",
+  "quantity": 2,
+  "link": null,
+  "cas": null,
+  "price_per_unit": 48,
+  "shipping_fees": 0,
+  "total_price": 96,
+  "notes": "Demo: ordered against experiment task by mistake.",
+  "funding_string": null,
+  "vendor": null,
+  "category": "Consumables"
+}

@@ -1,0 +1,15 @@
+{
+  "id": 5,
+  "task_id": 24,
+  "item_name": "SD-Ura selection plates (pre-poured, sleeve of 20)",
+  "quantity": 5,
+  "link": null,
+  "cas": null,
+  "price_per_unit": 40,
+  "shipping_fees": 0,
+  "total_price": 200,
+  "notes": "Demo internal media-prep order.",
+  "funding_string": "DEMO-NIH-GM999999",
+  "vendor": "Internal supply",
+  "category": "Plasticware"
+}

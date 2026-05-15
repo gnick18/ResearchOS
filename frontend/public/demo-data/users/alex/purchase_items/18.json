@@ -1,0 +1,15 @@
+{
+  "id": 18,
+  "task_id": 15,
+  "item_name": "LC-MS column hardware service kit",
+  "quantity": 1,
+  "link": "https://example.org/demo-thermo",
+  "cas": null,
+  "price_per_unit": 450,
+  "shipping_fees": 25,
+  "total_price": 475,
+  "notes": "Awaiting PI sign-off on funding source.",
+  "funding_string": null,
+  "vendor": "Thermo",
+  "category": "Service"
+}

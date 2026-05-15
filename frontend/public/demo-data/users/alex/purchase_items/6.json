@@ -1,0 +1,15 @@
+{
+  "id": 6,
+  "task_id": 24,
+  "item_name": "Restriction enzyme set (BsmBI, EcoRI, NotI)",
+  "quantity": 1,
+  "link": "https://example.org/demo-neb",
+  "cas": null,
+  "price_per_unit": 295,
+  "shipping_fees": 20,
+  "total_price": 315,
+  "notes": null,
+  "funding_string": "DEMO-NIH-GM999999",
+  "vendor": "NEB",
+  "category": "Reagents"
+}

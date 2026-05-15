@@ -1,0 +1,15 @@
+{
+  "id": 16,
+  "task_id": 12,
+  "item_name": "Falcon tubes (15 mL, sleeve of 50)",
+  "quantity": 4,
+  "link": "https://example.org/demo-thermo",
+  "cas": null,
+  "price_per_unit": 22,
+  "shipping_fees": 0,
+  "total_price": 88,
+  "notes": null,
+  "funding_string": "DEMO-Internal-Bridge",
+  "vendor": "Thermo",
+  "category": "Consumables"
+}

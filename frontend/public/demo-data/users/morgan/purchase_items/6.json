@@ -1,0 +1,15 @@
+{
+  "id": 6,
+  "task_id": 10,
+  "item_name": "Reading-buffer custom mix (250 mL)",
+  "quantity": 2,
+  "link": null,
+  "cas": null,
+  "price_per_unit": 58,
+  "shipping_fees": 0,
+  "total_price": 116,
+  "notes": "Custom recipe — vendor TBD on next reorder.",
+  "funding_string": "DEMO-DOE-EERE",
+  "vendor": null,
+  "category": null
+}

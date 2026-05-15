@@ -1,0 +1,15 @@
+{
+  "id": 8,
+  "task_id": 10,
+  "item_name": "Multichannel pipette calibration service",
+  "quantity": 1,
+  "link": null,
+  "cas": null,
+  "price_per_unit": 215,
+  "shipping_fees": 0,
+  "total_price": 215,
+  "notes": "Annual calibration — demo.",
+  "funding_string": "DEMO-NIH-GM999999",
+  "vendor": null,
+  "category": "Service"
+}

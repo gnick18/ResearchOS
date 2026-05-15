@@ -1,0 +1,15 @@
+{
+  "id": 9,
+  "task_id": 10,
+  "item_name": "Filter pipette tips (P10, racked)",
+  "quantity": 6,
+  "link": "https://example.org/demo-thermo",
+  "cas": null,
+  "price_per_unit": 34,
+  "shipping_fees": 0,
+  "total_price": 204,
+  "notes": null,
+  "funding_string": "DEMO-NIH-GM999999",
+  "vendor": "Thermo",
+  "category": "Consumables"
+}

@@ -1,0 +1,15 @@
+{
+  "id": 14,
+  "task_id": 26,
+  "item_name": "gBlocks for stress-response reporters (8 fragments)",
+  "quantity": 8,
+  "link": "https://example.org/demo-idt",
+  "cas": null,
+  "price_per_unit": 32,
+  "shipping_fees": 0,
+  "total_price": 256,
+  "notes": null,
+  "funding_string": "DEMO-NIH-GM999999",
+  "vendor": "IDT",
+  "category": "Reagents"
+}

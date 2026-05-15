@@ -1,0 +1,15 @@
+{
+  "id": 11,
+  "task_id": 26,
+  "item_name": "Sorbitol (1 kg, biology-grade)",
+  "quantity": 2,
+  "link": "https://example.org/demo-sigma",
+  "cas": "50-70-4",
+  "price_per_unit": 58,
+  "shipping_fees": 0,
+  "total_price": 116,
+  "notes": "Osmotic stress assay reagent (demo).",
+  "funding_string": "DEMO-Internal-Bridge",
+  "vendor": "Sigma-Aldrich",
+  "category": "Reagents"
+}
