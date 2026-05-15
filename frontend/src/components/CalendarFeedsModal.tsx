@@ -75,7 +75,9 @@ export default function CalendarFeedsModal({ onClose }: Props) {
     setTesting(true);
     setDraftError(null);
     try {
-      const res = await fetch(`/api/calendar-feed?url=${encodeURIComponent(url)}`);
+      const res = await fetch("/api/calendar-feed", {
+        headers: { "x-calendar-url": url },
+      });
       if (!res.ok) {
         const text = await res.text();
         throw new Error(text || `Server returned ${res.status}`);

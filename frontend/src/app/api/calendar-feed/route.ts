@@ -12,6 +12,14 @@ import { withRateLimit } from "@/lib/api/rate-limit";
  * locally, Vercel function in production) and proxies the bytes through with
  * a stable text/calendar content type.
  *
+ * The upstream URL is supplied in the `x-calendar-url` request header (not a
+ * query parameter): Google Calendar and Outlook "private ICS" share URLs
+ * contain unguessable random tokens that ARE the credential (anyone-with-link
+ * read). Vercel logs request URLs by default, so a `?url=...` query string
+ * would leak those tokens into the project's function logs. Headers are not
+ * logged. The `Vary: x-calendar-url` response header keys the edge cache on
+ * the header value, preserving cross-user dedup of the same feed.
+ *
  * The user supplies an arbitrary URL, so we treat every defence in the
  * `safeFetch` helper as load-bearing here:
  *
@@ -50,9 +58,9 @@ function normalizeUrl(input: string): string {
 }
 
 async function handleGet(req: NextRequest): Promise<Response> {
-  const raw = req.nextUrl.searchParams.get("url");
+  const raw = req.headers.get("x-calendar-url");
   if (!raw) {
-    return new Response("Missing url query parameter", { status: 400 });
+    return new Response("Missing x-calendar-url header", { status: 400 });
   }
   if (raw.length > MAX_URL_LENGTH) {
     return new Response("URL too long", { status: 414 });
@@ -132,6 +140,7 @@ async function handleGet(req: NextRequest): Promise<Response> {
     headers: {
       "content-type": "text/calendar; charset=utf-8",
       "cache-control": "public, max-age=900, stale-while-revalidate=3600",
+      "vary": "x-calendar-url",
       "x-content-type-options": "nosniff",
     },
   });

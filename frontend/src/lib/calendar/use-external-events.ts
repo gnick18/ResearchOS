@@ -18,8 +18,10 @@ const ONE_HOUR_MS = 60 * 60 * 1000;
 
 async function fetchIcsFeed(feed: CalendarFeed): Promise<ExternalEvent[]> {
   if (!feed.icsUrl) return [];
-  const proxyUrl = `/api/calendar-feed?url=${encodeURIComponent(feed.icsUrl)}`;
-  const res = await fetch(proxyUrl, { cache: "no-store" });
+  const res = await fetch("/api/calendar-feed", {
+    cache: "no-store",
+    headers: { "x-calendar-url": feed.icsUrl },
+  });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(text || `Feed fetch failed (${res.status})`);
