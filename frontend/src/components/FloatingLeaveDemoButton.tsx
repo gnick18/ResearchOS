@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   getDemoMode,
   isTutorialMode,
+  isWikiCaptureMode,
 } from "@/lib/file-system/wiki-capture-mock";
 import LeaveDemoModal from "./LeaveDemoModal";
 
@@ -22,6 +23,13 @@ import LeaveDemoModal from "./LeaveDemoModal";
  * read could leave `show=false` even though the sessionStorage flag is
  * still set, so the button silently disappears.
  *
+ * Wiki-capture exemption: when `?wikiCapture=1` is set we deliberately
+ * suppress this CTA — the capture script bounces through `/demo` paths
+ * to seed fixture data and the path-based read of `getDemoMode()` would
+ * otherwise drop the orange button into every screenshot. The
+ * suppression is unconditional in capture mode; CTAs only need to
+ * appear on the public `/demo` route.
+ *
  * Why not the banner: the existing `<DemoLabBanner>` is dismissible and
  * easy to overlook. This is the backup.
  */
@@ -33,7 +41,7 @@ export default function FloatingLeaveDemoButton() {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing local React state with the external sessionStorage demo flag on every route change
-    setShow(getDemoMode());
+    setShow(getDemoMode() && !isWikiCaptureMode());
     // eslint-disable-next-line react-hooks/set-state-in-effect -- same pathname-tied resync for the tutorial flag (URL-derived)
     setTutorial(isTutorialMode());
   }, [pathname]);
