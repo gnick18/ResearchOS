@@ -17,7 +17,7 @@ interface PendingCaption {
   filename: string;
 }
 
-/** chatId → pending image awaiting a caption. Module-scope is fine because
+/** chatId to pending image awaiting a caption. Module-scope is fine because
  *  only one tab runs the polling loop at a time (see `use-telegram-polling`). */
 const pendingCaptions = new Map<number, PendingCaption>();
 
@@ -61,25 +61,40 @@ async function writeSidecar(
   imageEvents.emitMetadataChanged({ basePath, filename });
 }
 
+/** Verbatim copy for `/start`. Explains BOTH branches up-front (the
+ *  Phase-1 dual-mode rewrite, decision-locked 2026-05-15). Kept as a
+ *  module-level const so the same body can be reused in tests + any
+ *  future "show me what the bot says" surfacing without drift. */
+const START_REPLY =
+  "Hi, I'm your ResearchOS bot. Send me a photo and I'll route it two ways:\n\n" +
+  "1. With an experiment popup OPEN in ResearchOS, the photo attaches to that experiment's image strip.\n" +
+  "2. With nothing open, the photo lands in your Inbox (badge in the top bar) to file later.\n\n" +
+  "After each photo I'll ask for a caption. Reply with a sentence, or send /skip.\n\n" +
+  "Type /help any time for this refresher.";
+
+/** Verbatim copy for `/help`. Same dual-mode framing as `/start`,
+ *  with the caption / skip lifecycle made explicit. */
+const HELP_REPLY =
+  "Two routes for inbound photos:\n\n" +
+  "1. Experiment popup OPEN in ResearchOS, the photo attaches there.\n" +
+  "2. Nothing open, the photo lands in your Inbox (top-bar badge). File from there with \"Move to active\" or right-click \"Send to task...\".\n\n" +
+  "Captions: reply to my \"What is this?\" prompt with text, or send /skip to leave a photo without one.";
+
 async function handleTextCommand(text: string, ctx: RouteContext): Promise<boolean> {
   if (text === "/start") {
-    await sendMessage(
-      ctx.botToken,
-      ctx.chatId,
-      "Already paired. Open an experiment in ResearchOS and send a photo here — it'll appear in that experiment's image strip."
-    );
+    await sendMessage(ctx.botToken, ctx.chatId, START_REPLY);
     return true;
   }
   if (text === "/help") {
-    await sendMessage(
-      ctx.botToken,
-      ctx.chatId,
-      "Send a photo. While an experiment is open in ResearchOS, the image is linked to that experiment. Reply with a description after each photo, or send /skip to skip the caption."
-    );
+    await sendMessage(ctx.botToken, ctx.chatId, HELP_REPLY);
     return true;
   }
   return false;
 }
+
+/** Exported for tests + any in-app surface that wants to mirror the
+ *  bot's reply text verbatim. */
+export { START_REPLY, HELP_REPLY };
 
 export async function routeTelegramMessage(
   message: TelegramMessage,
@@ -160,13 +175,13 @@ export async function routeTelegramMessage(
     });
     basePath = resolved;
     savedFilename = result.finalFilename;
-    replyHint = `Saved to Experiment ${active.id} (${active.name}).`;
+    replyHint = `Saved to Experiment ${active.id}, "${active.name}".`;
   } else {
     const base = inboxBase(ctx.username);
     const desired = `${timestampStem(`inbox-${suggestedStem}`)}.${suggestedExt}`;
     const result = await attachImageToTask({
       ownerUsername: ctx.username,
-      taskId: 0, // unused — basePath override takes precedence
+      taskId: 0, // unused, basePath override takes precedence
       basePath: base,
       blob,
       suggestedFilename: desired,
@@ -174,7 +189,8 @@ export async function routeTelegramMessage(
     });
     basePath = base;
     savedFilename = result.finalFilename;
-    replyHint = "Saved to your inbox — open an experiment in ResearchOS to file it.";
+    replyHint =
+      "No experiment open right now, so I dropped this in your Inbox (top-bar badge). Open it in ResearchOS to file with \"Move to active\" or right-click \"Send to task...\".";
   }
 
   await writeSidecar(basePath, savedFilename, {
