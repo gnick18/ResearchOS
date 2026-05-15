@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import BeakerBot from "./BeakerBot";
+import DynamicAnimation from "./DynamicAnimation";
+import type { AnimationType } from "./animations";
 import type { OnboardingTip } from "@/lib/onboarding/tips";
 
 /**
@@ -55,17 +58,42 @@ interface OnboardingTipCardProps {
   onClose: (outcome: "x" | "later" | "stop" | "got-it" | "read") => void;
 }
 
+/** The "animation-burst" sequence fired when a tip with
+ *  `onShow: "animation-burst"` mounts. 5 animations near screen center,
+ *  0.2s apart, in this order: scary → plants → underwater → fungi →
+ *  celebration. Matches the proposal's "first-fire jump scare with a
+ *  twist." */
+const ANIMATION_BURST_SEQUENCE: AnimationType[] = [
+  "scary",
+  "plants",
+  "underwater",
+  "fungi",
+  "celebration",
+];
+const ANIMATION_BURST_INTERVAL_MS = 200;
+
+interface BurstShot {
+  /** A unique id so React doesn't re-mount the same animation when the
+   *  next burst overlaps. */
+  key: string;
+  type: AnimationType;
+  x: number;
+  y: number;
+}
+
 export default function OnboardingTipCard({
   tip,
   target,
   onClose,
 }: OnboardingTipCardProps) {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [pulse, setPulse] = useState(true);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(
     target ? target.getBoundingClientRect() : null,
   );
+  const [burst, setBurst] = useState<BurstShot[]>([]);
 
   // Portal is client-only — render nothing on the server (this is a
   // "use client" file but still gets a server pass for the React tree).
@@ -112,6 +140,48 @@ export default function OnboardingTipCard({
     window.open(tip.wikiPath, "_blank", "noopener,noreferrer");
     onClose("read");
   }, [tip.wikiPath, onClose]);
+
+  const handleSetupAction = useCallback(() => {
+    const action = tip.setupAction;
+    if (!action) return;
+    if (action.kind === "navigate" && action.href) {
+      router.push(action.href);
+      // Count this as a successful "I followed up on it" outcome.
+      onClose("got-it");
+    }
+    // `modal` kind reserved for future use — see proposal.
+  }, [tip.setupAction, router, onClose]);
+
+  // onShow="animation-burst": fire 5 animations 200ms apart near screen
+  // center when the card mounts. The DynamicAnimation children self-
+  // remove via onComplete; we keep them in `burst` only so React
+  // mounts them, then prune them once they're done. Fires once per
+  // mount — the dep is just `tip.onShow` so a re-render doesn't
+  // re-trigger.
+  useEffect(() => {
+    if (tip.onShow !== "animation-burst") return;
+    if (typeof window === "undefined") return;
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+    const timers: number[] = [];
+    ANIMATION_BURST_SEQUENCE.forEach((type, i) => {
+      const handle = window.setTimeout(() => {
+        setBurst((prev) => [
+          ...prev,
+          {
+            key: `${type}-${Date.now()}-${i}`,
+            type,
+            x: cx,
+            y: cy,
+          },
+        ]);
+      }, i * ANIMATION_BURST_INTERVAL_MS);
+      timers.push(handle);
+    });
+    return () => {
+      timers.forEach((h) => window.clearTimeout(h));
+    };
+  }, [tip.onShow]);
 
   // Pick a side to place the assembly on, in priority order:
   // right > below > left > above. Falls back to bottom-right corner
@@ -364,7 +434,7 @@ export default function OnboardingTipCard({
         </div>
         <p className="mt-1.5 text-xs text-gray-600 leading-snug">{tip.body}</p>
 
-        <div className="mt-3 flex items-center justify-between gap-2 text-xs">
+        <div className="mt-3 flex items-center justify-between gap-2 text-xs flex-wrap">
           <button
             type="button"
             onClick={() => onClose("later")}
@@ -379,6 +449,15 @@ export default function OnboardingTipCard({
           >
             Stop showing
           </button>
+          {tip.setupAction && (
+            <button
+              type="button"
+              onClick={handleSetupAction}
+              className="font-medium text-emerald-600 hover:text-emerald-700"
+            >
+              {tip.setupAction.label}
+            </button>
+          )}
           <button
             type="button"
             onClick={handleReadMore}
@@ -388,6 +467,21 @@ export default function OnboardingTipCard({
           </button>
         </div>
       </div>
+
+      {/* Animation-burst overlay — fires for tips with
+          `onShow: "animation-burst"`. Each shot renders a DynamicAnimation
+          near screen center; self-removes via onComplete. */}
+      {burst.map((shot) => (
+        <DynamicAnimation
+          key={shot.key}
+          type={shot.type}
+          x={shot.x}
+          y={shot.y}
+          onComplete={() => {
+            setBurst((prev) => prev.filter((s) => s.key !== shot.key));
+          }}
+        />
+      ))}
     </>,
     document.body,
   );

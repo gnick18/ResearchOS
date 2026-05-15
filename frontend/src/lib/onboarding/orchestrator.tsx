@@ -12,6 +12,7 @@ import {
 } from "react";
 import { usePathname } from "next/navigation";
 import OnboardingTipCard from "@/components/OnboardingTipCard";
+import OnboardingWelcomeModal from "@/components/OnboardingWelcomeModal";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import {
   getActiveSeconds,
@@ -21,6 +22,8 @@ import {
 import {
   patchOnboarding,
   readOnboarding,
+  setOnboardingMode as persistOnboardingMode,
+  type OnboardingMode,
   type OnboardingSidecar,
   type TipOutcome,
 } from "./sidecar";
@@ -32,6 +35,7 @@ import {
   ROLL_PROBABILITY,
   ROUTE_DWELL_SECONDS,
   TIP_SHOWN_CAP,
+  TUTORIAL_MIN_GAP_SECONDS,
   tipsForRoute,
   type OnboardingTip,
 } from "./tips";
@@ -41,12 +45,17 @@ import { findOnboardingTarget } from "./use-onboarding-target";
  * The orchestrator that owns the tip state machine. It:
  *  - Loads the per-user sidecar on mount.
  *  - Starts the active-time tracker.
+ *  - If the sidecar's `mode` is null (user hasn't picked yet), renders
+ *    the welcome modal and blocks tip fires until the user picks.
+ *  - If `mode === "silenced"`, no tips fire (same effect as `tips_off`).
+ *  - If `mode === "tutorial"`, uses TUTORIAL_MIN_GAP_SECONDS (60s)
+ *    cooldown and skips the random-roll gate — force-fires the highest-
+ *    priority eligible tip each tick.
+ *  - If `mode === "suggestions"`, the legacy behavior — 5min cooldown
+ *    + 15% per-tick fire probability.
  *  - On every pathname change, records when the user landed on the
  *    route so we can apply the 30s "route dwell" gate before firing a
  *    tip targeting that route.
- *  - Every 5 seconds, rolls a 15% probability to fire the
- *    highest-priority eligible tip — if the cooldown has elapsed, the
- *    user is on a matching route, and the target element is in the DOM.
  *  - On action-cancel (the user does the thing the tip would have
  *    explained before the tip fires), persists `outcome: "action-cancel"`
  *    so the tip never re-fires.
@@ -74,6 +83,10 @@ interface OrchestratorContextValue {
   /** Read-only snapshot of the sidecar for debug surfaces (settings,
    *  dev tools). May be null while the initial read is in flight. */
   sidecar: OnboardingSidecar | null;
+  /** Persist a new welcome-mode pick. Used by the welcome modal's
+   *  buttons; also exposed so Settings can let the user change her
+   *  mind. */
+  setMode: (mode: OnboardingMode) => Promise<void>;
 }
 
 const OrchestratorContext = createContext<OrchestratorContextValue | null>(null);
@@ -81,6 +94,26 @@ const OrchestratorContext = createContext<OrchestratorContextValue | null>(null)
 interface OnboardingOrchestratorProps {
   username: string;
   children: ReactNode;
+}
+
+/** Read the workbench's active sub-tab from the URL. Returns
+ *  "experiments" by default — the workbench page's initial state is
+ *  "experiments" and it writes `?tab=notes` to the URL when the user
+ *  switches. */
+function readWorkbenchActiveTab(): "experiments" | "notes" {
+  if (typeof window === "undefined") return "experiments";
+  const sp = new URLSearchParams(window.location.search);
+  return sp.get("tab") === "notes" ? "notes" : "experiments";
+}
+
+/** Extra eligibility predicate beyond `route`. Returns true if the tip
+ *  has no gate, or if its gate is satisfied. */
+function gatePasses(tip: OnboardingTip): boolean {
+  if (!tip.gate) return true;
+  if (tip.gate === "workbench-experiments-tab") {
+    return readWorkbenchActiveTab() === "experiments";
+  }
+  return true;
 }
 
 export function OnboardingOrchestrator({
@@ -209,37 +242,53 @@ export function OnboardingOrchestrator({
     [username],
   );
 
+  // ── Mode setter (welcome modal + Settings) ────────────────────────
+  const setMode = useCallback(
+    async (mode: OnboardingMode) => {
+      if (isDemoOrWikiCapture()) return;
+      const next = await persistOnboardingMode(username, mode);
+      setSidecar(next);
+    },
+    [username],
+  );
+
   // ── Roll loop ─────────────────────────────────────────────────────
   useEffect(() => {
     if (isDemoOrWikiCapture()) return;
     if (!sidecar) return;
     if (activeTip) return; // one tip at a time — roll is suspended
+    // Welcome modal blocks until the user picks a mode.
+    if (sidecar.mode === null) return;
+    // Silenced behaves like the legacy tips_off — no tips ever.
+    if (sidecar.mode === "silenced") return;
     if (sidecar.tips_off) return;
     if (sidecar.shown_count >= TIP_SHOWN_CAP) return;
     if (sidecar.active_seconds >= ACTIVE_SECONDS_CAP) return;
 
+    const isTutorial = sidecar.mode === "tutorial";
+    const minGap = isTutorial ? TUTORIAL_MIN_GAP_SECONDS : MIN_GAP_SECONDS;
+
     const roll = () => {
       const now = getActiveSeconds();
       // Cooldown.
-      if (now - sidecar.last_tip_at < MIN_GAP_SECONDS) return;
+      if (now - sidecar.last_tip_at < minGap) return;
       // Route dwell.
       if (now - routeEnterActiveRef.current < ROUTE_DWELL_SECONDS) return;
-      // Eligibility — sorted by priority.
+      // Eligibility — sorted by priority. Also apply per-tip gates.
       const candidates = tipsForRoute(pathname).filter((tip) => {
+        if (!gatePasses(tip)) return false;
         const rec = sidecar.tips[tip.id];
         // Any prior record (shown, dismissed, or action-cancel) disqualifies.
         // Exception: "later" outcome leaves the tip eligible to re-fire
-        // next session, but we track that by also clearing the record on
-        // the "later" path (recordOutcome does NOT delete; instead we
-        // skip "later"-tagged tips here unless we want next-session
-        // re-fire — see proposal: "later means re-fire eligible next
-        // session").
+        // next session.
         if (!rec) return true;
         return rec.outcome === "later" && !isSameSession(rec.dismissed_at);
       });
       if (candidates.length === 0) return;
-      // Random fire decision.
-      if (Math.random() >= ROLL_PROBABILITY) return;
+      // Tutorial mode skips the random gate — force-fire the highest-
+      // priority candidate. Suggestions mode keeps the 15% roll so the
+      // tip lands at a natural pause.
+      if (!isTutorial && Math.random() >= ROLL_PROBABILITY) return;
       // Find the first candidate with a present DOM target.
       for (const tip of candidates) {
         const el = findOnboardingTarget(tip.id);
@@ -313,10 +362,26 @@ export function OnboardingOrchestrator({
     [activeTip, recordOutcome],
   );
 
-  const value = useMemo<OrchestratorContextValue>(
-    () => ({ cancelTip, forceFireTip, sidecar }),
-    [cancelTip, forceFireTip, sidecar],
+  const handleWelcomePick = useCallback(
+    (mode: Exclude<OnboardingMode, null>) => {
+      void setMode(mode);
+    },
+    [setMode],
   );
+
+  const value = useMemo<OrchestratorContextValue>(
+    () => ({ cancelTip, forceFireTip, sidecar, setMode }),
+    [cancelTip, forceFireTip, sidecar, setMode],
+  );
+
+  // Welcome modal shows when the sidecar's loaded AND the user hasn't
+  // picked a mode yet AND no tip is on screen. (The last clause is
+  // belt-and-suspenders — the roll loop blocks tip fires while
+  // `mode === null`, so this shouldn't happen, but if a force-fire
+  // races the initial sidecar read we'd rather show the tip than
+  // double-stack.)
+  const showWelcome =
+    sidecar !== null && sidecar.mode === null && activeTip === null;
 
   return (
     <OrchestratorContext.Provider value={value}>
@@ -328,6 +393,7 @@ export function OnboardingOrchestrator({
           onClose={handleDismiss}
         />
       )}
+      {showWelcome && <OnboardingWelcomeModal onPick={handleWelcomePick} />}
     </OrchestratorContext.Provider>
   );
 }
