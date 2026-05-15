@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { projectsApi, fetchAllTasksIncludingShared, fetchAllProjectsIncludingShared } from "@/lib/local-api";
 import AppShell from "@/components/AppShell";
@@ -94,6 +94,58 @@ export default function HomePage() {
     queryKey: ["tasks", currentUser],
     queryFn: fetchAllTasksIncludingShared,
   });
+
+  // Deep-link: `/?openProject=<id>` and `/?openTask=<id>` open the
+  // matching detail popup once the project/task data has loaded, then
+  // strip just that param so a reload doesn't re-trigger. Used by the
+  // Phase-4 tutorial sequencer to land on the home tab with the
+  // `archive-projects` (project popup) or `fullscreen-task` (task
+  // popup) tip targets already in the DOM. Other params (notably
+  // `?tutorial=1`) pass through untouched so the sequencer's gate
+  // stays satisfied.
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (!searchParams) return;
+    const wantsProject = searchParams.get("openProject");
+    const wantsTask = searchParams.get("openTask");
+    if (!wantsProject && !wantsTask) return;
+    let didOpen = false;
+    if (wantsProject) {
+      const pid = Number(wantsProject);
+      if (Number.isFinite(pid)) {
+        const match = projects.find(
+          (p) => p.id === pid && (p.owner ?? currentUser) === currentUser,
+        );
+        if (match) {
+          setSelectedProject(match);
+          didOpen = true;
+        }
+      }
+    }
+    if (wantsTask) {
+      const tid = Number(wantsTask);
+      if (Number.isFinite(tid)) {
+        const match = allTasks.find(
+          (t) => t.id === tid && (t.owner ?? currentUser) === currentUser,
+        );
+        if (match) {
+          setSelectedTask(match);
+          didOpen = true;
+        }
+      }
+    }
+    // Strip only the popup-open params; keep tutorial=1 + anything
+    // else intact. If the data hasn't loaded yet we just leave the
+    // params in place — this effect re-runs as projects/allTasks
+    // populate.
+    if (didOpen) {
+      const next = new URLSearchParams(searchParams.toString());
+      next.delete("openProject");
+      next.delete("openTask");
+      const query = next.toString();
+      router.replace(query ? `/?${query}` : "/");
+    }
+  }, [searchParams, projects, allTasks, currentUser, router]);
 
   const today = new Date().toISOString().split("T")[0];
 
