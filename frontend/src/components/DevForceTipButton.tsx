@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useOnboarding } from "@/lib/onboarding/orchestrator";
 import { ONBOARDING_TIPS } from "@/lib/onboarding/tips";
+import { findOnboardingTarget } from "@/lib/onboarding/use-onboarding-target";
 import Tooltip from "./Tooltip";
 
 /**
@@ -48,11 +49,28 @@ export default function DevForceTipButton() {
 
   const handleFire = (tipId: string, route: string) => {
     setOpen(false);
-    if (pathname !== route) {
+
+    // If the target is ALREADY in the DOM (e.g. user opened the
+    // relevant popup before clicking the dev button), fire
+    // immediately and skip the route push — navigating away would
+    // unmount the popup and kill the target before the tip can
+    // attach. Covers popup-gated tips opened from non-default
+    // routes (e.g. an experiment popup opened from /workbench when
+    // the tip's route is "/").
+    if (findOnboardingTarget(tipId)) {
+      orchestrator.forceFireTip(tipId);
+      return;
+    }
+
+    // Use startsWith because the catalog's `route: "/"` matches
+    // every pathname, so an exact-equality check would over-trigger
+    // a navigation when the user is on, say, `/workbench` and the
+    // tip is route "/" (legitimately eligible there too).
+    if (!pathname.startsWith(route)) {
       router.push(route);
       // Slight delay so the route mount + ref attach has a chance.
-      // The orchestrator's force-fire polls for the target for up to
-      // 3s, so a missed first frame is fine — this is just a hint.
+      // The orchestrator's force-fire polls for the target for up
+      // to 3s, so a missed first frame is fine — this is just a hint.
       window.setTimeout(() => orchestrator.forceFireTip(tipId), 100);
     } else {
       orchestrator.forceFireTip(tipId);
