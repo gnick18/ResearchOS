@@ -431,6 +431,45 @@ Two deferred-from-Workbench-redesign (`d4030e3b`) polish items closed in one pas
 - **OOS nit (flagged, not fixed)**: the project-grouping IIFE inside the main `SECTION_ORDER.map` callback is verbose enough that a future refactor could lift it into a small `<RecentResultsGroup>` component. Acceptable as-is for one section; would be worth it if a second section ever needs project grouping. Not extracted now to keep the commit small.
 - **Browser verification**: not run by the worker bot (out of remit). Grant to spot-check live; behavior is the same when there's only one project (collapses to flat grid) and adds a colored-dot project sub-header when there are 2+. Worker bot did NOT touch the four stage-organized sections — verified by reading the diff before commit.
 
+### Recently landed (2026-05-15 — onboarding tips Phase 4: guided tutorial tour as a slideshow in the demo lab)
+
+Reworks the "Walk me through it" mode-pick from the post-Phase-3 "fast suggestions" hack (60s gap + force-fire on highest-priority each tick) into a proper guided slideshow. Welcome-modal click now opens `/demo?tutorial=1` in a NEW TAB; the user's real folder tab keeps the persisted `mode: "tutorial"` flag but the actual walkthrough runs against the demo lab's seeded fixtures so popup-gated tips have valid targets. Closes Grant's "the current Tutorial mode is NOT what I want" course-correct.
+
+**The shape:**
+
+- **Welcome-modal tutorial click → `window.open("/demo?tutorial=1", "_blank", "noopener")` + `onPick("tutorial")`.** Synchronous order keeps popup-blockers happy (no async setState before the open call). The user's current tab unmounts the welcome modal as the orchestrator's setMode flow runs; the new tab lands on `/demo` with the fixture and the tutorial flag.
+- **`OnboardingProvider` carve-out**: when `isDemoOrWikiCapture() && isTutorialMode()`, mounts `<OnboardingTutorialSequencer>` instead of pass-through. Plain demo (no `?tutorial=1`) still pass-through — public-demo + screenshots see no tips.
+- **`isTutorialMode()` helper** added to `wiki-capture-mock.ts` — SSR-safe URL-param check, mirrors `isDemoOrWikiCapture()`'s shape.
+- **`<OnboardingTutorialSequencer>`** (new, ~250 LOC) walks `ONBOARDING_TIPS` in priority order. Per tip: `router.push` to the tip's route + popup-open deep-link (preserving `?tutorial=1`), poll DOM up to 3s for the data-attr target, render `<OnboardingTipCard>` with tutorial controls. After last tip OR End: end-screen with BeakerBot (cheering) + "Close this tab" → `window.close()` (best-effort).
+- **`<OnboardingTipCard>` extended** with optional `tutorial` prop (currentIndex / totalCount / onBack / onSkip / onNext / onEnd). When set, footer becomes "<i+1> of <n>" + small "End tutorial" link on top, Back / Skip / Next → on bottom. X close → inline confirm "Skip the rest of the tour?" before ending. SetupAction button + Read more both suppressed in tutorial mode (tour is for discovery, not setup).
+- **Walk order** = catalog priority order: telegram-send-to-task → personalize-colors → archive-projects → link-calendars → public-methods → gantt-animations → workbench-notes → fullscreen-task → goals-vs-tasks. The 10th tip (`lab-mode-picker`) stays standalone — it's pre-user, lives in `UserLoginScreen`, never part of the orchestrator catalog.
+- **Three new deep-link query params** (`/?openProject=<id>`, `/?openTask=<id>`, `/methods?openMethod=<id>`) wire popup-gated tips into the tour. Each handler waits for its react-query data fixture, opens the popup, then `router.replace` strips ONLY the popup-open param — `?tutorial=1` and any other params pass through. Mirrors the existing `?addFeed=1` / `?animations=1` / `?createMethod=public` patterns.
+- **Demo IDs hard-coded** in `OnboardingTutorialSequencer.tsx` (`TUTORIAL_DEMO_IDS` const map, sourced from `wiki-capture-fixture.ts`): `archiveProjectId: 1` (alex's "Engineer FakeYeast for biofuel"), `publicMethodId: 1` (public "Plasmid mini-prep"), `fullscreenTaskId: 2` (alex's "Yeast transformation: pYES-GAL1::flbA" experiment task — first non-trivial task with method attachments).
+- **`gantt-animations` pre-target delay** of 350ms so the burst-on-show animation doesn't kick off mid-route-change. Other tips have no extra pacing.
+- **End-screen** is a centered modal-shaped card (smaller than welcome modal: 420px), BeakerBot in cheering pose, body "Close this tab to head back to your work — your real folder's still waiting", single "Close this tab" button calling `window.close()` (no-op if browser refuses on a manually-pasted URL).
+
+**Files added:**
+- [frontend/src/components/OnboardingTutorialSequencer.tsx](frontend/src/components/OnboardingTutorialSequencer.tsx) (~250) — sequencer state machine + end-screen.
+
+**Files modified:**
+- [frontend/src/lib/file-system/wiki-capture-mock.ts](frontend/src/lib/file-system/wiki-capture-mock.ts) — `isTutorialMode()` helper.
+- [frontend/src/lib/onboarding/orchestrator.tsx](frontend/src/lib/onboarding/orchestrator.tsx) — provider mount carve-out.
+- [frontend/src/components/OnboardingTipCard.tsx](frontend/src/components/OnboardingTipCard.tsx) — `tutorial` prop + tutorial-footer branch + X confirm.
+- [frontend/src/components/OnboardingWelcomeModal.tsx](frontend/src/components/OnboardingWelcomeModal.tsx) — tutorial click handler opens new tab.
+- [frontend/src/app/page.tsx](frontend/src/app/page.tsx) — `?openProject=<id>` + `?openTask=<id>` deep-link useEffect.
+- [frontend/src/app/methods/page.tsx](frontend/src/app/methods/page.tsx) — `?openMethod=<id>` deep-link useEffect.
+- [frontend/src/lib/onboarding/orchestrator.test.ts](frontend/src/lib/onboarding/orchestrator.test.ts) — 6 new tests (5 carve-out + 1 catalog-walk-order). 142/142 PASS.
+
+**Card-variant approach:** chose the `tutorial` prop on `OnboardingTipCard` over a separate `<TutorialTipCard>` component. Reusing the existing card preserves the smart positioning, mascot, callout tail, and red-glow overlay for free; the duplication cost would have been ~400 LOC versus ~80 LOC for the prop branch. Coupling is minimal — one optional prop + a footer conditional + a tutorial-aware close button.
+
+**Edge cases worth flagging:**
+- Demo IDs in `TUTORIAL_DEMO_IDS` are hardcoded; if `scripts/generate-demo-data.mjs` ever regenerates fixtures with different IDs (e.g. someone renumbers projects), the deep-links would silently fail to resolve and the affected tips render without a target glow (Skip/Next still work, just no anchor). Cheap follow-up if it surfaces: route the IDs through a fixture-lookup helper.
+- `window.close()` on the end-screen only works for tabs JS opened (which is our case via the welcome modal). On a manually-pasted `/demo?tutorial=1` URL the button is a visible no-op.
+- The tutorial sequencer doesn't write to the user's sidecar — the demo lab is exempt from the sidecar layer entirely (no fileService writes happen in-fixture). Only the user's current tab, where the welcome-modal `onPick("tutorial")` flowed through `setMode`, persists the choice.
+- Next.js may show a brief flash of welcome-modal-still-mounted before the new tab takes the user's attention — acceptable per spec; the modal unmounts on the next render tick.
+
+**Live-test path for Grant:** clear `_onboarding.json` (or use `<DevForceTipButton>`'s reset), reload, click "Walk me through it" in the welcome modal, switch to the new tab that opens (`/demo?tutorial=1`), step through Back/Skip/Next on each card, hit X for the inline-confirm, confirm the end-screen lands and "Close this tab" closes the tab.
+
 ### Recently landed (2026-05-14 — onboarding tips Phase 3: rewritten 9-tip catalog + welcome modal + 3-mode system + tutorial mode + setupAction CTAs + onShow animation burst + workbench-tab DOM gate + tip card visual-novel redesign)
 
 The follow-up to Phase 1+2 (logged directly below this entry). Closes out the onboarding feature end-to-end. Manager session collaborated with Grant on tip copy and on mascot integration (BeakerBot won the comparison, got pastel-rainbow liquid + 4 new poses + scaled to 96px + comic-callout tail). The dotted pointer-line was dropped in favor of a pulsing red-glow on the target element. Final-pass sub-bot landed the tip catalog rewrite + welcome modal + mode system + setupAction/onShow/gate fields + retrofits + deep-link query-params + Settings mode picker. Master's relay then asked for one course-correct on the `workbench-experiments-tab` gate (URL → DOM data-attr), which landed at the tip of this work (commit `5c5d98c7`).

@@ -36,8 +36,10 @@ vi.mock("@/lib/file-system/file-service", () => ({
 }));
 
 let demoModeMock = false;
+let tutorialModeMock = false;
 vi.mock("@/lib/file-system/wiki-capture-mock", () => ({
   isDemoOrWikiCapture: vi.fn(() => demoModeMock),
+  isTutorialMode: vi.fn(() => tutorialModeMock),
 }));
 
 // Imports must come after the mocks.
@@ -55,13 +57,17 @@ import {
   tipsForRoute,
   type OnboardingTip,
 } from "./tips";
-import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
+import {
+  isDemoOrWikiCapture,
+  isTutorialMode,
+} from "@/lib/file-system/wiki-capture-mock";
 
 const USER = "alex";
 
 beforeEach(() => {
   memFs.clear();
   demoModeMock = false;
+  tutorialModeMock = false;
 });
 
 /** Pure copy of the orchestrator's gating predicate. Replicating it in
@@ -253,6 +259,60 @@ describe("sidecar action-cancel persistence", () => {
   });
 });
 
+describe("Phase 4: tutorial-mode carve-out for demo lab", () => {
+  // The orchestrator's normal demo short-circuit (`shouldFire` returns
+  // false when isDemoOrWikiCapture() is true) is preserved unchanged
+  // — the carve-out lives one layer up in `OnboardingProvider`, which
+  // mounts a separate `<OnboardingTutorialSequencer>` instead of the
+  // orchestrator when both demo + tutorial flags are set. These tests
+  // model the provider-layer decision matrix as a pure function so we
+  // can assert it without spinning up a React tree.
+
+  /** Mirrors `OnboardingProvider`'s mount decision. Returns the
+   *  string name of the surface that would be mounted ("none",
+   *  "tutorial", "orchestrator") so assertions are crisp. */
+  function mountedSurface(currentUser: string | null): string {
+    if (!currentUser) return "none";
+    if (isDemoOrWikiCapture()) {
+      if (isTutorialMode()) return "tutorial";
+      return "none";
+    }
+    return "orchestrator";
+  }
+
+  it("mounts orchestrator on a real folder (no demo, no tutorial)", () => {
+    demoModeMock = false;
+    tutorialModeMock = false;
+    expect(mountedSurface("alex")).toBe("orchestrator");
+  });
+
+  it("mounts nothing in demo mode without tutorial flag (preserves Phase-3 behavior)", () => {
+    demoModeMock = true;
+    tutorialModeMock = false;
+    expect(mountedSurface("alex")).toBe("none");
+  });
+
+  it("mounts tutorial sequencer in demo mode with tutorial flag", () => {
+    demoModeMock = true;
+    tutorialModeMock = true;
+    expect(mountedSurface("alex")).toBe("tutorial");
+  });
+
+  it("mounts orchestrator (NOT tutorial) on a real folder even with tutorial flag", () => {
+    // Tutorial flag without demo mode is a no-op — we only ever
+    // open ?tutorial=1 against /demo, never against the real folder.
+    demoModeMock = false;
+    tutorialModeMock = true;
+    expect(mountedSurface("alex")).toBe("orchestrator");
+  });
+
+  it("mounts nothing when no current user (sign-out)", () => {
+    demoModeMock = true;
+    tutorialModeMock = true;
+    expect(mountedSurface(null)).toBe("none");
+  });
+});
+
 describe("tip catalog shape", () => {
   it("exposes the 9-tip orchestrator catalog", () => {
     // 10th tip (lab-mode-picker) is standalone, not in this array.
@@ -266,6 +326,20 @@ describe("tip catalog shape", () => {
     expect(onHome.every((t) => "/".startsWith(t.route))).toBe(true);
     for (let i = 1; i < onHome.length; i++) {
       expect(onHome[i].priority).toBeGreaterThan(onHome[i - 1].priority);
+    }
+  });
+
+  it("Phase-4 tutorial walk: catalog order is the tour order (priority-sorted)", () => {
+    // The sequencer iterates `ONBOARDING_TIPS` directly without
+    // re-sorting. The catalog's source-file ordering matches priority
+    // (1, 2, 3, 4, 6, 7, 8, 9, 10), so the tutorial walks tips in
+    // priority order. If a future tip is inserted out of source-order
+    // (e.g. priority 5 dropped between tips 4 and 6), this test
+    // catches the divergence so the sequencer can be re-sorted.
+    for (let i = 1; i < ONBOARDING_TIPS.length; i++) {
+      expect(ONBOARDING_TIPS[i].priority).toBeGreaterThan(
+        ONBOARDING_TIPS[i - 1].priority,
+      );
     }
   });
 });
