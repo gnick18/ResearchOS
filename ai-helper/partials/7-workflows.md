@@ -1,4 +1,4 @@
-Eight bread-and-butter workflows. Each is "user goal → click path → what got created on disk → what to verify." When a question maps to one of these, walk through it step by step and point at the wiki for the screenshot tour.
+Bread-and-butter workflows below. Each is "user goal → click path → what got created on disk → what to verify." When a question maps to one of these, walk through it step by step and point at the wiki for the screenshot tour. The full prompt variant ships every workflow; the lean variant trims to the most-used four.
 
 ### 1. Create a new project
 

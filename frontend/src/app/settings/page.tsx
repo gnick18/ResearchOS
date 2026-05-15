@@ -1401,6 +1401,13 @@ function AIHelperSection() {
             Paste it as your first message, or save it as a Claude Project / Custom GPT / Gem for a
             persistent helper.
           </p>
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mt-2">
+            <span className="font-medium">Heads up:</span> this is for the chat interface
+            (claude.ai, chatgpt.com, gemini.google.com). Your Claude Max / ChatGPT Plus /
+            Gemini Advanced subscription works fine. You do <em>not</em> need an Anthropic /
+            OpenAI / Google API key, and your chat-tier subscription does not include API
+            credits.
+          </p>
         </div>
 
         {/* Inline status toast (4s auto-dismiss) */}

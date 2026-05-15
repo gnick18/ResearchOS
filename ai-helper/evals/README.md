@@ -1,6 +1,12 @@
 # AI Helper eval harness
 
-A small standalone harness for testing the ResearchOS AI Helper system prompts against real Claude API calls. Use this to verify the prompt actually does what we claim — and to catch regressions when prose partials change.
+Two paths for testing the ResearchOS AI Helper system prompts. Both run the same question bank in `questions.json` against the prompt size variants in `frontend/public/ai-helper/`.
+
+**Default (recommended):** the **sub-bot path** described in [SUBBOT_BRIEF.md](SUBBOT_BRIEF.md). Spawn a Claude Code sub-bot with the AI Helper prompt as its operating instructions, have it answer + self-grade. No API key needed, no billing on the user's pay-as-you-go account, closer simulation of the real deployment (a Claude reading the prompt, like a Claude Max user pasting it into a fresh chat). Cheap, fast, default for Claude-family evals.
+
+**Fallback (this directory's scripts):** API-key based runner + grader. Use only when you specifically need to test ChatGPT / Gemini / another non-Claude provider, or when you want quantitative latency + token-cost data the sub-bot path doesn't expose. Requires you to top up API credits (separate from any claude.ai / ChatGPT Plus / Gemini Advanced subscription you might pay for).
+
+The rest of this README documents the API-key fallback. For the default sub-bot path, read [SUBBOT_BRIEF.md](SUBBOT_BRIEF.md).
 
 ## What it does
 
