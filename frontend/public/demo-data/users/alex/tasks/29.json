@@ -1,0 +1,41 @@
+{
+  "id": 29,
+  "project_id": 4,
+  "name": "Archive 2025 inventory log",
+  "start_date": "2026-03-10",
+  "duration_days": 1,
+  "end_date": "2026-03-10",
+  "is_high_level": false,
+  "is_complete": true,
+  "task_type": "list",
+  "weekend_override": null,
+  "method_id": null,
+  "method_ids": [],
+  "deviation_log": null,
+  "tags": null,
+  "sort_order": 29,
+  "experiment_color": null,
+  "sub_tasks": [
+    {
+      "id": "st1",
+      "text": "Export 2025 reagent ledger from shared sheet",
+      "is_complete": true
+    },
+    {
+      "id": "st2",
+      "text": "Move CSV into lab archive folder",
+      "is_complete": true
+    },
+    {
+      "id": "st3",
+      "text": "Reset running tally for 2026",
+      "is_complete": true
+    }
+  ],
+  "pcr_gradient": null,
+  "pcr_ingredients": null,
+  "method_attachments": [],
+  "owner": "alex",
+  "shared_with": [],
+  "external_project": null
+}

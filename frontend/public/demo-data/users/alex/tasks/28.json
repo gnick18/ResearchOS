@@ -1,0 +1,41 @@
+{
+  "id": 28,
+  "project_id": 4,
+  "name": "Wrap up Q4 lab safety review",
+  "start_date": "2026-05-07",
+  "duration_days": 1,
+  "end_date": "2026-05-09",
+  "is_high_level": false,
+  "is_complete": true,
+  "task_type": "list",
+  "weekend_override": null,
+  "method_id": null,
+  "method_ids": [],
+  "deviation_log": null,
+  "tags": null,
+  "sort_order": 28,
+  "experiment_color": null,
+  "sub_tasks": [
+    {
+      "id": "st1",
+      "text": "Walk benches with safety officer",
+      "is_complete": true
+    },
+    {
+      "id": "st2",
+      "text": "File quarterly chemical inventory report",
+      "is_complete": true
+    },
+    {
+      "id": "st3",
+      "text": "Email summary to PI + safety office",
+      "is_complete": true
+    }
+  ],
+  "pcr_gradient": null,
+  "pcr_ingredients": null,
+  "method_attachments": [],
+  "owner": "alex",
+  "shared_with": [],
+  "external_project": null
+}
