@@ -103,7 +103,7 @@ export const ONBOARDING_TIPS: OnboardingTip[] = [
     body:
       "Done with a project? Archive it instead. I promise nothing gets deleted, and your tasks, results, and images stay right where they are. Unarchive any time.",
     route: "/",
-    target: "drop-to-replace",
+    target: "archive-projects",
     wikiPath: "/wiki/features/home",
     priority: 3,
   },

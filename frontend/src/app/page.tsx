@@ -256,7 +256,10 @@ export default function HomePage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">
+            <h2
+              data-onboarding-target="archive-projects"
+              className="text-2xl font-bold text-gray-900"
+            >
               Research Project Overview
             </h2>
             <p className="text-sm text-gray-400 mt-1">
