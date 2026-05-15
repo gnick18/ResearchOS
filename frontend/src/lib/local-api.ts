@@ -278,17 +278,31 @@ function normalizeTaskRecord(raw: Task): Task {
   // landed (Phase 1a). Without this, `attachment.lc_gradient` is `undefined`
   // at runtime for any pre-LC task, which trips strict null checks in the
   // LC tab content's snapshot-vs-source branching.
+  //
+  // Same pattern for `owner`: attachments written before the
+  // owner-disambiguation field landed lack it on disk. Read as `null`
+  // (= same user as the task) so the lookup falls back to the legacy
+  // current-user-first behavior. New writes through tasksApi.update
+  // persist the canonical shape.
   const needsLcBackfill = filtered.some(
     (a) => !Object.prototype.hasOwnProperty.call(a, "lc_gradient"),
   );
-  if (filtered !== attachments || needsLcBackfill) {
+  const needsOwnerBackfill = filtered.some(
+    (a) => !Object.prototype.hasOwnProperty.call(a, "owner"),
+  );
+  if (filtered !== attachments || needsLcBackfill || needsOwnerBackfill) {
     normalized = {
       ...normalized,
-      method_attachments: filtered.map((a) =>
-        Object.prototype.hasOwnProperty.call(a, "lc_gradient")
-          ? a
-          : { ...a, lc_gradient: null },
-      ),
+      method_attachments: filtered.map((a) => {
+        let next = a;
+        if (!Object.prototype.hasOwnProperty.call(next, "lc_gradient")) {
+          next = { ...next, lc_gradient: null };
+        }
+        if (!Object.prototype.hasOwnProperty.call(next, "owner")) {
+          next = { ...next, owner: null };
+        }
+        return next;
+      }),
     };
   }
   return normalized;
@@ -334,7 +348,7 @@ export const tasksApi = {
     sub_tasks?: Array<{ id: string; text: string; is_complete: boolean }>;
     pcr_gradient?: string | null;
     pcr_ingredients?: string | null;
-    method_attachments?: Array<{ method_id: number; pcr_gradient?: string | null; pcr_ingredients?: string | null; lc_gradient?: string | null; variation_notes?: string | null }>;
+    method_attachments?: Array<{ method_id: number; owner?: string | null; pcr_gradient?: string | null; pcr_ingredients?: string | null; lc_gradient?: string | null; variation_notes?: string | null }>;
   }): Promise<Task> => {
     const durationDays = data.duration_days || 1;
     const endDate = canonicalEndDate({ start_date: data.start_date, duration_days: durationDays });
@@ -363,6 +377,7 @@ export const tasksApi = {
       sub_tasks: data.sub_tasks ?? null,
       method_attachments: (data.method_attachments ?? []).map((a) => ({
         method_id: a.method_id,
+        owner: a.owner ?? null,
         pcr_gradient: a.pcr_gradient ?? null,
         pcr_ingredients: a.pcr_ingredients ?? null,
         lc_gradient: a.lc_gradient ?? null,
@@ -594,8 +609,27 @@ export const tasksApi = {
 
     const attachments = [...(task.method_attachments || [])];
     if (!attachments.find((a) => a.method_id === methodId)) {
+      // Resolve the method's owner so the attachment can disambiguate
+      // against per-user id collisions later (e.g. attaching public method
+      // id 2 when the current user also has a private method with id 2).
+      // Falls back to `null` (= same user as the task) if the lookup fails
+      // for any reason; the read-side lookup degrades to current-user-first
+      // behavior in that case, matching legacy attachments.
+      let methodOwner: string | null = null;
+      try {
+        const allMethods = await fetchAllMethodsIncludingShared();
+        const candidates = allMethods.filter((m) => m.id === methodId);
+        if (candidates.length === 1) {
+          methodOwner = candidates[0].owner ?? null;
+        } else if (candidates.length > 1) {
+          methodOwner = candidates[0].owner ?? null;
+        }
+      } catch (err) {
+        console.warn("[addMethod] could not resolve method owner:", err);
+      }
       attachments.push({
         method_id: methodId,
+        owner: methodOwner,
         pcr_gradient: null,
         pcr_ingredients: null,
         lc_gradient: null,

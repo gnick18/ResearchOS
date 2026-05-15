@@ -1,0 +1,54 @@
+{
+  "id": 30,
+  "project_id": 1,
+  "name": "qPCR — fakeGFP expression vs control",
+  "start_date": "2026-05-13",
+  "duration_days": 1,
+  "end_date": "2026-05-13",
+  "is_high_level": false,
+  "is_complete": false,
+  "task_type": "experiment",
+  "weekend_override": null,
+  "method_id": null,
+  "method_ids": [
+    5
+  ],
+  "deviation_log": null,
+  "tags": null,
+  "sort_order": 30,
+  "experiment_color": "#3b82f6",
+  "sub_tasks": [
+    {
+      "id": "st1",
+      "text": "Extract RNA from 6 colonies + DNase treat",
+      "is_complete": false
+    },
+    {
+      "id": "st2",
+      "text": "Reverse-transcribe to cDNA (1:5 dilution)",
+      "is_complete": false
+    },
+    {
+      "id": "st3",
+      "text": "Run qPCR — triplicates per colony",
+      "is_complete": false
+    },
+    {
+      "id": "st4",
+      "text": "ΔΔCt vs ACT1 reference, plot fold-change",
+      "is_complete": false
+    }
+  ],
+  "pcr_gradient": null,
+  "pcr_ingredients": null,
+  "method_attachments": [
+    {
+      "method_id": 5,
+      "owner": "alex",
+      "snapshot_at": "2026-05-13T08:00:00Z"
+    }
+  ],
+  "owner": "alex",
+  "shared_with": [],
+  "external_project": null
+}

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchAllMethodsIncludingShared } from "@/lib/local-api";
-import type { Task } from "@/lib/types";
+import type { Method, Task, TaskMethodAttachment } from "@/lib/types";
 import MethodPicker from "./MethodPicker";
 import Tooltip from "./Tooltip";
 import { ownerScopedTasksApi } from "@/lib/tasks/owner-scoped-api";
@@ -11,6 +11,36 @@ import MarkdownMethodTabContent from "./methods/MarkdownMethodTabContent";
 import PdfMethodTabContent from "./methods/PdfMethodTabContent";
 import PcrMethodTabContent from "./methods/PcrMethodTabContent";
 import LcMethodTabContent from "./methods/LcMethodTabContent";
+
+/**
+ * Resolve a method record for a given attachment, honoring the attachment's
+ * `owner` field to disambiguate against per-user id collisions (e.g. alex's
+ * private method id 2 vs public method id 2). When the attachment owner is
+ * non-null, match `(id, owner)` strictly. When null (legacy attachments or
+ * locally-owned methods), match by id and prefer the task owner's own
+ * method, falling back to the first match for backwards compatibility.
+ */
+function resolveMethodForAttachment(
+  attachment: Pick<TaskMethodAttachment, "method_id" | "owner"> | undefined,
+  methods: Method[],
+  taskOwner: string | undefined,
+): Method | undefined {
+  if (!attachment) return undefined;
+  if (attachment.owner) {
+    return methods.find(
+      (m) => m.id === attachment.method_id && m.owner === attachment.owner,
+    );
+  }
+  // owner === null: legacy or same-user-as-task. Prefer the task owner's
+  // own method when there's an id collision; fall back to first match.
+  const candidates = methods.filter((m) => m.id === attachment.method_id);
+  if (candidates.length === 0) return undefined;
+  if (taskOwner) {
+    const own = candidates.find((m) => m.owner === taskOwner);
+    if (own) return own;
+  }
+  return candidates[0];
+}
 
 interface MethodTabsProps {
   task: Task;
@@ -46,9 +76,12 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
     queryFn: fetchAllMethodsIncludingShared,
   });
 
-  // Get the active method attachment
+  // Get the active method attachment. Resolve the method through the
+  // attachment so the per-attachment `owner` field disambiguates against
+  // per-user id collisions (e.g. attaching a public method whose id
+  // collides with one of the current user's private methods).
   const activeAttachment = methodAttachments.find(a => a.method_id === activeMethodId);
-  const activeMethod = allMethods.find(m => m.id === activeMethodId);
+  const activeMethod = resolveMethodForAttachment(activeAttachment, allMethods, task.owner);
 
   // Add method to task
   const handleAddMethod = useCallback(async (methodId: number) => {
@@ -102,7 +135,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
         {/* Method tabs */}
         <div className="flex items-end gap-0.5 flex-1 overflow-x-auto">
           {methodAttachments.map((attachment) => {
-            const method = allMethods.find(m => m.id === attachment.method_id);
+            const method = resolveMethodForAttachment(attachment, allMethods, task.owner);
             const isActive = activeMethodId === attachment.method_id;
 
             return (

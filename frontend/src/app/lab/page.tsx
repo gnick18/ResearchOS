@@ -39,6 +39,7 @@ function labTaskToTask(labTask: LabTask): Task {
     sub_tasks: null,
     method_attachments: (labTask.method_ids || []).map((methodId) => ({
       method_id: methodId,
+      owner: null,
       pcr_gradient: null,
       pcr_ingredients: null,
       lc_gradient: null,

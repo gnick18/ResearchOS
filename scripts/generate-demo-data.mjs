@@ -341,7 +341,7 @@ function buildEntries() {
     "users/alex/_counters.json",
     {
       projects: 4,
-      tasks: 29,
+      tasks: 30,
       methods: 6,
       events: 4,
       goals: 2,
@@ -572,6 +572,24 @@ function buildEntries() {
         { id: "st2", text: "Move CSV into lab archive folder", is_complete: true },
         { id: "st3", text: "Reset running tally for 2026", is_complete: true },
       ] },
+    // PCR diff-display retrofit (Phase 2A) live-smoke fixture: alex-owned
+    // PCR method attached to an alex task in project 1. Mirrors the LC
+    // demo at task 10 (alex's private LC gradient via method 6) but for
+    // PCR. Pairs with task 5 — which attaches the PUBLIC PCR method —
+    // so the routing-fix chip can verify both code paths land on the
+    // correct protocol (alex's private vs public, despite the id-2
+    // collision between alex/methods/2 and public/methods/2).
+    //
+    // Anchored at TODAY so it lands inside the Workbench "Doing" /
+    // experiment-page demo window regardless of when the demo opens.
+    { id: 30, project_id: 1, name: "qPCR — fakeGFP expression vs control", start_date: TODAY, duration_days: 1, end_date: TODAY, task_type: "experiment", is_complete: false, experiment_color: "#3b82f6",
+      sub_tasks: [
+        { id: "st1", text: "Extract RNA from 6 colonies + DNase treat", is_complete: false },
+        { id: "st2", text: "Reverse-transcribe to cDNA (1:5 dilution)", is_complete: false },
+        { id: "st3", text: "Run qPCR — triplicates per colony", is_complete: false },
+        { id: "st4", text: "ΔΔCt vs ACT1 reference, plot fold-change", is_complete: false },
+      ],
+      method_attachments: [{ method_id: 5, owner: "alex", snapshot_at: TODAY + "T08:00:00Z" }] },
   ]));
 
   // alex methods
