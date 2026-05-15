@@ -186,12 +186,16 @@ export class FileService {
       const fileHandle = handle as FileSystemFileHandle;
       const file = await fileHandle.getFile();
       const text = await file.text();
+      if (text.trim().length === 0) {
+        this.bumpReadCount();
+        return null;
+      }
       const result = JSON.parse(text) as T;
       this.bumpReadCount();
       console.log(`[fileService.readJson] Successfully read: ${path}`);
       return result;
     } catch (err) {
-      console.error(`[fileService.readJson] Error reading ${path}:`, err);
+      console.warn(`[fileService.readJson] Recoverable empty/malformed sidecar at ${path} (treating as missing):`, err);
       return null;
     }
   }
