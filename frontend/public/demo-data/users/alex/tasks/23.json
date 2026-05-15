@@ -1,0 +1,36 @@
+{
+  "id": 23,
+  "project_id": 4,
+  "name": "Lab orientation — onboard rotation student",
+  "start_date": "2026-04-01",
+  "duration_days": 1,
+  "end_date": "2026-04-01",
+  "is_high_level": false,
+  "is_complete": true,
+  "task_type": "list",
+  "weekend_override": null,
+  "method_id": null,
+  "method_ids": [],
+  "deviation_log": null,
+  "tags": null,
+  "sort_order": 23,
+  "experiment_color": null,
+  "sub_tasks": [
+    {
+      "id": "st1",
+      "text": "Walk through bench safety + waste protocol",
+      "is_complete": true
+    },
+    {
+      "id": "st2",
+      "text": "Set up server account + lab notebook template",
+      "is_complete": true
+    }
+  ],
+  "pcr_gradient": null,
+  "pcr_ingredients": null,
+  "method_attachments": [],
+  "owner": "alex",
+  "shared_with": [],
+  "external_project": null
+}

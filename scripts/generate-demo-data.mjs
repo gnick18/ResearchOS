@@ -51,6 +51,15 @@ const TWO_WEEKS = "2026-05-27";
 const OVERDUE_START = "2026-05-06"; // BASE_DATE - 7 (started a week ago, never finished)
 const OVERDUE_END_4D = "2026-05-09"; // BASE_DATE - 4
 const OVERDUE_END_6D = "2026-05-07"; // BASE_DATE - 6
+const OVERDUE_END_2D = "2026-05-11"; // BASE_DATE - 2
+
+// Workbench Lists-tab fixture anchors — populate the new tab's sections
+// without disturbing the experiment fixtures above.
+const RECENT_DONE = "2026-05-08";    // BASE_DATE - 5 (Recently done window)
+const SCHEDULED_LATER = "2026-06-15"; // BASE_DATE + 33 (past the 14d Upcoming horizon)
+const SCHEDULED_LATER_END = "2026-06-17";
+const EARLIER_DONE_ALEX = "2026-04-01";   // BASE_DATE - 42 (Earlier accordion)
+const EARLIER_DONE_MORGAN = "2026-03-20"; // BASE_DATE - 54 (Earlier accordion)
 
 const ALEX_COLOR = "#3b82f6";   // blue
 const MORGAN_COLOR = "#10b981"; // emerald
@@ -332,7 +341,7 @@ function buildEntries() {
     "users/alex/_counters.json",
     {
       projects: 4,
-      tasks: 20,
+      tasks: 23,
       methods: 5,
       events: 4,
       goals: 2,
@@ -380,6 +389,10 @@ function buildEntries() {
       ],
       tasks: [
         { id: 3, owner: "morgan", permission: "edit", shared_at: "2026-05-16T00:00:00Z" },
+        // Workbench Lists-tab fixture: a recently-done list task shared by
+        // morgan that lands in alex's "Recently done" section with the
+        // SharedFromPill amber chip.
+        { id: 9, owner: "morgan", permission: "view", shared_at: "2026-05-08T00:00:00Z" },
       ],
       methods: [],
     },
@@ -487,6 +500,31 @@ function buildEntries() {
       sub_tasks: [
         { id: "st1", text: "Choose hosting (Notion vs internal wiki)", is_complete: true },
         { id: "st2", text: "Draft initial outline", is_complete: true },
+      ] },
+    // Workbench Lists-tab fixtures (chip: Lists-tab landing). Each one
+    // populates a specific section of the new tab. Anchored at BASE_DATE
+    // offsets so the section assignment stays stable after rebase.
+    // ── Overdue (alex/21): a different overdue archetype than task 13
+    //    (admin paperwork, ~2 days overdue, partially worked through).
+    { id: 21, project_id: 4, name: "Send compliance paperwork — quarterly renewal", start_date: OVERDUE_START, duration_days: 4, end_date: OVERDUE_END_2D, task_type: "list", is_complete: false,
+      sub_tasks: [
+        { id: "st1", text: "Pull approval form template from compliance portal", is_complete: true },
+        { id: "st2", text: "Get PI signature", is_complete: false },
+        { id: "st3", text: "Submit to compliance office + log confirmation", is_complete: false },
+      ] },
+    // ── Scheduled later (alex/22): a list task that lives past the 14d
+    //    Upcoming horizon, demonstrating the "+ N scheduled later" footer.
+    { id: 22, project_id: 4, name: "Plan grant renewal milestone outline", start_date: SCHEDULED_LATER, duration_days: 3, end_date: SCHEDULED_LATER_END, task_type: "list", is_complete: false,
+      sub_tasks: [
+        { id: "st1", text: "Sketch aims 1–3", is_complete: false },
+        { id: "st2", text: "Draft preliminary-data list", is_complete: false },
+      ] },
+    // ── Earlier (alex/23): completed > 30 days ago, lands in the
+    //    collapsed-by-default Earlier accordion at the bottom of the panel.
+    { id: 23, project_id: 4, name: "Lab orientation — onboard rotation student", start_date: EARLIER_DONE_ALEX, duration_days: 1, end_date: EARLIER_DONE_ALEX, task_type: "list", is_complete: true,
+      sub_tasks: [
+        { id: "st1", text: "Walk through bench safety + waste protocol", is_complete: true },
+        { id: "st2", text: "Set up server account + lab notebook template", is_complete: true },
       ] },
   ]));
 
@@ -670,7 +708,7 @@ function buildEntries() {
     "users/morgan/_counters.json",
     {
       projects: 2,
-      tasks: 7,
+      tasks: 9,
       methods: 2,
       events: 0,
       goals: 0,
@@ -738,6 +776,24 @@ function buildEntries() {
     // days ago. Lives in morgan's project 1 which is shared with alex
     // (view), so it appears in alex's Workbench Earlier section.
     { id: 7, project_id: 1, name: "Sanity check — fluorescence reader baseline", start_date: "2026-03-12", duration_days: 1, end_date: "2026-03-12", task_type: "experiment", is_complete: true, experiment_color: "#10b981" },
+    // Workbench Lists-tab fixtures (chip: Lists-tab landing).
+    // ── Earlier (morgan/8): completed > 30 days ago, populates the Earlier
+    //    accordion alongside alex/23 so the section has multi-project content.
+    { id: 8, project_id: 2, name: "Audit shared bench reagent inventory", start_date: EARLIER_DONE_MORGAN, duration_days: 1, end_date: EARLIER_DONE_MORGAN, task_type: "list", is_complete: true,
+      sub_tasks: [
+        { id: "st1", text: "Tally remaining stocks in the −80 freezer", is_complete: true },
+        { id: "st2", text: "Flag low items for the next purchase round", is_complete: true },
+      ] },
+    // ── Recent-done + shared (morgan/9): completed in the last 30 days,
+    //    shared into alex via _shared_with_me.json above. On alex's Lists
+    //    tab the row renders in "Recently done" with the SharedFromPill.
+    //    On morgan's view it just renders as a standard recent-done row.
+    { id: 9, project_id: 1, name: "Set up shared screening template", start_date: RECENT_DONE, duration_days: 1, end_date: RECENT_DONE, task_type: "list", is_complete: true, shared_with: [{ username: "alex", permission: "view" }],
+      sub_tasks: [
+        { id: "st1", text: "Draft 96-well plate map for the joint screen", is_complete: true },
+        { id: "st2", text: "Wire fixture column for alex's pYES library positives", is_complete: true },
+        { id: "st3", text: "Push template to the lab notebook", is_complete: true },
+      ] },
   ]));
 
   // morgan methods

@@ -694,6 +694,22 @@ const FIXTURE_ROUTES = [
     },
   },
   {
+    path: "/workbench",
+    file: "workbench-lists.png",
+    waitFor: "text=Workbench, text=Lists",
+    settleMs: 800,
+    action: async (page) => {
+      // Click the Lists tab in the Workbench tab bar.
+      try {
+        const tab = page.getByRole("button", { name: /^Lists$/ }).first();
+        if (await tab.count()) {
+          await tab.click({ timeout: 3000 });
+          await page.waitForTimeout(800);
+        }
+      } catch {}
+    },
+  },
+  {
     path: "/settings",
     file: "settings.png",
     waitFor: "text=Settings, text=Profile",

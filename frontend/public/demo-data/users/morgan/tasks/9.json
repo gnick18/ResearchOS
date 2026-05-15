@@ -1,0 +1,46 @@
+{
+  "id": 9,
+  "project_id": 1,
+  "name": "Set up shared screening template",
+  "start_date": "2026-05-08",
+  "duration_days": 1,
+  "end_date": "2026-05-08",
+  "is_high_level": false,
+  "is_complete": true,
+  "task_type": "list",
+  "weekend_override": null,
+  "method_id": null,
+  "method_ids": [],
+  "deviation_log": null,
+  "tags": null,
+  "sort_order": 9,
+  "experiment_color": null,
+  "sub_tasks": [
+    {
+      "id": "st1",
+      "text": "Draft 96-well plate map for the joint screen",
+      "is_complete": true
+    },
+    {
+      "id": "st2",
+      "text": "Wire fixture column for alex's pYES library positives",
+      "is_complete": true
+    },
+    {
+      "id": "st3",
+      "text": "Push template to the lab notebook",
+      "is_complete": true
+    }
+  ],
+  "pcr_gradient": null,
+  "pcr_ingredients": null,
+  "method_attachments": [],
+  "owner": "morgan",
+  "shared_with": [
+    {
+      "username": "alex",
+      "permission": "view"
+    }
+  ],
+  "external_project": null
+}

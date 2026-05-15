@@ -1,0 +1,36 @@
+{
+  "id": 22,
+  "project_id": 4,
+  "name": "Plan grant renewal milestone outline",
+  "start_date": "2026-06-15",
+  "duration_days": 3,
+  "end_date": "2026-06-17",
+  "is_high_level": false,
+  "is_complete": false,
+  "task_type": "list",
+  "weekend_override": null,
+  "method_id": null,
+  "method_ids": [],
+  "deviation_log": null,
+  "tags": null,
+  "sort_order": 22,
+  "experiment_color": null,
+  "sub_tasks": [
+    {
+      "id": "st1",
+      "text": "Sketch aims 1–3",
+      "is_complete": false
+    },
+    {
+      "id": "st2",
+      "text": "Draft preliminary-data list",
+      "is_complete": false
+    }
+  ],
+  "pcr_gradient": null,
+  "pcr_ingredients": null,
+  "method_attachments": [],
+  "owner": "alex",
+  "shared_with": [],
+  "external_project": null
+}
