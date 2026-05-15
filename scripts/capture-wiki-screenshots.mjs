@@ -603,27 +603,460 @@ const FIXTURE_ROUTES = [
     },
   },
   {
+    // Top of /purchases — the unified scroll. Page header "Purchases · N
+    // purchase orders · $X.XX total" plus the first batch of cards mixing
+    // active (gray dot) and completed (green dot + " · Complete" suffix)
+    // states. No row tints, no active/earlier split — the post-redesign
+    // page is a single reverse-chronological list. Replaces purchases-list.png
+    // which was retired with the Chip A-E unified-scroll rework.
     path: "/purchases",
-    file: "purchases-list.png",
-    waitFor: "text=Purchases",
-    highlight: { text: "New Purchase" },
-  },
-  {
-    path: "/purchases",
-    file: "purchases-funding-panel.png",
+    file: "purchases-unified-scroll.png",
     waitFor: "text=Purchases",
     settleMs: 600,
+  },
+  {
+    // One purchase order card expanded inline, with the PurchaseEditor's
+    // line-item table visible and the new Vendor + Category columns
+    // populated. Bonus: focus the Vendor input and type one letter so the
+    // autocomplete datalist surfaces suggestions (NEB, etc.).
+    path: "/purchases",
+    file: "purchases-expanded-order.png",
+    waitFor: "text=Purchases",
+    settleMs: 800,
     action: async (page) => {
-      const btn = page
-        .getByText(/Manage Funding Accounts|Funding Accounts/i)
-        .first();
-      if (await btn.count()) {
-        try {
-          await btn.click({ timeout: 3000 });
-          await page.waitForTimeout(700);
-        } catch {}
+      try {
+        // Click the first purchase order card to expand its editor. The
+        // card header lives inside a <div className="...cursor-pointer">
+        // with the task name in an <h3>. Click the first such heading.
+        const card = page.locator("h3").filter({ hasText: /^Order\s+/i }).first();
+        if (await card.count()) {
+          await card.click({ timeout: 3000 });
+          await page.waitForTimeout(900);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ purchases-expanded-order open card: ${err.message}`);
+      }
+      try {
+        // Focus the Vendor input on the first item row and type one
+        // letter to surface the autocomplete datalist. The Vendor input
+        // uses VENDOR_DATALIST_ID via the list= attribute.
+        const vendorInput = page
+          .locator("input[list]")
+          .filter({ has: page.locator("xpath=.") })
+          .first();
+        // Fall back to a placeholder/aria match if list-attribute query
+        // misses.
+        let input = vendorInput;
+        if (!(await input.count())) {
+          input = page
+            .locator("input[placeholder*='vendor' i], input[aria-label*='vendor' i]")
+            .first();
+        }
+        if (await input.count()) {
+          await input.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
+          await input.click({ timeout: 3000 });
+          await input.type("N", { delay: 100, timeout: 3000 });
+          await page.waitForTimeout(600);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ purchases-expanded-order vendor input: ${err.message}`);
       }
     },
+  },
+  {
+    // FIXTURE NOTE: the amber yellow "This task is not typed as a
+    // purchase order..." warning in PurchaseEditor.tsx lines 409-415 is
+    // conditional on a `taskType` prop !== "purchase". The /purchases
+    // page passes taskType but filters out non-purchase tasks, so the
+    // banner never renders there. TaskDetailPopup renders PurchaseEditor
+    // without passing taskType, so the banner is also suppressed in the
+    // task-popup Purchases tab. The warning is therefore not currently
+    // surfaced through normal UI navigation against this fixture.
+    //
+    // Best-effort: open the workbench, click into alex's task 11
+    // ("Heat-shock survival assay" — task_type:experiment, has one
+    // purchase item id=20), switch to the Purchases tab. The screenshot
+    // shows the PurchaseEditor table on a non-purchase task even though
+    // the amber banner is suppressed. The wiki prose will describe the
+    // banner in words and cite the dashboard's "Items on non-purchase
+    // tasks" line (purchases-non-purchase-panel-expanded.png) as the
+    // formal user-facing surface.
+    path: "/experiments",
+    file: "purchases-non-purchase-warning.png",
+    waitFor: "h1, h2, text=Lab Notes",
+    settleMs: 1000,
+    action: async (page) => {
+      try {
+        // Task 11 ("Heat-shock survival assay") is incomplete, so it
+        // renders without needing to expand the "Show N completed"
+        // disclosure. Click directly.
+        const tile = page
+          .getByText(/Heat-shock survival assay/i)
+          .first();
+        if (await tile.count()) {
+          await tile.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+          await tile.click({ timeout: 3000 });
+          await page.waitForTimeout(900);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ purchases-non-purchase-warning open task: ${err.message}`);
+      }
+      try {
+        // Switch to the Purchases tab inside the TaskDetailPopup.
+        const tab = page
+          .locator("button")
+          .filter({ hasText: /^Purchases$/ })
+          .first();
+        if (await tab.count()) {
+          await tab.click({ timeout: 3000 });
+          await page.waitForTimeout(800);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ purchases-non-purchase-warning open tab: ${err.message}`);
+      }
+    },
+  },
+  {
+    // Tight clip around the dashboard's "Funding accounts" card grid
+    // (3 cards: DEMO-NIH / DEMO-DOE / DEMO-Internal-Bridge, possibly an
+    // Uncategorized tile if items lack a funding_string). Section
+    // heading "Funding accounts" is rendered as an <h4> inside
+    // SpendingDashboard.
+    path: "/purchases",
+    file: "purchases-dashboard-funding-cards.png",
+    waitFor: "text=Purchases",
+    settleMs: 900,
+    action: async (page) => {
+      try {
+        const clip = await page.evaluate(() => {
+          const headings = Array.from(
+            document.querySelectorAll("h2, h3, h4"),
+          );
+          const heading = headings.find(
+            (el) => (el.textContent || "").trim() === "Funding accounts",
+          );
+          if (!heading) return null;
+          // The <section> wrapper holds both the heading and the card
+          // grid. Walk up until we hit a SECTION (the dashboard groups
+          // each block in its own <section className="mb-8">).
+          let section = heading.parentElement;
+          while (section && section.tagName !== "SECTION") {
+            section = section.parentElement;
+          }
+          if (!section) return null;
+          section.scrollIntoView({ block: "start", behavior: "instant" });
+          const r = section.getBoundingClientRect();
+          const pad = 16;
+          const x = Math.max(0, Math.floor(r.left - pad));
+          const y = Math.max(0, Math.floor(r.top - pad));
+          const width = Math.min(
+            Math.max(0, window.innerWidth - x),
+            Math.ceil(r.width + pad * 2),
+          );
+          const height = Math.min(
+            Math.max(0, window.innerHeight - y),
+            Math.ceil(r.height + pad * 2),
+          );
+          return { x, y, width, height };
+        });
+        await page.waitForTimeout(300);
+        if (clip && clip.width > 100 && clip.height > 100) {
+          return { clip };
+        }
+      } catch (err) {
+        console.warn(`  ⚠ purchases-dashboard-funding-cards clip: ${err.message}`);
+      }
+    },
+  },
+  {
+    // Tight clip around the recharts BarChart that shows monthly spend.
+    // The chart sits inside a <section> headed by "Spend over time".
+    path: "/purchases",
+    file: "purchases-dashboard-spend-over-time.png",
+    waitFor: "text=Purchases",
+    settleMs: 900,
+    action: async (page) => {
+      try {
+        const clip = await page.evaluate(() => {
+          const headings = Array.from(
+            document.querySelectorAll("h2, h3, h4"),
+          );
+          const heading = headings.find(
+            (el) => (el.textContent || "").trim() === "Spend over time",
+          );
+          if (!heading) return null;
+          let section = heading.parentElement;
+          while (section && section.tagName !== "SECTION") {
+            section = section.parentElement;
+          }
+          if (!section) return null;
+          section.scrollIntoView({ block: "start", behavior: "instant" });
+          const r = section.getBoundingClientRect();
+          const pad = 16;
+          const x = Math.max(0, Math.floor(r.left - pad));
+          const y = Math.max(0, Math.floor(r.top - pad));
+          const width = Math.min(
+            Math.max(0, window.innerWidth - x),
+            Math.ceil(r.width + pad * 2),
+          );
+          const height = Math.min(
+            Math.max(0, window.innerHeight - y),
+            Math.ceil(r.height + pad * 2),
+          );
+          return { x, y, width, height };
+        });
+        await page.waitForTimeout(400);
+        if (clip && clip.width > 100 && clip.height > 100) {
+          return { clip };
+        }
+      } catch (err) {
+        console.warn(`  ⚠ purchases-dashboard-spend-over-time clip: ${err.message}`);
+      }
+    },
+  },
+  {
+    // Dashboard breakdown section, segmented control on the default
+    // "Project" lens. The section heading is "Breakdown by {lens}" so
+    // we anchor the lookup off the segmented-control buttons (the three
+    // exact-text pills "Project" / "Vendor" / "Category" sit inside a
+    // shared container).
+    path: "/purchases",
+    file: "purchases-dashboard-breakdown-project.png",
+    waitFor: "text=Purchases",
+    settleMs: 900,
+    action: async (page) => {
+      try {
+        const clip = await page.evaluate(() => {
+          // Find the segmented-control button labeled "Project" and walk
+          // up to its enclosing <section>.
+          const buttons = Array.from(document.querySelectorAll("button"));
+          const pill = buttons.find(
+            (el) => (el.textContent || "").trim() === "Project",
+          );
+          if (!pill) return null;
+          let section = pill.parentElement;
+          while (section && section.tagName !== "SECTION") {
+            section = section.parentElement;
+          }
+          if (!section) return null;
+          section.scrollIntoView({ block: "start", behavior: "instant" });
+          const r = section.getBoundingClientRect();
+          const pad = 16;
+          const x = Math.max(0, Math.floor(r.left - pad));
+          const y = Math.max(0, Math.floor(r.top - pad));
+          const width = Math.min(
+            Math.max(0, window.innerWidth - x),
+            Math.ceil(r.width + pad * 2),
+          );
+          const height = Math.min(
+            Math.max(0, window.innerHeight - y),
+            Math.ceil(r.height + pad * 2),
+          );
+          return { x, y, width, height };
+        });
+        await page.waitForTimeout(400);
+        if (clip && clip.width > 100 && clip.height > 100) {
+          return { clip };
+        }
+      } catch (err) {
+        console.warn(
+          `  ⚠ purchases-dashboard-breakdown-project clip: ${err.message}`,
+        );
+      }
+    },
+  },
+  {
+    // Same area, "Vendor" pill clicked first.
+    path: "/purchases",
+    file: "purchases-dashboard-breakdown-vendor.png",
+    waitFor: "text=Purchases",
+    settleMs: 900,
+    action: async (page) => {
+      try {
+        const pill = page
+          .locator("button")
+          .filter({ hasText: /^Vendor$/ })
+          .first();
+        if (await pill.count()) {
+          await pill.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+          await pill.click({ timeout: 3000 });
+          await page.waitForTimeout(700);
+        }
+      } catch (err) {
+        console.warn(
+          `  ⚠ purchases-dashboard-breakdown-vendor click: ${err.message}`,
+        );
+      }
+      try {
+        const clip = await page.evaluate(() => {
+          const buttons = Array.from(document.querySelectorAll("button"));
+          const pill = buttons.find(
+            (el) => (el.textContent || "").trim() === "Vendor",
+          );
+          if (!pill) return null;
+          let section = pill.parentElement;
+          while (section && section.tagName !== "SECTION") {
+            section = section.parentElement;
+          }
+          if (!section) return null;
+          section.scrollIntoView({ block: "start", behavior: "instant" });
+          const r = section.getBoundingClientRect();
+          const pad = 16;
+          const x = Math.max(0, Math.floor(r.left - pad));
+          const y = Math.max(0, Math.floor(r.top - pad));
+          const width = Math.min(
+            Math.max(0, window.innerWidth - x),
+            Math.ceil(r.width + pad * 2),
+          );
+          const height = Math.min(
+            Math.max(0, window.innerHeight - y),
+            Math.ceil(r.height + pad * 2),
+          );
+          return { x, y, width, height };
+        });
+        await page.waitForTimeout(400);
+        if (clip && clip.width > 100 && clip.height > 100) {
+          return { clip };
+        }
+      } catch (err) {
+        console.warn(
+          `  ⚠ purchases-dashboard-breakdown-vendor clip: ${err.message}`,
+        );
+      }
+    },
+  },
+  {
+    // Same area, "Category" pill clicked first.
+    path: "/purchases",
+    file: "purchases-dashboard-breakdown-category.png",
+    waitFor: "text=Purchases",
+    settleMs: 900,
+    action: async (page) => {
+      try {
+        const pill = page
+          .locator("button")
+          .filter({ hasText: /^Category$/ })
+          .first();
+        if (await pill.count()) {
+          await pill.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+          await pill.click({ timeout: 3000 });
+          await page.waitForTimeout(700);
+        }
+      } catch (err) {
+        console.warn(
+          `  ⚠ purchases-dashboard-breakdown-category click: ${err.message}`,
+        );
+      }
+      try {
+        const clip = await page.evaluate(() => {
+          const buttons = Array.from(document.querySelectorAll("button"));
+          const pill = buttons.find(
+            (el) => (el.textContent || "").trim() === "Category",
+          );
+          if (!pill) return null;
+          let section = pill.parentElement;
+          while (section && section.tagName !== "SECTION") {
+            section = section.parentElement;
+          }
+          if (!section) return null;
+          section.scrollIntoView({ block: "start", behavior: "instant" });
+          const r = section.getBoundingClientRect();
+          const pad = 16;
+          const x = Math.max(0, Math.floor(r.left - pad));
+          const y = Math.max(0, Math.floor(r.top - pad));
+          const width = Math.min(
+            Math.max(0, window.innerWidth - x),
+            Math.ceil(r.width + pad * 2),
+          );
+          const height = Math.min(
+            Math.max(0, window.innerHeight - y),
+            Math.ceil(r.height + pad * 2),
+          );
+          return { x, y, width, height };
+        });
+        await page.waitForTimeout(400);
+        if (clip && clip.width > 100 && clip.height > 100) {
+          return { clip };
+        }
+      } catch (err) {
+        console.warn(
+          `  ⚠ purchases-dashboard-breakdown-category clip: ${err.message}`,
+        );
+      }
+    },
+  },
+  {
+    // Dashboard's "Items on non-purchase tasks" amber strip, clicked to
+    // expand the inline table. Pattern: find the strip's <button> by its
+    // "Items on non-purchase tasks:" text, click it, then tight-clip the
+    // enclosing <section>.
+    path: "/purchases",
+    file: "purchases-non-purchase-panel-expanded.png",
+    waitFor: "text=Purchases",
+    settleMs: 900,
+    action: async (page) => {
+      try {
+        const strip = page
+          .getByText(/Items on non-purchase tasks:/i)
+          .first();
+        if (await strip.count()) {
+          await strip.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+          await strip.click({ timeout: 3000 });
+          await page.waitForTimeout(700);
+        }
+      } catch (err) {
+        console.warn(
+          `  ⚠ purchases-non-purchase-panel-expanded click: ${err.message}`,
+        );
+      }
+      try {
+        const clip = await page.evaluate(() => {
+          // The strip's text lives inside a <button>; the enclosing
+          // <section className="mb-2"> wraps the whole amber block.
+          const all = Array.from(document.querySelectorAll("p, span"));
+          const label = all.find((el) =>
+            /Items on non-purchase tasks:/i.test(el.textContent || ""),
+          );
+          if (!label) return null;
+          let section = label.parentElement;
+          while (section && section.tagName !== "SECTION") {
+            section = section.parentElement;
+          }
+          if (!section) return null;
+          section.scrollIntoView({ block: "start", behavior: "instant" });
+          const r = section.getBoundingClientRect();
+          const pad = 16;
+          const x = Math.max(0, Math.floor(r.left - pad));
+          const y = Math.max(0, Math.floor(r.top - pad));
+          const width = Math.min(
+            Math.max(0, window.innerWidth - x),
+            Math.ceil(r.width + pad * 2),
+          );
+          const height = Math.min(
+            Math.max(0, window.innerHeight - y),
+            Math.ceil(r.height + pad * 2),
+          );
+          return { x, y, width, height };
+        });
+        await page.waitForTimeout(300);
+        if (clip && clip.width > 100 && clip.height > 100) {
+          return { clip };
+        }
+      } catch (err) {
+        console.warn(
+          `  ⚠ purchases-non-purchase-panel-expanded clip: ${err.message}`,
+        );
+      }
+    },
+  },
+  {
+    // Highlight the "Export CSV" button on the dashboard. The button
+    // sits in the dashboard header above the Funding accounts grid.
+    path: "/purchases",
+    file: "purchases-csv-export.png",
+    waitFor: "text=Purchases",
+    settleMs: 800,
+    highlight: { text: "Export CSV" },
   },
   {
     path: "/calendar",

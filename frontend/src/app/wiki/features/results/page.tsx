@@ -35,14 +35,13 @@ export default function ResultsFeaturePage() {
         caption="The Earlier results section sits at the bottom of the Workbench. The project-grouping toggle in its header flips between flat and project-grouped views."
       />
 
-      <h2>Completed purchases → Purchases &ldquo;Earlier&rdquo;</h2>
+      <h2>Completed purchases → Purchases unified scroll</h2>
       <p>
-        Finished purchase orders fold into the <strong>Earlier</strong>{" "}
-        accordion at the bottom of the{" "}
-        <Link href="/wiki/features/purchases">Purchases</Link> page. The
-        accordion stays collapsed by default so the active orders dominate
-        the view; click to expand and the historical buys appear with the
-        same per-row layout as the live ones.
+        Finished purchase orders appear inline in the{" "}
+        <Link href="/wiki/features/purchases">Purchases</Link> chronological
+        list alongside active orders, marked with a green dot and a{" "}
+        <code> · Complete</code> text suffix. There is no separate Earlier
+        section.
       </p>
 
       <h2>Per-project completed work → project popup</h2>
