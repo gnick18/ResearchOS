@@ -14,6 +14,7 @@ import PcrMethodTabContent from "./methods/PcrMethodTabContent";
 import LcMethodTabContent from "./methods/LcMethodTabContent";
 import PlateMethodTabContent from "./methods/PlateMethodTabContent";
 import CellCultureMethodTabContent from "./methods/CellCultureMethodTabContent";
+import CompoundMethodTabContent from "./methods/CompoundMethodTabContent";
 
 interface MethodTabsProps {
   task: Task;
@@ -135,6 +136,8 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                   <span className="text-xs">🧪</span>
                 ) : method?.method_type === "pdf" ? (
                   <span className="text-xs">📕</span>
+                ) : method?.method_type === "compound" ? (
+                  <span className="text-xs">📦</span>
                 ) : (
                   <span className="text-xs">📄</span>
                 )}
@@ -281,6 +284,17 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                     readOnly={readOnly}
                   />
                 );
+              case "compound":
+                return (
+                  <CompoundMethodTabContent
+                    task={task}
+                    method={activeMethod}
+                    methodId={activeMethodId}
+                    attachment={activeAttachment}
+                    onTaskUpdate={onTaskUpdate}
+                    readOnly={readOnly}
+                  />
+                );
               case "markdown":
               default:
                 return (
@@ -311,7 +325,8 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
 function resolveMethodType(
   methodType: string | null | undefined,
   sourcePath: string | null | undefined,
-): "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" {
+): "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "compound" {
+  if (methodType === "compound") return "compound";
   if (methodType === "pcr" || (sourcePath?.startsWith("pcr://") ?? false)) return "pcr";
   if (
     methodType === "lc_gradient" ||

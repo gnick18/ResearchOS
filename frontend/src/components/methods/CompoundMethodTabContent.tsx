@@ -380,7 +380,6 @@ interface CompoundChildSectionProps {
   methodId: number;
   onTaskUpdate?: (task: Task) => void;
   readOnly: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   makeChildAdapter: <T>(childIdKey: string) => NestedSnapshotAdapter<T>;
   idKey: string;
 }
