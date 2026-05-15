@@ -12,8 +12,12 @@ import {
 } from "react";
 import { usePathname } from "next/navigation";
 import OnboardingTipCard from "@/components/OnboardingTipCard";
+import OnboardingTutorialSequencer from "@/components/OnboardingTutorialSequencer";
 import OnboardingWelcomeModal from "@/components/OnboardingWelcomeModal";
-import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
+import {
+  isDemoOrWikiCapture,
+  isTutorialMode,
+} from "@/lib/file-system/wiki-capture-mock";
 import {
   getActiveSeconds,
   initActiveTime,
@@ -425,14 +429,20 @@ export function useOnboarding(): OrchestratorContextValue | null {
 }
 
 /**
- * Top-level provider that decides whether to mount the orchestrator at
- * all. Mounts only when:
- *  - `!isDemoOrWikiCapture()` (the system is exempt in demo + wiki-capture)
- *  - `currentUser` is set
+ * Top-level provider that decides what onboarding surface (if any) to
+ * mount. Decision matrix:
+ *  - `!currentUser` → pass-through (no signed-in user, no orchestrator).
+ *  - demo/wiki-capture mode AND `?tutorial=1` → mount the Phase-4
+ *    `<OnboardingTutorialSequencer>` so the guided tour can run
+ *    against the demo lab's seeded data (real tabs land at
+ *    `/demo?tutorial=1` from the welcome modal).
+ *  - demo/wiki-capture mode without `?tutorial=1` → pass-through
+ *    (screenshots and the public demo never see real onboarding tips).
+ *  - everything else → mount the normal `<OnboardingOrchestrator>`.
  *
- * Pass-through (children-only render) in every other case. This mirrors
- * the existing `if (isDemoOrWikiCapture() && currentUser)` short-circuit
- * pattern in `providers.tsx`.
+ * Mirrors the existing `if (isDemoOrWikiCapture() && currentUser)`
+ * short-circuit pattern in `providers.tsx` with the new tutorial-tab
+ * carve-out wired in.
  */
 export function OnboardingProvider({
   currentUser,
@@ -445,7 +455,17 @@ export function OnboardingProvider({
   // (sign-out), we unmount the orchestrator entirely — which flushes
   // the active-time tracker via its cleanup.
   if (!currentUser) return <>{children}</>;
-  if (isDemoOrWikiCapture()) return <>{children}</>;
+  if (isDemoOrWikiCapture()) {
+    if (isTutorialMode()) {
+      return (
+        <>
+          {children}
+          <OnboardingTutorialSequencer />
+        </>
+      );
+    }
+    return <>{children}</>;
+  }
   return (
     <OnboardingOrchestrator username={currentUser}>
       {children}

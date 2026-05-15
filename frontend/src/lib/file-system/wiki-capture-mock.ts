@@ -260,6 +260,21 @@ export function isDemoOrWikiCapture(): boolean {
   return isWikiCaptureMode() || getDemoMode();
 }
 
+/** True when the URL carries `?tutorial=1`. Drives the Phase-4 guided
+ *  tour: when this is set AND the demo lab is loaded, the orchestrator
+ *  mounts the `<OnboardingTutorialSequencer>` instead of staying dark.
+ *  The flag passes through within-tour navigations so `router.push`
+ *  helpers must preserve it. SSR-safe: returns false on the server. */
+export function isTutorialMode(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("tutorial") === "1";
+  } catch {
+    return false;
+  }
+}
+
 let installed = false;
 
 /** Hoisted to module scope so `getFixtureSnapshot()` can read them after
