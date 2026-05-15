@@ -601,18 +601,25 @@ function NumericCell({
   editable: boolean;
   onChange: (value: number | null) => void;
 }) {
+  const inner = editable ? (
+    <input
+      type="number"
+      value={fmtNumber(value)}
+      step="0.01"
+      onChange={(e) => onChange(parseNumberOrNull(e.target.value))}
+      className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+    />
+  ) : (
+    <span className="text-gray-700">{value}</span>
+  );
   return (
-    <td className={`px-3 py-2 ${cellClass}`} title={tooltip}>
-      {editable ? (
-        <input
-          type="number"
-          value={fmtNumber(value)}
-          step="0.01"
-          onChange={(e) => onChange(parseNumberOrNull(e.target.value))}
-          className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
+    <td className={`px-3 py-2 ${cellClass}`}>
+      {tooltip ? (
+        <Tooltip label={tooltip} placement="top">
+          {inner}
+        </Tooltip>
       ) : (
-        <span className="text-gray-700">{value}</span>
+        inner
       )}
     </td>
   );
@@ -634,20 +641,28 @@ function FieldRow({
   editable: boolean;
 }) {
   const modified = originalValue !== undefined && originalValue !== value;
+  const input = (
+    <input
+      type="text"
+      value={value}
+      placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)}
+      className={`w-full px-2 py-1.5 border border-gray-200 rounded text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+        modified ? MODIFIED_CELL_CLASSES : ""
+      }`}
+    />
+  );
   return (
     <label className="block text-xs font-medium text-gray-500 space-y-1">
       <span>{label}</span>
       {editable ? (
-        <input
-          type="text"
-          value={value}
-          placeholder={placeholder}
-          onChange={(e) => onChange(e.target.value)}
-          title={modified ? originalValueTooltip(originalValue ?? "(empty)") : undefined}
-          className={`w-full px-2 py-1.5 border border-gray-200 rounded text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-            modified ? MODIFIED_CELL_CLASSES : ""
-          }`}
-        />
+        modified ? (
+          <Tooltip label={originalValueTooltip(originalValue ?? "(empty)")} placement="top">
+            {input}
+          </Tooltip>
+        ) : (
+          input
+        )
       ) : (
         <span className="block text-sm text-gray-700">{value || "—"}</span>
       )}
@@ -670,24 +685,28 @@ function NumericFieldRow({
 }) {
   const modified =
     originalValue !== undefined && (originalValue ?? null) !== (value ?? null);
+  const input = (
+    <input
+      type="number"
+      value={fmtNumber(value)}
+      step="0.01"
+      onChange={(e) => onChange(parseNumberOrNull(e.target.value))}
+      className={`w-full px-2 py-1.5 border border-gray-200 rounded text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+        modified ? MODIFIED_CELL_CLASSES : ""
+      }`}
+    />
+  );
   return (
     <label className="block text-xs font-medium text-gray-500 space-y-1">
       <span>{label}</span>
       {editable ? (
-        <input
-          type="number"
-          value={fmtNumber(value)}
-          step="0.01"
-          onChange={(e) => onChange(parseNumberOrNull(e.target.value))}
-          title={
-            modified
-              ? originalValueTooltip(originalValue ?? "(empty)")
-              : undefined
-          }
-          className={`w-full px-2 py-1.5 border border-gray-200 rounded text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-            modified ? MODIFIED_CELL_CLASSES : ""
-          }`}
-        />
+        modified ? (
+          <Tooltip label={originalValueTooltip(originalValue ?? "(empty)")} placement="top">
+            {input}
+          </Tooltip>
+        ) : (
+          input
+        )
       ) : (
         <span className="block text-sm text-gray-700">
           {value === null || value === undefined ? "—" : value}
@@ -724,60 +743,93 @@ function IngredientRow({
     return originalValueTooltip(String(original[field] ?? "(empty)"));
   };
 
+  const nameInner = editable ? (
+    <input
+      type="text"
+      value={ing.name}
+      onChange={(e) => onUpdate("name", e.target.value)}
+      className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+    />
+  ) : (
+    <span className="text-gray-700">{ing.name}</span>
+  );
+  const roleInner = editable ? (
+    <select
+      value={ing.role}
+      onChange={(e) => onUpdate("role", e.target.value as LCIngredientRole)}
+      className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+    >
+      {ROLE_OPTIONS.map((r) => (
+        <option key={r} value={r}>
+          {ROLE_LABELS[r]}
+        </option>
+      ))}
+    </select>
+  ) : (
+    <span className="text-gray-700">{ROLE_LABELS[ing.role]}</span>
+  );
+  const concInner = editable ? (
+    <input
+      type="text"
+      value={ing.concentration ?? ""}
+      onChange={(e) => onUpdate("concentration", e.target.value)}
+      placeholder="e.g. 0.1%, 10 mM"
+      className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+    />
+  ) : (
+    <span className="text-gray-700">{ing.concentration || "—"}</span>
+  );
+  const notesInner = editable ? (
+    <input
+      type="text"
+      value={ing.notes ?? ""}
+      onChange={(e) => onUpdate("notes", e.target.value)}
+      className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+    />
+  ) : (
+    <span className="text-gray-700">{ing.notes || ""}</span>
+  );
+  const nameTip = cellTooltip("name");
+  const roleTip = cellTooltip("role");
+  const concTip = cellTooltip("concentration");
+  const notesTip = cellTooltip("notes");
+
   return (
     <tr className={added ? ADDED_ROW_CLASSES : ""}>
-      <td className={`px-3 py-2 ${cellClass("name")}`} title={cellTooltip("name")}>
-        {editable ? (
-          <input
-            type="text"
-            value={ing.name}
-            onChange={(e) => onUpdate("name", e.target.value)}
-            className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
+      <td className={`px-3 py-2 ${cellClass("name")}`}>
+        {nameTip ? (
+          <Tooltip label={nameTip} placement="top">
+            {nameInner}
+          </Tooltip>
         ) : (
-          <span className="text-gray-700">{ing.name}</span>
+          nameInner
         )}
       </td>
-      <td className={`px-3 py-2 ${cellClass("role")}`} title={cellTooltip("role")}>
-        {editable ? (
-          <select
-            value={ing.role}
-            onChange={(e) => onUpdate("role", e.target.value as LCIngredientRole)}
-            className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
-          >
-            {ROLE_OPTIONS.map((r) => (
-              <option key={r} value={r}>
-                {ROLE_LABELS[r]}
-              </option>
-            ))}
-          </select>
+      <td className={`px-3 py-2 ${cellClass("role")}`}>
+        {roleTip ? (
+          <Tooltip label={roleTip} placement="top">
+            {roleInner}
+          </Tooltip>
         ) : (
-          <span className="text-gray-700">{ROLE_LABELS[ing.role]}</span>
+          roleInner
         )}
       </td>
-      <td className={`px-3 py-2 ${cellClass("concentration")}`} title={cellTooltip("concentration")}>
-        {editable ? (
-          <input
-            type="text"
-            value={ing.concentration ?? ""}
-            onChange={(e) => onUpdate("concentration", e.target.value)}
-            placeholder="e.g. 0.1%, 10 mM"
-            className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
+      <td className={`px-3 py-2 ${cellClass("concentration")}`}>
+        {concTip ? (
+          <Tooltip label={concTip} placement="top">
+            {concInner}
+          </Tooltip>
         ) : (
-          <span className="text-gray-700">{ing.concentration || "—"}</span>
+          concInner
         )}
       </td>
-      <td className={`px-3 py-2 ${cellClass("notes")}`} title={cellTooltip("notes")}>
-        {editable ? (
-          <input
-            type="text"
-            value={ing.notes ?? ""}
-            onChange={(e) => onUpdate("notes", e.target.value)}
-            className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
+      <td className={`px-3 py-2 ${cellClass("notes")}`}>
+        {notesTip ? (
+          <Tooltip label={notesTip} placement="top">
+            {notesInner}
+          </Tooltip>
         ) : (
-          <span className="text-gray-700">{ing.notes || ""}</span>
+          notesInner
         )}
       </td>
       {editable && (
