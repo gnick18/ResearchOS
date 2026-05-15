@@ -1,4 +1,10 @@
-import { parseContent } from "@/lib/stamp-utils";
+// `extractUserContent` + `hasUserContent` re-exported from stamp-utils as
+// of 2026-05-15 — they're stamp-aware helpers and several briefs/callers
+// already assumed that's where they lived. AGENTS.md §8 (e307bb17) flagged
+// the architecture cleanup. Importers from `lib/export/markdown` still
+// resolve via the re-exports below; new callers should import directly
+// from `@/lib/stamp-utils`.
+export { extractUserContent, hasUserContent } from "@/lib/stamp-utils";
 
 // Matches markdown image / file refs. Lazy `[^)\n]+?` instead of `[^)\s]+`
 // so filenames with spaces survive (mirrors `IMG_REF_REGEX` in
@@ -6,31 +12,6 @@ import { parseContent } from "@/lib/stamp-utils";
 // inline pasted HTML images would otherwise be missed.
 const MD_REF_REGEX = /!?\[[^\]]*\]\(([^)\n]+?)\)/g;
 const HTML_IMG_REF_REGEX = /<img\s+[^>]*src=["']([^"']+)["'][^>]*>/gi;
-
-/**
- * Heuristic: does this markdown have any user content beyond the default
- * "# Lab Notes: …" / "# Results: …" stamp header? Used by format generators
- * to skip empty notes/results sections.
- */
-export function hasUserContent(content: string | null | undefined): boolean {
-  if (!content || !content.trim()) return false;
-  const parsed = parseContent(content);
-  const userContent = parsed.content.trim();
-  if (!userContent) return false;
-  const headerOnlyPattern = /^#\s+(Lab Notes|Results):\s+.+\s*$/i;
-  if (headerOnlyPattern.test(userContent.trim())) return false;
-  return true;
-}
-
-/**
- * Strip stamp metadata, returning just the user-authored body. Used by all
- * formats except `raw` (which keeps the raw stamped markdown verbatim).
- */
-export function extractUserContent(content: string | null | undefined): string {
-  if (!content) return "";
-  const parsed = parseContent(content);
-  return parsed.content.trim();
-}
 
 /**
  * Demote every markdown heading by one level (# → ##, ## → ###, etc.). Used

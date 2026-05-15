@@ -12,7 +12,7 @@
  * a styled placeholder; never notes.md).
  */
 import { fileService } from "../file-system/file-service";
-import { extractUserContent } from "../export/markdown";
+import { extractUserContent } from "@/lib/stamp-utils";
 import {
   findExistingTaskResultsBase as findExistingTaskResultsBaseInner,
   legacyTaskResultsBase,
