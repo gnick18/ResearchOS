@@ -1,10 +1,11 @@
 {
   "projects": 4,
   "tasks": 29,
-  "methods": 5,
+  "methods": 6,
   "events": 4,
   "goals": 2,
   "pcr_protocols": 1,
+  "lc_gradients": 1,
   "purchase_items": 20,
   "lab_links": 6,
   "notes": 2,
