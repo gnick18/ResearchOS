@@ -13,6 +13,7 @@ export default function PurchasesPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [deletingTaskId, setDeletingTaskId] = useState<number | null>(null);
   const [showFundingManager, setShowFundingManager] = useState(false);
+  const [showEarlier, setShowEarlier] = useState<boolean>(false);
   const queryClient = useQueryClient();
 
   const { currentUser: providerCurrentUser } = useCurrentUser();
@@ -61,6 +62,23 @@ export default function PurchasesPage() {
   const purchaseTasks = useMemo(
     () => allTasks.filter((t) => t.task_type === "purchase"),
     [allTasks]
+  );
+
+  // Split into active pipeline (top) and completed history ("Earlier"
+  // accordion at the bottom). Both sorted by start_date desc — newest first.
+  const activeTasks = useMemo(
+    () =>
+      purchaseTasks
+        .filter((t) => !t.is_complete)
+        .sort((a, b) => b.start_date.localeCompare(a.start_date)),
+    [purchaseTasks]
+  );
+  const earlierTasks = useMemo(
+    () =>
+      purchaseTasks
+        .filter((t) => t.is_complete)
+        .sort((a, b) => b.start_date.localeCompare(a.start_date)),
+    [purchaseTasks]
   );
 
   // Group purchases by task. Items now carry `owner` (decorated by
@@ -128,141 +146,181 @@ export default function PurchasesPage() {
         )}
 
         {/* Purchase tasks list */}
-        {purchaseTasks.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-lg text-gray-400 mb-2">No purchases yet</p>
-            <p className="text-sm text-gray-300">
-              Create a task with type &ldquo;Purchase&rdquo; to start tracking
-              orders
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {purchaseTasks
-              .sort((a, b) => b.start_date.localeCompare(a.start_date))
-              .map((task) => {
-                // Purchases live in the task owner's data folder. The
-                // merged-view loader (`listAllIncludingShared`) reads both
-                // the current user's items and each shared-task owner's
-                // items, so shared purchase tasks now render with their real
-                // items + totals. The composite key matches because each
-                // item is decorated with its on-disk `owner`.
-                const items = purchasesByTask[`${task.owner}:${task.id}`] || [];
-                const taskTotal = items.reduce(
-                  (sum, i) => sum + (i.total_price ?? 0),
-                  0
-                );
-                // Project lookup must compare both `id` AND `owner` — per-user
-                // ID spaces mean alex's project 1 and morgan's project 1 are
-                // different projects.
-                const project = projects.find(
-                  (p) => p.id === task.project_id && p.owner === task.owner
-                );
-                const tkey = taskKey(task);
-                const isOpen = selectedTask !== null && taskKey(selectedTask) === tkey;
+        {(() => {
+          // Shared per-task card renderer — used by both the active pipeline
+          // up top and the collapsed "Earlier" accordion at the bottom. Kept
+          // inline so it closes over `selectedTask`, `projects`,
+          // `purchasesByTask`, `queryClient`, etc. without prop-drilling.
+          const renderPurchaseTaskCard = (task: Task) => {
+            // Purchases live in the task owner's data folder. The
+            // merged-view loader (`listAllIncludingShared`) reads both the
+            // current user's items and each shared-task owner's items, so
+            // shared purchase tasks render with real items + totals. The
+            // composite key matches because each item is decorated with its
+            // on-disk `owner`.
+            const items = purchasesByTask[`${task.owner}:${task.id}`] || [];
+            const taskTotal = items.reduce(
+              (sum, i) => sum + (i.total_price ?? 0),
+              0
+            );
+            // Project lookup must compare both `id` AND `owner` — per-user
+            // ID spaces mean alex's project 1 and morgan's project 1 are
+            // different projects.
+            const project = projects.find(
+              (p) => p.id === task.project_id && p.owner === task.owner
+            );
+            const tkey = taskKey(task);
+            const isOpen = selectedTask !== null && taskKey(selectedTask) === tkey;
 
-                return (
-                  <div
-                    key={tkey}
-                    className="bg-white border border-gray-200 rounded-xl overflow-hidden"
-                  >
-                    {/* Task header */}
+            return (
+              <div
+                key={tkey}
+                className="bg-white border border-gray-200 rounded-xl overflow-hidden"
+              >
+                {/* Task header */}
+                <div
+                  className={`flex items-center justify-between px-5 py-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${task.is_complete ? "bg-green-50/50" : ""}`}
+                  onClick={() => setSelectedTask(isOpen ? null : task)}
+                >
+                  <div className="flex items-center gap-3">
+                    {/* Completion indicator */}
                     <div
-                      className={`flex items-center justify-between px-5 py-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${task.is_complete ? "bg-green-50/50" : ""}`}
-                      onClick={() =>
-                        setSelectedTask(isOpen ? null : task)
-                      }
-                    >
-                      <div className="flex items-center gap-3">
-                        {/* Completion indicator */}
-                        <div
-                          className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                            task.is_complete ? "bg-green-500" : "bg-gray-300"
-                          }`}
-                        />
-                        <div>
-                          <h3 className={`text-sm font-semibold ${task.is_complete ? "text-green-700" : "text-gray-900"}`}>
-                            {task.name}
-                          </h3>
-                          <p className="text-xs text-gray-400">
-                            {project?.name} · {task.start_date} ·{" "}
-                            {items.length} item{items.length !== 1 ? "s" : ""}{task.is_complete && " · Complete"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-semibold text-gray-700">
-                          ${taskTotal.toFixed(2)}
-                        </span>
-                        <span className="text-gray-400">
-                          {isOpen ? "▲" : "▼"}
-                        </span>
-                      </div>
+                      className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                        task.is_complete ? "bg-green-500" : "bg-gray-300"
+                      }`}
+                    />
+                    <div>
+                      <h3 className={`text-sm font-semibold ${task.is_complete ? "text-green-700" : "text-gray-900"}`}>
+                        {task.name}
+                      </h3>
+                      <p className="text-xs text-gray-400">
+                        {project?.name} · {task.start_date} ·{" "}
+                        {items.length} item{items.length !== 1 ? "s" : ""}{task.is_complete && " · Complete"}
+                      </p>
                     </div>
-
-                    {/* Expanded purchase editor */}
-                    {isOpen && (
-                      <div className="relative">
-                        <PurchaseEditor taskId={task.id} />
-                        {/* Action buttons */}
-                        <div className="absolute bottom-3 right-4 flex items-center gap-2">
-                          {/* Complete toggle button */}
-                          <Tooltip label={task.is_complete ? "Mark as incomplete" : "Mark as complete"} placement="bottom">
-                            <button
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                try {
-                                  await tasksApi.update(task.id, { is_complete: !task.is_complete });
-                                  queryClient.invalidateQueries({ queryKey: ["tasks"] });
-                                } catch {
-                                  alert("Failed to update task");
-                                }
-                              }}
-                              className={`p-1.5 rounded-full transition-all ${
-                                task.is_complete
-                                  ? "bg-green-500 text-white hover:bg-green-600"
-                                  : "text-gray-300 hover:text-green-500 hover:bg-green-50"
-                              }`}
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M20 6L9 17l-5-5"/>
-                              </svg>
-                            </button>
-                          </Tooltip>
-                          {/* Delete task button */}
-                          <Tooltip label="Delete purchase order" placement="bottom">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteTask(task.id);
-                              }}
-                              disabled={deletingTaskId === task.id}
-                              className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                            >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                strokeWidth={1.5}
-                                stroke="currentColor"
-                                className="w-5 h-5"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
-                                />
-                              </svg>
-                            </button>
-                          </Tooltip>
-                        </div>
-                      </div>
-                    )}
                   </div>
-                );
-              })}
-          </div>
-        )}
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold text-gray-700">
+                      ${taskTotal.toFixed(2)}
+                    </span>
+                    <span className="text-gray-400">
+                      {isOpen ? "▲" : "▼"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Expanded purchase editor */}
+                {isOpen && (
+                  <div className="relative">
+                    <PurchaseEditor taskId={task.id} />
+                    {/* Action buttons */}
+                    <div className="absolute bottom-3 right-4 flex items-center gap-2">
+                      {/* Complete toggle button */}
+                      <Tooltip label={task.is_complete ? "Mark as incomplete" : "Mark as complete"} placement="bottom">
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              await tasksApi.update(task.id, { is_complete: !task.is_complete });
+                              queryClient.invalidateQueries({ queryKey: ["tasks"] });
+                            } catch {
+                              alert("Failed to update task");
+                            }
+                          }}
+                          className={`p-1.5 rounded-full transition-all ${
+                            task.is_complete
+                              ? "bg-green-500 text-white hover:bg-green-600"
+                              : "text-gray-300 hover:text-green-500 hover:bg-green-50"
+                          }`}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M20 6L9 17l-5-5"/>
+                          </svg>
+                        </button>
+                      </Tooltip>
+                      {/* Delete task button */}
+                      <Tooltip label="Delete purchase order" placement="bottom">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteTask(task.id);
+                          }}
+                          disabled={deletingTaskId === task.id}
+                          className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={1.5}
+                            stroke="currentColor"
+                            className="w-5 h-5"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
+                            />
+                          </svg>
+                        </button>
+                      </Tooltip>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          };
+
+          if (purchaseTasks.length === 0) {
+            return (
+              <div className="text-center py-16">
+                <p className="text-lg text-gray-400 mb-2">No purchases yet</p>
+                <p className="text-sm text-gray-300">
+                  Create a task with type &ldquo;Purchase&rdquo; to start
+                  tracking orders
+                </p>
+              </div>
+            );
+          }
+
+          return (
+            <>
+              {/* Active pipeline — the focused, uncluttered top list. */}
+              {activeTasks.length > 0 ? (
+                <div className="space-y-4">
+                  {activeTasks.map(renderPurchaseTaskCard)}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-sm text-gray-400">
+                    No active purchase orders — see Earlier below for history.
+                  </p>
+                </div>
+              )}
+
+              {/* Earlier accordion — completed purchases, default collapsed.
+                  Hidden when there's no history at all. */}
+              {earlierTasks.length > 0 && (
+                <div className="mt-10">
+                  <button
+                    onClick={() => setShowEarlier((v) => !v)}
+                    className="w-full flex items-center gap-2 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider hover:text-gray-600 transition-colors"
+                  >
+                    <span className="inline-block w-3 text-left">
+                      {showEarlier ? "▾" : "▸"}
+                    </span>
+                    <span>Earlier ({earlierTasks.length})</span>
+                  </button>
+                  {showEarlier && (
+                    <div className="space-y-4 mt-3">
+                      {earlierTasks.map(renderPurchaseTaskCard)}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          );
+        })()}
       </div>
     </AppShell>
   );
