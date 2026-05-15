@@ -3103,7 +3103,26 @@ export const usersApi = {
           return { status: "error", deleted_username: "", message: "Users directory not found" };
         }
 
-        await usersDir.removeEntry(username, { recursive: true });
+        // Tombstone FIRST. This is the authoritative delete record: it
+        // survives cloud-sync (OneDrive Files On-Demand can re-spawn the
+        // directory as a placeholder after a hard-delete, defeating the
+        // recursive removeEntry below). Once tombstoned, discoverUsers and
+        // usersApi.list filter the user out regardless of whether the
+        // folder bytes still exist on disk. See INVESTIGATION_USER_LEAKS.md.
+        await setUserMetadataField(username, "deleted_at", new Date().toISOString());
+
+        // Hard-delete the folder bytes as a best-effort cleanup. On
+        // cloud-synced folders this may fail (locked stub, permissions),
+        // but the tombstone above is the source of truth; we don't want a
+        // cloud-locked folder to abort the delete flow.
+        try {
+          await usersDir.removeEntry(username, { recursive: true });
+        } catch (err) {
+          console.warn(
+            `usersApi.delete: tombstone written for '${username}' but recursive removeEntry failed (likely cloud-sync stub); user is hidden from pickers regardless`,
+            err,
+          );
+        }
 
         return {
           status: "ok",
