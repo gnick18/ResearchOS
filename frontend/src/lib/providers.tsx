@@ -77,8 +77,20 @@ function AppContent({ children }: { children: ReactNode }) {
   // screenshots that captured the picker UI in this mode may need
   // recapturing — flagged in §8 for the wiki manager.
   if (isDemoOrWikiCapture() && currentUser) {
+    // Wrap in OnboardingProvider even in demo mode so the
+    // tutorial-tab carve-out (`isTutorialMode()` → mount the
+    // sequencer) can fire. Without this wrapper, /demo?tutorial=1
+    // short-circuits straight to children and the guided tour never
+    // appears. For non-tutorial demo (the public /demo route +
+    // ?wikiCapture=1 screenshots), OnboardingProvider's own logic
+    // pass-throughs the children unchanged — no behavior change in
+    // those modes.
     return (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <OnboardingProvider currentUser={currentUser}>
+          {children}
+        </OnboardingProvider>
+      </QueryClientProvider>
     );
   }
 
