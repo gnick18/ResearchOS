@@ -332,7 +332,7 @@ function buildEntries() {
     "users/alex/_counters.json",
     {
       projects: 4,
-      tasks: 15,
+      tasks: 16,
       methods: 5,
       events: 4,
       goals: 2,
@@ -340,7 +340,7 @@ function buildEntries() {
       purchase_items: 4,
       lab_links: 6,
       notes: 2,
-      dependencies: 7,
+      dependencies: 8,
     },
   ]);
   out.push([
@@ -444,7 +444,11 @@ function buildEntries() {
     // it up. See the alex/results/task-8/results.md entry below.
     { id: 8, project_id: 2, name: "Mini-prep candidate plasmids", start_date: "2026-05-09", duration_days: 1, end_date: "2026-05-09", task_type: "experiment", is_complete: true, experiment_color: "#8b5cf6" },
     { id: 9, project_id: 2, name: "Build pDEMO-fluo plasmid library", start_date: NEXT_WEEK, duration_days: 4, end_date: "2026-05-23", task_type: "experiment", is_complete: false, experiment_color: "#8b5cf6" },
-    { id: 10, project_id: 3, name: "Set up growth curves in YPD/glucose", start_date: "2026-05-15", duration_days: 1, end_date: "2026-05-15", task_type: "experiment", is_complete: false, experiment_color: "#f59e0b",
+    // Workbench "Running" fixture: spans yesterday → tomorrow so today
+    // falls inside [start, end] regardless of when the demo opens (rebase
+    // shifts both anchors by the same delta). 3-day growth curve, currently
+    // on Day 2 of 3.
+    { id: 10, project_id: 3, name: "Set up growth curves in YPD/glucose", start_date: YESTERDAY, duration_days: 3, end_date: TOMORROW, task_type: "experiment", is_complete: false, experiment_color: "#f59e0b",
       method_attachments: [{ method_id: 2, owner: "alex", snapshot_at: "2026-05-13T08:00:00Z" }] },
     { id: 11, project_id: 3, name: "Heat-shock survival assay", start_date: "2026-05-18", duration_days: 1, end_date: "2026-05-18", task_type: "experiment", is_complete: false, experiment_color: "#f59e0b",
       sub_tasks: [
@@ -466,6 +470,10 @@ function buildEntries() {
     // read-time normalizer drops the orphan entry.
     { id: 14, project_id: 4, name: "Review morgan's draft figures", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "list", is_complete: false, external_project: { owner: "morgan", id: 2, sharedAt: "2026-05-13T16:00:00Z" } },
     { id: 15, project_id: 4, name: "Order LC-MS solvents", start_date: TODAY, duration_days: 1, end_date: TODAY, task_type: "purchase", is_complete: false },
+    // Workbench "Ready" fixture: an experiment that kept slipping while the
+    // main integration chain ran. Pre-rebase start is BASE-2, so the rebase
+    // math keeps it ~2 days overdue regardless of when the demo opens.
+    { id: 16, project_id: 1, name: "Re-streak top 4 transformants to single colonies", start_date: "2026-05-11", duration_days: 1, end_date: "2026-05-11", task_type: "experiment", is_complete: false, experiment_color: "#3b82f6" },
   ]));
 
   // alex methods
@@ -576,7 +584,7 @@ function buildEntries() {
       "Demo running log. Tracking weekly bench notes.\n\n2026-05-13: PCR screen of 16 transformants today. Expect ~50% positive based on the patch results. Will update the gel image once it's run.\n\n2026-05-10: Patched plates look clean — no contamination.",
     is_running_log: true, is_shared: false, entries: [], comments: [], created_at: "2026-05-01T00:00:00Z", updated_at: "2026-05-13T09:00:00Z", username: "alex" }]);
 
-  // alex dependencies (chain: 1→2→3→4→5→6, plus 7→2 and 8→9)
+  // alex dependencies (chain: 1→2→3→4→5→6, plus 7→2, 8→9, and 10→11)
   out.push(["users/alex/dependencies/1.json", { id: 1, parent_id: 1, child_id: 2, dep_type: "FS" }]);
   out.push(["users/alex/dependencies/2.json", { id: 2, parent_id: 2, child_id: 3, dep_type: "FS" }]);
   out.push(["users/alex/dependencies/3.json", { id: 3, parent_id: 3, child_id: 4, dep_type: "FS" }]);
@@ -584,6 +592,11 @@ function buildEntries() {
   out.push(["users/alex/dependencies/5.json", { id: 5, parent_id: 5, child_id: 6, dep_type: "FS" }]);
   out.push(["users/alex/dependencies/6.json", { id: 6, parent_id: 7, child_id: 2, dep_type: "FS" }]);
   out.push(["users/alex/dependencies/7.json", { id: 7, parent_id: 8, child_id: 9, dep_type: "FS" }]);
+  // Workbench "Blocked" fixture: growth curves (10, incomplete + running)
+  // blocks heat-shock (11). The cascade returns "blocked" before the date
+  // check, so task 11 lands in Blocked even though its start_date is in
+  // the future.
+  out.push(["users/alex/dependencies/8.json", { id: 8, parent_id: 10, child_id: 11, dep_type: "FS" }]);
 
   // alex result task notes/results markdown stubs (selected tasks)
   //

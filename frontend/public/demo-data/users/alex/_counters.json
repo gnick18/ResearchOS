@@ -1,6 +1,6 @@
 {
   "projects": 4,
-  "tasks": 15,
+  "tasks": 16,
   "methods": 5,
   "events": 4,
   "goals": 2,
@@ -8,5 +8,5 @@
   "purchase_items": 4,
   "lab_links": 6,
   "notes": 2,
-  "dependencies": 7
+  "dependencies": 8
 }
