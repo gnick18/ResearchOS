@@ -44,6 +44,7 @@ import {
   type OnboardingTip,
 } from "./tips";
 import { findOnboardingTarget } from "./use-onboarding-target";
+import { subscribeTutorialSignal } from "@/lib/telegram/tutorial-signal";
 
 /**
  * The orchestrator that owns the tip state machine. It:
@@ -247,7 +248,7 @@ export function OnboardingOrchestrator({
     [username],
   );
 
-  // ── Mode setter (welcome modal + Settings) ────────────────────────
+  // ── Mode setter (welcome modal + Settings + /tutorial) ────────────
   const setMode = useCallback(
     async (mode: OnboardingMode) => {
       if (isDemoOrWikiCapture()) return;
@@ -275,11 +276,37 @@ export function OnboardingOrchestrator({
     [username],
   );
 
+  // ── Cross-tab `/tutorial` re-trigger ──────────────────────────────
+  // The bot's `/tutorial` command broadcasts `trigger-tutorial-modal`
+  // via the cross-tab channel (BroadcastChannel + storage-event
+  // fallback). When this orchestrator receives it, flip `mode` back to
+  // `null` so the welcome modal re-opens. The user can then click
+  // "Walk me through it" again to land on `/demo?tutorial=1` and run
+  // the guided tour, or pick a different mode.
+  //
+  // Two safety belts:
+  //  - In demo / wiki-capture mode, do nothing: the demo tab doesn't
+  //    own the user's mode pick, and re-flipping it would be a
+  //    user-confusing side effect.
+  //  - We only fire `setMode(null)` if the user already had a mode
+  //    pick. If `sidecar.mode === null` already, the welcome modal is
+  //    already on screen.
+  useEffect(() => {
+    if (isDemoOrWikiCapture()) return;
+    if (!sidecar) return;
+    const unsubscribe = subscribeTutorialSignal((signal) => {
+      if (signal.type !== "trigger-tutorial-modal") return;
+      if (sidecar.mode === null) return; // modal already open
+      void setMode(null);
+    });
+    return unsubscribe;
+  }, [sidecar, setMode]);
+
   // ── Roll loop ─────────────────────────────────────────────────────
   useEffect(() => {
     if (isDemoOrWikiCapture()) return;
     if (!sidecar) return;
-    if (activeTip) return; // one tip at a time — roll is suspended
+    if (activeTip) return; // one tip at a time, roll is suspended
     // Welcome modal blocks until the user picks a mode.
     if (sidecar.mode === null) return;
     // Silenced behaves like the legacy tips_off — no tips ever.

@@ -82,6 +82,12 @@ export default function TelegramPairingModal({ username, onClose }: TelegramPair
               await ensureGitignoreEntries([
                 "_telegram.json",
                 "users/*/_telegram.json",
+                // No secrets in the tutorial sidecar, but it lives
+                // alongside _telegram.json and changes frequently
+                // during the guided tour. Keeps the data folder's git
+                // history (if any) free of policy-only churn.
+                "_telegram_tutorial.json",
+                "users/*/_telegram_tutorial.json",
               ]);
             } catch {
               /* ignore */
