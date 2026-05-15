@@ -96,37 +96,72 @@ export function initializeErrorHandlers(): () => void {
   };
 }
 
+export type FeedbackType = "bug" | "feature" | "feedback";
+
+export interface FeedbackPayload {
+  type: FeedbackType;
+  title?: string;
+  description: string;
+  errorInfo?: ErrorInfo | null;
+}
+
+const TYPE_LABEL: Record<FeedbackType, string> = {
+  bug: "Bug",
+  feature: "Feature",
+  feedback: "Feedback",
+};
+
+const TYPE_FALLBACK_TITLE: Record<FeedbackType, string> = {
+  bug: "User Report",
+  feature: "User feature request",
+  feedback: "User feedback",
+};
+
 export function generateGitHubIssueUrl(
-  description: string,
-  errorInfo?: ErrorInfo | null
+  payload: FeedbackPayload
 ): string {
-  const title = errorInfo 
-    ? `[Bug] ${errorInfo.message.slice(0, 100)}`
-    : "[Bug] User Report";
+  const { type, title: userTitle, description, errorInfo } = payload;
+  const labelTag = `[${TYPE_LABEL[type]}]`;
+
+  let titleBody: string;
+  if (userTitle && userTitle.trim()) {
+    titleBody = userTitle.trim().slice(0, 100);
+  } else if (type === "bug" && errorInfo) {
+    titleBody = errorInfo.message.slice(0, 100);
+  } else {
+    titleBody = TYPE_FALLBACK_TITLE[type];
+  }
+  const title = `${labelTag} ${titleBody}`;
 
   let body = "";
-  
+
   if (description) {
-    body += `**What happened:**\n${description}\n\n`;
+    const heading =
+      type === "bug"
+        ? "What happened:"
+        : type === "feature"
+        ? "Feature description:"
+        : "Feedback:";
+    body += `**${heading}**\n${description}\n\n`;
   }
-  
-  if (errorInfo) {
+
+  if (type === "bug" && errorInfo) {
     body += `**Error Message:**\n\`\`\`\n${errorInfo.message}\n\`\`\`\n\n`;
-    
+
     if (errorInfo.stack) {
       body += `**Stack Trace:**\n\`\`\`\n${errorInfo.stack}\n\`\`\`\n\n`;
     }
-    
+
     body += `**URL:** ${errorInfo.url}\n\n`;
     body += `**User Agent:** ${errorInfo.userAgent}\n\n`;
     body += `**Time:** ${errorInfo.timestamp}\n`;
   }
-  
+
   const params = new URLSearchParams({
     title,
     body: body.trim(),
   });
-  
+
   return `https://github.com/${GITHUB_REPO}/issues/new?${params.toString()}`;
 }
 
