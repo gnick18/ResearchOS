@@ -712,13 +712,18 @@ const FIXTURE_ROUTES = [
         return;
       }
       try {
+        // The tab id is "purchases" but the button label is "Items"
+        // (TaskDetailPopup.tsx:726). The tab only renders on experiment
+        // popups when the task has orphan purchase items (chip
+        // c6597cd7) — task 11 has purchase item id=20 attached, which
+        // satisfies the orphan filter.
         const tab = page
           .locator("button")
-          .filter({ hasText: /^Purchases$/ })
+          .filter({ hasText: /^Items$/ })
           .first();
         if (await tab.count()) {
           await tab.click({ timeout: 3000 });
-          await page.waitForTimeout(800);
+          await page.waitForTimeout(900);
         }
       } catch (err) {
         console.warn(`  ⚠ purchases-non-purchase-warning open tab: ${err.message}`);
