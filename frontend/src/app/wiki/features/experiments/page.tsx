@@ -14,7 +14,7 @@ export default function ExperimentsFeaturePage() {
       <Screenshot
         src="/wiki/screenshots/experiments-list.png"
         alt="The Experiments tab with experiment tiles grouped by project, each showing status badges and duration."
-        caption="Every active experiment, grouped by project, with status pills and a Show N completed experiments disclosure at the bottom."
+        caption="Every active experiment, grouped by project, with status pills. Completed experiments roll into the Earlier archive at the bottom."
       />
 
       <TryInDemo href="/experiments">Try the experiments view</TryInDemo>
@@ -55,13 +55,28 @@ export default function ExperimentsFeaturePage() {
         chain step-by-step.
       </p>
 
-      <h2>Completed experiments</h2>
+      <h2>Earlier (completed work)</h2>
       <p>
-        Finished experiments don't clutter the main grid. They collapse into a{" "}
-        <strong>Show N completed experiments</strong> disclosure at the
-        bottom of the tab. Click it to expand a faded, read-but-still-clickable
-        grid of completed tiles (and chain stacks), sorted with the most
-        recently finished first.
+        Finished experiments don't clutter the main grid. They collect in
+        the <strong>Earlier</strong> archive section at the bottom of the
+        Workbench, which keeps the active grid focused on what you're
+        running now. The Earlier section has a project-grouping toggle
+        (flat list vs. one block per project) and no time cap, so the
+        whole completion history is reachable from one place. Each
+        archived tile is still clickable, opening the same task popup
+        you'd get from an active tile.
+      </p>
+      <Screenshot
+        src="/wiki/screenshots/workbench-earlier.png"
+        alt="The Earlier archive at the bottom of the Workbench page, with completed experiment cards grouped by project."
+        caption="Completed experiments roll into the Earlier section. Toggle the project-grouping switch in its header to flip between flat and project-grouped views."
+      />
+      <p>
+        This is where the old standalone <code>/results</code> tab&apos;s
+        content now lives. See{" "}
+        <Link href="/wiki/features/results">Where results live now</Link>{" "}
+        for the full picture of where completed work surfaces (Workbench,
+        Purchases, the project popup).
       </p>
 
       <h2>Inside the experiment popup</h2>
@@ -103,6 +118,18 @@ export default function ExperimentsFeaturePage() {
       </p>
 
       <h2>Lab Notes and Results</h2>
+      <p>
+        The two tabs hold different kinds of writing on the same
+        experiment. <strong>Lab Notes</strong> is the during-the-run
+        record: running observations, what reagents you grabbed, what
+        went sideways, the photo you took at the bench five minutes ago.{" "}
+        <strong>Results</strong> is the final-output write-up: the gel
+        image you'd put in a paper, the plot for a thesis chapter, the
+        short summary of what the experiment actually showed. Both live
+        on the same task and both write to the same per-task folder on
+        disk, so flipping between the two tabs in the popup is
+        instantaneous.
+      </p>
       <p>
         Both tabs use the same editor surface: a markdown body with a
         three-way <strong>Edit / Hybrid / Preview</strong> mode toggle, an

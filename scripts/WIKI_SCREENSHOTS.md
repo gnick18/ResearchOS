@@ -92,8 +92,7 @@ deployment will activate fixture mode.
 | `lab-mode-activity.png` | Lab Mode | Activity feed (auto-populated user filter) |
 | `search-results.png` | Search | search input (query = DEMO) |
 | `links.png` | Lab Links | Add Link |
-| `results-list.png` | Results | (whole-page view of result cards) |
-| `results-tab.png` | Results | clicks the "Patch positives" card → Results tab gallery |
+| `workbench-earlier.png` | Experiments & Notes (Workbench page) | scrolls to the Earlier archive at the bottom of the Workbench |
 | `settings.png` | Settings | Connect Telegram |
 | `notifications.png` | Notifications & Inbox | bell icon (cropped to header) |
 | `telegram-pairing.png` | Telegram Bot | bot token input |

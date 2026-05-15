@@ -670,27 +670,27 @@ const FIXTURE_ROUTES = [
     waitFor: "text=Lab Links, text=Links",
     highlight: { text: "New Link" },
   },
+  // NOTE: results-list.png and results-tab.png were retired when chip 4
+  // killed the /results route (commit 5b237d92). Completed-experiments
+  // captures now happen on the Workbench page via workbench-earlier.png
+  // below.
   {
-    path: "/results",
-    file: "results-list.png",
-    waitFor: "text=Results",
-    settleMs: 700,
-  },
-  {
-    path: "/results",
-    file: "results-tab.png",
-    waitFor: "text=Results",
-    settleMs: 700,
+    path: "/workbench",
+    file: "workbench-earlier.png",
+    waitFor: "text=Workbench, text=Lab Notes, text=Experiments",
+    settleMs: 1000,
     action: async (page) => {
-      const card = page
-        .getByText(/Patch positives on SD-Ura/i)
-        .first();
-      if (await card.count()) {
-        try {
-          await card.click({ timeout: 3000 });
-          await page.waitForTimeout(900);
-        } catch {}
-      }
+      // Scroll to the Earlier archive at the bottom of the page so the
+      // section header + grouped cards are in frame. The Workbench
+      // fixture (added via chip 3) ensures alex's completed experiments
+      // and chain stacks populate the archive in ?wikiCapture=1.
+      try {
+        const earlier = page.getByText(/^Earlier\b/i).first();
+        if (await earlier.count()) {
+          await earlier.scrollIntoViewIfNeeded({ timeout: 3000 });
+          await page.waitForTimeout(400);
+        }
+      } catch {}
     },
   },
   {

@@ -1,17 +1,18 @@
 import Link from "next/link";
 import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
+import Screenshot from "@/components/wiki/Screenshot";
 
 export default function ResultsFeaturePage() {
   return (
     <WikiPage
       title="Where results live now"
-      intro="ResearchOS used to have a standalone Results page that listed every completed (or deviated) task, grouped by project. That page was retired — completed work surfaces in three places now, each closer to the context where the work happens."
+      intro="ResearchOS used to have a standalone Results page that listed every completed (or deviated) task, grouped by project. That page was retired. Completed work now surfaces in three places, each closer to the context where the work happens."
     >
       <Callout variant="info" title="Old bookmarks still work">
         Visiting <code>/results</code> now redirects to{" "}
         <Link href="/wiki/features/experiments">Workbench</Link>, where the
-        bulk of the old page&apos;s content lives. No data moved on disk —
+        bulk of the old page&apos;s content lives. No data moved on disk:
         every task&apos;s <code>results.md</code>, <code>notes.md</code>, and
         per-task <code>Files/</code> + <code>Images/</code> folders stay
         exactly where they were.
@@ -27,6 +28,11 @@ export default function ResultsFeaturePage() {
         task detail popup with the Results tab selected, where you fill in
         the markdown summary and drop in images.
       </p>
+      <Screenshot
+        src="/wiki/screenshots/workbench-earlier.png"
+        alt="The Earlier archive at the bottom of the Workbench page, with completed experiment cards grouped by project."
+        caption="The Earlier section sits at the bottom of the Workbench. The project-grouping toggle in its header flips between flat and project-grouped views."
+      />
 
       <h2>Completed purchases → Purchases &ldquo;Earlier&rdquo;</h2>
       <p>
