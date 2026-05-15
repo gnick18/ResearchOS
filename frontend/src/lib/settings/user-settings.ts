@@ -45,6 +45,11 @@ export interface UserSettings {
 
   // Per-user opt-out (mirrored to _user_metadata.json so the existing lab readers keep working)
   hideGoalsFromLab: boolean;
+
+  // When on, the app makes zero calls to its own server proxies
+  // (`/api/calendar-feed`, `/api/telegram-file`). Direct browser → Telegram
+  // polling continues because that talks to api.telegram.org directly.
+  offlineMode: boolean;
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -66,6 +71,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   sidebarShowCalendarEvents: false,
   sidebarEventsHorizonDays: 7,
   hideGoalsFromLab: false,
+  offlineMode: false,
 };
 
 /** Horizon choices surfaced in the Settings → Sidebar selector. */

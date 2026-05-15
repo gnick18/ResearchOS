@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import type { CalendarFeed, ExternalEvent } from "@/lib/types";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAppStore } from "@/lib/store";
 import {
   listFeeds,
   markFeedSynced,
@@ -18,6 +19,9 @@ const ONE_HOUR_MS = 60 * 60 * 1000;
 
 async function fetchIcsFeed(feed: CalendarFeed): Promise<ExternalEvent[]> {
   if (!feed.icsUrl) return [];
+  // Offline-mode honors the user's "stop talking to our deploy" preference.
+  // The feed list itself stays untouched on disk; toggling off resumes sync.
+  if (useAppStore.getState().offlineMode) return [];
   const res = await fetch("/api/calendar-feed", {
     cache: "no-store",
     headers: { "x-calendar-url": feed.icsUrl },
