@@ -13,7 +13,8 @@
   "method_ids": [
     2,
     6,
-    7
+    7,
+    8
   ],
   "deviation_log": null,
   "tags": null,
@@ -37,6 +38,12 @@
       "method_id": 7,
       "owner": "alex",
       "snapshot_at": "2026-05-13T08:00:00Z"
+    },
+    {
+      "method_id": 8,
+      "owner": "alex",
+      "snapshot_at": "2026-05-13T08:00:00Z",
+      "cell_culture_schedule": "{\"planned_events\":[{\"day_offset\":0,\"event_type\":\"observe\",\"notes\":\"Seed plate; record initial confluence\"},{\"day_offset\":2,\"event_type\":\"feed\"},{\"day_offset\":4,\"event_type\":\"feed\"},{\"day_offset\":6,\"event_type\":\"observe\",\"notes\":\"Check confluence before split\"},{\"day_offset\":7,\"event_type\":\"split\",\"split_ratio\":\"1:5\"}],\"actual_events\":[{\"timestamp\":\"2026-05-11T09:15:00Z\",\"event_type\":\"observe\",\"observation_text\":\"Plated 5e5 cells per dish. Confluence ~30% post-attachment.\",\"confluence_percent\":30},{\"timestamp\":\"2026-05-13T09:00:00Z\",\"event_type\":\"feed\",\"observation_text\":\"Cells looking healthy, ~70% confluent.\",\"confluence_percent\":70}]}"
     }
   ],
   "owner": "alex",

@@ -54,6 +54,11 @@ export function ownerScopedTasksApi(task: Task) {
       methodId: number,
       data: { plate_annotation?: string }
     ) => rawTasksApi.updateMethodPlate(taskId, methodId, data, owner),
+    updateMethodCellCulture: (
+      taskId: number,
+      methodId: number,
+      data: { cell_culture_schedule?: string }
+    ) => rawTasksApi.updateMethodCellCulture(taskId, methodId, data, owner),
     saveVariationNote: (taskId: number, methodId: number, notes: string) =>
       rawTasksApi.saveVariationNote(taskId, methodId, notes, owner),
     // `delete` intentionally not owner-routed: only the original owner

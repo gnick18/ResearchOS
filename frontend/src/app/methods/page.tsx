@@ -3,7 +3,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { methodsApi as rawMethodsApi, filesApi, pcrApi, lcGradientApi, plateApi, usersApi, fetchAllMethodsIncludingShared } from "@/lib/local-api";
+import {
+  methodsApi as rawMethodsApi,
+  filesApi,
+  pcrApi,
+  lcGradientApi,
+  plateApi,
+  cellCultureApi,
+  usersApi,
+  fetchAllMethodsIncludingShared,
+} from "@/lib/local-api";
 import type { MethodUpdate } from "@/lib/local-api";
 import { fileService } from "@/lib/file-system/file-service";
 import { fileEvents } from "@/lib/attachments/file-events";
@@ -27,11 +36,16 @@ import type {
   LCIngredient,
   PlateSize,
   PlateWellAnnotation,
+  CellCultureCellLine,
+  CellCultureMedia,
+  CellCulturePlannedEvent,
 } from "@/lib/types";
 import LcViewer from "@/components/LcViewer";
 import LcGradientEditor from "@/components/LcGradientEditor";
 import PlateViewer from "@/components/PlateViewer";
 import PlateLayoutEditor, { wellsToRegionLabels } from "@/components/PlateLayoutEditor";
+import CellCultureViewer from "@/components/CellCultureViewer";
+import CellCultureScheduleEditor from "@/components/CellCultureScheduleEditor";
 import {
   getMethodTypeMeta,
   getMethodTypesByCategory,
@@ -304,6 +318,16 @@ export default function MethodsPage() {
               await plateApi.delete(plateId);
             } catch {
               // Non-fatal — plate protocol might not exist
+            }
+          } else if (
+            method.method_type === "cell_culture" &&
+            method.source_path.startsWith("cell_culture://protocol/")
+          ) {
+            const ccId = parseInt(method.source_path.replace("cell_culture://protocol/", ""));
+            try {
+              await cellCultureApi.delete(ccId);
+            } catch {
+              // Non-fatal — cell culture schedule might not exist
             }
           } else {
             const methodDir = method.source_path.substring(
@@ -809,6 +833,19 @@ function CreateMethodModal({
   const [plateWells, setPlateWells] = useState<Record<string, PlateWellAnnotation>>({});
   const [plateDescription, setPlateDescription] = useState<string | null>(null);
 
+  // Cell culture passaging defaults — HeLa cells, DMEM + 10% FBS, feed M/W/F,
+  // split 1:5 weekly. Mirrors the locked design from the Phase 2D chip spec.
+  const [ccCellLine, setCcCellLine] = useState<CellCultureCellLine>(() =>
+    cellCultureApi.getDefaultCellLine(),
+  );
+  const [ccMedia, setCcMedia] = useState<CellCultureMedia>(() =>
+    cellCultureApi.getDefaultMedia(),
+  );
+  const [ccPlannedEvents, setCcPlannedEvents] = useState<CellCulturePlannedEvent[]>(() =>
+    cellCultureApi.getDefaultPlannedEvents(),
+  );
+  const [ccDescription, setCcDescription] = useState<string | null>(null);
+
   const slug = name
     .trim()
     .replace(/\s+/g, "-")
@@ -1037,6 +1074,27 @@ function CreateMethodModal({
             .filter(Boolean),
           is_public: isPublic,
         });
+      } else if (uploadType === "cell_culture") {
+        const schedule = await cellCultureApi.create({
+          name: name.trim(),
+          description: ccDescription,
+          cell_line: ccCellLine,
+          media: ccMedia,
+          planned_events: ccPlannedEvents,
+          folder_path: folder.trim() || null,
+          is_public: isPublic,
+        });
+        await methodsApi.create({
+          name: name.trim(),
+          source_path: `cell_culture://protocol/${schedule.id}`,
+          method_type: "cell_culture",
+          folder_path: folder.trim() || null,
+          tags: tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean),
+          is_public: isPublic,
+        });
       }
       onCreated();
     } catch (error: unknown) {
@@ -1045,7 +1103,7 @@ function CreateMethodModal({
     } finally {
       setSaving(false);
     }
-  }, [name, slug, uploadType, mdContent, pdfFile, folder, tags, isPublic, pcrGradient, pcrIngredients, pcrNotes, lcGradientSteps, lcColumn, lcWavelength, lcDescription, lcIngredients, platePlateSize, plateWells, plateDescription, onCreated]);
+  }, [name, slug, uploadType, mdContent, pdfFile, folder, tags, isPublic, pcrGradient, pcrIngredients, pcrNotes, lcGradientSteps, lcColumn, lcWavelength, lcDescription, lcIngredients, platePlateSize, plateWells, plateDescription, ccCellLine, ccMedia, ccPlannedEvents, ccDescription, onCreated]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
@@ -1286,6 +1344,25 @@ function CreateMethodModal({
               </div>
             )}
 
+            {/* Cell culture passaging editor */}
+            {uploadType === "cell_culture" && (
+              <div className="space-y-2">
+                <p className="text-xs text-gray-400">
+                  Cell culture passaging schedules store the cell line, media composition, and planned cadence (feed / split / observe / harvest). Mid-execution events are logged on the experiment task.
+                </p>
+                <CellCultureScheduleEditor
+                  cellLine={ccCellLine}
+                  onCellLineChange={setCcCellLine}
+                  media={ccMedia}
+                  onMediaChange={setCcMedia}
+                  plannedEvents={ccPlannedEvents}
+                  onPlannedEventsChange={setCcPlannedEvents}
+                  description={ccDescription}
+                  onDescriptionChange={setCcDescription}
+                />
+              </div>
+            )}
+
             {/* PCR editor */}
             {uploadType === "pcr" && (
               <div className="space-y-4">
@@ -1483,6 +1560,9 @@ function ViewMethodModal({
     }
     if (method.method_type === "plate") {
       return <PlateViewer method={method} currentUser={currentUser} onClose={onClose} onDelete={onDelete} />;
+    }
+    if (method.method_type === "cell_culture") {
+      return <CellCultureViewer method={method} currentUser={currentUser} onClose={onClose} onDelete={onDelete} />;
     }
     return <MarkdownMethodViewer method={method} currentUser={currentUser} onClose={onClose} onDelete={onDelete} />;
   };

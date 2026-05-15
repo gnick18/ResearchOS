@@ -36,6 +36,10 @@ import type {
   PlateProtocol,
   PlateProtocolCreate,
   PlateProtocolUpdate,
+  CellCultureSchedule,
+  CellCultureScheduleCreate,
+  CellCultureScheduleUpdate,
+  CellCultureActualEvent,
   PurchaseItem,
   PurchaseItemCreate,
   PurchaseItemUpdate,
@@ -79,6 +83,8 @@ const lcGradientStore = new JsonStore<LCGradientProtocol>("lc_gradients");
 const publicLcGradientStore = getPublicStore<LCGradientProtocol>("lc_gradients");
 const plateLayoutStore = new JsonStore<PlateProtocol>("plate_layouts");
 const publicPlateLayoutStore = getPublicStore<PlateProtocol>("plate_layouts");
+const cellCultureScheduleStore = new JsonStore<CellCultureSchedule>("cell_culture_schedules");
+const publicCellCultureScheduleStore = getPublicStore<CellCultureSchedule>("cell_culture_schedules");
 const purchaseItemsStore = new JsonStore<PurchaseItem>("purchase_items");
 const catalogStore = new JsonStore<CatalogItem>("item_catalog");
 const labLinksStore = new JsonStore<LabLink>("lab_links");
@@ -295,7 +301,17 @@ function normalizeTaskRecord(raw: Task): Task {
   const needsPlateBackfill = filtered.some(
     (a) => !Object.prototype.hasOwnProperty.call(a, "plate_annotation"),
   );
-  if (filtered !== attachments || needsLcBackfill || needsBodyOverrideBackfill || needsPlateBackfill) {
+  // Same lazy backfill for cell_culture_schedule (Phase 2D).
+  const needsCellCultureBackfill = filtered.some(
+    (a) => !Object.prototype.hasOwnProperty.call(a, "cell_culture_schedule"),
+  );
+  if (
+    filtered !== attachments ||
+    needsLcBackfill ||
+    needsBodyOverrideBackfill ||
+    needsPlateBackfill ||
+    needsCellCultureBackfill
+  ) {
     normalized = {
       ...normalized,
       method_attachments: filtered.map((a) => {
@@ -308,6 +324,9 @@ function normalizeTaskRecord(raw: Task): Task {
         }
         if (!Object.prototype.hasOwnProperty.call(next, "plate_annotation")) {
           next = { ...next, plate_annotation: null };
+        }
+        if (!Object.prototype.hasOwnProperty.call(next, "cell_culture_schedule")) {
+          next = { ...next, cell_culture_schedule: null };
         }
         return next;
       }),
@@ -356,7 +375,16 @@ export const tasksApi = {
     sub_tasks?: Array<{ id: string; text: string; is_complete: boolean }>;
     pcr_gradient?: string | null;
     pcr_ingredients?: string | null;
-    method_attachments?: Array<{ method_id: number; pcr_gradient?: string | null; pcr_ingredients?: string | null; lc_gradient?: string | null; body_override?: string | null; plate_annotation?: string | null; variation_notes?: string | null }>;
+    method_attachments?: Array<{
+      method_id: number;
+      pcr_gradient?: string | null;
+      pcr_ingredients?: string | null;
+      lc_gradient?: string | null;
+      body_override?: string | null;
+      plate_annotation?: string | null;
+      cell_culture_schedule?: string | null;
+      variation_notes?: string | null;
+    }>;
   }): Promise<Task> => {
     const durationDays = data.duration_days || 1;
     const endDate = canonicalEndDate({ start_date: data.start_date, duration_days: durationDays });
@@ -390,6 +418,7 @@ export const tasksApi = {
         lc_gradient: a.lc_gradient ?? null,
         body_override: a.body_override ?? null,
         plate_annotation: a.plate_annotation ?? null,
+        cell_culture_schedule: a.cell_culture_schedule ?? null,
         variation_notes: a.variation_notes ?? null,
       })),
       owner: currentUser,
@@ -625,6 +654,7 @@ export const tasksApi = {
         lc_gradient: null,
         body_override: null,
         plate_annotation: null,
+        cell_culture_schedule: null,
         variation_notes: null,
       });
     }
@@ -830,6 +860,89 @@ export const tasksApi = {
         plate_annotation: null,
       })),
     }, owner);
+  },
+
+  updateMethodCellCulture: async (
+    taskId: number,
+    methodId: number,
+    data: { cell_culture_schedule?: string },
+    owner?: string
+  ): Promise<Task | null> => {
+    const task = await getTaskForCaller(taskId, owner);
+    if (!task) return null;
+
+    const attachments = (task.method_attachments || []).map((a) => {
+      if (a.method_id === methodId) {
+        return { ...a, ...data };
+      }
+      return a;
+    });
+
+    return updateTaskForCaller(taskId, { method_attachments: attachments }, owner);
+  },
+
+  resetCellCulture: async (id: number, methodId?: number, owner?: string): Promise<Task | null> => {
+    const task = await getTaskForCaller(id, owner);
+    if (!task) return null;
+
+    if (methodId) {
+      const attachments = task.method_attachments?.map((a) => {
+        if (a.method_id === methodId) {
+          return { ...a, cell_culture_schedule: null };
+        }
+        return a;
+      });
+      return updateTaskForCaller(id, { method_attachments: attachments }, owner);
+    }
+
+    return updateTaskForCaller(id, {
+      method_attachments: task.method_attachments?.map((a) => ({
+        ...a,
+        cell_culture_schedule: null,
+      })),
+    }, owner);
+  },
+
+  /** Convenience: append one actual event to the per-task cell culture
+   *  snapshot without round-tripping the whole instance through the UI.
+   *  If no snapshot exists yet, one is seeded with the source schedule's
+   *  planned events. Returns the updated task. */
+  appendCellCultureEvent: async (
+    taskId: number,
+    methodId: number,
+    event: CellCultureActualEvent,
+    owner?: string
+  ): Promise<Task | null> => {
+    const task = await getTaskForCaller(taskId, owner);
+    if (!task) return null;
+
+    const attachments = (task.method_attachments || []).map((a) => {
+      if (a.method_id !== methodId) return a;
+      let snapshot: { planned_events: unknown[]; actual_events: CellCultureActualEvent[] };
+      if (a.cell_culture_schedule) {
+        try {
+          const parsed = JSON.parse(a.cell_culture_schedule);
+          snapshot = {
+            planned_events: Array.isArray(parsed?.planned_events) ? parsed.planned_events : [],
+            actual_events: Array.isArray(parsed?.actual_events)
+              ? (parsed.actual_events as CellCultureActualEvent[])
+              : [],
+            ...parsed,
+          };
+        } catch {
+          snapshot = { planned_events: [], actual_events: [] };
+        }
+      } else {
+        snapshot = { planned_events: [], actual_events: [] };
+      }
+      const next = {
+        ...snapshot,
+        actual_events: [...snapshot.actual_events, event],
+      };
+      return { ...a, cell_culture_schedule: JSON.stringify(next) };
+    });
+
+    return updateTaskForCaller(taskId, { method_attachments: attachments }, owner);
   },
 
   saveVariationNote: async (
@@ -1601,6 +1714,125 @@ export const plateApi = {
    *  Empty 96-well plate is the most common scientific default. */
   getDefaultPlateSize: (): import("./types").PlateSize => 96,
   getDefaultRegionLabels: (): import("./types").PlateRegionLabel[] => [],
+};
+
+// ── Cell Culture Schedule API ────────────────────────────────────────────────
+//
+// Per-user `users/<u>/cell_culture_schedules/<id>.json` for private records,
+// `users/public/cell_culture_schedules/<id>.json` for is_public:true. Per-user
+// `_counters.json` carries a `cell_culture_schedules` line. Methods reference
+// records via `source_path: "cell_culture://protocol/{id}"`. Mirrors pcrApi /
+// lcGradientApi exactly so cross-type batch ops stay shapely.
+
+export const cellCultureApi = {
+  list: async (): Promise<CellCultureSchedule[]> => {
+    const privateSchedules = await cellCultureScheduleStore.listAll();
+    const publicSchedules = await publicCellCultureScheduleStore.listAll();
+
+    return [
+      ...privateSchedules.map((s) => ({ ...s, is_public: false })),
+      ...publicSchedules.map((s) => ({ ...s, is_public: true })),
+    ];
+  },
+
+  get: async (id: number, owner?: string): Promise<CellCultureSchedule | null> => {
+    if (owner) {
+      if (owner === "public") {
+        const pub = await publicCellCultureScheduleStore.get(id);
+        return pub ? { ...pub, is_public: true } : null;
+      }
+      const ownerSchedule = await cellCultureScheduleStore.getForUser(id, owner);
+      return ownerSchedule ? { ...ownerSchedule, is_public: false } : null;
+    }
+
+    const schedule = await cellCultureScheduleStore.get(id);
+    if (schedule) return { ...schedule, is_public: false };
+
+    const publicSchedule = await publicCellCultureScheduleStore.get(id);
+    if (publicSchedule) return { ...publicSchedule, is_public: true };
+
+    return null;
+  },
+
+  create: async (data: CellCultureScheduleCreate): Promise<CellCultureSchedule> => {
+    const isPublic = data.is_public ?? false;
+    const now = new Date().toISOString();
+    const base = {
+      name: data.name,
+      description: data.description ?? null,
+      cell_line: data.cell_line,
+      media: data.media,
+      planned_events: data.planned_events,
+      created_at: now,
+      updated_at: now,
+      created_by: null,
+    };
+    if (isPublic) {
+      return publicCellCultureScheduleStore.create({ ...base, is_public: true });
+    }
+    return cellCultureScheduleStore.create({ ...base, is_public: false });
+  },
+
+  update: async (
+    id: number,
+    data: CellCultureScheduleUpdate,
+    owner?: string,
+  ): Promise<CellCultureSchedule | null> => {
+    const patch = { ...data, updated_at: new Date().toISOString() };
+    if (owner) {
+      if (owner === "public") {
+        const pub = await publicCellCultureScheduleStore.get(id);
+        return pub ? publicCellCultureScheduleStore.update(id, patch) : null;
+      }
+      const ownerSchedule = await cellCultureScheduleStore.getForUser(id, owner);
+      return ownerSchedule
+        ? cellCultureScheduleStore.updateForUser(id, patch, owner)
+        : null;
+    }
+
+    let schedule = await cellCultureScheduleStore.get(id);
+    if (schedule) {
+      return cellCultureScheduleStore.update(id, patch);
+    }
+
+    schedule = await publicCellCultureScheduleStore.get(id);
+    if (schedule) {
+      return publicCellCultureScheduleStore.update(id, patch);
+    }
+
+    return null;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await cellCultureScheduleStore.delete(id);
+    await publicCellCultureScheduleStore.delete(id);
+  },
+
+  /** Defaults seeded into the new-method dialog for `method_type === "cell_culture"`.
+   *  Realistic HeLa-cell starting cadence: feed M/W/F, split 1:5 on day 7. */
+  getDefaultPlannedEvents: (): import("./types").CellCulturePlannedEvent[] => [
+    { day_offset: 0, event_type: "observe", notes: "Seed plate; record initial confluence" },
+    { day_offset: 2, event_type: "feed" },
+    { day_offset: 4, event_type: "feed" },
+    { day_offset: 6, event_type: "observe", notes: "Check confluence before split" },
+    { day_offset: 7, event_type: "split", split_ratio: "1:5" },
+  ],
+
+  getDefaultCellLine: (): import("./types").CellCultureCellLine => ({
+    name: "HeLa",
+    species: "Homo sapiens",
+    tissue: "Cervix (adenocarcinoma)",
+    notes: "",
+  }),
+
+  getDefaultMedia: (): import("./types").CellCultureMedia => ({
+    base_medium: "DMEM (high glucose)",
+    serum_percent: 10,
+    supplements: [
+      { name: "PenStrep", concentration: "1", units: "%" },
+      { name: "L-Glutamine", concentration: "2", units: "mM" },
+    ],
+  }),
 };
 
 export const purchasesApi = {

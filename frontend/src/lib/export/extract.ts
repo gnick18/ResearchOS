@@ -1,5 +1,6 @@
 import type {
   LCGradientProtocol,
+  CellCultureSchedule,
   Method,
   PCRProtocol,
   PlateProtocol,
@@ -13,7 +14,15 @@ import {
   tabScopedFolderHasContent,
   taskResultsBase,
 } from "@/lib/tasks/results-paths";
-import { projectsApi, methodsApi, filesApi, pcrApi, lcGradientApi, plateApi } from "@/lib/local-api";
+import {
+  projectsApi,
+  methodsApi,
+  filesApi,
+  pcrApi,
+  lcGradientApi,
+  plateApi,
+  cellCultureApi,
+} from "@/lib/local-api";
 import { extractMarkdownRefs } from "./markdown";
 import type {
   AttachmentOrigin,
@@ -278,6 +287,39 @@ async function fetchLcGradientProtocolSafe(
   }
 }
 
+// Matches `cell_culture://protocol/{id}` source_path format used throughout
+// the app (methods/page.tsx, MethodTabs.tsx, generate-demo-data.mjs).
+function extractCellCultureScheduleId(sourcePath: string | null | undefined): number | null {
+  if (!sourcePath) return null;
+  const match = sourcePath.match(/^cell_culture:\/\/protocol\/(\d+)$/);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+async function fetchCellCultureScheduleSafe(
+  method: Method,
+  task: Task,
+): Promise<CellCultureSchedule | null> {
+  const id = extractCellCultureScheduleId(method.source_path);
+  if (id === null) return null;
+  try {
+    const owner = method.owner || (task.is_shared_with_me ? task.owner : undefined);
+    const schedule = await cellCultureApi.get(id, owner);
+    if (!schedule) {
+      console.warn(
+        `[export] Cell culture schedule ${id} for method ${method.id} could not be loaded`,
+      );
+      return null;
+    }
+    return schedule;
+  } catch (err) {
+    console.warn(
+      `[export.extract] failed to load cell culture schedule ${id} for method ${method.id}:`,
+      err,
+    );
+    return null;
+  }
+}
+
 async function fetchPCRProtocolSafe(
   method: Method,
   task: Task
@@ -340,6 +382,7 @@ async function buildMethodPayload(
   let pcrProtocol: PCRProtocol | null = null;
   let lcGradientProtocol: LCGradientProtocol | null = null;
   let plateProtocol: PlateProtocol | null = null;
+  let cellCultureSchedule: CellCultureSchedule | null = null;
 
   if (method.method_type === "markdown" && method.source_path) {
     try {
@@ -401,9 +444,20 @@ async function buildMethodPayload(
   if (method.method_type === "plate") {
     plateProtocol = await fetchPlateProtocolSafe(method, task);
   }
+  if (method.method_type === "cell_culture") {
+    cellCultureSchedule = await fetchCellCultureScheduleSafe(method, task);
+  }
 
   return {
-    payload: { method, bodyMarkdown, attachment, pcrProtocol, lcGradientProtocol, plateProtocol },
+    payload: {
+      method,
+      bodyMarkdown,
+      attachment,
+      pcrProtocol,
+      lcGradientProtocol,
+      plateProtocol,
+      cellCultureSchedule,
+    },
     pdfAttachment,
   };
 }
