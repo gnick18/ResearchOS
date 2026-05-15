@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
+import { markdownSanitizeSchema } from "@/lib/markdown/sanitize-schema";
 import { useQueryClient } from "@tanstack/react-query";
 import { filesApi } from "@/lib/local-api";
 import { migrateNoteImages } from "@/lib/notes/migrate-images";
@@ -56,7 +58,7 @@ function DiffView({ segments }: { segments: DiffSegment[] }) {
         if (segment.kind === "same") {
           return (
             <div key={idx} className="prose prose-sm prose-gray max-w-none">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]]}>
                 {segment.lines.join("\n")}
               </ReactMarkdown>
             </div>
@@ -327,7 +329,7 @@ export default function MarkdownMethodTabContent({
           <DiffView segments={diffSegments} />
         ) : (
           <div className="prose prose-sm prose-gray max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]]}>
               {sourceBody}
             </ReactMarkdown>
           </div>
