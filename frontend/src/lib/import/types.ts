@@ -3,7 +3,7 @@
 // Type contract for the experiment-import pipeline. The receiver side of
 // the Raw ResearchOS export format defined in EXPORT_REVAMP_PLAN.md §3.3.
 
-import type { LCGradientProtocol, Method, PCRProtocol, Project, Task } from "@/lib/types";
+import type { LCGradientProtocol, Method, PCRProtocol, PlateProtocol, Project, Task } from "@/lib/types";
 
 export interface ImportManifest {
   format: "researchos-experiment";
@@ -55,6 +55,10 @@ export interface ImportMethodEntry {
   // semantics as pcrProtocol — when null on an lc_gradient method, only
   // "use-existing" or "skip" remain.
   lcGradientProtocol?: LCGradientProtocol | null;
+  // The source-side PlateProtocol record, carried in the bundle as
+  // `methods/method-{id}-plate-protocol.json`. Same import-new gating semantics
+  // as pcrProtocol / lcGradientProtocol.
+  plateProtocol?: PlateProtocol | null;
 }
 
 export interface ImportPayload {

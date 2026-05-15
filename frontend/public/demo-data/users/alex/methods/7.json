@@ -1,0 +1,18 @@
+{
+  "id": 7,
+  "name": "[Demo protocol] 96-well bacterial growth curve (DemoStrain inducer titration)",
+  "source_path": "plate://protocol/1",
+  "method_type": "plate",
+  "folder_path": "Screening",
+  "parent_method_id": null,
+  "tags": [
+    "demo",
+    "plate",
+    "growth-curve"
+  ],
+  "attachments": [],
+  "is_public": false,
+  "created_by": "alex",
+  "owner": "alex",
+  "shared_with": []
+}

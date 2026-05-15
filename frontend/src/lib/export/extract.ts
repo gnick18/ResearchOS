@@ -2,6 +2,7 @@ import type {
   LCGradientProtocol,
   Method,
   PCRProtocol,
+  PlateProtocol,
   Project,
   Task,
   TaskMethodAttachment,
@@ -12,7 +13,7 @@ import {
   tabScopedFolderHasContent,
   taskResultsBase,
 } from "@/lib/tasks/results-paths";
-import { projectsApi, methodsApi, filesApi, pcrApi, lcGradientApi } from "@/lib/local-api";
+import { projectsApi, methodsApi, filesApi, pcrApi, lcGradientApi, plateApi } from "@/lib/local-api";
 import { extractMarkdownRefs } from "./markdown";
 import type {
   AttachmentOrigin,
@@ -220,6 +221,38 @@ function extractLcGradientProtocolId(sourcePath: string | null | undefined): num
   return match ? parseInt(match[1], 10) : null;
 }
 
+// Matches `plate://protocol/{id}` source_path format.
+function extractPlateProtocolId(sourcePath: string | null | undefined): number | null {
+  if (!sourcePath) return null;
+  const match = sourcePath.match(/^plate:\/\/protocol\/(\d+)$/);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+async function fetchPlateProtocolSafe(
+  method: Method,
+  task: Task,
+): Promise<PlateProtocol | null> {
+  const id = extractPlateProtocolId(method.source_path);
+  if (id === null) return null;
+  try {
+    const owner = method.owner || (task.is_shared_with_me ? task.owner : undefined);
+    const protocol = await plateApi.get(id, owner);
+    if (!protocol) {
+      console.warn(
+        `[export] Plate protocol ${id} for method ${method.id} could not be loaded`,
+      );
+      return null;
+    }
+    return protocol;
+  } catch (err) {
+    console.warn(
+      `[export.extract] failed to load Plate protocol ${id} for method ${method.id}:`,
+      err,
+    );
+    return null;
+  }
+}
+
 async function fetchLcGradientProtocolSafe(
   method: Method,
   task: Task,
@@ -306,6 +339,7 @@ async function buildMethodPayload(
   let pdfAttachment: ExperimentAttachment | null = null;
   let pcrProtocol: PCRProtocol | null = null;
   let lcGradientProtocol: LCGradientProtocol | null = null;
+  let plateProtocol: PlateProtocol | null = null;
 
   if (method.method_type === "markdown" && method.source_path) {
     try {
@@ -364,9 +398,12 @@ async function buildMethodPayload(
   if (method.method_type === "lc_gradient") {
     lcGradientProtocol = await fetchLcGradientProtocolSafe(method, task);
   }
+  if (method.method_type === "plate") {
+    plateProtocol = await fetchPlateProtocolSafe(method, task);
+  }
 
   return {
-    payload: { method, bodyMarkdown, attachment, pcrProtocol, lcGradientProtocol },
+    payload: { method, bodyMarkdown, attachment, pcrProtocol, lcGradientProtocol, plateProtocol },
     pdfAttachment,
   };
 }

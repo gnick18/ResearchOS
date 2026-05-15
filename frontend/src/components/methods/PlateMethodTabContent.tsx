@@ -1,0 +1,205 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { plateApi } from "@/lib/local-api";
+import type {
+  Method,
+  PlateAnnotationSnapshot,
+  PlateProtocol,
+  PlateWellAnnotation,
+  Task,
+  TaskMethodAttachment,
+} from "@/lib/types";
+import PlateLayoutEditor, { regionLabelsToWells } from "@/components/PlateLayoutEditor";
+import { ownerScopedTasksApi } from "@/lib/tasks/owner-scoped-api";
+import VariationNotesPanel from "./VariationNotesPanel";
+
+interface PlateMethodTabContentProps {
+  task: Task;
+  method: Method;
+  methodId: number;
+  attachment: TaskMethodAttachment | undefined;
+  onTaskUpdate?: (task: Task) => void;
+  readOnly?: boolean;
+}
+
+function extractPlateProtocolId(sourcePath: string): number | null {
+  const match = sourcePath.match(/^plate:\/\/protocol\/(\d+)$/);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+/** Pulls the per-well snapshot stored on the task's attachment, falling back
+ *  to the source protocol's region_labels expanded to a per-well map. Mirrors
+ *  LC's snapshotOrSource: `attachment.plate_annotation` is either null
+ *  (defer to source region_labels) or a full snapshot JSON. */
+function snapshotOrSource(
+  attachment: TaskMethodAttachment | undefined,
+  source: PlateProtocol | null | undefined,
+): { wells: Record<string, PlateWellAnnotation>; fromSnapshot: boolean } {
+  if (attachment?.plate_annotation) {
+    try {
+      const parsed = JSON.parse(attachment.plate_annotation) as PlateAnnotationSnapshot;
+      if (parsed && typeof parsed === "object" && parsed.wells) {
+        return { wells: parsed.wells, fromSnapshot: true };
+      }
+    } catch {
+      // Fall through to source on corrupted snapshot — safer than dropping
+      // the user's source baseline.
+    }
+  }
+  return { wells: regionLabelsToWells(source?.region_labels), fromSnapshot: false };
+}
+
+export default function PlateMethodTabContent({
+  task,
+  method,
+  methodId,
+  attachment,
+  onTaskUpdate,
+  readOnly = false,
+}: PlateMethodTabContentProps) {
+  const queryClient = useQueryClient();
+  const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
+
+  const plateProtocolId = method.source_path ? extractPlateProtocolId(method.source_path) : null;
+  const plateProtocolOwner = method.owner || undefined;
+
+  const { data: fetchedProtocol } = useQuery({
+    queryKey: ["plate-layout", plateProtocolId, plateProtocolOwner],
+    queryFn: () => plateApi.get(plateProtocolId!, plateProtocolOwner),
+    enabled: plateProtocolId !== null,
+  });
+
+  const [wells, setWells] = useState<Record<string, PlateWellAnnotation>>({});
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const sourceProtocol = fetchedProtocol ?? null;
+
+  // Source baseline expanded to wells — both the editor's "original" diff
+  // baseline and the initial state when the task has no snapshot yet.
+  const sourceWells = useMemo(
+    () => regionLabelsToWells(sourceProtocol?.region_labels),
+    [sourceProtocol],
+  );
+
+  useEffect(() => {
+    if (!sourceProtocol) return;
+    const seed = snapshotOrSource(attachment, sourceProtocol);
+    setWells(seed.wells);
+    setHasUnsavedChanges(false);
+  }, [attachment, sourceProtocol]);
+
+  // Track unsaved changes vs. whatever the editor was initialized from.
+  const lastSeed = useMemo(
+    () => snapshotOrSource(attachment, sourceProtocol),
+    [attachment, sourceProtocol],
+  );
+
+  useEffect(() => {
+    if (!sourceProtocol) {
+      setHasUnsavedChanges(false);
+      return;
+    }
+    setHasUnsavedChanges(JSON.stringify(wells) !== JSON.stringify(lastSeed.wells));
+  }, [lastSeed, wells, sourceProtocol]);
+
+  const handleSave = useCallback(async () => {
+    if (!sourceProtocol) return;
+    setSaving(true);
+    try {
+      const snapshot: PlateAnnotationSnapshot = { wells };
+      const updatedTask = await tasksApi.updateMethodPlate(task.id, methodId, {
+        plate_annotation: JSON.stringify(snapshot),
+      });
+      await queryClient.refetchQueries({ queryKey: ["tasks"] });
+      await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+      setHasUnsavedChanges(false);
+      if (updatedTask) onTaskUpdate?.(updatedTask);
+    } catch (err) {
+      console.error("Failed to save plate annotations:", err);
+      alert("Failed to save plate annotations");
+    } finally {
+      setSaving(false);
+    }
+  }, [task.id, methodId, sourceProtocol, wells, queryClient, onTaskUpdate, tasksApi]);
+
+  const handleReset = useCallback(async () => {
+    if (!confirm("Reset plate annotations to match the source method? Your changes will be lost.")) return;
+    setSaving(true);
+    try {
+      const updatedTask = await tasksApi.resetPlate(task.id, methodId);
+      await queryClient.refetchQueries({ queryKey: ["tasks"] });
+      await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+      if (updatedTask) onTaskUpdate?.(updatedTask);
+    } catch (err) {
+      console.error("Failed to reset plate:", err);
+      alert("Failed to reset plate data");
+    } finally {
+      setSaving(false);
+    }
+  }, [task.id, methodId, queryClient, onTaskUpdate, tasksApi]);
+
+  return (
+    <div className="flex flex-col h-full">
+      <VariationNotesPanel
+        task={task}
+        methodId={methodId}
+        variationNotes={attachment?.variation_notes || null}
+        onSaved={(updatedTask) => {
+          if (updatedTask) onTaskUpdate?.(updatedTask);
+          queryClient.refetchQueries({ queryKey: ["tasks"] });
+          queryClient.refetchQueries({ queryKey: ["allTasks"] });
+        }}
+        readOnly={readOnly}
+      />
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700">
+              {method.name || "Plate Layout"}
+            </span>
+            <span className="text-xs px-1.5 py-0.5 bg-emerald-100 text-emerald-600 rounded">Plate</span>
+          </div>
+          {!readOnly && (
+            <div className="flex items-center gap-2">
+              {hasUnsavedChanges && (
+                <span className="text-xs text-amber-600">Unsaved changes</span>
+              )}
+              <button
+                onClick={handleReset}
+                disabled={saving}
+                className="px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+                title="Reset to original method values"
+              >
+                Reset to Method
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving || !hasUnsavedChanges}
+                className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+              >
+                {saving ? "Saving…" : "Save Changes"}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {sourceProtocol ? (
+          <PlateLayoutEditor
+            plateSize={sourceProtocol.plate_size}
+            wells={wells}
+            onWellsChange={readOnly ? undefined : setWells}
+            readOnly={readOnly}
+            originalWells={sourceWells}
+            originalPlateSize={sourceProtocol.plate_size}
+            lockPlateSize
+          />
+        ) : (
+          <p className="text-sm text-gray-400">No plate layout data available</p>
+        )}
+      </div>
+    </div>
+  );
+}

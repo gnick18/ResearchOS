@@ -451,10 +451,13 @@ function MethodPreview({ method }: { method: Method | null }) {
   const isLc =
     method?.method_type === "lc_gradient" ||
     (method?.source_path?.startsWith("lc_gradient://") ?? false);
+  const isPlate =
+    method?.method_type === "plate" ||
+    (method?.source_path?.startsWith("plate://") ?? false);
   const isPdf =
     method?.method_type === "pdf" ||
     (method?.source_path?.toLowerCase().endsWith(".pdf") ?? false);
-  const canFetchFile = !!method?.source_path && !isPcr && !isLc;
+  const canFetchFile = !!method?.source_path && !isPcr && !isLc && !isPlate;
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["method-preview", method?.id],
@@ -520,6 +523,11 @@ function MethodPreview({ method }: { method: Method | null }) {
               LC
             </span>
           )}
+          {isPlate && (
+            <span className="text-xs px-1.5 py-0.5 bg-emerald-100 text-emerald-600 rounded shrink-0">
+              Plate
+            </span>
+          )}
           {isPdf && (
             <span className="text-xs px-1.5 py-0.5 bg-rose-100 text-rose-600 rounded shrink-0">
               PDF
@@ -554,6 +562,11 @@ function MethodPreview({ method }: { method: Method | null }) {
           <div className="overflow-y-auto px-5 py-4 text-sm text-gray-500">
             LC gradient — select the method to view its solvent gradient, column,
             and ingredients.
+          </div>
+        ) : isPlate ? (
+          <div className="overflow-y-auto px-5 py-4 text-sm text-gray-500">
+            Plate layout — select the method to view the plate grid and any
+            pre-labeled regions.
           </div>
         ) : !canFetchFile ? (
           <div className="overflow-y-auto px-5 py-4 text-sm text-gray-500">

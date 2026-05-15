@@ -1,0 +1,38 @@
+{
+  "id": 1,
+  "name": "[Demo protocol] 96-well bacterial growth curve (DemoStrain inducer titration)",
+  "description": "Demo plate template — DemoStrain ΔADE2 growth curve in YPD vs. fake-inducer concentration series. Column 1 = media blanks, columns 2-7 = sample wells (5 inducer concentrations + carrier control), columns 8-12 = negative controls.",
+  "plate_size": 96,
+  "region_labels": [
+    {
+      "row_start": 0,
+      "row_end": 7,
+      "col_start": 0,
+      "col_end": 0,
+      "role": "blank",
+      "notes": "YPD media only (no cells)"
+    },
+    {
+      "row_start": 0,
+      "row_end": 7,
+      "col_start": 1,
+      "col_end": 6,
+      "role": "sample",
+      "notes": "DemoStrain ΔADE2 + fake-inducer titration"
+    },
+    {
+      "row_start": 0,
+      "row_end": 7,
+      "col_start": 7,
+      "col_end": 11,
+      "role": "control",
+      "notes": "Wild-type DemoStrain (no inducer)"
+    }
+  ],
+  "created_at": "2026-04-22T00:00:00Z",
+  "updated_at": "2026-04-22T00:00:00Z",
+  "is_public": false,
+  "created_by": "alex",
+  "owner": "alex",
+  "shared_with": []
+}

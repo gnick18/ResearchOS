@@ -342,11 +342,12 @@ function buildEntries() {
     {
       projects: 4,
       tasks: 29,
-      methods: 6,
+      methods: 7,
       events: 4,
       goals: 2,
       pcr_protocols: 1,
       lc_gradients: 1,
+      plate_layouts: 1,
       purchase_items: 20,
       lab_links: 6,
       notes: 2,
@@ -469,6 +470,9 @@ function buildEntries() {
         // exercised in fixture mode (Phase 1a live-smoke chip). The PCR
         // demo at task 5 already covers PcrMethodTabContent.
         { method_id: 6, owner: "alex", snapshot_at: "2026-05-13T08:00:00Z" },
+        // Plate-layout method — drives PlateMethodTabContent in fixture
+        // mode (Methods Expansion Phase 2C). 96-well bacterial growth curve.
+        { method_id: 7, owner: "alex", snapshot_at: "2026-05-13T08:00:00Z" },
       ] },
     { id: 11, project_id: 3, name: "Heat-shock survival assay", start_date: "2026-05-18", duration_days: 1, end_date: "2026-05-18", task_type: "experiment", is_complete: false, experiment_color: "#f59e0b",
       sub_tasks: [
@@ -678,6 +682,59 @@ function buildEntries() {
       ],
       created_at: "2026-04-12T00:00:00Z",
       updated_at: "2026-04-12T00:00:00Z",
+      is_public: false,
+      created_by: "alex",
+      owner: "alex",
+      shared_with: [],
+    },
+  ]);
+
+  // Plate-typed method entry surfacing alex's private plate layout in the
+  // methods list. Clicking opens the PlateViewer (click-paint grid editor).
+  // source_path uses the canonical plate://protocol/{id} scheme used
+  // throughout the app (methods/page.tsx, MethodTabs.tsx).
+  out.push([
+    "users/alex/methods/7.json",
+    {
+      id: 7,
+      name: "[Demo protocol] 96-well bacterial growth curve (DemoStrain inducer titration)",
+      source_path: "plate://protocol/1",
+      method_type: "plate",
+      folder_path: "Screening",
+      parent_method_id: null,
+      tags: ["demo", "plate", "growth-curve"],
+      attachments: [],
+      is_public: false,
+      created_by: "alex",
+      owner: "alex",
+      shared_with: [],
+    },
+  ]);
+
+  // alex plate layout (private). Realistic-but-fake 96-well plate template
+  // for a bacterial growth curve in YPD/glucose. Column 1 = blanks (media
+  // only), columns 2-7 = inducer concentration series, columns 8-12 =
+  // negative controls. The numbers are plausible for the wider DEMO:
+  // FakeYeast biofuel narrative tied to task 10 (the growth-curve experiment
+  // that this layout is attached to).
+  out.push([
+    "users/alex/plate_layouts/1.json",
+    {
+      id: 1,
+      name: "[Demo protocol] 96-well bacterial growth curve (DemoStrain inducer titration)",
+      description:
+        "Demo plate template — DemoStrain ΔADE2 growth curve in YPD vs. fake-inducer concentration series. Column 1 = media blanks, columns 2-7 = sample wells (5 inducer concentrations + carrier control), columns 8-12 = negative controls.",
+      plate_size: 96,
+      region_labels: [
+        // Column 1: media-only blanks
+        { row_start: 0, row_end: 7, col_start: 0, col_end: 0, role: "blank", notes: "YPD media only (no cells)" },
+        // Columns 2-7: sample wells (6 columns × 8 rows = 48 sample wells)
+        { row_start: 0, row_end: 7, col_start: 1, col_end: 6, role: "sample", notes: "DemoStrain ΔADE2 + fake-inducer titration" },
+        // Columns 8-12: negative controls (5 columns × 8 rows = 40 wells)
+        { row_start: 0, row_end: 7, col_start: 7, col_end: 11, role: "control", notes: "Wild-type DemoStrain (no inducer)" },
+      ],
+      created_at: "2026-04-22T00:00:00Z",
+      updated_at: "2026-04-22T00:00:00Z",
       is_public: false,
       created_by: "alex",
       owner: "alex",

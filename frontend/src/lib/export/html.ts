@@ -547,6 +547,121 @@ function renderLcIngredients(p: {
   return `<table class="lc-ingredients"><thead><tr><th>Name</th><th>Role</th><th>Concentration</th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
+function buildPlateMethodBody(mp: MethodPayload): string {
+  const protocol = mp.plateProtocol ?? null;
+  if (!protocol) {
+    return `<p class="method-file-link">Plate Layout Method (protocol could not be loaded).</p>`;
+  }
+  // Build a per-well map from the source's region_labels, then layer the
+  // attachment snapshot (if any) on top — matches how the runtime tab
+  // content reconciles source-vs-snapshot.
+  type Well = { role: string; sample_label?: string; custom_label?: string; replicate_index?: number; notes?: string };
+  const wells: Record<string, Well> = {};
+  const dims = plateDims(protocol.plate_size);
+  for (const r of protocol.region_labels ?? []) {
+    for (let row = r.row_start; row <= r.row_end; row += 1) {
+      for (let col = r.col_start; col <= r.col_end; col += 1) {
+        const id = `${String.fromCharCode(65 + row)}${col + 1}`;
+        const w: Well = { role: r.role };
+        if (r.custom_label) w.custom_label = r.custom_label;
+        if (r.notes) w.notes = r.notes;
+        wells[id] = w;
+      }
+    }
+  }
+  const att = mp.attachment;
+  let usedSnapshot = false;
+  if (att?.plate_annotation && att.plate_annotation.trim()) {
+    try {
+      const parsed = JSON.parse(att.plate_annotation);
+      if (parsed && typeof parsed === "object" && parsed.wells && typeof parsed.wells === "object") {
+        Object.assign(wells, parsed.wells);
+        usedSnapshot = true;
+      }
+    } catch {
+      // Corrupt snapshot — keep the source-derived map.
+    }
+  }
+
+  const ROLE_LABELS: Record<string, string> = {
+    blank: "Blank",
+    sample: "Sample",
+    control: "Control",
+    na: "N/A",
+    custom: "Custom",
+  };
+
+  // Render the grid as an HTML table.
+  let grid = `<table class="plate-grid"><thead><tr><th></th>`;
+  for (let c = 0; c < dims.cols; c += 1) grid += `<th>${c + 1}</th>`;
+  grid += `</tr></thead><tbody>`;
+  for (let r = 0; r < dims.rows; r += 1) {
+    grid += `<tr><th>${String.fromCharCode(65 + r)}</th>`;
+    for (let c = 0; c < dims.cols; c += 1) {
+      const id = `${String.fromCharCode(65 + r)}${c + 1}`;
+      const w = wells[id];
+      if (!w) {
+        grid += `<td class="plate-well plate-empty" title="${id}"></td>`;
+      } else {
+        const tipParts = [`${id} — ${ROLE_LABELS[w.role] ?? w.role}`];
+        if (w.sample_label) tipParts.push(`Sample: ${w.sample_label}`);
+        if (w.custom_label) tipParts.push(`Label: ${w.custom_label}`);
+        const tip = escapeHtml(tipParts.join(" · "));
+        const cls = `plate-well plate-role-${w.role}`;
+        const short =
+          w.role === "sample"
+            ? "S"
+            : w.role === "control"
+              ? "C"
+              : w.role === "blank"
+                ? "B"
+                : w.role === "na"
+                  ? "—"
+                  : "?";
+        grid += `<td class="${cls}" title="${tip}">${escapeHtml(short)}</td>`;
+      }
+    }
+    grid += `</tr>`;
+  }
+  grid += `</tbody></table>`;
+
+  // Annotation summary table.
+  const counts: Record<string, number> = { blank: 0, sample: 0, control: 0, na: 0, custom: 0 };
+  for (const w of Object.values(wells)) counts[w.role] = (counts[w.role] ?? 0) + 1;
+  const summaryRows = Object.entries(counts)
+    .filter(([, n]) => n > 0)
+    .map(
+      ([role, n]) =>
+        `<tr><td>${escapeHtml(ROLE_LABELS[role] ?? role)}</td><td>${n}</td></tr>`,
+    )
+    .join("");
+
+  const parts: string[] = [];
+  parts.push(`<h4>Plate layout (${protocol.plate_size}-well)</h4>`);
+  parts.push(grid);
+  if (summaryRows) {
+    parts.push(
+      `<table class="plate-summary"><thead><tr><th>Role</th><th>Wells</th></tr></thead><tbody>${summaryRows}</tbody></table>`,
+    );
+  }
+  if (protocol.description && protocol.description.trim()) {
+    parts.push(`<p class="plate-notes">${escapeHtml(protocol.description.trim())}</p>`);
+  }
+  if (usedSnapshot) {
+    parts.push(
+      `<p class="plate-deviation-note"><em>Note:</em> the annotations above include per-task snapshot edits on top of the source plate layout.</p>`,
+    );
+  }
+  return parts.join("");
+}
+
+function plateDims(size: number): { rows: number; cols: number } {
+  if (size === 12) return { rows: 3, cols: 4 };
+  if (size === 24) return { rows: 4, cols: 6 };
+  if (size === 48) return { rows: 6, cols: 8 };
+  return { rows: 8, cols: 12 };
+}
+
 function buildMethodBlock(
   mp: MethodPayload,
   attachments: ExperimentAttachment[],
@@ -570,6 +685,8 @@ function buildMethodBlock(
     body = buildPcrMethodBody(mp);
   } else if (mp.method.method_type === "lc_gradient") {
     body = buildLcGradientMethodBody(mp);
+  } else if (mp.method.method_type === "plate") {
+    body = buildPlateMethodBody(mp);
   } else {
     body = `<p class="method-file-link">No method body available.</p>`;
   }
