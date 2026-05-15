@@ -124,7 +124,7 @@ export default function CalendarFeaturePage() {
         <li>
           <strong>iCloud / Apple Calendar</strong> shares via Calendar app
           → right-click → Share Calendar → Public Calendar. Paste the{" "}
-          <code>webcal://</code> URL as-is; ResearchOS rewrites it
+          <code>webcal://</code> URL as-is. ResearchOS rewrites it
           automatically.
         </li>
       </ul>

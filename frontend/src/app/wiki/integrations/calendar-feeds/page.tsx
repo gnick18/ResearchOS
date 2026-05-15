@@ -23,9 +23,9 @@ export default function CalendarFeedsIntegrationPage() {
       </p>
       <p>
         Linked calendars are read-only. ResearchOS fetches a public iCal
-        (ICS) URL on a timer and overlays the events — it never writes
+        (ICS) URL on a timer and overlays the events. It never writes
         back to Google, Outlook, or Apple. To edit an event, open it in
-        its source app; the change syncs into ResearchOS on the next
+        its source app, and the change syncs into ResearchOS on the next
         15-minute refresh.
       </p>
 
@@ -45,8 +45,8 @@ export default function CalendarFeedsIntegrationPage() {
         </Step>
         <Step>
           Pick the source from the <strong>Provider</strong> dropdown
-          (iCloud / Apple Calendar, Google Calendar (ICS), Outlook /
-          Office 365 (ICS), or Other).
+          (iCloud / Apple Calendar, Google Calendar, Outlook / Office
+          365, or Other (any public iCal URL)).
         </Step>
         <Step>
           Type a <strong>Label</strong> (this is what shows up on the
@@ -243,9 +243,9 @@ export default function CalendarFeedsIntegrationPage() {
       <p>
         Linked calendars are read-only by design. To make changes, open
         the event in its source app (Google Calendar, Outlook, Apple
-        Calendar) — your edit shows up in ResearchOS on the next
+        Calendar). Your edit shows up in ResearchOS on the next
         15-minute refresh. Earlier ResearchOS builds had an
-        OAuth-backed two-way sync for Google and Outlook; that surface
+        OAuth-backed two-way sync for Google and Outlook. That surface
         was removed (2026-05-14) in favor of keeping the integration
         simple and credential-free. The ICS subscription flow described
         here is the only supported path now.

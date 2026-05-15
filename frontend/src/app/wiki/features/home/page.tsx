@@ -50,18 +50,56 @@ export default function HomeFeaturePage() {
         Clicking a card opens that project&apos;s detail popup. It lists the
         project&apos;s tasks split into <strong>In Progress</strong>,{" "}
         <strong>Overdue</strong>, and <strong>Upcoming</strong>. Click any
-        task to open a quick popup over the list; from there you can expand
+        task to open a quick popup over the list. From there you can expand
         into the full task detail.
       </p>
       <p>
-        Three icon buttons sit in the popup header: a <strong>pencil</strong>{" "}
-        to enter edit mode (rename, change color, edit tags, toggle the
-        7-day schedule, or delete the project); a connected-circles{" "}
-        <strong>share</strong> icon to share the project with a labmate; and
-        a close button. The body has an <strong>Archive Project</strong>{" "}
-        button (or <strong>Unarchive Project</strong> on already-archived
-        projects).
+        Three icon buttons sit in the popup header. A <strong>pencil</strong>{" "}
+        enters edit mode (rename, change color, edit tags, toggle the 7-day
+        schedule, or delete the project). A connected-circles{" "}
+        <strong>share</strong> icon opens the share dialog so you can grant
+        a labmate access. A close button dismisses the popup. The body has
+        an <strong>Archive Project</strong> button (or{" "}
+        <strong>Unarchive Project</strong> on already-archived projects).
       </p>
+
+      <h2>Recently completed</h2>
+      <p>
+        Below the <strong>Upcoming</strong> group, the popup shows a green{" "}
+        <strong>Recently completed</strong> section listing every task in
+        this project that finished in the last 30 days. The list covers all
+        task types (experiments, purchases, regular tasks), each with a
+        color-coded dot on the left and the completion date on the right.
+      </p>
+      <p>
+        Clicking a recently-completed task skips the quick popup and opens
+        the full task detail popup straight on the{" "}
+        <strong>Results</strong> tab, so you land on the writeup or
+        attached files without an extra click. This is where the old
+        Results page lived before it was rolled into the project popup.
+      </p>
+
+      <h2>Hosted from others</h2>
+      <p>
+        On your own projects, the popup may include an amber{" "}
+        <strong>Hosted from others</strong> section at the bottom of the
+        task list. Tasks here are owned by another labmate but have been
+        shared <em>into</em> this project, so this view stays the complete
+        picture of what&apos;s happening on the project (not just the tasks
+        you own). Each row shows the task name, a{" "}
+        <code>by &lt;owner&gt;</code> chip, and the start date. Hover the{" "}
+        <strong>?</strong> next to the section title for a tooltip
+        explaining the arrangement.
+      </p>
+      <p>
+        The small <strong>X</strong> on the right of each row removes the
+        task from <em>this</em> project. The task file stays in the
+        original owner&apos;s library, only the link to your project goes
+        away. The section is hidden on archived projects and on projects
+        that were shared <em>to</em> you (you only see your own hosted
+        guests, not your collaborators&apos;).
+      </p>
+
       <h2>Projects a labmate shared with you</h2>
       <p>
         When a labmate shares a project with you, its card slides into the
@@ -79,8 +117,8 @@ export default function HomeFeaturePage() {
         reflect those tasks too.
       </p>
       <p>
-        A few buttons disappear when the popup is opened on a shared
-        project:
+        On a shared project, a few header and edit-form buttons change
+        their behavior rather than disappearing outright:
       </p>
       <ul>
         <li>
@@ -89,15 +127,22 @@ export default function HomeFeaturePage() {
           to see it too, ask the owner to share with them as well.
         </li>
         <li>
-          <strong>The delete button stays on the owner&apos;s side.</strong>{" "}
-          Even with edit permission, the trash action only lives in the
-          owner&apos;s copy of the popup. Your edit form will be missing
-          the red <em>Delete Project</em> button.
+          <strong>The delete button greys out for everyone.</strong> Open
+          the edit form on a shared project (view <em>or</em> edit
+          permission) and the red <em>Delete Project</em> button is
+          disabled. Hover it and a tooltip points back to the owner. Only
+          the original owner can destroy the project file.
+        </li>
+        <li>
+          <strong>View-only receivers see greyed-out edit controls.</strong>{" "}
+          The pencil icon and the <em>Archive Project</em> button both
+          render but stay disabled with a tooltip explaining that only the
+          owner and edit-permission collaborators can change the project.
         </li>
       </ul>
       <p>
-        Whether you can change the project at all depends on the
-        permission the owner picked when they shared:
+        Whether your edits actually go anywhere depends on the permission
+        the owner picked when they shared:
       </p>
       <ul>
         <li>
@@ -105,11 +150,11 @@ export default function HomeFeaturePage() {
           button, and the task edits inside the popup all save back to the
           original owner&apos;s copy of the data. Your changes show up on
           their Home page too (after their next refresh, since each
-          person&apos;s app reads from disk on its own schedule).
+          person&apos;s app reads its own files on its own schedule).
         </li>
         <li>
-          <strong>View permission</strong>: leave the popup&apos;s edit
-          mode alone. Treat the project as read-only and use it as a
+          <strong>View permission</strong>: the pencil and archive button
+          are disabled. Treat the project as read-only and use it as a
           window into the owner&apos;s work.
         </li>
       </ul>
@@ -181,7 +226,7 @@ export default function HomeFeaturePage() {
           back.
         </li>
         <li>
-          <strong>Delete a project</strong> from edit mode (pencil →{" "}
+          <strong>Delete a project</strong> from edit mode (pencil, then{" "}
           <strong>Delete Project</strong> at the bottom-left of the form).
           This also deletes every task in the project and can&apos;t be
           undone, so archive first if you&apos;re not sure.

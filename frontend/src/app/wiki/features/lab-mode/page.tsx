@@ -81,7 +81,7 @@ export default function LabModeFeaturePage() {
         <Link href="/wiki/features/home">Home page</Link>. Lab Mode is the
         broader view. Every labmate in the folder shows up on every tab
         whether they shared anything with you or not. Use sharing when you
-        want a labmate&apos;s project on your own Home; use Lab Mode when
+        want a labmate&apos;s project on your own Home. Use Lab Mode when
         you want a lab-wide read-only roll-up.
       </Callout>
 

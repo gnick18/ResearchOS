@@ -67,8 +67,10 @@ export default function MethodsFeaturePage() {
       <Steps>
         <Step>
           Click <strong>+ New Method</strong>. Pick the format (Markdown,
-          PDF, or PCR), give it a name, and optionally type or pick a
-          category from the autocomplete.
+          PDF, or PCR) and give it a name. The <strong>Folder
+          (optional)</strong> field autocompletes against existing
+          categories (the page-level headings) so methods drop into the
+          right bucket.
         </Step>
         <Step>
           Fill in the body: write markdown, upload a PDF, or build a PCR
@@ -108,15 +110,20 @@ export default function MethodsFeaturePage() {
         </li>
         <li>
           Open an existing method and click the <strong>🔒 Private</strong>{" "}
-          pill in the header to toggle it to <strong>🌐 Public</strong>.
+          pill in the header. That opens a share popup with a
+          public-visibility toggle and a green confirmation message when
+          you flip it. The pill itself updates to <strong>🌐 Public</strong>{" "}
+          once saved.
         </li>
       </ul>
       <p>
         Public methods show a green <strong>Public</strong> badge on their
-        card and appear in every user&apos;s library. Only the original
-        creator can edit a public method (the inline Edit button is hidden
-        for everyone else); other users can still attach it to their
-        experiments and record variations.
+        card and appear in every user&apos;s library. Once a markdown method
+        is public the inline Edit button disappears for everyone (including
+        the creator) and the body becomes read-only. To change a published
+        protocol, flip it back to Private from the share popup, edit, then
+        republish. Other users can always attach a public method to their
+        experiments and record their own variations.
       </p>
 
       <h2>Attach a method to an experiment</h2>
@@ -160,7 +167,7 @@ export default function MethodsFeaturePage() {
       <Callout variant="tip" title="Search before you write">
         The picker&apos;s search box matches names and tags (prefix with{" "}
         <code>#</code> to search tags only). Many labs end up with five
-        slightly different copies of the same protocol; a quick search
+        slightly different copies of the same protocol. A quick search
         prevents that.
       </Callout>
     </WikiPage>
