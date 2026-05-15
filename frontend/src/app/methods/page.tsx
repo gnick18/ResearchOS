@@ -16,6 +16,7 @@ import {
 import type { MethodUpdate } from "@/lib/local-api";
 import { fileService } from "@/lib/file-system/file-service";
 import { fileEvents } from "@/lib/attachments/file-events";
+import { imageEvents } from "@/lib/attachments/image-events";
 import { migrateNoteImages } from "@/lib/notes/migrate-images";
 import { createNewFileContent, hasLegacyStampFormat, normalizeStampFormat } from "@/lib/stamp-utils";
 import AppShell from "@/components/AppShell";
@@ -888,6 +889,10 @@ function CreateMethodModal({
             if (response.warning) {
               setUploadWarning(response.warning);
             }
+            imageEvents.emitAttached({
+              basePath: `methods/${slug}`,
+              relativePath: `Images/${imageName}`,
+            });
           } catch {
             alert(`Failed to upload ${renamedFile.name}`);
           }
@@ -1726,6 +1731,7 @@ function MarkdownMethodViewer({
           await fileService.writeFileFromBlob(`${methodDir}/Images/${finalName}`, renamedFile);
           // Drop = attach to Images/ only; placing the markdown ref
           // inline is the user's explicit drag from the bottom strip.
+          imageEvents.emitAttached({ basePath: methodDir, relativePath: `Images/${finalName}` });
         } catch {
           alert(`Failed to upload ${renamedFile.name}`);
         }
