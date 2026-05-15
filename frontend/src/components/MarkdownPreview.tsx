@@ -5,6 +5,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import rehypeHighlight from "rehype-highlight";
+import rehypeSanitize from "rehype-sanitize";
+import { markdownSanitizeSchema } from "@/lib/markdown/sanitize-schema";
 import { filesApi } from "@/lib/local-api";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 import Tooltip from "./Tooltip";
@@ -109,7 +111,7 @@ export default function MarkdownPreview({
             <div className="prose prose-sm prose-gray max-w-none">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeRaw, rehypeHighlight]}
+                rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema], rehypeHighlight]}
                 components={{
                   img: ({ src, alt, ...props }) => {
                     const originalSrc = String(src || "");

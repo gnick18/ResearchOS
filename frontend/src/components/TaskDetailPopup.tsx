@@ -4,6 +4,8 @@ import React, { useCallback, useEffect, useRef, useState, useMemo } from "react"
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
+import { markdownSanitizeSchema } from "@/lib/markdown/sanitize-schema";
 import { filesApi, methodsApi, projectsApi, dependenciesApi, fetchAllTasks, fetchAllProjectsIncludingShared, purchasesApi, tasksApi as rawTasksApi, type DuplicateCheckResult } from "@/lib/local-api";
 import { ownerScopedTasksApi } from "@/lib/tasks/owner-scoped-api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -2415,7 +2417,7 @@ function DetailsTab({
                 Deviation Log
               </p>
               <div className="prose prose-sm prose-gray max-w-none bg-amber-50 rounded-lg p-3">
-                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]]}>
                   {task.deviation_log}
                 </ReactMarkdown>
               </div>
@@ -3710,7 +3712,7 @@ function PdfAttachmentsPanel({ pdfsDir, label }: { pdfsDir: string; label: strin
           {isMarkdown ? (
             markdownContent ? (
               <div className="h-full overflow-y-auto p-6 prose prose-sm prose-gray max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]]}>
                   {markdownContent}
                 </ReactMarkdown>
               </div>
