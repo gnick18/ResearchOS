@@ -17,7 +17,7 @@ interface UserLoginScreenProps {
 }
 
 export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
-  const { setCurrentUser } = useFileSystem();
+  const { setCurrentUser, currentUser: contextCurrentUser } = useFileSystem();
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<string[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -349,13 +349,31 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       try {
         await usersApi.delete(deleteUserSelected, 1, true);
         await usersApi.delete(deleteUserSelected, 2, true);
-        
+
+        // Clear the FileSystemProvider's currentUser pointer if we just
+        // deleted the active user. Without this, the IndexedDB-stored
+        // currentUser stays as the deleted username, and the next
+        // providers.tsx render path routes back to "that user's home"
+        // with stale React Query data. Repro: open this picker via the
+        // AppShell user-switch modal while signed in as alice → delete
+        // alice → modal closes → main app re-renders against currentUser
+        // === "alice" even though alice's folder is gone.
+        if (contextCurrentUser === deleteUserSelected) {
+          await setCurrentUser("");
+        }
+        // Persist mainUser clear to IndexedDB too. Local `setMainUser(null)`
+        // below only updates this component's state; the FS-level pointer
+        // stays stale on next reload otherwise.
+        if (mainUser === deleteUserSelected) {
+          await usersApi.setMainUser("");
+        }
+
         // Remove from local state
         setUsers(users.filter(u => u !== deleteUserSelected));
         if (mainUser === deleteUserSelected) {
           setMainUser(null);
         }
-        
+
         cancelDelete();
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : 
