@@ -14,7 +14,6 @@ export const APP_ROUTE_TO_WIKI: Record<string, string> = {
   "/methods": "/wiki/features/methods",
   "/pcr": "/wiki/features/pcr",
   "/purchases": "/wiki/features/purchases",
-  "/results": "/wiki/features/results",
   "/calendar": "/wiki/features/calendar",
   "/lab": "/wiki/features/lab-mode",
   "/search": "/wiki/features/search",
@@ -195,8 +194,8 @@ export const WIKI_NAV: WikiNode[] = [
       },
       {
         href: "/wiki/features/results",
-        label: "Results",
-        blurb: "Per-task results folder with images and notes.",
+        label: "Results (moved)",
+        blurb: "Where the standalone Results page's surfaces moved to.",
       },
       {
         href: "/wiki/features/settings",

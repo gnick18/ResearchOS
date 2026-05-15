@@ -1,99 +1,61 @@
 import Link from "next/link";
 import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
-import Screenshot from "@/components/wiki/Screenshot";
-import { Steps, Step } from "@/components/wiki/Steps";
 
 export default function ResultsFeaturePage() {
   return (
     <WikiPage
-      intro="The Results tab is a board of every task you've completed (or flagged with a deviation log), grouped by project, with a quick way to write up what the experiment showed."
+      title="Where results live now"
+      intro="ResearchOS used to have a standalone Results page that listed every completed (or deviated) task, grouped by project. That page was retired — completed work surfaces in three places now, each closer to the context where the work happens."
     >
-      <Screenshot
-        src="/wiki/screenshots/results-list.png"
-        alt="The Results page showing project-grouped cards of completed tasks with status pills."
-        caption="The Results page: every result-worthy task as a card, grouped by project."
-      />
+      <Callout variant="info" title="Old bookmarks still work">
+        Visiting <code>/results</code> now redirects to{" "}
+        <Link href="/wiki/features/experiments">Workbench</Link>, where the
+        bulk of the old page&apos;s content lives. No data moved on disk —
+        every task&apos;s <code>results.md</code>, <code>notes.md</code>, and
+        per-task <code>Files/</code> + <code>Images/</code> folders stay
+        exactly where they were.
+      </Callout>
 
-      <h2>What you see on this page</h2>
+      <h2>Completed experiments → Workbench &ldquo;Earlier&rdquo;</h2>
       <p>
-        The page is a grid of cards, one per task. Each card shows the
-        task&apos;s name, its start date and duration, a few status pills
-        (<em>Notes</em>, <em>N files</em>, <em>Deviations</em>, or{" "}
-        <em>No results yet</em>), and any tags. Cards are grouped by project,
-        with each project&apos;s name in its own color along the top.
-      </p>
-      <p>
-        Along the top of the page is a row of project filter chips. Click a
-        chip to hide that project&apos;s cards; click again to bring them
-        back. The filter persists per-browser, so the same view comes back
-        the next time you open the page.
-      </p>
-      <p>
-        Only tasks that are either <strong>complete</strong> or carry a{" "}
-        <strong>deviation log</strong> appear here. That keeps the page
-        focused on tasks that have something to write up. To make a task
-        show up, mark it complete on the Gantt or in its popup, or log a
-        deviation while you&apos;re running it.
+        Experiments that you&apos;ve marked complete (or that carry a
+        deviation log) now collect in the <strong>Earlier</strong> archive
+        section at the bottom of the{" "}
+        <Link href="/wiki/features/experiments">Workbench</Link> page. They
+        keep all the same write-up affordances: clicking a card opens the
+        task detail popup with the Results tab selected, where you fill in
+        the markdown summary and drop in images.
       </p>
 
-      <h2>Filling in a task&apos;s results</h2>
-      <Screenshot
-        src="/wiki/screenshots/results-tab.png"
-        alt="The Results tab inside the task detail popup with an image gallery and markdown editor."
-        caption="Clicking a card opens the task popup straight on the Results tab."
-      />
-      <Steps>
-        <Step>
-          Click a card. The task detail popup opens with the{" "}
-          <strong>Results</strong> tab already selected.
-        </Step>
-        <Step>
-          Drop images into the editor or click the upload button. They land
-          in the task&apos;s results folder and appear in the gallery / image
-          strip.
-        </Step>
-        <Step>
-          Write a short summary of what the experiment showed in the markdown
-          editor. Same editor as everywhere else in the app, so the keyboard
-          shortcuts and three modes from{" "}
-          <Link href="/wiki/features/markdown-editor">The Markdown Editor</Link>{" "}
-          apply.
-        </Step>
-        <Step>
-          Close the popup. The card&apos;s pills update with the new file
-          count and a <em>Notes</em> badge.
-        </Step>
-      </Steps>
-
-      <h2>Lab notes vs results</h2>
+      <h2>Completed purchases → Purchases &ldquo;Earlier&rdquo;</h2>
       <p>
-        The same task has two write-up surfaces:
-      </p>
-      <ul>
-        <li>
-          The <strong>Lab Notes</strong> tab inside the popup is for the
-          during-the-run record: running observations, sub-task ticks, the
-          deviation log, photos you took at the bench.
-        </li>
-        <li>
-          The <strong>Results</strong> tab (this page&apos;s entry point) is
-          for the final outputs: the gel image you want in a paper, the
-          plot for a thesis chapter, the short summary of what the experiment
-          showed.
-        </li>
-      </ul>
-      <p>
-        Both live on the same task and both write into the same per-task
-        folder on disk. You can flip between the two tabs anytime in the
-        popup.
+        Finished purchase orders fold into the <strong>Earlier</strong>{" "}
+        accordion at the bottom of the{" "}
+        <Link href="/wiki/features/purchases">Purchases</Link> page. The
+        accordion stays collapsed by default so the active orders dominate
+        the view; click to expand and the historical buys appear with the
+        same per-row layout as the live ones.
       </p>
 
-      <Callout variant="tip" title="Pair with PDF export">
-        Once notes and results are written, open the experiment and use{" "}
-        <Link href="/wiki/features/experiments">Export → PDF</Link>. The PDF
-        bundles both halves into a single printable document for thesis
-        chapters and IRB filings.
+      <h2>Per-project completed work → project popup</h2>
+      <p>
+        Open any project from the{" "}
+        <Link href="/wiki/features/home">Home</Link> page and the project
+        detail popup now carries a <strong>Recently completed</strong> line
+        that surfaces the last 30 days of completed work for that project,
+        across every task type. It&apos;s the fastest way to answer
+        &ldquo;what did we finish on this project this month?&rdquo; without
+        leaving the project&apos;s own context.
+      </p>
+
+      <Callout variant="tip" title="Why the page was retired">
+        The standalone Results page was a fourth surface that mostly
+        duplicated work the per-feature pages were already doing better.
+        Folding completion into Workbench, Purchases, and the project popup
+        keeps each &ldquo;earlier&rdquo; view closer to the live work it
+        belongs to, instead of forcing one cross-cutting tab to do the job
+        for all of them.
       </Callout>
     </WikiPage>
   );
