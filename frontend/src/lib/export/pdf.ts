@@ -39,6 +39,10 @@ import type {
   LCGradientProtocol,
   PlateProtocol,
   PlateWellAnnotation,
+  CellCultureSchedule,
+  CellCultureActualEvent,
+  CellCulturePlannedEvent,
+  CellCultureSupplement,
 } from "@/lib/types";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -1381,6 +1385,207 @@ export async function buildPdf(
     return out;
   }
 
+  function renderCellCultureMethodBody(mp: MethodPayload): React.ReactNode[] {
+    const sourceSchedule: CellCultureSchedule | null = mp.cellCultureSchedule ?? null;
+    if (!sourceSchedule) {
+      return [
+        h(
+          Text,
+          { key: "cc-missing", style: styles.methodIntro },
+          "Cell culture passaging method (schedule could not be loaded).",
+        ),
+      ];
+    }
+    // Per-task snapshot overlays planned schedule + appends actual events.
+    let plannedEvents: CellCulturePlannedEvent[] = sourceSchedule.planned_events ?? [];
+    let cellLine = sourceSchedule.cell_line ?? {};
+    let media = sourceSchedule.media ?? {};
+    let description: string | null | undefined = sourceSchedule.description;
+    let actualEvents: CellCultureActualEvent[] = [];
+    const att = mp.attachment;
+    if (att?.cell_culture_schedule && att.cell_culture_schedule.trim()) {
+      try {
+        const parsed = JSON.parse(att.cell_culture_schedule);
+        if (parsed && typeof parsed === "object") {
+          if (Array.isArray(parsed.planned_events)) plannedEvents = parsed.planned_events;
+          if (parsed.cell_line && typeof parsed.cell_line === "object") cellLine = parsed.cell_line;
+          if (parsed.media && typeof parsed.media === "object") media = parsed.media;
+          if (typeof parsed.description === "string" || parsed.description === null) {
+            description = parsed.description;
+          }
+          if (Array.isArray(parsed.actual_events)) actualEvents = parsed.actual_events;
+        }
+      } catch {
+        // Fall back to source if snapshot was corrupt.
+      }
+    }
+
+    const keyPrefix = `m${mp.method.id}-cc`;
+    const out: React.ReactNode[] = [];
+
+    // Cell line metadata
+    const cellLineRows: React.ReactNode[] = [];
+    const pushCellLineRow = (label: string, value: string | null | undefined, key: string) => {
+      if (value === null || value === undefined || value === "") return;
+      cellLineRows.push(
+        h(
+          View,
+          { key, style: styles.tableRow, wrap: false },
+          h(Text, { style: styles.tableCellHeader }, label),
+          h(Text, { style: styles.tableCell }, String(value)),
+        ),
+      );
+    };
+    pushCellLineRow("Name", cellLine.name, `${keyPrefix}-cl-n`);
+    pushCellLineRow("Species", cellLine.species, `${keyPrefix}-cl-s`);
+    pushCellLineRow("Tissue", cellLine.tissue, `${keyPrefix}-cl-t`);
+    pushCellLineRow("Notes", cellLine.notes, `${keyPrefix}-cl-no`);
+    if (cellLineRows.length > 0) {
+      out.push(h(Text, { key: `${keyPrefix}-cl-h`, style: styles.h4 }, "Cell line"));
+      out.push(h(View, { key: `${keyPrefix}-cl`, style: styles.pcrTable }, ...cellLineRows));
+    }
+
+    // Media
+    const mediaRows: React.ReactNode[] = [];
+    const pushMediaRow = (label: string, value: string | number | null | undefined, key: string) => {
+      if (value === null || value === undefined || value === "") return;
+      mediaRows.push(
+        h(
+          View,
+          { key, style: styles.tableRow, wrap: false },
+          h(Text, { style: styles.tableCellHeader }, label),
+          h(Text, { style: styles.tableCell }, String(value)),
+        ),
+      );
+    };
+    pushMediaRow("Base medium", media.base_medium, `${keyPrefix}-md-b`);
+    if (media.serum_percent !== null && media.serum_percent !== undefined) {
+      pushMediaRow("Serum", `${media.serum_percent}%`, `${keyPrefix}-md-s`);
+    }
+    if (mediaRows.length > 0) {
+      out.push(h(Text, { key: `${keyPrefix}-md-h`, style: styles.h4 }, "Media"));
+      out.push(h(View, { key: `${keyPrefix}-md`, style: styles.pcrTable }, ...mediaRows));
+    }
+    const supplements: CellCultureSupplement[] = media.supplements ?? [];
+    if (supplements.length > 0) {
+      const suppRows: React.ReactNode[] = [
+        h(
+          View,
+          { key: `${keyPrefix}-sup-head`, style: styles.tableRow, wrap: false },
+          h(Text, { style: styles.tableCellHeader }, "Supplement"),
+          h(Text, { style: styles.tableCellHeader }, "Concentration"),
+          h(Text, { style: styles.tableCellHeader }, "Units"),
+        ),
+      ];
+      supplements.forEach((s, i) => {
+        suppRows.push(
+          h(
+            View,
+            { key: `${keyPrefix}-sup-r${i}`, style: styles.tableRow, wrap: false },
+            h(Text, { style: styles.tableCell }, s.name),
+            h(Text, { style: styles.tableCell }, s.concentration),
+            h(Text, { style: styles.tableCell }, s.units),
+          ),
+        );
+      });
+      out.push(h(View, { key: `${keyPrefix}-sup`, style: styles.pcrTable }, ...suppRows));
+    }
+
+    // Planned schedule
+    if (plannedEvents.length > 0) {
+      const EVENT_LABELS: Record<string, string> = {
+        feed: "Feed",
+        split: "Split",
+        observe: "Observe",
+        harvest: "Harvest",
+      };
+      out.push(h(Text, { key: `${keyPrefix}-pl-h`, style: styles.h4 }, "Planned schedule"));
+      const planRows: React.ReactNode[] = [
+        h(
+          View,
+          { key: `${keyPrefix}-pl-head`, style: styles.tableRow, wrap: false },
+          h(Text, { style: styles.tableCellHeader }, "Day"),
+          h(Text, { style: styles.tableCellHeader }, "Event"),
+          h(Text, { style: styles.tableCellHeader }, "Split ratio"),
+          h(Text, { style: styles.tableCellHeader }, "Notes"),
+        ),
+      ];
+      plannedEvents.forEach((e, i) => {
+        planRows.push(
+          h(
+            View,
+            { key: `${keyPrefix}-pl-r${i}`, style: styles.tableRow, wrap: false },
+            h(Text, { style: styles.tableCell }, `D${e.day_offset}`),
+            h(Text, { style: styles.tableCell }, EVENT_LABELS[e.event_type] ?? e.event_type),
+            h(Text, { style: styles.tableCell }, e.split_ratio ?? ""),
+            h(Text, { style: styles.tableCell }, e.notes ?? ""),
+          ),
+        );
+      });
+      out.push(h(View, { key: `${keyPrefix}-pl`, style: styles.pcrTable }, ...planRows));
+    }
+
+    // Actual events (per-task history)
+    if (actualEvents.length > 0) {
+      const EVENT_LABELS: Record<string, string> = {
+        feed: "Feed",
+        split: "Split",
+        observe: "Observe",
+        harvest: "Harvest",
+      };
+      out.push(
+        h(Text, { key: `${keyPrefix}-act-h`, style: styles.h4 }, "Actual events"),
+      );
+      const actRows: React.ReactNode[] = [
+        h(
+          View,
+          { key: `${keyPrefix}-act-head`, style: styles.tableRow, wrap: false },
+          h(Text, { style: styles.tableCellHeader }, "Timestamp"),
+          h(Text, { style: styles.tableCellHeader }, "Event"),
+          h(Text, { style: styles.tableCellHeader }, "Split ratio"),
+          h(Text, { style: styles.tableCellHeader }, "Confluence"),
+          h(Text, { style: styles.tableCellHeader }, "Observation"),
+        ),
+      ];
+      actualEvents.forEach((e, i) => {
+        let ts = e.timestamp;
+        try {
+          const d = new Date(e.timestamp);
+          if (!isNaN(d.getTime())) ts = d.toLocaleString();
+        } catch {
+          // keep raw string
+        }
+        actRows.push(
+          h(
+            View,
+            { key: `${keyPrefix}-act-r${i}`, style: styles.tableRow, wrap: false },
+            h(Text, { style: styles.tableCell }, ts),
+            h(Text, { style: styles.tableCell }, EVENT_LABELS[e.event_type] ?? e.event_type),
+            h(Text, { style: styles.tableCell }, e.split_ratio ?? ""),
+            h(
+              Text,
+              { style: styles.tableCell },
+              e.confluence_percent !== undefined ? `${e.confluence_percent}%` : "",
+            ),
+            h(Text, { style: styles.tableCell }, e.observation_text ?? ""),
+          ),
+        );
+      });
+      out.push(h(View, { key: `${keyPrefix}-act`, style: styles.pcrTable }, ...actRows));
+    }
+
+    if (description && description.trim()) {
+      out.push(
+        h(
+          Text,
+          { key: `${keyPrefix}-desc`, style: styles.pcrNotes },
+          description.trim(),
+        ),
+      );
+    }
+    return out;
+  }
+
   function MethodSubsection({ mp }: { mp: MethodPayload }) {
     const { method, bodyMarkdown, attachment } = mp;
     const variation = (attachment?.variation_notes ?? "").trim();
@@ -1414,6 +1619,8 @@ export async function buildPdf(
       children.push(...renderLcGradientMethodBody(mp));
     } else if (method.method_type === "plate") {
       children.push(...renderPlateMethodBody(mp));
+    } else if (method.method_type === "cell_culture") {
+      children.push(...renderCellCultureMethodBody(mp));
     } else {
       children.push(
         h(

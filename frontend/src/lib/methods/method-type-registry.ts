@@ -18,9 +18,22 @@
  */
 
 import type { ComponentType } from "react";
-import { LcGradientIcon, MarkdownIcon, PcrIcon, PdfIcon, PlateIcon } from "./method-type-icons";
+import {
+  CellCultureIcon,
+  LcGradientIcon,
+  MarkdownIcon,
+  PcrIcon,
+  PdfIcon,
+  PlateIcon,
+} from "./method-type-icons";
 
-export type MethodTypeId = "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate";
+export type MethodTypeId =
+  | "markdown"
+  | "pdf"
+  | "pcr"
+  | "lc_gradient"
+  | "plate"
+  | "cell_culture";
 
 export interface MethodTypeMeta {
   /** The discriminator value as written to disk. */
@@ -92,6 +105,16 @@ export const METHOD_TYPE_REGISTRY: Record<MethodTypeId, MethodTypeMeta> = {
     color: { bg: "bg-emerald-100", text: "text-emerald-600" },
     icon: PlateIcon,
     description: "Well-plate layout — sample/control/blank annotations.",
+    hasStructuredProtocol: true,
+    category: "structured",
+  },
+  cell_culture: {
+    id: "cell_culture",
+    label: "Cell culture passaging",
+    shortLabel: "Cell culture",
+    color: { bg: "bg-rose-100", text: "text-rose-600" },
+    icon: CellCultureIcon,
+    description: "Passaging schedule + media + cell line, with per-task passage history.",
     hasStructuredProtocol: true,
     category: "structured",
   },

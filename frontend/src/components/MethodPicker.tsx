@@ -454,10 +454,14 @@ function MethodPreview({ method }: { method: Method | null }) {
   const isPlate =
     method?.method_type === "plate" ||
     (method?.source_path?.startsWith("plate://") ?? false);
+  const isCellCulture =
+    method?.method_type === "cell_culture" ||
+    (method?.source_path?.startsWith("cell_culture://") ?? false);
   const isPdf =
     method?.method_type === "pdf" ||
     (method?.source_path?.toLowerCase().endsWith(".pdf") ?? false);
-  const canFetchFile = !!method?.source_path && !isPcr && !isLc && !isPlate;
+  const canFetchFile =
+    !!method?.source_path && !isPcr && !isLc && !isPlate && !isCellCulture;
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["method-preview", method?.id],
@@ -528,6 +532,11 @@ function MethodPreview({ method }: { method: Method | null }) {
               Plate
             </span>
           )}
+          {isCellCulture && (
+            <span className="text-xs px-1.5 py-0.5 bg-rose-100 text-rose-600 rounded shrink-0">
+              Cell culture
+            </span>
+          )}
           {isPdf && (
             <span className="text-xs px-1.5 py-0.5 bg-rose-100 text-rose-600 rounded shrink-0">
               PDF
@@ -567,6 +576,11 @@ function MethodPreview({ method }: { method: Method | null }) {
           <div className="overflow-y-auto px-5 py-4 text-sm text-gray-500">
             Plate layout — select the method to view the plate grid and any
             pre-labeled regions.
+          </div>
+        ) : isCellCulture ? (
+          <div className="overflow-y-auto px-5 py-4 text-sm text-gray-500">
+            Cell culture passaging — select the method to view its schedule,
+            media, and planned cadence.
           </div>
         ) : !canFetchFile ? (
           <div className="overflow-y-auto px-5 py-4 text-sm text-gray-500">
