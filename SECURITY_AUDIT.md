@@ -27,9 +27,17 @@ This document audits whether that claim is true today, where it almost is, and w
 | Wiki / external help links (window.open) | Various `https://...` from tip catalog + content | When the user clicks "Read more →" on a tip card or a wiki link. | GET, `noopener,noreferrer`. | External docs |
 | LabArchives DevTools script — runs in user's labarchives.com tab, NOT in the app | `https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js` plus per-image fetches from the user's LabArchives session | When the user pastes the generated IIFE into DevTools on labarchives.com. | Browser session cookies on LabArchives. | jsdelivr, LabArchives. Never reaches the ResearchOS bundle. |
 
-There are zero calls to analytics or telemetry providers. `npm ls` shows no `@vercel/analytics`, no `@sentry/*`, no `posthog`, no `mixpanel`, no `gtag`, no `hotjar`, no `fullstory`, no `datadog`, no `amplitude`. The "Vercel Web Analytics integrated" note in AGENTS.md §5 references an upstream branch (`vercel/install-vercel-web-analytics-ruqdgf`) that has not been merged.
-
 There are zero `XMLHttpRequest`, `navigator.sendBeacon`, `WebSocket`, or `EventSource` calls anywhere in `frontend/src/`.
+
+**Update (post-audit, 2026-05-15, after the initial audit committed at `c62bdc7d`):** Vercel Web Analytics landed at merge commit `62a34df0`. This added one outbound destination not present at audit time:
+
+| Surface | URL | When it fires | Body / headers | Origin reached |
+|---|---|---|---|---|
+| Vercel Web Analytics | `https://va.vercel-scripts.com/v1/script.js` (script load), then anonymous beacons to `https://vitals.vercel-insights.com/...` | Mount of `<Analytics />` at app root, then a page-view ping on each route transition | Anonymous page-view pings only. No in-route activity, no typed content, no form fields, no markdown body, no IDs or PII. The Vercel Analytics script does not see file contents or user input. | Vercel (third party, not ResearchOS infrastructure for the analytics surface itself; Vercel hashes the client IP before storage per their privacy policy) |
+
+The mount is wrapped in `OfflineGatedAnalytics.tsx` — when the user's "Offline mode" toggle (affordance #2 from §3 below, merged at `d164fd2b`) is on, `<Analytics />` returns `null` so the script tag is never injected and no beacons fire. The CSP was widened to allow `va.vercel-scripts.com` on `script-src` and `vitals.vercel-insights.com` on `connect-src` (see [next.config.ts:29, 33](frontend/next.config.ts:29)).
+
+This is the only post-audit change to the network inventory. No other analytics, error reporting, or telemetry deps are present. `npm ls` still shows no `@sentry/*`, no `posthog`, no `mixpanel`, no `gtag`, no `hotjar`, no `fullstory`, no `datadog`, no `amplitude`.
 
 ### 1.2 Server-side fetches (Vercel function routes)
 
@@ -415,11 +423,15 @@ Two narrow proxy routes on Vercel are used solely to bypass browser CORS restric
 
 These two routes have the most defensive shape we know how to write: HTTPS only, private-IP blocking, redirect re-validation, byte cap, timeout, content-type denylist, rate limit. The code is in `frontend/src/lib/api/url-guards.ts` and `frontend/src/lib/api/rate-limit.ts` if you want to read it.
 
-### What we never collect
+### What we collect, and what we don't
 
-There is no analytics. There is no Sentry, no Vercel Analytics, no GA, no Mixpanel. No background "phone home." No crash reporter. No telemetry of any kind. Your `npm ls` will confirm zero such dependencies.
+**We collect anonymous page-view pings via Vercel Web Analytics** (added at `62a34df0`, post-audit). When you navigate between pages, your browser sends an anonymous beacon to Vercel telling them "someone visited the GANTT page" or "someone visited Settings." That's it — no IDs, no folder contents, no typed text, no markdown bodies, no project names. Vercel sees your IP address (which they hash before storage per their privacy policy) and the route you visited. We use this to know which pages get used and which sit idle.
 
-If you hit an error and use the "Report an issue" button, your browser opens a GitHub issue URL with a pre-filled body. You see the body, you can edit it, and YOU click "Submit." Nothing happens until you do.
+**You can turn it off.** Settings → Offline mode. With offline mode on, the analytics script is never injected and no beacons fire — the toggle is read at component-mount time and respected durably across reloads.
+
+**We do not collect anything else.** No Sentry, no Google Analytics, no Mixpanel, no PostHog, no Hotjar, no Datadog, no Amplitude. No background "phone home." No crash reporter. No content telemetry. Your `npm ls` will confirm only `@vercel/analytics` is present, and the network tab will confirm no other endpoints are contacted.
+
+**The Report-an-issue button does not auto-submit anything.** When you click it, your browser opens a pre-filled GitHub issue URL in a new tab. You see the body, you can edit it, and you click "Submit." Nothing happens until you do.
 
 ### Honest limits worth knowing about
 
@@ -435,7 +447,7 @@ The user-facing chips proposed in the audit (and queued for chip review) will su
 2. **Offline mode toggle** — disables the two proxy routes for users who want zero outbound network from the app surface.
 3. **"Where is this stored?" tooltips** on each integration field so you always know which file holds the credential you just entered.
 
-You can also open DevTools → Network and watch every request the app makes. Outside of `api.telegram.org` (direct, with your bot token) and the two `/api/...` proxies above, there should be nothing.
+You can also open DevTools → Network and watch every request the app makes. The expected destinations are: `api.telegram.org` (direct, with your bot token, when Telegram is paired), the two `/api/...` proxies above, and (unless offline mode is on) Vercel Analytics at `va.vercel-scripts.com` for the script load and `vitals.vercel-insights.com` for page-view beacons. Nothing else.
 
 ---
 
