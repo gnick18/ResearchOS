@@ -96,14 +96,15 @@ interface OnboardingOrchestratorProps {
   children: ReactNode;
 }
 
-/** Read the workbench's active sub-tab from the URL. Returns
- *  "experiments" by default — the workbench page's initial state is
- *  "experiments" and it writes `?tab=notes` to the URL when the user
- *  switches. */
-function readWorkbenchActiveTab(): "experiments" | "notes" {
-  if (typeof window === "undefined") return "experiments";
-  const sp = new URLSearchParams(window.location.search);
-  return sp.get("tab") === "notes" ? "notes" : "experiments";
+/** Probe the DOM for `WorkbenchExperimentsPanel`'s root data-attribute.
+ *  The panel only mounts when the Workbench page's local `activeTab`
+ *  state is `"experiments"`, so the presence of the attribute is the
+ *  signal. Decoupled from Workbench's routing (no URL or store
+ *  coupling) so a future Workbench redesign can change its tab
+ *  routing without touching this gate. */
+function isWorkbenchExperimentsTabActive(): boolean {
+  if (typeof document === "undefined") return false;
+  return document.querySelector('[data-current-tab="experiments"]') !== null;
 }
 
 /** Extra eligibility predicate beyond `route`. Returns true if the tip
@@ -111,7 +112,7 @@ function readWorkbenchActiveTab(): "experiments" | "notes" {
 function gatePasses(tip: OnboardingTip): boolean {
   if (!tip.gate) return true;
   if (tip.gate === "workbench-experiments-tab") {
-    return readWorkbenchActiveTab() === "experiments";
+    return isWorkbenchExperimentsTabActive();
   }
   return true;
 }

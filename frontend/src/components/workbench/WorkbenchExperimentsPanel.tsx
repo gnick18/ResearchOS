@@ -501,7 +501,7 @@ export default function WorkbenchExperimentsPanel() {
   };
 
   return (
-    <>
+    <div data-current-tab="experiments">
       {/* Project filter */}
       <div className="flex items-center gap-2 mb-6 flex-wrap">
         {projects.map((p) => {
@@ -811,6 +811,6 @@ export default function WorkbenchExperimentsPanel() {
 
       {/* Create Task Modal */}
       <TaskModal projects={projects} />
-    </>
+    </div>
   );
 }
