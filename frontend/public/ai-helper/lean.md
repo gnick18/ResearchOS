@@ -576,7 +576,7 @@ Both routes exist purely so old bookmarks don't 404. They're client-side redirec
 
 ## §7 Common workflows
 
-Bread-and-butter workflows below. Each is "user goal → click path → what got created on disk → what to verify." When a question maps to one of these, walk through it step by step and point at the wiki for the screenshot tour. The full prompt variant ships every workflow; the lean variant trims to the most-used four.
+Bread-and-butter workflows below. Each is "user goal → click path → what got created on disk → what to verify." When a question maps to one of these, walk through it step by step and point at the wiki for the screenshot tour. The full prompt variant ships every workflow; the lean variant trims to the most-used few.
 
 ### 1. Create a new project
 
@@ -627,6 +627,39 @@ Bread-and-butter workflows below. Each is "user goal → click path → what got
 **Verify:** The recipient (after a folder reload) sees the task in her Workbench / Gantt / Home with `is_shared_with_me: true` decoration (a small "shared from <owner>" badge). If she has edit permission, she can edit fields directly; her writes route back to your `users/<your-username>/tasks/<id>.json` via the owner-scoped wrapper, not to her own folder. The recipient's notification bell shows the new item.
 
 → See `/wiki/features/notifications` for the notification flow; sharing is documented across `/wiki/features/experiments` and `/wiki/features/lab-mode`.
+
+### 5. Host a task into a colleague's project (Option C cross-owner share)
+
+**Goal:** alex's task should appear on morgan's project Gantt timeline, alongside morgan's own tasks, while still living in alex's folder.
+
+**Click path:** alex opens the task detail popup. Clicks "Share into project." A picker opens listing every project across every user that alex has at least view access to. alex picks morgan's project. Confirms.
+
+**On disk:** Two writes, both must succeed (the `tasksApi.shareIntoProject` API wraps both):
+
+1. alex's task file `users/alex/tasks/<task-id>.json` gets `external_project: { "owner": "morgan", "id": <morgan-project-id>, "sharedAt": "<now-iso>" }`.
+2. morgan's project sidecar manifest `users/morgan/projects/<project-id>-hosted.json` gets a new entry in `hostedTasks: [{ "owner": "alex", "taskId": <task-id>, "sharedAt": "...", "sharedBy": "alex" }]`. If the manifest file doesn't exist yet, it's created with `version: 1`.
+
+**Verify:** morgan's `/gantt` view filtered to her project shows alex's task with alex's color. The task carries a "hosted from alex" badge. The native project of the task is unchanged (alex's own Gantt still shows it under its native project_id). If only one of the two writes lands, that's drift; the read-time normalizer (`normalizeProjectHostedManifest`) drops mismatched manifest entries on next read and the Phase-5 background sweep cleans up dangling refs.
+
+**Unsharing:** alex calls `tasksApi.unshareFromProject(taskId)` (via the same Share popup, "Remove from project"). Both sides get cleaned up atomically. Never write either side raw; always go through the API.
+
+→ See `/wiki/features/gantt` and `/wiki/features/lab-mode/gantt` for the cross-user Gantt view.
+
+### 6. Pair Telegram and route inbox images to a task
+
+**Goal:** the user wants to snap photos of a gel from their phone and have them land in a task's results folder without dragging files around.
+
+**Click path:** Open `/settings`, scroll to the Telegram section. Follow the on-screen onboarding (it walks through creating a bot via `@BotFather` on Telegram, setting a name, getting a token). Paste the token into the pairing modal. The app polls the Telegram Bot API; once paired, it shows the bot's username and the "send a test photo" hint. Open Telegram on your phone, find your bot, send a photo (optionally with a caption).
+
+**Behind the scenes:** `lib/telegram/use-telegram-polling.ts` polls `getUpdates`. Every new photo lands in `users/<u>/inbox/Images/` with the file plus a `.json` sidecar carrying the caption, sender, and `received_at` timestamp. The download goes through `/api/telegram-file/route.ts` (the Vercel function that proxies Telegram's CDN, since Telegram doesn't send permissive CORS headers). The `InboxBadge` in the AppShell increments; the `InboxToast` flashes; the `InboxPanel` (slide-out from the right) lists every queued image with thumbnails.
+
+**Routing to a task:** Open the InboxPanel. Click an image. Pick the destination task from the dropdown (filtered to your own tasks). The image moves from `inbox/Images/` to the task's `results/task-<id>/Images/` folder. The task's image strip refreshes; if you had the task popup open, the new image appears in the strip immediately.
+
+**On disk:** Token at `users/<u>/_telegram.json` (auto-appended to `.gitignore` so it never gets committed). Inbox arrivals at `users/<u>/inbox/Images/<filename>` + `<filename>.json` sidecar. After routing, the image lives at `users/<u>/results/task-<id>/Images/<filename>` and the inbox copies are deleted.
+
+**Verify:** The InboxBadge shows a count when new images arrive. The InboxPanel lists them with thumbnails. After routing, the task popup's Notes or Results tab shows the image in the strip and lets you reference it inline in markdown via `![caption](Images/<filename>)`.
+
+→ See `/wiki/integrations/telegram` for the full pairing tour.
 
 ## §8 Behavior & response style
 
@@ -962,7 +995,7 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 - **Variant:** `lean`
 - **Helper version:** `5`
 - **Schema hash:** `08ef47a8db5e1a63bb01d142e0b522919feb7528cb4ce9e8a29c8605b95393b9`
-- **Built at:** `2026-05-15T21:42:47.013Z`
-- **Built from commit:** `8a626a6923caa6ae33546c310632022d0560fcec`
+- **Built at:** `2026-05-15T23:03:45.034Z`
+- **Built from commit:** `2acbd489b1913b626697a34ee9e1f5c590d39976`
 
 _Generated by `scripts/build-ai-helper.mjs`. Do not edit by hand — run `npm run --prefix frontend ai-helper:refresh` to rebuild and commit._

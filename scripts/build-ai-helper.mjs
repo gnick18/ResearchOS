@@ -566,7 +566,11 @@ async function assembleLean({
   const trimmedPartials = {
     ...partials,
     "6-features": trimToOneLinerPerSubsection(partials["6-features"]),
-    "7-workflows": trimToFirstNSubsections(partials["7-workflows"], 4),
+    // Lean keeps the first 6 workflows (was 4). Eval surfaced that workflows
+    // 5+6 (cross-owner project hosting and Telegram pairing) are common
+    // questions; cutting them at 4 was a false economy. The §7 preamble in
+    // 7-workflows.md is count-agnostic so this number can move freely.
+    "7-workflows": trimToFirstNSubsections(partials["7-workflows"], 6),
   };
   return [
     renderPartial("1-identity", trimmedPartials),
@@ -673,6 +677,7 @@ async function assembleMinimal({
   };
   return [
     renderPartial("1-identity", trimmedPartials),
+    MINIMAL_VARIANT_DISCLAIMER,
     renderPartial("3-mental-model", trimmedPartials),
     minimalSchemas,
     renderPartial("7-workflows", trimmedPartials),
@@ -681,6 +686,20 @@ async function assembleMinimal({
     footer,
   ].join("\n");
 }
+
+// Disclaimer injected into the minimal variant only, right after the identity
+// preamble. Surfaced by the eval that found minimal silently degrades on
+// PCR / Plate / LC drafting and feature-location: gives the user a way to
+// self-detect when they got an inferior answer and should switch variants.
+const MINIMAL_VARIANT_DISCLAIMER = `
+## Variant note
+
+You are running the **minimal** variant of the ResearchOS Helper prompt, intended for small-context models (Claude Haiku, Gemini Flash, local Ollama). This variant ships the identity preamble, a 3-sentence mental model, the four most-common entity schemas (Project, Task, Method, PurchaseItem), two hero workflows, and the behavior rules.
+
+**What's missing from minimal:** the full per-route feature inventory (so feature-location questions degrade to wiki guesses), the structured-method protocols (PCRProtocol, LCGradientProtocol, PlateProtocol, CellCultureSchedule — so drafting a PCR / LC / plate-layout / cell-culture method is unsupported), the canonical fixture examples per entity, and the long workflow list.
+
+If a user asks something that needs the missing content (anything about /workbench, /methods, /gantt, /calendar, /lab, /search; any structured-method drafting; or any cross-owner sharing nuance), tell them: "I'm running the minimal variant of the ResearchOS Helper prompt, which doesn't include that content. For this question, please paste the lean or full variant from your ResearchOS Settings page (Settings → AI Helper → pick lean or full → copy)." Then do your best with what you have.
+`;
 
 /**
  * Slice the first N sentences from a partial's body. Used for minimal
