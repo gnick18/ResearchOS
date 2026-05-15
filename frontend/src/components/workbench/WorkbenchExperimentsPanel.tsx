@@ -12,6 +12,7 @@ import { useAppStore } from "@/lib/store";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import TaskModal from "@/components/TaskModal";
+import SharedFromPill from "@/components/workbench/SharedFromPill";
 import ExperimentResultCard, {
   type ExperimentCardMethod,
 } from "@/components/experiments/ExperimentResultCard";
@@ -123,45 +124,11 @@ function freshnessFor(entry: SectionEntry): {
   return { kind: "earlier" };
 }
 
-interface SharedIndicatorProps {
-  owner: string;
-}
-
-/**
- * Amber pill matching the cfcc2c4a `Shared into <owner>'s project` pattern,
- * inverted for the "from" direction. Rendered in the top-right corner of
- * any ExperimentResultCard whose underlying task is shared into me.
- */
-function SharedFromPill({ owner }: SharedIndicatorProps) {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-medium text-amber-700 shadow-sm">
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="11"
-        height="11"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden
-      >
-        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-        <polyline points="8 12 12 8 16 12" />
-        <line x1="12" y1="8" x2="12" y2="21" />
-      </svg>
-      Shared by {owner}
-    </span>
-  );
-}
-
 export default function WorkbenchExperimentsPanel() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [earlierLayout, setEarlierLayout] = useState<"flat" | "grouped">(
     "flat",
   );
-  const [listArchiveOpen, setListArchiveOpen] = useState(false);
   const selectedProjectIds = useAppStore((s) => s.selectedProjectIds);
   const setIsCreatingTask = useAppStore((s) => s.setIsCreatingTask);
   const setNewTaskStartDate = useAppStore((s) => s.setNewTaskStartDate);
@@ -297,21 +264,6 @@ export default function WorkbenchExperimentsPanel() {
     list.sort((a, b) => (a.daysFromEnd ?? Infinity) - (b.daysFromEnd ?? Infinity));
     return list;
   }, [entries]);
-
-  // Completed list tasks — surfaced in a small accordion at the bottom
-  // of the panel (the "by the way you also have these" archive). Filtered
-  // by the same project selector applied to experiments above.
-  const completedListTasks = useMemo(() => {
-    let xs = allTasks.filter(
-      (t) => t.task_type === "list" && t.is_complete,
-    );
-    if (selectedProjectIds.length > 0) {
-      xs = xs.filter((t) => selectedProjectIds.includes(t.project_id));
-    }
-    // Newest-first by end_date. Lexical compare works for ISO YYYY-MM-DD.
-    xs.sort((a, b) => b.end_date.localeCompare(a.end_date));
-    return xs;
-  }, [allTasks, selectedProjectIds]);
 
   const scheduledCount = useMemo(
     () => entries.filter((e) => e.section === "scheduled").length,
@@ -719,70 +671,6 @@ export default function WorkbenchExperimentsPanel() {
                     </div>
                   );
                 })()
-              )}
-            </section>
-          )}
-
-          {completedListTasks.length > 0 && (
-            <section className="pt-2 border-t border-gray-100">
-              <button
-                type="button"
-                onClick={() => setListArchiveOpen((v) => !v)}
-                className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 group"
-              >
-                <svg
-                  className={`w-3 h-3 transition-transform ${
-                    listArchiveOpen ? "rotate-90" : ""
-                  }`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  strokeWidth={2.5}
-                  aria-hidden
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-                <span>
-                  Completed list tasks{" "}
-                  <span className="text-gray-400">
-                    ({completedListTasks.length})
-                  </span>
-                </span>
-              </button>
-              {listArchiveOpen && (
-                <ul className="mt-2 ml-5 space-y-1">
-                  {completedListTasks.map((t) => {
-                    const pk = `${t.owner}:${t.project_id}`;
-                    const pColor = projectColors[pk] ?? "#9ca3af";
-                    const pName = projectNameFor(t);
-                    return (
-                      <li key={taskKey(t)}>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedTask(t)}
-                          className="flex items-center gap-2 w-full text-left text-xs text-gray-700 hover:bg-gray-50 rounded-md px-2 py-1"
-                        >
-                          <span
-                            className="w-2 h-2 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: pColor }}
-                            aria-hidden
-                          />
-                          <span className="truncate flex-1">{t.name}</span>
-                          <span className="text-gray-400 truncate hidden sm:inline">
-                            {pName}
-                          </span>
-                          <span className="text-gray-400 tabular-nums flex-shrink-0">
-                            {t.end_date}
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
               )}
             </section>
           )}

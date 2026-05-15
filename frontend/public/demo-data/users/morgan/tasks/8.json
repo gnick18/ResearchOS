@@ -1,0 +1,36 @@
+{
+  "id": 8,
+  "project_id": 2,
+  "name": "Audit shared bench reagent inventory",
+  "start_date": "2026-03-20",
+  "duration_days": 1,
+  "end_date": "2026-03-20",
+  "is_high_level": false,
+  "is_complete": true,
+  "task_type": "list",
+  "weekend_override": null,
+  "method_id": null,
+  "method_ids": [],
+  "deviation_log": null,
+  "tags": null,
+  "sort_order": 8,
+  "experiment_color": null,
+  "sub_tasks": [
+    {
+      "id": "st1",
+      "text": "Tally remaining stocks in the −80 freezer",
+      "is_complete": true
+    },
+    {
+      "id": "st2",
+      "text": "Flag low items for the next purchase round",
+      "is_complete": true
+    }
+  ],
+  "pcr_gradient": null,
+  "pcr_ingredients": null,
+  "method_attachments": [],
+  "owner": "morgan",
+  "shared_with": [],
+  "external_project": null
+}
