@@ -283,81 +283,24 @@ Use this for any field rename. **Do NOT do hard on-disk cutovers** — rewrite-a
 
 `claude/*` branches with unmerged work, or parallel manager-session work that's still landing commits. Spawn scopes must not collide with these areas. **Update this list as bots land or spawn** — it's the manager bot's quickest read on what's off-limits to a new spawn.
 
-**Current in-flight (2026-05-14 evening — continuing session):**
-- **Drag-drop matching bot (retry)** — making `onImageDrop` in `LiveMarkdownEditor.tsx` match dropped files against the `_import_source.json#missingInlineImages` sidecar via the existing `imageDropMatcher.ts` matcher. Touches: `LiveMarkdownEditor.tsx` only.
-- **Batch J — LabArchives defensive nits (4 of 5)** — password length cap on login route, "all-failed" UI hint in `fetchInlineImages`, popup close-race timing, corrupted-JSON vs not-connected logging. Touches: `lib/labarchives/*` + `api-client.ts` + `connect.ts` + `tokens-store.ts` + `app/api/auth/labarchives/login/route.ts`.
-- **Batch L — Phase 5 reconcile-sweep Settings button** — wire H manager's existing `reconcileHostedDrift` helper to a Settings → Data maintenance button. Touches: `app/settings/page.tsx`.
-- **Batch M — ELN import Done-step polish** — virtualize the missing-inline-images list + add a "page changed since last import; overwrite?" prompt for silent dedup. Touches: `components/import-eln/steps/DoneStep.tsx` + `lib/import/eln/*`.
+**Current in-flight (2026-05-15 morning — continuing session):**
+- **`/purchases` rework manager (parallel session)** — chain A (schema) → B (fixtures) → C (unified scroll + dashboard skeleton + recharts install) all merged. Chip D (real chart rendering with recharts) auto-spawning per manager. Chips E (shared hook + LabPurchasesPanel), F (wiki — manager hands to wiki manager), G (screenshots) queued. Backfill chip merged at `992efcdf`; Grant runs `--apply` against his real-data folder at his own pace. Touches: `app/purchases/page.tsx`, `components/SpendingDashboard.tsx`, `components/PurchaseEditor.tsx`, eventually `components/LabPurchasesPanel.tsx`.
+- **Methods-expansion manager (parallel session, spawning today)** — expanding the methods system's structured editors beyond PCR to cover common wet-lab method types (LC gradients first, then Western blot / flow / qPCR / etc.). First deliverable: `METHODS_EXPANSION_PROPOSAL.md` at repo root. Touches eventually: `lib/types.ts` (`method_type` discriminator), `app/<type>/page.tsx` builders, `app/wiki/features/<type>/page.tsx` per type, fixture coverage.
+- **Tip manager (parallel session)** — Phase 4 (guided tutorial tour at `/demo?tutorial=1`) landed at `d5fc1b2f`. Continuing incremental polish + bug fixes. Touches: `lib/onboarding/`, `app/settings/page.tsx` Tips section, `components/OnboardingTipCard.tsx`, `components/BeakerBot.tsx`, various retrofit data-attribute hosts.
 
 **Standing reservation:**
-- **Wiki manager (parallel session)** — owns `/wiki/**`. Full re-capture queued against Demo Lab data now that fixture infrastructure landed. Off-limits to other sessions: `frontend/src/app/wiki/`, `frontend/src/components/wiki/`, `scripts/capture-wiki-screenshots.mjs`, `frontend/src/lib/file-system/wiki-capture-fixture.ts`, `frontend/src/lib/wiki/nav.ts`. See "For the wiki manager" subsection below for the cumulative handoff queue.
+- **Wiki manager (parallel session)** — owns `/wiki/**`. Cumulative handoff queue has grown (see "For the wiki manager" subsection below). Off-limits to other sessions: `frontend/src/app/wiki/`, `frontend/src/components/wiki/`, `scripts/capture-wiki-screenshots.mjs`, `frontend/src/lib/file-system/wiki-capture-fixture.ts`, `frontend/src/lib/wiki/nav.ts`. Currently standby for the next handoff batch.
 
-### Session continuity note — 2026-05-14 (rolling)
+### Session continuity note — 2026-05-15 (rolling)
 
-The previous "Handoff snapshot — late evening (UPDATED 2x)" and "Handoff snapshot — end of day" subsections were deleted on 2026-05-14 evening as their content is fully covered by the "Recently landed" subsections below. They had grown stale (referenced bots that had since landed, items already in Recently-landed) and were duplicating audit-trail material.
+For the next master session picking this up: state is reconstructable from `git log --oneline -50` from `/Users/gnickles/Desktop/ResearchOS` plus the "Active bot branches (in flight)" section above. Recently-landed subsections below cover yesterday's arc (chips 1-4 of the /results kill, Lists tab implementation + follow-ups, /purchases chain A-C+backfill). No mid-flight rollover left behind.
 
-**For the next master session picking this up**: state is fully reconstructable from `git log --oneline -50` from `/Users/gnickles/Desktop/ResearchOS` plus the "Active bot branches (in flight)" section above. The Recently-landed subsections below cover what happened today. No mid-flight rollover left behind.
-
-_(Original "Handoff snapshot — late evening" body below was preserved for audit-trail until 2026-05-14 evening cleanup. Its content is now fully reflected in the Recently-landed subsections + the live-verify carry-forward above. Skip past it.)_
-
-**Origin tip**: `bd18a3a2`. **Local main**: `b84a1e35` — **4 commits ahead of origin, awaiting Grant's push** (auto-mode classifier blocked the master-bot push to main). The four are: `6252e704` (handoff refresh), `bcb578f5` (PCR template merge), `4f31dab3` (LabArchives merge), `b84a1e35` (LabArchives revamp: dedicated Settings section + wiki page).
-
-**Zero bots in flight.** All three bots that were running at context-end either merged or completed:
-
-- **`worktree-agent-a0a7ba31ae8a167b6`** (Drop Google/Microsoft OAuth) — merged at **`bd18a3a2`**. Commits `f38faa1b` + `9bafac58` + `e3219026`. Net –2887 LOC across 10 deleted files: all `/api/auth/{google,microsoft}/*` routes + `lib/calendar/oauth-*` + `app/wiki/integrations/calendar-oauth/page.tsx`. ICS-only going forward. **Post-merge typecheck trap**: `.next/types/validator.ts` had stale references to the deleted routes; `rm -rf .next/types .next/dev/types && npx tsc --noEmit` confirmed EXIT=0. Second occurrence of the §6 stale-validator pattern.
-
-- **`worktree-agent-aac4352e069be583d`** (PCR method create template) — merged at **`bcb578f5`**. Single-file change to `app/methods/page.tsx` seeding standard cycling values (95/3min → 30× [95/15s, 60/30s, 72/30s] → 72/5min hold @ 12°) + reagent placeholders in the PCR create dialog. Existing protocols on disk untouched.
-
-- **`worktree-agent-acc7e86cffabb569e`** (LabArchives integration) — merged at **`4f31dab3`** (tip `08fc42f8`, 5 commits/5 phases). **Critical doc finding**: LabArchives does NOT use OAuth — the manager-tier brief was wrong on that. Actual mechanism is HMAC-SHA1 signed REST calls keyed by institutional `akid` + `access_password` (server-side env vars). Bot kept the brief's directory shape (`/api/auth/labarchives/{login,callback,refresh}` + popup → postMessage UX) for consistency with Google/Microsoft pattern, but underlying signing is different. Server-only secrets, per-user state = UID stored in `_labarchives.json`. New wizard step `fetch-images` rehydrates Form-B inline images post-mapping, gated on 4 conditions (parsed-and-has-missing-images, `isLabArchivesConfigured()`, `!isDemoOrWikiCapture()`). **Defensive review pre-merge confirmed clean**: no `NEXT_PUBLIC_` on secrets, HMAC math matches `mcmero/labarchives-py` + `marcellofuschi/labarchives-js`, backward-compat preserved when not configured, demo mode safely short-circuits.
-
-**LabArchives live-verification still owed.** Bot could not test against `api.labarchives.com` (no institutional creds in worktree). The HMAC signing math, URL construction, and XML-error parsing follow the published reference clients but haven't been exercised against the real API. To live-test:
-1. Request institutional API creds from LabArchives Support (see `https://www.labarchives.com/labarchives-knowledge-base/api/`).
-2. Set in `frontend/.env.local`: `LABARCHIVES_ACCESS_KEY_ID=...`, `LABARCHIVES_ACCESS_PASSWORD=...`, `NEXT_PUBLIC_LABARCHIVES_ENABLED=1`.
-3. Restart dev server. Settings → LabArchives section → "Connect to LabArchives" card → click `Connect`. Enter LabArchives email + password in popup. Card should flip to "Connected as ..." (the section-header pill should already be green "Integration is configured" before this step).
-4. Open ELN import wizard, upload a real `.eln` ZIP with Form-B images. Wizard should surface a new "5 · Fetch images" step after Mapping. Click "Fetch N images" and watch the progress.
-5. Open a created task → confirm rehydrated images render from `Images/<name>` instead of `Images/missing-<orig>`.
-
-**LabArchives deferred items** (queue these into §8 if not addressed in live-test follow-up):
-- ✅ Regional API base URL (`LABARCHIVES_API_BASE_URL`) — closed 2026-05-14. Settings → LabArchives → Deployer setup now exposes a region radio group (US default / Australia / UK-EU / Custom URL) that writes through the sidecar's `baseUrl` field. Wiki page (added by `b84a1e35`) still documents the env var for env-driven deployments.
-- `baseUrl` not persisted in per-user `_labarchives.json` — refresh fails if env var changes mid-session.
-- ✅ `/wiki/integrations/labarchives` page **landed at `b84a1e35`** (concept-first walkthrough covering both end-user import + Form-A/Form-B explanation + deployer setup recipe with env var names + smoke-test recipe). Linked from the in-wizard amber `ConfigMissingNotice` and from the new Settings → LabArchives section.
-- ✅ `fetchedImages` rewrite/write path now has automated coverage in `test-labarchives-apply.mjs` (third apply block, 2026-05-14). Covers disk-write of rehydrated bytes, "(2)" collision-suffix against an existing body attachment, markdown rewrite of `Images/missing-<orig>` refs, sidecar `missingInlineImages` shrink to the still-unreachable set, and per-task `rehydratedInlineImages` / `missingInlineImages` counters. Wizard-step UI test still pending — not covered here. Not covered: UTF-8 filenames, very large blobs, error-kind entries (`{ kind: "error" }`), concurrent writes. **2026-05-14 follow-up closed**: the duplicate-filename rewrite-map shadowing edge case the test-extension bot flagged in commit `2b09345c` is now fixed. Both `apply.ts` and `rehydrate.ts` now dedup `missingInlineImages` by filename within the same scope (entry / sidecar) — when two records share a filename but have different `originalUrl`s, the parser's body refs are identical (`Images/missing-<filename>` appears twice in the body) and the rewrite-map key `Images/missing-<filename>` can address only one. Pre-fix: both blobs got written (one with `(2)` collision suffix), the rewrite map's second `.set()` overwrote the first, and the body's regex replaced both refs with the `(2)`-suffixed name — leaving the first blob orphaned on disk. Post-fix: only the first record gets a disk write + rewrite; subsequent same-filename records are silently skipped. Test extended (`test-labarchives-apply.mjs` block 7) with a 4th synthetic record sharing the real Form-B image's filename — fails pre-fix (orphaned `<name> (2).jpg` blob, dup bytes on disk), passes post-fix. NOT fixed in `LiveMarkdownEditor.tsx` drop-match path — `imageDropMatcher.ts`'s `byExact.has` guard already enforces first-write-wins so duplicate sidecar entries can't both reach the rewrite step in a single drop pass; combined with `rehydrate.ts`'s filename-keyed sidecar shrink (which drops ALL same-filename entries when one succeeds) the legacy-sidecar second-pass case is also covered. Files touched: `frontend/src/lib/import/eln/apply.ts`, `frontend/src/lib/import/eln/rehydrate.ts`, `frontend/scripts/test-labarchives-apply.mjs`. Edge case still NOT covered: two same-filename records where BOTH have `kind: "error"` fetches (one would be carried to `stillMissing`, the second dropped) — acceptable because the sidecar can only address one shared filename via the popup anyway.
-- ✅ Settings UX revamp **landed at `b84a1e35`**. LabArchives is now its own top-level Settings section (not buried in Data maintenance) with two option cards — "Import from LabArchives" + "Connect to LabArchives" — each carrying a `?` info-toggle for the longer "why this exists" explanation and a link into the wiki page. Section header shows a configured/not-configured/demo-mode pill; the Connect button is greyed-out + tooltip-explained when env vars aren't set.
-
-**pcrApi.get owner threading** ✅ landed at `1d122fc0` earlier this session. Added `owner?: string` arg, no private-then-public fallback when owner provided. 3 call sites updated (MethodTabs, methods page PcrViewer, export extract.ts). Bot flagged `pcrApi.update` may have the same issue — queued in §8 above.
-
-**Today's late-cycle verification: completed tiers**
-- Tier 1 Demo v2: 10 PASS, 2 FAIL→fixed (R1 occlusion `82d3f5e4`, E4 back-nav `e2f3bb39`). E3 multi-tab retested → no leak.
-- Tier 2 ELN wizard against `offline_14681.zip`: 6 PASS.
-- Tier 3 PDF audit: 7 PASS. Bonus fixes: method body missing (`319fc5ea` lazy normalize), image dedup confirmed native (docs in `319fc5ea`).
-- Tier 4 MethodTabs owner-routing: SharePopup TypeError fixed (`8d198375` shared_with shape), variation-notes refetch fixed (`89a31237` onTaskUpdate bubble), PCR rendering fallback fixed (`01530db8` MethodTabs source-protocol fallback). Live tested all 4 method paths PASS post-fix. `pcrApi.get` priority bug surfaced live → debugger in flight.
-- Tier 5 Universal drop: PASS.
-
-**UX chips landed (need Grant's eye when convenient):**
-- Variation-notes autosave-as-you-type (`1391da94`). 700ms debounce, 4-state status pill, cleanup-on-unmount flush.
-- Edit-mode affordance on Details page (`496d19c8`). Border-color + focus-ring on 6 editable fields + Save/Cancel pattern mirroring `e2f3bb39`. Flagged a follow-up: sub-task checkbox/add-input autosaves silently — no Saved/Saving cue. Future polish.
-
-**Still queued in §8 (not started)**:
-- Methods editor hybrid mode glitches (structural in `HybridMarkdownEditor`)
-- `TaskDetailPopup.tsx:194-199` queryFn missing owner arg (dormant)
-- 4 tooltip design-call follow-ups
-- 5 API hardening round-3 items
-- 3 methods/unattached design follow-ups
-- `?wikiCapture=1` / `/demo` mode consolidation discussion (Grant's earlier question — could Playwright hide floating buttons via JS instead of separate mode?)
-- Sub-task autosave Saved indicator (just flagged by edit-affordance bot)
-- LabArchives OAuth + Google/MS OAuth removal chips (now in flight as bots above)
-
----
-
-### Handoff snapshot — 2026-05-14 end of day
-
-(Master-bot session winding down for the day. Delete or fold into Recently-landed once the next session has picked up state.)
-
-**Manager sessions (EOD final check-ins):**
-- **Wiki manager** — STANDBY. Nothing in flight, no chips queued, no half-finished branches. Pencil-gate cleanup just landed. Available for new direction; idle otherwise. PNG state 36/36, coverage current.
-- **Export-revamp manager** — provisionally closed; reachable for a single final answer (EOD response captured here). Detailed PDF audit checklist + methods/unattached Option C recommendation + 6 latent-concerns list filed into §8 above. Session goes away when Grant archives the chat.
-- **ELN-import manager** — STAYING OPEN until Grant returns from `offline_14681.zip` verification. Page→project recipe captured above. If Grant signs off: ELN manager closes out (AGENTS.md log + scratch tooling commit + wiki features-page handoff). If issues: ELN manager fixes or spawns fixes. Master can pick up close-out if ELN session closes before Grant verifies.
-- **HR (retired master)** — STANDBY, on-call for chip-writing / translation. Spawned Demo v2 (`74ecd115`) + consolidation (`06cd33e5`) earlier today. Context compressed once already; will retire fully if context compresses again. Note: HR's mention of "Export manager chip never clicked" was based on compressed-context view — chip WAS clicked and shipped the entire export-revamp arc.
+**Yesterday's verification still owed (carry-forward)**:
+- LabArchives institutional-API live test — mostly obsolete now that the institutional API surface was removed (`8b1eac3f`); cred-less paths are what ship.
+- MethodTabs owner-routing live test — `44a3f12c` patched 6 callsites; static analysis only. To live-confirm, flip fixture task 5 to `permission: "edit"` and attach a method as morgan, OR use a real two-user folder.
+- PDF export audit (7 checks from Export manager's EOD list) — needs Grant's PDF reader after a fresh export.
+- Demo v2 R1-R7 + 5 edge cases — most landed but `:3001` dev-server stale-worktree trap caused inconclusive earlier results.
+- Older backlog with no time pressure: ResultsEditor consolidation walkthrough, Universal drop on Details, File-link UX, `TESTING.md` A-F scenarios, lint pass spot-check, Export-revamp 5-scenario panel (cross-user round-trip needs real two-user setup).
 
 **Items Grant needs to live-verify (priority order):**
 1. **Demo v2 R1–R7 + 5 edge cases** — floating Leave button + catch-all `/demo/[[...slug]]` + sessionStorage stickiness + URL strip + Read-the-docs round-trip + LeaveDemoModal (don't click final actions) + `?wikiCapture=1` still works. Earlier verification bot was INCONCLUSIVE because the `:3001` dev server was running from a stale worktree at `412a9fe0` — see §6 entry. Restart from main checkout first. **5 additional edge cases worth poking** (HR EOD note): (i) `?wikiCapture=1` while inside `/demo` — confirm fixture doesn't re-install mid-flight; (ii) `/demo/methods` catch-all if fixture install fails or times out — does user get stuck with no fallback, or is there a sensible error state?; (iii) multi-tab cross-contamination — open `/demo` in tab A AND tab B, sessionStorage is per-tab but the singleton `fileService` mock is module-global, in-memory edits in A might bleed to B; (iv) browser-back from `/wiki/features/methods` back to `/methods` (inside demo) — does React re-mount and lose in-memory edits?; (v) `<TryInDemo>` clicked while already in a demo session — should be idempotent, watch for flicker / double-redirect.
