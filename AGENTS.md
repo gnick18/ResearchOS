@@ -1074,6 +1074,26 @@ Defensive-hardening sub-bot reviewed the merged LabArchives integration (`4f31da
 
 Files touched: `frontend/src/lib/labarchives/sign.ts` (offset + `syncEpochOffset` + test-only reset helper), `frontend/src/lib/labarchives/signed-fetch.ts` (new, ~140 LOC), `frontend/src/app/api/auth/labarchives/login/route.ts`, `frontend/src/app/api/auth/labarchives/refresh/route.ts`, `frontend/src/app/api/labarchives/fetch-image/route.ts`. Typecheck + lint clean. Did not touch `config.ts` (in-flight fixture-override bot's territory) or `scripts/test-labarchives-apply.mjs` (test-extension bot's territory).
 
+### Recently landed (2026-05-14 — Import-from-ELN v1 arc shipped)
+
+Initial LabArchives Offline-ZIP import functionality. Six sub-bots in series under the Import-from-ELN manager. The institutional-API attempt + removal and the online-image-rehydration arc that followed are documented in their own 2026-05-14 LabArchives subsections above — this entry covers the v1 offline-only path.
+
+Merges: parser (`970001cf`) → apply pipeline (`5abf75b5`) → cleanup unifying `taskNotesBase` (`a542bdad`) → six-step wizard + bulk-sort UI (`412a9fe0`) → orphan-rule fix for shallow notebooks (`3aa1aadb`) → user-facing copy rename "another ELN" → "LabArchives" with `/wiki/getting-started/labarchives-export` help link.
+
+ELN-agnostic intermediate at `frontend/src/lib/import/eln/types.ts` (`ParsedNotebook` / `ParsedPage` / `ParsedEntry`) so future adapters (Notion, Benchling, paper OCR) reuse the apply pipeline. Page-as-task granularity (one task per LabArchives page, entries concatenated as `## {author} - {timestamp}` sections separated by `---`). Idempotent re-import via `_import_source.json` sidecars. Entry points on Settings → Data maintenance and the user-selection view of `ResearchFolderSetupNew`. Parser uses JSZip + linkedom-polyfilled `DOMParser` + turndown for Froala HTML.
+
+End-to-end verified against Grant's real data (`OneDrive-UW-Madison/ResearchOS_FungalInteractionsLab`): project 8 "Grant N (imported)" + tasks 60/63/69/71-75 carry `owner: "GrantNickles"` from the writer-side pass. Re-verified during the same-day EOD verification cycle (below) without ship-blockers.
+
+Carry-forward items at v1 ship - most subsequently closed by follow-up arcs:
+
+- ✅ Form-B online-only images: closed by the LabArchives rehydration arc (cred-less DevTools script, per-image popup recovery, banner-driven post-import modal, drop-to-replace converging with file-picker — all 2026-05-14 LabArchives subsections above).
+- ✅ Page-level (not entry-level) re-import dedup + missing-images list scaling: closed by `22d5f16b` (page-changed overwrite prompt + collapsible list).
+- ⚠️ `tasksApi.update.project_id` type widening still owed; `BulkSortScreen` casts through `Parameters<typeof tasksApi.update>[1]` for the "(no project)" case.
+- ⚠️ Turndown table conversion, multi-GB-notebook OOM, and date TZ drift on `isoDatePortion(updatedAt)` remain untested under real-world data — not bug reports, just untested edges.
+- See §8 Queued for "ELN-imported orphan projects" (Grant's data has tasks 71/73/74/75 referencing project ids 7/9/10 that have no project file; either user-deletion-after-import or partial-import recovery — not reproducible from CLI tests).
+
+Bot-driven `?wikiCapture=1` verification was blocked by an FSP-init hang in `next start` mode at port 3001 (master indicated likely resolved by subsequent FSP work `15490dc6` / `5c54690a` / `9352190c` / `c93a8f78`). The live EOD verification cycle below covered the wizard via Grant's clickable-popup walkthrough instead. Scratch tooling from the manager session (`sniff-entry-types.mjs` and `stress-labarchives-apply.mjs` that surfaced the orphan-rule bug on a 310 MB sample) lived in the manager's worktree, never committed, and is moot now.
+
 ### Recently landed (2026-05-14 EOD verification cycle)
 
 End-of-day Grant-driven verification session walked Demo v2 / ELN wizard / PDF audit / MethodTabs / Universal-drop tiers via clickable popups. **8 debugger bots spawned + integrated** during the session. Net: 0 ship-blockers found, several real bugs surfaced and patched on the spot.
