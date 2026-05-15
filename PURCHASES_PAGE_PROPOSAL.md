@@ -1,4 +1,4 @@
-# /purchases page rework — proposal
+# /purchases page rework: proposal
 
 > Scope: this proposal is about the **standalone single-user `/purchases`
 > page** (`frontend/src/app/purchases/page.tsx`, ~495 LOC). The Lab Mode
@@ -15,19 +15,19 @@
    `· Complete` text softening, drop the `bg-green-50/50` row tint.
 2. **Add a spending dashboard** at the bottom. Recommend **Thesis B
    (schema-expanded)**: add `PurchaseItem.vendor` + `PurchaseItem.category`
-   (nullable). Skip `Task.completed_at` for v1 — `start_date` is the
+   (nullable). Skip `Task.completed_at` for v1; `start_date` is the
    pragmatic date axis.
 3. **Chart implementation:** hand-rolled CSS bars + inline SVG, matching
    the existing pattern in [LabPurchasesPanel.tsx:228-456](frontend/src/components/LabPurchasesPanel.tsx#L228).
    No chart library, no bundle add.
 4. **Latent grandTotal bug** (items on experiment-type tasks): take the
-   loose path — surface "Items on non-purchase tasks ($X)" in the
+   loose path. Surface "Items on non-purchase tasks ($X)" in the
    dashboard's funding-account breakdown rather than enforce a hard
    schema invariant in v1. Add a soft validation warning in
    `PurchaseEditor`.
 5. **LabPurchasesPanel disposition:** extract a shared
    `useSpendingBreakdowns(items)` hook used by BOTH the lab panel and
-   the new /purchases dashboard. Keep the lab panel — its job
+   the new /purchases dashboard. Keep the lab panel: its job
    (cross-lab CSV export, all-lab spend) is genuinely different from
    /purchases (own + shared-project spend).
 6. **Fixture expansion is a prerequisite.** Today's 7-item, 8-day window
@@ -54,7 +54,7 @@ and share a single `renderPurchaseTaskCard` closure
 split was intentionally modeled on the same "active pipeline vs
 completed history" partition that the Workbench page uses for
 experiments. AGENTS.md §8 documents the accordion explicitly as
-**temporary** — added to mirror the broader /results-kill arc
+**temporary**, added to mirror the broader /results-kill arc
 (`b5710d5c`) where the cross-cutting Results page was retired and each
 feature absorbed its own completion history.
 
@@ -73,7 +73,7 @@ lifecycle is:
 
 Steps 1-3 collapse to one short authoring session per order, often the
 same day. By the time the row gets toggled complete, the user is no
-longer planning anything against it — they're looking up history ("did
+longer planning anything against it; they're looking up history ("did
 we already buy that primer?"). The active/earlier partition tries to
 hide the answer to that question behind an accordion click. The
 chronological scroll is a strictly better surface for the purchase
@@ -85,7 +85,7 @@ Concretely, two real moments where the current split hurts:
 - **"What did we order last month?"** Today: scroll active list, find
   nothing recent, click Earlier, expand. New: scroll, find it.
 - **"How much have we spent across all orders this quarter?"** Today:
-  the page header sums `grandTotal` across BOTH lists — but the user
+  the page header sums `grandTotal` across BOTH lists, but the user
   scanning the page sees only the Active list and can't easily verify
   the number. New: dashboard at the bottom shows monthly bars + the
   unified scroll above lets the user click through any row.
@@ -99,7 +99,7 @@ data is all there
 ([PurchaseItem](frontend/src/lib/types.ts#L514): `total_price`,
 `funding_string`, `task_id`, plus the parent task's `project_id` and
 `start_date`) and the LabPurchasesPanel proves the breakdowns are
-buildable — they're already shipped on the cross-user side.
+buildable. They're already shipped on the cross-user side.
 
 ### Why this belongs on /purchases vs a separate route
 
@@ -140,8 +140,8 @@ existing single-user surface.
 
 ### The user question /purchases answers
 
-The audit's framing — *"What have I bought and how am I tracking
-against my funding?"* — is right. Refining slightly: this is the page
+The audit's framing (*"What have I bought and how am I tracking
+against my funding?"*) is right. Refining slightly: this is the page
 where the user does **two distinct things in sequence**:
 
 1. **Author a purchase order** (the list + expand-to-edit flow).
@@ -194,13 +194,13 @@ suffix, faint green row tint).
 ### Visual differentiation options for completed orders
 
 In the unified scroll, completed orders need to read as "done but
-recallable" — present, but visually quieter than active ones. Four
+recallable": present, but visually quieter than active ones. Four
 options:
 
 | Option | What changes |
 |---|---|
 | **(a)** Keep today's `bg-green-50/50` tint + green dot + `· Complete` text. No time dividers. | Identical to current "earlier" cards. Pros: zero code change. Cons: green tint reads as celebration; an old completed order isn't a celebration. |
-| **(b)** Chronological time dividers ("This month" / "Last month" / "Earlier"). No per-state styling. | Pros: implicit recency cue. Cons: purchases don't have weekly cadence — a lab might order monthly or quarterly, so dividers under-fire. |
+| **(b)** Chronological time dividers ("This month" / "Last month" / "Earlier"). No per-state styling. | Pros: implicit recency cue. Cons: purchases don't have weekly cadence (a lab might order monthly or quarterly, so dividers under-fire). |
 | **(c)** Softened-text-only for complete (drop the tint). No dividers. | Pros: clean; status reads from the dot + suffix. Cons: less scannable for a long list. |
 | **(d)** Hybrid: green dot + `· Complete` suffix kept, drop the row tint, no dividers. | Pros: status cue stays one glance away; quiet enough not to celebrate; chronology alone organizes the list. Cons: very subtle distinction at row level. |
 
@@ -214,7 +214,7 @@ fixture has 3; nobody hits a usability wall).
 | Option | Behavior | Notes |
 |---|---|---|
 | **Pure `start_date desc`** | Strict reverse chronology. | Recommend. |
-| **`start_date desc` + active-before-complete secondary** | Two active orders on the same day appear before two completed orders on the same day. | This is essentially "the split, softened" — quietly resurrects the partition. Reject. |
+| **`start_date desc` + active-before-complete secondary** | Two active orders on the same day appear before two completed orders on the same day. | This is essentially "the split, softened": quietly resurrects the partition. Reject. |
 | **Fiscal-quarter-then-date** | Headers like "Q2 2026" / "Q1 2026". | Over-engineered for a feature most labs don't think in. |
 
 **Recommend pure `start_date desc`.** The simplest sort, matches user
@@ -228,7 +228,7 @@ filter by date range in the dashboard below.
 
 The dashboard sits beneath the unified scroll, scrolled-into-view by
 default but visually separated by a section heading. It is the second
-half of the page — the **review** half.
+half of the page: the **review** half.
 
 ### Layout
 
@@ -289,7 +289,7 @@ half of the page — the **review** half.
 └───────────────────────────────────────────────────────────────────────┘
 ```
 
-### Thesis A — Minimal-schema (only fields available today)
+### Thesis A: Minimal-schema (only fields available today)
 
 The data the page can reach without schema changes:
 
@@ -298,7 +298,7 @@ The data the page can reach without schema changes:
 - Parent `Task` (via composite-key lookup): `start_date`, `project_id`,
   `name`, `is_complete`.
 - Project lookup: `name`, `color`.
-- `FundingAccount`: `name`, `total_budget`. (`spent` is stale — recompute.)
+- `FundingAccount`: `name`, `total_budget`. (`spent` is stale; recompute.)
 
 **v1 chart inventory (Thesis A):**
 
@@ -307,21 +307,21 @@ The data the page can reach without schema changes:
    ([LabPurchasesPanel.tsx:283-378](frontend/src/components/LabPurchasesPanel.tsx#L283))
    one-to-one. Click a card → filter the dashboard sections below to
    just that funding string.
-2. **Spend over time** — horizontal bar list, one row per month,
+2. **Spend over time**: horizontal bar list, one row per month,
    labeled `YYYY-MM`, last 12 months in window. Date axis = parent
    task's `start_date.slice(0, 7)`. Already in LabPurchasesPanel
    ([:441-456](frontend/src/components/LabPurchasesPanel.tsx#L441)).
-3. **Spend by project** — bar list, one row per project, sorted desc.
+3. **Spend by project**: bar list, one row per project, sorted desc.
    Project name from joined `Task.project_id` → `Project.name` lookup
    (must compare both `id` AND `owner` per the
    [page.tsx:169-171](frontend/src/app/purchases/page.tsx#L169)
    composite-key convention).
-4. **Spend by funding-string** — bar list, sorted desc. Includes an
+4. **Spend by funding-string**: bar list, sorted desc. Includes an
    "Uncategorized" row for items with `funding_string == null`. The
    funding-account cards above are the same data presented as
    percent-of-budget; this list is the same data presented as raw
    amount and includes the uncategorized tail.
-5. **Items on non-purchase tasks** — single line: "2 items, $148.50
+5. **Items on non-purchase tasks**: single line: "2 items, $148.50
    on tasks not typed as 'purchase'." Click to expand and see the
    offending items. Surfaces the latent grandTotal bug (see §5).
 
@@ -332,36 +332,36 @@ The data the page can reach without schema changes:
   quarter"). Possible but `item_name` is free-text, so grouping is
   noisy.
 
-### Thesis B — Schema-expanded (recommended)
+### Thesis B: Schema-expanded (recommended)
 
 Add two nullable fields to `PurchaseItem`:
 
-- `vendor: string | null` — free-text or autocompleted from past
+- `vendor: string | null`: free-text or autocompleted from past
   values (the catalogStore already remembers `link` + `price_per_unit`
   per item name; vendor extracts as a sibling concept).
-- `category: string | null` — free-text, also autocompleted. Examples:
+- `category: string | null`: free-text, also autocompleted. Examples:
   Reagents, Consumables, Plasticware, Equipment, Service.
 
 Skip `Task.completed_at`. The page already uses `Task.start_date` as
 the date axis everywhere ("Order placed YYYY-MM-DD"). A completion
 timestamp would be a nicer "money landed" axis, but: (a) it's a Task
-schema change, not a PurchaseItem one — broader blast radius; (b) the
+schema change, not a PurchaseItem one (broader blast radius); (b) the
 purchase lifecycle is short enough that `start_date` is a good-enough
 proxy for "when did this spend happen"; (c) the `is_complete` field
 toggles a known timestamp via mtime if a future user really needs it.
 
 **v1 chart inventory (Thesis B) adds:**
 
-6. **Breakdown by vendor** — bar list, sorted desc. Click a vendor →
+6. **Breakdown by vendor**: bar list, sorted desc. Click a vendor →
    filters the dashboard. Depends on `PurchaseItem.vendor`.
-7. **Breakdown by category** — bar list, sorted desc. Click a
+7. **Breakdown by category**: bar list, sorted desc. Click a
    category → filters the dashboard. Depends on
    `PurchaseItem.category`.
 
 Both can be rendered alongside the existing Project breakdown as
 sibling columns or as a `[ Project | Vendor | Category ]` segmented
 control above a single bar-list slot. **Recommend the segmented
-control** (one chart, three lenses) — less screen real estate, more
+control** (one chart, three lenses): less screen real estate, more
 focused comparison.
 
 **v2 candidates (Thesis B):**
@@ -374,7 +374,7 @@ focused comparison.
 ### Decisions for both theses
 
 **Chart library decision.** The existing app has zero chart
-dependencies — [package.json](frontend/package.json) shows no
+dependencies. [package.json](frontend/package.json) shows no
 recharts / d3 / chart.js / tremor. LabPurchasesPanel ships its bar
 chart as ~10 lines of CSS-bar markup
 ([:441-456](frontend/src/components/LabPurchasesPanel.tsx#L441)):
@@ -400,7 +400,7 @@ shipped pattern. Zero bundle add. Matches Tailwind styling already in
 use across the app. The chart types proposed (horizontal bar lists,
 progress bars, cards) all fit comfortably in CSS+HTML. If a v2
 introduces a real time-series chart that needs zoom/pan/tooltip
-interactions, recharts can be added then — the v1 surface won't pay
+interactions, recharts can be added then; the v1 surface won't pay
 the bundle tax for animation it doesn't need.
 
 **Time-range scope.** User-configurable dropdown, default **Last 12
@@ -435,11 +435,11 @@ shared-task + shared-project purchases via
 - (c) Show as a second series ("My spend" / "Spend on projects I'm
   in") with a small toggle.
 
-**Recommend (a) — include by default, no toggle.** The reasoning:
+**Recommend (a): include by default, no toggle.** The reasoning:
 the list above the dashboard already shows shared-task purchases (the
 merged-view loader pulls them in
 [local-api.ts:1259-1343](frontend/src/lib/local-api.ts#L1259)). The
-dashboard should be coherent with the list — they're the same scope.
+dashboard should be coherent with the list (they're the same scope).
 If a user really wants "just me," they filter by project (which
 implicitly scopes to their own projects) or by funding string. A
 second series is a nice toggle for a v2 but adds visual noise to v1.
@@ -457,14 +457,14 @@ second series is a nice toggle for a v2 but adds visual noise to v1.
 
 The current `?wikiCapture=1` fixture (3 purchase tasks, 7 items,
 8-day window) would render as the "1-4 purchases" case. **The
-fixture needs expansion before the dashboard ships convincingly** —
-see §7.
+fixture needs expansion before the dashboard ships convincingly.**
+See §7.
 
 **`FundingAccount.spent` strategy.** **Compute live from items.**
 Trust nothing on disk. Mirrors what LabPurchasesPanel already does at
 [:101-108](frontend/src/components/LabPurchasesPanel.tsx#L101) and the
 inline comment justifies the choice ("FundingAccount.spent on disk is
-stale — set to 0 at create time and never recomputed"). The stored
+stale; set to 0 at create time and never recomputed"). The stored
 `spent` field becomes effectively a write-only ignored field in v1.
 **v2 cleanup candidate (separate chip):** drop the stored field
 entirely from the type and the writer, and stop persisting it on
@@ -474,7 +474,7 @@ of scope for this rework.
 
 ---
 
-## 5. Latent bug — items on experiment-type tasks
+## 5. Latent bug: items on experiment-type tasks
 
 ### The case
 
@@ -488,7 +488,7 @@ visual grandTotal in the header is greater than the sum of the cards.
 Today's fixture exercises this: morgan's items 1 and 2 are attached
 to an experiment-type task and are silent contributors to grandTotal.
 
-### Path 1 — Tighten the data model
+### Path 1: Tighten the data model
 
 Enforce `PurchaseItem.task_id → Task.task_type === "purchase"` as an
 invariant. Implementation:
@@ -499,17 +499,17 @@ invariant. Implementation:
   (`task_type !== "purchase"`) and flags them in a sidecar
   (`_purchase-orphans.json` or similar) for user resolution.
 - `PurchaseEditor` either refuses to render against a non-purchase
-  task or renders a "this task is not a purchase order — convert?"
+  task or renders a "this task is not a purchase order, convert?"
   affordance.
 
 Pros: clean invariant, grandTotal stops lying. Cons: migration UX is
 work (flag → user clicks → orphans either move to a "fix me" purchase
 task or get deleted), and the invariant retroactively breaks anyone
 who has a real reason to attach items to a non-purchase task (rare
-but plausible — someone tracking reagents for one specific
+but plausible: someone tracking reagents for one specific
 experiment).
 
-### Path 2 — Loose model + surface in dashboard
+### Path 2: Loose model + surface in dashboard
 
 Don't enforce. Add a dedicated dashboard line ("Items on non-purchase
 tasks: 2 items, $148.50") that surfaces the offenders without
@@ -535,8 +535,8 @@ sees the cue.
 ### Recommendation
 
 **Recommend Path 2.** The case the bug captures (items on
-experiment-type tasks) is genuinely useful information once surfaced —
-"how much did I spend on tagged-to-experiment reagents this quarter"
+experiment-type tasks) is genuinely useful information once surfaced.
+"How much did I spend on tagged-to-experiment reagents this quarter"
 is a real ask, and the loose model preserves it. Tightening the
 invariant is a v2 candidate if it turns out users want a strict
 purchase-only view; the dashboard line provides the data needed to
@@ -547,7 +547,7 @@ make that call.
 ## 6. LabPurchasesPanel disposition
 
 LabPurchasesPanel ([:1-597](frontend/src/components/LabPurchasesPanel.tsx))
-already does most of what the new /purchases dashboard will do —
+already does most of what the new /purchases dashboard will do:
 funding-account cards
 ([:283-378](frontend/src/components/LabPurchasesPanel.tsx#L283)),
 spend-by-month bar list
@@ -560,7 +560,7 @@ CSV export
 ([:172-225](frontend/src/components/LabPurchasesPanel.tsx#L172)). Three
 options for resolving the overlap:
 
-### Option 1 — Extract shared primitives into a hook
+### Option 1: Extract shared primitives into a hook
 
 Create `frontend/src/hooks/useSpendingBreakdowns.ts` that takes
 `items[]` (decorated with `owner`) and the lookup tables needed
@@ -581,7 +581,7 @@ hook needs careful typing because the input shapes differ slightly
 (LabPurchasesPanel uses `LabTask` and `username`; /purchases uses
 `Task` and `owner`).
 
-### Option 2 — Deprecate the lab panel
+### Option 2: Deprecate the lab panel
 
 Redirect lab-mode Purchases tab → /purchases with a "show all-lab
 spending" toggle. Single page, two scopes.
@@ -589,11 +589,11 @@ spending" toggle. Single page, two scopes.
 Pros: one feature surface. Cons: the lab panel's strengths (user-chip
 filtering, lab-wide CSV export) don't map cleanly to a toggle on
 /purchases. The audience is different (PI vs researcher), and the
-lab panel's read-only model is part of the Lab Mode contract — moving
+lab panel's read-only model is part of the Lab Mode contract; moving
 its content to a writable page would break the wall-mounted-TV use
 case.
 
-### Option 3 — Coexist with explicit scope boundaries
+### Option 3: Coexist with explicit scope boundaries
 
 Leave both panels as-is, document the boundaries: lab panel =
 cross-lab + CSV export, /purchases = own + shared-project +
@@ -601,7 +601,7 @@ dashboards. Add a small "View in Lab Mode" link from the /purchases
 dashboard that deep-links to the lab Purchases tab.
 
 Pros: zero refactor risk. Cons: math diverges over time; bug fixes
-land in one panel and not the other (already happened — the
+land in one panel and not the other (already happened: the
 `FundingAccount.spent` stale-field workaround is on the lab side, not
 on /purchases).
 
@@ -610,7 +610,7 @@ on /purchases).
 **Recommend Option 1 + the deep-link from Option 3.** Extract the
 breakdown hook, but keep both panels as separate consumers. The hook
 is small (a single useMemo cluster) and the typing pain is real but
-manageable — define a `BreakdownInputItem` interface that both
+manageable: define a `BreakdownInputItem` interface that both
 panels' items satisfy, with a `username` / `owner` aliasing helper.
 Then add a "View in Lab Mode →" deep-link on the /purchases dashboard
 that opens `/lab?tab=purchases` for cross-lab investigation. This
@@ -650,21 +650,21 @@ breakdown bars.
 
 ### Per-file delta (rough)
 
-- `frontend/public/demo-data/users/alex/purchase_items/{1..20}.json` —
+- `frontend/public/demo-data/users/alex/purchase_items/{1..20}.json`:
   expand from 4 to ~20.
-- `frontend/public/demo-data/users/alex/tasks/*.json` — add ~3-4 new
+- `frontend/public/demo-data/users/alex/tasks/*.json`: add ~3-4 new
   purchase-type tasks (today: 2).
-- `frontend/public/demo-data/users/morgan/purchase_items/{1..20}.json`
-  — expand from 3 to ~20.
-- `frontend/public/demo-data/users/morgan/tasks/*.json` — add ~3-4
+- `frontend/public/demo-data/users/morgan/purchase_items/{1..20}.json`:
+  expand from 3 to ~20.
+- `frontend/public/demo-data/users/morgan/tasks/*.json`: add ~3-4
   new purchase-type tasks (today: 1).
-- `frontend/public/demo-data/users/{alex,morgan}/_counters.json` —
+- `frontend/public/demo-data/users/{alex,morgan}/_counters.json`:
   bump counters.
-- `frontend/public/demo-data/users/lab/funding_accounts/*.json` — no
+- `frontend/public/demo-data/users/lab/funding_accounts/*.json`: no
   changes (accounts stay 3); update stored `spent` values if Path 2
   of §5 keeps the stored field, otherwise leave as-is (we compute
   live).
-- `frontend/src/lib/file-system/wiki-capture-fixture.ts` — the inline
+- `frontend/src/lib/file-system/wiki-capture-fixture.ts`: the inline
   mirror at lines 25-88 must be updated **in lockstep**. AGENTS.md
   chip-3 playbook
   (commit `48a6e456`) is the precedent: every demo-data fixture entry
@@ -675,8 +675,8 @@ breakdown bars.
 
 **Prerequisite chip.** Implementation can't ship convincing
 screenshots without this. AGENTS.md memory entry on
-screenshot-privacy says: real-data folder must NEVER be screenshotted
-— only `?wikiCapture=1` fixture mode. So Chip B (fixtures) **must
+screenshot-privacy says: real-data folder must NEVER be screenshotted,
+only `?wikiCapture=1` fixture mode. So Chip B (fixtures) **must
 ship before Chip G (recapture).**
 
 ### Privacy hard-rule reminder
@@ -692,7 +692,7 @@ in every chip's bot brief.
 
 Proposed chip set for the manager to fire after design-lock.
 
-### Chip A — Schema: add `PurchaseItem.vendor` + `PurchaseItem.category`
+### Chip A: Schema, add `PurchaseItem.vendor` + `PurchaseItem.category`
 
 - **Files:** `frontend/src/lib/types.ts` (interface + Create + Update
   shapes); `frontend/src/lib/local-api.ts` (`purchasesApi.create` /
@@ -706,7 +706,7 @@ Proposed chip set for the manager to fire after design-lock.
   if nullable. Per the merge-timing memory: backend/data-shape work
   waits for verification before merge to local main.
 
-### Chip B — Fixtures: expand demo + wiki-capture in lockstep
+### Chip B: Fixtures, expand demo + wiki-capture in lockstep
 
 - **Files:**
   `frontend/public/demo-data/users/{alex,morgan}/tasks/*.json` (new
@@ -723,13 +723,13 @@ Proposed chip set for the manager to fire after design-lock.
   `npm run demo:zip` regenerates cleanly. AGENTS.md
   `27aa8204` playbook for demo regeneration applies.
 
-### Chip C — Page rewrite: unified scroll + dashboard skeleton
+### Chip C: Page rewrite, unified scroll + dashboard skeleton
 
 - **Files:** `frontend/src/app/purchases/page.tsx` (delete
   active/earlier split + accordion; render single sorted list; add
   `<SpendingDashboard>` component at bottom);
   `frontend/src/components/SpendingDashboard.tsx` (new; ~250-300
-  LOC — the dashboard layout + time-range/project-filter controls,
+  LOC for the dashboard layout + time-range/project-filter controls,
   no real charts yet, just placeholders for §4's six chart slots).
 - **LOC delta:** ~250 net (~50 removed from page.tsx,
   ~300 added in new component).
@@ -738,7 +738,7 @@ Proposed chip set for the manager to fire after design-lock.
   or data-shape changes. Per merge-timing memory: UI-only work merges
   to local main on report.
 
-### Chip D — Chart implementation: full v1 chart set
+### Chip D: Chart implementation, full v1 chart set
 
 - **Files:** `frontend/src/components/SpendingDashboard.tsx` (fill in
   the six chart slots from §4); helper files for the bar-list and
@@ -749,7 +749,7 @@ Proposed chip set for the manager to fire after design-lock.
 - **Dependencies:** Chip C.
 - **Merge timing:** **merge on report.** UI-only.
 
-### Chip E — LabPurchasesPanel disposition: extract shared hook
+### Chip E: LabPurchasesPanel disposition, extract shared hook
 
 - **Files:** `frontend/src/hooks/useSpendingBreakdowns.ts` (new;
   ~80-120 LOC); `frontend/src/components/LabPurchasesPanel.tsx`
@@ -759,21 +759,22 @@ Proposed chip set for the manager to fire after design-lock.
 - **LOC delta:** ~50-100 net (math moves but is shared).
 - **Dependencies:** Chips C+D (both consumers must exist before extraction).
 - **Merge timing:** **wait for verify.** Touches the cross-user lab
-  panel — risk of subtle math drift between the two scopes. The
+  panel, with risk of subtle math drift between the two scopes. The
   verifier should confirm both panels render identical numbers for
   the same input.
 
-### Chip F — Wiki rewrite
+### Chip F: Wiki rewrite
 
 - **Files:** `frontend/src/app/wiki/features/purchases/page.tsx`
-  (full rewrite — describe the unified scroll + dashboard, drop the
-  Earlier-accordion paragraph, add a dashboard walkthrough section);
+  (full rewrite that describes the unified scroll + dashboard, drops
+  the Earlier-accordion paragraph, and adds a dashboard walkthrough
+  section);
   `frontend/src/app/wiki/features/results/page.tsx` ([:37-45](frontend/src/app/wiki/features/results/page.tsx#L37)
-  needs a one-line patch — the "Completed purchases → Purchases
+  needs a one-line patch: the "Completed purchases → Purchases
   'Earlier'" section title and prose are now stale).
-- **Existing screenshots affected:** `purchases-list.png` (obsolete —
-  list shape changed), `purchases-funding-panel.png` (obsolete — but
-  the panel itself didn't change, just the page around it; could
+- **Existing screenshots affected:** `purchases-list.png` (obsolete,
+  since list shape changed), `purchases-funding-panel.png` (obsolete,
+  but the panel itself didn't change, just the page around it; could
   survive). `purchases-lab-funding-cards.png` and
   `purchases-lab-list.png` survive unless Chip E changes the lab
   panel's visible UI (it shouldn't, refactor is invisible).
@@ -785,7 +786,7 @@ Proposed chip set for the manager to fire after design-lock.
   Chip C+D+E reports; Grant relays to the wiki manager session for
   drafting.
 
-### Chip G — Re-capture screenshots in `?wikiCapture=1` mode
+### Chip G: Re-capture screenshots in `?wikiCapture=1` mode
 
 - **Files:** `frontend/public/wiki/screenshots/purchases-list.png`
   (recapture with unified scroll + dashboard visible);
@@ -857,12 +858,12 @@ re-wrap as an AskUserQuestion call.
    - (b) Last 90 days.
    - (c) All time.
 
-9. **`Task.completed_at` field — add or skip for v1.**
+9. **`Task.completed_at` field, add or skip for v1.**
    - (a) Skip for v1; use `start_date` as the date axis.
      **Recommended.**
    - (b) Add for v1 (broader schema change but cleaner spend-axis).
 
-10. **Funding-account `spent` stored field — when to drop.**
+10. **Funding-account `spent` stored field, when to drop.**
     - (a) Stop reading; recompute live everywhere. Drop the stored
       field in a separate cleanup chip. **Recommended.**
     - (b) Drop the stored field as part of Chip A.
@@ -899,7 +900,7 @@ What this rework does NOT do (calling out so it doesn't slip into a chip):
 - **`PurchaseEditor` shared-task owner routing.** AGENTS.md §8 entry
   on `4e28dc85` flags that `PurchaseEditor` still calls
   `purchasesApi.listByTask(taskId)` (current-user-scoped) instead of
-  threading `task.owner`. That fix is its own chip — orthogonal to
+  threading `task.owner`. That fix is its own chip, orthogonal to
   this rework and should not block.
 - **Items on Option-C hosted tasks.** The merged-view loader
   intentionally excludes hosted tasks
@@ -918,13 +919,13 @@ to push back on before relaying to Grant:*
 
 The current `grandTotal` lying-by-a-few-dollars (§5) is sub-bug-level
 and could be argued either way. The recommended Path 2 (surface in
-dashboard) leans on the dashboard existing — but Chip C is the chip
+dashboard) leans on the dashboard existing, but Chip C is the chip
 that introduces the dashboard. If Chips A+B+C are not all merged in
 sequence, the bug stays unreported. **Suggest:** the manager should
 either commit to the full chip chain landing, or carve out a tiny
 Chip 0 that just adds the "Items on non-purchase tasks" warning to
 the page header today (1-line copy update + an aggregate filter) so
 the bug is at least visible to users while the dashboard work is in
-flight. I leaned recommend-not-add for Chip 0 — the dashboard land is
-the right home for the surface — but worth a Grant gut-check whether
+flight. I leaned recommend-not-add for Chip 0 (the dashboard land is
+the right home for the surface), but worth a Grant gut-check whether
 the visibility gap during the rollout matters.

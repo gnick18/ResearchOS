@@ -1,4 +1,4 @@
-# Experiments page redesign — proposal
+# Experiments page redesign: proposal
 
 > Scope: this proposal is about the **Experiments sub-tab inside the Lab tab**
 > (`frontend/src/components/LabExperimentsPanel.tsx`, rendered from
@@ -10,13 +10,13 @@
 ## Context
 
 The Lab tab is the multi-user roll-up of the app. It already has eight
-sub-tabs — Activity, GANTT, Experiments, Purchases, Roadmaps, Methods, Notes,
+sub-tabs: Activity, GANTT, Experiments, Purchases, Roadmaps, Methods, Notes,
 Search (`frontend/src/app/lab/page.tsx:53`). Each one is supposed to answer
 one specific question about "what is the whole lab doing." The
 **Experiments** sub-tab is the only one whose thesis the wiki describes
 flatly as "a flat view of everyone's rows for that area"
 (`frontend/src/app/wiki/features/lab-mode/page.tsx:120-126`). That flatness
-is the problem — the panel today renders every experiment as a row in either
+is the problem: the panel today renders every experiment as a row in either
 a "grouped by user + project" list or a sortable table, and nothing on
 screen tells you anything you couldn't see in another tab faster.
 
@@ -24,7 +24,7 @@ Concretely, the Lab Activity tab answers "what just happened" in 30-day
 windows. The Lab GANTT answers "when is everything." The Lab Methods tab
 answers "who's using which protocols." The Lab Search tab answers "find me
 the thing." The Experiments tab is left with the residual "everything
-ever" — a complete inventory — but renders that inventory at one row per
+ever" (a complete inventory), but renders that inventory at one row per
 experiment, with no surfaces for the rich data each experiment actually
 carries (`notes.md`, `results.md`, the `Images/` folder, sub_task progress,
 variation notes, deviations). For each row you get a color dot, a name,
@@ -54,7 +54,7 @@ Inventory of what `LabExperimentsPanel` renders today
 - Header stats row, four cards: Total / Completed / In Progress / Users
   (lines 122-145). **This row duplicates the parent stats row at
   `frontend/src/app/lab/page.tsx:309-328`** (Users / Projects / Experiments
-  / Purchases) — both render on the same page above the fold.
+  / Purchases); both render on the same page above the fold.
 - View-mode toggle: Grouped View / Table View (lines 148-169).
 - **Grouped View** (lines 171-240): one section per `username + project`
   pair, header has user avatar + username + project name + count chip.
@@ -82,7 +82,7 @@ What an experiment has that the current sub-tab **does not surface**:
   per-user dependency stores aren't reachable cross-user without a
   rollup).
 - Time since completion (a "finished yesterday" cue would be useful but
-  is absent — only the raw end_date is shown).
+  is absent; only the raw end_date is shown).
 - Recency of edit to `results.md` or `notes.md` (no `updated_at` is read
   here).
 
@@ -116,11 +116,11 @@ Six theses were evaluated. Proposal A, B, and the structural kill option
 are fleshed out below; the rest are rejected here with the reasoning
 recorded.
 
-1. **Outcomes-first results gallery (fleshed out below as Proposal A — recommended).**
+1. **Outcomes-first results gallery (fleshed out below as Proposal A, recommended).**
    The sub-tab becomes a visual board of experiment outcomes. Each card
    leads with a hero thumbnail (first image from `Images/` or rendered from
    `results.md`), the contributor's avatar, the methods used, and a short
-   results snippet. Answers "what did the lab learn this week?" — the
+   results snippet. Answers "what did the lab learn this week?", the
    question no other tab answers.
 
 2. **STRUCTURAL: kill the sub-tab (fleshed out below as Proposal B).**
@@ -130,15 +130,15 @@ recorded.
    "every experiment in the lab as an inventory" gets re-filled by a
    small Lab Search default ("show all experiments") plus a small GANTT
    "all time" view option. The single biggest risk is the historical
-   inventory regression — see the proposal for whether that's fatal.
+   inventory regression; see the proposal for whether that's fatal.
 
 3. **Method-pivot comparison grid (fleshed out below as Proposal C).**
    Group cards by method instead of by user + project. Under each method
    header, lay out the experiments that used it side-by-side so replicates
-   read at-a-glance — "we ran this PCR protocol four times; here are the
+   read at-a-glance: "we ran this PCR protocol four times; here are the
    four outcomes." Answers "did this method work, and how reproducibly?"
 
-4. **Kanban swim lanes by status — considered, rejected.** The most-natural
+4. **Kanban swim lanes by status (considered, rejected).** The most-natural
    redesign of a "list of experiments" is usually a board with Planning /
    In-Progress / Completed / Blocked lanes and drag-to-update. But Lab Mode
    is **read-only** by contract
@@ -146,31 +146,31 @@ recorded.
    the headline interaction (drag between lanes to update status). The
    layout would still convey status at a glance, but without the
    interactivity it's a fancier `status` column, not a meaningful new
-   thesis. Also: the data model has no `status` enum — only `is_complete`
-   plus derived "running" via dates — so "Blocked" / "Failed" lanes can't
+   thesis. Also: the data model has no `status` enum, only `is_complete`
+   plus derived "running" via dates, so "Blocked" / "Failed" lanes can't
    be populated without first adding a field, which is out of scope.
 
-5. **Decision-focused "Up Next" queue — considered, rejected.** A
+5. **Decision-focused "Up Next" queue (considered, rejected).** A
    morning-planning queue surfaces "what should I run today, ordered by
    dependencies + blockers." This is a great single-user view (and arguably
    what `/experiments` already half-is), but it makes no sense in
    multi-user Lab Mode where the viewer (typically a PI or another lab
    member) is not the one deciding what someone else runs next.
 
-6. **Lab-notebook chronological feed — considered, rejected.** A
+6. **Lab-notebook chronological feed (considered, rejected).** A
    timestamped social-feed-style scroll of "alex ran X today, kritika
    added a result to Y yesterday" overlaps heavily with what Lab Activity
    already does (Running now / Recently completed / Recent notes). The
    marginal value over what's already in Activity is small.
 
-7. **Density-focused mega-table — considered, rejected.** A 30+-row
+7. **Density-focused mega-table (considered, rejected).** A 30+-row
    compact table with every column visible at once would maximize
    information density but does not answer any new question. It also
-   already exists as the "Table View" mode in today's panel — the user can
+   already exists as the "Table View" mode in today's panel; the user can
    sort by any column. Doubling down on this would entrench the very
    sameness Grant pushed back on.
 
-## Proposal A — Outcomes-first results gallery
+## Proposal A: Outcomes-first results gallery
 
 **One-sentence pitch:** Turn the Lab Experiments sub-tab into a visual
 gallery of experiment outcomes, ordered by freshness of result, with a
@@ -185,7 +185,7 @@ this week, and what's in progress that we'll find out about next?"*
 1. A grid of **outcome cards**, one per experiment.
 2. A **hero visual** on each card: the first image found in the
    experiment's `Images/` directory, or a rendered preview of the first
-   ~80 chars of `results.md`, or — if neither exists — a neutral
+   ~80 chars of `results.md`, or, if neither exists, a neutral
    placeholder with the method icon.
 3. Experiment **name**, **contributor avatar + name**, and **project
    name**.
@@ -275,7 +275,7 @@ preview, `RUN` = running badge, `✓` = completed badge.
 **Key interactions:**
 
 1. **Hover a card** → uses the same `<TaskQuickPopup>` pattern that
-   `GanttChart` uses (`frontend/src/components/TaskQuickPopup.tsx`) — a
+   `GanttChart` uses (`frontend/src/components/TaskQuickPopup.tsx`): a
    small overlay that adds "method tooltip details" and "first paragraph
    of `notes.md`" on top of what's on the card face. No edit affordances
    in Lab Mode.
@@ -288,7 +288,7 @@ preview, `RUN` = running badge, `✓` = completed badge.
    `<LabUserDetailPanel>` side panel (`lab/page.tsx:401-408`), so a PI
    can drill into one person's full work from a card they noticed.
 5. **Click "Show N more" in "Earlier"** → expands the collapsed list of
-   older completed-with-results experiments. No new modal or route — it
+   older completed-with-results experiments. No new modal or route; it
    just appends to the grid in the same shape. Pagination kicks in at
    ~100 cards rendered (lazy-render on scroll) so the page stays light
    for labs with hundreds of historical experiments.
@@ -308,26 +308,26 @@ preview, `RUN` = running badge, `✓` = completed badge.
   (`LabActivityPanel.tsx:17` `RECENT_WINDOW_DAYS`).
 
 (Note: the user-filter chip at the bottom-right of Lab Mode keeps doing
-its existing job — filtering who's included in this whole panel. The
+its existing job, filtering who's included in this whole panel. The
 panel-level filters above are *within* that selection, not in addition
 to.)
 
 **Differentiation from Lab GANTT, Activity, Search, and `/experiments`:**
 
 This is the only view in the app that surfaces actual **experimental
-outputs** — image thumbnails from `Images/`, markdown previews from
+outputs**: image thumbnails from `Images/`, markdown previews from
 `results.md`, the "completed but never wrote a result" gap. GANTT shows
 time. Activity shows recency in plain text. Search shows hits against a
 query. The standalone `/experiments` is a single-user planning queue with
 dependency chains. None of them show what experiments *produced*. The
-gallery format is the visual answer to "what did we find?" — and the
+gallery format is the visual answer to "what did we find?", and the
 "Awaiting results" section is unique signal for the PI ("Alex finished
-that two weeks ago and never wrote it up — let's ask in the next 1:1").
+that two weeks ago and never wrote it up; let's ask in the next 1:1").
 This is the strongest differentiation the panel can carry given the data
 model.
 
 **Implementation effort estimate:** **M.** Most of the structural work
-already exists — same `useLabData()` hook, same `<TaskDetailPopup>` /
+already exists: same `useLabData()` hook, same `<TaskDetailPopup>` /
 `<LabUserDetailPanel>` consumers, same color/avatar primitives. The new
 work is: (a) a `<ExperimentCard>` component (~150 LOC), (b) a hero-image
 resolver that walks `users/<owner>/results/task-<id>/Images/` and falls
@@ -347,7 +347,7 @@ mirrors what `LabArchives` already does for image rehydration. Estimate
   regressions visible.
 - **What counts as a "result"?** The proposal treats "non-empty
   `results.md` OR ≥1 file in `Images/`" as having a result. Worth a
-  Grant gut-check — some labs might consider `notes.md` content as
+  Grant gut-check: some labs might consider `notes.md` content as
   result-enough, in which case the "Awaiting results" section over-fires.
 - **Image privacy.** Wiki-capture mode must keep using fixture data
   (`?wikiCapture=1`). The mock layer
@@ -363,7 +363,7 @@ mirrors what `LabArchives` already does for image rehydration. Estimate
 
 ---
 
-## Proposal B — Structural: kill the Experiments sub-tab
+## Proposal B: Structural, kill the Experiments sub-tab
 
 **One-sentence pitch:** Delete the Experiments sub-tab; absorb its real
 job ("see every experiment in the lab as an inventory") into Lab Search
@@ -381,7 +381,7 @@ three small additions, each rendered in tabs that already exist:
 - **Lab Search** gets a default "All experiments, newest first" preset
   loaded on tab open if no filters are touched yet. That gives the user a
   scrollable inventory of every experiment in the lab without typing
-  anything — which is the underlying job the current Experiments tab is
+  anything, which is the underlying job the current Experiments tab is
   doing, just packaged inside Search where the column-sort + filter
   affordances are already richer.
 - **Lab Activity** gets a small enhancement: the existing
@@ -390,7 +390,7 @@ three small additions, each rendered in tabs that already exist:
   chunks. That covers "I want to see more than the last 30 days but I
   came here from Activity."
 - **Lab GANTT** gets a date-window option that already implicitly works
-  via the `viewMode` switcher (`LabGanttChart.tsx:222-234`) — the "1Y"
+  via the `viewMode` switcher (`LabGanttChart.tsx:222-234`); the "1Y"
   option is already 52 weeks. The proposed add is a tiny "Compact density"
   toggle that bumps the row height down so a full year of experiments
   fits without overflowing.
@@ -417,7 +417,7 @@ Experiments sub-tab is doing. Here is the honest table:
 
 The single biggest gap is the **hierarchical "by user, then by project,
 then by experiment" browsing pattern**. Today's grouped view delivers
-that. Lab Search defaults wouldn't — Search shows a flat result list, not
+that. Lab Search defaults wouldn't: Search shows a flat result list, not
 a project-grouped list with section headers. That's a real regression for
 a PI who opens Lab Mode, picks 5 students, and wants to scan their
 ongoing projects rather than search by keyword.
@@ -425,19 +425,19 @@ ongoing projects rather than search by keyword.
 **Gap-filling additions if we go this route** (cite the files the
 additions would land in):
 
-- `frontend/src/components/LabSearchPanel.tsx` — add a "Group results by
+- `frontend/src/components/LabSearchPanel.tsx`: add a "Group results by
   user + project" toggle to the results-rendering section (around lines
   300+, the results-rendering pass). The grouping logic is portable from
   the existing `LabExperimentsPanel.tsx:86-109`. ~80 LOC.
-- `frontend/src/components/LabSearchPanel.tsx` — load a default-on-open
+- `frontend/src/components/LabSearchPanel.tsx`: load a default-on-open
   preset of `{task_types: "experiment", completion_status: "all"}` if
   `hasSearched === false` (a state already on the panel,
   `LabSearchPanel.tsx:52`). ~15 LOC.
-- `frontend/src/components/LabActivityPanel.tsx` — add a "Show 30 more"
+- `frontend/src/components/LabActivityPanel.tsx`: add a "Show 30 more"
   expander on the "Recently completed" section (around line 286).
   ~50 LOC.
 
-**Differentiation from GANTT:** N/A by construction — this proposal *is*
+**Differentiation from GANTT:** N/A by construction. This proposal *is*
 a bet that the question the current sub-tab tries to answer is either
 already answered better elsewhere, or worth letting go of in favor of a
 leaner Lab Mode.
@@ -452,7 +452,7 @@ the codebase.
 - **The hierarchical-inventory gap is real.** Whether it's *fatal* depends
   on how often anyone actually uses Lab Experiments as a project-grouped
   inventory vs. a "I want to see what's going on" reach-for. There's no
-  telemetry — only Grant's intuition.
+  telemetry, only Grant's intuition.
 - **Wiki ripple.** The wiki has a dedicated page at
   `frontend/src/app/wiki/features/lab-mode/cross-user-lists/` (per
   `lab-mode/page.tsx:118-126`) describing Experiments + Methods +
@@ -472,10 +472,10 @@ the codebase.
 
 ---
 
-## Proposal C — Method-pivot comparison grid
+## Proposal C: Method-pivot comparison grid
 
 **One-sentence pitch:** Group experiments by the method they used, so the
-sub-tab becomes a reproducibility/comparison view — "we ran this
+sub-tab becomes a reproducibility/comparison view: "we ran this
 protocol N times across M people; here are the N outcomes side-by-side."
 
 **Core user question answered:** *"Does this protocol work
@@ -564,7 +564,7 @@ The overlap is real but the foregrounded data is different (per-experiment
 outcome thumbnails + variation notes are not in Methods today).
 
 **Implementation effort estimate:** **M.** Same general scope as
-Proposal A — most of the work is in a new card component and the
+Proposal A. Most of the work is in a new card component and the
 section-rollup logic. Slightly cheaper than A because it doesn't need the
 4-section bucketing (Fresh / Active / Awaiting / Earlier); slightly more
 expensive because horizontal-scroll rows have layout edge cases (long
@@ -592,14 +592,14 @@ horizontal scroll). Estimate ~500-700 LOC.
 
 ## Recommendation
 
-**Ship Proposal A — Outcomes-first results gallery.**
+**Ship Proposal A: Outcomes-first results gallery.**
 
 Two factors swung the choice.
 
 First, **what differentiates this panel must come from the data nothing
 else surfaces.** GANTT owns time. Activity owns recency. Search owns
-query. Methods owns the library. The thing left over — the actual
-*output* of each experiment, the `results.md` + `Images/` content — is
+query. Methods owns the library. The thing left over (the actual
+*output* of each experiment, the `results.md` + `Images/` content) is
 not on screen anywhere else in the app. A redesigned Experiments tab
 that leads with that output is the only redesign whose thesis can't be
 re-argued as "but isn't that just GANTT / Activity / Search?" Proposal A
@@ -610,7 +610,7 @@ app today.
 
 Second, **the structural kill option (Proposal B) leaves a real but
 narrow gap.** GANTT, Activity, Search, and Methods cover almost every
-job the current sub-tab is doing — *except* hierarchical project-grouped
+job the current sub-tab is doing, *except* hierarchical project-grouped
 browsing of every experiment in the lab. That gap is fillable in Search
 with a "group by user + project" toggle and an open-on-load default
 preset. It would be the right call if the redesign budget were tiny or
@@ -625,7 +625,7 @@ Proposal C is a strong runner-up if it turns out that the lab actually
 runs the same protocols repeatedly (replicate-heavy work). For a lab
 that runs each protocol once or twice, Proposal C's method-grouped
 sections will mostly be sections-of-one and the page will feel sparse.
-Proposal A degrades more gracefully — fewer experiments just means fewer
+Proposal A degrades more gracefully: fewer experiments just means fewer
 cards, but the layout still reads.
 
 ## Migration / rollout notes
@@ -636,7 +636,7 @@ cards, but the layout still reads.
   add maintenance burden without much risk reduction. Recommend direct
   replacement.
 - **Routes.** The `?tab=experiments` (or the in-memory `activeTab`
-  equivalent) stays — same tab, new contents. No redirect logic needed.
+  equivalent) stays. Same tab, new contents. No redirect logic needed.
 - **Demo lab data.** The demo data in `frontend/public/demo-data/`
   currently has experiments but doesn't ship `Images/` content per task.
   For the redesigned panel to look right in the live demo + in
@@ -646,9 +646,9 @@ cards, but the layout still reads.
   so the markdown-preview fallback path also has something to show. This
   is a self-contained sub-task that can ship independently.
 - **Wiki updates.**
-  - `frontend/src/app/wiki/features/lab-mode/page.tsx:118-126` — rewrite
-    the "Experiments, Methods, Roadmaps, and Notes — four cross-user
-    lists" lump. The Experiments line specifically should describe the
+  - `frontend/src/app/wiki/features/lab-mode/page.tsx:118-126`: rewrite
+    the "Experiments, Methods, Roadmaps, and Notes (four cross-user
+    lists)" lump. The Experiments line specifically should describe the
     outcome-gallery thesis ("an outcome-first board of what the lab has
     figured out lately, with surfacing of experiments that are
     finished-but-undocumented").
@@ -668,7 +668,7 @@ cards, but the layout still reads.
   "Fresh results" section.** They show similar data with different
   thesis (Activity = "what happened," Experiments = "what was learned").
   If the overlap feels noisy in practice, the Activity section could
-  later narrow to "Recently *started*" — but that's an Activity-tab
+  later narrow to "Recently *started*", but that's an Activity-tab
   decision, not a precondition for this proposal.
 - **Stats strip cleanup.** Remove the in-panel 4-card stats row
   (`LabExperimentsPanel.tsx:122-145`) since `lab/page.tsx:309-328`
@@ -694,7 +694,7 @@ cards, but the layout still reads.
 - Color palette beyond reusing existing status colors (the emerald /
   blue / red / amber palette `/experiments` already uses).
 - Whether the panel should add a "Compare" multi-select mode for
-  side-by-side detail. Tempting but separable — ship the gallery first,
+  side-by-side detail. Tempting but separable: ship the gallery first,
   see whether labs ask for it.
 - Whether the hero-image walker should also probe sub-task images / PCR
   protocol images. Proposal A scopes hero-image discovery to the task's
