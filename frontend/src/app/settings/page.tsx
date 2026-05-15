@@ -10,6 +10,7 @@ import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
 import Tooltip from "@/components/Tooltip";
 import UserAvatar from "@/components/UserAvatar";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
+import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import { useAppStore } from "@/lib/store";
 import {
   tasksApi,
@@ -238,6 +239,7 @@ function SettingsBody() {
         <AnimationSection settings={settings} update={update} />
         <BehaviorSection settings={settings} update={update} />
         <MaintenanceSection />
+        <AIHelperSection />
         <TipsSection />
         <SecuritySection
           pwExists={pwExists}
@@ -1011,6 +1013,466 @@ function ReconcileRow() {
         {running ? "Running…" : "Run reconcile"}
       </button>
     </div>
+  );
+}
+
+// ── AI Helper section ───────────────────────────────────────────────────────
+//
+// Surfaces the schema-aware-chatbot prompt that lives at
+// `frontend/public/ai-helper/{full,lean,minimal}.md`. Reads `manifest.json`
+// on mount for freshness metadata, then lazy-fetches the selected size's
+// markdown only when the user picks it (don't pull ~50 KB of prompt text
+// for users who never open this section). Provides copy-to-clipboard +
+// one-click "open in your provider" deep links to Claude / ChatGPT /
+// Gemini.
+//
+// Stale-prompt detection compares `manifest.built_from_commit` against
+// `process.env.NEXT_PUBLIC_RESEARCHOS_COMMIT` (resolved at build time in
+// `next.config.ts`). When the running app is newer than the served
+// manifest, an amber callout offers a "Pull latest from
+// research-os-xi.vercel.app" trapdoor that fetches the live deployed
+// manifest + selected size variant cross-origin. Skipped entirely in
+// demo / wiki-capture mode so the fixture stays deterministic and we
+// don't make outbound network calls during screenshot captures.
+//
+// Per AI_HELPER_PROPOSAL.md "Automation contract" items 5 + 6 + the
+// chip 3 brief.
+
+type AIHelperSize = "lean" | "full" | "minimal";
+
+interface AIHelperManifestSize {
+  bytes: number;
+  tokens: number;
+}
+
+interface AIHelperManifest {
+  helper_version: number;
+  schema_hash: string;
+  structural_fingerprint?: string;
+  built_at: string;
+  built_from_commit: string;
+  sizes: Record<AIHelperSize, AIHelperManifestSize>;
+}
+
+const AI_HELPER_SIZE_OPTIONS: ReadonlyArray<{
+  value: AIHelperSize;
+  label: string;
+  blurb: string;
+}> = [
+  {
+    value: "lean",
+    label: "Lean (recommended)",
+    blurb: "~10k tokens, fits everywhere",
+  },
+  {
+    value: "full",
+    label: "Full",
+    blurb:
+      "~22k tokens, best for drafting on big-context models like Claude Sonnet, GPT-5, Gemini 2.5 Pro",
+  },
+  {
+    value: "minimal",
+    label: "Minimal",
+    blurb: "~3k tokens, for tiny windows or local models",
+  },
+];
+
+const AI_HELPER_PROVIDERS: ReadonlyArray<{
+  key: "claude" | "chatgpt" | "gemini";
+  label: string;
+  url: string;
+}> = [
+  { key: "claude", label: "Claude", url: "https://claude.ai/new" },
+  { key: "chatgpt", label: "ChatGPT", url: "https://chatgpt.com/" },
+  { key: "gemini", label: "Gemini", url: "https://gemini.google.com/app" },
+];
+
+const AI_HELPER_LIVE_BASE = "https://research-os-xi.vercel.app";
+
+/** Format a YYYY-MM-DD slice of the ISO timestamp for the footer. Avoids
+ *  showing the time-of-day (which would just be "the moment Vercel built
+ *  this commit" — not useful) and avoids locale-specific Date parsing
+ *  that varies by client. */
+function formatBuiltDate(iso: string): string {
+  const slice = iso.slice(0, 10);
+  return slice.length === 10 ? slice : iso;
+}
+
+/** Best-effort clipboard write that falls back to a hidden textarea +
+ *  `document.execCommand("copy")` when `navigator.clipboard` isn't
+ *  available (Safari without HTTPS, some older WebViews). Returns true
+ *  on success. */
+async function writeToClipboard(text: string): Promise<boolean> {
+  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // fall through to legacy path
+    }
+  }
+  if (typeof document === "undefined") return false;
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.setAttribute("readonly", "");
+  ta.style.position = "fixed";
+  ta.style.top = "-9999px";
+  ta.style.left = "-9999px";
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    const ok = document.execCommand("copy");
+    return ok;
+  } catch {
+    return false;
+  } finally {
+    document.body.removeChild(ta);
+  }
+}
+
+function AIHelperSection() {
+  const inFixtureMode = isDemoOrWikiCapture();
+  const runningCommit = process.env.NEXT_PUBLIC_RESEARCHOS_COMMIT ?? "";
+
+  const [manifest, setManifest] = useState<AIHelperManifest | null>(null);
+  const [manifestError, setManifestError] = useState<string | null>(null);
+
+  const [selectedSize, setSelectedSize] = useState<AIHelperSize>("lean");
+  // Cache fetched markdown per size so size-flip + re-copy doesn't re-fetch.
+  const [promptBySize, setPromptBySize] = useState<Partial<Record<AIHelperSize, string>>>({});
+  const [loadingSize, setLoadingSize] = useState<AIHelperSize | null>("lean");
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  // Inline 4s toast, mirrors the TipsSection / RepairRow pattern.
+  const [status, setStatus] = useState<string | null>(null);
+  const [pullingLive, setPullingLive] = useState(false);
+
+  // Mount: pull manifest.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/ai-helper/manifest.json", { cache: "no-store" });
+        if (!res.ok) throw new Error(`manifest fetch failed (${res.status})`);
+        const data = (await res.json()) as AIHelperManifest;
+        if (!cancelled) setManifest(data);
+      } catch (err) {
+        if (!cancelled) {
+          setManifestError(
+            err instanceof Error ? err.message : "Couldn't load AI Helper manifest.",
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Lazy-fetch the markdown for the currently selected size on first
+  // selection. Cached via promptBySize so subsequent selects of the same
+  // size are instant. We trigger this from a separate effect rather than
+  // inline in handleSizeChange so the initial "lean" selection on mount
+  // also kicks off a fetch.
+  useEffect(() => {
+    if (promptBySize[selectedSize] !== undefined) {
+      // Already cached; clear loading + error.
+      setLoadingSize(null);
+      setFetchError(null);
+      return;
+    }
+    let cancelled = false;
+    setLoadingSize(selectedSize);
+    setFetchError(null);
+    (async () => {
+      try {
+        const res = await fetch(`/ai-helper/${selectedSize}.md`, { cache: "no-store" });
+        if (!res.ok) throw new Error(`prompt fetch failed (${res.status})`);
+        const text = await res.text();
+        if (cancelled) return;
+        setPromptBySize((prev) => ({ ...prev, [selectedSize]: text }));
+        setLoadingSize(null);
+      } catch (err) {
+        if (cancelled) return;
+        setLoadingSize(null);
+        setFetchError(
+          err instanceof Error
+            ? err.message
+            : "Couldn't load that prompt. Try again in a moment.",
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSize, promptBySize]);
+
+  const showStatus = useCallback((msg: string) => {
+    setStatus(msg);
+    window.setTimeout(() => {
+      setStatus((current) => (current === msg ? null : current));
+    }, 4000);
+  }, []);
+
+  const promptText = promptBySize[selectedSize];
+  const promptReady = typeof promptText === "string" && promptText.length > 0;
+  const sizeMeta = manifest?.sizes[selectedSize];
+  const sizeLabel =
+    AI_HELPER_SIZE_OPTIONS.find((opt) => opt.value === selectedSize)?.label ?? selectedSize;
+  const tokenCount = sizeMeta?.tokens;
+  const tokenSuffix = tokenCount ? ` (~${tokenCount.toLocaleString()} tokens)` : "";
+  const friendlySizeLabel = sizeLabel.toLowerCase().replace(" (recommended)", "");
+
+  const handleCopy = useCallback(async () => {
+    if (!promptReady || promptText === undefined) return;
+    const ok = await writeToClipboard(promptText);
+    if (ok) {
+      showStatus(`Copied ${friendlySizeLabel} prompt${tokenSuffix} to clipboard.`);
+    } else {
+      showStatus("Couldn't access the clipboard. Try opening the prompt source instead.");
+    }
+  }, [promptReady, promptText, showStatus, friendlySizeLabel, tokenSuffix]);
+
+  const handleOpenIn = useCallback(
+    (provider: (typeof AI_HELPER_PROVIDERS)[number]) => {
+      if (!promptReady || promptText === undefined) return;
+      // Open the tab FIRST while we still have the user-gesture permission.
+      // If we awaited the clipboard write before opening, popup blockers
+      // would treat the opener as a non-gesture context and silently
+      // swallow the new tab.
+      window.open(provider.url, "_blank", "noopener");
+      // Fire-and-resolve the clipboard write. The toast lands once the
+      // browser confirms; in the rare failure path the user still has the
+      // provider tab open and can use the Copy button to retry.
+      void (async () => {
+        const ok = await writeToClipboard(promptText);
+        if (ok) {
+          showStatus(
+            `Copied ${friendlySizeLabel} prompt${tokenSuffix} to clipboard. Paste it as your first message in ${provider.label}.`,
+          );
+        } else {
+          showStatus(
+            `Opened ${provider.label} in a new tab, but couldn't copy automatically. Use the Copy button and try again.`,
+          );
+        }
+      })();
+    },
+    [promptReady, promptText, showStatus, friendlySizeLabel, tokenSuffix],
+  );
+
+  const handlePullLatest = useCallback(async () => {
+    if (inFixtureMode) {
+      // Defensive — the button shouldn't render in demo/fixture mode at
+      // all, but if a future refactor exposes it, keep the behaviour
+      // strictly local-only.
+      showStatus("Pull-from-deploy is disabled in demo mode.");
+      return;
+    }
+    setPullingLive(true);
+    try {
+      const [manifestRes, promptRes] = await Promise.all([
+        fetch(`${AI_HELPER_LIVE_BASE}/ai-helper/manifest.json`, { cache: "no-store" }),
+        fetch(`${AI_HELPER_LIVE_BASE}/ai-helper/${selectedSize}.md`, { cache: "no-store" }),
+      ]);
+      if (!manifestRes.ok || !promptRes.ok) {
+        throw new Error(
+          `live fetch failed (${manifestRes.status} / ${promptRes.status})`,
+        );
+      }
+      const liveManifest = (await manifestRes.json()) as AIHelperManifest;
+      const livePrompt = await promptRes.text();
+      setManifest(liveManifest);
+      setPromptBySize((prev) => ({ ...prev, [selectedSize]: livePrompt }));
+      const builtDate = formatBuiltDate(liveManifest.built_at);
+      showStatus(
+        `Pulled latest live prompt (helper_version ${liveManifest.helper_version}, ${builtDate}).`,
+      );
+    } catch (err) {
+      console.error("[AIHelper] pull-from-deploy failed", err);
+      showStatus(
+        "Couldn't reach live prompt source. The local copy still works.",
+      );
+    } finally {
+      setPullingLive(false);
+    }
+  }, [inFixtureMode, selectedSize, showStatus]);
+
+  // Stale detection: only when we have BOTH a running-app commit (set by
+  // next.config.ts at build time) AND a manifest commit, and they differ.
+  // Skipped entirely in demo/fixture mode to keep captures deterministic
+  // and avoid spurious amber chrome in the wiki/demo screenshots.
+  const showStaleCallout =
+    !inFixtureMode &&
+    !!runningCommit &&
+    !!manifest?.built_from_commit &&
+    manifest.built_from_commit !== runningCommit;
+
+  const builtDate = manifest ? formatBuiltDate(manifest.built_at) : null;
+  const shortManifestCommit = manifest?.built_from_commit
+    ? manifest.built_from_commit.slice(0, 7)
+    : null;
+  const shortRunningCommit = runningCommit ? runningCommit.slice(0, 7) : null;
+
+  return (
+    <SectionShell
+      id="ai-helper"
+      title="AI Helper"
+      description="Train your own AI chatbot to know ResearchOS inside out. Paste this prompt into Claude, ChatGPT, or Gemini and the chatbot becomes a schema-aware support assistant."
+    >
+      <div data-onboarding-target="ai-helper-prompt" className="space-y-4">
+        {/* Size picker */}
+        <div>
+          <p className="text-sm font-medium text-gray-800 mb-2">Pick a size</p>
+          <div className="flex flex-col gap-2">
+            {AI_HELPER_SIZE_OPTIONS.map((opt) => {
+              const selected = selectedSize === opt.value;
+              const sizeBytes = manifest?.sizes[opt.value]?.bytes;
+              const sizeTokens = manifest?.sizes[opt.value]?.tokens;
+              return (
+                <label
+                  key={opt.value}
+                  className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                    selected
+                      ? "border-blue-300 bg-blue-50"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="ai-helper-size"
+                    value={opt.value}
+                    checked={selected}
+                    onChange={() => setSelectedSize(opt.value)}
+                    className="mt-0.5"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-gray-800">{opt.label}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{opt.blurb}</p>
+                    {sizeTokens !== undefined && sizeBytes !== undefined && (
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        Built size: ~{sizeTokens.toLocaleString()} tokens · {Math.round(sizeBytes / 1024)} KB
+                      </p>
+                    )}
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Copy button */}
+        <div>
+          <button
+            type="button"
+            onClick={handleCopy}
+            disabled={!promptReady}
+            className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg"
+          >
+            {loadingSize === selectedSize
+              ? "Loading prompt…"
+              : promptReady
+                ? "Copy prompt to clipboard"
+                : "Prompt unavailable"}
+          </button>
+          {fetchError && (
+            <p className="text-xs text-red-600 mt-2">{fetchError}</p>
+          )}
+        </div>
+
+        {/* Open-in provider buttons */}
+        <div>
+          <p className="text-sm font-medium text-gray-800 mb-2">Open in your AI</p>
+          <div className="flex flex-wrap gap-2">
+            {AI_HELPER_PROVIDERS.map((provider) => (
+              <button
+                key={provider.key}
+                type="button"
+                onClick={() => handleOpenIn(provider)}
+                disabled={!promptReady}
+                className="inline-flex items-center gap-1 px-3 py-2 text-sm border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-800 rounded-lg"
+              >
+                {provider.label}
+                <span aria-hidden className="text-gray-400">↗</span>
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            Each &ldquo;Open in&rdquo; button copies the prompt and opens the provider in a new tab.
+            Paste it as your first message, or save it as a Claude Project / Custom GPT / Gem for a
+            persistent helper.
+          </p>
+        </div>
+
+        {/* Inline status toast (4s auto-dismiss) */}
+        {status && (
+          <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
+            {status}
+          </p>
+        )}
+
+        {/* Freshness footer */}
+        <div className="pt-3 border-t border-gray-100 text-xs text-gray-500">
+          {manifestError ? (
+            <p className="text-amber-700">
+              Couldn&apos;t load freshness info: {manifestError}
+            </p>
+          ) : !manifest ? (
+            <p>Loading prompt manifest…</p>
+          ) : (
+            <p>
+              Last refreshed: {builtDate} · helper_version {manifest.helper_version} · ResearchOS @{" "}
+              <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">{shortManifestCommit}</code>
+            </p>
+          )}
+        </div>
+
+        {/* Stale-prompt callout (only when running-app commit differs from
+            manifest commit; suppressed in demo/fixture mode). */}
+        {showStaleCallout && (
+          <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 space-y-2">
+            <p>
+              <span aria-hidden>⚠ </span>
+              These prompts are from{" "}
+              <code className="px-1 py-0.5 bg-amber-100 rounded text-[10px]">
+                {shortManifestCommit}
+              </code>{" "}
+              but the running app is at{" "}
+              <code className="px-1 py-0.5 bg-amber-100 rounded text-[10px]">
+                {shortRunningCommit}
+              </code>
+              . They may be older than the running app.
+            </p>
+            <button
+              type="button"
+              onClick={() => void handlePullLatest()}
+              disabled={pullingLive}
+              className="px-2.5 py-1 text-xs bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md"
+            >
+              {pullingLive
+                ? "Pulling…"
+                : "Pull latest from research-os-xi.vercel.app"}
+            </button>
+          </div>
+        )}
+
+        {/* Footer links */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+          <Link
+            href="/wiki/integrations/ai-helper"
+            className="text-blue-600 hover:underline"
+          >
+            Read setup guide →
+          </Link>
+          <Link
+            href={`/ai-helper/${selectedSize}.md`}
+            target="_blank"
+            className="text-blue-600 hover:underline"
+          >
+            View prompt source →
+          </Link>
+        </div>
+      </div>
+    </SectionShell>
   );
 }
 
