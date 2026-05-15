@@ -431,6 +431,18 @@ Two deferred-from-Workbench-redesign (`d4030e3b`) polish items closed in one pas
 - **OOS nit (flagged, not fixed)**: the project-grouping IIFE inside the main `SECTION_ORDER.map` callback is verbose enough that a future refactor could lift it into a small `<RecentResultsGroup>` component. Acceptable as-is for one section; would be worth it if a second section ever needs project grouping. Not extracted now to keep the commit small.
 - **Browser verification**: not run by the worker bot (out of remit). Grant to spot-check live; behavior is the same when there's only one project (collapses to flat grid) and adds a colored-dot project sub-header when there are 2+. Worker bot did NOT touch the four stage-organized sections — verified by reading the diff before commit.
 
+### Recently landed (2026-05-15 — BeakerBot opaque body fill + DevForceTipButton reuses the component)
+
+Two-line follow-up to Phase 4. Grant flagged the mascot reads poorly against busy backgrounds (project chips, colorful buttons): the upper body section was transparent, so eyes/smile/cheek-dashes bleed through whatever's behind the SVG.
+
+Fix in [BeakerBot.tsx](frontend/src/components/BeakerBot.tsx): added an opaque white body fill BEFORE the rainbow liquid layer in the SVG z-order. Lower body still shows the pastel gradient as before; upper body (eyes + smile + cheek dashes) now sits on a solid white backdrop. `noLiquid` prop now skips BOTH fills (= pure wireframe mode) — useful for monochrome icon contexts.
+
+Also refactored [DevForceTipButton.tsx](frontend/src/components/DevForceTipButton.tsx) to render `<BeakerBot pose="idle" noLiquid />` instead of inlining a duplicate copy of the beaker silhouette path. The duplication had drifted (the inline copy never picked up the white-fill change); using the actual component means future mascot tweaks propagate automatically. `noLiquid` keeps the dev-button icon monochrome at 20px.
+
+Was meant to be done by a sub-bot (`a2603c0a0a131a722`) but the API rate limit cut the bot off before it committed anything (its branch was empty). Did inline as a focused single-pass change. Single commit `5141b6bf`. 150/150 tests pass; typecheck EXIT 0. All 4 BeakerBot usages benefit transparently (tip card, welcome modal, lab-mode picker tip, tutorial sequencer card).
+
+---
+
 ### Recently landed (2026-05-15 — onboarding tips Phase 4: guided tutorial tour as a slideshow in the demo lab)
 
 Reworks the "Walk me through it" mode-pick from the post-Phase-3 "fast suggestions" hack (60s gap + force-fire on highest-priority each tick) into a proper guided slideshow. Welcome-modal click now opens `/demo?tutorial=1` in a NEW TAB; the user's real folder tab keeps the persisted `mode: "tutorial"` flag but the actual walkthrough runs against the demo lab's seeded fixtures so popup-gated tips have valid targets. Closes Grant's "the current Tutorial mode is NOT what I want" course-correct.
