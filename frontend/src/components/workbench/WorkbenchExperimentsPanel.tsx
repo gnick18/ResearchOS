@@ -61,6 +61,9 @@ const SECTION_HELP: Record<WorkbenchSection, string> = {
   scheduled: "Future-scheduled experiments",
 };
 
+const EARLIER_LABEL = "Earlier results";
+const EARLIER_HELP = "Completed more than 30 days ago — full archive";
+
 const RECENT_WINDOW_DAYS = 30;
 const FRESHNESS_WINDOW_DAYS = 7;
 
@@ -155,6 +158,10 @@ function SharedFromPill({ owner }: SharedIndicatorProps) {
 
 export default function WorkbenchExperimentsPanel() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [earlierLayout, setEarlierLayout] = useState<"flat" | "grouped">(
+    "flat",
+  );
+  const [listArchiveOpen, setListArchiveOpen] = useState(false);
   const selectedProjectIds = useAppStore((s) => s.selectedProjectIds);
   const setIsCreatingTask = useAppStore((s) => s.setIsCreatingTask);
   const setNewTaskStartDate = useAppStore((s) => s.setNewTaskStartDate);
@@ -277,15 +284,34 @@ export default function WorkbenchExperimentsPanel() {
     });
   }, [entries]);
 
-  const earlierCount = useMemo(
-    () =>
-      entries.filter(
-        (e) =>
-          e.section === "recent" &&
-          (e.daysFromEnd === null || e.daysFromEnd > RECENT_WINDOW_DAYS),
-      ).length,
-    [entries],
-  );
+  // Completed experiments past the 30-day Recent window. The Earlier
+  // section absorbs everything the standalone /results page used to host
+  // (no time cap — scrollable archive). Newest-completed first, which
+  // for `daysFromEnd` (days since completion) means smallest first.
+  const earlierEntries = useMemo(() => {
+    const list = entries.filter(
+      (e) =>
+        e.section === "recent" &&
+        (e.daysFromEnd === null || e.daysFromEnd > RECENT_WINDOW_DAYS),
+    );
+    list.sort((a, b) => (a.daysFromEnd ?? Infinity) - (b.daysFromEnd ?? Infinity));
+    return list;
+  }, [entries]);
+
+  // Completed list tasks — surfaced in a small accordion at the bottom
+  // of the panel (the "by the way you also have these" archive). Filtered
+  // by the same project selector applied to experiments above.
+  const completedListTasks = useMemo(() => {
+    let xs = allTasks.filter(
+      (t) => t.task_type === "list" && t.is_complete,
+    );
+    if (selectedProjectIds.length > 0) {
+      xs = xs.filter((t) => selectedProjectIds.includes(t.project_id));
+    }
+    // Newest-first by end_date. Lexical compare works for ISO YYYY-MM-DD.
+    xs.sort((a, b) => b.end_date.localeCompare(a.end_date));
+    return xs;
+  }, [allTasks, selectedProjectIds]);
 
   const scheduledCount = useMemo(
     () => entries.filter((e) => e.section === "scheduled").length,
@@ -610,15 +636,160 @@ export default function WorkbenchExperimentsPanel() {
               </section>
             );
           })}
-          {(earlierCount > 0 || scheduledCount > 0) && (
-            <div className="flex flex-wrap gap-2 text-xs text-gray-400 pt-2 border-t border-gray-100">
-              {earlierCount > 0 && (
-                <span>{earlierCount} earlier result{earlierCount !== 1 ? "s" : ""} past the 30-day window</span>
+          {earlierEntries.length > 0 && (
+            <section>
+              <div className="flex items-baseline justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+                  {EARLIER_LABEL}
+                  <span className="ml-2 text-gray-400 normal-case font-normal">
+                    ({earlierEntries.length})
+                  </span>
+                </h3>
+                <span className="text-xs text-gray-400">{EARLIER_HELP}</span>
+              </div>
+              <div className="flex items-center gap-1 mb-3 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setEarlierLayout("flat")}
+                  className={`px-2 py-1 rounded-md transition-colors ${
+                    earlierLayout === "flat"
+                      ? "bg-gray-200 text-gray-900 font-medium"
+                      : "text-gray-500 hover:bg-gray-100"
+                  }`}
+                >
+                  Flat
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEarlierLayout("grouped")}
+                  className={`px-2 py-1 rounded-md transition-colors ${
+                    earlierLayout === "grouped"
+                      ? "bg-gray-200 text-gray-900 font-medium"
+                      : "text-gray-500 hover:bg-gray-100"
+                  }`}
+                >
+                  By project
+                </button>
+              </div>
+              {earlierLayout === "flat" ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {earlierEntries.map(renderCard)}
+                </div>
+              ) : (
+                (() => {
+                  const groups = new Map<string, SectionEntry[]>();
+                  for (const e of earlierEntries) {
+                    const pk = `${e.task.owner}:${e.task.project_id}`;
+                    if (!groups.has(pk)) groups.set(pk, []);
+                    groups.get(pk)!.push(e);
+                  }
+                  const sortedKeys = Array.from(groups.keys()).sort((a, b) => {
+                    const aMin = Math.min(
+                      ...groups.get(a)!.map((e) => e.daysFromEnd ?? Infinity),
+                    );
+                    const bMin = Math.min(
+                      ...groups.get(b)!.map((e) => e.daysFromEnd ?? Infinity),
+                    );
+                    return aMin - bMin;
+                  });
+                  return (
+                    <div className="space-y-6">
+                      {sortedKeys.map((pk) => {
+                        const projectEntries = groups.get(pk)!;
+                        const firstTask = projectEntries[0].task;
+                        const pName = projectNameFor(firstTask);
+                        const pColor = projectColors[pk] ?? DEFAULT_COLORS[0];
+                        return (
+                          <div key={pk}>
+                            <h4
+                              className="text-sm font-bold uppercase tracking-widest mb-3 px-1"
+                              style={{ color: pColor }}
+                            >
+                              {pName}
+                              <span className="ml-2 text-gray-400 font-normal normal-case tracking-normal">
+                                ({projectEntries.length})
+                              </span>
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                              {projectEntries.map(renderCard)}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()
               )}
-              {earlierCount > 0 && scheduledCount > 0 && <span>·</span>}
-              {scheduledCount > 0 && (
-                <span>{scheduledCount} scheduled later</span>
+            </section>
+          )}
+
+          {completedListTasks.length > 0 && (
+            <section className="pt-2 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setListArchiveOpen((v) => !v)}
+                className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 group"
+              >
+                <svg
+                  className={`w-3 h-3 transition-transform ${
+                    listArchiveOpen ? "rotate-90" : ""
+                  }`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2.5}
+                  aria-hidden
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+                <span>
+                  Completed list tasks{" "}
+                  <span className="text-gray-400">
+                    ({completedListTasks.length})
+                  </span>
+                </span>
+              </button>
+              {listArchiveOpen && (
+                <ul className="mt-2 ml-5 space-y-1">
+                  {completedListTasks.map((t) => {
+                    const pk = `${t.owner}:${t.project_id}`;
+                    const pColor = projectColors[pk] ?? "#9ca3af";
+                    const pName = projectNameFor(t);
+                    return (
+                      <li key={taskKey(t)}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTask(t)}
+                          className="flex items-center gap-2 w-full text-left text-xs text-gray-700 hover:bg-gray-50 rounded-md px-2 py-1"
+                        >
+                          <span
+                            className="w-2 h-2 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: pColor }}
+                            aria-hidden
+                          />
+                          <span className="truncate flex-1">{t.name}</span>
+                          <span className="text-gray-400 truncate hidden sm:inline">
+                            {pName}
+                          </span>
+                          <span className="text-gray-400 tabular-nums flex-shrink-0">
+                            {t.end_date}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
               )}
+            </section>
+          )}
+
+          {scheduledCount > 0 && (
+            <div className="text-xs text-gray-400 pt-2">
+              <span>{scheduledCount} scheduled later</span>
             </div>
           )}
         </div>

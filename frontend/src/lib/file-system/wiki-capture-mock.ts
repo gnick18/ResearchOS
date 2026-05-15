@@ -123,6 +123,38 @@ All 8 preps came back A260/280 ≥ 1.80, A260/230 ≥ 2.0 — ready for PCR scre
 80 / 80 wells inoculated cleanly — no cross-well contamination visible at 4× (demo data).
 `,
   },
+  // Workbench "Earlier results" seeds — completed > 30 days ago across
+  // multiple projects. probeTaskResults walks results.md non-empty / Images/
+  // to decide if a task has result content; without these, the older
+  // experiments would land in "Awaiting writeup" instead.
+  {
+    path: "users/alex/results/task-17/results.md",
+    content: `## Pilot transformation
+
+FakeYeast-001 transformed cleanly with the test cassette — confirmed strain choice (demo data).
+`,
+  },
+  {
+    path: "users/alex/results/task-18/results.md",
+    content: `## Gibson backbone test
+
+3 / 4 mock backbones gave the expected band; locked in pYES2 for the library work (demo data).
+`,
+  },
+  {
+    path: "users/alex/results/task-19/results.md",
+    content: `## Baseline growth
+
+Doubling time ~95 min in YPD/glucose for FakeYeast-001 — used as the no-stress reference (demo data).
+`,
+  },
+  {
+    path: "users/morgan/results/task-7/results.md",
+    content: `## Reader baseline
+
+Fluorescence reader passed the calibration check — variance under 3% across replicates (demo data).
+`,
+  },
 ];
 
 /** Capture-mode variants. The default `"signed-in"` corresponds to

@@ -332,7 +332,7 @@ function buildEntries() {
     "users/alex/_counters.json",
     {
       projects: 4,
-      tasks: 16,
+      tasks: 20,
       methods: 5,
       events: 4,
       goals: 2,
@@ -474,6 +474,20 @@ function buildEntries() {
     // main integration chain ran. Pre-rebase start is BASE-2, so the rebase
     // math keeps it ~2 days overdue regardless of when the demo opens.
     { id: 16, project_id: 1, name: "Re-streak top 4 transformants to single colonies", start_date: "2026-05-11", duration_days: 1, end_date: "2026-05-11", task_type: "experiment", is_complete: false, experiment_color: "#3b82f6" },
+    // Workbench "Earlier results" fixture: completed experiments more than
+    // 30 days ago across multiple projects, so the Earlier section's flat
+    // and By-project layouts both have multi-project content. Anchored at
+    // historical dates that stay > 30 days old after rebase.
+    { id: 17, project_id: 1, name: "Pilot transformation — strain choice", start_date: "2026-02-10", duration_days: 1, end_date: "2026-02-10", task_type: "experiment", is_complete: true, experiment_color: "#3b82f6" },
+    { id: 18, project_id: 2, name: "Pilot Gibson assembly — backbone test", start_date: "2026-02-18", duration_days: 1, end_date: "2026-02-18", task_type: "experiment", is_complete: true, experiment_color: "#8b5cf6" },
+    { id: 19, project_id: 3, name: "Baseline growth profile in YPD", start_date: "2026-03-05", duration_days: 1, end_date: "2026-03-05", task_type: "experiment", is_complete: true, experiment_color: "#f59e0b" },
+    // Workbench "Completed list tasks" fixture: a second completed list
+    // task so the bottom accordion has more than one row to expand.
+    { id: 20, project_id: 4, name: "Set up demo lab onboarding doc skeleton", start_date: "2026-02-01", duration_days: 1, end_date: "2026-02-01", task_type: "list", is_complete: true,
+      sub_tasks: [
+        { id: "st1", text: "Choose hosting (Notion vs internal wiki)", is_complete: true },
+        { id: "st2", text: "Draft initial outline", is_complete: true },
+      ] },
   ]));
 
   // alex methods
@@ -643,12 +657,20 @@ function buildEntries() {
   // out of "Awaiting results," so we don't seed notes.md here either.
   out.push(["users/alex/results/task-8/results.md", ""]);
 
+  // task-17/18/19: short results.md write-ups so the older completed
+  // experiments register as having result content (probeTaskResults checks
+  // results.md non-empty / Images/) — needed for them to land in the
+  // Workbench "Earlier results" archive instead of "Awaiting writeup."
+  out.push(["users/alex/results/task-17/results.md", DEMO_BANNER_MD + "## Pilot transformation\n\nFakeYeast-001 transformed cleanly with the test cassette — confirmed strain choice (demo data).\n"]);
+  out.push(["users/alex/results/task-18/results.md", DEMO_BANNER_MD + "## Gibson backbone test\n\n3 / 4 mock backbones gave the expected band; locked in pYES2 for the library work (demo data).\n"]);
+  out.push(["users/alex/results/task-19/results.md", DEMO_BANNER_MD + "## Baseline growth\n\nDoubling time ~95 min in YPD/glucose for FakeYeast-001 — used as the no-stress reference (demo data).\n"]);
+
   // ── User: morgan ──────────────────────────────────────────────────────────
   out.push([
     "users/morgan/_counters.json",
     {
       projects: 2,
-      tasks: 6,
+      tasks: 7,
       methods: 2,
       events: 0,
       goals: 0,
@@ -712,6 +734,10 @@ function buildEntries() {
     // `purchasesApi.listAllIncludingShared` — exercises the merged-view
     // purchase loader.
     { id: 6, project_id: 1, name: "Order fluorescent reagents for screen", start_date: TODAY, duration_days: 1, end_date: TODAY, task_type: "purchase", is_complete: false },
+    // Workbench "Earlier results" fixture (morgan side): completed > 30
+    // days ago. Lives in morgan's project 1 which is shared with alex
+    // (view), so it appears in alex's Workbench Earlier section.
+    { id: 7, project_id: 1, name: "Sanity check — fluorescence reader baseline", start_date: "2026-03-12", duration_days: 1, end_date: "2026-03-12", task_type: "experiment", is_complete: true, experiment_color: "#10b981" },
   ]));
 
   // morgan methods
@@ -762,6 +788,10 @@ function buildEntries() {
   out.push(["users/morgan/results/task-1/results.md", DEMO_BANNER_MD + "## Plate prep results\n\n80 / 80 wells inoculated cleanly — no cross-well contamination visible at 4× (demo data).\n"]);
   out.push(["users/morgan/results/task-2/notes.md", DEMO_BANNER_MD + "## Fluorescence scan\n\nReader run with default GFP settings (485/528). See `fluo-scan-results.png` for the heat-map.\n"]);
   out.push(["users/morgan/results/task-3/notes.md", DEMO_BANNER_MD + "## qPCR products\n\nProducts run on a 1.5% agarose gel — see `gel-qpcr-products.png`.\n"]);
+  // task-7: short results.md so the older completed sanity check lands in
+  // alex's Workbench "Earlier results" archive (it's in morgan's project 1
+  // which is shared into alex's view) instead of "Awaiting writeup."
+  out.push(["users/morgan/results/task-7/results.md", DEMO_BANNER_MD + "## Reader baseline\n\nFluorescence reader passed the calibration check — variance under 3% across replicates (demo data).\n"]);
 
   return out;
 }
