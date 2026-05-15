@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { usersApi, LabTask } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useLabData } from "@/hooks/useLabData";
@@ -52,12 +52,35 @@ function labTaskToTask(labTask: LabTask): Task {
 
 type TabType = "activity" | "gantt" | "experiments" | "purchases" | "roadmaps" | "methods" | "notes" | "search";
 
+const TAB_TYPES: readonly TabType[] = [
+  "activity",
+  "gantt",
+  "experiments",
+  "purchases",
+  "roadmaps",
+  "methods",
+  "notes",
+  "search",
+];
+
+function isTabType(value: string | null | undefined): value is TabType {
+  return value !== null && value !== undefined && (TAB_TYPES as readonly string[]).includes(value);
+}
+
 export default function LabModePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { setCurrentUser } = useCurrentUser();
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [seededSelection, setSeededSelection] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabType>("activity");
+  // Seed `activeTab` from `?tab=` so deep-links (e.g. SpendingDashboard's
+  // "View in Lab Mode →") can target a specific tab. Lazy initializer reads
+  // the URL once; subsequent user clicks update state without rewriting
+  // the URL — by design, the URL is a deep-link entry point, not a sync target.
+  const [activeTab, setActiveTab] = useState<TabType>(() => {
+    const tab = searchParams?.get("tab");
+    return isTabType(tab) ? tab : "activity";
+  });
   const [selectedTask, setSelectedTask] = useState<LabTask | null>(null);
   const [viewingUser, setViewingUser] = useState<string | null>(null);
 
