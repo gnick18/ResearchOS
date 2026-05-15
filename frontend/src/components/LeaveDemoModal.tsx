@@ -1,12 +1,15 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   clearCurrentUser,
   clearDirectoryHandle,
   clearMainUser,
 } from "@/lib/file-system/indexeddb-store";
-import { clearDemoMode } from "@/lib/file-system/wiki-capture-mock";
+import {
+  clearDemoMode,
+  isTutorialMode,
+} from "@/lib/file-system/wiki-capture-mock";
 
 interface Props {
   isOpen: boolean;
@@ -15,22 +18,57 @@ interface Props {
 
 /**
  * Modal shown when the visitor clicks "Leave Demo" in `<DemoLabBanner>` or
- * `<FloatingLeaveDemoButton>` from inside the public `/demo` route.
+ * `<FloatingLeaveDemoButton>` — either from the public `/demo` route or from
+ * the Phase-4 guided tutorial tab (`/demo?tutorial=1`, opened via
+ * `window.open` from the welcome modal).
  *
- * Single confirm-and-go-home path: the demo is a play sandbox — edits live in
- * the current browser tab only, survive refreshes, and get reset on the way
- * out. No save-as-ZIP affordance (intentionally removed — keeping the demo
- * lightweight + ephemeral is the point).
+ * Two exit paths, branched on `isTutorialMode()`:
  *
- * Clears IndexedDB state first (stored fake directory handle + current user +
- * main user) so the post-reload `/` lands on the folder picker rather than the
- * "Reconnect to wiki-capture-fixture" screen — which would never resolve
- * because the fake handle has no `queryPermission` implementation. Then clears
- * the sticky sessionStorage flag so the next visit to `/` doesn't silently
- * re-enter demo mode from a stale flag.
+ * 1. Tutorial path — the parent tab still has the user's REAL folder
+ *    connected; IndexedDB is shared across same-origin tabs, so clearing
+ *    `directoryHandle` / `currentUser` / `mainUser` here would yank the
+ *    rug out from under the parent tab. We leave IndexedDB alone, clear
+ *    only the sticky sessionStorage demo flag, and try `window.close()`
+ *    first (the welcome modal opened this tab via `window.open`, so the
+ *    browser will honor the close). If `window.close()` is refused, the
+ *    timeout below falls back to `location.replace("/")` — the post-reload
+ *    `/` detects the existing IndexedDB handle and reconnects to the
+ *    user's real folder.
+ *
+ * 2. Public-demo path (current behavior, unchanged) — visitor arrived at
+ *    `/demo` without an existing folder; the IndexedDB state holds only
+ *    the fake fixture handle (which has no real `queryPermission` and
+ *    would deadlock the post-reload reconnect screen). Clear all three
+ *    keys, clear the demo flag, reload to the folder picker.
  */
 export default function LeaveDemoModal({ isOpen, onClose }: Props) {
+  // Read once on mount so the same value drives both copy and behavior.
+  // The URL still carries `?tutorial=1` until we navigate, so reading on
+  // mount (not at module load) is correct and SSR-safe.
+  const [tutorial, setTutorial] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot read of the URL flag once mounted on the client
+    setTutorial(isTutorialMode());
+  }, []);
+
   const goHome = useCallback(async () => {
+    if (isTutorialMode()) {
+      // Tutorial: don't touch IndexedDB — the parent tab needs it.
+      clearDemoMode();
+      try {
+        window.close();
+      } catch {
+        // Some browsers throw rather than silently no-op.
+      }
+      // Fallback for tabs the browser refuses to close (no reliable sync
+      // way to detect refusal). If `window.close()` did succeed, this
+      // tab is mid-teardown and the replace is moot.
+      window.setTimeout(() => {
+        window.location.replace("/");
+      }, 150);
+      return;
+    }
+
     try {
       await Promise.all([
         clearDirectoryHandle(),
@@ -56,6 +94,13 @@ export default function LeaveDemoModal({ isOpen, onClose }: Props) {
 
   if (!isOpen) return null;
 
+  const title = tutorial ? "End the tour?" : "Leave the demo?";
+  const body = tutorial
+    ? "Your real folder is still connected and safe in the original tab — leaving the tour just closes this practice tab. Nothing in your real research is touched."
+    : "Your demo edits live in this browser tab only. Leaving will reset everything and return you to the folder picker.";
+  const confirmLabel = tutorial ? "Back to my folder" : "Leave demo";
+  const cancelLabel = tutorial ? "Keep walking through" : "Keep exploring the demo";
+
   return (
     <div
       className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
@@ -72,12 +117,9 @@ export default function LeaveDemoModal({ isOpen, onClose }: Props) {
           id="leave-demo-title"
           className="text-xl font-bold text-white mb-2"
         >
-          Leave the demo?
+          {title}
         </h2>
-        <p className="text-sm text-slate-300 mb-5">
-          Your demo edits live in this browser tab only. Leaving will reset
-          everything and return you to the folder picker.
-        </p>
+        <p className="text-sm text-slate-300 mb-5">{body}</p>
 
         <div className="flex flex-col gap-3">
           <button
@@ -85,7 +127,7 @@ export default function LeaveDemoModal({ isOpen, onClose }: Props) {
             onClick={goHome}
             className="w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors"
           >
-            Leave demo
+            {confirmLabel}
           </button>
 
           <button
@@ -93,7 +135,7 @@ export default function LeaveDemoModal({ isOpen, onClose }: Props) {
             onClick={onClose}
             className="w-full py-2 text-xs text-slate-400 hover:text-white transition-colors"
           >
-            Keep exploring the demo
+            {cancelLabel}
           </button>
         </div>
       </div>

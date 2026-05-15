@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { fileService } from "@/lib/file-system/file-service";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
-import { getDemoMode } from "@/lib/file-system/wiki-capture-mock";
+import {
+  getDemoMode,
+  isTutorialMode,
+} from "@/lib/file-system/wiki-capture-mock";
 import LeaveDemoModal from "@/components/LeaveDemoModal";
 
 const DISMISS_KEY = "researchOS.demoLabBannerDismissed";
@@ -33,6 +36,7 @@ export default function DemoLabBanner() {
   const { isConnected, directoryName } = useFileSystem();
   const [isOnDiskDemo, setIsOnDiskDemo] = useState(false);
   const [isInBrowserDemo, setIsInBrowserDemo] = useState(false);
+  const [isTutorial, setIsTutorial] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
 
@@ -54,6 +58,8 @@ export default function DemoLabBanner() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing local React state with the external sessionStorage demo flag on every route change
     setIsInBrowserDemo(getDemoMode());
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- same pathname-tied resync for the URL-derived tutorial flag
+    setIsTutorial(isTutorialMode());
   }, [pathname]);
 
   useEffect(() => {
@@ -109,8 +115,14 @@ export default function DemoLabBanner() {
           />
         </svg>
         <span className="flex-1">
-          <strong className="font-semibold">You&apos;re viewing the Demo Lab.</strong>{" "}
-          {isInBrowserDemo
+          <strong className="font-semibold">
+            {isTutorial
+              ? "You’re in the guided tour."
+              : "You’re viewing the Demo Lab."}
+          </strong>{" "}
+          {isTutorial
+            ? "This is a practice tab. Your real folder is still safe in the original tab — come back any time."
+            : isInBrowserDemo
             ? "Edits stay in this browser tab and disappear on reload. Save them as a starter folder before you leave."
             : "This data is fake, generated for tutorial purposes. Connect a different folder to use ResearchOS for real research."}{" "}
           <a
@@ -126,7 +138,7 @@ export default function DemoLabBanner() {
             onClick={() => setShowLeaveModal(true)}
             className="text-xs px-2.5 py-1 rounded bg-amber-900 text-amber-50 hover:bg-amber-800 font-medium transition-colors"
           >
-            Leave Demo
+            {isTutorial ? "Exit Tour" : "Leave Demo"}
           </button>
         )}
         <button
