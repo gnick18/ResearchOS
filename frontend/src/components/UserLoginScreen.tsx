@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { usersApi } from "@/lib/local-api";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { hasPassword, verifyPassword } from "@/lib/auth/password";
+import { performUserDelete } from "@/lib/users/perform-delete";
 import AccountPasswordPopup from "@/components/AccountPasswordPopup";
 import BetaDonationButton from "@/components/BetaDonationButton";
 import BugReportModal from "@/components/BugReportModal";
@@ -347,28 +348,22 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       setError(null);
       
       try {
-        await usersApi.delete(deleteUserSelected, 1, true);
-        await usersApi.delete(deleteUserSelected, 2, true);
+        // Persistence layer extracted to a pure module so the dangerous
+        // branching (when-to-clear-currentUser, when-to-clear-mainUser) is
+        // unit-testable. See lib/users/perform-delete.ts + its test file
+        // for coverage of every branch — pinning fix 7ac7a9ab against
+        // future silent regressions.
+        await performUserDelete(deleteUserSelected, {
+          currentUser: contextCurrentUser,
+          mainUser,
+          deleteUser: usersApi.delete,
+          setCurrentUser,
+          setMainUserPersisted: usersApi.setMainUser,
+        });
 
-        // Clear the FileSystemProvider's currentUser pointer if we just
-        // deleted the active user. Without this, the IndexedDB-stored
-        // currentUser stays as the deleted username, and the next
-        // providers.tsx render path routes back to "that user's home"
-        // with stale React Query data. Repro: open this picker via the
-        // AppShell user-switch modal while signed in as alice → delete
-        // alice → modal closes → main app re-renders against currentUser
-        // === "alice" even though alice's folder is gone.
-        if (contextCurrentUser === deleteUserSelected) {
-          await setCurrentUser("");
-        }
-        // Persist mainUser clear to IndexedDB too. Local `setMainUser(null)`
-        // below only updates this component's state; the FS-level pointer
-        // stays stale on next reload otherwise.
-        if (mainUser === deleteUserSelected) {
-          await usersApi.setMainUser("");
-        }
-
-        // Remove from local state
+        // Local UI state only — the picker list refreshes, and this
+        // component's own mainUser mirror clears. Persistence already
+        // happened inside performUserDelete.
         setUsers(users.filter(u => u !== deleteUserSelected));
         if (mainUser === deleteUserSelected) {
           setMainUser(null);
