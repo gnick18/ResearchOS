@@ -1,0 +1,78 @@
+{
+  "id": 1,
+  "name": "[Demo protocol] Reverse-phase HPLC — flbA peptide quantification",
+  "description": "Demo HPLC method — separates fake-flbA tryptic peptides on a C18 column. Expected retention for the target peptide: 12.4 min (demo number).",
+  "gradient_steps": [
+    {
+      "time_min": 0,
+      "percent_a": 95,
+      "percent_b": 5,
+      "flow_ml_min": 0.3
+    },
+    {
+      "time_min": 2,
+      "percent_a": 95,
+      "percent_b": 5,
+      "flow_ml_min": 0.3
+    },
+    {
+      "time_min": 22,
+      "percent_a": 5,
+      "percent_b": 95,
+      "flow_ml_min": 0.3
+    },
+    {
+      "time_min": 25,
+      "percent_a": 5,
+      "percent_b": 95,
+      "flow_ml_min": 0.3
+    },
+    {
+      "time_min": 26,
+      "percent_a": 95,
+      "percent_b": 5,
+      "flow_ml_min": 0.3
+    },
+    {
+      "time_min": 30,
+      "percent_a": 95,
+      "percent_b": 5,
+      "flow_ml_min": 0.3
+    }
+  ],
+  "column": {
+    "manufacturer": "Waters",
+    "model": "ACQUITY UPLC BEH C18 (demo)",
+    "length_mm": 150,
+    "inner_diameter_mm": 2.1,
+    "particle_size_um": 1.7
+  },
+  "detection_wavelength_nm": 214,
+  "ingredients": [
+    {
+      "id": "a",
+      "name": "Water + 0.1% formic acid",
+      "role": "solvent_a",
+      "concentration": "0.1% FA"
+    },
+    {
+      "id": "b",
+      "name": "Acetonitrile + 0.1% formic acid",
+      "role": "solvent_b",
+      "concentration": "0.1% FA"
+    },
+    {
+      "id": "fa",
+      "name": "Formic acid (LC-MS grade)",
+      "role": "additive",
+      "concentration": "neat",
+      "notes": "Spike both A and B to 0.1% (v/v)."
+    }
+  ],
+  "created_at": "2026-04-12T00:00:00Z",
+  "updated_at": "2026-04-12T00:00:00Z",
+  "is_public": false,
+  "created_by": "alex",
+  "owner": "alex",
+  "shared_with": []
+}

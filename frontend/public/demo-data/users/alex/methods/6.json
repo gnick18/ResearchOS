@@ -1,0 +1,18 @@
+{
+  "id": 6,
+  "name": "[Demo protocol] Reverse-phase HPLC — flbA peptide quantification",
+  "source_path": "lc_gradient://protocol/1",
+  "method_type": "lc_gradient",
+  "folder_path": "LC-MS",
+  "parent_method_id": null,
+  "tags": [
+    "demo",
+    "LC-MS",
+    "peptides"
+  ],
+  "attachments": [],
+  "is_public": false,
+  "created_by": "alex",
+  "owner": "alex",
+  "shared_with": []
+}

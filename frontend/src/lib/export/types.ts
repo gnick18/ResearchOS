@@ -10,6 +10,7 @@ import type {
   Project,
   TaskMethodAttachment,
   PCRProtocol,
+  LCGradientProtocol,
 } from "@/lib/types";
 
 export type ExportFormat = "pdf" | "html" | "raw";
@@ -50,6 +51,11 @@ export interface MethodPayload {
   // `null` when the protocol couldn't be loaded (e.g. shared-task PCR pointing
   // at a private protocol in another user's namespace).
   pcrProtocol?: PCRProtocol | null;
+  // Only populated for `method.method_type === "lc_gradient"`. Pre-fetched
+  // mirror of `pcrProtocol` for the LC type — referenced by
+  // `method.source_path === "lc_gradient://protocol/{id}"`. `null` when the
+  // protocol couldn't be loaded across owner namespaces.
+  lcGradientProtocol?: LCGradientProtocol | null;
 }
 
 export interface ExperimentExportPayload {

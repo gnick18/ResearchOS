@@ -18,9 +18,9 @@
  */
 
 import type { ComponentType } from "react";
-import { MarkdownIcon, PcrIcon, PdfIcon } from "./method-type-icons";
+import { LcGradientIcon, MarkdownIcon, PcrIcon, PdfIcon } from "./method-type-icons";
 
-export type MethodTypeId = "markdown" | "pdf" | "pcr";
+export type MethodTypeId = "markdown" | "pdf" | "pcr" | "lc_gradient";
 
 export interface MethodTypeMeta {
   /** The discriminator value as written to disk. */
@@ -72,6 +72,16 @@ export const METHOD_TYPE_REGISTRY: Record<MethodTypeId, MethodTypeMeta> = {
     color: { bg: "bg-purple-100", text: "text-purple-600" },
     icon: PcrIcon,
     description: "Thermocycler program + reaction recipe.",
+    hasStructuredProtocol: true,
+    category: "structured",
+  },
+  lc_gradient: {
+    id: "lc_gradient",
+    label: "LC Gradient",
+    shortLabel: "LC",
+    color: { bg: "bg-sky-100", text: "text-sky-600" },
+    icon: LcGradientIcon,
+    description: "HPLC/LC-MS solvent gradient + flow + column + ingredients.",
     hasStructuredProtocol: true,
     category: "structured",
   },

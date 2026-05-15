@@ -1,5 +1,5 @@
 import { fileService } from "@/lib/file-system/file-service";
-import { methodsApi, pcrApi, projectsApi, tasksApi } from "@/lib/local-api";
+import { methodsApi, pcrApi, lcGradientApi, projectsApi, tasksApi } from "@/lib/local-api";
 import { getCurrentUserCached } from "@/lib/storage/json-store";
 import { taskNotesBase, taskResultsBase, taskResultsTabBase } from "@/lib/tasks/results-paths";
 import type { TaskMethodAttachment } from "@/lib/types";
@@ -123,6 +123,36 @@ async function applyMethodResolutions(
       continue;
     }
 
+    if (entry.record.method_type === "lc_gradient") {
+      if (entry.lcGradientProtocol == null) {
+        console.warn(
+          `[import.apply] LC gradient method '${res.sourceMethodName}' was marked import-new but the bundle did not carry the protocol record. Skipping.`,
+        );
+        continue;
+      }
+      const newName = await pickImportedMethodName(res.sourceMethodName);
+      const newProtocol = await lcGradientApi.create({
+        name: entry.lcGradientProtocol.name,
+        description: entry.lcGradientProtocol.description,
+        gradient_steps: entry.lcGradientProtocol.gradient_steps,
+        column: entry.lcGradientProtocol.column,
+        detection_wavelength_nm: entry.lcGradientProtocol.detection_wavelength_nm,
+        ingredients: entry.lcGradientProtocol.ingredients,
+        is_public: false,
+      });
+      const newMethod = await methodsApi.create({
+        name: newName,
+        source_path: `lc_gradient://protocol/${newProtocol.id}`,
+        method_type: "lc_gradient",
+        folder_path: entry.record.folder_path,
+        tags: entry.record.tags ?? undefined,
+        is_public: false,
+      });
+      mapping[res.sourceMethodId] = newMethod.id;
+      resultMethodIds.push(newMethod.id);
+      continue;
+    }
+
     const newName = await pickImportedMethodName(res.sourceMethodName);
     const newSlug = slugifyForPath(newName);
 
@@ -172,6 +202,7 @@ function remapMethodAttachments(
       method_id: newId,
       pcr_gradient: att.pcr_gradient,
       pcr_ingredients: att.pcr_ingredients,
+      lc_gradient: att.lc_gradient ?? null,
       variation_notes: att.variation_notes,
     });
   }

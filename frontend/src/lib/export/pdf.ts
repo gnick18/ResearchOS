@@ -36,6 +36,7 @@ import type {
   PCRIngredient,
   PCRProtocol,
   PCRStep,
+  LCGradientProtocol,
 } from "@/lib/types";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -1064,6 +1065,156 @@ export async function buildPdf(
     return out;
   }
 
+  function renderLcGradientMethodBody(mp: MethodPayload): React.ReactNode[] {
+    const sourceProtocol: LCGradientProtocol | null = mp.lcGradientProtocol ?? null;
+    if (!sourceProtocol) {
+      return [
+        h(
+          Text,
+          { key: "lc-missing", style: styles.methodIntro },
+          "LC Gradient Method (protocol could not be loaded).",
+        ),
+      ];
+    }
+    // Per-task snapshot override mirrors HTML buildLcGradientMethodBody.
+    let protocol: LCGradientProtocol = sourceProtocol;
+    const att = mp.attachment;
+    if (att?.lc_gradient && att.lc_gradient.trim()) {
+      try {
+        const parsed = JSON.parse(att.lc_gradient);
+        if (parsed && typeof parsed === "object") {
+          protocol = { ...sourceProtocol, ...(parsed as Partial<LCGradientProtocol>) };
+        }
+      } catch {
+        // Fall back to source if snapshot was corrupt.
+      }
+    }
+
+    const keyPrefix = `m${mp.method.id}-lc`;
+    const out: React.ReactNode[] = [];
+
+    // Gradient steps table
+    out.push(
+      h(Text, { key: `${keyPrefix}-grad-h`, style: styles.h4 }, "Gradient steps"),
+    );
+    const stepRows: React.ReactNode[] = [
+      h(
+        View,
+        { key: `${keyPrefix}-grad-head`, style: styles.tableRow, wrap: false },
+        h(Text, { style: styles.tableCellHeader }, "Time (min)"),
+        h(Text, { style: styles.tableCellHeader }, "% A"),
+        h(Text, { style: styles.tableCellHeader }, "% B"),
+        h(Text, { style: styles.tableCellHeader }, "Flow (mL/min)"),
+      ),
+    ];
+    (protocol.gradient_steps ?? []).forEach((s, i) => {
+      stepRows.push(
+        h(
+          View,
+          { key: `${keyPrefix}-grad-r${i}`, style: styles.tableRow, wrap: false },
+          h(Text, { style: styles.tableCell }, String(s.time_min)),
+          h(Text, { style: styles.tableCell }, String(s.percent_a)),
+          h(Text, { style: styles.tableCell }, String(s.percent_b)),
+          h(Text, { style: styles.tableCell }, String(s.flow_ml_min)),
+        ),
+      );
+    });
+    out.push(
+      h(View, { key: `${keyPrefix}-grad`, style: styles.pcrTable }, ...stepRows),
+    );
+
+    // Column + detection
+    const c = protocol.column ?? {};
+    const colRows: React.ReactNode[] = [];
+    const pushColRow = (
+      label: string,
+      value: string | number | null | undefined,
+      key: string,
+    ) => {
+      if (value === null || value === undefined || value === "") return;
+      colRows.push(
+        h(
+          View,
+          { key, style: styles.tableRow, wrap: false },
+          h(Text, { style: styles.tableCellHeader }, label),
+          h(Text, { style: styles.tableCell }, String(value)),
+        ),
+      );
+    };
+    pushColRow("Manufacturer", c.manufacturer, `${keyPrefix}-col-man`);
+    pushColRow("Model", c.model, `${keyPrefix}-col-mod`);
+    pushColRow("Length (mm)", c.length_mm, `${keyPrefix}-col-len`);
+    pushColRow("Inner diameter (mm)", c.inner_diameter_mm, `${keyPrefix}-col-id`);
+    pushColRow("Particle size (µm)", c.particle_size_um, `${keyPrefix}-col-part`);
+    pushColRow(
+      "Detection wavelength (nm)",
+      protocol.detection_wavelength_nm,
+      `${keyPrefix}-col-det`,
+    );
+    if (colRows.length > 0) {
+      out.push(
+        h(Text, { key: `${keyPrefix}-col-h`, style: styles.h4 }, "Column & detection"),
+      );
+      out.push(h(View, { key: `${keyPrefix}-col`, style: styles.pcrTable }, ...colRows));
+    }
+
+    // Ingredients
+    if (protocol.ingredients && protocol.ingredients.length > 0) {
+      out.push(
+        h(Text, { key: `${keyPrefix}-ing-h`, style: styles.h4 }, "Ingredients"),
+      );
+      const ROLE_LABELS: Record<string, string> = {
+        solvent_a: "Solvent A",
+        solvent_b: "Solvent B",
+        buffer: "Buffer",
+        additive: "Additive",
+      };
+      const ingRows: React.ReactNode[] = [
+        h(
+          View,
+          { key: `${keyPrefix}-ing-head`, style: styles.tableRow, wrap: false },
+          h(Text, { style: styles.tableCellHeader }, "Name"),
+          h(Text, { style: styles.tableCellHeader }, "Role"),
+          h(Text, { style: styles.tableCellHeader }, "Concentration"),
+          h(Text, { style: styles.tableCellHeader }, "Notes"),
+        ),
+      ];
+      protocol.ingredients.forEach((ing, i) => {
+        ingRows.push(
+          h(
+            View,
+            { key: `${keyPrefix}-ing-r${i}`, style: styles.tableRow, wrap: false },
+            h(Text, { style: styles.tableCell }, ing.name),
+            h(Text, { style: styles.tableCell }, ROLE_LABELS[ing.role] ?? ing.role),
+            h(Text, { style: styles.tableCell }, ing.concentration ?? ""),
+            h(Text, { style: styles.tableCell }, ing.notes ?? ""),
+          ),
+        );
+      });
+      out.push(h(View, { key: `${keyPrefix}-ing`, style: styles.pcrTable }, ...ingRows));
+    }
+
+    if (protocol.description && protocol.description.trim()) {
+      out.push(
+        h(
+          Text,
+          { key: `${keyPrefix}-desc`, style: styles.pcrNotes },
+          protocol.description.trim(),
+        ),
+      );
+    }
+    if (att?.lc_gradient && att.lc_gradient.trim()) {
+      out.push(
+        h(
+          Text,
+          { key: `${keyPrefix}-snap-note`, style: styles.pcrDeviationHeading },
+          "Note: values above reflect per-task snapshot overrides, not the source protocol.",
+        ),
+      );
+    }
+    return out;
+  }
+
   function MethodSubsection({ mp }: { mp: MethodPayload }) {
     const { method, bodyMarkdown, attachment } = mp;
     const variation = (attachment?.variation_notes ?? "").trim();
@@ -1093,6 +1244,8 @@ export async function buildPdf(
       );
     } else if (method.method_type === "pcr") {
       children.push(...renderPcrMethodBody(mp));
+    } else if (method.method_type === "lc_gradient") {
+      children.push(...renderLcGradientMethodBody(mp));
     } else {
       children.push(
         h(

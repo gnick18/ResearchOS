@@ -342,10 +342,11 @@ function buildEntries() {
     {
       projects: 4,
       tasks: 29,
-      methods: 5,
+      methods: 6,
       events: 4,
       goals: 2,
       pcr_protocols: 1,
+      lc_gradients: 1,
       purchase_items: 20,
       lab_links: 6,
       notes: 2,
@@ -462,7 +463,13 @@ function buildEntries() {
     // shifts both anchors by the same delta). 3-day growth curve, currently
     // on Day 2 of 3.
     { id: 10, project_id: 3, name: "Set up growth curves in YPD/glucose", start_date: YESTERDAY, duration_days: 3, end_date: TOMORROW, task_type: "experiment", is_complete: false, experiment_color: "#f59e0b",
-      method_attachments: [{ method_id: 2, owner: "alex", snapshot_at: "2026-05-13T08:00:00Z" }] },
+      method_attachments: [
+        { method_id: 2, owner: "alex", snapshot_at: "2026-05-13T08:00:00Z" },
+        // Attach the LC gradient method so the LcMethodTabContent path is
+        // exercised in fixture mode (Phase 1a live-smoke chip). The PCR
+        // demo at task 5 already covers PcrMethodTabContent.
+        { method_id: 6, owner: "alex", snapshot_at: "2026-05-13T08:00:00Z" },
+      ] },
     { id: 11, project_id: 3, name: "Heat-shock survival assay", start_date: "2026-05-18", duration_days: 1, end_date: "2026-05-18", task_type: "experiment", is_complete: false, experiment_color: "#f59e0b",
       sub_tasks: [
         { id: "st1", text: "Grow strains to OD600 ~0.6 in YPD", is_complete: false },
@@ -590,6 +597,87 @@ function buildEntries() {
       parent_method_id: null,
       tags: ["demo", "qPCR"],
       attachments: [],
+      is_public: false,
+      created_by: "alex",
+      owner: "alex",
+      shared_with: [],
+    },
+  ]);
+
+  // LC-typed method entry surfacing alex's private LC gradient protocol in
+  // the methods list. Clicking opens the LcViewer (recharts gradient chart +
+  // step/column/ingredient editors) — the only way to reach that code path
+  // in fixture mode. source_path uses the canonical lc_gradient://protocol/{id}
+  // scheme from the methods upload UI in app/methods/page.tsx.
+  out.push([
+    "users/alex/methods/6.json",
+    {
+      id: 6,
+      name: "[Demo protocol] Reverse-phase HPLC — flbA peptide quantification",
+      source_path: "lc_gradient://protocol/1",
+      method_type: "lc_gradient",
+      folder_path: "LC-MS",
+      parent_method_id: null,
+      tags: ["demo", "LC-MS", "peptides"],
+      attachments: [],
+      is_public: false,
+      created_by: "alex",
+      owner: "alex",
+      shared_with: [],
+    },
+  ]);
+
+  // alex LC gradient (private). Realistic-but-fake reverse-phase HPLC for
+  // peptide separation — 5%→95% acetonitrile + 0.1% formic acid over 25 min
+  // at 0.3 mL/min on a 1.7 µm C18 column, 214 nm detection. The numbers are
+  // plausible for a proteomics workflow targeting flbA cleavage products
+  // (consistent with the wider DEMO: FakeYeast biofuel narrative).
+  out.push([
+    "users/alex/lc_gradients/1.json",
+    {
+      id: 1,
+      name: "[Demo protocol] Reverse-phase HPLC — flbA peptide quantification",
+      description:
+        "Demo HPLC method — separates fake-flbA tryptic peptides on a C18 column. Expected retention for the target peptide: 12.4 min (demo number).",
+      gradient_steps: [
+        { time_min: 0, percent_a: 95, percent_b: 5, flow_ml_min: 0.3 },
+        { time_min: 2, percent_a: 95, percent_b: 5, flow_ml_min: 0.3 },
+        { time_min: 22, percent_a: 5, percent_b: 95, flow_ml_min: 0.3 },
+        { time_min: 25, percent_a: 5, percent_b: 95, flow_ml_min: 0.3 },
+        { time_min: 26, percent_a: 95, percent_b: 5, flow_ml_min: 0.3 },
+        { time_min: 30, percent_a: 95, percent_b: 5, flow_ml_min: 0.3 },
+      ],
+      column: {
+        manufacturer: "Waters",
+        model: "ACQUITY UPLC BEH C18 (demo)",
+        length_mm: 150,
+        inner_diameter_mm: 2.1,
+        particle_size_um: 1.7,
+      },
+      detection_wavelength_nm: 214,
+      ingredients: [
+        {
+          id: "a",
+          name: "Water + 0.1% formic acid",
+          role: "solvent_a",
+          concentration: "0.1% FA",
+        },
+        {
+          id: "b",
+          name: "Acetonitrile + 0.1% formic acid",
+          role: "solvent_b",
+          concentration: "0.1% FA",
+        },
+        {
+          id: "fa",
+          name: "Formic acid (LC-MS grade)",
+          role: "additive",
+          concentration: "neat",
+          notes: "Spike both A and B to 0.1% (v/v).",
+        },
+      ],
+      created_at: "2026-04-12T00:00:00Z",
+      updated_at: "2026-04-12T00:00:00Z",
       is_public: false,
       created_by: "alex",
       owner: "alex",

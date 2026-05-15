@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { methodsApi as rawMethodsApi, filesApi, pcrApi, usersApi, fetchAllMethodsIncludingShared } from "@/lib/local-api";
+import { methodsApi as rawMethodsApi, filesApi, pcrApi, lcGradientApi, usersApi, fetchAllMethodsIncludingShared } from "@/lib/local-api";
 import type { MethodUpdate } from "@/lib/local-api";
 import { fileService } from "@/lib/file-system/file-service";
 import { fileEvents } from "@/lib/attachments/file-events";
@@ -17,7 +17,17 @@ import MethodExperimentsSidebar from "@/components/MethodExperimentsSidebar";
 import { useFileRenamePopup } from "@/components/FileRenamePopup";
 import SharePopup from "@/components/SharePopup";
 import Tooltip from "@/components/Tooltip";
-import type { Method, PCRProtocol, PCRGradient, PCRIngredient } from "@/lib/types";
+import type {
+  Method,
+  PCRProtocol,
+  PCRGradient,
+  PCRIngredient,
+  LCGradientColumn,
+  LCGradientStep,
+  LCIngredient,
+} from "@/lib/types";
+import LcViewer from "@/components/LcViewer";
+import LcGradientEditor from "@/components/LcGradientEditor";
 import {
   getMethodTypeMeta,
   getMethodTypesByCategory,
@@ -270,6 +280,16 @@ export default function MethodsPage() {
               await pcrApi.delete(pcrId);
             } catch {
               // Non-fatal — PCR protocol might not exist
+            }
+          } else if (
+            method.method_type === "lc_gradient" &&
+            method.source_path.startsWith("lc_gradient://protocol/")
+          ) {
+            const lcId = parseInt(method.source_path.replace("lc_gradient://protocol/", ""));
+            try {
+              await lcGradientApi.delete(lcId);
+            } catch {
+              // Non-fatal — LC gradient protocol might not exist
             }
           } else {
             const methodDir = method.source_path.substring(
@@ -752,6 +772,20 @@ function CreateMethodModal({
   ]);
   const [pcrNotes, setPcrNotes] = useState("");
 
+  // LC gradient state — sensible reverse-phase HPLC defaults (5%→95%
+  // acetonitrile over 25 min, 0.3 mL/min). User can refine after Create.
+  const [lcGradientSteps, setLcGradientSteps] = useState<LCGradientStep[]>(
+    () => lcGradientApi.getDefaultGradientSteps(),
+  );
+  const [lcColumn, setLcColumn] = useState<LCGradientColumn>(() =>
+    lcGradientApi.getDefaultColumn(),
+  );
+  const [lcWavelength, setLcWavelength] = useState<number | null>(214);
+  const [lcDescription, setLcDescription] = useState<string | null>(null);
+  const [lcIngredients, setLcIngredients] = useState<LCIngredient[]>(() =>
+    lcGradientApi.getDefaultIngredients(),
+  );
+
   const slug = name
     .trim()
     .replace(/\s+/g, "-")
@@ -938,6 +972,28 @@ function CreateMethodModal({
             .filter(Boolean),
           is_public: isPublic,
         });
+      } else if (uploadType === "lc_gradient") {
+        const protocol = await lcGradientApi.create({
+          name: name.trim(),
+          description: lcDescription,
+          gradient_steps: lcGradientSteps,
+          column: lcColumn,
+          detection_wavelength_nm: lcWavelength,
+          ingredients: lcIngredients,
+          folder_path: folder.trim() || null,
+          is_public: isPublic,
+        });
+        await methodsApi.create({
+          name: name.trim(),
+          source_path: `lc_gradient://protocol/${protocol.id}`,
+          method_type: "lc_gradient",
+          folder_path: folder.trim() || null,
+          tags: tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean),
+          is_public: isPublic,
+        });
       }
       onCreated();
     } catch (error: unknown) {
@@ -946,7 +1002,7 @@ function CreateMethodModal({
     } finally {
       setSaving(false);
     }
-  }, [name, slug, uploadType, mdContent, pdfFile, folder, tags, isPublic, pcrGradient, pcrIngredients, pcrNotes, onCreated]);
+  }, [name, slug, uploadType, mdContent, pdfFile, folder, tags, isPublic, pcrGradient, pcrIngredients, pcrNotes, lcGradientSteps, lcColumn, lcWavelength, lcDescription, lcIngredients, onCreated]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
@@ -1149,6 +1205,27 @@ function CreateMethodModal({
               </div>
             )}
 
+            {/* LC Gradient editor */}
+            {uploadType === "lc_gradient" && (
+              <div className="space-y-2">
+                <p className="text-xs text-gray-400">
+                  LC gradient protocols store the solvent gradient (%A/%B over time + flow), column geometry, detection wavelength, and ingredient list.
+                </p>
+                <LcGradientEditor
+                  gradientSteps={lcGradientSteps}
+                  onGradientStepsChange={setLcGradientSteps}
+                  column={lcColumn}
+                  onColumnChange={setLcColumn}
+                  detectionWavelengthNm={lcWavelength}
+                  onDetectionWavelengthChange={setLcWavelength}
+                  description={lcDescription}
+                  onDescriptionChange={setLcDescription}
+                  ingredients={lcIngredients}
+                  onIngredientsChange={setLcIngredients}
+                />
+              </div>
+            )}
+
             {/* PCR editor */}
             {uploadType === "pcr" && (
               <div className="space-y-4">
@@ -1340,6 +1417,9 @@ function ViewMethodModal({
     }
     if (method.method_type === "pcr") {
       return <PcrViewer method={method} currentUser={currentUser} onClose={onClose} onDelete={onDelete} />;
+    }
+    if (method.method_type === "lc_gradient") {
+      return <LcViewer method={method} currentUser={currentUser} onClose={onClose} onDelete={onDelete} />;
     }
     return <MarkdownMethodViewer method={method} currentUser={currentUser} onClose={onClose} onDelete={onDelete} />;
   };

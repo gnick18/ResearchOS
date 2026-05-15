@@ -1,4 +1,5 @@
 import type {
+  LCGradientProtocol,
   Method,
   PCRProtocol,
   Project,
@@ -11,7 +12,7 @@ import {
   tabScopedFolderHasContent,
   taskResultsBase,
 } from "@/lib/tasks/results-paths";
-import { projectsApi, methodsApi, filesApi, pcrApi } from "@/lib/local-api";
+import { projectsApi, methodsApi, filesApi, pcrApi, lcGradientApi } from "@/lib/local-api";
 import { extractMarkdownRefs } from "./markdown";
 import type {
   AttachmentOrigin,
@@ -211,6 +212,39 @@ function extractPCRProtocolId(sourcePath: string | null | undefined): number | n
   return match ? parseInt(match[1], 10) : null;
 }
 
+// Matches `lc_gradient://protocol/{id}` source_path format used throughout
+// the app (methods/page.tsx, MethodTabs.tsx, generate-demo-data.mjs).
+function extractLcGradientProtocolId(sourcePath: string | null | undefined): number | null {
+  if (!sourcePath) return null;
+  const match = sourcePath.match(/^lc_gradient:\/\/protocol\/(\d+)$/);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+async function fetchLcGradientProtocolSafe(
+  method: Method,
+  task: Task,
+): Promise<LCGradientProtocol | null> {
+  const id = extractLcGradientProtocolId(method.source_path);
+  if (id === null) return null;
+  try {
+    const owner = method.owner || (task.is_shared_with_me ? task.owner : undefined);
+    const protocol = await lcGradientApi.get(id, owner);
+    if (!protocol) {
+      console.warn(
+        `[export] LC gradient protocol ${id} for method ${method.id} could not be loaded`,
+      );
+      return null;
+    }
+    return protocol;
+  } catch (err) {
+    console.warn(
+      `[export.extract] failed to load LC gradient protocol ${id} for method ${method.id}:`,
+      err,
+    );
+    return null;
+  }
+}
+
 async function fetchPCRProtocolSafe(
   method: Method,
   task: Task
@@ -271,6 +305,7 @@ async function buildMethodPayload(
   let bodyMarkdown: string | null = null;
   let pdfAttachment: ExperimentAttachment | null = null;
   let pcrProtocol: PCRProtocol | null = null;
+  let lcGradientProtocol: LCGradientProtocol | null = null;
 
   if (method.method_type === "markdown" && method.source_path) {
     try {
@@ -326,9 +361,12 @@ async function buildMethodPayload(
   if (method.method_type === "pcr") {
     pcrProtocol = await fetchPCRProtocolSafe(method, task);
   }
+  if (method.method_type === "lc_gradient") {
+    lcGradientProtocol = await fetchLcGradientProtocolSafe(method, task);
+  }
 
   return {
-    payload: { method, bodyMarkdown, attachment, pcrProtocol },
+    payload: { method, bodyMarkdown, attachment, pcrProtocol, lcGradientProtocol },
     pdfAttachment,
   };
 }

@@ -1,5 +1,5 @@
 import JSZip from "jszip";
-import type { Method, PCRProtocol, Project, Task } from "@/lib/types";
+import type { LCGradientProtocol, Method, PCRProtocol, Project, Task } from "@/lib/types";
 import type {
   ImportAttachment,
   ImportManifest,
@@ -10,6 +10,7 @@ import type {
 const METHOD_JSON_RE = /^methods\/method-(\d+)\.json$/;
 const METHOD_BODY_MD_RE = /^methods\/method-(\d+)-body\.md$/;
 const METHOD_PCR_PROTOCOL_RE = /^methods\/method-(\d+)-pcr-protocol\.json$/;
+const METHOD_LC_PROTOCOL_RE = /^methods\/method-(\d+)-lc-gradient-protocol\.json$/;
 const METHOD_FILE_RE = /^methods\/method-(\d+)-(.+)$/;
 const METHOD_UNATTACHED_RE = /^methods\/unattached\/(.+)$/;
 const NOTES_ATTACHMENT_RE = /^notes\/(Files|Images)\/(.+)$/;
@@ -114,6 +115,7 @@ export async function parseImportBundle(file: Blob): Promise<ImportPayload> {
   const methodBodies = new Map<number, string>();
   const methodFiles = new Map<number, { filename: string; bytes: ArrayBuffer }>();
   const methodPcrProtocols = new Map<number, PCRProtocol>();
+  const methodLcProtocols = new Map<number, LCGradientProtocol>();
   const attachments: ImportAttachment[] = [];
 
   // Iterate every file. `zip.files` is a Record<string, JSZipObject>.
@@ -150,6 +152,18 @@ export async function parseImportBundle(file: Blob): Promise<ImportPayload> {
       try {
         const protocol = JSON.parse(await entry.async("string")) as PCRProtocol;
         methodPcrProtocols.set(id, protocol);
+      } catch (err) {
+        console.warn(`[import.parse] failed to parse ${path}:`, err);
+      }
+      continue;
+    }
+
+    const lcProtocolMatch = path.match(METHOD_LC_PROTOCOL_RE);
+    if (lcProtocolMatch) {
+      const id = Number(lcProtocolMatch[1]);
+      try {
+        const protocol = JSON.parse(await entry.async("string")) as LCGradientProtocol;
+        methodLcProtocols.set(id, protocol);
       } catch (err) {
         console.warn(`[import.parse] failed to parse ${path}:`, err);
       }
@@ -219,12 +233,14 @@ export async function parseImportBundle(file: Blob): Promise<ImportPayload> {
     const body = methodBodies.get(id) ?? null;
     const file = methodFiles.get(id) ?? null;
     const pcrProtocol = methodPcrProtocols.get(id) ?? null;
+    const lcGradientProtocol = methodLcProtocols.get(id) ?? null;
     methods.push({
       record,
       bodyMarkdown: body,
       bytes: file?.bytes ?? null,
       pdfFilename: file?.filename ?? null,
       pcrProtocol,
+      lcGradientProtocol,
     });
     // Also surface the PDF bytes as a method-origin attachment so callers
     // who care about file shape (Files appendix etc.) see it consistently.
