@@ -42,7 +42,12 @@ import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { ANIMATION_METADATA, type AnimationType } from "@/components/animations";
 import { hasPassword } from "@/lib/auth/password";
 import { USER_COLOR_QUERY_KEY } from "@/hooks/useUserColor";
-import { replayOnboarding } from "@/lib/onboarding/sidecar";
+import {
+  readOnboarding,
+  replayOnboarding,
+  setOnboardingMode,
+  type OnboardingMode,
+} from "@/lib/onboarding/sidecar";
 
 const USER_COLOR_PALETTE = [
   "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
@@ -254,13 +259,18 @@ function SectionShell({
   title,
   description,
   children,
+  id,
 }: {
   title: string;
   description?: string;
   children: React.ReactNode;
+  /** Optional fragment-id anchor — used by deep-links like
+   *  `/settings#telegram` and `/settings#personalize` (fired by the
+   *  Telegram and Personalize-Colors onboarding tips' setupActions). */
+  id?: string;
 }) {
   return (
-    <section className="bg-white rounded-xl border border-gray-200 p-6">
+    <section id={id} className="bg-white rounded-xl border border-gray-200 p-6 scroll-mt-4">
       <div className="mb-4">
         <h2 className="text-base font-semibold text-gray-900">{title}</h2>
         {description && <p className="text-xs text-gray-500 mt-1">{description}</p>}
@@ -283,6 +293,7 @@ function ProfileSection({ settings, update }: SectionProps) {
 
   return (
     <SectionShell
+      id="personalize"
       title="Profile"
       description="How you appear in the app. The color flows everywhere your initial bubble appears — lab views, comments, the login screen, etc."
     >
@@ -571,6 +582,7 @@ function AnimationSection({ settings, update }: SectionProps) {
 function BehaviorSection({ settings, update }: SectionProps) {
   return (
     <SectionShell
+      id="telegram"
       title="Notifications & behavior"
       description="Master switches for messaging and safety prompts."
     >
@@ -1002,6 +1014,36 @@ function TipsSection() {
   const { currentUser } = useFileSystem();
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** Current mode (from sidecar). `null` = the user hasn't picked yet
+   *  via the welcome modal; we treat it as `"suggestions"` in the
+   *  radio UI since the modal blocks this surface from being useful
+   *  before the user picks. */
+  const [mode, setMode] = useState<OnboardingMode>(null);
+  const [modeLoading, setModeLoading] = useState(true);
+
+  // Pull the current mode on mount so the radio reflects what's
+  // actually on disk. Re-read after a mode change to keep the UI in
+  // sync if persist fails halfway.
+  useEffect(() => {
+    if (!currentUser) {
+      setModeLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const sc = await readOnboarding(currentUser);
+        if (!cancelled) setMode(sc.mode);
+      } catch (err) {
+        console.error("[Settings/Tips] readOnboarding failed", err);
+      } finally {
+        if (!cancelled) setModeLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser]);
 
   const handleReplay = useCallback(async () => {
     if (!currentUser) return;
@@ -1019,20 +1061,92 @@ function TipsSection() {
     }
   }, [currentUser]);
 
+  const handleModeChange = useCallback(
+    async (next: Exclude<OnboardingMode, null>) => {
+      if (!currentUser) return;
+      setStatus(null);
+      // Optimistic update — the radio flips instantly. If persist
+      // fails we revert below.
+      const previous = mode;
+      setMode(next);
+      try {
+        await setOnboardingMode(currentUser, next);
+      } catch (err) {
+        console.error("[Settings/Tips] setOnboardingMode failed", err);
+        setMode(previous);
+        setStatus("Couldn't save that. See console for details.");
+      }
+    },
+    [currentUser, mode],
+  );
+
+  // Effective radio value — `null` rendered as "suggestions" since
+  // that's the visual default. The user can still click a different
+  // option to persist a real pick.
+  const effectiveMode: Exclude<OnboardingMode, null> =
+    mode === "tutorial" || mode === "silenced" ? mode : "suggestions";
+
   return (
     <SectionShell
       title="Tips"
-      description="Brand-new orientation tips show in a small card with a friendly mascot pointing at the affordance. Resetting brings the whole 10-tip sequence back from the start."
+      description="Brand-new orientation tips show in a small card with a friendly mascot pointing at the affordance."
     >
-      <div className="flex items-start justify-between gap-4">
+      <div className="space-y-3">
+        <p className="text-sm font-medium text-gray-800">How should I help?</p>
+        <div className="flex flex-col gap-2">
+          {(
+            [
+              {
+                value: "tutorial",
+                label: "Walk me through it",
+                desc: "Force-fire each tip one after another, 60s apart. Best on day one.",
+              },
+              {
+                value: "suggestions",
+                label: "Show me as I go",
+                desc: "Land a tip about every 5 minutes when the matching feature is on screen.",
+              },
+              {
+                value: "silenced",
+                label: "Stay quiet, thanks",
+                desc: "No tips at all. You can flip this back on any time.",
+              },
+            ] as const
+          ).map((opt) => (
+            <label
+              key={opt.value}
+              className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                effectiveMode === opt.value
+                  ? "border-blue-300 bg-blue-50"
+                  : "border-gray-200 hover:border-gray-300"
+              } ${modeLoading || !currentUser ? "opacity-50 cursor-not-allowed" : ""}`}
+            >
+              <input
+                type="radio"
+                name="onboarding-mode"
+                value={opt.value}
+                checked={effectiveMode === opt.value}
+                disabled={modeLoading || !currentUser}
+                onChange={() => void handleModeChange(opt.value)}
+                className="mt-0.5"
+              />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-800">{opt.label}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{opt.desc}</p>
+              </div>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex items-start justify-between gap-4 pt-3 border-t border-gray-100">
         <div className="min-w-0 flex-1">
           <p className="text-sm text-gray-800">
             Show me the onboarding tips again
           </p>
           <p className="text-xs text-gray-500 mt-1">
-            Re-fires all ten orientation tips. They land one at a time, every
-            5 minutes of focused use, only on pages where the affordance
-            actually exists.
+            Re-fires the whole tip sequence. They land one at a time, only on
+            pages where the affordance actually exists.
           </p>
           {status && <p className="text-xs text-emerald-600 mt-2">{status}</p>}
         </div>

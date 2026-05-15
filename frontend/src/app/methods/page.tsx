@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { methodsApi as rawMethodsApi, filesApi, pcrApi, usersApi, fetchAllMethodsIncludingShared } from "@/lib/local-api";
 import type { MethodUpdate } from "@/lib/local-api";
@@ -68,12 +69,31 @@ export default function MethodsPage() {
   const queryClient = useQueryClient();
   const [viewingMethod, setViewingMethod] = useState<Method | null>(null);
   const [creating, setCreating] = useState(false);
+  /** When the user lands on `/methods?createMethod=public`, the
+   *  create-method modal opens with "Make this method public" pre-
+   *  checked. Stays false the rest of the time. */
+  const [forcePublicOnCreate, setForcePublicOnCreate] = useState(false);
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [draggedMethod, setDraggedMethod] = useState<Method | null>(null);
   const [dropTargetFolder, setDropTargetFolder] = useState<string | null>(null);
   const [prefilledFolder, setPrefilledFolder] = useState<string>("");
   const [emptyCategories, setEmptyCategories] = useState<string[]>([]);
   const [isHydrated, setIsHydrated] = useState(false);
+
+  // Deep-link: `/methods?createMethod=public` auto-opens the create
+  // modal with the public checkbox pre-checked. Used by the
+  // `public-methods` onboarding tip's setupAction.
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams?.get("createMethod") !== "public") return;
+    setCreating(true);
+    setForcePublicOnCreate(true);
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("createMethod");
+    const query = next.toString();
+    router.replace(query ? `/methods?${query}` : "/methods");
+  }, [searchParams, router]);
 
   // Load empty categories from localStorage after hydration
   useEffect(() => {
@@ -282,6 +302,7 @@ export default function MethodsPage() {
             </button>
             <button
               onClick={() => setCreating(true)}
+              data-onboarding-target="public-methods"
               className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               + New Method
@@ -438,9 +459,11 @@ export default function MethodsPage() {
         <CreateMethodModal
           existingFolders={existingFolders}
           prefilledFolder={prefilledFolder}
+          initialIsPublic={forcePublicOnCreate}
           onClose={() => {
             setCreating(false);
             setPrefilledFolder("");
+            setForcePublicOnCreate(false);
           }}
           onCreated={handleMethodCreated}
         />
@@ -554,11 +577,16 @@ function CreateCategoryModal({
 function CreateMethodModal({
   existingFolders,
   prefilledFolder,
+  initialIsPublic = false,
   onClose,
   onCreated,
 }: {
   existingFolders: string[];
   prefilledFolder?: string;
+  /** When true, the "Make this method public" checkbox starts checked.
+   *  Used by the `public-methods` onboarding tip's `setupAction` deep
+   *  link (`/methods?createMethod=public`). */
+  initialIsPublic?: boolean;
   onClose: () => void;
   onCreated: () => void;
 }) {
@@ -566,7 +594,7 @@ function CreateMethodModal({
   const [name, setName] = useState("");
   const [folder, setFolder] = useState(prefilledFolder || "");
   const [tags, setTags] = useState("");
-  const [isPublic, setIsPublic] = useState(false);
+  const [isPublic, setIsPublic] = useState(initialIsPublic);
   const [saving, setSaving] = useState(false);
 
   // Markdown state

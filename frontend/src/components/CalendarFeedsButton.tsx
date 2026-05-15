@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCalendarFeeds } from "@/lib/calendar/use-external-events";
 import CalendarFeedsModal from "./CalendarFeedsModal";
 
@@ -9,10 +10,24 @@ export default function CalendarFeedsButton() {
   const { data: feeds = [] } = useCalendarFeeds();
   const enabledCount = feeds.filter((f) => f.enabled).length;
 
+  // Deep-link: `/calendar?addFeed=1` auto-opens the modal once on mount
+  // and strips the param so a reload doesn't re-trigger.
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams?.get("addFeed") !== "1") return;
+    setOpen(true);
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("addFeed");
+    const query = next.toString();
+    router.replace(query ? `/calendar?${query}` : "/calendar");
+  }, [searchParams, router]);
+
   return (
     <>
       <button
         type="button"
+        data-onboarding-target="link-calendars"
         onClick={() => setOpen(true)}
         title="Link external calendars (Google / Outlook / iCloud)"
         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-200 text-gray-700 bg-white hover:bg-gray-50 rounded-lg"

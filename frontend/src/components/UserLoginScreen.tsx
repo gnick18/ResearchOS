@@ -7,6 +7,7 @@ import { hasPassword, verifyPassword } from "@/lib/auth/password";
 import AccountPasswordPopup from "@/components/AccountPasswordPopup";
 import BetaDonationButton from "@/components/BetaDonationButton";
 import BugReportModal from "@/components/BugReportModal";
+import OnboardingLabModePickerTip from "@/components/OnboardingLabModePickerTip";
 import UserAvatar from "@/components/UserAvatar";
 import Tooltip from "@/components/Tooltip";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
@@ -57,6 +58,13 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
 
   // Bug report state
   const { showBugReport, currentError, openBugReport, closeBugReport } = useErrorReporting();
+
+  // The Lab Mode button element, mirrored into state so the
+  // OnboardingLabModePickerTip re-renders once the ref attaches (a
+  // plain ref wouldn't trigger one). Wrapped in a callback ref so
+  // the component captures the node on mount and clears it on unmount.
+  const [labModeButtonEl, setLabModeButtonEl] =
+    useState<HTMLButtonElement | null>(null);
 
   const refreshLockStatus = async (usernames: string[]) => {
     const next = new Set<string>();
@@ -655,6 +663,8 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
               {/* Lab Mode button */}
               <div className="mt-4">
                 <button
+                  ref={setLabModeButtonEl}
+                  data-onboarding-target="lab-mode-picker"
                   onClick={handleLabModeLogin}
                   disabled={loggingIn !== null || !hasUsers}
                   title={!hasUsers ? "No users exist yet" : ""}
@@ -884,6 +894,14 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         onClose={closeBugReport}
         prefilledError={currentError}
       />
+
+      {/* Standalone "What's Lab Mode?" onboarding tip. Gated by
+          sessionStorage; renders inline next to the Lab Mode button.
+          Hidden when the create-form is open (the button isn't in
+          the DOM) or there are no users yet (Lab Mode disabled). */}
+      {!showCreateForm && hasUsers && !loading && (
+        <OnboardingLabModePickerTip target={labModeButtonEl} />
+      )}
     </div>
   );
 }

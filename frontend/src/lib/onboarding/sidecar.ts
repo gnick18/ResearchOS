@@ -14,9 +14,14 @@ import { fileService } from "@/lib/file-system/file-service";
  * Schema history:
  *  - v1 (2026-05-14): initial. active_seconds + last_tip_at + tips map +
  *    tips_off + shown_count.
+ *  - v2 (2026-05-14): adds `mode`. Welcome-modal pick:
+ *    `tutorial | suggestions | silenced | null`. `null` = the user has
+ *    not picked yet → the orchestrator blocks tips and shows the welcome
+ *    modal instead. Defaulted to `null` on read so any legacy v1 sidecar
+ *    re-triggers the welcome modal once.
  */
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 /** Per-tip outcome enum. `action-cancel` is the no-fire case: the user
  *  did the thing the tip would have explained before the tip fired, so
@@ -27,6 +32,10 @@ export type TipOutcome =
   | "got-it"
   | "read"
   | "action-cancel";
+
+/** Welcome-modal pick. `null` = not picked yet (orchestrator shows the
+ *  modal and blocks tips). */
+export type OnboardingMode = "tutorial" | "suggestions" | "silenced" | null;
 
 export interface TipRecord {
   shown_at: string | null;
@@ -51,8 +60,11 @@ export interface OnboardingSidecar {
    *  replay button. */
   tips_off: boolean;
   /** Total tips successfully displayed to this user (not counting
-   *  action-cancel records). Secondary off-switch at 10. */
+   *  action-cancel records). Secondary off-switch. */
   shown_count: number;
+  /** Welcome-modal pick. `null` = the user has not picked yet, so the
+   *  orchestrator blocks tips and renders the welcome modal. */
+  mode: OnboardingMode;
 }
 
 function sidecarPath(username: string): string {
@@ -68,6 +80,7 @@ function makeDefault(): OnboardingSidecar {
     tips: {},
     tips_off: false,
     shown_count: 0,
+    mode: null,
   };
 }
 
@@ -99,6 +112,13 @@ function normalize(raw: Partial<OnboardingSidecar> | null): OnboardingSidecar {
       };
     }
   }
+  const rawMode = (raw as { mode?: unknown }).mode;
+  const mode: OnboardingMode =
+    rawMode === "tutorial" ||
+    rawMode === "suggestions" ||
+    rawMode === "silenced"
+      ? rawMode
+      : null;
   return {
     version: SCHEMA_VERSION,
     first_seen_at:
@@ -119,6 +139,7 @@ function normalize(raw: Partial<OnboardingSidecar> | null): OnboardingSidecar {
       typeof raw.shown_count === "number" && raw.shown_count >= 0
         ? raw.shown_count
         : 0,
+    mode,
   };
 }
 
@@ -164,8 +185,9 @@ export async function patchOnboarding(
 /** Reset state for the Settings "Replay onboarding tips" button. Clears
  *  the `tips` map, flips `tips_off` off, and resets `last_tip_at` to
  *  the current `active_seconds` so the cooldown starts fresh. Leaves
- *  `first_seen_at` and `active_seconds` in place — the freshness taper
- *  still applies. */
+ *  `first_seen_at`, `active_seconds`, and `mode` in place — the
+ *  freshness taper still applies and the user's mode pick is preserved
+ *  (the welcome modal does NOT re-fire on replay). */
 export async function replayOnboarding(
   username: string,
 ): Promise<OnboardingSidecar> {
@@ -175,5 +197,23 @@ export async function replayOnboarding(
     tips_off: false,
     last_tip_at: cur.active_seconds,
     shown_count: 0,
+  }));
+}
+
+/** Persist a new onboarding mode pick. Resets `last_tip_at` to the
+ *  current `active_seconds` so the next tip can fire after the
+ *  cooldown (which is `MIN_GAP_SECONDS` for `suggestions` or
+ *  `TUTORIAL_MIN_GAP_SECONDS` for `tutorial`), not immediately. Also
+ *  flips `tips_off` off — picking a non-silenced mode after silenced
+ *  should unstick the global off-switch. */
+export async function setOnboardingMode(
+  username: string,
+  mode: OnboardingMode,
+): Promise<OnboardingSidecar> {
+  return patchOnboarding(username, (cur) => ({
+    ...cur,
+    mode,
+    last_tip_at: cur.active_seconds,
+    tips_off: mode === "silenced" ? cur.tips_off : false,
   }));
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   fetchAllTasksIncludingShared,
@@ -14,7 +15,35 @@ import WorkbenchExperimentsPanel from "@/components/workbench/WorkbenchExperimen
 type TabType = "experiments" | "notes";
 
 export default function WorkbenchPage() {
-  const [activeTab, setActiveTab] = useState<TabType>("experiments");
+  // Mirror the active tab into the URL (?tab=notes or ?tab=experiments)
+  // so:
+  //  1. the onboarding orchestrator's `workbench-experiments-tab` gate
+  //     can read it without subscribing to local component state, and
+  //  2. a deep-linked `/workbench?tab=notes` lands on the right tab.
+  // Default is "experiments" — matches the prior behavior and what most
+  // users want.
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlTab: TabType =
+    searchParams?.get("tab") === "notes" ? "notes" : "experiments";
+  const [activeTab, setActiveTab] = useState<TabType>(urlTab);
+
+  // Re-sync local state if the URL tab changes (e.g. user clicks a
+  // deep-link from somewhere else in the app).
+  useEffect(() => {
+    if (urlTab !== activeTab) setActiveTab(urlTab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional one-way sync: URL → state. State → URL goes through changeTab().
+  }, [urlTab]);
+
+  const changeTab = (next: TabType) => {
+    setActiveTab(next);
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    if (next === "experiments") params.delete("tab");
+    else params.set("tab", next);
+    const query = params.toString();
+    router.replace(query ? `/workbench?${query}` : "/workbench");
+  };
+
   const selectedProjectIds = useAppStore((s) => s.selectedProjectIds);
 
   const { currentUser: providerCurrentUser } = useCurrentUser();
@@ -56,7 +85,7 @@ export default function WorkbenchPage() {
         {/* Tabs */}
         <div className="flex items-center gap-1 mb-6 border-b border-gray-200 pb-3">
           <button
-            onClick={() => setActiveTab("experiments")}
+            onClick={() => changeTab("experiments")}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
               activeTab === "experiments"
                 ? "bg-blue-100 text-blue-700"
@@ -69,7 +98,8 @@ export default function WorkbenchPage() {
             Experiments
           </button>
           <button
-            onClick={() => setActiveTab("notes")}
+            onClick={() => changeTab("notes")}
+            data-onboarding-target="workbench-notes"
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
               activeTab === "notes"
                 ? "bg-emerald-100 text-emerald-700"

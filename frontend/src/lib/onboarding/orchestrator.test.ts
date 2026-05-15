@@ -1,20 +1,23 @@
 // frontend/src/lib/onboarding/orchestrator.test.ts
 //
-// Unit tests for the onboarding-tips orchestrator, focused on the four
+// Unit tests for the onboarding-tips orchestrator, focused on the
 // gating decisions that justify writing a test at all:
 //
 //   1. Demo / wiki-capture short-circuit.
-//   2. Cooldown rejection when (active_seconds - last_tip_at) < 300.
+//   2. Cooldown rejection when (active_seconds - last_tip_at) < min-gap
+//      (5 minutes for suggestions, 60s for tutorial).
 //   3. Route mismatch rejection when no eligible tip matches pathname.
-//   4. Action-cancel persists outcome="action-cancel" in the sidecar.
+//   4. mode === null blocks all tips (welcome modal blocks instead).
+//   5. mode === "silenced" blocks all tips.
+//   6. workbench-experiments-tab gate filters the tip when the active
+//      sub-tab is "notes".
+//   7. Action-cancel persists outcome="action-cancel" in the sidecar.
 //
-// The roll tick itself is non-deterministic (random fire decision), so
-// we test the gating predicates as pure functions, plus the cancelTip
-// path via the public `patchOnboarding` helper that wraps the sidecar
-// write. The full provider render is a React tree we don't need to
-// instantiate for any of these — keeping the test surface pure module
-// behavior keeps the runtime cheap and avoids the testing-library + dom
-// setup the rest of the suite doesn't have.
+// The roll tick itself is non-deterministic (random fire decision in
+// suggestions mode), so we test the gating predicates as pure functions
+// plus the cancelTip + setOnboardingMode paths through the sidecar
+// helpers. The full provider render is a React tree we don't need to
+// instantiate for any of these.
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
@@ -41,13 +44,16 @@ vi.mock("@/lib/file-system/wiki-capture-mock", () => ({
 import {
   patchOnboarding,
   readOnboarding,
+  setOnboardingMode,
   type OnboardingSidecar,
 } from "./sidecar";
 import {
   MIN_GAP_SECONDS,
   ONBOARDING_TIPS,
   ROUTE_DWELL_SECONDS,
+  TUTORIAL_MIN_GAP_SECONDS,
   tipsForRoute,
+  type OnboardingTip,
 } from "./tips";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 
@@ -58,38 +64,52 @@ beforeEach(() => {
   demoModeMock = false;
 });
 
-/** Pure copy of the orchestrator's gating predicate. The actual
- *  orchestrator inlines this inside its roll tick; replicating it in
+/** Pure copy of the orchestrator's gating predicate. Replicating it in
  *  the test keeps the assertion crisp without bringing up a React
  *  provider tree. If the orchestrator changes the gate, the test
- *  fails — which is the right signal. */
+ *  fails — which is the right signal.
+ *
+ *  `workbenchTab` simulates the URL's `?tab=` query param read by the
+ *  real orchestrator's `readWorkbenchActiveTab()` helper. */
 function shouldFire(
   sidecar: OnboardingSidecar,
   pathname: string,
   nowActive: number,
   routeEnterActive: number,
+  workbenchTab: "experiments" | "notes" = "experiments",
 ): boolean {
   if (isDemoOrWikiCapture()) return false;
+  if (sidecar.mode === null) return false;
+  if (sidecar.mode === "silenced") return false;
   if (sidecar.tips_off) return false;
-  if (sidecar.shown_count >= 10) return false;
+  if (sidecar.shown_count >= ONBOARDING_TIPS.length) return false;
   if (sidecar.active_seconds >= 3600) return false;
-  if (nowActive - sidecar.last_tip_at < MIN_GAP_SECONDS) return false;
+  const minGap =
+    sidecar.mode === "tutorial" ? TUTORIAL_MIN_GAP_SECONDS : MIN_GAP_SECONDS;
+  if (nowActive - sidecar.last_tip_at < minGap) return false;
   if (nowActive - routeEnterActive < ROUTE_DWELL_SECONDS) return false;
-  const candidates = tipsForRoute(pathname).filter(
-    (tip) => !sidecar.tips[tip.id],
-  );
+  const candidates = tipsForRoute(pathname).filter((tip: OnboardingTip) => {
+    if (
+      tip.gate === "workbench-experiments-tab" &&
+      workbenchTab !== "experiments"
+    ) {
+      return false;
+    }
+    return !sidecar.tips[tip.id];
+  });
   return candidates.length > 0;
 }
 
 function freshSidecar(overrides: Partial<OnboardingSidecar> = {}): OnboardingSidecar {
   return {
-    version: 1,
+    version: 2,
     first_seen_at: "2026-05-14T00:00:00.000Z",
     active_seconds: 1000,
     last_tip_at: 0,
     tips: {},
     tips_off: false,
     shown_count: 0,
+    mode: "suggestions",
     ...overrides,
   };
 }
@@ -101,21 +121,40 @@ describe("orchestrator gating", () => {
     expect(shouldFire(sc, "/", 1000, 0)).toBe(false);
   });
 
-  it("rejects when (active_seconds - last_tip_at) < 300", () => {
-    const sc = freshSidecar({ last_tip_at: 900 });
-    // 1000 - 900 = 100 < 300 → cooldown not satisfied.
+  it("blocks all tips when sidecar.mode === null (welcome modal blocks)", () => {
+    const sc = freshSidecar({ mode: null });
+    // Even with cooldown + dwell satisfied + matching route, the
+    // welcome-modal gate vetoes the fire.
     expect(shouldFire(sc, "/", 1000, 0)).toBe(false);
-    // After 200 more active-seconds, the gap is 300, which is the
-    // boundary — the spec says `>= 300` passes, so 1200 - 900 = 300
-    // should fire.
+  });
+
+  it("blocks all tips when sidecar.mode === 'silenced'", () => {
+    const sc = freshSidecar({ mode: "silenced" });
+    expect(shouldFire(sc, "/", 1000, 0)).toBe(false);
+  });
+
+  it("rejects when suggestions cooldown not satisfied (gap < 300)", () => {
+    const sc = freshSidecar({ mode: "suggestions", last_tip_at: 900 });
+    // 1000 - 900 = 100 < 300.
+    expect(shouldFire(sc, "/", 1000, 0)).toBe(false);
+    // 300 boundary satisfied.
     expect(shouldFire(sc, "/", 1200, 0)).toBe(true);
+  });
+
+  it("tutorial mode uses 60s cooldown, not 300", () => {
+    const sc = freshSidecar({ mode: "tutorial", last_tip_at: 900 });
+    // Suggestions would fail at 1000 - 900 = 100 < 300. Tutorial passes
+    // at 100 > 60.
+    // But active_seconds must also be >= last_tip_at + 60 — let's
+    // test both sides of the boundary.
+    expect(shouldFire(sc, "/", 950, 0)).toBe(false); // 50s < 60s
+    expect(shouldFire(sc, "/", 960, 0)).toBe(true); // 60s satisfies
+    expect(shouldFire(sc, "/", 1000, 0)).toBe(true); // well over 60s
   });
 
   it("rejects when on a route that doesn't match any eligible tip", () => {
     // Mark every "/"-routed tip as already-shown so only route-specific
-    // tips remain. Then assert that /lab + /methods + /settings + /gantt
-    // each match their own tip(s), and that a synthetic route /never
-    // (which is none of those AND not "/") matches nothing.
+    // tips remain.
     const tips: Record<string, { shown_at: null; dismissed_at: null; outcome: "x" }> = {};
     for (const tip of ONBOARDING_TIPS) {
       if (tip.route === "/") {
@@ -123,14 +162,13 @@ describe("orchestrator gating", () => {
       }
     }
     const sc = freshSidecar({ tips });
-    // A nonexistent route should now have no eligible tips left.
     expect(shouldFire(sc, "/never-matches", 1000, 0)).toBe(false);
-    // Lab page still matches the lab-mode tip.
-    expect(shouldFire(sc, "/lab", 1000, 0)).toBe(true);
+    // /gantt still has eligible tips (gantt-animations, goals-vs-tasks).
+    expect(shouldFire(sc, "/gantt", 1000, 0)).toBe(true);
   });
 
   it("rejects when shown_count has hit the cap", () => {
-    const sc = freshSidecar({ shown_count: 10 });
+    const sc = freshSidecar({ shown_count: ONBOARDING_TIPS.length });
     expect(shouldFire(sc, "/", 1000, 0)).toBe(false);
   });
 
@@ -141,10 +179,24 @@ describe("orchestrator gating", () => {
 
   it("rejects when route dwell hasn't elapsed", () => {
     const sc = freshSidecar();
-    // Just landed on the route; nowActive == routeEnterActive.
     expect(shouldFire(sc, "/", 1000, 1000)).toBe(false);
-    // 30s later, dwell satisfies.
     expect(shouldFire(sc, "/", 1030, 1000)).toBe(true);
+  });
+
+  it("workbench-experiments-tab gate filters when tab=notes", () => {
+    // Mark every non-workbench tip as already-shown so the only
+    // eligible candidate is workbench-notes.
+    const tips: Record<string, { shown_at: null; dismissed_at: null; outcome: "x" }> = {};
+    for (const tip of ONBOARDING_TIPS) {
+      if (tip.id !== "workbench-notes") {
+        tips[tip.id] = { shown_at: null, dismissed_at: null, outcome: "x" };
+      }
+    }
+    const sc = freshSidecar({ tips });
+    // With tab=experiments the gate passes.
+    expect(shouldFire(sc, "/workbench", 1000, 0, "experiments")).toBe(true);
+    // With tab=notes the gate vetoes the only remaining candidate.
+    expect(shouldFire(sc, "/workbench", 1000, 0, "notes")).toBe(false);
   });
 });
 
@@ -170,34 +222,44 @@ describe("sidecar action-cancel persistence", () => {
 
   it("normalizes a missing sidecar into a fresh default on read", async () => {
     const sc = await readOnboarding("brand-new-user");
-    expect(sc.version).toBe(1);
+    expect(sc.version).toBe(2);
     expect(sc.shown_count).toBe(0);
     expect(sc.tips_off).toBe(false);
     expect(sc.active_seconds).toBe(0);
     expect(sc.last_tip_at).toBe(0);
     expect(sc.tips).toEqual({});
+    // The welcome-modal default: mode starts unset so the modal blocks
+    // tips until the user picks.
+    expect(sc.mode).toBeNull();
+  });
+
+  it("setOnboardingMode persists the pick and resets last_tip_at", async () => {
+    // Bootstrap with a previously-served sidecar where last_tip_at sits
+    // in the past so the cooldown is satisfied. Mode-setter should
+    // bump last_tip_at to active_seconds so the next tip doesn't fire
+    // immediately after the welcome-modal pick.
+    await patchOnboarding(USER, (cur) => ({
+      ...cur,
+      active_seconds: 5000,
+      last_tip_at: 0,
+    }));
+    const after = await setOnboardingMode(USER, "tutorial");
+    expect(after.mode).toBe("tutorial");
+    expect(after.last_tip_at).toBe(after.active_seconds);
   });
 });
 
 describe("tip catalog shape", () => {
-  it("exposes exactly the 10 LOCKED tips from the proposal", () => {
-    expect(ONBOARDING_TIPS).toHaveLength(10);
-    // Priority is a strict 1..10 sequence.
-    const priorities = ONBOARDING_TIPS.map((t) => t.priority);
-    expect(priorities).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-    // No duplicate ids.
+  it("exposes the 9-tip orchestrator catalog", () => {
+    // 10th tip (lab-mode-picker) is standalone, not in this array.
+    expect(ONBOARDING_TIPS).toHaveLength(9);
     const ids = ONBOARDING_TIPS.map((t) => t.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
   it("filters tips by pathname.startsWith(route) and sorts by priority", () => {
     const onHome = tipsForRoute("/");
-    // /home matches tips whose route is "/" only (every route would
-    // match "/" via startsWith, but our catalog has tips with specific
-    // routes that don't reverse-match — e.g. tip with route "/methods"
-    // does NOT match pathname "/").
     expect(onHome.every((t) => "/".startsWith(t.route))).toBe(true);
-    // Sorted ascending by priority.
     for (let i = 1; i < onHome.length; i++) {
       expect(onHome[i].priority).toBeGreaterThan(onHome[i - 1].priority);
     }

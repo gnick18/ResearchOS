@@ -89,6 +89,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <DemoLabBanner />
       {/* Header */}
       <header
+        data-onboarding-target="personalize-colors"
         className={`px-4 py-2.5 flex items-center gap-2 ${
           tinted ? "shadow-sm" : "bg-white border-b border-gray-200"
         }`}
