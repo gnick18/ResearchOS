@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useFileSystem, isFileSystemAccessSupported } from "@/lib/file-system/file-system-context";
 import BetaDonationButton from "@/components/BetaDonationButton";
-import BugReportModal from "@/components/BugReportModal";
+import FeedbackModal from "@/components/FeedbackModal";
 import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
 import Tooltip from "@/components/Tooltip";
 import UserAvatar from "@/components/UserAvatar";
@@ -241,7 +241,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
           </div>
         </div>
 
-        <BugReportModal
+        <FeedbackModal
           isOpen={showBugReport}
           onClose={closeBugReport}
           prefilledError={currentError}
@@ -345,7 +345,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
           </div>
         </div>
 
-        <BugReportModal
+        <FeedbackModal
           isOpen={showBugReport}
           onClose={closeBugReport}
           prefilledError={currentError}
@@ -448,7 +448,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
           </div>
         </div>
 
-        <BugReportModal
+        <FeedbackModal
           isOpen={showBugReport}
           onClose={closeBugReport}
           prefilledError={currentError}
@@ -661,7 +661,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
         </div>
       </div>
 
-      <BugReportModal
+      <FeedbackModal
         isOpen={showBugReport}
         onClose={closeBugReport}
         prefilledError={currentError}

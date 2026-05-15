@@ -14,13 +14,13 @@ import ReminderRunner from "./ReminderRunner";
 import DemoLabBanner from "./DemoLabBanner";
 import Tooltip from "./Tooltip";
 import UserAvatar from "./UserAvatar";
-import ReportBugButton from "./ReportBugButton";
+import FeedbackButton from "./FeedbackButton";
 import BetaDonationButton from "./BetaDonationButton";
 import DevTestNotificationButton from "./DevTestNotificationButton";
 import DevForceTipButton from "./DevForceTipButton";
 import DataSetupScreen from "./DataSetupScreen";
 import UserLoginScreen from "./UserLoginScreen";
-import BugReportModal from "./BugReportModal";
+import FeedbackModal from "./FeedbackModal";
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { HELP_HREF, appRouteToWikiRoute } from "@/lib/wiki/nav";
 import { useAppStore } from "@/lib/store";
@@ -261,7 +261,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </button>
         </Tooltip>
 
-        <ReportBugButton onClick={openBugReport} />
+        <FeedbackButton onClick={openBugReport} />
 
         <BetaDonationButton />
       </div>
@@ -281,7 +281,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         />
       )}
 
-      <BugReportModal
+      <FeedbackModal
         isOpen={showBugReport}
         onClose={closeBugReport}
         prefilledError={currentError}

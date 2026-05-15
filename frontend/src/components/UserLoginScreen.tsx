@@ -7,7 +7,7 @@ import { hasPassword, verifyPassword } from "@/lib/auth/password";
 import { performUserDelete } from "@/lib/users/perform-delete";
 import AccountPasswordPopup from "@/components/AccountPasswordPopup";
 import BetaDonationButton from "@/components/BetaDonationButton";
-import BugReportModal from "@/components/BugReportModal";
+import FeedbackModal from "@/components/FeedbackModal";
 import OnboardingLabModePickerTip from "@/components/OnboardingLabModePickerTip";
 import UserAvatar from "@/components/UserAvatar";
 import Tooltip from "@/components/Tooltip";
@@ -902,7 +902,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       </div>
 
       {/* Bug Report Modal */}
-      <BugReportModal
+      <FeedbackModal
         isOpen={showBugReport}
         onClose={closeBugReport}
         prefilledError={currentError}

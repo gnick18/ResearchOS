@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import BetaDonationButton from "@/components/BetaDonationButton";
-import BugReportModal from "@/components/BugReportModal";
+import FeedbackModal from "@/components/FeedbackModal";
 import Tooltip from "@/components/Tooltip";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
 
@@ -122,7 +122,7 @@ export default function DataSetupScreen({ isOpen, onClose }: DataSetupScreenProp
       </div>
 
       {/* Bug Report Modal */}
-      <BugReportModal
+      <FeedbackModal
         isOpen={showBugReport}
         onClose={closeBugReport}
         prefilledError={currentError}
