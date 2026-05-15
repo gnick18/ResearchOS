@@ -18,20 +18,21 @@ export default function ResultsFeaturePage() {
         exactly where they were.
       </Callout>
 
-      <h2>Completed experiments → Workbench &ldquo;Earlier&rdquo;</h2>
+      <h2>Completed experiments → Workbench &ldquo;Earlier results&rdquo;</h2>
       <p>
         Experiments that you&apos;ve marked complete (or that carry a
-        deviation log) now collect in the <strong>Earlier</strong> archive
-        section at the bottom of the{" "}
-        <Link href="/wiki/features/experiments">Workbench</Link> page. They
-        keep all the same write-up affordances: clicking a card opens the
-        task detail popup with the Results tab selected, where you fill in
-        the markdown summary and drop in images.
+        deviation log) now collect in the Earlier results section at the
+        bottom of the{" "}
+        <Link href="/wiki/features/experiments">Workbench</Link> page, with
+        the header rendered in uppercase as <strong>EARLIER RESULTS</strong>.
+        They keep all the same write-up affordances: clicking a card opens
+        the task detail popup with the Results tab selected, where you fill
+        in the markdown summary and drop in images.
       </p>
       <Screenshot
         src="/wiki/screenshots/workbench-earlier.png"
-        alt="The Earlier archive at the bottom of the Workbench page, with completed experiment cards grouped by project."
-        caption="The Earlier section sits at the bottom of the Workbench. The project-grouping toggle in its header flips between flat and project-grouped views."
+        alt="The Earlier results section at the bottom of the Workbench page, with completed experiment cards grouped by project."
+        caption="The Earlier results section sits at the bottom of the Workbench. The project-grouping toggle in its header flips between flat and project-grouped views."
       />
 
       <h2>Completed purchases → Purchases &ldquo;Earlier&rdquo;</h2>
@@ -59,9 +60,9 @@ export default function ResultsFeaturePage() {
         The standalone Results page was a fourth surface that mostly
         duplicated work the per-feature pages were already doing better.
         Folding completion into Workbench, Purchases, and the project popup
-        keeps each &ldquo;earlier&rdquo; view closer to the live work it
-        belongs to, instead of forcing one cross-cutting tab to do the job
-        for all of them.
+        keeps each completion view closer to the live work it belongs to,
+        instead of forcing one cross-cutting tab to do the job for all of
+        them.
       </Callout>
     </WikiPage>
   );

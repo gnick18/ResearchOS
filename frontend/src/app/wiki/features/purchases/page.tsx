@@ -53,6 +53,48 @@ export default function PurchasesFeaturePage() {
         and every line item under it, so use that one carefully.
       </p>
 
+      <h2>The Spending dashboard below the list</h2>
+      <p>
+        Scroll past the purchase orders and the page closes out with a{" "}
+        <strong>Spending dashboard</strong>. It pulls from the same orders
+        above and turns them into charts so you can see where money is going
+        without leaving the page.
+      </p>
+      <p>
+        The dashboard starts with a controls bar (a <strong>Time range</strong>
+        {" "}dropdown for <em>Last 30 days</em>, <em>Last 90 days</em>,{" "}
+        <em>Last 12 months</em>, <em>All time</em>, or <em>Custom</em> with
+        date inputs, plus an <strong>All projects</strong> checkbox that
+        overrides the global project filter just for this view). Below it sit
+        three sections:
+      </p>
+      <ul>
+        <li>
+          <strong>Funding accounts</strong>: a grid of cards, one per account,
+          showing dollars spent against the budget with a coloured progress
+          bar (emerald under budget, red when over). Items with no funding
+          string land on a dashed <em>Uncategorized</em> card.
+        </li>
+        <li>
+          <strong>Spend over time</strong>: a vertical bar chart of monthly
+          spend across the selected window. Empty months render as zero-height
+          bars so the time axis matches the time-range selection.
+        </li>
+        <li>
+          <strong>Breakdown by Project / Vendor / Category</strong>: a
+          horizontal bar chart with a three-way toggle in the section header.
+          Switch lenses to slice the same window of spend a different way.
+        </li>
+      </ul>
+      <p>
+        An <strong>Export CSV</strong> button at the top-right of the
+        dashboard downloads the items in the current window with item name,
+        vendor, category, funding string, project, host task, date, total,
+        and owner columns. The amber banner at the bottom calls out any items
+        sitting on tasks that aren&apos;t typed as a purchase, so you can
+        catch spend that&apos;s leaking into other task types.
+      </p>
+
       <h2>Managing funding accounts</h2>
       <p>
         Click <strong>Manage Funding Accounts</strong> at the top right and

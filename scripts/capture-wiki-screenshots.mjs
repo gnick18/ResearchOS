@@ -199,12 +199,14 @@ const FIXTURE_ROUTES = [
     highlight: { text: "+ Task" },
   },
   {
+    // Crop to the top zoom-control band only. No highlight: the wiki body
+    // describes all eight zoom buttons (D/W/M/3M/6M/Y/All + Today), so a
+    // red ring around just "3M" would be a misleading annotation.
     path: "/gantt",
     file: "gantt-zoom-controls.png",
     waitFor: ".gantt, [role='grid'], text=GANTT",
     settleMs: 1500,
     crop: { x: 0, y: 0, width: 1440, height: 220 },
-    highlight: { text: "3M" },
   },
   {
     path: "/gantt",
@@ -358,12 +360,110 @@ const FIXTURE_ROUTES = [
     highlight: { text: "New Method" },
   },
   {
+    // The wiki page describes the *protocol editor popup* — thermal gradient on top,
+    // reagent table below — not the library list view at /pcr. Open the first
+    // "Demo protocol" card so the popup is what gets captured, matching the
+    // pcr-step-edit / pcr-reagent-totals shots which both open the same popup.
+    //
+    // The popup body is taller than 900px, so a plain viewport screenshot
+    // only catches the thermal gradient (the wiki claims both panels are
+    // visible). Compute a tight clip that spans from the Thermal Gradient
+    // label down to the bottom of the Reaction Recipe section so the shot
+    // matches the wiki's promise. Adapted from pcr-reagent-totals's
+    // clip-calculation logic.
     path: "/pcr",
     file: "pcr-editor.png",
     waitFor: "text=PCR",
-    highlight: { text: "New Protocol" },
+    settleMs: 800,
+    action: async (page) => {
+      try {
+        const card = page
+          .locator("h3")
+          .filter({ hasText: /Demo protocol/i })
+          .first();
+        if (!(await card.count())) return;
+        await card.click({ timeout: 3000 });
+        await page.waitForTimeout(900);
+      } catch (err) {
+        console.warn(`  ⚠ pcr-editor open card: ${err.message}`);
+        return;
+      }
+      try {
+        const clip = await page.evaluate(() => {
+          const labels = Array.from(document.querySelectorAll("label"));
+          const gradientLabel = labels.find(
+            (el) => (el.textContent || "").trim() === "Thermal Gradient",
+          );
+          const recipeLabel = labels.find(
+            (el) => (el.textContent || "").trim() === "Reaction Recipe",
+          );
+          if (!gradientLabel || !recipeLabel) return null;
+          const gradientSection = gradientLabel.parentElement;
+          const recipeSection = recipeLabel.parentElement;
+          if (!gradientSection || !recipeSection) return null;
+          // The popup body is `flex-1 overflow-y-auto p-6 space-y-6` and
+          // its modal wrapper is `max-h-[90vh]`. Both clip the recipe
+          // section out of the viewport. Expand them so the entire body
+          // renders inline and the clip can extend below the modal's
+          // normal bottom edge.
+          let scroller = gradientSection.parentElement;
+          while (scroller && scroller !== document.body) {
+            const cs = getComputedStyle(scroller);
+            if (
+              cs.overflowY === "auto" ||
+              cs.overflowY === "scroll" ||
+              scroller.scrollHeight > scroller.clientHeight + 4
+            ) {
+              break;
+            }
+            scroller = scroller.parentElement;
+          }
+          if (scroller && scroller !== document.body) {
+            scroller.style.overflow = "visible";
+            scroller.style.maxHeight = "none";
+            // Walk up one more level to find the max-h-[90vh] wrapper.
+            let modal = scroller.parentElement;
+            for (let i = 0; i < 4 && modal && modal !== document.body; i++) {
+              modal.style.maxHeight = "none";
+              modal.style.overflow = "visible";
+              modal = modal.parentElement;
+            }
+          }
+          // Re-measure after the layout reflows.
+          const gRect = gradientSection.getBoundingClientRect();
+          const rRect = recipeSection.getBoundingClientRect();
+          const pad = 16;
+          const x = Math.max(0, Math.floor(gRect.left - pad));
+          const y = Math.max(0, Math.floor(gRect.top - pad));
+          const right = Math.max(gRect.right, rRect.right);
+          const bottom = rRect.bottom;
+          const width = Math.ceil(right - gRect.left + pad * 2);
+          const height = Math.ceil(bottom - gRect.top + pad * 2);
+          return { x, y, width, height };
+        });
+        // The recipe table extends below the original viewport. Return a
+        // viewport override so the screenshot caller resizes the page
+        // tall enough to fit the whole clip before snapping, then
+        // restores the original size for subsequent routes.
+        if (clip && clip.width > 100 && clip.height > 100) {
+          const newHeight = Math.min(clip.y + clip.height + 40, 3200);
+          return {
+            clip,
+            viewport: { width: 1440, height: newHeight },
+          };
+        }
+      } catch (err) {
+        console.warn(`  ⚠ pcr-editor clip calc: ${err.message}`);
+      }
+    },
   },
   {
+    // FIXTURE NOTE: the wiki body says PCR cycles default to x35 but the
+    // fixture protocol (users/alex/pcr_protocols/1.json → qPCR fakeGFP) uses
+    // x40 (and the public DemoCheck protocol uses x30). A future bot should
+    // reconcile this — either change the fixture to x35 or update the wiki to
+    // say "35 by default; this demo uses 40". Don't fix here; this script
+    // only drives the capture, not the data.
     path: "/pcr",
     file: "pcr-step-edit.png",
     waitFor: "text=PCR",
@@ -533,10 +633,14 @@ const FIXTURE_ROUTES = [
   },
   { path: "/lab", file: "lab-mode.png", waitFor: "text=Activity, text=Lab" },
   {
+    // Activity tab stacks 3 sections: Running now, Recently completed, and
+    // Recent shared notes. The last section sits below the viewport fold at
+    // 900px, so use fullPage to capture all three.
     path: "/lab",
     file: "lab-mode-activity.png",
     waitFor: "text=Activity, text=Lab",
     settleMs: 1200,
+    fullPage: true,
   },
   {
     path: "/lab",
@@ -710,9 +814,15 @@ const FIXTURE_ROUTES = [
     },
   },
   {
+    // The Settings page stacks 10 panels (Profile, Tabs, LabArchives, Sidebar,
+    // View defaults, Animation, Notifications & behavior, Data maintenance,
+    // Tips, Security). A viewport-clipped screenshot only captures the top
+    // ~900px, missing most panels — use fullPage so the whole stack lands in
+    // the wiki shot.
     path: "/settings",
     file: "settings.png",
     waitFor: "text=Settings, text=Profile",
+    fullPage: true,
     highlight: { text: "Connect Telegram" },
   },
   {
@@ -758,6 +868,11 @@ const FIXTURE_ROUTES = [
     highlight: { selector: "input[placeholder*='token' i], input[placeholder*='123456' i]" },
   },
   {
+    // After opening the Manage Feeds modal, expand the native Provider
+    // <select> so all 4 options (iCloud / Google / Outlook / Other) render
+    // as a static list. Playwright's selectOption / click can't reliably
+    // *visually* open a native dropdown across platforms, but bumping
+    // size= forces the options to render inline — captured in the shot.
     path: "/calendar",
     file: "calendar-feeds-modal.png",
     waitFor: "text=Calendar",
@@ -769,12 +884,291 @@ const FIXTURE_ROUTES = [
           await page.waitForTimeout(800);
         } catch {}
       }
+      try {
+        await page.evaluate(() => {
+          // Find the Provider <select> inside the Manage Feeds modal.
+          const labels = Array.from(document.querySelectorAll("label"));
+          const providerLabel = labels.find(
+            (el) => (el.textContent || "").trim() === "Provider",
+          );
+          if (!providerLabel) return;
+          const wrap = providerLabel.parentElement;
+          const sel = wrap?.querySelector("select");
+          if (sel) {
+            sel.setAttribute("size", String(sel.options.length || 4));
+          }
+        });
+        await page.waitForTimeout(300);
+      } catch (err) {
+        console.warn(`  ⚠ calendar-feeds-modal expand select: ${err.message}`);
+      }
     },
     highlight: { selector: "input[placeholder*='ICS' i], input[placeholder*='url' i], input[placeholder*='https' i]" },
   },
+  // ─────────────────────────────────────────────────────────────────────
+  // Demo-mode banner + LeaveDemoModal.
+  //
+  // ?wikiCapture=1 alone seeds the fixture but doesn't set the sticky
+  // sessionStorage demo flag, so DemoLabBanner stays hidden. Route through
+  // `/demo` (the public in-browser demo entry) which flips
+  // `getDemoMode() === true` via URL match, rendering the amber banner +
+  // floating Leave Demo button.
+  {
+    path: "/demo",
+    file: "demo-mode-banner.png",
+    waitFor: "text=Demo Lab, text=Research Project Overview",
+    settleMs: 1000,
+    // The banner sits at the very top of the layout — a 0..200 crop keeps
+    // the focus on it instead of the project grid below.
+    crop: { x: 0, y: 0, width: 1440, height: 200 },
+  },
+  {
+    path: "/demo",
+    file: "demo-mode-leave.png",
+    waitFor: "text=Demo Lab, text=Research Project Overview",
+    settleMs: 1000,
+    action: async (page) => {
+      // Click the in-banner "Leave Demo" button (preferred) or fall back
+      // to the always-visible floating button at the bottom-right.
+      try {
+        const banner = page
+          .locator("button")
+          .filter({ hasText: /^Leave Demo$/ })
+          .first();
+        if (await banner.count()) {
+          await banner.click({ timeout: 3000 });
+          await page.waitForTimeout(800);
+          return;
+        }
+      } catch {}
+      try {
+        const floating = page
+          .locator('[aria-label*="Leave the demo" i], [aria-label*="Leave Demo" i]')
+          .first();
+        if (await floating.count()) {
+          await floating.click({ timeout: 3000 });
+          await page.waitForTimeout(800);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ demo-mode-leave click: ${err.message}`);
+      }
+    },
+  },
+  // ─────────────────────────────────────────────────────────────────────
+  // Experiments Export dialog.
+  //
+  // /experiments redirects to /workbench. Open a completed experiment so
+  // the TaskDetailPopup mounts, then click the "Export experiment"
+  // tooltip-wrapped icon to open the Export dialog.
+  {
+    path: "/experiments",
+    file: "experiments-export-dialog.png",
+    waitFor: "text=Workbench, text=Lab Notes, text=Experiments",
+    settleMs: 1000,
+    action: async (page) => {
+      if (!(await revealCompletedAndOpenTask(
+        page,
+        /Yeast transformation:\s*pYES-GAL1::flbA/i,
+      ))) return;
+      // The Export button is an SVG-only icon wrapped in
+      // <Tooltip label="Export experiment">. The Tooltip sets
+      // aria-label on the trigger; click by that.
+      try {
+        const exportBtn = page
+          .locator('button[aria-label="Export experiment"], [aria-label="Export experiment"]')
+          .first();
+        if (await exportBtn.count()) {
+          await exportBtn.click({ timeout: 3000 });
+          await page.waitForTimeout(900);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ experiments-export-dialog click: ${err.message}`);
+      }
+    },
+  },
+  // ─────────────────────────────────────────────────────────────────────
+  // Notifications bell — shift_alert row.
+  //
+  // FIXTURE NOTE: wiki-capture-fixture.ts does NOT currently seed any
+  // notifications (no shift_alert, no sharing-notification rows). Capturing
+  // here will produce an "empty bell" dropdown unless a future bot adds
+  // a shift_alert seed entry. The capture is still wired so the wiki link
+  // doesn't 404; replace with a real shot once the fixture grows a
+  // notification.
+  {
+    path: "/",
+    file: "notifications-shift-alert.png",
+    waitFor: "text=Research Project Overview",
+    settleMs: 800,
+    action: async (page) => {
+      // The bell button is wrapped in <Tooltip label="Notifications">,
+      // which sets aria-label on the trigger.
+      try {
+        const bell = page
+          .locator('button[aria-label="Notifications"]')
+          .first();
+        if (await bell.count()) {
+          await bell.click({ timeout: 3000 });
+          await page.waitForTimeout(800);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ notifications-shift-alert open bell: ${err.message}`);
+      }
+    },
+  },
+  // ─────────────────────────────────────────────────────────────────────
+  // Search results — multi-select state with Export selected pill.
+  //
+  // /search?q=DEMO has fixture-seeded matches. Fill the keyword input + run
+  // the search, click "Select" to enter select mode, then click 3 result
+  // cards to tick them. The shot stops here — the wiki copy describes
+  // "selected rows + the Export selected button visible", not the dialog
+  // itself (the dialog has its own /experiments/-side screenshot).
+  {
+    path: "/search?q=DEMO",
+    file: "search-export-selected.png",
+    waitFor: "text=Search, text=DEMO",
+    settleMs: 800,
+    action: async (page) => {
+      // The /search page does not auto-run when ?q= is present; the user
+      // has to type into the Keywords input + click Search (or press
+      // Enter). Fill the keywords field with "DEMO" and submit so the
+      // fixture-seeded results render before we try to select rows.
+      try {
+        const kw = page
+          .locator('input[placeholder*="Search by name" i]')
+          .first();
+        if (await kw.count()) {
+          await kw.fill("DEMO", { timeout: 3000 });
+          await kw.press("Enter");
+          await page.waitForTimeout(700);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ search-export-selected run search: ${err.message}`);
+      }
+      // Enter select mode. The Search-form submit button also says
+      // "Search" but lives in the form above; the Select button only
+      // renders inside the results header after a search has run, so
+      // scoping by exact text is safe here.
+      try {
+        const selectBtn = page
+          .locator("button")
+          .filter({ hasText: /^Select$/ })
+          .first();
+        if (await selectBtn.count()) {
+          await selectBtn.click({ timeout: 3000 });
+          await page.waitForTimeout(500);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ search-export-selected enter select: ${err.message}`);
+      }
+      // In select mode each card is itself the click target — clicking
+      // the card toggles selection (no per-row checkbox input exists).
+      // Click the first 3 result cards directly.
+      try {
+        // Cards live inside the results grid; match the outer card div by
+        // its rounded border + cursor-pointer shape via the project pill
+        // selector. Simpler: target by the result-card heading <h4> and
+        // walk up to the card root via locator chaining.
+        const cards = page.locator('h4.text-sm.font-medium');
+        const cardCount = await cards.count();
+        for (let i = 0; i < Math.min(3, cardCount); i++) {
+          try {
+            await cards.nth(i).click({ timeout: 2000 });
+          } catch {}
+        }
+        await page.waitForTimeout(300);
+      } catch (err) {
+        console.warn(`  ⚠ search-export-selected check rows: ${err.message}`);
+      }
+      // Stop here. The wiki page wants the "selected rows + Export selected
+      // pill" state, not the dialog that opens when Export selected is
+      // clicked.
+    },
+    highlight: { text: "Export selected" },
+  },
+  // ─────────────────────────────────────────────────────────────────────
+  // Telegram Inbox — multi-select with context menu.
+  //
+  // The fixture seeds 4 inbox rows. The handler in InboxPanel.tsx opens
+  // the single-file edit popup on a *plain* click, so we must start the
+  // selection with a modifier (Meta/Ctrl) click — that path adds to the
+  // selection AND sets anchorId without firing the popup. Subsequent
+  // shift-clicks then range-select from the anchor to the target.
+  {
+    path: "/",
+    file: "telegram-inbox-multiselect.png",
+    waitFor: "text=Research Project Overview",
+    settleMs: 800,
+    action: async (page) => {
+      // Open the Inbox panel via the header pill.
+      try {
+        const inboxBtn = page
+          .locator("button")
+          .filter({ hasText: /^Inbox(\s*\d+)?$/ })
+          .first();
+        if (await inboxBtn.count()) {
+          await inboxBtn.click({ timeout: 3000 });
+          await page.waitForTimeout(800);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ telegram-inbox-multiselect open panel: ${err.message}`);
+        return;
+      }
+      // Inbox rows are <li> elements inside a <ul>. Scope to the inbox
+      // panel by looking inside the body's overflow-y-auto wrapper — the
+      // generic li selector would also catch sidebar list items. Match
+      // the panel's li by its imagery class fingerprint (`group flex
+      // items-center gap-3 ...`).
+      try {
+        const rows = page.locator("li.group.flex.items-center.gap-3");
+        const rowCount = await rows.count();
+        if (rowCount === 0) {
+          console.warn(`  ⚠ telegram-inbox-multiselect: 0 rows visible`);
+          return;
+        }
+        // First row: modifier-click so we DON'T trigger the edit popup
+        // (a plain click on an unselected row sets popupFilename in
+        // handleRowClick). The modifier path only sets selection+anchor.
+        await rows
+          .nth(0)
+          .click({ modifiers: ["Meta"], timeout: 3000 })
+          .catch(() => {});
+        await page.waitForTimeout(150);
+        // Shift-click the 3rd row (or last if fewer) for a range select
+        // from anchor → target.
+        const targetIdx = Math.min(2, rowCount - 1);
+        if (targetIdx > 0) {
+          await rows
+            .nth(targetIdx)
+            .click({ modifiers: ["Shift"], timeout: 3000 })
+            .catch(() => {});
+          await page.waitForTimeout(300);
+        }
+        // Right-click the middle row to open the context menu. The
+        // handler keeps the existing selection if the row is part of it.
+        const ctxIdx = Math.min(1, rowCount - 1);
+        await rows
+          .nth(ctxIdx)
+          .click({ button: "right", timeout: 3000 })
+          .catch(() => {});
+        await page.waitForTimeout(700);
+      } catch (err) {
+        console.warn(`  ⚠ telegram-inbox-multiselect select+menu: ${err.message}`);
+      }
+    },
+  },
 ];
 
-/** Hide dev/beta UI that distracts from docs. Re-applied per page. */
+/** Hide dev/beta UI that distracts from docs. Re-applied per page.
+ *
+ *  IMPORTANT: screenshots are taken against `npm run dev`, so NODE_ENV is
+ *  "development". That means every IS_DEV-gated dev tool — Send test
+ *  notification, Force onboarding tip, Report bug, etc. — renders in the
+ *  bottom-right floating cluster and needs hiding here. The user-facing
+ *  cluster siblings (Data folder + Switch user) get hidden too because
+ *  they're personal-data leaks (current username) and decorative noise
+ *  for wiki docs. The cluster lives in `frontend/src/components/AppShell.tsx`. */
 const HIDE_SCRIPT = `
   (function hideDevUI() {
     const HIDE_TEXTS = [
@@ -788,6 +1182,39 @@ const HIDE_SCRIPT = `
       if (HIDE_TEXTS.some(t => text === t || text.startsWith(t))) {
         el.style.display = "none";
       }
+    }
+    // Floating bottom-right cluster (mix of dev + user-facing buttons).
+    // Most are pure-SVG (no textContent) so we match by aria-label.
+    // NODE_ENV=development during capture, so all three dev-only entries
+    // ("Send test notification", "Force an onboarding tip", "Report a
+    // bug") evaluate IS_DEV=true and would otherwise show in shots.
+    // The "Open data folder settings" and "Switch user" buttons live in
+    // the same cluster — they're user-facing but leak the current
+    // username (via Switch-user's tooltip) and distract from wiki docs.
+    const HIDE_ARIA_LABELS = [
+      "Send test notification (dev only)",
+      "Force an onboarding tip to fire (dev only)",
+      "Report a bug",
+      "Open data folder settings",
+      "Switch user",
+      // Beta donation widget: in the floating cluster it's an icon-only
+      // heart, so the textContent === "Support" rule below doesn't catch
+      // it. Match by aria-label here. The expanded modal trigger ("Support
+      // this project" text-button) keeps the textContent rule.
+      "Support this project",
+    ];
+    for (const label of HIDE_ARIA_LABELS) {
+      for (const el of document.querySelectorAll(
+        '[aria-label="' + label + '"]',
+      )) {
+        el.style.display = "none";
+      }
+    }
+    // Strip the "(now: <username>)" leak from the Switch-user tooltip's
+    // title attribute. Tooltips don't fire without hover, but any future
+    // hover-trigger would expose the personal username.
+    for (const el of document.querySelectorAll('[aria-label="Switch user"]')) {
+      el.removeAttribute("title");
     }
     // Hide the bottom-left "Support" pill (Beta donation widget). Walk up
     // to its fixed-position container.
@@ -803,13 +1230,15 @@ const HIDE_SCRIPT = `
         cur = cur.parentElement;
       }
     }
-    // Hide Telegram status pill (contains the bot username, which is personal data).
+    // Hide Telegram status pill (contains the bot username, which is
+    // personal data). display:none instead of visibility:hidden so it
+    // doesn't leave a blank gap in the header row.
     const tgPills = Array.from(document.querySelectorAll("*")).filter(el => {
       const t = (el.textContent || "").trim();
       return t.startsWith("Telegram:") && el.children.length <= 2;
     });
     for (const el of tgPills) {
-      el.style.visibility = "hidden";
+      el.style.display = "none";
     }
   })();
 `;
@@ -896,11 +1325,15 @@ async function _capturePageAt(page, route, url) {
   }
   await page.waitForTimeout(route.settleMs ?? 600);
   let dynamicClip = null;
+  let dynamicViewport = null;
   if (route.action) {
     try {
       const result = await route.action(page);
       if (result && typeof result === "object" && result.clip) {
         dynamicClip = result.clip;
+      }
+      if (result && typeof result === "object" && result.viewport) {
+        dynamicViewport = result.viewport;
       }
     } catch (err) {
       console.warn(`  ⚠ ${route.file} — action threw: ${err.message}`);
@@ -909,10 +1342,82 @@ async function _capturePageAt(page, route, url) {
   await applyClean(page);
   await applyHighlight(page, route.highlight);
   await page.waitForTimeout(200); // let style changes commit
+  // Actions that need to capture a clip taller than the default viewport
+  // (e.g. pcr-editor's stacked gradient + recipe panels) return
+  // `{ clip, viewport }` so the screenshot caller can grow the viewport
+  // and restore it afterwards. Restoration is handled in the finally
+  // block below so subsequent routes don't inherit the override.
+  let restoreViewport = null;
+  if (dynamicViewport) {
+    restoreViewport = page.viewportSize();
+    await page.setViewportSize(dynamicViewport);
+    await page.waitForTimeout(400);
+  }
   try {
     const clip = dynamicClip ?? route.crop ?? null;
     if (clip) {
+      // clip wins over fullPage if both are set — clip is more specific.
       await page.screenshot({ path: out, clip });
+    } else if (route.fullPage) {
+      // Pages that stack many panels below the fold (Settings, lab-mode
+      // Activity) opt into a full-document capture. AppShell wraps the
+      // route content in overflow-hidden so Playwright's native fullPage
+      // can't see beyond the viewport — we expand the inner scroll
+      // containers and grow the viewport instead, then screenshot.
+      const contentHeight = await page.evaluate(() => {
+        // Pop the AppShell overflow:hidden + flex-1 height clamps so the
+        // main scrollable region renders at its natural document height.
+        const flips = [];
+        const walk = (el) => {
+          if (!el || el === document.body) return;
+          const cs = getComputedStyle(el);
+          if (
+            cs.overflowY === "hidden" ||
+            cs.overflowY === "auto" ||
+            cs.overflowY === "scroll"
+          ) {
+            flips.push({ el, ov: el.style.overflow, h: el.style.height });
+            el.style.overflow = "visible";
+            el.style.height = "auto";
+          }
+        };
+        // Walk every descendant of <main>, plus its ancestors up to body.
+        document.querySelectorAll("main, main *").forEach(walk);
+        let cur = document.querySelector("main");
+        while (cur && cur !== document.body) {
+          walk(cur);
+          cur = cur.parentElement;
+        }
+        // Measure the now-uncollapsed body.
+        const h = Math.max(
+          document.documentElement.scrollHeight,
+          document.body.scrollHeight,
+          1000,
+        );
+        // Stash the flips array on window so we can restore after capture.
+        window.__wikiCaptureFlips = flips;
+        return Math.min(h + 100, 8000); // cap at 8000px for sanity
+      });
+      const originalViewport = page.viewportSize();
+      await page.setViewportSize({
+        width: originalViewport?.width ?? 1440,
+        height: contentHeight,
+      });
+      await page.waitForTimeout(300); // let the layout reflow
+      await page.screenshot({ path: out, fullPage: false });
+      // Restore viewport + un-flip the overflow overrides so subsequent
+      // routes don't inherit a broken layout.
+      if (originalViewport) {
+        await page.setViewportSize(originalViewport);
+      }
+      await page.evaluate(() => {
+        const flips = window.__wikiCaptureFlips || [];
+        for (const { el, ov, h } of flips) {
+          el.style.overflow = ov;
+          el.style.height = h;
+        }
+        delete window.__wikiCaptureFlips;
+      });
     } else {
       await page.screenshot({ path: out, fullPage: false });
     }
@@ -921,6 +1426,12 @@ async function _capturePageAt(page, route, url) {
   } catch (err) {
     console.error(`  ✗ ${route.file} — screenshot failed: ${err.message}`);
     return false;
+  } finally {
+    if (restoreViewport) {
+      try {
+        await page.setViewportSize(restoreViewport);
+      } catch {}
+    }
   }
 }
 

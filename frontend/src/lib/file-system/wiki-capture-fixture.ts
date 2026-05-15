@@ -155,5 +155,6 @@ export function buildWikiFixtures(): FixtureEntry[] {
     ["users/morgan/dependencies/1.json", {"id":1,"parent_id":1,"child_id":2,"dep_type":"FS"}],
     ["users/morgan/dependencies/2.json", {"id":2,"parent_id":2,"child_id":3,"dep_type":"FS"}],
     ["users/morgan/projects/2-hosted.json", {"version":1,"hostedTasks":[{"owner":"alex","taskId":14,"sharedAt":"2026-05-13T16:00:00Z","sharedBy":"alex"}]}],
+    ["users/alex/_notifications.json", {"version":1,"notifications":[{"id":"sa-demo-1","type":"shift_alert","from_user":"morgan","item_id":3,"task_key":"morgan:3","item_name":"qPCR setup, verify GFP transcripts","source_alert_id":"src-demo-1","start_delta_days":3,"end_delta_days":3,"old_start":"2026-05-13","old_end":"2026-05-13","new_start":"2026-05-16","new_end":"2026-05-16","created_at":"2026-05-13T08:00:00Z","read":false}]}],
   ];
 }

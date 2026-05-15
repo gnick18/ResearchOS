@@ -9,12 +9,12 @@ export default function ExperimentsFeaturePage() {
   return (
     <WikiPage
       title="Experiments & Notes"
-      intro="The /experiments page is a grid of experiment tiles. Click a tile to open a single popup with Details, Lab Notes, Method, and Results all in one place."
+      intro="Experiments live on the Workbench page. The Workbench is where every active experiment, ready-to-start tile, blocked stack, and earlier result lives, on a single scrollable page. The wiki still calls this section /experiments by name, but the URL /experiments now routes to /workbench."
     >
       <Screenshot
         src="/wiki/screenshots/experiments-list.png"
         alt="The Experiments tab with experiment tiles grouped by project, each showing status badges and duration."
-        caption="Every active experiment, grouped by project, with status pills. Completed experiments roll into the Earlier archive at the bottom."
+        caption="Every active experiment, grouped by project, with status pills. Completed experiments roll into the Earlier results section at the bottom."
       />
 
       <TryInDemo href="/experiments">Try the experiments view</TryInDemo>
@@ -55,12 +55,13 @@ export default function ExperimentsFeaturePage() {
         chain step-by-step.
       </p>
 
-      <h2>Earlier (completed work)</h2>
+      <h2>Earlier results</h2>
       <p>
         Finished experiments don't clutter the main grid. They collect in
-        the <strong>Earlier</strong> archive section at the bottom of the
-        Workbench, which keeps the active grid focused on what you're
-        running now. The Earlier section has a project-grouping toggle
+        the Earlier results section at the bottom of the Workbench, which
+        keeps the active grid focused on what you're running now. The
+        section header renders in uppercase as{" "}
+        <strong>EARLIER RESULTS</strong>, with a project-grouping toggle
         (flat list vs. one block per project) and no time cap, so the
         whole completion history is reachable from one place. Each
         archived tile is still clickable, opening the same task popup
@@ -69,7 +70,7 @@ export default function ExperimentsFeaturePage() {
       <Screenshot
         src="/wiki/screenshots/workbench-earlier.png"
         alt="The Earlier archive at the bottom of the Workbench page, with completed experiment cards grouped by project."
-        caption="Completed experiments roll into the Earlier section. Toggle the project-grouping switch in its header to flip between flat and project-grouped views."
+        caption="Completed experiments roll into the Earlier results section. Toggle the project-grouping switch in its header to flip between flat and project-grouped views."
       />
       <p>
         This is where the old standalone <code>/results</code> tab&apos;s
@@ -78,6 +79,36 @@ export default function ExperimentsFeaturePage() {
         for the full picture of where completed work surfaces (Workbench,
         Purchases, the project popup).
       </p>
+
+      <h2>The Lists tab</h2>
+      <p>
+        The third Workbench tab (next to Experiments and Notes) is{" "}
+        <strong>Lists</strong>: a queue view for non-experiment task work
+        sorted into five stages by how close they are to right now.{" "}
+        <strong>Overdue</strong> covers list tasks whose end date has passed,{" "}
+        <strong>Doing</strong> covers tasks where today falls between start
+        and end, and <strong>Upcoming</strong> covers tasks scheduled to
+        start later. Completed tasks split by recency:{" "}
+        <strong>Recently done</strong> (finished in the last 30 days) and{" "}
+        <strong>Earlier</strong> (finished more than 30 days ago, collapsed
+        by default).
+      </p>
+      <p>
+        Each row in the queue shows the task name, project pill, and a date
+        signal phrased relative to today ("3d overdue", "Started yesterday",
+        "Starts in 4d"). Clicking a row opens the same list-task popup you
+        get from the Gantt or Home page.
+      </p>
+      <Screenshot
+        src="/wiki/screenshots/workbench-lists.png"
+        alt="The Workbench Lists tab with the Overdue, Doing, Upcoming, Recently done, and Earlier stages stacked vertically."
+        caption="The Lists tab buckets list tasks into five stages by how their dates relate to today."
+      />
+      <Callout variant="info" title="Lists holds list tasks, not experiments">
+        Experiment tasks always render on the Experiments tab, never on
+        Lists, even when their dates would make them overdue or upcoming.
+        The split is by task type, not by status.
+      </Callout>
 
       <h2>Inside the experiment popup</h2>
       <Screenshot

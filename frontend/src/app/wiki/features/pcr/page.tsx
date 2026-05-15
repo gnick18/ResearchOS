@@ -33,9 +33,9 @@ export default function PCRFeaturePage() {
           The <strong>Reaction Recipe</strong> panel below: one row per
           ingredient with a stock concentration and a per-reaction volume in
           microliters. The bottom <em>Total</em> row is a manual entry where
-          you type the target reaction volume (it stays visually pinned and
-          uneditable for the name and concentration, but the volume field is
-          yours to fill in).
+          you type the target reaction volume. It looks identical to the
+          ingredient rows above it (no input border, no edit affordance), so
+          click into the volume cell and type your target volume.
         </li>
       </ul>
       <p>

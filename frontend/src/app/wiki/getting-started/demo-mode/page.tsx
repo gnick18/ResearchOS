@@ -105,32 +105,25 @@ export default function DemoModePage() {
         A floating amber <strong>Leave Demo</strong> button lives in the
         bottom-right of every demo page (a second <strong>Leave Demo</strong>{" "}
         link is also on the banner up top). Either one opens a dialog called{" "}
-        <strong>Leaving the demo</strong> with two ways out:
+        <strong>Leave the demo?</strong> with two buttons:
       </p>
       <ul>
         <li>
-          <strong>Save my demo edits as a starter folder.</strong> Builds a ZIP
-          (<code>DemoLab-from-browser.zip</code>) that wraps the demo lab plus
-          whatever you changed in this session. Unzip it, click{" "}
-          <strong>Link Existing Folder</strong> on the next screen, and pick
-          the unzipped <code>DemoLab</code> folder to keep working with your
-          edits in a real ResearchOS session.
+          The amber <strong>Leave demo</strong> button at the top resets all
+          demo state in this tab and drops you on the connect-folder screen,
+          ready to pick a real folder (or start a new one). Demo edits are not
+          saved to disk anywhere, so they go away with the reload.
         </li>
         <li>
-          <strong>Discard and start fresh.</strong> Throws everything away and
-          drops you on the connect-folder screen so you can pick a real folder
-          (or start a new one).
+          The smaller <strong>Keep exploring the demo</strong> link at the
+          bottom just closes the dialog if you clicked Leave Demo by mistake.
         </li>
       </ul>
-      <p>
-        A third button, <strong>Keep exploring the demo</strong>, just closes
-        the dialog if you clicked Leave Demo by mistake.
-      </p>
 
       <Screenshot
         src="/wiki/screenshots/demo-mode-leave.png"
-        alt="The Leaving the demo dialog with two primary actions: save as a starter folder, or discard and start fresh."
-        caption="The Leave Demo dialog. Save your edits as a starter folder, or discard and start fresh."
+        alt="The Leave the demo dialog with a primary Leave demo button and a smaller Keep exploring link below."
+        caption="The Leave Demo dialog. Confirm to reset and return to the folder picker, or keep exploring."
       />
 
       <h2>Three ways to try the app</h2>

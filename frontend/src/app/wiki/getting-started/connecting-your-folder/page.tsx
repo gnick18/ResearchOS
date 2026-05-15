@@ -11,15 +11,16 @@ export default function ConnectingYourFolderPage() {
     >
       <Screenshot
         src="/wiki/screenshots/folder-connect.png"
-        alt="The Connect Folder screen with the central Connect Folder button highlighted."
+        alt="The folder-connect screen with two cards: Link Existing Folder on the left and Create New Folder on the right."
         caption="The first screen you see on a fresh install."
       />
 
       <h2>What you&apos;ll do</h2>
       <Steps>
         <Step>
-          Click <strong>Connect Folder</strong> on the welcome screen. Your
-          operating system&apos;s folder picker opens.
+          Click <strong>Link Folder</strong> if you already have a ResearchOS
+          folder, or <strong>Choose Location</strong> to create a new one.
+          Either button opens your operating system&apos;s folder picker.
         </Step>
         <Step>
           Pick an <strong>empty folder</strong> (or create a new one) on your

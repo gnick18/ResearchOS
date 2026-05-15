@@ -11,8 +11,8 @@ export default function LabModeCrossUserListsPage() {
     >
       <Screenshot
         src="/wiki/screenshots/lab-mode-cross-user-lists.png"
-        alt="The Methods tab in Lab Mode showing rows grouped by method with a cluster of user avatars on each row."
-        caption="A typical cross-user list. The avatar cluster on the right shows which lab members are using each row."
+        alt="The Experiments tab in Lab Mode showing the Fresh results section in Gallery mode."
+        caption="The Experiments tab leads with outcome cards bucketed by freshness. Toggle Gallery and Compare in the top right to regroup by method."
       />
 
       <h2>What every row looks like</h2>

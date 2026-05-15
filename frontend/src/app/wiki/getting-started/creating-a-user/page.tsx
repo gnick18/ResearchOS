@@ -11,7 +11,7 @@ export default function CreatingAUserPage() {
     >
       <Screenshot
         src="/wiki/screenshots/user-login.png"
-        alt="The user-picker screen with the New User button and the existing-user list."
+        alt="The user-picker screen with the + Create New User button, the existing-user list, and a Lab Mode button."
         caption="The user-picker screen, shown right after you connect a folder."
       />
 
@@ -35,7 +35,7 @@ export default function CreatingAUserPage() {
       <h2>Creating a user</h2>
       <Steps>
         <Step>
-          On the user-picker screen, scroll to <strong>Create New Account</strong>{" "}
+          On the user-picker screen, click <strong>+ Create New User</strong>{" "}
           and type a username in the input field. Lowercase letters, numbers,
           and hyphens are safest across operating systems (e.g.,{" "}
           <code>grant</code>, <code>sarah-lab</code>).
@@ -73,12 +73,13 @@ export default function CreatingAUserPage() {
         and data reload to that user&apos;s namespace.
       </p>
 
-      <h2>The special &quot;lab&quot; user</h2>
+      <h2>Jumping straight to Lab Mode</h2>
       <p>
-        Choosing <code>lab</code> on the user-picker is a shortcut. It takes
-        you straight to the Lab Mode page, which aggregates data across every
-        user in the folder. Useful when you want a top-down view rather than
-        your own work. See <Link href="/wiki/features/lab-mode">Lab Mode</Link>.
+        The user-picker has a dedicated <strong>Lab Mode</strong> button below
+        the user list. Clicking it skips picking a personal user and takes you
+        straight to the Lab Mode page, which aggregates data across every user
+        in the folder. Useful when you want a top-down view rather than your
+        own work. See <Link href="/wiki/features/lab-mode">Lab Mode</Link>.
       </p>
 
       <h2>Renaming or deleting a user</h2>

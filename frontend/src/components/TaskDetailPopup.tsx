@@ -3828,6 +3828,7 @@ function TaskExportButton({ task }: { task: Task }) {
     <>
       <Tooltip label="Export experiment" placement="bottom">
         <button
+          aria-label="Export experiment"
           onClick={() => setDialogOpen(true)}
           disabled={exporting}
           className="text-gray-400 hover:text-gray-600 p-1 disabled:opacity-50"
