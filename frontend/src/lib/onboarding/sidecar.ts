@@ -130,7 +130,7 @@ function normalize(raw: Partial<OnboardingSidecar> | null): OnboardingSidecar {
         ? raw.active_seconds
         : 0,
     last_tip_at:
-      typeof raw.last_tip_at === "number" && raw.last_tip_at >= 0
+      typeof raw.last_tip_at === "number"
         ? raw.last_tip_at
         : 0,
     tips,
@@ -200,12 +200,18 @@ export async function replayOnboarding(
   }));
 }
 
-/** Persist a new onboarding mode pick. Resets `last_tip_at` to the
- *  current `active_seconds` so the next tip can fire after the
- *  cooldown (which is `MIN_GAP_SECONDS` for `suggestions` or
- *  `TUTORIAL_MIN_GAP_SECONDS` for `tutorial`), not immediately. Also
- *  flips `tips_off` off — picking a non-silenced mode after silenced
- *  should unstick the global off-switch. */
+/** Persist a new onboarding mode pick. After picking, the user
+ *  should see the FIRST tip immediately (subject to route-dwell +
+ *  target-in-DOM gates) rather than waiting a full cooldown. To
+ *  satisfy the orchestrator's `now - last_tip_at >= minGap`
+ *  predicate at the moment of pick, this sets `last_tip_at` to
+ *  `active_seconds - 999999` (a sentinel that's effectively
+ *  -infinity for any sensible minGap). Subsequent tips obey the
+ *  real cooldown because `recordShown()` bumps `last_tip_at` to
+ *  the current `active_seconds` on each fire.
+ *
+ *  Also flips `tips_off` off — picking a non-silenced mode after
+ *  silenced should unstick the global off-switch. */
 export async function setOnboardingMode(
   username: string,
   mode: OnboardingMode,
@@ -213,7 +219,7 @@ export async function setOnboardingMode(
   return patchOnboarding(username, (cur) => ({
     ...cur,
     mode,
-    last_tip_at: cur.active_seconds,
+    last_tip_at: cur.active_seconds - 999_999,
     tips_off: mode === "silenced" ? cur.tips_off : false,
   }));
 }

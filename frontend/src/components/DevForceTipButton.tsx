@@ -59,6 +59,18 @@ export default function DevForceTipButton() {
     }
   };
 
+  const handleShowWelcome = () => {
+    setOpen(false);
+    // Re-trigger the welcome modal by flipping sidecar.mode back to
+    // null. Orchestrator's `showWelcome = sidecar.mode === null`
+    // conditional will re-render the modal. The user can then re-pick
+    // a mode to verify each one. Does NOT clear the rest of the
+    // sidecar (tips history, active_seconds, etc.) — those stay so
+    // a second pick lands the user in the same state they were in
+    // before, just with the new mode.
+    void orchestrator.setMode(null);
+  };
+
   return (
     <div className="relative" ref={menuRef}>
       <Tooltip label="Force an onboarding tip to fire (dev only)" placement="top">
@@ -110,6 +122,16 @@ export default function DevForceTipButton() {
               </span>
             </button>
           ))}
+
+          <div className="border-t border-slate-100 mt-1 pt-1">
+            <button
+              role="menuitem"
+              onClick={handleShowWelcome}
+              className="w-full text-left px-3 py-2 text-sm hover:bg-amber-50 text-amber-700 font-medium transition-colors"
+            >
+              Show welcome modal
+            </button>
+          </div>
         </div>
       )}
     </div>

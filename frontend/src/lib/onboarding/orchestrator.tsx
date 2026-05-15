@@ -247,8 +247,20 @@ export function OnboardingOrchestrator({
   const setMode = useCallback(
     async (mode: OnboardingMode) => {
       if (isDemoOrWikiCapture()) return;
-      const next = await persistOnboardingMode(username, mode);
-      setSidecar(next);
+      try {
+        const next = await persistOnboardingMode(username, mode);
+        setSidecar(next);
+        // Reset route-dwell baseline so the first tip after mode pick
+        // can fire without waiting another 30s of focused dwell on
+        // the current route. Cooldown is already bypassed by
+        // setOnboardingMode's `last_tip_at = active_seconds - 999_999`
+        // sentinel. Combined, the first eligible tip fires within
+        // one roll tick (≤5s) of mode pick.
+        routeEnterActiveRef.current = 0;
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error("[onboarding] setMode failed", err);
+      }
     },
     [username],
   );
