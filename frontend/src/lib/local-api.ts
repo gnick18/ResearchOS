@@ -1219,8 +1219,16 @@ export const pcrApi = {
 };
 
 export const purchasesApi = {
-  listByTask: async (taskId: number): Promise<PurchaseItem[]> => {
-    const items = await purchaseItemsStore.query({ task_id: taskId });
+  // `owner` routes the read into a specific user's `purchase_items/` directory
+  // instead of the current viewer's. Without it, shared purchase tasks (read
+  // from the owner's directory) silently match items belonging to whatever
+  // task happens to share the same numeric id in the viewer's own folder —
+  // same shape of bug the task-refetch fix at TaskDetailPopup.tsx:314 closed
+  // for tasks. Pass `task.is_shared_with_me ? task.owner : undefined`.
+  listByTask: async (taskId: number, owner?: string): Promise<PurchaseItem[]> => {
+    const items = owner
+      ? (await purchaseItemsStore.listAllForUser(owner)).filter((item) => item.task_id === taskId)
+      : await purchaseItemsStore.query({ task_id: taskId });
     return items.map(item => ({
       ...item,
       total_price: item.total_price ?? (item.price_per_unit ?? 0) * item.quantity + (item.shipping_fees ?? 0),

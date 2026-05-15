@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState, useMemo } from "react"
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
-import { filesApi, methodsApi, projectsApi, dependenciesApi, fetchAllTasks, fetchAllProjectsIncludingShared, tasksApi as rawTasksApi, type DuplicateCheckResult } from "@/lib/local-api";
+import { filesApi, methodsApi, projectsApi, dependenciesApi, fetchAllTasks, fetchAllProjectsIncludingShared, purchasesApi, tasksApi as rawTasksApi, type DuplicateCheckResult } from "@/lib/local-api";
 import { ownerScopedTasksApi } from "@/lib/tasks/owner-scoped-api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
@@ -348,11 +348,30 @@ export default function TaskDetailPopup({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isExpanded, onClose]);
 
-  const tabs: Tab[] = isExperiment
+  // Orphan-items probe: non-purchase tasks can still have purchase_items
+  // attached (the "Items on non-purchase tasks" surface on the spending
+  // dashboard). Without this lookup the Items tab — and PurchaseEditor's
+  // amber non-purchase-task warning at PurchaseEditor.tsx:409 — were
+  // unreachable from non-purchase TaskDetailPopups (PURCHASES_PAGE_PROPOSAL.md
+  // §5 Path 2). Skipped for purchase tasks (already get the tab) and for the
+  // simple-task minimal-popup branch (no tabs rendered). Owner-routed via the
+  // same `ownerForTask` the task refetch uses, so shared tasks read from the
+  // correct directory.
+  const { data: orphanItems } = useQuery({
+    queryKey: ["task-purchase-items", taskKey(initialTask)],
+    queryFn: () => purchasesApi.listByTask(initialTask.id, ownerForTask),
+    enabled: !isPurchase && !isSimpleTask,
+  });
+  const hasOrphanItems = (orphanItems?.length ?? 0) > 0;
+
+  const baseTabs: Tab[] = isExperiment
     ? ["details", "notes", "method", "results"]
     : isPurchase
     ? ["purchases", "details"]
     : ["details"];
+  const tabs: Tab[] = hasOrphanItems && !isPurchase
+    ? [...baseTabs, "purchases"]
+    : baseTabs;
 
   // For simple tasks, render a minimal popup showing only the list and sublists
   if (isSimpleTask && !isExpanded) {
