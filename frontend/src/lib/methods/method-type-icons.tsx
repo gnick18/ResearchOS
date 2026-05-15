@@ -82,6 +82,33 @@ export function LcGradientIcon({ className, size = 16 }: MethodTypeIconProps) {
   );
 }
 
+export function CellCultureIcon({ className, size = 16 }: MethodTypeIconProps) {
+  // Stylized flask + arrow — suggests culturing media + the M/W/F/split
+  // cadence that drives the cell-culture passaging schedule. Reads cleanly
+  // at small sizes alongside the LC gradient curve and PCR helix glyphs.
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M9 3h6" />
+      <path d="M10 3v6L5 19a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 19l-5-10V3" />
+      <path d="M6.5 14h11" />
+      <circle cx="10" cy="17" r="0.8" fill="currentColor" />
+      <circle cx="14" cy="16" r="0.8" fill="currentColor" />
+      <circle cx="12" cy="19" r="0.8" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function PcrIcon({ className, size = 16 }: MethodTypeIconProps) {
   return (
     <svg

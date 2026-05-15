@@ -42,6 +42,7 @@ function labTaskToTask(labTask: LabTask): Task {
       pcr_gradient: null,
       pcr_ingredients: null,
       lc_gradient: null,
+      cell_culture_schedule: null,
       variation_notes: null,
     })),
     // Sharing fields - in lab mode, the owner is the user whose data we're viewing

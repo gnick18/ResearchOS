@@ -547,6 +547,167 @@ function renderLcIngredients(p: {
   return `<table class="lc-ingredients"><thead><tr><th>Name</th><th>Role</th><th>Concentration</th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
+function buildCellCultureMethodBody(mp: MethodPayload): string {
+  const schedule = mp.cellCultureSchedule ?? null;
+  if (!schedule) {
+    return `<p class="method-file-link">Cell culture passaging method (schedule could not be loaded).</p>`;
+  }
+  // Per-task snapshot lives on attachment.cell_culture_schedule as a JSON
+  // string of CellCultureScheduleInstance. Render planned schedule from the
+  // snapshot's overlay (if present), then append the actual events log.
+  let plannedEvents = schedule.planned_events ?? [];
+  let cellLine = schedule.cell_line ?? {};
+  let media = schedule.media ?? {};
+  let description: string | null | undefined = schedule.description;
+  let actualEvents: Array<{
+    timestamp: string;
+    event_type: string;
+    split_ratio?: string;
+    observation_text?: string;
+    confluence_percent?: number;
+  }> = [];
+  const att = mp.attachment;
+  if (att?.cell_culture_schedule && att.cell_culture_schedule.trim()) {
+    try {
+      const parsed = JSON.parse(att.cell_culture_schedule);
+      if (parsed && typeof parsed === "object") {
+        if (Array.isArray(parsed.planned_events)) plannedEvents = parsed.planned_events;
+        if (parsed.cell_line && typeof parsed.cell_line === "object") cellLine = parsed.cell_line;
+        if (parsed.media && typeof parsed.media === "object") media = parsed.media;
+        if (typeof parsed.description === "string" || parsed.description === null) {
+          description = parsed.description;
+        }
+        if (Array.isArray(parsed.actual_events)) actualEvents = parsed.actual_events;
+      }
+    } catch {
+      // Fall back to source if snapshot was corrupt.
+    }
+  }
+
+  const parts: string[] = [];
+  parts.push(`<h4>Cell line</h4>`);
+  parts.push(renderCellCultureCellLine(cellLine));
+  parts.push(`<h4>Media</h4>`);
+  parts.push(renderCellCultureMedia(media));
+  parts.push(`<h4>Planned schedule</h4>`);
+  parts.push(renderCellCulturePlannedEvents(plannedEvents));
+  if (actualEvents.length > 0) {
+    parts.push(`<h4>Actual events (logged on this task)</h4>`);
+    parts.push(renderCellCultureActualEvents(actualEvents));
+  }
+  if (description && description.trim()) {
+    parts.push(`<p class="cell-culture-notes">${escapeHtml(description.trim())}</p>`);
+  }
+  return parts.join("");
+}
+
+function renderCellCultureCellLine(c: {
+  name?: string | null;
+  species?: string | null;
+  tissue?: string | null;
+  notes?: string | null;
+}): string {
+  const rows: string[] = [];
+  const push = (label: string, value: string | null | undefined) => {
+    if (value === null || value === undefined || value === "") return;
+    rows.push(`<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(String(value))}</td></tr>`);
+  };
+  push("Name", c.name);
+  push("Species", c.species);
+  push("Tissue", c.tissue);
+  push("Notes", c.notes);
+  if (rows.length === 0) return `<p>No cell line information recorded.</p>`;
+  return `<table class="cell-culture-cell-line"><tbody>${rows.join("")}</tbody></table>`;
+}
+
+function renderCellCultureMedia(m: {
+  base_medium?: string | null;
+  serum_percent?: number | null;
+  supplements?: Array<{ name: string; concentration: string; units: string }>;
+}): string {
+  const parts: string[] = [];
+  const baseRows: string[] = [];
+  if (m.base_medium) {
+    baseRows.push(`<tr><th>Base medium</th><td>${escapeHtml(m.base_medium)}</td></tr>`);
+  }
+  if (m.serum_percent !== null && m.serum_percent !== undefined) {
+    baseRows.push(`<tr><th>Serum</th><td>${escapeHtml(String(m.serum_percent))}%</td></tr>`);
+  }
+  if (baseRows.length > 0) {
+    parts.push(`<table class="cell-culture-media"><tbody>${baseRows.join("")}</tbody></table>`);
+  }
+  const supplements = m.supplements ?? [];
+  if (supplements.length > 0) {
+    const rows = supplements
+      .map(
+        (s) =>
+          `<tr><td>${escapeHtml(s.name)}</td><td>${escapeHtml(s.concentration)}</td><td>${escapeHtml(s.units)}</td></tr>`,
+      )
+      .join("");
+    parts.push(
+      `<table class="cell-culture-supplements"><thead><tr><th>Supplement</th><th>Concentration</th><th>Units</th></tr></thead><tbody>${rows}</tbody></table>`,
+    );
+  }
+  if (parts.length === 0) return `<p>No media composition recorded.</p>`;
+  return parts.join("");
+}
+
+function renderCellCulturePlannedEvents(events: Array<{
+  day_offset: number;
+  event_type: string;
+  split_ratio?: string;
+  notes?: string;
+}>): string {
+  if (events.length === 0) return `<p>No planned events.</p>`;
+  const EVENT_LABELS: Record<string, string> = {
+    feed: "Feed",
+    split: "Split",
+    observe: "Observe",
+    harvest: "Harvest",
+  };
+  const rows = events
+    .map(
+      (e) =>
+        `<tr><td>D${e.day_offset}</td><td>${escapeHtml(EVENT_LABELS[e.event_type] ?? e.event_type)}</td><td>${escapeHtml(e.split_ratio ?? "")}</td><td>${escapeHtml(e.notes ?? "")}</td></tr>`,
+    )
+    .join("");
+  return `<table class="cell-culture-planned"><thead><tr><th>Day</th><th>Event</th><th>Split ratio</th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function renderCellCultureActualEvents(events: Array<{
+  timestamp: string;
+  event_type: string;
+  split_ratio?: string;
+  observation_text?: string;
+  confluence_percent?: number;
+}>): string {
+  if (events.length === 0) return "";
+  const EVENT_LABELS: Record<string, string> = {
+    feed: "Feed",
+    split: "Split",
+    observe: "Observe",
+    harvest: "Harvest",
+  };
+  const rows = events
+    .map(
+      (e) =>
+        `<tr><td>${escapeHtml(formatTimestampForDisplay(e.timestamp))}</td><td>${escapeHtml(EVENT_LABELS[e.event_type] ?? e.event_type)}</td><td>${escapeHtml(e.split_ratio ?? "")}</td><td>${e.confluence_percent !== undefined ? escapeHtml(String(e.confluence_percent)) + "%" : ""}</td><td>${escapeHtml(e.observation_text ?? "")}</td></tr>`,
+    )
+    .join("");
+  return `<table class="cell-culture-actual"><thead><tr><th>Timestamp</th><th>Event</th><th>Split ratio</th><th>Confluence</th><th>Observation</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function formatTimestampForDisplay(iso: string): string {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleString();
+  } catch {
+    return iso;
+  }
+}
+
 function buildMethodBlock(
   mp: MethodPayload,
   attachments: ExperimentAttachment[],
@@ -570,6 +731,8 @@ function buildMethodBlock(
     body = buildPcrMethodBody(mp);
   } else if (mp.method.method_type === "lc_gradient") {
     body = buildLcGradientMethodBody(mp);
+  } else if (mp.method.method_type === "cell_culture") {
+    body = buildCellCultureMethodBody(mp);
   } else {
     body = `<p class="method-file-link">No method body available.</p>`;
   }

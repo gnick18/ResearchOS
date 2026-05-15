@@ -93,7 +93,9 @@ export async function buildImportPlan(
         ? entry.pcrProtocol != null
         : entry.record.method_type === "lc_gradient"
           ? entry.lcGradientProtocol != null
-          : false);
+          : entry.record.method_type === "cell_culture"
+            ? entry.cellCultureSchedule != null
+            : false);
 
     let decision: MethodResolution["decision"];
     let existingMethodId: number | null;

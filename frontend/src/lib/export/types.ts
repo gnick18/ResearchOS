@@ -11,6 +11,7 @@ import type {
   TaskMethodAttachment,
   PCRProtocol,
   LCGradientProtocol,
+  CellCultureSchedule,
 } from "@/lib/types";
 
 export type ExportFormat = "pdf" | "html" | "raw";
@@ -56,6 +57,11 @@ export interface MethodPayload {
   // `method.source_path === "lc_gradient://protocol/{id}"`. `null` when the
   // protocol couldn't be loaded across owner namespaces.
   lcGradientProtocol?: LCGradientProtocol | null;
+  // Only populated for `method.method_type === "cell_culture"`. Pre-fetched
+  // source-side passaging schedule — referenced by
+  // `method.source_path === "cell_culture://protocol/{id}"`. `null` when the
+  // schedule couldn't be loaded across owner namespaces.
+  cellCultureSchedule?: CellCultureSchedule | null;
 }
 
 export interface ExperimentExportPayload {

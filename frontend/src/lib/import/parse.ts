@@ -1,5 +1,5 @@
 import JSZip from "jszip";
-import type { LCGradientProtocol, Method, PCRProtocol, Project, Task } from "@/lib/types";
+import type { CellCultureSchedule, LCGradientProtocol, Method, PCRProtocol, Project, Task } from "@/lib/types";
 import type {
   ImportAttachment,
   ImportManifest,
@@ -11,6 +11,7 @@ const METHOD_JSON_RE = /^methods\/method-(\d+)\.json$/;
 const METHOD_BODY_MD_RE = /^methods\/method-(\d+)-body\.md$/;
 const METHOD_PCR_PROTOCOL_RE = /^methods\/method-(\d+)-pcr-protocol\.json$/;
 const METHOD_LC_PROTOCOL_RE = /^methods\/method-(\d+)-lc-gradient-protocol\.json$/;
+const METHOD_CELL_CULTURE_SCHEDULE_RE = /^methods\/method-(\d+)-cell-culture-schedule\.json$/;
 const METHOD_FILE_RE = /^methods\/method-(\d+)-(.+)$/;
 const METHOD_UNATTACHED_RE = /^methods\/unattached\/(.+)$/;
 const NOTES_ATTACHMENT_RE = /^notes\/(Files|Images)\/(.+)$/;
@@ -116,6 +117,7 @@ export async function parseImportBundle(file: Blob): Promise<ImportPayload> {
   const methodFiles = new Map<number, { filename: string; bytes: ArrayBuffer }>();
   const methodPcrProtocols = new Map<number, PCRProtocol>();
   const methodLcProtocols = new Map<number, LCGradientProtocol>();
+  const methodCellCultureSchedules = new Map<number, CellCultureSchedule>();
   const attachments: ImportAttachment[] = [];
 
   // Iterate every file. `zip.files` is a Record<string, JSZipObject>.
@@ -164,6 +166,18 @@ export async function parseImportBundle(file: Blob): Promise<ImportPayload> {
       try {
         const protocol = JSON.parse(await entry.async("string")) as LCGradientProtocol;
         methodLcProtocols.set(id, protocol);
+      } catch (err) {
+        console.warn(`[import.parse] failed to parse ${path}:`, err);
+      }
+      continue;
+    }
+
+    const cellCultureScheduleMatch = path.match(METHOD_CELL_CULTURE_SCHEDULE_RE);
+    if (cellCultureScheduleMatch) {
+      const id = Number(cellCultureScheduleMatch[1]);
+      try {
+        const schedule = JSON.parse(await entry.async("string")) as CellCultureSchedule;
+        methodCellCultureSchedules.set(id, schedule);
       } catch (err) {
         console.warn(`[import.parse] failed to parse ${path}:`, err);
       }
@@ -234,6 +248,7 @@ export async function parseImportBundle(file: Blob): Promise<ImportPayload> {
     const file = methodFiles.get(id) ?? null;
     const pcrProtocol = methodPcrProtocols.get(id) ?? null;
     const lcGradientProtocol = methodLcProtocols.get(id) ?? null;
+    const cellCultureSchedule = methodCellCultureSchedules.get(id) ?? null;
     methods.push({
       record,
       bodyMarkdown: body,
@@ -241,6 +256,7 @@ export async function parseImportBundle(file: Blob): Promise<ImportPayload> {
       pdfFilename: file?.filename ?? null,
       pcrProtocol,
       lcGradientProtocol,
+      cellCultureSchedule,
     });
     // Also surface the PDF bytes as a method-origin attachment so callers
     // who care about file shape (Files appendix etc.) see it consistently.

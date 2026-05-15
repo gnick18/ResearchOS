@@ -67,6 +67,12 @@ export async function buildRawZip(
         JSON.stringify(mp.lcGradientProtocol, null, 2),
       );
     }
+    if (mp.method.method_type === "cell_culture" && mp.cellCultureSchedule != null) {
+      zip.file(
+        `methods/method-${id}-cell-culture-schedule.json`,
+        JSON.stringify(mp.cellCultureSchedule, null, 2),
+      );
+    }
     const match = payload.attachments.find(
       (a) => a.origin === "methods" && a.methodId === id,
     );

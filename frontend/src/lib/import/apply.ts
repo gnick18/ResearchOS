@@ -1,5 +1,5 @@
 import { fileService } from "@/lib/file-system/file-service";
-import { methodsApi, pcrApi, lcGradientApi, projectsApi, tasksApi } from "@/lib/local-api";
+import { methodsApi, pcrApi, lcGradientApi, cellCultureApi, projectsApi, tasksApi } from "@/lib/local-api";
 import { getCurrentUserCached } from "@/lib/storage/json-store";
 import { taskNotesBase, taskResultsBase, taskResultsTabBase } from "@/lib/tasks/results-paths";
 import type { TaskMethodAttachment } from "@/lib/types";
@@ -153,6 +153,35 @@ async function applyMethodResolutions(
       continue;
     }
 
+    if (entry.record.method_type === "cell_culture") {
+      if (entry.cellCultureSchedule == null) {
+        console.warn(
+          `[import.apply] Cell culture method '${res.sourceMethodName}' was marked import-new but the bundle did not carry the schedule record. Skipping.`,
+        );
+        continue;
+      }
+      const newName = await pickImportedMethodName(res.sourceMethodName);
+      const newSchedule = await cellCultureApi.create({
+        name: entry.cellCultureSchedule.name,
+        description: entry.cellCultureSchedule.description,
+        cell_line: entry.cellCultureSchedule.cell_line,
+        media: entry.cellCultureSchedule.media,
+        planned_events: entry.cellCultureSchedule.planned_events,
+        is_public: false,
+      });
+      const newMethod = await methodsApi.create({
+        name: newName,
+        source_path: `cell_culture://protocol/${newSchedule.id}`,
+        method_type: "cell_culture",
+        folder_path: entry.record.folder_path,
+        tags: entry.record.tags ?? undefined,
+        is_public: false,
+      });
+      mapping[res.sourceMethodId] = newMethod.id;
+      resultMethodIds.push(newMethod.id);
+      continue;
+    }
+
     const newName = await pickImportedMethodName(res.sourceMethodName);
     const newSlug = slugifyForPath(newName);
 
@@ -203,6 +232,7 @@ function remapMethodAttachments(
       pcr_gradient: att.pcr_gradient,
       pcr_ingredients: att.pcr_ingredients,
       lc_gradient: att.lc_gradient ?? null,
+      cell_culture_schedule: att.cell_culture_schedule ?? null,
       variation_notes: att.variation_notes,
     });
   }

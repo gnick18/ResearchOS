@@ -185,6 +185,11 @@ export interface TaskMethodAttachment {
   // Mirrors pcr_gradient: edits on the experiment page write to this snapshot,
   // not back to the source protocol record.
   lc_gradient: string | null;
+  // Cell culture per-task instance snapshot — JSON string of CellCultureScheduleInstance
+  // (only for cell_culture methods). Carries the planned_events copy plus
+  // mid-execution actual_events (what was actually fed/split/observed) so the
+  // passage-history annotation lives on the task, not the source schedule.
+  cell_culture_schedule: string | null;
   // Variation notes - markdown content documenting method variations for this experiment
   variation_notes: string | null;  // Markdown string with timestamped entries
 }
@@ -412,7 +417,7 @@ export interface Method {
   id: number;
   name: string;
   source_path: string | null;
-  method_type: "markdown" | "pdf" | "pcr" | "lc_gradient" | null;
+  method_type: "markdown" | "pdf" | "pcr" | "lc_gradient" | "cell_culture" | null;
   folder_path: string | null;
   parent_method_id: number | null;
   tags: string[] | null;
@@ -430,7 +435,7 @@ export interface Method {
 export interface MethodCreate {
   name: string;
   source_path?: string | null;
-  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient";
+  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "cell_culture";
   folder_path?: string | null;
   parent_method_id?: number | null;
   tags?: string[];
@@ -440,7 +445,7 @@ export interface MethodCreate {
 export interface MethodUpdate {
   name?: string;
   source_path?: string | null;
-  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | null;
+  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "cell_culture" | null;
   folder_path?: string | null;
   parent_method_id?: number | null;
   tags?: string[];
@@ -575,6 +580,106 @@ export type LCGradientProtocolUpdate = Partial<{
   detection_wavelength_nm: number | null;
   ingredients: LCIngredient[];
 }>;
+
+// ── Cell culture passaging ───────────────────────────────────────────────────
+
+/** What the user planned/did at a particular point in the passage timeline. */
+export type CellCultureEventType = "feed" | "split" | "observe" | "harvest";
+
+/** Cell-line metadata — fluff at the top of a passaging schedule. */
+export interface CellCultureCellLine {
+  name?: string | null;
+  species?: string | null;
+  tissue?: string | null;
+  notes?: string | null;
+}
+
+/** A single media supplement (e.g. PenStrep, L-glutamine). */
+export interface CellCultureSupplement {
+  name: string;
+  concentration: string;
+  units: string;
+}
+
+/** Composition of the growth medium used across the schedule. */
+export interface CellCultureMedia {
+  base_medium?: string | null;
+  serum_percent?: number | null;
+  supplements?: CellCultureSupplement[];
+}
+
+/** One planned event in the cadence: day-offset from start, what to do that day. */
+export interface CellCulturePlannedEvent {
+  /** Day offset from start of the schedule. Day 0 = seed day. */
+  day_offset: number;
+  event_type: CellCultureEventType;
+  /** Required when event_type === "split" (e.g. "1:5"); free-form. */
+  split_ratio?: string;
+  notes?: string;
+}
+
+/** Source-side passaging schedule template. The Method record references this
+ *  via `source_path: "cell_culture://protocol/{id}"` — mirrors PCR/LC. */
+export interface CellCultureSchedule {
+  id: number;
+  name: string;
+  description?: string | null;
+  is_public: boolean;
+  created_at?: string;
+  updated_at?: string;
+  created_by: string | null;
+  cell_line: CellCultureCellLine;
+  media: CellCultureMedia;
+  planned_events: CellCulturePlannedEvent[];
+}
+
+export interface CellCultureScheduleCreate {
+  name: string;
+  description?: string | null;
+  is_public?: boolean;
+  cell_line: CellCultureCellLine;
+  media: CellCultureMedia;
+  planned_events: CellCulturePlannedEvent[];
+  folder_path?: string | null;
+}
+
+export type CellCultureScheduleUpdate = Partial<{
+  name: string;
+  description: string | null;
+  is_public: boolean;
+  cell_line: CellCultureCellLine;
+  media: CellCultureMedia;
+  planned_events: CellCulturePlannedEvent[];
+}>;
+
+/** One actual event logged mid-execution on the task instance. The unique
+ *  per-task feature of cell-culture passaging: passage history is documented
+ *  as it happens (fed Monday, looking 80% confluent Wednesday, split 1:5
+ *  Thursday). The snapshot below carries the array. */
+export interface CellCultureActualEvent {
+  /** ISO timestamp when the user logged the event. */
+  timestamp: string;
+  event_type: CellCultureEventType;
+  /** Set when event_type === "split". Free-form (e.g. "1:5"). */
+  split_ratio?: string;
+  observation_text?: string;
+  confluence_percent?: number;
+  photo_attachment_path?: string;
+}
+
+/** Shape of `TaskMethodAttachment.cell_culture_schedule` once parsed. The
+ *  per-task snapshot carries a copy of the planned events (so edits stay
+ *  scoped to the experiment) plus the actual events log. */
+export interface CellCultureScheduleInstance {
+  planned_events: CellCulturePlannedEvent[];
+  actual_events: CellCultureActualEvent[];
+  /** Per-planned-index free-text notes layered on the planned schedule. Keyed
+   *  by the index into `planned_events`. */
+  notes_per_event?: Record<number, string>;
+  cell_line?: CellCultureCellLine;
+  media?: CellCultureMedia;
+  description?: string | null;
+}
 
 export interface MethodForkRequest {
   new_name: string;
