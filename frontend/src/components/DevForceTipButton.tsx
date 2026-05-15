@@ -50,6 +50,11 @@ export default function DevForceTipButton() {
   const handleFire = (tipId: string, route: string) => {
     setOpen(false);
 
+    // Look up the tip's actual target string — not all tips have
+    // `id === target` (e.g. goals-vs-tasks targets create-goal).
+    const tip = ONBOARDING_TIPS.find((t) => t.id === tipId);
+    const targetId = tip?.target ?? tipId;
+
     // If the target is ALREADY in the DOM (e.g. user opened the
     // relevant popup before clicking the dev button), fire
     // immediately and skip the route push — navigating away would
@@ -57,7 +62,7 @@ export default function DevForceTipButton() {
     // attach. Covers popup-gated tips opened from non-default
     // routes (e.g. an experiment popup opened from /workbench when
     // the tip's route is "/").
-    if (findOnboardingTarget(tipId)) {
+    if (findOnboardingTarget(targetId)) {
       orchestrator.forceFireTip(tipId);
       return;
     }

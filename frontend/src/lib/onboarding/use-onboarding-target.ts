@@ -15,9 +15,12 @@
  * this is intentional, see proposal §"Implementation sketch".
  */
 
-import type { OnboardingTip } from "./tips";
-
-export type OnboardingTargetId = OnboardingTip["id"];
+/** Target ids are free-form strings, NOT necessarily tip ids. The
+ *  catalog's `target` field is independent of the tip's `id` — e.g.
+ *  the `goals-vs-tasks` tip targets `create-goal` (the data-attr on
+ *  the Goal button in Toolbar). Callers should always pass
+ *  `tip.target`, never `tip.id`. */
+export type OnboardingTargetId = string;
 
 /** Spread onto any element to register it as a tip target. */
 export function onboardingTarget(id: OnboardingTargetId): {
@@ -28,7 +31,7 @@ export function onboardingTarget(id: OnboardingTargetId): {
 
 /** Look up the first DOM element bound to a target id, or null if none
  *  is currently rendered. Used by the orchestrator to compute the
- *  pointer-line anchor. */
+ *  red-glow anchor. */
 export function findOnboardingTarget(
   id: OnboardingTargetId,
 ): HTMLElement | null {

@@ -308,9 +308,12 @@ export function OnboardingOrchestrator({
       // priority candidate. Suggestions mode keeps the 15% roll so the
       // tip lands at a natural pause.
       if (!isTutorial && Math.random() >= ROLL_PROBABILITY) return;
-      // Find the first candidate with a present DOM target.
+      // Find the first candidate with a present DOM target. Pass
+      // `tip.target` (the data-attr value) — NOT `tip.id` — because
+      // they're not always the same string (e.g. goals-vs-tasks
+      // targets create-goal).
       for (const tip of candidates) {
-        const el = findOnboardingTarget(tip.id);
+        const el = findOnboardingTarget(tip.target);
         if (!el) continue;
         setActiveTip(tip);
         setActiveTarget(el);
@@ -338,7 +341,10 @@ export function OnboardingOrchestrator({
     const maxTries = 30; // 3 seconds at 100ms intervals
     const tryFire = () => {
       if (cancelled) return;
-      const el = findOnboardingTarget(tipId);
+      // Look up by `tip.target` (the data-attr value), NOT `tipId`
+      // — they're not always the same string (e.g. goals-vs-tasks
+      // targets create-goal).
+      const el = findOnboardingTarget(tip.target);
       if (el) {
         setActiveTip(tip);
         setActiveTarget(el);
