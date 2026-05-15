@@ -23,7 +23,6 @@ import {
   plateApi,
   cellCultureApi,
 } from "@/lib/local-api";
-import { extractMarkdownRefs } from "./markdown";
 import type {
   AttachmentOrigin,
   ExperimentAttachment,
@@ -169,19 +168,6 @@ async function collectTabAttachments(
     ...(await collectAttachmentsFromDir(outerBase, "Images", origin)),
     ...(await collectAttachmentsFromDir(outerBase, "Files", origin)),
   ];
-}
-
-function filterByBodyRefs(
-  attachments: ExperimentAttachment[],
-  body: string | null
-): ExperimentAttachment[] {
-  if (!body) return [];
-  const refImages = extractMarkdownRefs(body, "Images");
-  const refFiles = extractMarkdownRefs(body, "Files");
-  return attachments.filter((a) => {
-    const expected = a.diskRef.startsWith("Images/") ? refImages : refFiles;
-    return expected.has(a.filename);
-  });
 }
 
 /**
@@ -521,23 +507,19 @@ export async function buildExperimentPayload(
     readTextSafe(`${resolvedBase}/results.md`),
   ]);
 
-  const [notesAttachmentsRaw, resultsAttachmentsRaw] = await Promise.all([
+  // Carry every on-disk attachment, body-referenced or not. Post the
+  // attachment-only drop paradigm (`e0ffbefb`) + GC removal (`390ef8e6`),
+  // "attached but not inlined" is an intentional user state — the user
+  // dropped a file to keep it with the task without referencing it in the
+  // body. Filtering body-only at the export boundary would silently lose
+  // that data: the Raw bundle is the cross-instance carrier, and the
+  // PDF Files-appendix exists precisely to surface non-inlined files.
+  // `[missing file: …]` placeholders in HTML/PDF still fire correctly,
+  // since `findAttachment` only fails when the disk lacks the file.
+  const [notesAttachments, resultsAttachments] = await Promise.all([
     collectTabAttachments(resolvedBase, "notes"),
     collectTabAttachments(resolvedBase, "results"),
   ]);
-
-  // Critical filter: only keep attachments that are actually referenced by
-  // the matching tab's markdown body. Otherwise the export bundles every
-  // file ever dropped into the folder, including files the user attached
-  // but never inlined. (Pre-paradigm-shift this filter also caught
-  // attached-then-removed orphans; post-shift those are intentional and a
-  // separate follow-up should decide whether the export bundle wants the
-  // body-only subset or the full corpus.)
-  const notesAttachments = filterByBodyRefs(notesAttachmentsRaw, notesMarkdown);
-  const resultsAttachments = filterByBodyRefs(
-    resultsAttachmentsRaw,
-    resultsMarkdown
-  );
 
   const methodIds = task.method_ids ?? [];
   // Invariant: ∀ a ∈ method_attachments: a.method_id ∈ method_ids. Drift
