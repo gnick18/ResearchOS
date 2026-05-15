@@ -7,43 +7,46 @@ import type { OnboardingTip } from "@/lib/onboarding/tips";
 
 /**
  * Visible tip card with a stand-alone 96px BeakerBot mascot to its
- * left, anime visual-novel style. Renders at the document root via
- * portal so it sits above the AppShell layout, anchored at
- * `bottom-20 right-4` to clear the AppShell's 5-icon cluster
- * (`bottom-6 right-6`).
+ * left, anime visual-novel style. Positions itself NEAR the target
+ * (right / below / left / above, in that priority) without covering
+ * it, and applies a pulsing red glow to the target element until
+ * the tip is dismissed.
  *
- * The dotted pointer-line is drawn as a separate SVG (also
- * portalled), emitting from the mascot's outer-edge finger position
- * (which side depends on the `direction` flip) and ending at the
- * target's center. It recomputes its endpoint from the target's
- * `getBoundingClientRect()` on resize and scroll (passive, debounced
- * via rAF). Pulses once on entry — fades back to 0.7 opacity after
- * 300ms.
+ * No dotted pointer-line. The target's own red glow is the "look
+ * here" signal; the mascot just speaks the explanation next to it.
  *
  * Assembly structure (left to right):
- *  - BeakerBot 96px (pointing pose, faces target)
+ *  - BeakerBot 96px (pose adapts to where target is relative to
+ *    mascot: pointing left/right/up/down)
  *  - Gap 12px
  *  - Card: title, body, footer (Show me later / Stop showing /
- *    setupAction button if present / Read more →)
+ *    setupAction button if present / Read more →) with comic-book
+ *    callout tail on the left edge.
+ *
+ * Renders at the document root via portal so it sits above the
+ * AppShell layout. Recomputes its anchor from the target's
+ * `getBoundingClientRect()` on resize and scroll (passive,
+ * debounced via rAF).
  */
 
 const MASCOT_SIZE_PX = 96;
 const MASCOT_CARD_GAP_PX = 12;
 const CARD_WIDTH = 320;
-const CARD_HEIGHT_APPROX = 156;
-/** Distance in px the assembly's bottom + right edges sit from the
- *  viewport edges. Mirrors `<FloatingLeaveDemoButton>`'s
- *  `bottom-20 right-4`. */
-const ASSEMBLY_RIGHT_PX = 16;
-const ASSEMBLY_BOTTOM_PX = 80;
-/** The pointing-pose finger lives at roughly (35, 15) inside the
- *  BeakerBot's 40-unit viewBox. As a fraction of the 96px mascot
- *  bounding box: x=87.5%, y=37.5%. When `direction="left"` the
- *  whole SVG flips via scaleX(-1) so the finger ends up at x=12.5%
- *  of the bounding box. */
-const FINGER_X_RIGHT = 0.875;
-const FINGER_X_LEFT = 1 - FINGER_X_RIGHT;
-const FINGER_Y = 0.375;
+const CARD_HEIGHT_APPROX = 168;
+const ASSEMBLY_WIDTH = MASCOT_SIZE_PX + MASCOT_CARD_GAP_PX + CARD_WIDTH;
+const ASSEMBLY_HEIGHT = Math.max(MASCOT_SIZE_PX, CARD_HEIGHT_APPROX);
+/** Margin from the viewport edges. */
+const VIEWPORT_MARGIN_PX = 16;
+/** Gap between the target's edge and the nearest assembly edge. */
+const TARGET_GAP_PX = 20;
+
+type AssemblySide = "right" | "below" | "left" | "above" | "fallback";
+
+interface AssemblyAnchor {
+  left: number;
+  top: number;
+  side: AssemblySide;
+}
 
 interface OnboardingTipCardProps {
   tip: OnboardingTip;
@@ -110,104 +113,176 @@ export default function OnboardingTipCard({
     onClose("read");
   }, [tip.wikiPath, onClose]);
 
-  // Compute the assembly's screen-anchor + mascot center first; the
-  // bot's facing direction depends on which side of the mascot the
-  // target is on. Both coordinates are in viewport-fixed px since
-  // we're rendering inside a fixed-position portal.
-  const assemblyGeometry = useMemo(() => {
-    if (typeof window === "undefined") return null;
-    const assemblyTotalWidth =
-      MASCOT_SIZE_PX + MASCOT_CARD_GAP_PX + CARD_WIDTH;
-    const assemblyLeft =
-      window.innerWidth - ASSEMBLY_RIGHT_PX - assemblyTotalWidth;
-    const assemblyBottom =
-      window.innerHeight - ASSEMBLY_BOTTOM_PX;
-    // Mascot sits at the LEFT end of the assembly, with its bottom
-    // edge aligned to the card's bottom (so the mascot stands on
-    // the same baseline as the card sits on).
-    const mascotLeft = assemblyLeft;
-    const mascotTop = assemblyBottom - MASCOT_SIZE_PX;
-    const mascotCenterX = mascotLeft + MASCOT_SIZE_PX / 2;
-    const cardLeft = mascotLeft + MASCOT_SIZE_PX + MASCOT_CARD_GAP_PX;
-    const cardTop = assemblyBottom - CARD_HEIGHT_APPROX;
+  // Pick a side to place the assembly on, in priority order:
+  // right > below > left > above. Falls back to bottom-right corner
+  // if nothing fits (assembly may overlap target — rare for our tip
+  // set since all targets are bounded by the viewport).
+  const anchor = useMemo<AssemblyAnchor | null>(() => {
+    if (!targetRect || typeof window === "undefined") return null;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    const fitsRight = vw - targetRect.right >=
+      ASSEMBLY_WIDTH + TARGET_GAP_PX + VIEWPORT_MARGIN_PX;
+    const fitsLeft = targetRect.left >=
+      ASSEMBLY_WIDTH + TARGET_GAP_PX + VIEWPORT_MARGIN_PX;
+    const fitsBelow = vh - targetRect.bottom >=
+      ASSEMBLY_HEIGHT + TARGET_GAP_PX + VIEWPORT_MARGIN_PX;
+    const fitsAbove = targetRect.top >=
+      ASSEMBLY_HEIGHT + TARGET_GAP_PX + VIEWPORT_MARGIN_PX;
+
+    const clampTop = (t: number) =>
+      Math.max(
+        VIEWPORT_MARGIN_PX,
+        Math.min(vh - ASSEMBLY_HEIGHT - VIEWPORT_MARGIN_PX, t),
+      );
+    const clampLeft = (l: number) =>
+      Math.max(
+        VIEWPORT_MARGIN_PX,
+        Math.min(vw - ASSEMBLY_WIDTH - VIEWPORT_MARGIN_PX, l),
+      );
+
+    if (fitsRight) {
+      return {
+        left: targetRect.right + TARGET_GAP_PX,
+        top: clampTop(
+          targetRect.top + targetRect.height / 2 - ASSEMBLY_HEIGHT / 2,
+        ),
+        side: "right",
+      };
+    }
+    if (fitsBelow) {
+      return {
+        left: clampLeft(
+          targetRect.left + targetRect.width / 2 - ASSEMBLY_WIDTH / 2,
+        ),
+        top: targetRect.bottom + TARGET_GAP_PX,
+        side: "below",
+      };
+    }
+    if (fitsLeft) {
+      return {
+        left: targetRect.left - TARGET_GAP_PX - ASSEMBLY_WIDTH,
+        top: clampTop(
+          targetRect.top + targetRect.height / 2 - ASSEMBLY_HEIGHT / 2,
+        ),
+        side: "left",
+      };
+    }
+    if (fitsAbove) {
+      return {
+        left: clampLeft(
+          targetRect.left + targetRect.width / 2 - ASSEMBLY_WIDTH / 2,
+        ),
+        top: targetRect.top - TARGET_GAP_PX - ASSEMBLY_HEIGHT,
+        side: "above",
+      };
+    }
+    // Fallback — bottom-right corner.
     return {
-      mascotLeft,
-      mascotTop,
-      mascotCenterX,
-      cardLeft,
-      cardTop,
+      left: vw - ASSEMBLY_WIDTH - VIEWPORT_MARGIN_PX,
+      top: vh - ASSEMBLY_HEIGHT - VIEWPORT_MARGIN_PX,
+      side: "fallback",
     };
-  }, []);
+  }, [targetRect]);
 
-  // Direction the BeakerBot faces — flip to face left when the
-  // target is to the left of the mascot. In practice the mascot
-  // sits at the bottom-right of the screen so almost every target
-  // is to the left, but a target inside the AppShell cluster
-  // (bottom-right) might be to the right.
-  const botDirection = useMemo<"left" | "right">(() => {
-    if (!targetRect || !assemblyGeometry) return "left";
+  // Pose adapts to where the target is relative to the mascot. The
+  // mascot always sits on the LEFT side of the assembly (so the
+  // card's left-edge callout tail keeps gesturing at it), so the
+  // mascot's screen position is `anchor.left + MASCOT_SIZE_PX/2`.
+  const mascotCenter = useMemo(() => {
+    if (!anchor) return null;
+    return {
+      x: anchor.left + MASCOT_SIZE_PX / 2,
+      y: anchor.top + MASCOT_SIZE_PX / 2,
+    };
+  }, [anchor]);
+
+  const { botPose, botDirection } = useMemo<{
+    botPose: "pointing" | "pointing-up" | "pointing-down";
+    botDirection: "left" | "right";
+  }>(() => {
+    if (!targetRect || !mascotCenter) {
+      return { botPose: "pointing", botDirection: "left" };
+    }
     const targetCenterX = targetRect.left + targetRect.width / 2;
-    return targetCenterX < assemblyGeometry.mascotCenterX ? "left" : "right";
-  }, [targetRect, assemblyGeometry]);
+    const targetCenterY = targetRect.top + targetRect.height / 2;
+    const dx = targetCenterX - mascotCenter.x;
+    const dy = targetCenterY - mascotCenter.y;
+    // If the target is mostly above/below the mascot, use vertical
+    // pose; otherwise horizontal. Vertical-vs-horizontal decided by
+    // which delta is larger in magnitude.
+    if (Math.abs(dy) > Math.abs(dx) * 1.3) {
+      return {
+        botPose: dy < 0 ? "pointing-up" : "pointing-down",
+        botDirection: dx < 0 ? "left" : "right",
+      };
+    }
+    return { botPose: "pointing", botDirection: dx < 0 ? "left" : "right" };
+  }, [targetRect, mascotCenter]);
 
-  // Pointer-line geometry. Starts at the mascot's finger tip (which
-  // is at one side of the mascot bounding box depending on
-  // `botDirection`) and ends at the target's center.
-  const pointerCoords = useMemo(() => {
-    if (!targetRect || !assemblyGeometry) return null;
-    const { mascotLeft, mascotTop } = assemblyGeometry;
-    const fingerXFrac = botDirection === "left" ? FINGER_X_LEFT : FINGER_X_RIGHT;
-    const startX = mascotLeft + MASCOT_SIZE_PX * fingerXFrac;
-    const startY = mascotTop + MASCOT_SIZE_PX * FINGER_Y;
-    const endX = targetRect.left + targetRect.width / 2;
-    const endY = targetRect.top + targetRect.height / 2;
-    return { startX, startY, endX, endY };
-  }, [targetRect, assemblyGeometry, botDirection]);
+  // Pulsing red-glow highlight on the target element, applied via
+  // a class so we can keep the styling co-located in the injected
+  // <style> tag below. Cleaned up on unmount / target change.
+  useEffect(() => {
+    if (!target) return;
+    target.classList.add("onboarding-tip-highlight");
+    return () => {
+      target.classList.remove("onboarding-tip-highlight");
+    };
+  }, [target]);
 
   if (!mounted) return null;
 
   return createPortal(
     <>
-      {/* Dotted pointer-line — separate portal layer so it can extend
-          beyond the card's bounds without clipping. */}
-      {pointerCoords && (
-        <svg
-          aria-hidden
-          className="fixed inset-0 pointer-events-none z-[200] transition-opacity duration-300"
-          style={{ opacity: pulse ? 1 : 0.7 }}
-          width="100vw"
-          height="100vh"
-        >
-          <line
-            x1={pointerCoords.startX}
-            y1={pointerCoords.startY}
-            x2={pointerCoords.endX}
-            y2={pointerCoords.endY}
-            stroke="currentColor"
-            className="text-sky-500"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeDasharray="2 4"
-          />
-        </svg>
-      )}
+      {/* Pulsing red-glow highlight on the target — scoped CSS
+          injected once per mount. Two outline rings + soft outer
+          glow + a 1.4s ease-in-out pulse. Sits on top of whatever
+          background the target has via box-shadow (no clipping).
+          Style block uses opacity tween via the `pulse` flag so the
+          first ~300ms after entry stays at peak intensity, then
+          settles into the breathing animation. */}
+      <style>{`
+        .onboarding-tip-highlight {
+          position: relative;
+          z-index: 200 !important;
+          border-radius: 8px;
+          animation: onboarding-tip-pulse 1.4s ease-in-out infinite;
+        }
+        @keyframes onboarding-tip-pulse {
+          0%, 100% {
+            box-shadow:
+              0 0 0 3px rgba(239, 68, 68, 0.95),
+              0 0 0 6px rgba(239, 68, 68, 0.35),
+              0 0 18px 6px rgba(239, 68, 68, 0.55);
+          }
+          50% {
+            box-shadow:
+              0 0 0 3px rgba(239, 68, 68, 0.65),
+              0 0 0 8px rgba(239, 68, 68, 0.18),
+              0 0 24px 10px rgba(239, 68, 68, 0.35);
+          }
+        }
+      `}</style>
 
-      {/* Mascot — standalone, sits to the left of the card. Bottom
-          edge aligns with the card's bottom so the bot "stands on"
-          the same baseline. */}
-      {assemblyGeometry && (
+      {/* Mascot — standalone, sits at the LEFT end of the assembly.
+          Pose adapts to where the target is relative to the mascot
+          (pointing / pointing-up / pointing-down + direction flip). */}
+      {anchor && (
         <div
           aria-hidden
-          className="fixed z-[201] drop-shadow-lg"
+          className="fixed z-[201] drop-shadow-lg transition-opacity duration-300"
           style={{
-            left: `${assemblyGeometry.mascotLeft}px`,
-            top: `${assemblyGeometry.mascotTop}px`,
+            left: `${anchor.left}px`,
+            top: `${anchor.top + (ASSEMBLY_HEIGHT - MASCOT_SIZE_PX) / 2}px`,
             width: `${MASCOT_SIZE_PX}px`,
             height: `${MASCOT_SIZE_PX}px`,
+            opacity: pulse ? 1 : 0.95,
           }}
         >
           <BeakerBot
-            pose="pointing"
+            pose={botPose}
             direction={botDirection}
             className="w-full h-full text-sky-500"
           />
@@ -221,8 +296,12 @@ export default function OnboardingTipCard({
         aria-labelledby={`onboarding-tip-${tip.id}-title`}
         className="fixed z-[201] bg-white border border-gray-200 rounded-xl shadow-2xl p-4"
         style={{
-          right: `${ASSEMBLY_RIGHT_PX}px`,
-          bottom: `${ASSEMBLY_BOTTOM_PX}px`,
+          left: anchor
+            ? `${anchor.left + MASCOT_SIZE_PX + MASCOT_CARD_GAP_PX}px`
+            : undefined,
+          top: anchor
+            ? `${anchor.top + (ASSEMBLY_HEIGHT - CARD_HEIGHT_APPROX) / 2}px`
+            : undefined,
           width: `${CARD_WIDTH}px`,
         }}
       >
