@@ -31,6 +31,7 @@ export function ownerScopedTasksApi(task: Task) {
       rawTasksApi.convertType(id, type, owner),
     resetPcr: (id: number, methodId?: number) => rawTasksApi.resetPcr(id, methodId, owner),
     resetLc: (id: number, methodId?: number) => rawTasksApi.resetLc(id, methodId, owner),
+    resetPlate: (id: number, methodId?: number) => rawTasksApi.resetPlate(id, methodId, owner),
     addMethod: (taskId: number, methodId: number) => rawTasksApi.addMethod(taskId, methodId, owner),
     removeMethod: (taskId: number, methodId: number) =>
       rawTasksApi.removeMethod(taskId, methodId, owner),
@@ -48,6 +49,11 @@ export function ownerScopedTasksApi(task: Task) {
       rawTasksApi.updateMethodMarkdownOverride(taskId, methodId, body, owner),
     resetMarkdownOverride: (taskId: number, methodId: number) =>
       rawTasksApi.resetMarkdownOverride(taskId, methodId, owner),
+    updateMethodPlate: (
+      taskId: number,
+      methodId: number,
+      data: { plate_annotation?: string }
+    ) => rawTasksApi.updateMethodPlate(taskId, methodId, data, owner),
     saveVariationNote: (taskId: number, methodId: number, notes: string) =>
       rawTasksApi.saveVariationNote(taskId, methodId, notes, owner),
     // `delete` intentionally not owner-routed: only the original owner

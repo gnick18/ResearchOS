@@ -1,5 +1,5 @@
 import { fileService } from "@/lib/file-system/file-service";
-import { methodsApi, pcrApi, lcGradientApi, projectsApi, tasksApi } from "@/lib/local-api";
+import { methodsApi, pcrApi, lcGradientApi, plateApi, projectsApi, tasksApi } from "@/lib/local-api";
 import { getCurrentUserCached } from "@/lib/storage/json-store";
 import { taskNotesBase, taskResultsBase, taskResultsTabBase } from "@/lib/tasks/results-paths";
 import type { TaskMethodAttachment } from "@/lib/types";
@@ -153,6 +153,34 @@ async function applyMethodResolutions(
       continue;
     }
 
+    if (entry.record.method_type === "plate") {
+      if (entry.plateProtocol == null) {
+        console.warn(
+          `[import.apply] Plate method '${res.sourceMethodName}' was marked import-new but the bundle did not carry the protocol record. Skipping.`,
+        );
+        continue;
+      }
+      const newName = await pickImportedMethodName(res.sourceMethodName);
+      const newProtocol = await plateApi.create({
+        name: entry.plateProtocol.name,
+        description: entry.plateProtocol.description,
+        plate_size: entry.plateProtocol.plate_size,
+        region_labels: entry.plateProtocol.region_labels,
+        is_public: false,
+      });
+      const newMethod = await methodsApi.create({
+        name: newName,
+        source_path: `plate://protocol/${newProtocol.id}`,
+        method_type: "plate",
+        folder_path: entry.record.folder_path,
+        tags: entry.record.tags ?? undefined,
+        is_public: false,
+      });
+      mapping[res.sourceMethodId] = newMethod.id;
+      resultMethodIds.push(newMethod.id);
+      continue;
+    }
+
     const newName = await pickImportedMethodName(res.sourceMethodName);
     const newSlug = slugifyForPath(newName);
 
@@ -204,6 +232,7 @@ function remapMethodAttachments(
       pcr_ingredients: att.pcr_ingredients,
       lc_gradient: att.lc_gradient ?? null,
       body_override: att.body_override ?? null,
+      plate_annotation: att.plate_annotation ?? null,
       variation_notes: att.variation_notes,
     });
   }

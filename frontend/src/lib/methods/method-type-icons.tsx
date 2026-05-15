@@ -82,6 +82,33 @@ export function LcGradientIcon({ className, size = 16 }: MethodTypeIconProps) {
   );
 }
 
+export function PlateIcon({ className, size = 16 }: MethodTypeIconProps) {
+  // A 4×3 dot grid alluding to a microtiter plate (24-well shape — the most
+  // recognizable). Reads cleanly at 16px.
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <circle cx="7" cy="9" r="1" fill="currentColor" />
+      <circle cx="12" cy="9" r="1" fill="currentColor" />
+      <circle cx="17" cy="9" r="1" fill="currentColor" />
+      <circle cx="7" cy="15" r="1" fill="currentColor" />
+      <circle cx="12" cy="15" r="1" fill="currentColor" />
+      <circle cx="17" cy="15" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function PcrIcon({ className, size = 16 }: MethodTypeIconProps) {
   return (
     <svg

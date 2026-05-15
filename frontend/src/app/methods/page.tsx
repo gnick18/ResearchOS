@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { methodsApi as rawMethodsApi, filesApi, pcrApi, lcGradientApi, usersApi, fetchAllMethodsIncludingShared } from "@/lib/local-api";
+import { methodsApi as rawMethodsApi, filesApi, pcrApi, lcGradientApi, plateApi, usersApi, fetchAllMethodsIncludingShared } from "@/lib/local-api";
 import type { MethodUpdate } from "@/lib/local-api";
 import { fileService } from "@/lib/file-system/file-service";
 import { fileEvents } from "@/lib/attachments/file-events";
@@ -25,9 +25,13 @@ import type {
   LCGradientColumn,
   LCGradientStep,
   LCIngredient,
+  PlateSize,
+  PlateWellAnnotation,
 } from "@/lib/types";
 import LcViewer from "@/components/LcViewer";
 import LcGradientEditor from "@/components/LcGradientEditor";
+import PlateViewer from "@/components/PlateViewer";
+import PlateLayoutEditor, { wellsToRegionLabels } from "@/components/PlateLayoutEditor";
 import {
   getMethodTypeMeta,
   getMethodTypesByCategory,
@@ -290,6 +294,16 @@ export default function MethodsPage() {
               await lcGradientApi.delete(lcId);
             } catch {
               // Non-fatal — LC gradient protocol might not exist
+            }
+          } else if (
+            method.method_type === "plate" &&
+            method.source_path.startsWith("plate://protocol/")
+          ) {
+            const plateId = parseInt(method.source_path.replace("plate://protocol/", ""));
+            try {
+              await plateApi.delete(plateId);
+            } catch {
+              // Non-fatal — plate protocol might not exist
             }
           } else {
             const methodDir = method.source_path.substring(
@@ -786,6 +800,15 @@ function CreateMethodModal({
     lcGradientApi.getDefaultIngredients(),
   );
 
+  // Plate layout state — defaults to an empty 96-well plate. The editor's
+  // brush-paint UX writes per-well annotations; on save we flatten to
+  // region_labels (1×1 rectangles) which is the source-template shape on disk.
+  const [platePlateSize, setPlatePlateSize] = useState<PlateSize>(() =>
+    plateApi.getDefaultPlateSize(),
+  );
+  const [plateWells, setPlateWells] = useState<Record<string, PlateWellAnnotation>>({});
+  const [plateDescription, setPlateDescription] = useState<string | null>(null);
+
   const slug = name
     .trim()
     .replace(/\s+/g, "-")
@@ -994,6 +1017,26 @@ function CreateMethodModal({
             .filter(Boolean),
           is_public: isPublic,
         });
+      } else if (uploadType === "plate") {
+        const protocol = await plateApi.create({
+          name: name.trim(),
+          description: plateDescription,
+          plate_size: platePlateSize,
+          region_labels: wellsToRegionLabels(plateWells),
+          folder_path: folder.trim() || null,
+          is_public: isPublic,
+        });
+        await methodsApi.create({
+          name: name.trim(),
+          source_path: `plate://protocol/${protocol.id}`,
+          method_type: "plate",
+          folder_path: folder.trim() || null,
+          tags: tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean),
+          is_public: isPublic,
+        });
       }
       onCreated();
     } catch (error: unknown) {
@@ -1002,7 +1045,7 @@ function CreateMethodModal({
     } finally {
       setSaving(false);
     }
-  }, [name, slug, uploadType, mdContent, pdfFile, folder, tags, isPublic, pcrGradient, pcrIngredients, pcrNotes, lcGradientSteps, lcColumn, lcWavelength, lcDescription, lcIngredients, onCreated]);
+  }, [name, slug, uploadType, mdContent, pdfFile, folder, tags, isPublic, pcrGradient, pcrIngredients, pcrNotes, lcGradientSteps, lcColumn, lcWavelength, lcDescription, lcIngredients, platePlateSize, plateWells, plateDescription, onCreated]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
@@ -1226,6 +1269,23 @@ function CreateMethodModal({
               </div>
             )}
 
+            {/* Plate Layout editor */}
+            {uploadType === "plate" && (
+              <div className="space-y-2">
+                <p className="text-xs text-gray-400">
+                  Plate layouts store a well-plate template — plate size plus any pre-labeled regions (blanks, controls, sample wells). Per-task sample identities go on the experiment page snapshot.
+                </p>
+                <PlateLayoutEditor
+                  plateSize={platePlateSize}
+                  onPlateSizeChange={setPlatePlateSize}
+                  wells={plateWells}
+                  onWellsChange={setPlateWells}
+                  description={plateDescription}
+                  onDescriptionChange={setPlateDescription}
+                />
+              </div>
+            )}
+
             {/* PCR editor */}
             {uploadType === "pcr" && (
               <div className="space-y-4">
@@ -1420,6 +1480,9 @@ function ViewMethodModal({
     }
     if (method.method_type === "lc_gradient") {
       return <LcViewer method={method} currentUser={currentUser} onClose={onClose} onDelete={onDelete} />;
+    }
+    if (method.method_type === "plate") {
+      return <PlateViewer method={method} currentUser={currentUser} onClose={onClose} onDelete={onDelete} />;
     }
     return <MarkdownMethodViewer method={method} currentUser={currentUser} onClose={onClose} onDelete={onDelete} />;
   };

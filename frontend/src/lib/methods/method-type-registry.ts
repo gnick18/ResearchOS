@@ -18,9 +18,9 @@
  */
 
 import type { ComponentType } from "react";
-import { LcGradientIcon, MarkdownIcon, PcrIcon, PdfIcon } from "./method-type-icons";
+import { LcGradientIcon, MarkdownIcon, PcrIcon, PdfIcon, PlateIcon } from "./method-type-icons";
 
-export type MethodTypeId = "markdown" | "pdf" | "pcr" | "lc_gradient";
+export type MethodTypeId = "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate";
 
 export interface MethodTypeMeta {
   /** The discriminator value as written to disk. */
@@ -82,6 +82,16 @@ export const METHOD_TYPE_REGISTRY: Record<MethodTypeId, MethodTypeMeta> = {
     color: { bg: "bg-sky-100", text: "text-sky-600" },
     icon: LcGradientIcon,
     description: "HPLC/LC-MS solvent gradient + flow + column + ingredients.",
+    hasStructuredProtocol: true,
+    category: "structured",
+  },
+  plate: {
+    id: "plate",
+    label: "Plate Layout",
+    shortLabel: "Plate",
+    color: { bg: "bg-emerald-100", text: "text-emerald-600" },
+    icon: PlateIcon,
+    description: "Well-plate layout — sample/control/blank annotations.",
     hasStructuredProtocol: true,
     category: "structured",
   },

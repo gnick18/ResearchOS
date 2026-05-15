@@ -37,6 +37,8 @@ import type {
   PCRProtocol,
   PCRStep,
   LCGradientProtocol,
+  PlateProtocol,
+  PlateWellAnnotation,
 } from "@/lib/types";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -1215,6 +1217,170 @@ export async function buildPdf(
     return out;
   }
 
+  function renderPlateMethodBody(mp: MethodPayload): React.ReactNode[] {
+    const sourceProtocol: PlateProtocol | null = mp.plateProtocol ?? null;
+    if (!sourceProtocol) {
+      return [
+        h(
+          Text,
+          { key: "plate-missing", style: styles.methodIntro },
+          "Plate Layout Method (protocol could not be loaded).",
+        ),
+      ];
+    }
+
+    const ROLE_LABELS: Record<string, string> = {
+      blank: "Blank",
+      sample: "Sample",
+      control: "Control",
+      na: "N/A",
+      custom: "Custom",
+    };
+    const dims = (() => {
+      switch (sourceProtocol.plate_size) {
+        case 12: return { rows: 3, cols: 4 };
+        case 24: return { rows: 4, cols: 6 };
+        case 48: return { rows: 6, cols: 8 };
+        case 96: return { rows: 8, cols: 12 };
+      }
+    })();
+
+    // Build the effective per-well map.
+    const wells: Record<string, PlateWellAnnotation> = {};
+    for (const r of sourceProtocol.region_labels ?? []) {
+      for (let row = r.row_start; row <= r.row_end; row += 1) {
+        for (let col = r.col_start; col <= r.col_end; col += 1) {
+          const id = `${String.fromCharCode(65 + row)}${col + 1}`;
+          const w: PlateWellAnnotation = { role: r.role };
+          if (r.custom_label) w.custom_label = r.custom_label;
+          if (r.notes) w.notes = r.notes;
+          wells[id] = w;
+        }
+      }
+    }
+    const att = mp.attachment;
+    let usedSnapshot = false;
+    if (att?.plate_annotation && att.plate_annotation.trim()) {
+      try {
+        const parsed = JSON.parse(att.plate_annotation);
+        if (parsed && typeof parsed === "object" && parsed.wells && typeof parsed.wells === "object") {
+          Object.assign(wells, parsed.wells);
+          usedSnapshot = true;
+        }
+      } catch {
+        // Drop corrupt snapshot.
+      }
+    }
+
+    const keyPrefix = `m${mp.method.id}-plate`;
+    const out: React.ReactNode[] = [];
+
+    out.push(
+      h(
+        Text,
+        { key: `${keyPrefix}-h`, style: styles.h4 },
+        `Plate layout (${sourceProtocol.plate_size}-well)`,
+      ),
+    );
+
+    // Render the grid as a table of header row + dims.rows body rows.
+    const gridRows: React.ReactNode[] = [];
+    const headerCells: React.ReactNode[] = [
+      h(Text, { key: "h-corner", style: styles.tableCellHeader }, ""),
+    ];
+    for (let c = 0; c < dims.cols; c += 1) {
+      headerCells.push(
+        h(Text, { key: `h-${c}`, style: styles.tableCellHeader }, String(c + 1)),
+      );
+    }
+    gridRows.push(
+      h(View, { key: `${keyPrefix}-head`, style: styles.tableRow, wrap: false }, ...headerCells),
+    );
+    for (let r = 0; r < dims.rows; r += 1) {
+      const cells: React.ReactNode[] = [
+        h(
+          Text,
+          { key: `r${r}-label`, style: styles.tableCellHeader },
+          String.fromCharCode(65 + r),
+        ),
+      ];
+      for (let c = 0; c < dims.cols; c += 1) {
+        const id = `${String.fromCharCode(65 + r)}${c + 1}`;
+        const w = wells[id];
+        const label = !w
+          ? ""
+          : w.role === "sample"
+            ? "S"
+            : w.role === "control"
+              ? "C"
+              : w.role === "blank"
+                ? "B"
+                : w.role === "na"
+                  ? "-"
+                  : "?";
+        cells.push(
+          h(Text, { key: `r${r}c${c}`, style: styles.tableCell }, label),
+        );
+      }
+      gridRows.push(
+        h(View, { key: `${keyPrefix}-r${r}`, style: styles.tableRow, wrap: false }, ...cells),
+      );
+    }
+    out.push(
+      h(View, { key: `${keyPrefix}-grid`, style: styles.pcrTable }, ...gridRows),
+    );
+
+    // Summary counts.
+    const counts: Record<string, number> = { blank: 0, sample: 0, control: 0, na: 0, custom: 0 };
+    for (const w of Object.values(wells)) counts[w.role] = (counts[w.role] ?? 0) + 1;
+    const summaryRows: React.ReactNode[] = [
+      h(
+        View,
+        { key: `${keyPrefix}-sum-head`, style: styles.tableRow, wrap: false },
+        h(Text, { style: styles.tableCellHeader }, "Role"),
+        h(Text, { style: styles.tableCellHeader }, "Wells"),
+      ),
+    ];
+    let totalAnnotated = 0;
+    for (const role of Object.keys(ROLE_LABELS)) {
+      if ((counts[role] ?? 0) === 0) continue;
+      totalAnnotated += counts[role];
+      summaryRows.push(
+        h(
+          View,
+          { key: `${keyPrefix}-sum-${role}`, style: styles.tableRow, wrap: false },
+          h(Text, { style: styles.tableCell }, ROLE_LABELS[role]),
+          h(Text, { style: styles.tableCell }, String(counts[role])),
+        ),
+      );
+    }
+    if (totalAnnotated > 0) {
+      out.push(
+        h(View, { key: `${keyPrefix}-sum`, style: styles.pcrTable }, ...summaryRows),
+      );
+    }
+
+    if (sourceProtocol.description && sourceProtocol.description.trim()) {
+      out.push(
+        h(
+          Text,
+          { key: `${keyPrefix}-desc`, style: styles.pcrNotes },
+          sourceProtocol.description.trim(),
+        ),
+      );
+    }
+    if (usedSnapshot) {
+      out.push(
+        h(
+          Text,
+          { key: `${keyPrefix}-snap-note`, style: styles.pcrDeviationHeading },
+          "Note: annotations above reflect per-task snapshot edits, not the source layout alone.",
+        ),
+      );
+    }
+    return out;
+  }
+
   function MethodSubsection({ mp }: { mp: MethodPayload }) {
     const { method, bodyMarkdown, attachment } = mp;
     const variation = (attachment?.variation_notes ?? "").trim();
@@ -1246,6 +1412,8 @@ export async function buildPdf(
       children.push(...renderPcrMethodBody(mp));
     } else if (method.method_type === "lc_gradient") {
       children.push(...renderLcGradientMethodBody(mp));
+    } else if (method.method_type === "plate") {
+      children.push(...renderPlateMethodBody(mp));
     } else {
       children.push(
         h(

@@ -33,6 +33,9 @@ import type {
   LCGradientProtocol,
   LCGradientProtocolCreate,
   LCGradientProtocolUpdate,
+  PlateProtocol,
+  PlateProtocolCreate,
+  PlateProtocolUpdate,
   PurchaseItem,
   PurchaseItemCreate,
   PurchaseItemUpdate,
@@ -74,6 +77,8 @@ const pcrStore = new JsonStore<PCRProtocol>("pcr_protocols");
 const publicPcrStore = getPublicStore<PCRProtocol>("pcr_protocols");
 const lcGradientStore = new JsonStore<LCGradientProtocol>("lc_gradients");
 const publicLcGradientStore = getPublicStore<LCGradientProtocol>("lc_gradients");
+const plateLayoutStore = new JsonStore<PlateProtocol>("plate_layouts");
+const publicPlateLayoutStore = getPublicStore<PlateProtocol>("plate_layouts");
 const purchaseItemsStore = new JsonStore<PurchaseItem>("purchase_items");
 const catalogStore = new JsonStore<CatalogItem>("item_catalog");
 const labLinksStore = new JsonStore<LabLink>("lab_links");
@@ -274,27 +279,37 @@ function normalizeTaskRecord(raw: Task): Task {
   const filtered = attachments.some((a) => !methodIds.includes(a.method_id))
     ? attachments.filter((a) => methodIds.includes(a.method_id))
     : attachments;
-  // Backfill the lc_gradient + body_override fields on attachments written
-  // before those features landed (LC Phase 1a, Markdown Phase 2B). Without
-  // this, `attachment.lc_gradient` / `attachment.body_override` are
-  // `undefined` at runtime for any pre-feature task, which trips strict
-  // null checks in the tab content's snapshot-vs-source branching.
+  // Backfill the lc_gradient / body_override / plate_annotation fields on
+  // attachments written before their respective features landed (LC Phase 1a,
+  // Markdown Phase 2B, Plate Phase 2C). Without this, the field is `undefined`
+  // at runtime for any older task, which trips strict null checks in the
+  // per-type tab content's snapshot-vs-source branching. Each new structured
+  // method type that adds a `_*: string | null` slot on TaskMethodAttachment
+  // appends one more clause here.
   const needsLcBackfill = filtered.some(
     (a) => !Object.prototype.hasOwnProperty.call(a, "lc_gradient"),
   );
   const needsBodyOverrideBackfill = filtered.some(
     (a) => !Object.prototype.hasOwnProperty.call(a, "body_override"),
   );
-  if (filtered !== attachments || needsLcBackfill || needsBodyOverrideBackfill) {
+  const needsPlateBackfill = filtered.some(
+    (a) => !Object.prototype.hasOwnProperty.call(a, "plate_annotation"),
+  );
+  if (filtered !== attachments || needsLcBackfill || needsBodyOverrideBackfill || needsPlateBackfill) {
     normalized = {
       ...normalized,
       method_attachments: filtered.map((a) => {
-        const withLc = Object.prototype.hasOwnProperty.call(a, "lc_gradient")
-          ? a
-          : { ...a, lc_gradient: null };
-        return Object.prototype.hasOwnProperty.call(withLc, "body_override")
-          ? withLc
-          : { ...withLc, body_override: null };
+        let next = a;
+        if (!Object.prototype.hasOwnProperty.call(next, "lc_gradient")) {
+          next = { ...next, lc_gradient: null };
+        }
+        if (!Object.prototype.hasOwnProperty.call(next, "body_override")) {
+          next = { ...next, body_override: null };
+        }
+        if (!Object.prototype.hasOwnProperty.call(next, "plate_annotation")) {
+          next = { ...next, plate_annotation: null };
+        }
+        return next;
       }),
     };
   }
@@ -341,7 +356,7 @@ export const tasksApi = {
     sub_tasks?: Array<{ id: string; text: string; is_complete: boolean }>;
     pcr_gradient?: string | null;
     pcr_ingredients?: string | null;
-    method_attachments?: Array<{ method_id: number; pcr_gradient?: string | null; pcr_ingredients?: string | null; lc_gradient?: string | null; body_override?: string | null; variation_notes?: string | null }>;
+    method_attachments?: Array<{ method_id: number; pcr_gradient?: string | null; pcr_ingredients?: string | null; lc_gradient?: string | null; body_override?: string | null; plate_annotation?: string | null; variation_notes?: string | null }>;
   }): Promise<Task> => {
     const durationDays = data.duration_days || 1;
     const endDate = canonicalEndDate({ start_date: data.start_date, duration_days: durationDays });
@@ -374,6 +389,7 @@ export const tasksApi = {
         pcr_ingredients: a.pcr_ingredients ?? null,
         lc_gradient: a.lc_gradient ?? null,
         body_override: a.body_override ?? null,
+        plate_annotation: a.plate_annotation ?? null,
         variation_notes: a.variation_notes ?? null,
       })),
       owner: currentUser,
@@ -608,6 +624,7 @@ export const tasksApi = {
         pcr_ingredients: null,
         lc_gradient: null,
         body_override: null,
+        plate_annotation: null,
         variation_notes: null,
       });
     }
@@ -772,6 +789,47 @@ export const tasksApi = {
     });
 
     return updateTaskForCaller(taskId, { method_attachments: attachments }, owner);
+  },
+
+  updateMethodPlate: async (
+    taskId: number,
+    methodId: number,
+    data: { plate_annotation?: string },
+    owner?: string
+  ): Promise<Task | null> => {
+    const task = await getTaskForCaller(taskId, owner);
+    if (!task) return null;
+
+    const attachments = (task.method_attachments || []).map((a) => {
+      if (a.method_id === methodId) {
+        return { ...a, ...data };
+      }
+      return a;
+    });
+
+    return updateTaskForCaller(taskId, { method_attachments: attachments }, owner);
+  },
+
+  resetPlate: async (id: number, methodId?: number, owner?: string): Promise<Task | null> => {
+    const task = await getTaskForCaller(id, owner);
+    if (!task) return null;
+
+    if (methodId) {
+      const attachments = task.method_attachments?.map((a) => {
+        if (a.method_id === methodId) {
+          return { ...a, plate_annotation: null };
+        }
+        return a;
+      });
+      return updateTaskForCaller(id, { method_attachments: attachments }, owner);
+    }
+
+    return updateTaskForCaller(id, {
+      method_attachments: task.method_attachments?.map((a) => ({
+        ...a,
+        plate_annotation: null,
+      })),
+    }, owner);
   },
 
   saveVariationNote: async (
@@ -1446,6 +1504,103 @@ export const lcGradientApi = {
     { id: "a", name: "Water + 0.1% formic acid", role: "solvent_a", concentration: "0.1% FA" },
     { id: "b", name: "Acetonitrile + 0.1% formic acid", role: "solvent_b", concentration: "0.1% FA" },
   ],
+};
+
+// ── Plate Layout API ─────────────────────────────────────────────────────────
+//
+// Storage shape mirrors pcrApi / lcGradientApi exactly: per-user
+// `users/<u>/plate_layouts/<id>.json` for private records,
+// `users/public/plate_layouts/<id>.json` for is_public:true. Per-user counter
+// file `_counters.json` carries a `plate_layout` line on first create
+// (managed by JsonStore.create). Methods reference these records via
+// `source_path: "plate://protocol/{id}"` — owner-aware resolution mirrors
+// the other structured types to keep namespaces consistent.
+
+export const plateApi = {
+  list: async (): Promise<PlateProtocol[]> => {
+    const privateProtocols = await plateLayoutStore.listAll();
+    const publicProtocols = await publicPlateLayoutStore.listAll();
+
+    return [
+      ...privateProtocols.map((p) => ({ ...p, is_public: false })),
+      ...publicProtocols.map((p) => ({ ...p, is_public: true })),
+    ];
+  },
+
+  get: async (id: number, owner?: string): Promise<PlateProtocol | null> => {
+    if (owner) {
+      if (owner === "public") {
+        const publicProtocol = await publicPlateLayoutStore.get(id);
+        return publicProtocol ? { ...publicProtocol, is_public: true } : null;
+      }
+      const ownerProtocol = await plateLayoutStore.getForUser(id, owner);
+      return ownerProtocol ? { ...ownerProtocol, is_public: false } : null;
+    }
+
+    const protocol = await plateLayoutStore.get(id);
+    if (protocol) return { ...protocol, is_public: false };
+
+    const publicProtocol = await publicPlateLayoutStore.get(id);
+    if (publicProtocol) return { ...publicProtocol, is_public: true };
+
+    return null;
+  },
+
+  create: async (data: PlateProtocolCreate): Promise<PlateProtocol> => {
+    const isPublic = data.is_public ?? false;
+    const now = new Date().toISOString();
+    const base = {
+      name: data.name,
+      description: data.description ?? null,
+      plate_size: data.plate_size,
+      region_labels: data.region_labels ?? [],
+      created_at: now,
+      updated_at: now,
+      created_by: null,
+    };
+    if (isPublic) {
+      return publicPlateLayoutStore.create({ ...base, is_public: true });
+    }
+    return plateLayoutStore.create({ ...base, is_public: false });
+  },
+
+  update: async (
+    id: number,
+    data: PlateProtocolUpdate,
+    owner?: string,
+  ): Promise<PlateProtocol | null> => {
+    const patch = { ...data, updated_at: new Date().toISOString() };
+    if (owner) {
+      if (owner === "public") {
+        const publicProtocol = await publicPlateLayoutStore.get(id);
+        return publicProtocol ? publicPlateLayoutStore.update(id, patch) : null;
+      }
+      const ownerProtocol = await plateLayoutStore.getForUser(id, owner);
+      return ownerProtocol ? plateLayoutStore.updateForUser(id, patch, owner) : null;
+    }
+
+    let protocol = await plateLayoutStore.get(id);
+    if (protocol) {
+      return plateLayoutStore.update(id, patch);
+    }
+
+    protocol = await publicPlateLayoutStore.get(id);
+    if (protocol) {
+      return publicPlateLayoutStore.update(id, patch);
+    }
+
+    return null;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await plateLayoutStore.delete(id);
+    await publicPlateLayoutStore.delete(id);
+  },
+
+  /** Defaults seeded into the new-method dialog for `method_type === "plate"`.
+   *  Empty 96-well plate is the most common scientific default. */
+  getDefaultPlateSize: (): import("./types").PlateSize => 96,
+  getDefaultRegionLabels: (): import("./types").PlateRegionLabel[] => [],
 };
 
 export const purchasesApi = {
@@ -3825,6 +3980,9 @@ export type {
   LCGradientProtocol,
   LCGradientProtocolCreate,
   LCGradientProtocolUpdate,
+  PlateProtocol,
+  PlateProtocolCreate,
+  PlateProtocolUpdate,
   PurchaseItem,
   PurchaseItemCreate,
   PurchaseItemUpdate,

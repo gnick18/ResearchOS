@@ -67,6 +67,12 @@ export async function buildRawZip(
         JSON.stringify(mp.lcGradientProtocol, null, 2),
       );
     }
+    if (mp.method.method_type === "plate" && mp.plateProtocol != null) {
+      zip.file(
+        `methods/method-${id}-plate-protocol.json`,
+        JSON.stringify(mp.plateProtocol, null, 2),
+      );
+    }
     const match = payload.attachments.find(
       (a) => a.origin === "methods" && a.methodId === id,
     );

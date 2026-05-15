@@ -11,6 +11,7 @@ import type {
   TaskMethodAttachment,
   PCRProtocol,
   LCGradientProtocol,
+  PlateProtocol,
 } from "@/lib/types";
 
 export type ExportFormat = "pdf" | "html" | "raw";
@@ -56,6 +57,10 @@ export interface MethodPayload {
   // `method.source_path === "lc_gradient://protocol/{id}"`. `null` when the
   // protocol couldn't be loaded across owner namespaces.
   lcGradientProtocol?: LCGradientProtocol | null;
+  // Only populated for `method.method_type === "plate"`. Mirrors lcGradient
+  // / pcrProtocol — referenced by `plate://protocol/{id}`. `null` when the
+  // protocol couldn't be loaded across owner namespaces.
+  plateProtocol?: PlateProtocol | null;
 }
 
 export interface ExperimentExportPayload {

@@ -11,6 +11,7 @@ import MarkdownMethodTabContent from "./methods/MarkdownMethodTabContent";
 import PdfMethodTabContent from "./methods/PdfMethodTabContent";
 import PcrMethodTabContent from "./methods/PcrMethodTabContent";
 import LcMethodTabContent from "./methods/LcMethodTabContent";
+import PlateMethodTabContent from "./methods/PlateMethodTabContent";
 
 interface MethodTabsProps {
   task: Task;
@@ -120,6 +121,8 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                   <span className="text-xs">🧬</span>
                 ) : method?.method_type === "lc_gradient" ? (
                   <span className="text-xs">📈</span>
+                ) : method?.method_type === "plate" ? (
+                  <span className="text-xs">🧫</span>
                 ) : method?.method_type === "pdf" ? (
                   <span className="text-xs">📕</span>
                 ) : (
@@ -229,6 +232,17 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                     readOnly={readOnly}
                   />
                 );
+              case "plate":
+                return (
+                  <PlateMethodTabContent
+                    task={task}
+                    method={activeMethod}
+                    methodId={activeMethodId}
+                    attachment={activeAttachment}
+                    onTaskUpdate={onTaskUpdate}
+                    readOnly={readOnly}
+                  />
+                );
               case "pdf":
                 return (
                   <PdfMethodTabContent
@@ -270,13 +284,16 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
 function resolveMethodType(
   methodType: string | null | undefined,
   sourcePath: string | null | undefined,
-): "markdown" | "pdf" | "pcr" | "lc_gradient" {
+): "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" {
   if (methodType === "pcr" || (sourcePath?.startsWith("pcr://") ?? false)) return "pcr";
   if (
     methodType === "lc_gradient" ||
     (sourcePath?.startsWith("lc_gradient://") ?? false)
   ) {
     return "lc_gradient";
+  }
+  if (methodType === "plate" || (sourcePath?.startsWith("plate://") ?? false)) {
+    return "plate";
   }
   if (methodType === "pdf" || (sourcePath?.toLowerCase().endsWith(".pdf") ?? false)) return "pdf";
   return "markdown";

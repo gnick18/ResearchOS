@@ -194,6 +194,10 @@ export interface TaskMethodAttachment {
   // remains the canonical reusable protocol while each task can capture its own
   // documented variation.
   body_override: string | null;
+  // Plate annotation snapshot - JSON string of `{ wells: {...} }` (only for
+  // plate methods). Mirrors lc_gradient: per-well painting on the experiment
+  // page lands here, not back on the source PlateProtocol's region_labels.
+  plate_annotation: string | null;
   // Variation notes - markdown content documenting method variations for this experiment
   variation_notes: string | null;  // Markdown string with timestamped entries
 }
@@ -421,7 +425,7 @@ export interface Method {
   id: number;
   name: string;
   source_path: string | null;
-  method_type: "markdown" | "pdf" | "pcr" | "lc_gradient" | null;
+  method_type: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | null;
   folder_path: string | null;
   parent_method_id: number | null;
   tags: string[] | null;
@@ -439,7 +443,7 @@ export interface Method {
 export interface MethodCreate {
   name: string;
   source_path?: string | null;
-  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient";
+  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate";
   folder_path?: string | null;
   parent_method_id?: number | null;
   tags?: string[];
@@ -449,7 +453,7 @@ export interface MethodCreate {
 export interface MethodUpdate {
   name?: string;
   source_path?: string | null;
-  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | null;
+  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | null;
   folder_path?: string | null;
   parent_method_id?: number | null;
   tags?: string[];
@@ -584,6 +588,89 @@ export type LCGradientProtocolUpdate = Partial<{
   detection_wavelength_nm: number | null;
   ingredients: LCIngredient[];
 }>;
+
+// ── Plate layout ─────────────────────────────────────────────────────────────
+//
+// Generic well-plate annotation widget that covers every plate-based workflow:
+// bacterial plating, transformation, transfection, growth curves, dose-response,
+// ELISA, etc. Deliberately decoupled from any one assay type — the "method"
+// (PlateProtocol) carries the plate size + optional region labels for pre-
+// labeled zones; the per-task `plate_annotation` snapshot carries the actual
+// well-by-well annotations.
+
+/** Plate sizes supported in v1. 384 deferred to v2. */
+export type PlateSize = 12 | 24 | 48 | 96;
+
+/** Role of a well or region. "custom" pairs with `custom_label` for free-text
+ *  brushes (e.g. "Strain ΔADE2"). */
+export type PlateWellRole = "blank" | "sample" | "control" | "na" | "custom";
+
+/** A rectangular region of pre-labeled wells on a plate protocol. Rows and
+ *  columns are 0-indexed (row 0 = "A", col 0 = column "1") and inclusive on
+ *  both ends — `{ row_start: 0, row_end: 0, col_start: 0, col_end: 11 }` is
+ *  the entire first row of a 96-well plate. */
+export interface PlateRegionLabel {
+  row_start: number;
+  row_end: number;
+  col_start: number;
+  col_end: number;
+  role: PlateWellRole;
+  custom_label?: string;
+  notes?: string;
+}
+
+export interface PlateProtocol {
+  id: number;
+  name: string;
+  description?: string | null;
+  is_public: boolean;
+  created_at?: string;
+  updated_at?: string;
+  created_by: string | null;
+  plate_size: PlateSize;
+  /** Optional pre-labeled regions baked into the method. Per-task overrides
+   *  go on `TaskMethodAttachment.plate_annotation` and supersede these. */
+  region_labels?: PlateRegionLabel[];
+}
+
+export interface PlateProtocolCreate {
+  name: string;
+  description?: string | null;
+  is_public?: boolean;
+  plate_size: PlateSize;
+  region_labels?: PlateRegionLabel[];
+  folder_path?: string | null;
+}
+
+export type PlateProtocolUpdate = Partial<{
+  name: string;
+  description: string | null;
+  is_public: boolean;
+  plate_size: PlateSize;
+  region_labels: PlateRegionLabel[];
+}>;
+
+/** Per-well annotation written by the experiment-page editor. */
+export interface PlateWellAnnotation {
+  role: PlateWellRole;
+  /** Free-text sample identifier (e.g. "Sample 5 @ 10 µM"). Only meaningful
+   *  for `role === "sample"` but kept on the well so role-changes don't
+   *  silently drop the text. */
+  sample_label?: string;
+  /** Free-text label for `role === "custom"` brushes. */
+  custom_label?: string;
+  /** Optional replicate index, used when the same sample is painted across
+   *  multiple wells (e.g. 1/2/3 for technical triplicates). */
+  replicate_index?: number;
+  notes?: string;
+}
+
+/** Shape persisted as the JSON-stringified body of
+ *  `TaskMethodAttachment.plate_annotation`. Well ids are "A1", "A2", …
+ *  using letter-row + 1-indexed-column. */
+export interface PlateAnnotationSnapshot {
+  wells: Record<string, PlateWellAnnotation>;
+}
 
 export interface MethodForkRequest {
   new_name: string;
