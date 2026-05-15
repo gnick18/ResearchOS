@@ -1,4 +1,4 @@
-# Onboarding tips — proposal
+# Onboarding tips: proposal
 
 > Scope: a folder-scoped, occasionally-firing tip system for brand-new
 > ResearchOS accounts. A small mascot character points at a real
@@ -20,11 +20,11 @@ rename**, that **a colleague's task can be shared into their project so
 both Gantts stay in sync**, or that the 5-icon cluster in the
 bottom-right corner is where the data-folder switcher, user switcher,
 bug-report button, and dev-test notification live. The wiki documents
-all of this — but only after the user knows to look for it.
+all of this, but only after the user knows to look for it.
 
 The wiki page-view pattern is "explain a concept, then show how to do
 it." That works for users who have already decided to learn a feature.
-What it doesn't do is the *interruption* — the in-context cue at the
+What it doesn't do is the *interruption*: the in-context cue at the
 moment the affordance is on screen. Tips are the cue layer.
 
 The brief is intentionally narrow: **brand-new accounts only**. Two
@@ -33,7 +33,7 @@ constraints follow:
 1. **"Brand-new" must survive browser changes.** A user who creates a
    folder on her laptop, signs in, then opens the same folder on a
    different machine should not see "Hey did you know you can…" tips on
-   the second machine — she already saw them on the first one. So the
+   the second machine; she already saw them on the first one. So the
    "brand-new" bit lives **on disk** in the research folder, not in
    `localStorage` / IndexedDB / sessionStorage.
 2. **Demo and wiki-capture modes are exempt.** The `/demo` route and
@@ -53,7 +53,7 @@ Grant input before implementation kicks off.
 
 **LOCKED 2026-05-14 (Grant):** sidecar lives **per-user** at
 `users/<u>/_onboarding.json`. Each user that signs into a folder gets
-her own brand-new sequence — co-PIs sharing a laptop each get
+her own brand-new sequence; co-PIs sharing a laptop each get
 onboarded independently. The trade-off is that a single human who
 opens the same folder from a second machine sees tips again (since
 identity is per-user-on-this-folder, not per-actual-human); judged
@@ -61,7 +61,7 @@ acceptable given there's no way to detect cross-machine humans
 without server-side identity.
 
 This is the same shape as `_telegram.json`, `_calendar-feeds.json`,
-`_labarchives.json` — per-user sidecars at `users/<u>/_<feature>.json`.
+`_labarchives.json`: per-user sidecars at `users/<u>/_<feature>.json`.
 Read/write path mirrors `frontend/src/lib/calendar/external-feeds-store.ts`
 (version field, normalize-on-read, lazy default if missing).
 
@@ -124,7 +124,7 @@ Read/write path mirrors `frontend/src/lib/calendar/external-feeds-store.ts`
 Three things to notice about the shape:
 
 - **Per-user, not folder-root.** Mirrors `_telegram.json` /
-  `_calendar-feeds.json` / `_labarchives.json` — sits under
+  `_calendar-feeds.json` / `_labarchives.json`: sits under
   `users/<u>/` so each user's onboarding sequence is independent.
   Locked in design call (2026-05-14).
 - **No telemetry.** ResearchOS has no server backend for the data
@@ -163,7 +163,7 @@ Concretely:
 - The provider doesn't mount the tip orchestrator at all when
   `isDemoOrWikiCapture()` is true. No state, no event listeners, no
   sidecar reads/writes in that branch.
-- This also covers the picker variant (`?wikiCapture=picker`) — the
+- This also covers the picker variant (`?wikiCapture=picker`): the
   fixture is installed but no user is signed in yet, so neither path
   fires.
 - The demo's sticky `sessionStorage` flag (`researchos:demo-mode`)
@@ -172,7 +172,7 @@ Concretely:
   mid-flight onboarding popup.
 
 Tests: a single React-Testing-Library assertion that the orchestrator
-returns `null` when `getDemoMode()` mock returns true is enough — the
+returns `null` when `getDemoMode()` mock returns true is enough. The
 gate is one line of code, the test guards regression.
 
 ## Mascot
@@ -180,7 +180,7 @@ gate is one line of code, the test guards regression.
 The brief is "cute / anime inspired" and explicitly **not emoji-based**.
 The rest of the app uses single-path stroke-SVG icons in the style of
 the recent emoji sweeps (commits `f3e39af3`, `11054b2a`, `1bc9fe36`,
-`72b0c385`) — all `fill="none" stroke="currentColor" strokeWidth={2}`
+`72b0c385`), all `fill="none" stroke="currentColor" strokeWidth={2}`
 with rounded line caps + joins. The mascot should land in that visual
 family so it reads as "another ResearchOS icon" rather than "imported
 from a different design system."
@@ -188,14 +188,14 @@ from a different design system."
 Three directions were considered. Recommended: **Direction 1, the
 beaker-bot**.
 
-### Direction 1 — Beaker-bot (recommended)
+### Direction 1: Beaker-bot (recommended)
 
 A small round-bodied character built from a chemistry-beaker silhouette
 with two dot eyes, a rounded square smile, and a single hair-tuft
 flick. Two small floating measurement-mark dashes on the side of the
 body double as cheek blush. The whole figure renders in
 `stroke="currentColor"` at the same 2px weight as every other icon in
-the app. Two pose variants — `idle` (eyes neutral, slight smile) and
+the app. Two pose variants: `idle` (eyes neutral, slight smile) and
 `pointing` (one arm raised, finger extended; the finger renders as a
 small triangle that points toward the affordance the tip is calling
 out).
@@ -216,10 +216,10 @@ out).
 ```
 
 Roughly ~30 lines of SVG path data per pose. Inline as a component, not
-fetched as a `.svg` asset — keeps the bundle small and lets us tint the
-character with whatever Tailwind color class makes sense for the
-surface it's on (`text-emerald-500` for "you did it!", `text-sky-500`
-for "here's a thing," etc.).
+fetched as a `.svg` asset, which keeps the bundle small and lets us
+tint the character with whatever Tailwind color class makes sense for
+the surface it's on (`text-emerald-500` for "you did it!",
+`text-sky-500` for "here's a thing," etc.).
 
 **Why this:** The beaker silhouette is the strongest read-at-a-glance
 visual cue that this is a *research-tool* mascot specifically. It's
@@ -259,7 +259,7 @@ The pointing variant adds:
 <path d="M33 16 L32 14 L34.5 15 Z" fill="currentColor" />
 ```
 
-### Direction 2 — Origami-fox
+### Direction 2: Origami-fox
 
 A folded-fox silhouette (triangular ears, wedge body, simple
 fold-lines) that "pops up" from the corner of the tip card. Stays in
@@ -267,17 +267,17 @@ the same stroke style; very anime-adjacent (paper-craft mascots are an
 established convention). Strength: cleanest geometry, easiest to
 animate (small bounce-in works well with sharp angles). Weakness: less
 research-tool-specific; reads as "cute mascot" without the lab
-connection. Rejected on identity grounds — the beaker-bot's silhouette
+connection. Rejected on identity grounds: the beaker-bot's silhouette
 says "ResearchOS" without an accompanying word; the origami-fox needs
 the surrounding text to land.
 
-### Direction 3 — Pencil-sprite
+### Direction 3: Pencil-sprite
 
 An anthropomorphized pencil with eyes near the eraser end, doubling as
 a "writing tip" pun. Strength: cheapest to draw, single-path silhouette
 is one of the simplest. Weakness: the pencil framing fights with the
 fact that most of ResearchOS is about lab work, not writing
-specifically — feels like a Microsoft-Word mascot in the wrong app.
+specifically. It feels like a Microsoft-Word mascot in the wrong app.
 Also: a pencil sprite that "points" by extending its tip toward the
 affordance is too on-the-nose given that pencils literally have a
 point.
@@ -294,7 +294,7 @@ point.
   and a thin **dotted line** (4px gaps) animates out from the
   triangle-finger to the target's bounding-rect center. The line
   pulses once (300ms opacity transition) on entry and then settles.
-  No persistent connector — once the user moves the mouse, the dotted
+  No persistent connector: once the user moves the mouse, the dotted
   line fades.
 - **Exit**: 150ms fade-out, no slide.
 
@@ -314,7 +314,7 @@ second the user has at least one tab visible-and-focused. Tips fire
 when (a) the user is on a route that has an eligible un-shown tip,
 and (b) at least **5 minutes of active engagement (300s)** have
 passed since the last tip fired (`active_seconds - last_tip_at >=
-300`). Only one tip on screen at a time — if a tip is currently
+300`). Only one tip on screen at a time: if a tip is currently
 displayed, no other tip can fire under any condition.
 
 The cumulative-active-time approach is what Grant specifically asked
@@ -322,7 +322,7 @@ for: a wall-clock cooldown ("30s ago a tip fired") punishes the user
 who put the browser in the background, came back 20 minutes later,
 and is now eligible by clock but not by engagement. Tracking
 active-seconds means "we've shown you a tip recently in terms of
-your actual time using ResearchOS" — which is the right axis.
+your actual time using ResearchOS," which is the right axis.
 
 **Rules:**
 
@@ -337,13 +337,13 @@ your actual time using ResearchOS" — which is the right axis.
    `/inbox`). A tip becomes eligible when the user is on a matching
    route AND has spent at least **30 seconds of active time on that
    route in this session** (so we're not firing the instant they
-   land — the page has to be the focused context for a moment).
+   land; the page has to be the focused context for a moment).
 4. **Random firing within eligibility.** Once eligible (right page,
    enough active time since last tip, page has been focused for
    ≥30s this session, tip is not in `tips` already), the
    orchestrator rolls a fire decision every ~5 seconds with a small
    probability (~15% per check). This produces the "appears sort of
-   at random" feel Grant asked for — the tip lands somewhere in the
+   at random" feel Grant asked for: the tip lands somewhere in the
    minute or two after eligibility opens, not at a predictable beat
    right at the 300s mark.
 5. **Action triggers cancel.** If the user starts doing the thing
@@ -355,7 +355,7 @@ your actual time using ResearchOS" — which is the right axis.
    from a tip's matching route before the random fire lands, the
    schedule is dropped (tip stays eligible to re-roll next time
    they're on that route).
-7. **Tips_off and shown_count gates** sit above all of the above —
+7. **Tips_off and shown_count gates** sit above all of the above;
    neither fires anything when off.
 
 The randomness is deliberate: Grant explicitly asked for "sort of
@@ -377,12 +377,12 @@ Time accounting details:
   "5 minutes of active engagement since last tip" math is a plain
   subtraction.
 - Implementation lives in
-  `frontend/src/lib/onboarding/active-time.ts` — pure module-level
+  `frontend/src/lib/onboarding/active-time.ts`: pure module-level
   state + a React hook that returns the current count. No
   setInterval-driven re-render of consumers (Grant's polling
   pattern from §6 is a useful reminder that setInterval-counters
   don't survive long FSA blocks; this counter explicitly does
-  NOT need to be reactive at consumer level — the orchestrator
+  NOT need to be reactive at consumer level, since the orchestrator
   reads it on its 5s roll tick).
 
 ## Cadence + dismissal
@@ -414,7 +414,7 @@ sidecar is left in place so "Replay onboarding tips" can re-enable.
 **Replay entry point:** Settings page → "Show me the onboarding tips
 again" button (`frontend/src/app/settings/page.tsx`). Clears
 `dismissed`, sets `tips_off: false`, leaves `first_seen_at` in place
-(the freshness taper still applies — you can't replay onboarding 6
+(the freshness taper still applies; you can't replay onboarding 6
 months in). One toast confirmation: "Tips re-enabled. They'll fire as
 you visit pages again." No retro-fire of the whole batch.
 
@@ -429,15 +429,15 @@ unaided.
 
 | # | id | Route | Target | Body | Wiki link |
 |---|---|---|---|---|---|
-| 1 | `drop-to-replace` | `/` | the project-card image | "Drop a new image onto any existing image to replace it in place — no need to open the editor first." | `/wiki/features/markdown-editor#drop-to-replace` |
-| 2 | `telegram-send-to-task` | `/inbox` (or the inbox panel on `/`) | the inbox toast | "Photos from your Telegram bot land in your Inbox. Click any image and pick a task to attach it to — no manual filing." | `/wiki/integrations/telegram` |
+| 1 | `drop-to-replace` | `/` | the project-card image | "Drop a new image onto any existing image to replace it in place. No need to open the editor first." | `/wiki/features/markdown-editor#drop-to-replace` |
+| 2 | `telegram-send-to-task` | `/inbox` (or the inbox panel on `/`) | the inbox toast | "Photos from your Telegram bot land in your Inbox. Click any image and pick a task to attach it to (no manual filing)." | `/wiki/integrations/telegram` |
 | 3 | `duplicate-upload` | `/methods` or `/` (any page with a Files strip) | the file-upload button on a task | "Upload a file with a name that already exists and ResearchOS will ask: dedupe, replace, or rename. No silent overwrites." | `/wiki/features/markdown-editor#duplicate-upload` |
-| 4 | `cross-owner-share` | `/` (project card) or `/gantt` | the "share" affordance on a project | "Drop a colleague's task into your project to host it. Both their Gantt and yours stay in sync — they own the data, you see it in your timeline." | `/wiki/features/links#cross-owner` |
+| 4 | `cross-owner-share` | `/` (project card) or `/gantt` | the "share" affordance on a project | "Drop a colleague's task into your project to host it. Both their Gantt and yours stay in sync: they own the data, you see it in your timeline." | `/wiki/features/links#cross-owner` |
 | 5 | `appshell-cluster` | any page | the 5-icon bottom-right cluster | "Bottom-right corner has five quick actions: data folder, user switch, bug report, support, and a notification test button. Hover to see labels." | `/wiki/features/settings` |
 | 6 | `labarchives-import` | `/methods` or `/` | the LabArchives import affordance | "Import an entire LabArchives notebook as projects and tasks. The wizard walks you through page-to-project mapping; inline images are rehydrated automatically." | `/wiki/integrations/labarchives` |
-| 7 | `lab-mode` | `/lab` | the lab-tab strip | "Lab Mode is the multi-user roll-up. Eight tabs — Activity, Gantt, Experiments, Roadmaps, Methods, Notes, Search — each answers one question across the whole lab." | `/wiki/features/lab-mode` |
-| 8 | `wiki-entry` | any page | the docs button | "Every feature has a wiki page. Click the doc icon (bottom-right) any time you want the long version. No login, no separate tab management — it opens beside your work." | `/wiki/` |
-| 9 | `high-level-goals` | `/` | the High-Level Goals sidebar / button | "Every project carries roadmap goals. Open the goals sidebar to track them — useful in lab meetings or 1:1s." | `/wiki/features/home` |
+| 7 | `lab-mode` | `/lab` | the lab-tab strip | "Lab Mode is the multi-user roll-up. Eight tabs (Activity, Gantt, Experiments, Roadmaps, Methods, Notes, Search), each answering one question across the whole lab." | `/wiki/features/lab-mode` |
+| 8 | `wiki-entry` | any page | the docs button | "Every feature has a wiki page. Click the doc icon (bottom-right) any time you want the long version. No login, no separate tab management; it opens beside your work." | `/wiki/` |
+| 9 | `high-level-goals` | `/` | the High-Level Goals sidebar / button | "Every project carries roadmap goals. Open the goals sidebar to track them. Useful in lab meetings or 1:1s." | `/wiki/features/home` |
 | 10 | `methods-folder-tree` | `/methods` | the folder tree on the left | "Protocols live in a folder tree. Drag and drop to reorganize; click a folder to bulk-edit its methods together." | `/wiki/features/methods` |
 
 (Numbering is the priority order. The orchestrator fires in priority
@@ -452,8 +452,8 @@ Each tip body is ≤140 chars in display and ends with the
 **Why these ten:** they map directly onto the features Grant has
 shipped in the last two weeks of work that have **no obvious in-app
 discovery surface today**. Drop-to-replace, duplicate-upload, and
-send-to-task are all "you stumble onto this by trying the thing" —
-brand-new users don't know to try. The cross-owner share, Lab Mode,
+send-to-task are all "you stumble onto this by trying the thing,"
+and brand-new users don't know to try. The cross-owner share, Lab Mode,
 and LabArchives import are big-ticket features hiding behind
 unobvious entry points. The 5-icon cluster is the highest-density
 discoverability problem in the app (5 icons in a corner, no labels
@@ -505,26 +505,26 @@ extends from the card edge to the target.
 
 **New files:**
 
-- `frontend/src/lib/onboarding/sidecar.ts` — read/write helper for
+- `frontend/src/lib/onboarding/sidecar.ts`: read/write helper for
   `_onboarding.json`, schema-versioned, mirrors the
   `external-feeds-store.ts` shape.
-- `frontend/src/lib/onboarding/tips.ts` — the tip catalog.
-- `frontend/src/lib/onboarding/orchestrator.tsx` — React context that
+- `frontend/src/lib/onboarding/tips.ts`: the tip catalog.
+- `frontend/src/lib/onboarding/orchestrator.tsx`: React context that
   owns the visit/idle/cooldown state machine, exposes
   `useOnboardingTarget(id)` for components to register targets, and
   renders the current tip card via portal.
-- `frontend/src/components/BeakerBot.tsx` — the mascot SVG, idle +
+- `frontend/src/components/BeakerBot.tsx`: the mascot SVG, idle +
   pointing variants, prop-controlled `direction: "left"|"right"` for
   the pointing pose mirror.
-- `frontend/src/components/OnboardingTipCard.tsx` — the card UI
+- `frontend/src/components/OnboardingTipCard.tsx`: the card UI
   rendered at the document root via portal, with the dotted
   pointer-line and the three exit buttons.
 
 **Modified files:**
 
-- `frontend/src/lib/providers.tsx` — wraps `<AppContent>` with
+- `frontend/src/lib/providers.tsx`: wraps `<AppContent>` with
   `<OnboardingProvider>` when not in demo/wiki-capture mode.
-- `frontend/src/app/settings/page.tsx` — adds "Show me the onboarding
+- `frontend/src/app/settings/page.tsx`: adds "Show me the onboarding
   tips again" button under a new "Tips" section.
 - A handful of components get one of `data-onboarding-target="<id>"`
   or an explicit `useOnboardingTarget(id)` ref to expose the target.
@@ -546,7 +546,7 @@ provider + settings + target-registration touches.
   creates it lazily; missing file is treated as `{first_seen_at: now,
   visited_routes: [], dismissed: {}, tips_off: false, shown_count: 0}`.
 - **Demo zip should NOT include `_onboarding.json`.** Tips are
-  cosmetic — adding the sidecar to `frontend/public/demo-data/` would
+  cosmetic; adding the sidecar to `frontend/public/demo-data/` would
   matter only inside the demo, which is short-circuited anyway. Skip.
 - **Real-folder gitignore.** `_onboarding.json` does not contain
   secrets and does not need to be `.gitignore`d on the data folder
@@ -573,8 +573,8 @@ list below, or for implementation to make local calls on.
   wiki-voice pass should follow once the system is wired.
 - Whether the mascot has a name. (The wiki uses "ResearchOS"
   consistently; the mascot could remain unnamed, which avoids the
-  question of accessibility for screen readers — alt text just reads
-  "ResearchOS assistant.")
+  question of accessibility for screen readers (alt text just reads
+  "ResearchOS assistant").
 - Whether tips fire across user switches. Current proposal: folder-
   scoped, so a user switch does NOT reset the tip state. Discussable.
 - Whether the dotted-line pointer should also animate at idle (subtle
@@ -582,11 +582,11 @@ list below, or for implementation to make local calls on.
   on entry, static after.
 - Whether there's a "next tip" affordance in the card itself (skip to
   the next eligible tip without dismissing this one). Current
-  proposal: no — keeps the card small and avoids the user
+  proposal: no, since that keeps the card small and avoids the user
   tip-cycling instead of working.
 - Whether the orchestrator should preempt itself if a higher-priority
   tip becomes eligible while a lower-priority one is on screen.
-  Current proposal: no — first-firing-wins per session, the user gets
+  Current proposal: no. First-firing-wins per session, the user gets
   to dismiss it cleanly.
 - The shadcn / Tailwind component library to use for the card chrome
   (the project uses Tailwind directly without shadcn; the card should
@@ -610,18 +610,18 @@ list below, or for implementation to make local calls on.
 
 ## Open questions (tunable, OK to default during Phase 2)
 
-These are tunable choices that don't block Phase 2 implementation
-— the orchestrator can default to the recommended value and Grant
+These are tunable choices that don't block Phase 2 implementation:
+the orchestrator can default to the recommended value and Grant
 can dial them up or down once the system is wired and visible.
 
 1. **Replay scope:** when the user clicks "Show me the onboarding
    tips again" in Settings, should it replay ALL tips (including
    ones the user explicitly dismissed via X) or only ones they
-   didn't engage with? **Default for Phase 2:** all of them —
-   replay means replay. Tunable in 1 line.
+   didn't engage with? **Default for Phase 2:** all of them.
+   Replay means replay. Tunable in 1 line.
 2. **Tip card placement:** bottom-right (default) keeps the center
    of the screen unobstructed and matches the
-   `<FloatingLeaveDemoButton>` corner — but demo + onboarding are
+   `<FloatingLeaveDemoButton>` corner. Demo + onboarding are
    exempt from co-existing, so no collision in practice. Top-right
    and bottom-center are alternatives if bottom-right feels too
    crowded against the AppShell's 5-icon cluster. **Default:**

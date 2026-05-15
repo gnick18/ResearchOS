@@ -1,7 +1,7 @@
-# Telegram onboarding — proposal
+# Telegram onboarding: proposal
 
 > Scope: tighten the new-user experience around the Telegram bridge
-> across three surfaces — the bot's reply copy (`/start`, `/help`,
+> across three surfaces: the bot's reply copy (`/start`, `/help`,
 > post-photo confirmations), the existing onboarding tip that
 > introduces the feature, and an optional guided "send your first
 > photo" walkthrough that lives inside the Phase-4 tutorial sequencer.
@@ -37,9 +37,9 @@ There are three improvements packed in there, ranked by scope:
 1. **Clearer bot-side copy** so a user who forgets the dual-mode
    behavior can re-derive it just by typing `/help` to the bot.
 2. **An interactive first-photo walkthrough** inside the existing
-   tutorial sequencer — the tutorial opens an experiment, asks the
+   tutorial sequencer: the tutorial opens an experiment, asks the
    user to text a photo, the photo lands on that experiment, success.
-3. **Bot-aware tutorial mode** — the bot knows the app is in tutorial
+3. **Bot-aware tutorial mode**: the bot knows the app is in tutorial
    mode and can hand-hold accordingly, possibly with a `/tutorial`
    command the user can invoke at any time to re-trigger the guided
    send.
@@ -59,14 +59,14 @@ post-pairing commands and per-photo confirmations, and
 `TelegramPairingModal.tsx` for the one-time "you're paired" message
 the modal sends from inside the pairing flow.
 
-**`/start` reply** — `frontend/src/lib/telegram/image-router.ts:65-71`:
+**`/start` reply** (`frontend/src/lib/telegram/image-router.ts:65-71`):
 
 ```
 Already paired. Open an experiment in ResearchOS and send a photo
 here — it'll appear in that experiment's image strip.
 ```
 
-**`/help` reply** — `image-router.ts:73-80`:
+**`/help` reply** (`image-router.ts:73-80`):
 
 ```
 Send a photo. While an experiment is open in ResearchOS, the image
@@ -74,21 +74,21 @@ is linked to that experiment. Reply with a description after each
 photo, or send /skip to skip the caption.
 ```
 
-**Pairing-success reply** — `TelegramPairingModal.tsx:90-97`:
+**Pairing-success reply** (`TelegramPairingModal.tsx:90-97`):
 
 ```
 ✅ Paired with ResearchOS as <username>. Send photos here while an
 experiment is open and they'll land in that experiment's image strip.
 ```
 
-**Per-photo reply (active task)** — `image-router.ts:163`:
+**Per-photo reply (active task)** (`image-router.ts:163`):
 
 ```
 Saved to Experiment <id> (<name>). What is this? Reply with a
 description, or send /skip.
 ```
 
-**Per-photo reply (no active task)** — `image-router.ts:177`:
+**Per-photo reply (no active task)** (`image-router.ts:177`):
 
 ```
 Saved to your inbox — open an experiment in ResearchOS to file it.
@@ -114,7 +114,7 @@ Three things to notice about the as-shipped copy:
 - **The inbox-fallback per-photo message is the one place the user
   ever learns about the inbox.** It's only seen once (the moment
   the user sends a photo with nothing open), and it doesn't link
-  back to the inbox in the app — the user is left to find the
+  back to the inbox in the app; the user is left to find the
   Inbox badge on the AppShell on their own.
 
 ### What the pairing modal shows
@@ -168,7 +168,7 @@ authoritative explainer. It covers both branches clearly
 > `users/<you>/inbox/Images/`, a yellow toast slides up...
 
 The wiki page does the job. The gap is everything UPSTREAM of "the
-user already decided to read the wiki" — bot copy, modal copy, tip
+user already decided to read the wiki": bot copy, modal copy, tip
 copy. That's what this proposal targets.
 
 ### How the polling architecture constrains "bot-aware tutorial"
@@ -187,7 +187,7 @@ This has two implications for design consideration #3 below:
   browser tab that's currently routing inbound photos knows about
   the tutorial." There's no server to share state with.
 - The tutorial sequencer runs in `/demo?tutorial=1` (a separate tab,
-  opened by the welcome modal — see
+  opened by the welcome modal; see
   `OnboardingTutorialSequencer.tsx:24-44`). The user's REAL paired
   bot is paired against the real folder, NOT against the demo's
   in-memory mock. So a tab open on `/demo?tutorial=1` is exactly
@@ -197,7 +197,7 @@ This has two implications for design consideration #3 below:
 
 ### Where the inbox toast actually lives
 
-For completeness — when a photo lands in the inbox, the wiki says a
+For completeness: when a photo lands in the inbox, the wiki says a
 "yellow toast slides up from the bottom-right." That toast is owned
 by the inbox panel, not by the Telegram code. The router writes the
 file to `inboxBase(username)` (`image-router.ts:48-50`); UI updates
@@ -238,8 +238,8 @@ the welcome-modal flow Grant has been investing in. Adding it
 doubles the surface area to design and test, and the tutorial
 sequencer already has the infrastructure (back/skip/next chrome,
 target polling, end-screen). Standalone post-pair flow can be added
-in a Phase-2 follow-up if the analytics — well, the lack of
-analytics — suggest users skip the tutorial and need a re-entry
+in a Phase-2 follow-up if the analytics (well, the lack of
+analytics) suggest users skip the tutorial and need a re-entry
 point. Or just point them at the wiki from the success-modal copy.
 
 ### 2. Does the photo land in the demo lab or in the user's real folder?
@@ -271,7 +271,7 @@ either:
   tutorial tab listens on a cross-tab signal and renders the
   success state without the photo actually appearing on the demo
   experiment's image strip. Easier to plumb (no router fork), but
-  the demo loses its "look, here it is on the experiment!" moment —
+  the demo loses its "look, here it is on the experiment!" moment;
   the user has to switch tabs to see the result. That switch is
   exactly the friction the tutorial is supposed to remove.
 
@@ -285,7 +285,7 @@ either:
 
 **Recommendation:** Path B. The demo tab's job is to teach the
 mental model, not to be the source of truth for the photo. A clear
-"Got it! Photo arrived in your real folder — the bot just messaged
+"Got it! Photo arrived in your real folder, and the bot just messaged
 you back. Switch back to your real tab when you're done here." card
 lands the lesson without forking the router. Path C is appealing
 but the implementation cost (cross-tab thumbnail handoff with a
@@ -298,7 +298,7 @@ real-folder experiment popup in the demo tab to receive the
 demo-side highlight?** No. The demo tab can't open a real-folder
 popup (different fileService, different data). Instead the tutorial
 opens a demo experiment, and the success card on the demo says
-"the photo is in your real folder, not here — switch back when
+"the photo is in your real folder, not here; switch back when
 you're done." A small but real cognitive seam, worth flagging in
 the open-questions list below.
 
@@ -383,17 +383,17 @@ the user through the open-an-experiment-then-text-a-photo flow.
 This gets the bot-aware tutorial mode without forcing the user to
 restart the welcome-modal tutorial sequencer flow.
 
-If `/tutorial` is judged out of scope for the first round, fine —
-the sidecar mechanism still works, just driven only from the
+If `/tutorial` is judged out of scope for the first round, fine.
+The sidecar mechanism still works, just driven only from the
 welcome-modal tutorial entry point. `/tutorial` is a small additive
 follow-up.
 
 ## Implementation directions
 
-Three candidate scopes, ranked smallest to largest. They stack —
+Three candidate scopes, ranked smallest to largest. They stack:
 shipping A doesn't preclude later doing B + C.
 
-### Direction A — Bot-text-only (recommended for v1)
+### Direction A: Bot-text-only (recommended for v1)
 
 Rewrite the four bot-side strings to clearly explain the dual-mode
 behavior, mention the inbox upfront, and surface the
@@ -456,7 +456,7 @@ What's the photo of? Reply with a sentence, or send /skip.
 ```
 
 Plus the existing `telegram-send-to-task` tip body is updated to
-match — currently mentions only the active-experiment branch.
+match. It currently mentions only the active-experiment branch.
 Proposed:
 
 ```
@@ -467,7 +467,7 @@ Body:  Text me a photo. With an experiment open, it auto-attaches
 ```
 
 (The tip stays under 140 chars per the onboarding-tip card brief
-where possible; this draft is 211 chars, which is over — wiki link
+where possible; this draft is 211 chars, which is over. Wiki link
 already covers the lifecycle so it can probably trim back to
 "Text me a photo. With an experiment open it auto-attaches; without
 one it lands in your Inbox." at 116 chars. Wording pass during
@@ -475,11 +475,11 @@ implementation.)
 
 **Files touched:**
 
-- `frontend/src/lib/telegram/image-router.ts` — `/start`, `/help`,
+- `frontend/src/lib/telegram/image-router.ts`: `/start`, `/help`,
   active-task reply, inbox reply, caption prompt.
-- `frontend/src/components/TelegramPairingModal.tsx` — pairing-success
+- `frontend/src/components/TelegramPairingModal.tsx`: pairing-success
   reply (the one sent from inside the modal at line 91).
-- `frontend/src/lib/onboarding/tips.ts` — `telegram-send-to-task`
+- `frontend/src/lib/onboarding/tips.ts`: `telegram-send-to-task`
   body.
 
 **Effort: S.** Roughly 30-50 LOC of string changes across 3 files.
@@ -489,9 +489,9 @@ real chat.
 **Tradeoffs:** zero risk, biggest UX-per-LOC ratio of the three,
 but doesn't address Grant's "tutorial container" or "bot aware of
 tutorial mode" asks. Recommended to ship regardless of what happens
-with B + C — the better copy holds up on its own.
+with B + C; the better copy holds up on its own.
 
-### Direction B — Tutorial container in the existing sequencer
+### Direction B: Tutorial container in the existing sequencer
 
 Add a "Send your first photo" step to
 `<OnboardingTutorialSequencer>` that:
@@ -505,10 +505,10 @@ Add a "Send your first photo" step to
    `BroadcastChannel`) that fires when the real-tab polling loop
    processes a photo from this user.
 4. On photo arrival, advances the step to a success card: "Got it.
-   The photo's in your real folder — switch back to that tab to see
+   The photo's in your real folder; switch back to that tab to see
    it on the experiment's image strip."
 5. Has a Skip button so a user without a paired Telegram (the demo
-   user is `alex`, paired-state is per-user — `alex` in the real
+   user is `alex`, paired-state is per-user, so `alex` in the real
    folder may or may not be paired) can move past the step.
 
 The cross-tab signal: when the real-tab's `routeTelegramMessage`
@@ -523,19 +523,19 @@ and advances on first new entry.
 have access to `localStorage` (same browser, same origin). The real
 tab's polling loop already updates `localStorage` for the polling-tab
 lock (`use-telegram-polling.ts:9`). Adding a second
-`localStorage` key — e.g. `telegram-last-photo-at` set to a timestamp
-on every successful route — gives the demo tab a `storage`-event
+`localStorage` key (e.g. `telegram-last-photo-at` set to a timestamp
+on every successful route) gives the demo tab a `storage`-event
 trigger to react to. No sidecar needed.
 
 **Files touched:**
 
-- `frontend/src/lib/telegram/image-router.ts` — emit
+- `frontend/src/lib/telegram/image-router.ts`: emit
   `localStorage.setItem("telegram-last-photo-at", Date.now())` after
   a successful route.
-- `frontend/src/lib/onboarding/tips.ts` — add a tutorial-only tip
+- `frontend/src/lib/onboarding/tips.ts`: add a tutorial-only tip
   entry (or reuse the existing `telegram-send-to-task` tip with a
   tutorial-mode body override).
-- `frontend/src/components/OnboardingTutorialSequencer.tsx` — add
+- `frontend/src/components/OnboardingTutorialSequencer.tsx`: add
   the cross-tab `storage` listener for the new tip, advance on
   photo arrival, render a success card variant.
 - Possibly: a small "this step requires Telegram paired" gate that
@@ -557,7 +557,7 @@ biggest risk is the user not having Telegram paired when they hit
 the step, which the "always show the step + Pair Telegram button"
 fallback addresses.
 
-### Direction C — Bot-aware tutorial with `/tutorial` command
+### Direction C: Bot-aware tutorial with `/tutorial` command
 
 Direction B + the `_telegram_tutorial.json` sidecar from design
 consideration #3, plus:
@@ -565,11 +565,11 @@ consideration #3, plus:
 - The `image-router.ts` checks the sidecar on every inbound photo;
   when active, swaps the per-photo reply copy for the
   tutorial-aware variant: "(Tutorial active) Saved to your Inbox
-  in the real folder. Head back to the tutorial tab — it's
+  in the real folder. Head back to the tutorial tab; it's
   watching for this photo."
 - `/tutorial` command in the router: writes the sidecar with
   `active: true`, replies with "Open ResearchOS in your browser
-  and switch to the tutorial — I'll guide you through your first
+  and switch to the tutorial; I'll guide you through your first
   photo."
 - The orchestrator (in any tab) polls the sidecar on each tick;
   when it sees `active: true` and the welcome-modal tutorial
@@ -580,17 +580,17 @@ consideration #3, plus:
 
 **Files touched:** all of B, plus:
 
-- `frontend/src/lib/telegram/telegram-tutorial-store.ts` (new) —
+- `frontend/src/lib/telegram/telegram-tutorial-store.ts` (new):
   read/write helper for `_telegram_tutorial.json`, mirrors
   `telegram-store.ts` shape.
-- `frontend/src/lib/telegram/image-router.ts` — `/tutorial`
+- `frontend/src/lib/telegram/image-router.ts`: `/tutorial`
   handler, sidecar-aware reply copy, sidecar-cleanup on success.
-- `frontend/src/components/OnboardingTelegramCoachmark.tsx` (new)
-  — the small in-app coach-mark for the `/tutorial`-driven entry
+- `frontend/src/components/OnboardingTelegramCoachmark.tsx` (new):
+  the small in-app coach-mark for the `/tutorial`-driven entry
   path. Different surface from the welcome-modal tutorial because
   it has to fit into the user's actual workflow rather than running
   in a separate demo tab.
-- `frontend/src/lib/onboarding/orchestrator.tsx` — sidecar polling
+- `frontend/src/lib/onboarding/orchestrator.tsx`: sidecar polling
   + coach-mark mount.
 
 **Effort: L.** Roughly 400-600 LOC across 4-5 files (3 new). The
@@ -601,7 +601,7 @@ success" without the controlled environment of the demo tab.
 
 **Tradeoffs:** delivers the full vision Grant sketched. The
 `/tutorial` entry path is genuinely useful for users who skipped
-onboarding — there's no other re-entry point for the Telegram
+onboarding. There's no other re-entry point for the Telegram
 flow today other than the wiki page. But the coach-mark surface
 duplicates a lot of the welcome-modal-sequencer machinery, and
 the bot-aware tutorial-mode reply copy ("Tutorial active" prefix)
@@ -615,7 +615,7 @@ Ship **A immediately** (one-day work, biggest UX-per-LOC ratio).
 Build **B as a Phase 2** (one-week work) once A is live and Grant
 has a feel for whether the bot-text changes alone close the gap.
 Defer **C indefinitely** unless Grant explicitly wants the
-`/tutorial` re-entry surface — the welcome-modal tutorial entry
+`/tutorial` re-entry surface. The welcome-modal tutorial entry
 covers the "new user" case and a smarter bot reply (Direction A)
 covers the "I forgot how this works" case.
 
@@ -627,7 +627,7 @@ The bot-text rewrite addresses the actual root cause Grant named:
 experiment or note open vs with nothing open." That's a copy
 problem, not a tutorial-architecture problem. New users today learn
 the dual-mode behavior either by texting a photo with nothing open
-(and reading the inbox-fallback reply) or by reading the wiki —
+(and reading the inbox-fallback reply) or by reading the wiki;
 neither happens during the typical first-pairing flow. Putting the
 explainer in `/start` and `/help` means the first contact with the
 bot is also the moment the user learns how it routes.
@@ -643,7 +643,7 @@ The `/tutorial` command (Direction C) is the only place where the
 narrow: it's a re-entry point for users who skipped onboarding and
 later want help with Telegram specifically. Useful, but every other
 feature in ResearchOS ships without a per-feature `/tutorial`-style
-re-entry — the wiki page is the standard re-entry. If Telegram
+re-entry; the wiki page is the standard re-entry. If Telegram
 needs a dedicated re-entry, the cheaper version is a "Run me through
 this" button on the wiki page itself or in the pairing modal's
 already-paired state. That's a few lines of code, not a 600-LOC
@@ -653,9 +653,9 @@ sidecar + coach-mark stack.
 
 | Direction | Size | LOC | Files (new / modified) | Risk |
 |---|---|---|---|---|
-| A — Bot-text-only | S | 30-50 | 0 / 3 | Low |
-| B — Tutorial container | M | 150-250 | 0 / 3-4 | Medium |
-| C — Bot-aware + `/tutorial` | L | 400-600 | 3 / 5 | Medium-high |
+| A. Bot-text-only | S | 30-50 | 0 / 3 | Low |
+| B. Tutorial container | M | 150-250 | 0 / 3-4 | Medium |
+| C. Bot-aware + `/tutorial` | L | 400-600 | 3 / 5 | Medium-high |
 
 (A + B together is roughly 200-300 LOC, since they don't overlap
 much. A + B + C is 600-850 LOC.)
@@ -673,7 +673,7 @@ much. A + B + C is 600-850 LOC.)
   installations get an unused key once they upgrade; the demo
   tab's tutorial-only listener doesn't run for non-tutorial users.
 - **Direction C's `_telegram_tutorial.json` sidecar needs the same
-  gitignore handling as `_telegram.json`** — it carries no secrets
+  gitignore handling as `_telegram.json`**: it carries no secrets
   but lives next to a file that does, so it's worth adding it to
   the ensured-gitignore list in `frontend/src/lib/file-system/gitignore.ts`
   if Direction C ships.
@@ -684,7 +684,7 @@ much. A + B + C is 600-850 LOC.)
   copy verbatim, otherwise the wiki and the bot drift. Flag for
   the wiki manager. Direction B + C would each need a small
   "Tutorial" sub-section on the wiki page documenting the
-  walkthrough. None of those are this proposal's job — wiki manager
+  walkthrough. None of those are this proposal's job; wiki manager
   owns them.
 - **No feature flag.** All three directions are safe to roll out as
   plain code changes. The bot-text changes are reversible by
@@ -703,9 +703,9 @@ questions list below, or for implementation to make local calls on.
   wired.
 - Whether the tutorial container's success card should include a
   "Switch to your real tab" button (browser allows tab focus only
-  for tabs that JS opened — the demo tab was opened by the welcome
-  modal so it could focus the opener back, but cross-window tab
-  focus is best-effort).
+  for tabs that JS opened, since the demo tab was opened by the
+  welcome modal so it could focus the opener back, but cross-window
+  tab focus is best-effort).
 - Exact polling cadence for the `_telegram_tutorial.json` sidecar
   if Direction C ships. Probably the same 5s rhythm the orchestrator
   already uses for tip rolls.
@@ -778,7 +778,7 @@ clickable popups.
    also a standalone modal that fires post-pairing for users who
    skipped the welcome modal? **Default: sequencer-only.**
 3. **Demo-vs-real-folder routing during the walkthrough.** Path A
-   (photo lands in demo lab — implausible, photos lost on tab
+   (photo lands in demo lab; implausible, photos lost on tab
    close), Path B (photo lands in real folder, demo tab shows a
    "got it!" notice), or Path C (photo lands in real folder, demo
    tab fakes a thumbnail on the demo experiment's image strip)?
@@ -795,7 +795,7 @@ clickable popups.
    lands in your Inbox") is shorter than the original but loses
    the caption-reply mention. Should the tip mention captions, or
    leave that to the bot's per-photo reply? **Default: leave
-   captions to the bot's per-photo reply — the tip is about
+   captions to the bot's per-photo reply; the tip is about
    discovery, not full reference.**
 7. **Pairing-modal already-paired copy.** Should the
    "alreadyPaired" state in `TelegramPairingModal.tsx:180-217` get
@@ -803,4 +803,4 @@ clickable popups.
    stay as the active-experiment-only one-liner? **Default: full
    dual-mode explainer in the modal too.**
 
-— tip manager (planning sub-bot)
+// tip manager (planning sub-bot)
