@@ -370,16 +370,16 @@ export default function TaskDetailPopup({
           />
         )}
         <div
-          className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 flex flex-col border-l-4"
+          className="bg-white rounded-xl shadow-xl w-full max-w-3xl mx-4 flex flex-col border-l-4"
           style={{ borderLeftColor: project?.color || "#3b82f6" }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Minimal Header */}
-          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-            <div className="flex items-center gap-3 flex-1 mr-3 min-w-0">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
+            <div className="flex items-center gap-2 flex-1 mr-2 min-w-0">
               {/* Completion toggle with hint - hidden in readOnly mode */}
               {!readOnly && !task.is_complete && (
-                <span className="text-xs text-gray-400 italic flex-shrink-0">Mark as complete →</span>
+                <span className="text-[11px] text-gray-400 italic flex-shrink-0">Mark complete →</span>
               )}
               {!readOnly && (
                 <Tooltip label={task.is_complete ? "Mark as incomplete" : "Mark as complete"} placement="bottom">
@@ -395,13 +395,13 @@ export default function TaskDetailPopup({
                       alert("Failed to update task");
                     }
                   }}
-                  className={`p-1.5 rounded-full transition-all flex-shrink-0 ${
+                  className={`p-1 rounded-full transition-all flex-shrink-0 ${
                     task.is_complete
                       ? "bg-green-500 text-white hover:bg-green-600"
                       : "text-gray-300 hover:text-green-500 hover:bg-green-50"
                   }`}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M20 6L9 17l-5-5"/>
                   </svg>
                 </button>
@@ -409,22 +409,22 @@ export default function TaskDetailPopup({
               )}
               {/* Show static status indicator in readOnly mode */}
               {readOnly && (
-                <span className={`p-1.5 rounded-full flex-shrink-0 ${
+                <span className={`p-1 rounded-full flex-shrink-0 ${
                   task.is_complete
                     ? "bg-green-500 text-white"
                     : "text-gray-300"
                 }`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M20 6L9 17l-5-5"/>
                   </svg>
                 </span>
               )}
-              <h3 className="text-lg font-semibold text-gray-800 truncate">{task.name}</h3>
-              <span className={`text-sm flex-shrink-0 ${task.is_complete ? "text-green-600" : "text-gray-400"}`}>
+              <h3 className="text-base font-semibold text-gray-800 truncate min-w-0">{task.name}</h3>
+              <span className={`text-xs flex-shrink-0 ${task.is_complete ? "text-green-600" : "text-gray-400"}`}>
                 {task.is_complete ? "Complete" : "Not complete"}
               </span>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
               {/* Delete button - hidden in readOnly mode, greyed out for shared receivers */}
               {!readOnly && (
                 <Tooltip label={task.is_shared_with_me ? `Only the owner (${task.owner}) can delete this task` : "Delete task"} placement="bottom">
@@ -445,9 +445,9 @@ export default function TaskDetailPopup({
                       }
                     }
                   }}
-                  className={`p-1.5 ${task.is_shared_with_me ? "text-gray-300 cursor-not-allowed" : "text-gray-400 hover:text-red-500"}`}
+                  className={`p-1 ${task.is_shared_with_me ? "text-gray-300 cursor-not-allowed" : "text-gray-400 hover:text-red-500"}`}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                   </svg>
                 </button>
@@ -456,9 +456,9 @@ export default function TaskDetailPopup({
               <Tooltip label="Expand to full view" placement="bottom">
               <button
                 onClick={() => setIsExpanded(true)}
-                className="text-gray-400 hover:text-gray-600 p-1.5"
+                className="text-gray-400 hover:text-gray-600 p-1"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
                 </svg>
               </button>
@@ -466,9 +466,9 @@ export default function TaskDetailPopup({
               <Tooltip label="Close" placement="bottom">
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 p-1.5"
+                className="text-gray-400 hover:text-gray-600 p-1"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M18 6L6 18M6 6l12 12"/>
                 </svg>
               </button>
@@ -870,13 +870,13 @@ function SimpleTaskChecklist({
   }, [subTasks, task, tasksApi, queryClient]);
 
   return (
-    <div className="p-4">
+    <div className="p-3">
       {/* Sub-tasks list */}
-      <div className="space-y-1.5 mb-3">
+      <div className="space-y-1 mb-2.5">
         {subTasks.map((st) => (
-          <div 
-            key={st.id} 
-            className={`flex items-center gap-3 group py-2 px-3 rounded-lg hover:bg-gray-50 transition-colors ${
+          <div
+            key={st.id}
+            className={`flex items-center gap-2.5 group py-1.5 px-2.5 rounded-md hover:bg-gray-50 transition-colors ${
               st.is_complete ? "opacity-50" : ""
             }`}
           >
@@ -885,20 +885,20 @@ function SimpleTaskChecklist({
                 ref={(el) => { if (el) checkboxRefs.current.set(st.id, el); }}
                 onClick={readOnly ? undefined : (e) => handleToggleSubTask(st.id, e)}
                 disabled={saving || readOnly}
-                className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all flex-shrink-0 ${
+                className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all flex-shrink-0 ${
                   st.is_complete
                     ? "bg-blue-500 border-blue-500"
                     : "border-gray-300 hover:border-blue-400"
                 } ${readOnly ? "cursor-default" : ""}`}
               >
                 {st.is_complete && (
-                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                   </svg>
                 )}
               </button>
             </Tooltip>
-            <span className={`flex-1 text-base ${st.is_complete ? "line-through text-gray-400" : "text-gray-700"}`}>
+            <span className={`flex-1 text-sm ${st.is_complete ? "line-through text-gray-400" : "text-gray-700"}`}>
               {st.text}
             </span>
             {!readOnly && (
@@ -907,7 +907,7 @@ function SimpleTaskChecklist({
                   onClick={() => handleDeleteSubTask(st.id)}
                   className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-opacity"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M18 6L6 18M6 6l12 12"/>
                   </svg>
                 </button>
@@ -926,13 +926,13 @@ function SimpleTaskChecklist({
             onChange={(e) => setNewSubTaskText(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAddSubTask()}
             placeholder="Add item..."
-            className="flex-1 px-4 py-2.5 text-base border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+            className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
           />
           <Tooltip label="Add item" placement="bottom">
             <button
               onClick={handleAddSubTask}
               disabled={!newSubTaskText.trim() || saving}
-              className="px-4 py-2.5 text-base bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               +
             </button>
