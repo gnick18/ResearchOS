@@ -185,6 +185,15 @@ export interface TaskMethodAttachment {
   // Mirrors pcr_gradient: edits on the experiment page write to this snapshot,
   // not back to the source protocol record.
   lc_gradient: string | null;
+  // Markdown body override (only meaningful when method.method_type === "markdown").
+  // When non-null AND the attached method is markdown, the experiment-page renderer
+  // treats this string as the active body and diffs it against the source method's
+  // on-disk body. When null, the renderer reads the source markdown directly and
+  // behaves as it did before per-task overrides existed. Edits on the experiment
+  // page write here, never back to the source `.md` file — so the source method
+  // remains the canonical reusable protocol while each task can capture its own
+  // documented variation.
+  body_override: string | null;
   // Variation notes - markdown content documenting method variations for this experiment
   variation_notes: string | null;  // Markdown string with timestamped entries
 }

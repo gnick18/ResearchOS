@@ -274,21 +274,28 @@ function normalizeTaskRecord(raw: Task): Task {
   const filtered = attachments.some((a) => !methodIds.includes(a.method_id))
     ? attachments.filter((a) => methodIds.includes(a.method_id))
     : attachments;
-  // Backfill the lc_gradient field on attachments written before LC support
-  // landed (Phase 1a). Without this, `attachment.lc_gradient` is `undefined`
-  // at runtime for any pre-LC task, which trips strict null checks in the
-  // LC tab content's snapshot-vs-source branching.
+  // Backfill the lc_gradient + body_override fields on attachments written
+  // before those features landed (LC Phase 1a, Markdown Phase 2B). Without
+  // this, `attachment.lc_gradient` / `attachment.body_override` are
+  // `undefined` at runtime for any pre-feature task, which trips strict
+  // null checks in the tab content's snapshot-vs-source branching.
   const needsLcBackfill = filtered.some(
     (a) => !Object.prototype.hasOwnProperty.call(a, "lc_gradient"),
   );
-  if (filtered !== attachments || needsLcBackfill) {
+  const needsBodyOverrideBackfill = filtered.some(
+    (a) => !Object.prototype.hasOwnProperty.call(a, "body_override"),
+  );
+  if (filtered !== attachments || needsLcBackfill || needsBodyOverrideBackfill) {
     normalized = {
       ...normalized,
-      method_attachments: filtered.map((a) =>
-        Object.prototype.hasOwnProperty.call(a, "lc_gradient")
+      method_attachments: filtered.map((a) => {
+        const withLc = Object.prototype.hasOwnProperty.call(a, "lc_gradient")
           ? a
-          : { ...a, lc_gradient: null },
-      ),
+          : { ...a, lc_gradient: null };
+        return Object.prototype.hasOwnProperty.call(withLc, "body_override")
+          ? withLc
+          : { ...withLc, body_override: null };
+      }),
     };
   }
   return normalized;
@@ -334,7 +341,7 @@ export const tasksApi = {
     sub_tasks?: Array<{ id: string; text: string; is_complete: boolean }>;
     pcr_gradient?: string | null;
     pcr_ingredients?: string | null;
-    method_attachments?: Array<{ method_id: number; pcr_gradient?: string | null; pcr_ingredients?: string | null; lc_gradient?: string | null; variation_notes?: string | null }>;
+    method_attachments?: Array<{ method_id: number; pcr_gradient?: string | null; pcr_ingredients?: string | null; lc_gradient?: string | null; body_override?: string | null; variation_notes?: string | null }>;
   }): Promise<Task> => {
     const durationDays = data.duration_days || 1;
     const endDate = canonicalEndDate({ start_date: data.start_date, duration_days: durationDays });
@@ -366,6 +373,7 @@ export const tasksApi = {
         pcr_gradient: a.pcr_gradient ?? null,
         pcr_ingredients: a.pcr_ingredients ?? null,
         lc_gradient: a.lc_gradient ?? null,
+        body_override: a.body_override ?? null,
         variation_notes: a.variation_notes ?? null,
       })),
       owner: currentUser,
@@ -599,6 +607,7 @@ export const tasksApi = {
         pcr_gradient: null,
         pcr_ingredients: null,
         lc_gradient: null,
+        body_override: null,
         variation_notes: null,
       });
     }
@@ -720,6 +729,49 @@ export const tasksApi = {
         lc_gradient: null,
       })),
     }, owner);
+  },
+
+  // Writes a per-task markdown body override to the attachment for `methodId`.
+  // Mirrors `updateMethodLc`: edits on the experiment page write here so the
+  // source method's `.md` file stays untouched (the canonical reusable
+  // protocol), while each task can document its own variation against the
+  // source. Pass `body: ""` to override with an empty body; pass `null` via
+  // `resetMarkdownOverride` to revert to "use source body unchanged".
+  updateMethodMarkdownOverride: async (
+    taskId: number,
+    methodId: number,
+    body: string,
+    owner?: string
+  ): Promise<Task | null> => {
+    const task = await getTaskForCaller(taskId, owner);
+    if (!task) return null;
+
+    const attachments = (task.method_attachments || []).map((a) => {
+      if (a.method_id === methodId) {
+        return { ...a, body_override: body };
+      }
+      return a;
+    });
+
+    return updateTaskForCaller(taskId, { method_attachments: attachments }, owner);
+  },
+
+  resetMarkdownOverride: async (
+    taskId: number,
+    methodId: number,
+    owner?: string
+  ): Promise<Task | null> => {
+    const task = await getTaskForCaller(taskId, owner);
+    if (!task) return null;
+
+    const attachments = (task.method_attachments || []).map((a) => {
+      if (a.method_id === methodId) {
+        return { ...a, body_override: null };
+      }
+      return a;
+    });
+
+    return updateTaskForCaller(taskId, { method_attachments: attachments }, owner);
   },
 
   saveVariationNote: async (
