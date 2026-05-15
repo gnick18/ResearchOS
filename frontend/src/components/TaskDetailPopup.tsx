@@ -2727,16 +2727,21 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
         existing,
       );
 
+      // Drop writes the file to Images/ and emits an attached event (the
+      // bottom ImageStrip picks it up). We deliberately do NOT splice a
+      // markdown ref into the body here — the user places it via an
+      // explicit drag from the strip into the editor body. Keeps the
+      // drop = "attach" gesture cleanly separated from the drag-from-strip
+      // = "place inline" gesture.
       for (const file of uniqueFiles) {
         try {
-          const { markdownSnippet } = await attachImageToTask({
+          await attachImageToTask({
             ownerUsername: task.owner,
             taskId: task.id,
             basePath: tabBase,
             blob: file,
             suggestedFilename: file.name,
           });
-          setContent((prev) => prev + markdownSnippet);
         } catch {
           alert(`Failed to upload ${file.name}`);
         }
@@ -2758,14 +2763,13 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
             const renamed = new File([info.file], finalName, {
               type: info.file.type,
             });
-            const { markdownSnippet } = await attachImageToTask({
+            await attachImageToTask({
               ownerUsername: task.owner,
               taskId: task.id,
               basePath: tabBase,
               blob: renamed,
               suggestedFilename: finalName,
             });
-            setContent((prev) => prev + markdownSnippet);
           } catch {
             alert(`Failed to upload ${finalName}`);
           }
@@ -3233,16 +3237,17 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
         existing,
       );
 
+      // See the Lab Notes tab handler above — drop = attach to Images/ only;
+      // placing the ref inline is the user's explicit drag from the strip.
       for (const file of uniqueFiles) {
         try {
-          const { markdownSnippet } = await attachImageToTask({
+          await attachImageToTask({
             ownerUsername: task.owner,
             taskId: task.id,
             basePath: tabBase,
             blob: file,
             suggestedFilename: file.name,
           });
-          setContent((prev) => prev + markdownSnippet);
         } catch {
           alert(`Failed to upload ${file.name}`);
         }
@@ -3264,14 +3269,13 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
             const renamed = new File([info.file], finalName, {
               type: info.file.type,
             });
-            const { markdownSnippet } = await attachImageToTask({
+            await attachImageToTask({
               ownerUsername: task.owner,
               taskId: task.id,
               basePath: tabBase,
               blob: renamed,
               suggestedFilename: finalName,
             });
-            setContent((prev) => prev + markdownSnippet);
           } catch {
             alert(`Failed to upload ${finalName}`);
           }

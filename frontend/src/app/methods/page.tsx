@@ -883,8 +883,8 @@ function CreateMethodModal({
             );
             // Track uploaded image for potential cleanup on cancel
             uploadedImagePathsRef.current.push(imagePath);
-            const imageMarkdown = `\n![${renamedFile.name}](./Images/${imageName})\n`;
-            setMdContent((prev) => prev + imageMarkdown);
+            // Drop = attach to Images/ only; placing the markdown ref
+            // inline is the user's explicit drag from the bottom strip.
             if (response.warning) {
               setUploadWarning(response.warning);
             }
@@ -1724,7 +1724,8 @@ function MarkdownMethodViewer({
         try {
           const finalName = await pickUniqueImageName(`${methodDir}/Images`, renamedFile.name);
           await fileService.writeFileFromBlob(`${methodDir}/Images/${finalName}`, renamedFile);
-          setContent((prev) => prev + `\n![${renamedFile.name}](Images/${finalName})\n`);
+          // Drop = attach to Images/ only; placing the markdown ref
+          // inline is the user's explicit drag from the bottom strip.
         } catch {
           alert(`Failed to upload ${renamedFile.name}`);
         }
