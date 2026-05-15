@@ -86,7 +86,7 @@ export const ONBOARDING_TIPS: OnboardingTip[] = [
     id: "personalize-colors",
     title: "Make it yours",
     body:
-      "Feeling bored? Customize your profile color in the Settings. Even the top bar can wear it!",
+      "Feeling bored? Customize your profile color in the Settings.",
     route: "/",
     target: "personalize-colors",
     wikiPath: "/wiki/features/settings",
