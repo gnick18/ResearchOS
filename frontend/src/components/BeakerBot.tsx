@@ -13,11 +13,16 @@ import { useId } from "react";
  * see the icon-style sweep commits (`f3e39af3`, `11054b2a`,
  * `1bc9fe36`, `72b0c385`) for the convention.
  *
- * The liquid fill is the one place that breaks the
- * stroke-only/currentColor rule — it uses an SVG linearGradient with
- * five pastel rainbow stops (peach → yellow → mint → sky → lavender,
- * top to bottom) so the beaker looks "full of mystery science." The
- * gradient id is generated per-mount via `useId()` so multiple
+ * The body has TWO fills layered (back to front): an opaque white
+ * fill covering the whole beaker silhouette, then a pastel-rainbow
+ * gradient liquid in the lower portion (wavy meniscus at y≈19). The
+ * white fill keeps the eyes/smile/cheek dashes legible against busy
+ * page backgrounds — without it, the upper body section is
+ * transparent and the features bleed into whatever's behind them.
+ *
+ * The liquid uses an SVG linearGradient with five pastel rainbow
+ * stops (peach → yellow → mint → sky → lavender, top to bottom).
+ * The gradient id is generated per-mount via `useId()` so multiple
  * BeakerBots on the same page (gallery, multi-tip card scenarios)
  * don't collide on `url(#beaker-liquid-...)` references.
  *
@@ -62,8 +67,11 @@ export interface BeakerBotProps {
   className?: string;
   /** Accessible label. Defaults to "ResearchOS assistant". */
   ariaLabel?: string;
-  /** Set to true to render only the outline (no pastel rainbow
-   *  liquid). Useful for monochrome contexts. Default false. */
+  /** Set to true to render in wireframe mode — no white body fill
+   *  AND no pastel-rainbow liquid, just the outline + features.
+   *  Useful for monochrome icon contexts (e.g. small dev-button
+   *  icons) where the multi-color treatment would feel out of
+   *  place. Default false. */
   noLiquid?: boolean;
 }
 
@@ -117,10 +125,26 @@ export default function BeakerBot({
         </linearGradient>
       </defs>
 
+      {/* White body fill — full beaker silhouette, opaque white.
+          Rendered BEFORE the rainbow liquid AND the outline so the
+          mascot's eyes/smile/cheek dashes have a solid backdrop
+          against busy page backgrounds (project chips, colorful
+          buttons). Without this, the upper body section is
+          transparent and the features bleed into whatever's
+          behind them. Skipped when `noLiquid` is true (the prop
+          becomes "no fill at all → wireframe mode"). */}
+      {!noLiquid && (
+        <path
+          d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z"
+          fill="white"
+          stroke="none"
+        />
+      )}
+
       {/* Liquid — pastel rainbow fill, wavy meniscus at the top,
-          follows the rounded-bottom body silhouette. Rendered BEFORE
-          the outline so the body stroke draws on top. Skipped when
-          `noLiquid` is true. */}
+          follows the rounded-bottom body silhouette. Rendered AFTER
+          the white fill so the rainbow paints on top of the white
+          in the lower portion. Skipped when `noLiquid` is true. */}
       {!noLiquid && (
         <path
           d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z"

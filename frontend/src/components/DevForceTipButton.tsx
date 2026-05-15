@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useOnboarding } from "@/lib/onboarding/orchestrator";
 import { ONBOARDING_TIPS } from "@/lib/onboarding/tips";
 import { findOnboardingTarget } from "@/lib/onboarding/use-onboarding-target";
+import BeakerBot from "./BeakerBot";
 import Tooltip from "./Tooltip";
 
 /**
@@ -104,23 +105,10 @@ export default function DevForceTipButton() {
           aria-haspopup="menu"
           className="w-12 h-12 rounded-full bg-white border-2 border-sky-300 hover:border-sky-500 hover:bg-sky-50 text-sky-600 hover:text-sky-700 shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center"
         >
-          {/* Beaker-bot silhouette to match the actual mascot. */}
-          <svg
-            className="w-5 h-5"
-            viewBox="0 0 40 40"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M22 8 C 22 6, 24 4, 26 6" />
-            <path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" />
-            <path d="M11 12 L29 12" />
-            <circle cx="17" cy="18" r="1.2" fill="currentColor" stroke="none" />
-            <circle cx="23" cy="18" r="1.2" fill="currentColor" stroke="none" />
-            <path d="M18 22 Q 20 24, 22 22" />
-          </svg>
+          {/* Render the actual mascot in wireframe mode (noLiquid)
+              so the dev-button icon stays monochrome at small size
+              and any future BeakerBot tweaks propagate automatically. */}
+          <BeakerBot pose="idle" noLiquid className="w-5 h-5" />
         </button>
       </Tooltip>
 
