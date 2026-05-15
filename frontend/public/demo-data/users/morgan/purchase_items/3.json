@@ -9,5 +9,7 @@
   "shipping_fees": 12,
   "total_price": 332,
   "notes": "Demo reagents for the shared screen.",
-  "funding_string": "DEMO-DOE-EERE"
+  "funding_string": "DEMO-DOE-EERE",
+  "vendor": "Thermo",
+  "category": "Reagents"
 }

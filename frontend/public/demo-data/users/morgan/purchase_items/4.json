@@ -1,0 +1,15 @@
+{
+  "id": 4,
+  "task_id": 6,
+  "item_name": "384-well black-walled plates (small batch)",
+  "quantity": 1,
+  "link": "https://example.org/demo-sigma",
+  "cas": null,
+  "price_per_unit": 98,
+  "shipping_fees": 0,
+  "total_price": 98,
+  "notes": null,
+  "funding_string": "DEMO-Internal-Bridge",
+  "vendor": "Sigma-Aldrich",
+  "category": "Plasticware"
+}

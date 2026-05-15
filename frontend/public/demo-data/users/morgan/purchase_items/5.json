@@ -1,0 +1,15 @@
+{
+  "id": 5,
+  "task_id": 6,
+  "item_name": "HEPES buffer (1 L, lab-prepared)",
+  "quantity": 2,
+  "link": null,
+  "cas": "7365-45-9",
+  "price_per_unit": 42,
+  "shipping_fees": 0,
+  "total_price": 84,
+  "notes": "Demo internal stock.",
+  "funding_string": null,
+  "vendor": "Internal supply",
+  "category": "Reagents"
+}

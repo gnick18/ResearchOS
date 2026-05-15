@@ -1,0 +1,15 @@
+{
+  "id": 17,
+  "task_id": 27,
+  "item_name": "50 mL conical tubes (sleeve)",
+  "quantity": 4,
+  "link": "https://example.org/demo-sigma",
+  "cas": null,
+  "price_per_unit": 24,
+  "shipping_fees": 0,
+  "total_price": 96,
+  "notes": null,
+  "funding_string": "DEMO-Internal-Bridge",
+  "vendor": "Sigma-Aldrich",
+  "category": "Consumables"
+}

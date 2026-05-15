@@ -9,5 +9,7 @@
   "shipping_fees": 10,
   "total_price": 200,
   "notes": "Demo solvent for fake-metabolite quantification.",
-  "funding_string": "DEMO-Internal-Bridge"
+  "funding_string": "DEMO-Internal-Bridge",
+  "vendor": "Sigma-Aldrich",
+  "category": "Reagents"
 }

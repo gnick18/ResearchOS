@@ -9,5 +9,7 @@
   "shipping_fees": 8,
   "total_price": 104,
   "notes": null,
-  "funding_string": "DEMO-Internal-Bridge"
+  "funding_string": "DEMO-Internal-Bridge",
+  "vendor": "Thermo",
+  "category": "Plasticware"
 }

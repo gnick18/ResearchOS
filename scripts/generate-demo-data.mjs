@@ -341,12 +341,12 @@ function buildEntries() {
     "users/alex/_counters.json",
     {
       projects: 4,
-      tasks: 23,
+      tasks: 27,
       methods: 5,
       events: 4,
       goals: 2,
       pcr_protocols: 1,
-      purchase_items: 4,
+      purchase_items: 20,
       lab_links: 6,
       notes: 2,
       dependencies: 8,
@@ -536,6 +536,15 @@ function buildEntries() {
         { id: "st1", text: "Walk through bench safety + waste protocol", is_complete: true },
         { id: "st2", text: "Set up server account + lab notebook template", is_complete: true },
       ] },
+    // ── /purchases dashboard fixtures (Chip B). Four historical purchase
+    //    tasks span Nov 2025 → Apr 2026 so the new analytics dashboard
+    //    has ~6 months of data to plot. Anchored at fixed historical dates
+    //    (the rebase math shifts both ends by the same delta, so the
+    //    Nov-to-now window stays consistent).
+    { id: 24, project_id: 1, name: "Order Q4 transformation supplies", start_date: "2025-11-15", duration_days: 1, end_date: "2025-11-15", task_type: "purchase", is_complete: true },
+    { id: 25, project_id: 2, name: "Order plasmid library construction kit", start_date: "2025-12-12", duration_days: 1, end_date: "2025-12-12", task_type: "purchase", is_complete: true },
+    { id: 26, project_id: 3, name: "Order stress-tolerance assay reagents", start_date: "2026-02-05", duration_days: 1, end_date: "2026-02-05", task_type: "purchase", is_complete: true },
+    { id: 27, project_id: 1, name: "Order Spring resupply — primers + buffers", start_date: "2026-04-20", duration_days: 1, end_date: "2026-04-20", task_type: "purchase", is_complete: false },
   ]));
 
   // alex methods
@@ -624,11 +633,50 @@ function buildEntries() {
       { id: "sg2", text: "All sequenced + validated", is_complete: false },
     ], is_complete: false, created_at: "2026-04-01T00:00:00Z" }]);
 
-  // alex purchases (4)
-  out.push(["users/alex/purchase_items/1.json", { id: 1, task_id: 7, item_name: "DemoStrain ΔADE2 (fake yeast collection)", quantity: 1, link: "https://example.org/demo-strain-catalog", cas: null, price_per_unit: 220, shipping_fees: 25, total_price: 245, notes: "Demo strain — replaces nothing real.", funding_string: "DEMO-DOE-EERE" }]);
-  out.push(["users/alex/purchase_items/2.json", { id: 2, task_id: 7, item_name: "FakeYeast genotyping primers (IDT)", quantity: 4, link: "https://example.org/demo-idt", cas: null, price_per_unit: 14, shipping_fees: 5, total_price: 61, notes: null, funding_string: "DEMO-NIH-GM999999" }]);
-  out.push(["users/alex/purchase_items/3.json", { id: 3, task_id: 7, item_name: "Phusion polymerase (demo)", quantity: 1, link: "https://example.org/demo-neb", cas: null, price_per_unit: 285, shipping_fees: 0, total_price: 285, notes: "For DemoCheck PCR.", funding_string: "DEMO-NIH-GM999999" }]);
-  out.push(["users/alex/purchase_items/4.json", { id: 4, task_id: 15, item_name: "LC-MS grade acetonitrile (demo)", quantity: 2, link: "https://example.org/demo-sigma", cas: "75-05-8", price_per_unit: 95, shipping_fees: 10, total_price: 200, notes: "Demo solvent for fake-metabolite quantification.", funding_string: "DEMO-Internal-Bridge" }]);
+  // alex purchases (20 — Chip B fixture expansion).
+  //
+  // Distributed across 6 purchase tasks (7, 15, 24, 25, 26, 27) plus
+  // one item on experiment task 11 — the latent-bug coverage from
+  // PURCHASES_PAGE_PROPOSAL.md §5 ("items on non-purchase tasks").
+  //
+  // Vendor + category fields populated per Chip A (a1771a8b). A few
+  // items leave one or both null so the dashboard's Uncategorized
+  // affordances render. Distribution intentionally non-uniform so chart
+  // shapes are interesting.
+  //
+  //   Vendor counts:    IDT=3 Sigma-Aldrich=6 NEB=3 Thermo=4 Internal=1 null=3
+  //   Category counts:  Reagents=11 Plasticware=3 Consumables=4 Service=1 null=1
+  //   Funding counts:   NIH=8 DOE=5 Internal-Bridge=4 null=3
+  out.push(["users/alex/purchase_items/1.json", { id: 1, task_id: 7, item_name: "DemoStrain ΔADE2 (fake yeast collection)", quantity: 1, link: "https://example.org/demo-strain-catalog", cas: null, price_per_unit: 220, shipping_fees: 25, total_price: 245, notes: "Demo strain — replaces nothing real.", funding_string: "DEMO-DOE-EERE", vendor: null, category: null }]);
+  out.push(["users/alex/purchase_items/2.json", { id: 2, task_id: 7, item_name: "FakeYeast genotyping primers (IDT)", quantity: 4, link: "https://example.org/demo-idt", cas: null, price_per_unit: 14, shipping_fees: 5, total_price: 61, notes: null, funding_string: "DEMO-NIH-GM999999", vendor: "IDT", category: "Reagents" }]);
+  out.push(["users/alex/purchase_items/3.json", { id: 3, task_id: 7, item_name: "Phusion polymerase (demo)", quantity: 1, link: "https://example.org/demo-neb", cas: null, price_per_unit: 285, shipping_fees: 0, total_price: 285, notes: "For DemoCheck PCR.", funding_string: "DEMO-NIH-GM999999", vendor: "NEB", category: "Reagents" }]);
+  out.push(["users/alex/purchase_items/4.json", { id: 4, task_id: 15, item_name: "LC-MS grade acetonitrile (demo)", quantity: 2, link: "https://example.org/demo-sigma", cas: "75-05-8", price_per_unit: 95, shipping_fees: 10, total_price: 200, notes: "Demo solvent for fake-metabolite quantification.", funding_string: "DEMO-Internal-Bridge", vendor: "Sigma-Aldrich", category: "Reagents" }]);
+  // Task 24 — Q4 transformation supplies (2025-11-15)
+  out.push(["users/alex/purchase_items/5.json", { id: 5, task_id: 24, item_name: "SD-Ura selection plates (pre-poured, sleeve of 20)", quantity: 5, link: null, cas: null, price_per_unit: 40, shipping_fees: 0, total_price: 200, notes: "Demo internal media-prep order.", funding_string: "DEMO-NIH-GM999999", vendor: "Internal supply", category: "Plasticware" }]);
+  out.push(["users/alex/purchase_items/6.json", { id: 6, task_id: 24, item_name: "Restriction enzyme set (BsmBI, EcoRI, NotI)", quantity: 1, link: "https://example.org/demo-neb", cas: null, price_per_unit: 295, shipping_fees: 20, total_price: 315, notes: null, funding_string: "DEMO-NIH-GM999999", vendor: "NEB", category: "Reagents" }]);
+  out.push(["users/alex/purchase_items/7.json", { id: 7, task_id: 24, item_name: "pYES2 backbone vector (demo)", quantity: 1, link: null, cas: null, price_per_unit: 180, shipping_fees: 0, total_price: 180, notes: "Demo plasmid — fake catalog entry.", funding_string: "DEMO-NIH-GM999999", vendor: null, category: "Reagents" }]);
+  // Task 25 — Plasmid library construction kit (2025-12-12)
+  out.push(["users/alex/purchase_items/8.json", { id: 8, task_id: 25, item_name: "Gibson assembly master mix", quantity: 2, link: "https://example.org/demo-neb", cas: null, price_per_unit: 245, shipping_fees: 20, total_price: 510, notes: null, funding_string: "DEMO-NIH-GM999999", vendor: "NEB", category: "Reagents" }]);
+  out.push(["users/alex/purchase_items/9.json", { id: 9, task_id: 25, item_name: "96-well PCR plates (skirted)", quantity: 5, link: "https://example.org/demo-thermo", cas: null, price_per_unit: 48, shipping_fees: 15, total_price: 255, notes: null, funding_string: "DEMO-DOE-EERE", vendor: "Thermo", category: "Plasticware" }]);
+  out.push(["users/alex/purchase_items/10.json", { id: 10, task_id: 25, item_name: "Filter pipette tips (P200, racked)", quantity: 10, link: "https://example.org/demo-sigma", cas: null, price_per_unit: 32, shipping_fees: 0, total_price: 320, notes: null, funding_string: "DEMO-DOE-EERE", vendor: "Sigma-Aldrich", category: "Consumables" }]);
+  // Task 26 — Stress-tolerance assay reagents (2026-02-05)
+  out.push(["users/alex/purchase_items/11.json", { id: 11, task_id: 26, item_name: "Sorbitol (1 kg, biology-grade)", quantity: 2, link: "https://example.org/demo-sigma", cas: "50-70-4", price_per_unit: 58, shipping_fees: 0, total_price: 116, notes: "Osmotic stress assay reagent (demo).", funding_string: "DEMO-Internal-Bridge", vendor: "Sigma-Aldrich", category: "Reagents" }]);
+  out.push(["users/alex/purchase_items/12.json", { id: 12, task_id: 26, item_name: "NaCl (1 kg, ACS-grade)", quantity: 1, link: "https://example.org/demo-sigma", cas: "7647-14-5", price_per_unit: 32, shipping_fees: 0, total_price: 32, notes: null, funding_string: "DEMO-Internal-Bridge", vendor: "Sigma-Aldrich", category: "Reagents" }]);
+  out.push(["users/alex/purchase_items/13.json", { id: 13, task_id: 26, item_name: "384-well clear-bottom assay plates", quantity: 4, link: "https://example.org/demo-thermo", cas: null, price_per_unit: 76, shipping_fees: 12, total_price: 316, notes: null, funding_string: "DEMO-DOE-EERE", vendor: "Thermo", category: "Plasticware" }]);
+  out.push(["users/alex/purchase_items/14.json", { id: 14, task_id: 26, item_name: "gBlocks for stress-response reporters (8 fragments)", quantity: 8, link: "https://example.org/demo-idt", cas: null, price_per_unit: 32, shipping_fees: 0, total_price: 256, notes: null, funding_string: "DEMO-NIH-GM999999", vendor: "IDT", category: "Reagents" }]);
+  // Task 27 — Spring resupply, primers + buffers (active, 2026-04-20)
+  out.push(["users/alex/purchase_items/15.json", { id: 15, task_id: 27, item_name: "Sequencing-screen primer set (pYES f/r + 4 internal)", quantity: 6, link: "https://example.org/demo-idt", cas: null, price_per_unit: 14, shipping_fees: 5, total_price: 89, notes: null, funding_string: "DEMO-NIH-GM999999", vendor: "IDT", category: "Reagents" }]);
+  out.push(["users/alex/purchase_items/16.json", { id: 16, task_id: 27, item_name: "T7 RNA polymerase (demo)", quantity: 1, link: "https://example.org/demo-thermo", cas: null, price_per_unit: 172, shipping_fees: 0, total_price: 172, notes: null, funding_string: "DEMO-DOE-EERE", vendor: "Thermo", category: "Reagents" }]);
+  out.push(["users/alex/purchase_items/17.json", { id: 17, task_id: 27, item_name: "50 mL conical tubes (sleeve)", quantity: 4, link: "https://example.org/demo-sigma", cas: null, price_per_unit: 24, shipping_fees: 0, total_price: 96, notes: null, funding_string: "DEMO-Internal-Bridge", vendor: "Sigma-Aldrich", category: "Consumables" }]);
+  // Task 15 (existing — Order LC-MS solvents) — two more items.
+  // funding_string null = uncategorized tail (proposal §7 + §4 dashboard).
+  out.push(["users/alex/purchase_items/18.json", { id: 18, task_id: 15, item_name: "LC-MS column hardware service kit", quantity: 1, link: "https://example.org/demo-thermo", cas: null, price_per_unit: 450, shipping_fees: 25, total_price: 475, notes: "Awaiting PI sign-off on funding source.", funding_string: null, vendor: "Thermo", category: "Service" }]);
+  out.push(["users/alex/purchase_items/19.json", { id: 19, task_id: 15, item_name: "Solvent waste disposal bottles (4 L)", quantity: 6, link: "https://example.org/demo-sigma", cas: null, price_per_unit: 18, shipping_fees: 0, total_price: 108, notes: null, funding_string: null, vendor: "Sigma-Aldrich", category: "Consumables" }]);
+  // Item 20 hangs off experiment task 11 ("Heat-shock survival assay")
+  // — exercises the §5 latent-bug surface ("items on non-purchase tasks")
+  // for the dashboard's Uncategorized panel, complementing morgan's
+  // existing items 1+2 on her experiment tasks.
+  out.push(["users/alex/purchase_items/20.json", { id: 20, task_id: 11, item_name: "Pipette tip refills (P1000)", quantity: 2, link: null, cas: null, price_per_unit: 48, shipping_fees: 0, total_price: 96, notes: "Demo: ordered against experiment task by mistake.", funding_string: null, vendor: null, category: "Consumables" }]);
 
   // alex lab links (6)
   out.push(["users/alex/lab_links/1.json", { id: 1, title: "Benchling (demo workspace)", url: "https://example.org/demo-benchling", description: "Cloning notebook for the demo lab.", category: "Bioinformatics tools", color: "#3b82f6", preview_image_url: null, sort_order: 0, created_at: "2026-02-01T00:00:00Z" }]);
@@ -718,12 +766,12 @@ function buildEntries() {
     "users/morgan/_counters.json",
     {
       projects: 2,
-      tasks: 9,
+      tasks: 13,
       methods: 2,
       events: 0,
       goals: 0,
       pcr_protocols: 0,
-      purchase_items: 3,
+      purchase_items: 20,
       lab_links: 4,
       notes: 1,
       dependencies: 2,
@@ -804,6 +852,13 @@ function buildEntries() {
         { id: "st2", text: "Wire fixture column for alex's pYES library positives", is_complete: true },
         { id: "st3", text: "Push template to the lab notebook", is_complete: true },
       ] },
+    // ── /purchases dashboard fixtures (Chip B). Four historical purchase
+    //    tasks on morgan's side, spanning Nov 2025 → Apr 2026 so the
+    //    dashboard time-series has enough morgan-side data to plot.
+    { id: 10, project_id: 1, name: "Order Q4 fluorescence stock-up", start_date: "2025-11-22", duration_days: 1, end_date: "2025-11-22", task_type: "purchase", is_complete: true },
+    { id: 11, project_id: 2, name: "Order dissertation imaging supplies", start_date: "2026-01-15", duration_days: 1, end_date: "2026-01-15", task_type: "purchase", is_complete: true },
+    { id: 12, project_id: 1, name: "Order qPCR validation batch", start_date: "2026-02-25", duration_days: 1, end_date: "2026-02-25", task_type: "purchase", is_complete: true },
+    { id: 13, project_id: 2, name: "Order Chapter 2 figure reagents", start_date: "2026-04-25", duration_days: 1, end_date: "2026-04-25", task_type: "purchase", is_complete: true },
   ]));
 
   // morgan methods
@@ -812,12 +867,43 @@ function buildEntries() {
   out.push(["users/morgan/methods/2.json", methodJson("morgan", 2, "[Demo protocol] qPCR setup", "qPCR")]);
   out.push(["users/morgan/methods/2.md", METHOD_QPCR_MD]);
 
-  // morgan purchases. Item 3 hangs off the new purchase TASK (task 6) in
-  // morgan's shared project 1, so alex sees it via the merged-view loader
-  // `purchasesApi.listAllIncludingShared`.
-  out.push(["users/morgan/purchase_items/1.json", { id: 1, task_id: 1, item_name: "96-well black-walled plates (demo)", quantity: 2, link: "https://example.org/demo-platesupply", cas: null, price_per_unit: 48, shipping_fees: 8, total_price: 104, notes: null, funding_string: "DEMO-Internal-Bridge" }]);
-  out.push(["users/morgan/purchase_items/2.json", { id: 2, task_id: 2, item_name: "GFP recombinant standard (demo)", quantity: 1, link: "https://example.org/demo-gfp-std", cas: null, price_per_unit: 175, shipping_fees: 0, total_price: 175, notes: "For absolute quantification.", funding_string: "DEMO-DOE-EERE" }]);
-  out.push(["users/morgan/purchase_items/3.json", { id: 3, task_id: 6, item_name: "GFP fluorescence calibration kit (demo)", quantity: 1, link: "https://example.org/demo-fluo-kit", cas: null, price_per_unit: 320, shipping_fees: 12, total_price: 332, notes: "Demo reagents for the shared screen.", funding_string: "DEMO-DOE-EERE" }]);
+  // morgan purchases (20 — Chip B fixture expansion).
+  //
+  // Items 1+2 stay on EXPERIMENT tasks (1, 2) per the §5 latent-bug
+  // preservation requirement — the dashboard's "Items on non-purchase
+  // tasks" Uncategorized panel needs morgan-side coverage.
+  // Item 3 stays on shared purchase task 6 (project 1, shared with alex)
+  // so the cross-owner `purchasesApi.listAllIncludingShared` path
+  // continues to surface a shared-task item to alex's dashboard.
+  //
+  //   Vendor counts:    IDT=3 Sigma-Aldrich=5 NEB=2 Thermo=6 Internal=1 null=3
+  //   Category counts:  Reagents=9 Plasticware=5 Consumables=4 Service=1 null=1
+  //   Funding counts:   NIH=7 DOE=5 Internal-Bridge=5 null=3
+  out.push(["users/morgan/purchase_items/1.json", { id: 1, task_id: 1, item_name: "96-well black-walled plates (demo)", quantity: 2, link: "https://example.org/demo-platesupply", cas: null, price_per_unit: 48, shipping_fees: 8, total_price: 104, notes: null, funding_string: "DEMO-Internal-Bridge", vendor: "Thermo", category: "Plasticware" }]);
+  out.push(["users/morgan/purchase_items/2.json", { id: 2, task_id: 2, item_name: "GFP recombinant standard (demo)", quantity: 1, link: "https://example.org/demo-gfp-std", cas: null, price_per_unit: 175, shipping_fees: 0, total_price: 175, notes: "For absolute quantification.", funding_string: "DEMO-DOE-EERE", vendor: "Sigma-Aldrich", category: "Reagents" }]);
+  out.push(["users/morgan/purchase_items/3.json", { id: 3, task_id: 6, item_name: "GFP fluorescence calibration kit (demo)", quantity: 1, link: "https://example.org/demo-fluo-kit", cas: null, price_per_unit: 320, shipping_fees: 12, total_price: 332, notes: "Demo reagents for the shared screen.", funding_string: "DEMO-DOE-EERE", vendor: "Thermo", category: "Reagents" }]);
+  // Task 6 (existing) — two more items so the active purchase task isn't a singleton.
+  out.push(["users/morgan/purchase_items/4.json", { id: 4, task_id: 6, item_name: "384-well black-walled plates (small batch)", quantity: 1, link: "https://example.org/demo-sigma", cas: null, price_per_unit: 98, shipping_fees: 0, total_price: 98, notes: null, funding_string: "DEMO-Internal-Bridge", vendor: "Sigma-Aldrich", category: "Plasticware" }]);
+  out.push(["users/morgan/purchase_items/5.json", { id: 5, task_id: 6, item_name: "HEPES buffer (1 L, lab-prepared)", quantity: 2, link: null, cas: "7365-45-9", price_per_unit: 42, shipping_fees: 0, total_price: 84, notes: "Demo internal stock.", funding_string: null, vendor: "Internal supply", category: "Reagents" }]);
+  // Task 10 — Q4 fluorescence stock-up (2025-11-22)
+  out.push(["users/morgan/purchase_items/6.json", { id: 6, task_id: 10, item_name: "Reading-buffer custom mix (250 mL)", quantity: 2, link: null, cas: null, price_per_unit: 58, shipping_fees: 0, total_price: 116, notes: "Custom recipe — vendor TBD on next reorder.", funding_string: "DEMO-DOE-EERE", vendor: null, category: null }]);
+  out.push(["users/morgan/purchase_items/7.json", { id: 7, task_id: 10, item_name: "Sterile reservoir basins (sleeve of 25)", quantity: 6, link: "https://example.org/demo-sigma", cas: null, price_per_unit: 14, shipping_fees: 0, total_price: 84, notes: null, funding_string: "DEMO-Internal-Bridge", vendor: "Sigma-Aldrich", category: "Plasticware" }]);
+  out.push(["users/morgan/purchase_items/8.json", { id: 8, task_id: 10, item_name: "Multichannel pipette calibration service", quantity: 1, link: null, cas: null, price_per_unit: 215, shipping_fees: 0, total_price: 215, notes: "Annual calibration — demo.", funding_string: "DEMO-NIH-GM999999", vendor: null, category: "Service" }]);
+  out.push(["users/morgan/purchase_items/9.json", { id: 9, task_id: 10, item_name: "Filter pipette tips (P10, racked)", quantity: 6, link: "https://example.org/demo-thermo", cas: null, price_per_unit: 34, shipping_fees: 0, total_price: 204, notes: null, funding_string: "DEMO-NIH-GM999999", vendor: "Thermo", category: "Consumables" }]);
+  // Task 11 — Dissertation imaging supplies (2026-01-15)
+  out.push(["users/morgan/purchase_items/10.json", { id: 10, task_id: 11, item_name: "Microscope lens-cleaning kit", quantity: 1, link: "https://example.org/demo-thermo", cas: null, price_per_unit: 65, shipping_fees: 0, total_price: 65, notes: null, funding_string: "DEMO-Internal-Bridge", vendor: "Thermo", category: "Consumables" }]);
+  out.push(["users/morgan/purchase_items/11.json", { id: 11, task_id: 11, item_name: "SDS-PAGE running buffer (10x, 1 L)", quantity: 2, link: "https://example.org/demo-neb", cas: null, price_per_unit: 48, shipping_fees: 5, total_price: 101, notes: null, funding_string: "DEMO-NIH-GM999999", vendor: "NEB", category: "Reagents" }]);
+  out.push(["users/morgan/purchase_items/12.json", { id: 12, task_id: 11, item_name: "Cuvette pack (UV-grade, box of 100)", quantity: 2, link: "https://example.org/demo-sigma", cas: null, price_per_unit: 58, shipping_fees: 0, total_price: 116, notes: null, funding_string: "DEMO-NIH-GM999999", vendor: "Sigma-Aldrich", category: "Plasticware" }]);
+  // Task 12 — qPCR validation batch (2026-02-25, large order)
+  out.push(["users/morgan/purchase_items/13.json", { id: 13, task_id: 12, item_name: "PCR primers — gal80 verification set (8 oligos)", quantity: 8, link: "https://example.org/demo-idt", cas: null, price_per_unit: 14, shipping_fees: 5, total_price: 117, notes: null, funding_string: "DEMO-NIH-GM999999", vendor: "IDT", category: "Reagents" }]);
+  out.push(["users/morgan/purchase_items/14.json", { id: 14, task_id: 12, item_name: "Reverse-transcription kit (24 rxns)", quantity: 1, link: "https://example.org/demo-neb", cas: null, price_per_unit: 185, shipping_fees: 0, total_price: 185, notes: null, funding_string: "DEMO-NIH-GM999999", vendor: "NEB", category: "Reagents" }]);
+  out.push(["users/morgan/purchase_items/15.json", { id: 15, task_id: 12, item_name: "SYBR qPCR master mix (2x, 5 mL)", quantity: 1, link: "https://example.org/demo-thermo", cas: null, price_per_unit: 245, shipping_fees: 0, total_price: 245, notes: null, funding_string: "DEMO-DOE-EERE", vendor: "Thermo", category: "Reagents" }]);
+  out.push(["users/morgan/purchase_items/16.json", { id: 16, task_id: 12, item_name: "Falcon tubes (15 mL, sleeve of 50)", quantity: 4, link: "https://example.org/demo-thermo", cas: null, price_per_unit: 22, shipping_fees: 0, total_price: 88, notes: null, funding_string: "DEMO-Internal-Bridge", vendor: "Thermo", category: "Consumables" }]);
+  out.push(["users/morgan/purchase_items/17.json", { id: 17, task_id: 12, item_name: "96-well qPCR plates (skirted)", quantity: 2, link: "https://example.org/demo-idt", cas: null, price_per_unit: 52, shipping_fees: 0, total_price: 104, notes: null, funding_string: "DEMO-DOE-EERE", vendor: "IDT", category: "Plasticware" }]);
+  // Task 13 — Chapter 2 figure reagents (2026-04-25)
+  out.push(["users/morgan/purchase_items/18.json", { id: 18, task_id: 13, item_name: "Antibody reference standard (demo)", quantity: 1, link: "https://example.org/demo-sigma", cas: null, price_per_unit: 325, shipping_fees: 15, total_price: 340, notes: "Awaiting funding source — likely DOE renewal.", funding_string: null, vendor: "Sigma-Aldrich", category: "Reagents" }]);
+  out.push(["users/morgan/purchase_items/19.json", { id: 19, task_id: 13, item_name: "Custom oligo set — Chapter 2 figures (6 primers)", quantity: 6, link: "https://example.org/demo-idt", cas: null, price_per_unit: 14, shipping_fees: 5, total_price: 89, notes: null, funding_string: "DEMO-NIH-GM999999", vendor: "IDT", category: "Reagents" }]);
+  out.push(["users/morgan/purchase_items/20.json", { id: 20, task_id: 13, item_name: "Cryo storage labels (waterproof, sleeve)", quantity: 4, link: null, cas: null, price_per_unit: 18, shipping_fees: 0, total_price: 72, notes: null, funding_string: null, vendor: null, category: "Consumables" }]);
 
   // morgan lab links (4)
   out.push(["users/morgan/lab_links/1.json", { id: 1, title: "Demo plate-reader software docs", url: "https://example.org/demo-reader-docs", description: "Manual for the demo BioTek H1.", category: "Bioinformatics tools", color: "#10b981", preview_image_url: null, sort_order: 0, created_at: "2026-02-01T00:00:00Z" }]);

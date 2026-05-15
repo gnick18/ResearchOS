@@ -1,0 +1,15 @@
+{
+  "id": 12,
+  "task_id": 26,
+  "item_name": "NaCl (1 kg, ACS-grade)",
+  "quantity": 1,
+  "link": "https://example.org/demo-sigma",
+  "cas": "7647-14-5",
+  "price_per_unit": 32,
+  "shipping_fees": 0,
+  "total_price": 32,
+  "notes": null,
+  "funding_string": "DEMO-Internal-Bridge",
+  "vendor": "Sigma-Aldrich",
+  "category": "Reagents"
+}

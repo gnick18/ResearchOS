@@ -9,5 +9,7 @@
   "shipping_fees": 25,
   "total_price": 245,
   "notes": "Demo strain — replaces nothing real.",
-  "funding_string": "DEMO-DOE-EERE"
+  "funding_string": "DEMO-DOE-EERE",
+  "vendor": null,
+  "category": null
 }

@@ -1,0 +1,15 @@
+{
+  "id": 12,
+  "task_id": 11,
+  "item_name": "Cuvette pack (UV-grade, box of 100)",
+  "quantity": 2,
+  "link": "https://example.org/demo-sigma",
+  "cas": null,
+  "price_per_unit": 58,
+  "shipping_fees": 0,
+  "total_price": 116,
+  "notes": null,
+  "funding_string": "DEMO-NIH-GM999999",
+  "vendor": "Sigma-Aldrich",
+  "category": "Plasticware"
+}

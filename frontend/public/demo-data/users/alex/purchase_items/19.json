@@ -1,0 +1,15 @@
+{
+  "id": 19,
+  "task_id": 15,
+  "item_name": "Solvent waste disposal bottles (4 L)",
+  "quantity": 6,
+  "link": "https://example.org/demo-sigma",
+  "cas": null,
+  "price_per_unit": 18,
+  "shipping_fees": 0,
+  "total_price": 108,
+  "notes": null,
+  "funding_string": null,
+  "vendor": "Sigma-Aldrich",
+  "category": "Consumables"
+}

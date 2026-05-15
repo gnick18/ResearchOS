@@ -1,0 +1,15 @@
+{
+  "id": 11,
+  "task_id": 11,
+  "item_name": "SDS-PAGE running buffer (10x, 1 L)",
+  "quantity": 2,
+  "link": "https://example.org/demo-neb",
+  "cas": null,
+  "price_per_unit": 48,
+  "shipping_fees": 5,
+  "total_price": 101,
+  "notes": null,
+  "funding_string": "DEMO-NIH-GM999999",
+  "vendor": "NEB",
+  "category": "Reagents"
+}
