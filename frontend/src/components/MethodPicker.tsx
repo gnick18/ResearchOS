@@ -448,10 +448,13 @@ function MethodPreview({ method }: { method: Method | null }) {
   const isPcr =
     method?.method_type === "pcr" ||
     (method?.source_path?.startsWith("pcr://") ?? false);
+  const isLc =
+    method?.method_type === "lc_gradient" ||
+    (method?.source_path?.startsWith("lc_gradient://") ?? false);
   const isPdf =
     method?.method_type === "pdf" ||
     (method?.source_path?.toLowerCase().endsWith(".pdf") ?? false);
-  const canFetchFile = !!method?.source_path && !isPcr;
+  const canFetchFile = !!method?.source_path && !isPcr && !isLc;
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["method-preview", method?.id],
@@ -512,6 +515,11 @@ function MethodPreview({ method }: { method: Method | null }) {
               PCR
             </span>
           )}
+          {isLc && (
+            <span className="text-xs px-1.5 py-0.5 bg-sky-100 text-sky-600 rounded shrink-0">
+              LC
+            </span>
+          )}
           {isPdf && (
             <span className="text-xs px-1.5 py-0.5 bg-rose-100 text-rose-600 rounded shrink-0">
               PDF
@@ -541,6 +549,11 @@ function MethodPreview({ method }: { method: Method | null }) {
           <div className="overflow-y-auto px-5 py-4 text-sm text-gray-500">
             PCR protocol — select the method to view and edit its gradient and
             recipe.
+          </div>
+        ) : isLc ? (
+          <div className="overflow-y-auto px-5 py-4 text-sm text-gray-500">
+            LC gradient — select the method to view its solvent gradient, column,
+            and ingredients.
           </div>
         ) : !canFetchFile ? (
           <div className="overflow-y-auto px-5 py-4 text-sm text-gray-500">

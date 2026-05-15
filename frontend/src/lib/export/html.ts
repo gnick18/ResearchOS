@@ -453,6 +453,100 @@ function buildPcrMethodBody(mp: MethodPayload): string {
   return parts.join("");
 }
 
+function buildLcGradientMethodBody(mp: MethodPayload): string {
+  const protocol = mp.lcGradientProtocol ?? null;
+  if (!protocol) {
+    return `<p class="method-file-link">LC Gradient Method (protocol could not be loaded).</p>`;
+  }
+  // The per-task snapshot lives on attachment.lc_gradient as a JSON-stringified
+  // LCGradientProtocol. When present, render it INSTEAD of the source — LC
+  // doesn't split source-vs-override across fields the way PCR does (PCR has
+  // a separate gradient field and ingredients field). For LC the snapshot is
+  // the whole protocol, so a render of just the source would lie to the
+  // reader if a snapshot exists.
+  let effective = protocol;
+  const att = mp.attachment;
+  if (att?.lc_gradient && att.lc_gradient.trim()) {
+    try {
+      const parsed = JSON.parse(att.lc_gradient);
+      if (parsed && typeof parsed === "object") {
+        effective = { ...protocol, ...parsed };
+      }
+    } catch {
+      // Fall back to source if the snapshot was corrupted.
+    }
+  }
+
+  const parts: string[] = [];
+  parts.push(`<h4>Gradient steps</h4>`);
+  parts.push(renderLcSteps(effective));
+  parts.push(`<h4>Column &amp; detection</h4>`);
+  parts.push(renderLcColumn(effective));
+  parts.push(`<h4>Ingredients</h4>`);
+  parts.push(renderLcIngredients(effective));
+  if (effective.description && effective.description.trim()) {
+    parts.push(`<p class="lc-notes">${escapeHtml(effective.description.trim())}</p>`);
+  }
+  if (att?.lc_gradient && att.lc_gradient.trim()) {
+    parts.push(
+      `<p class="lc-deviation-note"><em>Note:</em> the values above reflect per-task snapshot overrides written on this experiment, not the original source protocol.</p>`,
+    );
+  }
+  return parts.join("");
+}
+
+function renderLcSteps(p: { gradient_steps?: Array<{ time_min: number; percent_a: number; percent_b: number; flow_ml_min: number }> }): string {
+  const steps = p.gradient_steps ?? [];
+  if (steps.length === 0) return `<p>No gradient steps.</p>`;
+  const rows = steps
+    .map(
+      (s) =>
+        `<tr><td>${s.time_min}</td><td>${s.percent_a}</td><td>${s.percent_b}</td><td>${s.flow_ml_min}</td></tr>`,
+    )
+    .join("");
+  return `<table class="lc-table"><thead><tr><th>Time (min)</th><th>% A</th><th>% B</th><th>Flow (mL/min)</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function renderLcColumn(p: {
+  column?: { manufacturer?: string | null; model?: string | null; length_mm?: number | null; inner_diameter_mm?: number | null; particle_size_um?: number | null };
+  detection_wavelength_nm?: number | null;
+}): string {
+  const c = p.column ?? {};
+  const rows: string[] = [];
+  const pushRow = (label: string, value: string | number | null | undefined) => {
+    if (value === null || value === undefined || value === "") return;
+    rows.push(`<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(String(value))}</td></tr>`);
+  };
+  pushRow("Manufacturer", c.manufacturer);
+  pushRow("Model", c.model);
+  pushRow("Length (mm)", c.length_mm);
+  pushRow("Inner diameter (mm)", c.inner_diameter_mm);
+  pushRow("Particle size (µm)", c.particle_size_um);
+  pushRow("Detection wavelength (nm)", p.detection_wavelength_nm);
+  if (rows.length === 0) return `<p>No column information recorded.</p>`;
+  return `<table class="lc-column"><tbody>${rows.join("")}</tbody></table>`;
+}
+
+function renderLcIngredients(p: {
+  ingredients?: Array<{ name: string; role: string; concentration?: string; notes?: string }>;
+}): string {
+  const ingredients = p.ingredients ?? [];
+  if (ingredients.length === 0) return `<p>No ingredients listed.</p>`;
+  const ROLE_LABELS: Record<string, string> = {
+    solvent_a: "Solvent A",
+    solvent_b: "Solvent B",
+    buffer: "Buffer",
+    additive: "Additive",
+  };
+  const rows = ingredients
+    .map(
+      (i) =>
+        `<tr><td>${escapeHtml(i.name)}</td><td>${escapeHtml(ROLE_LABELS[i.role] ?? i.role)}</td><td>${escapeHtml(i.concentration ?? "")}</td><td>${escapeHtml(i.notes ?? "")}</td></tr>`,
+    )
+    .join("");
+  return `<table class="lc-ingredients"><thead><tr><th>Name</th><th>Role</th><th>Concentration</th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
 function buildMethodBlock(
   mp: MethodPayload,
   attachments: ExperimentAttachment[],
@@ -474,6 +568,8 @@ function buildMethodBlock(
     }
   } else if (mp.method.method_type === "pcr") {
     body = buildPcrMethodBody(mp);
+  } else if (mp.method.method_type === "lc_gradient") {
+    body = buildLcGradientMethodBody(mp);
   } else {
     body = `<p class="method-file-link">No method body available.</p>`;
   }

@@ -10,6 +10,7 @@ import { ownerScopedTasksApi } from "@/lib/tasks/owner-scoped-api";
 import MarkdownMethodTabContent from "./methods/MarkdownMethodTabContent";
 import PdfMethodTabContent from "./methods/PdfMethodTabContent";
 import PcrMethodTabContent from "./methods/PcrMethodTabContent";
+import LcMethodTabContent from "./methods/LcMethodTabContent";
 
 interface MethodTabsProps {
   task: Task;
@@ -117,6 +118,8 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                 {/* Tab icon based on method type */}
                 {method?.method_type === "pcr" ? (
                   <span className="text-xs">🧬</span>
+                ) : method?.method_type === "lc_gradient" ? (
+                  <span className="text-xs">📈</span>
                 ) : method?.method_type === "pdf" ? (
                   <span className="text-xs">📕</span>
                 ) : (
@@ -215,6 +218,17 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                     readOnly={readOnly}
                   />
                 );
+              case "lc_gradient":
+                return (
+                  <LcMethodTabContent
+                    task={task}
+                    method={activeMethod}
+                    methodId={activeMethodId}
+                    attachment={activeAttachment}
+                    onTaskUpdate={onTaskUpdate}
+                    readOnly={readOnly}
+                  />
+                );
               case "pdf":
                 return (
                   <PdfMethodTabContent
@@ -256,8 +270,14 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
 function resolveMethodType(
   methodType: string | null | undefined,
   sourcePath: string | null | undefined,
-): "markdown" | "pdf" | "pcr" {
+): "markdown" | "pdf" | "pcr" | "lc_gradient" {
   if (methodType === "pcr" || (sourcePath?.startsWith("pcr://") ?? false)) return "pcr";
+  if (
+    methodType === "lc_gradient" ||
+    (sourcePath?.startsWith("lc_gradient://") ?? false)
+  ) {
+    return "lc_gradient";
+  }
   if (methodType === "pdf" || (sourcePath?.toLowerCase().endsWith(".pdf") ?? false)) return "pdf";
   return "markdown";
 }
