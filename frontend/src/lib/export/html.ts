@@ -64,9 +64,9 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
-// Mirrors the basename-extraction in `lib/attachments/gc.ts:49` — strip a
-// CommonMark title, angle brackets, leading `./`, query/anchor noise, then
-// take the last `/`-separated segment.
+// Basename-extraction helper for inline file/image refs: strip a CommonMark
+// title, angle brackets, leading `./`, query/anchor noise, then take the
+// last `/`-separated segment.
 function cleanAndBasename(rawUrl: string): { basename: string; clean: string } | null {
   let src = rawUrl.trim();
   const titleMatch = src.match(/^(.+?)\s+["'].*["']\s*$/);

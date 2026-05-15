@@ -4,6 +4,10 @@ import { getCurrentUser, getMainUser, storeCurrentUser, storeMainUser, clearCurr
 import { shiftTask } from "./engine/shift";
 import { formatDate, parseDate } from "./engine/dates";
 import { canonicalEndDate, computeTaskEndDate } from "./tasks/end-date";
+import {
+  taskResultsBase,
+  legacyTaskResultsBase,
+} from "./tasks/results-paths";
 import { discoverUsers } from "./file-system/user-discovery";
 import { ensureLabUserMetadata, fallbackUserColor, setUserMetadataField, getUserMetadata, readAllUserMetadata, type UserMetadataEntry } from "./file-system/user-metadata";
 import JSZip from "jszip";
@@ -498,6 +502,15 @@ export const tasksApi = {
   //   3. Cross-owner hosted-manifest entry, if this task was hosted into a
   //      foreign project (`external_project` set). Reuses
   //      `unshareFromProject` for the bidirectional cleanup.
+  //   4. The task's results subtree on disk:
+  //      `users/<owner>/results/task-<id>/` (notes.md + results.md +
+  //      NotesPDFs/ + ResultsPDFs/ + the per-tab Images/ + Files/ folders)
+  //      plus the legacy global `results/task-<id>/` path for pre-namespacing
+  //      data. This became the SOLE cleanup mechanism for orphan attachments
+  //      after the drop-behavior paradigm shift at `e0ffbefb` made
+  //      "attached but not body-referenced" a valid state — the per-save GC
+  //      sweep (`gcUnreferencedAttachments`) was removed and the cascade
+  //      here is the safety net.
   //
   // Cleanups run BEFORE the file delete so we can still read fields like
   // `shared_with` and `external_project`.
@@ -578,6 +591,27 @@ export const tasksApi = {
             err
           );
         }
+      }
+
+      // 4. Recursively remove the task's results subtree (per-user canonical
+      //    path + legacy global path). Best-effort: `deleteDirectory`
+      //    returns false on a missing path, so we don't need to probe
+      //    existence first.
+      try {
+        await fileService.deleteDirectory(taskResultsBase(task));
+      } catch (err) {
+        console.warn(
+          `[tasksApi.delete] results-subtree cleanup failed for task ${id}:`,
+          err
+        );
+      }
+      try {
+        await fileService.deleteDirectory(legacyTaskResultsBase(id));
+      } catch (err) {
+        console.warn(
+          `[tasksApi.delete] legacy results-subtree cleanup failed for task ${id}:`,
+          err
+        );
       }
     }
 

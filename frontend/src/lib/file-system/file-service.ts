@@ -239,6 +239,39 @@ export class FileService {
     }
   }
 
+  // Recursive directory removal. Returns true if the directory existed and
+  // was removed (or partially removed), false if it was missing or the path
+  // could not be traversed. Used by tasksApi.delete to clean up the task's
+  // `users/<owner>/results/task-<id>/` subtree (notes.md, results.md, the
+  // Images/ + Files/ attachments, the PDF panels) as part of the delete
+  // cascade — the only remaining cleanup mechanism now that the
+  // attached-but-unreferenced GC is gone.
+  async deleteDirectory(path: string): Promise<boolean> {
+    if (!this.directoryHandle) return false;
+
+    const parts = path.split("/").filter(Boolean);
+    if (parts.length === 0) return false;
+
+    let currentHandle: FileSystemDirectoryHandle = this.directoryHandle;
+
+    for (let i = 0; i < parts.length - 1; i++) {
+      try {
+        currentHandle = await currentHandle.getDirectoryHandle(parts[i]);
+      } catch {
+        return false;
+      }
+    }
+
+    try {
+      await currentHandle.removeEntry(parts[parts.length - 1], {
+        recursive: true,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async listFiles(dirPath: string): Promise<string[]> {
     console.log(`[fileService.listFiles] Called with dirPath: ${dirPath}, connected: ${this.isConnected()}`);
     

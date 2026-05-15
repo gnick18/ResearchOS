@@ -263,8 +263,8 @@ function extractAttachmentRefs(markdown: string): AttachmentRef[] {
       return null;
     }
     // Use the last segment as the basename. Legacy refs like
-    // `Images/{folder}/{name}` still protect the top-level basename — that's
-    // the same convention `referencedRelativeNames` in attachments/gc.ts uses.
+    // `Images/{folder}/{name}` still resolve to the top-level basename —
+    // same convention `extractMarkdownRefs` in `lib/export/markdown.ts` uses.
     const segments = rest.split("/").filter(Boolean);
     const basename = segments[segments.length - 1];
     if (!basename) return null;

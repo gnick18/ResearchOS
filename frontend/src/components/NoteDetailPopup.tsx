@@ -11,7 +11,6 @@ import { useDuplicateResolver } from "./DuplicateUploadDialog";
 import { fileService } from "@/lib/file-system/file-service";
 import { attachImageToTask } from "@/lib/attachments/attach-image";
 import { fileEvents } from "@/lib/attachments/file-events";
-import { gcUnreferencedAttachments } from "@/lib/attachments/gc";
 import { checkForDuplicates } from "@/lib/attachments/duplicate-check";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
@@ -144,17 +143,6 @@ export default function NoteDetailPopup({
         }
         unsavedContentRef.current.delete(entryId);
         if (updated) onUpdate(updated);
-
-        // Sweep orphaned attachments. Images/ and Files/ are shared across
-        // every entry of a note, so the union of all entries' markdown is
-        // what protects a file. Best-effort: a GC failure must not break
-        // the save (this fires every 1.5s on auto-save).
-        try {
-          const combined = updated.entries.map((e) => e.content).join("\n\n");
-          await gcUnreferencedAttachments(combined, basePath);
-        } catch (gcError) {
-          console.warn("Attachment GC failed:", gcError);
-        }
       } catch (error) {
         console.error("Failed to save entry content:", error);
       } finally {
@@ -162,7 +150,7 @@ export default function NoteDetailPopup({
         isSavingRef.current = false;
       }
     },
-    [note.id, onUpdate, basePath]
+    [note.id, onUpdate]
   );
 
   // Debounced save (1.5 seconds after user stops typing)
@@ -198,21 +186,8 @@ export default function NoteDetailPopup({
       }
     }
 
-    // Sweep orphaned attachments after the final save. Refetch the note
-    // because parallel updateEntry writes above can race; the on-disk
-    // truth is what GC needs to evaluate references against.
-    try {
-      const fresh = await notesApi.get(note.id);
-      if (fresh) {
-        const combined = fresh.entries.map((e) => e.content).join("\n\n");
-        await gcUnreferencedAttachments(combined, basePath);
-      }
-    } catch (gcError) {
-      console.warn("Attachment GC on close failed:", gcError);
-    }
-
     onClose();
-  }, [note.id, onClose, cancelDebouncedSave, basePath]);
+  }, [note.id, onClose, cancelDebouncedSave]);
 
   // Handle escape key to close or exit fullscreen
   useEffect(() => {

@@ -7,9 +7,8 @@
 export { extractUserContent, hasUserContent } from "@/lib/stamp-utils";
 
 // Matches markdown image / file refs. Lazy `[^)\n]+?` instead of `[^)\s]+`
-// so filenames with spaces survive (mirrors `IMG_REF_REGEX` in
-// `lib/attachments/gc.ts`). The HTML form `<img src="...">` is handled too —
-// inline pasted HTML images would otherwise be missed.
+// so filenames with spaces survive. The HTML form `<img src="...">` is
+// handled too — inline pasted HTML images would otherwise be missed.
 const MD_REF_REGEX = /!?\[[^\]]*\]\(([^)\n]+?)\)/g;
 const HTML_IMG_REF_REGEX = /<img\s+[^>]*src=["']([^"']+)["'][^>]*>/gi;
 
@@ -40,9 +39,8 @@ function parseCandidateRef(raw: string): string | null {
 /**
  * Return the set of basenames referenced by `markdown` for the given
  * subdirectory. Tolerates both same-folder (`Images/foo.png`) and
- * subfolder-style (`Images/some-day/foo.png`) refs — both protect the
- * top-level `foo.png` from being treated as orphaned, matching the GC
- * convention in `lib/attachments/gc.ts`.
+ * subfolder-style (`Images/some-day/foo.png`) refs — both resolve to the
+ * top-level `foo.png`. Used by export-path attachment resolution.
  */
 export function extractMarkdownRefs(
   markdown: string,
