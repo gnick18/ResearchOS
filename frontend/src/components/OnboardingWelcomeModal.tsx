@@ -46,13 +46,13 @@ export default function OnboardingWelcomeModal({
       aria-labelledby="onboarding-welcome-title"
       className="fixed inset-0 z-[300] flex items-center justify-center bg-black/30 backdrop-blur-sm"
     >
-      <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 max-w-md w-[440px] mx-4 overflow-hidden">
-        <div className="p-6 flex items-start gap-4">
-          {/* Mascot — waving pose, ~80px on the left. */}
+      <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 max-w-lg w-[500px] mx-4 overflow-hidden">
+        <div className="p-7 flex items-start gap-5">
+          {/* Mascot — waving pose, ~96px on the left. */}
           <div
             aria-hidden
             className="flex-shrink-0"
-            style={{ width: 80, height: 80 }}
+            style={{ width: 96, height: 96 }}
           >
             <BeakerBot
               pose="waving"
@@ -65,21 +65,21 @@ export default function OnboardingWelcomeModal({
           <div className="flex-1 min-w-0">
             <h2
               id="onboarding-welcome-title"
-              className="text-lg font-semibold text-gray-900"
+              className="text-xl font-semibold text-gray-900"
             >
               Hi! I&apos;m here to help.
             </h2>
-            <p className="mt-1.5 text-sm text-gray-600 leading-snug">
+            <p className="mt-2 text-base text-gray-700 leading-relaxed">
               I can show you around ResearchOS as you go, or stay quiet.
               Your call.
             </p>
 
-            <div className="mt-4 flex flex-col gap-2">
+            <div className="mt-5 flex flex-col gap-2.5">
               {/* Tutorial — secondary outlined button. */}
               <button
                 type="button"
                 onClick={() => onPick("tutorial")}
-                className="w-full px-3 py-2 text-sm font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                className="w-full px-4 py-2.5 text-base font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Walk me through it
               </button>
@@ -88,7 +88,7 @@ export default function OnboardingWelcomeModal({
               <button
                 type="button"
                 onClick={() => onPick("suggestions")}
-                className="w-full px-3 py-2 text-sm font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm"
+                className="w-full px-4 py-2.5 text-base font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm"
               >
                 Show me as I go
               </button>
@@ -97,13 +97,13 @@ export default function OnboardingWelcomeModal({
               <button
                 type="button"
                 onClick={() => onPick("silenced")}
-                className="w-full px-3 py-2 text-sm font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                className="w-full px-4 py-2.5 text-base font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Stay quiet, thanks
               </button>
             </div>
 
-            <p className="mt-3 text-[11px] text-gray-400">
+            <p className="mt-4 text-xs text-gray-500">
               You can change this any time in Settings → Tips.
             </p>
           </div>

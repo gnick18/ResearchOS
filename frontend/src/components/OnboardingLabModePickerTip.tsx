@@ -29,8 +29,8 @@ const STORAGE_KEY = "researchos:labModePickerTipDismissed";
 
 const MASCOT_SIZE_PX = 96;
 const MASCOT_CARD_GAP_PX = 12;
-const CARD_WIDTH = 320;
-const CARD_HEIGHT_APPROX = 168;
+const CARD_WIDTH = 360;
+const CARD_HEIGHT_APPROX = 180;
 const ASSEMBLY_WIDTH = MASCOT_SIZE_PX + MASCOT_CARD_GAP_PX + CARD_WIDTH;
 const ASSEMBLY_HEIGHT = Math.max(MASCOT_SIZE_PX, CARD_HEIGHT_APPROX);
 const VIEWPORT_MARGIN_PX = 16;
@@ -250,7 +250,7 @@ export default function OnboardingLabModePickerTip({
         <div className="flex items-start justify-between gap-2">
           <h3
             id="onboarding-lab-mode-picker-title"
-            className="text-sm font-semibold text-gray-900 leading-tight"
+            className="text-base font-semibold text-gray-900 leading-snug"
           >
             What&apos;s Lab Mode?
           </h3>
@@ -261,7 +261,7 @@ export default function OnboardingLabModePickerTip({
             className="flex-shrink-0 -mt-1 -mr-1 p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100"
           >
             <svg
-              className="w-4 h-4"
+              className="w-5 h-5"
               fill="none"
               stroke="currentColor"
               strokeWidth={2}
@@ -276,7 +276,7 @@ export default function OnboardingLabModePickerTip({
             </svg>
           </button>
         </div>
-        <p className="mt-1.5 text-xs text-gray-600 leading-snug">
+        <p className="mt-2 text-sm text-gray-700 leading-relaxed">
           New here? Try Lab Mode to see everything everyone in the lab is
           working on. It&apos;s read-only, so poke around. You won&apos;t
           accidentally edit anyone&apos;s data.

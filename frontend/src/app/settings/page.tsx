@@ -95,6 +95,22 @@ function SettingsBody() {
   const hydrateFromSettings = useAppStore((s) => s.hydrateFromSettings);
   const queryClient = useQueryClient();
 
+  // Scroll-to-hash on mount. Next.js App Router applies the URL hash
+  // before the page's sections have rendered, so a router.push to
+  // "/settings#telegram" lands at the top of the page. Re-apply the
+  // scroll after a render tick so the section is in the DOM.
+  // Triggered by onboarding-tip setupActions navigating here.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hash = window.location.hash.slice(1);
+    if (!hash) return;
+    const handle = window.setTimeout(() => {
+      const el = document.getElementById(hash);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 120);
+    return () => window.clearTimeout(handle);
+  }, []);
+
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

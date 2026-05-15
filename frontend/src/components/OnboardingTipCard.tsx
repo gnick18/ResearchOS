@@ -34,8 +34,8 @@ import type { OnboardingTip } from "@/lib/onboarding/tips";
 
 const MASCOT_SIZE_PX = 96;
 const MASCOT_CARD_GAP_PX = 12;
-const CARD_WIDTH = 320;
-const CARD_HEIGHT_APPROX = 168;
+const CARD_WIDTH = 360;
+const CARD_HEIGHT_APPROX = 220;
 const ASSEMBLY_WIDTH = MASCOT_SIZE_PX + MASCOT_CARD_GAP_PX + CARD_WIDTH;
 const ASSEMBLY_HEIGHT = Math.max(MASCOT_SIZE_PX, CARD_HEIGHT_APPROX);
 /** Margin from the viewport edges. */
@@ -406,7 +406,7 @@ export default function OnboardingTipCard({
         <div className="flex items-start justify-between gap-2">
           <h3
             id={`onboarding-tip-${tip.id}-title`}
-            className="text-sm font-semibold text-gray-900 leading-tight"
+            className="text-base font-semibold text-gray-900 leading-snug"
           >
             {tip.title}
           </h3>
@@ -417,7 +417,7 @@ export default function OnboardingTipCard({
             className="flex-shrink-0 -mt-1 -mr-1 p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100"
           >
             <svg
-              className="w-4 h-4"
+              className="w-5 h-5"
               fill="none"
               stroke="currentColor"
               strokeWidth={2}
@@ -432,9 +432,12 @@ export default function OnboardingTipCard({
             </svg>
           </button>
         </div>
-        <p className="mt-1.5 text-xs text-gray-600 leading-snug">{tip.body}</p>
+        <p className="mt-2 text-sm text-gray-700 leading-relaxed">{tip.body}</p>
 
-        <div className="mt-3 flex items-center justify-between gap-2 text-xs flex-wrap">
+        {/* Secondary dismissals — small text links above the primary
+            action row so they're available without competing for
+            attention with the CTA. */}
+        <div className="mt-3 flex items-center gap-3 text-xs">
           <button
             type="button"
             onClick={() => onClose("later")}
@@ -442,6 +445,7 @@ export default function OnboardingTipCard({
           >
             Show me later
           </button>
+          <span className="text-gray-300" aria-hidden>·</span>
           <button
             type="button"
             onClick={() => onClose("stop")}
@@ -449,11 +453,16 @@ export default function OnboardingTipCard({
           >
             Stop showing
           </button>
+        </div>
+
+        {/* Primary action row — filled setupAction button (if present)
+            + outlined Read-more button as the secondary CTA. */}
+        <div className="mt-2 flex items-center gap-2">
           {tip.setupAction && (
             <button
               type="button"
               onClick={handleSetupAction}
-              className="font-medium text-emerald-600 hover:text-emerald-700"
+              className="px-3 py-2 text-sm font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg shadow-sm transition-colors"
             >
               {tip.setupAction.label}
             </button>
@@ -461,7 +470,7 @@ export default function OnboardingTipCard({
           <button
             type="button"
             onClick={handleReadMore}
-            className="font-medium text-sky-600 hover:text-sky-700"
+            className="px-3 py-2 text-sm font-medium border border-sky-300 text-sky-700 hover:bg-sky-50 rounded-lg transition-colors"
           >
             Read more →
           </button>
