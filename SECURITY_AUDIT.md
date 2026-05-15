@@ -102,9 +102,15 @@ Path conventions in [AGENTS.md §2](AGENTS.md) match what `fileService.writeJson
 - `users/<u>/results/task-<id>/notes/_import_source.json` — ELN import sidecar (filename → original URL mapping).
 - `users/<u>/projects/<id>-hosted.json` — cross-owner hosted-task manifest.
 
+**`users/`-level files (sibling to per-user dirs):**
+- `users/_user_metadata.json` — cross-user color preferences + display names ([user-metadata.ts:3](frontend/src/lib/file-system/user-metadata.ts:3)).
+- `users/_global_counters.json` — cross-user id allocator ([user-discovery.ts:52](frontend/src/lib/file-system/user-discovery.ts:52)).
+- `users/public/` — methods + PCR protocols shared across all users.
+- `users/lab/` — shared lab-account state.
+
 **Folder-root files:**
-- `_user_metadata.json`, `_global_counters.json`.
-- `.gitignore` — managed entries auto-appended for sensitive sidecars.
+- `.gitignore` — managed entries auto-appended for sensitive sidecars ([gitignore.ts:12](frontend/src/lib/file-system/gitignore.ts:12)).
+- `_demo_marker.json` (only when the demo lab is loaded; gates the demo banner + dynamic-dates rebase).
 
 ### 1.6 Sensitive on-disk data summary
 
