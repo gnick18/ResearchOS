@@ -44,6 +44,10 @@ export function ownerScopedTasksApi(task: Task) {
       methodId: number,
       data: { lc_gradient?: string }
     ) => rawTasksApi.updateMethodLc(taskId, methodId, data, owner),
+    updateMethodMarkdownOverride: (taskId: number, methodId: number, body: string) =>
+      rawTasksApi.updateMethodMarkdownOverride(taskId, methodId, body, owner),
+    resetMarkdownOverride: (taskId: number, methodId: number) =>
+      rawTasksApi.resetMarkdownOverride(taskId, methodId, owner),
     saveVariationNote: (taskId: number, methodId: number, notes: string) =>
       rawTasksApi.saveVariationNote(taskId, methodId, notes, owner),
     // `delete` intentionally not owner-routed: only the original owner

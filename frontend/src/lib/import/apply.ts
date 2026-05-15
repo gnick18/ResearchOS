@@ -203,6 +203,7 @@ function remapMethodAttachments(
       pcr_gradient: att.pcr_gradient,
       pcr_ingredients: att.pcr_ingredients,
       lc_gradient: att.lc_gradient ?? null,
+      body_override: att.body_override ?? null,
       variation_notes: att.variation_notes,
     });
   }
