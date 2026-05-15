@@ -51,19 +51,31 @@ export default function SecurityPage() {
 {`<your data folder>/
   users/
     <username>/
-      _meta.json                 profile, optional password hash
-      _telegram.json             bot token + inbox state (gitignored)
-      _calendar.json             subscribed iCal URLs
-      projects/<id>/             one folder per project
-        project.json
-        tasks/<id>/
-          task.json
-          notes.md               your free-form lab notes
-          results.json
-          Images/                pasted/dragged images
-          Attachments/           PDFs and arbitrary files
-      methods/<id>/              reusable protocols
-      pcr/<id>/                  PCR programs and recipes`}
+      settings.json              user settings, default views, tab visibility
+      _auth.json                 PBKDF2-hashed password (only if set)
+      _counters.json             id counters per entity type
+      _shared_with_me.json       inbound sharing pointers
+      _telegram.json             Telegram bot token + inbox state (gitignored)
+      _calendar-feeds.json       subscribed iCal URLs
+      _notifications.json        bell-dropdown rows
+      projects/<id>.json         one flat file per project
+      tasks/<id>.json            one flat file per task (notes + results
+                                 live in the task JSON or in sibling
+                                 directories below)
+      methods/<id>.json          reusable protocols
+      pcr_protocols/<id>.json    PCR programs and recipes
+      lc_gradients/<id>.json     LC gradient programs
+      cell_culture_schedules/<id>.json
+      plate_layouts/<id>.json
+      notes/<id>.json            shared lab notes
+      results/<task-id>/         per-task result attachments
+        Images/                  pasted or dragged images
+        Attachments/             PDFs and arbitrary files
+      events/<id>.json           native calendar events
+      goals/<id>.json            project goals
+      lab_links/<id>.json        link library entries
+      purchase_items/<id>.json   purchase orders
+      inbox/                     Telegram photos awaiting routing`}
         </code>
       </pre>
       <Callout variant="info" title="You can verify this with your own eyes">
@@ -74,10 +86,11 @@ export default function SecurityPage() {
 
       <h2>What briefly touches a server we operate</h2>
       <p>
-        Two routes on the ResearchOS server exist purely because browsers
-        refuse to talk directly to the upstream services involved. Both are
-        streams. Neither writes anything to disk, neither logs request
-        bodies, and neither learns anything about the rest of your folder.
+        Three routes on the ResearchOS server are involved. The first two
+        are CORS-bypass streams that exist because browsers refuse to talk
+        directly to the upstream services. The third is an anonymous
+        page-view ping. None of them ever sees the contents of your data
+        folder.
       </p>
       <ul>
         <li>
@@ -96,6 +109,16 @@ export default function SecurityPage() {
           travels in a request header, never in the URL. The bytes stream
           straight through to your folder and we keep none of them.
         </li>
+        <li>
+          <strong>Vercel Web Analytics.</strong> When you navigate between
+          pages, your browser sends an anonymous page-view beacon to Vercel
+          telling them which route you visited. No IDs, no folder contents,
+          no typed text, no markdown bodies, no project names. Vercel sees
+          your IP address (which they hash before storage per their privacy
+          policy). The <strong>Settings &rarr; Offline mode</strong> toggle
+          disables it durably, the script tag is never injected when
+          offline mode is on.
+        </li>
       </ul>
       <p>
         Both routes use the most defensive shape we know how to write:
@@ -106,21 +129,30 @@ export default function SecurityPage() {
         it line by line.
       </p>
 
-      <h2>What we never collect</h2>
+      <h2>What we collect, and what we don&apos;t</h2>
       <p>
-        There is no analytics on this app. No Sentry, no Vercel Analytics,
-        no Google Analytics, no Mixpanel, no PostHog. No background phone-home.
-        No crash reporter. No telemetry of any kind. Running{" "}
-        <code>npm ls</code> against the repo will confirm there are zero
-        such dependencies bundled.
+        We collect anonymous page-view pings via Vercel Web Analytics. When
+        you navigate between pages, an anonymous beacon goes to Vercel. No
+        IDs, no folder contents, no typed text, no markdown bodies. We use
+        this to know which pages get used and which sit idle.{" "}
+        <strong>Settings &rarr; Offline mode</strong> disables it durably,
+        the analytics script is never injected when the toggle is on, and
+        the toggle is read at component-mount time so the choice survives
+        reloads.
       </p>
       <p>
-        If something goes wrong and you click <strong>Report an issue</strong>,
-        nothing leaves the browser without you. The button opens a modal where
-        you review the body, edit it, and decide whether to submit. Clicking{" "}
-        <strong>Create GitHub Issue</strong> opens a new tab with that body
-        pre-filled on github.com, and submission only happens when you press
-        the button there.
+        We do not collect anything else. No Sentry, no Google Analytics, no
+        Mixpanel, no PostHog, no Hotjar, no Datadog, no Amplitude. No
+        background phone-home. No crash reporter. No content telemetry.
+        Running <code>npm ls</code> against the repo will confirm only{" "}
+        <code>@vercel/analytics</code> is present, and the network tab will
+        confirm no other endpoints are contacted.
+      </p>
+      <p>
+        The <strong>Report an issue</strong> button does not auto-submit
+        anything. When you click it, your browser opens a pre-filled GitHub
+        issue URL in a new tab. You see the body, edit it, and click{" "}
+        <strong>Submit</strong>. Nothing happens until you do.
       </p>
       <Screenshot
         src="/wiki/screenshots/feedback-modal.png"
@@ -190,9 +222,13 @@ export default function SecurityPage() {
           JavaScript, CSS, and static assets), occasional requests to{" "}
           <code>/api/calendar-feed</code> when a subscribed feed refreshes,
           occasional requests to <code>/api/telegram-file</code> when an
-          inbox photo loads, and direct requests to{" "}
+          inbox photo loads, direct requests to{" "}
           <code>api.telegram.org</code> when you exchange messages with
-          your bot. Nothing else.
+          your bot, and occasional requests to{" "}
+          <code>va.vercel-scripts.com</code> and{" "}
+          <code>vitals.vercel-insights.com</code> for anonymous page-view
+          pings (unless <strong>Offline mode</strong> is on, in which case
+          you&apos;ll see none of those). Nothing else.
         </Step>
       </Steps>
       <Callout variant="info" title="In-app verification chips coming soon">
