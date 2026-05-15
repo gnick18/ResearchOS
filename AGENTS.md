@@ -406,6 +406,70 @@ Two deferred-from-Workbench-redesign (`d4030e3b`) polish items closed in one pas
 - **OOS nit (flagged, not fixed)**: the project-grouping IIFE inside the main `SECTION_ORDER.map` callback is verbose enough that a future refactor could lift it into a small `<RecentResultsGroup>` component. Acceptable as-is for one section; would be worth it if a second section ever needs project grouping. Not extracted now to keep the commit small.
 - **Browser verification**: not run by the worker bot (out of remit). Grant to spot-check live; behavior is the same when there's only one project (collapses to flat grid) and adds a colored-dot project sub-header when there are 2+. Worker bot did NOT touch the four stage-organized sections — verified by reading the diff before commit.
 
+### Recently landed (2026-05-14 — onboarding tips Phase 3: rewritten 9-tip catalog + welcome modal + 3-mode system + tutorial mode + setupAction CTAs + onShow animation burst + workbench-tab DOM gate + tip card visual-novel redesign)
+
+The follow-up to Phase 1+2 (logged directly below this entry). Closes out the onboarding feature end-to-end. Manager session collaborated with Grant on tip copy and on mascot integration (BeakerBot won the comparison, got pastel-rainbow liquid + 4 new poses + scaled to 96px + comic-callout tail). The dotted pointer-line was dropped in favor of a pulsing red-glow on the target element. Final-pass sub-bot landed the tip catalog rewrite + welcome modal + mode system + setupAction/onShow/gate fields + retrofits + deep-link query-params + Settings mode picker. Master's relay then asked for one course-correct on the `workbench-experiments-tab` gate (URL → DOM data-attr), which landed at the tip of this work (commit `5c5d98c7`).
+
+**Shape changes since Phase 2:**
+
+- **Mascot evolved**: pastel-rainbow gradient liquid in the beaker body (peach → yellow → mint → sky → lavender via `<linearGradient>` with a per-mount `useId()` id so multiple BeakerBots on one page don't collide). 4 new poses on top of `idle` and `pointing`: `pointing-up`, `pointing-down`, `cheering` (both arms in a V + sparkles, direction-agnostic), `waving` (single hand raised, no triangle, used for welcome modal). New `noLiquid` prop for monochrome contexts.
+- **Mascot scaled up to 96px**, lifted OUT of the tip card to stand standalone next to it (visual-novel layout: mascot left, 12px gap, card right). Card got a comic-book callout tail on its left edge (open-path SVG outline so it merges seamlessly with the card border).
+- **Dotted pointer-line removed entirely**. Replaced with: (a) pulsing red glow on the target element via a `.onboarding-tip-highlight` class injected on the target by a useEffect; (b) smart positioning of the assembly that tries `right → below → left → above → fallback` slots for fit; (c) adaptive mascot pose (`pointing` / `pointing-up` / `pointing-down` + direction flip) based on where the target lands relative to the mascot's screen position. Way less visually busy, way more conventional UX.
+- **Welcome modal** (`<OnboardingWelcomeModal>`) is the first thing a fresh user sees post-signin. Center-screen blocking, BeakerBot in `waving` pose, three buttons: "Walk me through it" (tutorial mode) / "Show me as I go" (suggestions mode, default visual emphasis) / "Stay quiet, thanks" (silenced mode). Persists `mode` to sidecar; orchestrator blocks all tips while `mode === null`.
+- **Mode system** on the sidecar: schema v2 adds a `mode: "tutorial" | "suggestions" | "silenced" | null` field. Tutorial mode uses `TUTORIAL_MIN_GAP_SECONDS = 60` (down from 300) AND force-fires the highest-priority eligible tip each tick (no random roll). Suggestions mode is the legacy passive behavior. Silenced is `tips_off = true` semantics. The Settings page's "Tips" section now has a 3-radio mode picker + the existing replay button (which also resets `last_tip_at` so flipping out of silenced doesn't force the user to wait the full cooldown).
+- **Standalone Lab Mode picker tip** (`<OnboardingLabModePickerTip>`): rendered inline inside `UserLoginScreen`, sessionStorage-gated (`researchos:labModePickerTipDismissed`). Bypasses the orchestrator entirely because the orchestrator requires a `currentUser` and the picker is pre-user.
+- **`setupAction` field** on tips renders a custom CTA button in the card footer next to "Read more →". Kind is `"navigate"` only today; clicking router-pushes to `setupAction.href` and closes the tip with `"got-it"` outcome. Used by 6 of the 9 tips.
+- **`onShow: "animation-burst"` hook** on the `gantt-animations` tip fires 5 animations 200ms apart near screen center when the card mounts: scary → plants → underwater → fungi → celebration. The card body reads "Sorry for the jump scare. You can pick a different vibe for task completions any time."
+- **`gate` field** on tips for additional eligibility predicates beyond `route`. Only one gate today: `"workbench-experiments-tab"` on the `workbench-notes` tip.
+- **Workbench-tab gate uses a DOM data-attribute**, not URL or store (per master's relay). `WorkbenchExperimentsPanel`'s root `<div>` carries `data-current-tab="experiments"`. The panel only renders when activeTab=experiments, so attribute presence is the signal. Gate predicate is a one-line `document.querySelector` check. Leaves Workbench's local-useState tab state untouched and uncouples the gate from any future Lists-tab routing decision.
+- **Deep-link query-param hooks** wired in 5 places so `setupAction` navigates land where they should: `/settings#telegram`, `/settings#personalize`, `/calendar?addFeed=1`, `/gantt?animations=1`, `/gantt?createGoal=1`, `/methods?createMethod=public`.
+- **Retrofit data-attrs** added: `personalize-colors` on AppShell header, `link-calendars` on CalendarFeedsButton, `gantt-animations` + `create-goal` on Toolbar buttons, `fullscreen-task` on TaskDetailPopup expand button, `workbench-notes` on Workbench Notes tab button, `public-methods` on methods page create button, `lab-mode-picker` on UserLoginScreen's Lab Mode pseudo-user button. `drop-to-replace` (already exists) is reused for `archive-projects`.
+- **DevForceTipButton** in the AppShell cluster (dev-only, `IS_DEV` gated): dropdown lists all tips, click navigates + force-fires bypassing cooldown/dwell/roll. Useful for previewing without burning real engagement-time. Doesn't persist to sidecar.
+- **Mascot gallery** at `/dev/mascot-gallery` (dev-only): the BeakerBot full pose catalog, scale ladder, outline tint variations + reference rows for the 4 alternative mascots Grant didn't pick (TardigradeBot, PetriDishBot, OwlBot, PipetteBot). Alternative mascots stay in `frontend/src/components/onboarding-mascots/` for now — Grant hasn't formally locked-and-cleanup-confirmed BeakerBot per the master-relay handshake.
+
+**Tip catalog (9 in orchestrator + 1 standalone):**
+
+| # | id | Route | Title | setupAction |
+|---|---|---|---|---|
+| 1 | `telegram-send-to-task` | `/` | Your phone is a lab notebook | Pair Telegram → `/settings#telegram` |
+| 2 | `personalize-colors` | `/` | Make it yours | Open Settings → `/settings#personalize` |
+| 3 | `archive-projects` | `/` | Archive, don't delete | (none) |
+| 4 | `link-calendars` | `/calendar` | Link your calendars | Add a calendar → `/calendar?addFeed=1` |
+| 5* | `lab-mode-picker` | (UserLoginScreen) | What's Lab Mode? | (standalone, sessionStorage-gated) |
+| 6 | `public-methods` | `/methods` | Make a method public | Start a public method → `/methods?createMethod=public` |
+| 7 | `gantt-animations` | `/gantt` | Pick your vibe | Pick an animation → `/gantt?animations=1` (+ `onShow: "animation-burst"`) |
+| 8 | `workbench-notes` | `/workbench` | There's a Notes tab too | (none; gate: `workbench-experiments-tab`) |
+| 9 | `fullscreen-task` | `/` (popup-gated) | Need more room? | (none) |
+| 10 | `goals-vs-tasks` | `/gantt` | Goals vs Tasks | Create a goal → `/gantt?createGoal=1` |
+
+(*) `lab-mode-picker` is standalone — bypasses the orchestrator.
+
+**Tests**: 125/125 pass across 12 files. New tests for mode-null blocking, tutorial-mode 60s gap, workbench-experiments-tab gate.
+
+**Live-test priorities for Grant** (this surface remains UN-bot-testable — demo + wiki-capture short-circuit by design):
+1. Sign into a real folder for the first time. Welcome modal should appear center-screen with BeakerBot waving + 3 buttons. Pick "Show me as I go" (suggestions). Verify mode persists across reload.
+2. Tutorial mode: sign into a fresh folder, pick "Walk me through it". First tip should fire after 30s of route-dwell (no 5-min wait). Subsequent tips fire on a 60s cooldown.
+3. Welcome modal exempt in demo / `?wikiCapture=1`. Verify no welcome modal appears in either mode.
+4. Setup-button deep-links: trigger each via DevForceTipButton, verify they navigate + auto-open the relevant modal/dialog.
+5. Workbench-tab gate: on `/workbench` Experiments tab → `workbench-notes` tip is eligible. Switch to Notes tab → ineligible. Switch back → eligible.
+6. UserLoginScreen Lab Mode picker tip: on first browser session, the standalone tip should appear next to the Lab Mode pseudo-user button with red-glow.
+7. Animation burst on `gantt-animations` tip: navigate to `/gantt`, force-fire the tip. Five animations should fire 200ms apart at screen center.
+
+**For the wiki manager** (still pending; will hand off explicitly):
+- `/wiki/features/settings` needs a screenshot refresh — Tips section now has the mode-picker radio + replay button.
+- Deep-link shortcuts worth a callout: `/calendar?addFeed=1`, `/gantt?animations=1`, `/gantt?createGoal=1`, `/methods?createMethod=public`, `/settings#telegram`, `/settings#personalize`.
+- New `/wiki/getting-started/*` content possible: the welcome modal is the first thing a fresh user sees, worth a screenshot + explainer.
+- Tip-linked wiki paths to verify exist (currently referenced by tip catalog): `/wiki/integrations/telegram`, `/wiki/features/settings`, `/wiki/features/home`, `/wiki/integrations/calendar-feeds`, `/wiki/features/methods`, `/wiki/features/lab-mode`, `/wiki/features/gantt`, `/wiki/features/markdown-editor`.
+
+**Open follow-ups (not blocking):**
+- The 4 alternative mascots (`onboarding-mascots/*.tsx`) plus the dev gallery (`app/dev/mascot-gallery/`) are unused in production paths. Safe to keep until Grant formally locks BeakerBot, then a small cleanup chip can drop them.
+- `cancelTip(tipId)` orchestrator API (from Phase 2) still has no callers wired. Action-cancel path is implemented but un-invoked; follow-up to hook it into drop-to-replace's drop handler, duplicate-upload's upload-button click, etc.
+- `setupAction.kind === "modal"` is reserved in the schema but no implementation today.
+- No `min_build` field on tips (proposal punted to second-wave).
+- Telegram pairing section in Settings doesn't exist yet — `#telegram` anchor currently lands on the BehaviorSection that hosts the Telegram-notifications toggle. If a dedicated pairing section lands, the anchor should move.
+
+---
+
 ### Recently landed (2026-05-14 — onboarding tips Phase 1+2: per-user sidecar, active-time trigger, beaker-bot mascot, 10-tip catalog)
 
 End-to-end feature for brand-new accounts. Phase 1 = planning artifact `ONBOARDING_TIPS_PROPOSAL.md` (proposal merged at `6af73b44`). Phase 2 = implementation by sub-bot `worktree-agent-afc87f47363b80e58`, merged at the next commit on `main`.
