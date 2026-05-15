@@ -237,6 +237,7 @@ function SettingsBody() {
         <DefaultsSection settings={settings} update={update} />
         <AnimationSection settings={settings} update={update} />
         <BehaviorSection settings={settings} update={update} />
+        <DataInventorySection />
         <MaintenanceSection />
         <TipsSection />
         <SecuritySection
@@ -620,6 +621,203 @@ function BehaviorSection({ settings, update }: SectionProps) {
         checked={settings.hideGoalsFromLab}
         onChange={(v) => void update({ hideGoalsFromLab: v })}
       />
+    </SectionShell>
+  );
+}
+
+// ── Data inventory ──────────────────────────────────────────────────────────
+//
+// Read-only verification surface for the wiki's "data stays on your computer"
+// claim. Lists every file the app has written under the user's folder + every
+// IndexedDB key the app keeps in the browser. No actions besides Refresh.
+// Closes the security audit role brief's affordance #1.
+
+const IDB_KEYS: { key: string; meaning: string }[] = [
+  {
+    key: "research-os-fsa / handles / research-os-directory-handle",
+    meaning:
+      "Opaque FSA directory handle (the proof your browser has permission to read/write this folder). Does NOT contain the path string.",
+  },
+  {
+    key: "keyval-store / keyval / research-os-directory-handle-meta",
+    meaning: "Folder name + grant timestamp.",
+  },
+  {
+    key: "keyval-store / keyval / research-os-current-user",
+    meaning: "Username string of the currently signed-in user.",
+  },
+  {
+    key: "keyval-store / keyval / research-os-main-user",
+    meaning:
+      "Username string of the Lab Mode primary account, when Lab Mode is in use.",
+  },
+];
+
+async function scanFolderFiles(): Promise<string[]> {
+  const collected: string[] = [];
+  const walk = async (dirPath: string): Promise<void> => {
+    const subFiles = await fileService.listFiles(dirPath);
+    for (const f of subFiles) {
+      collected.push(dirPath ? `${dirPath}/${f}` : f);
+    }
+    const subDirs = await fileService.listDirectories(dirPath);
+    for (const d of subDirs) {
+      await walk(dirPath ? `${dirPath}/${d}` : d);
+    }
+  };
+  await walk("");
+  collected.sort();
+  return collected;
+}
+
+function DataInventorySection() {
+  const [scanning, setScanning] = useState(false);
+  const [files, setFiles] = useState<string[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const runScan = useCallback(async () => {
+    setScanning(true);
+    setError(null);
+    try {
+      const collected = await scanFolderFiles();
+      setFiles(collected);
+    } catch (err) {
+      console.error("[Data inventory] scan failed:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Scan failed. See console for details.",
+      );
+    } finally {
+      setScanning(false);
+    }
+  }, []);
+
+  // Run once on mount. The user can Refresh manually after that.
+  useEffect(() => {
+    void runScan();
+  }, [runScan]);
+
+  // Group by top-level path segment ("(root)" for files at folder root).
+  const grouped = useMemo(() => {
+    if (!files) return null;
+    const map = new Map<string, string[]>();
+    for (const path of files) {
+      const slash = path.indexOf("/");
+      const group = slash === -1 ? "(root)" : `${path.slice(0, slash)}/`;
+      const arr = map.get(group) ?? [];
+      arr.push(path);
+      map.set(group, arr);
+    }
+    return Array.from(map.entries()).sort(([a], [b]) => {
+      if (a === "(root)") return -1;
+      if (b === "(root)") return 1;
+      return a.localeCompare(b);
+    });
+  }, [files]);
+
+  const fileCount = files?.length ?? 0;
+  const dirCount = grouped?.length ?? 0;
+
+  return (
+    <SectionShell
+      title="Data inventory"
+      description="Every file path the app has written to your folder, plus every IndexedDB key in your browser. Read-only — proves nothing is leaving your computer."
+    >
+      <div>
+        <div className="flex items-start justify-between gap-4 mb-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-gray-800">Files on disk</p>
+            {scanning && !files ? (
+              <p className="text-xs text-gray-500 mt-1">Scanning your folder…</p>
+            ) : files ? (
+              <p className="text-xs text-gray-500 mt-1">
+                <strong>{fileCount}</strong> file{fileCount === 1 ? "" : "s"}{" "}
+                across <strong>{dirCount}</strong>{" "}
+                {dirCount === 1 ? "group" : "groups"}. All paths are under your
+                selected folder.
+              </p>
+            ) : null}
+            {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={() => void runScan()}
+            disabled={scanning}
+            className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
+          >
+            {scanning ? "Scanning…" : "Refresh"}
+          </button>
+        </div>
+        {grouped && grouped.length > 0 && (
+          <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 max-h-96 overflow-y-auto space-y-3">
+            {grouped.map(([group, paths]) => (
+              <div key={group}>
+                <p className="text-[11px] font-semibold text-gray-700 uppercase tracking-wide">
+                  {group}{" "}
+                  <span className="text-gray-400 font-normal normal-case">
+                    ({paths.length})
+                  </span>
+                </p>
+                <ul className="mt-1 space-y-0.5">
+                  {paths.map((p) => (
+                    <li key={p}>
+                      <code className="text-[11px] text-gray-700 font-mono break-all">
+                        {p}
+                      </code>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+        {grouped && grouped.length === 0 && !scanning && (
+          <p className="text-xs text-gray-500">No files found in your folder.</p>
+        )}
+      </div>
+
+      <div className="border-t border-gray-100 pt-4">
+        <p className="text-sm font-medium text-gray-800">Browser IndexedDB keys</p>
+        <p className="text-xs text-gray-500 mt-1 mb-2">
+          Four known keys, listed below. Open DevTools → Application → IndexedDB
+          to verify.
+        </p>
+        <ul className="space-y-2">
+          {IDB_KEYS.map((k) => (
+            <li
+              key={k.key}
+              className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2"
+            >
+              <code className="text-[11px] text-gray-800 font-mono break-all">
+                {k.key}
+              </code>
+              <p className="text-xs text-gray-600 mt-1">{k.meaning}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="border-t border-gray-100 pt-4">
+        <p className="text-sm font-medium text-gray-800">External calls</p>
+        <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+          When using ResearchOS, your browser makes outbound calls only to: (a){" "}
+          <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
+            api.telegram.org
+          </code>{" "}
+          directly, if you&apos;ve paired a Telegram bot; (b){" "}
+          <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
+            /api/calendar-feed
+          </code>{" "}
+          on this app&apos;s origin, which fetches ICS calendars on your behalf
+          with the URL in a header; (c){" "}
+          <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
+            /api/telegram-file
+          </code>{" "}
+          on this app&apos;s origin, which proxies Telegram CDN file downloads.
+          Nothing else.
+        </p>
+      </div>
     </SectionShell>
   );
 }
