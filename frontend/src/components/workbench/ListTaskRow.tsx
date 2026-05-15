@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import type { Task } from "@/lib/types";
 import Tooltip from "@/components/Tooltip";
+import SubTaskProgressDots from "@/components/workbench/SubTaskProgressDots";
 
 export type DateSignalKind = "overdue" | "doing" | "upcoming" | "done";
 
@@ -112,7 +113,7 @@ export default function ListTaskRow({
           </span>
 
           {totalSubTasks > 0 && (
-            <SubTaskProgress
+            <SubTaskProgressDots
               completed={completedSubTasks}
               total={totalSubTasks}
             />
@@ -156,47 +157,5 @@ export default function ListTaskRow({
         <div className="flex-shrink-0 ml-2 self-center">{sharedIndicator}</div>
       )}
     </div>
-  );
-}
-
-function SubTaskProgress({
-  completed,
-  total,
-}: {
-  completed: number;
-  total: number;
-}) {
-  const cells = Array.from({ length: total }, (_, i) => i < completed);
-  const allDone = completed === total;
-  return (
-    <Tooltip
-      label={`${completed}/${total} sub-task${total !== 1 ? "s" : ""} done`}
-      placement="top"
-    >
-      <span className="inline-flex items-center gap-1.5 flex-shrink-0">
-        <span className="inline-flex items-center gap-0.5" aria-hidden>
-          {cells.slice(0, 6).map((on, i) => (
-            <span
-              key={i}
-              className={`block w-2 h-2 rounded-sm ${
-                on
-                  ? allDone
-                    ? "bg-emerald-500"
-                    : "bg-blue-500"
-                  : "bg-gray-200 border border-gray-300"
-              }`}
-            />
-          ))}
-          {total > 6 && <span className="text-[10px] text-gray-400 ml-0.5">…</span>}
-        </span>
-        <span
-          className={`text-[11px] tabular-nums ${
-            allDone ? "text-emerald-600 font-medium" : "text-gray-500"
-          }`}
-        >
-          {completed}/{total}
-        </span>
-      </span>
-    </Tooltip>
   );
 }
