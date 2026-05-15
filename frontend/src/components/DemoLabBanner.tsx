@@ -19,12 +19,22 @@ type DemoMarker = {
 };
 
 /**
- * Thin persistent warning bar shown across every page when the visitor
- * is in the public in-browser demo (the `/demo` route) OR when the
- * connected folder is the on-disk Demo Lab (detected by
- * `_demo_marker.json`). The two sources are unioned: the in-browser
- * demo flips the banner on immediately, the on-disk check is a
- * fall-through for the "downloaded the zip, picked the folder" path.
+ * Thin persistent warning bar shown when the visitor is on a `/demo*`
+ * URL in the public in-browser demo OR when the connected folder is
+ * the on-disk Demo Lab (detected by `_demo_marker.json`). The two
+ * sources are unioned: the in-browser branch is pathname-gated so the
+ * banner does not leak onto stripped-URL routes; the on-disk check is
+ * a fall-through for the "downloaded the zip, picked the folder" path
+ * and is not URL-bound (the marker stays true on every route).
+ *
+ * In-browser pathname gate: the sticky `sessionStorage` demo-mode flag
+ * is set when `<FileSystemProvider>` installs the fixture (once per
+ * tab, on any URL containing `/demo`). Without the pathname gate, a
+ * real-folder user who briefly visits `/demo` and navigates back to
+ * `/` would still see the banner stuck on subsequent pages because the
+ * flag is sticky. The persistent escape hatch is `<FloatingLeaveDemoButton>`
+ * (intentionally route-spanning); the banner's job is the per-URL "you
+ * are on /demo right now" indicator, so it's tighter than the button.
  *
  * Inside the in-browser demo we also surface a "Leave Demo" CTA that
  * opens `<LeaveDemoModal>` — a single confirm-and-go-home path. The
@@ -82,7 +92,13 @@ export default function DemoLabBanner() {
     };
   }, [isConnected, directoryName]);
 
-  const isDemo = isInBrowserDemo || isOnDiskDemo;
+  // Pathname gate keeps the in-browser banner anchored to actual /demo
+  // URLs — the sticky sessionStorage flag survives navigation away,
+  // and without this gate the banner leaks onto e.g. `/` after a
+  // brief look at `/demo`. The on-disk branch is folder-marker driven
+  // (not URL-bound) so it stays cross-route.
+  const isOnDemoPath = pathname === "/demo" || (pathname?.startsWith("/demo/") ?? false);
+  const isDemo = (isInBrowserDemo && isOnDemoPath) || isOnDiskDemo;
   if (!isDemo || dismissed) return null;
 
   const onDismiss = () => {
