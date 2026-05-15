@@ -302,7 +302,6 @@ export default function MethodsPage() {
             </button>
             <button
               onClick={() => setCreating(true)}
-              data-onboarding-target="public-methods"
               className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               + New Method
@@ -1549,6 +1548,7 @@ function MarkdownMethodViewer({
                 {canModify && (
                   <button
                     onClick={() => setShowSharePopup(true)}
+                    data-onboarding-target="public-methods"
                     className={`px-3 py-1.5 text-xs rounded-lg ${
                       currentMethod.is_public
                         ? "bg-green-50 text-green-600 hover:bg-green-100"
@@ -1750,6 +1750,7 @@ function PdfViewer({
             {canModify && !currentMethod.is_shared_with_me && (
               <button
                 onClick={() => setShowSharePopup(true)}
+                data-onboarding-target="public-methods"
                 className={`px-3 py-1.5 text-xs rounded-lg ${
                   currentMethod.is_public
                     ? "bg-green-50 text-green-600 hover:bg-green-100"
@@ -1945,6 +1946,7 @@ function PcrViewer({
             {canModify && !currentMethod.is_shared_with_me && (
               <button
                 onClick={() => setShowSharePopup(true)}
+                data-onboarding-target="public-methods"
                 className={`px-3 py-1.5 text-xs rounded-lg ${
                   currentMethod.is_public
                     ? "bg-green-50 text-green-600 hover:bg-green-100"
