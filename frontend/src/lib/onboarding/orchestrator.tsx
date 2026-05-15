@@ -45,6 +45,10 @@ import {
 } from "./tips";
 import { findOnboardingTarget } from "./use-onboarding-target";
 import { subscribeTutorialSignal } from "@/lib/telegram/tutorial-signal";
+import {
+  clearTelegramTutorial,
+  startTelegramTutorialStep,
+} from "@/lib/telegram/tutorial-store";
 
 /**
  * The orchestrator that owns the tip state machine. It:
@@ -276,31 +280,46 @@ export function OnboardingOrchestrator({
     [username],
   );
 
-  // ── Cross-tab `/tutorial` re-trigger ──────────────────────────────
-  // The bot's `/tutorial` command broadcasts `trigger-tutorial-modal`
-  // via the cross-tab channel (BroadcastChannel + storage-event
-  // fallback). When this orchestrator receives it, flip `mode` back to
-  // `null` so the welcome modal re-opens. The user can then click
-  // "Walk me through it" again to land on `/demo?tutorial=1` and run
-  // the guided tour, or pick a different mode.
+  // ── Cross-tab tutorial signal subscriber ──────────────────────────
+  // Two signals matter to the orchestrator (which runs in the user's
+  // REAL ResearchOS tab, not the demo tab):
   //
-  // Two safety belts:
-  //  - In demo / wiki-capture mode, do nothing: the demo tab doesn't
-  //    own the user's mode pick, and re-flipping it would be a
-  //    user-confusing side effect.
-  //  - We only fire `setMode(null)` if the user already had a mode
-  //    pick. If `sidecar.mode === null` already, the welcome modal is
-  //    already on screen.
+  //  1. `trigger-tutorial-modal` — fired by the bot's `/tutorial`
+  //     command. Flip `mode` back to null so the welcome modal
+  //     re-opens; the user can click "Walk me through it" again.
+  //  2. `tutorial-state` — fired by the demo tab's sequencer to put
+  //     the polling tab's `_telegram_tutorial.json` sidecar into the
+  //     right shape so the bot's per-photo reply uses tutorial copy.
+  //     The demo tab can't write that sidecar itself (its mock
+  //     fileService is in-memory), so this hand-off pattern is the
+  //     only way to get state from "tutorial sequencer running" to
+  //     "polling loop reading tutorial flag."
+  //
+  // Demo / wiki-capture mode short-circuits both branches: the demo
+  // tab doesn't own the user's mode pick, and its mock fileService
+  // can't write the real sidecar.
   useEffect(() => {
     if (isDemoOrWikiCapture()) return;
     if (!sidecar) return;
     const unsubscribe = subscribeTutorialSignal((signal) => {
-      if (signal.type !== "trigger-tutorial-modal") return;
-      if (sidecar.mode === null) return; // modal already open
-      void setMode(null);
+      if (signal.type === "trigger-tutorial-modal") {
+        if (sidecar.mode === null) return; // modal already open
+        void setMode(null);
+        return;
+      }
+      if (signal.type === "tutorial-state") {
+        if (signal.step === null) {
+          void clearTelegramTutorial(username);
+        } else {
+          void startTelegramTutorialStep(username, signal.step);
+        }
+        return;
+      }
+      // photo-arrived: orchestrator doesn't react (the demo tab's
+      // sequencer is the listener for that one).
     });
     return unsubscribe;
-  }, [sidecar, setMode]);
+  }, [sidecar, setMode, username]);
 
   // ── Roll loop ─────────────────────────────────────────────────────
   useEffect(() => {

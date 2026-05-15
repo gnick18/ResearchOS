@@ -43,6 +43,16 @@ export type TutorialSignal =
     }
   | {
       type: "trigger-tutorial-modal";
+    }
+  | {
+      /** Sequencer-to-polling-tab handoff. The demo tab can't write
+       *  the user's real-folder sidecar (it's running in the
+       *  in-memory wiki-capture-mock); instead it broadcasts the
+       *  intended state and the polling tab's orchestrator persists
+       *  it. `step: null` means the sequencer is clearing (advance /
+       *  skip / End / unmount). */
+      type: "tutorial-state";
+      step: "first-photo" | null;
     };
 
 interface FallbackEnvelope {
@@ -136,7 +146,8 @@ export function subscribeTutorialSignal(
         if (!data || typeof data !== "object" || !("type" in data)) return;
         if (
           data.type !== "photo-arrived" &&
-          data.type !== "trigger-tutorial-modal"
+          data.type !== "trigger-tutorial-modal" &&
+          data.type !== "tutorial-state"
         ) {
           return;
         }
@@ -155,7 +166,8 @@ export function subscribeTutorialSignal(
       const sig = env.signal as TutorialSignal;
       if (
         sig.type !== "photo-arrived" &&
-        sig.type !== "trigger-tutorial-modal"
+        sig.type !== "trigger-tutorial-modal" &&
+        sig.type !== "tutorial-state"
       ) {
         return;
       }
