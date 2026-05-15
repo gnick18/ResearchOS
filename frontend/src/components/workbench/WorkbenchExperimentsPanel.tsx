@@ -21,6 +21,7 @@ import {
   type TaskResultProbe,
 } from "@/lib/experiments/findTaskResultsBase";
 import { taskKey, type Method, type Project, type Task } from "@/lib/types";
+import { resolveMethodById } from "@/lib/methods/lookup";
 import {
   assignSection,
   computeBlockingParents,
@@ -311,27 +312,19 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
     [projects],
   );
 
-  // Method lookup: own + shared, keyed by `${owner}:${id}` falling back
-  // to id-only for legacy refs.
-  const methodLookup = useMemo(() => {
-    const byOwnerId = new Map<string, Method>();
-    for (const m of methods) {
-      const owner = m.is_shared_with_me ? m.owner : "self";
-      byOwnerId.set(`${owner}:${m.id}`, m);
-    }
-    const byIdOnly = new Map<number, Method>();
-    for (const m of methods) {
-      if (!byIdOnly.has(m.id)) byIdOnly.set(m.id, m);
-    }
-    return (task: Task, mid: number): Method | null => {
-      const owner = task.is_shared_with_me ? task.owner : "self";
-      return (
-        byOwnerId.get(`${owner}:${mid}`) ??
-        byIdOnly.get(mid) ??
-        null
-      );
-    };
-  }, [methods]);
+  // Method lookup: route through each task's `method_attachments` so per-
+  // attachment `owner` disambiguates against per-user id collisions (e.g.
+  // alex's task attaching public method 2 when alex also owns a private
+  // method id 2). Bare `method_ids` entries without a matching attachment
+  // (newly-created tasks pre-attachment-backfill) fall through to task-
+  // owner-first byId resolution via `resolveMethodById`. Mirrors the
+  // pattern landed at MethodTabs.tsx in 3f8b42d2.
+  const methodLookup = useCallback(
+    (task: Task, mid: number): Method | null =>
+      resolveMethodById(mid, task.method_attachments, methods, task.owner) ??
+      null,
+    [methods],
+  );
 
   const handleCreateExperiment = useCallback(() => {
     setNewTaskStartDate(null);

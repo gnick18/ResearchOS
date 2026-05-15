@@ -12,9 +12,21 @@ interface MethodPickerProps {
   currentMethodId: number | null;
   /** Pin "Recently used in this project" at the top when available. */
   currentProjectId?: number;
-  /** Hide these methods entirely — e.g. methods already attached to the task. */
-  excludeMethodIds?: number[];
-  onSelect: (methodId: number) => void | Promise<void>;
+  /**
+   * Hide these methods entirely — e.g. methods already attached to the task.
+   * Composite `(method_id, owner)` keys so the picker can still surface a
+   * public method that happens to share an id with an already-attached
+   * private method (per-user id collision class). Callers must resolve
+   * attachment-owner-null to the task owner before passing — the picker
+   * matches strictly on the resolved namespace.
+   */
+  excludeMethods?: Array<{ method_id: number; owner: string }>;
+  /**
+   * Receives the selected method's `(id, owner)` so callers can persist the
+   * attachment with the right namespace without re-resolving against a list
+   * where the bare id could collide.
+   */
+  onSelect: (methodId: number, methodOwner: string) => void | Promise<void>;
   onClose: () => void;
 }
 
@@ -62,7 +74,7 @@ export default function MethodPicker({
   open,
   currentMethodId,
   currentProjectId,
-  excludeMethodIds,
+  excludeMethods,
   onSelect,
   onClose,
 }: MethodPickerProps) {
@@ -71,14 +83,23 @@ export default function MethodPicker({
     queryFn: fetchAllMethodsIncludingShared,
   });
 
-  const excludeSet = useMemo(
-    () => new Set(excludeMethodIds ?? []),
-    [excludeMethodIds]
-  );
+  // Composite-key excludeSet: `${owner}:${id}`. Callers pre-resolve
+  // attachment.owner=null to the task owner, so the picker can match
+  // strictly without needing the task context.
+  const excludeSet = useMemo(() => {
+    const set = new Set<string>();
+    for (const a of excludeMethods ?? []) {
+      set.add(`${a.owner}:${a.method_id}`);
+    }
+    return set;
+  }, [excludeMethods]);
 
   const methods = useMemo(
-    () => (excludeSet.size === 0 ? allMethods : allMethods.filter((m) => !excludeSet.has(m.id))),
-    [allMethods, excludeSet]
+    () =>
+      excludeSet.size === 0
+        ? allMethods
+        : allMethods.filter((m) => !excludeSet.has(`${m.owner}:${m.id}`)),
+    [allMethods, excludeSet],
   );
 
   const { data: tasks = [] } = useQuery({
@@ -269,7 +290,7 @@ export default function MethodPicker({
       e.preventDefault();
       const row = flatRows[highlightedIndex];
       if (row?.kind === "method") {
-        void onSelect(row.method.id);
+        void onSelect(row.method.id, row.method.owner);
       }
     } else if (e.key === "Escape") {
       e.preventDefault();
@@ -369,7 +390,7 @@ export default function MethodPicker({
                     else rowRefs.current.delete(index);
                   }}
                   onMouseEnter={() => setHighlightedIndex(index)}
-                  onClick={() => void onSelect(m.id)}
+                  onClick={() => void onSelect(m.id, m.owner)}
                   className={`w-full text-left px-4 py-2.5 border-b border-gray-50 transition-colors ${
                     isHighlighted ? "bg-blue-50" : "bg-white hover:bg-gray-50"
                   }`}

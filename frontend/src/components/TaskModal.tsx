@@ -73,8 +73,12 @@ export default function TaskModal({ projects }: TaskModalProps) {
   const [parentTaskId, setParentTaskId] = useState<number | null>(null);
   const [depType, setDepType] = useState<"FS" | "SS" | "SF">("FS");
 
-  // Experiment-specific fields
+  // Experiment-specific fields. `methodOwner` is captured alongside the id
+  // so the new task's first method_attachment can be persisted with the
+  // right owner namespace, sidestepping addMethod's bare-id fallback and
+  // matching the routing-fix contract (3f8b42d2).
   const [methodId, setMethodId] = useState<number | null>(null);
+  const [methodOwner, setMethodOwner] = useState<string | null>(null);
   const [showMethodPicker, setShowMethodPicker] = useState(false);
   const [showParentPicker, setShowParentPicker] = useState(false);
 
@@ -175,6 +179,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
     setIsHighLevel(false);
     setTaskType("list");
     setMethodId(null);
+    setMethodOwner(null);
     setSchedulingMode("date");
     setParentTaskId(null);
     setDepType("FS");
@@ -193,6 +198,8 @@ export default function TaskModal({ projects }: TaskModalProps) {
         ? suggestedStartDate 
         : startDate;
 
+      const attachExperimentMethod =
+        taskType === "experiment" && methodId !== null;
       const task = await tasksApi.create({
         project_id: projectId === 0 ? null : projectId,
         name: name.trim(),
@@ -200,7 +207,15 @@ export default function TaskModal({ projects }: TaskModalProps) {
         duration_days: durationDays,
         is_high_level: isHighLevel,
         task_type: taskType,
-        method_ids: taskType === "experiment" && methodId !== null ? [methodId] : [],
+        method_ids: attachExperimentMethod ? [methodId] : [],
+        // Persist the picker-resolved owner on the attachment so the new
+        // task carries the disambiguator from the moment it lands on
+        // disk — no addMethod fallback round-trip, no chance of
+        // mis-routing if the new id collides with a foreign-namespace
+        // sibling.
+        method_attachments: attachExperimentMethod
+          ? [{ method_id: methodId, owner: methodOwner }]
+          : undefined,
         sub_tasks: taskType === "list" && subTasks.length > 0 ? subTasks : undefined,
       });
 
@@ -260,6 +275,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
     isHighLevel,
     taskType,
     methodId,
+    methodOwner,
     queryClient,
     setIsCreatingTask,
     schedulingMode,
@@ -739,8 +755,15 @@ export default function TaskModal({ projects }: TaskModalProps) {
                 Linked Method
               </label>
               {(() => {
+                // Match on `(id, owner)` so the modal preview chip surfaces
+                // the exact method the picker resolved — bare-id `find`
+                // would silently pick the wrong namespace when an id
+                // collides across `methods` (per-user id space, public
+                // method same id as a private one).
                 const selectedMethod = methodId
-                  ? methods.find((m) => m.id === methodId) ?? null
+                  ? methods.find(
+                      (m) => m.id === methodId && (methodOwner === null || m.owner === methodOwner),
+                    ) ?? null
                   : null;
                 return selectedMethod ? (
                   <div className="flex items-center justify-between gap-2 px-3 py-2 border border-gray-200 rounded-lg bg-white text-sm">
@@ -767,7 +790,10 @@ export default function TaskModal({ projects }: TaskModalProps) {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setMethodId(null)}
+                        onClick={() => {
+                          setMethodId(null);
+                          setMethodOwner(null);
+                        }}
                         className="text-xs text-gray-400 hover:text-gray-600"
                       >
                         Clear
@@ -792,8 +818,9 @@ export default function TaskModal({ projects }: TaskModalProps) {
                 open={showMethodPicker}
                 currentMethodId={methodId}
                 currentProjectId={projectId}
-                onSelect={(id) => {
+                onSelect={(id, owner) => {
                   setMethodId(id);
+                  setMethodOwner(owner);
                   setShowMethodPicker(false);
                 }}
                 onClose={() => setShowMethodPicker(false)}

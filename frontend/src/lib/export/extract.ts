@@ -368,14 +368,20 @@ async function buildMethodPayload(
   payload: MethodPayload | null;
   pdfAttachment: ExperimentAttachment | null;
 }> {
-  const method = await deps.methodsApi.get(
-    methodId,
-    task.is_shared_with_me ? task.owner : undefined
-  );
-  if (!method) return { payload: null, pdfAttachment: null };
-
   const attachment =
     taskAttachments.find((a) => a.method_id === methodId) ?? null;
+
+  // Thread the attachment's `owner` to the method read so per-user id
+  // collisions resolve to the right namespace. `attachment.owner` carries
+  // an explicit pinned namespace ("public", a username) for cross-user or
+  // public method attachments; `null` means same-user-as-task. The task
+  // owner is the fallback for legacy attachments and for shared tasks
+  // where the receiver is exporting (mirrors the routing-fix contract at
+  // 3f8b42d2 on the read-side).
+  const methodOwner =
+    attachment?.owner ?? (task.is_shared_with_me ? task.owner : undefined);
+  const method = await deps.methodsApi.get(methodId, methodOwner);
+  if (!method) return { payload: null, pdfAttachment: null };
 
   let bodyMarkdown: string | null = null;
   let pdfAttachment: ExperimentAttachment | null = null;
