@@ -523,6 +523,8 @@ export interface PurchaseItem {
   total_price: number;
   notes: string | null;
   funding_string: string | null;  // New field for funding account
+  vendor: string | null;
+  category: string | null;
 }
 
 export interface PurchaseItemCreate {
@@ -535,6 +537,8 @@ export interface PurchaseItemCreate {
   shipping_fees?: number;
   notes?: string | null;
   funding_string?: string | null;  // New field for funding account
+  vendor?: string | null;
+  category?: string | null;
 }
 
 export interface PurchaseItemUpdate {
@@ -546,6 +550,8 @@ export interface PurchaseItemUpdate {
   shipping_fees?: number;
   notes?: string | null;
   funding_string?: string | null;  // New field for funding account
+  vendor?: string | null;
+  category?: string | null;
 }
 
 export interface CatalogItem {
