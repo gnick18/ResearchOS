@@ -5,12 +5,18 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { purchasesApi, labApi } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import Tooltip from "@/components/Tooltip";
-import type { CatalogItem, PurchaseItem } from "@/lib/types";
+import type { CatalogItem, PurchaseItem, Task } from "@/lib/types";
 
 interface PurchaseEditorProps {
   taskId: number;
   readOnly?: boolean; // When true, all editing is disabled (for lab mode)
   username?: string; // When provided, fetch from this user's data (for lab mode)
+  // Optional. When the parent passes the task's type and it's NOT "purchase",
+  // a soft inline note appears above the line-item table flagging that items
+  // added here will land in the spending dashboard's "Items on non-purchase
+  // tasks" line. Informational only — does not block editing. Callers that
+  // omit this prop (e.g. LabPurchasesPanel) suppress the note entirely.
+  taskType?: Task["task_type"];
 }
 
 interface EditingRow {
@@ -57,7 +63,7 @@ function itemToEditingRow(item: PurchaseItem): EditingRow {
 const VENDOR_DATALIST_ID = "purchase-editor-vendor-options";
 const CATEGORY_DATALIST_ID = "purchase-editor-category-options";
 
-export default function PurchaseEditor({ taskId, readOnly = false, username }: PurchaseEditorProps) {
+export default function PurchaseEditor({ taskId, readOnly = false, username, taskType }: PurchaseEditorProps) {
   const queryClient = useQueryClient();
   const [newRow, setNewRow] = useState<EditingRow>({ ...EMPTY_ROW });
   const [suggestions, setSuggestions] = useState<CatalogItem[]>([]);
@@ -397,6 +403,17 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
 
   return (
     <div className="p-4">
+      {/* Non-purchase-task warning — informational only (PURCHASES_PAGE_PROPOSAL.md
+          §5 Path 2 / locked decision Q4). Editor still renders normally; the
+          dashboard's "Items on non-purchase tasks" line is the formal surface. */}
+      {taskType && taskType !== "purchase" && (
+        <div className="mb-3 px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-800">
+          This task is not typed as a purchase order. Items added here will
+          appear in the spending dashboard&apos;s &ldquo;Items on non-purchase
+          tasks&rdquo; line.
+        </div>
+      )}
+
       {/* Autocomplete sources for vendor + category inputs. Distinct non-null
           values across the current user's own + shared-visible purchase items.
           Empty list (first user, no past values) renders as a plain input — no
