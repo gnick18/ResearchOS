@@ -139,9 +139,9 @@ export const ONBOARDING_TIPS: OnboardingTip[] = [
   },
   {
     id: "gantt-animations",
-    title: "Pick your vibe",
+    title: "Pick your animation",
     body:
-      "Sorry for the jump scare. You can pick a different vibe for task completions any time.",
+      "Sorry for the jump scare. You can pick a different animation for task completions any time.",
     route: "/gantt",
     target: "gantt-animations",
     wikiPath: "/wiki/features/gantt",
