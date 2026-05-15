@@ -8,6 +8,7 @@ import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import ProjectDetailPopup from "@/components/ProjectDetailPopup";
 import UserLoginScreen from "@/components/UserLoginScreen";
+import SubTaskProgressDots from "@/components/workbench/SubTaskProgressDots";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useAppStore } from "@/lib/store";
 import type { Project, Task } from "@/lib/types";
@@ -471,26 +472,42 @@ export default function HomePage() {
                         Next Up
                       </p>
                       <div className="space-y-1">
-                        {upcoming.map((t) => (
-                          <div
-                            key={t.id}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedTask(t);
-                            }}
-                            className="flex items-center justify-between text-xs cursor-pointer hover:bg-gray-50 rounded px-1 -mx-1 py-0.5"
-                          >
-                            <span className="text-gray-600 truncate mr-2 flex items-center gap-1.5">
-                              {t.task_type === "experiment" && (
-                                <span className="w-1 h-3 rounded-full bg-purple-400 flex-shrink-0" />
-                              )}
-                              {t.name}
-                            </span>
-                            <span className="text-gray-400 flex-shrink-0">
-                              {t.start_date}
-                            </span>
-                          </div>
-                        ))}
+                        {upcoming.map((t) => {
+                          const subTotal = t.sub_tasks?.length ?? 0;
+                          const subDone =
+                            t.sub_tasks?.filter((s) => s.is_complete).length ?? 0;
+                          const showDots =
+                            t.task_type === "list" && subTotal > 0;
+                          return (
+                            <div
+                              key={t.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedTask(t);
+                              }}
+                              className="flex items-center justify-between text-xs cursor-pointer hover:bg-gray-50 rounded px-1 -mx-1 py-0.5"
+                            >
+                              <span className="text-gray-600 truncate mr-2 flex items-center gap-1.5">
+                                {t.task_type === "experiment" && (
+                                  <span className="w-1 h-3 rounded-full bg-purple-400 flex-shrink-0" />
+                                )}
+                                {t.name}
+                              </span>
+                              <span className="flex items-center gap-2 flex-shrink-0">
+                                {showDots && (
+                                  <SubTaskProgressDots
+                                    completed={subDone}
+                                    total={subTotal}
+                                    hideCount
+                                  />
+                                )}
+                                <span className="text-gray-400">
+                                  {t.start_date}
+                                </span>
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
