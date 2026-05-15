@@ -19,6 +19,7 @@ import { broadcastTutorialSignal } from "./tutorial-signal";
 import {
   consumeBatchTextReply,
   routeBatchablePhoto,
+  routeSinglePhotoThroughBatch,
   type BatchPhoto,
 } from "./batch-routing";
 
@@ -242,6 +243,28 @@ export async function routeTelegramMessage(
     return;
   }
 
+  // Non-album, non-tutorial: route through the same state machine as a
+  // batch-of-one. ASK ALWAYS — even with an active task open in
+  // ResearchOS, the bot prompts for destination before saving. This
+  // replaces the previous silent auto-attach.
+  if (!tutorial.tutorial_active) {
+    const batchPhoto: BatchPhoto = {
+      messageId: message.message_id,
+      date: message.date,
+      caption: message.caption ?? null,
+      blob,
+      suggestedStem,
+      suggestedExt,
+      fileId,
+    };
+    await routeSinglePhotoThroughBatch(batchPhoto, ctx, active);
+    return;
+  }
+
+  // Tutorial-mode pass-through: keep the silent auto-attach path so the
+  // demo sequencer's first-photo signal fires reliably on the first
+  // photo sent during the guided tour. The user can still text /help
+  // to see the same dual-mode framing as the production flow.
   let basePath: string;
   let savedFilename: string;
   let replyHint: string;
@@ -263,7 +286,7 @@ export async function routeTelegramMessage(
     basePath = resolved;
     savedFilename = result.finalFilename;
     replyHint =
-      tutorial.tutorial_active && tutorial.active_step === "first-photo"
+      tutorial.active_step === "first-photo"
         ? `Got it! Saved to Experiment ${active.id}, "${active.name}". Head back to ResearchOS to see it on the experiment.`
         : `Saved to Experiment ${active.id}, "${active.name}".`;
   } else {
@@ -280,7 +303,7 @@ export async function routeTelegramMessage(
     basePath = base;
     savedFilename = result.finalFilename;
     replyHint =
-      tutorial.tutorial_active && tutorial.active_step === "first-photo"
+      tutorial.active_step === "first-photo"
         ? "Got it! Saved to your Inbox in your real folder. Head back to ResearchOS to see it on the experiment."
         : "No experiment open right now, so I dropped this in your Inbox (top-bar badge). Open it in ResearchOS to file with \"Move to active\" or right-click \"Send to task...\".";
   }
@@ -311,10 +334,7 @@ export async function routeTelegramMessage(
   }
 
   // Cross-tab broadcast for the guided tour. The tutorial tab listens
-  // and advances its sequencer past the first-photo step. Fired
-  // unconditionally on every photo route so a future "any photo flips
-  // the demo tab forward" use case works without revisiting this code.
-  // Cheap (in-memory channel write); no listener means no harm.
+  // and advances its sequencer past the first-photo step.
   broadcastTutorialSignal({
     type: "photo-arrived",
     taskId: active ? active.id : null,

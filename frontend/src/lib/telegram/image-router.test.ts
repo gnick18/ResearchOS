@@ -118,13 +118,16 @@ vi.mock("./tutorial-signal", () => ({
 
 // Spy on batch-routing so the tutorial-mode pass-through test can confirm
 // `routeBatchablePhoto` is NOT invoked even when the photo has a
-// media_group_id.
+// media_group_id. `routeSinglePhotoThroughBatch` is the non-album entry
+// for the redesigned ASK-always flow.
 const batchSpy = vi.hoisted(() => ({
   routeBatchablePhotoMock: vi.fn(async (..._args: unknown[]) => {}),
+  routeSinglePhotoThroughBatchMock: vi.fn(async (..._args: unknown[]) => {}),
   consumeBatchTextReplyMock: vi.fn(async () => false),
 }));
 vi.mock("./batch-routing", () => ({
   routeBatchablePhoto: batchSpy.routeBatchablePhotoMock,
+  routeSinglePhotoThroughBatch: batchSpy.routeSinglePhotoThroughBatchMock,
   consumeBatchTextReply: batchSpy.consumeBatchTextReplyMock,
 }));
 
@@ -181,6 +184,7 @@ beforeEach(() => {
   hoisted.attachImageToTaskMock.mockClear();
   hoisted.broadcastMock.mockClear();
   batchSpy.routeBatchablePhotoMock.mockClear();
+  batchSpy.routeSinglePhotoThroughBatchMock.mockClear();
   batchSpy.consumeBatchTextReplyMock.mockClear();
   batchSpy.consumeBatchTextReplyMock.mockImplementation(async () => false);
   hoisted.activeTaskRef.current = null;
@@ -234,16 +238,9 @@ describe("image-router photo handling, tutorial-aware reply", () => {
     expect(replyText).toContain("real folder");
   });
 
-  it("uses the standard inbox reply when tutorial is inactive", async () => {
+  it("tutorial photo-arrived broadcast still fires (silent-attach path)", async () => {
+    await startTelegramTutorialStep(USER, "first-photo");
     await routeTelegramMessage(photoMessage(), baseCtx);
-    const replyText = hoisted.sendMessageMock.mock.calls[0][2] as string;
-    expect(replyText).toContain("Inbox");
-    expect(replyText).not.toMatch(/^Got it!/);
-  });
-
-  it("broadcasts a photo-arrived signal on every photo route", async () => {
-    await routeTelegramMessage(photoMessage(), baseCtx);
-    // photo-arrived from the inbox path: taskId null, fromInbox true.
     expect(hoisted.broadcastMock).toHaveBeenCalledWith({
       type: "photo-arrived",
       taskId: null,
@@ -251,7 +248,8 @@ describe("image-router photo handling, tutorial-aware reply", () => {
     });
   });
 
-  it("photo-arrived broadcast carries the task id when an experiment is open", async () => {
+  it("tutorial photo-arrived carries task id when active task is open", async () => {
+    await startTelegramTutorialStep(USER, "first-photo");
     hoisted.activeTaskRef.current = {
       id: 7,
       owner: "alex",
@@ -263,6 +261,38 @@ describe("image-router photo handling, tutorial-aware reply", () => {
       taskId: 7,
       fromInbox: false,
     });
+  });
+});
+
+describe("image-router photo handling, non-tutorial → batch state machine", () => {
+  it("non-tutorial single photo with NO active task routes through the batch state machine (no silent attach)", async () => {
+    await routeTelegramMessage(photoMessage(), baseCtx);
+    // Single-photo path delegates to routeSinglePhotoThroughBatch.
+    expect(batchSpy.routeSinglePhotoThroughBatchMock).toHaveBeenCalledTimes(1);
+    // No direct attach + reply from the router (ASK-always flow handles
+    // both inside the batch state machine).
+    expect(hoisted.attachImageToTaskMock).not.toHaveBeenCalled();
+    expect(hoisted.sendMessageMock).not.toHaveBeenCalled();
+  });
+
+  it("non-tutorial single photo with active task open routes through the batch state machine (no silent attach)", async () => {
+    hoisted.activeTaskRef.current = {
+      id: 7,
+      owner: "alex",
+      name: "Yeast transformation",
+    };
+    await routeTelegramMessage(photoMessage(), baseCtx);
+    expect(batchSpy.routeSinglePhotoThroughBatchMock).toHaveBeenCalledTimes(1);
+    const args = batchSpy.routeSinglePhotoThroughBatchMock.mock.calls[0];
+    // The active task is forwarded so the batch state machine can show
+    // the active-task confirmation keyboard.
+    expect(args[2]).toEqual({
+      id: 7,
+      owner: "alex",
+      name: "Yeast transformation",
+    });
+    expect(hoisted.attachImageToTaskMock).not.toHaveBeenCalled();
+    expect(hoisted.sendMessageMock).not.toHaveBeenCalled();
   });
 });
 
