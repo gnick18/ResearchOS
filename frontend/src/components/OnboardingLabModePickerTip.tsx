@@ -95,6 +95,27 @@ export default function OnboardingLabModePickerTip({
     };
   }, [target, dismissed]);
 
+  // Mark the tip "seen" the moment it actually renders against a real
+  // target. Without this, the tip only counts as dismissed when the
+  // user clicks the X — picking a user (Lab Mode or otherwise) just
+  // unmounts UserLoginScreen, which means the NEXT mount re-fires
+  // the tip. Grant's complaint: "I got the notification over and
+  // over." Writing the sessionStorage flag on first paint makes the
+  // tip strictly once-per-browser-session: if the user dismisses via
+  // X, fine; if they click away to pick a user, fine; if they reload
+  // the picker, the flag's already set so the tip stays quiet.
+  useEffect(() => {
+    if (!target || dismissed) return;
+    try {
+      window.sessionStorage.setItem(STORAGE_KEY, "1");
+    } catch {
+      // sessionStorage can fail in private mode or sandboxed iframes
+      // — the in-memory `dismissed` state isn't flipped here so the
+      // current render still shows the tip; only the persistence is
+      // best-effort.
+    }
+  }, [target, dismissed]);
+
   const handleDismiss = () => {
     try {
       window.sessionStorage.setItem(STORAGE_KEY, "1");
