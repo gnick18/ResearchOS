@@ -544,7 +544,10 @@ function assembleFull({
 }
 
 /**
- * Lean = full minus §5 examples, with §6 and §7 trimmed.
+ * Lean = full minus §5 examples, with §4 schemas reduced to the practical
+ * drafting surface (base entity interfaces; no *Create/*Update mutator
+ * shapes, no Shift result helpers, no internal metadata types) and with
+ * §6 and §7 trimmed.
  *
  * Trimming heuristics for empty partials = no-op (placeholder stays).
  * Trimming heuristics for filled partials:
@@ -554,12 +557,12 @@ function assembleFull({
  * These trims are best-effort. Chip 2 should structure §6 with one H3
  * per route and §7 with one H3 per workflow so the heuristics work cleanly.
  */
-function assembleLean({
+async function assembleLean({
   partials,
-  schemasSection,
   wikiNavSection,
   footer,
 }) {
+  const leanSchemas = await buildLeanSchemasSection();
   const trimmedPartials = {
     ...partials,
     "6-features": trimToOneLinerPerSubsection(partials["6-features"]),
@@ -569,13 +572,83 @@ function assembleLean({
     renderPartial("1-identity", trimmedPartials),
     renderPartial("2-architecture", trimmedPartials),
     renderPartial("3-mental-model", trimmedPartials),
-    schemasSection,
+    leanSchemas,
     renderPartial("6-features", trimmedPartials),
     renderPartial("7-workflows", trimmedPartials),
     renderPartial("8-behavior", trimmedPartials),
     renderPartial("9-drafting", trimmedPartials),
     wikiNavSection,
     footer,
+  ].join("\n");
+}
+
+/**
+ * Lean schemas = the practical drafting surface. Drops *Create/*Update
+ * mutator shapes (obvious from the base interfaces), notification +
+ * shift-result internals (rare in user drafting), and supporting metadata
+ * types. Includes every entity a user would realistically generate or
+ * reason about, plus the structured-method protocols.
+ */
+async function buildLeanSchemasSection() {
+  const typesTs = await readFile(TYPES_PATH, "utf8");
+  const wanted = [
+    "SharedUser",
+    "Project",
+    "SubTask",
+    "TaskMethodAttachment",
+    "ExternalProjectRef",
+    "Task",
+    "Dependency",
+    "Method",
+    "PCRStep",
+    "PCRCycle",
+    "PCRGradient",
+    "PCRIngredient",
+    "PCRProtocol",
+    "LCGradientStep",
+    "LCGradientColumn",
+    "LCIngredient",
+    "LCGradientProtocol",
+    "PlateRegionLabel",
+    "PlateProtocol",
+    "PlateWellAnnotation",
+    "PlateAnnotationSnapshot",
+    // Cell-culture schedule interfaces land with methods-expansion Phase 2D
+    // (queued). When CellCultureSchedule + CellCultureScheduleInstance +
+    // CellCulturePlannedEvent show up in types.ts, add them here.
+    "PurchaseItem",
+    "FundingAccount",
+    "Note",
+    "NoteEntry",
+    "HighLevelGoal",
+    "SmartGoal",
+    "Event",
+    "ExternalEvent",
+    "CalendarFeed",
+    "LabLink",
+  ];
+  const blocks = [];
+  const missing = [];
+  for (const name of wanted) {
+    const block = sliceInterfaceBlock(typesTs, name);
+    if (block) blocks.push(block);
+    else missing.push(name);
+  }
+  if (missing.length > 0) {
+    console.warn(`[build-ai-helper] lean schemas: missing interfaces ${missing.join(", ")}`);
+  }
+  return [
+    "## §4 Entity schemas (lean)",
+    "",
+    "Practical drafting surface only. Base interfaces for every entity " +
+      "you would draft, including the structured-method protocols. The " +
+      "full variant includes every type, every Create / Update mutator " +
+      "shape, and every internal helper type.",
+    "",
+    "```typescript",
+    blocks.join("\n\n"),
+    "```",
+    "",
   ].join("\n");
 }
 
@@ -595,16 +668,44 @@ async function assembleMinimal({
   const minimalSchemas = await buildMinimalSchemasSection();
   const trimmedPartials = {
     ...partials,
+    "3-mental-model": trimToFirstNSentences(partials["3-mental-model"], 3),
     "7-workflows": trimToFirstNSubsections(partials["7-workflows"], 2),
   };
   return [
     renderPartial("1-identity", trimmedPartials),
+    renderPartial("3-mental-model", trimmedPartials),
     minimalSchemas,
     renderPartial("7-workflows", trimmedPartials),
     renderPartial("8-behavior", trimmedPartials),
     wikiNavSection,
     footer,
   ].join("\n");
+}
+
+/**
+ * Slice the first N sentences from a partial's body. Used for minimal
+ * variant where prose has to fit in <100 words. Sentence boundary is
+ * naive (period / exclamation / question followed by space + uppercase
+ * or end-of-string), good enough for prose without abbreviations like
+ * "e.g." or "Dr.". Empty partials pass through.
+ */
+function trimToFirstNSentences(partial, n) {
+  if (partial.isEmpty) return partial;
+  const text = partial.content.trim();
+  const sentences = [];
+  let buf = "";
+  for (let i = 0; i < text.length; i++) {
+    buf += text[i];
+    if (/[.!?]/.test(text[i])) {
+      const next = text[i + 1];
+      if (next === undefined || /\s/.test(next)) {
+        sentences.push(buf.trim());
+        buf = "";
+        if (sentences.length >= n) break;
+      }
+    }
+  }
+  return { ...partial, content: sentences.join(" ").trim() };
 }
 
 async function buildMinimalSchemasSection() {
@@ -795,9 +896,8 @@ async function main() {
       wikiNavSection,
       footer: buildFooter({ ...meta, sizeLabel: "full" }),
     }),
-    lean: assembleLean({
+    lean: await assembleLean({
       partials,
-      schemasSection,
       wikiNavSection,
       footer: buildFooter({ ...meta, sizeLabel: "lean" }),
     }),
