@@ -211,6 +211,16 @@ export interface TaskMethodAttachment {
   cell_culture_schedule: string | null;
   // Variation notes - markdown content documenting method variations for this experiment
   variation_notes: string | null;  // Markdown string with timestamped entries
+  // Compound method per-child snapshot bundle - JSON string of
+  // CompoundSnapshotPayload (only meaningful when the attached method's
+  // method_type === "compound"). Bundles per-child snapshot blobs keyed by
+  // the child method's id. Each child's blob shape matches the per-type
+  // snapshot field it would otherwise occupy on a standalone attachment
+  // (e.g. a plate child's blob mirrors plate_annotation, an lc child's
+  // blob mirrors lc_gradient). Position deliberately last so Phase 1's
+  // qpcr_analysis field can land before this one without mid-interface
+  // merge conflicts.
+  compound_snapshots: string | null;
 }
 
 export interface Task {
@@ -436,7 +446,7 @@ export interface Method {
   id: number;
   name: string;
   source_path: string | null;
-  method_type: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | null;
+  method_type: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "compound" | null;
   folder_path: string | null;
   parent_method_id: number | null;
   tags: string[] | null;
@@ -449,26 +459,34 @@ export interface Method {
   // the receiver of a shared method loads it. Never persisted to disk.
   is_shared_with_me?: boolean;
   shared_permission?: "view" | "edit";
+  // Only meaningful when `method_type === "compound"`. Null/empty for every
+  // other method type. Each entry references a child method by id + owner;
+  // the renderer walks the array in `ordering` order. See
+  // `frontend/src/lib/methods/compound-graph.ts` for cycle / depth /
+  // orphan validation.
+  components?: CompoundComponent[];
 }
 
 export interface MethodCreate {
   name: string;
   source_path?: string | null;
-  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture";
+  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "compound";
   folder_path?: string | null;
   parent_method_id?: number | null;
   tags?: string[];
   is_public?: boolean;
+  components?: CompoundComponent[];
 }
 
 export interface MethodUpdate {
   name?: string;
   source_path?: string | null;
-  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | null;
+  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "compound" | null;
   folder_path?: string | null;
   parent_method_id?: number | null;
   tags?: string[];
   is_public?: boolean;
+  components?: CompoundComponent[];
 }
 
 // ── PCR Methods ──────────────────────────────────────────────────────────────
@@ -781,6 +799,71 @@ export interface CellCultureScheduleInstance {
   cell_line?: CellCultureCellLine;
   media?: CellCultureMedia;
   description?: string | null;
+}
+
+// ── Compound Methods ─────────────────────────────────────────────────────────
+
+/**
+ * A single child reference inside a compound method's `components` array.
+ * The compound's renderer fans out across these in `ordering` order,
+ * resolving each `(method_id, owner)` pair into a child Method row and
+ * its per-type protocol record.
+ */
+export interface CompoundComponent {
+  /** Id of the child method in its owner's namespace. */
+  method_id: number;
+  /** Explicit owner of the child method. Mirrors `TaskMethodAttachment.owner`
+   *  for the same disambiguation reasons: per-user id collisions force every
+   *  cross-method reference to carry an owner. `null` = same user as the
+   *  compound. */
+  owner: string | null;
+  /** Stable insertion order within the compound. The renderer sorts by this;
+   *  reordering rewrites the array, never mutates indices in place. */
+  ordering: number;
+  /** Optional label override. When unset, the renderer uses the child's
+   *  `Method.name`. Allows "Day 1 plate" / "Day 2 plate" labels on two
+   *  copies of the same plate template inside one kit. */
+  label?: string;
+}
+
+/**
+ * Per-child snapshot entry inside a compound's `compound_snapshots` payload.
+ * The `snapshot` shape is determined by the child method's `method_type`;
+ * readers narrow on the child Method's discriminator before unpacking.
+ */
+export interface CompoundChildSnapshotEntry {
+  schema_version: 1;
+  /** Type-specific snapshot blob. Shape mirrors the standalone-attachment
+   *  field for the child's type (e.g. an LC child's snapshot is an
+   *  LCGradientProtocol; a plate child's is a PlateAnnotationSnapshot;
+   *  a markdown child's is `{ body_override: string }`; a nested compound
+   *  child's is a recursive CompoundSnapshotPayload). */
+  snapshot:
+    | PCRSnapshotPayload
+    | LCGradientProtocol
+    | PlateAnnotationSnapshot
+    | CellCultureScheduleInstance
+    | { body_override: string }
+    | CompoundSnapshotPayload
+    | null;
+}
+
+/** Parsed shape of `TaskMethodAttachment.compound_snapshots`. The outer
+ *  `version` field is a forward-compatibility hedge for v2.1 compound-level
+ *  fields; readers gate on it. */
+export interface CompoundSnapshotPayload {
+  version: 1;
+  /** Keyed by stringified child `CompoundComponent.method_id`. Absent key =
+   *  child renders against its source template only (no per-task overlay). */
+  children: Record<string, CompoundChildSnapshotEntry>;
+}
+
+/** PCR's standalone-attachment shape carries gradient and ingredients as two
+ *  separate JSON-string fields; inside a compound child snapshot they bundle
+ *  into one object so the per-child entry stays a single value. */
+export interface PCRSnapshotPayload {
+  pcr_gradient: PCRGradient;
+  pcr_ingredients: PCRIngredient[];
 }
 
 export interface MethodForkRequest {

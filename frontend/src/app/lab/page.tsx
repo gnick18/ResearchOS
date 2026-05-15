@@ -47,6 +47,7 @@ function labTaskToTask(labTask: LabTask): Task {
       plate_annotation: null,
       cell_culture_schedule: null,
       variation_notes: null,
+      compound_snapshots: null,
     })),
     // Sharing fields - in lab mode, the owner is the user whose data we're viewing
     owner: labTask.username,

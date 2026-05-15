@@ -396,6 +396,7 @@ export const tasksApi = {
       plate_annotation?: string | null;
       cell_culture_schedule?: string | null;
       variation_notes?: string | null;
+      compound_snapshots?: string | null;
     }>;
   }): Promise<Task> => {
     const durationDays = data.duration_days || 1;
@@ -433,6 +434,7 @@ export const tasksApi = {
         plate_annotation: a.plate_annotation ?? null,
         cell_culture_schedule: a.cell_culture_schedule ?? null,
         variation_notes: a.variation_notes ?? null,
+        compound_snapshots: a.compound_snapshots ?? null,
       })),
       owner: currentUser,
       shared_with: [],
@@ -728,6 +730,7 @@ export const tasksApi = {
         plate_annotation: null,
         cell_culture_schedule: null,
         variation_notes: null,
+        compound_snapshots: null,
       });
     }
 
