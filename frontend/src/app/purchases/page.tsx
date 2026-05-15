@@ -4,8 +4,10 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { tasksApi, purchasesApi, fetchAllProjectsIncludingShared, fetchAllTasksIncludingShared } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
 import PurchaseEditor from "@/components/PurchaseEditor";
+import SpendingDashboard from "@/components/SpendingDashboard";
 import Tooltip from "@/components/Tooltip";
 import { taskKey, type Task, type PurchaseItem, type FundingAccount } from "@/lib/types";
 
@@ -13,8 +15,8 @@ export default function PurchasesPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [deletingTaskId, setDeletingTaskId] = useState<number | null>(null);
   const [showFundingManager, setShowFundingManager] = useState(false);
-  const [showEarlier, setShowEarlier] = useState<boolean>(false);
   const queryClient = useQueryClient();
+  const selectedProjectIds = useAppStore((s) => s.selectedProjectIds);
 
   const { currentUser: providerCurrentUser } = useCurrentUser();
   const currentUser = providerCurrentUser ?? "";
@@ -64,20 +66,17 @@ export default function PurchasesPage() {
     [allTasks]
   );
 
-  // Split into active pipeline (top) and completed history ("Earlier"
-  // accordion at the bottom). Both sorted by start_date desc — newest first.
-  const activeTasks = useMemo(
+  // Unified scroll — pure reverse chronology, no active/earlier split.
+  // The active-before-complete partition was Chip-2's temporary mirror of
+  // the Workbench arc; purchases don't have an in-flight phase, so a single
+  // start_date-desc list reads more naturally ("did we already buy that
+  // primer?"). Completion state remains visible per-row via the green dot
+  // and `· Complete` suffix in renderPurchaseTaskCard below.
+  const sortedTasks = useMemo(
     () =>
-      purchaseTasks
-        .filter((t) => !t.is_complete)
-        .sort((a, b) => b.start_date.localeCompare(a.start_date)),
-    [purchaseTasks]
-  );
-  const earlierTasks = useMemo(
-    () =>
-      purchaseTasks
-        .filter((t) => t.is_complete)
-        .sort((a, b) => b.start_date.localeCompare(a.start_date)),
+      [...purchaseTasks].sort((a, b) =>
+        b.start_date.localeCompare(a.start_date)
+      ),
     [purchaseTasks]
   );
 
@@ -179,7 +178,7 @@ export default function PurchasesPage() {
               >
                 {/* Task header */}
                 <div
-                  className={`flex items-center justify-between px-5 py-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${task.is_complete ? "bg-green-50/50" : ""}`}
+                  className="flex items-center justify-between px-5 py-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50"
                   onClick={() => setSelectedTask(isOpen ? null : task)}
                 >
                   <div className="flex items-center gap-3">
@@ -212,7 +211,7 @@ export default function PurchasesPage() {
                 {/* Expanded purchase editor */}
                 {isOpen && (
                   <div className="relative">
-                    <PurchaseEditor taskId={task.id} />
+                    <PurchaseEditor taskId={task.id} taskType={task.task_type} />
                     {/* Action buttons */}
                     <div className="absolute bottom-3 right-4 flex items-center gap-2">
                       {/* Complete toggle button */}
@@ -284,43 +283,23 @@ export default function PurchasesPage() {
           }
 
           return (
-            <>
-              {/* Active pipeline — the focused, uncluttered top list. */}
-              {activeTasks.length > 0 ? (
-                <div className="space-y-4">
-                  {activeTasks.map(renderPurchaseTaskCard)}
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <p className="text-sm text-gray-400">
-                    No active purchase orders — see Earlier below for history.
-                  </p>
-                </div>
-              )}
-
-              {/* Earlier accordion — completed purchases, default collapsed.
-                  Hidden when there's no history at all. */}
-              {earlierTasks.length > 0 && (
-                <div className="mt-10">
-                  <button
-                    onClick={() => setShowEarlier((v) => !v)}
-                    className="w-full flex items-center gap-2 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider hover:text-gray-600 transition-colors"
-                  >
-                    <span className="inline-block w-3 text-left">
-                      {showEarlier ? "▾" : "▸"}
-                    </span>
-                    <span>Earlier ({earlierTasks.length})</span>
-                  </button>
-                  {showEarlier && (
-                    <div className="space-y-4 mt-3">
-                      {earlierTasks.map(renderPurchaseTaskCard)}
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
+            <div className="space-y-4">
+              {sortedTasks.map(renderPurchaseTaskCard)}
+            </div>
           );
         })()}
+
+        {/* Spending dashboard — sits below the unified scroll, visually
+            separated by the section heading inside the component. Renders
+            even when there are no purchases yet so first-time users see the
+            placeholders + funding-account scaffold. */}
+        <SpendingDashboard
+          purchaseItems={allPurchases}
+          tasks={allTasks}
+          projects={projects}
+          fundingAccounts={fundingAccounts}
+          selectedProjectIds={selectedProjectIds}
+        />
       </div>
     </AppShell>
   );
