@@ -12,6 +12,13 @@ export const MODIFIED_CELL_CLASSES = "bg-amber-50 ring-1 ring-amber-200";
 export const ADDED_ROW_CLASSES = "bg-green-50 ring-1 ring-green-200";
 export const REMOVED_ROW_CLASSES = "bg-red-50 line-through opacity-60";
 
+// Ring-only variants for non-tabular renderings (e.g. PCR's small colored
+// gradient blocks, where an amber background would clash with the
+// temperature-based block color). Composes with whatever bg the block
+// already has.
+export const MODIFIED_BLOCK_CLASSES = "ring-2 ring-amber-400 ring-offset-1";
+export const ADDED_BLOCK_CLASSES = "ring-2 ring-green-400 ring-offset-1";
+
 // Hover-tooltip text format
 export function originalValueTooltip(originalValue: string | number): string {
   return `Originally: ${originalValue}`;
