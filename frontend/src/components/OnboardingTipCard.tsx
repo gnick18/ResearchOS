@@ -6,28 +6,44 @@ import BeakerBot from "./BeakerBot";
 import type { OnboardingTip } from "@/lib/onboarding/tips";
 
 /**
- * Visible tip card. Renders at the document root via portal so it sits
- * above the AppShell layout, anchored at `bottom-20 right-4` to clear
- * the AppShell's 5-icon cluster (`bottom-6 right-6`).
+ * Visible tip card with a stand-alone 96px BeakerBot mascot to its
+ * left, anime visual-novel style. Renders at the document root via
+ * portal so it sits above the AppShell layout, anchored at
+ * `bottom-20 right-4` to clear the AppShell's 5-icon cluster
+ * (`bottom-6 right-6`).
  *
- * The dotted pointer-line is drawn as a separate SVG (also portalled)
- * that recomputes its endpoint from the target's `getBoundingClientRect()`
- * on resize and scroll (passive, debounced via rAF). Pulses once on
- * entry — fades back to a steady 0.7 opacity after 300ms.
+ * The dotted pointer-line is drawn as a separate SVG (also
+ * portalled), emitting from the mascot's outer-edge finger position
+ * (which side depends on the `direction` flip) and ending at the
+ * target's center. It recomputes its endpoint from the target's
+ * `getBoundingClientRect()` on resize and scroll (passive, debounced
+ * via rAF). Pulses once on entry — fades back to 0.7 opacity after
+ * 300ms.
  *
- * Card structure (top to bottom):
- *  - Upper row: BeakerBot (pointing pose) + X close button
- *  - Title
- *  - Body (≤140 chars)
- *  - Footer row: "Show me later" / "Stop showing" / "Read more →"
+ * Assembly structure (left to right):
+ *  - BeakerBot 96px (pointing pose, faces target)
+ *  - Gap 12px
+ *  - Card: title, body, footer (Show me later / Stop showing /
+ *    setupAction button if present / Read more →)
  */
 
+const MASCOT_SIZE_PX = 96;
+const MASCOT_CARD_GAP_PX = 12;
 const CARD_WIDTH = 320;
 const CARD_HEIGHT_APPROX = 156;
-/** Distance in px the card edge sits from the viewport's right + bottom
- *  edges. Mirrors `<FloatingLeaveDemoButton>`'s `bottom-20 right-4`. */
-const CARD_RIGHT_PX = 16;
-const CARD_BOTTOM_PX = 80;
+/** Distance in px the assembly's bottom + right edges sit from the
+ *  viewport edges. Mirrors `<FloatingLeaveDemoButton>`'s
+ *  `bottom-20 right-4`. */
+const ASSEMBLY_RIGHT_PX = 16;
+const ASSEMBLY_BOTTOM_PX = 80;
+/** The pointing-pose finger lives at roughly (35, 15) inside the
+ *  BeakerBot's 40-unit viewBox. As a fraction of the 96px mascot
+ *  bounding box: x=87.5%, y=37.5%. When `direction="left"` the
+ *  whole SVG flips via scaleX(-1) so the finger ends up at x=12.5%
+ *  of the bounding box. */
+const FINGER_X_RIGHT = 0.875;
+const FINGER_X_LEFT = 1 - FINGER_X_RIGHT;
+const FINGER_Y = 0.375;
 
 interface OnboardingTipCardProps {
   tip: OnboardingTip;
@@ -94,30 +110,59 @@ export default function OnboardingTipCard({
     onClose("read");
   }, [tip.wikiPath, onClose]);
 
-  // Compute pointer-line geometry. The line starts at the card's
-  // top-left corner (where the BeakerBot's pointing finger lives) and
-  // ends at the target's center. Both coordinates are in viewport-fixed
-  // px since we're rendering inside a fixed-position portal.
+  // Compute the assembly's screen-anchor + mascot center first; the
+  // bot's facing direction depends on which side of the mascot the
+  // target is on. Both coordinates are in viewport-fixed px since
+  // we're rendering inside a fixed-position portal.
+  const assemblyGeometry = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    const assemblyTotalWidth =
+      MASCOT_SIZE_PX + MASCOT_CARD_GAP_PX + CARD_WIDTH;
+    const assemblyLeft =
+      window.innerWidth - ASSEMBLY_RIGHT_PX - assemblyTotalWidth;
+    const assemblyBottom =
+      window.innerHeight - ASSEMBLY_BOTTOM_PX;
+    // Mascot sits at the LEFT end of the assembly, with its bottom
+    // edge aligned to the card's bottom (so the mascot stands on
+    // the same baseline as the card sits on).
+    const mascotLeft = assemblyLeft;
+    const mascotTop = assemblyBottom - MASCOT_SIZE_PX;
+    const mascotCenterX = mascotLeft + MASCOT_SIZE_PX / 2;
+    const cardLeft = mascotLeft + MASCOT_SIZE_PX + MASCOT_CARD_GAP_PX;
+    const cardTop = assemblyBottom - CARD_HEIGHT_APPROX;
+    return {
+      mascotLeft,
+      mascotTop,
+      mascotCenterX,
+      cardLeft,
+      cardTop,
+    };
+  }, []);
+
+  // Direction the BeakerBot faces — flip to face left when the
+  // target is to the left of the mascot. In practice the mascot
+  // sits at the bottom-right of the screen so almost every target
+  // is to the left, but a target inside the AppShell cluster
+  // (bottom-right) might be to the right.
+  const botDirection = useMemo<"left" | "right">(() => {
+    if (!targetRect || !assemblyGeometry) return "left";
+    const targetCenterX = targetRect.left + targetRect.width / 2;
+    return targetCenterX < assemblyGeometry.mascotCenterX ? "left" : "right";
+  }, [targetRect, assemblyGeometry]);
+
+  // Pointer-line geometry. Starts at the mascot's finger tip (which
+  // is at one side of the mascot bounding box depending on
+  // `botDirection`) and ends at the target's center.
   const pointerCoords = useMemo(() => {
-    if (!targetRect || typeof window === "undefined") return null;
-    const cardLeft = window.innerWidth - CARD_RIGHT_PX - CARD_WIDTH;
-    const cardTop = window.innerHeight - CARD_BOTTOM_PX - CARD_HEIGHT_APPROX;
-    // Start at the BeakerBot's finger location inside the card (top-left
-    // cell, ~24px from top, ~52px from left of the card).
-    const startX = cardLeft + 24;
-    const startY = cardTop + 28;
+    if (!targetRect || !assemblyGeometry) return null;
+    const { mascotLeft, mascotTop } = assemblyGeometry;
+    const fingerXFrac = botDirection === "left" ? FINGER_X_LEFT : FINGER_X_RIGHT;
+    const startX = mascotLeft + MASCOT_SIZE_PX * fingerXFrac;
+    const startY = mascotTop + MASCOT_SIZE_PX * FINGER_Y;
     const endX = targetRect.left + targetRect.width / 2;
     const endY = targetRect.top + targetRect.height / 2;
     return { startX, startY, endX, endY };
-  }, [targetRect]);
-
-  // Direction the BeakerBot faces — flip to face left when the target
-  // is to the card's left, which is true in practice for every target
-  // since the card sits at the right edge of the screen.
-  const botDirection = useMemo<"left" | "right">(() => {
-    if (!pointerCoords) return "left";
-    return pointerCoords.endX < pointerCoords.startX ? "left" : "right";
-  }, [pointerCoords]);
+  }, [targetRect, assemblyGeometry, botDirection]);
 
   if (!mounted) return null;
 
@@ -147,6 +192,28 @@ export default function OnboardingTipCard({
         </svg>
       )}
 
+      {/* Mascot — standalone, sits to the left of the card. Bottom
+          edge aligns with the card's bottom so the bot "stands on"
+          the same baseline. */}
+      {assemblyGeometry && (
+        <div
+          aria-hidden
+          className="fixed z-[201] drop-shadow-lg"
+          style={{
+            left: `${assemblyGeometry.mascotLeft}px`,
+            top: `${assemblyGeometry.mascotTop}px`,
+            width: `${MASCOT_SIZE_PX}px`,
+            height: `${MASCOT_SIZE_PX}px`,
+          }}
+        >
+          <BeakerBot
+            pose="pointing"
+            direction={botDirection}
+            className="w-full h-full text-sky-500"
+          />
+        </div>
+      )}
+
       {/* Tip card */}
       <div
         ref={cardRef}
@@ -154,52 +221,41 @@ export default function OnboardingTipCard({
         aria-labelledby={`onboarding-tip-${tip.id}-title`}
         className="fixed z-[201] bg-white border border-gray-200 rounded-xl shadow-2xl p-4"
         style={{
-          right: `${CARD_RIGHT_PX}px`,
-          bottom: `${CARD_BOTTOM_PX}px`,
+          right: `${ASSEMBLY_RIGHT_PX}px`,
+          bottom: `${ASSEMBLY_BOTTOM_PX}px`,
           width: `${CARD_WIDTH}px`,
         }}
       >
-        <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 -mt-1 -ml-1">
-            <BeakerBot
-              pose="pointing"
-              direction={botDirection}
-              className="w-10 h-10 text-sky-500"
-            />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <h3
-                id={`onboarding-tip-${tip.id}-title`}
-                className="text-sm font-semibold text-gray-900 leading-tight"
-              >
-                {tip.title}
-              </h3>
-              <button
-                type="button"
-                onClick={() => onClose("x")}
-                aria-label="Dismiss this tip"
-                className="flex-shrink-0 -mt-1 -mr-1 p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  viewBox="0 0 24 24"
-                  aria-hidden
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-            <p className="mt-1 text-xs text-gray-600 leading-snug">{tip.body}</p>
-          </div>
+        <div className="flex items-start justify-between gap-2">
+          <h3
+            id={`onboarding-tip-${tip.id}-title`}
+            className="text-sm font-semibold text-gray-900 leading-tight"
+          >
+            {tip.title}
+          </h3>
+          <button
+            type="button"
+            onClick={() => onClose("x")}
+            aria-label="Dismiss this tip"
+            className="flex-shrink-0 -mt-1 -mr-1 p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
         </div>
+        <p className="mt-1.5 text-xs text-gray-600 leading-snug">{tip.body}</p>
 
         <div className="mt-3 flex items-center justify-between gap-2 text-xs">
           <button
