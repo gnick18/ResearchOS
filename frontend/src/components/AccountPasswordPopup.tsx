@@ -234,9 +234,23 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
             {(mode === "set" || mode === "change") && (
               <>
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
-                    {mode === "set" ? "New password" : "New password"}
-                  </label>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <label className="text-xs font-medium text-slate-300">
+                      {mode === "set" ? "New password" : "New password"}
+                    </label>
+                    <Tooltip
+                      label="Hashed with PBKDF2-SHA-256 (600,000 iterations) into users/<your-username>/_auth.json on your disk. Never sent to any server. If you forget it, delete that file directly in your folder to reset."
+                      placement="top"
+                    >
+                      <button
+                        type="button"
+                        aria-label="Where does this go?"
+                        className="text-slate-500 hover:text-slate-300 text-[11px] leading-none"
+                      >
+                        (?)
+                      </button>
+                    </Tooltip>
+                  </div>
                   <input
                     type="password"
                     value={newInput}

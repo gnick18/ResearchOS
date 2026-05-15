@@ -9,6 +9,7 @@ import {
   type TelegramPairing,
 } from "@/lib/telegram/telegram-store";
 import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
+import Tooltip from "./Tooltip";
 
 interface TelegramPairingModalProps {
   username: string;
@@ -259,9 +260,23 @@ export default function TelegramPairingModal({ username, onClose }: TelegramPair
               <li>Paste the access token BotFather gives you below.</li>
             </ol>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-2">
-                Bot token
-              </label>
+              <div className="flex items-center gap-1.5 mb-2">
+                <label className="text-xs font-medium text-gray-500">
+                  Bot token
+                </label>
+                <Tooltip
+                  label="Stored in users/<your-username>/_telegram.json on your disk, with a .gitignore rule appended automatically. Your browser uses this token to talk directly to api.telegram.org (not through our server) when polling for new messages."
+                  placement="top"
+                >
+                  <button
+                    type="button"
+                    aria-label="Where does this go?"
+                    className="text-gray-400 hover:text-gray-600 text-[11px] leading-none"
+                  >
+                    (?)
+                  </button>
+                </Tooltip>
+              </div>
               <input
                 type="password"
                 value={tokenInput}
