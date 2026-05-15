@@ -309,9 +309,23 @@ export default function CalendarFeedsModal({ onClose }: Props) {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
-                  ICS URL
-                </label>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <label className="text-xs font-medium text-gray-500">
+                    ICS URL
+                  </label>
+                  <Tooltip
+                    label="Stored in users/<your-username>/_calendar-feeds.json on your disk. Sent to /api/calendar-feed via an x-calendar-url header (not a query string, so it's not logged) when refreshing events."
+                    placement="top"
+                  >
+                    <button
+                      type="button"
+                      aria-label="Where does this go?"
+                      className="text-gray-400 hover:text-gray-600 text-[11px] leading-none"
+                    >
+                      (?)
+                    </button>
+                  </Tooltip>
+                </div>
                 <input
                   type="url"
                   value={draftUrl}
