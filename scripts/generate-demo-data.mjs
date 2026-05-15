@@ -481,7 +481,17 @@ function buildEntries() {
     // C / cross-owner sharing). Both sides — `external_project` here and
     // `users/morgan/projects/2-hosted.json` below — must agree or the
     // read-time normalizer drops the orphan entry.
-    { id: 14, project_id: 4, name: "Review morgan's draft figures", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "list", is_complete: false, external_project: { owner: "morgan", id: 2, sharedAt: "2026-05-13T16:00:00Z" } },
+    //
+    // Workbench Lists-tab "Doing" fixture: spans yesterday → tomorrow so
+    // today falls inside [start, end] regardless of when the demo opens
+    // (rebase shifts both anchors by the same delta). 1/3 sub-tasks done
+    // exercises the partial-progress dot-cell visual.
+    { id: 14, project_id: 4, name: "Review morgan's draft figures", start_date: YESTERDAY, duration_days: 3, end_date: TOMORROW, task_type: "list", is_complete: false, external_project: { owner: "morgan", id: 2, sharedAt: "2026-05-13T16:00:00Z" },
+      sub_tasks: [
+        { id: "st1", text: "Read intro + methods sections", is_complete: true },
+        { id: "st2", text: "Annotate figures 1–3 with margin comments", is_complete: false },
+        { id: "st3", text: "Send consolidated feedback to morgan", is_complete: false },
+      ] },
     { id: 15, project_id: 4, name: "Order LC-MS solvents", start_date: TODAY, duration_days: 1, end_date: TODAY, task_type: "purchase", is_complete: false },
     // Workbench "Ready" fixture: an experiment that kept slipping while the
     // main integration chain ran. Pre-rebase start is BASE-2, so the rebase
