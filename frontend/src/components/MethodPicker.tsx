@@ -527,21 +527,21 @@ function MethodPreview({ method }: { method: Method | null }) {
               LC
             </span>
           )}
-          {isPlate && (
-            <span className="text-xs px-1.5 py-0.5 bg-emerald-100 text-emerald-600 rounded shrink-0">
-              Plate
-            </span>
-          )}
-          {isCellCulture && (
-            <span className="text-xs px-1.5 py-0.5 bg-rose-100 text-rose-600 rounded shrink-0">
-              Cell culture
-            </span>
-          )}
-          {isPdf && (
-            <span className="text-xs px-1.5 py-0.5 bg-rose-100 text-rose-600 rounded shrink-0">
-              PDF
-            </span>
-          )}
+          {(isPlate || isCellCulture || isPdf) && (() => {
+            const typeId = isPlate
+              ? "plate"
+              : isCellCulture
+              ? "cell_culture"
+              : "pdf";
+            const meta = getMethodTypeMeta(typeId);
+            return (
+              <span
+                className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${meta.color.bg} ${meta.color.text}`}
+              >
+                {meta.shortLabel}
+              </span>
+            );
+          })()}
           {method.folder_path && (
             <span className="text-xs text-gray-400 truncate">
               {method.folder_path}
