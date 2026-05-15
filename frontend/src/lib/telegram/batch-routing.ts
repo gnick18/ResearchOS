@@ -44,6 +44,7 @@ import type { ActiveTask } from "@/lib/store";
 import {
   answerCallbackQuery,
   sendMessage,
+  sendPhoto,
   type InlineKeyboardButton,
   type InlineKeyboardMarkup,
   type TelegramCallbackQuery,
@@ -77,6 +78,11 @@ export interface BatchPhoto {
   suggestedStem: string;
   /** File extension without the dot, lowercased. */
   suggestedExt: string;
+  /** Telegram file_id of the largest photo size (or the document's
+   *  file_id for image-documents). Re-used by `sendPhoto` so the
+   *  per-photo-captions flow can resend each image alongside its
+   *  prompt without re-uploading bytes. */
+  fileId: string;
 }
 
 export interface BatchRouteContext {
@@ -125,8 +131,11 @@ type BatchState =
       ctx: BatchRouteContext;
       destination: BatchDestination;
       /** Already-saved photos awaiting captions. Each carries the disk
-       *  location of the sidecar so a caption reply can write through. */
-      written: { basePath: string; filename: string }[];
+       *  location of the sidecar (so a caption reply can write through)
+       *  and the original Telegram file_id (so the bot can resend the
+       *  photo alongside its caption prompt — text-only "What is photo
+       *  3?" is hard to disambiguate inside a 5+ photo album). */
+      written: { basePath: string; filename: string; fileId: string }[];
       /** Number of captions still expected. We caption in order
        *  (written[written.length - currentRemaining]). */
       currentRemaining: number;
@@ -535,9 +544,10 @@ export async function routeBatchCallbackQuery(
 
 /** Write all photos to disk with timestamp-based names (no user
  *  caption yet); transition to per-photo-caption mode and prompt for
- *  the first one. */
+ *  the first one by resending the photo with the prompt as its caption
+ *  (so the user sees which image is being asked about). */
 async function commitIndividualStyle(state: BatchState & { kind: "awaiting-style" }): Promise<void> {
-  const written: { basePath: string; filename: string }[] = [];
+  const written: { basePath: string; filename: string; fileId: string }[] = [];
   for (const photo of state.photos) {
     const target = await resolveDestinationBase(state.destination, state.ctx.username);
     const stemPrefix =
@@ -560,7 +570,11 @@ async function commitIndividualStyle(state: BatchState & { kind: "awaiting-style
       telegramMessageId: photo.messageId,
       telegramChatId: state.ctx.chatId,
     });
-    written.push({ basePath: target, filename: result.finalFilename });
+    written.push({
+      basePath: target,
+      filename: result.finalFilename,
+      fileId: photo.fileId,
+    });
   }
   batches.set(state.ctx.chatId, {
     kind: "awaiting-per-photo-captions",
@@ -571,10 +585,11 @@ async function commitIndividualStyle(state: BatchState & { kind: "awaiting-style
     written,
     currentRemaining: written.length,
   });
-  await sendMessage(
+  await sendPhoto(
     state.ctx.botToken,
     state.ctx.chatId,
-    `Saved ${written.length} photos. What's photo 1? Reply with a description, or send /skip to leave it blank.`
+    written[0].fileId,
+    `Saved ${written.length} photos. What's this one? (1 of ${written.length}) Reply with a description, or send /skip to leave it blank.`
   );
 }
 
@@ -637,11 +652,13 @@ export async function consumeBatchTextReply(
       return true;
     }
     batches.set(ctx.chatId, { ...state, currentRemaining: nextRemaining });
-    const nextNum = state.written.length - nextRemaining + 1;
-    await sendMessage(
+    const nextIdx = state.written.length - nextRemaining;
+    const nextEntry = state.written[nextIdx];
+    await sendPhoto(
       ctx.botToken,
       ctx.chatId,
-      `What's photo ${nextNum}? Reply with a description, or send /skip.`
+      nextEntry.fileId,
+      `What's this one? (${nextIdx + 1} of ${state.written.length}) Reply with a description, or send /skip.`
     );
     return true;
   }

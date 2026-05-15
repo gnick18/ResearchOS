@@ -236,6 +236,7 @@ export async function routeTelegramMessage(
       blob,
       suggestedStem,
       suggestedExt,
+      fileId,
     };
     await routeBatchablePhoto(message.media_group_id, batchPhoto, ctx, active);
     return;

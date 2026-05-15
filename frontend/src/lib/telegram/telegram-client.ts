@@ -197,6 +197,30 @@ export async function sendMessage(
   });
 }
 
+/** Resend a photo back to the chat by `file_id`. Used by the batch
+ *  per-photo-captions flow so the user sees which image the bot is
+ *  asking about — text-only "What is photo 2?" is hard to disambiguate
+ *  inside a 5+ photo album. The caller passes the original upload's
+ *  file_id (no re-upload cost). */
+export async function sendPhoto(
+  token: string,
+  chatId: number,
+  fileId: string,
+  caption?: string,
+  opts: {
+    reply_to_message_id?: number;
+    reply_markup?: InlineKeyboardMarkup;
+  } = {},
+): Promise<TelegramMessage> {
+  return tg<TelegramMessage>(token, "sendPhoto", {
+    chat_id: chatId,
+    photo: fileId,
+    ...(caption !== undefined ? { caption } : {}),
+    reply_to_message_id: opts.reply_to_message_id,
+    reply_markup: opts.reply_markup,
+  });
+}
+
 /** Acknowledge an inline-keyboard click. Required by the Bot API —
  *  without it the client UI keeps a loading spinner on the tapped
  *  button until the request times out (~30s). Best-effort: errors here

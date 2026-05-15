@@ -24,6 +24,18 @@ const hoisted = vi.hoisted(() => {
         },
       ) => ({}),
     ),
+    sendPhotoMock: vi.fn(
+      async (
+        _token: string,
+        _chatId: number,
+        _fileId: string,
+        _caption?: string,
+        _opts?: {
+          reply_to_message_id?: number;
+          reply_markup?: unknown;
+        },
+      ) => ({}),
+    ),
     answerCallbackQueryMock: vi.fn(
       async (
         _token: string,
@@ -61,6 +73,7 @@ vi.mock("./telegram-client", async () => {
   return {
     ...actual,
     sendMessage: hoisted.sendMessageMock,
+    sendPhoto: hoisted.sendPhotoMock,
     answerCallbackQuery: hoisted.answerCallbackQueryMock,
   };
 });
@@ -122,6 +135,7 @@ function makePhoto(stem = "photo", ext = "jpg"): BatchPhoto {
     blob: new Blob([new Uint8Array([1, 2, 3])]),
     suggestedStem: stem,
     suggestedExt: ext,
+    fileId: `file-${stem}-${Math.random().toString(36).slice(2, 8)}`,
   };
 }
 
@@ -172,6 +186,7 @@ function makeExperiment(overrides: Partial<Task>): Task {
 beforeEach(() => {
   hoisted.memFs.clear();
   hoisted.sendMessageMock.mockClear();
+  hoisted.sendPhotoMock.mockClear();
   hoisted.answerCallbackQueryMock.mockClear();
   hoisted.attachImageToTaskMock.mockClear();
   _resetBatchesForTests();
@@ -352,7 +367,7 @@ describe("batch-routing: full destination → style → auto flow", () => {
 });
 
 describe("batch-routing: per-photo-captions flow", () => {
-  it("style:each writes photos up front and consumes per-photo captions in order", async () => {
+  it("style:each writes photos up front and resends each photo with its caption prompt in order", async () => {
     vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
     // Skip the destination prompt by passing an activeTask.
     const photoA = makePhoto("a");
@@ -370,20 +385,34 @@ describe("batch-routing: per-photo-captions flow", () => {
     await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
     expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-style");
 
+    hoisted.sendPhotoMock.mockClear();
     await routeBatchCallbackQuery(makeCallback("style:each"), baseCtx);
     // Two photos written up front.
     expect(hoisted.attachImageToTaskMock).toHaveBeenCalledTimes(2);
     expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-per-photo-captions");
+    // First prompt: bot resent photo A by file_id (NOT a text-only sendMessage).
+    expect(hoisted.sendPhotoMock).toHaveBeenCalledTimes(1);
+    const firstCall = hoisted.sendPhotoMock.mock.calls[0];
+    expect(firstCall[2]).toBe(photoA.fileId);
+    expect(String(firstCall[3])).toContain("1 of 2");
 
     // First caption.
     await consumeBatchTextReply("Plate at t=0", baseCtx);
     // Sidecar for photo A should have caption.
     const peek1 = _peekBatchForTests(CHAT_ID);
     expect(peek1?.kind).toBe("awaiting-per-photo-captions");
+    // Second prompt: bot resent photo B by file_id.
+    expect(hoisted.sendPhotoMock).toHaveBeenCalledTimes(2);
+    const secondCall = hoisted.sendPhotoMock.mock.calls[1];
+    expect(secondCall[2]).toBe(photoB.fileId);
+    expect(String(secondCall[3])).toContain("2 of 2");
+
     // Second caption, including a /skip case to confirm skip semantics.
     await consumeBatchTextReply("/skip", baseCtx);
     // State cleared after the last caption.
     expect(_peekBatchForTests(CHAT_ID)).toBeUndefined();
+    // No third sendPhoto — there's nothing left to ask about.
+    expect(hoisted.sendPhotoMock).toHaveBeenCalledTimes(2);
   });
 });
 
