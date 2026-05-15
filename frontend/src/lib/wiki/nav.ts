@@ -230,6 +230,11 @@ export const WIKI_NAV: WikiNode[] = [
       },
     ],
   },
+  {
+    href: "/wiki/security",
+    label: "Security",
+    blurb: "What stays on your computer, what briefly touches our server, and what we never collect.",
+  },
 ];
 
 /** Flatten the nav tree to a single list of leaf pages, in display order.

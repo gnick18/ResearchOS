@@ -1611,6 +1611,36 @@ const FIXTURE_ROUTES = [
       }
     },
   },
+  {
+    // The Report-an-Issue modal, embedded by /wiki/security to make the
+    // "you see the body before anything leaves the browser" claim
+    // concrete. The trigger lives in AppShell.tsx's bottom-right floating
+    // cluster as <FeedbackButton onClick={openBugReport} />, exposed with
+    // aria-label="Send feedback". HIDE_SCRIPT runs AFTER this action, so
+    // clicking the now-hidden button isn't a problem: by the time HIDE_SCRIPT
+    // fires the modal is already open and the trigger sits behind it.
+    path: "/",
+    file: "feedback-modal.png",
+    waitFor: "text=Research Project Overview",
+    settleMs: 800,
+    action: async (page) => {
+      try {
+        const btn = page.locator('[aria-label="Send feedback"]').first();
+        if (await btn.count()) {
+          await btn.click({ timeout: 3000 });
+          // FeedbackModal renders an <h2> "Report an Issue" once "Bug"
+          // (the default) is the selected type. Wait for it so the rest
+          // of the modal body has mounted before we capture.
+          await page
+            .waitForSelector("text=Report an Issue", { timeout: 3000 })
+            .catch(() => {});
+          await page.waitForTimeout(500);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ feedback-modal open: ${err.message}`);
+      }
+    },
+  },
 ];
 
 /** Hide dev/beta UI that distracts from docs. Re-applied per page.
@@ -1647,6 +1677,12 @@ const HIDE_SCRIPT = `
     const HIDE_ARIA_LABELS = [
       "Send test notification (dev only)",
       "Force an onboarding tip to fire (dev only)",
+      // ReportBugButton was renamed to FeedbackButton at commit 3183950d
+      // when chip-feedback-modal-types added a type-selector. The live
+      // aria-label is now "Send feedback"; the old "Report a bug" string
+      // matches nothing in the running DOM. Keep both so future renames
+      // don't silently regress.
+      "Send feedback",
       "Report a bug",
       "Open data folder settings",
       "Switch user",
