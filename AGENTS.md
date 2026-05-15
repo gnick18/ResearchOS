@@ -376,6 +376,60 @@ Two deferred-from-Workbench-redesign (`d4030e3b`) polish items closed in one pas
 - **OOS nit (flagged, not fixed)**: the project-grouping IIFE inside the main `SECTION_ORDER.map` callback is verbose enough that a future refactor could lift it into a small `<RecentResultsGroup>` component. Acceptable as-is for one section; would be worth it if a second section ever needs project grouping. Not extracted now to keep the commit small.
 - **Browser verification**: not run by the worker bot (out of remit). Grant to spot-check live; behavior is the same when there's only one project (collapses to flat grid) and adds a colored-dot project sub-header when there are 2+. Worker bot did NOT touch the four stage-organized sections — verified by reading the diff before commit.
 
+### Recently landed (2026-05-15, Telegram onboarding A+B+C: dual-mode bot copy + first-photo tutorial step + /tutorial command)
+
+Implements the locked design at `TELEGRAM_ONBOARDING_PROPOSAL.md`. Three commits on `worktree-agent-a4877ef1417c5ff0f`: bot-copy rewrite (A) → tutorial sidecar + `/tutorial` (C) → sequencer first-photo step (B) → tests + this entry. 165/165 tests pass (15 new), typecheck clean.
+
+**Direction A: bot copy.** `START_REPLY` and `HELP_REPLY` are now module-level consts in `image-router.ts`, both explaining BOTH routing branches (active task auto-attaches, no task lands in Inbox). The pairing modal's success message and already-paired state get the same dual-mode explainer (the latter as a structured ordered-list block, not a single paragraph). The `telegram-send-to-task` tip body trims to "Text me a photo. With an experiment open it auto-attaches; without one it lands in your Inbox." (98 chars), caption lifecycle moved entirely to the per-photo bot reply.
+
+**Direction C: tutorial-aware bot mode.** New per-user sidecar `users/<u>/_telegram_tutorial.json` carrying `{ tutorial_active, active_step, active_since }`. New helper module `frontend/src/lib/telegram/tutorial-store.ts` (mirrors `telegram-store.ts` shape: read returns lazy default, normalize-on-read forces `active_step`/`active_since` to null when `tutorial_active` is false). The polling tab reads it on every photo route through a 1-second in-memory cache (so a fast burst hits disk once). When `active_step === "first-photo"`, the per-photo reply swaps to the tutorial-aware variant ("Got it! Head back to ResearchOS to see your photo on the experiment").
+
+New `/tutorial` text command broadcasts `{ type: "trigger-tutorial-modal" }` on the cross-tab `BroadcastChannel("researchos-telegram")` (with a `localStorage` storage-event fallback for browsers that lack `BroadcastChannel`). The orchestrator subscribes; on receipt it flips `mode` back to `null` so the welcome modal re-opens. Bot reply tells the user "Trying to open the tutorial in your ResearchOS tab. If nothing happens, open ResearchOS, then text /tutorial again."
+
+Pairing modal's `ensureGitignoreEntries` call now also adds `_telegram_tutorial.json` patterns so the tutorial sidecar's frequent churn doesn't pollute any git history the data folder happens to track.
+
+**Direction B: tutorial sequencer.** New virtual interstitial step in `OnboardingTutorialSequencer.tsx` that fires immediately AFTER the `telegram-send-to-task` catalog tip. Three sub-states (`first-photo-waiting`, `first-photo-timeout`, `first-photo-confirmed`) share a modal-shaped card. On mount of the waiting phase, the sequencer broadcasts `{ type: "tutorial-state", step: "first-photo" }` so the polling tab's orchestrator can write the user's REAL `_telegram_tutorial.json` (the demo tab's mock fileService can't write the real sidecar itself). On unmount/advance/skip/End, the sequencer broadcasts `step: null` to clear.
+
+Sequencer subscribes to `photo-arrived` from the cross-tab channel; on receipt it advances to the confirmation card. 90-second timeout fallback shows an amber "your real ResearchOS tab might be closed" hint while keeping Skip/End available throughout.
+
+Sequencer state-shape change: replaced the `currentIndex`-only state with a `SequencerPhase` discriminated union (`catalog | first-photo-* | complete`) so the catalog walk and the interstitial share one source of truth.
+
+**Cross-tab signal mechanism.** Single helper module `frontend/src/lib/telegram/tutorial-signal.ts`. `BroadcastChannel("researchos-telegram")` preferred; `localStorage` storage-event fallback always also fires (cheap insurance, signals are rare). Per-listener short-window dedupe (250ms) prevents a single broadcast from delivering twice when both channels land. Three signal types: `photo-arrived`, `trigger-tutorial-modal`, `tutorial-state`.
+
+**Files added (3):**
+- [frontend/src/lib/telegram/tutorial-store.ts](frontend/src/lib/telegram/tutorial-store.ts) (~125 LOC) — per-user sidecar read/write helpers with normalize-on-read.
+- [frontend/src/lib/telegram/tutorial-signal.ts](frontend/src/lib/telegram/tutorial-signal.ts) (~165 LOC) — cross-tab broadcast + subscribe with `BroadcastChannel` + `localStorage` fallback + dedupe.
+- [frontend/src/lib/telegram/tutorial-store.test.ts](frontend/src/lib/telegram/tutorial-store.test.ts) (~110 LOC) — 7 tests for sidecar lifecycle.
+
+**Files added (test, 1):**
+- [frontend/src/lib/telegram/image-router.test.ts](frontend/src/lib/telegram/image-router.test.ts) (~225 LOC) — 8 tests covering text-command branches + photo-arrival reply branching + photo-arrived broadcast.
+
+**Files modified (5):**
+- [frontend/src/lib/telegram/image-router.ts](frontend/src/lib/telegram/image-router.ts) — `START_REPLY`/`HELP_REPLY`/`TUTORIAL_REPLY` consts, `/tutorial` handler, tutorial-aware reply branch, `photo-arrived` broadcast, in-memory tutorial-cache + `_resetTutorialCacheForTests`.
+- [frontend/src/components/TelegramPairingModal.tsx](frontend/src/components/TelegramPairingModal.tsx) — dual-mode pair-success message, structured already-paired ordered-list explainer, gitignore entries for the new sidecar.
+- [frontend/src/components/OnboardingTutorialSequencer.tsx](frontend/src/components/OnboardingTutorialSequencer.tsx) — full rewrite with `SequencerPhase` state model, first-photo card + timeout fallback + confirmation card, broadcast on mount/unmount.
+- [frontend/src/lib/onboarding/orchestrator.tsx](frontend/src/lib/onboarding/orchestrator.tsx) — single subscriber effect that handles both `trigger-tutorial-modal` (re-opens welcome modal) and `tutorial-state` (writes the polling tab's sidecar via `tutorial-store` helpers).
+- [frontend/src/lib/onboarding/tips.ts](frontend/src/lib/onboarding/tips.ts) — `telegram-send-to-task` tip body trimmed to short variant.
+
+**Wiki implications for the wiki manager:** `/wiki/integrations/telegram` covers the dual-mode behavior already (lines 127-151 per the proposal's audit). The "The bot's reply flow" subsection should be updated to match the new verbatim copy in `START_REPLY` / `HELP_REPLY` / `TUTORIAL_REPLY` so the wiki and bot don't drift. The new `/tutorial` command merits a small subsection too. Out of scope for this implementation pass.
+
+**Edge cases worth flagging:**
+- The tutorial sidecar is exclusively written by the polling tab's orchestrator (not the demo tab), so a user who closes the polling tab right when the sequencer's first-photo step mounts won't have a tutorial-aware reply when they later text a photo. The 90s sequencer timeout catches the user-visible side; the bot just falls through to the standard inbox/active-task copy.
+- The cross-tab `BroadcastChannel` is same-origin only, so a user running the tutorial in Chrome and the polling in Safari (rare, but not impossible) won't get the photo-arrived signal. Same fallback as above.
+- `/tutorial` from a paired bot when the user has no ResearchOS tab open: the broadcast lands on no listener, the bot's reply explicitly tells the user to open ResearchOS first.
+
+**Live-test path for Grant:**
+1. Pair Telegram from the existing pairing modal. Confirm the success Telegram message has the new dual-mode body.
+2. From the welcome modal (clear `_onboarding.json` if needed), click "Walk me through it". The new tab opens at `/demo?tutorial=1`.
+3. Step through tips until you hit "Your phone is a lab notebook" (the Telegram tip), click Next.
+4. The first-photo modal-card appears. From your phone, text the bot a photo.
+5. The polling tab in your real folder routes the photo (lands in Inbox if no experiment is open, attaches if one is). The bot replies with the tutorial-aware copy ("Got it! Head back to ResearchOS to see your photo on the experiment").
+6. The demo tab's first-photo card flips to the confirmation state ("Got your photo!"). Click Next to continue the tour.
+7. Test `/tutorial`: from Telegram, text `/tutorial`. The user's ResearchOS tab re-opens the welcome modal (mode flipped back to null).
+8. Verify the 90s timeout: trigger the first-photo step but don't text a photo for 90 seconds. The card should swap to the timeout fallback hint while keeping Skip/End available.
+
+-- tip manager (Telegram-onboarding implementation sub-bot)
+
 ### Recently landed (2026-05-15 — Cleanup: drop unused alternative mascots + dev gallery)
 
 Tip manager spawned this as a chip-spinoff once Grant verified the entire onboarding feature live (Phase 1 → Phase 4 + every post-merge fix). BeakerBot is the locked, in-production mascot; the four alternatives that lived under `frontend/src/components/onboarding-mascots/` (TardigradeBot, PetriDishBot, OwlBot, PipetteBot) plus the dev-only `/dev/mascot-gallery/page.tsx` were kept around during the picking phase and were no longer referenced anywhere except the gallery itself.

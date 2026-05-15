@@ -82,16 +82,30 @@ export default function TelegramPairingModal({ username, onClose }: TelegramPair
               await ensureGitignoreEntries([
                 "_telegram.json",
                 "users/*/_telegram.json",
+                // No secrets in the tutorial sidecar, but it lives
+                // alongside _telegram.json and changes frequently
+                // during the guided tour. Keeps the data folder's git
+                // history (if any) free of policy-only churn.
+                "_telegram_tutorial.json",
+                "users/*/_telegram_tutorial.json",
               ]);
             } catch {
               /* ignore */
             }
-            // Friendly confirmation to the user's Telegram chat. Best-effort.
+            // Friendly confirmation to the user's Telegram chat. Mirrors
+            // the dual-mode framing the bot's `/start` reply uses now,
+            // so the very first thing a user sees after pairing is the
+            // full mental model (active task auto-attaches, no task
+            // routes to Inbox). Best-effort.
             try {
               await sendMessage(
                 step.token,
                 chatId,
-                `✅ Paired with ResearchOS as ${username}. Send photos here while an experiment is open and they'll land in that experiment's image strip.`
+                `Paired with ResearchOS as ${username}.\n\n` +
+                  "Send me a photo and I'll route it two ways:\n\n" +
+                  "1. With an experiment popup OPEN in ResearchOS, the photo attaches to that experiment's image strip.\n" +
+                  "2. With nothing open, the photo lands in your Inbox (badge in the top bar) to file later.\n\n" +
+                  "After each photo I'll ask for a caption. Reply with a sentence, or send /skip. Type /help any time."
               );
             } catch {
               /* ignore */
@@ -189,12 +203,27 @@ export default function TelegramPairingModal({ username, onClose }: TelegramPair
                 Chat id: {step.pairing.chatId}
               </p>
             </div>
-            <p className="text-xs text-gray-500">
-              Send any photo to{" "}
-              <span className="font-medium">@{step.pairing.botUsername}</span> while an
-              experiment is open and it&apos;ll appear in that experiment&apos;s image
-              strip.
-            </p>
+            <div className="text-xs text-gray-600 space-y-2">
+              <p>
+                Send a photo to{" "}
+                <span className="font-medium">@{step.pairing.botUsername}</span>{" "}
+                and it routes two ways:
+              </p>
+              <ol className="list-decimal list-inside space-y-1 pl-1">
+                <li>
+                  With an experiment popup OPEN in ResearchOS, the photo
+                  attaches to that experiment&apos;s image strip.
+                </li>
+                <li>
+                  With nothing open, the photo lands in your Inbox (top-bar
+                  badge) to file later.
+                </li>
+              </ol>
+              <p className="text-gray-500">
+                After each photo the bot asks for a caption. Reply with a
+                sentence, or send <span className="font-mono">/skip</span>.
+              </p>
+            </div>
             <div className="flex items-center justify-between gap-2 pt-2">
               <button
                 onClick={handleDisconnect}

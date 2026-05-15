@@ -68,10 +68,13 @@ export interface OnboardingTip {
 
 export const ONBOARDING_TIPS: OnboardingTip[] = [
   {
+    // Body length lock (decision 2026-05-15, "short variant"): tip
+    // surfaces discovery, not full reference. Caption / skip lifecycle
+    // stays in the bot's per-photo reply, not here.
     id: "telegram-send-to-task",
     title: "Your phone is a lab notebook",
     body:
-      "Text me a photo while an experiment is open and I'll auto-attach it to that task on your laptop. Reply with a caption and I'll save that too.",
+      "Text me a photo. With an experiment open it auto-attaches; without one it lands in your Inbox.",
     route: "/",
     target: "telegram-send-to-task",
     wikiPath: "/wiki/integrations/telegram",
