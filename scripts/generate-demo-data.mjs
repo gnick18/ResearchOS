@@ -341,7 +341,7 @@ function buildEntries() {
     "users/alex/_counters.json",
     {
       projects: 4,
-      tasks: 27,
+      tasks: 29,
       methods: 5,
       events: 4,
       goals: 2,
@@ -545,6 +545,26 @@ function buildEntries() {
     { id: 25, project_id: 2, name: "Order plasmid library construction kit", start_date: "2025-12-12", duration_days: 1, end_date: "2025-12-12", task_type: "purchase", is_complete: true },
     { id: 26, project_id: 3, name: "Order stress-tolerance assay reagents", start_date: "2026-02-05", duration_days: 1, end_date: "2026-02-05", task_type: "purchase", is_complete: true },
     { id: 27, project_id: 1, name: "Order Spring resupply — primers + buffers", start_date: "2026-04-20", duration_days: 1, end_date: "2026-04-20", task_type: "purchase", is_complete: false },
+    // Workbench Lists-tab follow-up fixtures (PUSH_REPORT_2026-05-15 issue #3):
+    // populate the Recently-done and Earlier sections so workbench-lists.png
+    // shows all five stages. Anchored at fixed offsets from BASE_DATE so the
+    // section assignment stays stable after rebase.
+    // ── Recently done (alex/28): completed 4 days before BASE_DATE — lands in
+    //    the Recently-done section (within the 30-day window).
+    { id: 28, project_id: 4, name: "Wrap up Q4 lab safety review", start_date: "2026-05-07", duration_days: 1, end_date: "2026-05-09", task_type: "list", is_complete: true,
+      sub_tasks: [
+        { id: "st1", text: "Walk benches with safety officer", is_complete: true },
+        { id: "st2", text: "File quarterly chemical inventory report", is_complete: true },
+        { id: "st3", text: "Email summary to PI + safety office", is_complete: true },
+      ] },
+    // ── Earlier (alex/29): completed > 30 days before BASE_DATE — gives the
+    //    Earlier accordion a second alex row beside alex/20 + alex/23.
+    { id: 29, project_id: 4, name: "Archive 2025 inventory log", start_date: "2026-03-10", duration_days: 1, end_date: "2026-03-10", task_type: "list", is_complete: true,
+      sub_tasks: [
+        { id: "st1", text: "Export 2025 reagent ledger from shared sheet", is_complete: true },
+        { id: "st2", text: "Move CSV into lab archive folder", is_complete: true },
+        { id: "st3", text: "Reset running tally for 2026", is_complete: true },
+      ] },
   ]));
 
   // alex methods
@@ -587,7 +607,7 @@ function buildEntries() {
         initial: [{ name: "Initial denaturation", temperature: 95, duration: "3 min" }],
         cycles: [
           {
-            repeats: 40,
+            repeats: 35,
             steps: [
               { name: "Denaturation", temperature: 95, duration: "15 sec" },
               { name: "Anneal/Extend", temperature: 60, duration: "60 sec" },

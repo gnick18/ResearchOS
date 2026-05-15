@@ -458,12 +458,6 @@ const FIXTURE_ROUTES = [
     },
   },
   {
-    // FIXTURE NOTE: the wiki body says PCR cycles default to x35 but the
-    // fixture protocol (users/alex/pcr_protocols/1.json → qPCR fakeGFP) uses
-    // x40 (and the public DemoCheck protocol uses x30). A future bot should
-    // reconcile this — either change the fixture to x35 or update the wiki to
-    // say "35 by default; this demo uses 40". Don't fix here; this script
-    // only drives the capture, not the data.
     path: "/pcr",
     file: "pcr-step-edit.png",
     waitFor: "text=PCR",
