@@ -13,6 +13,11 @@ export interface UserMetadataEntry {
   // Per-user opt-out from lab-mode goals visibility (#14). When true,
   // labApi.getGoals() skips this user. Default = false (visible).
   hide_goals_from_lab?: boolean;
+  // Soft-delete tombstone (ISO timestamp). When set, discoverUsers /
+  // usersApi.list filter the user out of pickers even if a cloud-sync
+  // provider (OneDrive Files On-Demand, Dropbox, etc.) re-creates the
+  // directory as a placeholder underneath us. See INVESTIGATION_USER_LEAKS.md.
+  deleted_at?: string;
 }
 
 export interface UserMetadataFile {
