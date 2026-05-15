@@ -67,9 +67,11 @@ export default function LabModeActivityPage() {
           (for notes).
         </li>
         <li>
-          <strong>Date label on the right</strong>: relative for in-flight
-          rows (<em>ends tomorrow</em>, <em>ends in 3d</em>), absolute month/day
-          for completed rows.
+          <strong>Date label on the right</strong>: relative for task rows in
+          either Running now or Recently completed (<em>ends tomorrow</em>,{" "}
+          <em>ends in 3d</em>, <em>yesterday</em>, <em>3d ago</em>), and an
+          absolute month/day stamp (<em>May 14</em>) for the Recent shared
+          notes section.
         </li>
       </ul>
 

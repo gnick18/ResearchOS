@@ -7,11 +7,11 @@ export default function SettingsFeaturePage() {
   return (
     <WikiPage
       title="Settings"
-      intro="Eight panels covering your profile, header tabs, sidebar, view defaults, the task-completion animation, notifications, data repair tools, and your account password. Reach the page through the gear icon in the top-right of the header."
+      intro="Ten panels stacked top to bottom: profile, header tabs, LabArchives import, sidebar, view defaults, the task-completion animation, notifications and safety prompts, on-disk data repair tools, onboarding tips, and your account password. Reach the page through the gear icon in the top-right of the header."
     >
       <Screenshot
         src="/wiki/screenshots/settings.png"
-        alt="The Settings page with its stack of panels: Profile, Tabs, Sidebar, View defaults, Animation, Notifications & behavior, Data maintenance, and Security."
+        alt="The Settings page with its stack of panels: Profile, Tabs, LabArchives, Sidebar, View defaults, Animation, Notifications & behavior, Data maintenance, Tips, and Security."
       />
 
       <p>
@@ -35,7 +35,7 @@ export default function SettingsFeaturePage() {
       </p>
       <p>
         The <strong>Tint header with my color</strong> toggle controls one
-        thing: whether the top header bar uses your gradient or stays plain
+        thing, whether the top header bar uses your gradient or stays plain
         white. Your avatar bubbles keep your color either way.
       </p>
 
@@ -59,11 +59,29 @@ export default function SettingsFeaturePage() {
         every other tab, the gear icon and Home keep working.
       </Callout>
 
+      <h2>LabArchives</h2>
+      <p>
+        A single option card for bulk-importing a LabArchives Offline Notebook
+        ZIP into ResearchOS. The card has a title, a short description, and a
+        small <code>?</code> button that expands an explainer about why the
+        import exists (LabArchives is read-only inside ResearchOS, so the
+        offline ZIP is the canonical hand-off). The <strong>Open import&hellip;</strong>{" "}
+        button launches the import wizard, where each notebook page becomes a
+        task and each folder becomes a project you can map onto your existing
+        list. A small footer link, <em>How to export from LabArchives</em>,
+        opens the matching wiki page.
+      </p>
+      <p>
+        See the{" "}
+        <Link href="/wiki/integrations/labarchives">LabArchives integration page</Link>{" "}
+        for the full step-by-step walkthrough of the export and import flow.
+      </p>
+
       <h2>Sidebar</h2>
       <p>
         Two stacked toggles control the left sidebar that shows up on every
         page except Calendar (Calendar has its own dedicated sidebar). The{" "}
-        <strong>Tasks</strong> toggle shows your due / overdue / upcoming
+        <strong>Tasks</strong> toggle shows your due, overdue, and upcoming
         tasks for today. The <strong>Calendar events</strong> toggle adds
         today&apos;s and upcoming external calendar events from any{" "}
         <Link href="/wiki/integrations/calendar-feeds">ICS feeds</Link>{" "}
@@ -72,10 +90,10 @@ export default function SettingsFeaturePage() {
       <p>
         When the Calendar events toggle is on, a <strong>How much calendar to show</strong>{" "}
         dropdown becomes active. Options are Today only, or Today plus the next
-        3, 7, 14, or 30 days. Switch it off and the dropdown grays out.
+        3, 7, 14, or 30 days. Switch the toggle off and the dropdown grays out.
       </p>
       <p>
-        If you uncheck both toggles, an amber warning appears: the sidebar
+        If you uncheck both toggles, an amber warning appears, the sidebar
         will be empty on non-calendar pages.
       </p>
 
@@ -89,21 +107,21 @@ export default function SettingsFeaturePage() {
       </p>
       <ul>
         <li>
-          <strong>GANTT default range</strong>: 1 week, 2 weeks, 3 weeks, 1
+          <strong>GANTT default range</strong>, 1 week, 2 weeks, 3 weeks, 1
           month, 3 months, 6 months, 1 year, or All.
         </li>
         <li>
-          <strong>Calendar default view</strong>: Month, Week, or Day.
+          <strong>Calendar default view</strong>, Month, Week, or Day.
         </li>
         <li>
-          <strong>Date format</strong>: MM/DD/YYYY (US), DD/MM/YYYY (EU), or
+          <strong>Date format</strong>, MM/DD/YYYY (US), DD/MM/YYYY (EU), or
           YYYY-MM-DD (ISO).
         </li>
         <li>
-          <strong>Time format</strong>: 12-hour (1:30 PM) or 24-hour (13:30).
+          <strong>Time format</strong>, 12-hour (1:30 PM) or 24-hour (13:30).
         </li>
         <li>
-          <strong>Show shared content by default</strong>: when on, GANTT and
+          <strong>Show shared content by default</strong>, when on, GANTT and
           other views include tasks that other lab members have shared with you
           (not only your own tasks).
         </li>
@@ -111,9 +129,9 @@ export default function SettingsFeaturePage() {
 
       <h2>Animation</h2>
       <p>
-        A grid of ten animation choices for the celebration that plays when
-        you complete a task. Each tile shows an emoji icon, a name, and a
-        one-line flavor description. The selected tile gets a purple ring.
+        A grid of animation choices for the celebration that plays when you
+        complete a task. Each tile shows an emoji icon, a name, and a one-line
+        flavor description. The selected tile gets a purple ring.
       </p>
       <p>
         Choices range from <em>Celebration</em> (confetti, unicorns,
@@ -126,24 +144,24 @@ export default function SettingsFeaturePage() {
 
       <h2>Notifications &amp; behavior</h2>
       <p>
-        Three master switches for messaging and safety prompts:
+        Three master switches for messaging and safety prompts.
       </p>
       <ul>
         <li>
-          <strong>Telegram notifications</strong>: when off, the app stops
+          <strong>Telegram notifications</strong>, when off, the app stops
           polling your Telegram bot for inbound photos and updates. Pairing
           and unpairing the bot itself happens elsewhere (see{" "}
           <Link href="/wiki/integrations/telegram">Telegram integration</Link>{" "}
           for the connect flow).
         </li>
         <li>
-          <strong>Confirm destructive actions</strong>: when on, the app shows
+          <strong>Confirm destructive actions</strong>, when on, the app shows
           an &ldquo;Are you sure?&rdquo; prompt before you delete a task,
           project, or similar object. Switching it off skips the prompt for
           power-user use.
         </li>
         <li>
-          <strong>Hide my goals from lab view</strong>: when on, other lab
+          <strong>Hide my goals from lab view</strong>, when on, other lab
           members won&apos;t see your goals in their aggregated Lab Mode
           roadmap. The flag is also mirrored to the shared{" "}
           <code>_user_metadata.json</code> file so the lab-mode reader picks it
@@ -153,33 +171,42 @@ export default function SettingsFeaturePage() {
 
       <h2>Data maintenance</h2>
       <p>
-        Four one-shot repair buttons for normalizing older task and method
-        files. The app already understands the older shapes on read, so these
-        buttons aren&apos;t required to keep things working. They tidy up
-        files so the long tail of old data uses the current format. Each
-        button is safe to re-run. Running it again on already-normalized files
-        just reports them as &ldquo;already clean.&rdquo;
+        Six rows that each kick off a one-shot cleanup pass over your on-disk
+        data. The first row is an import button for bringing experiments in
+        from another ResearchOS user. The next four rows are repair buttons
+        that normalize older task and method files. The last row reconciles
+        cross-owner project sharing. The app already understands the older
+        shapes on read, so the repair buttons aren&apos;t required to keep
+        things working. They tidy files so the long tail of old data uses the
+        current format. Every button is safe to re-run. Re-running on
+        already-normalized files just reports them as &ldquo;already clean.&rdquo;
       </p>
       <p>
-        Click <strong>Run repair</strong> on any row and a status line appears
-        below the description showing how many files it scanned, repaired, and
-        found already clean (plus a red &ldquo;failed&rdquo; count if anything
-        broke).
+        Click any <strong>Run repair</strong>, <strong>Run reconcile</strong>,
+        or <strong>Import .zip</strong> button and a status line appears below
+        the description showing what the pass scanned, repaired, or appended
+        (plus a red &ldquo;failed&rdquo; count if anything broke).
       </p>
       <ul>
         <li>
-          <strong>Repair method links</strong>: rewrites tasks that still
-          store their linked method in the old single-method field into the
-          current multi-method shape.
+          <strong>Import experiment</strong>, opens a dialog for loading an
+          experiment exported by another ResearchOS user (a{" "}
+          <code>-raw.zip</code> bundle). You match its project and methods
+          against your own before anything is written.
         </li>
         <li>
-          <strong>Repair method source paths</strong>: walks every method
-          (private and public) and renames the legacy GitHub-style source-path
-          field to the current name. Same value, just under a new key.
+          <strong>Repair method links</strong>, rewrites tasks that still
+          store their linked method in the old <code>method_id</code> field
+          into the current multi-method shape.
         </li>
         <li>
-          <strong>Split Lab Notes attachments</strong>: walks every task you
-          own and splits the shared per-task <code>Files/</code> and{" "}
+          <strong>Repair method source paths</strong>, walks every method
+          (private and public) and renames the legacy <code>github_path</code>{" "}
+          field to <code>source_path</code>. Same value, just under a new key.
+        </li>
+        <li>
+          <strong>Split Lab Notes / Results attachments</strong>, walks every
+          task you own and splits the shared per-task <code>Files/</code> and{" "}
           <code>Images/</code> folders into per-tab folders (one set under{" "}
           <em>notes/</em>, one under <em>results/</em>), copying each file into
           whichever tab body references it and rewriting markdown links to
@@ -187,27 +214,62 @@ export default function SettingsFeaturePage() {
           folder.
         </li>
         <li>
-          <strong>Repair stamp formats</strong>: walks every notes, results,
+          <strong>Repair stamp formats</strong>, walks every notes, results,
           and method markdown file and rewrites the legacy stamp header at the
           top into the newer HTML-comment format. Older files render fine, but
           a stray stamp-end line sometimes bleeds into the preview until this
           repair runs.
         </li>
+        <li>
+          <strong>Reconcile cross-owner project sharing</strong>, walks every
+          task and every project hosted manifest and fixes drift between the
+          two sides (a hosted task that&apos;s no longer marked as external on
+          its origin, or a manifest entry pointing at a deleted task). Safe to
+          run any time, with no destructive operations beyond pruning broken
+          refs.
+        </li>
       </ul>
       <Callout variant="tip" title="When to run these">
         Run the repair buttons once, in order, the first time you open a
         long-lived folder after a ResearchOS update. After that, you only need
-        to re-run them if you notice old-format files appearing (e.g., a task
-        synced from another user who hasn&apos;t run them yet). They never
-        delete data, only rewrite fields in place.
+        to re-run them if you notice old-format files appearing (for example,
+        a task synced from another user who hasn&apos;t run them yet). They
+        never delete data, only rewrite fields in place.
       </Callout>
+
+      <h2>Tips</h2>
+      <p>
+        Controls for the onboarding-tip mascot that points at new affordances
+        the first time you visit a page. A <strong>How should I help?</strong>{" "}
+        block at the top has three radio options.
+      </p>
+      <ul>
+        <li>
+          <strong>Walk me through it</strong>, force-fire each tip one after
+          another, 60 seconds apart. Best on day one.
+        </li>
+        <li>
+          <strong>Show me as I go</strong>, land a tip about every 5 minutes
+          when the matching feature is on screen. The default for most users.
+        </li>
+        <li>
+          <strong>Stay quiet, thanks</strong>, no tips at all. You can flip
+          this back on any time.
+        </li>
+      </ul>
+      <p>
+        Below the radio block, a <strong>Replay tips</strong> button clears
+        your per-tip dismiss history and resets the cooldown so the whole
+        sequence fires again as you visit pages. A small green confirmation
+        line appears under the description for a few seconds after you click.
+      </p>
 
       <h2>Security</h2>
       <p>
         A single panel for managing the password gate on this account. The
         line of text in the panel shows whether the password is currently{" "}
         <strong>set</strong> (green) or <strong>not set</strong> (gray). The{" "}
-        <strong>Set password</strong> / <strong>Change password</strong>{" "}
+        <strong>Set password</strong> or <strong>Change password</strong>{" "}
         button opens the same Account password popup that the lock icon on
         the user-picker uses.
       </p>

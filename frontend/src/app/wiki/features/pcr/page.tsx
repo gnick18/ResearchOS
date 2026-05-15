@@ -32,7 +32,10 @@ export default function PCRFeaturePage() {
         <li>
           The <strong>Reaction Recipe</strong> panel below: one row per
           ingredient with a stock concentration and a per-reaction volume in
-          microliters. The bottom row is a running <em>Total</em>.
+          microliters. The bottom <em>Total</em> row is a manual entry where
+          you type the target reaction volume (it stays visually pinned and
+          uneditable for the name and concentration, but the volume field is
+          yours to fill in).
         </li>
       </ul>
       <p>
@@ -147,8 +150,9 @@ export default function PCRFeaturePage() {
           with a stock concentration (e.g. <em>10x</em>) and a per-reaction
           volume in microliters. Use <strong>+ Add Row</strong> at the bottom
           of the table to add ingredients, and the <strong>x</strong> on each
-          row to remove one. The <em>Total</em> row at the bottom sums up as
-          you type so you can sanity-check against your reaction volume.
+          row to remove one. The <em>Total</em> row at the bottom is a manual
+          entry. Type your target reaction volume there so it sits next to the
+          ingredient rows and you can eyeball whether the ingredients add up.
         </Step>
         <Step>
           Type any free-text <strong>Notes</strong> (lot numbers, master mix
@@ -183,8 +187,8 @@ export default function PCRFeaturePage() {
 
       <Screenshot
         src="/wiki/screenshots/pcr-reagent-totals.png"
-        alt="The Reaction Recipe table with rows for each ingredient and a running Total at the bottom."
-        caption="The recipe table totals update as you type, so a typo in a volume jumps out."
+        alt="The Reaction Recipe table with rows for each ingredient and a Total row at the bottom."
+        caption="The recipe table sits below the gradient. The Total row at the bottom is a manual entry that holds your target reaction volume."
       />
 
       <h2>Sharing</h2>

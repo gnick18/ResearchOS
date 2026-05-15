@@ -23,11 +23,11 @@ export default function LabModeUserFilterPage() {
         user off here makes their rows disappear from all tabs at once.
       </p>
       <p>
-        The first time you load Lab Mode in a browser, every user in the
-        folder is selected by default. After that, your selections stick per
-        browser. If someone joins the lab later, they don&apos;t get
-        auto-added. They show up in the picker as deselected, waiting for you
-        to click them in.
+        Every time you open Lab Mode, the picker seeds with every user in the
+        folder selected. Your toggles within the session stick, but reloading
+        the page resets the selection back to everyone. New users discovered
+        on a refetch in the same session show up as deselected, waiting for
+        you to click them in.
       </p>
 
       <h2>Opening and using the picker</h2>
@@ -114,13 +114,13 @@ export default function LabModeUserFilterPage() {
       <h2>Things to know</h2>
       <ul>
         <li>
-          New users you add to the folder later don&apos;t get auto-selected.
-          Open the picker after creating them and click them in.
+          The selection lives in memory for the current session only.
+          Reloading the page resets the picker to all users selected.
         </li>
         <li>
-          The chip position and the selection are stored in the
-          browser&apos;s local storage. Switching browsers or clearing site
-          data resets both.
+          The chip&apos;s on-screen position is the one thing that persists.
+          It writes to <code>lab-filter-button-position-v2</code> in local
+          storage, so dragging it once carries across reloads.
         </li>
         <li>
           The chip can&apos;t leave the viewport. Drag it to the edge and

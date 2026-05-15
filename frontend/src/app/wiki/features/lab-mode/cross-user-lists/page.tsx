@@ -7,7 +7,7 @@ export default function LabModeCrossUserListsPage() {
   return (
     <WikiPage
       title="Cross-user lists"
-      intro="The Experiments, Methods, Roadmaps, and Notes tabs all share one shape: a flat list across every selected user, with the contributor's color and avatar attached to every row."
+      intro="The Experiments, Methods, Roadmaps, and Notes tabs all show one flat list across every selected user, with the contributor's color and avatar attached to every row."
     >
       <Screenshot
         src="/wiki/screenshots/lab-mode-cross-user-lists.png"
@@ -15,17 +15,16 @@ export default function LabModeCrossUserListsPage() {
         caption="A typical cross-user list. The avatar cluster on the right shows which lab members are using each row."
       />
 
-      <h2>What these four tabs share</h2>
+      <h2>What every row looks like</h2>
       <p>
-        The Experiments, Methods, Roadmaps, and Notes tabs aren&apos;t four
-        different ideas. They&apos;re the same flat-list-across-the-lab idea
-        applied to four different kinds of records. Once you know how to read
-        one of them, the others click into place.
+        The four tabs apply the same flat-list-across-the-lab idea to four
+        different kinds of records. Once you know how to read one of them, the
+        others click into place.
       </p>
       <p>Every row carries:</p>
       <ul>
         <li>
-          <strong>A user color marker</strong>: either an avatar on the left
+          <strong>A user color marker</strong>, either an avatar on the left
           or a small colored dot. This is the contributor&apos;s color from
           the lab&apos;s user metadata.
         </li>
@@ -34,11 +33,11 @@ export default function LabModeCrossUserListsPage() {
           name.
         </li>
         <li>
-          <strong>The owner&apos;s username</strong>: usually inline in a
+          <strong>The owner&apos;s username</strong>, usually inline in a
           context line, sometimes as a colored chip.
         </li>
         <li>
-          <strong>A way to drill in</strong>: clicking a row opens either the
+          <strong>A way to drill in</strong>. Clicking a row opens either the
           task popup, the per-user detail panel, or an inline expansion with
           more detail.
         </li>
@@ -46,28 +45,54 @@ export default function LabModeCrossUserListsPage() {
 
       <h2>Experiments</h2>
       <p>
-        The Experiments tab is every <em>experiment</em>-type task across the
-        lab. The stats strip at the top counts total experiments, completed,
-        in progress, and the number of distinct users with experiments in the
-        current view.
+        The Experiments tab shows every <em>experiment</em>-type task across
+        the selected users as a grid of outcome cards. Each card leads with
+        results.md content or the first image in the task&apos;s Images
+        folder, so the page reads as a wall of recent findings rather than a
+        plain task list.
       </p>
-      <p>Two view modes:</p>
+      <p>
+        Cards are bucketed into four sections, and each section gets its own
+        heading and grid:
+      </p>
       <ul>
         <li>
-          <strong>Grouped View</strong>: organized first by user, then by
-          project name. A header row for each group shows the avatar, the
-          project name, and a count badge. Underneath, each experiment is a
-          row with a small color dot, name, dates, duration, a methods
-          badge if there are any, and a status pill (<em>Complete</em> or{" "}
-          <em>In Progress</em>). Click a row to open the read-only task popup.
+          <strong>Fresh results</strong>: experiments whose results landed in
+          the last 7 days.
         </li>
         <li>
-          <strong>Table View</strong>: a flat sortable table with columns for
-          user, project, experiment, start date, duration, methods, and
-          status. Click a column header to sort by it. Click again to flip the
-          direction.
+          <strong>Active</strong>: experiments still running, sorted by start
+          date.
+        </li>
+        <li>
+          <strong>Awaiting results</strong>: experiments marked complete but
+          with no <code>results.md</code> or images on disk yet.
+        </li>
+        <li>
+          <strong>Earlier</strong>: older results past the freshness window.
         </li>
       </ul>
+      <p>
+        Two view modes sit in a toggle at the top of the tab:
+      </p>
+      <ul>
+        <li>
+          <strong>Gallery</strong>: the default. Stacks the four sections
+          vertically, each as a responsive card grid (1 to 4 columns
+          depending on width).
+        </li>
+        <li>
+          <strong>Compare</strong>: regroups the same cards by method instead
+          of by freshness, so replicates of the same protocol sit next to
+          each other. Each section header is a method name with the number
+          of runs. Experiments with no attached method drop into a final
+          &quot;Experiments with no attached method&quot; group.
+        </li>
+      </ul>
+      <p>
+        Clicking any card opens the read-only experiment popup. The view-mode
+        toggle is sticky across reloads.
+      </p>
 
       <h2>Methods</h2>
       <p>
@@ -88,24 +113,24 @@ export default function LabModeCrossUserListsPage() {
       </ul>
       <p>
         Each row shows the method name, a <code>public</code> or owner-username
-        chip, and a one-line stat (<em>X uses across Y users · last used …</em>).
+        chip, and a one-line stat (<em>X uses across Y users, last used …</em>).
         On the right is a cluster of avatars, one for every lab member
-        who&apos;s attached this method to one of their experiments. Click any avatar in
-        the cluster to open that user&apos;s detail panel. Click the row body
-        to expand it inline; the expansion lists every experiment using the
-        method, newest first, each with a status pill and a click target that
-        opens the experiment popup.
+        who&apos;s attached this method to one of their experiments. Click any
+        avatar in the cluster to open that user&apos;s detail panel. Click the
+        row body to expand it inline. The expansion lists every experiment
+        using the method, newest first, each with a status pill and a click
+        target that opens the experiment popup.
       </p>
       <p>
         The search box at the top filters by name. The sort dropdown to its
         right flips between <em>Most used</em>, <em>Recent</em>, and{" "}
-        <em>A–Z</em>.
+        <em>A-Z</em>.
       </p>
 
       <h2>Roadmaps</h2>
       <p>
         The Roadmaps tab is each user&apos;s high-level goals grouped under
-        their avatar. The framing is by-person, not by-goal: every section is
+        their avatar. The framing is by-person, not by-goal. Every section is
         one researcher, with their goals listed underneath in date order.
       </p>
       <p>Each goal row shows:</p>
@@ -120,29 +145,44 @@ export default function LabModeCrossUserListsPage() {
       </ul>
       <p>
         Click a goal to expand it and see the SMART sub-goal checklist.
-        Completed sub-goals get a green check and strikethrough; pending ones
+        Completed sub-goals get a green check and strikethrough, pending ones
         show as an empty box.
       </p>
       <p>
         Personal goals (ones a user attached to themselves rather than to a
-        project) never appear in Lab Mode. Users can also flip a switch on
-        their own Home page to hide all their goals from the lab view.
-        That&apos;s why a user with goals might still not show up on the
-        Roadmaps tab.
+        project) never appear in Lab Mode. Users can also flip the{" "}
+        <strong>Hide my goals from lab view</strong> toggle on the Settings
+        page (under <em>Notifications &amp; behavior</em>) to hide all their
+        project goals from this tab. That&apos;s why a user with goals might
+        still not show up under Roadmaps.
       </p>
 
       <h2>Notes</h2>
       <p>
         The Notes tab shows every shared note from every selected user.
-        Private notes never appear; the share toggle is the author&apos;s call,
-        which keeps Lab Mode safe to display on a shared screen.
+        Private notes never appear. The share toggle is the author&apos;s
+        call, which keeps Lab Mode safe to display on a shared screen.
       </p>
       <p>
-        The list is the same notes browser used in the personal app: a search
-        bar, filters for &quot;running log&quot; vs ordinary notes, and a card
-        per note with title, author, and updated-at timestamp. Notes appear
-        with the author&apos;s color so a quick scan tells you who&apos;s
-        been writing.
+        A search bar runs along the top, with a three-state filter pill group
+        underneath:
+      </p>
+      <ul>
+        <li>
+          <strong>All</strong>: every shared note from the selected users.
+        </li>
+        <li>
+          <strong>Single</strong>: only one-off notes, hiding running logs.
+        </li>
+        <li>
+          <strong>Running Logs</strong>: only notes marked as a running log,
+          hiding one-offs.
+        </li>
+      </ul>
+      <p>
+        Each card shows the title, author, and updated-at timestamp, tinted
+        with the author&apos;s color so a quick scan tells you who&apos;s been
+        writing.
       </p>
 
       <Callout variant="tip" title="The user filter scopes every list">
@@ -163,8 +203,9 @@ export default function LabModeCrossUserListsPage() {
           authoring and editing methods (Lab Mode is read-only).
         </li>
         <li>
-          <Link href="/wiki/features/home">Home &amp; Projects</Link> for the
-          goal editor and the &quot;hide my goals from Lab Mode&quot; toggle.
+          <Link href="/wiki/features/settings">Settings</Link> for the{" "}
+          <em>Hide my goals from lab view</em> toggle and other per-user
+          preferences.
         </li>
       </ul>
     </WikiPage>

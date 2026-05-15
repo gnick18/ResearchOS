@@ -52,7 +52,8 @@ export default function LabModeGanttPage() {
         <li>
           <strong>Faded look when complete</strong>: finished tasks are
           desaturated and lightened, plus they get a small checkmark on the
-          right. Active work pops; finished work fades into the background.
+          right. Active work pops, and finished work recedes into the
+          background.
         </li>
         <li>
           <strong>Diagonal stripes for weekends</strong>: same as on the
@@ -101,18 +102,20 @@ export default function LabModeGanttPage() {
       </ul>
 
       <Callout variant="tip" title="Stats bar above the chart">
-        On the GANTT, Experiments, and Purchases tabs, a stats row appears at
-        the top of the page showing total users, projects, experiments, and
-        purchases for the current selection. The other Lab Mode tabs hide it
-        because they summarize themselves inside their own panel.
+        On the GANTT tab specifically, a stats row appears at the top of the
+        page showing total users, projects, experiments, and purchases for
+        the current selection. Every other Lab Mode tab hides it because each
+        panel now owns its own summary chrome (the Experiments outcome
+        gallery, the Purchases dashboard, and so on), so a lab-wide context
+        strip would just duplicate what&apos;s already on the page.
       </Callout>
 
       <h2>How this differs from the per-user GANTT</h2>
       <p>The combined GANTT is similar but not identical to the personal one:</p>
       <ul>
         <li>
-          <strong>Coloring rule</strong>: combined uses user color; personal
-          uses project color. Same chart, different signal.
+          <strong>Coloring rule</strong>: combined uses user color, while
+          personal uses project color. Same chart, different signal.
         </li>
         <li>
           <strong>No drag-to-reschedule</strong>: Lab Mode is read-only.

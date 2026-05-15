@@ -41,6 +41,31 @@ export default function TelegramIntegrationPage() {
         pairing or disconnect modal.
       </p>
 
+      <h3>The &quot;retrying&quot; state</h3>
+      <p>
+        If the bridge hits a transient hiccup like a token refresh blip, a
+        flaky Wi-Fi connection, or a brief Telegram API timeout, the pill
+        switches to amber with a pulsing dot and adds a small{" "}
+        <code>RETRYING</code> label next to the bot username. The poller
+        backs off and retries on its own, doubling the delay up to a 30-second
+        cap. The pill flips back to the steady green dot the moment a request
+        succeeds, so there&apos;s nothing to click. If the label sticks around
+        for more than a minute or two, opening the pill and re-pairing is the
+        usual fix.
+      </p>
+
+      <h3>The &quot;+N&quot; recent-photos chip</h3>
+      <p>
+        Each time a new photo arrives over Telegram while this tab is open,
+        the pill grows a green <code>+N</code> counter on the right (e.g.,{" "}
+        <code>+3</code> after three photos have come in). It&apos;s a quick
+        confirmation that the bridge is alive and that the photos you just
+        sent from your phone actually made it across. The counter resets
+        whenever the tab reloads, so it tracks &quot;photos this session&quot;
+        rather than &quot;unread photos&quot;, that&apos;s what the Inbox
+        badge next to the pill is for.
+      </p>
+
       <h2>Create a bot</h2>
       <Steps>
         <Step>
@@ -131,8 +156,56 @@ export default function TelegramIntegrationPage() {
         inbox modal. Each row shows a thumbnail, the caption you sent, and
         when it arrived. From here you can move a photo into the open
         experiment with one click (<strong>Move to active</strong>), click
-        the row to rename or edit the caption, or delete it.
+        the row to rename or edit the caption, or delete it. A small{" "}
+        <strong>⋯</strong> button fades in on hover and opens the same menu
+        as right-click.
       </p>
+
+      <h3>Filing a batch of photos</h3>
+      <p>
+        When you come back to your desk with a stack of phone photos that
+        all belong to the same experiment, the inbox lets you file them in
+        one move instead of clicking <strong>Move to active</strong> on each
+        row:
+      </p>
+      <ul>
+        <li>
+          <strong>Shift-click</strong> a second row to select the contiguous
+          range from your last anchor row to this one.
+        </li>
+        <li>
+          <strong>Cmd-click</strong> (or <strong>Ctrl-click</strong> on
+          Windows / Linux) to toggle individual rows in and out of the
+          selection without disturbing the rest.
+        </li>
+        <li>
+          Selected rows pick up a blue border and ring. Clicking the empty
+          area of the modal clears the selection.
+        </li>
+      </ul>
+      <p>
+        With one or more rows selected, <strong>right-click any selected
+        row</strong> (or click the <strong>⋯</strong> button) to open a
+        context menu. The top item reads <strong>Send to task&hellip;</strong>{" "}
+        for a single row and <strong>Send N items to task&hellip;</strong>{" "}
+        when multiple are selected. Picking it opens the searchable task
+        picker, and choosing an experiment moves the whole batch into that
+        task at once. If any filename collides with an image already in the
+        destination, the duplicate-resolution dialog walks you through{" "}
+        <strong>Rename</strong>, <strong>Replace</strong>, or{" "}
+        <strong>Cancel</strong> per collision. A green toast in the
+        bottom-right of the modal confirms how many photos landed.
+      </p>
+      <Callout
+        variant="tip"
+        title="Right-click works on a single row too"
+      >
+        You don&apos;t need to select multiple rows first. Right-click any
+        inbox row and pick <strong>Send to task&hellip;</strong> to file
+        that one photo into any experiment, even one you don&apos;t have
+        open. It saves opening the experiment&apos;s popup just to use the{" "}
+        <strong>Move to active</strong> button.
+      </Callout>
 
       <h2>The bot&apos;s reply flow</h2>
       <p>

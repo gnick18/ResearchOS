@@ -14,7 +14,7 @@ export default function MarkdownEditorPage() {
     >
       <Screenshot
         src="/wiki/screenshots/experiments-editor.png"
-        alt="The markdown editor open in an experiment, showing markdown notes, an image strip, and the side panel."
+        alt="The markdown editor open in an experiment, showing markdown notes, an Images tab at the bottom, and the helper panel on the left."
         caption="The editor as it appears inside an experiment. The same component mounts in task popups, results, methods, and notes."
       />
 
@@ -147,7 +147,7 @@ export default function MarkdownEditorPage() {
       <Screenshot
         src="/wiki/screenshots/editor-language-picker.png"
         alt="The language picker popup open beneath three backticks in Edit mode, with a search field at the top and a scrollable list of language names."
-        caption="Type three backticks in Edit mode and the language picker drops in. The search field narrows the list as you type; Enter inserts the highlighted language."
+        caption="Type three backticks in Edit mode and the language picker drops in. The search field narrows the list as you type. Enter inserts the highlighted language."
       />
 
       <Callout variant="info" title="Languages with syntax highlighting">
@@ -193,9 +193,12 @@ export default function MarkdownEditorPage() {
 
       <h2>Images</h2>
       <p>
-        Images are first-class. Every editor has a strip of image thumbnails
-        at the bottom (toggleable from the toolbar) and a set of ways to get
-        new images in:
+        Images are first-class. Every editor has an attachments area along
+        the bottom (toggleable from the toolbar) with two tabs,{" "}
+        <strong>Images</strong> and <strong>Files</strong>. The Images tab
+        shows thumbnails for every image in the document&apos;s{" "}
+        <code>Images/</code> folder, whether or not the body references the
+        image yet. There are four ways to get a new image in:
       </p>
       <ul>
         <li>
@@ -206,11 +209,11 @@ export default function MarkdownEditorPage() {
           <strong>Drag image files into the editor body</strong>. While
           you&apos;re dragging from Finder, a blue ring lights up around the
           popup or editor card so you know the drop will be caught. Release
-          inside text and the image inserts at that position; release outside
+          inside text and the image inserts at that position. Release outside
           text and it appends to the bottom of the document. You can drop
           straight onto a rendered image too, and the new file slots in beside
-          it (Chrome&apos;s default replace-image behavior is intercepted, so
-          nothing else happens).
+          it. Chrome&apos;s default replace-image behavior is intercepted, so
+          nothing else happens.
         </li>
         <li>
           <strong>Paste from the clipboard</strong>. Copy a screenshot
@@ -230,59 +233,63 @@ export default function MarkdownEditorPage() {
         <code>users/&lt;you&gt;/results/task-12/Images/gel-2026-05-10.png</code>),
         and the markdown body references it with{" "}
         <code>![caption](Images/gel-2026-05-10.png)</code>. Filenames with
-        spaces render inline just fine; the reference looks like{" "}
+        spaces render inline just fine. The reference looks like{" "}
         <code>![](Images/Emile ID card-1.jpg)</code> and the editor resolves
         it to the right file without any extra escaping.
       </p>
 
-      <h3>The image strip</h3>
+      <h3>The Images tab</h3>
       <p>
-        Below the editor, a horizontal strip lists every image referenced in
-        the current document. Useful things you can do from the strip:
+        The Images tab at the bottom of the editor lists every image in the
+        document&apos;s <code>Images/</code> folder as a row of thumbnails.
+        Images already referenced in the body look normal. Images that exist
+        on disk but aren&apos;t referenced yet (e.g., a fresh arrival from
+        Telegram) show a small blue dot in the corner so you can spot them.
+        Useful things you can do from the tab:
       </p>
       <ul>
         <li>
-          <strong>Click a thumbnail</strong> to scroll the preview to that
-          image&apos;s position in the body.
+          <strong>Click a thumbnail</strong> to open the image metadata
+          popup. The popup shows a larger preview and lets you edit the
+          caption, rename the file, delete it from disk, or jump to where
+          it&apos;s used in the body. If the image isn&apos;t referenced
+          anywhere yet, the jump button is disabled.
         </li>
         <li>
           <strong>Drag a thumbnail into the editor</strong> to insert that
-          image at the cursor position. The original reference stays in place
-          too, so you can have the same image appear twice in the document.
+          image at the cursor position. The thumbnail stays in the tab so
+          the same image can appear twice in the document.
         </li>
         <li>
-          <strong>Right-click (or click the info icon)</strong> to see the
-          caption and a &quot;jump to occurrence&quot; button.
-        </li>
-        <li>
-          <strong>Drag a thumbnail to the trash zone</strong> at the bottom of
-          the editor. ResearchOS deletes the file from disk and removes every
-          reference in the body. The trash zone only appears while you&apos;re
-          actively dragging from the strip.
+          <strong>Drag a thumbnail to the trash zone</strong> at the bottom
+          of the editor. ResearchOS deletes the file from disk and removes
+          every reference in the body. The trash zone only appears while you
+          are actively dragging a thumbnail.
         </li>
       </ul>
 
       <h3>Resizing an image</h3>
       <Screenshot
         src="/wiki/screenshots/editor-image-resize.png"
-        alt="The image resize popover open over a body image in Preview mode, with 25%, 50%, 75%, and 100% size options."
-        caption="Click any rendered image in Preview mode and the size popover opens. The selected percentage is written into the markdown so it sticks."
+        alt="The image resize popover open over a body image, with 25%, 50%, 75%, and 100% size options."
+        caption="Click any rendered image in Hybrid or Preview mode and the size popover opens. The selected percentage is written into the markdown so it sticks."
       />
       <p>
         Two ways:
       </p>
       <ul>
         <li>
-          <strong>In Preview mode</strong>: click any rendered image to bring
-          up a size popover with <em>25%</em>, <em>50%</em>, <em>75%</em>, and{" "}
-          <em>100%</em> options. The choice writes a width attribute into the
-          markdown so the size persists.
+          <strong>In Hybrid or Preview mode</strong>: click any rendered
+          image to bring up a size popover with <em>25%</em>, <em>50%</em>,{" "}
+          <em>75%</em>, and <em>100%</em> options. The choice writes a width
+          attribute into the markdown so the size persists.
         </li>
         <li>
           <strong>In Edit mode</strong>: select the markdown image syntax
           (e.g., <code>![…](Images/file.png)</code>) and click the{" "}
           <strong>Resize Image</strong> toolbar button. Same percentage
-          options, applied to the selected reference.
+          options, applied to the selected reference. If nothing valid is
+          selected, the button shows a small reminder of what to highlight.
         </li>
       </ul>
 
@@ -312,18 +319,20 @@ export default function MarkdownEditorPage() {
       <ul>
         <li>
           <strong>Drag a file from Finder</strong> anywhere over the editor.
-          The blue ring lights up while the file is hovering, and on release
-          the file copies into <code>Files/</code> and a markdown link
-          inserts at the cursor (or appends to the document if you dropped
-          outside text).
+          The blue ring lights up while the file is hovering. On release the
+          file copies into <code>Files/</code> and a markdown link inserts at
+          the cursor (or appends to the document if you dropped outside
+          text).
         </li>
         <li>
-          <strong>The file strip</strong> sits below the image strip and
-          lists every file in the current document&apos;s <code>Files/</code>
-          folder. Files already linked in the body look normal; files that
-          exist on disk but aren&apos;t referenced yet show a small blue dot
-          and an &quot;unlinked&quot; tag in the strip header. Drag a tile
-          into the editor to insert a link to it.
+          <strong>The Files tab</strong> sits next to the Images tab at the
+          bottom of the editor. Click the <strong>Files</strong> tab to swap
+          the strip from image thumbnails to file tiles. Each tile shows an
+          emoji for the file type and the filename. Files already linked in
+          the body look normal. Files that exist on disk but aren&apos;t
+          referenced yet show a small blue dot and an &quot;unlinked&quot;
+          count in the tab header. Drag a tile into the editor to insert a
+          link to it.
         </li>
         <li>
           <strong>Drag a file tile to the red trash zone</strong> at the
@@ -334,6 +343,12 @@ export default function MarkdownEditorPage() {
           when the underlying <em>READ ME.md</em> is dragged out).
         </li>
       </ul>
+      <Callout variant="info" title="No metadata popup on file tiles">
+        File tiles don&apos;t open a popup on click. The only interactions
+        are drag-into-editor (to insert a link) and drag-to-trash (to
+        delete). To preview a file, click its link in the rendered prose
+        instead.
+      </Callout>
 
       <h3>Clicking a file link</h3>
       <p>
@@ -416,13 +431,29 @@ export default function MarkdownEditorPage() {
         table on the fly, so you don&apos;t have to retype the rows.
       </Callout>
 
-      <h2>The style-guide helper</h2>
+      <h2>The helper panel</h2>
       <p>
-        Edit mode includes a collapsible <strong>Style Guide</strong> panel
-        on the right with example syntax for every markdown feature. Click
-        any example to insert it at the cursor. Handy when you&apos;ve
-        forgotten the table syntax or want to see what callout markdown
-        looks like.
+        Edit mode includes a collapsible helper panel on the{" "}
+        <strong>left</strong> side of the editor with two tabs at the top,{" "}
+        <strong>Shortcuts</strong> and <strong>Style Guide</strong>. Click
+        the arrow in the panel header to collapse or expand it.
+      </p>
+      <ul>
+        <li>
+          <strong>Shortcuts</strong> lists every keyboard shortcut the
+          editor responds to, with the key combo on the right. Read-only.
+        </li>
+        <li>
+          <strong>Style Guide</strong> shows example syntax for every
+          markdown feature (headings, lists, tables, code blocks, callouts).
+          Click any example to insert it at the cursor. Handy when
+          you&apos;ve forgotten the table syntax or want to see what callout
+          markdown looks like.
+        </li>
+      </ul>
+      <p>
+        The helper panel only shows in Edit mode, since Hybrid and Preview
+        don&apos;t have a textarea cursor to insert into.
       </p>
 
       <h2>Saving</h2>
@@ -471,8 +502,9 @@ export default function MarkdownEditorPage() {
           retype the <code>#</code> marks.
         </li>
         <li>
-          <strong>The image strip toggles off</strong> from the toolbar if it
-          gets in the way. Toggle it back on the same way.
+          <strong>The attachments strip toggles off</strong> from the toolbar
+          if it gets in the way. Toggle it back on the same way. The same
+          toggle hides both the Images and Files tabs at once.
         </li>
         <li>
           <strong>Drag a thumbnail back into the editor</strong> to insert the
