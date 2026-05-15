@@ -720,6 +720,50 @@ questions list below, or for implementation to make local calls on.
 
 ---
 
+## Decision log (locked 2026-05-15)
+
+Grant locked the design surface via the tip manager's clickable
+review pass. Implementation bot treats this section as canonical;
+where this conflicts with the recommendations earlier in the
+proposal, this section wins.
+
+- **Direction scope: A + B + C, full build.** Ship the bot-copy
+  rewrite (A), the interactive tutorial container (B), AND the
+  bot-aware tutorial mode + `/tutorial` command (C). Single
+  implementation pass.
+- **Demo-vs-real-folder routing during the walkthrough: Path B.**
+  The first-photo step in B fires the user's REAL Telegram bot
+  (the only one paired). Photo lands in the real folder via the
+  normal inbox / auto-attach flow. Demo tab listens for the
+  arrival via a cross-tab signal (BroadcastChannel preferred,
+  sessionStorage fallback) and renders a "Got your photo, head
+  back to your real folder to see it" confirmation card before
+  advancing the tour to the next tip.
+- **Em-dash style: find-and-replace applied.** This proposal gets
+  swept clean by a parallel sub-bot that also handles the 3 older
+  root-level proposals. New prose anywhere in ResearchOS follows
+  the no-em-dash rule (commas, colons, parens, period splits).
+  Memory item `feedback_no_em_dashes.md` codifies for future
+  sessions.
+- **Defaults locked from the open-questions list** (Grant did not
+  override; tip manager kept the proposal's recommendations):
+  - First-photo walkthrough home: sequencer-only (no separate
+    post-pairing standalone modal). Direction A's bot-copy rewrite
+    already covers tutorial-skippers.
+  - Bot-aware mechanism (for C): per-user sidecar
+    `users/<u>/_telegram_tutorial.json` (mirrors `_telegram.json`
+    pattern). Polling tab reads this on each `routeTelegramMessage`
+    invocation and adapts behavior.
+  - `/tutorial` command: ship as part of C. Texts from the user
+    that match `/tutorial` re-trigger the welcome modal in the
+    user's open ResearchOS tab via a cross-tab broadcast (or, if
+    no tab is open, the bot replies "Open ResearchOS in your
+    browser, then text /tutorial again").
+  - Tip body length: short variant. Captions stay in the bot's
+    per-photo reply. Tip is for discovery, not full reference.
+  - Pairing-modal already-paired copy: gets the full dual-mode
+    explainer too.
+
 ## Open questions (for Grant)
 
 These are the design choices that block implementation. Framed
