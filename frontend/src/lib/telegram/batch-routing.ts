@@ -449,6 +449,12 @@ export async function routeBatchCallbackQuery(
   cq: TelegramCallbackQuery,
   ctx: BatchRouteContext
 ): Promise<void> {
+  // Defensive: the bot is only paired with one chat, but a stray
+  // callback from a different chat (e.g. the bot was added to a group
+  // before we cared to check) should be ignored so its state can't
+  // collide with the paired chat's in-flight batch.
+  const cqChatId = cq.message?.chat.id;
+  if (cqChatId !== undefined && cqChatId !== ctx.chatId) return;
   if (!cq.data) {
     await answerCallbackQuery(ctx.botToken, cq.id);
     return;
