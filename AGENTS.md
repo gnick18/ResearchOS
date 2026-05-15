@@ -325,6 +325,24 @@ For the next master session picking this up: state is reconstructable from `git 
 
 **Stale local branches worth pruning** (work landed elsewhere, branches just clutter `git branch`): `claude/epic-dubinsky-f36fb5` (Export Sub-bot F PCR-rendering), `claude/sharp-kirch-4345ef` (unknown), `claude/competent-tesla-1c0608` (the worktree that caused the stale-dev-server trap). Confirm-and-delete is safe but optional.
 
+### Recently landed (2026-05-15 — Export bundle: full attachment corpus, `filterByBodyRefs` removed)
+
+Follow-up to the GC-removal entry below: `filterByBodyRefs` in [frontend/src/lib/export/extract.ts](frontend/src/lib/export/extract.ts) was deleted. Pre-paradigm-shift it narrowed the export bundle to body-referenced attachments only; the orphan-GC was the rationale. Post-shift, "attached but not inlined" is intentional user state, so filtering at the export boundary was silently dropping files the user explicitly chose to keep with the task. The Raw bundle is the cross-instance carrier and the PDF Files-appendix is purpose-built to surface non-inlined files, so the right contract is "export bundle = on-disk corpus."
+
+**Files touched:**
+- [frontend/src/lib/export/extract.ts](frontend/src/lib/export/extract.ts) — `filterByBodyRefs` deleted; raw `collectTabAttachments` output flows straight into `dedupeAttachments`. Stale `extractMarkdownRefs` import dropped. New rationale comment in `buildExperimentPayload` explains the full-corpus rule and links the two paradigm-shift commits.
+- [frontend/src/lib/export/html.ts](frontend/src/lib/export/html.ts) + [frontend/src/lib/export/pdf.ts](frontend/src/lib/export/pdf.ts) — comments above the `[missing file: …]` placeholder logic updated. The placeholder still fires correctly because `findAttachment` now only fails when the disk truly lacks the file (cleaner semantics — the filter-vs-disk ambiguity is gone).
+- [frontend/src/lib/export/__tests__/extract-full-corpus.test.ts](frontend/src/lib/export/__tests__/extract-full-corpus.test.ts) — **new** (2 tests). Pins the rule end-to-end through `buildExperimentPayload`: case 1 has notes.md inlining only one of three on-disk files and asserts all three surface in `payload.attachments`; case 2 covers the no-markdown-at-all edge (pre-shift returned an empty list because there was no body to match against).
+- [frontend/src/lib/export/markdown.ts](frontend/src/lib/export/markdown.ts) — `extractMarkdownRefs` retained as a public utility (no runtime callers, but `migrate-attachments.ts` still references it by name in a comment as the basename-extraction convention). Re-exported `rewriteMarkdownRefs` already in use by HTML/PDF generators.
+
+**Design call recorded:** uniform "full corpus" across all three formats (Raw / HTML / PDF). Considered and rejected a per-format split (e.g. PDF carries full, Raw narrow) — added complexity, no clear benefit. The HTML/PDF body still only embeds/links body-referenced files (the rewriters only fire on existing refs), so a reader of either format gets a clean reading experience; the non-inlined files show up in the PDF Files-appendix and as zip-internal entries the HTML can link out to if desired.
+
+**Verification:** `npx tsc --noEmit` EXIT 0; full `npx vitest run` 202/202 passing (2 new); eslint clean on touched files.
+
+**Manual test recipe for Grant:** attach a file to a task's Notes tab via drop, save WITHOUT inlining the ref, run Export → PDF, confirm the file appears under "Files attached → From Lab Notes" in the PDF appendix. Same for HTML/Raw — check `attachments/Notes/` in the HTML zip and `notes/Files/` in the Raw zip both carry the non-inlined file.
+
+— bug-fix manager dispatch
+
 ### Recently landed (2026-05-15 — Attachments GC removed, paradigm shift from drop-behavior chip `e0ffbefb`)
 
 The per-save `gcUnreferencedAttachments` sweep at `frontend/src/lib/attachments/gc.ts` has been removed in full. Pre-shift, dropping a file on a markdown editor both attached it AND inserted an inline `![](...)` ref, so "attached but not body-referenced" was an orphan signal and the GC swept it on every save. Post-`e0ffbefb` (Markdown drop = attachment-only on first drop), users intentionally attach files without inlining; the GC was actively deleting files the user just dropped. Per Grant's call: drop the GC, keep the task-delete cascade as the sole cleanup mechanism.
@@ -345,7 +363,7 @@ The per-save `gcUnreferencedAttachments` sweep at `frontend/src/lib/attachments/
 
 **Browser verification:** skipped (Preview MCP broken, no Chrome MCP available). Manual test recipe for Grant: drop a file onto a task's Notes or Results editor, save, confirm the file persists in `Images/`/`Files/` even without an inline `![](...)` ref in the body; then delete the task and confirm `users/<you>/results/task-<id>/` is gone end-to-end.
 
-**Follow-up flagged (NOT fixed in this chip):** `filterByBodyRefs` in `lib/export/extract.ts:174` still filters export-bundle attachments down to "body-referenced only." Comment at line 525 explicitly cited the orphan-GC window as the rationale, and that rationale is now stale. Under the new paradigm, intentionally-attached-but-not-inlined files would be silently dropped from PDF/HTML exports. Worth a follow-up chip to decide whether the export bundle should carry the full corpus (matching disk state) or stay narrow (body-only). Spawn-task chip queued.
+**Follow-up flagged (NOT fixed in this chip):** `filterByBodyRefs` in `lib/export/extract.ts:174` still filters export-bundle attachments down to "body-referenced only." Comment at line 525 explicitly cited the orphan-GC window as the rationale, and that rationale is now stale. Under the new paradigm, intentionally-attached-but-not-inlined files would be silently dropped from PDF/HTML exports. Worth a follow-up chip to decide whether the export bundle should carry the full corpus (matching disk state) or stay narrow (body-only). **Closed:** see "Export bundle: full attachment corpus" entry above.
 
 — bug-fix manager dispatch
 

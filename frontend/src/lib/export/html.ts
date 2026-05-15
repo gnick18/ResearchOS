@@ -144,10 +144,10 @@ function rewriteMarkdownRefs(
       const parsed = cleanAndBasename(url);
       if (!parsed || !parsed.clean.includes("Files/")) return whole;
       // If the body references a file that's no longer on disk (deleted
-      // before export), `filterByBodyRefs` drops the attachment but the
-      // <a href> here would still point at a missing zip entry. Emit an
-      // inline placeholder instead so the broken ref is visible to the
-      // reader rather than silently 404'ing on click.
+      // before export), the extractor never picked it up and the <a href>
+      // here would point at a missing zip entry. Emit an inline placeholder
+      // instead so the broken ref is visible to the reader rather than
+      // silently 404'ing on click.
       const att = findAttachment(attachments, origin, parsed.basename);
       if (!att) {
         return `<span class="missing-file">[missing file: ${escapeHtml(parsed.basename)}]</span>`;

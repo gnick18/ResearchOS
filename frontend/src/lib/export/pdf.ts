@@ -398,8 +398,8 @@ export async function buildPdf(
             : [tt.text ?? tt.href];
           if (looksLikeLocalFileRef(tt.href)) {
             // If the body references a file that's no longer on disk (e.g.
-            // deleted before export), `filterByBodyRefs` drops the attachment.
-            // The "(see Files attached)" annotation would then be a lie — the
+            // deleted before export), the extractor never picked it up. The
+            // "(see Files attached)" annotation would then be a lie — the
             // file isn't there. Emit an inline `[missing file: …]` placeholder
             // so the broken ref is visible rather than implied-present.
             const att = findAttachment(ctx.attachments, ctx.origin, tt.href);
