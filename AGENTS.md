@@ -325,6 +325,30 @@ For the next master session picking this up: state is reconstructable from `git 
 
 **Stale local branches worth pruning** (work landed elsewhere, branches just clutter `git branch`): `claude/epic-dubinsky-f36fb5` (Export Sub-bot F PCR-rendering), `claude/sharp-kirch-4345ef` (unknown), `claude/competent-tesla-1c0608` (the worktree that caused the stale-dev-server trap). Confirm-and-delete is safe but optional.
 
+### Recently landed (2026-05-15 — Attachments GC removed, paradigm shift from drop-behavior chip `e0ffbefb`)
+
+The per-save `gcUnreferencedAttachments` sweep at `frontend/src/lib/attachments/gc.ts` has been removed in full. Pre-shift, dropping a file on a markdown editor both attached it AND inserted an inline `![](...)` ref, so "attached but not body-referenced" was an orphan signal and the GC swept it on every save. Post-`e0ffbefb` (Markdown drop = attachment-only on first drop), users intentionally attach files without inlining; the GC was actively deleting files the user just dropped. Per Grant's call: drop the GC, keep the task-delete cascade as the sole cleanup mechanism.
+
+**Files touched:**
+- [frontend/src/lib/attachments/gc.ts](frontend/src/lib/attachments/gc.ts) — **deleted** (~100 LOC).
+- [frontend/src/components/NoteDetailPopup.tsx](frontend/src/components/NoteDetailPopup.tsx) — dropped 2 call sites (debounced-save flush + popup-close), import, and the surrounding try/catch logging.
+- [frontend/src/components/TaskDetailPopup.tsx](frontend/src/components/TaskDetailPopup.tsx) — dropped 2 call sites (Notes tab save + Results tab save), import, `tabBase` from the two `handleSave` dep arrays.
+- [frontend/src/lib/file-system/file-service.ts](frontend/src/lib/file-system/file-service.ts) — added `deleteDirectory(path)` (recursive `removeEntry` wrapper). Used by the cascade extension below.
+- [frontend/src/lib/local-api.ts](frontend/src/lib/local-api.ts) — `tasksApi.delete` now also recursively removes `users/<owner>/results/task-<id>/` (canonical, per-user) and `results/task-<id>/` (legacy, pre-namespacing) as cascade step 4. Best-effort, follows the same try/catch pattern as steps 1-3 from the `87b738d6`-era cascade work. This is the new safety net for orphan attachments now that GC is gone.
+- [frontend/src/lib/tasks/migrate-attachments.ts](frontend/src/lib/tasks/migrate-attachments.ts) + [frontend/src/lib/export/markdown.ts](frontend/src/lib/export/markdown.ts) + [frontend/src/lib/export/html.ts](frontend/src/lib/export/html.ts) — comment refs pointing at the deleted module redirected to `extractMarkdownRefs` in `lib/export/markdown.ts` (the surviving basename-extraction helper).
+- [frontend/src/lib/export/extract.ts](frontend/src/lib/export/extract.ts) — comment on `filterByBodyRefs` updated to flag that the "attached-then-removed orphan" rationale is no longer load-bearing; see follow-up below.
+- [frontend/src/lib/tasks-api-delete-cascade.test.ts](frontend/src/lib/tasks-api-delete-cascade.test.ts) — **new** (4 tests). Pins the cascade invariant: both canonical + legacy results subtrees get `deleteDirectory` calls on `tasksApi.delete`, and the missing-task case is a no-op. Now that the GC is gone, this is the only test that asserts orphan attachments get cleaned up.
+
+**Manual delete affordance:** unchanged. `<FileTrashDropZone>` + the sibling image trash zone already let users drag a file/image from the strip onto a trash zone to remove it from disk and strip any inline references (with a confirm dialog). No new affordance needed.
+
+**Verification:** `npx tsc --noEmit` EXIT 0; full `npx vitest run` 189/189 passing (4 new); eslint clean on touched files (the 1 pre-existing error + 2 pre-existing warnings in NoteDetailPopup/TaskDetailPopup were unchanged before my edits).
+
+**Browser verification:** skipped (Preview MCP broken, no Chrome MCP available). Manual test recipe for Grant: drop a file onto a task's Notes or Results editor, save, confirm the file persists in `Images/`/`Files/` even without an inline `![](...)` ref in the body; then delete the task and confirm `users/<you>/results/task-<id>/` is gone end-to-end.
+
+**Follow-up flagged (NOT fixed in this chip):** `filterByBodyRefs` in `lib/export/extract.ts:174` still filters export-bundle attachments down to "body-referenced only." Comment at line 525 explicitly cited the orphan-GC window as the rationale, and that rationale is now stale. Under the new paradigm, intentionally-attached-but-not-inlined files would be silently dropped from PDF/HTML exports. Worth a follow-up chip to decide whether the export bundle should carry the full corpus (matching disk state) or stay narrow (body-only). Spawn-task chip queued.
+
+— bug-fix manager dispatch
+
 ### Recently landed (2026-05-14 — Lists tab in Workbench: 5-stage queue + sub-task progress + new list-task row primitive)
 
 Planning artifact: [LISTS_TAB_PROPOSAL.md](LISTS_TAB_PROPOSAL.md) at `8ed9b61f` (493 lines, thesis A recommended — Grant green-lit during the planning bot's clickable-questions session). Implementation: commit `7a2c9bbd`, merge commit `1520ffe9` on local main. 21 files, +1209/-128, 136 vitest tests passing (10 new for `listSectionAssignment.ts`). Replaces the temporary list-task accordion at the bottom of `WorkbenchExperimentsPanel.tsx` (the chip-3 stopgap flagged in the /results kill entry above as a "temporary state").
