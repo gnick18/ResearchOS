@@ -803,7 +803,7 @@ function DataInventorySection() {
       <div className="border-t border-gray-100 pt-4">
         <p className="text-sm font-medium text-gray-800">External calls</p>
         <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-          When using ResearchOS, your browser makes outbound calls only to: (a){" "}
+          When using ResearchOS, your browser makes outbound calls to: (a){" "}
           <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
             api.telegram.org
           </code>{" "}
@@ -816,8 +816,22 @@ function DataInventorySection() {
           <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
             /api/telegram-file
           </code>{" "}
-          on this app&apos;s origin, which proxies Telegram CDN file downloads.
-          Nothing else.
+          on this app&apos;s origin, which proxies Telegram CDN file downloads;
+          and (d){" "}
+          <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
+            va.vercel-scripts.com
+          </code>{" "}
+          +{" "}
+          <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
+            vitals.vercel-insights.com
+          </code>{" "}
+          for anonymous page-view pings via Vercel Web Analytics. Toggle
+          &quot;Offline mode&quot; below to disable destinations (b), (c), and
+          (d) durably. Direct{" "}
+          <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
+            api.telegram.org
+          </code>{" "}
+          polling continues either way since the proxy isn&apos;t on that path.
         </p>
       </div>
     </SectionShell>
