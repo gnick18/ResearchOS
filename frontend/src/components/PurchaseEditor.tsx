@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { purchasesApi, labApi } from "@/lib/local-api";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import Tooltip from "@/components/Tooltip";
 import type { CatalogItem, PurchaseItem } from "@/lib/types";
 
@@ -21,6 +22,8 @@ interface EditingRow {
   shipping_fees: string;
   notes: string;
   funding_string: string;
+  vendor: string;
+  category: string;
 }
 
 const EMPTY_ROW: EditingRow = {
@@ -32,6 +35,8 @@ const EMPTY_ROW: EditingRow = {
   shipping_fees: "",
   notes: "",
   funding_string: "",
+  vendor: "",
+  category: "",
 };
 
 function itemToEditingRow(item: PurchaseItem): EditingRow {
@@ -44,8 +49,13 @@ function itemToEditingRow(item: PurchaseItem): EditingRow {
     shipping_fees: (item.shipping_fees ?? 0).toString(),
     notes: item.notes || "",
     funding_string: item.funding_string || "",
+    vendor: item.vendor || "",
+    category: item.category || "",
   };
 }
+
+const VENDOR_DATALIST_ID = "purchase-editor-vendor-options";
+const CATEGORY_DATALIST_ID = "purchase-editor-category-options";
 
 export default function PurchaseEditor({ taskId, readOnly = false, username }: PurchaseEditorProps) {
   const queryClient = useQueryClient();
@@ -85,6 +95,32 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
     queryKey: ["funding-accounts"],
     queryFn: () => purchasesApi.listFundingAccounts(),
   });
+
+  // Autocomplete sources for vendor + category come from the same merged-view
+  // dataset the /purchases page already fetches. Reusing the queryKey lets
+  // React Query share the cache instead of double-fetching. Skipped in lab
+  // (read-only) mode — autocomplete is only relevant when the user can type.
+  const { currentUser: providerCurrentUser } = useCurrentUser();
+  const currentUser = providerCurrentUser ?? "";
+  const { data: autocompleteItems = [] } = useQuery({
+    queryKey: ["purchases-all", currentUser],
+    queryFn: () => purchasesApi.listAllIncludingShared(currentUser),
+    enabled: !readOnly && !!currentUser,
+  });
+  const vendorOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const item of autocompleteItems) {
+      if (item.vendor) set.add(item.vendor);
+    }
+    return [...set].sort();
+  }, [autocompleteItems]);
+  const categoryOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const item of autocompleteItems) {
+      if (item.category) set.add(item.category);
+    }
+    return [...set].sort();
+  }, [autocompleteItems]);
 
   // Search catalog as user types item name
   useEffect(() => {
@@ -202,6 +238,8 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
         shipping_fees: parseFloat(editingRow.shipping_fees) || 0,
         notes: editingRow.notes.trim() || null,
         funding_string: editingRow.funding_string.trim() || null,
+        vendor: editingRow.vendor.trim() || null,
+        category: editingRow.category.trim() || null,
       });
       setEditingItemId(null);
       setEditingRow({ ...EMPTY_ROW });
@@ -259,6 +297,8 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
         shipping_fees: parseFloat(rowData.shipping_fees) || 0,
         notes: rowData.notes.trim() || null,
         funding_string: rowData.funding_string.trim() || null,
+        vendor: rowData.vendor.trim() || null,
+        category: rowData.category.trim() || null,
       });
       setNewRow({ ...EMPTY_ROW });
       setSelectedCatalogItem(null);
@@ -357,6 +397,21 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
 
   return (
     <div className="p-4">
+      {/* Autocomplete sources for vendor + category inputs. Distinct non-null
+          values across the current user's own + shared-visible purchase items.
+          Empty list (first user, no past values) renders as a plain input — no
+          error state. */}
+      <datalist id={VENDOR_DATALIST_ID}>
+        {vendorOptions.map((v) => (
+          <option key={v} value={v} />
+        ))}
+      </datalist>
+      <datalist id={CATEGORY_DATALIST_ID}>
+        {categoryOptions.map((c) => (
+          <option key={c} value={c} />
+        ))}
+      </datalist>
+
       {/* Overwrite dialog */}
       {overwriteDialog && (
         <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg p-4">
@@ -422,6 +477,12 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
               </th>
               <th className="text-left py-2 px-2 text-xs font-semibold text-gray-500 w-28">
                 Funding String
+              </th>
+              <th className="text-left py-2 px-2 text-xs font-semibold text-gray-500 w-28">
+                Vendor
+              </th>
+              <th className="text-left py-2 px-2 text-xs font-semibold text-gray-500 w-28">
+                Category
               </th>
               <th className="text-left py-2 px-2 text-xs font-semibold text-gray-500 w-32">
                 Notes
@@ -544,6 +605,26 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
                   <td className="py-2 px-2">
                     <input
                       type="text"
+                      list={VENDOR_DATALIST_ID}
+                      value={editingRow.vendor}
+                      onChange={(e) => handleEditFieldChange("vendor", e.target.value)}
+                      placeholder="Vendor..."
+                      className="w-full px-2 py-1 border border-amber-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
+                    />
+                  </td>
+                  <td className="py-2 px-2">
+                    <input
+                      type="text"
+                      list={CATEGORY_DATALIST_ID}
+                      value={editingRow.category}
+                      onChange={(e) => handleEditFieldChange("category", e.target.value)}
+                      placeholder="Category..."
+                      className="w-full px-2 py-1 border border-amber-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
+                    />
+                  </td>
+                  <td className="py-2 px-2">
+                    <input
+                      type="text"
                       value={editingRow.notes}
                       onChange={(e) => handleEditFieldChange("notes", e.target.value)}
                       placeholder="Notes..."
@@ -608,6 +689,12 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
                   </td>
                   <td className="py-2 px-2 text-gray-500 text-xs">
                     {item.funding_string || "—"}
+                  </td>
+                  <td className="py-2 px-2 text-gray-500 text-xs">
+                    {item.vendor || "—"}
+                  </td>
+                  <td className="py-2 px-2 text-gray-500 text-xs">
+                    {item.category || "—"}
                   </td>
                   <td className="py-2 px-2 text-gray-400 text-xs">
                     {item.notes || "—"}
@@ -742,6 +829,26 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
                 <td className="py-2 px-2">
                   <input
                     type="text"
+                    list={VENDOR_DATALIST_ID}
+                    value={newRow.vendor}
+                    onChange={(e) => handleFieldChange("vendor", e.target.value)}
+                    placeholder="Vendor..."
+                    className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  />
+                </td>
+                <td className="py-2 px-2">
+                  <input
+                    type="text"
+                    list={CATEGORY_DATALIST_ID}
+                    value={newRow.category}
+                    onChange={(e) => handleFieldChange("category", e.target.value)}
+                    placeholder="Category..."
+                    className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  />
+                </td>
+                <td className="py-2 px-2">
+                  <input
+                    type="text"
                     value={newRow.notes}
                     onChange={(e) => handleFieldChange("notes", e.target.value)}
                     placeholder="Notes..."
@@ -770,7 +877,7 @@ export default function PurchaseEditor({ taskId, readOnly = false, username }: P
               <td className="py-2 px-2 text-right font-bold text-gray-900">
                 ${taskTotal.toFixed(2)}
               </td>
-              <td colSpan={3}></td>
+              <td colSpan={5}></td>
             </tr>
           </tfoot>
         </table>

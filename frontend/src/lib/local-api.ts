@@ -1224,14 +1224,18 @@ export const purchasesApi = {
     return items.map(item => ({
       ...item,
       total_price: item.total_price ?? (item.price_per_unit ?? 0) * item.quantity + (item.shipping_fees ?? 0),
+      vendor: item.vendor ?? null,
+      category: item.category ?? null,
     }));
   },
-  
+
   listAll: async (): Promise<PurchaseItem[]> => {
     const items = await purchaseItemsStore.listAll();
     return items.map(item => ({
       ...item,
       total_price: item.total_price ?? (item.price_per_unit ?? 0) * item.quantity + (item.shipping_fees ?? 0),
+      vendor: item.vendor ?? null,
+      category: item.category ?? null,
     }));
   },
 
@@ -1266,6 +1270,8 @@ export const purchasesApi = {
       total_price:
         item.total_price ??
         (item.price_per_unit ?? 0) * item.quantity + (item.shipping_fees ?? 0),
+      vendor: item.vendor ?? null,
+      category: item.category ?? null,
     }));
 
     // Build the set of (owner, taskId) pairs the viewer can see via shares.
@@ -1335,6 +1341,8 @@ export const purchasesApi = {
           total_price:
             item.total_price ??
             (item.price_per_unit ?? 0) * item.quantity + (item.shipping_fees ?? 0),
+          vendor: item.vendor ?? null,
+          category: item.category ?? null,
         });
       }
     }
@@ -1353,6 +1361,8 @@ export const purchasesApi = {
       total_price: total,
       notes: data.notes ?? null,
       funding_string: data.funding_string ?? null,
+      vendor: data.vendor ?? null,
+      category: data.category ?? null,
     });
   },
   
@@ -2833,6 +2843,8 @@ export const labApi = {
     return items.filter((item) => item.task_id === taskId).map((item) => ({
       ...item,
       total_price: item.total_price ?? (item.price_per_unit ?? 0) * item.quantity + (item.shipping_fees ?? 0),
+      vendor: item.vendor ?? null,
+      category: item.category ?? null,
     }));
   },
 
@@ -2850,6 +2862,8 @@ export const labApi = {
           total_price:
             item.total_price ??
             (item.price_per_unit ?? 0) * item.quantity + (item.shipping_fees ?? 0),
+          vendor: item.vendor ?? null,
+          category: item.category ?? null,
         });
       }
     }
