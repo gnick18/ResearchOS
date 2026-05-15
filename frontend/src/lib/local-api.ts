@@ -5,7 +5,7 @@ import { shiftTask } from "./engine/shift";
 import { formatDate, parseDate } from "./engine/dates";
 import { canonicalEndDate, computeTaskEndDate } from "./tasks/end-date";
 import { discoverUsers } from "./file-system/user-discovery";
-import { ensureLabUserMetadata, fallbackUserColor, setUserMetadataField, getUserMetadata, type UserMetadataEntry } from "./file-system/user-metadata";
+import { ensureLabUserMetadata, fallbackUserColor, setUserMetadataField, getUserMetadata, readAllUserMetadata, type UserMetadataEntry } from "./file-system/user-metadata";
 import JSZip from "jszip";
 import type {
   Project,
@@ -2922,8 +2922,18 @@ export const usersApi = {
       "_global_counters.json",
       "_user_metadata.json",
     ]);
-    const allDirs = await fileService.listDirectories("users");
-    const users = allDirs.filter((name) => !skipDirs.has(name)).sort();
+    // Tombstone join: a name with `deleted_at` set in _user_metadata.json is a
+    // soft-deleted user. Filter it even if cloud sync (OneDrive Files
+    // On-Demand) re-spawned a placeholder folder for the directory entry.
+    // INVESTIGATION_USER_LEAKS.md covers the root cause.
+    const [allDirs, meta] = await Promise.all([
+      fileService.listDirectories("users"),
+      readAllUserMetadata(),
+    ]);
+    const users = allDirs
+      .filter((name) => !skipDirs.has(name))
+      .filter((name) => !meta[name]?.deleted_at)
+      .sort();
 
     const currentUser = await getCurrentUser();
     return { users, current_user: currentUser || "" };
@@ -3100,13 +3110,32 @@ export const usersApi = {
         if (!usersDir) {
           return { status: "error", deleted_username: "", message: "Users directory not found" };
         }
-        
-        await usersDir.removeEntry(username, { recursive: true });
-        
-        return { 
-          status: "ok", 
-          deleted_username: username, 
-          message: `User '${username}' has been deleted successfully` 
+
+        // Tombstone FIRST. This is the authoritative delete record: it
+        // survives cloud-sync (OneDrive Files On-Demand can re-spawn the
+        // directory as a placeholder after a hard-delete, defeating the
+        // recursive removeEntry below). Once tombstoned, discoverUsers and
+        // usersApi.list filter the user out regardless of whether the
+        // folder bytes still exist on disk. See INVESTIGATION_USER_LEAKS.md.
+        await setUserMetadataField(username, "deleted_at", new Date().toISOString());
+
+        // Hard-delete the folder bytes as a best-effort cleanup. On
+        // cloud-synced folders this may fail (locked stub, permissions),
+        // but the tombstone above is the source of truth; we don't want a
+        // cloud-locked folder to abort the delete flow.
+        try {
+          await usersDir.removeEntry(username, { recursive: true });
+        } catch (err) {
+          console.warn(
+            `usersApi.delete: tombstone written for '${username}' but recursive removeEntry failed (likely cloud-sync stub); user is hidden from pickers regardless`,
+            err,
+          );
+        }
+
+        return {
+          status: "ok",
+          deleted_username: username,
+          message: `User '${username}' has been deleted successfully`
         };
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to delete user";

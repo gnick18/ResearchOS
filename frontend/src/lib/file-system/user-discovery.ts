@@ -1,4 +1,5 @@
 import { fileService } from "./file-service";
+import { readAllUserMetadata } from "./user-metadata";
 
 const SKIP_DIRECTORIES = new Set(["public", "lab", "_no_user_", "_global_counters.json", "_user_metadata.json"]);
 
@@ -21,8 +22,14 @@ export async function discoverUsers(): Promise<string[]> {
   // seeded user directories. Real folders go through the same path with
   // no behavior change.
   try {
-    const all = await fileService.listDirectories("users");
-    return all.filter((name) => !SKIP_DIRECTORIES.has(name)).sort();
+    const [all, meta] = await Promise.all([
+      fileService.listDirectories("users"),
+      readAllUserMetadata(),
+    ]);
+    return all
+      .filter((name) => !SKIP_DIRECTORIES.has(name))
+      .filter((name) => !meta[name]?.deleted_at)
+      .sort();
   } catch (err) {
     console.error("discoverUsers error:", err);
     return [];
