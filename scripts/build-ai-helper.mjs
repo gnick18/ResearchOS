@@ -262,12 +262,12 @@ const ENTITY_PICKERS = [
   },
   {
     label: "LCGradientProtocol",
-    dir: "lc_gradient_protocols",
+    dir: "lc_gradients",
     optional: true,
   },
   {
     label: "PlateProtocol",
-    dir: "plate_protocols",
+    dir: "plate_layouts",
     optional: true,
   },
   {
@@ -325,7 +325,7 @@ async function buildExamplesSection() {
         blocks.push(`### ${picker.label}\n`);
         blocks.push(
           `_No fixture coverage for this entity type yet — add one to ` +
-            `\`frontend/public/demo-data/users/{alex,morgan}/${picker.dir ?? "<sidecar>"}/\` ` +
+            `\`frontend/public/demo-data/users/{alex,morgan}/${picker.dir ?? picker.sidecarFile}\` ` +
             `to surface a real example here._\n`,
         );
         continue;

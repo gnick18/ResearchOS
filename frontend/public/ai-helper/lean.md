@@ -198,6 +198,23 @@ export interface TaskMethodAttachment {
   // PCR method copy fields - stored as JSON strings (only for PCR methods)
   pcr_gradient: string | null;  // JSON string of PCRGradient
   pcr_ingredients: string | null;  // JSON string of PCRIngredient[]
+  // LC gradient snapshot - JSON string of LCGradientProtocol (only for LC methods).
+  // Mirrors pcr_gradient: edits on the experiment page write to this snapshot,
+  // not back to the source protocol record.
+  lc_gradient: string | null;
+  // Markdown body override (only meaningful when method.method_type === "markdown").
+  // When non-null AND the attached method is markdown, the experiment-page renderer
+  // treats this string as the active body and diffs it against the source method's
+  // on-disk body. When null, the renderer reads the source markdown directly and
+  // behaves as it did before per-task overrides existed. Edits on the experiment
+  // page write here, never back to the source `.md` file — so the source method
+  // remains the canonical reusable protocol while each task can capture its own
+  // documented variation.
+  body_override: string | null;
+  // Plate annotation snapshot - JSON string of `{ wells: {...} }` (only for
+  // plate methods). Mirrors lc_gradient: per-well painting on the experiment
+  // page lands here, not back on the source PlateProtocol's region_labels.
+  plate_annotation: string | null;
   // Variation notes - markdown content documenting method variations for this experiment
   variation_notes: string | null;  // Markdown string with timestamped entries
 }
@@ -425,7 +442,7 @@ export interface Method {
   id: number;
   name: string;
   source_path: string | null;
-  method_type: "markdown" | "pdf" | "pcr" | null;
+  method_type: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | null;
   folder_path: string | null;
   parent_method_id: number | null;
   tags: string[] | null;
@@ -443,7 +460,7 @@ export interface Method {
 export interface MethodCreate {
   name: string;
   source_path?: string | null;
-  method_type?: "markdown" | "pdf" | "pcr";
+  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate";
   folder_path?: string | null;
   parent_method_id?: number | null;
   tags?: string[];
@@ -453,7 +470,7 @@ export interface MethodCreate {
 export interface MethodUpdate {
   name?: string;
   source_path?: string | null;
-  method_type?: "markdown" | "pdf" | "pcr" | null;
+  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | null;
   folder_path?: string | null;
   parent_method_id?: number | null;
   tags?: string[];
@@ -513,6 +530,163 @@ export interface PCRProtocolUpdate {
   ingredients?: PCRIngredient[];
   notes?: string | null;
   is_public?: boolean;
+}
+
+// ── LC Gradient ──────────────────────────────────────────────────────────────
+
+export interface LCGradientStep {
+  /** Time in minutes from the start of the run. */
+  time_min: number;
+  /** Percent solvent A at this time point (0–100). Together with percent_b
+   *  should sum to 100 for a typical binary gradient; left to the user since
+   *  ternary/quaternary methods exist in the wild. */
+  percent_a: number;
+  /** Percent solvent B at this time point (0–100). */
+  percent_b: number;
+  /** Flow rate in mL/min at this time point. */
+  flow_ml_min: number;
+}
+
+export interface LCGradientColumn {
+  manufacturer?: string | null;
+  model?: string | null;
+  /** Column length in mm. */
+  length_mm?: number | null;
+  /** Inner diameter in mm. */
+  inner_diameter_mm?: number | null;
+  /** Particle size in µm. */
+  particle_size_um?: number | null;
+}
+
+/** What role this ingredient plays in the mobile/stationary phase setup. */
+export type LCIngredientRole = "solvent_a" | "solvent_b" | "buffer" | "additive";
+
+export interface LCIngredient {
+  id: string;
+  name: string;
+  role: LCIngredientRole;
+  /** Free-form concentration (e.g. "0.1%", "10 mM", "—"). */
+  concentration?: string;
+  notes?: string;
+}
+
+export interface LCGradientProtocol {
+  id: number;
+  name: string;
+  description?: string | null;
+  is_public: boolean;
+  created_at?: string;
+  updated_at?: string;
+  created_by: string | null;
+  gradient_steps: LCGradientStep[];
+  column: LCGradientColumn;
+  /** Detection wavelength in nm (UV-Vis / PDA). */
+  detection_wavelength_nm?: number | null;
+  ingredients: LCIngredient[];
+}
+
+export interface LCGradientProtocolCreate {
+  name: string;
+  description?: string | null;
+  is_public?: boolean;
+  gradient_steps: LCGradientStep[];
+  column: LCGradientColumn;
+  detection_wavelength_nm?: number | null;
+  ingredients: LCIngredient[];
+  folder_path?: string | null;
+}
+
+export type LCGradientProtocolUpdate = Partial<{
+  name: string;
+  description: string | null;
+  is_public: boolean;
+  gradient_steps: LCGradientStep[];
+  column: LCGradientColumn;
+  detection_wavelength_nm: number | null;
+  ingredients: LCIngredient[];
+}>;
+
+// ── Plate layout ─────────────────────────────────────────────────────────────
+//
+// Generic well-plate annotation widget that covers every plate-based workflow:
+// bacterial plating, transformation, transfection, growth curves, dose-response,
+// ELISA, etc. Deliberately decoupled from any one assay type — the "method"
+// (PlateProtocol) carries the plate size + optional region labels for pre-
+// labeled zones; the per-task `plate_annotation` snapshot carries the actual
+// well-by-well annotations.
+
+/** Plate sizes supported in v1. 384 deferred to v2. */
+export type PlateSize = 12 | 24 | 48 | 96;
+
+/** Role of a well or region. "custom" pairs with `custom_label` for free-text
+ *  brushes (e.g. "Strain ΔADE2"). */
+export type PlateWellRole = "blank" | "sample" | "control" | "na" | "custom";
+
+/** A rectangular region of pre-labeled wells on a plate protocol. Rows and
+ *  columns are 0-indexed (row 0 = "A", col 0 = column "1") and inclusive on
+ *  both ends — `{ row_start: 0, row_end: 0, col_start: 0, col_end: 11 }` is
+ *  the entire first row of a 96-well plate. */
+export interface PlateRegionLabel {
+  row_start: number;
+  row_end: number;
+  col_start: number;
+  col_end: number;
+  role: PlateWellRole;
+  custom_label?: string;
+  notes?: string;
+}
+
+export interface PlateProtocol {
+  id: number;
+  name: string;
+  description?: string | null;
+  is_public: boolean;
+  created_at?: string;
+  updated_at?: string;
+  created_by: string | null;
+  plate_size: PlateSize;
+  /** Optional pre-labeled regions baked into the method. Per-task overrides
+   *  go on `TaskMethodAttachment.plate_annotation` and supersede these. */
+  region_labels?: PlateRegionLabel[];
+}
+
+export interface PlateProtocolCreate {
+  name: string;
+  description?: string | null;
+  is_public?: boolean;
+  plate_size: PlateSize;
+  region_labels?: PlateRegionLabel[];
+  folder_path?: string | null;
+}
+
+export type PlateProtocolUpdate = Partial<{
+  name: string;
+  description: string | null;
+  is_public: boolean;
+  plate_size: PlateSize;
+  region_labels: PlateRegionLabel[];
+}>;
+
+/** Per-well annotation written by the experiment-page editor. */
+export interface PlateWellAnnotation {
+  role: PlateWellRole;
+  /** Free-text sample identifier (e.g. "Sample 5 @ 10 µM"). Only meaningful
+   *  for `role === "sample"` but kept on the well so role-changes don't
+   *  silently drop the text. */
+  sample_label?: string;
+  /** Free-text label for `role === "custom"` brushes. */
+  custom_label?: string;
+  /** Optional replicate index, used when the same sample is painted across
+   *  multiple wells (e.g. 1/2/3 for technical triplicates). */
+  replicate_index?: number;
+  notes?: string;
+}
+
+/** Shape persisted as the JSON-stringified body of
+ *  `TaskMethodAttachment.plate_annotation`. Well ids are "A1", "A2", …
+ *  using letter-row + 1-indexed-column. */
+export interface PlateAnnotationSnapshot {
+  wells: Record<string, PlateWellAnnotation>;
 }
 
 export interface MethodForkRequest {
@@ -949,9 +1123,9 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 ## §11 Build metadata
 
 - **Variant:** `lean`
-- **Helper version:** `2`
-- **Schema hash:** `a65063cfaed24daac531c92092effe4a3bb9a78d08ceaeb4f56c86d1baa4f41e`
-- **Built at:** `2026-05-15T20:01:24.162Z`
-- **Built from commit:** `97ffdb30153db5d0cfea41b99ce66cc55ca0483b`
+- **Helper version:** `5`
+- **Schema hash:** `08ef47a8db5e1a63bb01d142e0b522919feb7528cb4ce9e8a29c8605b95393b9`
+- **Built at:** `2026-05-15T20:04:59.250Z`
+- **Built from commit:** `ce76a9ac8500d6029226614c04939aa78bcb1206`
 
 _Generated by `scripts/build-ai-helper.mjs`. Do not edit by hand — run `npm run --prefix frontend ai-helper:refresh` to rebuild and commit._
