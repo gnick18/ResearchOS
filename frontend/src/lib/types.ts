@@ -181,6 +181,10 @@ export interface TaskMethodAttachment {
   // PCR method copy fields - stored as JSON strings (only for PCR methods)
   pcr_gradient: string | null;  // JSON string of PCRGradient
   pcr_ingredients: string | null;  // JSON string of PCRIngredient[]
+  // LC gradient snapshot - JSON string of LCGradientProtocol (only for LC methods).
+  // Mirrors pcr_gradient: edits on the experiment page write to this snapshot,
+  // not back to the source protocol record.
+  lc_gradient: string | null;
   // Variation notes - markdown content documenting method variations for this experiment
   variation_notes: string | null;  // Markdown string with timestamped entries
 }
@@ -408,7 +412,7 @@ export interface Method {
   id: number;
   name: string;
   source_path: string | null;
-  method_type: "markdown" | "pdf" | "pcr" | null;
+  method_type: "markdown" | "pdf" | "pcr" | "lc_gradient" | null;
   folder_path: string | null;
   parent_method_id: number | null;
   tags: string[] | null;
@@ -426,7 +430,7 @@ export interface Method {
 export interface MethodCreate {
   name: string;
   source_path?: string | null;
-  method_type?: "markdown" | "pdf" | "pcr";
+  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient";
   folder_path?: string | null;
   parent_method_id?: number | null;
   tags?: string[];
@@ -436,7 +440,7 @@ export interface MethodCreate {
 export interface MethodUpdate {
   name?: string;
   source_path?: string | null;
-  method_type?: "markdown" | "pdf" | "pcr" | null;
+  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | null;
   folder_path?: string | null;
   parent_method_id?: number | null;
   tags?: string[];
@@ -497,6 +501,80 @@ export interface PCRProtocolUpdate {
   notes?: string | null;
   is_public?: boolean;
 }
+
+// ── LC Gradient ──────────────────────────────────────────────────────────────
+
+export interface LCGradientStep {
+  /** Time in minutes from the start of the run. */
+  time_min: number;
+  /** Percent solvent A at this time point (0–100). Together with percent_b
+   *  should sum to 100 for a typical binary gradient; left to the user since
+   *  ternary/quaternary methods exist in the wild. */
+  percent_a: number;
+  /** Percent solvent B at this time point (0–100). */
+  percent_b: number;
+  /** Flow rate in mL/min at this time point. */
+  flow_ml_min: number;
+}
+
+export interface LCGradientColumn {
+  manufacturer?: string | null;
+  model?: string | null;
+  /** Column length in mm. */
+  length_mm?: number | null;
+  /** Inner diameter in mm. */
+  inner_diameter_mm?: number | null;
+  /** Particle size in µm. */
+  particle_size_um?: number | null;
+}
+
+/** What role this ingredient plays in the mobile/stationary phase setup. */
+export type LCIngredientRole = "solvent_a" | "solvent_b" | "buffer" | "additive";
+
+export interface LCIngredient {
+  id: string;
+  name: string;
+  role: LCIngredientRole;
+  /** Free-form concentration (e.g. "0.1%", "10 mM", "—"). */
+  concentration?: string;
+  notes?: string;
+}
+
+export interface LCGradientProtocol {
+  id: number;
+  name: string;
+  description?: string | null;
+  is_public: boolean;
+  created_at?: string;
+  updated_at?: string;
+  created_by: string | null;
+  gradient_steps: LCGradientStep[];
+  column: LCGradientColumn;
+  /** Detection wavelength in nm (UV-Vis / PDA). */
+  detection_wavelength_nm?: number | null;
+  ingredients: LCIngredient[];
+}
+
+export interface LCGradientProtocolCreate {
+  name: string;
+  description?: string | null;
+  is_public?: boolean;
+  gradient_steps: LCGradientStep[];
+  column: LCGradientColumn;
+  detection_wavelength_nm?: number | null;
+  ingredients: LCIngredient[];
+  folder_path?: string | null;
+}
+
+export type LCGradientProtocolUpdate = Partial<{
+  name: string;
+  description: string | null;
+  is_public: boolean;
+  gradient_steps: LCGradientStep[];
+  column: LCGradientColumn;
+  detection_wavelength_nm: number | null;
+  ingredients: LCIngredient[];
+}>;
 
 export interface MethodForkRequest {
   new_name: string;

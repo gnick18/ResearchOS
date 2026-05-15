@@ -30,6 +30,7 @@ export function ownerScopedTasksApi(task: Task) {
     convertType: (id: number, type: "experiment" | "purchase" | "list") =>
       rawTasksApi.convertType(id, type, owner),
     resetPcr: (id: number, methodId?: number) => rawTasksApi.resetPcr(id, methodId, owner),
+    resetLc: (id: number, methodId?: number) => rawTasksApi.resetLc(id, methodId, owner),
     addMethod: (taskId: number, methodId: number) => rawTasksApi.addMethod(taskId, methodId, owner),
     removeMethod: (taskId: number, methodId: number) =>
       rawTasksApi.removeMethod(taskId, methodId, owner),
@@ -38,6 +39,11 @@ export function ownerScopedTasksApi(task: Task) {
       methodId: number,
       data: { pcr_gradient?: string; pcr_ingredients?: string }
     ) => rawTasksApi.updateMethodPcr(taskId, methodId, data, owner),
+    updateMethodLc: (
+      taskId: number,
+      methodId: number,
+      data: { lc_gradient?: string }
+    ) => rawTasksApi.updateMethodLc(taskId, methodId, data, owner),
     saveVariationNote: (taskId: number, methodId: number, notes: string) =>
       rawTasksApi.saveVariationNote(taskId, methodId, notes, owner),
     // `delete` intentionally not owner-routed: only the original owner

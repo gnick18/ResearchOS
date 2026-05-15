@@ -30,6 +30,9 @@ import type {
   PCRProtocol,
   PCRProtocolCreate,
   PCRProtocolUpdate,
+  LCGradientProtocol,
+  LCGradientProtocolCreate,
+  LCGradientProtocolUpdate,
   PurchaseItem,
   PurchaseItemCreate,
   PurchaseItemUpdate,
@@ -69,6 +72,8 @@ const eventsStore = new JsonStore<Event>("events");
 const goalsStore = new JsonStore<HighLevelGoal>("goals");
 const pcrStore = new JsonStore<PCRProtocol>("pcr_protocols");
 const publicPcrStore = getPublicStore<PCRProtocol>("pcr_protocols");
+const lcGradientStore = new JsonStore<LCGradientProtocol>("lc_gradients");
+const publicLcGradientStore = getPublicStore<LCGradientProtocol>("lc_gradients");
 const purchaseItemsStore = new JsonStore<PurchaseItem>("purchase_items");
 const catalogStore = new JsonStore<CatalogItem>("item_catalog");
 const labLinksStore = new JsonStore<LabLink>("lab_links");
@@ -266,11 +271,23 @@ function normalizeTaskRecord(raw: Task): Task {
   // through tasksApi.update persists the cleaned form — old files self-heal.
   const methodIds = normalized.method_ids ?? [];
   const attachments = normalized.method_attachments ?? [];
-  if (attachments.some((a) => !methodIds.includes(a.method_id))) {
+  const filtered = attachments.some((a) => !methodIds.includes(a.method_id))
+    ? attachments.filter((a) => methodIds.includes(a.method_id))
+    : attachments;
+  // Backfill the lc_gradient field on attachments written before LC support
+  // landed (Phase 1a). Without this, `attachment.lc_gradient` is `undefined`
+  // at runtime for any pre-LC task, which trips strict null checks in the
+  // LC tab content's snapshot-vs-source branching.
+  const needsLcBackfill = filtered.some(
+    (a) => !Object.prototype.hasOwnProperty.call(a, "lc_gradient"),
+  );
+  if (filtered !== attachments || needsLcBackfill) {
     normalized = {
       ...normalized,
-      method_attachments: attachments.filter((a) =>
-        methodIds.includes(a.method_id)
+      method_attachments: filtered.map((a) =>
+        Object.prototype.hasOwnProperty.call(a, "lc_gradient")
+          ? a
+          : { ...a, lc_gradient: null },
       ),
     };
   }
@@ -317,7 +334,7 @@ export const tasksApi = {
     sub_tasks?: Array<{ id: string; text: string; is_complete: boolean }>;
     pcr_gradient?: string | null;
     pcr_ingredients?: string | null;
-    method_attachments?: Array<{ method_id: number; pcr_gradient?: string | null; pcr_ingredients?: string | null; variation_notes?: string | null }>;
+    method_attachments?: Array<{ method_id: number; pcr_gradient?: string | null; pcr_ingredients?: string | null; lc_gradient?: string | null; variation_notes?: string | null }>;
   }): Promise<Task> => {
     const durationDays = data.duration_days || 1;
     const endDate = canonicalEndDate({ start_date: data.start_date, duration_days: durationDays });
@@ -348,6 +365,7 @@ export const tasksApi = {
         method_id: a.method_id,
         pcr_gradient: a.pcr_gradient ?? null,
         pcr_ingredients: a.pcr_ingredients ?? null,
+        lc_gradient: a.lc_gradient ?? null,
         variation_notes: a.variation_notes ?? null,
       })),
       owner: currentUser,
@@ -580,6 +598,7 @@ export const tasksApi = {
         method_id: methodId,
         pcr_gradient: null,
         pcr_ingredients: null,
+        lc_gradient: null,
         variation_notes: null,
       });
     }
@@ -660,6 +679,47 @@ export const tasksApi = {
     });
 
     return updateTaskForCaller(taskId, { method_attachments: attachments }, owner);
+  },
+
+  updateMethodLc: async (
+    taskId: number,
+    methodId: number,
+    data: { lc_gradient?: string },
+    owner?: string
+  ): Promise<Task | null> => {
+    const task = await getTaskForCaller(taskId, owner);
+    if (!task) return null;
+
+    const attachments = (task.method_attachments || []).map((a) => {
+      if (a.method_id === methodId) {
+        return { ...a, ...data };
+      }
+      return a;
+    });
+
+    return updateTaskForCaller(taskId, { method_attachments: attachments }, owner);
+  },
+
+  resetLc: async (id: number, methodId?: number, owner?: string): Promise<Task | null> => {
+    const task = await getTaskForCaller(id, owner);
+    if (!task) return null;
+
+    if (methodId) {
+      const attachments = task.method_attachments?.map((a) => {
+        if (a.method_id === methodId) {
+          return { ...a, lc_gradient: null };
+        }
+        return a;
+      });
+      return updateTaskForCaller(id, { method_attachments: attachments }, owner);
+    }
+
+    return updateTaskForCaller(id, {
+      method_attachments: task.method_attachments?.map((a) => ({
+        ...a,
+        lc_gradient: null,
+      })),
+    }, owner);
   },
 
   saveVariationNote: async (
@@ -1216,6 +1276,124 @@ export const pcrApi = {
       { id: "7", name: "Water", concentration: "-", amount_per_reaction: "to 25", checked: false },
     ];
   },
+};
+
+// ── LC Gradient API ──────────────────────────────────────────────────────────
+//
+// Storage shape mirrors pcrApi exactly: per-user `users/<u>/lc_gradients/<id>.json`
+// for private records, `users/public/lc_gradients/<id>.json` for is_public:true.
+// Per-user counter file `_counters.json` carries a `lc_gradient` line on first
+// create (managed by JsonStore.create). Methods reference these records via
+// `source_path: "lc_gradient://protocol/{id}"` — owner-aware resolution mirrors
+// `pcr://protocol/{id}` to keep namespaces consistent.
+
+export const lcGradientApi = {
+  list: async (): Promise<LCGradientProtocol[]> => {
+    const privateProtocols = await lcGradientStore.listAll();
+    const publicProtocols = await publicLcGradientStore.listAll();
+
+    return [
+      ...privateProtocols.map((p) => ({ ...p, is_public: false })),
+      ...publicProtocols.map((p) => ({ ...p, is_public: true })),
+    ];
+  },
+
+  get: async (id: number, owner?: string): Promise<LCGradientProtocol | null> => {
+    if (owner) {
+      if (owner === "public") {
+        const publicProtocol = await publicLcGradientStore.get(id);
+        return publicProtocol ? { ...publicProtocol, is_public: true } : null;
+      }
+      const ownerProtocol = await lcGradientStore.getForUser(id, owner);
+      return ownerProtocol ? { ...ownerProtocol, is_public: false } : null;
+    }
+
+    const protocol = await lcGradientStore.get(id);
+    if (protocol) return { ...protocol, is_public: false };
+
+    const publicProtocol = await publicLcGradientStore.get(id);
+    if (publicProtocol) return { ...publicProtocol, is_public: true };
+
+    return null;
+  },
+
+  create: async (data: LCGradientProtocolCreate): Promise<LCGradientProtocol> => {
+    const isPublic = data.is_public ?? false;
+    const now = new Date().toISOString();
+    const base = {
+      name: data.name,
+      description: data.description ?? null,
+      gradient_steps: data.gradient_steps,
+      column: data.column,
+      detection_wavelength_nm: data.detection_wavelength_nm ?? null,
+      ingredients: data.ingredients,
+      created_at: now,
+      updated_at: now,
+      created_by: null,
+    };
+    if (isPublic) {
+      return publicLcGradientStore.create({ ...base, is_public: true });
+    }
+    return lcGradientStore.create({ ...base, is_public: false });
+  },
+
+  update: async (
+    id: number,
+    data: LCGradientProtocolUpdate,
+    owner?: string,
+  ): Promise<LCGradientProtocol | null> => {
+    const patch = { ...data, updated_at: new Date().toISOString() };
+    if (owner) {
+      if (owner === "public") {
+        const publicProtocol = await publicLcGradientStore.get(id);
+        return publicProtocol ? publicLcGradientStore.update(id, patch) : null;
+      }
+      const ownerProtocol = await lcGradientStore.getForUser(id, owner);
+      return ownerProtocol ? lcGradientStore.updateForUser(id, patch, owner) : null;
+    }
+
+    let protocol = await lcGradientStore.get(id);
+    if (protocol) {
+      return lcGradientStore.update(id, patch);
+    }
+
+    protocol = await publicLcGradientStore.get(id);
+    if (protocol) {
+      return publicLcGradientStore.update(id, patch);
+    }
+
+    return null;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await lcGradientStore.delete(id);
+    await publicLcGradientStore.delete(id);
+  },
+
+  /** Defaults seeded into the new-method dialog for `method_type === "lc_gradient"`.
+   *  Realistic reverse-phase HPLC starting point — 5%→95% acetonitrile over
+   *  25 minutes at 0.3 mL/min, the typical proteomics/peptide workflow. */
+  getDefaultGradientSteps: (): import("./types").LCGradientStep[] => [
+    { time_min: 0, percent_a: 95, percent_b: 5, flow_ml_min: 0.3 },
+    { time_min: 2, percent_a: 95, percent_b: 5, flow_ml_min: 0.3 },
+    { time_min: 22, percent_a: 5, percent_b: 95, flow_ml_min: 0.3 },
+    { time_min: 25, percent_a: 5, percent_b: 95, flow_ml_min: 0.3 },
+    { time_min: 26, percent_a: 95, percent_b: 5, flow_ml_min: 0.3 },
+    { time_min: 30, percent_a: 95, percent_b: 5, flow_ml_min: 0.3 },
+  ],
+
+  getDefaultColumn: (): import("./types").LCGradientColumn => ({
+    manufacturer: "",
+    model: "",
+    length_mm: 150,
+    inner_diameter_mm: 2.1,
+    particle_size_um: 1.7,
+  }),
+
+  getDefaultIngredients: (): import("./types").LCIngredient[] => [
+    { id: "a", name: "Water + 0.1% formic acid", role: "solvent_a", concentration: "0.1% FA" },
+    { id: "b", name: "Acetonitrile + 0.1% formic acid", role: "solvent_b", concentration: "0.1% FA" },
+  ],
 };
 
 export const purchasesApi = {
@@ -3555,6 +3733,9 @@ export type {
   PCRProtocol,
   PCRProtocolCreate,
   PCRProtocolUpdate,
+  LCGradientProtocol,
+  LCGradientProtocolCreate,
+  LCGradientProtocolUpdate,
   PurchaseItem,
   PurchaseItemCreate,
   PurchaseItemUpdate,

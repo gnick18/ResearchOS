@@ -58,6 +58,30 @@ export function PdfIcon({ className, size = 16 }: MethodTypeIconProps) {
   );
 }
 
+export function LcGradientIcon({ className, size = 16 }: MethodTypeIconProps) {
+  // Stylized gradient-over-time curve, alluding to the percent-A/B chart that
+  // the LcGradientEditor draws. Anchored at left/right of the axis so it reads
+  // as a sweep even at small sizes.
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M3 20h18" />
+      <path d="M3 20V4" />
+      <path d="M3 17l5-1 4-8 5 4 4-7" />
+    </svg>
+  );
+}
+
 export function PcrIcon({ className, size = 16 }: MethodTypeIconProps) {
   return (
     <svg

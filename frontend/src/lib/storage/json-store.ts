@@ -1,7 +1,7 @@
 import { fileService } from "../file-system/file-service";
 import { getCurrentUser } from "../file-system/indexeddb-store";
 
-const PUBLIC_ENTITIES = new Set(["methods", "pcr_protocols"]);
+const PUBLIC_ENTITIES = new Set(["methods", "pcr_protocols", "lc_gradients"]);
 
 interface Counters {
   [entity: string]: number;

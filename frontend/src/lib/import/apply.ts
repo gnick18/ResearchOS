@@ -172,6 +172,7 @@ function remapMethodAttachments(
       method_id: newId,
       pcr_gradient: att.pcr_gradient,
       pcr_ingredients: att.pcr_ingredients,
+      lc_gradient: att.lc_gradient ?? null,
       variation_notes: att.variation_notes,
     });
   }
