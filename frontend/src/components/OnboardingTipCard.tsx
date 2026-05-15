@@ -59,10 +59,11 @@ interface OnboardingTipCardProps {
 }
 
 /** The "animation-burst" sequence fired when a tip with
- *  `onShow: "animation-burst"` mounts. 5 animations near screen center,
- *  0.2s apart, in this order: scary → plants → underwater → fungi →
- *  celebration. Matches the proposal's "first-fire jump scare with a
- *  twist." */
+ *  `onShow: "animation-burst"` mounts. 5 animations spread across
+ *  screen-center + 4 inset corners, 0.2s apart. Sequence:
+ *  scary → plants → underwater → fungi → celebration, mapped to
+ *  positions 0..4 (center, top-left, top-right, bottom-left,
+ *  bottom-right). */
 const ANIMATION_BURST_SEQUENCE: AnimationType[] = [
   "scary",
   "plants",
@@ -71,6 +72,18 @@ const ANIMATION_BURST_SEQUENCE: AnimationType[] = [
   "celebration",
 ];
 const ANIMATION_BURST_INTERVAL_MS = 200;
+/** Position factors (relative to viewport) for each animation in the
+ *  burst. (0.5, 0.5) is dead-center; corners are inset 15% from each
+ *  edge so animations don't clip. Index aligns with
+ *  ANIMATION_BURST_SEQUENCE — scary fires center first, then plants
+ *  top-left, etc. */
+const ANIMATION_BURST_POSITIONS: { fx: number; fy: number }[] = [
+  { fx: 0.5, fy: 0.5 },   // center — scary
+  { fx: 0.18, fy: 0.25 }, // top-left — plants
+  { fx: 0.82, fy: 0.25 }, // top-right — underwater
+  { fx: 0.18, fy: 0.78 }, // bottom-left — fungi
+  { fx: 0.82, fy: 0.78 }, // bottom-right — celebration
+];
 
 interface BurstShot {
   /** A unique id so React doesn't re-mount the same animation when the
@@ -79,6 +92,32 @@ interface BurstShot {
   type: AnimationType;
   x: number;
   y: number;
+}
+
+/** Small per-shot wrapper. Holds a stable `onComplete` reference so
+ *  the animation components' useEffect (which lists `onComplete` as
+ *  a dep — see e.g. ScaryAnimation.tsx:266) doesn't re-fire on every
+ *  parent re-render. Without this, each new BurstShot pushed onto the
+ *  state array would reset all previously-mounted animations'
+ *  completion timers, leaving them looping until the card unmounts. */
+function BurstShotRenderer({
+  shot,
+  onRemove,
+}: {
+  shot: BurstShot;
+  onRemove: (key: string) => void;
+}) {
+  const handleComplete = useCallback(() => {
+    onRemove(shot.key);
+  }, [shot.key, onRemove]);
+  return (
+    <DynamicAnimation
+      type={shot.type}
+      x={shot.x}
+      y={shot.y}
+      onComplete={handleComplete}
+    />
+  );
 }
 
 export default function OnboardingTipCard({
@@ -152,27 +191,29 @@ export default function OnboardingTipCard({
     // `modal` kind reserved for future use — see proposal.
   }, [tip.setupAction, router, onClose]);
 
-  // onShow="animation-burst": fire 5 animations 200ms apart near screen
-  // center when the card mounts. The DynamicAnimation children self-
-  // remove via onComplete; we keep them in `burst` only so React
-  // mounts them, then prune them once they're done. Fires once per
-  // mount — the dep is just `tip.onShow` so a re-render doesn't
-  // re-trigger.
+  // onShow="animation-burst": fire 5 animations 200ms apart across
+  // screen center + 4 inset corners when the card mounts. The
+  // DynamicAnimation children self-remove via onComplete; we keep
+  // them in `burst` only so React mounts them, then prune them once
+  // they're done. Fires once per mount — the dep is just `tip.onShow`
+  // so a re-render doesn't re-trigger.
   useEffect(() => {
     if (tip.onShow !== "animation-burst") return;
     if (typeof window === "undefined") return;
-    const cx = window.innerWidth / 2;
-    const cy = window.innerHeight / 2;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
     const timers: number[] = [];
+    const fireId = Date.now();
     ANIMATION_BURST_SEQUENCE.forEach((type, i) => {
+      const pos = ANIMATION_BURST_POSITIONS[i];
       const handle = window.setTimeout(() => {
         setBurst((prev) => [
           ...prev,
           {
-            key: `${type}-${Date.now()}-${i}`,
+            key: `${type}-${fireId}-${i}`,
             type,
-            x: cx,
-            y: cy,
+            x: vw * pos.fx,
+            y: vh * pos.fy,
           },
         ]);
       }, i * ANIMATION_BURST_INTERVAL_MS);
@@ -182,6 +223,16 @@ export default function OnboardingTipCard({
       timers.forEach((h) => window.clearTimeout(h));
     };
   }, [tip.onShow]);
+
+  // Stable per-shot remove handler. Captured in BurstShotRenderer's
+  // useCallback so the animation child's `onComplete` prop identity
+  // doesn't change across re-renders of OnboardingTipCard. Without
+  // this, ScaryAnimation et al. (which list `onComplete` in their
+  // useEffect deps) re-run on every parent re-render, restarting
+  // the animation and resetting its 3000ms completion timer.
+  const handleBurstComplete = useCallback((key: string) => {
+    setBurst((prev) => prev.filter((s) => s.key !== key));
+  }, []);
 
   // Pick a side to place the assembly on, in priority order:
   // right > below > left > above. Falls back to bottom-right corner
@@ -478,17 +529,16 @@ export default function OnboardingTipCard({
       </div>
 
       {/* Animation-burst overlay — fires for tips with
-          `onShow: "animation-burst"`. Each shot renders a DynamicAnimation
-          near screen center; self-removes via onComplete. */}
+          `onShow: "animation-burst"`. Each shot renders through
+          BurstShotRenderer so the per-shot onComplete reference is
+          stable across re-renders of this card (see comment on the
+          renderer for the bug this fixes). Each shot self-removes
+          via onComplete. */}
       {burst.map((shot) => (
-        <DynamicAnimation
+        <BurstShotRenderer
           key={shot.key}
-          type={shot.type}
-          x={shot.x}
-          y={shot.y}
-          onComplete={() => {
-            setBurst((prev) => prev.filter((s) => s.key !== shot.key));
-          }}
+          shot={shot}
+          onRemove={handleBurstComplete}
         />
       ))}
     </>,
