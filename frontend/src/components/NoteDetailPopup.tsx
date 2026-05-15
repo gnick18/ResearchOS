@@ -307,7 +307,6 @@ export default function NoteDetailPopup({
   const handleImageUpload = useCallback(
     async (files: File[]) => {
       setUploading(true);
-      const snippets: string[] = [];
 
       // Per-file rename popup first (existing UX). The renamed file is what
       // we then duplicate-check against the destination — checking pre-rename
@@ -328,19 +327,21 @@ export default function NoteDetailPopup({
         existing,
       );
 
-      // Write the safe ones first via attachImageToTask. That helper still
-      // has its own (legacy `-N` style) suffixer as a defensive fallback,
-      // but for `uniqueFiles` we've already guaranteed no collision.
+      // Drop writes the file to Images/ and emits the attached event so
+      // the bottom ImageStrip refreshes; placing the markdown ref inline
+      // is the user's explicit drag from the strip into the editor body.
+      // Because we do NOT call updateEntryContent here, the debounced
+      // autosave does not fire from a drop alone — so the GC sweep won't
+      // touch the new file until the user types or drags it in.
       for (const file of uniqueFiles) {
         try {
-          const { markdownSnippet } = await attachImageToTask({
+          await attachImageToTask({
             ownerUsername: currentUser ?? note.username,
             taskId: note.id,
             basePath,
             blob: file,
             suggestedFilename: file.name,
           });
-          snippets.push(markdownSnippet);
         } catch {
           alert(`Failed to upload ${file.name}`);
         }
@@ -359,23 +360,19 @@ export default function NoteDetailPopup({
           try {
             // For "replace" we delete the existing image first so the
             // sidecar / blob-url cache for the old bytes is cleared.
-            // attachImageToTask writes the bytes + emits events; calling
-            // it with a freshly-renamed File means its internal
-            // pickUniqueFilename returns `finalName` directly.
             if (choice.action === "replace") {
               await fileService.deleteFile(`${imagesDir}/${info.existingName}`);
             }
             const renamed = new File([info.file], finalName, {
               type: info.file.type,
             });
-            const { markdownSnippet } = await attachImageToTask({
+            await attachImageToTask({
               ownerUsername: currentUser ?? note.username,
               taskId: note.id,
               basePath,
               blob: renamed,
               suggestedFilename: finalName,
             });
-            snippets.push(markdownSnippet);
           } catch {
             alert(`Failed to upload ${finalName}`);
           }
@@ -383,25 +380,14 @@ export default function NoteDetailPopup({
       }
 
       setUploading(false);
-      // Append all snippets to the active entry's body in one update so the
-      // markdown actually references the uploaded files. Without this, the
-      // debounced auto-save runs against a body that doesn't reference the
-      // new images and the GC sweep deletes them as orphans 1.5s later.
-      if (snippets.length > 0 && activeTab) {
-        const currentEntry = entries.find((e) => e.id === activeTab);
-        if (currentEntry) {
-          updateEntryContent(currentEntry.content + snippets.join(""));
-        }
-      }
     },
-    [basePath, requestRename, resolveDuplicates, currentUser, note.id, note.username, activeTab, entries, updateEntryContent]
+    [basePath, requestRename, resolveDuplicates, currentUser, note.id, note.username]
   );
 
   const handleFileUpload = useCallback(
     async (files: File[]) => {
       setUploading(true);
       const filesDir = `${basePath}/Files`;
-      const snippets: string[] = [];
 
       // Per-file rename popup first, then batch duplicate-check.
       const renamedFiles: File[] = [];
@@ -417,14 +403,14 @@ export default function NoteDetailPopup({
         existing,
       );
 
+      // Drop writes to Files/ and emits the attached event so the bottom
+      // FileStrip refreshes. We do NOT splice a markdown link into the
+      // body here — placing the link inline is the user's explicit drag
+      // from the strip.
       const writeOne = async (file: File, finalName: string) => {
         const destPath = `${filesDir}/${finalName}`;
         await fileService.writeFileFromBlob(destPath, file);
         fileEvents.emitAttached({ basePath, relativePath: `Files/${finalName}` });
-        // URL-encode just the destination filename. CommonMark §6.4
-        // disallows unescaped whitespace in link destinations, so a name
-        // like "READ ME.md" otherwise renders as plain text.
-        snippets.push(`\n[${finalName}](Files/${encodeURIComponent(finalName)})\n`);
       };
 
       for (const file of uniqueFiles) {
@@ -453,16 +439,8 @@ export default function NoteDetailPopup({
       }
 
       setUploading(false);
-      // Same GC-protection rationale as handleImageUpload above: the body
-      // must reference the file or the debounced GC sweep will delete it.
-      if (snippets.length > 0 && activeTab) {
-        const currentEntry = entries.find((e) => e.id === activeTab);
-        if (currentEntry) {
-          updateEntryContent(currentEntry.content + snippets.join(""));
-        }
-      }
     },
-    [basePath, requestRename, resolveDuplicates, activeTab, entries, updateEntryContent]
+    [basePath, requestRename, resolveDuplicates]
   );
 
   // Add new entry
