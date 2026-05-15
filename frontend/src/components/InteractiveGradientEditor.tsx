@@ -1,8 +1,13 @@
 "use client";
 
-import { useCallback, useState, useRef, useEffect } from "react";
+import { useCallback, useMemo, useState, useRef, useEffect } from "react";
 import type { PCRGradient, PCRStep } from "@/lib/types";
 import Tooltip from "./Tooltip";
+import {
+  ADDED_BLOCK_CLASSES,
+  MODIFIED_BLOCK_CLASSES,
+  originalValueTooltip,
+} from "@/lib/methods/diff-display";
 
 // ── Temperature Color Helper ───────────────────────────────────────────────────
 
@@ -232,6 +237,12 @@ interface StepBlockProps {
   onRemoveFromCycle?: (id: string) => void;
   onAddToCycle?: (id: string, cycleIndex: number) => void;
   cycleContainers: GradientBlock[];
+  /** Source step at this position in the source gradient, when a source
+   *  gradient was provided. Used to drive per-block diff display. */
+  sourceStep?: PCRStep;
+  /** True when this block has no matching source step (i.e. user added it
+   *  on this task). When set, sourceStep should be undefined. */
+  isAdded?: boolean;
 }
 
 function StepBlock({
@@ -250,6 +261,8 @@ function StepBlock({
   onRemoveFromCycle,
   onAddToCycle,
   cycleContainers,
+  sourceStep,
+  isAdded = false,
 }: StepBlockProps) {
   const [showCycleDropdown, setShowCycleDropdown] = useState(false);
 
@@ -269,6 +282,30 @@ function StepBlock({
 
   // Check if this block is inside a cycle
   const isInCycle = block.type === "cycle" && block.cycleIndex !== undefined;
+
+  // Diff-display: compare this block's step against the matching source
+  // step (when one was supplied). Block-level diff is intentionally
+  // additive — temperature / duration / name changes mark the block as
+  // modified, "added" blocks are highlighted green via ADDED_BLOCK_CLASSES.
+  // Removed source blocks are not rendered as ghosts in the flow (would
+  // break the cycle layout); the chip in PcrMethodTabContent conveys
+  // overall divergence.
+  const isModifiedFromSource =
+    !isAdded &&
+    sourceStep !== undefined &&
+    (sourceStep.temperature !== block.step.temperature ||
+      sourceStep.duration !== block.step.duration ||
+      sourceStep.name !== block.step.name);
+  const diffRingClass = isAdded
+    ? ADDED_BLOCK_CLASSES
+    : isModifiedFromSource
+      ? MODIFIED_BLOCK_CLASSES
+      : "";
+  const diffTooltipLabel = isAdded
+    ? "Added on this task"
+    : isModifiedFromSource && sourceStep
+      ? `${originalValueTooltip(`${sourceStep.temperature}°C / ${sourceStep.duration}`)} — ${sourceStep.name}`
+      : "";
 
   return (
     <div className="relative flex flex-col items-center">
@@ -358,46 +395,61 @@ function StepBlock({
         </div>
       )}
       
-      <div
-        onClick={handleClick}
-        onDoubleClick={handleDoubleClick}
-        className={`
-          relative select-none group
-          ${isEditing ? "cursor-pointer" : "cursor-default"}
-          ${isErasing && isEditing ? "cursor-crosshair hover:ring-2 hover:ring-red-400 hover:ring-offset-1" : ""}
-        `}
-        style={{
-          animation: isEditing && !isErasing ? "jiggle 0.5s ease-in-out infinite" : undefined,
-        }}
-      >
-        <div
-          className={`
-            w-16 h-16 rounded-lg flex flex-col items-center justify-center text-white text-xs shadow-sm
-            transition-all duration-150
-            ${block.type === "cycle" ? "ring-2 ring-purple-400 ring-offset-1" : ""}
-            ${isEditing && !isErasing ? "hover:shadow-md hover:scale-105" : ""}
-            ${isSelected ? "ring-2 ring-blue-500 ring-offset-2" : ""}
-          `}
-          style={{ backgroundColor: getTemperatureColor(block.step.temperature) }}
-        >
-          <span className="font-semibold">{block.step.temperature}°C</span>
-          <span className="text-[10px] opacity-90">{block.step.duration}</span>
-        </div>
-        
-        {/* Step name label */}
-        <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[9px] text-gray-500 whitespace-nowrap pointer-events-none">
-          {block.step.name.length > 10 ? block.step.name.substring(0, 10) + "..." : block.step.name}
-        </div>
-        
-        {/* Erase indicator */}
-        {isErasing && isEditing && (
-          <div className="absolute inset-0 flex items-center justify-center bg-red-500/20 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
-            <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+      {(() => {
+        const blockNode = (
+          <div
+            onClick={handleClick}
+            onDoubleClick={handleDoubleClick}
+            className={`
+              relative select-none group
+              ${isEditing ? "cursor-pointer" : "cursor-default"}
+              ${isErasing && isEditing ? "cursor-crosshair hover:ring-2 hover:ring-red-400 hover:ring-offset-1" : ""}
+            `}
+            style={{
+              animation: isEditing && !isErasing ? "jiggle 0.5s ease-in-out infinite" : undefined,
+            }}
+          >
+            <div
+              className={`
+                w-16 h-16 rounded-lg flex flex-col items-center justify-center text-white text-xs shadow-sm
+                transition-all duration-150
+                ${block.type === "cycle" ? "ring-2 ring-purple-400 ring-offset-1" : ""}
+                ${isEditing && !isErasing ? "hover:shadow-md hover:scale-105" : ""}
+                ${isSelected ? "ring-2 ring-blue-500 ring-offset-2" : ""}
+                ${diffRingClass}
+              `}
+              style={{ backgroundColor: getTemperatureColor(block.step.temperature) }}
+            >
+              <span className="font-semibold">{block.step.temperature}°C</span>
+              <span className="text-[10px] opacity-90">{block.step.duration}</span>
+            </div>
+
+            {/* Step name label */}
+            <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[9px] text-gray-500 whitespace-nowrap pointer-events-none">
+              {block.step.name.length > 10 ? block.step.name.substring(0, 10) + "..." : block.step.name}
+            </div>
+
+            {/* Erase indicator */}
+            {isErasing && isEditing && (
+              <div className="absolute inset-0 flex items-center justify-center bg-red-500/20 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        );
+        // Only attach a tooltip when there is a real diff to surface — an
+        // unconditional <Tooltip> would attach hover handlers to every block
+        // and slightly change the existing hover/click feel of the gradient.
+        return diffTooltipLabel ? (
+          <Tooltip label={diffTooltipLabel} placement="top">
+            {blockNode}
+          </Tooltip>
+        ) : (
+          blockNode
+        );
+      })()}
     </div>
   );
 }
@@ -421,6 +473,13 @@ interface CycleContainerProps {
   onRemoveFromCycle?: (id: string) => void;
   onAddToCycle?: (id: string, cycleIndex: number) => void;
   cycleContainers: GradientBlock[];
+  /** Per-block diff lookups (keyed by block id). When absent, no diff
+   *  display is rendered — matches standalone `/pcr` builder usage. */
+  sourceStepById?: Map<string, PCRStep>;
+  addedBlockIds?: Set<string>;
+  /** Source repeats count for THIS cycle container, when a source gradient
+   *  was provided and contains this cycle. */
+  sourceRepeats?: number;
 }
 
 function CycleContainer({
@@ -440,6 +499,9 @@ function CycleContainer({
   onRemoveFromCycle,
   onAddToCycle,
   cycleContainers,
+  sourceStepById,
+  addedBlockIds,
+  sourceRepeats,
 }: CycleContainerProps) {
   const handleRepeatsClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -490,6 +552,32 @@ function CycleContainer({
     return idx < allBlocks.length - 1;
   };
 
+  const liveRepeats = block.cycleRepeats || 35;
+  const repeatsModified =
+    sourceRepeats !== undefined && sourceRepeats !== liveRepeats;
+  const containerAdded = addedBlockIds?.has(block.id) ?? false;
+  const containerDiffRingClass = containerAdded
+    ? ADDED_BLOCK_CLASSES
+    : repeatsModified
+      ? MODIFIED_BLOCK_CLASSES
+      : "";
+
+  const badgeNode = (
+    <div
+      onClick={handleRepeatsClick}
+      className={`absolute -top-3 left-1/2 -translate-x-1/2 text-white text-xs font-bold px-2 py-0.5 rounded-full
+        ${isCycleErasing && isEditing
+          ? "bg-purple-500 cursor-crosshair hover:bg-purple-600 transition-colors"
+          : isEditing
+            ? "bg-purple-500 cursor-pointer hover:bg-purple-600 transition-colors"
+            : "bg-purple-500"}
+        ${repeatsModified ? MODIFIED_BLOCK_CLASSES : ""}`}
+      title={isCycleErasing && isEditing ? "Click to remove cycle (keeps steps)" : isEditing ? "Click to edit cycle repeats" : undefined}
+    >
+      x{liveRepeats}
+    </div>
+  );
+
   return (
     <div
       data-cycle-container
@@ -498,25 +586,23 @@ function CycleContainer({
         transition-all duration-150
         ${isEditing ? "cursor-default" : ""}
         border-purple-300
+        ${containerDiffRingClass}
       `}
       style={{
         animation: isEditing && !isErasing ? "jiggle 0.5s ease-in-out infinite" : undefined,
       }}
     >
-      {/* Repeats badge - clickable to edit cycle repeats or remove cycle in cycle-erasing mode */}
-      <div 
-        onClick={handleRepeatsClick}
-        className={`absolute -top-3 left-1/2 -translate-x-1/2 text-white text-xs font-bold px-2 py-0.5 rounded-full
-          ${isCycleErasing && isEditing 
-            ? "bg-purple-500 cursor-crosshair hover:bg-purple-600 transition-colors" 
-            : isEditing 
-              ? "bg-purple-500 cursor-pointer hover:bg-purple-600 transition-colors" 
-              : "bg-purple-500"}`}
-        title={isCycleErasing && isEditing ? "Click to remove cycle (keeps steps)" : isEditing ? "Click to edit cycle repeats" : undefined}
-      >
-        x{block.cycleRepeats || 35}
-      </div>
-      
+      {repeatsModified && sourceRepeats !== undefined ? (
+        <Tooltip
+          label={originalValueTooltip(`x${sourceRepeats} repeats`)}
+          placement="top"
+        >
+          {badgeNode}
+        </Tooltip>
+      ) : (
+        badgeNode
+      )}
+
       {/* Cycle steps */}
       <div className="flex gap-2 flex-wrap mt-1">
         {cycleSteps.map((step) => (
@@ -537,6 +623,8 @@ function CycleContainer({
             onRemoveFromCycle={onRemoveFromCycle}
             onAddToCycle={onAddToCycle}
             cycleContainers={cycleContainers}
+            sourceStep={sourceStepById?.get(step.id)}
+            isAdded={addedBlockIds?.has(step.id) ?? false}
           />
         ))}
       </div>
@@ -665,11 +753,21 @@ function findBlockIdByStep(gradient: PCRGradient, step: PCRStep): string | null 
 interface InteractiveGradientEditorProps {
   gradient: PCRGradient;
   onChange: (gradient: PCRGradient) => void;
+  /** Source-of-truth PCR gradient (the canonical method, before this
+   *  task-level snapshot diverged). When provided, blocks that differ
+   *  from their source counterpart get an amber ring + tooltip showing
+   *  the original value, and blocks with no matching source counterpart
+   *  get a green "added" ring. When omitted (the `/pcr` builder or
+   *  `/methods` upload modal — there is no source-vs-snapshot
+   *  distinction there), behavior is identical to the pre-Phase-2A
+   *  rendering. */
+  sourceGradient?: PCRGradient | null;
 }
 
 export function InteractiveGradientEditor({
   gradient,
   onChange,
+  sourceGradient,
 }: InteractiveGradientEditorProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isErasing, setIsErasing] = useState(false);
@@ -793,8 +891,51 @@ export function InteractiveGradientEditor({
 
   const blocks = gradientToBlocks(gradient);
 
+  // ── Diff-display lookups ─────────────────────────────────────────────────
+  // Source blocks are computed only when `sourceGradient` is provided. We
+  // match live blocks to source blocks by id (which is positional: e.g.
+  // `initial-0`, `cycle-0-step-1`, `final-2`, `hold`, `cycle-container-0`).
+  // After in-place edits to step values, ids stay stable so per-cell diffs
+  // are accurate. After moves/adds/removes that re-key the structure, ids
+  // change — we accept that limitation for v1 and the chip at the
+  // `PcrMethodTabContent` level still correctly conveys "modified from
+  // source" overall.
+  const sourceBlocks = useMemo<GradientBlock[]>(
+    () => (sourceGradient ? gradientToBlocks(sourceGradient) : []),
+    [sourceGradient, gradientToBlocks],
+  );
+  const sourceStepById = useMemo(() => {
+    const map = new Map<string, PCRStep>();
+    for (const b of sourceBlocks) {
+      // Skip cycle containers — they have a synthetic step (name "Cycle",
+      // temperature 0) that would falsely show as "modified" against any
+      // real cycle step. Container repeats diff is tracked separately.
+      if (b.id.startsWith("cycle-container-")) continue;
+      map.set(b.id, b.step);
+    }
+    return map;
+  }, [sourceBlocks]);
+  const sourceCycleRepeatsById = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const b of sourceBlocks) {
+      if (b.id.startsWith("cycle-container-")) {
+        map.set(b.id, b.cycleRepeats ?? 35);
+      }
+    }
+    return map;
+  }, [sourceBlocks]);
+  const addedBlockIds = useMemo(() => {
+    if (!sourceGradient) return new Set<string>();
+    const sourceIds = new Set(sourceBlocks.map((b) => b.id));
+    const result = new Set<string>();
+    for (const b of blocks) {
+      if (!sourceIds.has(b.id)) result.add(b.id);
+    }
+    return result;
+  }, [sourceGradient, sourceBlocks, blocks]);
+
   // Helper to check if a block is a cycle container
-  const isCycleContainer = (b: GradientBlock) => 
+  const isCycleContainer = (b: GradientBlock) =>
     b.id === "cycle-container" || b.id.startsWith("cycle-container-");
 
   // Handle erase (gradient eraser - removes individual blocks)
@@ -1420,6 +1561,9 @@ export function InteractiveGradientEditor({
             onRemoveFromCycle={handleRemoveFromCycle}
             onAddToCycle={handleAddToCycle}
             cycleContainers={cycleContainers}
+            sourceStepById={sourceGradient ? sourceStepById : undefined}
+            addedBlockIds={sourceGradient ? addedBlockIds : undefined}
+            sourceRepeats={sourceCycleRepeatsById.get(block.id)}
           />
         );
         // Skip cycle steps (they're rendered inside the container)
@@ -1444,6 +1588,8 @@ export function InteractiveGradientEditor({
             onRemoveFromCycle={handleRemoveFromCycle}
             onAddToCycle={handleAddToCycle}
             cycleContainers={cycleContainers}
+            sourceStep={sourceStepById.get(block.id)}
+            isAdded={addedBlockIds.has(block.id)}
           />
         );
         i++;
