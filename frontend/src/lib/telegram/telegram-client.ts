@@ -1,3 +1,5 @@
+import { useAppStore } from "@/lib/store";
+
 const BASE = "https://api.telegram.org";
 
 export interface TelegramBotInfo {
@@ -128,6 +130,12 @@ export async function getFile(token: string, fileId: string): Promise<TelegramFi
 }
 
 export async function downloadFile(token: string, filePath: string): Promise<Blob> {
+  // Offline-mode short-circuits before hitting the proxy. The Telegram polling
+  // loop catches this and logs it — the inbox-image preview surfaces it as a
+  // failed image. Direct polling against api.telegram.org continues either way.
+  if (useAppStore.getState().offlineMode) {
+    throw new TelegramApiError("Offline mode is on; Telegram file downloads are blocked.");
+  }
   // Telegram's file CDN doesn't send CORS headers, so the browser refuses to
   // fetch it directly. Route through our own /api/telegram-file proxy
   // (Next.js API route, runs server-side) which forwards to Telegram and

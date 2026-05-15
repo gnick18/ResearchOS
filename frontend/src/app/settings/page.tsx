@@ -168,6 +168,7 @@ function SettingsBody() {
           sidebarShowCalendarEvents: saved.sidebarShowCalendarEvents,
           sidebarEventsHorizonDays: saved.sidebarEventsHorizonDays,
           coloredHeader: saved.coloredHeader,
+          offlineMode: saved.offlineMode,
         });
         // If color changed, invalidate the user-color map so every <UserAvatar />
         // in the app re-renders with the new gradient on the next paint.
@@ -243,6 +244,7 @@ function SettingsBody() {
           pwExists={pwExists}
           onOpen={() => setPwOpen(true)}
         />
+        <OfflineModeSection settings={settings} update={update} />
       </div>
 
       {pwOpen && currentUser && (
@@ -1360,6 +1362,35 @@ function SecuritySection({
           {pwExists ? "Change password" : "Set password"}
         </button>
       </div>
+    </SectionShell>
+  );
+}
+
+// ── Offline mode ────────────────────────────────────────────────────────────
+//
+// Closes the role brief's affordance #2: a single switch that stops the two
+// browser → own-server proxy calls (`/api/calendar-feed`, `/api/telegram-file`).
+// Direct browser → Telegram polling continues because that talks to
+// api.telegram.org directly and Telegram cannot function otherwise.
+
+function OfflineModeSection({ settings, update }: SectionProps) {
+  return (
+    <SectionShell
+      title="Offline mode"
+      description="Disable the two proxy routes (/api/calendar-feed and /api/telegram-file) so the app makes no calls to its own server. Useful if you want zero outbound network from the app surface."
+    >
+      <ToggleRow
+        label="Block calls to our server"
+        description="External calendar feeds stop syncing and Telegram file downloads stop. Direct Telegram polling still works (it talks to api.telegram.org from the browser, not through our proxy)."
+        checked={settings.offlineMode}
+        onChange={(v) => void update({ offlineMode: v })}
+      />
+      {settings.offlineMode && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          Offline mode active. Calendar feeds and Telegram file downloads are blocked.
+          Direct Telegram polling still works.
+        </div>
+      )}
     </SectionShell>
   );
 }

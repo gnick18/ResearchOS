@@ -29,6 +29,7 @@ export interface SettingsHydration {
   sidebarShowCalendarEvents: boolean;
   sidebarEventsHorizonDays: number;
   coloredHeader: boolean;
+  offlineMode: boolean;
 }
 
 interface ConnectionState {
@@ -114,6 +115,9 @@ interface AppState extends ConnectionState {
 
   coloredHeader: boolean;
   setColoredHeader: (v: boolean) => void;
+
+  offlineMode: boolean;
+  setOfflineMode: (v: boolean) => void;
 
   hydrateFromSettings: (s: SettingsHydration) => void;
   resetSettingsToDefaults: () => void;
@@ -241,6 +245,9 @@ export const useAppStore = create<AppState>()((set) => ({
   coloredHeader: true,
   setColoredHeader: (v) => set({ coloredHeader: v }),
 
+  offlineMode: false,
+  setOfflineMode: (v) => set({ offlineMode: v }),
+
   hydrateFromSettings: (s) =>
     set({
       animationType: s.animationType,
@@ -253,6 +260,7 @@ export const useAppStore = create<AppState>()((set) => ({
       sidebarShowCalendarEvents: s.sidebarShowCalendarEvents,
       sidebarEventsHorizonDays: s.sidebarEventsHorizonDays,
       coloredHeader: s.coloredHeader,
+      offlineMode: s.offlineMode,
     }),
 
   resetSettingsToDefaults: () =>
@@ -267,6 +275,7 @@ export const useAppStore = create<AppState>()((set) => ({
       sidebarShowCalendarEvents: false,
       sidebarEventsHorizonDays: 7,
       coloredHeader: true,
+      offlineMode: false,
     }),
 
   ganttLoading: false,
