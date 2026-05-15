@@ -177,6 +177,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <Tooltip label="Account & app settings" placement="bottom">
           <Link
             href={SETTINGS_HREF}
+            data-onboarding-target="ai-helper-cog"
             className={`p-1.5 rounded-full transition-colors ${
               tinted
                 ? pathname === SETTINGS_HREF
