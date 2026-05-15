@@ -49,7 +49,12 @@ export default function SecurityPage() {
       <pre>
         <code>
 {`<your data folder>/
+  _user_metadata.json            cross-user color preferences + display names
+  _global_counters.json          cross-user id allocator
+  .gitignore                     app-managed, auto-appended for sensitive sidecars
   users/
+    public/                      methods + PCR protocols shared across all users
+    lab/                         shared lab-account state (funding accounts, etc.)
     <username>/
       settings.json              user settings, default views, tab visibility
       _auth.json                 PBKDF2-hashed password (only if set)
@@ -59,23 +64,27 @@ export default function SecurityPage() {
       _calendar-feeds.json       subscribed iCal URLs
       _notifications.json        bell-dropdown rows
       projects/<id>.json         one flat file per project
-      tasks/<id>.json            one flat file per task (notes + results
-                                 live in the task JSON or in sibling
-                                 directories below)
+      tasks/<id>.json            one flat file per task (the JSON carries
+                                 fields; long-form text and attachments
+                                 live under results/task-<id>/ below)
       methods/<id>.json          reusable protocols
       pcr_protocols/<id>.json    PCR programs and recipes
       lc_gradients/<id>.json     LC gradient programs
       cell_culture_schedules/<id>.json
       plate_layouts/<id>.json
       notes/<id>.json            shared lab notes
-      results/<task-id>/         per-task result attachments
-        Images/                  pasted or dragged images
-        Attachments/             PDFs and arbitrary files
+      results/task-<id>/         per-task long-form content + attachments
+        notes.md                 your Lab Notes tab writeup
+        results.md               your Results tab writeup
+        notes/Images/            images dropped into Lab Notes tab
+        notes/Files/             files dropped into Lab Notes tab
+        results/Images/          images dropped into Results tab
+        results/Files/           files dropped into Results tab
       events/<id>.json           native calendar events
       goals/<id>.json            project goals
       lab_links/<id>.json        link library entries
       purchase_items/<id>.json   purchase orders
-      inbox/                     Telegram photos awaiting routing`}
+      inbox/Images/              Telegram photos awaiting routing`}
         </code>
       </pre>
       <Callout variant="info" title="You can verify this with your own eyes">
@@ -121,10 +130,13 @@ export default function SecurityPage() {
         </li>
       </ul>
       <p>
-        Both routes use the most defensive shape we know how to write:
-        HTTPS only, private-IP blocking, redirect re-validation, byte cap,
-        timeout, content-type denylist, and per-IP rate limiting. The code
-        is in <code>frontend/src/lib/api/url-guards.ts</code> and{" "}
+        The two CORS-bypass proxy routes use the most defensive shape we
+        know how to write: HTTPS only, private-IP blocking, redirect
+        re-validation, byte cap, timeout, content-type denylist, and
+        per-IP rate limiting. The Vercel Analytics endpoint is a
+        Vercel-owned script and beacon target, its posture is Vercel&apos;s,
+        not ours. The route-defense code is in{" "}
+        <code>frontend/src/lib/api/url-guards.ts</code> and{" "}
         <code>frontend/src/lib/api/rate-limit.ts</code> if you want to read
         it line by line.
       </p>
@@ -231,24 +243,24 @@ export default function SecurityPage() {
           you&apos;ll see none of those). Nothing else.
         </Step>
       </Steps>
-      <Callout variant="info" title="In-app verification chips coming soon">
-        We&apos;re working on a few affordances inside the app to make this
-        even easier:
+      <Callout variant="info" title="In-app verification, available now in Settings">
+        ResearchOS ships three affordances inside Settings that make this
+        easier than digging through DevTools:
         <ul>
           <li>
-            A <strong>Data inventory diagnostic</strong> in Settings listing
-            every file path the app has written and every IndexedDB key
-            in use.
+            The <strong>Data inventory</strong> panel lists every file path
+            the app has written and every IndexedDB key in use, alongside
+            the External Calls section that names each outbound endpoint.
           </li>
           <li>
-            An <strong>Offline mode</strong> toggle that disables the two
-            proxy routes for users who want zero outbound network from the
-            app surface.
+            The <strong>Offline mode</strong> toggle disables the two proxy
+            routes plus the Vercel Analytics script tag in one click, for
+            users who want zero outbound network from the app surface.
           </li>
           <li>
-            <strong>&ldquo;Where is this stored?&rdquo;</strong> tooltips
-            on each integration field so you always know which file holds
-            the credential you just entered.
+            <strong>&ldquo;Where is this stored?&rdquo;</strong> hints on
+            each integration field so you always know which file holds the
+            credential you just entered.
           </li>
         </ul>
       </Callout>
@@ -257,10 +269,11 @@ export default function SecurityPage() {
       <p>
         ResearchOS went through an internal security audit on 2026-05-15.
         It closed one Critical finding (cross-site scripting via
-        unsanitized markdown HTML in the live editor) and several Important
-        findings around the proxy routes, the LabArchives credential
-        flow, and the Telegram token surface. The audit report is checked
-        into the repo as{" "}
+        unsanitized markdown HTML across all 8 markdown rendering sites in
+        the app) and several Important findings around the proxy routes,
+        the LabArchives credential flow, and the in-app verification
+        surface (data inventory, offline mode, storage hints). The audit
+        report is checked into the repo as{" "}
         <a
           href="https://github.com/gnick18/ResearchOS/blob/main/SECURITY_AUDIT.md"
           target="_blank"
@@ -268,8 +281,9 @@ export default function SecurityPage() {
         >
           SECURITY_AUDIT.md
         </a>
-        , and the merge commit that landed the fixes is{" "}
-        <code>94f0ab08</code> on <code>main</code>.
+        , and the merge batch on <code>main</code> sits around{" "}
+        <code>94f0ab08</code> (audit doc) and <code>813748a5</code>{" "}
+        (XSS sanitize + CSP).
       </p>
       <p>
         If you find something that looks wrong, open a GitHub issue (the{" "}
