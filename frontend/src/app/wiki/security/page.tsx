@@ -49,10 +49,10 @@ export default function SecurityPage() {
       <pre>
         <code>
 {`<your data folder>/
-  _user_metadata.json            cross-user color preferences + display names
-  _global_counters.json          cross-user id allocator
   .gitignore                     app-managed, auto-appended for sensitive sidecars
   users/
+    _user_metadata.json          cross-user color preferences + display names
+    _global_counters.json        cross-user id allocator
     public/                      methods + PCR protocols shared across all users
     lab/                         shared lab-account state (funding accounts, etc.)
     <username>/
