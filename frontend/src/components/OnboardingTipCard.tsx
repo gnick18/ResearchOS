@@ -226,6 +226,34 @@ export default function OnboardingTipCard({
           width: `${CARD_WIDTH}px`,
         }}
       >
+        {/* Comic-book callout tail — triangular notch on the card's
+            left edge gesturing toward the mascot's mouth/face.
+            Positioned at ~60% from the top so it sits at roughly the
+            mascot's mouth level (mascot bottom-aligned with card,
+            mouth at ~56% of mascot height from its top). The fill
+            paints over the card's left border in the tail's vertical
+            span so the seam is invisible; the outline is drawn as
+            two open segments (no back edge) so the callout reads as
+            a single continuous shape. */}
+        <svg
+          aria-hidden
+          className="absolute pointer-events-none"
+          style={{ left: "-11px", top: "60%", transform: "translateY(-50%)" }}
+          width="12"
+          height="22"
+          viewBox="0 0 12 22"
+        >
+          <path d="M 0 11 L 12 0 L 12 22 Z" fill="white" />
+          <path
+            d="M 12 0 L 0 11 L 12 22"
+            fill="none"
+            stroke="#e5e7eb"
+            strokeWidth="1"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+
         <div className="flex items-start justify-between gap-2">
           <h3
             id={`onboarding-tip-${tip.id}-title`}
