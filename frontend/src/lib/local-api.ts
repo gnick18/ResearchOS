@@ -44,6 +44,9 @@ import type {
   CellCultureScheduleCreate,
   CellCultureScheduleUpdate,
   CellCultureActualEvent,
+  QPCRAnalysisProtocol,
+  QPCRAnalysisProtocolCreate,
+  QPCRAnalysisProtocolUpdate,
   PurchaseItem,
   PurchaseItemCreate,
   PurchaseItemUpdate,
@@ -89,6 +92,8 @@ const plateLayoutStore = new JsonStore<PlateProtocol>("plate_layouts");
 const publicPlateLayoutStore = getPublicStore<PlateProtocol>("plate_layouts");
 const cellCultureScheduleStore = new JsonStore<CellCultureSchedule>("cell_culture_schedules");
 const publicCellCultureScheduleStore = getPublicStore<CellCultureSchedule>("cell_culture_schedules");
+const qpcrAnalysisStore = new JsonStore<QPCRAnalysisProtocol>("qpcr_analyses");
+const publicQpcrAnalysisStore = getPublicStore<QPCRAnalysisProtocol>("qpcr_analyses");
 const purchaseItemsStore = new JsonStore<PurchaseItem>("purchase_items");
 const catalogStore = new JsonStore<CatalogItem>("item_catalog");
 const labLinksStore = new JsonStore<LabLink>("lab_links");
@@ -312,13 +317,17 @@ function normalizeTaskRecord(raw: Task): Task {
   const needsOwnerBackfill = filtered.some(
     (a) => !Object.prototype.hasOwnProperty.call(a, "owner"),
   );
+  const needsQpcrAnalysisBackfill = filtered.some(
+    (a) => !Object.prototype.hasOwnProperty.call(a, "qpcr_analysis"),
+  );
   if (
     filtered !== attachments ||
     needsLcBackfill ||
     needsBodyOverrideBackfill ||
     needsPlateBackfill ||
     needsCellCultureBackfill ||
-    needsOwnerBackfill
+    needsOwnerBackfill ||
+    needsQpcrAnalysisBackfill
   ) {
     normalized = {
       ...normalized,
@@ -338,6 +347,9 @@ function normalizeTaskRecord(raw: Task): Task {
         }
         if (!Object.prototype.hasOwnProperty.call(next, "owner")) {
           next = { ...next, owner: null };
+        }
+        if (!Object.prototype.hasOwnProperty.call(next, "qpcr_analysis")) {
+          next = { ...next, qpcr_analysis: null };
         }
         return next;
       }),
@@ -397,6 +409,7 @@ export const tasksApi = {
       cell_culture_schedule?: string | null;
       variation_notes?: string | null;
       compound_snapshots?: string | null;
+      qpcr_analysis?: string | null;
     }>;
   }): Promise<Task> => {
     const durationDays = data.duration_days || 1;
@@ -435,6 +448,7 @@ export const tasksApi = {
         cell_culture_schedule: a.cell_culture_schedule ?? null,
         variation_notes: a.variation_notes ?? null,
         compound_snapshots: a.compound_snapshots ?? null,
+        qpcr_analysis: a.qpcr_analysis ?? null,
       })),
       owner: currentUser,
       shared_with: [],
@@ -731,6 +745,7 @@ export const tasksApi = {
         cell_culture_schedule: null,
         variation_notes: null,
         compound_snapshots: null,
+        qpcr_analysis: null,
       });
     }
 
@@ -974,6 +989,47 @@ export const tasksApi = {
       method_attachments: task.method_attachments?.map((a) => ({
         ...a,
         cell_culture_schedule: null,
+      })),
+    }, owner);
+  },
+
+  updateMethodQpcrAnalysis: async (
+    taskId: number,
+    methodId: number,
+    data: { qpcr_analysis?: string },
+    owner?: string
+  ): Promise<Task | null> => {
+    const task = await getTaskForCaller(taskId, owner);
+    if (!task) return null;
+
+    const attachments = (task.method_attachments || []).map((a) => {
+      if (a.method_id === methodId) {
+        return { ...a, ...data };
+      }
+      return a;
+    });
+
+    return updateTaskForCaller(taskId, { method_attachments: attachments }, owner);
+  },
+
+  resetQpcrAnalysis: async (id: number, methodId?: number, owner?: string): Promise<Task | null> => {
+    const task = await getTaskForCaller(id, owner);
+    if (!task) return null;
+
+    if (methodId) {
+      const attachments = task.method_attachments?.map((a) => {
+        if (a.method_id === methodId) {
+          return { ...a, qpcr_analysis: null };
+        }
+        return a;
+      });
+      return updateTaskForCaller(id, { method_attachments: attachments }, owner);
+    }
+
+    return updateTaskForCaller(id, {
+      method_attachments: task.method_attachments?.map((a) => ({
+        ...a,
+        qpcr_analysis: null,
       })),
     }, owner);
   },
@@ -1916,6 +1972,119 @@ export const cellCultureApi = {
       { name: "PenStrep", concentration: "1", units: "%" },
       { name: "L-Glutamine", concentration: "2", units: "mM" },
     ],
+  }),
+};
+
+// ── qPCR Analysis API ────────────────────────────────────────────────────────
+//
+// Per-user `users/<u>/qpcr_analyses/<id>.json` for private records,
+// `users/public/qpcr_analyses/<id>.json` for is_public:true. Per-user
+// `_counters.json` carries a `qpcr_analyses` line. Methods reference records
+// via `source_path: "qpcr_analysis://protocol/{id}"`. Mirrors pcrApi /
+// lcGradientApi / cellCultureApi exactly so cross-type batch ops stay shapely.
+// qPCR enters v2 as analysis-only and composes with PCR via the composition
+// primitive — see METHODS_EXPANSION_V2_PROPOSAL.md §5.
+
+export const qpcrAnalysisApi = {
+  list: async (): Promise<QPCRAnalysisProtocol[]> => {
+    const privateProtocols = await qpcrAnalysisStore.listAll();
+    const publicProtocols = await publicQpcrAnalysisStore.listAll();
+
+    return [
+      ...privateProtocols.map((p) => ({ ...p, is_public: false })),
+      ...publicProtocols.map((p) => ({ ...p, is_public: true })),
+    ];
+  },
+
+  get: async (id: number, owner?: string): Promise<QPCRAnalysisProtocol | null> => {
+    if (owner) {
+      if (owner === "public") {
+        const pub = await publicQpcrAnalysisStore.get(id);
+        return pub ? { ...pub, is_public: true } : null;
+      }
+      const ownerProtocol = await qpcrAnalysisStore.getForUser(id, owner);
+      return ownerProtocol ? { ...ownerProtocol, is_public: false } : null;
+    }
+
+    const protocol = await qpcrAnalysisStore.get(id);
+    if (protocol) return { ...protocol, is_public: false };
+
+    const publicProtocol = await publicQpcrAnalysisStore.get(id);
+    if (publicProtocol) return { ...publicProtocol, is_public: true };
+
+    return null;
+  },
+
+  create: async (data: QPCRAnalysisProtocolCreate): Promise<QPCRAnalysisProtocol> => {
+    const isPublic = data.is_public ?? false;
+    const now = new Date().toISOString();
+    const base = {
+      name: data.name,
+      description: data.description ?? null,
+      chemistry: data.chemistry,
+      chemistry_label: data.chemistry_label ?? null,
+      references: data.references,
+      standard_curve: data.standard_curve,
+      melt_curve: data.melt_curve ?? null,
+      use_delta_delta_cq: data.use_delta_delta_cq,
+      created_at: now,
+      updated_at: now,
+      created_by: null,
+    };
+    if (isPublic) {
+      return publicQpcrAnalysisStore.create({ ...base, is_public: true });
+    }
+    return qpcrAnalysisStore.create({ ...base, is_public: false });
+  },
+
+  update: async (
+    id: number,
+    data: QPCRAnalysisProtocolUpdate,
+    owner?: string,
+  ): Promise<QPCRAnalysisProtocol | null> => {
+    const patch = { ...data, updated_at: new Date().toISOString() };
+    if (owner) {
+      if (owner === "public") {
+        const pub = await publicQpcrAnalysisStore.get(id);
+        return pub ? publicQpcrAnalysisStore.update(id, patch) : null;
+      }
+      const ownerProtocol = await qpcrAnalysisStore.getForUser(id, owner);
+      return ownerProtocol ? qpcrAnalysisStore.updateForUser(id, patch, owner) : null;
+    }
+
+    let protocol = await qpcrAnalysisStore.get(id);
+    if (protocol) {
+      return qpcrAnalysisStore.update(id, patch);
+    }
+
+    protocol = await publicQpcrAnalysisStore.get(id);
+    if (protocol) {
+      return publicQpcrAnalysisStore.update(id, patch);
+    }
+
+    return null;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await qpcrAnalysisStore.delete(id);
+    await publicQpcrAnalysisStore.delete(id);
+  },
+
+  /** Defaults seeded into the new-method dialog for
+   *  `method_type === "qpcr_analysis"`. SYBR Green is the most common
+   *  starting chemistry; a single target + ACT1 housekeeping reference is
+   *  the minimal ΔΔCq-ready shape. */
+  getDefaultReferences: (): import("./types").QPCRReference[] => [
+    { id: "target-1", target: "TARGET_GENE", channel: "FAM", is_reference: false },
+    { id: "ref-1", target: "ACT1", channel: "FAM", is_reference: true },
+  ],
+
+  getDefaultStandardCurve: (): import("./types").QPCRStandardCurvePoint[] => [],
+
+  getDefaultMeltCurve: (): import("./types").QPCRMeltCurveConfig => ({
+    start_c: 60,
+    end_c: 95,
+    ramp_rate_c_per_sec: 0.1,
   }),
 };
 
