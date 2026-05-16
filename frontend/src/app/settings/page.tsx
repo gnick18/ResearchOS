@@ -634,7 +634,20 @@ function BehaviorSection({ settings, update }: SectionProps) {
 // IndexedDB key the app keeps in the browser. No actions besides Refresh.
 // Closes the security audit role brief's affordance #1.
 
-const IDB_KEYS: { key: string; meaning: string }[] = [
+// TODO(chip #1 reconcile): once chip #1's IDB-cache module branch lands
+// (sibling chip, paired with this doc-chain chip per security manager's
+// APPROVE WITH CONSTRAINTS 2026-05-15), replace this local stub with:
+//   import { forgetAllTelegramTokenCache } from "@/lib/telegram/telegram-token-cache";
+// Expected signature: `forgetAllTelegramTokenCache(folder: string): Promise<void>`.
+// The stub keeps the Forget button shippable + lint-clean while chip #1
+// is in flight; the button will be a no-op (and log) until chip #1 merges.
+async function forgetAllTelegramTokenCache(_folder: string): Promise<void> {
+  console.warn(
+    "[Settings/Data inventory] Forget button clicked, but chip #1's telegram-token-cache module is not yet wired. Nothing to wipe.",
+  );
+}
+
+const IDB_KEYS: { key: string; meaning: string; isCredential?: boolean }[] = [
   {
     key: "research-os-fsa / handles / research-os-directory-handle",
     meaning:
@@ -652,6 +665,12 @@ const IDB_KEYS: { key: string; meaning: string }[] = [
     key: "keyval-store / keyval / research-os-main-user",
     meaning:
       "Username string of the Lab Mode primary account, when Lab Mode is in use.",
+  },
+  {
+    key: "research-os-telegram-token-cache / tokens / {folderName, username}",
+    meaning:
+      "Recovery cache for your Telegram bot credentials when the on-disk _telegram.json is missing or unreadable (misshared OneDrive deletion, iCloud sync hiccup, manual cleanup). Holds {bot_token, chat_id, bot_username} keyed per folder + user so a lab-mate sharing this folder does NOT see your cached token. Use the Forget button on the right to wipe every cached entry for the current folder.",
+    isCredential: true,
   },
 ];
 
@@ -673,9 +692,47 @@ async function scanFolderFiles(): Promise<string[]> {
 }
 
 function DataInventorySection() {
+  const { directoryName } = useFileSystem();
   const [scanning, setScanning] = useState(false);
   const [files, setFiles] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [forgetting, setForgetting] = useState(false);
+  const [forgetStatus, setForgetStatus] = useState<{
+    text: string;
+    kind: "ok" | "err";
+  } | null>(null);
+
+  const handleForgetTelegramCache = useCallback(async () => {
+    if (!directoryName) {
+      setForgetStatus({
+        text: "No folder is currently connected.",
+        kind: "err",
+      });
+      setTimeout(() => setForgetStatus(null), 4000);
+      return;
+    }
+    setForgetting(true);
+    setForgetStatus(null);
+    try {
+      await forgetAllTelegramTokenCache(directoryName);
+      setForgetStatus({
+        text: `Wiped Telegram-token cache entries for folder "${directoryName}".`,
+        kind: "ok",
+      });
+    } catch (err) {
+      console.error("[Data inventory] Forget Telegram cache failed:", err);
+      setForgetStatus({
+        text:
+          err instanceof Error
+            ? err.message
+            : "Forget failed. See console for details.",
+        kind: "err",
+      });
+    } finally {
+      setForgetting(false);
+      setTimeout(() => setForgetStatus(null), 4000);
+    }
+  }, [directoryName]);
 
   const runScan = useCallback(async () => {
     setScanning(true);
@@ -782,7 +839,7 @@ function DataInventorySection() {
       <div className="border-t border-gray-100 pt-4">
         <p className="text-sm font-medium text-gray-800">Browser IndexedDB keys</p>
         <p className="text-xs text-gray-500 mt-1 mb-2">
-          Four known keys, listed below. Open DevTools → Application → IndexedDB
+          Five known keys, listed below. Open DevTools → Application → IndexedDB
           to verify.
         </p>
         <ul className="space-y-2">
@@ -791,10 +848,40 @@ function DataInventorySection() {
               key={k.key}
               className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2"
             >
-              <code className="text-[11px] text-gray-800 font-mono break-all">
-                {k.key}
-              </code>
-              <p className="text-xs text-gray-600 mt-1">{k.meaning}</p>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <code className="text-[11px] text-gray-800 font-mono break-all">
+                    {k.key}
+                  </code>
+                  <p className="text-xs text-gray-600 mt-1">{k.meaning}</p>
+                </div>
+                {k.isCredential && (
+                  <Tooltip
+                    label="Wipe every Telegram-token cache entry for this folder"
+                    placement="left"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => void handleForgetTelegramCache()}
+                      disabled={forgetting || !directoryName}
+                      className="px-2.5 py-1.5 text-xs bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md whitespace-nowrap shrink-0"
+                    >
+                      {forgetting ? "Forgetting…" : "Forget"}
+                    </button>
+                  </Tooltip>
+                )}
+              </div>
+              {k.isCredential && forgetStatus && (
+                <p
+                  className={`text-xs mt-2 ${
+                    forgetStatus.kind === "ok"
+                      ? "text-emerald-700"
+                      : "text-red-600"
+                  }`}
+                >
+                  {forgetStatus.text}
+                </p>
+              )}
             </li>
           ))}
         </ul>

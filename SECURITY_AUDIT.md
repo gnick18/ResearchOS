@@ -50,7 +50,7 @@ Both routes use `cache: "no-store"` upstream and never persist request data. The
 
 ### 1.3 IndexedDB writes
 
-Two databases:
+Three databases:
 
 1. **`research-os-fsa` / object-store `handles`** ([indexeddb-store.ts](frontend/src/lib/file-system/indexeddb-store.ts)).
    - Key `research-os-directory-handle` — the opaque `FileSystemDirectoryHandle` granted by `showDirectoryPicker`. The handle is per-FSA spec an opaque object; no path is recoverable from it via the public API.
@@ -60,7 +60,17 @@ Two databases:
    - `research-os-current-user` — username string (e.g. `"GrantNickles"`).
    - `research-os-main-user` — username string of the "Lab Mode primary" account.
 
-Total: **four IDB keys**, all readable in DevTools → Application → IndexedDB. None of them hold credentials. The directory handle is the only thing that grants disk access, and it is gated by the OS-level FSA permission grant that Chrome enforces.
+3. **`research-os-telegram-token-cache` / object-store `tokens`** (new; recovery-cache for a misshared-disk scenario where `users/<u>/_telegram.json` is unreadable or absent but the browser still holds the last-known credentials for this user-in-this-folder). Compound key `{folderName, username}`, minimal payload `{bot_token, chat_id, bot_username}` (no `last_update_id`, no message bodies, no inbox photos).
+   - **Per-user key isolation.** The compound `{folderName, username}` key means Alice's cached token is invisible to Bob even when both authenticate against the same shared OneDrive folder — the browser-scoped DB never sees the other user's row.
+   - **Write triggers.** A cache write fires on (a) successful Telegram pairing, (b) lazy refresh from `_telegram.json` on connect when the on-disk file is healthy, and (c) the cache-absent edge case where we observe a healthy on-disk file but no IDB row yet (so subsequent disk loss has a recovery path).
+   - **Clear triggers.** A cache wipe for the active user fires on folder switch (`disconnect()`), explicit Telegram disconnect, recovery-prompt rejection, and the user-facing Forget button in Settings → Data inventory.
+   - **Validate-before-offer.** Before showing a recovery prompt, the cache entry is round-tripped through `api.telegram.org/getMe`. A 401/403 (token revoked) clears the cache silently and does not offer recovery. A 5xx or network error keeps the cache and treats this as a transient failure (the recovery prompt is suppressed; the user can retry later).
+   - **Forget button.** Settings → Data inventory exposes a one-click affordance that calls `forgetAllTelegramTokenCache(folderName)` to wipe every cached entry for the current folder. Tooltip text walks the user through what the button does.
+   - **Offline-mode interaction.** Offline mode does not block reads from this DB (the entire point is a local-only recovery surface). It does block the `getMe` validation step, so when offline mode is on, the recovery prompt is suppressed until the user either toggles offline mode off or explicitly re-enters credentials.
+
+Total: **five IDB keys**, all readable in DevTools → Application → IndexedDB. Only the new telegram-token-cache row holds credentials (a bot token); the other four do not. The directory handle is the only thing that grants disk access, and it is gated by the OS-level FSA permission grant that Chrome enforces.
+
+**Explicit statement of non-regression vs. the disk sidecar.** The credential cache is symmetric in risk with the on-disk `users/<u>/_telegram.json` sidecar: both are DevTools-readable on the local machine, and the cache is NOT exposed via cloud-folder share (the cache is browser-scoped, not file-scoped). This is actually a small WIN over disk-only storage for the multi-user-folder case — Alice's cached token is invisible to Bob even when they share a OneDrive folder, because the IDB lives in each user's browser profile rather than in the shared folder.
 
 ### 1.4 localStorage writes
 
@@ -112,9 +122,9 @@ Path conventions in [AGENTS.md §2](AGENTS.md) match what `fileService.writeJson
 - `.gitignore` — managed entries auto-appended for sensitive sidecars ([gitignore.ts:12](frontend/src/lib/file-system/gitignore.ts:12)).
 - `_demo_marker.json` (only when the demo lab is loaded; gates the demo banner + dynamic-dates rebase).
 
-### 1.6 Sensitive on-disk data summary
+### 1.6 Sensitive on-disk and in-browser data summary
 
-What ends up on the user's disk that an attacker with read access to the folder could exfiltrate:
+What ends up on the user's disk or in their browser that an attacker with the corresponding access could exfiltrate:
 
 | Path | Content | Encrypted? |
 |---|---|---|
@@ -124,8 +134,9 @@ What ends up on the user's disk that an attacker with read access to the folder 
 | `users/<u>/_labarchives.json` | LabArchives connection (orphan, harmless without the API surface) | No |
 | `users/<u>/_auth.json` | PBKDF2-SHA-256 hash (600k iters, 16-byte salt) | Hash only |
 | `users/<u>/notes/*.json`, `tasks/*.json`, `results/**/notes.md`, etc. | All research content | No |
+| IDB `research-os-telegram-token-cache` / `tokens` (browser-scoped) | `{bot_token, chat_id, bot_username}` keyed by `{folderName, username}` — recovery cache for when the on-disk sidecar is missing | No |
 
-The local-first claim is honored at the network level — none of this transits a server we control. But anyone with read access to the folder (a misshared OneDrive, a stolen laptop without disk encryption, a malicious co-tenant on the same workstation) has full read access to everything except the PBKDF2-hashed passwords.
+The local-first claim is honored at the network level — none of this transits a server we control. But anyone with read access to the folder (a misshared OneDrive, a stolen laptop without disk encryption, a malicious co-tenant on the same workstation) has full read access to everything except the PBKDF2-hashed passwords. The browser-scoped recovery cache adds DevTools-readability on the local machine but is invisible across shared-folder boundaries (Alice's cached token does not reach Bob's browser even when they share the folder).
 
 ---
 
@@ -419,6 +430,8 @@ That includes:
 - Your Telegram bot token and any inbox photos.
 - Your calendar subscription URLs.
 - The optional PBKDF2-hashed password for your account.
+
+**One extra place your Telegram bot token lives: a small recovery cache inside your browser.** When you successfully pair a Telegram bot, the app keeps a copy of just `{bot_token, chat_id, bot_username}` in IndexedDB (browser storage), keyed by your folder name + your username. This is a safety net for the case where the on-disk `_telegram.json` file gets lost (a misshared OneDrive folder where a lab-mate deleted it, an iCloud sync hiccup, a manual cleanup) — without it, you would have to re-pair the bot from scratch. The cache is wiped when you switch folders, when you explicitly disconnect Telegram, or when you click the **Forget cached Telegram credentials** button in Settings → Data inventory. The cache is per-browser-profile, so a lab-mate sharing the same data folder does NOT see your cached token in their browser. Open DevTools → Application → IndexedDB if you want to verify it exists or is empty.
 
 ### What does briefly touch a server we operate
 
