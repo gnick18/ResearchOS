@@ -159,6 +159,29 @@ export function CompoundIcon({ className, size = 16 }: MethodTypeIconProps) {
   );
 }
 
+export function CodingWorkflowIcon({ className, size = 16 }: MethodTypeIconProps) {
+  // Stylized angle brackets — the canonical "code" glyph. Reads cleanly at
+  // small sizes alongside the other method-type icons.
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <polyline points="8 6 3 12 8 18" />
+      <polyline points="16 6 21 12 16 18" />
+      <line x1="14" y1="4" x2="10" y2="20" />
+    </svg>
+  );
+}
+
 export function PcrIcon({ className, size = 16 }: MethodTypeIconProps) {
   return (
     <svg
