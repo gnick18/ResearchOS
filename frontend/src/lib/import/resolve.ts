@@ -100,7 +100,9 @@ export async function buildImportPlan(
               ? entry.cellCultureSchedule != null
               : entry.record.method_type === "coding_workflow"
                 ? entry.codingWorkflow != null
-                : false);
+                : entry.record.method_type === "qpcr_analysis"
+                  ? entry.qpcrAnalysisProtocol != null
+                  : false);
 
     let decision: MethodResolution["decision"];
     let existingMethodId: number | null;

@@ -221,6 +221,15 @@ export interface TaskMethodAttachment {
   // qpcr_analysis field can land before this one without mid-interface
   // merge conflicts.
   compound_snapshots: string | null;
+  // qPCR analysis per-task instance snapshot — JSON string of
+  // QPCRAnalysisSnapshot (only meaningful for `method_type === "qpcr_analysis"`
+  // methods). Carries the actual measured Cq values per target, optional
+  // melt-curve Tm readouts, and per-experiment notes. Source method record
+  // stays untouched (it carries the protocol template — references list,
+  // standard-curve points, melt-curve config, ΔΔCq toggle); per-task
+  // experimental data lands here. Positioned after compound_snapshots so
+  // Phase 1's append-only contract holds against Phase 0b.
+  qpcr_analysis: string | null;
 }
 
 export interface Task {
@@ -446,7 +455,7 @@ export interface Method {
   id: number;
   name: string;
   source_path: string | null;
-  method_type: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "compound" | "coding_workflow" | null;
+  method_type: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "compound" | "coding_workflow" | "qpcr_analysis" | null;
   folder_path: string | null;
   parent_method_id: number | null;
   tags: string[] | null;
@@ -470,7 +479,7 @@ export interface Method {
 export interface MethodCreate {
   name: string;
   source_path?: string | null;
-  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "compound" | "coding_workflow";
+  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "compound" | "coding_workflow" | "qpcr_analysis";
   folder_path?: string | null;
   parent_method_id?: number | null;
   tags?: string[];
@@ -481,7 +490,7 @@ export interface MethodCreate {
 export interface MethodUpdate {
   name?: string;
   source_path?: string | null;
-  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "compound" | "coding_workflow" | null;
+  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "compound" | "coding_workflow" | "qpcr_analysis" | null;
   folder_path?: string | null;
   parent_method_id?: number | null;
   tags?: string[];
@@ -876,6 +885,128 @@ export type CodingWorkflowProtocolUpdate = Partial<{
   output_renderer: CodingWorkflowOutputRenderer;
 }>;
 
+// ── qPCR analysis ────────────────────────────────────────────────────────────
+//
+// qPCR enters v2 as an analysis-only method type composed with PCR via the
+// composition primitive. The PCR method type handles the cycling/recipe;
+// qPCR analysis carries the layer above (per-target Cq, melt curves, standard
+// curves, ΔΔCq fold-change). Users build a "qPCR full kit" compound bundling
+// a PCR cycling method with a qPCR analysis method to get the full workflow.
+// See METHODS_EXPANSION_V2_PROPOSAL.md §5 for the locked design.
+
+export type QPCRChemistry = "sybr" | "taqman" | "evagreen" | "other";
+
+/** One target/reference dye-channel pairing in a relative-quantitation
+ *  analysis. The references list doubles as the target list — flagging one
+ *  row `is_reference: true` makes it the housekeeping baseline for ΔΔCq. */
+export interface QPCRReference {
+  id: string;
+  /** Gene/target name (e.g. "flbA", "ACT1"). */
+  target: string;
+  /** Dye/channel ("FAM", "ROX", "VIC", …). Free-text; instruments vary. */
+  channel: string;
+  /** Treated as the reference housekeeping for ΔΔCq calculations. At most
+   *  one row should carry true; the editor enforces this in the UI but
+   *  on-disk records may carry multiple — the calc uses the first. */
+  is_reference: boolean;
+  /** Optional expected Cq (informational only, not used in the calc). */
+  expected_cq?: number | null;
+}
+
+/** One point on the dilution-series standard curve used to derive primer
+ *  efficiency. Empty / single-point lists silently disable the efficiency
+ *  readout in the viz. */
+export interface QPCRStandardCurvePoint {
+  /** Log10(quantity), e.g. 5 = 10⁵ copies. */
+  log_quantity: number;
+  /** Cq value at this quantity. */
+  cq: number;
+  /** Optional replicate count for averaging. */
+  replicate_n?: number | null;
+}
+
+/** Melt-curve sweep parameters. Per-target Tm readouts come from the
+ *  per-task snapshot, not the method record (the method only captures the
+ *  sweep config; the readouts are experiment-time data). */
+export interface QPCRMeltCurveConfig {
+  /** Initial temperature in °C (e.g. 60). */
+  start_c: number;
+  /** Final temperature in °C (e.g. 95). */
+  end_c: number;
+  /** Ramp rate in °C/sec (e.g. 0.1). */
+  ramp_rate_c_per_sec: number;
+}
+
+/** Source-side qPCR analysis method. Reference template captured at method-
+ *  creation time; per-task experimental readouts live on
+ *  `TaskMethodAttachment.qpcr_analysis` as a `QPCRAnalysisSnapshot`. */
+export interface QPCRAnalysisProtocol {
+  id: number;
+  name: string;
+  description?: string | null;
+  is_public: boolean;
+  created_at?: string;
+  updated_at?: string;
+  created_by: string | null;
+  chemistry: QPCRChemistry;
+  /** Free-text chemistry label when `chemistry === "other"`. */
+  chemistry_label?: string | null;
+  references: QPCRReference[];
+  standard_curve: QPCRStandardCurvePoint[];
+  melt_curve?: QPCRMeltCurveConfig | null;
+  /** ΔΔCq calculation enabled. When true and the references list carries
+   *  an `is_reference: true` row, the experiment-page viewer computes
+   *  fold-change relative to the reference and displays it. */
+  use_delta_delta_cq: boolean;
+}
+
+export interface QPCRAnalysisProtocolCreate {
+  name: string;
+  description?: string | null;
+  is_public?: boolean;
+  chemistry: QPCRChemistry;
+  chemistry_label?: string | null;
+  references: QPCRReference[];
+  standard_curve: QPCRStandardCurvePoint[];
+  melt_curve?: QPCRMeltCurveConfig | null;
+  use_delta_delta_cq: boolean;
+  folder_path?: string | null;
+}
+
+export type QPCRAnalysisProtocolUpdate = Partial<{
+  name: string;
+  description: string | null;
+  is_public: boolean;
+  chemistry: QPCRChemistry;
+  chemistry_label: string | null;
+  references: QPCRReference[];
+  standard_curve: QPCRStandardCurvePoint[];
+  melt_curve: QPCRMeltCurveConfig | null;
+  use_delta_delta_cq: boolean;
+}>;
+
+/** Shape persisted as the JSON-stringified body of
+ *  `TaskMethodAttachment.qpcr_analysis`. Per-target readouts are keyed by
+ *  `QPCRReference.id` so renaming a target on the source method doesn't
+ *  silently break the experiment data. */
+export interface QPCRAnalysisSnapshot {
+  /** Per-target Cq readouts. Keyed by QPCRReference.id. */
+  cqs: Record<string, {
+    /** Mean Cq across replicates (or single-point Cq when no replicates). */
+    cq: number;
+    /** Per-replicate Cq values (when entered). */
+    replicates?: number[];
+    /** Free-text per-target notes (e.g. "off-scale", "primer-dimer detected"). */
+    notes?: string | null;
+  }>;
+  /** Melt-curve Tm readouts per target, keyed by QPCRReference.id. v2 ships
+   *  entering Tm values manually; raw -dF/dT visualization is a v2.1 punt. */
+  melt_tms?: Record<string, number>;
+  /** Free-text per-experiment notes. */
+  notes?: string | null;
+}
+
+
 // ── Compound Methods ─────────────────────────────────────────────────────────
 
 /**
@@ -918,6 +1049,7 @@ export interface CompoundChildSnapshotEntry {
     | LCGradientProtocol
     | PlateAnnotationSnapshot
     | CellCultureScheduleInstance
+    | QPCRAnalysisSnapshot
     | { body_override: string }
     | CompoundSnapshotPayload
     | null;

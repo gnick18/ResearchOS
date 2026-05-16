@@ -8,6 +8,7 @@ const PUBLIC_ENTITIES = new Set([
   "plate_layouts",
   "cell_culture_schedules",
   "coding_workflows",
+  "qpcr_analyses",
 ]);
 
 interface Counters {
