@@ -63,6 +63,13 @@ export interface MethodTypeMeta {
   /** Picker grouping. Structured types appear in the "Structured methods"
    * section; standard types in "Standard methods". */
   category: "standard" | "structured";
+  /** When true, the type is excluded from the new-method picker. The type is
+   * still a valid `method_type` discriminator and keeps its badge / icon /
+   * color metadata; it just isn't a user-selectable tile. Used by
+   * `compound`, which is reached as an extension of an existing method
+   * (via the "+ Add component (extend into kit)" affordance), not as a
+   * standalone "+ New Method" choice. */
+  hiddenFromPicker?: boolean;
 }
 
 export const METHOD_TYPE_REGISTRY: Record<MethodTypeId, MethodTypeMeta> = {
@@ -145,6 +152,12 @@ export const METHOD_TYPE_REGISTRY: Record<MethodTypeId, MethodTypeMeta> = {
     description: "Bundle existing methods into one attachable kit (e.g. plate + assay PDF).",
     hasStructuredProtocol: true,
     category: "structured",
+    // Hidden from the new-method picker: compounds are reached by extending
+    // an existing method via "+ Add component (extend into kit)", not as a
+    // standalone tile. Keeps the registry shape symmetric with other types
+    // (badge / icon / color all still resolve) without offering a picker
+    // entry-point that's the wrong mental model.
+    hiddenFromPicker: true,
   },
   coding_workflow: {
     id: "coding_workflow",
@@ -181,10 +194,13 @@ export function getMethodTypeMeta(id: MethodTypeId | null | undefined): MethodTy
 
 /**
  * All registered types belonging to the given picker category. Used by the
- * new-method dialog to render the Standard / Structured sections.
+ * new-method dialog to render the Standard / Structured sections, so
+ * `hiddenFromPicker` types are excluded.
  */
 export function getMethodTypesByCategory(
   category: "standard" | "structured",
 ): MethodTypeMeta[] {
-  return Object.values(METHOD_TYPE_REGISTRY).filter((m) => m.category === category);
+  return Object.values(METHOD_TYPE_REGISTRY).filter(
+    (m) => m.category === category && !m.hiddenFromPicker,
+  );
 }

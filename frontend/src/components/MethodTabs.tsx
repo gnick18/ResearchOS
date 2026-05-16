@@ -18,6 +18,7 @@ import MassSpecMethodTabContent from "./methods/MassSpecMethodTabContent";
 import CompoundMethodTabContent from "./methods/CompoundMethodTabContent";
 import CodingWorkflowMethodTabContent from "./methods/CodingWorkflowMethodTabContent";
 import QpcrAnalysisMethodTabContent from "./methods/QpcrAnalysisMethodTabContent";
+import { WrapAsCompoundAction } from "./methods/WrapAsCompoundAction";
 
 interface MethodTabsProps {
   task: Task;
@@ -191,6 +192,19 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
             </Tooltip>
           )}
         </div>
+        {/* Extend-into-kit affordance for the active non-compound method.
+            Wrapping creates a new compound (kit) that lists the active
+            method as its first child, then swaps this task's attachment
+            from the source method to the new compound. */}
+        {!readOnly && activeMethod && activeMethod.method_type !== "compound" && (
+          <div className="ml-2 mb-2">
+            <WrapAsCompoundAction
+              method={activeMethod}
+              task={task}
+              onWrapped={(compound) => setActiveMethodId(compound.id)}
+            />
+          </div>
+        )}
       </div>
 
       {/* Method picker modal */}
@@ -324,6 +338,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
                     readOnly={readOnly}
+                    onSwitchActiveMethod={(nextId) => setActiveMethodId(nextId)}
                   />
                 );
               case "coding_workflow":

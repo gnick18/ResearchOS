@@ -1379,6 +1379,49 @@ export const methodsApi = {
     return tasksStore.update(data.task_id, { deviation_log: data.deviations });
   },
 
+  // Wrap an existing method into a freshly-created compound that lists the
+  // source method as its first component. The compound lands in the current
+  // user's namespace (Q-V1 lock: compounds are private-only in v2), so
+  // wrapping a shared/public method copies the *reference* — not the method
+  // file itself. Used by the "+ Add component (extend into kit)" affordance
+  // on every non-compound method viewer.
+  wrapAsCompound: async (
+    methodId: number,
+    options?: { name?: string; folderPath?: string },
+    owner?: string,
+  ): Promise<Method> => {
+    const source = await methodsApi.get(methodId, owner);
+    if (!source) throw new Error(`Method ${methodId} not found.`);
+    // methodsApi.create hard-codes `owner: ""` on the persisted record (the
+    // ownership-by-file-location convention predates an explicit owner
+    // field). Backfill the actual current user so downstream consumers of
+    // the freshly-created compound — notably validateCompoundComponents'
+    // fallback chain `(c.owner ?? currentMethodId.owner ?? "")` — can
+    // resolve component owners against the source's `(id, owner)` key. The
+    // built-in `save` overwrites the same file we just wrote.
+    const currentUser = await getCurrentUserCached();
+    const compoundName = options?.name ?? `${source.name} (kit)`;
+    const created = await methodsApi.create({
+      name: compoundName,
+      source_path: null,
+      method_type: "compound",
+      folder_path: options?.folderPath ?? source.folder_path,
+      is_public: false,
+      components: [
+        {
+          method_id: source.id,
+          owner: source.owner && source.owner !== currentUser ? source.owner : null,
+          ordering: 0,
+        },
+      ],
+    });
+    const withOwner = await methodsStore.save(created.id, {
+      ...created,
+      owner: currentUser,
+    });
+    return withOwner;
+  },
+
   // Delete is intentionally NOT owner-routed: only the original owner should
   // be able to destroy the file. Mirrors the convention in tasksApi.
   delete: async (id: number): Promise<void> => {
