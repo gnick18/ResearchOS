@@ -146,6 +146,39 @@ export default function SecurityPage() {
         <code>frontend/src/lib/api/rate-limit.ts</code> if you want to read
         it line by line.
       </p>
+      <Callout variant="info" title="One more thing on the Telegram surface: a browser-side recovery cache">
+        <p>
+          If your <code>_telegram.json</code> sidecar disappears (a
+          misshared OneDrive deletion, an iCloud sync hiccup, a lab-mate
+          tidying up), the app can offer a one-click recovery prompt
+          instead of making you re-pair from BotFather. The credentials
+          that power that prompt live in a browser-scoped IndexedDB store
+          (<code>research-os-telegram-token-cache</code>), not on any
+          server we operate. The cache stores only{" "}
+          <code>bot_token</code>, <code>chat_id</code>, and{" "}
+          <code>bot_username</code>, keyed by{" "}
+          <code>(folderName, username)</code>.
+        </p>
+        <p>
+          The cache is symmetric in risk with the disk sidecar: both are
+          DevTools-readable on the local machine, and the cache is NOT
+          exposed via cloud-folder share (browser-scoped, not
+          file-scoped). This is actually a small win over disk-only
+          storage for the multi-user-folder case, Alice&apos;s cached
+          token is invisible to Bob even when they share a OneDrive
+          folder.
+        </p>
+        <p>
+          The only network call adjacent to the cache is a{" "}
+          <code>getMe</code> round-trip to{" "}
+          <code>api.telegram.org</code> to confirm the cached token still
+          works before the recovery prompt offers it. That call goes
+          direct from your browser to Telegram, the same path the bot
+          polling already uses. The <strong>Forget</strong> button in
+          Settings &rarr; Data inventory wipes every cache row for the
+          current folder in one click.
+        </p>
+      </Callout>
 
       <h2>What we collect, and what we don&apos;t</h2>
       <p>
@@ -278,6 +311,25 @@ export default function SecurityPage() {
             <code>vitals.vercel-insights.com</code> for anonymous
             page-view pings (unless <strong>Offline mode</strong> is on,
             in which case you&apos;ll see none of those). Nothing else.
+          </Step>
+          <Step>
+            For a second pass, switch from the <strong>Network</strong>{" "}
+            tab to <strong>Application</strong>{" "}
+            &rarr; <strong>IndexedDB</strong>. ResearchOS uses five IDB
+            keys total across three databases: the File System Access
+            handle for your data folder, the per-tab fileService state,
+            two onboarding-state stores, and (only if you have paired
+            Telegram) a{" "}
+            <code>research-os-telegram-token-cache</code> database with
+            a single <code>tokens</code> store. A fresh install with no
+            Telegram pairing shows four IDB databases, not five. Expand
+            the <code>tokens</code> store and confirm the row holds only{" "}
+            <code>bot_token</code>, <code>chat_id</code>, and{" "}
+            <code>bot_username</code>, keyed by{" "}
+            <code>(folderName, username)</code>. Clicking the rose{" "}
+            <strong>Forget</strong> button in Settings &rarr; Data
+            inventory wipes every row for the current folder; the change
+            shows up here on the next DevTools refresh.
           </Step>
         </Steps>
       </details>
