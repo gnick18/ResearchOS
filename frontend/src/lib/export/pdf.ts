@@ -45,7 +45,20 @@ import type {
   CellCultureSupplement,
   CodingWorkflowProtocol,
   QPCRAnalysisProtocol,
+  MassSpecProtocol,
 } from "@/lib/types";
+
+// Mirrors the matching map in html.ts so PDF and HTML mode labels stay in sync.
+const IONIZATION_MODE_LABELS: Record<string, string> = {
+  esi_pos: "ESI+",
+  esi_neg: "ESI−",
+  esi_switching: "ESI switching",
+  apci_pos: "APCI+",
+  apci_neg: "APCI−",
+  ei: "EI",
+  maldi: "MALDI",
+  other: "Other",
+};
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -1567,6 +1580,146 @@ export async function buildPdf(
     return out;
   }
 
+  function renderMassSpecMethodBody(mp: MethodPayload): React.ReactNode[] {
+    const protocol: MassSpecProtocol | null = mp.massSpecProtocol ?? null;
+    if (!protocol) {
+      return [
+        h(
+          Text,
+          { key: "ms-missing", style: styles.methodIntro },
+          "Mass spec method (protocol could not be loaded).",
+        ),
+      ];
+    }
+
+    const keyPrefix = `m${mp.method.id}-ms`;
+    const out: React.ReactNode[] = [];
+
+    const pushLabelRow = (
+      rows: React.ReactNode[],
+      label: string,
+      value: string | number | null | undefined,
+      key: string,
+    ) => {
+      if (value === null || value === undefined || value === "") return;
+      rows.push(
+        h(
+          View,
+          { key, style: styles.tableRow, wrap: false },
+          h(Text, { style: styles.tableCellHeader }, label),
+          h(Text, { style: styles.tableCell }, String(value)),
+        ),
+      );
+    };
+
+    const modeLabel =
+      IONIZATION_MODE_LABELS[protocol.ionization_mode] ?? protocol.ionization_mode;
+    const fullModeLabel = protocol.ionization_label
+      ? `${modeLabel} — ${protocol.ionization_label}`
+      : modeLabel;
+
+    const headerRows: React.ReactNode[] = [];
+    pushLabelRow(headerRows, "Ionization mode", fullModeLabel, `${keyPrefix}-h-mode`);
+    pushLabelRow(headerRows, "Instrument", protocol.instrument, `${keyPrefix}-h-inst`);
+    if (headerRows.length > 0) {
+      out.push(
+        h(View, { key: `${keyPrefix}-h`, style: styles.pcrTable }, ...headerRows),
+      );
+    }
+
+    const s = protocol.source ?? {};
+    const sourceRows: React.ReactNode[] = [];
+    pushLabelRow(sourceRows, "Source temperature (°C)", s.source_temp_c, `${keyPrefix}-s-temp`);
+    pushLabelRow(sourceRows, "Capillary voltage (kV)", s.capillary_kv, `${keyPrefix}-s-cap`);
+    pushLabelRow(sourceRows, "Nebulizer gas (L/min)", s.nebulizer_gas_lpm, `${keyPrefix}-s-neb`);
+    pushLabelRow(sourceRows, "Drying gas (L/min)", s.drying_gas_lpm, `${keyPrefix}-s-dry`);
+    pushLabelRow(sourceRows, "Drying gas temperature (°C)", s.drying_gas_temp_c, `${keyPrefix}-s-drytemp`);
+    pushLabelRow(sourceRows, "EI ionization energy (eV)", s.ei_energy_ev, `${keyPrefix}-s-ei`);
+    pushLabelRow(sourceRows, "MALDI laser wavelength (nm)", s.maldi_laser_nm, `${keyPrefix}-s-laser`);
+    pushLabelRow(sourceRows, "MALDI laser energy", s.maldi_laser_energy, `${keyPrefix}-s-laserE`);
+    pushLabelRow(sourceRows, "MALDI matrix", s.maldi_matrix, `${keyPrefix}-s-matrix`);
+    pushLabelRow(sourceRows, "Notes", s.other_notes, `${keyPrefix}-s-notes`);
+    out.push(h(Text, { key: `${keyPrefix}-s-h`, style: styles.h4 }, "Source params"));
+    if (sourceRows.length > 0) {
+      out.push(
+        h(View, { key: `${keyPrefix}-s`, style: styles.pcrTable }, ...sourceRows),
+      );
+    } else {
+      out.push(
+        h(
+          Text,
+          { key: `${keyPrefix}-s-empty`, style: styles.methodIntro },
+          "No source parameters recorded.",
+        ),
+      );
+    }
+
+    const sc = protocol.scan ?? { is_msms: false };
+    const scanRows: React.ReactNode[] = [];
+    if (sc.scan_mz_low != null || sc.scan_mz_high != null) {
+      pushLabelRow(
+        scanRows,
+        "m/z range",
+        `${sc.scan_mz_low ?? "?"} – ${sc.scan_mz_high ?? "?"}`,
+        `${keyPrefix}-sc-mz`,
+      );
+    }
+    pushLabelRow(scanRows, "Scan rate (Hz)", sc.scan_rate_hz, `${keyPrefix}-sc-rate`);
+    pushLabelRow(scanRows, "Resolution (R, FWHM)", sc.resolution_r, `${keyPrefix}-sc-res`);
+    pushLabelRow(scanRows, "MS/MS workflow", sc.is_msms ? "Yes" : "No", `${keyPrefix}-sc-msms`);
+    if (sc.is_msms) {
+      pushLabelRow(scanRows, "Isolation window (m/z)", sc.msms_isolation_window_mz, `${keyPrefix}-sc-iso`);
+      pushLabelRow(scanRows, "Collision energy (eV)", sc.msms_collision_energy_ev, `${keyPrefix}-sc-ce`);
+    }
+    out.push(h(Text, { key: `${keyPrefix}-sc-h`, style: styles.h4 }, "Scan params"));
+    if (scanRows.length > 0) {
+      out.push(
+        h(View, { key: `${keyPrefix}-sc`, style: styles.pcrTable }, ...scanRows),
+      );
+    } else {
+      out.push(
+        h(
+          Text,
+          { key: `${keyPrefix}-sc-empty`, style: styles.methodIntro },
+          "No scan parameters recorded.",
+        ),
+      );
+    }
+
+    const c = protocol.calibration ?? {};
+    const calRows: React.ReactNode[] = [];
+    pushLabelRow(calRows, "Reference standard", c.reference_standard, `${keyPrefix}-c-ref`);
+    pushLabelRow(calRows, "Calibration date", c.calibration_date, `${keyPrefix}-c-date`);
+    pushLabelRow(calRows, "Expected mass accuracy (ppm)", c.expected_accuracy_ppm, `${keyPrefix}-c-acc`);
+    pushLabelRow(calRows, "Notes", c.notes, `${keyPrefix}-c-notes`);
+    out.push(h(Text, { key: `${keyPrefix}-c-h`, style: styles.h4 }, "Calibration"));
+    if (calRows.length > 0) {
+      out.push(
+        h(View, { key: `${keyPrefix}-c`, style: styles.pcrTable }, ...calRows),
+      );
+    } else {
+      out.push(
+        h(
+          Text,
+          { key: `${keyPrefix}-c-empty`, style: styles.methodIntro },
+          "No calibration information recorded.",
+        ),
+      );
+    }
+
+    if (protocol.description && protocol.description.trim()) {
+      out.push(
+        h(
+          Text,
+          { key: `${keyPrefix}-desc`, style: styles.pcrNotes },
+          protocol.description.trim(),
+        ),
+      );
+    }
+
+    return out;
+  }
+
   function renderCellCultureMethodBody(mp: MethodPayload): React.ReactNode[] {
     const sourceSchedule: CellCultureSchedule | null = mp.cellCultureSchedule ?? null;
     if (!sourceSchedule) {
@@ -1803,6 +1956,8 @@ export async function buildPdf(
       children.push(...renderPlateMethodBody(mp));
     } else if (method.method_type === "cell_culture") {
       children.push(...renderCellCultureMethodBody(mp));
+    } else if (method.method_type === "mass_spec") {
+      children.push(...renderMassSpecMethodBody(mp));
     } else if (method.method_type === "coding_workflow") {
       children.push(...renderCodingWorkflowMethodBody(mp));
     } else if (method.method_type === "qpcr_analysis") {
