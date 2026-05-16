@@ -732,7 +732,7 @@ export function CreateMethodModal({
             {uploadType === "coding_workflow" && (
               <div className="space-y-2">
                 <p className="text-xs text-gray-400">
-                  Coding workflows store a reusable script (Python, R, SQL, etc.) or a Jupyter notebook. Embed the code body inline, point at an external path for "open in your editor," or both.
+                  Coding workflows store a reusable script (Python, R, SQL, etc.) or a Jupyter notebook. Embed the code body inline, point at an external path for the open-in-editor handoff, or both.
                 </p>
                 <CodingWorkflowEditor
                   language={cwLanguage}

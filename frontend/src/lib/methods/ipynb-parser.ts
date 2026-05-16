@@ -109,7 +109,6 @@ function parseOutputs(raw: unknown, warnings: string[]): ParsedNbOutput[] {
       // Strip ANSI escape sequences so tracebacks render readably in
       // a static <pre>. Real Jupyter displays these in color via a
       // separate renderer; we just drop the codes here.
-      // eslint-disable-next-line no-control-regex
       const cleaned = traceback.replace(/\x1b\[[0-9;]*m/g, "");
       out.push({ kind: "stream", payload: cleaned, mimeType: "stderr" });
     } else if (type === "display_data" || type === "execute_result") {

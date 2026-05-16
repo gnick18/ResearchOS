@@ -158,7 +158,7 @@ export default function CodingWorkflowEditor({
         <p className="text-xs text-gray-400 mt-1">
           Plain textarea — no inline editor by design (Q-B5 lock). Edit
           externally and paste here, or use the External path below for the
-          "open in your editor" handoff.
+          open-in-editor handoff.
         </p>
       </div>
 
@@ -219,8 +219,8 @@ export default function CodingWorkflowEditor({
         </div>
         {showIpynbHint && (
           <p className="text-xs text-cyan-600 mt-1">
-            Paste the .ipynb JSON into "Embedded code" above — cells will
-            render stacked with their last-saved outputs.
+            Paste the .ipynb JSON into the Embedded code field above —
+            cells will render stacked with their last-saved outputs.
           </p>
         )}
       </div>
