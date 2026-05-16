@@ -21,13 +21,12 @@ import Tooltip from "@/components/Tooltip";
 import { CompoundChildCreator } from "./CompoundChildCreator";
 
 /**
- * Compound builder workspace. Used in two modes:
- *
- *  - "create": user picked the Compound tile in the new-method dialog;
- *    builder runs as the dialog's stage-2 view, persisting a fresh Method
- *    row on save (with method_type: "compound" + components array).
- *  - "edit": user opened an existing compound from the methods list;
- *    builder pre-fills its component list, saves rewrite it.
+ * Compound builder workspace — edits an existing compound method's component
+ * list. Always opened with an `editing` target (the Phase 0d
+ * compound-as-extension chip removed the standalone "create compound from
+ * scratch" entry-point; new compounds are now created by the
+ * `methodsApi.wrapAsCompound` helper, which produces an N=1 compound and
+ * hands it to this builder for the user to add component #2 onward).
  *
  * Per Q-V1 lock, compounds are private-only in v2 — the "Make public"
  * toggle is hidden here. The sharing path lands in v2.1.
@@ -45,12 +44,11 @@ import { CompoundChildCreator } from "./CompoundChildCreator";
  */
 
 export interface CompoundMethodBuilderProps {
-  /** Existing compound, when editing. Omit (or pass `null`) for create mode. */
-  editing?: Method | null;
+  /** The compound being edited. Required — there is no "build from scratch"
+   *  entry-point after Phase 0d. */
+  editing: Method;
   /** Folders that already exist in the user's methods list — used as autocomplete. */
   existingFolders: string[];
-  /** Folder pre-filled when the user came through "+ Add method" on a category. */
-  prefilledFolder?: string;
   onClose: () => void;
   onSaved: (method: Method) => void;
 }
@@ -58,16 +56,15 @@ export interface CompoundMethodBuilderProps {
 export function CompoundMethodBuilder({
   editing,
   existingFolders,
-  prefilledFolder,
   onClose,
   onSaved,
 }: CompoundMethodBuilderProps) {
-  const [name, setName] = useState(editing?.name ?? "");
-  const [folder, setFolder] = useState(editing?.folder_path ?? prefilledFolder ?? "");
-  const [tags, setTags] = useState((editing?.tags ?? []).join(", "));
+  const [name, setName] = useState(editing.name);
+  const [folder, setFolder] = useState(editing.folder_path ?? "");
+  const [tags, setTags] = useState((editing.tags ?? []).join(", "));
   // Initialize an editable copy of the components array, sorted by ordering.
   const [components, setComponents] = useState<CompoundComponent[]>(() => {
-    const list = editing?.components ?? [];
+    const list = editing.components ?? [];
     return [...list].sort((a, b) => a.ordering - b.ordering);
   });
   const [showPicker, setShowPicker] = useState(false);
@@ -96,9 +93,9 @@ export function CompoundMethodBuilder({
     return validateCompoundComponents(
       components,
       allMethods,
-      editing ? { id: editing.id, owner: editing.owner } : { id: -1, owner: currentUser },
+      { id: editing.id, owner: editing.owner },
     );
-  }, [components, allMethods, editing, currentUser]);
+  }, [components, allMethods, editing]);
 
   const handleAddComponent = useCallback(
     (method: Method) => {
@@ -202,34 +199,21 @@ export function CompoundMethodBuilder({
         .filter(Boolean);
       // Compounds always carry `source_path: null` (components live inline,
       // no parallel protocol record per proposal section 2.1.1).
-      if (editing) {
-        const updated = await methodsApi.update(
-          editing.id,
-          {
-            name: name.trim(),
-            folder_path: folder.trim() || null,
-            tags: tagList,
-            components,
-          },
-          // Pass through the existing owner so receivers editing a shared
-          // compound write back to the owner's dir.
-          editing.is_shared_with_me && editing.shared_permission === "edit"
-            ? editing.owner
-            : undefined,
-        );
-        if (updated) onSaved(updated);
-      } else {
-        const created = await methodsApi.create({
+      const updated = await methodsApi.update(
+        editing.id,
+        {
           name: name.trim(),
-          source_path: null,
-          method_type: "compound",
           folder_path: folder.trim() || null,
           tags: tagList,
-          is_public: false, // Q-V1 lock: compounds are private-only in v2.
           components,
-        });
-        onSaved(created);
-      }
+        },
+        // Pass through the existing owner so receivers editing a shared
+        // compound write back to the owner's dir.
+        editing.is_shared_with_me && editing.shared_permission === "edit"
+          ? editing.owner
+          : undefined,
+      );
+      if (updated) onSaved(updated);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to save compound method.";
       setSaveError(msg);
@@ -252,7 +236,7 @@ export function CompoundMethodBuilder({
       <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full mx-4 max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h3 className="text-base font-semibold text-gray-900">
-            {editing ? "Edit compound method" : "Build compound method"}
+            Edit compound method
           </h3>
           <Tooltip label="Close" placement="bottom">
             <button
@@ -334,7 +318,7 @@ export function CompoundMethodBuilder({
               components={components}
               allMethods={allMethods}
               currentUser={currentUser}
-              compoundOwner={editing?.owner ?? currentUser}
+              compoundOwner={editing.owner || currentUser}
               dragIndex={dragIndex}
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
@@ -388,7 +372,7 @@ export function CompoundMethodBuilder({
             disabled={saving || !name.trim() || !validation.ok}
             className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
           >
-            {saving ? "Saving..." : editing ? "Save changes" : "Create compound"}
+            {saving ? "Saving..." : "Save changes"}
           </button>
         </div>
       </div>
@@ -396,7 +380,7 @@ export function CompoundMethodBuilder({
         <ComponentPicker
           allMethods={allMethods}
           currentUser={currentUser}
-          editingCompoundId={editing?.id}
+          editingCompoundId={editing.id}
           existingComponents={components}
           existingFolders={existingFolders}
           onCancel={() => setShowPicker(false)}
@@ -523,7 +507,7 @@ function ComponentList({
 interface ComponentPickerProps {
   allMethods: Method[];
   currentUser: string;
-  editingCompoundId: number | undefined;
+  editingCompoundId: number;
   existingComponents: CompoundComponent[];
   existingFolders: string[];
   onCancel: () => void;
@@ -561,7 +545,7 @@ function ComponentPicker({
       .filter((m) => {
         // Exclude the compound itself to prevent immediate self-reference;
         // deeper cycles are caught by validateCompoundComponents.
-        if (editingCompoundId !== undefined && m.id === editingCompoundId) {
+        if (m.id === editingCompoundId) {
           return false;
         }
         if (typeFilter !== "all" && m.method_type !== typeFilter) return false;

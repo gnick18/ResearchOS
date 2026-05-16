@@ -50,7 +50,6 @@ import CodingWorkflowEditor from "@/components/CodingWorkflowEditor";
 import QpcrAnalysisEditor from "@/components/QpcrAnalysisEditor";
 import { type MethodTypeId } from "@/lib/methods/method-type-registry";
 import { MethodTypeCategoryPicker } from "./MethodTypePicker";
-import { CompoundMethodBuilder } from "./CompoundMethodBuilder";
 
 const methodsApi = rawMethodsApi;
 
@@ -549,22 +548,6 @@ export function CreateMethodModal({
       setSaving(false);
     }
   }, [name, slug, uploadType, mdContent, pdfFile, folder, tags, isPublic, pcrGradient, pcrIngredients, pcrNotes, lcGradientSteps, lcColumn, lcWavelength, lcDescription, lcIngredients, platePlateSize, plateWells, plateDescription, ccCellLine, ccMedia, ccPlannedEvents, ccDescription, msIonizationMode, msIonizationLabel, msInstrument, msDescription, msSource, msScan, msCalibration, cwLanguage, cwLanguageLabel, cwEmbeddedCode, cwExternalPath, cwDescription, cwOutputRenderer, qpcrChemistry, qpcrChemistryLabel, qpcrDescription, qpcrUseDeltaDeltaCq, qpcrReferences, qpcrStandardCurve, qpcrMeltCurve, onCreated]);
-
-  // When the user picks the Compound tile, hand off to the dedicated
-  // builder workspace per proposal section 2.4.2 (stage-2 view). The
-  // builder owns its own modal chrome, so we render it INSTEAD of the
-  // normal dialog body — there's no useful "Name + folder" to collect
-  // before the builder opens (the builder asks for them itself).
-  if (uploadType === "compound") {
-    return (
-      <CompoundMethodBuilder
-        existingFolders={existingFolders}
-        prefilledFolder={prefilledFolder}
-        onClose={onClose}
-        onSaved={() => onCreated()}
-      />
-    );
-  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">

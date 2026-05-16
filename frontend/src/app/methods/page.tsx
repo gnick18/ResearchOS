@@ -52,6 +52,8 @@ import {
 } from "@/components/methods/DeleteMethodConfirm";
 import { CompoundMethodBuilder } from "@/components/methods/CompoundMethodBuilder";
 import CompoundMethodTabContent from "@/components/methods/CompoundMethodTabContent";
+import { WrapAsCompoundAction } from "@/components/methods/WrapAsCompoundAction";
+import { ConvertCompoundToSingleAction } from "@/components/methods/ConvertCompoundToSingleAction";
 
 /**
  * When the current viewer is a receiver of a shared method with edit
@@ -783,6 +785,18 @@ export default function MethodsPage() {
             setViewingMethod(null);
             setEditingCompound(method);
           }}
+          onConvertedToChild={(childMethodId) => {
+            if (childMethodId === null) {
+              setViewingMethod(null);
+              return;
+            }
+            // Find the surviving child in the live methods cache. The
+            // `methods` query gets refetched inside the action handler
+            // before this fires, so the lookup is current.
+            const child =
+              methods.find((m) => m.id === childMethodId) ?? null;
+            setViewingMethod(child);
+          }}
         />
       )}
     </AppShell>
@@ -889,13 +903,26 @@ function ViewMethodModal({
   onClose,
   onDelete,
   onEditCompound,
+  onConvertedToChild,
 }: {
   method: Method;
   currentUser: string;
   onClose: () => void;
   onDelete: (id: number) => void;
   onEditCompound: (method: Method) => void;
+  /** Forwarded from CompoundViewer's convert-back action. The parent looks
+   *  up the child id in the methods cache and reopens this modal on the
+   *  child's record (or just closes the modal when the compound was empty). */
+  onConvertedToChild: (childMethodId: number | null) => void;
 }) {
+  // After wrapping the current method into a compound: close this viewer
+  // and reopen on the new compound's edit modal so the user can immediately
+  // add the second component.
+  const handleWrapped = (compound: Method) => {
+    onClose();
+    onEditCompound(compound);
+  };
+
   // Render the appropriate viewer with the experiments sidebar
   const renderViewer = () => {
     if (method.method_type === "pdf") {
@@ -930,6 +957,7 @@ function ViewMethodModal({
           onClose={onClose}
           onDelete={onDelete}
           onEdit={() => onEditCompound(method)}
+          onConvertedToChild={onConvertedToChild}
         />
       );
     }
@@ -941,6 +969,14 @@ function ViewMethodModal({
       <div className="flex bg-white rounded-xl shadow-2xl max-w-[calc(4rem+4rem+72rem)] w-full mx-4 max-h-[85vh]">
         {/* Main content area */}
         <div className="flex-1 flex flex-col overflow-hidden rounded-l-xl">
+          {/* "Extend into kit" action strip — non-compound methods only. The
+              source method becomes the first child of the new compound; the
+              user is navigated into the compound builder to add component #2. */}
+          {method.method_type !== "compound" && !method.is_shared_with_me && (
+            <div className="flex items-center justify-end px-4 pt-3 pb-1">
+              <WrapAsCompoundAction method={method} onWrapped={handleWrapped} />
+            </div>
+          )}
           {renderViewer()}
         </div>
         {/* Experiments sidebar */}
@@ -1877,12 +1913,17 @@ function CompoundViewer({
   onClose,
   onDelete,
   onEdit,
+  onConvertedToChild,
 }: {
   method: Method;
   currentUser: string;
   onClose: () => void;
   onDelete: (id: number) => void;
   onEdit: () => void;
+  /** Fired after the user picks "Convert back to single method". The
+   *  argument is the surviving child method's id, or null when the compound
+   *  was empty. The parent uses this to navigate to the child's viewer. */
+  onConvertedToChild: (childMethodId: number | null) => void;
 }) {
   // Synthetic task that carries one attachment pointing at this compound,
   // with a null compound_snapshots payload. The CompoundMethodTabContent
@@ -1938,6 +1979,16 @@ function CompoundViewer({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Convert-back to single method — only when the compound has at
+              most one component left. Deletes the compound wrapper; the
+              parent navigates to the surviving child (or just closes when
+              the compound was empty). */}
+          {canModify && (method.components?.length ?? 0) <= 1 && (
+            <ConvertCompoundToSingleAction
+              compound={method}
+              onConverted={onConvertedToChild}
+            />
+          )}
           {canModify && (
             <button
               onClick={onEdit}

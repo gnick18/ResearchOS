@@ -26,6 +26,7 @@ import {
   validateCompoundComponents,
 } from "@/lib/methods/compound-graph";
 import type { NestedSnapshotAdapter } from "@/lib/methods/nested-snapshot";
+import { ConvertCompoundToSingleAction } from "./ConvertCompoundToSingleAction";
 import MarkdownMethodTabContent from "./MarkdownMethodTabContent";
 import PdfMethodTabContent from "./PdfMethodTabContent";
 import PcrMethodTabContent from "./PcrMethodTabContent";
@@ -50,6 +51,11 @@ interface CompoundMethodTabContentProps {
    *  attachment row. Mirrors the per-type viewer adapters. */
   nestedSnapshot?: NestedSnapshotAdapter<CompoundSnapshotPayload>;
   hideVariationNotes?: boolean;
+  /** When the user picks "Convert back to single method" / "Delete empty
+   *  compound", the parent (MethodTabs) flips the active tab to the surviving
+   *  child (or to null when the compound was empty). Omit in nested-snapshot
+   *  mode — the action is hidden there. */
+  onSwitchActiveMethod?: (methodId: number | null) => void;
 }
 
 /** Empty payload used when neither the task attachment nor the nested
@@ -94,6 +100,7 @@ export default function CompoundMethodTabContent({
   readOnly = false,
   nestedSnapshot,
   hideVariationNotes = false,
+  onSwitchActiveMethod,
 }: CompoundMethodTabContentProps) {
   const queryClient = useQueryClient();
   const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
@@ -223,6 +230,19 @@ export default function CompoundMethodTabContent({
         />
       )}
       <div className="flex-1 overflow-y-auto">
+        {/* Convert-back affordance, shown only when this compound has at most
+            one component left. Disabled in nested-snapshot mode — converting
+            an inner compound out from under a parent kit would orphan the
+            parent's snapshot slot. Read-only previews don't get it either. */}
+        {!readOnly && !nestedSnapshot && components.length <= 1 && onSwitchActiveMethod && (
+          <div className="px-6 pt-4">
+            <ConvertCompoundToSingleAction
+              compound={method}
+              task={task}
+              onConverted={(childId) => onSwitchActiveMethod(childId)}
+            />
+          </div>
+        )}
         {/* Sticky horizontal chip-strip TOC (Q-V2 lock — sticky CHIP STRIP,
             not sidebar). Mirrors the page-level tab strip's visual weight so
             composition feels like an extension of the tab pattern, not a new
