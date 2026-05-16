@@ -26,6 +26,7 @@ import {
   PcrIcon,
   PdfIcon,
   PlateIcon,
+  QpcrAnalysisIcon,
 } from "./method-type-icons";
 
 export type MethodTypeId =
@@ -35,7 +36,8 @@ export type MethodTypeId =
   | "lc_gradient"
   | "plate"
   | "cell_culture"
-  | "compound";
+  | "compound"
+  | "qpcr_analysis";
 
 export interface MethodTypeMeta {
   /** The discriminator value as written to disk. */
@@ -127,6 +129,17 @@ export const METHOD_TYPE_REGISTRY: Record<MethodTypeId, MethodTypeMeta> = {
     color: { bg: "bg-indigo-100", text: "text-indigo-600" },
     icon: CompoundIcon,
     description: "Bundle existing methods into one attachable kit (e.g. plate + assay PDF).",
+    hasStructuredProtocol: true,
+    category: "structured",
+  },
+  qpcr_analysis: {
+    id: "qpcr_analysis",
+    label: "qPCR analysis",
+    shortLabel: "qPCR",
+    color: { bg: "bg-amber-100", text: "text-amber-700" },
+    icon: QpcrAnalysisIcon,
+    description:
+      "Cq readouts, melt-curve Tm, standard-curve efficiency, and ΔΔCq fold-change. Pairs with a PCR cycling method via a compound for a full qPCR workflow.",
     hasStructuredProtocol: true,
     category: "structured",
   },

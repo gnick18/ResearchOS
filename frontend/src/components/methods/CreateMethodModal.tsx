@@ -8,6 +8,7 @@ import {
   lcGradientApi,
   plateApi,
   cellCultureApi,
+  qpcrAnalysisApi,
 } from "@/lib/local-api";
 import { fileService } from "@/lib/file-system/file-service";
 import { fileEvents } from "@/lib/attachments/file-events";
@@ -28,10 +29,15 @@ import type {
   CellCultureCellLine,
   CellCultureMedia,
   CellCulturePlannedEvent,
+  QPCRChemistry,
+  QPCRMeltCurveConfig,
+  QPCRReference,
+  QPCRStandardCurvePoint,
 } from "@/lib/types";
 import LcGradientEditor from "@/components/LcGradientEditor";
 import PlateLayoutEditor, { wellsToRegionLabels } from "@/components/PlateLayoutEditor";
 import CellCultureScheduleEditor from "@/components/CellCultureScheduleEditor";
+import QpcrAnalysisEditor from "@/components/QpcrAnalysisEditor";
 import { type MethodTypeId } from "@/lib/methods/method-type-registry";
 import { MethodTypeCategoryPicker } from "./MethodTypePicker";
 import { CompoundMethodBuilder } from "./CompoundMethodBuilder";
@@ -148,6 +154,23 @@ export function CreateMethodModal({
     cellCultureApi.getDefaultPlannedEvents(),
   );
   const [ccDescription, setCcDescription] = useState<string | null>(null);
+
+  // qPCR analysis defaults — SYBR Green chemistry, two-row reference list
+  // (one experimental target placeholder + one housekeeping reference) so
+  // ΔΔCq is reachable out of the box.
+  const [qpcrChemistry, setQpcrChemistry] = useState<QPCRChemistry>("sybr");
+  const [qpcrChemistryLabel, setQpcrChemistryLabel] = useState<string | null>(null);
+  const [qpcrDescription, setQpcrDescription] = useState<string | null>(null);
+  const [qpcrUseDeltaDeltaCq, setQpcrUseDeltaDeltaCq] = useState(true);
+  const [qpcrReferences, setQpcrReferences] = useState<QPCRReference[]>(() =>
+    qpcrAnalysisApi.getDefaultReferences(),
+  );
+  const [qpcrStandardCurve, setQpcrStandardCurve] = useState<QPCRStandardCurvePoint[]>(() =>
+    qpcrAnalysisApi.getDefaultStandardCurve(),
+  );
+  const [qpcrMeltCurve, setQpcrMeltCurve] = useState<QPCRMeltCurveConfig | null>(() =>
+    qpcrAnalysisApi.getDefaultMeltCurve(),
+  );
 
   const slug = name
     .trim()
@@ -402,6 +425,30 @@ export function CreateMethodModal({
             .filter(Boolean),
           is_public: isPublic,
         });
+      } else if (uploadType === "qpcr_analysis") {
+        const protocol = await qpcrAnalysisApi.create({
+          name: name.trim(),
+          description: qpcrDescription,
+          chemistry: qpcrChemistry,
+          chemistry_label: qpcrChemistryLabel,
+          references: qpcrReferences,
+          standard_curve: qpcrStandardCurve,
+          melt_curve: qpcrMeltCurve,
+          use_delta_delta_cq: qpcrUseDeltaDeltaCq,
+          folder_path: folder.trim() || null,
+          is_public: isPublic,
+        });
+        await methodsApi.create({
+          name: name.trim(),
+          source_path: `qpcr_analysis://protocol/${protocol.id}`,
+          method_type: "qpcr_analysis",
+          folder_path: folder.trim() || null,
+          tags: tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean),
+          is_public: isPublic,
+        });
       }
       onCreated();
     } catch (error: unknown) {
@@ -410,7 +457,7 @@ export function CreateMethodModal({
     } finally {
       setSaving(false);
     }
-  }, [name, slug, uploadType, mdContent, pdfFile, folder, tags, isPublic, pcrGradient, pcrIngredients, pcrNotes, lcGradientSteps, lcColumn, lcWavelength, lcDescription, lcIngredients, platePlateSize, plateWells, plateDescription, ccCellLine, ccMedia, ccPlannedEvents, ccDescription, onCreated]);
+  }, [name, slug, uploadType, mdContent, pdfFile, folder, tags, isPublic, pcrGradient, pcrIngredients, pcrNotes, lcGradientSteps, lcColumn, lcWavelength, lcDescription, lcIngredients, platePlateSize, plateWells, plateDescription, ccCellLine, ccMedia, ccPlannedEvents, ccDescription, qpcrChemistry, qpcrChemistryLabel, qpcrDescription, qpcrUseDeltaDeltaCq, qpcrReferences, qpcrStandardCurve, qpcrMeltCurve, onCreated]);
 
   // When the user picks the Compound tile, hand off to the dedicated
   // builder workspace per proposal section 2.4.2 (stage-2 view). The
@@ -663,6 +710,31 @@ export function CreateMethodModal({
                   onWellsChange={setPlateWells}
                   description={plateDescription}
                   onDescriptionChange={setPlateDescription}
+                />
+              </div>
+            )}
+
+            {/* qPCR analysis editor */}
+            {uploadType === "qpcr_analysis" && (
+              <div className="space-y-2">
+                <p className="text-xs text-gray-400">
+                  qPCR analysis protocols store the references list (experimental targets + housekeeping), optional standard-curve dilution points, and the melt-curve sweep. Per-task Cq readouts and ΔΔCq fold-change land on the experiment page. Pair with a PCR method via a compound for the full qPCR workflow.
+                </p>
+                <QpcrAnalysisEditor
+                  chemistry={qpcrChemistry}
+                  onChemistryChange={setQpcrChemistry}
+                  chemistryLabel={qpcrChemistryLabel}
+                  onChemistryLabelChange={setQpcrChemistryLabel}
+                  description={qpcrDescription}
+                  onDescriptionChange={setQpcrDescription}
+                  useDeltaDeltaCq={qpcrUseDeltaDeltaCq}
+                  onUseDeltaDeltaCqChange={setQpcrUseDeltaDeltaCq}
+                  references={qpcrReferences}
+                  onReferencesChange={setQpcrReferences}
+                  standardCurve={qpcrStandardCurve}
+                  onStandardCurveChange={setQpcrStandardCurve}
+                  meltCurve={qpcrMeltCurve}
+                  onMeltCurveChange={setQpcrMeltCurve}
                 />
               </div>
             )}

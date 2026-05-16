@@ -110,6 +110,7 @@ export default function LcMethodTabContent({
       cell_culture_schedule: null,
       variation_notes: null,
       compound_snapshots: null,
+      qpcr_analysis: null,
     };
   }, [nestedRead, attachment, methodId]);
 

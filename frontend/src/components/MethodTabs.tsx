@@ -15,6 +15,7 @@ import LcMethodTabContent from "./methods/LcMethodTabContent";
 import PlateMethodTabContent from "./methods/PlateMethodTabContent";
 import CellCultureMethodTabContent from "./methods/CellCultureMethodTabContent";
 import CompoundMethodTabContent from "./methods/CompoundMethodTabContent";
+import QpcrAnalysisMethodTabContent from "./methods/QpcrAnalysisMethodTabContent";
 
 interface MethodTabsProps {
   task: Task;
@@ -134,6 +135,8 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                   <span className="text-xs">🧫</span>
                 ) : method?.method_type === "cell_culture" ? (
                   <span className="text-xs">🧪</span>
+                ) : method?.method_type === "qpcr_analysis" ? (
+                  <span className="text-xs">🔬</span>
                 ) : method?.method_type === "pdf" ? (
                   <span className="text-xs">📕</span>
                 ) : method?.method_type === "compound" ? (
@@ -273,6 +276,17 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                     readOnly={readOnly}
                   />
                 );
+              case "qpcr_analysis":
+                return (
+                  <QpcrAnalysisMethodTabContent
+                    task={task}
+                    method={activeMethod}
+                    methodId={activeMethodId}
+                    attachment={activeAttachment}
+                    onTaskUpdate={onTaskUpdate}
+                    readOnly={readOnly}
+                  />
+                );
               case "pdf":
                 return (
                   <PdfMethodTabContent
@@ -325,8 +339,20 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
 function resolveMethodType(
   methodType: string | null | undefined,
   sourcePath: string | null | undefined,
-): "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "compound" {
+): "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "compound" | "qpcr_analysis" {
   if (methodType === "compound") return "compound";
+  // qPCR analysis is matched before PCR so the `qpcr_analysis://protocol/...`
+  // source-path scheme isn't shadowed by the `pcr://` prefix match below
+  // (which would otherwise also accept `qpcr_analysis://` as a prefix-hit if
+  // we tightened the regex). The two are sibling types: one for the cycling
+  // recipe, one for the analysis layer; composed via a compound to get the
+  // full qPCR workflow.
+  if (
+    methodType === "qpcr_analysis" ||
+    (sourcePath?.startsWith("qpcr_analysis://") ?? false)
+  ) {
+    return "qpcr_analysis";
+  }
   if (methodType === "pcr" || (sourcePath?.startsWith("pcr://") ?? false)) return "pcr";
   if (
     methodType === "lc_gradient" ||

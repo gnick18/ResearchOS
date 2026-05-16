@@ -10,6 +10,7 @@ import {
   lcGradientApi,
   plateApi,
   cellCultureApi,
+  qpcrAnalysisApi,
   usersApi,
   fetchAllMethodsIncludingShared,
 } from "@/lib/local-api";
@@ -37,6 +38,7 @@ import type {
 import LcViewer from "@/components/LcViewer";
 import PlateViewer from "@/components/PlateViewer";
 import CellCultureViewer from "@/components/CellCultureViewer";
+import QpcrAnalysisViewer from "@/components/QpcrAnalysisViewer";
 import { getMethodTypeMeta } from "@/lib/methods/method-type-registry";
 import { CreateMethodModal } from "@/components/methods/CreateMethodModal";
 import {
@@ -333,6 +335,16 @@ export default function MethodsPage() {
           } catch {
             // Non-fatal — cell culture schedule might not exist
           }
+        } else if (
+          method.method_type === "qpcr_analysis" &&
+          method.source_path.startsWith("qpcr_analysis://protocol/")
+        ) {
+          const qpcrId = parseInt(method.source_path.replace("qpcr_analysis://protocol/", ""));
+          try {
+            await qpcrAnalysisApi.delete(qpcrId);
+          } catch {
+            // Non-fatal — qPCR analysis protocol might not exist
+          }
         } else {
           const methodDir = method.source_path.substring(0, method.source_path.lastIndexOf("/"));
           try {
@@ -403,6 +415,16 @@ export default function MethodsPage() {
               await cellCultureApi.delete(ccId);
             } catch {
               // Non-fatal — cell culture schedule might not exist
+            }
+          } else if (
+            method.method_type === "qpcr_analysis" &&
+            method.source_path.startsWith("qpcr_analysis://protocol/")
+          ) {
+            const qpcrId = parseInt(method.source_path.replace("qpcr_analysis://protocol/", ""));
+            try {
+              await qpcrAnalysisApi.delete(qpcrId);
+            } catch {
+              // Non-fatal — qPCR analysis protocol might not exist
             }
           } else {
             const methodDir = method.source_path.substring(
@@ -842,6 +864,9 @@ function ViewMethodModal({
     }
     if (method.method_type === "cell_culture") {
       return <CellCultureViewer method={method} currentUser={currentUser} onClose={onClose} onDelete={onDelete} />;
+    }
+    if (method.method_type === "qpcr_analysis") {
+      return <QpcrAnalysisViewer method={method} currentUser={currentUser} onClose={onClose} onDelete={onDelete} />;
     }
     if (method.method_type === "compound") {
       return (
@@ -1839,6 +1864,7 @@ function CompoundViewer({
           cell_culture_schedule: null,
           variation_notes: null,
           compound_snapshots: null,
+          qpcr_analysis: null,
         },
       ],
       owner: method.owner || currentUser,
