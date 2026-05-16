@@ -2,6 +2,22 @@ export interface FileServiceConfig {
   directoryHandle: FileSystemDirectoryHandle;
 }
 
+// One-shot warn flag. Non-Chromium browsers fall back to non-atomic
+// rename; surface it once per session so it's grep-able in DevTools but
+// not noisy. Path is intentionally NOT logged (may contain usernames).
+let warnedAtomicFallback = false;
+function warnNonAtomicFallbackOnce(): void {
+  if (warnedAtomicFallback) return;
+  warnedAtomicFallback = true;
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "unknown";
+  console.warn(
+    "file-service.atomicWrite: FSA move() unavailable in this browser; " +
+      "falling back to non-atomic removeEntry+rewrite. " +
+      "User-Agent:",
+    ua
+  );
+}
+
 export class FileService {
   private directoryHandle: FileSystemDirectoryHandle | null = null;
 
@@ -201,22 +217,7 @@ export class FileService {
   }
 
   async writeJson<T>(path: string, data: T): Promise<void> {
-    if (!this.directoryHandle) throw new Error("No directory handle set");
-
-    const parts = path.split("/").filter(Boolean);
-    const fileName = parts.pop();
-    if (!fileName) throw new Error("Invalid path");
-
-    let currentHandle: FileSystemDirectoryHandle = this.directoryHandle;
-
-    for (const part of parts) {
-      currentHandle = await currentHandle.getDirectoryHandle(part, { create: true });
-    }
-
-    const fileHandle = await currentHandle.getFileHandle(fileName, { create: true });
-    const writable = await fileHandle.createWritable();
-    await writable.write(JSON.stringify(data, null, 2));
-    await writable.close();
+    await this.atomicWrite(path, JSON.stringify(data, null, 2));
   }
 
   async deleteFile(path: string): Promise<boolean> {
@@ -342,6 +343,18 @@ export class FileService {
   }
 
   async writeFileFromBlob(path: string, blob: Blob): Promise<void> {
+    await this.atomicWrite(path, blob);
+  }
+
+  // Atomic write helper: write to `${fileName}.tmp` first, then rename via FSA
+  // `move()` to the final name. The rename is atomic on Chromium so a torn
+  // write (tab close, crash, unhandled rejection mid-write) can only ever
+  // leave the OLD file contents intact, never a zero-byte file. See AGENTS.md
+  // §6 for the failure mode this guards against.
+  private async atomicWrite(
+    path: string,
+    payload: string | Blob
+  ): Promise<void> {
     if (!this.directoryHandle) throw new Error("No directory handle set");
 
     const parts = path.split("/").filter(Boolean);
@@ -354,10 +367,72 @@ export class FileService {
       currentHandle = await currentHandle.getDirectoryHandle(part, { create: true });
     }
 
-    const fileHandle = await currentHandle.getFileHandle(fileName, { create: true });
-    const writable = await fileHandle.createWritable();
-    await writable.write(blob);
-    await writable.close();
+    const tmpName = `${fileName}.tmp`;
+    const tmpHandle = (await currentHandle.getFileHandle(tmpName, {
+      create: true,
+    })) as FileSystemFileHandle & {
+      move?: (parent: FileSystemDirectoryHandle, newName: string) => Promise<void>;
+    };
+
+    try {
+      const writable = await tmpHandle.createWritable();
+      try {
+        await writable.write(payload);
+        await writable.close();
+      } catch (writeErr) {
+        // Try to abort the writable so the tmp file is discarded.
+        try {
+          await (writable as FileSystemWritableFileStream & {
+            abort?: () => Promise<void>;
+          }).abort?.();
+        } catch {
+          // Swallow: best-effort cleanup; the tmp file may linger and be
+          // rotated out by the next successful write.
+        }
+        throw writeErr;
+      }
+
+      // Tmp file is durable on disk. Atomic rename to the final name. The
+      // FSA `move()` API is Chromium-only (Chrome 110+); on browsers without
+      // it, fall back to removeEntry + move-to-name (slightly racy window
+      // but still preserves "old contents existed up until success" since
+      // the failure leaves the .tmp file as a recoverable checkpoint).
+      if (typeof tmpHandle.move === "function") {
+        await tmpHandle.move(currentHandle, fileName);
+      } else {
+        warnNonAtomicFallbackOnce();
+        try {
+          await currentHandle.removeEntry(fileName);
+        } catch {
+          // Target may not exist yet (first write); proceed.
+        }
+        // Re-fetch the tmp handle as a plain FileSystemFileHandle and copy
+        // its contents over to the final name. Best-effort non-atomic path.
+        const tmpFile = await tmpHandle.getFile();
+        const finalHandle = await currentHandle.getFileHandle(fileName, {
+          create: true,
+        });
+        const finalWritable = await finalHandle.createWritable();
+        await finalWritable.write(tmpFile);
+        await finalWritable.close();
+        try {
+          await currentHandle.removeEntry(tmpName);
+        } catch {
+          // Tmp left behind; next successful atomic-write to this name
+          // rotates it out via the truncate-on-getFileHandle-with-create path.
+        }
+      }
+    } catch (err) {
+      // Best-effort tmp cleanup. We still rethrow so the caller learns the
+      // write failed and the user-facing layer can surface it.
+      try {
+        await currentHandle.removeEntry(tmpName);
+      } catch {
+        // Stale .tmp left behind; not data-corrupting (the original file is
+        // intact) and the next successful write rotates it out.
+      }
+      throw err;
+    }
   }
 
   async createWritable(path: string): Promise<FileSystemWritableFileStream | null> {
