@@ -182,6 +182,31 @@ export function CodingWorkflowIcon({ className, size = 16 }: MethodTypeIconProps
   );
 }
 
+export function QpcrAnalysisIcon({ className, size = 16 }: MethodTypeIconProps) {
+  // Stylized amplification curve — a sigmoid sweep up from baseline (alluding
+  // to the Cq threshold-crossing shape seen on every qPCR readout). Reads
+  // cleanly at 16px alongside the PCR helix and LC gradient glyphs.
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M3 20h18" />
+      <path d="M3 20V4" />
+      <path d="M3 18c4 0 6 0 8-2s2-8 6-8 4 0 4 0" />
+      <circle cx="13" cy="10" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function PcrIcon({ className, size = 16 }: MethodTypeIconProps) {
   return (
     <svg

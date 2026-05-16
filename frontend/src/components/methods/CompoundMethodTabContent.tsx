@@ -12,6 +12,7 @@ import type {
   Method,
   PCRSnapshotPayload,
   PlateAnnotationSnapshot,
+  QPCRAnalysisSnapshot,
   Task,
   TaskMethodAttachment,
 } from "@/lib/types";
@@ -31,6 +32,7 @@ import PcrMethodTabContent from "./PcrMethodTabContent";
 import LcMethodTabContent from "./LcMethodTabContent";
 import PlateMethodTabContent from "./PlateMethodTabContent";
 import CellCultureMethodTabContent from "./CellCultureMethodTabContent";
+import QpcrAnalysisMethodTabContent from "./QpcrAnalysisMethodTabContent";
 import VariationNotesPanel from "./VariationNotesPanel";
 
 interface CompoundMethodTabContentProps {
@@ -510,6 +512,19 @@ function CompoundChildBody({
           readOnly={readOnly}
           hideVariationNotes
           nestedSnapshot={makeChildAdapter<CellCultureScheduleInstance>(idKey)}
+        />
+      );
+    case "qpcr_analysis":
+      return (
+        <QpcrAnalysisMethodTabContent
+          task={task}
+          method={child}
+          methodId={childId}
+          attachment={attachment}
+          onTaskUpdate={onTaskUpdate}
+          readOnly={readOnly}
+          hideVariationNotes
+          nestedSnapshot={makeChildAdapter<QPCRAnalysisSnapshot>(idKey)}
         />
       );
     case "pdf":

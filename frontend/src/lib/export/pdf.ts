@@ -44,6 +44,7 @@ import type {
   CellCulturePlannedEvent,
   CellCultureSupplement,
   CodingWorkflowProtocol,
+  QPCRAnalysisProtocol,
 } from "@/lib/types";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -1447,6 +1448,125 @@ export async function buildPdf(
     return out;
   }
 
+  function renderQpcrAnalysisMethodBody(mp: MethodPayload): React.ReactNode[] {
+    const protocol: QPCRAnalysisProtocol | null = mp.qpcrAnalysisProtocol ?? null;
+    if (!protocol) {
+      return [
+        h(
+          Text,
+          { key: "qpcr-missing", style: styles.methodIntro },
+          "qPCR analysis method (protocol could not be loaded).",
+        ),
+      ];
+    }
+    let snapshotCqs: Record<string, { cq: number; notes?: string | null }> = {};
+    let snapshotMeltTms: Record<string, number> = {};
+    let snapshotNotes: string | null = null;
+    const att = mp.attachment;
+    if (att?.qpcr_analysis && att.qpcr_analysis.trim()) {
+      try {
+        const parsed = JSON.parse(att.qpcr_analysis);
+        if (parsed && typeof parsed === "object") {
+          if (parsed.cqs && typeof parsed.cqs === "object") snapshotCqs = parsed.cqs;
+          if (parsed.melt_tms && typeof parsed.melt_tms === "object") snapshotMeltTms = parsed.melt_tms;
+          if (typeof parsed.notes === "string") snapshotNotes = parsed.notes;
+        }
+      } catch {
+        // Fall back to no snapshot.
+      }
+    }
+
+    const keyPrefix = `m${mp.method.id}-qpcr`;
+    const out: React.ReactNode[] = [];
+
+    out.push(
+      h(
+        Text,
+        { key: `${keyPrefix}-chem`, style: styles.methodIntro },
+        `Chemistry: ${protocol.chemistry}${protocol.chemistry === "other" && protocol.chemistry_label ? ` (${protocol.chemistry_label})` : ""} · ΔΔCq ${protocol.use_delta_delta_cq ? "enabled" : "disabled"}`,
+      ),
+    );
+
+    if (protocol.references.length > 0) {
+      out.push(h(Text, { key: `${keyPrefix}-r-h`, style: styles.h4 }, "Targets & readouts"));
+      const refRows: React.ReactNode[] = [
+        h(
+          View,
+          { key: `${keyPrefix}-r-head`, style: styles.tableRow, wrap: false },
+          h(Text, { style: styles.tableCellHeader }, "Target"),
+          h(Text, { style: styles.tableCellHeader }, "Channel"),
+          h(Text, { style: styles.tableCellHeader }, "Cq"),
+          ...(protocol.melt_curve ? [h(Text, { style: styles.tableCellHeader }, "Tm (°C)")] : []),
+        ),
+      ];
+      protocol.references.forEach((r, i) => {
+        const cq = snapshotCqs[r.id]?.cq;
+        const tm = snapshotMeltTms[r.id];
+        const cells = [
+          h(Text, { style: styles.tableCell }, `${r.target || "(unnamed)"}${r.is_reference ? " (ref)" : ""}`),
+          h(Text, { style: styles.tableCell }, r.channel),
+          h(Text, { style: styles.tableCell }, Number.isFinite(cq) ? (cq as number).toFixed(2) : "—"),
+        ];
+        if (protocol.melt_curve) {
+          cells.push(h(Text, { style: styles.tableCell }, tm !== undefined ? tm.toFixed(1) : ""));
+        }
+        refRows.push(
+          h(View, { key: `${keyPrefix}-r-r${i}`, style: styles.tableRow, wrap: false }, ...cells),
+        );
+      });
+      out.push(h(View, { key: `${keyPrefix}-r`, style: styles.pcrTable }, ...refRows));
+    }
+
+    if (protocol.standard_curve.length > 0) {
+      out.push(h(Text, { key: `${keyPrefix}-sc-h`, style: styles.h4 }, "Standard curve"));
+      const curveRows: React.ReactNode[] = [
+        h(
+          View,
+          { key: `${keyPrefix}-sc-head`, style: styles.tableRow, wrap: false },
+          h(Text, { style: styles.tableCellHeader }, "log₁₀(quantity)"),
+          h(Text, { style: styles.tableCellHeader }, "Cq"),
+          h(Text, { style: styles.tableCellHeader }, "Replicates"),
+        ),
+      ];
+      protocol.standard_curve.forEach((p, i) => {
+        curveRows.push(
+          h(
+            View,
+            { key: `${keyPrefix}-sc-r${i}`, style: styles.tableRow, wrap: false },
+            h(Text, { style: styles.tableCell }, p.log_quantity.toString()),
+            h(Text, { style: styles.tableCell }, p.cq.toString()),
+            h(Text, { style: styles.tableCell }, p.replicate_n ? String(p.replicate_n) : ""),
+          ),
+        );
+      });
+      out.push(h(View, { key: `${keyPrefix}-sc`, style: styles.pcrTable }, ...curveRows));
+    }
+
+    if (protocol.melt_curve) {
+      out.push(
+        h(
+          Text,
+          { key: `${keyPrefix}-mc`, style: styles.methodIntro },
+          `Melt curve: ${protocol.melt_curve.start_c}–${protocol.melt_curve.end_c} °C @ ${protocol.melt_curve.ramp_rate_c_per_sec} °C/sec`,
+        ),
+      );
+    }
+    if (snapshotNotes) {
+      out.push(h(Text, { key: `${keyPrefix}-n-h`, style: styles.h4 }, "Run notes"));
+      out.push(h(Text, { key: `${keyPrefix}-n`, style: styles.methodIntro }, snapshotNotes));
+    }
+    if (protocol.description && protocol.description.trim()) {
+      out.push(
+        h(
+          Text,
+          { key: `${keyPrefix}-d`, style: styles.methodIntro },
+          protocol.description.trim(),
+        ),
+      );
+    }
+    return out;
+  }
+
   function renderCellCultureMethodBody(mp: MethodPayload): React.ReactNode[] {
     const sourceSchedule: CellCultureSchedule | null = mp.cellCultureSchedule ?? null;
     if (!sourceSchedule) {
@@ -1685,6 +1805,8 @@ export async function buildPdf(
       children.push(...renderCellCultureMethodBody(mp));
     } else if (method.method_type === "coding_workflow") {
       children.push(...renderCodingWorkflowMethodBody(mp));
+    } else if (method.method_type === "qpcr_analysis") {
+      children.push(...renderQpcrAnalysisMethodBody(mp));
     } else {
       children.push(
         h(

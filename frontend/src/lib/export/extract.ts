@@ -6,6 +6,7 @@ import type {
   PCRProtocol,
   PlateProtocol,
   Project,
+  QPCRAnalysisProtocol,
   Task,
   TaskMethodAttachment,
 } from "@/lib/types";
@@ -24,6 +25,7 @@ import {
   plateApi,
   cellCultureApi,
   codingWorkflowApi,
+  qpcrAnalysisApi,
 } from "@/lib/local-api";
 import type {
   AttachmentOrigin,
@@ -341,6 +343,38 @@ async function fetchCodingWorkflowSafe(
   }
 }
 
+// Matches `qpcr_analysis://protocol/{id}` source_path format.
+function extractQpcrAnalysisId(sourcePath: string | null | undefined): number | null {
+  if (!sourcePath) return null;
+  const match = sourcePath.match(/^qpcr_analysis:\/\/protocol\/(\d+)$/);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+async function fetchQpcrAnalysisProtocolSafe(
+  method: Method,
+  task: Task,
+): Promise<QPCRAnalysisProtocol | null> {
+  const id = extractQpcrAnalysisId(method.source_path);
+  if (id === null) return null;
+  try {
+    const owner = method.owner || (task.is_shared_with_me ? task.owner : undefined);
+    const protocol = await qpcrAnalysisApi.get(id, owner);
+    if (!protocol) {
+      console.warn(
+        `[export] qPCR analysis ${id} for method ${method.id} could not be loaded`,
+      );
+      return null;
+    }
+    return protocol;
+  } catch (err) {
+    console.warn(
+      `[export.extract] failed to load qPCR analysis ${id} for method ${method.id}:`,
+      err,
+    );
+    return null;
+  }
+}
+
 async function fetchPCRProtocolSafe(
   method: Method,
   task: Task
@@ -411,6 +445,7 @@ async function buildMethodPayload(
   let plateProtocol: PlateProtocol | null = null;
   let cellCultureSchedule: CellCultureSchedule | null = null;
   let codingWorkflow: CodingWorkflowProtocol | null = null;
+  let qpcrAnalysisProtocol: QPCRAnalysisProtocol | null = null;
 
   if (method.method_type === "markdown" && method.source_path) {
     try {
@@ -478,6 +513,9 @@ async function buildMethodPayload(
   if (method.method_type === "coding_workflow") {
     codingWorkflow = await fetchCodingWorkflowSafe(method, task);
   }
+  if (method.method_type === "qpcr_analysis") {
+    qpcrAnalysisProtocol = await fetchQpcrAnalysisProtocolSafe(method, task);
+  }
 
   return {
     payload: {
@@ -489,6 +527,7 @@ async function buildMethodPayload(
       plateProtocol,
       cellCultureSchedule,
       codingWorkflow,
+      qpcrAnalysisProtocol,
     },
     pdfAttachment,
   };

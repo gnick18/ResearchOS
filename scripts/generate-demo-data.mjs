@@ -357,6 +357,10 @@ function buildEntries() {
       // lives at protocol id 1 (see users/alex/coding_workflows/1.json
       // below). The parallel Method row is id 9 per proposal §6.2.
       coding_workflows: 1,
+      // Methods Expansion v2 Phase 1c: alex's qPCR analysis fixture lives
+      // at protocol id 1 (see users/alex/qpcr_analyses/1.json below).
+      // The parallel Method row is id 11 per proposal §6.2.
+      qpcr_analyses: 1,
       purchase_items: 20,
       lab_links: 6,
       notes: 2,
@@ -644,7 +648,25 @@ function buildEntries() {
         { id: "st3", text: "Run qPCR — triplicates per colony", is_complete: false },
         { id: "st4", text: "ΔΔCt vs ACT1 reference, plot fold-change", is_complete: false },
       ],
-      method_attachments: [{ method_id: 5, owner: "alex", snapshot_at: TODAY + "T08:00:00Z" }] },
+      method_attachments: [
+        { method_id: 5, owner: "alex", snapshot_at: TODAY + "T08:00:00Z" },
+        // Methods Expansion v2 Phase 1: qPCR-analysis method attached so the
+        // QpcrAnalysisMethodTabContent path is reachable in fixture mode.
+        // Pre-seeded Cq readouts demonstrate the ΔΔCq fold-change table and
+        // the bar-chart visualization without requiring user input.
+        {
+          method_id: 11,
+          owner: "alex",
+          snapshot_at: TODAY + "T08:00:00Z",
+          qpcr_analysis: JSON.stringify({
+            cqs: {
+              "flbA-1": { cq: 24.3, notes: "induced, biological triplicate mean" },
+              "ref-act1": { cq: 21.7, notes: "housekeeping baseline" },
+            },
+            notes: "Demo readouts — induced cultures show ~6× upregulation of flbA vs ACT1.",
+          }),
+        },
+      ] },
   ]));
 
   // alex methods
@@ -877,6 +899,29 @@ function buildEntries() {
     },
   ]);
 
+  // Methods Expansion v2 Phase 1c: qPCR-analysis-typed method (id 11 per
+  // proposal §6.2 pre-assigned id ranges). Surfaces the per-target Cq
+  // readouts + ΔΔCq fold-change calculation on the experiment page; pairs
+  // with the existing PCR method (id 5 = "qPCR fakeGFP expression") via a
+  // future compound to give the full qPCR workflow.
+  out.push([
+    "users/alex/methods/11.json",
+    {
+      id: 11,
+      name: "[Demo protocol] flbA expression vs control (ΔΔCq)",
+      source_path: "qpcr_analysis://protocol/1",
+      method_type: "qpcr_analysis",
+      folder_path: "qPCR",
+      parent_method_id: null,
+      tags: ["demo", "qPCR", "ΔΔCq"],
+      attachments: [],
+      is_public: false,
+      created_by: "alex",
+      owner: "alex",
+      shared_with: [],
+    },
+  ]);
+
   // alex coding workflow (private). Realistic-but-fake Python QC script —
   // loads OD600 readings from a plate reader CSV, fits an exponential
   // growth model, plots curves per well. The fake-inducer titration and
@@ -897,6 +942,38 @@ function buildEntries() {
         "\"\"\"Demo growth-curve QC script.\n\nReads a plate reader CSV (one row per well, one column per timepoint)\nand fits an exponential growth model for the log-phase window.\n\"\"\"\nimport numpy as np\nimport pandas as pd\nimport matplotlib.pyplot as plt\n\n# --- Config ---\nINPUT_CSV = \"demo-strain-inducer-titration.csv\"  # exported from the plate reader\nLOG_PHASE_HOURS = (2.0, 6.0)\nBLANK_COLUMNS = [\"A1\"]  # see plate template (alex methods id 7)\n\n\ndef fit_exp_growth(times_h: np.ndarray, od: np.ndarray) -> float:\n    \"\"\"Linear fit on log(OD); returns specific growth rate (1/h).\"\"\"\n    mask = (times_h >= LOG_PHASE_HOURS[0]) & (times_h <= LOG_PHASE_HOURS[1])\n    slope, _ = np.polyfit(times_h[mask], np.log(od[mask]), 1)\n    return float(slope)\n\n\ndef main() -> None:\n    df = pd.read_csv(INPUT_CSV)\n    time_h = df[\"time_h\"].to_numpy()\n    blanks = df[BLANK_COLUMNS].mean(axis=1).to_numpy()\n\n    sample_cols = [c for c in df.columns if c not in (\"time_h\", *BLANK_COLUMNS)]\n    rates = {}\n    for well in sample_cols:\n        od_corrected = df[well].to_numpy() - blanks\n        rates[well] = fit_exp_growth(time_h, np.clip(od_corrected, 1e-3, None))\n\n    rates_series = pd.Series(rates).sort_values(ascending=False)\n    print(\"Top 8 wells by growth rate:\")\n    print(rates_series.head(8).to_string())\n\n    # Quick visual — log-OD vs time, all wells.\n    fig, ax = plt.subplots(figsize=(6, 4))\n    for well in sample_cols:\n        ax.plot(time_h, np.log(np.clip(df[well] - blanks, 1e-3, None)), alpha=0.4)\n    ax.set_xlabel(\"Time (h)\")\n    ax.set_ylabel(\"log(OD600 - blank)\")\n    ax.set_title(\"Demo growth curves\")\n    fig.tight_layout()\n    fig.savefig(\"growth-curves-qc.png\", dpi=150)\n\n\nif __name__ == \"__main__\":\n    main()\n",
       external_path: "analysis/growth-curve-qc.py",
       output_renderer: "syntax-highlight",
+      created_at: "2026-04-29T00:00:00Z",
+      updated_at: "2026-04-29T00:00:00Z",
+      is_public: false,
+      created_by: "alex",
+      owner: "alex",
+      shared_with: [],
+    },
+  ]);
+
+  // alex qPCR analysis (private). Realistic-but-fake SYBR Green protocol
+  // measuring fake-flbA expression in FakeYeast strains, with ACT1 as the
+  // housekeeping reference for ΔΔCq fold-change. Standard curve omitted at
+  // the template level (per-run efficiency calc is optional); melt curve
+  // configured 60→95 °C @ 0.1 °C/sec. Per-task Cq readouts live on task 30's
+  // attachment snapshot (seeded above) so the bar chart + fold-change table
+  // render in fixture mode without user input.
+  out.push([
+    "users/alex/qpcr_analyses/1.json",
+    {
+      id: 1,
+      name: "[Demo protocol] flbA expression vs control (ΔΔCq)",
+      description:
+        "Demo qPCR analysis — measures fake-flbA mRNA in induced vs uninduced FakeYeast cultures, normalized to ACT1 housekeeping. Pair with PCR method 5 (qPCR fakeGFP expression) via a compound for the full cycling + analysis kit.",
+      chemistry: "sybr",
+      chemistry_label: null,
+      references: [
+        { id: "flbA-1", target: "flbA", channel: "FAM", is_reference: false, expected_cq: 24 },
+        { id: "ref-act1", target: "ACT1", channel: "FAM", is_reference: true, expected_cq: 22 },
+      ],
+      standard_curve: [],
+      melt_curve: { start_c: 60, end_c: 95, ramp_rate_c_per_sec: 0.1 },
+      use_delta_delta_cq: true,
       created_at: "2026-04-29T00:00:00Z",
       updated_at: "2026-04-29T00:00:00Z",
       is_public: false,

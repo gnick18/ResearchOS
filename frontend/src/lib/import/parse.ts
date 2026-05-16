@@ -7,6 +7,7 @@ import type {
   PCRProtocol,
   PlateProtocol,
   Project,
+  QPCRAnalysisProtocol,
   Task,
 } from "@/lib/types";
 import type {
@@ -23,6 +24,7 @@ const METHOD_LC_PROTOCOL_RE = /^methods\/method-(\d+)-lc-gradient-protocol\.json
 const METHOD_PLATE_PROTOCOL_RE = /^methods\/method-(\d+)-plate-protocol\.json$/;
 const METHOD_CELL_CULTURE_SCHEDULE_RE = /^methods\/method-(\d+)-cell-culture-schedule\.json$/;
 const METHOD_CODING_WORKFLOW_RE = /^methods\/method-(\d+)-coding-workflow\.json$/;
+const METHOD_QPCR_ANALYSIS_PROTOCOL_RE = /^methods\/method-(\d+)-qpcr-analysis-protocol\.json$/;
 const METHOD_FILE_RE = /^methods\/method-(\d+)-(.+)$/;
 const METHOD_UNATTACHED_RE = /^methods\/unattached\/(.+)$/;
 const NOTES_ATTACHMENT_RE = /^notes\/(Files|Images)\/(.+)$/;
@@ -131,6 +133,7 @@ export async function parseImportBundle(file: Blob): Promise<ImportPayload> {
   const methodPlateProtocols = new Map<number, PlateProtocol>();
   const methodCellCultureSchedules = new Map<number, CellCultureSchedule>();
   const methodCodingWorkflows = new Map<number, CodingWorkflowProtocol>();
+  const methodQpcrAnalysisProtocols = new Map<number, QPCRAnalysisProtocol>();
   const attachments: ImportAttachment[] = [];
 
   // Iterate every file. `zip.files` is a Record<string, JSZipObject>.
@@ -221,6 +224,18 @@ export async function parseImportBundle(file: Blob): Promise<ImportPayload> {
       continue;
     }
 
+    const qpcrAnalysisProtocolMatch = path.match(METHOD_QPCR_ANALYSIS_PROTOCOL_RE);
+    if (qpcrAnalysisProtocolMatch) {
+      const id = Number(qpcrAnalysisProtocolMatch[1]);
+      try {
+        const protocol = JSON.parse(await entry.async("string")) as QPCRAnalysisProtocol;
+        methodQpcrAnalysisProtocols.set(id, protocol);
+      } catch (err) {
+        console.warn(`[import.parse] failed to parse ${path}:`, err);
+      }
+      continue;
+    }
+
     const methodFileMatch = path.match(METHOD_FILE_RE);
     if (methodFileMatch) {
       const id = Number(methodFileMatch[1]);
@@ -288,6 +303,7 @@ export async function parseImportBundle(file: Blob): Promise<ImportPayload> {
     const plateProtocol = methodPlateProtocols.get(id) ?? null;
     const cellCultureSchedule = methodCellCultureSchedules.get(id) ?? null;
     const codingWorkflow = methodCodingWorkflows.get(id) ?? null;
+    const qpcrAnalysisProtocol = methodQpcrAnalysisProtocols.get(id) ?? null;
     methods.push({
       record,
       bodyMarkdown: body,
@@ -298,6 +314,7 @@ export async function parseImportBundle(file: Blob): Promise<ImportPayload> {
       plateProtocol,
       cellCultureSchedule,
       codingWorkflow,
+      qpcrAnalysisProtocol,
     });
     // Also surface the PDF bytes as a method-origin attachment so callers
     // who care about file shape (Files appendix etc.) see it consistently.
