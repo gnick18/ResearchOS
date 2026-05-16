@@ -10,6 +10,7 @@ import type {
   PCRProtocol,
   PlateProtocol,
   Project,
+  QPCRAnalysisProtocol,
   Task,
 } from "@/lib/types";
 
@@ -71,6 +72,10 @@ export interface ImportMethodEntry {
   // `methods/method-{id}-cell-culture-schedule.json`. Same import-new gating
   // semantics as pcrProtocol / lcGradientProtocol.
   cellCultureSchedule?: CellCultureSchedule | null;
+  // The source-side QPCRAnalysisProtocol record, carried in the bundle as
+  // `methods/method-{id}-qpcr-analysis-protocol.json`. Same import-new gating
+  // semantics as pcrProtocol / lcGradientProtocol.
+  qpcrAnalysisProtocol?: QPCRAnalysisProtocol | null;
 }
 
 export interface ImportPayload {

@@ -79,6 +79,12 @@ export async function buildRawZip(
         JSON.stringify(mp.cellCultureSchedule, null, 2),
       );
     }
+    if (mp.method.method_type === "qpcr_analysis" && mp.qpcrAnalysisProtocol != null) {
+      zip.file(
+        `methods/method-${id}-qpcr-analysis-protocol.json`,
+        JSON.stringify(mp.qpcrAnalysisProtocol, null, 2),
+      );
+    }
     const match = payload.attachments.find(
       (a) => a.origin === "methods" && a.methodId === id,
     );

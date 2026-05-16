@@ -662,6 +662,73 @@ function plateDims(size: number): { rows: number; cols: number } {
   return { rows: 8, cols: 12 };
 }
 
+function buildQpcrAnalysisMethodBody(mp: MethodPayload): string {
+  const protocol = mp.qpcrAnalysisProtocol ?? null;
+  if (!protocol) {
+    return `<p class="method-file-link">qPCR analysis method (protocol could not be loaded).</p>`;
+  }
+  let snapshotCqs: Record<string, { cq: number; notes?: string | null }> = {};
+  let snapshotMeltTms: Record<string, number> = {};
+  let snapshotNotes: string | null = null;
+  const att = mp.attachment;
+  if (att?.qpcr_analysis && att.qpcr_analysis.trim()) {
+    try {
+      const parsed = JSON.parse(att.qpcr_analysis);
+      if (parsed && typeof parsed === "object") {
+        if (parsed.cqs && typeof parsed.cqs === "object") snapshotCqs = parsed.cqs;
+        if (parsed.melt_tms && typeof parsed.melt_tms === "object") snapshotMeltTms = parsed.melt_tms;
+        if (typeof parsed.notes === "string") snapshotNotes = parsed.notes;
+      }
+    } catch {
+      // Fall back to no snapshot.
+    }
+  }
+  const refRows = protocol.references
+    .map((r) => {
+      const cq = snapshotCqs[r.id]?.cq;
+      const tm = snapshotMeltTms[r.id];
+      const cqCell = Number.isFinite(cq) ? escapeHtml((cq as number).toFixed(2)) : "—";
+      const tmCell = tm !== undefined ? escapeHtml(tm.toFixed(1)) : "";
+      const refTag = r.is_reference ? " <em>(reference)</em>" : "";
+      return `<tr><td>${escapeHtml(r.target || "(unnamed)")}${refTag}</td><td>${escapeHtml(r.channel)}</td><td>${cqCell}</td>${protocol.melt_curve ? `<td>${tmCell}</td>` : ""}</tr>`;
+    })
+    .join("");
+  const meltHead = protocol.melt_curve ? `<th>Tm (°C)</th>` : "";
+  const refsTable = refRows
+    ? `<table class="qpcr-references"><thead><tr><th>Target</th><th>Channel</th><th>Cq</th>${meltHead}</tr></thead><tbody>${refRows}</tbody></table>`
+    : `<p>No targets defined.</p>`;
+  const parts: string[] = [];
+  parts.push(`<p><strong>Chemistry:</strong> ${escapeHtml(protocol.chemistry)}${protocol.chemistry === "other" && protocol.chemistry_label ? ` (${escapeHtml(protocol.chemistry_label)})` : ""}</p>`);
+  parts.push(`<p><strong>ΔΔCq:</strong> ${protocol.use_delta_delta_cq ? "enabled" : "disabled"}</p>`);
+  parts.push(`<h4>Targets &amp; readouts</h4>`);
+  parts.push(refsTable);
+  if (protocol.standard_curve.length > 0) {
+    const curveRows = protocol.standard_curve
+      .map(
+        (p) =>
+          `<tr><td>${escapeHtml(p.log_quantity.toString())}</td><td>${escapeHtml(p.cq.toString())}</td><td>${p.replicate_n ? escapeHtml(String(p.replicate_n)) : ""}</td></tr>`,
+      )
+      .join("");
+    parts.push(`<h4>Standard curve</h4>`);
+    parts.push(
+      `<table class="qpcr-standard-curve"><thead><tr><th>log₁₀(quantity)</th><th>Cq</th><th>Replicates</th></tr></thead><tbody>${curveRows}</tbody></table>`,
+    );
+  }
+  if (protocol.melt_curve) {
+    parts.push(`<h4>Melt curve</h4>`);
+    parts.push(
+      `<p>${escapeHtml(protocol.melt_curve.start_c.toString())}–${escapeHtml(protocol.melt_curve.end_c.toString())} °C @ ${escapeHtml(protocol.melt_curve.ramp_rate_c_per_sec.toString())} °C/sec</p>`,
+    );
+  }
+  if (snapshotNotes) {
+    parts.push(`<h4>Run notes</h4><p>${escapeHtml(snapshotNotes)}</p>`);
+  }
+  if (protocol.description && protocol.description.trim()) {
+    parts.push(`<p class="qpcr-description"><em>${escapeHtml(protocol.description.trim())}</em></p>`);
+  }
+  return parts.join("");
+}
+
 function buildCellCultureMethodBody(mp: MethodPayload): string {
   const schedule = mp.cellCultureSchedule ?? null;
   if (!schedule) {
@@ -850,6 +917,8 @@ function buildMethodBlock(
     body = buildPlateMethodBody(mp);
   } else if (mp.method.method_type === "cell_culture") {
     body = buildCellCultureMethodBody(mp);
+  } else if (mp.method.method_type === "qpcr_analysis") {
+    body = buildQpcrAnalysisMethodBody(mp);
   } else {
     body = `<p class="method-file-link">No method body available.</p>`;
   }

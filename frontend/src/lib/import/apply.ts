@@ -5,6 +5,7 @@ import {
   lcGradientApi,
   plateApi,
   cellCultureApi,
+  qpcrAnalysisApi,
   projectsApi,
   tasksApi,
 } from "@/lib/local-api";
@@ -218,6 +219,38 @@ async function applyMethodResolutions(
       continue;
     }
 
+    if (entry.record.method_type === "qpcr_analysis") {
+      if (entry.qpcrAnalysisProtocol == null) {
+        console.warn(
+          `[import.apply] qPCR analysis method '${res.sourceMethodName}' was marked import-new but the bundle did not carry the protocol record. Skipping.`,
+        );
+        continue;
+      }
+      const newName = await pickImportedMethodName(res.sourceMethodName);
+      const newProtocol = await qpcrAnalysisApi.create({
+        name: entry.qpcrAnalysisProtocol.name,
+        description: entry.qpcrAnalysisProtocol.description,
+        chemistry: entry.qpcrAnalysisProtocol.chemistry,
+        chemistry_label: entry.qpcrAnalysisProtocol.chemistry_label,
+        references: entry.qpcrAnalysisProtocol.references,
+        standard_curve: entry.qpcrAnalysisProtocol.standard_curve,
+        melt_curve: entry.qpcrAnalysisProtocol.melt_curve,
+        use_delta_delta_cq: entry.qpcrAnalysisProtocol.use_delta_delta_cq,
+        is_public: false,
+      });
+      const newMethod = await methodsApi.create({
+        name: newName,
+        source_path: `qpcr_analysis://protocol/${newProtocol.id}`,
+        method_type: "qpcr_analysis",
+        folder_path: entry.record.folder_path,
+        tags: entry.record.tags ?? undefined,
+        is_public: false,
+      });
+      mapping[res.sourceMethodId] = newMethod.id;
+      resultMethodIds.push(newMethod.id);
+      continue;
+    }
+
     const newName = await pickImportedMethodName(res.sourceMethodName);
     const newSlug = slugifyForPath(newName);
 
@@ -277,6 +310,7 @@ function remapMethodAttachments(
       cell_culture_schedule: att.cell_culture_schedule ?? null,
       variation_notes: att.variation_notes,
       compound_snapshots: att.compound_snapshots ?? null,
+      qpcr_analysis: att.qpcr_analysis ?? null,
     });
   }
   return out;

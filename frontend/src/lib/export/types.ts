@@ -13,6 +13,7 @@ import type {
   LCGradientProtocol,
   PlateProtocol,
   CellCultureSchedule,
+  QPCRAnalysisProtocol,
 } from "@/lib/types";
 
 export type ExportFormat = "pdf" | "html" | "raw";
@@ -67,6 +68,11 @@ export interface MethodPayload {
   // `method.source_path === "cell_culture://protocol/{id}"`. `null` when the
   // schedule couldn't be loaded across owner namespaces.
   cellCultureSchedule?: CellCultureSchedule | null;
+  // Only populated for `method.method_type === "qpcr_analysis"`. Pre-fetched
+  // source-side qPCR analysis protocol — referenced by
+  // `method.source_path === "qpcr_analysis://protocol/{id}"`. `null` when the
+  // protocol couldn't be loaded across owner namespaces.
+  qpcrAnalysisProtocol?: QPCRAnalysisProtocol | null;
 }
 
 export interface ExperimentExportPayload {
