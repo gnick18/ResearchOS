@@ -293,12 +293,6 @@ async function hasMeaningfulResults(
   return hasUserContent(text);
 }
 
-/** Truncate to `max` chars with an ellipsis suffix. */
-function truncate(text: string, max: number): string {
-  if (text.length <= max) return text;
-  return `${text.slice(0, max - 1)}…`;
-}
-
 /** Format an ISO date (YYYY-MM-DD) as a short "MMM D" string (e.g.
  *  "Apr 1", "May 15"). Parses the local-date triple directly so a
  *  negative-UTC-offset runner doesn't shift the day. Returns the raw
@@ -313,43 +307,64 @@ function formatDateShort(iso: string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-/** Title segment cap (icon + name + suffix, combined). */
-const TITLE_CAP = 30;
-/** Project folder cap. */
-const PROJECT_CAP = 18;
-/** Drop the project segment when total label exceeds this. iOS Telegram
- *  appends ".." truncation once a label crosses a width threshold; the
- *  per-component caps + 55-char total keeps the label inside that
- *  threshold even on narrow phone screens. */
-const TOTAL_BUDGET = 55;
+/** Letters used to tag picker options (A, B, C, ...). Capped at 26;
+ *  the picker is bounded at 11 entries (5 doing + 5 without-results +
+ *  active-confirmation reuses A/B/C only), so single letters always
+ *  suffice in practice. */
+export const PICKER_LETTERS = [
+  "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K",
+  "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V",
+  "W", "X", "Y", "Z",
+] as const;
 
-/** Build a single-line button label for an experiment row. iOS Telegram
- *  collapses `\n` inside button text and appends ".." truncation
- *  regardless of length, so the previous 3-line layout rendered as
- *  `<title>..` with the project + dates invisible. Single-line +
- *  middle-dot separator renders consistently across clients.
- *
- *  Format:  `<icon? title? suffix?> · <project> · <MMM D → MMM D>`
- *
- *  When `<title> · <project> · <dates>` exceeds TOTAL_BUDGET, the
- *  project segment is dropped — title + dates is the irreducible
- *  minimum that still tells the user what they're picking. */
-export function buildExperimentLabel(
-  task: Pick<Task, "name" | "start_date" | "end_date">,
+/** Inbox is a non-letter selector. Emoji-only is the cleanest tap
+ *  target on Telegram (visually distinct from the lettered options)
+ *  and matches the screenshot Grant designed against. */
+export const INBOX_LABEL = "📥";
+
+/** Number of short-letter buttons per inline-keyboard row. iOS Telegram
+ *  still gives each button a comfortable tap target up to ~6 wide for
+ *  single-letter labels; 5 leaves a margin for accidental thumbs. */
+const BUTTONS_PER_ROW = 5;
+
+/** Build the indented "context" line under a lettered body option:
+ *  `<project> · <MMM D → MMM D>`. Falls back to "(no project)" when
+ *  the project folder is empty. */
+function buildBodyContextLine(
+  task: Pick<Task, "start_date" | "end_date">,
   projectFolder: string,
-  opts: { suffix?: string; icon?: string } = {}
 ): string {
-  const titleRaw = opts.icon
-    ? `${opts.icon} ${task.name}${opts.suffix ? ` ${opts.suffix}` : ""}`
-    : `${task.name}${opts.suffix ? ` ${opts.suffix}` : ""}`;
-  const title = truncate(titleRaw, TITLE_CAP);
-  const project = truncate(projectFolder || "(no project)", PROJECT_CAP);
+  const project = projectFolder || "(no project)";
   const dates = `${formatDateShort(task.start_date)} → ${formatDateShort(task.end_date)}`;
-  const full = `${title} · ${project} · ${dates}`;
-  if (full.length > TOTAL_BUDGET) {
-    return `${title} · ${dates}`;
+  return `${project} · ${dates}`;
+}
+
+/** Build a 2-line body block for a lettered option:
+ *
+ *      A) Inoculate the A. nidulans into shaker flasks
+ *         Fungal Bacterial Co-Culturing · May 15 → May 22
+ *
+ *  iOS Telegram wraps body text naturally, so long task / project
+ *  names spread across lines without ellipsis. */
+export function buildBodyOptionLine(
+  letter: string,
+  title: string,
+  task: Pick<Task, "start_date" | "end_date">,
+  projectFolder: string,
+): string {
+  return `${letter}) ${title}\n   ${buildBodyContextLine(task, projectFolder)}`;
+}
+
+/** Wrap a list of single-letter (or emoji) button selectors into rows
+ *  of at most `BUTTONS_PER_ROW`. */
+function chunkLetterButtons(
+  selectors: { text: string; callback_data: string }[],
+): InlineKeyboardButton[][] {
+  const rows: InlineKeyboardButton[][] = [];
+  for (let i = 0; i < selectors.length; i += BUTTONS_PER_ROW) {
+    rows.push(selectors.slice(i, i + BUTTONS_PER_ROW));
   }
-  return full;
+  return rows;
 }
 
 /** Lookup map from `project_id` → project name for a single owner's
@@ -412,88 +427,106 @@ export async function partitionPickerExperiments(
   return { doing, withoutResults };
 }
 
-/** Build the active-task confirmation keyboard. Shown first when an
- *  experiment popup is open in ResearchOS at routing time; gives the
- *  user a one-tap path to "this active task, Lab Notes" or
- *  "this active task, Results" while still allowing a switch to the
- *  full task picker via "Pick another". */
-function buildActiveConfirmationKeyboard(
+/** Build the active-task confirmation prompt — lettered body-list plus
+ *  short-letter button keyboard. Shown first when an experiment popup
+ *  is open in ResearchOS at routing time; gives the user a one-tap
+ *  path to "this active task, Lab Notes" or "this active task,
+ *  Results" while still allowing a switch to the full task picker via
+ *  "Pick another".
+ *
+ *  iOS Telegram clips button text past ~12 chars even when single-line;
+ *  the predecessor (`143ca77f`) packed `<icon> <title> <suffix> · <project>
+ *  · <dates>` into the button and Grant's phone showed two ellipses
+ *  ("▶ Inoculate the A. nidulans ... · May 15 → M..."). The fix:
+ *  buttons carry only the letter selector, the body carries the
+ *  human-readable context. Body wraps naturally; never truncated. */
+function buildActiveConfirmationPrompt(
   activeTask: ActiveTask,
   projectName: string,
-  task: Pick<Task, "start_date" | "end_date"> | null
-): InlineKeyboardMarkup {
-  // The rich label needs start/end dates; when we don't have a Task
-  // record (e.g. shared task we couldn't resolve) we fall back to just
-  // the name. Graceful-degrade path, not the common one.
-  const labelTask = {
-    name: activeTask.name,
-    start_date: task?.start_date ?? "",
-    end_date: task?.end_date ?? "",
-  };
+  task: Pick<Task, "start_date" | "end_date"> | null,
+): { body: string; keyboard: InlineKeyboardMarkup } {
   const datesPresent = !!(task?.start_date && task?.end_date);
-  const notesText = datesPresent
-    ? buildExperimentLabel(labelTask, projectName, {
-        icon: "📝",
-        suffix: "— Lab Notes",
-      })
-    : `📝 ${truncate(activeTask.name, 60)} — Lab Notes`;
-  const resultsText = datesPresent
-    ? buildExperimentLabel(labelTask, projectName, {
-        icon: "📊",
-        suffix: "— Results",
-      })
-    : `📊 ${truncate(activeTask.name, 60)} — Results`;
-  return {
+  const contextLine = datesPresent
+    ? `   ${buildBodyContextLine(
+        { start_date: task!.start_date, end_date: task!.end_date },
+        projectName,
+      )}\n`
+    : "";
+  const body =
+    `A) ${activeTask.name} — Lab Notes\n${contextLine}\n` +
+    `B) ${activeTask.name} — Results\n${contextLine}\n` +
+    `C) Pick another experiment`;
+  const keyboard: InlineKeyboardMarkup = {
     inline_keyboard: [
       [
         {
-          text: notesText,
+          text: "A",
           callback_data: encodeTabCallback(activeTask.id, activeTask.owner, "notes"),
         },
-      ],
-      [
         {
-          text: resultsText,
+          text: "B",
           callback_data: encodeTabCallback(activeTask.id, activeTask.owner, "results"),
         },
+        { text: "C", callback_data: "pick-other" },
       ],
-      [{ text: "→ Pick another experiment…", callback_data: "pick-other" }],
     ],
   };
+  return { body, keyboard };
 }
 
-/** Build the full task-picker keyboard. Two sections (Doing now,
+/** Build the full task-picker prompt — lettered body-list plus
+ *  short-letter button keyboard. Two sections (Doing now,
  *  experiments without results yet) plus Inbox. See
- *  `partitionPickerExperiments` for the filter rules. */
-function buildDestinationKeyboard(
+ *  `partitionPickerExperiments` for the filter rules.
+ *
+ *  Empty sections are omitted entirely (no header, no rows). The
+ *  Inbox selector is always rendered with the `📥` emoji-only button
+ *  to keep it visually distinct from the lettered options. */
+function buildDestinationPrompt(
   doing: Task[],
   withoutResults: Task[],
-  projectNames: Map<number, string>
-): InlineKeyboardMarkup {
-  const rows: InlineKeyboardButton[][] = [];
-  for (const t of doing) {
-    rows.push([
-      {
-        // The right-pointing triangle marks "active/doing" without a
-        // separate header row (Telegram keyboards don't support
-        // non-button rows).
-        text: buildExperimentLabel(t, projectNames.get(t.project_id) ?? "", {
-          icon: "▶︎",
-        }),
+  projectNames: Map<number, string>,
+): { body: string; keyboard: InlineKeyboardMarkup } {
+  const bodyParts: string[] = [];
+  const selectors: { text: string; callback_data: string }[] = [];
+  let letterIdx = 0;
+
+  if (doing.length > 0) {
+    bodyParts.push("📋 Doing experiments:");
+    for (const t of doing) {
+      const letter = PICKER_LETTERS[letterIdx++];
+      bodyParts.push(
+        buildBodyOptionLine(letter, t.name, t, projectNames.get(t.project_id) ?? ""),
+      );
+      selectors.push({
+        text: letter,
         callback_data: encodeTaskCallback(t.id, t.owner),
-      },
-    ]);
+      });
+    }
   }
-  for (const t of withoutResults) {
-    rows.push([
-      {
-        text: buildExperimentLabel(t, projectNames.get(t.project_id) ?? ""),
+
+  if (withoutResults.length > 0) {
+    bodyParts.push("📋 Without results yet:");
+    for (const t of withoutResults) {
+      const letter = PICKER_LETTERS[letterIdx++];
+      bodyParts.push(
+        buildBodyOptionLine(letter, t.name, t, projectNames.get(t.project_id) ?? ""),
+      );
+      selectors.push({
+        text: letter,
         callback_data: encodeTaskCallback(t.id, t.owner),
-      },
-    ]);
+      });
+    }
   }
-  rows.push([{ text: "📥 Inbox", callback_data: "inbox" }]);
-  return { inline_keyboard: rows };
+
+  bodyParts.push(`${INBOX_LABEL}) Save to Inbox`);
+  const inlineKeyboard = chunkLetterButtons(selectors);
+  inlineKeyboard.push([{ text: INBOX_LABEL, callback_data: "inbox" }]);
+
+  return {
+    body: bodyParts.join("\n\n"),
+    keyboard: { inline_keyboard: inlineKeyboard },
+  };
 }
 
 /** Build the sub-tab picker keyboard. Shown after the user picks a task
@@ -786,9 +819,9 @@ async function sendActiveConfirmationPrompt(
   activeTask: ActiveTask
 ): Promise<void> {
   const projectNames = await loadProjectNameLookup(ctx.username);
-  // Look up the Task record so we can show start/end dates on the
-  // confirmation rows. Tolerant of failure: we degrade to a single-line
-  // label if the task isn't in the experiments list.
+  // Look up the Task record so the body's context line can show
+  // start/end dates. Tolerant of failure: we degrade to a name-only
+  // body when the task isn't in the experiments list.
   let experiments: Task[];
   try {
     experiments = await experimentsLoader(ctx.username);
@@ -801,7 +834,7 @@ async function sendActiveConfirmationPrompt(
   const projectName = taskRecord
     ? projectNames.get(taskRecord.project_id) ?? ""
     : "";
-  const keyboard = buildActiveConfirmationKeyboard(
+  const { body, keyboard } = buildActiveConfirmationPrompt(
     activeTask,
     projectName,
     taskRecord ?? null
@@ -810,7 +843,7 @@ async function sendActiveConfirmationPrompt(
   await sendMessage(
     ctx.botToken,
     ctx.chatId,
-    `Got a ${noun}. Where should it go?`,
+    `Got a ${noun}. Where should it go?\n\n${body}`,
     { reply_markup: keyboard }
   );
 }
@@ -830,12 +863,16 @@ async function sendDestinationPrompt(
   }
   const projectNames = await loadProjectNameLookup(ctx.username);
   const { doing, withoutResults } = await partitionPickerExperiments(experiments);
-  const keyboard = buildDestinationKeyboard(doing, withoutResults, projectNames);
+  const { body, keyboard } = buildDestinationPrompt(
+    doing,
+    withoutResults,
+    projectNames,
+  );
   const noun = count === 1 ? "photo" : `album of ${count} photos`;
   await sendMessage(
     ctx.botToken,
     ctx.chatId,
-    `Got a ${noun}. Where should it go?`,
+    `Got a ${noun}. Where should it go?\n\n${body}`,
     { reply_markup: keyboard }
   );
 }

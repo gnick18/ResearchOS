@@ -12,10 +12,13 @@
 //      picker, then sub-tab picker, then caption style.
 //   3. "Pick another" filter — Doing-now + experiments-without-results
 //      + Inbox; hides experiments that already have results written.
-//   4. Rich single-line button labels — title · project · dates joined
-//      with middle-dot; callback_data stays under the 64-byte cap. iOS
-//      Telegram collapses `\n` inside button text and appends ".."
-//      truncation regardless of length, so labels must be single-line.
+//   4. Lettered body-list + short-letter buttons — iOS Telegram clips
+//      button text past ~12 chars even when single-line (the
+//      `143ca77f` rich-label predecessor still showed two ellipses on
+//      Grant's iPhone). The fix: the message body lists each option
+//      with A/B/C lettering plus full task name + project + dates;
+//      the inline keyboard carries only the letter selector. Body
+//      text wraps naturally; never truncated.
 //   5. Lab Notes vs Results write target — per-tab `Images/` subdir,
 //      NOT the legacy outer base.
 
@@ -142,9 +145,11 @@ import {
   _setProjectsLoaderForTests,
   BATCH_MAX_PHOTOS,
   BATCH_WINDOW_MS,
-  buildExperimentLabel,
+  buildBodyOptionLine,
   consumeBatchTextReply,
+  INBOX_LABEL,
   partitionPickerExperiments,
+  PICKER_LETTERS,
   routeBatchablePhoto,
   routeBatchCallbackQuery,
   routeSinglePhotoThroughBatch,
@@ -552,154 +557,304 @@ describe("batch-routing: experiments-without-results filter", () => {
   });
 });
 
-describe("batch-routing: rich button labels", () => {
-  // iOS Telegram collapses `\n` inside button text and appends ".."
-  // truncation regardless of length, so the redesign's 3-line `\n`
-  // label rendered as `<title>..` with project + dates invisible on
-  // mobile. The label is now a single line with " · " separators
-  // (title · project · MMM D → MMM D), per-component capped at
-  // TITLE_CAP=30 / PROJECT_CAP=18, with the project dropped when the
-  // total exceeds 55 chars.
-  it("buildExperimentLabel returns single-line ` · `-separated label in MMM D format", () => {
-    const label = buildExperimentLabel(
-      { name: "Make media", start_date: "2026-04-01", end_date: "2026-05-15" },
-      "Aspergillus Study",
+describe("batch-routing: lettered body-list + short-letter buttons", () => {
+  // iOS Telegram clips inline-button text past ~12 chars even when
+  // single-line. The `143ca77f` rich-label predecessor packed
+  // `<icon> <title> <suffix> · <project> · <dates>` into the button
+  // and Grant's phone showed two ellipses
+  // ("▶ Inoculate the A. nidulans ... · May 15 → M..."). The fix is
+  // to move human-readable context into the message body and reduce
+  // buttons to single-letter selectors that never truncate.
+
+  it("buildBodyOptionLine renders the lettered 2-line block with full title + project + dates", () => {
+    const line = buildBodyOptionLine(
+      "A",
+      "Inoculate the A. nidulans into shaker flasks",
+      { start_date: "2026-05-15", end_date: "2026-05-22" },
+      "Fungal Bacterial Co-Culturing",
     );
-    expect(label).toBe("Make media · Aspergillus Study · Apr 1 → May 15");
-  });
-
-  it("buildExperimentLabel truncates long titles with `…`, project + dates remain", () => {
-    const longName = "x".repeat(50);
-    const label = buildExperimentLabel(
-      { name: longName, start_date: "2026-05-01", end_date: "2026-05-10" },
-      "P",
+    expect(line).toBe(
+      "A) Inoculate the A. nidulans into shaker flasks\n   Fungal Bacterial Co-Culturing · May 15 → May 22",
     );
-    const segments = label.split(" · ");
-    expect(segments).toHaveLength(3);
-    expect(segments[0].length).toBeLessThanOrEqual(30);
-    expect(segments[0].endsWith("…")).toBe(true);
-    expect(segments[1]).toBe("P");
-    expect(segments[2]).toBe("May 1 → May 10");
   });
 
-  it("buildExperimentLabel truncates long project names with `…`, title + dates remain", () => {
-    const longProject = "y".repeat(50);
-    const label = buildExperimentLabel(
-      { name: "E", start_date: "2026-05-01", end_date: "2026-05-10" },
-      longProject,
-    );
-    const segments = label.split(" · ");
-    expect(segments).toHaveLength(3);
-    expect(segments[0]).toBe("E");
-    expect(segments[1].length).toBeLessThanOrEqual(18);
-    expect(segments[1].endsWith("…")).toBe(true);
-    expect(segments[2]).toBe("May 1 → May 10");
-  });
-
-  it("buildExperimentLabel drops project when total budget exceeded; title + dates survive", () => {
-    // title at TITLE_CAP (30, with `…`) + project at PROJECT_CAP (18,
-    // with `…`) + dates (~14) = ~71 chars total → drop project.
-    const longName = "n".repeat(50);
-    const longProject = "p".repeat(50);
-    const label = buildExperimentLabel(
-      { name: longName, start_date: "2026-05-01", end_date: "2026-05-10" },
-      longProject,
-    );
-    const segments = label.split(" · ");
-    expect(segments).toHaveLength(2);
-    expect(segments[0].length).toBeLessThanOrEqual(30);
-    expect(segments[0].endsWith("…")).toBe(true);
-    expect(segments[1]).toBe("May 1 → May 10");
-  });
-
-  it("buildExperimentLabel respects icon + suffix and the combined title fits the cap", () => {
-    const label = buildExperimentLabel(
-      { name: "Plate", start_date: "2026-04-12", end_date: "2026-04-14" },
-      "Fungal CoCult",
-      { icon: "📝", suffix: "— Lab Notes" },
-    );
-    const segments = label.split(" · ");
-    expect(segments[0].startsWith("📝 ")).toBe(true);
-    expect(segments[0]).toContain("Plate");
-    expect(segments[0]).toContain("Lab Notes");
-    expect(segments[0].length).toBeLessThanOrEqual(30);
-    expect(segments[segments.length - 1]).toBe("Apr 12 → Apr 14");
-  });
-
-  it("buildExperimentLabel truncates a too-long icon+name+suffix title segment as one unit", () => {
-    const label = buildExperimentLabel(
-      { name: "x".repeat(50), start_date: "2026-04-01", end_date: "2026-04-02" },
-      "P",
-      { icon: "📝", suffix: "— Lab Notes" },
-    );
-    const segments = label.split(" · ");
-    expect(segments[0].startsWith("📝 ")).toBe(true);
-    expect(segments[0].endsWith("…")).toBe(true);
-    expect(segments[0].length).toBeLessThanOrEqual(30);
-  });
-
-  it("buildExperimentLabel output never contains `\\n` (iOS Telegram newline-collapse invariant)", () => {
-    const cases = [
-      buildExperimentLabel(
-        { name: "Short", start_date: "2026-04-01", end_date: "2026-05-15" },
-        "P",
-      ),
-      buildExperimentLabel(
-        { name: "x".repeat(100), start_date: "2026-04-01", end_date: "2026-05-15" },
-        "y".repeat(100),
-      ),
-      buildExperimentLabel(
-        { name: "T", start_date: "2026-04-01", end_date: "2026-04-02" },
-        "P",
-        { icon: "▶︎" },
-      ),
-      buildExperimentLabel(
-        { name: "T", start_date: "2026-04-01", end_date: "2026-04-02" },
-        "P",
-        { icon: "📝", suffix: "— Lab Notes" },
-      ),
-    ];
-    for (const label of cases) {
-      expect(label).not.toContain("\n");
-    }
-  });
-
-  it("task-picker button text is single-line ` · `-separated and contains no `\\n`", async () => {
+  it("Test 1 — picker body lists each option with A/B/C lettering + full context (no truncation)", async () => {
     vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
     _setExperimentsLoaderForTests(async () => [
-      makeExperiment({
-        id: 21,
-        name: "Yeast assay",
-        start_date: "2026-05-01",
-        end_date: "2026-05-10",
-        project_id: 4,
-      }),
+      makeExperiment({ id: 1, name: "Make media", project_id: 1 }),
+      makeExperiment({ id: 2, name: "Inoculate flasks", project_id: 1 }),
+      makeExperiment({ id: 3, name: "Run gel", project_id: 1 }),
     ]);
     _setProjectsLoaderForTests(async () => [
-      makeProject({ id: 4, name: "Protein Res" }),
+      makeProject({ id: 1, name: "Aspergillus Study" }),
     ]);
 
     await routeBatchablePhoto("g1", makePhoto(), baseCtx, null);
     await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+
     const prompt = hoisted.sendMessageMock.mock.calls.find((c) =>
       String(c[2]).toLowerCase().includes("where"),
     );
-    const markup = (prompt![3] as { reply_markup?: { inline_keyboard: { text: string; callback_data: string }[][] } })
-      ?.reply_markup;
-    const taskBtn = markup!.inline_keyboard
-      .flat()
-      .find((b) => b.callback_data.startsWith("task:21:"));
-    expect(taskBtn).toBeDefined();
-    expect(taskBtn!.text).not.toContain("\n");
-    expect(taskBtn!.text).toContain(" · ");
-    expect(taskBtn!.text).toContain("Yeast assay");
-    expect(taskBtn!.text).toContain("Protein Res");
-    expect(taskBtn!.text).toContain("May 1");
-    expect(taskBtn!.text).toContain("May 10");
+    expect(prompt).toBeDefined();
+    const body = String(prompt![2]);
+    expect(body).toContain("A) ");
+    expect(body).toContain("B) ");
+    expect(body).toContain("C) ");
+    expect(body).toContain("Make media");
+    expect(body).toContain("Inoculate flasks");
+    expect(body).toContain("Run gel");
+    expect(body).toContain("Aspergillus Study");
+    // No ellipsis characters anywhere in the body (full strings).
+    expect(body).not.toContain("…");
+    expect(body).not.toContain("...");
   });
 
-  it("callback_data stays under the Telegram 64-byte cap", async () => {
+  it("Test 2 — letter overflow: 11 picker options use letters A through K, buttons are letter-only", async () => {
     vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
+    // 5 doing (in-window) + 5 without-results (past). The Inbox row
+    // adds a final selector but is not a letter.
+    const today = todayLocalDate();
+    const past = "2026-01-01";
+    const experiments: Task[] = [];
+    for (let i = 1; i <= 5; i++) {
+      experiments.push(
+        makeExperiment({
+          id: i,
+          name: `Doing ${i}`,
+          start_date: today,
+          end_date: today,
+        }),
+      );
+    }
+    for (let i = 6; i <= 10; i++) {
+      experiments.push(
+        makeExperiment({
+          id: i,
+          name: `Past ${i}`,
+          start_date: past,
+          end_date: past,
+        }),
+      );
+    }
+    _setExperimentsLoaderForTests(async () => experiments);
+    _setProjectsLoaderForTests(async () => [makeProject({ id: 1, name: "P" })]);
+
+    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null);
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+
+    const prompt = hoisted.sendMessageMock.mock.calls.find((c) =>
+      String(c[2]).toLowerCase().includes("where"),
+    );
+    const body = String(prompt![2]);
+    // 10 lettered options A-J (single letters; inbox is a non-letter
+    // selector and doesn't consume a letter slot).
+    for (const letter of ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]) {
+      expect(body).toContain(`${letter}) `);
+    }
+    expect(body).toContain(`${INBOX_LABEL}) Save to Inbox`);
+
+    const markup = (prompt![3] as { reply_markup?: { inline_keyboard: { text: string; callback_data: string }[][] } })
+      ?.reply_markup;
+    const buttons = markup!.inline_keyboard.flat();
+    // 10 letter buttons + 1 inbox button.
+    expect(buttons).toHaveLength(11);
+    const letterButtons = buttons.filter((b) => b.text !== INBOX_LABEL);
+    expect(letterButtons.map((b) => b.text).sort()).toEqual(
+      ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"],
+    );
+    // Every letter button is exactly one character.
+    for (const b of letterButtons) {
+      expect(b.text.length).toBe(1);
+    }
+    // Letter ordering matches PICKER_LETTERS prefix.
+    expect(PICKER_LETTERS.slice(0, 10)).toEqual(letterButtons.map((b) => b.text));
+  });
+
+  it("Test 3 — active-task confirmation: body lists A/B/C with full title + project + dates; buttons are [A] [B] [C]", async () => {
+    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
+    _setExperimentsLoaderForTests(async () => [
+      makeExperiment({
+        id: 7,
+        name: "Inoculate the A. nidulans into shaker flasks",
+        start_date: "2026-05-15",
+        end_date: "2026-05-22",
+        project_id: 4,
+      }),
+    ]);
+    _setProjectsLoaderForTests(async () => [
+      makeProject({ id: 4, name: "Fungal Bacterial Co-Culturing" }),
+    ]);
+
+    await routeBatchablePhoto("g1", makePhoto(), baseCtx, {
+      id: 7,
+      owner: USER,
+      name: "Inoculate the A. nidulans into shaker flasks",
+    });
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-active-confirmation");
+
+    const prompt = hoisted.sendMessageMock.mock.calls.find((c) =>
+      String(c[2]).toLowerCase().includes("where"),
+    );
+    const body = String(prompt![2]);
+    expect(body).toContain("A) Inoculate the A. nidulans into shaker flasks — Lab Notes");
+    expect(body).toContain("B) Inoculate the A. nidulans into shaker flasks — Results");
+    expect(body).toContain("C) Pick another experiment");
+    expect(body).toContain("Fungal Bacterial Co-Culturing · May 15 → May 22");
+    // Full strings — no truncation marker.
+    expect(body).not.toContain("…");
+    expect(body).not.toContain("...");
+
+    const markup = (prompt![3] as { reply_markup?: { inline_keyboard: { text: string; callback_data: string }[][] } })
+      ?.reply_markup;
+    const buttons = markup!.inline_keyboard.flat();
+    expect(buttons.map((b) => b.text)).toEqual(["A", "B", "C"]);
+    expect(buttons[0].callback_data).toBe("tab:7:alex:notes");
+    expect(buttons[1].callback_data).toBe("tab:7:alex:results");
+    expect(buttons[2].callback_data).toBe("pick-other");
+  });
+
+  it("Test 4 — empty section: no `📋 Doing experiments:` header when doing is empty (same for withoutResults)", async () => {
+    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
+    // All experiments in the past, with no results.md → withoutResults
+    // populated, doing empty.
+    const past = "2026-01-01";
+    _setExperimentsLoaderForTests(async () => [
+      makeExperiment({ id: 1, name: "Past 1", start_date: past, end_date: past }),
+    ]);
+    _setProjectsLoaderForTests(async () => [makeProject({ id: 1, name: "P" })]);
+
+    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null);
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+
+    const prompt = hoisted.sendMessageMock.mock.calls.find((c) =>
+      String(c[2]).toLowerCase().includes("where"),
+    );
+    const body = String(prompt![2]);
+    expect(body).not.toContain("📋 Doing experiments:");
+    expect(body).toContain("📋 Without results yet:");
+    expect(body).toContain("A) Past 1");
+
+    // And the inverse: only doing populated, no "Without results" header.
+    _resetBatchesForTests();
+    hoisted.sendMessageMock.mockClear();
+    _setExperimentsLoaderForTests(async () => [
+      makeExperiment({ id: 2, name: "Doing 1" }),
+    ]);
+    await routeBatchablePhoto("g2", makePhoto(), baseCtx, null);
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+    const prompt2 = hoisted.sendMessageMock.mock.calls.find((c) =>
+      String(c[2]).toLowerCase().includes("where"),
+    );
+    const body2 = String(prompt2![2]);
+    expect(body2).toContain("📋 Doing experiments:");
+    expect(body2).not.toContain("📋 Without results yet:");
+  });
+
+  it("Test 5 — inbox: keyboard carries `📥` button with `inbox` callback_data; body has `📥) Save to Inbox` line", async () => {
+    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
+    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null);
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+
+    const prompt = hoisted.sendMessageMock.mock.calls.find((c) =>
+      String(c[2]).toLowerCase().includes("where"),
+    );
+    const body = String(prompt![2]);
+    expect(body).toContain(`${INBOX_LABEL}) Save to Inbox`);
+
+    const markup = (prompt![3] as { reply_markup?: { inline_keyboard: { text: string; callback_data: string }[][] } })
+      ?.reply_markup;
+    const inboxButton = markup!.inline_keyboard
+      .flat()
+      .find((b) => b.callback_data === "inbox");
+    expect(inboxButton).toBeDefined();
+    expect(inboxButton!.text).toBe(INBOX_LABEL);
+  });
+
+  it("Test 6 — no-truncation invariant: 50-char task name + 30-char project appear in full inside the body", async () => {
+    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
+    const longName = "Run the NEBuilder on PKS and Justin's positive ctl"; // 50 chars
+    const longProject = "Trichoderma asperellum isocyanide"; // 33 chars
+    expect(longName.length).toBeGreaterThanOrEqual(50);
+    expect(longProject.length).toBeGreaterThanOrEqual(30);
+    _setExperimentsLoaderForTests(async () => [
+      makeExperiment({
+        id: 1,
+        name: longName,
+        start_date: "2026-03-04",
+        end_date: "2026-03-11",
+        project_id: 9,
+      }),
+    ]);
+    _setProjectsLoaderForTests(async () => [
+      makeProject({ id: 9, name: longProject }),
+    ]);
+
+    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null);
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+
+    const prompt = hoisted.sendMessageMock.mock.calls.find((c) =>
+      String(c[2]).toLowerCase().includes("where"),
+    );
+    const body = String(prompt![2]);
+    // The full untruncated strings must appear.
+    expect(body).toContain(longName);
+    expect(body).toContain(longProject);
+    expect(body).toContain("Mar 4 → Mar 11");
+    // No truncation marker.
+    expect(body).not.toContain("…");
+    expect(body).not.toContain("...");
+  });
+
+  it("Test 7 — button-text invariant: no newlines, letter-only (or emoji-only for inbox)", async () => {
+    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
+    _setExperimentsLoaderForTests(async () => [
+      makeExperiment({ id: 1, name: "x".repeat(100) }),
+      makeExperiment({ id: 2, name: "y".repeat(100) }),
+    ]);
+    _setProjectsLoaderForTests(async () => [
+      makeProject({ id: 1, name: "z".repeat(100) }),
+    ]);
+
+    // Full picker.
+    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null);
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+    const pickerPrompt = hoisted.sendMessageMock.mock.calls.find((c) =>
+      String(c[2]).toLowerCase().includes("where"),
+    );
+    const pickerMarkup = (pickerPrompt![3] as { reply_markup?: { inline_keyboard: { text: string; callback_data: string }[][] } })
+      ?.reply_markup;
+    for (const b of pickerMarkup!.inline_keyboard.flat()) {
+      expect(b.text).not.toContain("\n");
+      if (b.callback_data === "inbox") {
+        expect(b.text).toBe(INBOX_LABEL);
+      } else {
+        // Letter buttons: exactly one character.
+        expect(b.text.length).toBe(1);
+      }
+    }
+
+    // Active confirmation.
+    _resetBatchesForTests();
+    hoisted.sendMessageMock.mockClear();
+    await routeBatchablePhoto("g2", makePhoto(), baseCtx, {
+      id: 1,
+      owner: USER,
+      name: "x".repeat(100),
+    });
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+    const confirmPrompt = hoisted.sendMessageMock.mock.calls.find((c) =>
+      String(c[2]).toLowerCase().includes("where"),
+    );
+    const confirmMarkup = (confirmPrompt![3] as { reply_markup?: { inline_keyboard: { text: string; callback_data: string }[][] } })
+      ?.reply_markup;
+    for (const b of confirmMarkup!.inline_keyboard.flat()) {
+      expect(b.text).not.toContain("\n");
+      expect(b.text.length).toBe(1);
+    }
+  });
+
+  it("callback_data stays under the Telegram 64-byte cap", () => {
     // A 30-character username + a long-but-realistic id; subtab payload
     // is the longest of our callback shapes.
     const longUser = "a".repeat(30);
