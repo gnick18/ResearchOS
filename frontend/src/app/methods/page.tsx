@@ -10,6 +10,7 @@ import {
   lcGradientApi,
   plateApi,
   cellCultureApi,
+  massSpecApi,
   codingWorkflowApi,
   qpcrAnalysisApi,
   usersApi,
@@ -39,6 +40,7 @@ import type {
 import LcViewer from "@/components/LcViewer";
 import PlateViewer from "@/components/PlateViewer";
 import CellCultureViewer from "@/components/CellCultureViewer";
+import MassSpecViewer from "@/components/MassSpecViewer";
 import CodingWorkflowViewer from "@/components/CodingWorkflowViewer";
 import QpcrAnalysisViewer from "@/components/QpcrAnalysisViewer";
 import { getMethodTypeMeta } from "@/lib/methods/method-type-registry";
@@ -338,6 +340,16 @@ export default function MethodsPage() {
             // Non-fatal — cell culture schedule might not exist
           }
         } else if (
+          method.method_type === "mass_spec" &&
+          method.source_path.startsWith("mass_spec://protocol/")
+        ) {
+          const msId = parseInt(method.source_path.replace("mass_spec://protocol/", ""));
+          try {
+            await massSpecApi.delete(msId);
+          } catch {
+            // Non-fatal — mass spec protocol might not exist
+          }
+        } else if (
           method.method_type === "coding_workflow" &&
           method.source_path.startsWith("coding_workflow://protocol/")
         ) {
@@ -429,6 +441,16 @@ export default function MethodsPage() {
               await cellCultureApi.delete(ccId);
             } catch {
               // Non-fatal — cell culture schedule might not exist
+            }
+          } else if (
+            method.method_type === "mass_spec" &&
+            method.source_path.startsWith("mass_spec://protocol/")
+          ) {
+            const msId = parseInt(method.source_path.replace("mass_spec://protocol/", ""));
+            try {
+              await massSpecApi.delete(msId);
+            } catch {
+              // Non-fatal — mass spec protocol might not exist
             }
           } else if (
             method.method_type === "coding_workflow" &&
@@ -890,6 +912,9 @@ function ViewMethodModal({
     }
     if (method.method_type === "cell_culture") {
       return <CellCultureViewer method={method} currentUser={currentUser} onClose={onClose} onDelete={onDelete} />;
+    }
+    if (method.method_type === "mass_spec") {
+      return <MassSpecViewer method={method} currentUser={currentUser} onClose={onClose} onDelete={onDelete} />;
     }
     if (method.method_type === "coding_workflow") {
       return <CodingWorkflowViewer method={method} currentUser={currentUser} onClose={onClose} onDelete={onDelete} />;

@@ -5,6 +5,7 @@ import {
   lcGradientApi,
   plateApi,
   cellCultureApi,
+  massSpecApi,
   codingWorkflowApi,
   qpcrAnalysisApi,
   projectsApi,
@@ -211,6 +212,38 @@ async function applyMethodResolutions(
         name: newName,
         source_path: `cell_culture://protocol/${newSchedule.id}`,
         method_type: "cell_culture",
+        folder_path: entry.record.folder_path,
+        tags: entry.record.tags ?? undefined,
+        is_public: false,
+      });
+      mapping[res.sourceMethodId] = newMethod.id;
+      resultMethodIds.push(newMethod.id);
+      continue;
+    }
+
+    if (entry.record.method_type === "mass_spec") {
+      if (entry.massSpecProtocol == null) {
+        console.warn(
+          `[import.apply] Mass spec method '${res.sourceMethodName}' was marked import-new but the bundle did not carry the protocol record. Skipping.`,
+        );
+        continue;
+      }
+      const newName = await pickImportedMethodName(res.sourceMethodName);
+      const newProtocol = await massSpecApi.create({
+        name: entry.massSpecProtocol.name,
+        description: entry.massSpecProtocol.description,
+        ionization_mode: entry.massSpecProtocol.ionization_mode,
+        ionization_label: entry.massSpecProtocol.ionization_label,
+        instrument: entry.massSpecProtocol.instrument,
+        source: entry.massSpecProtocol.source,
+        scan: entry.massSpecProtocol.scan,
+        calibration: entry.massSpecProtocol.calibration,
+        is_public: false,
+      });
+      const newMethod = await methodsApi.create({
+        name: newName,
+        source_path: `mass_spec://protocol/${newProtocol.id}`,
+        method_type: "mass_spec",
         folder_path: entry.record.folder_path,
         tags: entry.record.tags ?? undefined,
         is_public: false,

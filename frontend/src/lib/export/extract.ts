@@ -1,6 +1,7 @@
 import type {
   LCGradientProtocol,
   CellCultureSchedule,
+  MassSpecProtocol,
   CodingWorkflowProtocol,
   Method,
   PCRProtocol,
@@ -24,6 +25,7 @@ import {
   lcGradientApi,
   plateApi,
   cellCultureApi,
+  massSpecApi,
   codingWorkflowApi,
   qpcrAnalysisApi,
 } from "@/lib/local-api";
@@ -285,6 +287,38 @@ function extractCellCultureScheduleId(sourcePath: string | null | undefined): nu
   return match ? parseInt(match[1], 10) : null;
 }
 
+// Matches `mass_spec://protocol/{id}` source_path format.
+function extractMassSpecProtocolId(sourcePath: string | null | undefined): number | null {
+  if (!sourcePath) return null;
+  const match = sourcePath.match(/^mass_spec:\/\/protocol\/(\d+)$/);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+async function fetchMassSpecProtocolSafe(
+  method: Method,
+  task: Task,
+): Promise<MassSpecProtocol | null> {
+  const id = extractMassSpecProtocolId(method.source_path);
+  if (id === null) return null;
+  try {
+    const owner = method.owner || (task.is_shared_with_me ? task.owner : undefined);
+    const protocol = await massSpecApi.get(id, owner);
+    if (!protocol) {
+      console.warn(
+        `[export] Mass spec protocol ${id} for method ${method.id} could not be loaded`,
+      );
+      return null;
+    }
+    return protocol;
+  } catch (err) {
+    console.warn(
+      `[export.extract] failed to load mass spec protocol ${id} for method ${method.id}:`,
+      err,
+    );
+    return null;
+  }
+}
+
 async function fetchCellCultureScheduleSafe(
   method: Method,
   task: Task,
@@ -444,6 +478,7 @@ async function buildMethodPayload(
   let lcGradientProtocol: LCGradientProtocol | null = null;
   let plateProtocol: PlateProtocol | null = null;
   let cellCultureSchedule: CellCultureSchedule | null = null;
+  let massSpecProtocol: MassSpecProtocol | null = null;
   let codingWorkflow: CodingWorkflowProtocol | null = null;
   let qpcrAnalysisProtocol: QPCRAnalysisProtocol | null = null;
 
@@ -510,6 +545,9 @@ async function buildMethodPayload(
   if (method.method_type === "cell_culture") {
     cellCultureSchedule = await fetchCellCultureScheduleSafe(method, task);
   }
+  if (method.method_type === "mass_spec") {
+    massSpecProtocol = await fetchMassSpecProtocolSafe(method, task);
+  }
   if (method.method_type === "coding_workflow") {
     codingWorkflow = await fetchCodingWorkflowSafe(method, task);
   }
@@ -526,6 +564,7 @@ async function buildMethodPayload(
       lcGradientProtocol,
       plateProtocol,
       cellCultureSchedule,
+      massSpecProtocol,
       codingWorkflow,
       qpcrAnalysisProtocol,
     },

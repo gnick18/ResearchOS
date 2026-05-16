@@ -33,6 +33,7 @@ import LcMethodTabContent from "./LcMethodTabContent";
 import PlateMethodTabContent from "./PlateMethodTabContent";
 import CellCultureMethodTabContent from "./CellCultureMethodTabContent";
 import QpcrAnalysisMethodTabContent from "./QpcrAnalysisMethodTabContent";
+import MassSpecMethodTabContent from "./MassSpecMethodTabContent";
 import VariationNotesPanel from "./VariationNotesPanel";
 
 interface CompoundMethodTabContentProps {
@@ -525,6 +526,22 @@ function CompoundChildBody({
           readOnly={readOnly}
           hideVariationNotes
           nestedSnapshot={makeChildAdapter<QPCRAnalysisSnapshot>(idKey)}
+        />
+      );
+    case "mass_spec":
+      // Mass spec is a static template (proposal §4.5) — no per-task
+      // snapshot to thread through. The child renders read-only from its
+      // source protocol regardless of whether it's standalone or nested
+      // inside a compound. `makeChildAdapter` is intentionally unused.
+      return (
+        <MassSpecMethodTabContent
+          task={task}
+          method={child}
+          methodId={childId}
+          attachment={attachment}
+          onTaskUpdate={onTaskUpdate}
+          readOnly={readOnly}
+          hideVariationNotes
         />
       );
     case "pdf":

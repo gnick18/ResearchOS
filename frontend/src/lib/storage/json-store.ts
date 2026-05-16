@@ -7,6 +7,7 @@ const PUBLIC_ENTITIES = new Set([
   "lc_gradients",
   "plate_layouts",
   "cell_culture_schedules",
+  "mass_spec_methods",
   "coding_workflows",
   "qpcr_analyses",
 ]);

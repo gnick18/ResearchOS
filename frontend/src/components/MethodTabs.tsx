@@ -14,6 +14,7 @@ import PcrMethodTabContent from "./methods/PcrMethodTabContent";
 import LcMethodTabContent from "./methods/LcMethodTabContent";
 import PlateMethodTabContent from "./methods/PlateMethodTabContent";
 import CellCultureMethodTabContent from "./methods/CellCultureMethodTabContent";
+import MassSpecMethodTabContent from "./methods/MassSpecMethodTabContent";
 import CompoundMethodTabContent from "./methods/CompoundMethodTabContent";
 import CodingWorkflowMethodTabContent from "./methods/CodingWorkflowMethodTabContent";
 import QpcrAnalysisMethodTabContent from "./methods/QpcrAnalysisMethodTabContent";
@@ -138,6 +139,8 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                   <span className="text-xs">🧪</span>
                 ) : method?.method_type === "qpcr_analysis" ? (
                   <span className="text-xs">🔬</span>
+                ) : method?.method_type === "mass_spec" ? (
+                  <span className="text-xs">⚗️</span>
                 ) : method?.method_type === "pdf" ? (
                   <span className="text-xs">📕</span>
                 ) : method?.method_type === "compound" ? (
@@ -290,6 +293,17 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                     readOnly={readOnly}
                   />
                 );
+              case "mass_spec":
+                return (
+                  <MassSpecMethodTabContent
+                    task={task}
+                    method={activeMethod}
+                    methodId={activeMethodId}
+                    attachment={activeAttachment}
+                    onTaskUpdate={onTaskUpdate}
+                    readOnly={readOnly}
+                  />
+                );
               case "pdf":
                 return (
                   <PdfMethodTabContent
@@ -353,7 +367,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
 function resolveMethodType(
   methodType: string | null | undefined,
   sourcePath: string | null | undefined,
-): "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "compound" | "coding_workflow" | "qpcr_analysis" {
+): "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "mass_spec" | "compound" | "coding_workflow" | "qpcr_analysis" {
   if (methodType === "compound") return "compound";
   // qPCR analysis is matched before PCR so the `qpcr_analysis://protocol/...`
   // source-path scheme isn't shadowed by the `pcr://` prefix match below
@@ -382,6 +396,12 @@ function resolveMethodType(
     (sourcePath?.startsWith("cell_culture://") ?? false)
   ) {
     return "cell_culture";
+  }
+  if (
+    methodType === "mass_spec" ||
+    (sourcePath?.startsWith("mass_spec://") ?? false)
+  ) {
+    return "mass_spec";
   }
   if (
     methodType === "coding_workflow" ||

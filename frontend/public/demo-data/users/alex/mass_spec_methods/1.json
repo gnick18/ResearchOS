@@ -1,0 +1,41 @@
+{
+  "id": 1,
+  "name": "[Demo protocol] LC-MS detection — flbA peptides (ESI+ Q-Exactive)",
+  "description": "Demo LC-MS detection method paired with the alex LC gradient (method id 6). Targeted MS/MS for tryptic flbA peptides — retention window 10-16 min, scan range covers singly/doubly charged peptide ions.",
+  "ionization_mode": "esi_pos",
+  "ionization_label": null,
+  "instrument": "Thermo Q-Exactive HF-X (demo)",
+  "source": {
+    "source_temp_c": 250,
+    "capillary_kv": 3.5,
+    "nebulizer_gas_lpm": 1.2,
+    "drying_gas_lpm": 10,
+    "drying_gas_temp_c": 350,
+    "ei_energy_ev": null,
+    "maldi_laser_nm": null,
+    "maldi_laser_energy": null,
+    "maldi_matrix": null,
+    "other_notes": null
+  },
+  "scan": {
+    "scan_mz_low": 200,
+    "scan_mz_high": 2000,
+    "scan_rate_hz": 2,
+    "resolution_r": 60000,
+    "is_msms": true,
+    "msms_isolation_window_mz": 1.2,
+    "msms_collision_energy_ev": 27
+  },
+  "calibration": {
+    "reference_standard": "Sodium formate (demo)",
+    "calibration_date": "2026-05-01",
+    "expected_accuracy_ppm": 2,
+    "notes": "Calibration verified weekly; lock-mass on m/z 445.1200."
+  },
+  "created_at": "2026-05-02T00:00:00Z",
+  "updated_at": "2026-05-02T00:00:00Z",
+  "is_public": false,
+  "created_by": "alex",
+  "owner": "alex",
+  "shared_with": []
+}

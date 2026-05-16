@@ -44,6 +44,9 @@ import type {
   CellCultureScheduleCreate,
   CellCultureScheduleUpdate,
   CellCultureActualEvent,
+  MassSpecProtocol,
+  MassSpecProtocolCreate,
+  MassSpecProtocolUpdate,
   CodingWorkflowProtocol,
   CodingWorkflowProtocolCreate,
   CodingWorkflowProtocolUpdate,
@@ -95,6 +98,8 @@ const plateLayoutStore = new JsonStore<PlateProtocol>("plate_layouts");
 const publicPlateLayoutStore = getPublicStore<PlateProtocol>("plate_layouts");
 const cellCultureScheduleStore = new JsonStore<CellCultureSchedule>("cell_culture_schedules");
 const publicCellCultureScheduleStore = getPublicStore<CellCultureSchedule>("cell_culture_schedules");
+const massSpecStore = new JsonStore<MassSpecProtocol>("mass_spec_methods");
+const publicMassSpecStore = getPublicStore<MassSpecProtocol>("mass_spec_methods");
 const codingWorkflowStore = new JsonStore<CodingWorkflowProtocol>("coding_workflows");
 const publicCodingWorkflowStore = getPublicStore<CodingWorkflowProtocol>("coding_workflows");
 const qpcrAnalysisStore = new JsonStore<QPCRAnalysisProtocol>("qpcr_analyses");
@@ -2214,6 +2219,137 @@ export const qpcrAnalysisApi = {
     start_c: 60,
     end_c: 95,
     ramp_rate_c_per_sec: 0.1,
+  }),
+};
+
+// ── Mass Spec API ────────────────────────────────────────────────────────────
+//
+// Storage shape mirrors pcrApi / lcGradientApi exactly: per-user
+// `users/<u>/mass_spec_methods/<id>.json` for private records,
+// `users/public/mass_spec_methods/<id>.json` for is_public:true. Per-user
+// counter file `_counters.json` carries a `mass_spec_methods` line on first
+// create (managed by JsonStore.create). Methods reference these records via
+// `source_path: "mass_spec://protocol/{id}"` — owner-aware resolution
+// mirrors the other structured types to keep namespaces consistent.
+
+export const massSpecApi = {
+  list: async (): Promise<MassSpecProtocol[]> => {
+    const privateProtocols = await massSpecStore.listAll();
+    const publicProtocols = await publicMassSpecStore.listAll();
+
+    return [
+      ...privateProtocols.map((p) => ({ ...p, is_public: false })),
+      ...publicProtocols.map((p) => ({ ...p, is_public: true })),
+    ];
+  },
+
+  get: async (id: number, owner?: string): Promise<MassSpecProtocol | null> => {
+    if (owner) {
+      if (owner === "public") {
+        const publicProtocol = await publicMassSpecStore.get(id);
+        return publicProtocol ? { ...publicProtocol, is_public: true } : null;
+      }
+      const ownerProtocol = await massSpecStore.getForUser(id, owner);
+      return ownerProtocol ? { ...ownerProtocol, is_public: false } : null;
+    }
+
+    const protocol = await massSpecStore.get(id);
+    if (protocol) return { ...protocol, is_public: false };
+
+    const publicProtocol = await publicMassSpecStore.get(id);
+    if (publicProtocol) return { ...publicProtocol, is_public: true };
+
+    return null;
+  },
+
+  create: async (data: MassSpecProtocolCreate): Promise<MassSpecProtocol> => {
+    const isPublic = data.is_public ?? false;
+    const now = new Date().toISOString();
+    const base = {
+      name: data.name,
+      description: data.description ?? null,
+      ionization_mode: data.ionization_mode,
+      ionization_label: data.ionization_label ?? null,
+      instrument: data.instrument ?? null,
+      source: data.source,
+      scan: data.scan,
+      calibration: data.calibration,
+      created_at: now,
+      updated_at: now,
+      created_by: null,
+    };
+    if (isPublic) {
+      return publicMassSpecStore.create({ ...base, is_public: true });
+    }
+    return massSpecStore.create({ ...base, is_public: false });
+  },
+
+  update: async (
+    id: number,
+    data: MassSpecProtocolUpdate,
+    owner?: string,
+  ): Promise<MassSpecProtocol | null> => {
+    const patch = { ...data, updated_at: new Date().toISOString() };
+    if (owner) {
+      if (owner === "public") {
+        const publicProtocol = await publicMassSpecStore.get(id);
+        return publicProtocol ? publicMassSpecStore.update(id, patch) : null;
+      }
+      const ownerProtocol = await massSpecStore.getForUser(id, owner);
+      return ownerProtocol ? massSpecStore.updateForUser(id, patch, owner) : null;
+    }
+
+    let protocol = await massSpecStore.get(id);
+    if (protocol) {
+      return massSpecStore.update(id, patch);
+    }
+
+    protocol = await publicMassSpecStore.get(id);
+    if (protocol) {
+      return publicMassSpecStore.update(id, patch);
+    }
+
+    return null;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await massSpecStore.delete(id);
+    await publicMassSpecStore.delete(id);
+  },
+
+  /** Defaults seeded into the new-method dialog for `method_type === "mass_spec"`.
+   *  Sensible ESI+ Q-Exactive-style starting point — the most common LC-MS
+   *  workflow. User refines after Create. */
+  getDefaultIonizationMode: (): import("./types").IonizationMode => "esi_pos",
+
+  getDefaultSource: (): import("./types").MassSpecSourceParams => ({
+    source_temp_c: 250,
+    capillary_kv: 3.5,
+    nebulizer_gas_lpm: 1.2,
+    drying_gas_lpm: 10,
+    drying_gas_temp_c: 350,
+    ei_energy_ev: null,
+    maldi_laser_nm: null,
+    maldi_laser_energy: null,
+    maldi_matrix: null,
+    other_notes: null,
+  }),
+
+  getDefaultScan: (): import("./types").MassSpecScanParams => ({
+    scan_mz_low: 200,
+    scan_mz_high: 2000,
+    scan_rate_hz: 2,
+    resolution_r: 70000,
+    is_msms: false,
+    msms_isolation_window_mz: null,
+    msms_collision_energy_ev: null,
+  }),
+
+  getDefaultCalibration: (): import("./types").MassSpecCalibration => ({
+    reference_standard: "",
+    calibration_date: null,
+    expected_accuracy_ppm: 2,
+    notes: null,
   }),
 };
 
@@ -4598,6 +4734,9 @@ export type {
   PlateProtocol,
   PlateProtocolCreate,
   PlateProtocolUpdate,
+  MassSpecProtocol,
+  MassSpecProtocolCreate,
+  MassSpecProtocolUpdate,
   CodingWorkflowProtocol,
   CodingWorkflowProtocolCreate,
   CodingWorkflowProtocolUpdate,
