@@ -13,6 +13,7 @@ import NotificationBadge from "./NotificationBadge";
 import ReminderRunner from "./ReminderRunner";
 import DemoLabBanner from "./DemoLabBanner";
 import TelegramStaleBanner from "./TelegramStaleBanner";
+import TelegramRecoveryPrompt from "./TelegramRecoveryPrompt";
 import Tooltip from "./Tooltip";
 import UserAvatar from "./UserAvatar";
 import FeedbackButton from "./FeedbackButton";
@@ -89,6 +90,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <div className="h-screen flex flex-col bg-gray-50">
       <DemoLabBanner />
       <TelegramStaleBanner />
+      <TelegramRecoveryPrompt />
       {/* Header */}
       <header
         data-onboarding-target="personalize-colors"
