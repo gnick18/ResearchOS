@@ -21,12 +21,19 @@ export default function SecurityPage() {
       </p>
 
       <h2>What stays on your computer</h2>
+      <Callout variant="tip" title="The short version">
+        Open your data folder in Finder or Explorer. Every experiment,
+        note, image, and attachment you have written is sitting there as
+        a regular file you can read. ResearchOS writes to that folder and
+        nowhere else. Quit the app and your data stays exactly where it
+        is.
+      </Callout>
       <p>
-        When you pick a data folder, ResearchOS reads and writes everything
-        through the browser&apos;s File System Access API. The folder is
-        yours, the bytes never leave it, and you can open it in your
-        operating system&apos;s file browser at any time to see exactly
-        what&apos;s there.
+        When you pick a data folder, ResearchOS reads and writes
+        everything directly to that folder on your machine. The bytes
+        never leave it. You can open the folder at any time in your
+        operating system&apos;s file browser and see exactly what is
+        there.
       </p>
       <p>The folder holds:</p>
       <ul>
@@ -45,9 +52,12 @@ export default function SecurityPage() {
           profile.
         </li>
       </ul>
-      <p>The on-disk layout looks roughly like this:</p>
-      <pre>
-        <code>
+      <details className="mt-4 border border-gray-200 rounded-lg p-3 [&[open]>summary]:mb-3">
+        <summary className="cursor-pointer font-medium text-gray-800">
+          Show me the exact file layout
+        </summary>
+        <pre className="text-xs overflow-x-auto">
+          <code>
 {`<your data folder>/
   .gitignore                     app-managed, auto-appended for sensitive sidecars
   users/
@@ -85,13 +95,9 @@ export default function SecurityPage() {
       lab_links/<id>.json        link library entries
       purchase_items/<id>.json   purchase orders
       inbox/Images/              Telegram photos awaiting routing`}
-        </code>
-      </pre>
-      <Callout variant="info" title="You can verify this with your own eyes">
-        Open the folder in Finder, Explorer, or your file manager of choice.
-        Everything ResearchOS knows about your work is in there, in plain
-        files you can read.
-      </Callout>
+          </code>
+        </pre>
+      </details>
 
       <h2>What briefly touches a server we operate</h2>
       <p>
@@ -210,52 +216,23 @@ export default function SecurityPage() {
 
       <h2>How to verify it yourself</h2>
       <p>
-        You don&apos;t have to take any of this on faith. Your browser
-        already shows every network request the app makes. Here&apos;s how
-        to watch.
+        You don&apos;t have to take any of this on faith. There are two
+        ways to confirm what the app is doing. The first is built into
+        Settings and takes about thirty seconds.
       </p>
-      <Steps>
-        <Step>
-          Open ResearchOS in Chrome, Edge, or Brave, then open DevTools.{" "}
-          <Kbd>F12</Kbd> works on Windows and Linux. <Kbd>Cmd</Kbd> +{" "}
-          <Kbd>Option</Kbd> + <Kbd>I</Kbd> works on macOS.
-        </Step>
-        <Step>
-          Switch to the <strong>Network</strong> tab and check{" "}
-          <strong>Preserve log</strong> so refreshes don&apos;t clear the
-          view.
-        </Step>
-        <Step>
-          Reload the page. Visit Calendar, Telegram inbox, the experiments
-          you care about. Watch every outbound request as you go.
-        </Step>
-        <Step>
-          You should see requests to your own ResearchOS origin (for
-          JavaScript, CSS, and static assets), occasional requests to{" "}
-          <code>/api/calendar-feed</code> when a subscribed feed refreshes,
-          occasional requests to <code>/api/telegram-file</code> when an
-          inbox photo loads, direct requests to{" "}
-          <code>api.telegram.org</code> when you exchange messages with
-          your bot, and occasional requests to{" "}
-          <code>va.vercel-scripts.com</code> and{" "}
-          <code>vitals.vercel-insights.com</code> for anonymous page-view
-          pings (unless <strong>Offline mode</strong> is on, in which case
-          you&apos;ll see none of those). Nothing else.
-        </Step>
-      </Steps>
-      <Callout variant="info" title="In-app verification, available now in Settings">
-        ResearchOS ships three affordances inside Settings that make this
-        easier than digging through DevTools:
+      <Callout variant="tip" title="The easy way: open Settings">
+        ResearchOS ships three affordances inside Settings:
         <ul>
           <li>
             The <strong>Data inventory</strong> panel lists every file path
             the app has written and every IndexedDB key in use, alongside
-            the External Calls section that names each outbound endpoint.
+            an External Calls section that names each outbound endpoint
+            in plain English.
           </li>
           <li>
             The <strong>Offline mode</strong> toggle disables the two proxy
             routes plus the Vercel Analytics script tag in one click, for
-            users who want zero outbound network from the app surface.
+            anyone who wants zero outbound network from the app surface.
           </li>
           <li>
             <strong>&ldquo;Where is this stored?&rdquo;</strong> hints on
@@ -264,6 +241,46 @@ export default function SecurityPage() {
           </li>
         </ul>
       </Callout>
+      <details className="mt-4 border border-gray-200 rounded-lg p-3 [&[open]>summary]:mb-3">
+        <summary className="cursor-pointer font-medium text-gray-800">
+          The thorough way: open DevTools and watch the network yourself
+        </summary>
+        <p className="text-sm text-gray-700 mt-2">
+          Your browser already shows every network request the app makes.
+          This is the audit-grade path for anyone who wants to see the
+          bytes themselves.
+        </p>
+        <Steps>
+          <Step>
+            Open ResearchOS in Chrome, Edge, or Brave, then open DevTools.{" "}
+            <Kbd>F12</Kbd> works on Windows and Linux. <Kbd>Cmd</Kbd> +{" "}
+            <Kbd>Option</Kbd> + <Kbd>I</Kbd> works on macOS.
+          </Step>
+          <Step>
+            Switch to the <strong>Network</strong> tab and check{" "}
+            <strong>Preserve log</strong> so refreshes don&apos;t clear
+            the view.
+          </Step>
+          <Step>
+            Reload the page. Visit Calendar, Telegram inbox, the
+            experiments you care about. Watch every outbound request as
+            you go.
+          </Step>
+          <Step>
+            You should see requests to your own ResearchOS origin (for
+            JavaScript, CSS, and static assets), occasional requests to{" "}
+            <code>/api/calendar-feed</code> when a subscribed feed
+            refreshes, occasional requests to{" "}
+            <code>/api/telegram-file</code> when an inbox photo loads,
+            direct requests to <code>api.telegram.org</code> when you
+            exchange messages with your bot, and occasional requests to{" "}
+            <code>va.vercel-scripts.com</code> and{" "}
+            <code>vitals.vercel-insights.com</code> for anonymous
+            page-view pings (unless <strong>Offline mode</strong> is on,
+            in which case you&apos;ll see none of those). Nothing else.
+          </Step>
+        </Steps>
+      </details>
 
       <h2>What we just fixed</h2>
       <p>
