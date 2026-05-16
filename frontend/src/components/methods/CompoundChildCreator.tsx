@@ -8,6 +8,9 @@ import {
   lcGradientApi,
   plateApi,
   cellCultureApi,
+  massSpecApi,
+  codingWorkflowApi,
+  qpcrAnalysisApi,
 } from "@/lib/local-api";
 import { createNewFileContent } from "@/lib/stamp-utils";
 import LiveMarkdownEditor from "@/components/LiveMarkdownEditor";
@@ -15,6 +18,9 @@ import { InteractiveGradientEditor } from "@/components/InteractiveGradientEdito
 import LcGradientEditor from "@/components/LcGradientEditor";
 import PlateLayoutEditor, { wellsToRegionLabels } from "@/components/PlateLayoutEditor";
 import CellCultureScheduleEditor from "@/components/CellCultureScheduleEditor";
+import MassSpecEditor from "@/components/MassSpecEditor";
+import CodingWorkflowEditor from "@/components/CodingWorkflowEditor";
+import QpcrAnalysisEditor from "@/components/QpcrAnalysisEditor";
 import Tooltip from "@/components/Tooltip";
 import {
   getMethodTypesByCategory,
@@ -32,6 +38,16 @@ import type {
   CellCultureCellLine,
   CellCultureMedia,
   CellCulturePlannedEvent,
+  IonizationMode,
+  MassSpecCalibration,
+  MassSpecScanParams,
+  MassSpecSourceParams,
+  CodingWorkflowLanguage,
+  CodingWorkflowOutputRenderer,
+  QPCRChemistry,
+  QPCRMeltCurveConfig,
+  QPCRReference,
+  QPCRStandardCurvePoint,
 } from "@/lib/types";
 
 /**
@@ -72,6 +88,9 @@ const TYPES_WITH_INLINE_EDITOR: MethodTypeId[] = [
   "lc_gradient",
   "plate",
   "cell_culture",
+  "mass_spec",
+  "coding_workflow",
+  "qpcr_analysis",
 ];
 
 export function CompoundChildCreator({
@@ -149,6 +168,50 @@ export function CompoundChildCreator({
     cellCultureApi.getDefaultPlannedEvents(),
   );
   const [ccDescription, setCcDescription] = useState<string | null>(null);
+  // Mass spec
+  const [msIonizationMode, setMsIonizationMode] = useState<IonizationMode>(() =>
+    massSpecApi.getDefaultIonizationMode(),
+  );
+  const [msIonizationLabel, setMsIonizationLabel] = useState<string | null>(null);
+  const [msInstrument, setMsInstrument] = useState<string | null>("");
+  const [msDescription, setMsDescription] = useState<string | null>(null);
+  const [msSource, setMsSource] = useState<MassSpecSourceParams>(() =>
+    massSpecApi.getDefaultSource(),
+  );
+  const [msScan, setMsScan] = useState<MassSpecScanParams>(() =>
+    massSpecApi.getDefaultScan(),
+  );
+  const [msCalibration, setMsCalibration] = useState<MassSpecCalibration>(() =>
+    massSpecApi.getDefaultCalibration(),
+  );
+  const [msShowAllFields, setMsShowAllFields] = useState(false);
+  // Coding workflow
+  const [cwLanguage, setCwLanguage] = useState<CodingWorkflowLanguage>(() =>
+    codingWorkflowApi.getDefaultLanguage(),
+  );
+  const [cwLanguageLabel, setCwLanguageLabel] = useState<string | null>(null);
+  const [cwEmbeddedCode, setCwEmbeddedCode] = useState<string | null>(() =>
+    codingWorkflowApi.getDefaultEmbeddedCode(),
+  );
+  const [cwExternalPath, setCwExternalPath] = useState<string | null>(null);
+  const [cwDescription, setCwDescription] = useState<string | null>(null);
+  const [cwOutputRenderer, setCwOutputRenderer] = useState<CodingWorkflowOutputRenderer>(
+    "syntax-highlight",
+  );
+  // qPCR analysis
+  const [qpcrChemistry, setQpcrChemistry] = useState<QPCRChemistry>("sybr");
+  const [qpcrChemistryLabel, setQpcrChemistryLabel] = useState<string | null>(null);
+  const [qpcrDescription, setQpcrDescription] = useState<string | null>(null);
+  const [qpcrUseDeltaDeltaCq, setQpcrUseDeltaDeltaCq] = useState(true);
+  const [qpcrReferences, setQpcrReferences] = useState<QPCRReference[]>(() =>
+    qpcrAnalysisApi.getDefaultReferences(),
+  );
+  const [qpcrStandardCurve, setQpcrStandardCurve] = useState<QPCRStandardCurvePoint[]>(() =>
+    qpcrAnalysisApi.getDefaultStandardCurve(),
+  );
+  const [qpcrMeltCurve, setQpcrMeltCurve] = useState<QPCRMeltCurveConfig | null>(() =>
+    qpcrAnalysisApi.getDefaultMeltCurve(),
+  );
 
   const slug = name
     .trim()
@@ -269,6 +332,59 @@ export function CompoundChildCreator({
           source_path: `cell_culture://protocol/${schedule.id}`,
           method_type: "cell_culture",
         });
+      } else if (phase.type === "mass_spec") {
+        const protocol = await massSpecApi.create({
+          name: name.trim(),
+          description: msDescription,
+          ionization_mode: msIonizationMode,
+          ionization_label: msIonizationLabel,
+          instrument: msInstrument,
+          source: msSource,
+          scan: msScan,
+          calibration: msCalibration,
+          folder_path: folderPath,
+          is_public: isPublic,
+        });
+        created = await methodsApi.create({
+          ...sharedBase,
+          source_path: `mass_spec://protocol/${protocol.id}`,
+          method_type: "mass_spec",
+        });
+      } else if (phase.type === "coding_workflow") {
+        const protocol = await codingWorkflowApi.create({
+          name: name.trim(),
+          description: cwDescription,
+          language: cwLanguage,
+          language_label: cwLanguageLabel,
+          embedded_code: cwEmbeddedCode,
+          external_path: cwExternalPath,
+          output_renderer: cwOutputRenderer,
+          folder_path: folderPath,
+          is_public: isPublic,
+        });
+        created = await methodsApi.create({
+          ...sharedBase,
+          source_path: `coding_workflow://protocol/${protocol.id}`,
+          method_type: "coding_workflow",
+        });
+      } else if (phase.type === "qpcr_analysis") {
+        const protocol = await qpcrAnalysisApi.create({
+          name: name.trim(),
+          description: qpcrDescription,
+          chemistry: qpcrChemistry,
+          chemistry_label: qpcrChemistryLabel,
+          references: qpcrReferences,
+          standard_curve: qpcrStandardCurve,
+          melt_curve: qpcrMeltCurve,
+          use_delta_delta_cq: qpcrUseDeltaDeltaCq,
+          folder_path: folderPath,
+          is_public: isPublic,
+        });
+        created = await methodsApi.create({
+          ...sharedBase,
+          source_path: `qpcr_analysis://protocol/${protocol.id}`,
+          method_type: "qpcr_analysis",
+        });
       } else {
         setSaveError(`Inline-create not implemented for type "${phase.type}".`);
         setSaving(false);
@@ -303,6 +419,26 @@ export function CompoundChildCreator({
     ccMedia,
     ccPlannedEvents,
     ccDescription,
+    msIonizationMode,
+    msIonizationLabel,
+    msInstrument,
+    msDescription,
+    msSource,
+    msScan,
+    msCalibration,
+    cwLanguage,
+    cwLanguageLabel,
+    cwEmbeddedCode,
+    cwExternalPath,
+    cwDescription,
+    cwOutputRenderer,
+    qpcrChemistry,
+    qpcrChemistryLabel,
+    qpcrDescription,
+    qpcrUseDeltaDeltaCq,
+    qpcrReferences,
+    qpcrStandardCurve,
+    qpcrMeltCurve,
     tagList,
     isPublic,
     onCreated,
@@ -522,6 +658,63 @@ export function CompoundChildCreator({
             onPlannedEventsChange={setCcPlannedEvents}
             description={ccDescription}
             onDescriptionChange={setCcDescription}
+          />
+        )}
+
+        {phase.type === "mass_spec" && (
+          <MassSpecEditor
+            ionizationMode={msIonizationMode}
+            onIonizationModeChange={setMsIonizationMode}
+            ionizationLabel={msIonizationLabel}
+            onIonizationLabelChange={setMsIonizationLabel}
+            instrument={msInstrument}
+            onInstrumentChange={setMsInstrument}
+            description={msDescription}
+            onDescriptionChange={setMsDescription}
+            source={msSource}
+            onSourceChange={setMsSource}
+            scan={msScan}
+            onScanChange={setMsScan}
+            calibration={msCalibration}
+            onCalibrationChange={setMsCalibration}
+            showAllFields={msShowAllFields}
+            onShowAllFieldsChange={setMsShowAllFields}
+          />
+        )}
+
+        {phase.type === "coding_workflow" && (
+          <CodingWorkflowEditor
+            language={cwLanguage}
+            onLanguageChange={setCwLanguage}
+            languageLabel={cwLanguageLabel}
+            onLanguageLabelChange={setCwLanguageLabel}
+            embeddedCode={cwEmbeddedCode}
+            onEmbeddedCodeChange={setCwEmbeddedCode}
+            externalPath={cwExternalPath}
+            onExternalPathChange={setCwExternalPath}
+            description={cwDescription}
+            onDescriptionChange={setCwDescription}
+            outputRenderer={cwOutputRenderer}
+            onOutputRendererChange={setCwOutputRenderer}
+          />
+        )}
+
+        {phase.type === "qpcr_analysis" && (
+          <QpcrAnalysisEditor
+            chemistry={qpcrChemistry}
+            onChemistryChange={setQpcrChemistry}
+            chemistryLabel={qpcrChemistryLabel}
+            onChemistryLabelChange={setQpcrChemistryLabel}
+            description={qpcrDescription}
+            onDescriptionChange={setQpcrDescription}
+            useDeltaDeltaCq={qpcrUseDeltaDeltaCq}
+            onUseDeltaDeltaCqChange={setQpcrUseDeltaDeltaCq}
+            references={qpcrReferences}
+            onReferencesChange={setQpcrReferences}
+            standardCurve={qpcrStandardCurve}
+            onStandardCurveChange={setQpcrStandardCurve}
+            meltCurve={qpcrMeltCurve}
+            onMeltCurveChange={setQpcrMeltCurve}
           />
         )}
 
