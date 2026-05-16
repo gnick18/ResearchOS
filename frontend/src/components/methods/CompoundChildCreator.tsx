@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   methodsApi,
   filesApi,
@@ -12,6 +12,9 @@ import {
   codingWorkflowApi,
   qpcrAnalysisApi,
 } from "@/lib/local-api";
+import { fileService } from "@/lib/file-system/file-service";
+import { fileEvents } from "@/lib/attachments/file-events";
+import { imageEvents } from "@/lib/attachments/image-events";
 import { createNewFileContent } from "@/lib/stamp-utils";
 import LiveMarkdownEditor from "@/components/LiveMarkdownEditor";
 import { InteractiveGradientEditor } from "@/components/InteractiveGradientEditor";
@@ -21,6 +24,7 @@ import CellCultureScheduleEditor from "@/components/CellCultureScheduleEditor";
 import MassSpecEditor from "@/components/MassSpecEditor";
 import CodingWorkflowEditor from "@/components/CodingWorkflowEditor";
 import QpcrAnalysisEditor from "@/components/QpcrAnalysisEditor";
+import { useFileRenamePopup } from "@/components/FileRenamePopup";
 import Tooltip from "@/components/Tooltip";
 import {
   getMethodTypesByCategory,
@@ -81,6 +85,23 @@ type Phase =
   | { kind: "pick-type" }
   | { kind: "edit"; type: MethodTypeId };
 
+// Local copy of the same helper used by CreateMethodModal and methods/page.tsx.
+// Resolves a filename collision under `dirPath` by appending `-1`, `-2` etc.
+// The shared sibling Phase 0a chip noted this duplication as a scope concession;
+// promoting to a shared lib is deferred.
+async function pickUniqueImageName(dirPath: string, desired: string): Promise<string> {
+  const dot = desired.lastIndexOf(".");
+  const stem = dot > 0 ? desired.slice(0, dot) : desired;
+  const ext = dot > 0 ? desired.slice(dot) : "";
+  let candidate = desired;
+  let n = 1;
+  while (await fileService.fileExists(`${dirPath}/${candidate}`)) {
+    candidate = `${stem}-${n}${ext}`;
+    n += 1;
+  }
+  return candidate;
+}
+
 const TYPES_WITH_INLINE_EDITOR: MethodTypeId[] = [
   "markdown",
   "pdf",
@@ -106,6 +127,16 @@ export function CompoundChildCreator({
   const [isPublic, setIsPublic] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [uploadWarning, setUploadWarning] = useState<string | null>(null);
+
+  // Drop-attached files land on disk immediately (under the current slug's
+  // dir), well before the user clicks "Create + add to compound" — so we
+  // track each method-dir we wrote into. If the user backs out via the
+  // wrapper's Cancel button, we delete those dirs to avoid leaving orphan
+  // images / files behind. A successful create clears the tracking via the
+  // unmount path. Matches CreateMethodModal's cancel-cleanup pattern.
+  const uploadedMethodDirsRef = useRef<Set<string>>(new Set());
+  const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
 
   // Markdown
   const [mdContent, setMdContent] = useState("");
@@ -223,6 +254,97 @@ export function CompoundChildCreator({
     .split(",")
     .map((t) => t.trim())
     .filter(Boolean);
+
+  // Unmount safety net for the Escape / X cancel paths that close the picker
+  // through CompoundMethodBuilder.tsx rather than our own Cancel button. We
+  // can't extend rollbackInlineCreatedChildren (per chip scope) — but the
+  // ref still holds the dirs we wrote into, so clean them best-effort on
+  // unmount. Successful save and Cancel-button both clear the ref before
+  // unmount, so this fires as a no-op in those paths.
+  useEffect(() => {
+    const ref = uploadedMethodDirsRef;
+    return () => {
+      const dirs = Array.from(ref.current);
+      ref.current.clear();
+      dirs.forEach((dir) => {
+        filesApi.deleteDirectory(dir).catch(() => {});
+      });
+    };
+  }, []);
+
+  const handleImageUpload = useCallback(
+    async (files: FileList | File[]) => {
+      if (!slug) {
+        alert("Enter a method name first so we know where to save the image.");
+        return;
+      }
+      const methodBase = `methods/${slug}`;
+      const imagesDir = `${methodBase}/Images`;
+      setUploadWarning(null);
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith("image/")) continue;
+        const renamedFile = await requestRename(file);
+        if (!renamedFile) continue;
+        try {
+          const finalName = await pickUniqueImageName(imagesDir, renamedFile.name);
+          await fileService.writeFileFromBlob(`${imagesDir}/${finalName}`, renamedFile);
+          uploadedMethodDirsRef.current.add(methodBase);
+          imageEvents.emitAttached({
+            basePath: methodBase,
+            relativePath: `Images/${finalName}`,
+          });
+        } catch {
+          alert(`Failed to upload ${renamedFile.name}`);
+        }
+      }
+    },
+    [slug, requestRename],
+  );
+
+  const handleFileUpload = useCallback(
+    async (files: FileList | File[]) => {
+      if (!slug) {
+        alert("Enter a method name first so we know where to save the file.");
+        return;
+      }
+      const methodBase = `methods/${slug}`;
+      const filesDir = `${methodBase}/Files`;
+      setUploadWarning(null);
+      for (const file of Array.from(files)) {
+        const renamedFile = await requestRename(file);
+        if (!renamedFile) continue;
+        try {
+          const finalName = await pickUniqueImageName(filesDir, renamedFile.name);
+          await fileService.writeFileFromBlob(`${filesDir}/${finalName}`, renamedFile);
+          uploadedMethodDirsRef.current.add(methodBase);
+          fileEvents.emitAttached({
+            basePath: methodBase,
+            relativePath: `Files/${finalName}`,
+          });
+        } catch {
+          alert(`Failed to upload ${renamedFile.name}`);
+        }
+      }
+    },
+    [slug, requestRename],
+  );
+
+  // Cancel funnel: best-effort cleanup of any method-dirs we wrote into via
+  // drop-uploads before forwarding to the parent's onCancel. Save-then-cancel
+  // is NOT this path — the successful save claims the dir and clears tracking
+  // (handleSave below).
+  const handleCancel = useCallback(async () => {
+    const dirs = Array.from(uploadedMethodDirsRef.current);
+    uploadedMethodDirsRef.current.clear();
+    for (const dir of dirs) {
+      try {
+        await filesApi.deleteDirectory(dir);
+      } catch {
+        // Non-fatal — directory may not exist or be partially gone already.
+      }
+    }
+    onCancel();
+  }, [onCancel]);
 
   const handleSave = useCallback(async () => {
     if (phase.kind !== "edit") return;
@@ -390,6 +512,10 @@ export function CompoundChildCreator({
         setSaving(false);
         return;
       }
+      // Save claimed the method dir — any drop-uploads we tracked are now
+      // part of the persisted method, so the cancel-cleanup path should not
+      // delete them out from under it.
+      uploadedMethodDirsRef.current.clear();
       onCreated(created);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to create method.";
@@ -455,7 +581,7 @@ export function CompoundChildCreator({
       <TypeTilePicker
         unsupportedTypes={unsupportedTypes ?? []}
         onPick={(type) => setPhase({ kind: "edit", type })}
-        onCancel={onCancel}
+        onCancel={handleCancel}
       />
     );
   }
@@ -545,6 +671,9 @@ export function CompoundChildCreator({
                 onChange={setMdContent}
                 placeholder={`# ${name || "Method name"}\n\n## Materials\n- Item 1\n\n## Steps\n1. First step`}
                 imageBasePath={`methods/${slug}`}
+                onImageDrop={handleImageUpload}
+                onFileDrop={handleFileUpload}
+                allowAnyFileType
                 showToolbar
               />
             </div>
@@ -552,6 +681,11 @@ export function CompoundChildCreator({
               Image uploads from inside a compound-child editor land in
               <code className="px-1">{`methods/${slug || "<slug>"}/Images`}</code>.
             </p>
+            {uploadWarning && (
+              <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
+                {uploadWarning}
+              </div>
+            )}
           </div>
         )}
 
@@ -726,7 +860,7 @@ export function CompoundChildCreator({
       </div>
       <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
         <button
-          onClick={onCancel}
+          onClick={handleCancel}
           className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
         >
           Cancel
@@ -739,6 +873,7 @@ export function CompoundChildCreator({
           {saving ? "Creating..." : "Create + add to compound"}
         </button>
       </div>
+      <FileRenamePopup />
     </div>
   );
 }
