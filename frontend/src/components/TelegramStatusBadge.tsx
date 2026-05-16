@@ -9,23 +9,14 @@ import {
   subscribePollingHealth,
   type PollingHealth,
 } from "@/lib/telegram/telegram-runtime";
+import {
+  getStaleSignal,
+  subscribeStaleSignal,
+  type StaleSignal,
+} from "@/lib/telegram/staleness";
+import { resolveBadgePresentation } from "@/lib/telegram/badge-presentation";
 import { imageEvents } from "@/lib/attachments/image-events";
 import TelegramPairingModal from "./TelegramPairingModal";
-
-const HEALTH_PRESENTATION: Record<
-  PollingHealth,
-  { dot: string; label?: string; tone: "ok" | "warn" | "error" | "idle" }
-> = {
-  ok: { dot: "bg-emerald-500", tone: "ok" },
-  retrying: { dot: "bg-amber-400 animate-pulse", label: "retrying", tone: "warn" },
-  conflict: {
-    dot: "bg-amber-400",
-    label: "another tab is polling",
-    tone: "warn",
-  },
-  auth_error: { dot: "bg-red-500", label: "re-pair needed", tone: "error" },
-  idle: { dot: "bg-gray-300", tone: "idle" },
-};
 
 export default function TelegramStatusBadge() {
   const { currentUser } = useCurrentUser();
@@ -61,10 +52,22 @@ export default function TelegramStatusBadge() {
   const [health, setHealth] = useState<PollingHealth>(getPollingHealth());
   useEffect(() => subscribePollingHealth(setHealth), []);
 
+  // Subscribe to the stale-polling signal so a long-quiet long-poll
+  // flips the dot from emerald to amber without waiting for the next
+  // health-state change. The banner subscribes to the same source.
+  const [staleSignal, setStaleSignal] = useState<StaleSignal>(() =>
+    getStaleSignal(),
+  );
+  useEffect(() => subscribeStaleSignal(setStaleSignal), []);
+
   if (!currentUser) return null;
 
   const paired = !!pairing;
-  const presentation = paired ? HEALTH_PRESENTATION[health] : HEALTH_PRESENTATION.idle;
+  const presentation = resolveBadgePresentation({
+    paired,
+    health,
+    isStale: staleSignal.isStale,
+  });
   const toneClass =
     presentation.tone === "error"
       ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
@@ -87,11 +90,11 @@ export default function TelegramStatusBadge() {
         data-onboarding-target="telegram-send-to-task"
         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${toneClass}`}
       >
-        {paired && health === "ok" ? (
+        {presentation.glow ? (
           // Active-connection glow: an expanding emerald halo around a
           // solid dot, so the badge visibly "breathes" while polling is
-          // healthy. Other states use a flat dot so they stand out from
-          // the healthy steady-state.
+          // healthy. Other states (including stale) use a flat dot so
+          // they stand out from the healthy steady-state.
           <span className="relative flex w-2 h-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
             <span className="relative inline-flex w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_1px_rgba(16,185,129,0.7)]" />
