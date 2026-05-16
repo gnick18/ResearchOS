@@ -62,6 +62,7 @@ vi.mock("./file-system/indexeddb-store", () => ({
 
 // ── Imports (after mocks) ───────────────────────────────────────────────────
 import { usersApi } from "./local-api";
+import { discoverUsers } from "./file-system/user-discovery";
 import { ensureLabUserMetadata, readAllUserMetadata } from "./file-system/user-metadata";
 
 beforeEach(() => {
@@ -122,6 +123,32 @@ describe("usersApi.delete — tombstone register", () => {
 
     const meta = await readAllUserMetadata();
     expect(meta.kritika?.deleted_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it("discoverUsers filters out tombstoned users even when the directory exists on disk", async () => {
+    // Same surface as usersApi.list but exercised through the other public
+    // entry point. discoverUsers feeds the user-picker UI; usersApi.list feeds
+    // the lab Users panel. Pin both paths to prevent a future refactor from
+    // splitting the filter behavior.
+    const { fileService } = await import("./file-system/file-service");
+    (fileService.listDirectories as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      "alice",
+      "alex",
+      "_user_metadata.json",
+    ]);
+    memFs.set("users/_user_metadata.json", {
+      users: {
+        alice: { color: "#3b82f6", created_at: "2026-01-01T00:00:00.000Z" },
+        alex: {
+          color: "#10b981",
+          created_at: "2026-01-01T00:00:00.000Z",
+          deleted_at: "2026-05-15T12:00:00.000Z",
+        },
+      },
+    });
+
+    const users = await discoverUsers();
+    expect(users).toEqual(["alice"]);
   });
 
   it("usersApi.list filters out tombstoned users (cloud-restored stub stays hidden)", async () => {
