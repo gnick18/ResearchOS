@@ -8,6 +8,7 @@ import {
   lcGradientApi,
   plateApi,
   cellCultureApi,
+  massSpecApi,
   codingWorkflowApi,
 } from "@/lib/local-api";
 import { fileService } from "@/lib/file-system/file-service";
@@ -29,12 +30,17 @@ import type {
   CellCultureCellLine,
   CellCultureMedia,
   CellCulturePlannedEvent,
+  IonizationMode,
+  MassSpecCalibration,
+  MassSpecScanParams,
+  MassSpecSourceParams,
   CodingWorkflowLanguage,
   CodingWorkflowOutputRenderer,
 } from "@/lib/types";
 import LcGradientEditor from "@/components/LcGradientEditor";
 import PlateLayoutEditor, { wellsToRegionLabels } from "@/components/PlateLayoutEditor";
 import CellCultureScheduleEditor from "@/components/CellCultureScheduleEditor";
+import MassSpecEditor from "@/components/MassSpecEditor";
 import CodingWorkflowEditor from "@/components/CodingWorkflowEditor";
 import { type MethodTypeId } from "@/lib/methods/method-type-registry";
 import { MethodTypeCategoryPicker } from "./MethodTypePicker";
@@ -152,6 +158,25 @@ export function CreateMethodModal({
     cellCultureApi.getDefaultPlannedEvents(),
   );
   const [ccDescription, setCcDescription] = useState<string | null>(null);
+
+  // Mass spec defaults — ESI+ Q-Exactive-style starting point (the most
+  // common LC-MS workflow). User refines after Create per proposal §4.
+  const [msIonizationMode, setMsIonizationMode] = useState<IonizationMode>(() =>
+    massSpecApi.getDefaultIonizationMode(),
+  );
+  const [msIonizationLabel, setMsIonizationLabel] = useState<string | null>(null);
+  const [msInstrument, setMsInstrument] = useState<string | null>("");
+  const [msDescription, setMsDescription] = useState<string | null>(null);
+  const [msSource, setMsSource] = useState<MassSpecSourceParams>(() =>
+    massSpecApi.getDefaultSource(),
+  );
+  const [msScan, setMsScan] = useState<MassSpecScanParams>(() =>
+    massSpecApi.getDefaultScan(),
+  );
+  const [msCalibration, setMsCalibration] = useState<MassSpecCalibration>(() =>
+    massSpecApi.getDefaultCalibration(),
+  );
+  const [msShowAllFields, setMsShowAllFields] = useState(false);
 
   // Coding workflow state — Python default per Q-B5 lock (most common
   // scientific scripting language); users switch via the picker.
@@ -421,6 +446,30 @@ export function CreateMethodModal({
             .filter(Boolean),
           is_public: isPublic,
         });
+      } else if (uploadType === "mass_spec") {
+        const protocol = await massSpecApi.create({
+          name: name.trim(),
+          description: msDescription,
+          ionization_mode: msIonizationMode,
+          ionization_label: msIonizationLabel,
+          instrument: msInstrument,
+          source: msSource,
+          scan: msScan,
+          calibration: msCalibration,
+          folder_path: folder.trim() || null,
+          is_public: isPublic,
+        });
+        await methodsApi.create({
+          name: name.trim(),
+          source_path: `mass_spec://protocol/${protocol.id}`,
+          method_type: "mass_spec",
+          folder_path: folder.trim() || null,
+          tags: tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean),
+          is_public: isPublic,
+        });
       } else if (uploadType === "coding_workflow") {
         const protocol = await codingWorkflowApi.create({
           name: name.trim(),
@@ -452,7 +501,7 @@ export function CreateMethodModal({
     } finally {
       setSaving(false);
     }
-  }, [name, slug, uploadType, mdContent, pdfFile, folder, tags, isPublic, pcrGradient, pcrIngredients, pcrNotes, lcGradientSteps, lcColumn, lcWavelength, lcDescription, lcIngredients, platePlateSize, plateWells, plateDescription, ccCellLine, ccMedia, ccPlannedEvents, ccDescription, cwLanguage, cwLanguageLabel, cwEmbeddedCode, cwExternalPath, cwDescription, cwOutputRenderer, onCreated]);
+  }, [name, slug, uploadType, mdContent, pdfFile, folder, tags, isPublic, pcrGradient, pcrIngredients, pcrNotes, lcGradientSteps, lcColumn, lcWavelength, lcDescription, lcIngredients, platePlateSize, plateWells, plateDescription, ccCellLine, ccMedia, ccPlannedEvents, ccDescription, msIonizationMode, msIonizationLabel, msInstrument, msDescription, msSource, msScan, msCalibration, cwLanguage, cwLanguageLabel, cwEmbeddedCode, cwExternalPath, cwDescription, cwOutputRenderer, onCreated]);
 
   // When the user picks the Compound tile, hand off to the dedicated
   // builder workspace per proposal section 2.4.2 (stage-2 view). The
@@ -724,6 +773,33 @@ export function CreateMethodModal({
                   onPlannedEventsChange={setCcPlannedEvents}
                   description={ccDescription}
                   onDescriptionChange={setCcDescription}
+                />
+              </div>
+            )}
+
+            {/* Mass spec editor */}
+            {uploadType === "mass_spec" && (
+              <div className="space-y-2">
+                <p className="text-xs text-gray-400">
+                  Mass spec methods store the ionization mode + source / scan / calibration params. Source-param fields shown vary by ionization mode; toggle &quot;Show all fields&quot; for the full set.
+                </p>
+                <MassSpecEditor
+                  ionizationMode={msIonizationMode}
+                  onIonizationModeChange={setMsIonizationMode}
+                  ionizationLabel={msIonizationLabel}
+                  onIonizationLabelChange={setMsIonizationLabel}
+                  instrument={msInstrument}
+                  onInstrumentChange={setMsInstrument}
+                  description={msDescription}
+                  onDescriptionChange={setMsDescription}
+                  source={msSource}
+                  onSourceChange={setMsSource}
+                  scan={msScan}
+                  onScanChange={setMsScan}
+                  calibration={msCalibration}
+                  onCalibrationChange={setMsCalibration}
+                  showAllFields={msShowAllFields}
+                  onShowAllFieldsChange={setMsShowAllFields}
                 />
               </div>
             )}

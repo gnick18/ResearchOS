@@ -24,6 +24,7 @@ import {
   CompoundIcon,
   LcGradientIcon,
   MarkdownIcon,
+  MassSpecIcon,
   PcrIcon,
   PdfIcon,
   PlateIcon,
@@ -36,6 +37,7 @@ export type MethodTypeId =
   | "lc_gradient"
   | "plate"
   | "cell_culture"
+  | "mass_spec"
   | "compound"
   | "coding_workflow";
 
@@ -119,6 +121,16 @@ export const METHOD_TYPE_REGISTRY: Record<MethodTypeId, MethodTypeMeta> = {
     color: { bg: "bg-rose-100", text: "text-rose-600" },
     icon: CellCultureIcon,
     description: "Passaging schedule + media + cell line, with per-task passage history.",
+    hasStructuredProtocol: true,
+    category: "structured",
+  },
+  mass_spec: {
+    id: "mass_spec",
+    label: "Mass spec",
+    shortLabel: "MS",
+    color: { bg: "bg-violet-100", text: "text-violet-600" },
+    icon: MassSpecIcon,
+    description: "Ionization mode + source/scan params + calibration. Pairs with LC for LC-MS.",
     hasStructuredProtocol: true,
     category: "structured",
   },

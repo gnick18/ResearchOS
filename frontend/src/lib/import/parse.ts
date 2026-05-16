@@ -3,6 +3,7 @@ import type {
   CellCultureSchedule,
   CodingWorkflowProtocol,
   LCGradientProtocol,
+  MassSpecProtocol,
   Method,
   PCRProtocol,
   PlateProtocol,
@@ -22,6 +23,7 @@ const METHOD_PCR_PROTOCOL_RE = /^methods\/method-(\d+)-pcr-protocol\.json$/;
 const METHOD_LC_PROTOCOL_RE = /^methods\/method-(\d+)-lc-gradient-protocol\.json$/;
 const METHOD_PLATE_PROTOCOL_RE = /^methods\/method-(\d+)-plate-protocol\.json$/;
 const METHOD_CELL_CULTURE_SCHEDULE_RE = /^methods\/method-(\d+)-cell-culture-schedule\.json$/;
+const METHOD_MASS_SPEC_PROTOCOL_RE = /^methods\/method-(\d+)-mass-spec-protocol\.json$/;
 const METHOD_CODING_WORKFLOW_RE = /^methods\/method-(\d+)-coding-workflow\.json$/;
 const METHOD_FILE_RE = /^methods\/method-(\d+)-(.+)$/;
 const METHOD_UNATTACHED_RE = /^methods\/unattached\/(.+)$/;
@@ -130,6 +132,7 @@ export async function parseImportBundle(file: Blob): Promise<ImportPayload> {
   const methodLcProtocols = new Map<number, LCGradientProtocol>();
   const methodPlateProtocols = new Map<number, PlateProtocol>();
   const methodCellCultureSchedules = new Map<number, CellCultureSchedule>();
+  const methodMassSpecProtocols = new Map<number, MassSpecProtocol>();
   const methodCodingWorkflows = new Map<number, CodingWorkflowProtocol>();
   const attachments: ImportAttachment[] = [];
 
@@ -203,6 +206,18 @@ export async function parseImportBundle(file: Blob): Promise<ImportPayload> {
       try {
         const schedule = JSON.parse(await entry.async("string")) as CellCultureSchedule;
         methodCellCultureSchedules.set(id, schedule);
+      } catch (err) {
+        console.warn(`[import.parse] failed to parse ${path}:`, err);
+      }
+      continue;
+    }
+
+    const massSpecProtocolMatch = path.match(METHOD_MASS_SPEC_PROTOCOL_RE);
+    if (massSpecProtocolMatch) {
+      const id = Number(massSpecProtocolMatch[1]);
+      try {
+        const protocol = JSON.parse(await entry.async("string")) as MassSpecProtocol;
+        methodMassSpecProtocols.set(id, protocol);
       } catch (err) {
         console.warn(`[import.parse] failed to parse ${path}:`, err);
       }
@@ -287,6 +302,7 @@ export async function parseImportBundle(file: Blob): Promise<ImportPayload> {
     const lcGradientProtocol = methodLcProtocols.get(id) ?? null;
     const plateProtocol = methodPlateProtocols.get(id) ?? null;
     const cellCultureSchedule = methodCellCultureSchedules.get(id) ?? null;
+    const massSpecProtocol = methodMassSpecProtocols.get(id) ?? null;
     const codingWorkflow = methodCodingWorkflows.get(id) ?? null;
     methods.push({
       record,
@@ -297,6 +313,7 @@ export async function parseImportBundle(file: Blob): Promise<ImportPayload> {
       lcGradientProtocol,
       plateProtocol,
       cellCultureSchedule,
+      massSpecProtocol,
       codingWorkflow,
     });
     // Also surface the PDF bytes as a method-origin attachment so callers

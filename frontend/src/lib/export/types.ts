@@ -13,6 +13,7 @@ import type {
   LCGradientProtocol,
   PlateProtocol,
   CellCultureSchedule,
+  MassSpecProtocol,
   CodingWorkflowProtocol,
 } from "@/lib/types";
 
@@ -68,6 +69,11 @@ export interface MethodPayload {
   // `method.source_path === "cell_culture://protocol/{id}"`. `null` when the
   // schedule couldn't be loaded across owner namespaces.
   cellCultureSchedule?: CellCultureSchedule | null;
+  // Only populated for `method.method_type === "mass_spec"`. Pre-fetched
+  // source-side protocol — referenced by
+  // `method.source_path === "mass_spec://protocol/{id}"`. `null` when the
+  // protocol couldn't be loaded across owner namespaces.
+  massSpecProtocol?: MassSpecProtocol | null;
   // Only populated for `method.method_type === "coding_workflow"`. Pre-fetched
   // source-side script/notebook — referenced by
   // `method.source_path === "coding_workflow://protocol/{id}"`. `null` when

@@ -14,6 +14,7 @@ import PcrMethodTabContent from "./methods/PcrMethodTabContent";
 import LcMethodTabContent from "./methods/LcMethodTabContent";
 import PlateMethodTabContent from "./methods/PlateMethodTabContent";
 import CellCultureMethodTabContent from "./methods/CellCultureMethodTabContent";
+import MassSpecMethodTabContent from "./methods/MassSpecMethodTabContent";
 import CompoundMethodTabContent from "./methods/CompoundMethodTabContent";
 import CodingWorkflowMethodTabContent from "./methods/CodingWorkflowMethodTabContent";
 
@@ -135,6 +136,8 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                   <span className="text-xs">🧫</span>
                 ) : method?.method_type === "cell_culture" ? (
                   <span className="text-xs">🧪</span>
+                ) : method?.method_type === "mass_spec" ? (
+                  <span className="text-xs">⚗️</span>
                 ) : method?.method_type === "pdf" ? (
                   <span className="text-xs">📕</span>
                 ) : method?.method_type === "compound" ? (
@@ -276,6 +279,17 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                     readOnly={readOnly}
                   />
                 );
+              case "mass_spec":
+                return (
+                  <MassSpecMethodTabContent
+                    task={task}
+                    method={activeMethod}
+                    methodId={activeMethodId}
+                    attachment={activeAttachment}
+                    onTaskUpdate={onTaskUpdate}
+                    readOnly={readOnly}
+                  />
+                );
               case "pdf":
                 return (
                   <PdfMethodTabContent
@@ -339,7 +353,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
 function resolveMethodType(
   methodType: string | null | undefined,
   sourcePath: string | null | undefined,
-): "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "compound" | "coding_workflow" {
+): "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "mass_spec" | "compound" | "coding_workflow" {
   if (methodType === "compound") return "compound";
   if (methodType === "pcr" || (sourcePath?.startsWith("pcr://") ?? false)) return "pcr";
   if (
@@ -356,6 +370,12 @@ function resolveMethodType(
     (sourcePath?.startsWith("cell_culture://") ?? false)
   ) {
     return "cell_culture";
+  }
+  if (
+    methodType === "mass_spec" ||
+    (sourcePath?.startsWith("mass_spec://") ?? false)
+  ) {
+    return "mass_spec";
   }
   if (
     methodType === "coding_workflow" ||

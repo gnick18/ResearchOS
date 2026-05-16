@@ -851,6 +851,136 @@ function formatTimestampForDisplay(iso: string): string {
   }
 }
 
+const IONIZATION_MODE_LABELS: Record<string, string> = {
+  esi_pos: "ESI+",
+  esi_neg: "ESI−",
+  esi_switching: "ESI switching",
+  apci_pos: "APCI+",
+  apci_neg: "APCI−",
+  ei: "EI",
+  maldi: "MALDI",
+  other: "Other",
+};
+
+function buildMassSpecMethodBody(mp: MethodPayload): string {
+  const protocol = mp.massSpecProtocol ?? null;
+  if (!protocol) {
+    return `<p class="method-file-link">Mass spec method (protocol could not be loaded).</p>`;
+  }
+  // No per-task snapshot for mass spec (static template per §4.5) — render
+  // the source protocol straight.
+  const parts: string[] = [];
+  const headerRows: string[] = [];
+  const pushHeader = (label: string, value: string | number | null | undefined) => {
+    if (value === null || value === undefined || value === "") return;
+    headerRows.push(`<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(String(value))}</td></tr>`);
+  };
+  const modeLabel = IONIZATION_MODE_LABELS[protocol.ionization_mode] ?? protocol.ionization_mode;
+  const fullModeLabel = protocol.ionization_label
+    ? `${modeLabel} — ${protocol.ionization_label}`
+    : modeLabel;
+  pushHeader("Ionization mode", fullModeLabel);
+  pushHeader("Instrument", protocol.instrument);
+  if (headerRows.length > 0) {
+    parts.push(`<table class="mass-spec-header"><tbody>${headerRows.join("")}</tbody></table>`);
+  }
+
+  parts.push(`<h4>Source params</h4>`);
+  parts.push(renderMassSpecSource(protocol.source ?? {}));
+
+  parts.push(`<h4>Scan params</h4>`);
+  parts.push(renderMassSpecScan(protocol.scan ?? { is_msms: false }));
+
+  parts.push(`<h4>Calibration</h4>`);
+  parts.push(renderMassSpecCalibration(protocol.calibration ?? {}));
+
+  if (protocol.description && protocol.description.trim()) {
+    parts.push(`<p class="mass-spec-notes">${escapeHtml(protocol.description.trim())}</p>`);
+  }
+  return parts.join("");
+}
+
+function renderMassSpecSource(s: {
+  source_temp_c?: number | null;
+  capillary_kv?: number | null;
+  nebulizer_gas_lpm?: number | null;
+  drying_gas_lpm?: number | null;
+  drying_gas_temp_c?: number | null;
+  ei_energy_ev?: number | null;
+  maldi_laser_nm?: number | null;
+  maldi_laser_energy?: string | null;
+  maldi_matrix?: string | null;
+  other_notes?: string | null;
+}): string {
+  const rows: string[] = [];
+  const push = (label: string, value: string | number | null | undefined) => {
+    if (value === null || value === undefined || value === "") return;
+    rows.push(`<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(String(value))}</td></tr>`);
+  };
+  push("Source temperature (°C)", s.source_temp_c);
+  push("Capillary voltage (kV)", s.capillary_kv);
+  push("Nebulizer gas (L/min)", s.nebulizer_gas_lpm);
+  push("Drying gas (L/min)", s.drying_gas_lpm);
+  push("Drying gas temperature (°C)", s.drying_gas_temp_c);
+  push("EI ionization energy (eV)", s.ei_energy_ev);
+  push("MALDI laser wavelength (nm)", s.maldi_laser_nm);
+  push("MALDI laser energy", s.maldi_laser_energy);
+  push("MALDI matrix", s.maldi_matrix);
+  push("Notes", s.other_notes);
+  if (rows.length === 0) return `<p>No source parameters recorded.</p>`;
+  return `<table class="mass-spec-source"><tbody>${rows.join("")}</tbody></table>`;
+}
+
+function renderMassSpecScan(s: {
+  scan_mz_low?: number | null;
+  scan_mz_high?: number | null;
+  scan_rate_hz?: number | null;
+  resolution_r?: number | null;
+  is_msms: boolean;
+  msms_isolation_window_mz?: number | null;
+  msms_collision_energy_ev?: number | null;
+}): string {
+  const rows: string[] = [];
+  const push = (label: string, value: string | number | null | undefined) => {
+    if (value === null || value === undefined || value === "") return;
+    rows.push(`<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(String(value))}</td></tr>`);
+  };
+  if (s.scan_mz_low != null || s.scan_mz_high != null) {
+    push(
+      "m/z range",
+      `${s.scan_mz_low ?? "?"} – ${s.scan_mz_high ?? "?"}`,
+    );
+  }
+  push("Scan rate (Hz)", s.scan_rate_hz);
+  push("Resolution (R, FWHM)", s.resolution_r);
+  push("MS/MS workflow", s.is_msms ? "Yes" : "No");
+  if (s.is_msms) {
+    push("Isolation window (m/z)", s.msms_isolation_window_mz);
+    push("Collision energy (eV)", s.msms_collision_energy_ev);
+  }
+  if (rows.length === 0) return `<p>No scan parameters recorded.</p>`;
+  return `<table class="mass-spec-scan"><tbody>${rows.join("")}</tbody></table>`;
+}
+
+function renderMassSpecCalibration(c: {
+  reference_standard?: string | null;
+  calibration_date?: string | null;
+  expected_accuracy_ppm?: number | null;
+  notes?: string | null;
+}): string {
+  const rows: string[] = [];
+  const push = (label: string, value: string | number | null | undefined) => {
+    if (value === null || value === undefined || value === "") return;
+    rows.push(`<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(String(value))}</td></tr>`);
+  };
+  push("Reference standard", c.reference_standard);
+  push("Calibration date", c.calibration_date);
+  push("Expected mass accuracy (ppm)", c.expected_accuracy_ppm);
+  push("Notes", c.notes);
+  if (rows.length === 0) return `<p>No calibration information recorded.</p>`;
+  return `<table class="mass-spec-calibration"><tbody>${rows.join("")}</tbody></table>`;
+}
+
 function buildMethodBlock(
   mp: MethodPayload,
   attachments: ExperimentAttachment[],
@@ -878,6 +1008,8 @@ function buildMethodBlock(
     body = buildPlateMethodBody(mp);
   } else if (mp.method.method_type === "cell_culture") {
     body = buildCellCultureMethodBody(mp);
+  } else if (mp.method.method_type === "mass_spec") {
+    body = buildMassSpecMethodBody(mp);
   } else if (mp.method.method_type === "coding_workflow") {
     body = buildCodingWorkflowMethodBody(mp);
   } else {
