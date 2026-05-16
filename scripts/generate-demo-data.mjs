@@ -731,28 +731,6 @@ function buildEntries() {
     },
   ]);
 
-  // Cell-culture-typed method entry surfacing alex's private passaging
-  // schedule (Phase 2D). Clicking opens the CellCultureViewer — the only
-  // way to reach that code path in fixture mode. Source path uses the
-  // canonical cell_culture://protocol/{id} scheme from app/methods/page.tsx.
-  out.push([
-    "users/alex/methods/7.json",
-    {
-      id: 7,
-      name: "[Demo protocol] HeLa passaging — weekly 1:5 split",
-      source_path: "cell_culture://protocol/1",
-      method_type: "cell_culture",
-      folder_path: "Cell culture",
-      parent_method_id: null,
-      tags: ["demo", "cell culture", "HeLa"],
-      attachments: [],
-      is_public: false,
-      created_by: "alex",
-      owner: "alex",
-      shared_with: [],
-    },
-  ]);
-
   // alex LC gradient (private). Realistic-but-fake reverse-phase HPLC for
   // peptide separation — 5%→95% acetonitrile + 0.1% formic acid over 25 min
   // at 0.3 mL/min on a 1.7 µm C18 column, 214 nm detection. The numbers are
