@@ -6,6 +6,7 @@ import { readPairing, updateLastUpdateId } from "./telegram-store";
 import { routeTelegramMessage } from "./image-router";
 import { routeBatchCallbackQuery } from "./batch-routing";
 import { setPollingHealth } from "./telegram-runtime";
+import { isStaleState, setStaleSignal } from "./staleness";
 
 const TAB_LOCK_KEY = "telegram-poller-tab";
 const HEARTBEAT_MS = 5000;
@@ -75,6 +76,22 @@ export function useTelegramPolling(username: string | null): void {
     let cancelled = false;
     const tabId = Math.random().toString(36).slice(2);
     const controller = new AbortController();
+    const mountedAt = Date.now();
+    // Stale-detection state lives here (not in React state) so the
+    // polling loop can mutate without re-rendering and the broadcast
+    // signal is the only thing UI subscribes to.
+    let consecutiveEmptyPolls = 0;
+    let lastUpdateAt: number | null = null;
+
+    const publishStaleness = (sidecarExists: boolean, botUsername: string | null): void => {
+      const stale = isStaleState({
+        consecutiveEmptyPolls,
+        lastUpdateAt,
+        mountedAt,
+        sidecarExists,
+      });
+      setStaleSignal({ isStale: stale, botUsername: stale ? botUsername : null });
+    };
 
     const heartbeat = window.setInterval(() => {
       tryClaimLock(tabId);
@@ -86,6 +103,11 @@ export function useTelegramPolling(username: string | null): void {
         const pairing = await readPairing(username);
         if (!pairing) {
           setPollingHealth("idle");
+          // No sidecar → staleness check short-circuits. Reset
+          // counters so a future re-pair starts clean.
+          consecutiveEmptyPolls = 0;
+          lastUpdateAt = null;
+          publishStaleness(false, null);
           await sleep(2500);
           continue;
         }
@@ -101,6 +123,13 @@ export function useTelegramPolling(username: string | null): void {
             signal: controller.signal,
           });
           if (cancelled) return;
+          if (updates.length === 0) {
+            consecutiveEmptyPolls += 1;
+          } else {
+            consecutiveEmptyPolls = 0;
+            lastUpdateAt = Date.now();
+          }
+          publishStaleness(true, pairing.botUsername);
           let maxId = pairing.lastUpdateId;
           for (const update of updates) {
             if (update.message) {
@@ -166,6 +195,9 @@ export function useTelegramPolling(username: string | null): void {
       window.clearInterval(heartbeat);
       releaseLock(tabId);
       setPollingHealth("idle");
+      // Drop any stale-banner state on unmount so a re-mounting tab
+      // (e.g., user toggles back to this tab) starts fresh.
+      setStaleSignal({ isStale: false, botUsername: null });
     };
   }, [username]);
 }
