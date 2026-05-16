@@ -10,6 +10,7 @@ import {
   lcGradientApi,
   plateApi,
   cellCultureApi,
+  massSpecApi,
   usersApi,
   fetchAllMethodsIncludingShared,
 } from "@/lib/local-api";
@@ -37,6 +38,7 @@ import type {
 import LcViewer from "@/components/LcViewer";
 import PlateViewer from "@/components/PlateViewer";
 import CellCultureViewer from "@/components/CellCultureViewer";
+import MassSpecViewer from "@/components/MassSpecViewer";
 import { getMethodTypeMeta } from "@/lib/methods/method-type-registry";
 import { CreateMethodModal } from "@/components/methods/CreateMethodModal";
 import {
@@ -333,6 +335,16 @@ export default function MethodsPage() {
           } catch {
             // Non-fatal — cell culture schedule might not exist
           }
+        } else if (
+          method.method_type === "mass_spec" &&
+          method.source_path.startsWith("mass_spec://protocol/")
+        ) {
+          const msId = parseInt(method.source_path.replace("mass_spec://protocol/", ""));
+          try {
+            await massSpecApi.delete(msId);
+          } catch {
+            // Non-fatal — mass spec protocol might not exist
+          }
         } else {
           const methodDir = method.source_path.substring(0, method.source_path.lastIndexOf("/"));
           try {
@@ -403,6 +415,16 @@ export default function MethodsPage() {
               await cellCultureApi.delete(ccId);
             } catch {
               // Non-fatal — cell culture schedule might not exist
+            }
+          } else if (
+            method.method_type === "mass_spec" &&
+            method.source_path.startsWith("mass_spec://protocol/")
+          ) {
+            const msId = parseInt(method.source_path.replace("mass_spec://protocol/", ""));
+            try {
+              await massSpecApi.delete(msId);
+            } catch {
+              // Non-fatal — mass spec protocol might not exist
             }
           } else {
             const methodDir = method.source_path.substring(
@@ -842,6 +864,9 @@ function ViewMethodModal({
     }
     if (method.method_type === "cell_culture") {
       return <CellCultureViewer method={method} currentUser={currentUser} onClose={onClose} onDelete={onDelete} />;
+    }
+    if (method.method_type === "mass_spec") {
+      return <MassSpecViewer method={method} currentUser={currentUser} onClose={onClose} onDelete={onDelete} />;
     }
     if (method.method_type === "compound") {
       return (

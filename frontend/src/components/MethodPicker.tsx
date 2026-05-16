@@ -478,11 +478,14 @@ function MethodPreview({ method }: { method: Method | null }) {
   const isCellCulture =
     method?.method_type === "cell_culture" ||
     (method?.source_path?.startsWith("cell_culture://") ?? false);
+  const isMassSpec =
+    method?.method_type === "mass_spec" ||
+    (method?.source_path?.startsWith("mass_spec://") ?? false);
   const isPdf =
     method?.method_type === "pdf" ||
     (method?.source_path?.toLowerCase().endsWith(".pdf") ?? false);
   const canFetchFile =
-    !!method?.source_path && !isPcr && !isLc && !isPlate && !isCellCulture;
+    !!method?.source_path && !isPcr && !isLc && !isPlate && !isCellCulture && !isMassSpec;
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["method-preview", method?.id],
