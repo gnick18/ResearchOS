@@ -98,7 +98,9 @@ export async function buildImportPlan(
             ? entry.plateProtocol != null
             : entry.record.method_type === "cell_culture"
               ? entry.cellCultureSchedule != null
-              : false);
+              : entry.record.method_type === "coding_workflow"
+                ? entry.codingWorkflow != null
+                : false);
 
     let decision: MethodResolution["decision"];
     let existingMethodId: number | null;

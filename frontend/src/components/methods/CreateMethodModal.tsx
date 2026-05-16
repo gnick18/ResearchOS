@@ -8,6 +8,7 @@ import {
   lcGradientApi,
   plateApi,
   cellCultureApi,
+  codingWorkflowApi,
 } from "@/lib/local-api";
 import { fileService } from "@/lib/file-system/file-service";
 import { fileEvents } from "@/lib/attachments/file-events";
@@ -28,10 +29,13 @@ import type {
   CellCultureCellLine,
   CellCultureMedia,
   CellCulturePlannedEvent,
+  CodingWorkflowLanguage,
+  CodingWorkflowOutputRenderer,
 } from "@/lib/types";
 import LcGradientEditor from "@/components/LcGradientEditor";
 import PlateLayoutEditor, { wellsToRegionLabels } from "@/components/PlateLayoutEditor";
 import CellCultureScheduleEditor from "@/components/CellCultureScheduleEditor";
+import CodingWorkflowEditor from "@/components/CodingWorkflowEditor";
 import { type MethodTypeId } from "@/lib/methods/method-type-registry";
 import { MethodTypeCategoryPicker } from "./MethodTypePicker";
 import { CompoundMethodBuilder } from "./CompoundMethodBuilder";
@@ -148,6 +152,21 @@ export function CreateMethodModal({
     cellCultureApi.getDefaultPlannedEvents(),
   );
   const [ccDescription, setCcDescription] = useState<string | null>(null);
+
+  // Coding workflow state — Python default per Q-B5 lock (most common
+  // scientific scripting language); users switch via the picker.
+  const [cwLanguage, setCwLanguage] = useState<CodingWorkflowLanguage>(() =>
+    codingWorkflowApi.getDefaultLanguage(),
+  );
+  const [cwLanguageLabel, setCwLanguageLabel] = useState<string | null>(null);
+  const [cwEmbeddedCode, setCwEmbeddedCode] = useState<string | null>(() =>
+    codingWorkflowApi.getDefaultEmbeddedCode(),
+  );
+  const [cwExternalPath, setCwExternalPath] = useState<string | null>(null);
+  const [cwDescription, setCwDescription] = useState<string | null>(null);
+  const [cwOutputRenderer, setCwOutputRenderer] = useState<CodingWorkflowOutputRenderer>(
+    "syntax-highlight",
+  );
 
   const slug = name
     .trim()
@@ -402,6 +421,29 @@ export function CreateMethodModal({
             .filter(Boolean),
           is_public: isPublic,
         });
+      } else if (uploadType === "coding_workflow") {
+        const protocol = await codingWorkflowApi.create({
+          name: name.trim(),
+          description: cwDescription,
+          language: cwLanguage,
+          language_label: cwLanguageLabel,
+          embedded_code: cwEmbeddedCode,
+          external_path: cwExternalPath,
+          output_renderer: cwOutputRenderer,
+          folder_path: folder.trim() || null,
+          is_public: isPublic,
+        });
+        await methodsApi.create({
+          name: name.trim(),
+          source_path: `coding_workflow://protocol/${protocol.id}`,
+          method_type: "coding_workflow",
+          folder_path: folder.trim() || null,
+          tags: tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean),
+          is_public: isPublic,
+        });
       }
       onCreated();
     } catch (error: unknown) {
@@ -410,7 +452,7 @@ export function CreateMethodModal({
     } finally {
       setSaving(false);
     }
-  }, [name, slug, uploadType, mdContent, pdfFile, folder, tags, isPublic, pcrGradient, pcrIngredients, pcrNotes, lcGradientSteps, lcColumn, lcWavelength, lcDescription, lcIngredients, platePlateSize, plateWells, plateDescription, ccCellLine, ccMedia, ccPlannedEvents, ccDescription, onCreated]);
+  }, [name, slug, uploadType, mdContent, pdfFile, folder, tags, isPublic, pcrGradient, pcrIngredients, pcrNotes, lcGradientSteps, lcColumn, lcWavelength, lcDescription, lcIngredients, platePlateSize, plateWells, plateDescription, ccCellLine, ccMedia, ccPlannedEvents, ccDescription, cwLanguage, cwLanguageLabel, cwEmbeddedCode, cwExternalPath, cwDescription, cwOutputRenderer, onCreated]);
 
   // When the user picks the Compound tile, hand off to the dedicated
   // builder workspace per proposal section 2.4.2 (stage-2 view). The
@@ -682,6 +724,29 @@ export function CreateMethodModal({
                   onPlannedEventsChange={setCcPlannedEvents}
                   description={ccDescription}
                   onDescriptionChange={setCcDescription}
+                />
+              </div>
+            )}
+
+            {/* Coding workflow editor */}
+            {uploadType === "coding_workflow" && (
+              <div className="space-y-2">
+                <p className="text-xs text-gray-400">
+                  Coding workflows store a reusable script (Python, R, SQL, etc.) or a Jupyter notebook. Embed the code body inline, point at an external path for "open in your editor," or both.
+                </p>
+                <CodingWorkflowEditor
+                  language={cwLanguage}
+                  onLanguageChange={setCwLanguage}
+                  languageLabel={cwLanguageLabel}
+                  onLanguageLabelChange={setCwLanguageLabel}
+                  embeddedCode={cwEmbeddedCode}
+                  onEmbeddedCodeChange={setCwEmbeddedCode}
+                  externalPath={cwExternalPath}
+                  onExternalPathChange={setCwExternalPath}
+                  description={cwDescription}
+                  onDescriptionChange={setCwDescription}
+                  outputRenderer={cwOutputRenderer}
+                  onOutputRendererChange={setCwOutputRenderer}
                 />
               </div>
             )}

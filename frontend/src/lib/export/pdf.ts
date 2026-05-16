@@ -43,6 +43,7 @@ import type {
   CellCultureActualEvent,
   CellCulturePlannedEvent,
   CellCultureSupplement,
+  CodingWorkflowProtocol,
 } from "@/lib/types";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -1385,6 +1386,67 @@ export async function buildPdf(
     return out;
   }
 
+  function renderCodingWorkflowMethodBody(mp: MethodPayload): React.ReactNode[] {
+    const cw: CodingWorkflowProtocol | null = mp.codingWorkflow ?? null;
+    if (!cw) {
+      return [
+        h(
+          Text,
+          { key: "cw-missing", style: styles.methodIntro },
+          "Coding workflow (could not be loaded).",
+        ),
+      ];
+    }
+    const keyPrefix = `m${mp.method.id}-cw`;
+    const out: React.ReactNode[] = [];
+    const langLabel = cw.language === "other"
+      ? (cw.language_label?.trim() || "Other")
+      : cw.language;
+    out.push(
+      h(
+        Text,
+        { key: `${keyPrefix}-lang`, style: styles.methodIntro },
+        `Language: ${langLabel}`,
+      ),
+    );
+    if (cw.description && cw.description.trim()) {
+      out.push(
+        h(
+          Text,
+          { key: `${keyPrefix}-desc`, style: styles.methodIntro },
+          cw.description.trim(),
+        ),
+      );
+    }
+    if (cw.external_path && cw.external_path.trim()) {
+      out.push(
+        h(
+          Text,
+          { key: `${keyPrefix}-ext`, style: styles.methodIntro },
+          `External path: ${cw.external_path.trim()}`,
+        ),
+      );
+    }
+    if (cw.embedded_code && cw.embedded_code.trim()) {
+      out.push(
+        h(
+          Text,
+          { key: `${keyPrefix}-code`, style: styles.codeBlock, wrap: false },
+          cw.embedded_code,
+        ),
+      );
+    } else if (!cw.external_path) {
+      out.push(
+        h(
+          Text,
+          { key: `${keyPrefix}-empty`, style: styles.methodIntro },
+          "(No embedded code or external path provided.)",
+        ),
+      );
+    }
+    return out;
+  }
+
   function renderCellCultureMethodBody(mp: MethodPayload): React.ReactNode[] {
     const sourceSchedule: CellCultureSchedule | null = mp.cellCultureSchedule ?? null;
     if (!sourceSchedule) {
@@ -1621,6 +1683,8 @@ export async function buildPdf(
       children.push(...renderPlateMethodBody(mp));
     } else if (method.method_type === "cell_culture") {
       children.push(...renderCellCultureMethodBody(mp));
+    } else if (method.method_type === "coding_workflow") {
+      children.push(...renderCodingWorkflowMethodBody(mp));
     } else {
       children.push(
         h(

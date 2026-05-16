@@ -1,6 +1,7 @@
 import type {
   LCGradientProtocol,
   CellCultureSchedule,
+  CodingWorkflowProtocol,
   Method,
   PCRProtocol,
   PlateProtocol,
@@ -22,6 +23,7 @@ import {
   lcGradientApi,
   plateApi,
   cellCultureApi,
+  codingWorkflowApi,
 } from "@/lib/local-api";
 import type {
   AttachmentOrigin,
@@ -306,6 +308,39 @@ async function fetchCellCultureScheduleSafe(
   }
 }
 
+// Matches `coding_workflow://protocol/{id}` source_path format used throughout
+// the app (methods/page.tsx, MethodTabs.tsx, generate-demo-data.mjs).
+function extractCodingWorkflowId(sourcePath: string | null | undefined): number | null {
+  if (!sourcePath) return null;
+  const match = sourcePath.match(/^coding_workflow:\/\/protocol\/(\d+)$/);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+async function fetchCodingWorkflowSafe(
+  method: Method,
+  task: Task,
+): Promise<CodingWorkflowProtocol | null> {
+  const id = extractCodingWorkflowId(method.source_path);
+  if (id === null) return null;
+  try {
+    const owner = method.owner || (task.is_shared_with_me ? task.owner : undefined);
+    const protocol = await codingWorkflowApi.get(id, owner);
+    if (!protocol) {
+      console.warn(
+        `[export] Coding workflow ${id} for method ${method.id} could not be loaded`,
+      );
+      return null;
+    }
+    return protocol;
+  } catch (err) {
+    console.warn(
+      `[export.extract] failed to load coding workflow ${id} for method ${method.id}:`,
+      err,
+    );
+    return null;
+  }
+}
+
 async function fetchPCRProtocolSafe(
   method: Method,
   task: Task
@@ -375,6 +410,7 @@ async function buildMethodPayload(
   let lcGradientProtocol: LCGradientProtocol | null = null;
   let plateProtocol: PlateProtocol | null = null;
   let cellCultureSchedule: CellCultureSchedule | null = null;
+  let codingWorkflow: CodingWorkflowProtocol | null = null;
 
   if (method.method_type === "markdown" && method.source_path) {
     try {
@@ -439,6 +475,9 @@ async function buildMethodPayload(
   if (method.method_type === "cell_culture") {
     cellCultureSchedule = await fetchCellCultureScheduleSafe(method, task);
   }
+  if (method.method_type === "coding_workflow") {
+    codingWorkflow = await fetchCodingWorkflowSafe(method, task);
+  }
 
   return {
     payload: {
@@ -449,6 +488,7 @@ async function buildMethodPayload(
       lcGradientProtocol,
       plateProtocol,
       cellCultureSchedule,
+      codingWorkflow,
     },
     pdfAttachment,
   };

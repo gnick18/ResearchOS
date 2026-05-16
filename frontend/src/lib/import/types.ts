@@ -5,6 +5,7 @@
 
 import type {
   CellCultureSchedule,
+  CodingWorkflowProtocol,
   LCGradientProtocol,
   Method,
   PCRProtocol,
@@ -71,6 +72,10 @@ export interface ImportMethodEntry {
   // `methods/method-{id}-cell-culture-schedule.json`. Same import-new gating
   // semantics as pcrProtocol / lcGradientProtocol.
   cellCultureSchedule?: CellCultureSchedule | null;
+  // The source-side CodingWorkflowProtocol record, carried in the bundle as
+  // `methods/method-{id}-coding-workflow.json`. Same import-new gating
+  // semantics as the other structured types.
+  codingWorkflow?: CodingWorkflowProtocol | null;
 }
 
 export interface ImportPayload {
