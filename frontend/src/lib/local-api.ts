@@ -1295,11 +1295,12 @@ export const methodsApi = {
         tags: data.tags ?? null,
         is_public: true,
         created_by: null,
-        owner: "",
+        owner: "public",
         shared_with: [],
       });
     }
 
+    const currentUser = await getCurrentUserCached();
     return methodsStore.create({
       ...data,
       source_path: data.source_path ?? null,
@@ -1309,7 +1310,7 @@ export const methodsApi = {
       tags: data.tags ?? null,
       is_public: false,
       created_by: null,
-      owner: "",
+      owner: currentUser,
       shared_with: [],
     });
   },
