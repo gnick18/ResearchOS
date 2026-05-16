@@ -48,6 +48,7 @@ import {
   setOnboardingMode,
   type OnboardingMode,
 } from "@/lib/onboarding/sidecar";
+import { forgetAllTelegramTokenCache } from "@/lib/telegram/telegram-token-cache";
 
 const USER_COLOR_PALETTE = [
   "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
@@ -633,19 +634,6 @@ function BehaviorSection({ settings, update }: SectionProps) {
 // claim. Lists every file the app has written under the user's folder + every
 // IndexedDB key the app keeps in the browser. No actions besides Refresh.
 // Closes the security audit role brief's affordance #1.
-
-// TODO(chip #1 reconcile): once chip #1's IDB-cache module branch lands
-// (sibling chip, paired with this doc-chain chip per security manager's
-// APPROVE WITH CONSTRAINTS 2026-05-15), replace this local stub with:
-//   import { forgetAllTelegramTokenCache } from "@/lib/telegram/telegram-token-cache";
-// Expected signature: `forgetAllTelegramTokenCache(folder: string): Promise<void>`.
-// The stub keeps the Forget button shippable + lint-clean while chip #1
-// is in flight; the button will be a no-op (and log) until chip #1 merges.
-async function forgetAllTelegramTokenCache(_folder: string): Promise<void> {
-  console.warn(
-    "[Settings/Data inventory] Forget button clicked, but chip #1's telegram-token-cache module is not yet wired. Nothing to wipe.",
-  );
-}
 
 const IDB_KEYS: { key: string; meaning: string; isCredential?: boolean }[] = [
   {
