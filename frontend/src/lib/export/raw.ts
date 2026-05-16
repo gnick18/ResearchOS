@@ -79,6 +79,12 @@ export async function buildRawZip(
         JSON.stringify(mp.cellCultureSchedule, null, 2),
       );
     }
+    if (mp.method.method_type === "mass_spec" && mp.massSpecProtocol != null) {
+      zip.file(
+        `methods/method-${id}-mass-spec-protocol.json`,
+        JSON.stringify(mp.massSpecProtocol, null, 2),
+      );
+    }
     const match = payload.attachments.find(
       (a) => a.origin === "methods" && a.methodId === id,
     );

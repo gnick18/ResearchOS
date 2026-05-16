@@ -84,9 +84,10 @@ export async function buildImportPlan(
     // import-new is only available for structured types when the bundle
     // carried the protocol record. Without it, the importer has nothing
     // to recreate from, so the default falls through to skip.
-    //   - PCR   → entry.pcrProtocol
-    //   - LC    → entry.lcGradientProtocol
-    //   - Plate → entry.plateProtocol
+    //   - PCR       → entry.pcrProtocol
+    //   - LC        → entry.lcGradientProtocol
+    //   - Plate     → entry.plateProtocol
+    //   - Mass spec → entry.massSpecProtocol
     // Future structured types add their carrier check here.
     const importNewAvailable =
       !sourceMeta.hasStructuredProtocol ||
@@ -98,7 +99,9 @@ export async function buildImportPlan(
             ? entry.plateProtocol != null
             : entry.record.method_type === "cell_culture"
               ? entry.cellCultureSchedule != null
-              : false);
+              : entry.record.method_type === "mass_spec"
+                ? entry.massSpecProtocol != null
+                : false);
 
     let decision: MethodResolution["decision"];
     let existingMethodId: number | null;

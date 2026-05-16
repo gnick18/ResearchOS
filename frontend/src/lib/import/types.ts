@@ -6,6 +6,7 @@
 import type {
   CellCultureSchedule,
   LCGradientProtocol,
+  MassSpecProtocol,
   Method,
   PCRProtocol,
   PlateProtocol,
@@ -71,6 +72,10 @@ export interface ImportMethodEntry {
   // `methods/method-{id}-cell-culture-schedule.json`. Same import-new gating
   // semantics as pcrProtocol / lcGradientProtocol.
   cellCultureSchedule?: CellCultureSchedule | null;
+  // The source-side MassSpecProtocol record, carried in the bundle as
+  // `methods/method-{id}-mass-spec-protocol.json`. Same import-new gating
+  // semantics as the other structured types.
+  massSpecProtocol?: MassSpecProtocol | null;
 }
 
 export interface ImportPayload {
