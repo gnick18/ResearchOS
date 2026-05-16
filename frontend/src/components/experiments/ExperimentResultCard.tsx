@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
+import { markdownSanitizeSchema } from "@/lib/markdown/sanitize-schema";
 import UserAvatar from "@/components/UserAvatar";
 import MethodChip from "./MethodChip";
 import FreshnessTag, { type FreshnessKind } from "./FreshnessTag";
@@ -85,12 +90,7 @@ export default function ExperimentResultCard({
         {heroImagePath ? (
           <HeroImage path={heroImagePath} alt={task.name} />
         ) : resultsPreview ? (
-          <pre
-            className="text-[11px] leading-snug text-gray-700 whitespace-pre-wrap px-3 py-2 max-h-full overflow-hidden w-full font-mono"
-            style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}
-          >
-            {resultsPreview}
-          </pre>
+          <MarkdownPreview content={resultsPreview} />
         ) : (
           <div className="flex flex-col items-center justify-center text-gray-400 text-xs">
             <svg
@@ -173,6 +173,70 @@ export default function ExperimentResultCard({
         </div>
       </div>
     </button>
+  );
+}
+
+/**
+ * Compact rendered-markdown preview for the card hero. Same sanitize pipeline
+ * as RenderedMarkdown / the rest of the app (per `03f77091` audit), but with
+ * heading/paragraph/link overrides tuned for an 11px hero strip:
+ *  - headings collapse to bold inline-block text (no oversized fonts)
+ *  - paragraphs/lists use tight margins so 3 lines look like 3 lines
+ *  - links render as non-interactive spans so the card-level click wins (and
+ *    so we don't nest <a> inside the parent <button>)
+ */
+export function MarkdownPreview({ content }: { content: string }) {
+  return (
+    <div className="text-[11px] leading-snug text-gray-700 px-3 py-2 max-h-full overflow-hidden w-full">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]]}
+        components={{
+          h1: ({ children }) => (
+            <strong className="block text-[12px] mb-0.5">{children}</strong>
+          ),
+          h2: ({ children }) => (
+            <strong className="block text-[12px] mb-0.5">{children}</strong>
+          ),
+          h3: ({ children }) => (
+            <strong className="block text-[11px] mb-0.5">{children}</strong>
+          ),
+          h4: ({ children }) => (
+            <strong className="block text-[11px] mb-0.5">{children}</strong>
+          ),
+          h5: ({ children }) => (
+            <strong className="block text-[11px] mb-0.5">{children}</strong>
+          ),
+          h6: ({ children }) => (
+            <strong className="block text-[11px] mb-0.5">{children}</strong>
+          ),
+          p: ({ children }) => <div className="mb-1">{children}</div>,
+          ul: ({ children }) => (
+            <ul className="list-disc pl-4 my-0.5">{children}</ul>
+          ),
+          ol: ({ children }) => (
+            <ol className="list-decimal pl-4 my-0.5">{children}</ol>
+          ),
+          li: ({ children }) => <li className="leading-snug">{children}</li>,
+          a: ({ children }) => (
+            <span className="text-blue-600 underline">{children}</span>
+          ),
+          code: ({ children }) => (
+            <code className="font-mono text-[10px] bg-gray-100 rounded px-0.5">
+              {children}
+            </code>
+          ),
+          pre: ({ children }) => (
+            <pre className="font-mono text-[10px] bg-gray-100 rounded p-1 max-h-12 overflow-hidden">
+              {children}
+            </pre>
+          ),
+          img: () => null,
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
   );
 }
 
