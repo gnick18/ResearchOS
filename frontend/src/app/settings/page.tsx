@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
@@ -97,28 +97,49 @@ function SettingsBody() {
   const hydrateFromSettings = useAppStore((s) => s.hydrateFromSettings);
   const queryClient = useQueryClient();
 
-  // Scroll-to-hash on mount. Next.js App Router applies the URL hash
-  // before the page's sections have rendered, so a router.push to
-  // "/settings#telegram" lands at the top of the page. Re-apply the
-  // scroll after a render tick so the section is in the DOM.
-  // Triggered by onboarding-tip setupActions navigating here.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const hash = window.location.hash.slice(1);
-    if (!hash) return;
-    const handle = window.setTimeout(() => {
-      const el = document.getElementById(hash);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 120);
-    return () => window.clearTimeout(handle);
-  }, []);
-
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [recentlySaved, setRecentlySaved] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
   const [pwExists, setPwExists] = useState<boolean | null>(null);
+
+  // The wrapping <div className="flex-1 overflow-y-auto"> is the actual
+  // scroll container — not window. Calling el.scrollIntoView() defaults
+  // to scrolling the nearest scrolling ancestor, which is unreliable
+  // here because the container only mounts after `loading` flips false.
+  // We need a direct handle to call scrollTo() on the right element.
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  // One-shot guard so we only honor the URL hash on first content render,
+  // not again when the user switches accounts mid-session.
+  const scrolledToHashRef = useRef(false);
+
+  // Scroll to URL hash (e.g. /settings#ai-helper, #telegram, #personalize)
+  // once the section is actually in the DOM. Onboarding-tip setupActions
+  // navigate here, so this is the entry point users hit cold.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (loading) return;
+    if (scrolledToHashRef.current) return;
+    const hash = window.location.hash.slice(1);
+    if (!hash) return;
+    scrolledToHashRef.current = true;
+    // Defer one frame so layout has settled after this commit; otherwise
+    // offsetTop / getBoundingClientRect can read stale geometry.
+    const raf = requestAnimationFrame(() => {
+      const container = scrollContainerRef.current;
+      if (!container) return;
+      const el = document.getElementById(hash);
+      if (!el) return;
+      const top =
+        el.getBoundingClientRect().top -
+        container.getBoundingClientRect().top +
+        container.scrollTop;
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      container.scrollTo({ top, behavior: reduced ? "auto" : "smooth" });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [loading]);
 
   // Load on mount + when the active user changes.
   useEffect(() => {
@@ -218,7 +239,7 @@ function SettingsBody() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
       <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
         <header className="flex items-center justify-between">
           <div>
