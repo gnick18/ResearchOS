@@ -446,7 +446,7 @@ export interface Method {
   id: number;
   name: string;
   source_path: string | null;
-  method_type: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "compound" | null;
+  method_type: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "mass_spec" | "compound" | null;
   folder_path: string | null;
   parent_method_id: number | null;
   tags: string[] | null;
@@ -470,7 +470,7 @@ export interface Method {
 export interface MethodCreate {
   name: string;
   source_path?: string | null;
-  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "compound";
+  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "mass_spec" | "compound";
   folder_path?: string | null;
   parent_method_id?: number | null;
   tags?: string[];
@@ -481,7 +481,7 @@ export interface MethodCreate {
 export interface MethodUpdate {
   name?: string;
   source_path?: string | null;
-  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "compound" | null;
+  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "mass_spec" | "compound" | null;
   folder_path?: string | null;
   parent_method_id?: number | null;
   tags?: string[];
@@ -800,6 +800,125 @@ export interface CellCultureScheduleInstance {
   media?: CellCultureMedia;
   description?: string | null;
 }
+
+// ── Mass spec ────────────────────────────────────────────────────────────────
+//
+// Standalone mass spectrometry method type. Pairs with LC via the compound
+// primitive for LC-MS workflows; works alone for MALDI / direct infusion /
+// GC-MS / etc. The discriminator `ionization_mode` drives smart-per-mode
+// rendering in the editor — source-param fields not relevant to the
+// selected ionization mode are hidden unless "Show all fields" is checked.
+// Per proposal §4.5: no per-task snapshot (static template).
+
+export type IonizationMode =
+  | "esi_pos"
+  | "esi_neg"
+  | "esi_switching"
+  | "apci_pos"
+  | "apci_neg"
+  | "ei"
+  | "maldi"
+  | "other";
+
+export interface MassSpecSourceParams {
+  /** Source temperature in °C. ESI / APCI / EI all use; MALDI usually does not. */
+  source_temp_c?: number | null;
+  /** Capillary voltage in kV (ESI / APCI). */
+  capillary_kv?: number | null;
+  /** Nebulizer gas flow in L/min (ESI / APCI). */
+  nebulizer_gas_lpm?: number | null;
+  /** Drying gas flow in L/min (ESI / APCI). */
+  drying_gas_lpm?: number | null;
+  /** Drying gas temperature in °C (ESI / APCI). */
+  drying_gas_temp_c?: number | null;
+  /** Electron ionization energy in eV (EI only). */
+  ei_energy_ev?: number | null;
+  /** MALDI laser wavelength in nm. */
+  maldi_laser_nm?: number | null;
+  /** MALDI laser energy (instrument-specific units; free text). */
+  maldi_laser_energy?: string | null;
+  /** MALDI matrix (free text: "CHCA", "DHB", "SA"). */
+  maldi_matrix?: string | null;
+  /** Free-text catch-all for instrument-specific params not modeled. */
+  other_notes?: string | null;
+}
+
+export interface MassSpecScanParams {
+  /** Lower m/z bound. */
+  scan_mz_low?: number | null;
+  /** Upper m/z bound. */
+  scan_mz_high?: number | null;
+  /** Scan rate in scans/sec (or Hz; user labels). */
+  scan_rate_hz?: number | null;
+  /** Mass resolving power (R; full-width-half-max). */
+  resolution_r?: number | null;
+  /** True for MS/MS workflows; false for MS-only. */
+  is_msms: boolean;
+  /** MS/MS isolation window in m/z (only meaningful when is_msms=true). */
+  msms_isolation_window_mz?: number | null;
+  /** MS/MS collision energy in eV (only meaningful when is_msms=true). */
+  msms_collision_energy_ev?: number | null;
+}
+
+export interface MassSpecCalibration {
+  /** Reference standard ("sodium formate", "MRFA", "Calmix"): free text. */
+  reference_standard?: string | null;
+  /** ISO date the calibration was last performed. */
+  calibration_date?: string | null;
+  /** Expected mass accuracy in ppm. */
+  expected_accuracy_ppm?: number | null;
+  /** Free-text notes. */
+  notes?: string | null;
+}
+
+export interface MassSpecProtocol {
+  id: number;
+  name: string;
+  description?: string | null;
+  is_public: boolean;
+  created_at?: string;
+  updated_at?: string;
+  created_by: string | null;
+  /** Owner of this protocol record. Mirrors LCGradientProtocol's owner
+   *  field at write time (set by JsonStore) — kept loose in the type
+   *  since the JsonStore writes it implicitly. */
+  owner?: string;
+  shared_with?: SharedUser[];
+  /** The discriminator that drives smart-per-mode field rendering in the editor. */
+  ionization_mode: IonizationMode;
+  /** Free-text label when `ionization_mode === "other"`. */
+  ionization_label?: string | null;
+  /** Instrument identifier: "Thermo Q-Exactive", "Bruker timsTOF Pro 2", etc. */
+  instrument?: string | null;
+  source: MassSpecSourceParams;
+  scan: MassSpecScanParams;
+  calibration: MassSpecCalibration;
+}
+
+export interface MassSpecProtocolCreate {
+  name: string;
+  description?: string | null;
+  is_public?: boolean;
+  ionization_mode: IonizationMode;
+  ionization_label?: string | null;
+  instrument?: string | null;
+  source: MassSpecSourceParams;
+  scan: MassSpecScanParams;
+  calibration: MassSpecCalibration;
+  folder_path?: string | null;
+}
+
+export type MassSpecProtocolUpdate = Partial<{
+  name: string;
+  description: string | null;
+  is_public: boolean;
+  ionization_mode: IonizationMode;
+  ionization_label: string | null;
+  instrument: string | null;
+  source: MassSpecSourceParams;
+  scan: MassSpecScanParams;
+  calibration: MassSpecCalibration;
+}>;
 
 // ── Compound Methods ─────────────────────────────────────────────────────────
 
