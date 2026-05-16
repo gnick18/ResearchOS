@@ -1233,10 +1233,16 @@ async function commitAutoNameBatch(
       basePath: target,
       blob: photo.blob,
       suggestedFilename: desired,
-      altText: photo.caption ?? name,
+      altText: name,
     });
+    // Caption = the batch name (the thing the user TYPED). Telegram only
+    // attaches per-photo caption to the first photo of an album, so
+    // `photo.caption ?? name` would leave a single anomalous caption on
+    // photo 0 and the batch name on the rest — confusing. Batch name on
+    // every photo keeps the album coherent; the per-photo index is
+    // already preserved in the filename.
     await writeSidecar(target, result.finalFilename, {
-      caption: photo.caption ?? name,
+      caption: name,
       source: "telegram",
       receivedAt: new Date(photo.date * 1000).toISOString(),
       telegramMessageId: photo.messageId,

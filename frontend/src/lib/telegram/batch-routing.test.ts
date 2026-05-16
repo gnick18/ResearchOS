@@ -799,6 +799,59 @@ describe("batch-routing: full destination → style → auto flow", () => {
     );
     expect(_peekBatchForTests(CHAT_ID)).toBeUndefined();
   });
+
+  // Sidecar caption regression: InboxToast and the inbox modal both read
+  // caption from sidecar.json; if commitAutoNameBatch doesn't write one,
+  // the toast falls back to "No caption" even when the user just typed
+  // the name. Album-of-3 + Inbox so the assertions are simple paths.
+  it("writes the batch name as sidecar caption on every photo (auto-number Inbox flow)", async () => {
+    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
+    await routeBatchablePhoto("g1", makePhoto("a"), baseCtx, null);
+    await routeBatchablePhoto("g1", makePhoto("b"), baseCtx, null);
+    await routeBatchablePhoto("g1", makePhoto("c"), baseCtx, null);
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+
+    await routeBatchCallbackQuery(makeCallback("inbox"), baseCtx);
+    await routeBatchCallbackQuery(makeCallback("style:auto"), baseCtx);
+    await consumeBatchTextReply("Fu", baseCtx);
+
+    const base = "users/alex/inbox";
+    for (const i of [1, 2, 3]) {
+      const sidecar = hoisted.memFs.get(`${base}/Images/Fu-${i}.jpg.json`) as
+        | { caption?: string; source?: string }
+        | undefined;
+      expect(sidecar).toBeDefined();
+      expect(sidecar?.caption).toBe("Fu");
+      expect(sidecar?.source).toBe("telegram");
+    }
+  });
+
+  // Telegram only attaches per-photo caption to photo 0 of an album, so
+  // an earlier `photo.caption ?? name` shape would have left an anomalous
+  // first-photo caption different from the rest. Lock in: every photo
+  // gets the batch name even when photo 0 arrives with a Telegram
+  // caption set.
+  it("ignores photo[0] Telegram caption — every sidecar caption is the batch name", async () => {
+    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
+    const photoA: BatchPhoto = { ...makePhoto("a"), caption: "tg-caption" };
+    await routeBatchablePhoto("g1", photoA, baseCtx, null);
+    await routeBatchablePhoto("g1", makePhoto("b"), baseCtx, null);
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+
+    await routeBatchCallbackQuery(makeCallback("inbox"), baseCtx);
+    await routeBatchCallbackQuery(makeCallback("style:auto"), baseCtx);
+    await consumeBatchTextReply("Fu", baseCtx);
+
+    const base = "users/alex/inbox";
+    const s1 = hoisted.memFs.get(`${base}/Images/Fu-1.jpg.json`) as
+      | { caption?: string }
+      | undefined;
+    const s2 = hoisted.memFs.get(`${base}/Images/Fu-2.jpg.json`) as
+      | { caption?: string }
+      | undefined;
+    expect(s1?.caption).toBe("Fu");
+    expect(s2?.caption).toBe("Fu");
+  });
 });
 
 describe("batch-routing: per-photo-captions flow", () => {

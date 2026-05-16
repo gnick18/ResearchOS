@@ -26,6 +26,24 @@ function inboxBase(username: string): string {
 }
 
 /**
+ * Derive a human-readable label from an image filename when the sidecar
+ * caption is missing. Strips the extension and the trailing `-<digits>`
+ * batch-index suffix so e.g. "Fu-1.jpg" → "Fu". Returns null only for
+ * empty input, so the caller's final "No caption" fallback still fires
+ * for truly nameless files.
+ *
+ * Belt-and-suspenders for two cases the toast can't otherwise show a
+ * caption for: (1) a brief race where attachImageToTask emits
+ * `image-attached` before the caller's writeSidecar lands, and (2) the
+ * per-photo /skip path that intentionally leaves caption unset.
+ */
+export function filenameToCaptionStem(filename: string): string | null {
+  const noExt = filename.replace(/\.[^.]+$/, "");
+  const stem = noExt.replace(/-\d+$/, "");
+  return stem || null;
+}
+
+/**
  * Bottom-right transient toast that surfaces every new arrival in the
  * user's Telegram inbox. Each toast gives a one-click "File to active
  * experiment" button (when something's open) plus an "Open inbox" escape
@@ -130,7 +148,7 @@ export default function InboxToast() {
               )}
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-gray-800 truncate">
-                  {item.caption ?? (
+                  {item.caption ?? filenameToCaptionStem(item.filename) ?? (
                     <span className="italic text-gray-400">No caption</span>
                   )}
                 </p>
