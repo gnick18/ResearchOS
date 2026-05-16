@@ -11,7 +11,8 @@
   "weekend_override": null,
   "method_id": null,
   "method_ids": [
-    5
+    5,
+    11
   ],
   "deviation_log": null,
   "tags": null,
@@ -46,6 +47,12 @@
       "method_id": 5,
       "owner": "alex",
       "snapshot_at": "2026-05-13T08:00:00Z"
+    },
+    {
+      "method_id": 11,
+      "owner": "alex",
+      "snapshot_at": "2026-05-13T08:00:00Z",
+      "qpcr_analysis": "{\"cqs\":{\"flbA-1\":{\"cq\":24.3,\"notes\":\"induced, biological triplicate mean\"},\"ref-act1\":{\"cq\":21.7,\"notes\":\"housekeeping baseline\"}},\"notes\":\"Demo readouts — induced cultures show ~6× upregulation of flbA vs ACT1.\"}"
     }
   ],
   "owner": "alex",

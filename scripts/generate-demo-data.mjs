@@ -353,6 +353,7 @@ function buildEntries() {
       lc_gradients: 1,
       plate_layouts: 1,
       cell_culture_schedules: 1,
+      qpcr_analyses: 1,
       purchase_items: 20,
       lab_links: 6,
       notes: 2,
@@ -635,7 +636,25 @@ function buildEntries() {
         { id: "st3", text: "Run qPCR — triplicates per colony", is_complete: false },
         { id: "st4", text: "ΔΔCt vs ACT1 reference, plot fold-change", is_complete: false },
       ],
-      method_attachments: [{ method_id: 5, owner: "alex", snapshot_at: TODAY + "T08:00:00Z" }] },
+      method_attachments: [
+        { method_id: 5, owner: "alex", snapshot_at: TODAY + "T08:00:00Z" },
+        // Methods Expansion v2 Phase 1: qPCR-analysis method attached so the
+        // QpcrAnalysisMethodTabContent path is reachable in fixture mode.
+        // Pre-seeded Cq readouts demonstrate the ΔΔCq fold-change table and
+        // the bar-chart visualization without requiring user input.
+        {
+          method_id: 11,
+          owner: "alex",
+          snapshot_at: TODAY + "T08:00:00Z",
+          qpcr_analysis: JSON.stringify({
+            cqs: {
+              "flbA-1": { cq: 24.3, notes: "induced, biological triplicate mean" },
+              "ref-act1": { cq: 21.7, notes: "housekeeping baseline" },
+            },
+            notes: "Demo readouts — induced cultures show ~6× upregulation of flbA vs ACT1.",
+          }),
+        },
+      ] },
   ]));
 
   // alex methods
@@ -838,6 +857,61 @@ function buildEntries() {
       parent_method_id: null,
       tags: ["demo", "cell culture", "HeLa"],
       attachments: [],
+      is_public: false,
+      created_by: "alex",
+      owner: "alex",
+      shared_with: [],
+    },
+  ]);
+
+  // Methods Expansion v2 Phase 1: qPCR-analysis-typed method (id 11 per
+  // proposal §6.2 pre-assigned id ranges). Surfaces the per-target Cq
+  // readouts + ΔΔCq fold-change calculation on the experiment page; pairs
+  // with the existing PCR method (id 5 = "qPCR fakeGFP expression") via a
+  // future compound to give the full qPCR workflow.
+  out.push([
+    "users/alex/methods/11.json",
+    {
+      id: 11,
+      name: "[Demo protocol] flbA expression vs control (ΔΔCq)",
+      source_path: "qpcr_analysis://protocol/1",
+      method_type: "qpcr_analysis",
+      folder_path: "qPCR",
+      parent_method_id: null,
+      tags: ["demo", "qPCR", "ΔΔCq"],
+      attachments: [],
+      is_public: false,
+      created_by: "alex",
+      owner: "alex",
+      shared_with: [],
+    },
+  ]);
+
+  // alex qPCR analysis (private). Realistic-but-fake SYBR Green protocol
+  // measuring fake-flbA expression in FakeYeast strains, with ACT1 as the
+  // housekeeping reference for ΔΔCq fold-change. Standard curve omitted at
+  // the template level (per-run efficiency calc is optional); melt curve
+  // configured 60→95 °C @ 0.1 °C/sec. Per-task Cq readouts live on task 30's
+  // attachment snapshot (seeded above) so the bar chart + fold-change table
+  // render in fixture mode without user input.
+  out.push([
+    "users/alex/qpcr_analyses/1.json",
+    {
+      id: 1,
+      name: "[Demo protocol] flbA expression vs control (ΔΔCq)",
+      description:
+        "Demo qPCR analysis — measures fake-flbA mRNA in induced vs uninduced FakeYeast cultures, normalized to ACT1 housekeeping. Pair with PCR method 5 (qPCR fakeGFP expression) via a compound for the full cycling + analysis kit.",
+      chemistry: "sybr",
+      chemistry_label: null,
+      references: [
+        { id: "flbA-1", target: "flbA", channel: "FAM", is_reference: false, expected_cq: 24 },
+        { id: "ref-act1", target: "ACT1", channel: "FAM", is_reference: true, expected_cq: 22 },
+      ],
+      standard_curve: [],
+      melt_curve: { start_c: 60, end_c: 95, ramp_rate_c_per_sec: 0.1 },
+      use_delta_delta_cq: true,
+      created_at: "2026-04-29T00:00:00Z",
+      updated_at: "2026-04-29T00:00:00Z",
       is_public: false,
       created_by: "alex",
       owner: "alex",
