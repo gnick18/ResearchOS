@@ -247,9 +247,9 @@ export function _resetExperimentsLoaderForTests(): void {
   };
 }
 
-/** Lazy project fetch surface. Buttons need the project folder name in
- *  their 3-line label, so the picker resolves project_id → name once per
- *  build. Swappable for tests via `_setProjectsLoaderForTests`. */
+/** Lazy project fetch surface. Buttons include the project folder name
+ *  in their single-line label, so the picker resolves project_id → name
+ *  once per build. Swappable for tests via `_setProjectsLoaderForTests`. */
 let projectsLoader: (username: string) => Promise<Project[]> = async (
   username: string
 ) => {
@@ -293,41 +293,63 @@ async function hasMeaningfulResults(
   return hasUserContent(text);
 }
 
-/** Truncate to `max` chars with an ellipsis suffix. Telegram button
- *  text wraps long single lines awkwardly; we cap titles and project
- *  folder names so each line of the 3-line label stays visually tidy.
- *
- *  Inner cap of ~60 leaves headroom for the optional " — Lab Notes"
- *  suffix on the active-task confirmation rows. */
+/** Truncate to `max` chars with an ellipsis suffix. */
 function truncate(text: string, max: number): string {
   if (text.length <= max) return text;
   return `${text.slice(0, max - 1)}…`;
 }
 
-/** Build the 3-line button text for an experiment row. Telegram supports
- *  `\n` inside button `text`, so each line renders on its own row in the
- *  client. The optional suffix appears on the title line (used by the
- *  active-task quick-pick rows to flag "— Lab Notes" / "— Results").
+/** Format an ISO date (YYYY-MM-DD) as a short "MMM D" string (e.g.
+ *  "Apr 1", "May 15"). Parses the local-date triple directly so a
+ *  negative-UTC-offset runner doesn't shift the day. Returns the raw
+ *  input if it can't be parsed. */
+function formatDateShort(iso: string): string {
+  if (!iso) return iso;
+  const ymd = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  const d = ymd
+    ? new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]))
+    : new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+/** Title segment cap (icon + name + suffix, combined). */
+const TITLE_CAP = 30;
+/** Project folder cap. */
+const PROJECT_CAP = 18;
+/** Drop the project segment when total label exceeds this. iOS Telegram
+ *  appends ".." truncation once a label crosses a width threshold; the
+ *  per-component caps + 55-char total keeps the label inside that
+ *  threshold even on narrow phone screens. */
+const TOTAL_BUDGET = 55;
+
+/** Build a single-line button label for an experiment row. iOS Telegram
+ *  collapses `\n` inside button text and appends ".." truncation
+ *  regardless of length, so the previous 3-line layout rendered as
+ *  `<title>..` with the project + dates invisible. Single-line +
+ *  middle-dot separator renders consistently across clients.
  *
- *  Format:
- *    <icon? + title (+ suffix)?>
- *    <project folder>
- *    <start_date → end_date>
- */
+ *  Format:  `<icon? title? suffix?> · <project> · <MMM D → MMM D>`
+ *
+ *  When `<title> · <project> · <dates>` exceeds TOTAL_BUDGET, the
+ *  project segment is dropped — title + dates is the irreducible
+ *  minimum that still tells the user what they're picking. */
 export function buildExperimentLabel(
   task: Pick<Task, "name" | "start_date" | "end_date">,
   projectFolder: string,
   opts: { suffix?: string; icon?: string } = {}
 ): string {
-  const titleCap = 60;
-  const projectCap = 60;
-  const titleBase = truncate(task.name, titleCap);
-  const titleLine = opts.icon
-    ? `${opts.icon} ${titleBase}${opts.suffix ? ` ${opts.suffix}` : ""}`
-    : `${titleBase}${opts.suffix ? ` ${opts.suffix}` : ""}`;
-  const projectLine = truncate(projectFolder || "(no project)", projectCap);
-  const dateLine = `${task.start_date} → ${task.end_date}`;
-  return [titleLine, projectLine, dateLine].join("\n");
+  const titleRaw = opts.icon
+    ? `${opts.icon} ${task.name}${opts.suffix ? ` ${opts.suffix}` : ""}`
+    : `${task.name}${opts.suffix ? ` ${opts.suffix}` : ""}`;
+  const title = truncate(titleRaw, TITLE_CAP);
+  const project = truncate(projectFolder || "(no project)", PROJECT_CAP);
+  const dates = `${formatDateShort(task.start_date)} → ${formatDateShort(task.end_date)}`;
+  const full = `${title} · ${project} · ${dates}`;
+  if (full.length > TOTAL_BUDGET) {
+    return `${title} · ${dates}`;
+  }
+  return full;
 }
 
 /** Lookup map from `project_id` → project name for a single owner's
@@ -400,10 +422,9 @@ function buildActiveConfirmationKeyboard(
   projectName: string,
   task: Pick<Task, "start_date" | "end_date"> | null
 ): InlineKeyboardMarkup {
-  // The 3-line label needs start/end dates; when we don't have a Task
-  // record (e.g. shared task we couldn't resolve) we synthesise a single
-  // line with just the name. This is a graceful-degrade path, not the
-  // common one.
+  // The rich label needs start/end dates; when we don't have a Task
+  // record (e.g. shared task we couldn't resolve) we fall back to just
+  // the name. Graceful-degrade path, not the common one.
   const labelTask = {
     name: activeTask.name,
     start_date: task?.start_date ?? "",
@@ -477,7 +498,7 @@ function buildDestinationKeyboard(
 
 /** Build the sub-tab picker keyboard. Shown after the user picks a task
  *  from the full picker. Plain two-row "Lab Notes" / "Results"; we drop
- *  the 3-line context here since the user just selected the task. */
+ *  the rich context here since the user just selected the task. */
 function buildSubTabKeyboard(
   task: { id: number; owner: string; name: string }
 ): InlineKeyboardMarkup {

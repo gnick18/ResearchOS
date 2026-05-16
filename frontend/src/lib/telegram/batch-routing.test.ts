@@ -12,8 +12,10 @@
 //      picker, then sub-tab picker, then caption style.
 //   3. "Pick another" filter — Doing-now + experiments-without-results
 //      + Inbox; hides experiments that already have results written.
-//   4. Rich multi-line button labels — `\n`-separated title / project /
-//      dates; callback_data stays under the 64-byte cap.
+//   4. Rich single-line button labels — title · project · dates joined
+//      with middle-dot; callback_data stays under the 64-byte cap. iOS
+//      Telegram collapses `\n` inside button text and appends ".."
+//      truncation regardless of length, so labels must be single-line.
 //   5. Lab Notes vs Results write target — per-tab `Images/` subdir,
 //      NOT the legacy outer base.
 
@@ -551,33 +553,118 @@ describe("batch-routing: experiments-without-results filter", () => {
 });
 
 describe("batch-routing: rich button labels", () => {
-  it("buildExperimentLabel returns a 3-line `\\n`-separated label", () => {
+  // iOS Telegram collapses `\n` inside button text and appends ".."
+  // truncation regardless of length, so the redesign's 3-line `\n`
+  // label rendered as `<title>..` with project + dates invisible on
+  // mobile. The label is now a single line with " · " separators
+  // (title · project · MMM D → MMM D), per-component capped at
+  // TITLE_CAP=30 / PROJECT_CAP=18, with the project dropped when the
+  // total exceeds 55 chars.
+  it("buildExperimentLabel returns single-line ` · `-separated label in MMM D format", () => {
     const label = buildExperimentLabel(
-      { name: "Yeast assay", start_date: "2026-05-01", end_date: "2026-05-10" },
-      "Protein Research",
-      { icon: "▶︎" },
+      { name: "Make media", start_date: "2026-04-01", end_date: "2026-05-15" },
+      "Aspergillus Study",
     );
-    const lines = label.split("\n");
-    expect(lines).toHaveLength(3);
-    expect(lines[0]).toContain("Yeast assay");
-    expect(lines[1]).toBe("Protein Research");
-    expect(lines[2]).toBe("2026-05-01 → 2026-05-10");
+    expect(label).toBe("Make media · Aspergillus Study · Apr 1 → May 15");
   });
 
-  it("buildExperimentLabel truncates long titles and project folders", () => {
-    const longName = "x".repeat(120);
-    const longProject = "y".repeat(120);
+  it("buildExperimentLabel truncates long titles with `…`, project + dates remain", () => {
+    const longName = "x".repeat(50);
+    const label = buildExperimentLabel(
+      { name: longName, start_date: "2026-05-01", end_date: "2026-05-10" },
+      "P",
+    );
+    const segments = label.split(" · ");
+    expect(segments).toHaveLength(3);
+    expect(segments[0].length).toBeLessThanOrEqual(30);
+    expect(segments[0].endsWith("…")).toBe(true);
+    expect(segments[1]).toBe("P");
+    expect(segments[2]).toBe("May 1 → May 10");
+  });
+
+  it("buildExperimentLabel truncates long project names with `…`, title + dates remain", () => {
+    const longProject = "y".repeat(50);
+    const label = buildExperimentLabel(
+      { name: "E", start_date: "2026-05-01", end_date: "2026-05-10" },
+      longProject,
+    );
+    const segments = label.split(" · ");
+    expect(segments).toHaveLength(3);
+    expect(segments[0]).toBe("E");
+    expect(segments[1].length).toBeLessThanOrEqual(18);
+    expect(segments[1].endsWith("…")).toBe(true);
+    expect(segments[2]).toBe("May 1 → May 10");
+  });
+
+  it("buildExperimentLabel drops project when total budget exceeded; title + dates survive", () => {
+    // title at TITLE_CAP (30, with `…`) + project at PROJECT_CAP (18,
+    // with `…`) + dates (~14) = ~71 chars total → drop project.
+    const longName = "n".repeat(50);
+    const longProject = "p".repeat(50);
     const label = buildExperimentLabel(
       { name: longName, start_date: "2026-05-01", end_date: "2026-05-10" },
       longProject,
     );
-    const [title, project] = label.split("\n");
-    expect(title.length).toBeLessThanOrEqual(61);
-    expect(project.length).toBeLessThanOrEqual(60);
-    expect(title.endsWith("…")).toBe(true);
+    const segments = label.split(" · ");
+    expect(segments).toHaveLength(2);
+    expect(segments[0].length).toBeLessThanOrEqual(30);
+    expect(segments[0].endsWith("…")).toBe(true);
+    expect(segments[1]).toBe("May 1 → May 10");
   });
 
-  it("task-picker button text contains `\\n`-separated rich label", async () => {
+  it("buildExperimentLabel respects icon + suffix and the combined title fits the cap", () => {
+    const label = buildExperimentLabel(
+      { name: "Plate", start_date: "2026-04-12", end_date: "2026-04-14" },
+      "Fungal CoCult",
+      { icon: "📝", suffix: "— Lab Notes" },
+    );
+    const segments = label.split(" · ");
+    expect(segments[0].startsWith("📝 ")).toBe(true);
+    expect(segments[0]).toContain("Plate");
+    expect(segments[0]).toContain("Lab Notes");
+    expect(segments[0].length).toBeLessThanOrEqual(30);
+    expect(segments[segments.length - 1]).toBe("Apr 12 → Apr 14");
+  });
+
+  it("buildExperimentLabel truncates a too-long icon+name+suffix title segment as one unit", () => {
+    const label = buildExperimentLabel(
+      { name: "x".repeat(50), start_date: "2026-04-01", end_date: "2026-04-02" },
+      "P",
+      { icon: "📝", suffix: "— Lab Notes" },
+    );
+    const segments = label.split(" · ");
+    expect(segments[0].startsWith("📝 ")).toBe(true);
+    expect(segments[0].endsWith("…")).toBe(true);
+    expect(segments[0].length).toBeLessThanOrEqual(30);
+  });
+
+  it("buildExperimentLabel output never contains `\\n` (iOS Telegram newline-collapse invariant)", () => {
+    const cases = [
+      buildExperimentLabel(
+        { name: "Short", start_date: "2026-04-01", end_date: "2026-05-15" },
+        "P",
+      ),
+      buildExperimentLabel(
+        { name: "x".repeat(100), start_date: "2026-04-01", end_date: "2026-05-15" },
+        "y".repeat(100),
+      ),
+      buildExperimentLabel(
+        { name: "T", start_date: "2026-04-01", end_date: "2026-04-02" },
+        "P",
+        { icon: "▶︎" },
+      ),
+      buildExperimentLabel(
+        { name: "T", start_date: "2026-04-01", end_date: "2026-04-02" },
+        "P",
+        { icon: "📝", suffix: "— Lab Notes" },
+      ),
+    ];
+    for (const label of cases) {
+      expect(label).not.toContain("\n");
+    }
+  });
+
+  it("task-picker button text is single-line ` · `-separated and contains no `\\n`", async () => {
     vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
     _setExperimentsLoaderForTests(async () => [
       makeExperiment({
@@ -589,7 +676,7 @@ describe("batch-routing: rich button labels", () => {
       }),
     ]);
     _setProjectsLoaderForTests(async () => [
-      makeProject({ id: 4, name: "Protein Research" }),
+      makeProject({ id: 4, name: "Protein Res" }),
     ]);
 
     await routeBatchablePhoto("g1", makePhoto(), baseCtx, null);
@@ -603,13 +690,12 @@ describe("batch-routing: rich button labels", () => {
       .flat()
       .find((b) => b.callback_data.startsWith("task:21:"));
     expect(taskBtn).toBeDefined();
-    expect(taskBtn!.text).toContain("\n");
-    const lines = taskBtn!.text.split("\n");
-    expect(lines.length).toBe(3);
-    expect(lines[0]).toContain("Yeast assay");
-    expect(lines[1]).toContain("Protein Research");
-    expect(lines[2]).toContain("2026-05-01");
-    expect(lines[2]).toContain("2026-05-10");
+    expect(taskBtn!.text).not.toContain("\n");
+    expect(taskBtn!.text).toContain(" · ");
+    expect(taskBtn!.text).toContain("Yeast assay");
+    expect(taskBtn!.text).toContain("Protein Res");
+    expect(taskBtn!.text).toContain("May 1");
+    expect(taskBtn!.text).toContain("May 10");
   });
 
   it("callback_data stays under the Telegram 64-byte cap", async () => {
