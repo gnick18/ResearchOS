@@ -762,7 +762,14 @@ export default function TaskDetailPopup({
             />
           )}
           {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly} ownerUsername={username} />}
-          {activeTab === "purchases" && <PurchaseEditor taskId={task.id} readOnly={readOnly} username={username} taskType={task.task_type} />}
+          {activeTab === "purchases" && (
+            <PurchaseEditor
+              taskId={task.id}
+              readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")}
+              username={username ?? (task.is_shared_with_me ? task.owner : undefined)}
+              taskType={task.task_type}
+            />
+          )}
         </div>
         {universalDropToast && (
           <div
