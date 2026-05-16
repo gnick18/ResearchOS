@@ -19,6 +19,7 @@ import {
 } from "@/lib/methods/compound-graph";
 import Tooltip from "@/components/Tooltip";
 import { CompoundChildCreator } from "./CompoundChildCreator";
+import { rollbackInlineCreatedChildren } from "./compound-builder-cleanup";
 
 /**
  * Compound builder workspace — edits an existing compound method's component
@@ -72,6 +73,12 @@ export function CompoundMethodBuilder({
   const [saveError, setSaveError] = useState<string | null>(null);
   // Drag-reorder state — index of the row currently being dragged.
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+  // IDs of child methods created via the "Create new" tab during this
+  // builder session. Used to roll back orphan records on cancel — the
+  // save path leaves this list alone since persisted compounds reference
+  // these children directly. Existing children attached via "Pick existing"
+  // are NOT tracked here and never get deleted on cancel.
+  const [inlineCreatedIds, setInlineCreatedIds] = useState<number[]>([]);
 
   const queryClient = useQueryClient();
   // Load all methods so we can resolve the child references for display
@@ -126,10 +133,24 @@ export function CompoundMethodBuilder({
         prev ? [...prev, method] : [method],
       );
       void queryClient.refetchQueries({ queryKey: ["methods"] });
+      setInlineCreatedIds((prev) => [...prev, method.id]);
       handleAddComponent(method);
     },
     [queryClient, handleAddComponent],
   );
+
+  // Cancel-path funnel: Escape, X button, and the Cancel button all route
+  // through here so inline-created children get cleaned up exactly once,
+  // regardless of which exit the user takes. Cleanup is best-effort and
+  // never blocks the close — see compound-builder-cleanup.ts.
+  const handleCancel = useCallback(() => {
+    if (inlineCreatedIds.length > 0) {
+      void rollbackInlineCreatedChildren(inlineCreatedIds).finally(() => {
+        void queryClient.refetchQueries({ queryKey: ["methods"] });
+      });
+    }
+    onClose();
+  }, [inlineCreatedIds, onClose, queryClient]);
 
   const handleRemoveComponent = useCallback((idx: number) => {
     setComponents((prev) =>
@@ -222,14 +243,15 @@ export function CompoundMethodBuilder({
     }
   }, [name, folder, tags, components, validation, editing, onSaved]);
 
-  // Esc closes the modal.
+  // Esc closes the modal via the same cancel funnel as the X / Cancel
+  // buttons so inline-created children are rolled back.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") handleCancel();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
+  }, [handleCancel]);
 
   return (
     <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/30 backdrop-blur-sm">
@@ -240,7 +262,7 @@ export function CompoundMethodBuilder({
           </h3>
           <Tooltip label="Close" placement="bottom">
             <button
-              onClick={onClose}
+              onClick={handleCancel}
               className="text-gray-400 hover:text-gray-600 text-lg"
             >
               ✕
@@ -362,7 +384,7 @@ export function CompoundMethodBuilder({
         </div>
         <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">
           <button
-            onClick={onClose}
+            onClick={handleCancel}
             className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
           >
             Cancel
