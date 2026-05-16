@@ -7,6 +7,7 @@ import AppShell from "@/components/AppShell";
 import AccountPasswordPopup from "@/components/AccountPasswordPopup";
 import ImportExperimentDialog from "@/components/ImportExperimentDialog";
 import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
+import TelegramStaleBanner from "@/components/TelegramStaleBanner";
 import Tooltip from "@/components/Tooltip";
 import UserAvatar from "@/components/UserAvatar";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
@@ -605,6 +606,7 @@ function BehaviorSection({ settings, update }: SectionProps) {
       title="Notifications & behavior"
       description="Master switches for messaging and safety prompts."
     >
+      <TelegramStaleBanner />
       <ToggleRow
         label="Telegram notifications"
         description="When off, the app stops polling Telegram for inbound photos and updates."
