@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   clearDemoMode,
   getDemoMode,
@@ -23,7 +23,6 @@ import Tooltip from "./Tooltip";
 const IS_DEV = process.env.NODE_ENV === "development";
 
 export default function DevDemoToggleButton() {
-  const router = useRouter();
   const pathname = usePathname();
   const [inDemo, setInDemo] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -52,9 +51,15 @@ export default function DevDemoToggleButton() {
       // LeaveDemoModal "Leave demo" path).
       window.location.replace("/");
     } else {
-      // Navigate to `/demo` — `FileSystemProvider.initialize()` picks up the
-      // URL trigger and runs `installWikiCaptureFixture()` + `markDemoMode()`.
-      router.push("/demo");
+      // Hard navigation so `FileSystemProvider` remounts and its
+      // `initialize()` effect re-runs — that's the only caller of
+      // `installWikiCaptureFixture()`, which in turn calls
+      // `backupRealHandleForDemo()` to stash the real folder onto pre-demo
+      // keys. A soft `router.push("/demo")` skipped the remount, left the
+      // backup keys empty, and made the next exit hit the no-backup branch
+      // in `restorePreDemoStateOrClear` — wiping the real folder. Mirrors
+      // the exit branch above, which is also a hard reload.
+      window.location.assign("/demo");
     }
   };
 
