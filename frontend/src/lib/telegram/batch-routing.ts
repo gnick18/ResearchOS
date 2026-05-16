@@ -475,27 +475,34 @@ function buildActiveConfirmationPrompt(
 }
 
 /** Build the full task-picker prompt — lettered body-list plus
- *  short-letter button keyboard. Two sections (Doing now,
- *  experiments without results yet) plus Inbox. See
- *  `partitionPickerExperiments` for the filter rules.
+ *  short-letter button keyboard. Two sections (Active,
+ *  No results yet) plus Inbox. See `partitionPickerExperiments` for
+ *  the filter rules.
  *
  *  Empty sections are omitted entirely (no header, no rows). The
  *  Inbox selector is always rendered with the `📥` emoji-only button
- *  to keep it visually distinct from the lettered options. */
+ *  to keep it visually distinct from the lettered options.
+ *
+ *  Layout: each section's header sits directly above its options
+ *  (no blank line between header and first option); options within
+ *  a section pack tight; sections are separated by a single blank
+ *  line; the Inbox row gets a final blank line gap. The
+ *  `——— <label> ———` headers act as a visible horizontal rule plus
+ *  section name in one glyph — no separate divider needed. */
 function buildDestinationPrompt(
   doing: Task[],
   withoutResults: Task[],
   projectNames: Map<number, string>,
 ): { body: string; keyboard: InlineKeyboardMarkup } {
-  const bodyParts: string[] = [];
+  const sections: string[] = [];
   const selectors: { text: string; callback_data: string }[] = [];
   let letterIdx = 0;
 
   if (doing.length > 0) {
-    bodyParts.push("📋 Doing experiments:");
+    const lines: string[] = ["——— Active ———"];
     for (const t of doing) {
       const letter = PICKER_LETTERS[letterIdx++];
-      bodyParts.push(
+      lines.push(
         buildBodyOptionLine(letter, t.name, t, projectNames.get(t.project_id) ?? ""),
       );
       selectors.push({
@@ -503,13 +510,14 @@ function buildDestinationPrompt(
         callback_data: encodeTaskCallback(t.id, t.owner),
       });
     }
+    sections.push(lines.join("\n"));
   }
 
   if (withoutResults.length > 0) {
-    bodyParts.push("📋 Without results yet:");
+    const lines: string[] = ["——— No results yet ———"];
     for (const t of withoutResults) {
       const letter = PICKER_LETTERS[letterIdx++];
-      bodyParts.push(
+      lines.push(
         buildBodyOptionLine(letter, t.name, t, projectNames.get(t.project_id) ?? ""),
       );
       selectors.push({
@@ -517,14 +525,15 @@ function buildDestinationPrompt(
         callback_data: encodeTaskCallback(t.id, t.owner),
       });
     }
+    sections.push(lines.join("\n"));
   }
 
-  bodyParts.push(`${INBOX_LABEL}) Save to Inbox`);
+  sections.push(`${INBOX_LABEL}) Save to Inbox`);
   const inlineKeyboard = chunkLetterButtons(selectors);
   inlineKeyboard.push([{ text: INBOX_LABEL, callback_data: "inbox" }]);
 
   return {
-    body: bodyParts.join("\n\n"),
+    body: sections.join("\n\n"),
     keyboard: { inline_keyboard: inlineKeyboard },
   };
 }

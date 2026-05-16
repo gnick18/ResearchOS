@@ -714,10 +714,36 @@ describe("batch-routing: lettered body-list + short-letter buttons", () => {
     expect(buttons[2].callback_data).toBe("pick-other");
   });
 
-  it("Test 4 — empty section: no `📋 Doing experiments:` header when doing is empty (same for withoutResults)", async () => {
+  it("Test 4 — section header format: em-dash separators with renamed labels, no 📋 emoji or old jargon", async () => {
     vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
-    // All experiments in the past, with no results.md → withoutResults
-    // populated, doing empty.
+    // Both sections populated: one in-window (active), one in the past
+    // with no results.md (no results yet).
+    const today = todayLocalDate();
+    const past = "2026-01-01";
+    _setExperimentsLoaderForTests(async () => [
+      makeExperiment({ id: 1, name: "Active task", start_date: today, end_date: today }),
+      makeExperiment({ id: 2, name: "Past task", start_date: past, end_date: past }),
+    ]);
+    _setProjectsLoaderForTests(async () => [makeProject({ id: 1, name: "P" })]);
+
+    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null);
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+
+    const prompt = hoisted.sendMessageMock.mock.calls.find((c) =>
+      String(c[2]).toLowerCase().includes("where"),
+    );
+    const body = String(prompt![2]);
+    // New em-dash separator + renamed labels appear, exact strings.
+    expect(body).toContain("——— Active ———");
+    expect(body).toContain("——— No results yet ———");
+    // Old emoji + jargon are gone.
+    expect(body).not.toContain("📋");
+    expect(body).not.toContain("Doing experiments");
+    expect(body).not.toContain("Without results yet");
+  });
+
+  it("Test 4b — empty Active section: no `——— Active ———` header when doing is empty", async () => {
+    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
     const past = "2026-01-01";
     _setExperimentsLoaderForTests(async () => [
       makeExperiment({ id: 1, name: "Past 1", start_date: past, end_date: past }),
@@ -731,24 +757,77 @@ describe("batch-routing: lettered body-list + short-letter buttons", () => {
       String(c[2]).toLowerCase().includes("where"),
     );
     const body = String(prompt![2]);
-    expect(body).not.toContain("📋 Doing experiments:");
-    expect(body).toContain("📋 Without results yet:");
+    expect(body).not.toContain("——— Active ———");
+    expect(body).toContain("——— No results yet ———");
     expect(body).toContain("A) Past 1");
+  });
 
-    // And the inverse: only doing populated, no "Without results" header.
-    _resetBatchesForTests();
-    hoisted.sendMessageMock.mockClear();
+  it("Test 4c — empty No-results section: no `——— No results yet ———` header when withoutResults is empty", async () => {
+    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
     _setExperimentsLoaderForTests(async () => [
-      makeExperiment({ id: 2, name: "Doing 1" }),
+      makeExperiment({ id: 1, name: "Doing 1" }),
     ]);
-    await routeBatchablePhoto("g2", makePhoto(), baseCtx, null);
+    _setProjectsLoaderForTests(async () => [makeProject({ id: 1, name: "P" })]);
+
+    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null);
     await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
-    const prompt2 = hoisted.sendMessageMock.mock.calls.find((c) =>
+
+    const prompt = hoisted.sendMessageMock.mock.calls.find((c) =>
       String(c[2]).toLowerCase().includes("where"),
     );
-    const body2 = String(prompt2![2]);
-    expect(body2).toContain("📋 Doing experiments:");
-    expect(body2).not.toContain("📋 Without results yet:");
+    const body = String(prompt![2]);
+    expect(body).toContain("——— Active ———");
+    expect(body).not.toContain("——— No results yet ———");
+    expect(body).toContain("A) Doing 1");
+  });
+
+  it("Test 4d — both sections empty: only the Inbox line appears, no separators", async () => {
+    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
+    _setExperimentsLoaderForTests(async () => []);
+    _setProjectsLoaderForTests(async () => []);
+
+    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null);
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+
+    const prompt = hoisted.sendMessageMock.mock.calls.find((c) =>
+      String(c[2]).toLowerCase().includes("where"),
+    );
+    const body = String(prompt![2]);
+    expect(body).not.toContain("——— Active ———");
+    expect(body).not.toContain("——— No results yet ———");
+    expect(body).toContain(`${INBOX_LABEL}) Save to Inbox`);
+    // Body part after the "Where should it go?\n\n" preamble should be
+    // just the inbox line (single line, no surrounding letters).
+    expect(body).not.toMatch(/[A-Z]\) /);
+  });
+
+  it("Test 4e — section blank-line invariant: exactly one blank line between sections, none doubled-up", async () => {
+    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
+    const today = todayLocalDate();
+    const past = "2026-01-01";
+    _setExperimentsLoaderForTests(async () => [
+      makeExperiment({ id: 1, name: "Doing 1", start_date: today, end_date: today }),
+      makeExperiment({ id: 2, name: "Doing 2", start_date: today, end_date: today }),
+      makeExperiment({ id: 3, name: "Past 1", start_date: past, end_date: past }),
+      makeExperiment({ id: 4, name: "Past 2", start_date: past, end_date: past }),
+    ]);
+    _setProjectsLoaderForTests(async () => [makeProject({ id: 1, name: "P" })]);
+
+    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null);
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+
+    const prompt = hoisted.sendMessageMock.mock.calls.find((c) =>
+      String(c[2]).toLowerCase().includes("where"),
+    );
+    const body = String(prompt![2]);
+    // Three blank lines in a row would mean two empty lines between sections —
+    // we want at most one empty line anywhere in the body.
+    expect(body).not.toMatch(/\n\n\n/);
+    // And the two section headers should each appear exactly once.
+    const activeMatches = body.match(/——— Active ———/g) ?? [];
+    const norestlMatches = body.match(/——— No results yet ———/g) ?? [];
+    expect(activeMatches).toHaveLength(1);
+    expect(norestlMatches).toHaveLength(1);
   });
 
   it("Test 5 — inbox: keyboard carries `📥` button with `inbox` callback_data; body has `📥) Save to Inbox` line", async () => {
