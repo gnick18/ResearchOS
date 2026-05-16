@@ -315,21 +315,39 @@ export default function SecurityPage() {
           <Step>
             For a second pass, switch from the <strong>Network</strong>{" "}
             tab to <strong>Application</strong>{" "}
-            &rarr; <strong>IndexedDB</strong>. ResearchOS uses five IDB
-            keys total across three databases: the File System Access
-            handle for your data folder, the per-tab fileService state,
-            two onboarding-state stores, and (only if you have paired
-            Telegram) a{" "}
-            <code>research-os-telegram-token-cache</code> database with
-            a single <code>tokens</code> store. A fresh install with no
-            Telegram pairing shows four IDB databases, not five. Expand
-            the <code>tokens</code> store and confirm the row holds only{" "}
-            <code>bot_token</code>, <code>chat_id</code>, and{" "}
-            <code>bot_username</code>, keyed by{" "}
-            <code>(folderName, username)</code>. Clicking the rose{" "}
-            <strong>Forget</strong> button in Settings &rarr; Data
-            inventory wipes every row for the current folder; the change
-            shows up here on the next DevTools refresh.
+            &rarr; <strong>IndexedDB</strong>. ResearchOS uses three
+            IndexedDB databases.
+            <ul>
+              <li>
+                The first, <code>research-os-fsa</code>, holds the
+                opaque File System Access handle for your data folder.
+                This is what gives the browser permission to read and
+                write the folder you picked.
+              </li>
+              <li>
+                The second, <code>keyval-store</code>, holds three small
+                session-routing strings: the folder name plus its grant
+                timestamp, the currently signed-in user, and (if you are
+                using Lab Mode) the primary account.
+              </li>
+              <li>
+                The third,{" "}
+                <code>research-os-telegram-token-cache</code>, exists
+                only if you have paired a Telegram bot. It holds one row
+                per paired-user-in-this-folder, with the minimal
+                credentials <code>bot_token</code>, <code>chat_id</code>,{" "}
+                <code>bot_username</code>, keyed by{" "}
+                <code>(folderName, username)</code>.
+              </li>
+            </ul>
+            A fresh install with no Telegram pairing shows two
+            databases, not three (four IDB keys total, not five). Expand
+            the <code>tokens</code> store under{" "}
+            <code>research-os-telegram-token-cache</code> to confirm the
+            row holds only the three fields named above. Clicking the
+            rose <strong>Forget</strong> button in Settings &rarr; Data
+            inventory wipes every row for the current folder, the
+            change shows up here on the next DevTools refresh.
           </Step>
         </Steps>
       </details>
@@ -340,8 +358,9 @@ export default function SecurityPage() {
         It closed one Critical finding (cross-site scripting via
         unsanitized markdown HTML across all 8 markdown rendering sites in
         the app) and several Important findings around the proxy routes,
-        the LabArchives credential flow, and the in-app verification
-        surface (data inventory, offline mode, storage hints). The audit
+        the LabArchives credential flow, the Telegram credential recovery
+        surface, and the in-app verification surface (data inventory,
+        offline mode, storage hints). The audit
         report is checked into the repo as{" "}
         <a
           href="https://github.com/gnick18/ResearchOS/blob/main/SECURITY_AUDIT.md"
