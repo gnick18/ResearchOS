@@ -314,9 +314,9 @@ describe("Phase 4: tutorial-mode carve-out for demo lab", () => {
 });
 
 describe("tip catalog shape", () => {
-  it("exposes the 9-tip orchestrator catalog", () => {
-    // 10th tip (lab-mode-picker) is standalone, not in this array.
-    expect(ONBOARDING_TIPS).toHaveLength(9);
+  it("exposes the 10-tip orchestrator catalog", () => {
+    // 11th tip (lab-mode-picker) is standalone, not in this array.
+    expect(ONBOARDING_TIPS).toHaveLength(10);
     const ids = ONBOARDING_TIPS.map((t) => t.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
@@ -332,7 +332,7 @@ describe("tip catalog shape", () => {
   it("Phase-4 tutorial walk: catalog order is the tour order (priority-sorted)", () => {
     // The sequencer iterates `ONBOARDING_TIPS` directly without
     // re-sorting. The catalog's source-file ordering matches priority
-    // (1, 2, 3, 4, 6, 7, 8, 9, 10), so the tutorial walks tips in
+    // (1, 2, 3, 4, 6, 7, 8, 9, 10, 11), so the tutorial walks tips in
     // priority order. If a future tip is inserted out of source-order
     // (e.g. priority 5 dropped between tips 4 and 6), this test
     // catches the divergence so the sequencer can be re-sorted.

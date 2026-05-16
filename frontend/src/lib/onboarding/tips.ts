@@ -192,6 +192,21 @@ export const ONBOARDING_TIPS: OnboardingTip[] = [
       href: "/gantt?createGoal=1",
     },
   },
+  {
+    id: "ai-helper-prompt",
+    title: "Train your AI to know ResearchOS",
+    body:
+      "Open Settings to copy an AI Helper prompt. Paste it into Claude, ChatGPT, or Gemini and your chatbot becomes a schema-aware helper that can answer feature questions and draft tasks for you.",
+    route: "/",
+    target: "ai-helper-cog",
+    wikiPath: "/wiki/integrations/ai-helper",
+    priority: 11,
+    setupAction: {
+      label: "Open AI Helper",
+      kind: "navigate",
+      href: "/settings#ai-helper",
+    },
+  },
 ];
 
 /** Filter the catalog down to tips eligible to fire on the given route

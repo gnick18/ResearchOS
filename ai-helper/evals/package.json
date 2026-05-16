@@ -1,0 +1,14 @@
+{
+  "name": "ai-helper-evals",
+  "version": "1.0.0",
+  "description": "Eval harness for the ResearchOS AI Helper system prompts. Tests prompt quality across model variants + size variants by asking a fixed question bank and capturing responses.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "run": "node run-evals.mjs",
+    "grade": "node grade-evals.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.65.0"
+  }
+}
