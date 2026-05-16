@@ -19,6 +19,7 @@ import type {
   FundingAccount,
 } from "@/lib/types";
 import Tooltip from "@/components/Tooltip";
+import TaskDetailPopup from "@/components/TaskDetailPopup";
 
 // SAFEGUARD: aggregations scope to PurchaseItem by identity, not field name.
 // LabLink also has a `category` field (~10 instances in wiki-capture fixture);
@@ -111,6 +112,12 @@ export default function SpendingDashboard({
   const [respectGlobalProjectFilter, setRespectGlobalProjectFilter] =
     useState<boolean>(true);
   const [nonPurchaseExpanded, setNonPurchaseExpanded] = useState(false);
+  // Row-click affordance for the non-purchase-tasks panel: opens the parent
+  // task's detail popup on the Items tab (mirrors ProjectDetailPopup's
+  // selectedTask pattern). Items tab is the surface where users reclassify
+  // or relocate orphan items (see TaskDetailPopup `initialTab` plumbing
+  // c83528aa + Items-tab expansion 4d4da06d).
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   // Task lookup keyed by composite `${owner}:${id}` — per-user ID spaces
   // mean alex's task 5 and morgan's task 5 are different tasks. Each
@@ -705,8 +712,8 @@ export default function SpendingDashboard({
           {nonPurchaseTaskItems.length > 0 && !nonPurchaseExpanded && (
             <p className="text-[10px] text-amber-700 mt-1">
               These items live on tasks not typed as &ldquo;purchase&rdquo; — they still
-              count toward spend totals. Open the parent task in /workbench to
-              reclassify or move them.
+              count toward spend totals. Click a row to open the parent task
+              and reclassify or move them.
             </p>
           )}
           {nonPurchaseExpanded && nonPurchaseTaskItems.length > 0 && (
@@ -720,37 +727,62 @@ export default function SpendingDashboard({
                   </tr>
                 </thead>
                 <tbody>
-                  {nonPurchaseTaskItems.map(({ item, task }) => (
-                    <tr
-                      key={`${item.owner}:${item.id}`}
-                      className="border-t border-amber-100"
-                    >
-                      <td className="py-1.5 pr-3 text-gray-800">
-                        {item.item_name}
-                      </td>
-                      <td className="py-1.5 pr-3 text-gray-600">
-                        {task?.name ?? "(missing task)"}
-                        {task && (
-                          <span className="ml-1 text-[10px] text-gray-400">
-                            · {task.task_type}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-1.5 text-right text-gray-800 tabular-nums">
-                        ${(item.total_price ?? 0).toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
+                  {nonPurchaseTaskItems.map(({ item, task }) => {
+                    const clickable = task !== null;
+                    return (
+                      <tr
+                        key={`${item.owner}:${item.id}`}
+                        onClick={
+                          clickable ? () => setSelectedTask(task) : undefined
+                        }
+                        className={`border-t border-amber-100 transition-colors ${
+                          clickable
+                            ? "cursor-pointer hover:bg-amber-100/50"
+                            : ""
+                        }`}
+                      >
+                        <td className="py-1.5 pr-3 text-gray-800">
+                          {item.item_name}
+                        </td>
+                        <td className="py-1.5 pr-3 text-gray-600">
+                          {task?.name ?? "(missing task)"}
+                          {task && (
+                            <span className="ml-1 text-[10px] text-gray-400">
+                              · {task.task_type}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-1.5 text-right text-gray-800 tabular-nums">
+                          ${(item.total_price ?? 0).toFixed(2)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
               <p className="text-[10px] text-amber-700 mt-2 italic">
-                Tip: open the host task in /workbench and either reclassify it
-                as a purchase or move the items to a proper purchase order.
+                Tip: click a row to open the host task and either reclassify
+                it as a purchase or move the items to a proper purchase
+                order.
               </p>
             </div>
           )}
         </div>
       </section>
+
+      {/* Task Detail Popup — opens to Items tab so the user lands on the
+          orphan-items editor (the amber warning + reclassify/move controls
+          live there, per the Items-tab expansion at 4d4da06d). */}
+      {selectedTask && (
+        <TaskDetailPopup
+          task={selectedTask}
+          project={projectByKey.get(
+            `${selectedTask.owner}:${selectedTask.project_id}`
+          )}
+          initialTab="purchases"
+          onClose={() => setSelectedTask(null)}
+        />
+      )}
     </div>
   );
 }
