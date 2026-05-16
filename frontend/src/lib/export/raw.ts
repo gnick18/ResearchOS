@@ -79,6 +79,12 @@ export async function buildRawZip(
         JSON.stringify(mp.cellCultureSchedule, null, 2),
       );
     }
+    if (mp.method.method_type === "coding_workflow" && mp.codingWorkflow != null) {
+      zip.file(
+        `methods/method-${id}-coding-workflow.json`,
+        JSON.stringify(mp.codingWorkflow, null, 2),
+      );
+    }
     const match = payload.attachments.find(
       (a) => a.origin === "methods" && a.methodId === id,
     );

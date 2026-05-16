@@ -5,6 +5,7 @@ import {
   lcGradientApi,
   plateApi,
   cellCultureApi,
+  codingWorkflowApi,
   projectsApi,
   tasksApi,
 } from "@/lib/local-api";
@@ -209,6 +210,37 @@ async function applyMethodResolutions(
         name: newName,
         source_path: `cell_culture://protocol/${newSchedule.id}`,
         method_type: "cell_culture",
+        folder_path: entry.record.folder_path,
+        tags: entry.record.tags ?? undefined,
+        is_public: false,
+      });
+      mapping[res.sourceMethodId] = newMethod.id;
+      resultMethodIds.push(newMethod.id);
+      continue;
+    }
+
+    if (entry.record.method_type === "coding_workflow") {
+      if (entry.codingWorkflow == null) {
+        console.warn(
+          `[import.apply] Coding workflow '${res.sourceMethodName}' was marked import-new but the bundle did not carry the protocol record. Skipping.`,
+        );
+        continue;
+      }
+      const newName = await pickImportedMethodName(res.sourceMethodName);
+      const newProtocol = await codingWorkflowApi.create({
+        name: entry.codingWorkflow.name,
+        description: entry.codingWorkflow.description,
+        language: entry.codingWorkflow.language,
+        language_label: entry.codingWorkflow.language_label,
+        embedded_code: entry.codingWorkflow.embedded_code,
+        external_path: entry.codingWorkflow.external_path,
+        output_renderer: entry.codingWorkflow.output_renderer,
+        is_public: false,
+      });
+      const newMethod = await methodsApi.create({
+        name: newName,
+        source_path: `coding_workflow://protocol/${newProtocol.id}`,
+        method_type: "coding_workflow",
         folder_path: entry.record.folder_path,
         tags: entry.record.tags ?? undefined,
         is_public: false,

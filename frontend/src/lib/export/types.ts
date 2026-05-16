@@ -13,6 +13,7 @@ import type {
   LCGradientProtocol,
   PlateProtocol,
   CellCultureSchedule,
+  CodingWorkflowProtocol,
 } from "@/lib/types";
 
 export type ExportFormat = "pdf" | "html" | "raw";
@@ -67,6 +68,11 @@ export interface MethodPayload {
   // `method.source_path === "cell_culture://protocol/{id}"`. `null` when the
   // schedule couldn't be loaded across owner namespaces.
   cellCultureSchedule?: CellCultureSchedule | null;
+  // Only populated for `method.method_type === "coding_workflow"`. Pre-fetched
+  // source-side script/notebook — referenced by
+  // `method.source_path === "coding_workflow://protocol/{id}"`. `null` when
+  // the workflow couldn't be loaded across owner namespaces.
+  codingWorkflow?: CodingWorkflowProtocol | null;
 }
 
 export interface ExperimentExportPayload {

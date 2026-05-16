@@ -15,6 +15,7 @@ import LcMethodTabContent from "./methods/LcMethodTabContent";
 import PlateMethodTabContent from "./methods/PlateMethodTabContent";
 import CellCultureMethodTabContent from "./methods/CellCultureMethodTabContent";
 import CompoundMethodTabContent from "./methods/CompoundMethodTabContent";
+import CodingWorkflowMethodTabContent from "./methods/CodingWorkflowMethodTabContent";
 
 interface MethodTabsProps {
   task: Task;
@@ -138,6 +139,8 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                   <span className="text-xs">📕</span>
                 ) : method?.method_type === "compound" ? (
                   <span className="text-xs">📦</span>
+                ) : method?.method_type === "coding_workflow" ? (
+                  <span className="text-xs">💻</span>
                 ) : (
                   <span className="text-xs">📄</span>
                 )}
@@ -295,6 +298,17 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                     readOnly={readOnly}
                   />
                 );
+              case "coding_workflow":
+                return (
+                  <CodingWorkflowMethodTabContent
+                    task={task}
+                    method={activeMethod}
+                    methodId={activeMethodId}
+                    attachment={activeAttachment}
+                    onTaskUpdate={onTaskUpdate}
+                    readOnly={readOnly}
+                  />
+                );
               case "markdown":
               default:
                 return (
@@ -325,7 +339,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
 function resolveMethodType(
   methodType: string | null | undefined,
   sourcePath: string | null | undefined,
-): "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "compound" {
+): "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "compound" | "coding_workflow" {
   if (methodType === "compound") return "compound";
   if (methodType === "pcr" || (sourcePath?.startsWith("pcr://") ?? false)) return "pcr";
   if (
@@ -342,6 +356,12 @@ function resolveMethodType(
     (sourcePath?.startsWith("cell_culture://") ?? false)
   ) {
     return "cell_culture";
+  }
+  if (
+    methodType === "coding_workflow" ||
+    (sourcePath?.startsWith("coding_workflow://") ?? false)
+  ) {
+    return "coding_workflow";
   }
   if (methodType === "pdf" || (sourcePath?.toLowerCase().endsWith(".pdf") ?? false)) return "pdf";
   return "markdown";

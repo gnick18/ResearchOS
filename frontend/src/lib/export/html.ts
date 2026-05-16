@@ -662,6 +662,34 @@ function plateDims(size: number): { rows: number; cols: number } {
   return { rows: 8, cols: 12 };
 }
 
+function buildCodingWorkflowMethodBody(mp: MethodPayload): string {
+  const cw = mp.codingWorkflow ?? null;
+  if (!cw) {
+    return `<p class="method-file-link">Coding workflow (could not be loaded).</p>`;
+  }
+  const parts: string[] = [];
+  const langLabel = cw.language === "other"
+    ? (cw.language_label?.trim() || "Other")
+    : cw.language;
+  parts.push(`<p><strong>Language:</strong> ${escapeHtml(langLabel)}</p>`);
+  if (cw.description && cw.description.trim()) {
+    parts.push(`<p>${escapeHtml(cw.description.trim())}</p>`);
+  }
+  if (cw.external_path && cw.external_path.trim()) {
+    parts.push(
+      `<p><strong>External path:</strong> <code>${escapeHtml(cw.external_path.trim())}</code></p>`,
+    );
+  }
+  if (cw.embedded_code && cw.embedded_code.trim()) {
+    parts.push(
+      `<pre class="coding-workflow-body"><code class="language-${escapeHtml(cw.language)}">${escapeHtml(cw.embedded_code)}</code></pre>`,
+    );
+  } else if (!cw.external_path) {
+    parts.push(`<p>No embedded code or external path provided.</p>`);
+  }
+  return parts.join("");
+}
+
 function buildCellCultureMethodBody(mp: MethodPayload): string {
   const schedule = mp.cellCultureSchedule ?? null;
   if (!schedule) {
@@ -850,6 +878,8 @@ function buildMethodBlock(
     body = buildPlateMethodBody(mp);
   } else if (mp.method.method_type === "cell_culture") {
     body = buildCellCultureMethodBody(mp);
+  } else if (mp.method.method_type === "coding_workflow") {
+    body = buildCodingWorkflowMethodBody(mp);
   } else {
     body = `<p class="method-file-link">No method body available.</p>`;
   }

@@ -353,6 +353,10 @@ function buildEntries() {
       lc_gradients: 1,
       plate_layouts: 1,
       cell_culture_schedules: 1,
+      // Methods Expansion v2 Phase 1a: alex's coding workflow fixture
+      // lives at protocol id 1 (see users/alex/coding_workflows/1.json
+      // below). The parallel Method row is id 9 per proposal §6.2.
+      coding_workflows: 1,
       purchase_items: 20,
       lab_links: 6,
       notes: 2,
@@ -515,6 +519,11 @@ function buildEntries() {
         // curve markdown protocol (id 2). Demonstrates a kit that pairs
         // a structured plate template with reusable prose instructions.
         { method_id: 12, owner: "alex", snapshot_at: "2026-05-13T08:00:00Z" },
+        // Methods Expansion v2 Phase 1a: coding workflow attached so the
+        // CodingWorkflowMethodTabContent path renders in fixture mode.
+        // Static reference template per Q-B4 lock — no per-task snapshot
+        // field, the tab content simply reads the source protocol.
+        { method_id: 9, owner: "alex", snapshot_at: "2026-05-13T08:00:00Z" },
       ] },
     { id: 11, project_id: 3, name: "Heat-shock survival assay", start_date: "2026-05-18", duration_days: 1, end_date: "2026-05-18", task_type: "experiment", is_complete: false, experiment_color: "#f59e0b",
       sub_tasks: [
@@ -838,6 +847,58 @@ function buildEntries() {
       parent_method_id: null,
       tags: ["demo", "cell culture", "HeLa"],
       attachments: [],
+      is_public: false,
+      created_by: "alex",
+      owner: "alex",
+      shared_with: [],
+    },
+  ]);
+
+  // Methods Expansion v2 Phase 1a: coding-workflow-typed method surfacing
+  // alex's private growth-curve QC script in the methods list. Clicking
+  // opens the CodingWorkflowViewer. source_path uses the canonical
+  // coding_workflow://protocol/{id} scheme; the protocol record lives at
+  // users/alex/coding_workflows/1.json below.
+  out.push([
+    "users/alex/methods/9.json",
+    {
+      id: 9,
+      name: "[Demo protocol] Growth-curve QC analysis",
+      source_path: "coding_workflow://protocol/1",
+      method_type: "coding_workflow",
+      folder_path: "Analysis",
+      parent_method_id: null,
+      tags: ["demo", "analysis", "python"],
+      attachments: [],
+      is_public: false,
+      created_by: "alex",
+      owner: "alex",
+      shared_with: [],
+    },
+  ]);
+
+  // alex coding workflow (private). Realistic-but-fake Python QC script —
+  // loads OD600 readings from a plate reader CSV, fits an exponential
+  // growth model, plots curves per well. The fake-inducer titration and
+  // DemoStrain reference tie back to the wider DEMO: FakeYeast narrative
+  // and to the 96-well plate fixture (alex methods id 7) attached to the
+  // same task 10. external_path is a believable-looking path to demo the
+  // "open in your editor" handoff; the path itself does not exist.
+  out.push([
+    "users/alex/coding_workflows/1.json",
+    {
+      id: 1,
+      name: "[Demo protocol] Growth-curve QC analysis",
+      description:
+        "Demo script — loads the plate reader OD600 dump, fits exp. growth per well, and renders QC plots. Designed for the 96-well DemoStrain inducer titration (alex plate template id 7).",
+      language: "python",
+      language_label: null,
+      embedded_code:
+        "\"\"\"Demo growth-curve QC script.\n\nReads a plate reader CSV (one row per well, one column per timepoint)\nand fits an exponential growth model for the log-phase window.\n\"\"\"\nimport numpy as np\nimport pandas as pd\nimport matplotlib.pyplot as plt\n\n# --- Config ---\nINPUT_CSV = \"demo-strain-inducer-titration.csv\"  # exported from the plate reader\nLOG_PHASE_HOURS = (2.0, 6.0)\nBLANK_COLUMNS = [\"A1\"]  # see plate template (alex methods id 7)\n\n\ndef fit_exp_growth(times_h: np.ndarray, od: np.ndarray) -> float:\n    \"\"\"Linear fit on log(OD); returns specific growth rate (1/h).\"\"\"\n    mask = (times_h >= LOG_PHASE_HOURS[0]) & (times_h <= LOG_PHASE_HOURS[1])\n    slope, _ = np.polyfit(times_h[mask], np.log(od[mask]), 1)\n    return float(slope)\n\n\ndef main() -> None:\n    df = pd.read_csv(INPUT_CSV)\n    time_h = df[\"time_h\"].to_numpy()\n    blanks = df[BLANK_COLUMNS].mean(axis=1).to_numpy()\n\n    sample_cols = [c for c in df.columns if c not in (\"time_h\", *BLANK_COLUMNS)]\n    rates = {}\n    for well in sample_cols:\n        od_corrected = df[well].to_numpy() - blanks\n        rates[well] = fit_exp_growth(time_h, np.clip(od_corrected, 1e-3, None))\n\n    rates_series = pd.Series(rates).sort_values(ascending=False)\n    print(\"Top 8 wells by growth rate:\")\n    print(rates_series.head(8).to_string())\n\n    # Quick visual — log-OD vs time, all wells.\n    fig, ax = plt.subplots(figsize=(6, 4))\n    for well in sample_cols:\n        ax.plot(time_h, np.log(np.clip(df[well] - blanks, 1e-3, None)), alpha=0.4)\n    ax.set_xlabel(\"Time (h)\")\n    ax.set_ylabel(\"log(OD600 - blank)\")\n    ax.set_title(\"Demo growth curves\")\n    fig.tight_layout()\n    fig.savefig(\"growth-curves-qc.png\", dpi=150)\n\n\nif __name__ == \"__main__\":\n    main()\n",
+      external_path: "analysis/growth-curve-qc.py",
+      output_renderer: "syntax-highlight",
+      created_at: "2026-04-29T00:00:00Z",
+      updated_at: "2026-04-29T00:00:00Z",
       is_public: false,
       created_by: "alex",
       owner: "alex",

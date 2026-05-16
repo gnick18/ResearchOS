@@ -44,6 +44,9 @@ import type {
   CellCultureScheduleCreate,
   CellCultureScheduleUpdate,
   CellCultureActualEvent,
+  CodingWorkflowProtocol,
+  CodingWorkflowProtocolCreate,
+  CodingWorkflowProtocolUpdate,
   PurchaseItem,
   PurchaseItemCreate,
   PurchaseItemUpdate,
@@ -89,6 +92,8 @@ const plateLayoutStore = new JsonStore<PlateProtocol>("plate_layouts");
 const publicPlateLayoutStore = getPublicStore<PlateProtocol>("plate_layouts");
 const cellCultureScheduleStore = new JsonStore<CellCultureSchedule>("cell_culture_schedules");
 const publicCellCultureScheduleStore = getPublicStore<CellCultureSchedule>("cell_culture_schedules");
+const codingWorkflowStore = new JsonStore<CodingWorkflowProtocol>("coding_workflows");
+const publicCodingWorkflowStore = getPublicStore<CodingWorkflowProtocol>("coding_workflows");
 const purchaseItemsStore = new JsonStore<PurchaseItem>("purchase_items");
 const catalogStore = new JsonStore<CatalogItem>("item_catalog");
 const labLinksStore = new JsonStore<LabLink>("lab_links");
@@ -1918,6 +1923,130 @@ export const cellCultureApi = {
     ],
   }),
 };
+
+// ── Coding Workflow API ──────────────────────────────────────────────────────
+//
+// Storage shape mirrors pcrApi / lcGradientApi / plateApi exactly: per-user
+// `users/<u>/coding_workflows/<id>.json` for private records,
+// `users/public/coding_workflows/<id>.json` for is_public:true. Per-user
+// `_counters.json` carries a `coding_workflows` line. Methods reference
+// records via `source_path: "coding_workflow://protocol/{id}"`. No per-task
+// state per Q-B4 lock — the API surface intentionally omits any task-side
+// mutation helpers.
+
+export const codingWorkflowApi = {
+  list: async (): Promise<CodingWorkflowProtocol[]> => {
+    const privateProtocols = await codingWorkflowStore.listAll();
+    const publicProtocols = await publicCodingWorkflowStore.listAll();
+
+    return [
+      ...privateProtocols.map((p) => ({ ...p, is_public: false })),
+      ...publicProtocols.map((p) => ({ ...p, is_public: true })),
+    ];
+  },
+
+  get: async (id: number, owner?: string): Promise<CodingWorkflowProtocol | null> => {
+    if (owner) {
+      if (owner === "public") {
+        const pub = await publicCodingWorkflowStore.get(id);
+        return pub ? { ...pub, is_public: true } : null;
+      }
+      const ownerProtocol = await codingWorkflowStore.getForUser(id, owner);
+      return ownerProtocol ? { ...ownerProtocol, is_public: false } : null;
+    }
+
+    const protocol = await codingWorkflowStore.get(id);
+    if (protocol) return { ...protocol, is_public: false };
+
+    const publicProtocol = await publicCodingWorkflowStore.get(id);
+    if (publicProtocol) return { ...publicProtocol, is_public: true };
+
+    return null;
+  },
+
+  create: async (data: CodingWorkflowProtocolCreate): Promise<CodingWorkflowProtocol> => {
+    const isPublic = data.is_public ?? false;
+    const now = new Date().toISOString();
+    const base = {
+      name: data.name,
+      description: data.description ?? null,
+      language: data.language,
+      language_label: data.language_label ?? null,
+      embedded_code: data.embedded_code ?? null,
+      external_path: data.external_path ?? null,
+      output_renderer:
+        data.output_renderer ?? deriveOutputRenderer(data.language, data.external_path ?? null),
+      created_at: now,
+      updated_at: now,
+      created_by: null,
+    };
+    if (isPublic) {
+      return publicCodingWorkflowStore.create({ ...base, is_public: true });
+    }
+    return codingWorkflowStore.create({ ...base, is_public: false });
+  },
+
+  update: async (
+    id: number,
+    data: CodingWorkflowProtocolUpdate,
+    owner?: string,
+  ): Promise<CodingWorkflowProtocol | null> => {
+    const patch = { ...data, updated_at: new Date().toISOString() };
+    if (owner) {
+      if (owner === "public") {
+        const pub = await publicCodingWorkflowStore.get(id);
+        return pub ? publicCodingWorkflowStore.update(id, patch) : null;
+      }
+      const ownerProtocol = await codingWorkflowStore.getForUser(id, owner);
+      return ownerProtocol
+        ? codingWorkflowStore.updateForUser(id, patch, owner)
+        : null;
+    }
+
+    let protocol = await codingWorkflowStore.get(id);
+    if (protocol) {
+      return codingWorkflowStore.update(id, patch);
+    }
+
+    protocol = await publicCodingWorkflowStore.get(id);
+    if (protocol) {
+      return publicCodingWorkflowStore.update(id, patch);
+    }
+
+    return null;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await codingWorkflowStore.delete(id);
+    await publicCodingWorkflowStore.delete(id);
+  },
+
+  /** Default seeded into the new-method dialog. Python is the most common
+   *  scientific scripting language; users can switch via the picker. */
+  getDefaultLanguage: (): import("./types").CodingWorkflowLanguage => "python",
+
+  /** Pythonic starter snippet for the embedded code field — shows the user
+   *  the shape of a scientific helper without picking sides on libraries. */
+  getDefaultEmbeddedCode: (): string =>
+    "# Reusable script — paste your code here, or set External path\n" +
+    "# below to hand off to your editor.\n",
+};
+
+/** Decide which renderer to use for a given language + external_path.
+ *  When the language is Python and the external path points at a .ipynb,
+ *  the viewer can parse the embedded body as a notebook. Otherwise the
+ *  default is syntax-highlight. External-only workflows (no embedded code)
+ *  fall through to null so the viewer renders a "Open in your editor" CTA
+ *  without an empty `<pre>`. */
+function deriveOutputRenderer(
+  language: import("./types").CodingWorkflowLanguage,
+  externalPath: string | null,
+): import("./types").CodingWorkflowOutputRenderer {
+  if (language === "python" && externalPath && externalPath.toLowerCase().endsWith(".ipynb")) {
+    return "ipynb";
+  }
+  return "syntax-highlight";
+}
 
 export const purchasesApi = {
   // `owner` routes the read into a specific user's `purchase_items/` directory
@@ -4299,6 +4428,9 @@ export type {
   PlateProtocol,
   PlateProtocolCreate,
   PlateProtocolUpdate,
+  CodingWorkflowProtocol,
+  CodingWorkflowProtocolCreate,
+  CodingWorkflowProtocolUpdate,
   PurchaseItem,
   PurchaseItemCreate,
   PurchaseItemUpdate,

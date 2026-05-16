@@ -446,7 +446,7 @@ export interface Method {
   id: number;
   name: string;
   source_path: string | null;
-  method_type: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "compound" | null;
+  method_type: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "compound" | "coding_workflow" | null;
   folder_path: string | null;
   parent_method_id: number | null;
   tags: string[] | null;
@@ -470,7 +470,7 @@ export interface Method {
 export interface MethodCreate {
   name: string;
   source_path?: string | null;
-  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "compound";
+  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "compound" | "coding_workflow";
   folder_path?: string | null;
   parent_method_id?: number | null;
   tags?: string[];
@@ -481,7 +481,7 @@ export interface MethodCreate {
 export interface MethodUpdate {
   name?: string;
   source_path?: string | null;
-  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "compound" | null;
+  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "compound" | "coding_workflow" | null;
   folder_path?: string | null;
   parent_method_id?: number | null;
   tags?: string[];
@@ -800,6 +800,81 @@ export interface CellCultureScheduleInstance {
   media?: CellCultureMedia;
   description?: string | null;
 }
+
+// ── Coding workflows ─────────────────────────────────────────────────────────
+//
+// Reusable scripts and Jupyter notebooks attached as method-typed records.
+// The method record carries the (optional) embedded code body inline; an
+// optional `external_path` points at a file on the user's machine for the
+// "open in your editor" handoff. Q-B4 lock: no per-task state — coding
+// workflows are static reference templates. Q-B5 lock: read-only preview
+// only, no Monaco/CodeMirror. See METHODS_EXPANSION_V2_PROPOSAL.md §3.
+
+/** Curated languages with first-class icons + syntax-highlighter profiles.
+ *  "other" pairs with `language_label` for freeform fallback. Matches the
+ *  highlight.js default language set so rehype-highlight covers all curated
+ *  options without bundle-weight additions. */
+export type CodingWorkflowLanguage =
+  | "python"
+  | "r"
+  | "bash"
+  | "sql"
+  | "julia"
+  | "matlab"
+  | "javascript"
+  | "other";
+
+/** Drives the inline preview component:
+ *   - "syntax-highlight": embedded_code rendered via rehype-highlight
+ *   - "ipynb"            : embedded_code parsed as nbformat JSON + cells
+ *                          rendered with static outputs
+ *   - null                : no inline preview (external-only) */
+export type CodingWorkflowOutputRenderer = "syntax-highlight" | "ipynb" | null;
+
+export interface CodingWorkflowProtocol {
+  id: number;
+  name: string;
+  description?: string | null;
+  is_public: boolean;
+  created_at?: string;
+  updated_at?: string;
+  created_by: string | null;
+  language: CodingWorkflowLanguage;
+  /** Free-form label shown next to the icon when `language === "other"`. */
+  language_label?: string | null;
+  /** Embedded code body. Null when the workflow is external-only
+   *  (`external_path` set without `embedded_code`). */
+  embedded_code: string | null;
+  /** Optional path on the user's machine for the "open in your editor"
+   *  handoff. Stored as a free-text string; the app does not resolve or
+   *  open it directly (FSA limitations). Null when the workflow is
+   *  embed-only. */
+  external_path: string | null;
+  output_renderer: CodingWorkflowOutputRenderer;
+}
+
+export interface CodingWorkflowProtocolCreate {
+  name: string;
+  description?: string | null;
+  is_public?: boolean;
+  language: CodingWorkflowLanguage;
+  language_label?: string | null;
+  embedded_code?: string | null;
+  external_path?: string | null;
+  output_renderer?: CodingWorkflowOutputRenderer;
+  folder_path?: string | null;
+}
+
+export type CodingWorkflowProtocolUpdate = Partial<{
+  name: string;
+  description: string | null;
+  is_public: boolean;
+  language: CodingWorkflowLanguage;
+  language_label: string | null;
+  embedded_code: string | null;
+  external_path: string | null;
+  output_renderer: CodingWorkflowOutputRenderer;
+}>;
 
 // ── Compound Methods ─────────────────────────────────────────────────────────
 
