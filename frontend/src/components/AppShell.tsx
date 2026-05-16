@@ -20,6 +20,7 @@ import FeedbackButton from "./FeedbackButton";
 import BetaDonationButton from "./BetaDonationButton";
 import DevTestNotificationButton from "./DevTestNotificationButton";
 import DevForceTipButton from "./DevForceTipButton";
+import DevDemoToggleButton from "./DevDemoToggleButton";
 import DataSetupScreen from "./DataSetupScreen";
 import UserLoginScreen from "./UserLoginScreen";
 import FeedbackModal from "./FeedbackModal";
@@ -233,6 +234,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         data-onboarding-target="appshell-cluster"
       >
         <DevTestNotificationButton />
+
+        <DevDemoToggleButton />
 
         <DevForceTipButton />
 
