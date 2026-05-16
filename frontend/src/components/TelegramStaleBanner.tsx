@@ -38,7 +38,7 @@ export default function TelegramStaleBanner() {
   return (
     <div
       role="status"
-      className="w-full bg-amber-100 border border-amber-300 text-amber-950 text-sm px-4 py-2 rounded-md flex items-center gap-3"
+      className="w-full bg-amber-100 border-b border-amber-300 text-amber-950 text-sm px-4 py-2 flex items-center gap-3"
     >
       <svg
         aria-hidden
