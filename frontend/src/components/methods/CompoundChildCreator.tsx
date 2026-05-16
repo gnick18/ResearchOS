@@ -1,0 +1,749 @@
+"use client";
+
+import { useCallback, useRef, useState } from "react";
+import {
+  methodsApi,
+  filesApi,
+  pcrApi,
+  lcGradientApi,
+  plateApi,
+  cellCultureApi,
+} from "@/lib/local-api";
+import { createNewFileContent } from "@/lib/stamp-utils";
+import LiveMarkdownEditor from "@/components/LiveMarkdownEditor";
+import { InteractiveGradientEditor } from "@/components/InteractiveGradientEditor";
+import LcGradientEditor from "@/components/LcGradientEditor";
+import PlateLayoutEditor, { wellsToRegionLabels } from "@/components/PlateLayoutEditor";
+import CellCultureScheduleEditor from "@/components/CellCultureScheduleEditor";
+import Tooltip from "@/components/Tooltip";
+import {
+  getMethodTypesByCategory,
+  type MethodTypeId,
+} from "@/lib/methods/method-type-registry";
+import type {
+  Method,
+  PCRGradient,
+  PCRIngredient,
+  LCGradientColumn,
+  LCGradientStep,
+  LCIngredient,
+  PlateSize,
+  PlateWellAnnotation,
+  CellCultureCellLine,
+  CellCultureMedia,
+  CellCulturePlannedEvent,
+} from "@/lib/types";
+
+/**
+ * Inline child-method creator. Rendered as the "Create new" tab body inside
+ * CompoundMethodBuilder's component picker. Mirrors the per-type create paths
+ * from CreateMethodModal but skips the modal chrome (lives inside the picker)
+ * and excludes the Compound tile from the type list — per proposal section
+ * 2.4.3, inline-create-nested-compound enters via "Pick existing" instead, so
+ * we don't recurse into another builder.
+ *
+ * Two phases:
+ *   - "pick-type": tile grid of every non-compound type registered.
+ *   - "edit": name + folder + tags + (per-type editor) + Save / Back.
+ *
+ * On save: creates the method (and its protocol record for structured types)
+ * via the same APIs CreateMethodModal uses, then calls onCreated(newMethod).
+ * The compound builder cache-merges the new method, refetches the methods
+ * query, and adds the method to its `components` list.
+ */
+export interface CompoundChildCreatorProps {
+  existingFolders: string[];
+  /** Method-types registered but not yet implementable inline (e.g. types
+   *  whose editor a parallel Phase 1 chip hasn't shipped yet). The picker
+   *  shows them with a "Coming soon" badge instead of letting the user pick. */
+  unsupportedTypes?: MethodTypeId[];
+  onCancel: () => void;
+  onCreated: (method: Method) => void;
+}
+
+type Phase =
+  | { kind: "pick-type" }
+  | { kind: "edit"; type: MethodTypeId };
+
+const TYPES_WITH_INLINE_EDITOR: MethodTypeId[] = [
+  "markdown",
+  "pdf",
+  "pcr",
+  "lc_gradient",
+  "plate",
+  "cell_culture",
+];
+
+export function CompoundChildCreator({
+  existingFolders,
+  unsupportedTypes,
+  onCancel,
+  onCreated,
+}: CompoundChildCreatorProps) {
+  const [phase, setPhase] = useState<Phase>({ kind: "pick-type" });
+  const [name, setName] = useState("");
+  const [folder, setFolder] = useState("");
+  const [tags, setTags] = useState("");
+  const [isPublic, setIsPublic] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Markdown
+  const [mdContent, setMdContent] = useState("");
+  // PDF
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  // PCR
+  const [pcrGradient, setPcrGradient] = useState<PCRGradient>(() => ({
+    initial: [{ name: "Initial denaturation", temperature: 95, duration: "3 min" }],
+    cycles: [
+      {
+        repeats: 30,
+        steps: [
+          { name: "Denaturation", temperature: 95, duration: "15 sec" },
+          { name: "Annealing", temperature: 60, duration: "30 sec" },
+          { name: "Extension", temperature: 72, duration: "30 sec" },
+        ],
+      },
+    ],
+    final: [{ name: "Final extension", temperature: 72, duration: "5 min" }],
+    hold: { name: "Hold", temperature: 12, duration: "Indef." },
+  }));
+  const [pcrIngredients, setPcrIngredients] = useState<PCRIngredient[]>(() => [
+    { id: "i1", name: "Buffer", concentration: "5x", amount_per_reaction: "" },
+    { id: "i2", name: "dNTPs", concentration: "10 mM", amount_per_reaction: "" },
+    { id: "i3", name: "Forward primer", concentration: "10 µM", amount_per_reaction: "" },
+    { id: "i4", name: "Reverse primer", concentration: "10 µM", amount_per_reaction: "" },
+    { id: "i5", name: "Polymerase", concentration: "2 U/µL", amount_per_reaction: "" },
+    { id: "i6", name: "Template DNA", concentration: "", amount_per_reaction: "" },
+    { id: "i7", name: "Nuclease-free H2O", concentration: "—", amount_per_reaction: "" },
+    { id: "i8", name: "Total", concentration: "", amount_per_reaction: "" },
+  ]);
+  const [pcrNotes, setPcrNotes] = useState("");
+  // LC gradient
+  const [lcGradientSteps, setLcGradientSteps] = useState<LCGradientStep[]>(() =>
+    lcGradientApi.getDefaultGradientSteps(),
+  );
+  const [lcColumn, setLcColumn] = useState<LCGradientColumn>(() =>
+    lcGradientApi.getDefaultColumn(),
+  );
+  const [lcWavelength, setLcWavelength] = useState<number | null>(214);
+  const [lcDescription, setLcDescription] = useState<string | null>(null);
+  const [lcIngredients, setLcIngredients] = useState<LCIngredient[]>(() =>
+    lcGradientApi.getDefaultIngredients(),
+  );
+  // Plate
+  const [platePlateSize, setPlatePlateSize] = useState<PlateSize>(() =>
+    plateApi.getDefaultPlateSize(),
+  );
+  const [plateWells, setPlateWells] = useState<Record<string, PlateWellAnnotation>>({});
+  const [plateDescription, setPlateDescription] = useState<string | null>(null);
+  // Cell culture
+  const [ccCellLine, setCcCellLine] = useState<CellCultureCellLine>(() =>
+    cellCultureApi.getDefaultCellLine(),
+  );
+  const [ccMedia, setCcMedia] = useState<CellCultureMedia>(() =>
+    cellCultureApi.getDefaultMedia(),
+  );
+  const [ccPlannedEvents, setCcPlannedEvents] = useState<CellCulturePlannedEvent[]>(() =>
+    cellCultureApi.getDefaultPlannedEvents(),
+  );
+  const [ccDescription, setCcDescription] = useState<string | null>(null);
+
+  const slug = name
+    .trim()
+    .replace(/\s+/g, "-")
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "");
+
+  const tagList = tags
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+
+  const handleSave = useCallback(async () => {
+    if (phase.kind !== "edit") return;
+    if (!name.trim()) {
+      setSaveError("Name is required.");
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      let created: Method;
+      const folderPath = folder.trim() || null;
+      const sharedBase = {
+        name: name.trim(),
+        folder_path: folderPath,
+        tags: tagList,
+        is_public: isPublic,
+      };
+      if (phase.type === "markdown") {
+        const sourcePath = `methods/${slug}/${slug}.md`;
+        const stamped = createNewFileContent(
+          name.trim(),
+          folder.trim() || "Methods",
+          "method",
+        );
+        const body = mdContent ? `${stamped}\n${mdContent}` : stamped;
+        await filesApi.writeFile(sourcePath, body, `Create method: ${name}`);
+        created = await methodsApi.create({
+          ...sharedBase,
+          source_path: sourcePath,
+          method_type: "markdown",
+        });
+      } else if (phase.type === "pdf") {
+        if (!pdfFile) {
+          setSaveError("Select a PDF first.");
+          setSaving(false);
+          return;
+        }
+        const reader = new FileReader();
+        const base64 = await new Promise<string>((resolve) => {
+          reader.onload = () => resolve((reader.result as string).split(",")[1]);
+          reader.readAsDataURL(pdfFile);
+        });
+        const sourcePath = `methods/${slug}/${pdfFile.name}`;
+        await filesApi.uploadImage(sourcePath, base64, `Upload PDF: ${name}`);
+        created = await methodsApi.create({
+          ...sharedBase,
+          source_path: sourcePath,
+          method_type: "pdf",
+        });
+      } else if (phase.type === "pcr") {
+        const protocol = await pcrApi.create({
+          name: name.trim(),
+          gradient: pcrGradient,
+          ingredients: pcrIngredients,
+          notes: pcrNotes || null,
+          folder_path: folderPath,
+          is_public: isPublic,
+        });
+        created = await methodsApi.create({
+          ...sharedBase,
+          source_path: `pcr://protocol/${protocol.id}`,
+          method_type: "pcr",
+        });
+      } else if (phase.type === "lc_gradient") {
+        const protocol = await lcGradientApi.create({
+          name: name.trim(),
+          description: lcDescription,
+          gradient_steps: lcGradientSteps,
+          column: lcColumn,
+          detection_wavelength_nm: lcWavelength,
+          ingredients: lcIngredients,
+          folder_path: folderPath,
+          is_public: isPublic,
+        });
+        created = await methodsApi.create({
+          ...sharedBase,
+          source_path: `lc_gradient://protocol/${protocol.id}`,
+          method_type: "lc_gradient",
+        });
+      } else if (phase.type === "plate") {
+        const protocol = await plateApi.create({
+          name: name.trim(),
+          description: plateDescription,
+          plate_size: platePlateSize,
+          region_labels: wellsToRegionLabels(plateWells),
+          folder_path: folderPath,
+          is_public: isPublic,
+        });
+        created = await methodsApi.create({
+          ...sharedBase,
+          source_path: `plate://protocol/${protocol.id}`,
+          method_type: "plate",
+        });
+      } else if (phase.type === "cell_culture") {
+        const schedule = await cellCultureApi.create({
+          name: name.trim(),
+          description: ccDescription,
+          cell_line: ccCellLine,
+          media: ccMedia,
+          planned_events: ccPlannedEvents,
+          folder_path: folderPath,
+          is_public: isPublic,
+        });
+        created = await methodsApi.create({
+          ...sharedBase,
+          source_path: `cell_culture://protocol/${schedule.id}`,
+          method_type: "cell_culture",
+        });
+      } else {
+        setSaveError(`Inline-create not implemented for type "${phase.type}".`);
+        setSaving(false);
+        return;
+      }
+      onCreated(created);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to create method.";
+      setSaveError(msg);
+    } finally {
+      setSaving(false);
+    }
+  }, [
+    phase,
+    name,
+    folder,
+    slug,
+    mdContent,
+    pdfFile,
+    pcrGradient,
+    pcrIngredients,
+    pcrNotes,
+    lcGradientSteps,
+    lcColumn,
+    lcWavelength,
+    lcDescription,
+    lcIngredients,
+    platePlateSize,
+    plateWells,
+    plateDescription,
+    ccCellLine,
+    ccMedia,
+    ccPlannedEvents,
+    ccDescription,
+    tagList,
+    isPublic,
+    onCreated,
+  ]);
+
+  const saveDisabled =
+    saving ||
+    !name.trim() ||
+    (phase.kind === "edit" && phase.type === "pdf" && !pdfFile) ||
+    (phase.kind === "edit" && phase.type === "markdown" && !mdContent.trim());
+
+  if (phase.kind === "pick-type") {
+    return (
+      <TypeTilePicker
+        unsupportedTypes={unsupportedTypes ?? []}
+        onPick={(type) => setPhase({ kind: "edit", type })}
+        onCancel={onCancel}
+      />
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="px-1 pb-3 flex items-center gap-2 border-b border-gray-100">
+        <Tooltip label="Back to type picker" placement="right">
+          <button
+            onClick={() => setPhase({ kind: "pick-type" })}
+            className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-50"
+          >
+            ← Back
+          </button>
+        </Tooltip>
+        <span className="text-xs text-gray-400">
+          Inline new method · {labelForType(phase.type)}
+        </span>
+      </div>
+      <div className="flex-1 overflow-y-auto pt-3 pb-1 space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Method name
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Western blot assay"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Folder (optional)
+            </label>
+            <input
+              type="text"
+              value={folder}
+              onChange={(e) => setFolder(e.target.value)}
+              placeholder="e.g. Assays"
+              list="compound-child-folders"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <datalist id="compound-child-folders">
+              {existingFolders.map((f) => (
+                <option key={f} value={f} />
+              ))}
+            </datalist>
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">
+            Tags (comma-separated, optional)
+          </label>
+          <input
+            type="text"
+            value={tags}
+            onChange={(e) => setTags(e.target.value)}
+            placeholder="e.g. assay, gel"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="compoundChildPublic"
+            checked={isPublic}
+            onChange={(e) => setIsPublic(e.target.checked)}
+            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+          />
+          <label htmlFor="compoundChildPublic" className="text-xs text-gray-700">
+            Make this child method public (visible to all lab members)
+          </label>
+        </div>
+
+        {phase.type === "markdown" && (
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Method content
+            </label>
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <LiveMarkdownEditor
+                value={mdContent}
+                onChange={setMdContent}
+                placeholder={`# ${name || "Method name"}\n\n## Materials\n- Item 1\n\n## Steps\n1. First step`}
+                imageBasePath={`methods/${slug}`}
+                showToolbar
+              />
+            </div>
+            <p className="text-[11px] text-gray-400 mt-1">
+              Image uploads from inside a compound-child editor land in
+              <code className="px-1">{`methods/${slug || "<slug>"}/Images`}</code>.
+            </p>
+          </div>
+        )}
+
+        {phase.type === "pdf" && (
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Upload PDF
+            </label>
+            <div
+              onClick={() => pdfInputRef.current?.click()}
+              className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors"
+            >
+              {pdfFile ? (
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{pdfFile.name}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {(pdfFile.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPdfFile(null);
+                    }}
+                    className="mt-2 text-xs text-red-500 hover:text-red-700"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">Click to select a PDF file</p>
+              )}
+            </div>
+            <input
+              ref={pdfInputRef}
+              type="file"
+              accept=".pdf"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files?.[0]) setPdfFile(e.target.files[0]);
+              }}
+            />
+          </div>
+        )}
+
+        {phase.type === "pcr" && (
+          <div className="space-y-3">
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 mb-2">Thermal gradient</h4>
+              <InteractiveGradientEditor gradient={pcrGradient} onChange={setPcrGradient} />
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 mb-2">Reaction recipe</h4>
+              <PcrIngredientTable
+                ingredients={pcrIngredients}
+                onChange={setPcrIngredients}
+              />
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 mb-1">Notes (optional)</h4>
+              <textarea
+                value={pcrNotes}
+                onChange={(e) => setPcrNotes(e.target.value)}
+                rows={2}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+        )}
+
+        {phase.type === "lc_gradient" && (
+          <LcGradientEditor
+            gradientSteps={lcGradientSteps}
+            onGradientStepsChange={setLcGradientSteps}
+            column={lcColumn}
+            onColumnChange={setLcColumn}
+            detectionWavelengthNm={lcWavelength}
+            onDetectionWavelengthChange={setLcWavelength}
+            description={lcDescription}
+            onDescriptionChange={setLcDescription}
+            ingredients={lcIngredients}
+            onIngredientsChange={setLcIngredients}
+          />
+        )}
+
+        {phase.type === "plate" && (
+          <PlateLayoutEditor
+            plateSize={platePlateSize}
+            onPlateSizeChange={setPlatePlateSize}
+            wells={plateWells}
+            onWellsChange={setPlateWells}
+            description={plateDescription}
+            onDescriptionChange={setPlateDescription}
+          />
+        )}
+
+        {phase.type === "cell_culture" && (
+          <CellCultureScheduleEditor
+            cellLine={ccCellLine}
+            onCellLineChange={setCcCellLine}
+            media={ccMedia}
+            onMediaChange={setCcMedia}
+            plannedEvents={ccPlannedEvents}
+            onPlannedEventsChange={setCcPlannedEvents}
+            description={ccDescription}
+            onDescriptionChange={setCcDescription}
+          />
+        )}
+
+        {saveError && (
+          <div className="border border-red-200 bg-red-50 rounded p-3 text-sm text-red-900">
+            {saveError}
+          </div>
+        )}
+      </div>
+      <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
+        <button
+          onClick={onCancel}
+          className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={saveDisabled}
+          className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+        >
+          {saving ? "Creating..." : "Create + add to compound"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function labelForType(type: MethodTypeId): string {
+  const all = [
+    ...getMethodTypesByCategory("standard"),
+    ...getMethodTypesByCategory("structured"),
+  ];
+  return all.find((m) => m.id === type)?.label ?? type;
+}
+
+interface TypeTilePickerProps {
+  unsupportedTypes: MethodTypeId[];
+  onPick: (type: MethodTypeId) => void;
+  onCancel: () => void;
+}
+
+function TypeTilePicker({ unsupportedTypes, onPick, onCancel }: TypeTilePickerProps) {
+  const standard = getMethodTypesByCategory("standard");
+  const structured = getMethodTypesByCategory("structured").filter(
+    (m) => m.id !== "compound",
+  );
+
+  function renderSection(
+    heading: string,
+    types: ReturnType<typeof getMethodTypesByCategory>,
+  ) {
+    return (
+      <div>
+        <label className="block text-xs font-medium text-gray-500 mb-2">
+          {heading}
+        </label>
+        <div className="flex flex-wrap gap-2">
+          {types.map((meta) => {
+            const Icon = meta.icon;
+            const inlineSupported = TYPES_WITH_INLINE_EDITOR.includes(meta.id);
+            const flaggedUnsupported = unsupportedTypes.includes(meta.id);
+            const disabled = !inlineSupported || flaggedUnsupported;
+            return (
+              <button
+                key={meta.id}
+                type="button"
+                onClick={() => !disabled && onPick(meta.id)}
+                disabled={disabled}
+                className={`flex-1 min-w-[180px] text-left px-3 py-2.5 rounded-lg border transition-colors ${
+                  disabled
+                    ? "border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed"
+                    : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Icon className="w-4 h-4" />
+                  <span className="text-sm">{meta.label}</span>
+                  {disabled && (
+                    <span className="text-[10px] text-gray-400 italic ml-auto">
+                      coming soon
+                    </span>
+                  )}
+                </div>
+                {meta.description && (
+                  <p className="mt-1 text-[11px] text-gray-400">
+                    {meta.description}
+                  </p>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto pt-1 space-y-4">
+        <p className="text-[11px] text-gray-400">
+          Pick a method type. The new method will be created in your methods
+          library AND added to this compound&apos;s component list when you save.
+          Compound-nested-in-compound isn&apos;t available here — build the
+          child compound separately first, then attach via &ldquo;Pick existing&rdquo;.
+        </p>
+        {renderSection("Standard methods", standard)}
+        {structured.length > 0 && renderSection("Structured methods", structured)}
+      </div>
+      <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
+        <button
+          onClick={onCancel}
+          className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+interface PcrIngredientTableProps {
+  ingredients: PCRIngredient[];
+  onChange: (next: PCRIngredient[]) => void;
+}
+
+function PcrIngredientTable({ ingredients, onChange }: PcrIngredientTableProps) {
+  return (
+    <div className="border border-gray-200 rounded-lg overflow-hidden">
+      <table className="w-full text-xs">
+        <thead className="bg-gray-100">
+          <tr>
+            <th className="px-3 py-2 text-left font-medium text-gray-600">Ingredient</th>
+            <th className="px-3 py-2 text-left font-medium text-gray-600">Concentration</th>
+            <th className="px-3 py-2 text-left font-medium text-gray-600">Amount/Rx</th>
+            <th className="px-2 py-2 w-8"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {ingredients.map((ing, i) => (
+            <tr key={ing.id} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+              <td className="px-3 py-2">
+                {ing.name === "Total" ? (
+                  <span className="font-medium text-gray-700">{ing.name}</span>
+                ) : (
+                  <input
+                    type="text"
+                    value={ing.name}
+                    onChange={(e) => {
+                      const next = [...ingredients];
+                      next[i] = { ...ing, name: e.target.value };
+                      onChange(next);
+                    }}
+                    className="w-full px-2 py-1 border border-gray-200 rounded text-gray-700"
+                  />
+                )}
+              </td>
+              <td className="px-3 py-2">
+                {ing.name === "Total" ? (
+                  <span className="text-gray-500">-</span>
+                ) : (
+                  <input
+                    type="text"
+                    value={ing.concentration}
+                    onChange={(e) => {
+                      const next = [...ingredients];
+                      next[i] = { ...ing, concentration: e.target.value };
+                      onChange(next);
+                    }}
+                    className="w-full px-2 py-1 border border-gray-200 rounded text-gray-500"
+                    placeholder="e.g. 10x"
+                  />
+                )}
+              </td>
+              <td className="px-3 py-2">
+                <input
+                  type="text"
+                  value={ing.amount_per_reaction}
+                  onChange={(e) => {
+                    const next = [...ingredients];
+                    next[i] = { ...ing, amount_per_reaction: e.target.value };
+                    onChange(next);
+                  }}
+                  className="w-full px-2 py-1 border border-gray-200 rounded text-gray-500"
+                  placeholder="e.g. 2.5"
+                />
+              </td>
+              <td className="px-2 py-2">
+                {ing.name !== "Total" && (
+                  <Tooltip label="Remove ingredient" placement="left">
+                    <button
+                      onClick={() => onChange(ingredients.filter((it) => it.id !== ing.id))}
+                      className="text-gray-400 hover:text-red-500 text-sm"
+                    >
+                      ✕
+                    </button>
+                  </Tooltip>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <button
+        onClick={() => {
+          const newId = String(Date.now());
+          const totalIndex = ingredients.findIndex((it) => it.name === "Total");
+          const insertion = { id: newId, name: "", concentration: "", amount_per_reaction: "" };
+          if (totalIndex >= 0) {
+            onChange([
+              ...ingredients.slice(0, totalIndex),
+              insertion,
+              ...ingredients.slice(totalIndex),
+            ]);
+          } else {
+            onChange([...ingredients, insertion]);
+          }
+        }}
+        className="w-full py-2 text-xs text-blue-600 hover:bg-blue-50 border-t border-gray-200"
+      >
+        + Add ingredient
+      </button>
+    </div>
+  );
+}
