@@ -280,7 +280,7 @@ export default function TelegramPairingModal({ username, onClose }: TelegramPair
               </div>
               <div className="relative">
                 <input
-                  type={showToken ? "text" : "password"}
+                  type="text"
                   value={tokenInput}
                   onChange={(e) => setTokenInput(e.target.value)}
                   onKeyDown={(e) => {
@@ -288,7 +288,8 @@ export default function TelegramPairingModal({ username, onClose }: TelegramPair
                   }}
                   placeholder="123456:ABC-DEF…"
                   autoFocus
-                  className="w-full pl-3 pr-10 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  autoComplete="off"
+                  className={`w-full pl-3 pr-10 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500${!showToken ? " [-webkit-text-security:disc]" : ""}`}
                 />
                 <button
                   type="button"
