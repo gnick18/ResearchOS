@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   methodsApi,
   fetchAllMethodsIncludingShared,
@@ -18,6 +18,7 @@ import {
   validateCompoundComponents,
 } from "@/lib/methods/compound-graph";
 import Tooltip from "@/components/Tooltip";
+import { CompoundChildCreator } from "./CompoundChildCreator";
 
 /**
  * Compound builder workspace. Used in two modes:
@@ -32,12 +33,15 @@ import Tooltip from "@/components/Tooltip";
  * toggle is hidden here. The sharing path lands in v2.1.
  *
  * Drag-reorder uses native HTML5 drag/drop (library-free per the brief).
- * The component-add sub-picker only shows the "pick existing method" path
- * in this chip; "inline-create-a-new-child" launches the user out to the
- * standalone new-method dialog. That's deliberate: per proposal section
- * 2.4.3 the recommendation is "build child first, attach by reference"
- * to avoid modal-on-modal-on-modal recursion, and gives us a tight LOC
- * budget here (well below the 1500 cap — file currently ~600 LOC).
+ * The component-add sub-picker has two tabs per proposal section 2.4.3:
+ *   - "Pick existing": fuzzy-search across the user's methods library.
+ *   - "Create new": inline type-picker + per-type editor (excluding the
+ *     Compound tile, to keep nested-compound creation out of this surface
+ *     and avoid modal-on-modal-on-modal recursion). On save, the new method
+ *     lands in the user's methods library AND attaches to this compound's
+ *     components list — one coherent flow, no bounce-out to the methods
+ *     page. Inline-create body lives in CompoundChildCreator.tsx so the
+ *     builder stays focused on orchestration + drag-reorder.
  */
 
 export interface CompoundMethodBuilderProps {
@@ -72,6 +76,7 @@ export function CompoundMethodBuilder({
   // Drag-reorder state — index of the row currently being dragged.
   const [dragIndex, setDragIndex] = useState<number | null>(null);
 
+  const queryClient = useQueryClient();
   // Load all methods so we can resolve the child references for display
   // and so the picker has a complete list.
   const { data: allMethods = [] } = useQuery({
@@ -110,6 +115,23 @@ export function CompoundMethodBuilder({
       setShowPicker(false);
     },
     [currentUser],
+  );
+
+  // Inline-created child: the picker's "Create new" tab fires this once the
+  // child's methodsApi.create call has resolved. We optimistically inject the
+  // new Method into the cached "methods" list so validateCompoundComponents
+  // doesn't flag the just-added component as an orphan before the refetch
+  // settles, then kick the refetch so subsequent renders see the source of
+  // truth from disk.
+  const handleInlineChildCreated = useCallback(
+    (method: Method) => {
+      queryClient.setQueryData<Method[]>(["methods"], (prev) =>
+        prev ? [...prev, method] : [method],
+      );
+      void queryClient.refetchQueries({ queryKey: ["methods"] });
+      handleAddComponent(method);
+    },
+    [queryClient, handleAddComponent],
   );
 
   const handleRemoveComponent = useCallback((idx: number) => {
@@ -376,8 +398,10 @@ export function CompoundMethodBuilder({
           currentUser={currentUser}
           editingCompoundId={editing?.id}
           existingComponents={components}
+          existingFolders={existingFolders}
           onCancel={() => setShowPicker(false)}
           onPick={handleAddComponent}
+          onCreatedInline={handleInlineChildCreated}
         />
       )}
     </div>
@@ -490,29 +514,36 @@ function ComponentList({
 // ── Component picker (sub-modal) ────────────────────────────────────────────
 //
 // Per proposal section 2.4.3 the picker has a "Pick existing" tab + an
-// "Create new" tab. The Create-new tab in this chip simply tells the user
-// to use the main + New Method dialog and then come back — keeps modal-
-// on-modal recursion off the table for the foundation chip. (The 1500 LOC
-// cap is comfortable here; future chips can promote Create-new to inline
-// editor launchers if needed.)
+// "Create new" tab. Both live in the same modal — the tab swaps the body —
+// so we don't stack a third modal layer on top of the builder. The
+// "Create new" body is delegated to CompoundChildCreator which owns the
+// per-type state + save flow (mirrors CreateMethodModal's per-type dispatch,
+// minus the compound tile to keep recursion off the table).
 
 interface ComponentPickerProps {
   allMethods: Method[];
   currentUser: string;
   editingCompoundId: number | undefined;
   existingComponents: CompoundComponent[];
+  existingFolders: string[];
   onCancel: () => void;
   onPick: (method: Method) => void;
+  onCreatedInline: (method: Method) => void;
 }
+
+type PickerTab = "pick" | "create";
 
 function ComponentPicker({
   allMethods,
   currentUser,
   editingCompoundId,
   existingComponents,
+  existingFolders,
   onCancel,
   onPick,
+  onCreatedInline,
 }: ComponentPickerProps) {
+  const [tab, setTab] = useState<PickerTab>("pick");
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<MethodTypeId | "all">("all");
   const existingKeys = useMemo(
@@ -557,7 +588,7 @@ function ComponentPicker({
   const standard = getMethodTypesByCategory("standard");
   return (
     <div className="fixed inset-0 z-[65] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col">
+      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h3 className="text-base font-semibold text-gray-900">Add component</h3>
           <Tooltip label="Cancel" placement="bottom">
@@ -569,98 +600,146 @@ function ComponentPicker({
             </button>
           </Tooltip>
         </div>
-        <div className="p-4 border-b border-gray-100 space-y-3">
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search methods by name or folder..."
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            autoFocus
+        <div className="px-6 pt-3 flex gap-1 border-b border-gray-100">
+          <PickerTabButton
+            active={tab === "pick"}
+            onClick={() => setTab("pick")}
+            label="Pick existing"
           />
-          <div className="flex flex-wrap gap-1">
-            <button
-              onClick={() => setTypeFilter("all")}
-              className={`text-xs px-2 py-1 rounded-full border ${
-                typeFilter === "all"
-                  ? "bg-blue-50 border-blue-300 text-blue-700"
-                  : "border-gray-200 text-gray-500 hover:bg-gray-50"
-              }`}
-            >
-              All types
-            </button>
-            {[...standard, ...structured].map((meta) => (
-              <button
-                key={meta.id}
-                onClick={() => setTypeFilter(meta.id)}
-                className={`text-xs px-2 py-1 rounded-full border inline-flex items-center gap-1 ${
-                  typeFilter === meta.id
-                    ? `${meta.color.bg} ${meta.color.text} border-current`
-                    : "border-gray-200 text-gray-500 hover:bg-gray-50"
-                }`}
-              >
-                <meta.icon className="w-3 h-3" />
-                {meta.shortLabel}
-              </button>
-            ))}
-          </div>
+          <PickerTabButton
+            active={tab === "create"}
+            onClick={() => setTab("create")}
+            label="Create new"
+          />
         </div>
-        <div className="flex-1 overflow-y-auto p-4">
-          {filtered.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-8">
-              No methods match this filter.
-            </p>
-          ) : (
-            <ul className="space-y-1.5">
-              {filtered.map((m) => {
-                const meta = getMethodTypeMeta(m.method_type ?? null);
-                const Icon = meta.icon;
-                const alreadyAttached = existingKeys.has(`${m.owner}:${m.id}`);
-                return (
-                  <li key={`${m.owner}:${m.id}`}>
-                    <button
-                      onClick={() => onPick(m)}
-                      disabled={alreadyAttached}
-                      className={`w-full text-left px-3 py-2 rounded-lg border ${
-                        alreadyAttached
-                          ? "border-gray-100 bg-gray-50 cursor-not-allowed opacity-60"
-                          : "border-gray-200 hover:bg-gray-50"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Icon className="w-4 h-4 text-gray-500" />
-                        <span className="text-sm font-medium text-gray-900 flex-1">
-                          {m.name}
-                        </span>
-                        <span
-                          className={`text-[10px] px-1.5 py-0.5 rounded ${meta.color.bg} ${meta.color.text}`}
+        {tab === "pick" && (
+          <>
+            <div className="p-4 border-b border-gray-100 space-y-3">
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search methods by name or folder..."
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                autoFocus
+              />
+              <div className="flex flex-wrap gap-1">
+                <button
+                  onClick={() => setTypeFilter("all")}
+                  className={`text-xs px-2 py-1 rounded-full border ${
+                    typeFilter === "all"
+                      ? "bg-blue-50 border-blue-300 text-blue-700"
+                      : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                  }`}
+                >
+                  All types
+                </button>
+                {[...standard, ...structured].map((meta) => (
+                  <button
+                    key={meta.id}
+                    onClick={() => setTypeFilter(meta.id)}
+                    className={`text-xs px-2 py-1 rounded-full border inline-flex items-center gap-1 ${
+                      typeFilter === meta.id
+                        ? `${meta.color.bg} ${meta.color.text} border-current`
+                        : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                    }`}
+                  >
+                    <meta.icon className="w-3 h-3" />
+                    {meta.shortLabel}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {filtered.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-8">
+                  No methods match this filter.
+                </p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {filtered.map((m) => {
+                    const meta = getMethodTypeMeta(m.method_type ?? null);
+                    const Icon = meta.icon;
+                    const alreadyAttached = existingKeys.has(`${m.owner}:${m.id}`);
+                    return (
+                      <li key={`${m.owner}:${m.id}`}>
+                        <button
+                          onClick={() => onPick(m)}
+                          disabled={alreadyAttached}
+                          className={`w-full text-left px-3 py-2 rounded-lg border ${
+                            alreadyAttached
+                              ? "border-gray-100 bg-gray-50 cursor-not-allowed opacity-60"
+                              : "border-gray-200 hover:bg-gray-50"
+                          }`}
                         >
-                          {meta.shortLabel}
-                        </span>
-                        {alreadyAttached && (
-                          <span className="text-[10px] text-gray-400 italic">
-                            already added
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[11px] text-gray-400 mt-0.5">
-                        {m.folder_path ?? "Uncategorized"} · owner {m.owner} ·
-                        id {m.id}
-                        {m.is_public ? " · public" : ""}
-                      </div>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-        <div className="px-6 py-3 border-t border-gray-100 text-xs text-gray-400">
-          To create a new method, close this dialog and use the
-          &ldquo;+ New Method&rdquo; button on the methods page, then come back
-          here to attach it.
-        </div>
+                          <div className="flex items-center gap-2">
+                            <Icon className="w-4 h-4 text-gray-500" />
+                            <span className="text-sm font-medium text-gray-900 flex-1">
+                              {m.name}
+                            </span>
+                            <span
+                              className={`text-[10px] px-1.5 py-0.5 rounded ${meta.color.bg} ${meta.color.text}`}
+                            >
+                              {meta.shortLabel}
+                            </span>
+                            {alreadyAttached && (
+                              <span className="text-[10px] text-gray-400 italic">
+                                already added
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-gray-400 mt-0.5">
+                            {m.folder_path ?? "Uncategorized"} · owner {m.owner} ·
+                            id {m.id}
+                            {m.is_public ? " · public" : ""}
+                          </div>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+            <div className="px-6 py-3 border-t border-gray-100 text-xs text-gray-400">
+              Want a brand-new method? Switch to the &ldquo;Create new&rdquo;
+              tab above to build one inline and attach it in one step.
+            </div>
+          </>
+        )}
+        {tab === "create" && (
+          <div className="flex-1 overflow-hidden flex flex-col px-6 py-4">
+            <CompoundChildCreator
+              existingFolders={existingFolders}
+              onCancel={onCancel}
+              onCreated={onCreatedInline}
+            />
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+function PickerTabButton({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-4 py-2 text-sm rounded-t-md border-b-2 transition-colors ${
+        active
+          ? "border-blue-500 text-blue-700 font-medium"
+          : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+      }`}
+    >
+      {label}
+    </button>
   );
 }
