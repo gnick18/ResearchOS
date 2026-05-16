@@ -13,6 +13,10 @@ interface PdfMethodTabContentProps {
   attachment: TaskMethodAttachment | undefined;
   onTaskUpdate?: (task: Task) => void;
   readOnly?: boolean;
+  /** Compound-child mode: PDFs have no per-task snapshot state (per proposal
+   *  §2.1.2), so this viewer ignores the adapter when set but accepts the
+   *  prop for prop-shape consistency with the other per-type viewers. */
+  hideVariationNotes?: boolean;
 }
 
 export default function PdfMethodTabContent({
@@ -22,6 +26,7 @@ export default function PdfMethodTabContent({
   attachment,
   onTaskUpdate,
   readOnly = false,
+  hideVariationNotes = false,
 }: PdfMethodTabContentProps) {
   const queryClient = useQueryClient();
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -72,23 +77,25 @@ export default function PdfMethodTabContent({
   return (
     <div className="flex-1 flex flex-col h-full">
       {/* Variation Notes Panel */}
-      <VariationNotesPanel
-        task={task}
-        methodId={methodId}
-        variationNotes={attachment?.variation_notes || null}
-        onSaved={(updatedTask) => {
-          // Local state update mirrors the pattern used by every other
-          // mutating handler in this file (handleAddMethod, etc). The
-          // ["task", task.id] refetch below is a no-op for the popup's
-          // actual query key (`["task", taskKey(task)]`), but the
-          // `["tasks"] / ["allTasks"]` refetches still matter for the
-          // calendar/Gantt views that key on a plain tasks list.
-          if (updatedTask) onTaskUpdate?.(updatedTask);
-          queryClient.refetchQueries({ queryKey: ["tasks"] });
-          queryClient.refetchQueries({ queryKey: ["allTasks"] });
-        }}
-        readOnly={readOnly}
-      />
+      {!hideVariationNotes && (
+        <VariationNotesPanel
+          task={task}
+          methodId={methodId}
+          variationNotes={attachment?.variation_notes || null}
+          onSaved={(updatedTask) => {
+            // Local state update mirrors the pattern used by every other
+            // mutating handler in this file (handleAddMethod, etc). The
+            // ["task", task.id] refetch below is a no-op for the popup's
+            // actual query key (`["task", taskKey(task)]`), but the
+            // `["tasks"] / ["allTasks"]` refetches still matter for the
+            // calendar/Gantt views that key on a plain tasks list.
+            if (updatedTask) onTaskUpdate?.(updatedTask);
+            queryClient.refetchQueries({ queryKey: ["tasks"] });
+            queryClient.refetchQueries({ queryKey: ["allTasks"] });
+          }}
+          readOnly={readOnly}
+        />
+      )}
       {pdfUrl ? (
         <iframe
           src={pdfUrl}

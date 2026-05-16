@@ -7,11 +7,13 @@ import type {
   Method,
   PCRGradient,
   PCRIngredient,
+  PCRSnapshotPayload,
   Task,
   TaskMethodAttachment,
 } from "@/lib/types";
 import { InteractiveGradientEditor } from "@/components/InteractiveGradientEditor";
 import { ownerScopedTasksApi } from "@/lib/tasks/owner-scoped-api";
+import type { NestedSnapshotAdapter } from "@/lib/methods/nested-snapshot";
 import Tooltip from "@/components/Tooltip";
 import {
   ADDED_ROW_CLASSES,
@@ -30,6 +32,12 @@ interface PcrMethodTabContentProps {
   attachment: TaskMethodAttachment | undefined;
   onTaskUpdate?: (task: Task) => void;
   readOnly?: boolean;
+  /** Compound-child mode: write the snapshot (gradient + ingredients
+   *  bundled into a PCRSnapshotPayload) into the compound's
+   *  `compound_snapshots[child_id]` slot instead of the task's top-level
+   *  `pcr_gradient` + `pcr_ingredients` attachment fields. */
+  nestedSnapshot?: NestedSnapshotAdapter<PCRSnapshotPayload>;
+  hideVariationNotes?: boolean;
 }
 
 // Extract PCR protocol ID from source_path like "pcr://protocol/123".
@@ -45,6 +53,8 @@ export default function PcrMethodTabContent({
   attachment,
   onTaskUpdate,
   readOnly = false,
+  nestedSnapshot,
+  hideVariationNotes = false,
 }: PcrMethodTabContentProps) {
   const queryClient = useQueryClient();
   // Receivers editing a shared task with `edit` permission must route every
@@ -73,27 +83,48 @@ export default function PcrMethodTabContent({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Synthesize an attachment-shaped record from the nested-snapshot adapter
+  // when this viewer is rendering as a compound child, so the existing
+  // attachment-or-source fallback logic works unchanged in both modes.
+  const nestedRead = nestedSnapshot?.read;
+  const effectiveAttachment: TaskMethodAttachment | undefined = useMemo(() => {
+    if (!nestedRead) return attachment;
+    const snap = nestedRead();
+    return {
+      method_id: methodId,
+      owner: null,
+      pcr_gradient: snap?.pcr_gradient ? JSON.stringify(snap.pcr_gradient) : null,
+      pcr_ingredients: snap?.pcr_ingredients ? JSON.stringify(snap.pcr_ingredients) : null,
+      lc_gradient: null,
+      body_override: null,
+      plate_annotation: null,
+      cell_culture_schedule: null,
+      variation_notes: null,
+      compound_snapshots: null,
+    };
+  }, [nestedRead, attachment, methodId]);
+
   // Initialize PCR state from attachment, falling back to the source protocol
   // for any field the attachment doesn't override. `method_attachments` entries
   // typically only carry `{method_id, owner, snapshot_at}` until the user edits
   // the gradient/recipe inside the task; without the fallback the table renders
   // empty even though the protocol on disk has real data.
   useEffect(() => {
-    if (attachment?.pcr_gradient) {
+    if (effectiveAttachment?.pcr_gradient) {
       try {
-        setPcrGradient(JSON.parse(attachment.pcr_gradient));
+        setPcrGradient(JSON.parse(effectiveAttachment.pcr_gradient));
       } catch {
         setPcrGradient(fetchedPcrProtocol?.gradient ?? null);
       }
     } else if (fetchedPcrProtocol) {
       setPcrGradient(fetchedPcrProtocol.gradient ?? null);
-    } else if (!attachment) {
+    } else if (!effectiveAttachment) {
       setPcrGradient(null);
     }
 
-    if (attachment?.pcr_ingredients) {
+    if (effectiveAttachment?.pcr_ingredients) {
       try {
-        const parsed = JSON.parse(attachment.pcr_ingredients);
+        const parsed = JSON.parse(effectiveAttachment.pcr_ingredients);
         setPcrIngredients(Array.isArray(parsed) ? parsed : []);
       } catch {
         setPcrIngredients(
@@ -104,39 +135,39 @@ export default function PcrMethodTabContent({
       setPcrIngredients(
         Array.isArray(fetchedPcrProtocol.ingredients) ? fetchedPcrProtocol.ingredients : []
       );
-    } else if (!attachment) {
+    } else if (!effectiveAttachment) {
       setPcrIngredients([]);
     }
 
     setHasUnsavedChanges(false);
-  }, [attachment, fetchedPcrProtocol]);
+  }, [effectiveAttachment, fetchedPcrProtocol]);
 
   // Track PCR changes — original = attachment override if present, otherwise
   // the source protocol value. Without this fallback, `hasUnsavedChanges`
   // always evaluates against null/[] and the Save button reports false
   // negatives when only the protocol-defined baseline is loaded.
   const originalPcrGradient = useMemo(() => {
-    if (attachment?.pcr_gradient) {
+    if (effectiveAttachment?.pcr_gradient) {
       try {
-        return JSON.parse(attachment.pcr_gradient);
+        return JSON.parse(effectiveAttachment.pcr_gradient);
       } catch {
         return fetchedPcrProtocol?.gradient ?? null;
       }
     }
     return fetchedPcrProtocol?.gradient ?? null;
-  }, [attachment?.pcr_gradient, fetchedPcrProtocol]);
+  }, [effectiveAttachment?.pcr_gradient, fetchedPcrProtocol]);
 
   const originalPcrIngredients = useMemo(() => {
-    if (attachment?.pcr_ingredients) {
+    if (effectiveAttachment?.pcr_ingredients) {
       try {
-        const parsed = JSON.parse(attachment.pcr_ingredients);
+        const parsed = JSON.parse(effectiveAttachment.pcr_ingredients);
         return Array.isArray(parsed) ? parsed : [];
       } catch {
         return Array.isArray(fetchedPcrProtocol?.ingredients) ? fetchedPcrProtocol!.ingredients : [];
       }
     }
     return Array.isArray(fetchedPcrProtocol?.ingredients) ? fetchedPcrProtocol.ingredients : [];
-  }, [attachment?.pcr_ingredients, fetchedPcrProtocol]);
+  }, [effectiveAttachment?.pcr_ingredients, fetchedPcrProtocol]);
 
   // Source-of-truth — the canonical method as defined under the owner's
   // pcr_protocols/{id}. Distinct from `originalPcr*` above: those fold in
@@ -180,52 +211,66 @@ export default function PcrMethodTabContent({
     if (!pcrGradient || !pcrIngredients) return;
     setSaving(true);
     try {
-      const updatedTask = await tasksApi.updateMethodPcr(task.id, methodId, {
-        pcr_gradient: JSON.stringify(pcrGradient),
-        pcr_ingredients: JSON.stringify(pcrIngredients),
-      });
-      await queryClient.refetchQueries({ queryKey: ["tasks"] });
-      await queryClient.refetchQueries({ queryKey: ["task", task.id] });
-      setHasUnsavedChanges(false);
-      if (updatedTask) onTaskUpdate?.(updatedTask);
+      if (nestedSnapshot) {
+        await nestedSnapshot.write({
+          pcr_gradient: pcrGradient,
+          pcr_ingredients: pcrIngredients,
+        });
+        setHasUnsavedChanges(false);
+      } else {
+        const updatedTask = await tasksApi.updateMethodPcr(task.id, methodId, {
+          pcr_gradient: JSON.stringify(pcrGradient),
+          pcr_ingredients: JSON.stringify(pcrIngredients),
+        });
+        await queryClient.refetchQueries({ queryKey: ["tasks"] });
+        await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+        setHasUnsavedChanges(false);
+        if (updatedTask) onTaskUpdate?.(updatedTask);
+      }
     } catch (err) {
       console.error("Failed to save PCR changes:", err);
       alert("Failed to save PCR changes");
     } finally {
       setSaving(false);
     }
-  }, [task.id, methodId, pcrGradient, pcrIngredients, queryClient, onTaskUpdate, tasksApi]);
+  }, [task.id, methodId, pcrGradient, pcrIngredients, queryClient, onTaskUpdate, tasksApi, nestedSnapshot]);
 
   const handleResetPcr = useCallback(async () => {
     if (!confirm("Reset PCR data to match the original method? Your changes will be lost.")) return;
     setSaving(true);
     try {
-      const updatedTask = await tasksApi.resetPcr(task.id, methodId);
-      await queryClient.refetchQueries({ queryKey: ["tasks"] });
-      await queryClient.refetchQueries({ queryKey: ["task", task.id] });
-      if (updatedTask) onTaskUpdate?.(updatedTask);
+      if (nestedSnapshot) {
+        await nestedSnapshot.reset();
+      } else {
+        const updatedTask = await tasksApi.resetPcr(task.id, methodId);
+        await queryClient.refetchQueries({ queryKey: ["tasks"] });
+        await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+        if (updatedTask) onTaskUpdate?.(updatedTask);
+      }
     } catch (err) {
       console.error("Failed to reset PCR:", err);
       alert("Failed to reset PCR data");
     } finally {
       setSaving(false);
     }
-  }, [task.id, methodId, queryClient, onTaskUpdate, tasksApi]);
+  }, [task.id, methodId, queryClient, onTaskUpdate, tasksApi, nestedSnapshot]);
 
   return (
     <div className="flex flex-col h-full">
       {/* Variation Notes Panel */}
-      <VariationNotesPanel
-        task={task}
-        methodId={methodId}
-        variationNotes={attachment?.variation_notes || null}
-        onSaved={(updatedTask) => {
-          if (updatedTask) onTaskUpdate?.(updatedTask);
-          queryClient.refetchQueries({ queryKey: ["tasks"] });
-          queryClient.refetchQueries({ queryKey: ["allTasks"] });
-        }}
-        readOnly={readOnly}
-      />
+      {!hideVariationNotes && (
+        <VariationNotesPanel
+          task={task}
+          methodId={methodId}
+          variationNotes={attachment?.variation_notes || null}
+          onSaved={(updatedTask) => {
+            if (updatedTask) onTaskUpdate?.(updatedTask);
+            queryClient.refetchQueries({ queryKey: ["tasks"] });
+            queryClient.refetchQueries({ queryKey: ["allTasks"] });
+          }}
+          readOnly={readOnly}
+        />
+      )}
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         {/* PCR header */}
         <div className="flex items-center justify-between">

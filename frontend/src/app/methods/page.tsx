@@ -32,12 +32,20 @@ import type {
   PCRProtocol,
   PCRGradient,
   PCRIngredient,
+  Task,
 } from "@/lib/types";
 import LcViewer from "@/components/LcViewer";
 import PlateViewer from "@/components/PlateViewer";
 import CellCultureViewer from "@/components/CellCultureViewer";
 import { getMethodTypeMeta } from "@/lib/methods/method-type-registry";
 import { CreateMethodModal } from "@/components/methods/CreateMethodModal";
+import {
+  DeleteMethodConfirm,
+  findAffectedCompounds,
+  type AffectedCompound,
+} from "@/components/methods/DeleteMethodConfirm";
+import { CompoundMethodBuilder } from "@/components/methods/CompoundMethodBuilder";
+import CompoundMethodTabContent from "@/components/methods/CompoundMethodTabContent";
 
 /**
  * When the current viewer is a receiver of a shared method with edit
@@ -89,6 +97,16 @@ export default function MethodsPage() {
   const queryClient = useQueryClient();
   const [viewingMethod, setViewingMethod] = useState<Method | null>(null);
   const [creating, setCreating] = useState(false);
+  // Pending compound-aware delete confirmation. When set, the three-button
+  // DeleteMethodConfirm modal is shown; the affected-compounds list is
+  // pre-computed at click time so the modal stays presentational.
+  const [pendingDelete, setPendingDelete] = useState<{
+    method: Method;
+    affected: AffectedCompound[];
+  } | null>(null);
+  // Pending compound edit (the methods page now uses the same builder for
+  // both create and edit flows).
+  const [editingCompound, setEditingCompound] = useState<Method | null>(null);
   /** When the user lands on `/methods?createMethod=public`, the
    *  create-method modal opens with "Make this method public" pre-
    *  checked. Stays false the rest of the time. */
@@ -271,12 +289,82 @@ export default function MethodsPage() {
     [draggedMethod, queryClient]
   );
 
+  // Cascading per-type deletion logic (PCR + LC + plate + cell_culture
+  // protocol records, plus the markdown/PDF method directory). Extracted
+  // from the original inline handleDelete so the compound cascade can call
+  // it once per affected method.
+  const deleteOneMethod = useCallback(
+    async (method: Method) => {
+      if (method.source_path) {
+        if (method.method_type === "pcr" && method.source_path.startsWith("pcr://protocol/")) {
+          const pcrId = parseInt(method.source_path.replace("pcr://protocol/", ""));
+          try {
+            await pcrApi.delete(pcrId);
+          } catch {
+            // Non-fatal — PCR protocol might not exist
+          }
+        } else if (
+          method.method_type === "lc_gradient" &&
+          method.source_path.startsWith("lc_gradient://protocol/")
+        ) {
+          const lcId = parseInt(method.source_path.replace("lc_gradient://protocol/", ""));
+          try {
+            await lcGradientApi.delete(lcId);
+          } catch {
+            // Non-fatal — LC gradient protocol might not exist
+          }
+        } else if (
+          method.method_type === "plate" &&
+          method.source_path.startsWith("plate://protocol/")
+        ) {
+          const plateId = parseInt(method.source_path.replace("plate://protocol/", ""));
+          try {
+            await plateApi.delete(plateId);
+          } catch {
+            // Non-fatal — plate protocol might not exist
+          }
+        } else if (
+          method.method_type === "cell_culture" &&
+          method.source_path.startsWith("cell_culture://protocol/")
+        ) {
+          const ccId = parseInt(method.source_path.replace("cell_culture://protocol/", ""));
+          try {
+            await cellCultureApi.delete(ccId);
+          } catch {
+            // Non-fatal — cell culture schedule might not exist
+          }
+        } else {
+          const methodDir = method.source_path.substring(0, method.source_path.lastIndexOf("/"));
+          try {
+            await filesApi.deleteDirectory(methodDir);
+          } catch {
+            // Non-fatal — directory might not exist
+          }
+        }
+      }
+      // Compounds carry source_path: null and have no parallel protocol
+      // record to clean up — the components array lives inline on the
+      // method row.
+      await methodsApi.delete(method.id);
+    },
+    [],
+  );
+
   const handleDelete = useCallback(
     async (id: number) => {
+      const method = methods.find((m) => m.id === id);
+      if (!method) return;
+      // Compound-aware: when this method is referenced by any compound,
+      // route through the three-button DeleteMethodConfirm modal (Q-A4
+      // lock). The common case (no references) falls through to today's
+      // simple confirm — no extra friction.
+      const affected = findAffectedCompounds(method.id, method.owner, methods);
+      if (affected.length > 0) {
+        setPendingDelete({ method, affected });
+        return;
+      }
       if (!confirm("Delete this method and all associated files?")) return;
       try {
-        // Find the method to get its directory path
-        const method = methods.find((m) => m.id === id);
         if (method && method.source_path) {
           // Handle PCR methods differently
           if (method.method_type === "pcr" && method.source_path.startsWith("pcr://protocol/")) {
@@ -338,6 +426,49 @@ export default function MethodsPage() {
     },
     [queryClient, methods]
   );
+
+  // Handlers for the three-button DeleteMethodConfirm modal. "Just delete"
+  // drops the method but leaves the affected compounds intact (their
+  // renderers display the orphan band where the deleted child was);
+  // "Cascade" drops the method AND every affected compound row.
+  const handleJustDelete = useCallback(async () => {
+    if (!pendingDelete) return;
+    try {
+      await deleteOneMethod(pendingDelete.method);
+      await queryClient.refetchQueries({ queryKey: ["methods"] });
+      setViewingMethod(null);
+    } catch {
+      alert("Failed to delete method");
+    } finally {
+      setPendingDelete(null);
+    }
+  }, [pendingDelete, deleteOneMethod, queryClient]);
+
+  const handleCascadeDelete = useCallback(async () => {
+    if (!pendingDelete) return;
+    try {
+      // Delete the target method first; then every compound that
+      // referenced it. The renderer's normalize path would mark the
+      // affected compounds with orphan bands if we left them — but the
+      // user picked "cascade" specifically to avoid that.
+      await deleteOneMethod(pendingDelete.method);
+      for (const aff of pendingDelete.affected) {
+        const compound = methods.find((m) => m.id === aff.id && m.owner === aff.owner);
+        if (!compound) continue;
+        try {
+          await deleteOneMethod(compound);
+        } catch {
+          // Non-fatal — best-effort cascade
+        }
+      }
+      await queryClient.refetchQueries({ queryKey: ["methods"] });
+      setViewingMethod(null);
+    } catch {
+      alert("Failed to delete methods");
+    } finally {
+      setPendingDelete(null);
+    }
+  }, [pendingDelete, methods, deleteOneMethod, queryClient]);
 
   const handleCategoryCreated = useCallback((categoryName: string, addMethodNow: boolean) => {
     setCreatingCategory(false);
@@ -544,6 +675,33 @@ export default function MethodsPage() {
         />
       )}
 
+      {/* Compound-aware delete modal — only opens when the target method
+          is referenced by one or more compounds (Q-A4 lock). Falls back to
+          the simple confirm() in handleDelete for the common case. */}
+      {pendingDelete && (
+        <DeleteMethodConfirm
+          methodName={pendingDelete.method.name}
+          affectedCompounds={pendingDelete.affected}
+          onCancel={() => setPendingDelete(null)}
+          onJustDelete={handleJustDelete}
+          onCascadeDelete={handleCascadeDelete}
+        />
+      )}
+
+      {/* Edit-compound builder. Opened from the CompoundViewer's "Edit"
+          button below. */}
+      {editingCompound && (
+        <CompoundMethodBuilder
+          editing={editingCompound}
+          existingFolders={existingFolders}
+          onClose={() => setEditingCompound(null)}
+          onSaved={async () => {
+            setEditingCompound(null);
+            await queryClient.refetchQueries({ queryKey: ["methods"] });
+          }}
+        />
+      )}
+
       {/* View Method Modal */}
       {viewingMethod && (
         <ViewMethodModal
@@ -551,6 +709,10 @@ export default function MethodsPage() {
           currentUser={currentUser}
           onClose={() => setViewingMethod(null)}
           onDelete={handleDelete}
+          onEditCompound={(method) => {
+            setViewingMethod(null);
+            setEditingCompound(method);
+          }}
         />
       )}
     </AppShell>
@@ -656,11 +818,13 @@ function ViewMethodModal({
   currentUser,
   onClose,
   onDelete,
+  onEditCompound,
 }: {
   method: Method;
   currentUser: string;
   onClose: () => void;
   onDelete: (id: number) => void;
+  onEditCompound: (method: Method) => void;
 }) {
   // Render the appropriate viewer with the experiments sidebar
   const renderViewer = () => {
@@ -678,6 +842,17 @@ function ViewMethodModal({
     }
     if (method.method_type === "cell_culture") {
       return <CellCultureViewer method={method} currentUser={currentUser} onClose={onClose} onDelete={onDelete} />;
+    }
+    if (method.method_type === "compound") {
+      return (
+        <CompoundViewer
+          method={method}
+          currentUser={currentUser}
+          onClose={onClose}
+          onDelete={onDelete}
+          onEdit={() => onEditCompound(method)}
+        />
+      );
     }
     return <MarkdownMethodViewer method={method} currentUser={currentUser} onClose={onClose} onDelete={onDelete} />;
   };
@@ -1607,5 +1782,118 @@ function PcrViewer({
         />
       )}
     </>
+  );
+}
+
+// ── Compound Viewer ──────────────────────────────────────────────────────────
+//
+// Standalone-view wrapper for /methods compound rows. Re-uses the
+// CompoundMethodTabContent renderer in readOnly mode against a synthetic
+// "preview" task that owns no real per-task snapshot data — the standalone
+// view is for browsing the kit's components, not editing them per-task.
+
+function CompoundViewer({
+  method,
+  currentUser,
+  onClose,
+  onDelete,
+  onEdit,
+}: {
+  method: Method;
+  currentUser: string;
+  onClose: () => void;
+  onDelete: (id: number) => void;
+  onEdit: () => void;
+}) {
+  // Synthetic task that carries one attachment pointing at this compound,
+  // with a null compound_snapshots payload. The CompoundMethodTabContent
+  // renderer fans out and reads source-template data for each child;
+  // readOnly suppresses every save/reset affordance.
+  const previewTask = useMemo<Task>(
+    () => ({
+      id: -1,
+      project_id: 0,
+      name: "",
+      start_date: "",
+      duration_days: 0,
+      end_date: "",
+      is_high_level: false,
+      is_complete: false,
+      task_type: "experiment",
+      weekend_override: null,
+      method_ids: [method.id],
+      deviation_log: null,
+      tags: null,
+      sort_order: 0,
+      experiment_color: null,
+      sub_tasks: null,
+      method_attachments: [
+        {
+          method_id: method.id,
+          owner: method.owner,
+          pcr_gradient: null,
+          pcr_ingredients: null,
+          lc_gradient: null,
+          body_override: null,
+          plate_annotation: null,
+          cell_culture_schedule: null,
+          variation_notes: null,
+          compound_snapshots: null,
+        },
+      ],
+      owner: method.owner || currentUser,
+      shared_with: [],
+    }),
+    [method.id, method.owner, currentUser],
+  );
+  const canModify = !method.is_public || method.created_by === currentUser;
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900">{method.name}</h3>
+          <p className="text-xs text-gray-400 mt-0.5">
+            Compound method — {method.components?.length ?? 0} component
+            {(method.components?.length ?? 0) === 1 ? "" : "s"}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {canModify && (
+            <button
+              onClick={onEdit}
+              className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Edit components
+            </button>
+          )}
+          {canModify && (
+            <button
+              onClick={() => onDelete(method.id)}
+              className="px-3 py-1.5 text-xs text-red-500 rounded-lg hover:bg-red-50"
+            >
+              Delete
+            </button>
+          )}
+          <Tooltip label="Close" placement="bottom">
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 text-lg ml-2"
+            >
+              ✕
+            </button>
+          </Tooltip>
+        </div>
+      </div>
+      <div className="flex-1 overflow-hidden">
+        <CompoundMethodTabContent
+          task={previewTask}
+          method={method}
+          methodId={method.id}
+          attachment={previewTask.method_attachments[0]}
+          readOnly
+          hideVariationNotes
+        />
+      </div>
+    </div>
   );
 }

@@ -22,6 +22,7 @@ import {
   MODIFIED_CHIP_TEXT,
 } from "@/lib/methods/diff-display";
 import { ownerScopedTasksApi } from "@/lib/tasks/owner-scoped-api";
+import type { NestedSnapshotAdapter } from "@/lib/methods/nested-snapshot";
 import VariationNotesPanel from "./VariationNotesPanel";
 
 interface CellCultureMethodTabContentProps {
@@ -31,6 +32,11 @@ interface CellCultureMethodTabContentProps {
   attachment: TaskMethodAttachment | undefined;
   onTaskUpdate?: (task: Task) => void;
   readOnly?: boolean;
+  /** Compound-child mode: route the schedule instance into the compound's
+   *  `compound_snapshots[child_id]` slot. Snapshot shape is the
+   *  `CellCultureScheduleInstance` produced by the editor. */
+  nestedSnapshot?: NestedSnapshotAdapter<CellCultureScheduleInstance>;
+  hideVariationNotes?: boolean;
 }
 
 function extractCellCultureScheduleId(sourcePath: string): number | null {
@@ -76,6 +82,8 @@ export default function CellCultureMethodTabContent({
   attachment,
   onTaskUpdate,
   readOnly = false,
+  nestedSnapshot,
+  hideVariationNotes = false,
 }: CellCultureMethodTabContentProps) {
   const queryClient = useQueryClient();
   const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
@@ -92,7 +100,13 @@ export default function CellCultureMethodTabContent({
   });
 
   const sourceSchedule: CellCultureSchedule | null = fetchedSchedule ?? null;
-  const instance = useMemo(() => parseInstance(attachment), [attachment]);
+  // Compound-child mode: pull the snapshot from the nested adapter; otherwise
+  // parse it out of the task's standalone attachment field.
+  const nestedRead = nestedSnapshot?.read;
+  const instance = useMemo<CellCultureScheduleInstance | null>(() => {
+    if (nestedRead) return nestedRead();
+    return parseInstance(attachment);
+  }, [nestedRead, attachment]);
 
   // Editable planned-schedule overlay state. Hydrates from the snapshot if
   // present (so the user can edit the template for this run), otherwise from
@@ -163,13 +177,18 @@ export default function CellCultureMethodTabContent({
         media,
         description,
       };
-      const updatedTask = await tasksApi.updateMethodCellCulture(task.id, methodId, {
-        cell_culture_schedule: JSON.stringify(snapshot),
-      });
-      await queryClient.refetchQueries({ queryKey: ["tasks"] });
-      await queryClient.refetchQueries({ queryKey: ["task", task.id] });
-      setHasUnsavedChanges(false);
-      if (updatedTask) onTaskUpdate?.(updatedTask);
+      if (nestedSnapshot) {
+        await nestedSnapshot.write(snapshot);
+        setHasUnsavedChanges(false);
+      } else {
+        const updatedTask = await tasksApi.updateMethodCellCulture(task.id, methodId, {
+          cell_culture_schedule: JSON.stringify(snapshot),
+        });
+        await queryClient.refetchQueries({ queryKey: ["tasks"] });
+        await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+        setHasUnsavedChanges(false);
+        if (updatedTask) onTaskUpdate?.(updatedTask);
+      }
     } catch (err) {
       console.error("Failed to save cell culture changes:", err);
       alert("Failed to save cell culture changes");
@@ -188,6 +207,7 @@ export default function CellCultureMethodTabContent({
     queryClient,
     onTaskUpdate,
     tasksApi,
+    nestedSnapshot,
   ]);
 
   const handleReset = useCallback(async () => {
@@ -196,17 +216,21 @@ export default function CellCultureMethodTabContent({
     }
     setSaving(true);
     try {
-      const updatedTask = await tasksApi.resetCellCulture(task.id, methodId);
-      await queryClient.refetchQueries({ queryKey: ["tasks"] });
-      await queryClient.refetchQueries({ queryKey: ["task", task.id] });
-      if (updatedTask) onTaskUpdate?.(updatedTask);
+      if (nestedSnapshot) {
+        await nestedSnapshot.reset();
+      } else {
+        const updatedTask = await tasksApi.resetCellCulture(task.id, methodId);
+        await queryClient.refetchQueries({ queryKey: ["tasks"] });
+        await queryClient.refetchQueries({ queryKey: ["task", task.id] });
+        if (updatedTask) onTaskUpdate?.(updatedTask);
+      }
     } catch (err) {
       console.error("Failed to reset cell culture:", err);
       alert("Failed to reset cell culture data");
     } finally {
       setSaving(false);
     }
-  }, [task.id, methodId, queryClient, onTaskUpdate, tasksApi]);
+  }, [task.id, methodId, queryClient, onTaskUpdate, tasksApi, nestedSnapshot]);
 
   // Actual-event log mutators
   const addActualEvent = useCallback((eventType: CellCultureEventType) => {
@@ -237,17 +261,19 @@ export default function CellCultureMethodTabContent({
 
   return (
     <div className="flex flex-col h-full">
-      <VariationNotesPanel
-        task={task}
-        methodId={methodId}
-        variationNotes={attachment?.variation_notes || null}
-        onSaved={(updatedTask) => {
-          if (updatedTask) onTaskUpdate?.(updatedTask);
-          queryClient.refetchQueries({ queryKey: ["tasks"] });
-          queryClient.refetchQueries({ queryKey: ["allTasks"] });
-        }}
-        readOnly={readOnly}
-      />
+      {!hideVariationNotes && (
+        <VariationNotesPanel
+          task={task}
+          methodId={methodId}
+          variationNotes={attachment?.variation_notes || null}
+          onSaved={(updatedTask) => {
+            if (updatedTask) onTaskUpdate?.(updatedTask);
+            queryClient.refetchQueries({ queryKey: ["tasks"] });
+            queryClient.refetchQueries({ queryKey: ["allTasks"] });
+          }}
+          readOnly={readOnly}
+        />
+      )}
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

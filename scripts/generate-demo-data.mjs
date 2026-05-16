@@ -342,7 +342,11 @@ function buildEntries() {
     {
       projects: 4,
       tasks: 30,
-      methods: 8,
+      // Methods Expansion v2 Phase 0b: counter advanced to 12 so the
+      // compound-method fixture (id 12) lives above the Phase-1-reserved
+      // id range (9 = coding workflows, 10 = mass spec, 11 = qPCR
+      // analysis — see proposal §6.2 pre-assigned id ranges).
+      methods: 12,
       events: 4,
       goals: 2,
       pcr_protocols: 1,
@@ -506,6 +510,11 @@ function buildEntries() {
             ],
           }),
         },
+        // Methods Expansion v2 Phase 0b: compound method "Growth-curve
+        // full kit" bundling alex's 96-well plate (id 7) + the growth-
+        // curve markdown protocol (id 2). Demonstrates a kit that pairs
+        // a structured plate template with reusable prose instructions.
+        { method_id: 12, owner: "alex", snapshot_at: "2026-05-13T08:00:00Z" },
       ] },
     { id: 11, project_id: 3, name: "Heat-shock survival assay", start_date: "2026-05-18", duration_days: 1, end_date: "2026-05-18", task_type: "experiment", is_complete: false, experiment_color: "#f59e0b",
       sub_tasks: [
@@ -833,6 +842,44 @@ function buildEntries() {
       created_by: "alex",
       owner: "alex",
       shared_with: [],
+    },
+  ]);
+
+  // Methods Expansion v2 Phase 0b: compound-typed method bundling alex's
+  // 96-well plate (id 7) + the growth-curve markdown protocol (id 2) into
+  // one attachable kit. source_path is null per proposal §2.1.1 — compounds
+  // carry their `components` array inline, with no parallel protocol record.
+  // Id 12 is reserved for compound in the proposal's pre-assigned id ranges
+  // (Phase 1 chips: 9 coding workflows, 10 mass spec, 11 qPCR analysis).
+  out.push([
+    "users/alex/methods/12.json",
+    {
+      id: 12,
+      name: "[Demo kit] Yeast growth-curve full kit",
+      source_path: null,
+      method_type: "compound",
+      folder_path: "Screening",
+      parent_method_id: null,
+      tags: ["demo", "compound", "growth-curve"],
+      attachments: [],
+      is_public: false,
+      created_by: "alex",
+      owner: "alex",
+      shared_with: [],
+      components: [
+        {
+          method_id: 7,
+          owner: null,
+          ordering: 0,
+          label: "Plate layout (96-well DemoStrain titration)",
+        },
+        {
+          method_id: 2,
+          owner: null,
+          ordering: 1,
+          label: "Growth-curve protocol notes",
+        },
+      ],
     },
   ]);
 

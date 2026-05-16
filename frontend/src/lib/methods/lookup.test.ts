@@ -27,6 +27,7 @@ function attachment(partial: Partial<TaskMethodAttachment> & { method_id: number
     plate_annotation: null,
     cell_culture_schedule: null,
     variation_notes: null,
+    compound_snapshots: null,
     ...partial,
   };
 }

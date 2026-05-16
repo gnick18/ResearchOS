@@ -1,0 +1,32 @@
+{
+  "id": 12,
+  "name": "[Demo kit] Yeast growth-curve full kit",
+  "source_path": null,
+  "method_type": "compound",
+  "folder_path": "Screening",
+  "parent_method_id": null,
+  "tags": [
+    "demo",
+    "compound",
+    "growth-curve"
+  ],
+  "attachments": [],
+  "is_public": false,
+  "created_by": "alex",
+  "owner": "alex",
+  "shared_with": [],
+  "components": [
+    {
+      "method_id": 7,
+      "owner": null,
+      "ordering": 0,
+      "label": "Plate layout (96-well DemoStrain titration)"
+    },
+    {
+      "method_id": 2,
+      "owner": null,
+      "ordering": 1,
+      "label": "Growth-curve protocol notes"
+    }
+  ]
+}

@@ -276,6 +276,7 @@ function remapMethodAttachments(
       plate_annotation: att.plate_annotation ?? null,
       cell_culture_schedule: att.cell_culture_schedule ?? null,
       variation_notes: att.variation_notes,
+      compound_snapshots: att.compound_snapshots ?? null,
     });
   }
   return out;
