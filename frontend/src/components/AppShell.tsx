@@ -12,6 +12,7 @@ import InboxToast from "./InboxToast";
 import NotificationBadge from "./NotificationBadge";
 import ReminderRunner from "./ReminderRunner";
 import DemoLabBanner from "./DemoLabBanner";
+import TelegramStaleBanner from "./TelegramStaleBanner";
 import Tooltip from "./Tooltip";
 import UserAvatar from "./UserAvatar";
 import FeedbackButton from "./FeedbackButton";
@@ -87,6 +88,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       <DemoLabBanner />
+      <TelegramStaleBanner />
       {/* Header */}
       <header
         data-onboarding-target="personalize-colors"
