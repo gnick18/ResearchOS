@@ -1,0 +1,19 @@
+{
+  "id": 10,
+  "name": "[Demo protocol] LC-MS detection — flbA peptides (ESI+ Q-Exactive)",
+  "source_path": "mass_spec://protocol/1",
+  "method_type": "mass_spec",
+  "folder_path": "LC-MS",
+  "parent_method_id": null,
+  "tags": [
+    "demo",
+    "LC-MS",
+    "mass-spec",
+    "peptides"
+  ],
+  "attachments": [],
+  "is_public": false,
+  "created_by": "alex",
+  "owner": "alex",
+  "shared_with": []
+}

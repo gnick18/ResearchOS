@@ -353,6 +353,7 @@ function buildEntries() {
       lc_gradients: 1,
       plate_layouts: 1,
       cell_culture_schedules: 1,
+      mass_spec_methods: 1,
       purchase_items: 20,
       lab_links: 6,
       notes: 2,
@@ -515,6 +516,11 @@ function buildEntries() {
         // curve markdown protocol (id 2). Demonstrates a kit that pairs
         // a structured plate template with reusable prose instructions.
         { method_id: 12, owner: "alex", snapshot_at: "2026-05-13T08:00:00Z" },
+        // Methods Expansion v2 Phase 1b: mass spec method attached so the
+        // MassSpecMethodTabContent path renders in fixture mode. Pairs with
+        // the LC gradient (method id 6) above to demonstrate the LC-MS
+        // workflow story per proposal §4.6 (LC-MS = LC + MS via compound).
+        { method_id: 10, owner: "alex", snapshot_at: "2026-05-13T08:00:00Z" },
       ] },
     { id: 11, project_id: 3, name: "Heat-shock survival assay", start_date: "2026-05-18", duration_days: 1, end_date: "2026-05-18", task_type: "experiment", is_complete: false, experiment_color: "#f59e0b",
       sub_tasks: [
@@ -838,6 +844,82 @@ function buildEntries() {
       parent_method_id: null,
       tags: ["demo", "cell culture", "HeLa"],
       attachments: [],
+      is_public: false,
+      created_by: "alex",
+      owner: "alex",
+      shared_with: [],
+    },
+  ]);
+
+  // Methods Expansion v2 Phase 1b: mass-spec-typed method surfacing alex's
+  // private mass spec protocol (id 1) in the methods list. Clicking opens
+  // the MassSpecViewer (smart-per-mode editor + calibration + scan params).
+  // source_path uses the canonical mass_spec://protocol/{id} scheme.
+  // Id 10 is reserved for mass spec in the proposal's pre-assigned id ranges
+  // (Phase 1 chips: 9 coding workflows, 10 mass spec, 11 qPCR analysis).
+  out.push([
+    "users/alex/methods/10.json",
+    {
+      id: 10,
+      name: "[Demo protocol] LC-MS detection — flbA peptides (ESI+ Q-Exactive)",
+      source_path: "mass_spec://protocol/1",
+      method_type: "mass_spec",
+      folder_path: "LC-MS",
+      parent_method_id: null,
+      tags: ["demo", "LC-MS", "mass-spec", "peptides"],
+      attachments: [],
+      is_public: false,
+      created_by: "alex",
+      owner: "alex",
+      shared_with: [],
+    },
+  ]);
+
+  // alex mass spec method (private). Realistic-but-fake LC-MS detection
+  // method matched to the LC gradient at id 6 — ESI+ on a Thermo Q-Exactive
+  // HF-X-style instrument, scan 200-2000 m/z, MS/MS isolation 1.2 Da @ 27 eV
+  // NCE, sodium formate calibration. Pairs naturally with the existing LC
+  // gradient method to demonstrate the LC-MS composition story per
+  // proposal §4.6 (LC-MS = LC + MS via the compound primitive).
+  out.push([
+    "users/alex/mass_spec_methods/1.json",
+    {
+      id: 1,
+      name: "[Demo protocol] LC-MS detection — flbA peptides (ESI+ Q-Exactive)",
+      description:
+        "Demo LC-MS detection method paired with the alex LC gradient (method id 6). Targeted MS/MS for tryptic flbA peptides — retention window 10-16 min, scan range covers singly/doubly charged peptide ions.",
+      ionization_mode: "esi_pos",
+      ionization_label: null,
+      instrument: "Thermo Q-Exactive HF-X (demo)",
+      source: {
+        source_temp_c: 250,
+        capillary_kv: 3.5,
+        nebulizer_gas_lpm: 1.2,
+        drying_gas_lpm: 10,
+        drying_gas_temp_c: 350,
+        ei_energy_ev: null,
+        maldi_laser_nm: null,
+        maldi_laser_energy: null,
+        maldi_matrix: null,
+        other_notes: null,
+      },
+      scan: {
+        scan_mz_low: 200,
+        scan_mz_high: 2000,
+        scan_rate_hz: 2,
+        resolution_r: 60000,
+        is_msms: true,
+        msms_isolation_window_mz: 1.2,
+        msms_collision_energy_ev: 27,
+      },
+      calibration: {
+        reference_standard: "Sodium formate (demo)",
+        calibration_date: "2026-05-01",
+        expected_accuracy_ppm: 2,
+        notes: "Calibration verified weekly; lock-mass on m/z 445.1200.",
+      },
+      created_at: "2026-05-02T00:00:00Z",
+      updated_at: "2026-05-02T00:00:00Z",
       is_public: false,
       created_by: "alex",
       owner: "alex",
