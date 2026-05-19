@@ -44,6 +44,7 @@ import {
 import { migrateTaskAttachmentsToFiles, splitTaskAttachments } from "@/lib/tasks/migrate-attachments";
 import { attachImageToTask } from "@/lib/attachments/attach-image";
 import { fileEvents } from "@/lib/attachments/file-events";
+import { stripAttachmentReferences } from "@/lib/attachments/strip-references";
 import { imageEvents } from "@/lib/attachments/image-events";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
@@ -3070,7 +3071,12 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
             </div>
           </>
         ) : (
-          <PdfAttachmentsPanel pdfsDir={pdfsDir} label="Lab Notes" />
+          <PdfAttachmentsPanel
+            pdfsDir={pdfsDir}
+            label="Lab Notes"
+            body={content}
+            onBodyChange={setContent}
+          />
         )}
       </div>
 
@@ -3514,7 +3520,12 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
           </div>
         </>
       ) : (
-        <PdfAttachmentsPanel pdfsDir={pdfsDir} label="Results" />
+        <PdfAttachmentsPanel
+          pdfsDir={pdfsDir}
+          label="Results"
+          body={content}
+          onBodyChange={setContent}
+        />
       )}
     </div>
     </>
@@ -3572,7 +3583,20 @@ interface PdfAttachment {
   isRenderable: boolean;
 }
 
-function PdfAttachmentsPanel({ pdfsDir, label }: { pdfsDir: string; label: string }) {
+function PdfAttachmentsPanel({
+  pdfsDir,
+  label,
+  body,
+  onBodyChange,
+}: {
+  pdfsDir: string;
+  label: string;
+  // Editor body + onChange so a delete from the Files sub-tab can strip
+  // any inline references the user added by hand. Optional because
+  // callers without a body (none today) can still mount the panel.
+  body?: string;
+  onBodyChange?: (next: string) => void;
+}) {
   const [files, setFiles] = useState<PdfAttachment[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -3701,11 +3725,18 @@ function PdfAttachmentsPanel({ pdfsDir, label }: { pdfsDir: string; label: strin
   // Delete a file
   const handleDeleteFile = useCallback(async (file: PdfAttachment) => {
     if (!confirm(`Delete "${file.name}"?`)) return;
-    
+
     try {
-      // NB: this only removes the file from the in-memory list — the file on
-      // disk is left in place. Wire this up to fileService when real deletion
-      // is wanted.
+      const ok = await fileService.deleteFile(file.path);
+      if (!ok) {
+        alert("Failed to delete file");
+        return;
+      }
+      if (body !== undefined && onBodyChange) {
+        const next = stripAttachmentReferences(body, file.name, "Files");
+        if (next !== body) onBodyChange(next);
+      }
+      fileEvents.emitDeleted({ basePath: pdfsDir, filename: file.name });
       setFiles((prev) => prev.filter((f) => f.path !== file.path));
       if (activeFile?.path === file.path) {
         setActiveFile(null);
@@ -3715,7 +3746,7 @@ function PdfAttachmentsPanel({ pdfsDir, label }: { pdfsDir: string; label: strin
     } catch {
       alert("Failed to delete file");
     }
-  }, [activeFile]);
+  }, [activeFile, body, onBodyChange, pdfsDir]);
 
   // Cleanup blob URL on unmount
   useEffect(() => {
