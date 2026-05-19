@@ -112,13 +112,16 @@ export default function TelegramPairingModal({ username, onClose }: TelegramPair
             // already-verified password forward so we don't re-prompt.
             if (step.encryptedBackupPassword) {
               try {
+                // botFirstName is intentionally NOT included in the
+                // encrypted payload (security-manager constraint #6 —
+                // minimum sensitive data on disk). Display name is
+                // recovered from getMe() on the next poll.
                 await writeEncryptedBackup(
                   username,
                   {
                     botToken: step.token,
                     chatId,
                     botUsername: step.botUsername,
-                    botFirstName: step.botFirstName,
                   },
                   step.encryptedBackupPassword,
                 );

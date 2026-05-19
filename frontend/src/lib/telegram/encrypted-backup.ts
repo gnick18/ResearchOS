@@ -30,16 +30,19 @@ const KEY_BITS = 256;
 
 /**
  * Decrypted payload — the minimum needed to reconstruct a TelegramPairing
- * on restore. Mirrors the IDB recovery cache shape (CachedTelegramToken)
- * so the two surfaces stay aligned. `pairedAt` and `lastUpdateId` are NOT
- * stored: the restore path stamps fresh values (`pairedAt` = now,
- * `lastUpdateId` = 0; the long-poll cursor self-heals on the first poll).
+ * on restore. `pairedAt` and `lastUpdateId` are NOT stored: the restore
+ * path stamps fresh values (`pairedAt` = now, `lastUpdateId` = 0; the
+ * long-poll cursor self-heals on the first poll).
+ *
+ * `botFirstName` is intentionally NOT in this payload (security manager
+ * constraint #6 — minimum sensitive data on disk). It's a display detail
+ * only; on restore it stays empty until getMe() repopulates it on the
+ * next polling tick. Acceptable UX cost for a smaller blast radius.
  */
 export interface EncryptedPairingPayload {
   botToken: string;
   chatId: number;
   botUsername: string;
-  botFirstName?: string;
 }
 
 export interface EncryptedTokenSidecar {
@@ -196,7 +199,17 @@ export async function decryptEncryptedBackup(
     ) {
       return null;
     }
-    return parsed as EncryptedPairingPayload;
+    // Allow-list serialization. The interface only declares the three
+    // canonical fields; if a legacy sidecar (or any other source) carries
+    // extras like `botFirstName`, we drop them here so the in-memory
+    // surface matches the typed contract one-to-one (security-manager
+    // constraint #6).
+    const narrowed = parsed as { botToken: string; chatId: number; botUsername: string };
+    return {
+      botToken: narrowed.botToken,
+      chatId: narrowed.chatId,
+      botUsername: narrowed.botUsername,
+    };
   } catch {
     return null;
   }

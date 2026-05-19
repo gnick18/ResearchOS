@@ -746,13 +746,16 @@ function TelegramAutoReconnectRow({ settings, update }: SectionProps) {
         setBusy(false);
         return;
       }
+      // botFirstName intentionally omitted from the encrypted payload
+      // (security-manager constraint #6 — minimum sensitive data on
+      // disk). It's a display-only field, repopulated from getMe() on
+      // the next polling tick after restore.
       await writeEncryptedBackup(
         currentUser,
         {
           botToken: pairing.botToken,
           chatId: pairing.chatId,
           botUsername: pairing.botUsername,
-          botFirstName: pairing.botFirstName,
         },
         passwordInput,
       );

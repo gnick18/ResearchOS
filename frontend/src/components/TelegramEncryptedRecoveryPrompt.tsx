@@ -107,10 +107,12 @@ export default function TelegramEncryptedRecoveryPrompt() {
         setState({ kind: "error", message: "Incorrect account password (or backup unreadable)." });
         return;
       }
+      // botFirstName is not in the encrypted payload (security-manager
+      // constraint #6). Leave it undefined; the next polling tick will
+      // repopulate it via getMe() through telegram-runtime.
       const pairing: TelegramPairing = {
         botToken: payload.botToken,
         botUsername: payload.botUsername,
-        botFirstName: payload.botFirstName,
         chatId: payload.chatId,
         // Cursor self-heals on the first long-poll — Telegram replies
         // with the latest pending updates regardless of an unknown

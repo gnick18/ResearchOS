@@ -63,7 +63,6 @@ const PAYLOAD: EncryptedPairingPayload = {
   botToken: TOKEN,
   chatId: 123456789,
   botUsername: "my_lab_bot",
-  botFirstName: "Lab Bot",
 };
 
 beforeEach(() => {
@@ -137,7 +136,48 @@ describe("encrypted-backup", () => {
     expect(restored!.botToken).toBe(TOKEN);
     expect(restored!.chatId).toBe(PAYLOAD.chatId);
     expect(restored!.botUsername).toBe(PAYLOAD.botUsername);
-    expect(restored!.botFirstName).toBe(PAYLOAD.botFirstName);
+  });
+
+  it("does not persist botFirstName even when caller attempts to slip it in", async () => {
+    // Security-manager constraint #6: botFirstName must not be in the
+    // encrypted payload. The interface excludes it at compile time, but
+    // we also assert at runtime that an as-cast attempt to include it
+    // doesn't round-trip through the decrypt path.
+    const sneaky = {
+      botToken: TOKEN,
+      chatId: 123456789,
+      botUsername: "my_lab_bot",
+      botFirstName: "Should Not Survive",
+    };
+    await writeEncryptedBackup(USER, sneaky as unknown as EncryptedPairingPayload, PASSWORD);
+    const restored = await decryptEncryptedBackup(USER, PASSWORD);
+    expect(restored).not.toBeNull();
+    expect(restored!.botToken).toBe(TOKEN);
+    expect(restored!.chatId).toBe(123456789);
+    expect(restored!.botUsername).toBe("my_lab_bot");
+    // The decrypt path narrows to the typed contract — botFirstName is
+    // not in the returned object even if it was somehow written into the
+    // ciphertext payload.
+    expect((restored as unknown as { botFirstName?: unknown }).botFirstName).toBeUndefined();
+    expect(Object.keys(restored!).sort()).toEqual(["botToken", "botUsername", "chatId"]);
+  });
+
+  it("password-change re-encrypt: new password decrypts, old does not", async () => {
+    // Security-manager constraints #7+8: when the user changes their
+    // _auth.json password, the encrypted backup must be re-encrypted so
+    // the old password no longer unlocks it.
+    const OLD = "old-password";
+    const NEW = "new-password";
+    await writeEncryptedBackup(USER, PAYLOAD, OLD);
+    expect((await decryptEncryptedBackup(USER, OLD))?.botToken).toBe(TOKEN);
+
+    // Simulate the re-encrypt flow: decrypt with OLD, write with NEW.
+    const decrypted = await decryptEncryptedBackup(USER, OLD);
+    expect(decrypted).not.toBeNull();
+    await writeEncryptedBackup(USER, decrypted!, NEW);
+
+    expect(await decryptEncryptedBackup(USER, NEW)).not.toBeNull();
+    expect(await decryptEncryptedBackup(USER, OLD)).toBeNull();
   });
 
   it("decryptEncryptedBackup returns null with wrong password", async () => {
