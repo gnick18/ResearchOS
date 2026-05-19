@@ -44,12 +44,14 @@ vi.mock("@/lib/file-system/file-service", () => ({
 }));
 
 import {
+  decryptEncryptedBackup,
   decryptToken,
   deleteEncryptedBackup,
   encryptToken,
   hasEncryptedBackup,
   readEncryptedBackup,
   writeEncryptedBackup,
+  type EncryptedPairingPayload,
   type EncryptedTokenSidecar,
 } from "./encrypted-backup";
 
@@ -57,6 +59,12 @@ const TOKEN = "1234567890:ABCDEFghijklmnopqrstuvwxyz-_0123456789AB";
 const PASSWORD = "correct horse battery staple";
 const USER = "alex";
 const SIDECAR_PATH = `users/${USER}/_telegram-encrypted.json`;
+const PAYLOAD: EncryptedPairingPayload = {
+  botToken: TOKEN,
+  chatId: 123456789,
+  botUsername: "my_lab_bot",
+  botFirstName: "Lab Bot",
+};
 
 beforeEach(() => {
   memFs.clear();
@@ -117,20 +125,32 @@ describe("encrypted-backup", () => {
 
   it("writes and reads a v1 sidecar at the per-user path", async () => {
     expect(await hasEncryptedBackup(USER)).toBe(false);
-    await writeEncryptedBackup(USER, TOKEN, PASSWORD);
+    await writeEncryptedBackup(USER, PAYLOAD, PASSWORD);
     expect(await hasEncryptedBackup(USER)).toBe(true);
     const stored = memFs.get(SIDECAR_PATH) as EncryptedTokenSidecar;
     expect(stored.version).toBe(1);
     expect(typeof stored.encrypted_token).toBe("string");
     expect(stored.encrypted_token.split(":")).toHaveLength(3);
     expect(typeof stored.saved_at).toBe("string");
-    const read = await readEncryptedBackup(USER);
-    expect(read).not.toBeNull();
-    expect(await decryptToken(read!.encrypted_token, PASSWORD)).toBe(TOKEN);
+    const restored = await decryptEncryptedBackup(USER, PASSWORD);
+    expect(restored).not.toBeNull();
+    expect(restored!.botToken).toBe(TOKEN);
+    expect(restored!.chatId).toBe(PAYLOAD.chatId);
+    expect(restored!.botUsername).toBe(PAYLOAD.botUsername);
+    expect(restored!.botFirstName).toBe(PAYLOAD.botFirstName);
+  });
+
+  it("decryptEncryptedBackup returns null with wrong password", async () => {
+    await writeEncryptedBackup(USER, PAYLOAD, PASSWORD);
+    expect(await decryptEncryptedBackup(USER, "wrong")).toBeNull();
+  });
+
+  it("decryptEncryptedBackup returns null when the sidecar is missing", async () => {
+    expect(await decryptEncryptedBackup(USER, PASSWORD)).toBeNull();
   });
 
   it("deleteEncryptedBackup removes the sidecar", async () => {
-    await writeEncryptedBackup(USER, TOKEN, PASSWORD);
+    await writeEncryptedBackup(USER, PAYLOAD, PASSWORD);
     expect(await hasEncryptedBackup(USER)).toBe(true);
     await deleteEncryptedBackup(USER);
     expect(await hasEncryptedBackup(USER)).toBe(false);

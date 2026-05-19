@@ -746,7 +746,16 @@ function TelegramAutoReconnectRow({ settings, update }: SectionProps) {
         setBusy(false);
         return;
       }
-      await writeEncryptedBackup(currentUser, pairing.botToken, passwordInput);
+      await writeEncryptedBackup(
+        currentUser,
+        {
+          botToken: pairing.botToken,
+          chatId: pairing.chatId,
+          botUsername: pairing.botUsername,
+          botFirstName: pairing.botFirstName,
+        },
+        passwordInput,
+      );
       try {
         await ensureGitignoreEntries([
           "_telegram-encrypted.json",

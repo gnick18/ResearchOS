@@ -25,7 +25,17 @@ type Step =
   | { kind: "loading" }
   | { kind: "alreadyPaired"; pairing: TelegramPairing }
   | { kind: "enterToken"; error?: string }
-  | { kind: "waitForStart"; token: string; botUsername: string; botFirstName?: string }
+  | {
+      kind: "waitForStart";
+      token: string;
+      botUsername: string;
+      botFirstName?: string;
+      /** When set, the user opted into the encrypted backup at enterToken
+       *  time and verifyPassword has already succeeded against this
+       *  string. We defer the actual writeEncryptedBackup call to here
+       *  because the chatId isn't known until /start lands. */
+      encryptedBackupPassword?: string;
+    }
   | { kind: "success"; pairing: TelegramPairing };
 
 export default function TelegramPairingModal({ username, onClose }: TelegramPairingModalProps) {
@@ -95,6 +105,31 @@ export default function TelegramPairingModal({ username, onClose }: TelegramPair
               pairedAt: new Date().toISOString(),
             };
             await writePairing(username, pairing);
+            // If the user opted into the encrypted-backup at this
+            // pairing's enterToken step, we deferred the write until
+            // chatId was known (the chatId is only available after
+            // /start). step.encryptedBackupPassword carries the
+            // already-verified password forward so we don't re-prompt.
+            if (step.encryptedBackupPassword) {
+              try {
+                await writeEncryptedBackup(
+                  username,
+                  {
+                    botToken: step.token,
+                    chatId,
+                    botUsername: step.botUsername,
+                    botFirstName: step.botFirstName,
+                  },
+                  step.encryptedBackupPassword,
+                );
+                await ensureGitignoreEntries([
+                  "_telegram-encrypted.json",
+                  "users/*/_telegram-encrypted.json",
+                ]);
+              } catch (err) {
+                console.warn("[pairing-modal] encrypted-backup write failed", err);
+              }
+            }
             // Make sure the bot token never accidentally gets committed if
             // the data folder is a git repo (it carries an active Telegram
             // bot credential). Best-effort; failure is non-fatal.
@@ -171,26 +206,16 @@ export default function TelegramPairingModal({ username, onClose }: TelegramPair
         backupPassword = passwordInput;
       }
       const info = await getMe(token);
-      if (backupPassword !== null) {
-        try {
-          await writeEncryptedBackup(username, token, backupPassword);
-          await ensureGitignoreEntries([
-            "_telegram-encrypted.json",
-            "users/*/_telegram-encrypted.json",
-          ]);
-        } catch (err) {
-          console.warn("[pairing-modal] encrypted-backup write failed", err);
-        }
-      }
-      // Clear the in-memory password copy as soon as we're done with
-      // it. The state still holds the value until the next render, but
-      // that's bounded; we don't carry it across the waitForStart step.
+      // Defer the actual encrypted-backup write until the chatId is
+      // known (inside the waitForStart effect). We carry the
+      // already-verified password forward through Step.
       setPasswordInput("");
       setStep({
         kind: "waitForStart",
         token,
         botUsername: info.username,
         botFirstName: info.first_name,
+        encryptedBackupPassword: backupPassword ?? undefined,
       });
     } catch (err) {
       const message =

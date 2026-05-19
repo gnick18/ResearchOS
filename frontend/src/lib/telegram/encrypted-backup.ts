@@ -28,8 +28,23 @@ const SALT_BYTES = 16;
 const IV_BYTES = 12;
 const KEY_BITS = 256;
 
+/**
+ * Decrypted payload — the minimum needed to reconstruct a TelegramPairing
+ * on restore. Mirrors the IDB recovery cache shape (CachedTelegramToken)
+ * so the two surfaces stay aligned. `pairedAt` and `lastUpdateId` are NOT
+ * stored: the restore path stamps fresh values (`pairedAt` = now,
+ * `lastUpdateId` = 0; the long-poll cursor self-heals on the first poll).
+ */
+export interface EncryptedPairingPayload {
+  botToken: string;
+  chatId: number;
+  botUsername: string;
+  botFirstName?: string;
+}
+
 export interface EncryptedTokenSidecar {
   version: 1;
+  /** AES-GCM ciphertext of a JSON-serialized EncryptedPairingPayload. */
   encrypted_token: string;
   saved_at: string;
 }
@@ -126,7 +141,7 @@ export async function decryptToken(blob: string, password: string): Promise<stri
 // ── On-disk sidecar I/O ────────────────────────────────────────────────────
 
 /**
- * Write an encrypted backup of `token` to
+ * Write an encrypted backup of the pairing-restoration payload to
  * `users/<username>/_telegram-encrypted.json`. Caller must have verified
  * the password against `_auth.json` first (we don't re-verify here so a
  * single user-prompt UX flow can short-circuit on mismatch before reaching
@@ -134,19 +149,19 @@ export async function decryptToken(blob: string, password: string): Promise<stri
  */
 export async function writeEncryptedBackup(
   username: string,
-  token: string,
+  payload: EncryptedPairingPayload,
   password: string,
 ): Promise<void> {
-  const encrypted = await encryptToken(token, password);
-  const payload: EncryptedTokenSidecar = {
+  const encrypted = await encryptToken(JSON.stringify(payload), password);
+  const sidecar: EncryptedTokenSidecar = {
     version: 1,
     encrypted_token: encrypted,
     saved_at: new Date().toISOString(),
   };
-  await fileService.writeJson(backupPath(username), payload);
+  await fileService.writeJson(backupPath(username), sidecar);
 }
 
-/** Returns the sidecar shape, or null if missing/malformed. */
+/** Returns the sidecar envelope, or null if missing/malformed. */
 export async function readEncryptedBackup(
   username: string,
 ): Promise<EncryptedTokenSidecar | null> {
@@ -155,6 +170,36 @@ export async function readEncryptedBackup(
     return null;
   }
   return raw;
+}
+
+/**
+ * Read + decrypt the encrypted backup for `username`. Returns null on any
+ * failure (missing sidecar, malformed envelope, wrong password, tampered
+ * ciphertext, JSON that doesn't decode to the expected shape).
+ */
+export async function decryptEncryptedBackup(
+  username: string,
+  password: string,
+): Promise<EncryptedPairingPayload | null> {
+  const sidecar = await readEncryptedBackup(username);
+  if (!sidecar) return null;
+  const plain = await decryptToken(sidecar.encrypted_token, password);
+  if (plain === null) return null;
+  try {
+    const parsed = JSON.parse(plain) as unknown;
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      typeof (parsed as { botToken?: unknown }).botToken !== "string" ||
+      typeof (parsed as { chatId?: unknown }).chatId !== "number" ||
+      typeof (parsed as { botUsername?: unknown }).botUsername !== "string"
+    ) {
+      return null;
+    }
+    return parsed as EncryptedPairingPayload;
+  } catch {
+    return null;
+  }
 }
 
 export async function hasEncryptedBackup(username: string): Promise<boolean> {
