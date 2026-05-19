@@ -193,7 +193,8 @@ export default function SecurityPage() {
           off by default. If you turn it on, either via the checkbox in
           the Telegram pairing dialog or via{" "}
           <strong>
-            Settings &rarr; Behavior &rarr; Auto-reconnect Telegram bot
+            Settings &rarr; Notifications &amp; behavior &rarr;
+            Auto-reconnect Telegram bot
           </strong>
           , ResearchOS writes an encrypted file at{" "}
           <code>users/&lt;you&gt;/_telegram-encrypted.json</code> next to
@@ -215,9 +216,19 @@ export default function SecurityPage() {
           password anywhere in ResearchOS (we never had it). Anyone who
           knows your account password can also decrypt this backup, so
           treat the encrypted backup and your account password as a
-          single credential. If you ever change your account password,
-          the existing backup becomes unreadable. Turn the toggle off
-          and back on to re-encrypt under the new password.
+          single credential.
+        </p>
+        <p>
+          Changing your account password through the normal change-
+          password flow handles the re-encryption automatically. The
+          submit button label flips to{" "}
+          <em>&ldquo;Re-encrypting Telegram backup&hellip;&rdquo;</em>{" "}
+          while it runs, and the success banner reads{" "}
+          <em>&ldquo;Password updated. Telegram backup
+          re-encrypted.&rdquo;</em> The encrypt-with-new-password step
+          runs <strong>before</strong> the new password hash is written,
+          so if anything goes wrong the entire password change is
+          aborted and your backup is never stranded.
         </p>
         <p className="text-sm text-gray-600">
           The encryption parameters (KDF, cipher, IV / salt sizes,
