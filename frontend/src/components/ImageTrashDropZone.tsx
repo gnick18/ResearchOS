@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { fileService } from "@/lib/file-system/file-service";
 import { imageEvents } from "@/lib/attachments/image-events";
 import { sidecarPath } from "@/lib/attachments/image-folder";
+import { stripAttachmentReferences } from "@/lib/attachments/strip-references";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 
 interface ImageTrashDropZoneProps {
@@ -24,24 +25,6 @@ interface DraggingImage {
 }
 
 const STRIP_DRAG_MIME = "application/x-research-os-image";
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/** Remove every `![...](Images/<filename>)` and `<img ... src="...Images/<filename>...">`
- *  reference from a markdown body. */
-function stripReferences(markdown: string, filename: string): string {
-  const esc = escapeRegExp(filename);
-  // Markdown image: ![alt](Images/foo.png "optional title")
-  const mdRe = new RegExp(`!\\[[^\\]]*\\]\\([^)]*Images/${esc}[^)]*\\)\\s*`, "g");
-  // HTML img tag
-  const htmlRe = new RegExp(
-    `<img\\s+[^>]*src=["'][^"']*Images/${esc}[^"']*["'][^>]*>\\s*`,
-    "gi"
-  );
-  return markdown.replace(mdRe, "").replace(htmlRe, "");
-}
 
 export default function ImageTrashDropZone({
   value,
@@ -110,7 +93,7 @@ export default function ImageTrashDropZone({
           console.error("[trash] failed to delete file(s)", err);
         }
         blobUrlResolver.revokePath(fullPath);
-        const next = stripReferences(value, parsed.filename);
+        const next = stripAttachmentReferences(value, parsed.filename, "Images");
         if (next !== value) onChange(next);
         imageEvents.emitDeleted({ basePath, filename: parsed.filename });
       }}

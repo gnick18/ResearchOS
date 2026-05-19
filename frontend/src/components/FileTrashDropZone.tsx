@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { fileService } from "@/lib/file-system/file-service";
 import { fileEvents } from "@/lib/attachments/file-events";
+import { stripAttachmentReferences } from "@/lib/attachments/strip-references";
 import { FILE_STRIP_DRAG_MIME } from "./FileStrip";
 
 interface FileTrashDropZoneProps {
@@ -21,32 +22,6 @@ interface FileTrashDropZoneProps {
 interface DraggingFile {
   basePath: string;
   filename: string;
-}
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/** Remove every `[label](Files/<filename>)` and `<a ... href="...Files/<filename>...">label</a>`
- *  reference from a markdown body. File links land in markdown URL-encoded
- *  (e.g. `Files/READ%20ME.md` for a filename with a space), so we run the
- *  match against both the raw and `encodeURIComponent`-encoded forms. */
-function stripReferences(markdown: string, filename: string): string {
-  const variants = new Set([filename, encodeURIComponent(filename)]);
-  let next = markdown;
-  for (const variant of variants) {
-    const esc = escapeRegExp(variant);
-    // Markdown link: [label](Files/foo.pdf) — note no leading `!`, that's the
-    // image variant which the ImageTrashDropZone handles separately.
-    const mdRe = new RegExp(`(?<!!)\\[[^\\]]*\\]\\([^)]*Files/${esc}[^)]*\\)\\s*`, "g");
-    // HTML anchor: <a href="...Files/foo.pdf">label</a>
-    const htmlRe = new RegExp(
-      `<a\\s+[^>]*href=["'][^"']*Files/${esc}[^"']*["'][^>]*>[^<]*</a>\\s*`,
-      "gi"
-    );
-    next = next.replace(mdRe, "").replace(htmlRe, "");
-  }
-  return next;
 }
 
 export default function FileTrashDropZone({
@@ -116,7 +91,7 @@ export default function FileTrashDropZone({
         } catch (err) {
           console.error("[file-trash] failed to delete file", err);
         }
-        const next = stripReferences(value, parsed.filename);
+        const next = stripAttachmentReferences(value, parsed.filename, "Files");
         if (next !== value) onChange(next);
         fileEvents.emitDeleted({ basePath, filename: parsed.filename });
       }}
