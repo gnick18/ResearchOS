@@ -136,6 +136,7 @@ import {
   START_REPLY,
   HELP_REPLY,
   TUTORIAL_REPLY,
+  TEXT_WITHOUT_PHOTO_REPLY,
   _resetTutorialCacheForTests,
 } from "./image-router";
 import { startTelegramTutorialStep } from "./tutorial-store";
@@ -217,10 +218,40 @@ describe("image-router text commands", () => {
     });
   });
 
-  it("unrecognized slash command stays quiet", async () => {
-    await routeTelegramMessage(textMessage("/wat"), baseCtx);
-    expect(hoisted.sendMessageMock).not.toHaveBeenCalled();
+  it("unsolicited text → fallback `send me a photo first` prompt (UX polish 2026-05-19)", async () => {
+    await routeTelegramMessage(textMessage("hello?"), baseCtx);
+    expect(hoisted.sendMessageMock).toHaveBeenCalledTimes(1);
+    expect(hoisted.sendMessageMock.mock.calls[0][2]).toBe(TEXT_WITHOUT_PHOTO_REPLY);
     expect(hoisted.broadcastMock).not.toHaveBeenCalled();
+  });
+
+  it("unrecognized slash command also gets the fallback prompt", async () => {
+    // `/wat` isn't a known command and isn't a caption reply, so it
+    // falls into the unsolicited-text branch.
+    await routeTelegramMessage(textMessage("/wat"), baseCtx);
+    expect(hoisted.sendMessageMock).toHaveBeenCalledTimes(1);
+    expect(hoisted.sendMessageMock.mock.calls[0][2]).toBe(TEXT_WITHOUT_PHOTO_REPLY);
+  });
+
+  it("pending caption is preserved — text writes through and does NOT fire the fallback", async () => {
+    // Seed a pending caption via the tutorial pass-through (only place
+    // image-router populates pendingCaptions today). First arrival:
+    // photo with no caption → router stamps a sidecar + sets pending.
+    await startTelegramTutorialStep(USER, "first-photo");
+    await routeTelegramMessage(photoMessage(), baseCtx);
+    hoisted.sendMessageMock.mockClear();
+    // Now text arrives: should be written as the caption, NOT the
+    // fallback prompt.
+    await routeTelegramMessage(textMessage("Plate t=0"), baseCtx);
+    expect(hoisted.sendMessageMock).toHaveBeenCalledTimes(1);
+    const replyText = hoisted.sendMessageMock.mock.calls[0][2] as string;
+    expect(replyText).toBe("Captioned. 👌");
+    expect(replyText).not.toBe(TEXT_WITHOUT_PHOTO_REPLY);
+    // Sidecar caption persisted.
+    const sidecar = hoisted.memFs.get(
+      "users/alex/inbox/Images/photo-final.jpg.json",
+    ) as { caption?: string } | undefined;
+    expect(sidecar?.caption).toBe("Plate t=0");
   });
 });
 

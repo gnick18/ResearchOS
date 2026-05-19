@@ -327,22 +327,29 @@ export const INBOX_LABEL = "📥";
  *  single-letter labels; 5 leaves a margin for accidental thumbs. */
 const BUTTONS_PER_ROW = 5;
 
-/** Build the indented "context" line under a lettered body option:
- *  `<project> · <MMM D → MMM D>`. Falls back to "(no project)" when
- *  the project folder is empty. */
-function buildBodyContextLine(
+/** Build the indented bullet lines under a lettered body option:
+ *
+ *         • <project>
+ *         • <MMM D → MMM D>
+ *
+ *  Each line carries a U+2022 bullet so the body reads as a list under
+ *  the option title. Project falls back to "(no project)" when the
+ *  project folder is empty. Returns the two lines joined by `\n`
+ *  (no trailing newline). */
+function buildBodyContextLines(
   task: Pick<Task, "start_date" | "end_date">,
   projectFolder: string,
 ): string {
   const project = projectFolder || "(no project)";
   const dates = `${formatDateShort(task.start_date)} → ${formatDateShort(task.end_date)}`;
-  return `${project} · ${dates}`;
+  return `   • ${project}\n   • ${dates}`;
 }
 
-/** Build a 2-line body block for a lettered option:
+/** Build a 3-line body block for a lettered option:
  *
  *      A) Inoculate the A. nidulans into shaker flasks
- *         Fungal Bacterial Co-Culturing · May 15 → May 22
+ *         • Fungal Bacterial Co-Culturing
+ *         • May 15 → May 22
  *
  *  iOS Telegram wraps body text naturally, so long task / project
  *  names spread across lines without ellipsis. */
@@ -352,7 +359,7 @@ export function buildBodyOptionLine(
   task: Pick<Task, "start_date" | "end_date">,
   projectFolder: string,
 ): string {
-  return `${letter}) ${title}\n   ${buildBodyContextLine(task, projectFolder)}`;
+  return `${letter}) ${title}\n${buildBodyContextLines(task, projectFolder)}`;
 }
 
 /** Wrap a list of single-letter (or emoji) button selectors into rows
@@ -446,15 +453,15 @@ function buildActiveConfirmationPrompt(
   task: Pick<Task, "start_date" | "end_date"> | null,
 ): { body: string; keyboard: InlineKeyboardMarkup } {
   const datesPresent = !!(task?.start_date && task?.end_date);
-  const contextLine = datesPresent
-    ? `   ${buildBodyContextLine(
+  const contextBlock = datesPresent
+    ? `${buildBodyContextLines(
         { start_date: task!.start_date, end_date: task!.end_date },
         projectName,
       )}\n`
     : "";
   const body =
-    `A) ${activeTask.name} — Lab Notes\n${contextLine}\n` +
-    `B) ${activeTask.name} — Results\n${contextLine}\n` +
+    `A) ${activeTask.name} — Lab Notes\n${contextBlock}\n` +
+    `B) ${activeTask.name} — Results\n${contextBlock}\n` +
     `C) Pick another experiment`;
   const keyboard: InlineKeyboardMarkup = {
     inline_keyboard: [
@@ -485,10 +492,12 @@ function buildActiveConfirmationPrompt(
  *
  *  Layout: each section's header sits directly above its options
  *  (no blank line between header and first option); options within
- *  a section pack tight; sections are separated by a single blank
- *  line; the Inbox row gets a final blank line gap. The
- *  `——— <label> ———` headers act as a visible horizontal rule plus
- *  section name in one glyph — no separate divider needed. */
+ *  a section are separated by a single blank line so each lettered
+ *  block (title + bulleted project + bulleted dates) reads as its
+ *  own list; sections are separated by a single blank line; the
+ *  Inbox row gets a final blank line gap. The `——— <label> ———`
+ *  headers act as a visible horizontal rule plus section name in
+ *  one glyph — no separate divider needed. */
 function buildDestinationPrompt(
   doing: Task[],
   withoutResults: Task[],
@@ -499,10 +508,10 @@ function buildDestinationPrompt(
   let letterIdx = 0;
 
   if (doing.length > 0) {
-    const lines: string[] = ["——— Active ———"];
+    const options: string[] = [];
     for (const t of doing) {
       const letter = PICKER_LETTERS[letterIdx++];
-      lines.push(
+      options.push(
         buildBodyOptionLine(letter, t.name, t, projectNames.get(t.project_id) ?? ""),
       );
       selectors.push({
@@ -510,14 +519,17 @@ function buildDestinationPrompt(
         callback_data: encodeTaskCallback(t.id, t.owner),
       });
     }
-    sections.push(lines.join("\n"));
+    // Header packs tight against first option; subsequent options
+    // get a blank line above them so each lettered block reads as
+    // its own list rather than a wall of text.
+    sections.push(`——— Active ———\n${options.join("\n\n")}`);
   }
 
   if (withoutResults.length > 0) {
-    const lines: string[] = ["——— No results yet ———"];
+    const options: string[] = [];
     for (const t of withoutResults) {
       const letter = PICKER_LETTERS[letterIdx++];
-      lines.push(
+      options.push(
         buildBodyOptionLine(letter, t.name, t, projectNames.get(t.project_id) ?? ""),
       );
       selectors.push({
@@ -525,7 +537,7 @@ function buildDestinationPrompt(
         callback_data: encodeTaskCallback(t.id, t.owner),
       });
     }
-    sections.push(lines.join("\n"));
+    sections.push(`——— No results yet ———\n${options.join("\n\n")}`);
   }
 
   sections.push(`${INBOX_LABEL}) Save to Inbox`);
