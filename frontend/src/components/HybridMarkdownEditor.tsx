@@ -757,9 +757,20 @@ export default function HybridMarkdownEditor({
   const handleBlockSelect = useCallback(
     (block: MarkdownBlock) => {
       if (disabled) return;
+      // If another block is currently being edited, commit-and-exit before
+      // moving the selection halo. Previously the textarea's onBlur did this
+      // implicitly, but we removed it to keep paste-induced transient blurs
+      // from tearing down edit mode mid-paste.
+      if (editingBlockOffset !== null && editingBlockOffset !== block.startOffset) {
+        isEditingRef.current = false;
+        setEditingBlockOffset(null);
+        setEditingBlockContent("");
+        setEditCursorPosition(null);
+        setShowLanguageSelector(false);
+      }
       setSelectedBlockOffset(block.startOffset);
     },
-    [disabled]
+    [disabled, editingBlockOffset]
   );
 
   const handleBlockEdit = useCallback(
@@ -1292,11 +1303,19 @@ export default function HybridMarkdownEditor({
       const isEditing = editingBlockOffset !== null && block.startOffset === editingBlockOffset;
 
       if (isEditing) {
-        // Render as textarea for editing
-        // Use startOffset as key for stability - it doesn't change when content changes
+        // Render as textarea for editing.
+        // Key off editingBlockOffset (state) rather than block.startOffset
+        // (parsed value) so the textarea node identity is anchored to the
+        // user's intent, not to whatever the re-parsed block list happens to
+        // hand back this render.
+        // NOTE: no onBlur. The document-level click-outside handler below
+        // and the Escape key in handleEditKeyDown are the explicit exit
+        // signals. A native blur on the textarea (clipboard subsystem,
+        // browser extension, accessibility probe) used to dump the user
+        // out of edit mode mid-paste, swallowing the pasted content.
         return (
           <div
-            key={`block-${block.startOffset}`}
+            key={`editing-${editingBlockOffset}`}
             className="hybrid-block editing-block"
             data-block-type={block.type}
           >
@@ -1304,7 +1323,6 @@ export default function HybridMarkdownEditor({
               ref={textareaRef}
               value={editingBlockContent}
               onChange={handleEditChange}
-              onBlur={handleEditBlur}
               onKeyDown={handleEditKeyDown}
               disabled={disabled}
               className="w-full p-3 text-sm font-mono text-gray-800 bg-white border border-blue-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent resize-none overflow-hidden"
