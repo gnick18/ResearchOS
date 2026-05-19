@@ -865,23 +865,65 @@ export default function HybridMarkdownEditor({
       }
       
       setEditingBlockContent(newContent);
-      
+
       // Update the full document content
       // Use the stored original block extent to replace the correct portion
       // This is more stable than finding the block from re-parsed blocks
       // because block boundaries can change during editing (e.g., adding newlines)
       if (editingBlockOffset !== null) {
         const originalLength = editingBlockOriginalLengthRef.current;
+
+        // BLANK-LINE FIRST-TYPING GUARD
+        // When the user enters edit mode on a blank-line block (either via
+        // the "+ Add paragraph" button at the bottom or by double-clicking
+        // an existing blank line between paragraphs), the original block
+        // has empty/whitespace-only content. A naive splice of typed
+        // non-blank text into that position eliminates the blank-line
+        // separator, so the parser merges the surrounding paragraphs and
+        // the new content into ONE paragraph block at a different offset.
+        // The block at editingBlockOffset disappears from the next parse,
+        // no block in renderBlock matches, no textarea renders, focus dies.
+        //
+        // Fix: detect the first non-blank keystroke into a blank-line block
+        // and wrap the typed content with "\n" on both sides so the parser
+        // keeps proper block boundaries. Shift editingBlockOffset by 1 so
+        // the next render targets the newly-emerged paragraph block.
+        // Subsequent keystrokes flow through the normal splice path because
+        // the block at editingBlockOffset is now a paragraph, not a blankLine.
+        //
+        // Closes the "new paragraph chunks added in hybrid mode lose focus
+        // after one character" bug Grant repro'd 2026-05-19.
+        const currentBlock = blocks.find(
+          (b) => b.startOffset === editingBlockOffset
+        );
+        const justTypedFirstNonBlank =
+          currentBlock?.type === "blankLine" && newContent.trim().length > 0;
+
+        if (justTypedFirstNonBlank) {
+          const wrapped = "\n" + newContent + "\n";
+          const newFullContent =
+            value.substring(0, editingBlockOffset) +
+            wrapped +
+            value.substring(editingBlockOffset + originalLength);
+          // The new paragraph block starts one character past the original
+          // blank-line offset (the leading "\n" we inserted lives in the
+          // preserved blank-line block, the paragraph starts after it).
+          setEditingBlockOffset(editingBlockOffset + 1);
+          editingBlockOriginalLengthRef.current = newContent.length;
+          onChange(newFullContent);
+          return;
+        }
+
         // Replace the portion of the document from editingBlockOffset to editingBlockOffset + originalLength
         // with the new content
-        const newFullContent = 
-          value.substring(0, editingBlockOffset) + 
-          newContent + 
+        const newFullContent =
+          value.substring(0, editingBlockOffset) +
+          newContent +
           value.substring(editingBlockOffset + originalLength);
-        
+
         // Update the original length for the next edit
         editingBlockOriginalLengthRef.current = newContent.length;
-        
+
         onChange(newFullContent);
       } else {
         // Edge case: editing a non-existent block (empty document or new block)
@@ -889,7 +931,7 @@ export default function HybridMarkdownEditor({
         onChange(newContent);
       }
     },
-    [value, onChange, editingBlockOffset]
+    [value, onChange, editingBlockOffset, blocks]
   );
 
   /**
