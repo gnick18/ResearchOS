@@ -557,11 +557,20 @@ export default function MethodsPage() {
     }
   }, []);
 
-  const handleMethodCreated = useCallback(async () => {
-    await queryClient.refetchQueries({ queryKey: ["methods"] });
-    setCreating(false);
-    setPrefilledFolder("");
-  }, [queryClient]);
+  const handleMethodCreated = useCallback(
+    async (extendedCompound?: Method) => {
+      await queryClient.refetchQueries({ queryKey: ["methods"] });
+      setCreating(false);
+      setPrefilledFolder("");
+      // Phase 0e: "Save & extend into kit" in CreateMethodModal returns the
+      // freshly-created compound so we can open the builder pre-populated
+      // with the just-created method as the first child.
+      if (extendedCompound) {
+        setEditingCompound(extendedCompound);
+      }
+    },
+    [queryClient],
+  );
 
   return (
     <AppShell>
