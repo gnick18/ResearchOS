@@ -7,6 +7,15 @@ import {
   removePassword,
   verifyPassword,
 } from "@/lib/auth/password";
+import {
+  clearCachedPassword,
+  setCachedPassword,
+} from "@/lib/auth/cached-password";
+import {
+  decryptEncryptedBackup,
+  hasEncryptedBackup,
+  writeEncryptedBackup,
+} from "@/lib/telegram/encrypted-backup";
 import Tooltip from "./Tooltip";
 
 interface AccountPasswordPopupProps {
@@ -33,6 +42,10 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const [showForgot, setShowForgot] = useState(false);
+  // When true, the change-password submit is mid-re-encrypt of the
+  // Telegram backup. The submit button shows a different label so the
+  // user sees a step actually happening on their behalf.
+  const [reencrypting, setReencrypting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,15 +114,59 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
       try {
         const ok = await verifyPassword(username, currentInput);
         if (!ok) {
+          // Constraint #2(e): auth-failure wipes the cached password
+          // so the next attempt cannot accidentally reuse a stale
+          // value.
+          clearCachedPassword();
           setError("Current password is incorrect.");
           setBusy(false);
           return;
         }
+        // Security-manager constraints #7+8: if there is an encrypted
+        // Telegram backup at users/<u>/_telegram-encrypted.json, the
+        // old password is the only thing that can decrypt it. Decrypt
+        // with old, re-encrypt with new, then write the new _auth.json
+        // hash — order matters because if the backup re-encrypt fails
+        // we want to abort BEFORE the password hash actually rotates.
+        const backupExists = await hasEncryptedBackup(username);
+        if (backupExists) {
+          setReencrypting(true);
+          const decrypted = await decryptEncryptedBackup(username, currentInput);
+          if (decrypted === null) {
+            // verifyPassword passed but decrypt failed — sidecar is
+            // corrupt or has been re-encrypted by another surface
+            // with a different password. Bail without rotating: the
+            // user can delete _telegram-encrypted.json and re-pair if
+            // they want to clear this state.
+            setError(
+              "Encrypted Telegram backup couldn't be decrypted with the current password. Aborting password change. Delete _telegram-encrypted.json from your user folder if you want to reset it.",
+            );
+            setReencrypting(false);
+            setBusy(false);
+            return;
+          }
+          try {
+            await writeEncryptedBackup(username, decrypted, newInput);
+          } catch (writeErr) {
+            console.error("[account-password] re-encrypt backup failed", writeErr);
+            setError(
+              "Could not re-encrypt the Telegram backup. Password change aborted; your current password is still active.",
+            );
+            setReencrypting(false);
+            setBusy(false);
+            return;
+          }
+          setReencrypting(false);
+        }
         await setPassword(username, newInput);
-        setDone("Password updated.");
+        // Rotate the cached password too so the rest of the session
+        // matches the new on-disk hash.
+        setCachedPassword(newInput);
+        setDone(backupExists ? "Password updated. Telegram backup re-encrypted." : "Password updated.");
         resetForm();
       } catch {
         setError("Failed to update password.");
+        setReencrypting(false);
       } finally {
         setBusy(false);
       }
@@ -125,11 +182,16 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
       try {
         const ok = await verifyPassword(username, currentInput);
         if (!ok) {
+          clearCachedPassword();
           setError("Current password is incorrect.");
           setBusy(false);
           return;
         }
         await removePassword(username);
+        // Password gone → cached password is meaningless. Wipe it so
+        // any encrypted-backup decrypt attempt re-prompts (and finds
+        // there is no password to verify against either).
+        clearCachedPassword();
         setHasExisting(false);
         setDone("Password removed.");
         resetForm();
@@ -317,7 +379,9 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
                 }`}
               >
                 {busy
-                  ? "..."
+                  ? reencrypting
+                    ? "Re-encrypting Telegram backup…"
+                    : "..."
                   : mode === "set"
                   ? "Set password"
                   : mode === "change"

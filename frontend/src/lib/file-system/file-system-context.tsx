@@ -15,6 +15,7 @@ import {
   restorePreDemoStateOrClear,
 } from "./indexeddb-store";
 import { clearCurrentUserCache } from "../storage/json-store";
+import { clearCachedPassword } from "../auth/cached-password";
 import { discoverUsers, validateResearchFolder, ensureFolderStructure } from "./user-discovery";
 import { readUserSettings, patchUserSettings, userSettingsFileExists, DEFAULT_SETTINGS } from "../settings/user-settings";
 import { useAppStore, readLegacyLocalStorageSettings } from "../store";
@@ -663,6 +664,12 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     await clearDirectoryHandle();
     await clearCurrentUser();
 
+    // Constraint #2(c): folder switch wipes the cached password. The
+    // encrypted backup at users/<u>/_telegram-encrypted.json stays with
+    // the disconnecting folder, so any cached password from that folder's
+    // user must not survive into a freshly-connected folder.
+    clearCachedPassword();
+
     // Clear any hydrated user preferences so the next user's settings don't
     // leak from the in-memory store.
     useAppStore.getState().resetSettingsToDefaults();
@@ -684,6 +691,10 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
   const setCurrentUser = useCallback(async (username: string) => {
     console.log("[FileSystemProvider.setCurrentUser] Called with username:", username);
     clearCurrentUserCache();
+    // Constraint #2(b): explicit user-switch wipes the cached password.
+    // The encrypted backup is keyed per-user and the password gate
+    // belongs to whichever account we just left.
+    clearCachedPassword();
     console.log("[FileSystemProvider.setCurrentUser] Cache cleared");
     await storeCurrentUser(username);
     console.log("[FileSystemProvider.setCurrentUser] Stored to IndexedDB");
