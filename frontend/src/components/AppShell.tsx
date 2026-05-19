@@ -15,6 +15,7 @@ import DemoLabBanner from "./DemoLabBanner";
 import TelegramStaleBanner from "./TelegramStaleBanner";
 import TelegramRecoveryPrompt from "./TelegramRecoveryPrompt";
 import TelegramEncryptedRecoveryPrompt from "./TelegramEncryptedRecoveryPrompt";
+import IdlePasswordWipe from "./IdlePasswordWipe";
 import Tooltip from "./Tooltip";
 import UserAvatar from "./UserAvatar";
 import FeedbackButton from "./FeedbackButton";
@@ -94,6 +95,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <TelegramStaleBanner />
       <TelegramRecoveryPrompt />
       <TelegramEncryptedRecoveryPrompt />
+      <IdlePasswordWipe />
       {/* Header */}
       <header
         data-onboarding-target="personalize-colors"

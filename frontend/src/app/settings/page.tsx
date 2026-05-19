@@ -43,6 +43,11 @@ import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { ANIMATION_METADATA, type AnimationType } from "@/components/animations";
 import { hasPassword, verifyPassword } from "@/lib/auth/password";
 import {
+  clearCachedPassword,
+  hasCachedPassword,
+  setCachedPassword,
+} from "@/lib/auth/cached-password";
+import {
   deleteEncryptedBackup,
   hasEncryptedBackup,
   writeEncryptedBackup,
@@ -643,6 +648,7 @@ function BehaviorSection({ settings, update }: SectionProps) {
         onChange={(v) => void update({ telegramNotifications: v })}
       />
       <TelegramAutoReconnectRow settings={settings} update={update} />
+      <LockEncryptedBackupRow />
       <ToggleRow
         label="Confirm destructive actions"
         description='Show "Are you sure?" prompts before deleting tasks, projects, etc.'
@@ -662,8 +668,10 @@ function BehaviorSection({ settings, update }: SectionProps) {
 // Inline ToggleRow variant for the auto-reconnect feature. Flipping the
 // toggle ON requires the user's account password (so we can encrypt the
 // current bot token from _telegram.json). Flipping OFF deletes the
-// encrypted sidecar. Mirrors the security posture from the pairing modal:
-// no in-memory password cache, prompt at the moment of need only.
+// encrypted sidecar. After verifying the password we stash it in the
+// module-private cache (cached-password.ts) so the rest of the session
+// can decrypt without re-prompting; the five wipe triggers documented
+// at the top of cached-password.ts bound how long that cache lives.
 function TelegramAutoReconnectRow({ settings, update }: SectionProps) {
   const { currentUser } = useFileSystem();
   const [passwordGateExists, setPasswordGateExists] = useState<boolean | null>(null);
@@ -736,10 +744,15 @@ function TelegramAutoReconnectRow({ settings, update }: SectionProps) {
     try {
       const ok = await verifyPassword(currentUser, passwordInput);
       if (!ok) {
+        // Constraint #2(e): auth-failure wipe.
+        clearCachedPassword();
         setError("Incorrect account password.");
         setBusy(false);
         return;
       }
+      // Verified. Cache the password so later flows (recovery banner,
+      // password-change re-encrypt) skip the re-prompt.
+      setCachedPassword(passwordInput);
       const pairing = await readPairing(currentUser);
       if (!pairing) {
         setError("Pair Telegram first — there is no bot token to back up yet.");
@@ -843,6 +856,48 @@ function TelegramAutoReconnectRow({ settings, update }: SectionProps) {
       {!pendingEnable && error && (
         <p className="ml-0 sm:ml-6 text-xs text-red-600">{error}</p>
       )}
+    </div>
+  );
+}
+
+// Lock affordance for security-manager constraint #2(d). Only renders
+// when a password is currently cached in memory (otherwise there is
+// nothing to lock, so the row stays hidden to avoid clutter).
+//
+// Polls hasCachedPassword() on a slow interval because the cache is
+// module-global and other surfaces (folder switch, idle timeout, auth
+// failure) can clear it asynchronously. The interval is cheap (string
+// === null check) and avoids requiring a full subscription bus for one
+// affordance.
+function LockEncryptedBackupRow() {
+  const [cached, setCached] = useState(hasCachedPassword());
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setCached(hasCachedPassword());
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  if (!cached) return null;
+
+  return (
+    <div className="space-y-1 pt-1">
+      <button
+        type="button"
+        onClick={() => {
+          clearCachedPassword();
+          setCached(false);
+        }}
+        className="px-3 py-1.5 text-xs text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-md transition-colors"
+      >
+        Lock encrypted backup access
+      </button>
+      <p className="text-[11px] text-gray-500">
+        Clears the in-memory password used by the encrypted Telegram
+        backup. You will be prompted again the next time auto-reconnect
+        runs.
+      </p>
     </div>
   );
 }

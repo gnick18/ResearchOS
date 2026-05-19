@@ -30,13 +30,21 @@ import {
   hasEncryptedBackup,
 } from "@/lib/telegram/encrypted-backup";
 import { readUserSettings } from "@/lib/settings/user-settings";
+import { verifyPassword } from "@/lib/auth/password";
+import {
+  clearCachedPassword,
+  setCachedPassword,
+} from "@/lib/auth/cached-password";
 
 type PromptState =
   | { kind: "hidden" }
   | { kind: "show" }
   | { kind: "verifying" }
   | { kind: "restored" }
+  | { kind: "toast" }
   | { kind: "error"; message: string };
+
+const RESTORE_TOAST_TTL_MS = 4000;
 
 export default function TelegramEncryptedRecoveryPrompt() {
   const { currentUser } = useCurrentUser();
@@ -102,11 +110,29 @@ export default function TelegramEncryptedRecoveryPrompt() {
     if (!passwordInput) return;
     setState({ kind: "verifying" });
     try {
-      const payload = await decryptEncryptedBackup(currentUser, passwordInput);
-      if (payload === null) {
+      // Verify the password against _auth.json first so we can distinguish
+      // wrong-password (clear the cache) from a tampered/missing backup
+      // (no cache touched). decryptEncryptedBackup also returns null on
+      // wrong password but it can't differentiate the failure modes.
+      const passwordOk = await verifyPassword(currentUser, passwordInput);
+      if (!passwordOk) {
+        // Constraint #2(e): explicit auth-failure wipe trigger. Make sure
+        // no stale value can satisfy the next attempt.
+        clearCachedPassword();
         setState({ kind: "error", message: "Incorrect account password (or backup unreadable)." });
         return;
       }
+      const payload = await decryptEncryptedBackup(currentUser, passwordInput);
+      if (payload === null) {
+        clearCachedPassword();
+        setState({ kind: "error", message: "Incorrect account password (or backup unreadable)." });
+        return;
+      }
+      // Password verified + backup decrypted. Cache it so the rest of
+      // the session (subsequent recovery prompts, password-change
+      // re-encrypt) can use it without re-prompting. Wipe triggers
+      // documented in cached-password.ts.
+      setCachedPassword(passwordInput);
       // botFirstName is not in the encrypted payload (security-manager
       // constraint #6). Leave it undefined; the next polling tick will
       // repopulate it via getMe() through telegram-runtime.
@@ -133,7 +159,13 @@ export default function TelegramEncryptedRecoveryPrompt() {
         /* ignore */
       }
       setPasswordInput("");
-      setState({ kind: "restored" });
+      // Constraint #10: surface a one-shot confirmation toast that the
+      // restoration succeeded. The banner served as the intent gate;
+      // this is the "it worked" feedback.
+      setState({ kind: "toast" });
+      window.setTimeout(() => {
+        setState((prev) => (prev.kind === "toast" ? { kind: "hidden" } : prev));
+      }, RESTORE_TOAST_TTL_MS);
     } catch (err) {
       console.error("[encrypted-recovery] restore failed", err);
       setState({
@@ -161,6 +193,34 @@ export default function TelegramEncryptedRecoveryPrompt() {
   }, [currentUser]);
 
   if (state.kind === "hidden" || state.kind === "restored") return null;
+
+  if (state.kind === "toast") {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="fixed bottom-6 right-6 z-[120] pointer-events-none"
+      >
+        <div className="pointer-events-auto flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-xl shadow-lg shadow-emerald-100/60 text-emerald-800 text-sm">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
+          <span>Restored your Telegram pairing from the encrypted backup.</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

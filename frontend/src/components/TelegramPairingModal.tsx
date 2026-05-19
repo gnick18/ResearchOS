@@ -10,6 +10,7 @@ import {
 } from "@/lib/telegram/telegram-store";
 import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
 import { hasPassword, verifyPassword } from "@/lib/auth/password";
+import { setCachedPassword } from "@/lib/auth/cached-password";
 import { writeEncryptedBackup } from "@/lib/telegram/encrypted-backup";
 import Tooltip from "./Tooltip";
 
@@ -207,6 +208,11 @@ export default function TelegramPairingModal({ username, onClose }: TelegramPair
           return;
         }
         backupPassword = passwordInput;
+        // Stash the verified password in the module-private cache so the
+        // rest of the session (recovery banner, password-change
+        // re-encrypt) can use it without re-prompting. Wipe triggers
+        // documented in cached-password.ts.
+        setCachedPassword(passwordInput);
       }
       const info = await getMe(token);
       // Defer the actual encrypted-backup write until the chatId is
