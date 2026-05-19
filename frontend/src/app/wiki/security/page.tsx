@@ -146,16 +146,24 @@ export default function SecurityPage() {
         <code>frontend/src/lib/api/rate-limit.ts</code> if you want to read
         it line by line.
       </p>
-      <Callout variant="info" title="One more thing on the Telegram surface: a browser-side recovery cache">
+      <h3 className="text-base font-semibold mt-6">
+        Two recovery surfaces for your Telegram bot token
+      </h3>
+      <p>
+        The on-disk <code>_telegram.json</code> sidecar can disappear for
+        ordinary reasons: a misshared OneDrive deletion, an iCloud sync
+        hiccup, a lab-mate tidying up. ResearchOS keeps two optional
+        recovery paths so you don&apos;t have to start over from
+        BotFather when that happens. Both live on your own machine.
+        Neither involves a server we operate.
+      </p>
+      <Callout variant="info" title="The browser-side recovery cache">
         <p>
-          If your <code>_telegram.json</code> sidecar disappears (a
-          misshared OneDrive deletion, an iCloud sync hiccup, a lab-mate
-          tidying up), the app can offer a one-click recovery prompt
-          instead of making you re-pair from BotFather. The credentials
-          that power that prompt live in a browser-scoped IndexedDB store
-          (<code>research-os-telegram-token-cache</code>), not on any
-          server we operate. The cache stores only{" "}
-          <code>bot_token</code>, <code>chat_id</code>, and{" "}
+          The first recovery path is a browser-scoped IndexedDB store
+          (<code>research-os-telegram-token-cache</code>) that holds a
+          minimal credential row so the app can offer a one-click
+          recovery prompt instead of making you re-pair. The cache
+          stores only <code>bot_token</code>, <code>chat_id</code>, and{" "}
           <code>bot_username</code>, keyed by{" "}
           <code>(folderName, username)</code>.
         </p>
@@ -177,6 +185,51 @@ export default function SecurityPage() {
           polling already uses. The <strong>Forget</strong> button in
           Settings &rarr; Data inventory wipes every cache row for the
           current folder in one click.
+        </p>
+      </Callout>
+      <Callout variant="info" title="The optional on-disk encrypted backup">
+        <p>
+          The second recovery path is an encrypted backup file on disk,
+          off by default. If you turn it on, either via the checkbox in
+          the Telegram pairing dialog or via{" "}
+          <strong>
+            Settings &rarr; Behavior &rarr; Auto-reconnect Telegram bot
+          </strong>
+          , ResearchOS writes an encrypted file at{" "}
+          <code>users/&lt;you&gt;/_telegram-encrypted.json</code> next to
+          your regular <code>_telegram.json</code>. The encryption uses
+          your account password, the same password you use to sign in
+          to ResearchOS. The use case is the one the browser-side cache
+          cannot cover: you sit down at a different computer or open
+          the folder in a different browser, and the{" "}
+          <code>_telegram.json</code> file is somehow gone. With the
+          encrypted backup turned on, ResearchOS can ask for your
+          password and reconnect the bot without making you start over
+          with BotFather. The file is auto-gitignored on first write,
+          the same way <code>_telegram.json</code> is, so it never slips
+          into a <code>git push</code>.
+        </p>
+        <p>
+          <strong>Lose your account password and you lose the backup.</strong>{" "}
+          There is no recovery key, no escape hatch, and no copy of your
+          password anywhere in ResearchOS (we never had it). Anyone who
+          knows your account password can also decrypt this backup, so
+          treat the encrypted backup and your account password as a
+          single credential. If you ever change your account password,
+          the existing backup becomes unreadable. Turn the toggle off
+          and back on to re-encrypt under the new password.
+        </p>
+        <p className="text-sm text-gray-600">
+          The encryption parameters (KDF, cipher, IV / salt sizes,
+          fail-closed decryption semantics) live in{" "}
+          <a
+            href="https://github.com/gnick18/ResearchOS/blob/main/SECURITY_AUDIT.md"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            SECURITY_AUDIT.md
+          </a>{" "}
+          sections 1.5 and 1.6 for readers who want the bytes.
         </p>
       </Callout>
 
@@ -235,7 +288,10 @@ export default function SecurityPage() {
         <code>users/&lt;u&gt;/_telegram.json</code>. We auto-gitignore the
         file so it doesn&apos;t slip into a <code>git push</code>, but
         anyone who reads the file can post and read messages on your
-        bot&apos;s chats. Treat it like any other API key.
+        bot&apos;s chats. Treat it like any other API key. The optional
+        encrypted backup at <code>_telegram-encrypted.json</code>{" "}
+        (described above) is the one place the token is NOT in plaintext
+        on disk, but it inherits the security of your account password.
       </Callout>
       <Callout variant="warning" title="Public hosting is opt-in, and the proxies are open">
         If you self-host ResearchOS on a public Vercel deploy with no auth
