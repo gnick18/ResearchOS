@@ -981,7 +981,7 @@ async function scanFolderFiles(): Promise<string[]> {
 }
 
 function DataInventorySection() {
-  const { directoryName } = useFileSystem();
+  const { directoryName, currentUser } = useFileSystem();
   const [scanning, setScanning] = useState(false);
   const [files, setFiles] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -990,6 +990,9 @@ function DataInventorySection() {
     text: string;
     kind: "ok" | "err";
   } | null>(null);
+  const [encryptedBackup, setEncryptedBackup] = useState<
+    { state: "loading" } | { state: "absent" } | { state: "present"; savedAt: string | null }
+  >({ state: "loading" });
 
   const handleForgetTelegramCache = useCallback(async () => {
     if (!directoryName) {
@@ -1045,6 +1048,43 @@ function DataInventorySection() {
   useEffect(() => {
     void runScan();
   }, [runScan]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const probe = async () => {
+      if (!currentUser) {
+        if (!cancelled) setEncryptedBackup({ state: "absent" });
+        return;
+      }
+      const path = `users/${currentUser}/_telegram-encrypted.json`;
+      try {
+        const exists = await fileService.fileExists(path);
+        if (cancelled) return;
+        if (!exists) {
+          setEncryptedBackup({ state: "absent" });
+          return;
+        }
+        const sidecar = await fileService.readJson<{ saved_at?: unknown }>(path);
+        if (cancelled) return;
+        const savedAt =
+          sidecar && typeof sidecar.saved_at === "string" ? sidecar.saved_at : null;
+        setEncryptedBackup({ state: "present", savedAt });
+      } catch (err) {
+        console.warn("[Data inventory] encrypted-backup probe failed:", err);
+        if (!cancelled) setEncryptedBackup({ state: "absent" });
+      }
+    };
+    void probe();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser]);
+
+  const handleManageEncryptedBackup = useCallback(() => {
+    if (typeof document === "undefined") return;
+    const target = document.getElementById("telegram");
+    if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
 
   // Group by top-level path segment ("(root)" for files at folder root).
   const grouped = useMemo(() => {
@@ -1174,6 +1214,54 @@ function DataInventorySection() {
             </li>
           ))}
         </ul>
+      </div>
+
+      <div className="border-t border-gray-100 pt-4">
+        <p className="text-sm font-medium text-gray-800">
+          Telegram bot backup{" "}
+          <span
+            className={`ml-2 align-middle inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
+              encryptedBackup.state === "present"
+                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                : "bg-gray-100 text-gray-600 ring-1 ring-gray-200"
+            }`}
+          >
+            Encrypted backup:{" "}
+            {encryptedBackup.state === "loading"
+              ? "…"
+              : encryptedBackup.state === "present"
+                ? "ON"
+                : "OFF"}
+          </span>
+        </p>
+        <div className="flex items-start justify-between gap-3 mt-1">
+          <p className="text-xs text-gray-500 leading-relaxed min-w-0 flex-1">
+            {encryptedBackup.state === "present" ? (
+              <>
+                Encrypted backup present at{" "}
+                <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
+                  users/{currentUser ?? "<u>"}/_telegram-encrypted.json
+                </code>
+                .{" "}
+                {encryptedBackup.savedAt
+                  ? `Last saved: ${new Date(encryptedBackup.savedAt).toLocaleString()}.`
+                  : "Last saved: unknown (sidecar missing the saved_at field)."}
+              </>
+            ) : (
+              <>
+                No encrypted backup. The browser-scoped recovery (IDB cache) is
+                still active.
+              </>
+            )}
+          </p>
+          <button
+            type="button"
+            onClick={handleManageEncryptedBackup}
+            className="shrink-0 px-2.5 py-1.5 text-xs bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md whitespace-nowrap"
+          >
+            Manage
+          </button>
+        </div>
       </div>
 
       <div className="border-t border-gray-100 pt-4">
