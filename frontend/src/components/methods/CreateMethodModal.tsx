@@ -21,6 +21,7 @@ import { InteractiveGradientEditor } from "@/components/InteractiveGradientEdito
 import { useFileRenamePopup } from "@/components/FileRenamePopup";
 import Tooltip from "@/components/Tooltip";
 import type {
+  Method,
   PCRGradient,
   PCRIngredient,
   LCGradientColumn,
@@ -80,14 +81,23 @@ export function CreateMethodModal({
    *  link (`/methods?createMethod=public`). */
   initialIsPublic?: boolean;
   onClose: () => void;
-  onCreated: () => void;
+  /** Fires after a successful save. When the user clicks "Save & extend
+   *  into kit", the just-created method is wrapped into a freshly-created
+   *  compound and the compound is passed back so the caller can open the
+   *  CompoundMethodBuilder in edit mode. Plain "Create Method" calls back
+   *  with no argument (current behavior). */
+  onCreated: (extendedCompound?: Method) => void;
 }) {
   const [uploadType, setUploadType] = useState<MethodTypeId>("markdown");
   const [name, setName] = useState("");
   const [folder, setFolder] = useState(prefilledFolder || "");
   const [tags, setTags] = useState("");
   const [isPublic, setIsPublic] = useState(initialIsPublic);
-  const [saving, setSaving] = useState(false);
+  // Discriminated saving state: "save" = plain create, "extend" = create +
+  // wrap-as-compound. Drives the per-button spinner labels and disables
+  // both buttons (+ Cancel) while either flow is in flight.
+  const [savingMode, setSavingMode] = useState<"save" | "extend" | null>(null);
+  const saving = savingMode !== null;
 
   // Markdown state
   const [mdContent, setMdContent] = useState("");
@@ -331,223 +341,279 @@ export function CreateMethodModal({
     e.dataTransfer.dropEffect = "copy";
   }, []);
 
-  const handleSave = useCallback(async () => {
-    if (!name.trim()) return;
-    setSaving(true);
+  // Per-type save dispatch. Returns the freshly-created Method so callers can
+  // chain follow-up actions (e.g. wrapAsCompound for the "Save & extend"
+  // path). Returns null when the active type's required inputs are missing
+  // (pdf with no file, etc.) — caller decides whether to bail silently or
+  // surface an error.
+  const performSave = useCallback(async (): Promise<Method | null> => {
+    if (!name.trim()) return null;
 
-    try {
-      if (uploadType === "markdown") {
-        const sourcePath = `methods/${slug}/${slug}.md`;
-        // Auto-stamp new method files the same way notes/results files get
-        // stamped on creation. If the user pasted markdown into the modal,
-        // prepend the stamp; otherwise the stamp is the only content.
-        const stampedScaffold = createNewFileContent(
-          name.trim(),
-          folder.trim() || "Methods",
-          "method"
-        );
-        const body = mdContent ? `${stampedScaffold}\n${mdContent}` : stampedScaffold;
-        await filesApi.writeFile(sourcePath, body, `Create method: ${name}`);
-        // Create the method record
-        await methodsApi.create({
-          name: name.trim(),
-          source_path: sourcePath,
-          method_type: "markdown",
-          folder_path: folder.trim() || null,
-          tags: tags
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean),
-          is_public: isPublic,
-        });
-      } else if (uploadType === "pdf" && pdfFile) {
-        // Upload PDF
-        const reader = new FileReader();
-        const base64 = await new Promise<string>((resolve) => {
-          reader.onload = () => resolve((reader.result as string).split(",")[1]);
-          reader.readAsDataURL(pdfFile);
-        });
-        const sourcePath = `methods/${slug}/${pdfFile.name}`;
-        const response = await filesApi.uploadImage(sourcePath, base64, `Upload PDF: ${name}`);
-        if (response.warning) {
-          setUploadWarning(response.warning);
-        }
-
-        // Create the method record
-        await methodsApi.create({
-          name: name.trim(),
-          source_path: sourcePath,
-          method_type: "pdf",
-          folder_path: folder.trim() || null,
-          tags: tags
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean),
-          is_public: isPublic,
-        });
-      } else if (uploadType === "pcr") {
-        const protocol = await pcrApi.create({
-          name: name.trim(),
-          gradient: pcrGradient,
-          ingredients: pcrIngredients,
-          notes: pcrNotes || null,
-          folder_path: folder.trim() || null,
-          is_public: isPublic,
-        });
-        await methodsApi.create({
-          name: name.trim(),
-          source_path: `pcr://protocol/${protocol.id}`,
-          method_type: "pcr",
-          folder_path: folder.trim() || null,
-          tags: tags
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean),
-          is_public: isPublic,
-        });
-      } else if (uploadType === "lc_gradient") {
-        const protocol = await lcGradientApi.create({
-          name: name.trim(),
-          description: lcDescription,
-          gradient_steps: lcGradientSteps,
-          column: lcColumn,
-          detection_wavelength_nm: lcWavelength,
-          ingredients: lcIngredients,
-          folder_path: folder.trim() || null,
-          is_public: isPublic,
-        });
-        await methodsApi.create({
-          name: name.trim(),
-          source_path: `lc_gradient://protocol/${protocol.id}`,
-          method_type: "lc_gradient",
-          folder_path: folder.trim() || null,
-          tags: tags
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean),
-          is_public: isPublic,
-        });
-      } else if (uploadType === "plate") {
-        const protocol = await plateApi.create({
-          name: name.trim(),
-          description: plateDescription,
-          plate_size: platePlateSize,
-          region_labels: wellsToRegionLabels(plateWells),
-          folder_path: folder.trim() || null,
-          is_public: isPublic,
-        });
-        await methodsApi.create({
-          name: name.trim(),
-          source_path: `plate://protocol/${protocol.id}`,
-          method_type: "plate",
-          folder_path: folder.trim() || null,
-          tags: tags
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean),
-          is_public: isPublic,
-        });
-      } else if (uploadType === "cell_culture") {
-        const schedule = await cellCultureApi.create({
-          name: name.trim(),
-          description: ccDescription,
-          cell_line: ccCellLine,
-          media: ccMedia,
-          planned_events: ccPlannedEvents,
-          folder_path: folder.trim() || null,
-          is_public: isPublic,
-        });
-        await methodsApi.create({
-          name: name.trim(),
-          source_path: `cell_culture://protocol/${schedule.id}`,
-          method_type: "cell_culture",
-          folder_path: folder.trim() || null,
-          tags: tags
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean),
-          is_public: isPublic,
-        });
-      } else if (uploadType === "mass_spec") {
-        const protocol = await massSpecApi.create({
-          name: name.trim(),
-          description: msDescription,
-          ionization_mode: msIonizationMode,
-          ionization_label: msIonizationLabel,
-          instrument: msInstrument,
-          source: msSource,
-          scan: msScan,
-          calibration: msCalibration,
-          folder_path: folder.trim() || null,
-          is_public: isPublic,
-        });
-        await methodsApi.create({
-          name: name.trim(),
-          source_path: `mass_spec://protocol/${protocol.id}`,
-          method_type: "mass_spec",
-          folder_path: folder.trim() || null,
-          tags: tags
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean),
-          is_public: isPublic,
-        });
-      } else if (uploadType === "coding_workflow") {
-        const protocol = await codingWorkflowApi.create({
-          name: name.trim(),
-          description: cwDescription,
-          language: cwLanguage,
-          language_label: cwLanguageLabel,
-          embedded_code: cwEmbeddedCode,
-          external_path: cwExternalPath,
-          output_renderer: cwOutputRenderer,
-          folder_path: folder.trim() || null,
-          is_public: isPublic,
-        });
-        await methodsApi.create({
-          name: name.trim(),
-          source_path: `coding_workflow://protocol/${protocol.id}`,
-          method_type: "coding_workflow",
-          folder_path: folder.trim() || null,
-          tags: tags
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean),
-          is_public: isPublic,
-        });
-      } else if (uploadType === "qpcr_analysis") {
-        const protocol = await qpcrAnalysisApi.create({
-          name: name.trim(),
-          description: qpcrDescription,
-          chemistry: qpcrChemistry,
-          chemistry_label: qpcrChemistryLabel,
-          references: qpcrReferences,
-          standard_curve: qpcrStandardCurve,
-          melt_curve: qpcrMeltCurve,
-          use_delta_delta_cq: qpcrUseDeltaDeltaCq,
-          folder_path: folder.trim() || null,
-          is_public: isPublic,
-        });
-        await methodsApi.create({
-          name: name.trim(),
-          source_path: `qpcr_analysis://protocol/${protocol.id}`,
-          method_type: "qpcr_analysis",
-          folder_path: folder.trim() || null,
-          tags: tags
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean),
-          is_public: isPublic,
-        });
+    if (uploadType === "markdown") {
+      const sourcePath = `methods/${slug}/${slug}.md`;
+      // Auto-stamp new method files the same way notes/results files get
+      // stamped on creation. If the user pasted markdown into the modal,
+      // prepend the stamp; otherwise the stamp is the only content.
+      const stampedScaffold = createNewFileContent(
+        name.trim(),
+        folder.trim() || "Methods",
+        "method"
+      );
+      const body = mdContent ? `${stampedScaffold}\n${mdContent}` : stampedScaffold;
+      await filesApi.writeFile(sourcePath, body, `Create method: ${name}`);
+      return await methodsApi.create({
+        name: name.trim(),
+        source_path: sourcePath,
+        method_type: "markdown",
+        folder_path: folder.trim() || null,
+        tags: tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+        is_public: isPublic,
+      });
+    }
+    if (uploadType === "pdf" && pdfFile) {
+      // Upload PDF
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve) => {
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.readAsDataURL(pdfFile);
+      });
+      const sourcePath = `methods/${slug}/${pdfFile.name}`;
+      const response = await filesApi.uploadImage(sourcePath, base64, `Upload PDF: ${name}`);
+      if (response.warning) {
+        setUploadWarning(response.warning);
       }
-      onCreated();
+      return await methodsApi.create({
+        name: name.trim(),
+        source_path: sourcePath,
+        method_type: "pdf",
+        folder_path: folder.trim() || null,
+        tags: tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+        is_public: isPublic,
+      });
+    }
+    if (uploadType === "pcr") {
+      const protocol = await pcrApi.create({
+        name: name.trim(),
+        gradient: pcrGradient,
+        ingredients: pcrIngredients,
+        notes: pcrNotes || null,
+        folder_path: folder.trim() || null,
+        is_public: isPublic,
+      });
+      return await methodsApi.create({
+        name: name.trim(),
+        source_path: `pcr://protocol/${protocol.id}`,
+        method_type: "pcr",
+        folder_path: folder.trim() || null,
+        tags: tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+        is_public: isPublic,
+      });
+    }
+    if (uploadType === "lc_gradient") {
+      const protocol = await lcGradientApi.create({
+        name: name.trim(),
+        description: lcDescription,
+        gradient_steps: lcGradientSteps,
+        column: lcColumn,
+        detection_wavelength_nm: lcWavelength,
+        ingredients: lcIngredients,
+        folder_path: folder.trim() || null,
+        is_public: isPublic,
+      });
+      return await methodsApi.create({
+        name: name.trim(),
+        source_path: `lc_gradient://protocol/${protocol.id}`,
+        method_type: "lc_gradient",
+        folder_path: folder.trim() || null,
+        tags: tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+        is_public: isPublic,
+      });
+    }
+    if (uploadType === "plate") {
+      const protocol = await plateApi.create({
+        name: name.trim(),
+        description: plateDescription,
+        plate_size: platePlateSize,
+        region_labels: wellsToRegionLabels(plateWells),
+        folder_path: folder.trim() || null,
+        is_public: isPublic,
+      });
+      return await methodsApi.create({
+        name: name.trim(),
+        source_path: `plate://protocol/${protocol.id}`,
+        method_type: "plate",
+        folder_path: folder.trim() || null,
+        tags: tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+        is_public: isPublic,
+      });
+    }
+    if (uploadType === "cell_culture") {
+      const schedule = await cellCultureApi.create({
+        name: name.trim(),
+        description: ccDescription,
+        cell_line: ccCellLine,
+        media: ccMedia,
+        planned_events: ccPlannedEvents,
+        folder_path: folder.trim() || null,
+        is_public: isPublic,
+      });
+      return await methodsApi.create({
+        name: name.trim(),
+        source_path: `cell_culture://protocol/${schedule.id}`,
+        method_type: "cell_culture",
+        folder_path: folder.trim() || null,
+        tags: tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+        is_public: isPublic,
+      });
+    }
+    if (uploadType === "mass_spec") {
+      const protocol = await massSpecApi.create({
+        name: name.trim(),
+        description: msDescription,
+        ionization_mode: msIonizationMode,
+        ionization_label: msIonizationLabel,
+        instrument: msInstrument,
+        source: msSource,
+        scan: msScan,
+        calibration: msCalibration,
+        folder_path: folder.trim() || null,
+        is_public: isPublic,
+      });
+      return await methodsApi.create({
+        name: name.trim(),
+        source_path: `mass_spec://protocol/${protocol.id}`,
+        method_type: "mass_spec",
+        folder_path: folder.trim() || null,
+        tags: tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+        is_public: isPublic,
+      });
+    }
+    if (uploadType === "coding_workflow") {
+      const protocol = await codingWorkflowApi.create({
+        name: name.trim(),
+        description: cwDescription,
+        language: cwLanguage,
+        language_label: cwLanguageLabel,
+        embedded_code: cwEmbeddedCode,
+        external_path: cwExternalPath,
+        output_renderer: cwOutputRenderer,
+        folder_path: folder.trim() || null,
+        is_public: isPublic,
+      });
+      return await methodsApi.create({
+        name: name.trim(),
+        source_path: `coding_workflow://protocol/${protocol.id}`,
+        method_type: "coding_workflow",
+        folder_path: folder.trim() || null,
+        tags: tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+        is_public: isPublic,
+      });
+    }
+    if (uploadType === "qpcr_analysis") {
+      const protocol = await qpcrAnalysisApi.create({
+        name: name.trim(),
+        description: qpcrDescription,
+        chemistry: qpcrChemistry,
+        chemistry_label: qpcrChemistryLabel,
+        references: qpcrReferences,
+        standard_curve: qpcrStandardCurve,
+        melt_curve: qpcrMeltCurve,
+        use_delta_delta_cq: qpcrUseDeltaDeltaCq,
+        folder_path: folder.trim() || null,
+        is_public: isPublic,
+      });
+      return await methodsApi.create({
+        name: name.trim(),
+        source_path: `qpcr_analysis://protocol/${protocol.id}`,
+        method_type: "qpcr_analysis",
+        folder_path: folder.trim() || null,
+        tags: tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+        is_public: isPublic,
+      });
+    }
+    return null;
+  }, [name, slug, uploadType, mdContent, pdfFile, folder, tags, isPublic, pcrGradient, pcrIngredients, pcrNotes, lcGradientSteps, lcColumn, lcWavelength, lcDescription, lcIngredients, platePlateSize, plateWells, plateDescription, ccCellLine, ccMedia, ccPlannedEvents, ccDescription, msIonizationMode, msIonizationLabel, msInstrument, msDescription, msSource, msScan, msCalibration, cwLanguage, cwLanguageLabel, cwEmbeddedCode, cwExternalPath, cwDescription, cwOutputRenderer, qpcrChemistry, qpcrChemistryLabel, qpcrDescription, qpcrUseDeltaDeltaCq, qpcrReferences, qpcrStandardCurve, qpcrMeltCurve]);
+
+  const handleSave = useCallback(async () => {
+    if (saving || !name.trim()) return;
+    setSavingMode("save");
+    try {
+      const created = await performSave();
+      if (created !== null) onCreated();
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Failed to create method";
       alert(msg);
     } finally {
-      setSaving(false);
+      setSavingMode(null);
     }
-  }, [name, slug, uploadType, mdContent, pdfFile, folder, tags, isPublic, pcrGradient, pcrIngredients, pcrNotes, lcGradientSteps, lcColumn, lcWavelength, lcDescription, lcIngredients, platePlateSize, plateWells, plateDescription, ccCellLine, ccMedia, ccPlannedEvents, ccDescription, msIonizationMode, msIonizationLabel, msInstrument, msDescription, msSource, msScan, msCalibration, cwLanguage, cwLanguageLabel, cwEmbeddedCode, cwExternalPath, cwDescription, cwOutputRenderer, qpcrChemistry, qpcrChemistryLabel, qpcrDescription, qpcrUseDeltaDeltaCq, qpcrReferences, qpcrStandardCurve, qpcrMeltCurve, onCreated]);
+  }, [performSave, onCreated, saving, name]);
+
+  // Save the method, then wrap it into a freshly-created compound and hand
+  // the compound back to the parent so the CompoundMethodBuilder opens with
+  // the just-created method as its first child. Phase 0e mirrors the
+  // existing-method "+ Add component (extend into kit)" affordance from
+  // Phase 0d (see WrapAsCompoundAction.tsx) on the create-flow side.
+  //
+  // No rollback on wrap failure: if the method was saved but the wrap step
+  // errors, the method stays — we surface the failure and tell the user how
+  // to retry from the viewer (matches Phase 0c's no-rollback decision).
+  const handleSaveAndExtend = useCallback(async () => {
+    if (saving || !name.trim()) return;
+    setSavingMode("extend");
+    let created: Method | null = null;
+    try {
+      created = await performSave();
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Failed to create method";
+      alert(msg);
+      setSavingMode(null);
+      return;
+    }
+    if (!created) {
+      setSavingMode(null);
+      return;
+    }
+    try {
+      const compound = await methodsApi.wrapAsCompound(created.id);
+      onCreated(compound);
+    } catch (wrapErr: unknown) {
+      const wrapMsg = wrapErr instanceof Error ? wrapErr.message : "Unknown error.";
+      alert(
+        `Method saved, but couldn't bundle it into a kit. ` +
+          `Open the method and click "+ Add component" to retry.\n\n${wrapMsg}`
+      );
+      onCreated();
+    } finally {
+      setSavingMode(null);
+    }
+  }, [performSave, onCreated, saving, name]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
@@ -1030,10 +1096,36 @@ export function CreateMethodModal({
         <div className="flex gap-3 justify-end px-6 py-4 border-t border-gray-100">
           <button
             onClick={handleCancel}
-            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+            disabled={saving}
+            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
           >
             Cancel
           </button>
+          {/* "Save & extend into kit": create the method, then immediately
+              wrap it into a compound and open the compound builder. The
+              create-flow analogue of Phase 0d's viewer-side
+              WrapAsCompoundAction. Hidden for compound (the compound
+              builder is the kit-creation surface; compound is also hidden
+              from the picker, but defensively gate here too). */}
+          {uploadType !== "compound" && (
+            <Tooltip
+              label="Save this method, then immediately bundle it into a compound (kit) so you can add additional components alongside it."
+              placement="top"
+            >
+              <button
+                onClick={handleSaveAndExtend}
+                disabled={
+                  saving ||
+                  !name.trim() ||
+                  (uploadType === "pdf" && !pdfFile) ||
+                  (uploadType === "markdown" && !mdContent.trim())
+                }
+                className="px-4 py-2 text-sm text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg disabled:opacity-50"
+              >
+                {savingMode === "extend" ? "Saving & bundling…" : "Save & extend into kit"}
+              </button>
+            </Tooltip>
+          )}
           <button
             onClick={handleSave}
             disabled={
@@ -1044,7 +1136,7 @@ export function CreateMethodModal({
             }
             className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
           >
-            {saving ? "Saving..." : "Create Method"}
+            {savingMode === "save" ? "Saving..." : "Create Method"}
           </button>
         </div>
       </div>
