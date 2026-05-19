@@ -269,6 +269,19 @@ export interface Task {
    * See `frontend/src/lib/sharing/project-hosting.ts` for the contract.
    */
   external_project?: ExternalProjectRef | null;
+  // Lab-mode comment thread, mirror of `Note.comments`. Optional for backward
+  // compat — `normalizeTaskRecord` in local-api.ts defaults missing values to
+  // [] on read so callers never see `undefined`.
+  comments?: TaskComment[];
+}
+
+// Mirror of `NoteComment`. Same shape so the shared `CommentsThread`
+// component can render either kind without a discriminated union.
+export interface TaskComment {
+  id: string;
+  author: string;       // username of the commenter (the real user, not "lab")
+  text: string;
+  created_at: string;
 }
 
 /**

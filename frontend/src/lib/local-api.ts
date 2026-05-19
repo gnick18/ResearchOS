@@ -67,6 +67,7 @@ import type {
   NoteUpdate,
   NoteEntry,
   NoteComment,
+  TaskComment,
   ImageMetadata,
   FileMetadata,
   CatalogItem,
@@ -330,6 +331,13 @@ function normalizeTaskRecord(raw: Task): Task {
   const needsQpcrAnalysisBackfill = filtered.some(
     (a) => !Object.prototype.hasOwnProperty.call(a, "qpcr_analysis"),
   );
+  // Lab-mode comment thread, mirror of Note.comments. Existing tasks on disk
+  // predating the comments addition read with `comments: undefined`; default
+  // to [] in-memory so callers and the CommentsThread component never see
+  // the missing-field shape.
+  if (normalized.comments === undefined) {
+    normalized = { ...normalized, comments: [] };
+  }
   if (
     filtered !== attachments ||
     needsLcBackfill ||
@@ -1186,6 +1194,59 @@ export const tasksApi = {
       }
     );
     return result.task;
+  },
+
+  // Append a comment to a task's thread. Mirror of notesApi.addComment.
+  // When `owner` is set (current user is a receiver editing a shared task),
+  // the read + write routes through the owner's directory so the comment
+  // lands on the owner's task file — same cross-user pattern as every other
+  // mutating tasks call. Append-only by design; no edit. Author must be a
+  // real username, not "lab" (the caller in CommentsThread enforces this).
+  addComment: async (
+    taskId: number,
+    text: string,
+    author: string,
+    owner?: string,
+  ): Promise<Task | null> => {
+    const trimmed = text.trim();
+    if (!trimmed) return null;
+    const task = owner
+      ? await tasksStore.getForUser(taskId, owner)
+      : await tasksStore.get(taskId);
+    if (!task) return null;
+    const newComment: TaskComment = {
+      id: crypto.randomUUID(),
+      author,
+      text: trimmed,
+      created_at: new Date().toISOString(),
+    };
+    const comments = [...(task.comments || []), newComment];
+    const patch = { comments };
+    const updated = owner
+      ? await tasksStore.updateForUser(taskId, patch, owner)
+      : await tasksStore.update(taskId, patch);
+    return updated ? normalizeTaskRecord(updated) : null;
+  },
+
+  // Remove a comment from a task's thread. Mirror of notesApi.deleteComment.
+  // Only the comment's author can call this — the UI enforces that, but the
+  // API doesn't (caller-trusted, like every other path in this app's
+  // local-only model).
+  deleteComment: async (
+    taskId: number,
+    commentId: string,
+    owner?: string,
+  ): Promise<Task | null> => {
+    const task = owner
+      ? await tasksStore.getForUser(taskId, owner)
+      : await tasksStore.get(taskId);
+    if (!task) return null;
+    const comments = (task.comments || []).filter((c) => c.id !== commentId);
+    const patch = { comments };
+    const updated = owner
+      ? await tasksStore.updateForUser(taskId, patch, owner)
+      : await tasksStore.update(taskId, patch);
+    return updated ? normalizeTaskRecord(updated) : null;
   },
 };
 
@@ -4797,6 +4858,7 @@ export type {
   NoteCreate,
   NoteUpdate,
   NoteComment,
+  TaskComment,
   ImageMetadata,
   FileMetadata,
   CatalogItem,
