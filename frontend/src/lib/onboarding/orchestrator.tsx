@@ -490,16 +490,21 @@ export function useOnboarding(): OrchestratorContextValue | null {
  * Top-level provider that decides what onboarding surface (if any) to
  * mount. Decision matrix:
  *  - `!currentUser` → pass-through (no signed-in user, no orchestrator).
- *  - demo/wiki-capture mode AND `?tutorial=1` → mount the Phase-4
+ *  - demo/wiki-capture mode AND a non-null tutorial mode (`?tutorial=1`
+ *    for the full intro tour, `?tutorial=telegram` for the standalone
+ *    Telegram walkthrough) → mount the Phase-4
  *    `<OnboardingTutorialSequencer>` so the guided tour can run
- *    against the demo lab's seeded data (real tabs land at
- *    `/demo?tutorial=1` from the welcome modal).
- *  - demo/wiki-capture mode without `?tutorial=1` → pass-through
+ *    against the demo lab's seeded data. Real tabs land at
+ *    `/demo?tutorial=1` from the welcome modal or
+ *    `/demo?tutorial=telegram` from the Settings "Set up Telegram"
+ *    button. The sequencer itself reads `getTutorialMode()` to pick
+ *    which steps to walk.
+ *  - demo/wiki-capture mode without any tutorial mode → pass-through
  *    (screenshots and the public demo never see real onboarding tips).
  *  - everything else → mount the normal `<OnboardingOrchestrator>`.
  *
  * Mirrors the existing `if (isDemoOrWikiCapture() && currentUser)`
- * short-circuit pattern in `providers.tsx` with the new tutorial-tab
+ * short-circuit pattern in `providers.tsx` with the tutorial-tab
  * carve-out wired in.
  */
 export function OnboardingProvider({

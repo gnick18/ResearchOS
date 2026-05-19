@@ -13,15 +13,30 @@ import {
   broadcastTutorialSignal,
   subscribeTutorialSignal,
 } from "@/lib/telegram/tutorial-signal";
+import {
+  getTutorialMode,
+  type TutorialMode,
+} from "@/lib/file-system/wiki-capture-mock";
 
 /**
  * Phase-4 guided tutorial sequencer. Mounted by `<OnboardingProvider>`
- * when both `isDemoOrWikiCapture()` and `isTutorialMode()` are true,
- * i.e. the user opened `/demo?tutorial=1` in a new tab via the welcome
- * modal's "Walk me through it" button.
+ * when both `isDemoOrWikiCapture()` and `getTutorialMode()` is
+ * non-null, i.e. the user opened `/demo?tutorial=1` or
+ * `/demo?tutorial=telegram` in a new tab.
  *
- * Walks the user through every tip in `ONBOARDING_TIPS` in priority
- * order (the catalog order). For each tip:
+ * Two modes, parameterized by `getTutorialMode()`:
+ *
+ *   - `"full"` (`?tutorial=1`) — the original 10-tip intro tour,
+ *     opened from the welcome modal's "Walk me through it" button.
+ *     Walks the full catalog in priority order.
+ *   - `"telegram"` (`?tutorial=telegram`) — standalone Telegram-setup
+ *     walkthrough: only the `telegram-send-to-task` catalog tip + the
+ *     first-photo interstitial + the confirmation card + the
+ *     end-screen. Entry points: the "Set up Telegram" button on
+ *     `/settings#telegram` and the "Force Telegram walkthrough" entry
+ *     in the dev tip-force dropdown.
+ *
+ * For each catalog tip in either mode:
  *
  *   1. Pushes the tip's route, plus any popup-open query param the
  *      tip needs (`openProject` / `openMethod` / `openTask` for tips
@@ -103,8 +118,14 @@ interface TutorialStepConfig {
   preTargetDelayMs?: number;
 }
 
-function buildStepConfig(tip: OnboardingTip): TutorialStepConfig {
-  const tutorialQuery = "tutorial=1";
+function buildStepConfig(
+  tip: OnboardingTip,
+  mode: TutorialMode,
+): TutorialStepConfig {
+  // Preserve the active mode across in-tour navigations so a re-mount
+  // (browser back/forward, hard refresh) lands the sequencer in the
+  // same flow it started in.
+  const tutorialQuery = mode === "telegram" ? "tutorial=telegram" : "tutorial=1";
   switch (tip.id) {
     case "archive-projects":
       return {
@@ -157,13 +178,22 @@ export default function OnboardingTutorialSequencer() {
   const router = useRouter();
   const pathname = usePathname();
 
+  /** Read once on mount. `getTutorialMode()` reads from the URL; we
+   *  snapshot it here so a mid-tour URL mutation can't yank the
+   *  sequencer between modes. Default to `"full"` if the mount gate
+   *  let us through with no mode value — defensive; the gate
+   *  shouldn't allow that. */
+  const [mode] = useState<TutorialMode>(() => getTutorialMode() ?? "full");
+
   /** Single source of truth for "where are we in the tour". The
    *  `index` shape encodes catalog progress; the other shapes encode
-   *  the first-photo virtual step. */
-  const [phase, setPhase] = useState<SequencerPhase>({
+   *  the first-photo virtual step. In `"telegram"` mode, `index`
+   *  always equals `TELEGRAM_TIP_INDEX` — the only catalog step in
+   *  that flow. */
+  const [phase, setPhase] = useState<SequencerPhase>(() => ({
     kind: "catalog",
-    index: 0,
-  });
+    index: mode === "telegram" ? TELEGRAM_TIP_INDEX : 0,
+  }));
   /** Resolved DOM target for the current tip, null while we poll. */
   const [target, setTarget] = useState<HTMLElement | null>(null);
   /** Portal-mount flag (createPortal needs document.body). */
@@ -212,7 +242,7 @@ export default function OnboardingTutorialSequencer() {
     setTarget(null);
     if (!currentTip) return;
 
-    const config = buildStepConfig(currentTip);
+    const config = buildStepConfig(currentTip, mode);
     // Compare just the pathname since `pathname` doesn't include the
     // query string. We always navigate when the route differs OR when
     // a popup-open param is needed, we can't tell from the pathname
@@ -267,8 +297,9 @@ export default function OnboardingTutorialSequencer() {
     // pathname is in the deps so a real route change re-runs the
     // effect; without it, the very-first-mount case where `pathname`
     // becomes available a tick after mount would never re-evaluate
-    // skipNavigation.
-  }, [currentTip, pathname, router, cancelPoll]);
+    // skipNavigation. `mode` is included because `buildStepConfig`
+    // reads it for the preserved query string.
+  }, [currentTip, pathname, router, cancelPoll, mode]);
 
   // ── First-photo step lifecycle: signal the polling tab + listen ──
   // On mount of the waiting phase, broadcast the "first-photo" state
@@ -331,7 +362,8 @@ export default function OnboardingTutorialSequencer() {
     setPhase((cur) => {
       if (cur.kind !== "catalog") return cur;
       // Special transition: after the Telegram tip, fire the
-      // first-photo interstitial before advancing the index.
+      // first-photo interstitial before advancing the index. Same in
+      // both modes — the interstitial is part of the Telegram step.
       if (cur.index === TELEGRAM_TIP_INDEX) {
         return { kind: "first-photo-waiting" };
       }
@@ -343,17 +375,22 @@ export default function OnboardingTutorialSequencer() {
     });
   }, []);
 
-  /** Move past any first-photo phase to the catalog tip after the
-   *  Telegram tip. */
+  /** Move past any first-photo phase. In `"full"` mode this advances
+   *  to the catalog tip after the Telegram tip; in `"telegram"` mode
+   *  the Telegram step is the only step, so we land on the end-screen
+   *  directly. */
   const advancePastFirstPhoto = useCallback(() => {
     setPhase(() => {
+      if (mode === "telegram") {
+        return { kind: "complete" };
+      }
       const next = TELEGRAM_TIP_INDEX + 1;
       if (next >= ONBOARDING_TIPS.length) {
         return { kind: "complete" };
       }
       return { kind: "catalog", index: next };
     });
-  }, []);
+  }, [mode]);
 
   const handleBack = useCallback(() => {
     setPhase((cur) => {
@@ -539,8 +576,9 @@ export default function OnboardingTutorialSequencer() {
                   step; End ends the tour outright. */}
               <div className="mt-5 flex items-center justify-between text-xs text-gray-500">
                 <span>
-                  {TELEGRAM_TIP_INDEX + 1} of {ONBOARDING_TIPS.length}
-                  {" "}(send your first photo)
+                  {mode === "telegram"
+                    ? "Send your first photo"
+                    : `${TELEGRAM_TIP_INDEX + 1} of ${ONBOARDING_TIPS.length} (send your first photo)`}
                 </span>
                 <button
                   type="button"
@@ -586,9 +624,12 @@ export default function OnboardingTutorialSequencer() {
   // ── Per-tip card ──────────────────────────────────────────────────
   if (!currentTip) return null;
 
+  // In telegram mode the only catalog step IS the Telegram tip, so
+  // we render it as "1 of 1" rather than its position in the full
+  // catalog (which would be a confusing "1 of 10" for a 1-step flow).
   const tutorialControls: OnboardingTipCardTutorialControls = {
-    currentIndex: phase.kind === "catalog" ? phase.index : 0,
-    totalCount: ONBOARDING_TIPS.length,
+    currentIndex: mode === "telegram" ? 0 : phase.kind === "catalog" ? phase.index : 0,
+    totalCount: mode === "telegram" ? 1 : ONBOARDING_TIPS.length,
     onBack: handleBack,
     onSkip: handleSkip,
     onNext: handleNext,
