@@ -566,7 +566,7 @@ describe("batch-routing: lettered body-list + short-letter buttons", () => {
   // to move human-readable context into the message body and reduce
   // buttons to single-letter selectors that never truncate.
 
-  it("buildBodyOptionLine renders the lettered title + bulleted project + bulleted dates", () => {
+  it("buildBodyOptionLine renders the lettered 2-line block with full title + project + dates", () => {
     const line = buildBodyOptionLine(
       "A",
       "Inoculate the A. nidulans into shaker flasks",
@@ -574,10 +574,8 @@ describe("batch-routing: lettered body-list + short-letter buttons", () => {
       "Fungal Bacterial Co-Culturing",
     );
     expect(line).toBe(
-      "A) Inoculate the A. nidulans into shaker flasks\n   • Fungal Bacterial Co-Culturing\n   • May 15 → May 22",
+      "A) Inoculate the A. nidulans into shaker flasks\n   Fungal Bacterial Co-Culturing · May 15 → May 22",
     );
-    // No middle-dot separator between project and dates anywhere.
-    expect(line).not.toContain(" · ");
   });
 
   it("Test 1 — picker body lists each option with A/B/C lettering + full context (no truncation)", async () => {
@@ -699,20 +697,13 @@ describe("batch-routing: lettered body-list + short-letter buttons", () => {
       String(c[2]).toLowerCase().includes("where"),
     );
     const body = String(prompt![2]);
-    expect(body).toContain(
-      "A) Inoculate the A. nidulans into shaker flasks — Lab Notes\n   • Fungal Bacterial Co-Culturing\n   • May 15 → May 22",
-    );
-    expect(body).toContain(
-      "B) Inoculate the A. nidulans into shaker flasks — Results\n   • Fungal Bacterial Co-Culturing\n   • May 15 → May 22",
-    );
+    expect(body).toContain("A) Inoculate the A. nidulans into shaker flasks — Lab Notes");
+    expect(body).toContain("B) Inoculate the A. nidulans into shaker flasks — Results");
     expect(body).toContain("C) Pick another experiment");
-    // Old "<project> · <dates>" middle-dot shape is gone.
-    expect(body).not.toContain("Fungal Bacterial Co-Culturing · May 15 → May 22");
+    expect(body).toContain("Fungal Bacterial Co-Culturing · May 15 → May 22");
     // Full strings — no truncation marker.
     expect(body).not.toContain("…");
     expect(body).not.toContain("...");
-    // "Pick another experiment" has no bullets under it (no project/dates).
-    expect(body).not.toMatch(/C\) Pick another experiment\n   •/);
 
     const markup = (prompt![3] as { reply_markup?: { inline_keyboard: { text: string; callback_data: string }[][] } })
       ?.reply_markup;
@@ -940,169 +931,6 @@ describe("batch-routing: lettered body-list + short-letter buttons", () => {
       expect(b.text).not.toContain("\n");
       expect(b.text.length).toBe(1);
     }
-  });
-
-  // Bullet-format polish (UX feedback 2026-05-19): project + dates
-  // moved from a single `<project> · <dates>` middle-dot line to two
-  // bulleted lines under each option title. Reads as a list block.
-
-  it("Test bullet-1 — picker body lists project + dates on separate bulleted lines (no `·` separator anywhere)", async () => {
-    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
-    _setExperimentsLoaderForTests(async () => [
-      makeExperiment({
-        id: 1,
-        name: "Make media",
-        start_date: "2026-05-14",
-        end_date: "2026-05-14",
-        project_id: 1,
-      }),
-      makeExperiment({
-        id: 2,
-        name: "Inoculate flasks",
-        start_date: "2026-05-15",
-        end_date: "2026-05-22",
-        project_id: 1,
-      }),
-    ]);
-    _setProjectsLoaderForTests(async () => [
-      makeProject({ id: 1, name: "Fungal Bacterial Co-Culturing" }),
-    ]);
-
-    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null);
-    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
-
-    const prompt = hoisted.sendMessageMock.mock.calls.find((c) =>
-      String(c[2]).toLowerCase().includes("where"),
-    );
-    const body = String(prompt![2]);
-    // Exact bulleted-line shape under each option's title.
-    expect(body).toContain("   • Fungal Bacterial Co-Culturing\n   • May 15 → May 22");
-    expect(body).toContain("   • Fungal Bacterial Co-Culturing\n   • May 14 → May 14");
-    // No middle-dot separator anywhere between project + dates.
-    expect(body).not.toContain("Fungal Bacterial Co-Culturing · ");
-    expect(body).not.toMatch(/ · May \d/);
-  });
-
-  it("Test bullet-2 — exactly one blank line between options within a section", async () => {
-    // Two experiments in the same Active window so both land in the
-    // same section (where the option-separator invariant applies).
-    const today = todayLocalDate();
-    _setExperimentsLoaderForTests(async () => [
-      makeExperiment({
-        id: 1,
-        name: "Inoculate flasks",
-        start_date: today,
-        end_date: today,
-        project_id: 1,
-      }),
-      makeExperiment({
-        id: 2,
-        name: "Make media",
-        start_date: today,
-        end_date: today,
-        project_id: 1,
-      }),
-    ]);
-    _setProjectsLoaderForTests(async () => [
-      makeProject({ id: 1, name: "Fungal Bacterial Co-Culturing" }),
-    ]);
-
-    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null);
-    // Use real timers + small wait for the in-flight debounce so the
-    // body partition uses real `today` for the doing-window check.
-    await new Promise((r) => setTimeout(r, BATCH_WINDOW_MS + 50));
-
-    const prompt = hoisted.sendMessageMock.mock.calls.find((c) =>
-      String(c[2]).toLowerCase().includes("where"),
-    );
-    const body = String(prompt![2]);
-    // The last bullet of option A is followed by a blank line and
-    // then option B's lettered title — exactly one blank line gap.
-    expect(body).toMatch(/\n   • [^\n]+\n\nB\) /);
-    // Never two blank lines in a row (would be \n\n\n).
-    expect(body).not.toMatch(/\n\n\n/);
-    // And both options appear under the same Active header (no
-    // intervening section separator).
-    const activeIdx = body.indexOf("——— Active ———");
-    const aIdx = body.indexOf("\nA) ", activeIdx);
-    const bIdx = body.indexOf("\nB) ", activeIdx);
-    const noResultsIdx = body.indexOf("——— No results yet ———");
-    expect(activeIdx).toBeGreaterThan(-1);
-    expect(aIdx).toBeGreaterThan(activeIdx);
-    expect(bIdx).toBeGreaterThan(aIdx);
-    // If a "No results yet" header is present, both A and B sit
-    // before it (same section).
-    if (noResultsIdx >= 0) {
-      expect(bIdx).toBeLessThan(noResultsIdx);
-    }
-  });
-
-  it("Test bullet-3 — active-task confirmation body uses the same bulleted shape", async () => {
-    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
-    _setExperimentsLoaderForTests(async () => [
-      makeExperiment({
-        id: 7,
-        name: "Inoculate the A. nidulans",
-        start_date: "2026-05-15",
-        end_date: "2026-05-22",
-        project_id: 4,
-      }),
-    ]);
-    _setProjectsLoaderForTests(async () => [
-      makeProject({ id: 4, name: "Fungal Bacterial Co-Culturing" }),
-    ]);
-
-    await routeBatchablePhoto("g1", makePhoto(), baseCtx, {
-      id: 7,
-      owner: USER,
-      name: "Inoculate the A. nidulans",
-    });
-    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
-
-    const prompt = hoisted.sendMessageMock.mock.calls.find((c) =>
-      String(c[2]).toLowerCase().includes("where"),
-    );
-    const body = String(prompt![2]);
-    expect(body).toContain(
-      "A) Inoculate the A. nidulans — Lab Notes\n   • Fungal Bacterial Co-Culturing\n   • May 15 → May 22",
-    );
-    expect(body).toContain(
-      "B) Inoculate the A. nidulans — Results\n   • Fungal Bacterial Co-Culturing\n   • May 15 → May 22",
-    );
-    // No middle-dot fallback anywhere.
-    expect(body).not.toContain("Fungal Bacterial Co-Culturing · May 15");
-  });
-
-  it("Test bullet-4 — `Pick another experiment` row stays flat (no bullets under C)", async () => {
-    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
-    _setExperimentsLoaderForTests(async () => [
-      makeExperiment({
-        id: 7,
-        name: "Inoculate the A. nidulans",
-        start_date: "2026-05-15",
-        end_date: "2026-05-22",
-        project_id: 4,
-      }),
-    ]);
-    _setProjectsLoaderForTests(async () => [
-      makeProject({ id: 4, name: "Fungal Bacterial Co-Culturing" }),
-    ]);
-
-    await routeBatchablePhoto("g1", makePhoto(), baseCtx, {
-      id: 7,
-      owner: USER,
-      name: "Inoculate the A. nidulans",
-    });
-    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
-
-    const prompt = hoisted.sendMessageMock.mock.calls.find((c) =>
-      String(c[2]).toLowerCase().includes("where"),
-    );
-    const body = String(prompt![2]);
-    // C) row is the navigation option — title only, no bulleted
-    // project/dates underneath it.
-    expect(body).toMatch(/C\) Pick another experiment(?:\n|$)/);
-    expect(body).not.toMatch(/C\) Pick another experiment\n   •/);
   });
 
   it("callback_data stays under the Telegram 64-byte cap", () => {

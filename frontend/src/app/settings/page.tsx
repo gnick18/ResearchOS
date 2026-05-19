@@ -623,12 +623,39 @@ function AnimationSection({ settings, update }: SectionProps) {
 }
 
 function BehaviorSection({ settings, update }: SectionProps) {
+  // The walkthrough opens against the demo lab in a new tab — same
+  // pattern as the welcome modal's "Walk me through it" button.
+  // `noopener` keeps the tutorial tab from holding a handle to this
+  // tab's window, matching what we use for the full-tour link.
+  const openTelegramWalkthrough = () => {
+    if (typeof window !== "undefined") {
+      window.open("/demo?tutorial=telegram", "_blank", "noopener");
+    }
+  };
+
   return (
     <SectionShell
       id="telegram"
       title="Notifications & behavior"
       description="Master switches for messaging and safety prompts."
     >
+      <div className="flex items-start justify-between gap-4 pb-2 border-b border-gray-100">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-gray-800">Set up Telegram</p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Walks you through pairing your Telegram bot and texting your
+            first photo — runs in a demo tab so your real folder stays
+            untouched.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={openTelegramWalkthrough}
+          className="shrink-0 px-3 py-1.5 text-sm font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg shadow-sm transition-colors"
+        >
+          Set up Telegram
+        </button>
+      </div>
       <ToggleRow
         label="Telegram notifications"
         description="When off, the app stops polling Telegram for inbound photos and updates."

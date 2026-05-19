@@ -95,6 +95,15 @@ export default function DevForceTipButton() {
     void orchestrator.setMode(null);
   };
 
+  const handleOpenTelegramWalkthrough = () => {
+    setOpen(false);
+    // New tab opens against the demo lab, exactly like the welcome
+    // modal's full-tour link. `noopener` matches the same pattern.
+    if (typeof window !== "undefined") {
+      window.open("/demo?tutorial=telegram", "_blank", "noopener");
+    }
+  };
+
   return (
     <div className="relative" ref={menuRef}>
       <Tooltip label="Force an onboarding tip to fire (dev only)" placement="top">
@@ -141,6 +150,13 @@ export default function DevForceTipButton() {
               className="w-full text-left px-3 py-2 text-sm hover:bg-amber-50 text-amber-700 font-medium transition-colors"
             >
               Show welcome modal
+            </button>
+            <button
+              role="menuitem"
+              onClick={handleOpenTelegramWalkthrough}
+              className="w-full text-left px-3 py-2 text-sm hover:bg-sky-50 text-sky-700 font-medium transition-colors"
+            >
+              Force Telegram walkthrough
             </button>
           </div>
         </div>

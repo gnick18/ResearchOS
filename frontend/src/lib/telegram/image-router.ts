@@ -97,12 +97,6 @@ const HELP_REPLY =
 const TUTORIAL_REPLY =
   "Trying to open the tutorial in your ResearchOS tab. If nothing happens, open ResearchOS, then text /tutorial again.";
 
-/** Fallback for unsolicited text (no command, no pending caption, no
- *  in-flight batch awaiting reply). The bot only does anything useful
- *  with a photo, so steer the user back to that. */
-const TEXT_WITHOUT_PHOTO_REPLY =
-  "Send me a photo first. I'll ask where to file it once it arrives.";
-
 async function handleTextCommand(text: string, ctx: RouteContext): Promise<boolean> {
   if (text === "/start") {
     await sendMessage(ctx.botToken, ctx.chatId, START_REPLY);
@@ -124,7 +118,7 @@ async function handleTextCommand(text: string, ctx: RouteContext): Promise<boole
 
 /** Exported for tests + any in-app surface that wants to mirror the
  *  bot's reply text verbatim. */
-export { START_REPLY, HELP_REPLY, TUTORIAL_REPLY, TEXT_WITHOUT_PHOTO_REPLY };
+export { START_REPLY, HELP_REPLY, TUTORIAL_REPLY };
 
 /** Soft in-memory cache for `_telegram_tutorial.json` reads. The polling
  *  loop calls `routeTelegramMessage` on every inbound update; without a
@@ -193,10 +187,7 @@ export async function routeTelegramMessage(
       await sendMessage(ctx.botToken, ctx.chatId, "Captioned. 👌");
       return;
     }
-    // Unsolicited text: nothing in flight, no caption pending, not a
-    // recognized command. Prompt the user to send a photo first since
-    // that's the only path the bot does anything useful with.
-    await sendMessage(ctx.botToken, ctx.chatId, TEXT_WITHOUT_PHOTO_REPLY);
+    // Unsolicited text — stay quiet.
     return;
   }
 
