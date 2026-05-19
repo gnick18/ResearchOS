@@ -41,7 +41,14 @@ import {
 } from "@/lib/settings/user-settings";
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { ANIMATION_METADATA, type AnimationType } from "@/components/animations";
-import { hasPassword } from "@/lib/auth/password";
+import { hasPassword, verifyPassword } from "@/lib/auth/password";
+import {
+  deleteEncryptedBackup,
+  hasEncryptedBackup,
+  writeEncryptedBackup,
+} from "@/lib/telegram/encrypted-backup";
+import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
+import { readPairing } from "@/lib/telegram/telegram-store";
 import { USER_COLOR_QUERY_KEY } from "@/hooks/useUserColor";
 import {
   readOnboarding,
@@ -635,6 +642,7 @@ function BehaviorSection({ settings, update }: SectionProps) {
         checked={settings.telegramNotifications}
         onChange={(v) => void update({ telegramNotifications: v })}
       />
+      <TelegramAutoReconnectRow settings={settings} update={update} />
       <ToggleRow
         label="Confirm destructive actions"
         description='Show "Are you sure?" prompts before deleting tasks, projects, etc.'
@@ -648,6 +656,182 @@ function BehaviorSection({ settings, update }: SectionProps) {
         onChange={(v) => void update({ hideGoalsFromLab: v })}
       />
     </SectionShell>
+  );
+}
+
+// Inline ToggleRow variant for the auto-reconnect feature. Flipping the
+// toggle ON requires the user's account password (so we can encrypt the
+// current bot token from _telegram.json). Flipping OFF deletes the
+// encrypted sidecar. Mirrors the security posture from the pairing modal:
+// no in-memory password cache, prompt at the moment of need only.
+function TelegramAutoReconnectRow({ settings, update }: SectionProps) {
+  const { currentUser } = useFileSystem();
+  const [passwordGateExists, setPasswordGateExists] = useState<boolean | null>(null);
+  const [pairingExists, setPairingExists] = useState<boolean | null>(null);
+  const [backupExists, setBackupExists] = useState<boolean | null>(null);
+  const [pendingEnable, setPendingEnable] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    let cancelled = false;
+    void (async () => {
+      const [gate, pairing, backup] = await Promise.all([
+        hasPassword(currentUser),
+        readPairing(currentUser),
+        hasEncryptedBackup(currentUser),
+      ]);
+      if (cancelled) return;
+      setPasswordGateExists(gate);
+      setPairingExists(pairing !== null);
+      setBackupExists(backup);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser]);
+
+  const cancelPending = () => {
+    setPendingEnable(false);
+    setPasswordInput("");
+    setError(null);
+  };
+
+  const handleToggle = async (next: boolean) => {
+    if (!currentUser) return;
+    setError(null);
+    if (next) {
+      if (!passwordGateExists) {
+        setError("Set an account password first (Security section below) to use encrypted backups.");
+        return;
+      }
+      if (!pairingExists) {
+        setError("Pair Telegram first — there is no bot token to back up yet.");
+        return;
+      }
+      setPendingEnable(true);
+      return;
+    }
+    // Flipping OFF: delete the sidecar + clear the setting flag.
+    setBusy(true);
+    try {
+      await deleteEncryptedBackup(currentUser);
+      await update({ telegramAutoReconnect: false });
+      setBackupExists(false);
+    } catch (err) {
+      console.error("[settings] delete encrypted backup failed", err);
+      setError("Could not delete the encrypted backup. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleConfirmEnable = async () => {
+    if (!currentUser) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const ok = await verifyPassword(currentUser, passwordInput);
+      if (!ok) {
+        setError("Incorrect account password.");
+        setBusy(false);
+        return;
+      }
+      const pairing = await readPairing(currentUser);
+      if (!pairing) {
+        setError("Pair Telegram first — there is no bot token to back up yet.");
+        setBusy(false);
+        return;
+      }
+      await writeEncryptedBackup(currentUser, pairing.botToken, passwordInput);
+      try {
+        await ensureGitignoreEntries([
+          "_telegram-encrypted.json",
+          "users/*/_telegram-encrypted.json",
+        ]);
+      } catch {
+        /* ignore — gitignore append is best-effort */
+      }
+      await update({ telegramAutoReconnect: true });
+      setBackupExists(true);
+      setPasswordInput("");
+      setPendingEnable(false);
+    } catch (err) {
+      console.error("[settings] enable auto-reconnect failed", err);
+      setError("Could not write the encrypted backup. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const checked = settings.telegramAutoReconnect && backupExists !== false;
+
+  return (
+    <div className="space-y-2">
+      <ToggleRow
+        label="Auto-reconnect Telegram bot"
+        description="When on, your bot token is saved encrypted (using your account password) so ResearchOS can reconnect if the local _telegram.json pairing file is ever lost. The backup never leaves your folder."
+        checked={checked}
+        onChange={(v) => void handleToggle(v)}
+      />
+      {pendingEnable && (
+        <div className="ml-0 sm:ml-6 p-3 rounded-lg border border-blue-200 bg-blue-50 space-y-2">
+          <p className="text-xs text-gray-700">
+            Enter your account password to encrypt the bot token. This
+            password is also the one you will use to decrypt the backup
+            on auto-reconnect.
+          </p>
+          <div className="relative">
+            <input
+              type="text"
+              value={passwordInput}
+              onChange={(e) => {
+                setPasswordInput(e.target.value);
+                setError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void handleConfirmEnable();
+              }}
+              autoComplete="off"
+              placeholder="Account password"
+              className={`w-full pl-3 pr-10 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500${!showPassword ? " [-webkit-text-security:disc]" : ""}`}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-pressed={showPassword}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {showPassword ? "Hide" : "Show"}
+            </button>
+          </div>
+          {error && <p className="text-xs text-red-600">{error}</p>}
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={cancelPending}
+              disabled={busy}
+              className="px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => void handleConfirmEnable()}
+              disabled={busy || !passwordInput}
+              className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-50"
+            >
+              {busy ? "Saving…" : "Save encrypted backup"}
+            </button>
+          </div>
+        </div>
+      )}
+      {!pendingEnable && error && (
+        <p className="ml-0 sm:ml-6 text-xs text-red-600">{error}</p>
+      )}
+    </div>
   );
 }
 

@@ -32,6 +32,12 @@ export interface UserSettings {
 
   // Behavior
   telegramNotifications: boolean;
+  /** When on, the user has opted into the encrypted-backup auto-reconnect
+   *  path. The actual encrypted sidecar lives at
+   *  users/<u>/_telegram-encrypted.json — this flag just records the
+   *  user's intent so the polling tab knows whether to prompt for the
+   *  password on startup when the pairing file is missing. */
+  telegramAutoReconnect: boolean;
   confirmDestructiveActions: boolean;
 
   // Left sidebar (the one shown on every page except /calendar, which has
@@ -66,6 +72,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   dateFormat: "MDY",
   timeFormat: "12h",
   telegramNotifications: true,
+  telegramAutoReconnect: false,
   confirmDestructiveActions: true,
   sidebarShowTasks: true,
   sidebarShowCalendarEvents: false,
