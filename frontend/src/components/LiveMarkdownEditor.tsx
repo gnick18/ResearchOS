@@ -19,6 +19,7 @@ import ImageTrashDropZone from "./ImageTrashDropZone";
 import FileTrashDropZone from "./FileTrashDropZone";
 import FileViewerModal, { classifyFileLink, type FileViewerKind } from "./FileViewerModal";
 import { caretOffsetFromPoint } from "@/lib/utils/textarea-caret";
+import { ValueHistory, type PushKind } from "@/lib/undo/value-history";
 import {
   lookupMissingInlineImage,
   pickUniqueImageFilename,
@@ -822,6 +823,65 @@ export default function LiveMarkdownEditor({
   const disabledPopupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const brokenImagePopupRef = useRef<HTMLDivElement>(null);
 
+  // App-level undo/redo stack. Native textarea undo is wiped by every
+  // controlled re-render (parent `value` prop updates on every keystroke), so
+  // we maintain our own past/future of value snapshots. See
+  // `lib/undo/value-history.ts` for the coalescing rules. v1 scope: typing
+  // and paste into the textarea, plus keyboard shortcuts that mutate the
+  // buffer (Cmd+B etc.). Drag-drop, mode switches, and language-selector
+  // inserts are out of scope and will appear as one-shot jumps when undone.
+  const historyRef = useRef<ValueHistory | null>(null);
+  if (historyRef.current === null) {
+    historyRef.current = new ValueHistory();
+  }
+  // Tracks the most-recent value we know about. Updated by pushAndCommit
+  // synchronously (so consecutive fast keystrokes see the prior typed value,
+  // not the stale prop) and by the external-change effect below.
+  const valueRef = useRef<string>(value);
+
+  // External value changes (autosave reload, hybrid-side edits while in a
+  // sibling component, etc.) don't go through pushAndCommit. Treat them as a
+  // boundary so the next typed char starts a fresh undo step instead of
+  // coalescing across the gap. The past stack is preserved — undo still
+  // walks back through prior intra-edit steps.
+  useEffect(() => {
+    if (valueRef.current !== value) {
+      historyRef.current?.flushBoundary();
+      valueRef.current = value;
+    }
+  }, [value]);
+
+  const pushAndCommit = useCallback(
+    (newValue: string, kind: PushKind = "type") => {
+      historyRef.current?.push(valueRef.current, newValue, kind);
+      valueRef.current = newValue;
+      onChange(newValue);
+    },
+    [onChange]
+  );
+
+  const performUndo = useCallback((): boolean => {
+    const prev = historyRef.current?.undo(valueRef.current) ?? null;
+    if (prev === null) return false;
+    valueRef.current = prev;
+    onChange(prev);
+    return true;
+  }, [onChange]);
+
+  const performRedo = useCallback((): boolean => {
+    const next = historyRef.current?.redo(valueRef.current) ?? null;
+    if (next === null) return false;
+    valueRef.current = next;
+    onChange(next);
+    return true;
+  }, [onChange]);
+
+  // Mode switch (edit ↔ hybrid ↔ preview) is a logical boundary even when
+  // the buffer text didn't change.
+  useEffect(() => {
+    historyRef.current?.flushBoundary();
+  }, [currentMode]);
+
   /**
    * Check if the current textarea selection is a valid image reference.
    * Updates the hasValidImageSelection state.
@@ -913,34 +973,42 @@ export default function LiveMarkdownEditor({
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newValue = e.target.value;
       const textarea = textareaRef.current;
+      // Browser's InputEvent exposes how the change was produced. Paste is
+      // its own atomic undo step regardless of size.
+      const inputType =
+        (e.nativeEvent as InputEvent | undefined)?.inputType ?? "";
+      const kind: PushKind =
+        inputType === "insertFromPaste" || inputType === "insertFromDrop"
+          ? "paste"
+          : "type";
       if (!textarea) {
-        onChange(newValue);
+        pushAndCommit(newValue, kind);
         return;
       }
 
       const cursorPos = textarea.selectionStart;
-      
+
       // Check if user just typed ``` at the start of a line
       // Look for pattern: newline or start of string, then ```
       const textBeforeCursor = newValue.substring(0, cursorPos);
       const lines = textBeforeCursor.split('\n');
       const currentLine = lines[lines.length - 1];
-      
+
       // Check if current line is exactly ``` (code block start)
       if (currentLine === '```') {
         // Find the position of this line
         const lineStartIndex = textBeforeCursor.lastIndexOf('\n') + 1;
-        
+
         // Get textarea position for popup
         const textareaRect = textarea.getBoundingClientRect();
-        
+
         // Calculate approximate line height and position
         const lineHeight = parseInt(getComputedStyle(textarea).lineHeight) || 20;
         const lineIndex = lines.length - 1;
         const charWidth = 8; // Approximate monospace char width
         const topOffset = lineIndex * lineHeight;
         const leftOffset = currentLine.length * charWidth;
-        
+
         setLanguageSelectorPosition({
           top: textareaRect.top + topOffset - textarea.scrollTop + lineHeight,
           left: textareaRect.left + leftOffset,
@@ -949,10 +1017,10 @@ export default function LiveMarkdownEditor({
         setShowLanguageSelector(true);
         setLanguageSearch("");
       }
-      
-      onChange(newValue);
+
+      pushAndCommit(newValue, kind);
     },
-    [onChange]
+    [pushAndCommit]
   );
 
   /**
@@ -961,30 +1029,30 @@ export default function LiveMarkdownEditor({
   const handleLanguageSelect = useCallback(
     (languageCode: string) => {
       if (codeBlockInsertPosition === null) return;
-      
+
       const textarea = textareaRef.current;
       if (!textarea) return;
 
       // Insert the language code after ```
-      const newValue = 
-        value.substring(0, codeBlockInsertPosition) + 
-        languageCode + 
+      const newValue =
+        value.substring(0, codeBlockInsertPosition) +
+        languageCode +
         value.substring(codeBlockInsertPosition);
-      
-      onChange(newValue);
-      
+
+      pushAndCommit(newValue, "paste");
+
       // Move cursor to after the language code
       const newCursorPos = codeBlockInsertPosition + languageCode.length;
       setTimeout(() => {
         textarea.focus();
         textarea.setSelectionRange(newCursorPos, newCursorPos);
       }, 0);
-      
+
       setShowLanguageSelector(false);
       setLanguageSearch("");
       setCodeBlockInsertPosition(null);
     },
-    [codeBlockInsertPosition, value, onChange]
+    [codeBlockInsertPosition, value, pushAndCommit]
   );
 
   /**
@@ -1010,20 +1078,41 @@ export default function LiveMarkdownEditor({
       const isMac = typeof navigator !== "undefined" && navigator.platform.toUpperCase().indexOf("MAC") >= 0;
       const cmdKey = isMac ? e.metaKey : e.ctrlKey;
 
+      // Undo / redo. Short-circuit before any other shortcut so the browser's
+      // broken native handler (the controlled textarea wipes its own native
+      // undo stack on every keystroke) doesn't also fire. preventDefault +
+      // stopPropagation: the parent dialog also listens for Cmd+Z on some
+      // routes.
+      const undoKey = !e.altKey && cmdKey && e.key.toLowerCase() === "z";
+      const redoKeyMac = !e.altKey && cmdKey && e.shiftKey && e.key.toLowerCase() === "z";
+      const redoKeyWin = !isMac && !e.altKey && e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "y";
+      if (undoKey && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        performUndo();
+        return;
+      }
+      if (redoKeyMac || redoKeyWin) {
+        e.preventDefault();
+        e.stopPropagation();
+        performRedo();
+        return;
+      }
+
       // Handle heading level shortcuts: Cmd+Ctrl+'+' (increase) and Cmd+Ctrl+'-' (decrease)
       // On Mac: need both metaKey (Cmd) AND ctrlKey
       // On Windows: check for Ctrl+Alt
-      const cmdAndCtrlPressed = isMac 
-        ? (e.metaKey && e.ctrlKey) 
+      const cmdAndCtrlPressed = isMac
+        ? (e.metaKey && e.ctrlKey)
         : (e.ctrlKey && e.altKey);
-      
+
       if (cmdAndCtrlPressed && (e.key === '+' || e.key === '=' || e.key === '-')) {
         e.preventDefault();
         const textarea = textareaRef.current;
         if (textarea && !disabled) {
           // '+' or '=' increases heading level (## -> #)
           // '-' decreases heading level (## -> ###)
-          adjustHeadingLevel(textarea, value, onChange, e.key === '+' || e.key === '=');
+          adjustHeadingLevel(textarea, value, (v) => pushAndCommit(v, "paste"), e.key === '+' || e.key === '=');
         }
         return;
       }
@@ -1064,17 +1153,17 @@ export default function LiveMarkdownEditor({
                   insertPos = start + 3;
                 }
                 
-                onChange(newValue);
-                
+                pushAndCommit(newValue, "paste");
+
                 // Get textarea position for popup
                 const textareaRect = textarea.getBoundingClientRect();
                 const lineHeight = parseInt(getComputedStyle(textarea).lineHeight) || 20;
-                
+
                 // Calculate line number at cursor position
                 const textBeforeInsert = value.substring(0, start);
                 const lines = textBeforeInsert.split('\n');
                 const lineIndex = lines.length;
-                
+
                 setLanguageSelectorPosition({
                   top: textareaRect.top + (lineIndex * lineHeight) - textarea.scrollTop + lineHeight,
                   left: textareaRect.left + 24, // After the ```
@@ -1082,14 +1171,14 @@ export default function LiveMarkdownEditor({
                 setCodeBlockInsertPosition(insertPos);
                 setShowLanguageSelector(true);
                 setLanguageSearch("");
-                
+
                 // Set cursor position after the opening ```
                 setTimeout(() => {
                   textarea.focus();
                   textarea.setSelectionRange(insertPos, insertPos);
                 }, 0);
               } else {
-                applyMarkdownFormat(textarea, value, onChange, shortcut);
+                applyMarkdownFormat(textarea, value, (v) => pushAndCommit(v, "paste"), shortcut);
               }
             }
             return;
@@ -1106,26 +1195,26 @@ export default function LiveMarkdownEditor({
             e.preventDefault();
             const textarea = textareaRef.current;
             if (textarea && !disabled) {
-              applyMarkdownFormat(textarea, value, onChange, shortcut);
+              applyMarkdownFormat(textarea, value, (v) => pushAndCommit(v, "paste"), shortcut);
             }
             return;
           }
         } else {
           // Standard shortcuts
           const cmdMatches = cmdKey === shortcut.ctrlKey;
-          
+
           if (keyMatches && cmdMatches && shiftMatches && altMatches) {
             e.preventDefault();
             const textarea = textareaRef.current;
             if (textarea && !disabled) {
-              applyMarkdownFormat(textarea, value, onChange, shortcut);
+              applyMarkdownFormat(textarea, value, (v) => pushAndCommit(v, "paste"), shortcut);
             }
             return;
           }
         }
       }
     },
-    [value, onChange, disabled]
+    [value, disabled, performUndo, performRedo, pushAndCommit]
   );
 
   const handleAddImageClick = useCallback(() => {
@@ -2810,6 +2899,7 @@ export default function LiveMarkdownEditor({
               value={value}
               onChange={handleTextChange}
               onKeyDown={handleKeyDown}
+              onBlur={() => historyRef.current?.flushBoundary()}
               disabled={disabled}
               className="w-full h-full p-4 text-sm font-mono text-gray-800 bg-white resize-none focus:outline-none border-0 disabled:bg-gray-50 disabled:text-gray-500"
               style={{ lineHeight: "1.7" }}
