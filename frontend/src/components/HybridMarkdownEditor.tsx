@@ -1882,6 +1882,17 @@ export default function HybridMarkdownEditor({
                   isEditingRef.current = true;
                   setEditingBlockOffset(lastBlock.startOffset);
                   setEditingBlockContent("");
+                  // CRITICAL: sync the original-length ref to the new block's
+                  // content. Without this, handleEditChange computes
+                  // newFullContent against whatever stale length was left by
+                  // the previous edit session, which produces a wrong document
+                  // slice on the first keystroke and the block at
+                  // editingBlockOffset disappears from the next parse, leaving
+                  // no block matching the editing offset, so renderBlock skips
+                  // the textarea entirely and focus is lost. Closes the
+                  // "new paragraph chunks added in hybrid mode lose focus
+                  // after one character" bug Grant repro'd 2026-05-19.
+                  editingBlockOriginalLengthRef.current = lastBlock.content.length;
                   setEditCursorPosition(0);
                 }
               }, 0);
