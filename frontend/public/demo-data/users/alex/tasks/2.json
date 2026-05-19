@@ -9,7 +9,6 @@
   "is_complete": true,
   "task_type": "experiment",
   "weekend_override": null,
-  "method_id": null,
   "method_ids": [
     1
   ],
@@ -39,13 +38,19 @@
       "is_complete": true
     }
   ],
-  "pcr_gradient": null,
-  "pcr_ingredients": null,
   "method_attachments": [
     {
       "method_id": 1,
       "owner": "alex",
-      "snapshot_at": "2026-05-08T09:00:00Z"
+      "pcr_gradient": null,
+      "pcr_ingredients": null,
+      "lc_gradient": null,
+      "body_override": null,
+      "plate_annotation": null,
+      "cell_culture_schedule": null,
+      "variation_notes": null,
+      "compound_snapshots": null,
+      "qpcr_analysis": null
     }
   ],
   "owner": "alex",

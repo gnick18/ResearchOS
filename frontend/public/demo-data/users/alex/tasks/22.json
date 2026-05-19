@@ -9,7 +9,6 @@
   "is_complete": false,
   "task_type": "list",
   "weekend_override": null,
-  "method_id": null,
   "method_ids": [],
   "deviation_log": null,
   "tags": null,
@@ -27,8 +26,6 @@
       "is_complete": false
     }
   ],
-  "pcr_gradient": null,
-  "pcr_ingredients": null,
   "method_attachments": [],
   "owner": "alex",
   "shared_with": [],

@@ -9,7 +9,6 @@
   "is_complete": false,
   "task_type": "experiment",
   "weekend_override": null,
-  "method_id": null,
   "method_ids": [
     2,
     6,
@@ -24,44 +23,97 @@
   "sort_order": 10,
   "experiment_color": "#f59e0b",
   "sub_tasks": null,
-  "pcr_gradient": null,
-  "pcr_ingredients": null,
   "method_attachments": [
     {
       "method_id": 2,
       "owner": "alex",
-      "snapshot_at": "2026-05-13T08:00:00Z"
+      "pcr_gradient": null,
+      "pcr_ingredients": null,
+      "lc_gradient": null,
+      "body_override": null,
+      "plate_annotation": null,
+      "cell_culture_schedule": null,
+      "variation_notes": null,
+      "compound_snapshots": null,
+      "qpcr_analysis": null
     },
     {
       "method_id": 6,
       "owner": "alex",
-      "snapshot_at": "2026-05-13T08:00:00Z"
+      "pcr_gradient": null,
+      "pcr_ingredients": null,
+      "lc_gradient": null,
+      "body_override": null,
+      "plate_annotation": null,
+      "cell_culture_schedule": null,
+      "variation_notes": null,
+      "compound_snapshots": null,
+      "qpcr_analysis": null
     },
     {
       "method_id": 7,
       "owner": "alex",
-      "snapshot_at": "2026-05-13T08:00:00Z"
+      "pcr_gradient": null,
+      "pcr_ingredients": null,
+      "lc_gradient": null,
+      "body_override": null,
+      "plate_annotation": null,
+      "cell_culture_schedule": null,
+      "variation_notes": null,
+      "compound_snapshots": null,
+      "qpcr_analysis": null
     },
     {
       "method_id": 8,
       "owner": "alex",
-      "snapshot_at": "2026-05-13T08:00:00Z",
-      "cell_culture_schedule": "{\"planned_events\":[{\"day_offset\":0,\"event_type\":\"observe\",\"notes\":\"Seed plate; record initial confluence\"},{\"day_offset\":2,\"event_type\":\"feed\"},{\"day_offset\":4,\"event_type\":\"feed\"},{\"day_offset\":6,\"event_type\":\"observe\",\"notes\":\"Check confluence before split\"},{\"day_offset\":7,\"event_type\":\"split\",\"split_ratio\":\"1:5\"}],\"actual_events\":[{\"timestamp\":\"2026-05-11T09:15:00Z\",\"event_type\":\"observe\",\"observation_text\":\"Plated 5e5 cells per dish. Confluence ~30% post-attachment.\",\"confluence_percent\":30},{\"timestamp\":\"2026-05-13T09:00:00Z\",\"event_type\":\"feed\",\"observation_text\":\"Cells looking healthy, ~70% confluent.\",\"confluence_percent\":70}]}"
+      "pcr_gradient": null,
+      "pcr_ingredients": null,
+      "lc_gradient": null,
+      "body_override": null,
+      "plate_annotation": null,
+      "cell_culture_schedule": "{\"planned_events\":[{\"day_offset\":0,\"event_type\":\"observe\",\"notes\":\"Seed plate; record initial confluence\"},{\"day_offset\":2,\"event_type\":\"feed\"},{\"day_offset\":4,\"event_type\":\"feed\"},{\"day_offset\":6,\"event_type\":\"observe\",\"notes\":\"Check confluence before split\"},{\"day_offset\":7,\"event_type\":\"split\",\"split_ratio\":\"1:5\"}],\"actual_events\":[{\"timestamp\":\"2026-05-11T09:15:00Z\",\"event_type\":\"observe\",\"observation_text\":\"Plated 5e5 cells per dish. Confluence ~30% post-attachment.\",\"confluence_percent\":30},{\"timestamp\":\"2026-05-13T09:00:00Z\",\"event_type\":\"feed\",\"observation_text\":\"Cells looking healthy, ~70% confluent.\",\"confluence_percent\":70}]}",
+      "variation_notes": null,
+      "compound_snapshots": null,
+      "qpcr_analysis": null
     },
     {
       "method_id": 12,
       "owner": "alex",
-      "snapshot_at": "2026-05-13T08:00:00Z"
+      "pcr_gradient": null,
+      "pcr_ingredients": null,
+      "lc_gradient": null,
+      "body_override": null,
+      "plate_annotation": null,
+      "cell_culture_schedule": null,
+      "variation_notes": null,
+      "compound_snapshots": null,
+      "qpcr_analysis": null
     },
     {
       "method_id": 10,
       "owner": "alex",
-      "snapshot_at": "2026-05-13T08:00:00Z"
+      "pcr_gradient": null,
+      "pcr_ingredients": null,
+      "lc_gradient": null,
+      "body_override": null,
+      "plate_annotation": null,
+      "cell_culture_schedule": null,
+      "variation_notes": null,
+      "compound_snapshots": null,
+      "qpcr_analysis": null
     },
     {
       "method_id": 9,
       "owner": "alex",
-      "snapshot_at": "2026-05-13T08:00:00Z"
+      "pcr_gradient": null,
+      "pcr_ingredients": null,
+      "lc_gradient": null,
+      "body_override": null,
+      "plate_annotation": null,
+      "cell_culture_schedule": null,
+      "variation_notes": null,
+      "compound_snapshots": null,
+      "qpcr_analysis": null
     }
   ],
   "owner": "alex",
