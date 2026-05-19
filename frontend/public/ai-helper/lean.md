@@ -171,6 +171,12 @@ export interface SubTask {
 
 export interface TaskMethodAttachment {
   method_id: number;
+  // Explicit owner of the referenced method. `null` = same user as the task
+  // (legacy / locally-owned attachments). Non-null disambiguates against
+  // per-user id collisions: e.g. `method_id: 2, owner: "public"` references
+  // the public method even when the current user also has a private method
+  // with id 2. Required for cross-user public/shared method attachments.
+  owner: string | null;
   // PCR method copy fields - stored as JSON strings (only for PCR methods)
   pcr_gradient: string | null;  // JSON string of PCRGradient
   pcr_ingredients: string | null;  // JSON string of PCRIngredient[]
@@ -191,8 +197,32 @@ export interface TaskMethodAttachment {
   // plate methods). Mirrors lc_gradient: per-well painting on the experiment
   // page lands here, not back on the source PlateProtocol's region_labels.
   plate_annotation: string | null;
+  // Cell culture per-task instance snapshot — JSON string of CellCultureScheduleInstance
+  // (only for cell_culture methods). Carries the planned_events copy plus
+  // mid-execution actual_events (what was actually fed/split/observed) so the
+  // passage-history annotation lives on the task, not the source schedule.
+  cell_culture_schedule: string | null;
   // Variation notes - markdown content documenting method variations for this experiment
   variation_notes: string | null;  // Markdown string with timestamped entries
+  // Compound method per-child snapshot bundle - JSON string of
+  // CompoundSnapshotPayload (only meaningful when the attached method's
+  // method_type === "compound"). Bundles per-child snapshot blobs keyed by
+  // the child method's id. Each child's blob shape matches the per-type
+  // snapshot field it would otherwise occupy on a standalone attachment
+  // (e.g. a plate child's blob mirrors plate_annotation, an lc child's
+  // blob mirrors lc_gradient). Position deliberately last so Phase 1's
+  // qpcr_analysis field can land before this one without mid-interface
+  // merge conflicts.
+  compound_snapshots: string | null;
+  // qPCR analysis per-task instance snapshot — JSON string of
+  // QPCRAnalysisSnapshot (only meaningful for `method_type === "qpcr_analysis"`
+  // methods). Carries the actual measured Cq values per target, optional
+  // melt-curve Tm readouts, and per-experiment notes. Source method record
+  // stays untouched (it carries the protocol template — references list,
+  // standard-curve points, melt-curve config, ΔΔCq toggle); per-task
+  // experimental data lands here. Positioned after compound_snapshots so
+  // Phase 1's append-only contract holds against Phase 0b.
+  qpcr_analysis: string | null;
 }
 
 export interface ExternalProjectRef {
@@ -254,7 +284,7 @@ export interface Method {
   id: number;
   name: string;
   source_path: string | null;
-  method_type: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | null;
+  method_type: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "mass_spec" | "compound" | "coding_workflow" | "qpcr_analysis" | null;
   folder_path: string | null;
   parent_method_id: number | null;
   tags: string[] | null;
@@ -267,6 +297,12 @@ export interface Method {
   // the receiver of a shared method loads it. Never persisted to disk.
   is_shared_with_me?: boolean;
   shared_permission?: "view" | "edit";
+  // Only meaningful when `method_type === "compound"`. Null/empty for every
+  // other method type. Each entry references a child method by id + owner;
+  // the renderer walks the array in `ordering` order. See
+  // `frontend/src/lib/methods/compound-graph.ts` for cycle / depth /
+  // orphan validation.
+  components?: CompoundComponent[];
 }
 
 export interface PCRStep {
@@ -960,6 +996,7 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 | Connecting Your Folder | `/wiki/getting-started/connecting-your-folder` |
 | Creating a User | `/wiki/getting-started/creating-a-user` |
 | Demo Mode | `/wiki/getting-started/demo-mode` |
+| Exporting from LabArchives | `/wiki/getting-started/labarchives-export` |
 | Shared Lab Accounts | `/wiki/shared-lab-accounts` |
 | OneDrive | `/wiki/shared-lab-accounts/onedrive` |
 | Google Drive | `/wiki/shared-lab-accounts/google-drive` |
@@ -983,19 +1020,21 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 | Search | `/wiki/features/search` |
 | Lab Links | `/wiki/features/links` |
 | Results (moved) | `/wiki/features/results` |
+| Import from LabArchives | `/wiki/features/import-from-eln` |
 | Settings | `/wiki/features/settings` |
 | Notifications & Inbox | `/wiki/features/notifications` |
 | Integrations | `/wiki/integrations` |
 | Telegram Bot | `/wiki/integrations/telegram` |
 | Calendar Feeds | `/wiki/integrations/calendar-feeds` |
 | LabArchives | `/wiki/integrations/labarchives` |
+| Security | `/wiki/security` |
 
 ## §11 Build metadata
 
 - **Variant:** `lean`
-- **Helper version:** `5`
-- **Schema hash:** `08ef47a8db5e1a63bb01d142e0b522919feb7528cb4ce9e8a29c8605b95393b9`
-- **Built at:** `2026-05-15T23:03:45.034Z`
-- **Built from commit:** `2acbd489b1913b626697a34ee9e1f5c590d39976`
+- **Helper version:** `6`
+- **Schema hash:** `84c3f56a2daef5b9f2cc6ab123f110dae96aad23c1d270bb1b890a52c3d701bd`
+- **Built at:** `2026-05-19T14:23:38.298Z`
+- **Built from commit:** `95c7c7d7cf029fed24f91d8ade9134de937fbe51`
 
 _Generated by `scripts/build-ai-helper.mjs`. Do not edit by hand — run `npm run --prefix frontend ai-helper:refresh` to rebuild and commit._

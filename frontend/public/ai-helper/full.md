@@ -320,6 +320,12 @@ export interface SubTask {
 
 export interface TaskMethodAttachment {
   method_id: number;
+  // Explicit owner of the referenced method. `null` = same user as the task
+  // (legacy / locally-owned attachments). Non-null disambiguates against
+  // per-user id collisions: e.g. `method_id: 2, owner: "public"` references
+  // the public method even when the current user also has a private method
+  // with id 2. Required for cross-user public/shared method attachments.
+  owner: string | null;
   // PCR method copy fields - stored as JSON strings (only for PCR methods)
   pcr_gradient: string | null;  // JSON string of PCRGradient
   pcr_ingredients: string | null;  // JSON string of PCRIngredient[]
@@ -340,8 +346,32 @@ export interface TaskMethodAttachment {
   // plate methods). Mirrors lc_gradient: per-well painting on the experiment
   // page lands here, not back on the source PlateProtocol's region_labels.
   plate_annotation: string | null;
+  // Cell culture per-task instance snapshot — JSON string of CellCultureScheduleInstance
+  // (only for cell_culture methods). Carries the planned_events copy plus
+  // mid-execution actual_events (what was actually fed/split/observed) so the
+  // passage-history annotation lives on the task, not the source schedule.
+  cell_culture_schedule: string | null;
   // Variation notes - markdown content documenting method variations for this experiment
   variation_notes: string | null;  // Markdown string with timestamped entries
+  // Compound method per-child snapshot bundle - JSON string of
+  // CompoundSnapshotPayload (only meaningful when the attached method's
+  // method_type === "compound"). Bundles per-child snapshot blobs keyed by
+  // the child method's id. Each child's blob shape matches the per-type
+  // snapshot field it would otherwise occupy on a standalone attachment
+  // (e.g. a plate child's blob mirrors plate_annotation, an lc child's
+  // blob mirrors lc_gradient). Position deliberately last so Phase 1's
+  // qpcr_analysis field can land before this one without mid-interface
+  // merge conflicts.
+  compound_snapshots: string | null;
+  // qPCR analysis per-task instance snapshot — JSON string of
+  // QPCRAnalysisSnapshot (only meaningful for `method_type === "qpcr_analysis"`
+  // methods). Carries the actual measured Cq values per target, optional
+  // melt-curve Tm readouts, and per-experiment notes. Source method record
+  // stays untouched (it carries the protocol template — references list,
+  // standard-curve points, melt-curve config, ΔΔCq toggle); per-task
+  // experimental data lands here. Positioned after compound_snapshots so
+  // Phase 1's append-only contract holds against Phase 0b.
+  qpcr_analysis: string | null;
 }
 
 export interface Task {
@@ -567,7 +597,7 @@ export interface Method {
   id: number;
   name: string;
   source_path: string | null;
-  method_type: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | null;
+  method_type: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "mass_spec" | "compound" | "coding_workflow" | "qpcr_analysis" | null;
   folder_path: string | null;
   parent_method_id: number | null;
   tags: string[] | null;
@@ -580,26 +610,34 @@ export interface Method {
   // the receiver of a shared method loads it. Never persisted to disk.
   is_shared_with_me?: boolean;
   shared_permission?: "view" | "edit";
+  // Only meaningful when `method_type === "compound"`. Null/empty for every
+  // other method type. Each entry references a child method by id + owner;
+  // the renderer walks the array in `ordering` order. See
+  // `frontend/src/lib/methods/compound-graph.ts` for cycle / depth /
+  // orphan validation.
+  components?: CompoundComponent[];
 }
 
 export interface MethodCreate {
   name: string;
   source_path?: string | null;
-  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate";
+  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "mass_spec" | "compound" | "coding_workflow" | "qpcr_analysis";
   folder_path?: string | null;
   parent_method_id?: number | null;
   tags?: string[];
   is_public?: boolean;
+  components?: CompoundComponent[];
 }
 
 export interface MethodUpdate {
   name?: string;
   source_path?: string | null;
-  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | null;
+  method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "mass_spec" | "compound" | "coding_workflow" | "qpcr_analysis" | null;
   folder_path?: string | null;
   parent_method_id?: number | null;
   tags?: string[];
   is_public?: boolean;
+  components?: CompoundComponent[];
 }
 
 // ── PCR Methods ──────────────────────────────────────────────────────────────
@@ -812,6 +850,487 @@ export interface PlateWellAnnotation {
  *  using letter-row + 1-indexed-column. */
 export interface PlateAnnotationSnapshot {
   wells: Record<string, PlateWellAnnotation>;
+}
+
+// ── Cell culture passaging ───────────────────────────────────────────────────
+
+/** What the user planned/did at a particular point in the passage timeline. */
+export type CellCultureEventType = "feed" | "split" | "observe" | "harvest";
+
+/** Cell-line metadata — fluff at the top of a passaging schedule. */
+export interface CellCultureCellLine {
+  name?: string | null;
+  species?: string | null;
+  tissue?: string | null;
+  notes?: string | null;
+}
+
+/** A single media supplement (e.g. PenStrep, L-glutamine). */
+export interface CellCultureSupplement {
+  name: string;
+  concentration: string;
+  units: string;
+}
+
+/** Composition of the growth medium used across the schedule. */
+export interface CellCultureMedia {
+  base_medium?: string | null;
+  serum_percent?: number | null;
+  supplements?: CellCultureSupplement[];
+}
+
+/** One planned event in the cadence: day-offset from start, what to do that day. */
+export interface CellCulturePlannedEvent {
+  /** Day offset from start of the schedule. Day 0 = seed day. */
+  day_offset: number;
+  event_type: CellCultureEventType;
+  /** Required when event_type === "split" (e.g. "1:5"); free-form. */
+  split_ratio?: string;
+  notes?: string;
+}
+
+/** Source-side passaging schedule template. The Method record references this
+ *  via `source_path: "cell_culture://protocol/{id}"` — mirrors PCR/LC. */
+export interface CellCultureSchedule {
+  id: number;
+  name: string;
+  description?: string | null;
+  is_public: boolean;
+  created_at?: string;
+  updated_at?: string;
+  created_by: string | null;
+  cell_line: CellCultureCellLine;
+  media: CellCultureMedia;
+  planned_events: CellCulturePlannedEvent[];
+}
+
+export interface CellCultureScheduleCreate {
+  name: string;
+  description?: string | null;
+  is_public?: boolean;
+  cell_line: CellCultureCellLine;
+  media: CellCultureMedia;
+  planned_events: CellCulturePlannedEvent[];
+  folder_path?: string | null;
+}
+
+export type CellCultureScheduleUpdate = Partial<{
+  name: string;
+  description: string | null;
+  is_public: boolean;
+  cell_line: CellCultureCellLine;
+  media: CellCultureMedia;
+  planned_events: CellCulturePlannedEvent[];
+}>;
+
+/** One actual event logged mid-execution on the task instance. The unique
+ *  per-task feature of cell-culture passaging: passage history is documented
+ *  as it happens (fed Monday, looking 80% confluent Wednesday, split 1:5
+ *  Thursday). The snapshot below carries the array. */
+export interface CellCultureActualEvent {
+  /** ISO timestamp when the user logged the event. */
+  timestamp: string;
+  event_type: CellCultureEventType;
+  /** Set when event_type === "split". Free-form (e.g. "1:5"). */
+  split_ratio?: string;
+  observation_text?: string;
+  confluence_percent?: number;
+  photo_attachment_path?: string;
+}
+
+/** Shape of `TaskMethodAttachment.cell_culture_schedule` once parsed. The
+ *  per-task snapshot carries a copy of the planned events (so edits stay
+ *  scoped to the experiment) plus the actual events log. */
+export interface CellCultureScheduleInstance {
+  planned_events: CellCulturePlannedEvent[];
+  actual_events: CellCultureActualEvent[];
+  /** Per-planned-index free-text notes layered on the planned schedule. Keyed
+   *  by the index into `planned_events`. */
+  notes_per_event?: Record<number, string>;
+  cell_line?: CellCultureCellLine;
+  media?: CellCultureMedia;
+  description?: string | null;
+}
+
+// ── Coding workflows ─────────────────────────────────────────────────────────
+//
+// Reusable scripts and Jupyter notebooks attached as method-typed records.
+// The method record carries the (optional) embedded code body inline; an
+// optional `external_path` points at a file on the user's machine for the
+// "open in your editor" handoff. Q-B4 lock: no per-task state — coding
+// workflows are static reference templates. Q-B5 lock: read-only preview
+// only, no Monaco/CodeMirror. See METHODS_EXPANSION_V2_PROPOSAL.md §3.
+
+/** Curated languages with first-class icons + syntax-highlighter profiles.
+ *  "other" pairs with `language_label` for freeform fallback. Matches the
+ *  highlight.js default language set so rehype-highlight covers all curated
+ *  options without bundle-weight additions. */
+export type CodingWorkflowLanguage =
+  | "python"
+  | "r"
+  | "bash"
+  | "sql"
+  | "julia"
+  | "matlab"
+  | "javascript"
+  | "other";
+
+/** Drives the inline preview component:
+ *   - "syntax-highlight": embedded_code rendered via rehype-highlight
+ *   - "ipynb"            : embedded_code parsed as nbformat JSON + cells
+ *                          rendered with static outputs
+ *   - null                : no inline preview (external-only) */
+export type CodingWorkflowOutputRenderer = "syntax-highlight" | "ipynb" | null;
+
+export interface CodingWorkflowProtocol {
+  id: number;
+  name: string;
+  description?: string | null;
+  is_public: boolean;
+  created_at?: string;
+  updated_at?: string;
+  created_by: string | null;
+  language: CodingWorkflowLanguage;
+  /** Free-form label shown next to the icon when `language === "other"`. */
+  language_label?: string | null;
+  /** Embedded code body. Null when the workflow is external-only
+   *  (`external_path` set without `embedded_code`). */
+  embedded_code: string | null;
+  /** Optional path on the user's machine for the "open in your editor"
+   *  handoff. Stored as a free-text string; the app does not resolve or
+   *  open it directly (FSA limitations). Null when the workflow is
+   *  embed-only. */
+  external_path: string | null;
+  output_renderer: CodingWorkflowOutputRenderer;
+}
+
+export interface CodingWorkflowProtocolCreate {
+  name: string;
+  description?: string | null;
+  is_public?: boolean;
+  language: CodingWorkflowLanguage;
+  language_label?: string | null;
+  embedded_code?: string | null;
+  external_path?: string | null;
+  output_renderer?: CodingWorkflowOutputRenderer;
+  folder_path?: string | null;
+}
+
+export type CodingWorkflowProtocolUpdate = Partial<{
+  name: string;
+  description: string | null;
+  is_public: boolean;
+  language: CodingWorkflowLanguage;
+  language_label: string | null;
+  embedded_code: string | null;
+  external_path: string | null;
+  output_renderer: CodingWorkflowOutputRenderer;
+}>;
+
+// ── qPCR analysis ────────────────────────────────────────────────────────────
+//
+// qPCR enters v2 as an analysis-only method type composed with PCR via the
+// composition primitive. The PCR method type handles the cycling/recipe;
+// qPCR analysis carries the layer above (per-target Cq, melt curves, standard
+// curves, ΔΔCq fold-change). Users build a "qPCR full kit" compound bundling
+// a PCR cycling method with a qPCR analysis method to get the full workflow.
+// See METHODS_EXPANSION_V2_PROPOSAL.md §5 for the locked design.
+
+export type QPCRChemistry = "sybr" | "taqman" | "evagreen" | "other";
+
+/** One target/reference dye-channel pairing in a relative-quantitation
+ *  analysis. The references list doubles as the target list — flagging one
+ *  row `is_reference: true` makes it the housekeeping baseline for ΔΔCq. */
+export interface QPCRReference {
+  id: string;
+  /** Gene/target name (e.g. "flbA", "ACT1"). */
+  target: string;
+  /** Dye/channel ("FAM", "ROX", "VIC", …). Free-text; instruments vary. */
+  channel: string;
+  /** Treated as the reference housekeeping for ΔΔCq calculations. At most
+   *  one row should carry true; the editor enforces this in the UI but
+   *  on-disk records may carry multiple — the calc uses the first. */
+  is_reference: boolean;
+  /** Optional expected Cq (informational only, not used in the calc). */
+  expected_cq?: number | null;
+}
+
+/** One point on the dilution-series standard curve used to derive primer
+ *  efficiency. Empty / single-point lists silently disable the efficiency
+ *  readout in the viz. */
+export interface QPCRStandardCurvePoint {
+  /** Log10(quantity), e.g. 5 = 10⁵ copies. */
+  log_quantity: number;
+  /** Cq value at this quantity. */
+  cq: number;
+  /** Optional replicate count for averaging. */
+  replicate_n?: number | null;
+}
+
+/** Melt-curve sweep parameters. Per-target Tm readouts come from the
+ *  per-task snapshot, not the method record (the method only captures the
+ *  sweep config; the readouts are experiment-time data). */
+export interface QPCRMeltCurveConfig {
+  /** Initial temperature in °C (e.g. 60). */
+  start_c: number;
+  /** Final temperature in °C (e.g. 95). */
+  end_c: number;
+  /** Ramp rate in °C/sec (e.g. 0.1). */
+  ramp_rate_c_per_sec: number;
+}
+
+/** Source-side qPCR analysis method. Reference template captured at method-
+ *  creation time; per-task experimental readouts live on
+ *  `TaskMethodAttachment.qpcr_analysis` as a `QPCRAnalysisSnapshot`. */
+export interface QPCRAnalysisProtocol {
+  id: number;
+  name: string;
+  description?: string | null;
+  is_public: boolean;
+  created_at?: string;
+  updated_at?: string;
+  created_by: string | null;
+  chemistry: QPCRChemistry;
+  /** Free-text chemistry label when `chemistry === "other"`. */
+  chemistry_label?: string | null;
+  references: QPCRReference[];
+  standard_curve: QPCRStandardCurvePoint[];
+  melt_curve?: QPCRMeltCurveConfig | null;
+  /** ΔΔCq calculation enabled. When true and the references list carries
+   *  an `is_reference: true` row, the experiment-page viewer computes
+   *  fold-change relative to the reference and displays it. */
+  use_delta_delta_cq: boolean;
+}
+
+export interface QPCRAnalysisProtocolCreate {
+  name: string;
+  description?: string | null;
+  is_public?: boolean;
+  chemistry: QPCRChemistry;
+  chemistry_label?: string | null;
+  references: QPCRReference[];
+  standard_curve: QPCRStandardCurvePoint[];
+  melt_curve?: QPCRMeltCurveConfig | null;
+  use_delta_delta_cq: boolean;
+  folder_path?: string | null;
+}
+
+export type QPCRAnalysisProtocolUpdate = Partial<{
+  name: string;
+  description: string | null;
+  is_public: boolean;
+  chemistry: QPCRChemistry;
+  chemistry_label: string | null;
+  references: QPCRReference[];
+  standard_curve: QPCRStandardCurvePoint[];
+  melt_curve: QPCRMeltCurveConfig | null;
+  use_delta_delta_cq: boolean;
+}>;
+
+/** Shape persisted as the JSON-stringified body of
+ *  `TaskMethodAttachment.qpcr_analysis`. Per-target readouts are keyed by
+ *  `QPCRReference.id` so renaming a target on the source method doesn't
+ *  silently break the experiment data. */
+export interface QPCRAnalysisSnapshot {
+  /** Per-target Cq readouts. Keyed by QPCRReference.id. */
+  cqs: Record<string, {
+    /** Mean Cq across replicates (or single-point Cq when no replicates). */
+    cq: number;
+    /** Per-replicate Cq values (when entered). */
+    replicates?: number[];
+    /** Free-text per-target notes (e.g. "off-scale", "primer-dimer detected"). */
+    notes?: string | null;
+  }>;
+  /** Melt-curve Tm readouts per target, keyed by QPCRReference.id. v2 ships
+   *  entering Tm values manually; raw -dF/dT visualization is a v2.1 punt. */
+  melt_tms?: Record<string, number>;
+  /** Free-text per-experiment notes. */
+  notes?: string | null;
+}
+
+// ── Mass spec ────────────────────────────────────────────────────────────────
+//
+// Standalone mass spectrometry method type. Pairs with LC via the compound
+// primitive for LC-MS workflows; works alone for MALDI / direct infusion /
+// GC-MS / etc. The discriminator `ionization_mode` drives smart-per-mode
+// rendering in the editor — source-param fields not relevant to the
+// selected ionization mode are hidden unless "Show all fields" is checked.
+// Per proposal §4.5: no per-task snapshot (static template).
+
+export type IonizationMode =
+  | "esi_pos"
+  | "esi_neg"
+  | "esi_switching"
+  | "apci_pos"
+  | "apci_neg"
+  | "ei"
+  | "maldi"
+  | "other";
+
+export interface MassSpecSourceParams {
+  /** Source temperature in °C. ESI / APCI / EI all use; MALDI usually does not. */
+  source_temp_c?: number | null;
+  /** Capillary voltage in kV (ESI / APCI). */
+  capillary_kv?: number | null;
+  /** Nebulizer gas flow in L/min (ESI / APCI). */
+  nebulizer_gas_lpm?: number | null;
+  /** Drying gas flow in L/min (ESI / APCI). */
+  drying_gas_lpm?: number | null;
+  /** Drying gas temperature in °C (ESI / APCI). */
+  drying_gas_temp_c?: number | null;
+  /** Electron ionization energy in eV (EI only). */
+  ei_energy_ev?: number | null;
+  /** MALDI laser wavelength in nm. */
+  maldi_laser_nm?: number | null;
+  /** MALDI laser energy (instrument-specific units; free text). */
+  maldi_laser_energy?: string | null;
+  /** MALDI matrix (free text: "CHCA", "DHB", "SA"). */
+  maldi_matrix?: string | null;
+  /** Free-text catch-all for instrument-specific params not modeled. */
+  other_notes?: string | null;
+}
+
+export interface MassSpecScanParams {
+  /** Lower m/z bound. */
+  scan_mz_low?: number | null;
+  /** Upper m/z bound. */
+  scan_mz_high?: number | null;
+  /** Scan rate in scans/sec (or Hz; user labels). */
+  scan_rate_hz?: number | null;
+  /** Mass resolving power (R; full-width-half-max). */
+  resolution_r?: number | null;
+  /** True for MS/MS workflows; false for MS-only. */
+  is_msms: boolean;
+  /** MS/MS isolation window in m/z (only meaningful when is_msms=true). */
+  msms_isolation_window_mz?: number | null;
+  /** MS/MS collision energy in eV (only meaningful when is_msms=true). */
+  msms_collision_energy_ev?: number | null;
+}
+
+export interface MassSpecCalibration {
+  /** Reference standard ("sodium formate", "MRFA", "Calmix"): free text. */
+  reference_standard?: string | null;
+  /** ISO date the calibration was last performed. */
+  calibration_date?: string | null;
+  /** Expected mass accuracy in ppm. */
+  expected_accuracy_ppm?: number | null;
+  /** Free-text notes. */
+  notes?: string | null;
+}
+
+export interface MassSpecProtocol {
+  id: number;
+  name: string;
+  description?: string | null;
+  is_public: boolean;
+  created_at?: string;
+  updated_at?: string;
+  created_by: string | null;
+  /** Owner of this protocol record. Mirrors LCGradientProtocol's owner
+   *  field at write time (set by JsonStore) — kept loose in the type
+   *  since the JsonStore writes it implicitly. */
+  owner?: string;
+  shared_with?: SharedUser[];
+  /** The discriminator that drives smart-per-mode field rendering in the editor. */
+  ionization_mode: IonizationMode;
+  /** Free-text label when `ionization_mode === "other"`. */
+  ionization_label?: string | null;
+  /** Instrument identifier: "Thermo Q-Exactive", "Bruker timsTOF Pro 2", etc. */
+  instrument?: string | null;
+  source: MassSpecSourceParams;
+  scan: MassSpecScanParams;
+  calibration: MassSpecCalibration;
+}
+
+export interface MassSpecProtocolCreate {
+  name: string;
+  description?: string | null;
+  is_public?: boolean;
+  ionization_mode: IonizationMode;
+  ionization_label?: string | null;
+  instrument?: string | null;
+  source: MassSpecSourceParams;
+  scan: MassSpecScanParams;
+  calibration: MassSpecCalibration;
+  folder_path?: string | null;
+}
+
+export type MassSpecProtocolUpdate = Partial<{
+  name: string;
+  description: string | null;
+  is_public: boolean;
+  ionization_mode: IonizationMode;
+  ionization_label: string | null;
+  instrument: string | null;
+  source: MassSpecSourceParams;
+  scan: MassSpecScanParams;
+  calibration: MassSpecCalibration;
+}>;
+
+// ── Compound Methods ─────────────────────────────────────────────────────────
+
+/**
+ * A single child reference inside a compound method's `components` array.
+ * The compound's renderer fans out across these in `ordering` order,
+ * resolving each `(method_id, owner)` pair into a child Method row and
+ * its per-type protocol record.
+ */
+export interface CompoundComponent {
+  /** Id of the child method in its owner's namespace. */
+  method_id: number;
+  /** Explicit owner of the child method. Mirrors `TaskMethodAttachment.owner`
+   *  for the same disambiguation reasons: per-user id collisions force every
+   *  cross-method reference to carry an owner. `null` = same user as the
+   *  compound. */
+  owner: string | null;
+  /** Stable insertion order within the compound. The renderer sorts by this;
+   *  reordering rewrites the array, never mutates indices in place. */
+  ordering: number;
+  /** Optional label override. When unset, the renderer uses the child's
+   *  `Method.name`. Allows "Day 1 plate" / "Day 2 plate" labels on two
+   *  copies of the same plate template inside one kit. */
+  label?: string;
+}
+
+/**
+ * Per-child snapshot entry inside a compound's `compound_snapshots` payload.
+ * The `snapshot` shape is determined by the child method's `method_type`;
+ * readers narrow on the child Method's discriminator before unpacking.
+ */
+export interface CompoundChildSnapshotEntry {
+  schema_version: 1;
+  /** Type-specific snapshot blob. Shape mirrors the standalone-attachment
+   *  field for the child's type (e.g. an LC child's snapshot is an
+   *  LCGradientProtocol; a plate child's is a PlateAnnotationSnapshot;
+   *  a markdown child's is `{ body_override: string }`; a nested compound
+   *  child's is a recursive CompoundSnapshotPayload). */
+  snapshot:
+    | PCRSnapshotPayload
+    | LCGradientProtocol
+    | PlateAnnotationSnapshot
+    | CellCultureScheduleInstance
+    | QPCRAnalysisSnapshot
+    | { body_override: string }
+    | CompoundSnapshotPayload
+    | null;
+}
+
+/** Parsed shape of `TaskMethodAttachment.compound_snapshots`. The outer
+ *  `version` field is a forward-compatibility hedge for v2.1 compound-level
+ *  fields; readers gate on it. */
+export interface CompoundSnapshotPayload {
+  version: 1;
+  /** Keyed by stringified child `CompoundComponent.method_id`. Absent key =
+   *  child renders against its source template only (no per-task overlay). */
+  children: Record<string, CompoundChildSnapshotEntry>;
+}
+
+/** PCR's standalone-attachment shape carries gradient and ingredients as two
+ *  separate JSON-string fields; inside a compound child snapshot they bundle
+ *  into one object so the per-child entry stays a single value. */
+export interface PCRSnapshotPayload {
+  pcr_gradient: PCRGradient;
+  pcr_ingredients: PCRIngredient[];
 }
 
 export interface MethodForkRequest {
@@ -1230,7 +1749,6 @@ Source: `frontend/public/demo-data/users/alex/tasks/2.json`
   "is_complete": true,
   "task_type": "experiment",
   "weekend_override": null,
-  "method_id": null,
   "method_ids": [
     1
   ],
@@ -1260,13 +1778,19 @@ Source: `frontend/public/demo-data/users/alex/tasks/2.json`
       "is_complete": true
     }
   ],
-  "pcr_gradient": null,
-  "pcr_ingredients": null,
   "method_attachments": [
     {
       "method_id": 1,
       "owner": "alex",
-      "snapshot_at": "2026-05-08T09:00:00Z"
+      "pcr_gradient": null,
+      "pcr_ingredients": null,
+      "lc_gradient": null,
+      "body_override": null,
+      "plate_annotation": null,
+      "cell_culture_schedule": null,
+      "variation_notes": null,
+      "compound_snapshots": null,
+      "qpcr_analysis": null
     }
   ],
   "owner": "alex",
@@ -1291,15 +1815,12 @@ Source: `frontend/public/demo-data/users/alex/tasks/7.json`
   "is_complete": true,
   "task_type": "purchase",
   "weekend_override": null,
-  "method_id": null,
   "method_ids": [],
   "deviation_log": null,
   "tags": null,
   "sort_order": 7,
   "experiment_color": null,
   "sub_tasks": null,
-  "pcr_gradient": null,
-  "pcr_ingredients": null,
   "method_attachments": [],
   "owner": "alex",
   "shared_with": [],
@@ -1323,7 +1844,6 @@ Source: `frontend/public/demo-data/users/alex/tasks/1.json`
   "is_complete": true,
   "task_type": "list",
   "weekend_override": null,
-  "method_id": null,
   "method_ids": [],
   "deviation_log": null,
   "tags": null,
@@ -1346,8 +1866,6 @@ Source: `frontend/public/demo-data/users/alex/tasks/1.json`
       "is_complete": true
     }
   ],
-  "pcr_gradient": null,
-  "pcr_ingredients": null,
   "method_attachments": [],
   "owner": "alex",
   "shared_with": [],
@@ -1445,6 +1963,136 @@ Source: `frontend/public/demo-data/users/alex/methods/7.json` — method_type="p
 }
 ```
 
+Source: `frontend/public/demo-data/users/alex/methods/8.json` — method_type="cell_culture"
+
+```json
+{
+  "id": 8,
+  "name": "[Demo protocol] HeLa passaging — weekly 1:5 split",
+  "source_path": "cell_culture://protocol/1",
+  "method_type": "cell_culture",
+  "folder_path": "Cell culture",
+  "parent_method_id": null,
+  "tags": [
+    "demo",
+    "cell culture",
+    "HeLa"
+  ],
+  "attachments": [],
+  "is_public": false,
+  "created_by": "alex",
+  "owner": "alex",
+  "shared_with": []
+}
+```
+
+Source: `frontend/public/demo-data/users/alex/methods/9.json` — method_type="coding_workflow"
+
+```json
+{
+  "id": 9,
+  "name": "[Demo protocol] Growth-curve QC analysis",
+  "source_path": "coding_workflow://protocol/1",
+  "method_type": "coding_workflow",
+  "folder_path": "Analysis",
+  "parent_method_id": null,
+  "tags": [
+    "demo",
+    "analysis",
+    "python"
+  ],
+  "attachments": [],
+  "is_public": false,
+  "created_by": "alex",
+  "owner": "alex",
+  "shared_with": []
+}
+```
+
+Source: `frontend/public/demo-data/users/alex/methods/10.json` — method_type="mass_spec"
+
+```json
+{
+  "id": 10,
+  "name": "[Demo protocol] LC-MS detection — flbA peptides (ESI+ Q-Exactive)",
+  "source_path": "mass_spec://protocol/1",
+  "method_type": "mass_spec",
+  "folder_path": "LC-MS",
+  "parent_method_id": null,
+  "tags": [
+    "demo",
+    "LC-MS",
+    "mass-spec",
+    "peptides"
+  ],
+  "attachments": [],
+  "is_public": false,
+  "created_by": "alex",
+  "owner": "alex",
+  "shared_with": []
+}
+```
+
+Source: `frontend/public/demo-data/users/alex/methods/11.json` — method_type="qpcr_analysis"
+
+```json
+{
+  "id": 11,
+  "name": "[Demo protocol] flbA expression vs control (ΔΔCq)",
+  "source_path": "qpcr_analysis://protocol/1",
+  "method_type": "qpcr_analysis",
+  "folder_path": "qPCR",
+  "parent_method_id": null,
+  "tags": [
+    "demo",
+    "qPCR",
+    "ΔΔCq"
+  ],
+  "attachments": [],
+  "is_public": false,
+  "created_by": "alex",
+  "owner": "alex",
+  "shared_with": []
+}
+```
+
+Source: `frontend/public/demo-data/users/alex/methods/12.json` — method_type="compound"
+
+```json
+{
+  "id": 12,
+  "name": "[Demo kit] Yeast growth-curve full kit",
+  "source_path": null,
+  "method_type": "compound",
+  "folder_path": "Screening",
+  "parent_method_id": null,
+  "tags": [
+    "demo",
+    "compound",
+    "growth-curve"
+  ],
+  "attachments": [],
+  "is_public": false,
+  "created_by": "alex",
+  "owner": "alex",
+  "shared_with": [],
+  "components": [
+    {
+      "method_id": 7,
+      "owner": null,
+      "ordering": 0,
+      "label": "Plate layout (96-well DemoStrain titration)"
+    },
+    {
+      "method_id": 2,
+      "owner": null,
+      "ordering": 1,
+      "label": "Growth-curve protocol notes"
+    }
+  ]
+}
+```
+
 ### PCRProtocol
 
 Source: `frontend/public/demo-data/users/alex/pcr_protocols/1.json`
@@ -1520,15 +2168,8 @@ Source: `frontend/public/demo-data/users/alex/pcr_protocols/1.json`
     }
   ],
   "notes": "Demo qPCR — use ACT1 as housekeeping reference. Public version available at users/public.",
-  "tags": [
-    "demo",
-    "qPCR",
-    "fakeGFP"
-  ],
   "is_public": false,
-  "created_by": "alex",
-  "owner": "alex",
-  "shared_with": []
+  "created_by": "alex"
 }
 ```
 
@@ -1611,9 +2252,7 @@ Source: `frontend/public/demo-data/users/alex/lc_gradients/1.json`
   "created_at": "2026-04-12T00:00:00Z",
   "updated_at": "2026-04-12T00:00:00Z",
   "is_public": false,
-  "created_by": "alex",
-  "owner": "alex",
-  "shared_with": []
+  "created_by": "alex"
 }
 ```
 
@@ -1656,15 +2295,73 @@ Source: `frontend/public/demo-data/users/alex/plate_layouts/1.json`
   "created_at": "2026-04-22T00:00:00Z",
   "updated_at": "2026-04-22T00:00:00Z",
   "is_public": false,
-  "created_by": "alex",
-  "owner": "alex",
-  "shared_with": []
+  "created_by": "alex"
 }
 ```
 
 ### CellCultureSchedule
 
-_No fixture coverage for this entity type yet — add one to `frontend/public/demo-data/users/{alex,morgan}/cell_culture_schedules` to surface a real example here._
+Source: `frontend/public/demo-data/users/alex/cell_culture_schedules/1.json`
+
+```json
+{
+  "id": 1,
+  "name": "[Demo protocol] HeLa passaging — weekly 1:5 split",
+  "description": "Demo passaging schedule for HeLa cells. Feed every 2 days, observe day 6, split 1:5 on day 7. Mid-execution actual events logged per experiment.",
+  "cell_line": {
+    "name": "HeLa (demo)",
+    "species": "Homo sapiens",
+    "tissue": "Cervix (adenocarcinoma)",
+    "notes": "Demo strain — fake ATCC ref. Mycoplasma-negative."
+  },
+  "media": {
+    "base_medium": "DMEM (high glucose, 4.5 g/L)",
+    "serum_percent": 10,
+    "supplements": [
+      {
+        "name": "PenStrep",
+        "concentration": "1",
+        "units": "%"
+      },
+      {
+        "name": "L-Glutamine",
+        "concentration": "2",
+        "units": "mM"
+      }
+    ]
+  },
+  "planned_events": [
+    {
+      "day_offset": 0,
+      "event_type": "observe",
+      "notes": "Seed plate; record initial confluence"
+    },
+    {
+      "day_offset": 2,
+      "event_type": "feed"
+    },
+    {
+      "day_offset": 4,
+      "event_type": "feed"
+    },
+    {
+      "day_offset": 6,
+      "event_type": "observe",
+      "notes": "Check confluence before split"
+    },
+    {
+      "day_offset": 7,
+      "event_type": "split",
+      "split_ratio": "1:5",
+      "notes": "Trypsinize, re-seed 1:5"
+    }
+  ],
+  "created_at": "2026-04-08T00:00:00Z",
+  "updated_at": "2026-04-08T00:00:00Z",
+  "is_public": false,
+  "created_by": "alex"
+}
+```
 
 ### PurchaseItem
 
@@ -2268,6 +2965,7 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 | Connecting Your Folder | `/wiki/getting-started/connecting-your-folder` |
 | Creating a User | `/wiki/getting-started/creating-a-user` |
 | Demo Mode | `/wiki/getting-started/demo-mode` |
+| Exporting from LabArchives | `/wiki/getting-started/labarchives-export` |
 | Shared Lab Accounts | `/wiki/shared-lab-accounts` |
 | OneDrive | `/wiki/shared-lab-accounts/onedrive` |
 | Google Drive | `/wiki/shared-lab-accounts/google-drive` |
@@ -2291,19 +2989,21 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 | Search | `/wiki/features/search` |
 | Lab Links | `/wiki/features/links` |
 | Results (moved) | `/wiki/features/results` |
+| Import from LabArchives | `/wiki/features/import-from-eln` |
 | Settings | `/wiki/features/settings` |
 | Notifications & Inbox | `/wiki/features/notifications` |
 | Integrations | `/wiki/integrations` |
 | Telegram Bot | `/wiki/integrations/telegram` |
 | Calendar Feeds | `/wiki/integrations/calendar-feeds` |
 | LabArchives | `/wiki/integrations/labarchives` |
+| Security | `/wiki/security` |
 
 ## §11 Build metadata
 
 - **Variant:** `full`
-- **Helper version:** `5`
-- **Schema hash:** `08ef47a8db5e1a63bb01d142e0b522919feb7528cb4ce9e8a29c8605b95393b9`
-- **Built at:** `2026-05-15T23:03:45.034Z`
-- **Built from commit:** `2acbd489b1913b626697a34ee9e1f5c590d39976`
+- **Helper version:** `6`
+- **Schema hash:** `84c3f56a2daef5b9f2cc6ab123f110dae96aad23c1d270bb1b890a52c3d701bd`
+- **Built at:** `2026-05-19T14:23:38.298Z`
+- **Built from commit:** `95c7c7d7cf029fed24f91d8ade9134de937fbe51`
 
 _Generated by `scripts/build-ai-helper.mjs`. Do not edit by hand — run `npm run --prefix frontend ai-helper:refresh` to rebuild and commit._
