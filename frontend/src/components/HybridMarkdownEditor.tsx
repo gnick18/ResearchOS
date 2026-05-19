@@ -909,6 +909,17 @@ export default function HybridMarkdownEditor({
           // blank-line offset (the leading "\n" we inserted lives in the
           // preserved blank-line block, the paragraph starts after it).
           setEditingBlockOffset(editingBlockOffset + 1);
+          // Sync cursor position to end of typed content. The editingBlockOffset
+          // change above re-keys the textarea container (editing-${offset}),
+          // forcing React to unmount the old textarea and mount a fresh one.
+          // The focus effect that fires post-mount reads editCursorPosition to
+          // place the cursor — without this update it would stay at the stale
+          // value of 0 set when the user first entered the blank-line block,
+          // landing the cursor BEFORE the typed character. Subsequent keystrokes
+          // would then prepend to the start of the buffer (typing "Test" yielded
+          // "estT" per the 2026-05-19 repro after the f894f7c7 wrap-with-newlines
+          // landing).
+          setEditCursorPosition(newContent.length);
           editingBlockOriginalLengthRef.current = newContent.length;
           onChange(newFullContent);
           return;
