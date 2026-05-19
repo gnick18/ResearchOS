@@ -292,11 +292,8 @@ function buildEntries() {
       ],
       notes:
         "Demo protocol — verifies integration of the `pYES-GAL1::flbA` cassette at the URA3 locus. Expected band: ~1.4 kb.",
-      tags: ["demo", "screen"],
       is_public: true,
       created_by: "alex",
-      owner: "public",
-      shared_with: [],
     },
   ]);
 
@@ -441,7 +438,7 @@ function buildEntries() {
         { id: "st4", text: "Plate on SD-Ura", is_complete: true },
       ],
       deviation_log: "Demo: heat-shock ran 38 min instead of 40 (interrupted by timer reset). Noted for the colony count.",
-      method_attachments: [{ method_id: 1, owner: "alex", snapshot_at: "2026-05-08T09:00:00Z" }] },
+      method_attachments: [{ method_id: 1, owner: "alex" }] },
     { id: 3, project_id: 1, name: "Patch positives on SD-Ura", start_date: "2026-05-11", duration_days: 1, end_date: "2026-05-11", task_type: "experiment", is_complete: true, experiment_color: "#3b82f6",
       sub_tasks: [
         { id: "st1", text: "Pick 8 well-isolated colonies from primary plate", is_complete: true },
@@ -465,7 +462,7 @@ function buildEntries() {
         { id: "st2", text: "Pour 1% agarose gel", is_complete: true },
         { id: "st3", text: "Photograph + annotate gel", is_complete: true },
       ],
-      method_attachments: [{ method_id: 2, owner: "public", snapshot_at: "2026-05-13T07:00:00Z" }] },
+      method_attachments: [{ method_id: 2, owner: "public" }] },
     { id: 6, project_id: 1, name: "Send sequencing — top 4", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "list", is_complete: false },
     { id: 7, project_id: 2, name: "Order DemoStrain ΔADE2 reagents", start_date: LAST_WEEK, duration_days: 1, end_date: LAST_WEEK, task_type: "purchase", is_complete: true },
     // Completed 4 days ago but no results.md write-up and no images on
@@ -482,14 +479,14 @@ function buildEntries() {
     // on Day 2 of 3.
     { id: 10, project_id: 3, name: "Set up growth curves in YPD/glucose", start_date: YESTERDAY, duration_days: 3, end_date: TOMORROW, task_type: "experiment", is_complete: false, experiment_color: "#f59e0b",
       method_attachments: [
-        { method_id: 2, owner: "alex", snapshot_at: "2026-05-13T08:00:00Z" },
+        { method_id: 2, owner: "alex" },
         // Attach the LC gradient method so the LcMethodTabContent path is
         // exercised in fixture mode (Phase 1a live-smoke chip). The PCR
         // demo at task 5 already covers PcrMethodTabContent.
-        { method_id: 6, owner: "alex", snapshot_at: "2026-05-13T08:00:00Z" },
+        { method_id: 6, owner: "alex" },
         // Plate-layout method — drives PlateMethodTabContent in fixture
         // mode (Methods Expansion Phase 2C). 96-well bacterial growth curve.
-        { method_id: 7, owner: "alex", snapshot_at: "2026-05-13T08:00:00Z" },
+        { method_id: 7, owner: "alex" },
         // Phase 2D: cell culture passaging schedule attached so the
         // CellCultureMethodTabContent path renders in fixture mode. The
         // pre-seeded actual_events snapshot below demonstrates the
@@ -497,7 +494,6 @@ function buildEntries() {
         {
           method_id: 8,
           owner: "alex",
-          snapshot_at: "2026-05-13T08:00:00Z",
           cell_culture_schedule: JSON.stringify({
             planned_events: [
               { day_offset: 0, event_type: "observe", notes: "Seed plate; record initial confluence" },
@@ -526,17 +522,17 @@ function buildEntries() {
         // full kit" bundling alex's 96-well plate (id 7) + the growth-
         // curve markdown protocol (id 2). Demonstrates a kit that pairs
         // a structured plate template with reusable prose instructions.
-        { method_id: 12, owner: "alex", snapshot_at: "2026-05-13T08:00:00Z" },
+        { method_id: 12, owner: "alex" },
         // Methods Expansion v2 Phase 1b: mass spec method attached so the
         // MassSpecMethodTabContent path renders in fixture mode. Pairs with
         // the LC gradient (method id 6) above to demonstrate the LC-MS
         // workflow story per proposal §4.6 (LC-MS = LC + MS via compound).
-        { method_id: 10, owner: "alex", snapshot_at: "2026-05-13T08:00:00Z" },
+        { method_id: 10, owner: "alex" },
         // Methods Expansion v2 Phase 1a: coding workflow attached so the
         // CodingWorkflowMethodTabContent path renders in fixture mode.
         // Static reference template per Q-B4 lock — no per-task snapshot
         // field, the tab content simply reads the source protocol.
-        { method_id: 9, owner: "alex", snapshot_at: "2026-05-13T08:00:00Z" },
+        { method_id: 9, owner: "alex" },
       ] },
     { id: 11, project_id: 3, name: "Heat-shock survival assay", start_date: "2026-05-18", duration_days: 1, end_date: "2026-05-18", task_type: "experiment", is_complete: false, experiment_color: "#f59e0b",
       sub_tasks: [
@@ -546,7 +542,7 @@ function buildEntries() {
         { id: "st4", text: "Spot on YPD plates, incubate 48 h", is_complete: false },
         { id: "st5", text: "Count colonies + compute survival %", is_complete: false },
       ],
-      method_attachments: [{ method_id: 4, owner: "alex", snapshot_at: "2026-05-13T08:00:00Z" }] },
+      method_attachments: [{ method_id: 4, owner: "alex" }] },
     { id: 12, project_id: 3, name: "Compile growth-curve results", start_date: "2026-05-19", duration_days: 1, end_date: "2026-05-19", task_type: "list", is_complete: false },
     // Strategically-overdue: started a week ago, kept slipping. Stays
     // 6 days overdue regardless of when the demo is opened (see
@@ -658,7 +654,7 @@ function buildEntries() {
         { id: "st4", text: "ΔΔCt vs ACT1 reference, plot fold-change", is_complete: false },
       ],
       method_attachments: [
-        { method_id: 5, owner: "alex", snapshot_at: TODAY + "T08:00:00Z" },
+        { method_id: 5, owner: "alex" },
         // Methods Expansion v2 Phase 1: qPCR-analysis method attached so the
         // QpcrAnalysisMethodTabContent path is reachable in fixture mode.
         // Pre-seeded Cq readouts demonstrate the ΔΔCq fold-change table and
@@ -666,7 +662,6 @@ function buildEntries() {
         {
           method_id: 11,
           owner: "alex",
-          snapshot_at: TODAY + "T08:00:00Z",
           qpcr_analysis: JSON.stringify({
             cqs: {
               "flbA-1": { cq: 24.3, notes: "induced, biological triplicate mean" },
@@ -784,8 +779,6 @@ function buildEntries() {
       updated_at: "2026-04-12T00:00:00Z",
       is_public: false,
       created_by: "alex",
-      owner: "alex",
-      shared_with: [],
     },
   ]);
 
@@ -837,8 +830,6 @@ function buildEntries() {
       updated_at: "2026-04-22T00:00:00Z",
       is_public: false,
       created_by: "alex",
-      owner: "alex",
-      shared_with: [],
     },
   ]);
 
@@ -1009,8 +1000,6 @@ function buildEntries() {
       updated_at: "2026-04-29T00:00:00Z",
       is_public: false,
       created_by: "alex",
-      owner: "alex",
-      shared_with: [],
     },
   ]);
 
@@ -1041,8 +1030,6 @@ function buildEntries() {
       updated_at: "2026-04-29T00:00:00Z",
       is_public: false,
       created_by: "alex",
-      owner: "alex",
-      shared_with: [],
     },
   ]);
 
@@ -1122,8 +1109,6 @@ function buildEntries() {
       updated_at: "2026-04-08T00:00:00Z",
       is_public: false,
       created_by: "alex",
-      owner: "alex",
-      shared_with: [],
     },
   ]);
 
@@ -1156,11 +1141,8 @@ function buildEntries() {
         { id: "i6", name: "Total", concentration: "", amount_per_reaction: "20" },
       ],
       notes: "Demo qPCR — use ACT1 as housekeeping reference. Public version available at users/public.",
-      tags: ["demo", "qPCR", "fakeGFP"],
       is_public: false,
       created_by: "alex",
-      owner: "alex",
-      shared_with: [],
     },
   ]);
 
@@ -1357,7 +1339,7 @@ function buildEntries() {
     // Completed today — has a fluorescence plate image AND a results.md
     // write-up, so the gallery renders it in "Fresh results."
     { id: 1, project_id: 1, name: "Plate FY-Δgal80 transformants on 96-well", start_date: TODAY, duration_days: 1, end_date: TODAY, task_type: "experiment", is_complete: true, experiment_color: "#10b981",
-      method_attachments: [{ method_id: 1, owner: "morgan", snapshot_at: "2026-05-13T08:00:00Z" }] },
+      method_attachments: [{ method_id: 1, owner: "morgan" }] },
     { id: 2, project_id: 1, name: "Run fluorescence reader scan", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "experiment", is_complete: false, experiment_color: "#10b981",
       sub_tasks: [
         { id: "st1", text: "Pre-warm plate reader to 30 °C", is_complete: false },
@@ -1365,9 +1347,9 @@ function buildEntries() {
         { id: "st3", text: "Read GFP — ex 485 / em 528, gain 60", is_complete: false },
         { id: "st4", text: "Export CSV + push to analysis notebook", is_complete: false },
       ],
-      method_attachments: [{ method_id: 1, owner: "morgan", snapshot_at: "2026-05-13T08:00:00Z" }] },
+      method_attachments: [{ method_id: 1, owner: "morgan" }] },
     { id: 3, project_id: 1, name: "qPCR setup — verify GFP transcripts", start_date: "2026-05-16", duration_days: 1, end_date: "2026-05-16", task_type: "experiment", is_complete: false, experiment_color: "#10b981",
-      method_attachments: [{ method_id: 2, owner: "morgan", snapshot_at: "2026-05-13T08:00:00Z" }], shared_with: [{ username: "alex", permission: "edit" }] },
+      method_attachments: [{ method_id: 2, owner: "morgan" }], shared_with: [{ username: "alex", permission: "edit" }] },
     // Strategically-overdue: writing tasks slip. Stays 4 days overdue
     // regardless of when the demo is opened (see OVERDUE_* anchors).
     { id: 4, project_id: 2, name: "Draft Chapter 2 outline", start_date: OVERDUE_START, duration_days: 3, end_date: OVERDUE_END_4D, task_type: "list", is_complete: false },
@@ -1519,6 +1501,27 @@ function projects(owner, list) {
   ]);
 }
 
+// Normalize an inline attachment object into the canonical
+// TaskMethodAttachment shape (frontend/src/lib/types.ts:179). Field order
+// matches the interface declaration so JSON outputs are stable. Per-type
+// snapshot fields default to null; callers populate only the ones that
+// carry real seeded data.
+function normalizeAttachment(raw) {
+  return {
+    method_id: raw.method_id,
+    owner: raw.owner ?? null,
+    pcr_gradient: raw.pcr_gradient ?? null,
+    pcr_ingredients: raw.pcr_ingredients ?? null,
+    lc_gradient: raw.lc_gradient ?? null,
+    body_override: raw.body_override ?? null,
+    plate_annotation: raw.plate_annotation ?? null,
+    cell_culture_schedule: raw.cell_culture_schedule ?? null,
+    variation_notes: raw.variation_notes ?? null,
+    compound_snapshots: raw.compound_snapshots ?? null,
+    qpcr_analysis: raw.qpcr_analysis ?? null,
+  };
+}
+
 function tasks(owner, list) {
   return list.map((t) => {
     // Invariant: ∀ a ∈ method_attachments: a.method_id ∈ method_ids. The
@@ -1528,7 +1531,8 @@ function tasks(owner, list) {
     // populating `method_attachments`, which produced orphan rows that the
     // Raw exporter then serialized verbatim. Derive method_ids from the
     // attachments so the two sides stay in sync.
-    const methodAttachments = t.method_attachments ?? [];
+    const rawAttachments = t.method_attachments ?? [];
+    const methodAttachments = rawAttachments.map(normalizeAttachment);
     const methodIds = methodAttachments.map((a) => a.method_id);
     return [
       `users/${owner}/tasks/${t.id}.json`,
@@ -1543,15 +1547,12 @@ function tasks(owner, list) {
         is_complete: t.is_complete,
         task_type: t.task_type,
         weekend_override: null,
-        method_id: null,
         method_ids: methodIds,
         deviation_log: t.deviation_log ?? null,
         tags: null,
         sort_order: t.id,
         experiment_color: t.experiment_color ?? null,
         sub_tasks: t.sub_tasks ?? null,
-        pcr_gradient: null,
-        pcr_ingredients: null,
         method_attachments: methodAttachments,
         owner,
         shared_with: t.shared_with ?? [],
