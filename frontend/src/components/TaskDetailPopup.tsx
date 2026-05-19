@@ -15,6 +15,7 @@ import DynamicAnimation from "./DynamicAnimation";
 import MethodTabs from "./MethodTabs";
 import TaskPicker from "./TaskPicker";
 import SharePopup from "./SharePopup";
+import CommentsThread from "./CommentsThread";
 import Tooltip from "./Tooltip";
 import { useAppStore } from "@/lib/store";
 import { taskKey } from "@/lib/types";
@@ -771,6 +772,39 @@ export default function TaskDetailPopup({
             />
           )}
         </div>
+
+        {/* Lab comments (per-task, mirrors NoteCommentsThread). Mounted
+            outside the tab-content scroll area so it stays visible regardless
+            of which tab is active. Experiments only — purchase/list tasks
+            don't have a lab-comment use case in v1 per Grant's clickable
+            ("Add to experiments — same component, mount on
+            TaskDetailPopup"). */}
+        {isExperiment && (
+          <CommentsThread
+            entityKind="task"
+            entityId={task.id}
+            entityOwner={task.owner}
+            comments={task.comments ?? []}
+            isShared={(task.shared_with?.length ?? 0) > 0 || !!task.is_shared_with_me}
+            notSharedHint="This task isn't shared with the lab. Share it to let lab mates comment."
+            readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")}
+            onAdd={async (text, author) => {
+              await tasksApi.addComment(task.id, text, author);
+              await Promise.all([
+                queryClient.refetchQueries({ queryKey: ["tasks"] }),
+                queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] }),
+              ]);
+            }}
+            onDelete={async (commentId) => {
+              await tasksApi.deleteComment(task.id, commentId);
+              await Promise.all([
+                queryClient.refetchQueries({ queryKey: ["tasks"] }),
+                queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] }),
+              ]);
+            }}
+          />
+        )}
+
         {universalDropToast && (
           <div
             className="fixed z-50 max-w-sm rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 shadow-lg pointer-events-none"
