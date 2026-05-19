@@ -16,6 +16,7 @@ import {
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 import { fileService } from "@/lib/file-system/file-service";
 import { rewriteImageBySrcAlt, parseWidthPercent } from "@/lib/image-resize-utils";
+import { ValueHistory, type PushKind } from "@/lib/undo/value-history";
 import ImageResizePopover from "./ImageResizePopover";
 import FileViewerModal, { classifyFileLink, type FileViewerKind } from "./FileViewerModal";
 
@@ -472,6 +473,58 @@ export default function HybridMarkdownEditor({
   const containerRef = useRef<HTMLDivElement>(null);
   const languageSelectorRef = useRef<HTMLDivElement>(null);
 
+  // App-level undo/redo stack. The per-block textarea unmounts and remounts
+  // on `editingBlockOffset` change, which wipes any native undo entirely. We
+  // own past/future of full-document value snapshots so Cmd+Z keeps working
+  // across block boundaries. v1 scope: typing + paste into the active
+  // textarea, keyboard formatting shortcuts (Cmd+B etc.), and the
+  // wrap-with-newlines block-emergence path. Drag-drop images, language
+  // selector inserts, image resize, file deletes, etc. are out of scope and
+  // appear as one-shot jumps when undone. See lib/undo/value-history.ts.
+  const historyRef = useRef<ValueHistory | null>(null);
+  if (historyRef.current === null) {
+    historyRef.current = new ValueHistory();
+  }
+  const valueRef = useRef<string>(value);
+
+  useEffect(() => {
+    if (valueRef.current !== value) {
+      historyRef.current?.flushBoundary();
+      valueRef.current = value;
+    }
+  }, [value]);
+
+  const pushAndCommit = useCallback(
+    (newValue: string, kind: PushKind = "type") => {
+      historyRef.current?.push(valueRef.current, newValue, kind);
+      valueRef.current = newValue;
+      onChange(newValue);
+    },
+    [onChange]
+  );
+
+  const performUndo = useCallback((): boolean => {
+    const prev = historyRef.current?.undo(valueRef.current) ?? null;
+    if (prev === null) return false;
+    valueRef.current = prev;
+    onChange(prev);
+    return true;
+  }, [onChange]);
+
+  const performRedo = useCallback((): boolean => {
+    const next = historyRef.current?.redo(valueRef.current) ?? null;
+    if (next === null) return false;
+    valueRef.current = next;
+    onChange(next);
+    return true;
+  }, [onChange]);
+
+  // Switching which block is being edited (or leaving edit mode entirely) is
+  // a logical boundary even when the buffer text hasn't changed yet.
+  useEffect(() => {
+    historyRef.current?.flushBoundary();
+  }, [editingBlockOffset]);
+
   // Resolved blob URLs for images (path -> blob URL)
   const [resolvedBlobUrls, setResolvedBlobUrls] = useState<Map<string, string>>(new Map());
   
@@ -726,15 +779,15 @@ export default function HybridMarkdownEditor({
       // Update the full document using stored original block extent
       if (editingBlockOffset !== null) {
         const originalLength = editingBlockOriginalLengthRef.current;
-        const newFullContent = 
-          value.substring(0, editingBlockOffset) + 
-          newContent + 
+        const newFullContent =
+          value.substring(0, editingBlockOffset) +
+          newContent +
           value.substring(editingBlockOffset + originalLength);
-        
+
         editingBlockOriginalLengthRef.current = newContent.length;
-        onChange(newFullContent);
+        pushAndCommit(newFullContent, "paste");
       }
-      
+
       // Move cursor to after the language code
       const newCursorPos = codeBlockInsertPosition + languageCode.length;
       setTimeout(() => {
@@ -743,12 +796,12 @@ export default function HybridMarkdownEditor({
           textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
         }
       }, 0);
-      
+
       setShowLanguageSelector(false);
       setLanguageSearch("");
       setCodeBlockInsertPosition(null);
     },
-    [codeBlockInsertPosition, editingBlockContent, editingBlockOffset, value, onChange]
+    [codeBlockInsertPosition, editingBlockContent, editingBlockOffset, value, pushAndCommit]
   );
 
   /**
@@ -833,6 +886,12 @@ export default function HybridMarkdownEditor({
       const newContent = e.target.value;
       const textarea = textareaRef.current;
       const cursorPos = textarea?.selectionStart || 0;
+      const inputType =
+        (e.nativeEvent as InputEvent | undefined)?.inputType ?? "";
+      const editKind: PushKind =
+        inputType === "insertFromPaste" || inputType === "insertFromDrop"
+          ? "paste"
+          : "type";
       
       // Check if user just typed ``` at the start of a line
       const textBeforeCursor = newContent.substring(0, cursorPos);
@@ -921,7 +980,10 @@ export default function HybridMarkdownEditor({
           // landing).
           setEditCursorPosition(newContent.length);
           editingBlockOriginalLengthRef.current = newContent.length;
-          onChange(newFullContent);
+          // The wrap inserts two synthetic `\n`s the user didn't actually
+          // type. Treat the whole block-emergence as one paste-kind step so
+          // a single Cmd+Z reverts to the blank-line state.
+          pushAndCommit(newFullContent, "paste");
           return;
         }
 
@@ -935,14 +997,14 @@ export default function HybridMarkdownEditor({
         // Update the original length for the next edit
         editingBlockOriginalLengthRef.current = newContent.length;
 
-        onChange(newFullContent);
+        pushAndCommit(newFullContent, editKind);
       } else {
         // Edge case: editing a non-existent block (empty document or new block)
         // Just use the content directly - this handles new notes/empty documents
-        onChange(newContent);
+        pushAndCommit(newContent, editKind);
       }
     },
-    [value, onChange, editingBlockOffset, blocks]
+    [value, pushAndCommit, editingBlockOffset, blocks]
   );
 
   /**
@@ -955,28 +1017,32 @@ export default function HybridMarkdownEditor({
     setEditingBlockContent("");
     setEditCursorPosition(null);
     setShowLanguageSelector(false);
+    // Leaving edit mode is a logical boundary for the undo stack.
+    historyRef.current?.flushBoundary();
   }, []);
 
   /**
-   * Helper function to update the full document using stored original block extent
+   * Helper function to update the full document using stored original block extent.
+   * Routes through pushAndCommit as a paste-kind step so atomic edits (Tab
+   * indent, Cmd+B, Cmd+Ctrl+heading, etc.) each become one undo step rather
+   * than merging into a typing run.
    */
   const updateDocumentContent = useCallback(
     (newContent: string) => {
       if (editingBlockOffset !== null) {
         const originalLength = editingBlockOriginalLengthRef.current;
-        const newFullContent = 
-          value.substring(0, editingBlockOffset) + 
-          newContent + 
+        const newFullContent =
+          value.substring(0, editingBlockOffset) +
+          newContent +
           value.substring(editingBlockOffset + originalLength);
-        
+
         editingBlockOriginalLengthRef.current = newContent.length;
-        onChange(newFullContent);
+        pushAndCommit(newFullContent, "paste");
       } else {
-        // Edge case: editing a non-existent block (empty document or new block)
-        onChange(newContent);
+        pushAndCommit(newContent, "paste");
       }
     },
-    [editingBlockOffset, value, onChange]
+    [editingBlockOffset, value, pushAndCommit]
   );
 
   /**
@@ -984,12 +1050,43 @@ export default function HybridMarkdownEditor({
    */
   const handleEditKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      // Undo / redo. Short-circuit before any other shortcut. The hybrid
+      // editor's per-block textarea remounts on block change, which wipes
+      // native undo entirely, so the app-level stack is the only working
+      // surface here. preventDefault + stopPropagation: the parent dialog
+      // may also listen for Cmd+Z.
+      const isMacUndo =
+        typeof navigator !== "undefined" &&
+        navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+      const cmdUndo = isMacUndo ? e.metaKey : e.ctrlKey;
+      const undoKey = !e.altKey && cmdUndo && e.key.toLowerCase() === "z";
+      const redoKeyMac =
+        !e.altKey && cmdUndo && e.shiftKey && e.key.toLowerCase() === "z";
+      const redoKeyWin =
+        !isMacUndo &&
+        !e.altKey &&
+        e.ctrlKey &&
+        !e.shiftKey &&
+        e.key.toLowerCase() === "y";
+      if (undoKey && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        performUndo();
+        return;
+      }
+      if (redoKeyMac || redoKeyWin) {
+        e.preventDefault();
+        e.stopPropagation();
+        performRedo();
+        return;
+      }
+
       if (e.key === "Escape") {
         e.preventDefault();
         handleEditBlur();
         return;
       }
-      
+
       // Handle Tab key for indentation
       if (e.key === "Tab") {
         e.preventDefault();
@@ -1205,7 +1302,7 @@ export default function HybridMarkdownEditor({
         }
       }
     },
-    [editingBlockContent, editingBlockOffset, updateDocumentContent, handleEditBlur, disabled]
+    [editingBlockContent, editingBlockOffset, updateDocumentContent, handleEditBlur, disabled, performUndo, performRedo]
   );
 
   /**
