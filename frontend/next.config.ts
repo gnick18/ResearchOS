@@ -39,6 +39,15 @@ const COMMIT_SHA = resolveCommitSha();
  *   script-src 'unsafe-inline': Next.js dev (and prod, for now) emits inline
  *     <script> tags for hydration and Turbopack HMR. Replacing this with a
  *     per-build nonce is the next step; tracked as a known gap.
+ *   script-src 'wasm-unsafe-eval': narrow CSP opt-in (Chrome 102+ / Firefox
+ *     102+ / Safari 15.4+) that allows WebAssembly.compile + instantiate
+ *     WITHOUT enabling the much broader 'unsafe-eval' (eval(), new Function(),
+ *     setTimeout(string, ...)). Needed by @react-pdf/renderer's PDF export
+ *     path: @react-pdf/layout depends on yoga-layout, whose browser build
+ *     ships as a WASM-base64 module instantiated at runtime. PDF export
+ *     errors with `CompileError: WebAssembly.instantiate(): ... violates the
+ *     following Content Security policy directive` without this. See
+ *     SECURITY_AUDIT.md §3.2 + AGENTS.md §6 trap entry.
  *   script-src https://va.vercel-scripts.com: Vercel Web Analytics loads its
  *     dev/fallback tracker from this CDN. Production deployments on Vercel
  *     also proxy the script same-origin via /_vercel/insights/script.js,
@@ -59,7 +68,7 @@ const COMMIT_SHA = resolveCommitSha();
  */
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com",
+  "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://va.vercel-scripts.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data:",
   "font-src 'self' data:",
