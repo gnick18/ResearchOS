@@ -62,6 +62,14 @@ export function ownerScopedTasksApi(task: Task) {
     ) => rawTasksApi.updateMethodCellCulture(taskId, methodId, data, owner),
     saveVariationNote: (taskId: number, methodId: number, notes: string) =>
       rawTasksApi.saveVariationNote(taskId, methodId, notes, owner),
+    // Lab-mode comment thread. Like every other mutating call, receiver-edits
+    // route to the OWNER's task file so the comment is visible to everyone.
+    // Read-only shared views never reach here — CommentsThread hides the
+    // input when `readOnly` is set.
+    addComment: (taskId: number, text: string, author: string) =>
+      rawTasksApi.addComment(taskId, text, author, owner),
+    deleteComment: (taskId: number, commentId: string) =>
+      rawTasksApi.deleteComment(taskId, commentId, owner),
     // `delete` intentionally not owner-routed: only the original owner
     // should be able to destroy the file.
   };
