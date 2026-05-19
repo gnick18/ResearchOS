@@ -96,6 +96,7 @@ Path conventions in [AGENTS.md §2](AGENTS.md) match what `fileService.writeJson
 **Per-user sidecars (single-user-visibility):**
 - `users/<u>/_auth.json` — PBKDF2-SHA-256 hash + salt + iteration count (600k). [password.ts](frontend/src/lib/auth/password.ts).
 - `users/<u>/_telegram.json` — bot token, bot username, paired chat id, last-update-id. [telegram-store.ts](frontend/src/lib/telegram/telegram-store.ts). **Auto-gitignored** on write.
+- `users/<u>/_telegram-encrypted.json` — opt-in encrypted backup of the Telegram pairing (`{botToken, chatId, botUsername, botFirstName}`) for cross-browser / cross-machine recovery. AES-GCM-256 ciphertext keyed by PBKDF2-SHA-256 (600k iters, 16-byte salt, 12-byte IV per encryption) over the user's account password. [encrypted-backup.ts](frontend/src/lib/telegram/encrypted-backup.ts). **Default OFF**; written when the user ticks the pairing-modal checkbox or flips Settings → "Auto-reconnect Telegram bot" ON. Auto-gitignored on first write (mirrors `_telegram.json`'s gitignore pattern). Re-encrypted on password change; deleted on opt-out, explicit Telegram disconnect, or folder switch.
 - `users/<u>/_calendar-feeds.json` — ICS subscription URLs. Auto-gitignored on write.
 - `users/<u>/_labarchives.json` — LabArchives connection (orphan; institutional API removed).
 - `users/<u>/_labarchives-deployer.json` — institutional access password in plaintext (orphan; institutional API removed). Documented trust trade-off in AGENTS.md §6.
@@ -129,6 +130,7 @@ What ends up on the user's disk or in their browser that an attacker with the co
 | Path | Content | Encrypted? |
 |---|---|---|
 | `users/<u>/_telegram.json` | Bot tokens (full-message bot can read inbox + post on user's behalf) | No |
+| `users/<u>/_telegram-encrypted.json` | Bot token + chat id + bot username + bot first name (opt-in encrypted backup) | AES-GCM-256, key derived via PBKDF2-SHA-256-600k from the user's account password. Random 16-byte salt + 12-byte IV per encryption. Threat surface: stolen disk + offline cracking of the user's account password (same shape as `_auth.json` PBKDF2 hashes being a cracking target). |
 | `users/<u>/_calendar-feeds.json` | ICS URLs (some include random-token access via "private ICS" share) | No |
 | `users/<u>/_labarchives-deployer.json` | Institutional API access password (orphan as of `8b1eac3f` but file may still exist on disk) | No |
 | `users/<u>/_labarchives.json` | LabArchives connection (orphan, harmless without the API surface) | No |
@@ -432,6 +434,12 @@ That includes:
 - The optional PBKDF2-hashed password for your account.
 
 **One extra place your Telegram bot token lives: a small recovery cache inside your browser.** When you successfully pair a Telegram bot, the app keeps a copy of just `{bot_token, chat_id, bot_username}` in IndexedDB (browser storage), keyed by your folder name + your username. This is a safety net for the case where the on-disk `_telegram.json` file gets lost (a misshared OneDrive folder where a lab-mate deleted it, an iCloud sync hiccup, a manual cleanup) — without it, you would have to re-pair the bot from scratch. The cache is wiped when you switch folders, when you explicitly disconnect Telegram, or when you click the **Forget cached Telegram credentials** button in Settings → Data inventory. The cache is per-browser-profile, so a lab-mate sharing the same data folder does NOT see your cached token in their browser. Open DevTools → Application → IndexedDB if you want to verify it exists or is empty.
+
+**Optional second backup: an encrypted copy of the Telegram pairing inside your data folder.** Same use case (you don't want to re-pair from scratch if the on-disk `_telegram.json` disappears), but tuned for the case where the browser-scoped recovery cache is also gone — e.g. you opened the folder on a different machine, switched browsers, or cleared your browser data. **Default OFF.** You opt in two ways: tick **"Save encrypted backup for auto-reconnect"** under the bot-token input in the pairing modal, or flip **"Auto-reconnect Telegram bot"** ON in Settings → Notifications & behavior. Either gesture prompts for your account password, verifies it against the same `_auth.json` hash that gates login, and then writes an encrypted copy of `{botToken, chatId, botUsername, botFirstName}` to `users/<u>/_telegram-encrypted.json`. The file is auto-gitignored on first write so it can't slip into a git commit. Encryption is AES-GCM-256 with a key derived from your password via PBKDF2-SHA-256 (600k iterations, 16-byte random salt + 12-byte random IV per write — the same KDF as your login hash).
+
+**The password footgun.** Because the key is derived from your account password, **if you forget your password, the encrypted backup is unrecoverable.** There is no recovery hint, no secondary key, no escape hatch. This is the trade-off you accept by opting in. If you don't want password gating, the browser-scoped IDB cache above is the right fallback — it's silent and password-free, but only covers the same-browser case. The encrypted backup covers cross-browser / cross-machine recovery (the folder moves, the backup travels with it).
+
+**Lifecycle.** Written when you opt in. Deleted when you flip the Settings toggle OFF, explicitly disconnect Telegram from the pairing modal, or switch folders. Re-encrypted on password change so the new key can still decrypt it. The auto-reconnect prompt at startup is opt-in twice: the toggle must be ON, and the prompt itself asks for your password before it touches the file (so a stranger sitting at your unlocked laptop can't silently restore a Telegram pairing).
 
 ### What does briefly touch a server we operate
 
