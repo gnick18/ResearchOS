@@ -9,8 +9,6 @@ import rehypeSanitize from "rehype-sanitize";
 import { markdownSanitizeSchema } from "@/lib/markdown/sanitize-schema";
 import {
   parseMarkdownBlocks,
-  findBlockAtOffset,
-  updateBlockContent,
   type MarkdownBlock,
 } from "@/lib/markdown-block-parser";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
@@ -432,8 +430,6 @@ export default function HybridMarkdownEditor({
   const [editingBlockContent, setEditingBlockContent] = useState<string>("");
   // Track cursor position when entering edit mode
   const [editCursorPosition, setEditCursorPosition] = useState<number | null>(null);
-  // Track the previous value to detect external changes
-  const prevValueRef = useRef<string>(value);
   // Flag to track if we're in the middle of an edit
   const isEditingRef = useRef<boolean>(false);
   // Track the original block length when entering edit mode
@@ -909,8 +905,6 @@ export default function HybridMarkdownEditor({
       
       // Check if current line is exactly ``` (code block start)
       if (currentLine === '```' && editingBlockOffset !== null) {
-        // Find the position of this line
-        const lineStartIndex = textBeforeCursor.lastIndexOf('\n') + 1;
         const insertPos = cursorPos; // Position right after ```
         
         // Get textarea position for popup
@@ -1822,6 +1816,7 @@ export default function HybridMarkdownEditor({
                       ? IMAGE_PLACEHOLDER
                       : (cachedBlob ?? originalSrc);
                     return (
+                      // eslint-disable-next-line @next/next/no-img-element -- src is a blob URL resolved from a local FSA file (or a transparent data: placeholder while resolving); next/image cannot optimize blob URLs and intrinsic dimensions are unknown for arbitrary user content
                       <img
                         src={resolvedSrc}
                         alt={originalAlt}

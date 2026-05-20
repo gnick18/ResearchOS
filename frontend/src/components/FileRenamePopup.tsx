@@ -87,6 +87,7 @@ export default function FileRenamePopup({
             <div className="flex items-center gap-3">
               {isImage && (
                 <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- src is a blob URL from URL.createObjectURL(file); next/image cannot optimize blob URLs */}
                   <img
                     src={URL.createObjectURL(file)}
                     alt="Preview"

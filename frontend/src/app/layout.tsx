@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import "frappe-gantt/dist/frappe-gantt.css";
 import { Providers } from "@/lib/providers";
 import OfflineGatedAnalytics from "@/components/OfflineGatedAnalytics";
 
@@ -26,9 +27,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        <link rel="stylesheet" href="/frappe-gantt.css" />
-      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

@@ -384,6 +384,7 @@ function NotebookOutputView({ output }: { output: ParsedNbOutput }) {
   if (output.kind === "image") {
     return (
       <div className="p-3">
+        {/* eslint-disable-next-line @next/next/no-img-element -- src is an inline data: URL from a Jupyter notebook output; next/image cannot optimize base64 data URLs and intrinsic dimensions are unknown */}
         <img
           src={`data:${output.mimeType};base64,${output.payload}`}
           alt="notebook output"

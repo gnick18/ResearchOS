@@ -304,6 +304,7 @@ export default function LabLinksPage() {
                   />
                   {previewImageUrl && (
                     <div className="w-20 h-14 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- src is an arbitrary user-pasted HTTP URL (link preview thumbnail); next/image would require an allowlist of every domain users might paste */}
                       <img
                         src={previewImageUrl}
                         alt="Preview"
@@ -375,6 +376,7 @@ export default function LabLinksPage() {
                         style={{ backgroundColor: link.preview_image_url ? undefined : (link.color || CARD_COLORS[0].value) }}
                       >
                         {link.preview_image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- src is an arbitrary user-pasted HTTP URL (link preview thumbnail); next/image would require an allowlist of every domain users might paste
                           <img
                             src={link.preview_image_url}
                             alt={link.title}
