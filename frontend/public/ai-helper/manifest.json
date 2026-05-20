@@ -1,21 +1,21 @@
 {
-  "helper_version": 6,
-  "schema_hash": "84c3f56a2daef5b9f2cc6ab123f110dae96aad23c1d270bb1b890a52c3d701bd",
-  "structural_fingerprint": "8aff7c910b949724ae10e8bb72df66caf0f04ce5b7a2e3e64a927be226797b3a",
-  "built_at": "2026-05-20T16:03:07.330Z",
-  "built_from_commit": "2a66eeddeac7632a60fab2f895015d061de6c79b",
+  "helper_version": 7,
+  "schema_hash": "befe70765108eae412dc1761457f2c1e3fba155c2d74c8bc14a6ef434e52277d",
+  "structural_fingerprint": "0ed5aecc4ca8c61791b890582705cd0feff4d2f964bbe1c14e55834c449561cb",
+  "built_at": "2026-05-20T16:23:19.257Z",
+  "built_from_commit": "60983831773ad0075f933bd443936d4157cdb496",
   "sizes": {
     "full": {
-      "bytes": 130149,
-      "tokens": 32538
+      "bytes": 130690,
+      "tokens": 32673
     },
     "lean": {
-      "bytes": 69796,
-      "tokens": 17449
+      "bytes": 70034,
+      "tokens": 17509
     },
     "minimal": {
-      "bytes": 18804,
-      "tokens": 4701
+      "bytes": 19042,
+      "tokens": 4761
     }
   }
 }

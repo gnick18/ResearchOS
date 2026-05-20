@@ -130,10 +130,11 @@ describe("orchestrator gating", () => {
     expect(shouldFire(sc, "/", 1000, 0)).toBe(false);
   });
 
-  it("blocks all tips when sidecar.mode === null (welcome modal blocks)", () => {
+  it("blocks all tips when sidecar.mode === null (wizard blocks; v2 retired v1 welcome modal)", () => {
     const sc = freshSidecar({ mode: null });
     // Even with cooldown + dwell satisfied + matching route, the
-    // welcome-modal gate vetoes the fire.
+    // mode-null gate vetoes the fire. In v1 this gate was the welcome
+    // modal; in v2 (Phase 1) the wizard / mode-null pair both block.
     expect(shouldFire(sc, "/", 1000, 0)).toBe(false);
   });
 
@@ -317,6 +318,121 @@ describe("Phase 4: tutorial-mode carve-out for demo lab", () => {
     demoModeMock = true;
     tutorialModeMock = true;
     expect(mountedSurface(null)).toBe("none");
+  });
+});
+
+describe("Onboarding v2 Phase 1: wizard mount gate", () => {
+  // The Phase 1 orchestrator gates the wizard mount on four conditions:
+  //
+  //   sidecar !== null
+  //     && isFreshUser === true
+  //     && sidecar.wizard_completed_at === null
+  //     && sidecar.wizard_skipped_at === null
+  //     && activeTip === null
+  //
+  // We mirror that decision as a pure function here so the assertion is
+  // crisp without bringing up a React provider tree. The v1 welcome
+  // modal mount path retired in Phase 1; the orchestrator no longer
+  // imports `OnboardingWelcomeModal`, so a side-by-side test that
+  // "the v1 modal doesn't show for existing users with mode === null"
+  // collapses into "the v2 wizard ALSO does not show for them" (because
+  // an existing user has isFreshUser === false).
+  function shouldMountWizard(args: {
+    sidecar: OnboardingSidecar | null;
+    isFreshUser: boolean | null;
+    activeTip: boolean;
+  }): boolean {
+    const { sidecar, isFreshUser, activeTip } = args;
+    return (
+      sidecar !== null &&
+      isFreshUser === true &&
+      sidecar.wizard_completed_at === null &&
+      sidecar.wizard_skipped_at === null &&
+      !activeTip
+    );
+  }
+
+  it("mounts for a brand-new user (fresh + no completion/skip)", () => {
+    expect(
+      shouldMountWizard({
+        sidecar: freshSidecar({ mode: null }),
+        isFreshUser: true,
+        activeTip: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("does NOT mount once the user completes the wizard", () => {
+    expect(
+      shouldMountWizard({
+        sidecar: freshSidecar({
+          mode: "suggestions",
+          use_cases: ["phd_experiments"],
+          wizard_completed_at: "2026-05-20T12:00:00.000Z",
+        }),
+        isFreshUser: false,
+        activeTip: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("does NOT mount once the user skips the wizard", () => {
+    expect(
+      shouldMountWizard({
+        sidecar: freshSidecar({
+          mode: "suggestions",
+          wizard_skipped_at: "2026-05-20T12:00:00.000Z",
+        }),
+        isFreshUser: false,
+        activeTip: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("does NOT mount for an existing user with mode === null (v1 welcome modal retired)", () => {
+    // The v1 welcome modal used to fire whenever mode === null,
+    // including for existing users on a fresh-install bump. Phase 1
+    // retires that surface: existing users (isFreshUser === false)
+    // get NO modal even with mode === null. The orchestrator no longer
+    // imports OnboardingWelcomeModal, so the only mountable surface
+    // is the wizard, and the wizard refuses to mount here.
+    expect(
+      shouldMountWizard({
+        sidecar: freshSidecar({ mode: null }),
+        isFreshUser: false,
+        activeTip: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("does NOT mount while sidecar is still loading", () => {
+    expect(
+      shouldMountWizard({
+        sidecar: null,
+        isFreshUser: null,
+        activeTip: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("does NOT mount while isFreshUser probe is in flight", () => {
+    expect(
+      shouldMountWizard({
+        sidecar: freshSidecar({ mode: null }),
+        isFreshUser: null,
+        activeTip: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("does NOT mount on top of an active tip (belt-and-suspenders)", () => {
+    expect(
+      shouldMountWizard({
+        sidecar: freshSidecar({ mode: null }),
+        isFreshUser: true,
+        activeTip: true,
+      }),
+    ).toBe(false);
   });
 });
 
