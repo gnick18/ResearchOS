@@ -140,6 +140,35 @@ describe("ValueHistory — typing coalescing", () => {
     const first = h.undo("Sovereign, R");
     expect(first).toBe("Sovereign,");
   });
+
+  it("treats the CommonMark soft-break sequence as a boundary so undo is word-level across soft breaks", () => {
+    const clock = makeClock();
+    const h = new ValueHistory({ now: clock.now });
+
+    // Type "hello" char by char, simulate the chip-1 soft-break Enter handler
+    // (one atomic "type" push that inserts "  \n"), then type "world" char by
+    // char. The expected past stack is ["", "hello  \n"] because the
+    // soft-break inserts two boundary characters (space and newline) so the
+    // run that includes "hello  \n" ends, and the next typed char ("w") opens
+    // a new run. Two undo steps fully unwind: "hello  \nworld" -> "hello  \n"
+    // -> "".
+    h.push("", "h");
+    h.push("h", "he");
+    h.push("he", "hel");
+    h.push("hel", "hell");
+    h.push("hell", "hello");
+    h.push("hello", "hello  \n");
+    h.push("hello  \n", "hello  \nw");
+    h.push("hello  \nw", "hello  \nwo");
+    h.push("hello  \nwo", "hello  \nwor");
+    h.push("hello  \nwor", "hello  \nworl");
+    h.push("hello  \nworl", "hello  \nworld");
+
+    expect(h.peek().past).toEqual(["", "hello  \n"]);
+    expect(h.undo("hello  \nworld")).toBe("hello  \n");
+    expect(h.undo("hello  \n")).toBe("");
+    expect(h.canUndo()).toBe(false);
+  });
 });
 
 describe("ValueHistory — paste behavior", () => {
