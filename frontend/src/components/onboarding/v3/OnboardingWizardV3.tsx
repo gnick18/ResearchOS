@@ -33,6 +33,15 @@ import Q4GoalsStep from "./steps/setup/Q4GoalsStep";
 import Q5TelegramStep from "./steps/setup/Q5TelegramStep";
 import Q6AiHelperStep from "./steps/setup/Q6AiHelperStep";
 import { initialFeaturePicks } from "./steps/setup/feature-picks-init";
+import W1CreateProjectStep from "./steps/walkthrough/W1CreateProjectStep";
+import W2CreateMethodStep from "./steps/walkthrough/W2CreateMethodStep";
+import W3CreateExperimentStep from "./steps/walkthrough/W3CreateExperimentStep";
+import W4LinkMethodStep from "./steps/walkthrough/W4LinkMethodStep";
+import W5HybridEditorTourStep from "./steps/walkthrough/W5HybridEditorTourStep";
+import W6PersonalizationStep from "./steps/walkthrough/W6PersonalizationStep";
+import W7SearchTourStep from "./steps/walkthrough/W7SearchTourStep";
+import W8NotificationsTourStep from "./steps/walkthrough/W8NotificationsTourStep";
+import W9WikiPointerStep from "./steps/walkthrough/W9WikiPointerStep";
 
 /**
  * The Onboarding v3 wizard shell.
@@ -616,11 +625,11 @@ function stepTitle(step: WizardStep): string {
 
 /** Step body dispatcher. P2a fills in the real bodies for the 9 Phase 1
  *  setup steps (intro + setup-q1 + setup-q1a + setup-q1b + setup-q2
- *  through setup-q6); W1-W14, L1-L11, and phase4-cleanup remain
- *  placeholders for P2b/c, P3a, and P4 to swap in. */
+ *  through setup-q6). P2b fills in W1-W9. W10-W14, L1-L11, and
+ *  phase4-cleanup remain placeholders for P2c, P3a, and P4. */
 function StepBody({
   step,
-  username: _username,
+  username,
   sidecar,
   setNextDisabled,
   patchSidecar,
@@ -694,6 +703,73 @@ function StepBody({
           patchSidecar={patchSidecar}
         />
       );
+    case "W1":
+      return (
+        <W1CreateProjectStep
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+          patchSidecar={patchSidecar}
+        />
+      );
+    case "W2":
+      return (
+        <W2CreateMethodStep
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+          patchSidecar={patchSidecar}
+        />
+      );
+    case "W3":
+      return (
+        <W3CreateExperimentStep
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+          patchSidecar={patchSidecar}
+        />
+      );
+    case "W4":
+      return (
+        <W4LinkMethodStep
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+          patchSidecar={patchSidecar}
+        />
+      );
+    case "W5":
+      return (
+        <W5HybridEditorTourStep
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+          patchSidecar={patchSidecar}
+        />
+      );
+    case "W6":
+      return (
+        <W6PersonalizationStep
+          username={username}
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+          patchSidecar={patchSidecar}
+        />
+      );
+    case "W7":
+      return (
+        <W7SearchTourStep
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+          patchSidecar={patchSidecar}
+        />
+      );
+    case "W8":
+      return (
+        <W8NotificationsTourStep
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+          patchSidecar={patchSidecar}
+        />
+      );
+    case "W9":
+      return <W9WikiPointerStep setNextDisabled={setNextDisabled} />;
     default:
       return (
         <PlaceholderBody
