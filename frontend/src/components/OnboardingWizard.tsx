@@ -22,17 +22,25 @@ import { createFeed } from "@/lib/calendar/external-feeds-store";
 /**
  * The Onboarding v2 7-step wizard component.
  *
- * Phase 1 landed the structural shell. Phase 2a (this chip) lands the
- * step 1-3 content, a focus trap on the modal, and a `?wizard-preview=1`
- * URL-param hook the orchestrator consumes so testing agents can force-
- * mount the wizard without a fresh data folder. Steps 4-7 remain
- * placeholders for Phase 2b/2c.
+ * Phase 1 landed the structural shell. Phase 2a lands the step 1-3
+ * content, a focus trap on the modal, and a `?wizard-preview=1` URL-
+ * param hook the orchestrator consumes so testing agents can force-
+ * mount the wizard without a fresh data folder. Phase 2b lands the
+ * step 4-6 integration gates (Telegram pair, calendar feed, AI Helper
+ * prompt copy). Phase 2c (this chip) lands the step-7 wrap-up body:
+ * a confirmation card that echoes the user's picks back (other-use-
+ * case free-form text + the three step-4-5-6 decisions), an opt-in
+ * deep-tour link, and a "Go to home" CTA on the footer Continue
+ * button.
  *
  * The component itself does NOT persist to `_onboarding.json` or
  * `settings.json`; the orchestrator passes `onComplete` and `onSkip`
- * callbacks and owns the writes. Phase 2a expands `onComplete` to carry
- * `{ useCases, visibleTabs, otherUseCase }` so the wizard's step-3
- * tab toggles are authoritative over the static tab mapping.
+ * callbacks and owns the writes. Phase 2a expanded `onComplete` to
+ * carry `{ useCases, visibleTabs, otherUseCase }` so the wizard's
+ * step-3 tab toggles are authoritative over the static tab mapping.
+ * Phase 2c further expands it with the three step-4-5-6 decisions so
+ * the orchestrator can persist them to the sidecar's additive v3
+ * decision fields.
  *
  * Step labels (used verbatim for the step title):
  *   1. Welcome to ResearchOS
@@ -68,19 +76,6 @@ const STEP_TITLES: Record<number, string> = {
   5: "Add a calendar?",
   6: "AI Helper prompt?",
   7: "You're all set",
-};
-
-/** Internal step-name slugs used in the placeholder copy so a future
- *  reader can spot which Phase-2 surface owns each step. Steps 1-3 are
- *  now filled in (Phase 2a); 4-7 still render the placeholder body. */
-const STEP_SLUGS: Record<number, string> = {
-  1: "welcome",
-  2: "use-case picker",
-  3: "tab config",
-  4: "telegram",
-  5: "calendar",
-  6: "ai-helper",
-  7: "all-set",
 };
 
 /** Container shape for per-step state collected as the user clicks
@@ -131,14 +126,21 @@ interface OnboardingWizardProps {
    *  orchestrator probes `discoverUsers()` once on mount and passes
    *  the result down. */
   isMultiUserFolder: boolean;
-  /** Called on step-7 Continue ("Done"). The orchestrator should
+  /** Called on step-7 Continue ("Go to home"). The orchestrator should
    *  persist `use_cases`, `wizard_completed_at`, `visibleTabs`
    *  (the wizard's step-3 toggles are authoritative), `other_use_case`,
-   *  and seed `mode: "suggestions"` if null. */
+   *  the three Phase-2c integration decisions, and seed
+   *  `mode: "suggestions"` if null. The three decisions are undefined
+   *  when the user reached step 7 without going through that specific
+   *  step (shouldn't happen on a normal Continue-through flow, but the
+   *  signature is `?:` defensively). */
   onComplete: (result: {
     useCases: string[];
     visibleTabs: string[];
     otherUseCase?: string;
+    telegramDecision?: "paired" | "later" | "skipped";
+    calendarDecision?: "added" | "later";
+    aiHelperDecision?: "copied" | "later";
   }) => void;
   /** Called by the Skip link on any step AND by the Escape key
    *  (same handler, by brief). The orchestrator should persist
@@ -311,13 +313,17 @@ export default function OnboardingWizard({
       setCurrentStep((s) => Math.min(TOTAL_STEPS, s + 1));
       return;
     }
-    // Step 7: Continue is Done. Surface the picks + step-3 overrides +
-    // step-2 free-form to the orchestrator.
+    // Step 7: Continue is "Go to home" (Phase 2c label). Surface the
+    // picks + step-3 overrides + step-2 free-form + the three Phase-2c
+    // integration decisions to the orchestrator.
     const trimmedOther = wizardData.otherUseCase.trim();
     onComplete({
       useCases: wizardData.useCases,
       visibleTabs: wizardData.visibleTabs,
       otherUseCase: trimmedOther.length > 0 ? trimmedOther : undefined,
+      telegramDecision: wizardData.telegramDecision,
+      calendarDecision: wizardData.calendarDecision,
+      aiHelperDecision: wizardData.aiHelperDecision,
     });
   }, [
     currentStep,
@@ -325,8 +331,25 @@ export default function OnboardingWizard({
     wizardData.useCases,
     wizardData.visibleTabs,
     wizardData.otherUseCase,
+    wizardData.telegramDecision,
+    wizardData.calendarDecision,
+    wizardData.aiHelperDecision,
     isMultiUserFolder,
   ]);
+
+  // Phase 2c: step-7 deep-tour opt-in link click handler. window.open
+  // MUST be synchronous inside the click handler to bypass popup
+  // blockers — same pattern as v1's OnboardingWelcomeModal:56 (precedent
+  // e476dc7b). After opening the tour in a new tab, fall through to the
+  // normal completion path so the original tab exits the wizard
+  // gracefully (option A from the Phase 2c brief: tour opens in new
+  // tab; original tab lands on Home).
+  const handleTourLink = useCallback(() => {
+    if (typeof window !== "undefined") {
+      window.open("/demo?tutorial=1", "_blank", "noopener");
+    }
+    handleContinue();
+  }, [handleContinue]);
 
   // Escape key → Skip. Mirrors the Skip link (same handler), per brief.
   useEffect(() => {
@@ -408,7 +431,6 @@ export default function OnboardingWizard({
   if (!mounted) return null;
 
   const stepTitle = STEP_TITLES[currentStep] ?? "";
-  const stepSlug = STEP_SLUGS[currentStep] ?? "";
   const isLastStep = currentStep === TOTAL_STEPS;
   const isFirstStep = currentStep === 1;
 
@@ -467,8 +489,8 @@ export default function OnboardingWizard({
           </div>
         </div>
 
-        {/* Body: per-step content. Steps 1-3 are Phase 2a, 4-7 still
-            placeholder. */}
+        {/* Body: per-step content. Steps 1-3 land in Phase 2a, 4-6 in
+            Phase 2b, 7 in Phase 2c. */}
         <div className="px-7 py-6">
           {currentStep === 1 && <Step1Welcome />}
           {currentStep === 2 && (
@@ -512,9 +534,13 @@ export default function OnboardingWizard({
             />
           )}
           {currentStep === 7 && (
-            <div className="min-h-[200px] flex items-center justify-center text-center text-gray-500 text-sm leading-relaxed">
-              Step {currentStep}: {stepSlug}, content lands in Phase 2c.
-            </div>
+            <Step7WrapUp
+              otherUseCase={wizardData.otherUseCase}
+              telegramDecision={wizardData.telegramDecision}
+              calendarDecision={wizardData.calendarDecision}
+              aiHelperDecision={wizardData.aiHelperDecision}
+              onTourLink={handleTourLink}
+            />
           )}
         </div>
 
@@ -542,7 +568,7 @@ export default function OnboardingWizard({
             onClick={handleContinue}
             className="px-4 py-2 text-sm font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm"
           >
-            {isLastStep ? "Done" : "Continue"}
+            {isLastStep ? "Go to home" : "Continue"}
           </button>
         </div>
       </div>
@@ -1181,6 +1207,243 @@ function Step6AIHelper({
         >
           Maybe later
         </button>
+      </div>
+    </div>
+  );
+}
+
+/** Step 7: wrap-up confirmation card (Phase 2c). Top-to-bottom:
+ *
+ *   1. "You're all set." heading with a sky-500 check icon. Restates
+ *      the step header's title in a slightly more conversational tone.
+ *   2. Other-use-case echo block (conditional — only when the user
+ *      filled in step-2's "Other" field with non-empty content after
+ *      trim). Gray quote-style card; the user's exact text is bolded.
+ *   3. Decision-echo block: three rows for the step 4-5-6 outcomes
+ *      (Telegram, Calendar, AI Helper). Each row shows a marker glyph
+ *      + descriptor word, color-coded by outcome family:
+ *        - paired / added / copied → emerald-600 ✓ + descriptor
+ *        - later                    → gray-400 ✗ + "Maybe later"
+ *        - skipped (Telegram only)  → gray-400 em-dash + "auto-skipped"
+ *      Rows with an undefined decision are filtered out (defensive —
+ *      shouldn't happen on a real flow since every step records on
+ *      every exit, but a Back-and-skip pattern could leave a hole).
+ *      The em-dash in the auto-skipped row is a UI glyph (not prose),
+ *      so it's exempt from the project's no-em-dashes-in-prose rule.
+ *   4. Deep-tour opt-in link: "Take the 5-min feature tour" button +
+ *      a small caption. Click handler is owned by the parent
+ *      (`onTourLink`) — it must call `window.open` synchronously to
+ *      bypass popup blockers, then fall through to handleContinue so
+ *      the wizard exits gracefully (option A from the Phase 2c brief).
+ *
+ *  The footer's Continue button is renamed to "Go to home" on step 7
+ *  (in the parent's footer JSX, not here).
+ */
+function Step7WrapUp({
+  otherUseCase,
+  telegramDecision,
+  calendarDecision,
+  aiHelperDecision,
+  onTourLink,
+}: {
+  otherUseCase: string;
+  telegramDecision: "paired" | "later" | "skipped" | undefined;
+  calendarDecision: "added" | "later" | undefined;
+  aiHelperDecision: "copied" | "later" | undefined;
+  onTourLink: () => void;
+}) {
+  const trimmedOther = otherUseCase.trim();
+  const hasOther = trimmedOther.length > 0;
+
+  // Build the decision-echo rows in Telegram → Calendar → AI Helper
+  // order (matches steps 4-5-6). Rows with an undefined decision are
+  // filtered out — defensive, since steps 4-6 each record on every
+  // exit path.
+  const rows: Array<{
+    key: string;
+    integration: string;
+    variant: "success" | "later" | "skipped";
+    descriptor: string;
+  }> = [];
+  if (telegramDecision === "paired") {
+    rows.push({
+      key: "telegram",
+      integration: "Telegram",
+      variant: "success",
+      descriptor: "paired",
+    });
+  } else if (telegramDecision === "later") {
+    rows.push({
+      key: "telegram",
+      integration: "Telegram",
+      variant: "later",
+      descriptor: "Maybe later",
+    });
+  } else if (telegramDecision === "skipped") {
+    rows.push({
+      key: "telegram",
+      integration: "Telegram",
+      variant: "skipped",
+      descriptor: "auto-skipped",
+    });
+  }
+  if (calendarDecision === "added") {
+    rows.push({
+      key: "calendar",
+      integration: "Calendar",
+      variant: "success",
+      descriptor: "added a feed",
+    });
+  } else if (calendarDecision === "later") {
+    rows.push({
+      key: "calendar",
+      integration: "Calendar",
+      variant: "later",
+      descriptor: "Maybe later",
+    });
+  }
+  if (aiHelperDecision === "copied") {
+    rows.push({
+      key: "ai-helper",
+      integration: "AI Helper",
+      variant: "success",
+      descriptor: "copied prompt",
+    });
+  } else if (aiHelperDecision === "later") {
+    rows.push({
+      key: "ai-helper",
+      integration: "AI Helper",
+      variant: "later",
+      descriptor: "Maybe later",
+    });
+  }
+
+  return (
+    <div className="space-y-5 min-h-[200px]">
+      {/* "You're all set." conversational heading + check icon. */}
+      <div className="flex items-center gap-2">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="text-sky-500 flex-shrink-0"
+          aria-hidden
+        >
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+        <h3 className="text-xl font-semibold text-gray-900">
+          You&apos;re all set.
+        </h3>
+      </div>
+
+      {/* Conditional other-use-case echo. Only renders if the user
+          filled in step-2's Other field with non-whitespace content.
+          Per master: never render the empty-parens case. */}
+      {hasOther && (
+        <div className="bg-gray-50 rounded-md p-3 text-sm text-gray-700">
+          Got it. We&apos;ll keep your context (
+          <span className="font-medium text-gray-900">
+            &quot;{trimmedOther}&quot;
+          </span>
+          ) in mind for future suggestions.
+        </div>
+      )}
+
+      {/* Decision-echo block. Header + three rows. */}
+      {rows.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-xs uppercase tracking-wide text-gray-500">
+            Setup decisions
+          </div>
+          <div className="space-y-1.5">
+            {rows.map((row) => (
+              <div
+                key={row.key}
+                className="flex items-center gap-2 text-sm"
+              >
+                {row.variant === "success" && (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="text-emerald-600 flex-shrink-0"
+                    aria-hidden
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+                {row.variant === "later" && (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="text-gray-400 flex-shrink-0"
+                    aria-hidden
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                )}
+                {row.variant === "skipped" && (
+                  <span
+                    aria-hidden
+                    className="text-gray-400 flex-shrink-0 w-4 text-center leading-none"
+                  >
+                    &mdash;
+                  </span>
+                )}
+                <span className="text-gray-700">{row.integration}:</span>
+                <span
+                  className={
+                    row.variant === "success"
+                      ? "text-gray-700"
+                      : row.variant === "skipped"
+                        ? "text-gray-500 italic"
+                        : "text-gray-500"
+                  }
+                >
+                  {row.descriptor}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Deep-tour opt-in link. Click handler is parent-owned: it
+          calls window.open synchronously (popup-blocker compliance,
+          precedent OnboardingWelcomeModal:56) then falls through to
+          handleContinue so the wizard exits while the tour opens in
+          a new tab. */}
+      <div className="pt-1 space-y-1">
+        <button
+          type="button"
+          onClick={onTourLink}
+          className="text-sm font-medium text-sky-600 hover:text-sky-700 underline-offset-2 hover:underline"
+        >
+          Take the 5-min feature tour
+        </button>
+        <p className="text-xs text-gray-500">
+          Opens the demo lab in a new tab.
+        </p>
       </div>
     </div>
   );

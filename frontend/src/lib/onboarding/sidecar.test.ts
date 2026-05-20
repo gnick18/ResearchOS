@@ -184,6 +184,10 @@ describe("sidecar v2 → v3 migration", () => {
     expect(sc.wizard_completed_at).toBeNull();
     expect(sc.wizard_skipped_at).toBeNull();
     expect(sc.other_use_case).toBeNull();
+    // Phase 2c additive v3 fields default to null.
+    expect(sc.telegram_decision).toBeNull();
+    expect(sc.calendar_decision).toBeNull();
+    expect(sc.ai_helper_decision).toBeNull();
   });
 
   it("round-trips other_use_case (Phase 2a additive v3 extension)", async () => {
@@ -224,5 +228,74 @@ describe("sidecar v2 → v3 migration", () => {
     });
     const sc = await readOnboarding(USER);
     expect(sc.other_use_case).toBeNull();
+  });
+
+  it("round-trips telegram_decision (Phase 2c additive v3 extension)", async () => {
+    memFs.set(PATH, {
+      version: 3,
+      first_seen_at: "2026-05-20T08:00:00.000Z",
+      active_seconds: 0,
+      last_tip_at: 0,
+      tips: {},
+      tips_off: false,
+      shown_count: 0,
+      mode: "suggestions",
+      use_cases: ["postdoc"],
+      wizard_completed_at: "2026-05-20T12:00:00Z",
+      wizard_skipped_at: null,
+      other_use_case: null,
+      telegram_decision: "paired",
+    });
+    const sc = await readOnboarding(USER);
+    expect(sc.telegram_decision).toBe("paired");
+    await writeOnboarding(USER, sc);
+    const sc2 = await readOnboarding(USER);
+    expect(sc2.telegram_decision).toBe("paired");
+  });
+
+  it("backfills the three Phase 2c decision fields to null on a legacy v3 record", async () => {
+    // A v3 record from before Phase 2c — none of the three decision
+    // fields are present. normalize() should treat them as null without
+    // clobbering the rest of the record.
+    memFs.set(PATH, {
+      version: 3,
+      first_seen_at: "2026-05-20T08:00:00.000Z",
+      active_seconds: 1200,
+      last_tip_at: 600,
+      tips: {},
+      tips_off: false,
+      shown_count: 0,
+      mode: "suggestions",
+      use_cases: ["postdoc"],
+      wizard_completed_at: "2026-05-20T12:00:00Z",
+      wizard_skipped_at: null,
+      other_use_case: null,
+    });
+    const sc = await readOnboarding(USER);
+    expect(sc.telegram_decision).toBeNull();
+    expect(sc.calendar_decision).toBeNull();
+    expect(sc.ai_helper_decision).toBeNull();
+    // Untouched-field preservation.
+    expect(sc.use_cases).toEqual(["postdoc"]);
+    expect(sc.wizard_completed_at).toBe("2026-05-20T12:00:00Z");
+    expect(sc.mode).toBe("suggestions");
+  });
+
+  it("normalizes an invalid calendar_decision enum value to null", async () => {
+    memFs.set(PATH, {
+      version: 3,
+      calendar_decision: "garbage",
+    });
+    const sc = await readOnboarding(USER);
+    expect(sc.calendar_decision).toBeNull();
+  });
+
+  it("normalizes a non-string ai_helper_decision to null", async () => {
+    memFs.set(PATH, {
+      version: 3,
+      ai_helper_decision: 42,
+    });
+    const sc = await readOnboarding(USER);
+    expect(sc.ai_helper_decision).toBeNull();
   });
 });
