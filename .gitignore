@@ -9,6 +9,12 @@ frontend/node_modules/
 # Production
 frontend/build/
 
+# Test artifacts
+frontend/coverage/
+frontend/playwright-report/
+frontend/playwright/.cache/
+frontend/test-results/
+
 # Debug logs
 npm-debug.log*
 yarn-debug.log*
