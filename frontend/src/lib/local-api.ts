@@ -1,6 +1,6 @@
 import { JsonStore, getPublicStore, getLabStore, getCurrentUserCached, clearCurrentUserCache } from "./storage/json-store";
 import { fileService } from "./file-system/file-service";
-import { getCurrentUser, getMainUser, storeCurrentUser, storeMainUser, clearCurrentUser } from "./file-system/indexeddb-store";
+import { getCurrentUser, getMainUser, storeCurrentUser, storeMainUser, clearCurrentUser, clearMainUser } from "./file-system/indexeddb-store";
 import { shiftTask } from "./engine/shift";
 import { formatDate, parseDate } from "./engine/dates";
 import { canonicalEndDate, computeTaskEndDate } from "./tasks/end-date";
@@ -4276,11 +4276,31 @@ export const usersApi = {
   },
   
   getMainUser: async (): Promise<{ main_user: string; current_user: string }> => {
-    const [mainUser, currentUser] = await Promise.all([
+    const [mainUserCandidate, currentUser] = await Promise.all([
       getMainUser(),
       getCurrentUser(),
     ]);
-    return { main_user: mainUser || "", current_user: currentUser || "" };
+
+    if (mainUserCandidate) {
+      // Validate the IDB candidate against discoverUsers (which already
+      // filters tombstoned + SKIP_DIRECTORIES + non-existent folders). If
+      // stale, clear the IDB key so callers (e.g. lab-mode exit at
+      // app/lab/page.tsx:164) fall through to their no-main-user branch
+      // instead of attempting login("alex") on a vanished user. The user
+      // tombstone work at 3f83e157 filtered discoverUsers/usersApi.list
+      // but left getMainUser un-validated — see INVESTIGATION_USER_LEAKS.md.
+      let validUsers: string[];
+      try {
+        validUsers = await discoverUsers();
+      } catch {
+        return { main_user: mainUserCandidate, current_user: currentUser || "" };
+      }
+      if (!validUsers.includes(mainUserCandidate)) {
+        await clearMainUser();
+        return { main_user: "", current_user: currentUser || "" };
+      }
+    }
+    return { main_user: mainUserCandidate || "", current_user: currentUser || "" };
   },
   
   setMainUser: async (username: string): Promise<{ status: string; main_user: string }> => {
