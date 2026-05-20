@@ -484,6 +484,14 @@ export default function HybridMarkdownEditor({
   // appear as one-shot jumps when undone. See lib/undo/value-history.ts.
   const historyRef = useRef<ValueHistory | null>(null);
   if (historyRef.current === null) {
+    // Default boundaryChars (in value-history.ts) include space and newline,
+    // which are the constituent chars of the chip-1 soft-break sequence
+    // ("  \n"). That means a soft-break insertion ends the current typing
+    // run, so undo from "hello  \nworld" goes to "hello  \n" then to "" in
+    // two word-level steps rather than collapsing the soft-break and the
+    // following word into one. See the corresponding test in
+    // value-history.test.ts. Removing space or newline from the default set
+    // would silently break this; the test guards against that.
     historyRef.current = new ValueHistory();
   }
   const valueRef = useRef<string>(value);
