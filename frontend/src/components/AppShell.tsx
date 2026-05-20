@@ -31,6 +31,8 @@ import { useAppStore } from "@/lib/store";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useUserColor } from "@/hooks/useUserColor";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
+import { useFeaturePicks } from "@/hooks/useFeaturePicks";
+import { deriveVisibleTabs } from "@/lib/onboarding/feature-picks-tabs";
 import { headerGradient } from "@/lib/colors";
 
 const SETTINGS_HREF = "/settings";
@@ -43,6 +45,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const coloredHeader = useAppStore((s) => s.coloredHeader);
   const { currentUser } = useFileSystem();
   const baseColor = useUserColor(currentUser ?? "");
+  // Onboarding v3 §10: feature_picks is the primary tab-visibility
+  // source. `deriveVisibleTabs` returns settings.visibleTabs as-is when
+  // picks are null (existing-user invariant L1/L22) and otherwise lets
+  // settings additionally hide — but not unhide — relative to picks.
+  // See `frontend/src/lib/onboarding/feature-picks-tabs.ts` for the
+  // full contract + Settings UI carve-out note. `undefined` (loading)
+  // is treated the same as `null` so first-paint never flickers.
+  const featurePicks = useFeaturePicks(currentUser);
+  const effectiveVisibleTabs = useMemo(
+    () => deriveVisibleTabs(featurePicks ?? null, visibleTabs),
+    [featurePicks, visibleTabs],
+  );
 
   // Floating-cluster state lives in AppShell so the cluster is available
   // on every AppShell-wrapped route — no per-page duplication.
@@ -74,7 +88,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // if they hide everything else (or if Settings was wiped). Settings itself
   // is rendered as a gear icon, never as part of NAV_ITEMS.
   const filtered = NAV_ITEMS.filter(
-    (item) => item.href === HOME_HREF || visibleTabs.includes(item.href),
+    (item) =>
+      item.href === HOME_HREF || effectiveVisibleTabs.includes(item.href),
   );
 
   // Header is tinted only when (a) a user is signed in, AND (b) the user

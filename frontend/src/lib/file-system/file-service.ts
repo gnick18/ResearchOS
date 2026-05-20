@@ -220,6 +220,32 @@ export class FileService {
     await this.atomicWrite(path, JSON.stringify(data, null, 2));
   }
 
+  // Raw-text counterparts to readJson / writeJson. Used by sidecar markdown
+  // files (e.g. `<id>-overview.md`) where the on-disk shape is prose, not
+  // a JSON object, and JSON.parse would just corrupt it. Missing file
+  // returns `null` (callers translate to "" for empty-body semantics).
+  async readText(path: string): Promise<string | null> {
+    if (!this.directoryHandle) return null;
+
+    const handle = await this.getHandleByPath(path);
+    if (!handle || handle.kind !== "file") return null;
+
+    try {
+      const fileHandle = handle as FileSystemFileHandle;
+      const file = await fileHandle.getFile();
+      const text = await file.text();
+      this.bumpReadCount();
+      return text;
+    } catch (err) {
+      console.warn(`[fileService.readText] Failed to read ${path} (treating as missing):`, err);
+      return null;
+    }
+  }
+
+  async writeText(path: string, content: string): Promise<void> {
+    await this.atomicWrite(path, content);
+  }
+
   async deleteFile(path: string): Promise<boolean> {
     if (!this.directoryHandle) return false;
 

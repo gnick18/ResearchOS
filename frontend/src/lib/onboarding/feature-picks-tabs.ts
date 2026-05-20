@@ -52,3 +52,41 @@ export function tabsForFeaturePicks(
     visible.has(href),
   );
 }
+
+/**
+ * Compose the effective visible-tab set from the user's Phase 1
+ * feature_picks (primary) and the settings.json visibleTabs (manual
+ * override layer). This is the AppShell-side read path that pairs
+ * with `tabsForFeaturePicks`.
+ *
+ * Contract (per ONBOARDING_V3_PROPOSAL.md §10 + master + Grant
+ * 2026-05-20 design lock):
+ *   - feature_picks is PRIMARY. If picks === null (existing user,
+ *     picks not yet set), the manual layer is authoritative as-is,
+ *     which preserves the L1/L22 invisibility invariant for any
+ *     pre-v4 sidecar.
+ *   - When picks !== null, settings.json.visibleTabs can additionally
+ *     HIDE tabs that feature_picks would show (manual override), but
+ *     it CANNOT unhide tabs that feature_picks excluded. A user who
+ *     answered "no" to /calendar in the wizard but whose settings.json
+ *     still lists /calendar (carryover from defaults) gets /calendar
+ *     HIDDEN; the wizard answer wins.
+ *
+ * Settings UI carve-out (intentionally out of scope for this read
+ * path): the existing Settings → "Visible tabs" toggles still WRITE
+ * to settings.json.visibleTabs, not to feature_picks. The Settings
+ * redesign is deferred. Consequence: a user who picked "no" for a tab
+ * in the wizard and then opens Settings cannot toggle that tab back
+ * on; the toggle sticks to "off" because feature_picks blocks it.
+ * This is the documented manual-override semantics, not a bug.
+ *
+ * Returns a fresh array; never mutates the input.
+ */
+export function deriveVisibleTabs(
+  picks: FeaturePicks | null,
+  settingsVisibleTabs: readonly string[],
+): string[] {
+  const featurePicksTabs = tabsForFeaturePicks(picks);
+  if (featurePicksTabs === null) return [...settingsVisibleTabs];
+  return settingsVisibleTabs.filter((href) => featurePicksTabs.includes(href));
+}
