@@ -19,9 +19,18 @@ import { fileService } from "@/lib/file-system/file-service";
  *    not picked yet → the orchestrator blocks tips and shows the welcome
  *    modal instead. Defaulted to `null` on read so any legacy v1 sidecar
  *    re-triggers the welcome modal once.
+ *  - v3 (2026-05-20): adds the Onboarding v2 wizard fields, all additive
+ *    and defaulted to `null`: `use_cases` (the picks from the 9-option
+ *    use-case wizard, or `null` if the wizard hasn't run for this user),
+ *    `wizard_completed_at` (ISO timestamp of Continue on step 7), and
+ *    `wizard_skipped_at` (ISO timestamp if the persistent Skip link was
+ *    used). The two timestamps are mutually exclusive. v2 records
+ *    normalize cleanly: existing `mode` / `tips` / `tips_off` /
+ *    `shown_count` / `active_seconds` / `last_tip_at` / `first_seen_at`
+ *    are preserved untouched, the three new fields backfill to `null`.
  */
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 /** Per-tip outcome enum. `action-cancel` is the no-fire case: the user
  *  did the thing the tip would have explained before the tip fired, so
@@ -65,6 +74,18 @@ export interface OnboardingSidecar {
   /** Welcome-modal pick. `null` = the user has not picked yet, so the
    *  orchestrator blocks tips and renders the welcome modal. */
   mode: OnboardingMode;
+  /** Use cases the user selected in the v2 wizard. `null` = wizard
+   *  not yet run (or user is migrated from v1/v2 with no wizard pick).
+   *  `[]` = wizard run and submitted with no picks (treat as "show
+   *  all tabs"). Specific ids = picked use cases. See
+   *  `use-case-tab-mapping.ts` for the canonical id list. */
+  use_cases: string[] | null;
+  /** ISO timestamp of wizard completion (Continue on step 7).
+   *  Mutually exclusive with `wizard_skipped_at`. */
+  wizard_completed_at: string | null;
+  /** ISO timestamp of wizard skip (persistent Skip link). Mutually
+   *  exclusive with `wizard_completed_at`. */
+  wizard_skipped_at: string | null;
 }
 
 function sidecarPath(username: string): string {
@@ -81,6 +102,9 @@ function makeDefault(): OnboardingSidecar {
     tips_off: false,
     shown_count: 0,
     mode: null,
+    use_cases: null,
+    wizard_completed_at: null,
+    wizard_skipped_at: null,
   };
 }
 
@@ -119,6 +143,23 @@ function normalize(raw: Partial<OnboardingSidecar> | null): OnboardingSidecar {
     rawMode === "silenced"
       ? rawMode
       : null;
+  // v3 wizard fields. All three are additive on a v2 record — defended
+  // to `null` if missing or malformed so a legacy v2 sidecar reads
+  // cleanly without clobbering its other fields.
+  const rawUseCases = (raw as { use_cases?: unknown }).use_cases;
+  const use_cases: string[] | null =
+    Array.isArray(rawUseCases) &&
+    rawUseCases.every((id) => typeof id === "string")
+      ? (rawUseCases as string[])
+      : null;
+  const rawCompleted = (raw as { wizard_completed_at?: unknown })
+    .wizard_completed_at;
+  const wizard_completed_at: string | null =
+    typeof rawCompleted === "string" ? rawCompleted : null;
+  const rawSkipped = (raw as { wizard_skipped_at?: unknown })
+    .wizard_skipped_at;
+  const wizard_skipped_at: string | null =
+    typeof rawSkipped === "string" ? rawSkipped : null;
   return {
     version: SCHEMA_VERSION,
     first_seen_at:
@@ -140,6 +181,9 @@ function normalize(raw: Partial<OnboardingSidecar> | null): OnboardingSidecar {
         ? raw.shown_count
         : 0,
     mode,
+    use_cases,
+    wizard_completed_at,
+    wizard_skipped_at,
   };
 }
 
