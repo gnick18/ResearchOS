@@ -1,48 +1,119 @@
 "use client";
 
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useCallback, useContext, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import OnboardingTutorialSequencer from "@/components/OnboardingTutorialSequencer";
+import WizardMount from "@/components/onboarding/v3/WizardMount";
+import type { WizardStep } from "@/components/onboarding/v3/WizardStepMachine";
+import {
+  clearWizardCompletion,
+  patchOnboarding,
+} from "@/lib/onboarding/sidecar";
 import {
   isDemoOrWikiCapture,
   isTutorialMode,
 } from "@/lib/file-system/wiki-capture-mock";
 
-// TODO P1: rewire to v4 walkthrough per ONBOARDING_V3_PROPOSAL.md §5-§11.
-// The old orchestrator body (tip roll loop, mode/sidecar state machine,
-// wizard mount gate, cross-tab tutorial subscriber) is gone with the
-// sidecar v3 → v4 migration (P0). The OnboardingProvider mount decision
-// below is preserved as the only piece of "mount logic" the brief asks
-// P0 to keep intact; the OnboardingOrchestrator body is a pass-through
-// stub until P1 builds the v3 walkthrough surface.
-//
-// Consumers of useOnboarding() see a context that returns no-ops for
-// every method, so DevForceTipButton and any other surface that calls
-// orchestrator.forceFireTip(...) compiles cleanly and silently does
-// nothing. The wizard preview hook (?wizard-preview=1) is also a no-op
-// here, P1 will reintroduce it against the v3 wizard component.
+/**
+ * Onboarding v3 orchestrator + provider.
+ *
+ * P1 (this file) fills in the orchestrator body. The
+ * OnboardingProvider mount decision tree from P0 is preserved
+ * verbatim — specifically the line marked LOCKED below — so the four
+ * gate-precedence states stay deterministic:
+ *
+ *   ?wikiCapture=1 alone               → fixture mode, wizard HIDDEN.
+ *                                          If isTutorialMode() is also
+ *                                          set, mount the tutorial
+ *                                          sequencer; otherwise just
+ *                                          render children.
+ *   ?wizard-preview=1 alone            → real account, wizard SHOWN
+ *                                          (dev hook).
+ *   ?wikiCapture=1 & ?wizard-preview=1 → fixture mode WITH wizard
+ *                                          shown (wiki manager P6
+ *                                          screenshot path). The
+ *                                          short-circuit at the LOCKED
+ *                                          line lets this through.
+ *   neither flag                       → standard §11 gating; the
+ *                                          WizardMount component below
+ *                                          consults the sidecar and
+ *                                          decides whether to mount.
+ *
+ * The useOnboarding() context exposes three minimal commands so
+ * DevForceTipButton (and any future surface like the Settings re-run
+ * card) can drive the wizard without poking the sidecar directly.
+ */
 
 interface OrchestratorContextValue {
-  cancelTip: (tipId: string) => void;
-  forceFireTip: (tipId: string) => void;
+  /** Mark the wizard skipped (wizard_skipped_at = now). Clears resume
+   *  state and the wizard_force_show flag. Useful when a non-wizard
+   *  surface wants to opt the user out without rendering the wizard. */
+  skipWizard: () => Promise<void>;
+  /** Mark the wizard completed (wizard_completed_at = now). Clears
+   *  resume state and the wizard_force_show flag. */
+  completeWizard: () => Promise<void>;
+  /** Force-fire the wizard at a specific step. Sets
+   *  wizard_force_show=true via clearWizardCompletion(), then plants
+   *  a resume_state pointing at the requested step. Caller is
+   *  responsible for reloading the page (or the mount probe re-fires
+   *  on next render). Used by the DevForceTipButton "mount wizard at
+   *  this step" affordance. */
+  jumpToStep: (step: WizardStep) => Promise<void>;
 }
-
-const NO_OP_CONTEXT: OrchestratorContextValue = {
-  cancelTip: () => {},
-  forceFireTip: () => {},
-};
 
 const OrchestratorContext = createContext<OrchestratorContextValue | null>(null);
 
 export function OnboardingOrchestrator({
+  username,
   children,
 }: {
   username: string;
   children: ReactNode;
 }) {
+  const skipWizard = useCallback(async () => {
+    await patchOnboarding(username, (cur) => ({
+      ...cur,
+      wizard_skipped_at: new Date().toISOString(),
+      wizard_force_show: false,
+      wizard_resume_state: null,
+    }));
+  }, [username]);
+
+  const completeWizard = useCallback(async () => {
+    await patchOnboarding(username, (cur) => ({
+      ...cur,
+      wizard_completed_at: new Date().toISOString(),
+      wizard_force_show: false,
+      wizard_resume_state: null,
+    }));
+  }, [username]);
+
+  const jumpToStep = useCallback(
+    async (step: WizardStep) => {
+      await clearWizardCompletion(username);
+      await patchOnboarding(username, (cur) => ({
+        ...cur,
+        wizard_resume_state: {
+          current_step: step,
+          skipped_steps: cur.wizard_resume_state?.skipped_steps ?? [],
+          artifacts_created:
+            cur.wizard_resume_state?.artifacts_created ?? [],
+        },
+      }));
+    },
+    [username],
+  );
+
+  const value: OrchestratorContextValue = {
+    skipWizard,
+    completeWizard,
+    jumpToStep,
+  };
+
   return (
-    <OrchestratorContext.Provider value={NO_OP_CONTEXT}>
+    <OrchestratorContext.Provider value={value}>
       {children}
+      <WizardMount username={username} />
     </OrchestratorContext.Provider>
   );
 }
@@ -52,10 +123,14 @@ export function useOnboarding(): OrchestratorContextValue | null {
 }
 
 /**
- * Top-level provider that decides what onboarding surface (if any) to
- * mount. P0 keeps the mount-decision tree intact so /demo?tutorial=1
- * still wires up the Phase-4 sequencer; the real orchestrator body it
- * routes to is a P1 rewrite target.
+ * Top-level provider that decides what onboarding surface (if any)
+ * to mount. The decision tree below is the authoritative four-state
+ * truth table — keep it in sync with the docblock above.
+ *
+ * LOCKED: line 71 below. The `(isDemoOrWikiCapture() && !wizardPreviewMode)`
+ * short-circuit is the gate-precedence pivot. Touching it changes
+ * the fixture × preview combined case (P6 wiki-manager screenshot
+ * path) so leave it as-is unless master explicitly re-litigates.
  */
 export function OnboardingProvider({
   currentUser,
