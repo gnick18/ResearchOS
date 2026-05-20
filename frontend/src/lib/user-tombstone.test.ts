@@ -273,14 +273,27 @@ describe("usersApi.getMainUser — tombstone-aware validation", () => {
     expect(fileService.listDirectories).not.toHaveBeenCalled();
   });
 
-  it("clears the IDB key when discoverUsers returns an empty list (fresh folder)", async () => {
+  it("does NOT clear the IDB key when discoverUsers returns an empty list (ambiguous: fresh folder vs transient FS error)", async () => {
+    // Originally this test asserted that an empty discoverUsers should clear
+    // the stale candidate. Grant hit a regression 2026-05-20 where his
+    // GrantNickles "set as main" pin was wiped on browser refresh — root
+    // cause was a concurrent listDirectories call hiccupping and returning
+    // [], which triggered this clear path against a valid candidate.
+    //
+    // discoverUsers returns [] both for (a) genuinely empty folders and
+    // (b) any transient FS error (listDirectories or readAllUserMetadata
+    // throwing — discoverUsers swallows). We can't tell those apart from
+    // the outside, so the conservative call is to keep the IDB key in the
+    // ambiguous case. A stale key in a genuinely empty folder costs
+    // nothing (next set-as-main overwrites); a wiped valid key costs a UX
+    // regression.
     (store.getMainUser as ReturnType<typeof vi.fn>).mockResolvedValueOnce("alex");
     const { fileService } = await import("./file-system/file-service");
     (fileService.listDirectories as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
 
     const result = await usersApi.getMainUser();
-    expect(result.main_user).toBe("");
-    expect(store.clearMainUser).toHaveBeenCalledTimes(1);
+    expect(result.main_user).toBe("alex");
+    expect(store.clearMainUser).not.toHaveBeenCalled();
   });
 });
 
