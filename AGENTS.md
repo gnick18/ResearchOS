@@ -321,6 +321,12 @@ Use this for any field rename. **Do NOT do hard on-disk cutovers** — rewrite-a
 **Standing reservation:**
 - **Wiki manager (parallel session)** — owns `/wiki/**`. Cumulative handoff queue has grown (see "For the wiki manager" subsection below). Off-limits to other sessions: `frontend/src/app/wiki/`, `frontend/src/components/wiki/`, `scripts/capture-wiki-screenshots.mjs`, `frontend/src/lib/file-system/wiki-capture-fixture.ts`, `frontend/src/lib/wiki/nav.ts`. Currently standby for the next handoff batch.
 
+### Deferred coordination items (queued, not in flight)
+
+Future arcs that depend on multiple in-flight managers landing first. Master should surface these when the prerequisite arcs complete, not before.
+
+- **Onboarding v3 × Project Surface integration pass** (Grant flagged 2026-05-20). After BOTH the Onboarding v3 arc AND the Project Surface UI arc complete, the v3 walkthrough needs additions to cover the new project route. Concrete touch points: W1 (create first project) should add a step that tours the new project route's Overview / Results / Methods / Activity sections; W2-W4 should mention that methods + experiments + linked results aggregate into the project page; L1-L5 (Lab Mode tour) likely wants a step that uses the new shareable project URL (`/workbench/projects/<id>?owner=<u>`) to demonstrate cross-user project visibility; BeakerBot voice may want a refresh if the project page becomes central identity. Drive: most likely the Onboarding v3 manager (walkthrough update is their territory) with technical sign-off from Project Surface UI manager. NOT a chip to fire now — wait for both arcs to finish their core phases.
+
 ### Session continuity note — 2026-05-15 (rolling)
 
 For the next master session picking this up: state is reconstructable from `git log --oneline -50` from `/Users/gnickles/Desktop/ResearchOS` plus the "Active bot branches (in flight)" section above. Recently-landed subsections below cover yesterday's arc (chips 1-4 of the /results kill, Lists tab implementation + follow-ups, /purchases chain A-C+backfill). No mid-flight rollover left behind.
