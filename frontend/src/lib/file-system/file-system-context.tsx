@@ -219,6 +219,20 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         if (users.length === 1) {
           currentUser = users[0];
           await storeCurrentUser(currentUser);
+        } else if (
+          currentUser &&
+          currentUser.toLowerCase() !== "lab" &&
+          !users.includes(currentUser)
+        ) {
+          // Stale currentUser pointing at a deleted/tombstoned/never-existed
+          // user (e.g. carryover from a demo-lab copy whose user folders were
+          // later wiped — Grant hit `alex` 2026-05-20). Same bug class as the
+          // stale-mainUser fix in usersApi.getMainUser at local-api.ts:4278;
+          // both read paths needed to be filtered against discoverUsers.
+          // "lab" is the Lab Mode sentinel and is intentionally not a
+          // discoverable user, so preserve it.
+          await clearCurrentUser();
+          currentUser = null;
         }
 
         let mainUser = await getMainUser();
