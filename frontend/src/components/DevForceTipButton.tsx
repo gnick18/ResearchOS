@@ -2,7 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useOnboarding } from "@/lib/onboarding/orchestrator";
+import { nextTestUserName } from "@/lib/onboarding/dev-sandbox";
+import { clearWizardCompletion } from "@/lib/onboarding/sidecar";
 import { ONBOARDING_TIPS } from "@/lib/onboarding/tips";
 import { findOnboardingTarget } from "@/lib/onboarding/use-onboarding-target";
 import BeakerBot from "./BeakerBot";
@@ -15,6 +18,31 @@ import Tooltip from "./Tooltip";
  * mounts. Bypasses every gate (active-time, cooldown, dwell, roll,
  * shown-history) — it's a preview, not a real serve, and does NOT
  * persist to the sidecar.
+ *
+ * The dropdown also exposes a "Show welcome wizard (creates Test user)"
+ * affordance — a dev-sandbox entry-point for the Onboarding v2 wizard
+ * (design lock by onboarding v2 manager 2026-05-20). On click:
+ *
+ *   1. nextTestUserName() picks the lowest available "Test-N" slot
+ *      (tombstoned entries count as used).
+ *   2. createUser(testUserName) provisions the user's directory tree
+ *      + counters file and refreshes the user list.
+ *   3. clearWizardCompletion(testUserName) flips wizard_force_show:
+ *      true on the new sidecar so the orchestrator's showWizard gate
+ *      fires even though the metadata entry from createUser makes
+ *      isFreshUserForWizard() return false.
+ *   4. setCurrentUser(testUserName) swaps the active user. The
+ *      orchestrator re-mounts against Test-N's sidecar and the wizard
+ *      appears.
+ *
+ * The wizard then runs entirely against Test-N — inline pair / feed /
+ * clipboard flows write to Test-N's folder, completion / skip write
+ * Test-N's sidecar. The real signed-in user is never touched.
+ *
+ * The active user stays on Test-N after the wizard finishes so Grant
+ * can poke around the chosen settings; he switches back manually via
+ * the existing user picker and can delete Test-N via the normal
+ * user-delete UI.
  *
  * Conditional on `process.env.NODE_ENV === "development"`. Next.js
  * replaces that with the literal `"development"` string at build time,
@@ -30,6 +58,7 @@ const IS_DEV = process.env.NODE_ENV === "development";
 export default function DevForceTipButton() {
   const [open, setOpen] = useState(false);
   const orchestrator = useOnboarding();
+  const { createUser, setCurrentUser } = useFileSystem();
   const router = useRouter();
   const pathname = usePathname() ?? "/";
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -83,16 +112,34 @@ export default function DevForceTipButton() {
     }
   };
 
-  const handleShowWelcome = () => {
+  const handleShowWizardSandbox = async () => {
     setOpen(false);
-    // Re-trigger the welcome modal by flipping sidecar.mode back to
-    // null. Orchestrator's `showWelcome = sidecar.mode === null`
-    // conditional will re-render the modal. The user can then re-pick
-    // a mode to verify each one. Does NOT clear the rest of the
-    // sidecar (tips history, active_seconds, etc.) — those stay so
-    // a second pick lands the user in the same state they were in
-    // before, just with the new mode.
-    void orchestrator.setMode(null);
+    // Dev-sandbox entry-point for the Onboarding v2 wizard. See the
+    // file-level comment for the full design lock. Goes entirely
+    // through existing primitives (createUser + clearWizardCompletion
+    // + setCurrentUser) — the orchestrator's showWizard gate handles
+    // the actual mount once currentUser flips.
+    try {
+      const testUserName = await nextTestUserName();
+      const created = await createUser(testUserName);
+      if (!created) {
+        console.error(
+          "[dev-sandbox] createUser failed for",
+          testUserName,
+        );
+        return;
+      }
+      // wizard_force_show: true on the new sidecar — needed because
+      // createUser registers the user in _user_metadata, which
+      // satisfies isFreshUserForWizard()'s "no metadata entry" signal
+      // and would otherwise skip the wizard. The force-show flag is
+      // the explicit bypass; the wizard's onComplete / onSkip clears
+      // it back to false (one-shot).
+      await clearWizardCompletion(testUserName);
+      await setCurrentUser(testUserName);
+    } catch (err) {
+      console.error("[dev-sandbox] failed to create test user", err);
+    }
   };
 
   const handleOpenTelegramWalkthrough = () => {
@@ -146,10 +193,10 @@ export default function DevForceTipButton() {
           <div className="border-t border-slate-100 mt-1 pt-1">
             <button
               role="menuitem"
-              onClick={handleShowWelcome}
+              onClick={handleShowWizardSandbox}
               className="w-full text-left px-3 py-2 text-sm hover:bg-amber-50 text-amber-700 font-medium transition-colors"
             >
-              Show welcome modal
+              Show welcome wizard (creates Test user)
             </button>
             <button
               role="menuitem"
