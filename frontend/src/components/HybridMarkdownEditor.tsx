@@ -1910,6 +1910,9 @@ export default function HybridMarkdownEditor({
       resolvedBlobUrls,
       value,
       onChange,
+      onImageDrop,
+      onFileDrop,
+      allowAnyFileType,
     ]
   );
 

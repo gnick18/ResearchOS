@@ -208,6 +208,7 @@ export default function OnboardingTutorialSequencer() {
   const firstPhotoTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR-hydration gate: the component renders null until mounted so the server-rendered tree matches first client paint, then flips to mounted=true to begin the tutorial. Cannot be useMemo (mounted is a side-effect signal, not derived state); cannot be a lazy useState initializer (would be true on the SSR pass and re-introduce the hydration mismatch this guard exists to prevent).
     setMounted(true);
   }, []);
 
@@ -239,6 +240,7 @@ export default function OnboardingTutorialSequencer() {
   // immediately so there's no flash.
   useEffect(() => {
     cancelPoll();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- per-step lifecycle: must clear the prior step's target before async DOM-polling for the new tip resolves, otherwise the glow anchor flickers on the old element while router.push + setTimeout-poll converge. Cannot be useMemo (target is resolved async from DOM, not derived from currentTip); cannot be sync-prop-via-key (the surrounding refs pollHandleRef/pollDeadlineRef/firstPhotoTimeoutRef must persist across step transitions for cross-step cancellation to work, and re-mounting on currentTip change would null them out mid-cancel).
     setTarget(null);
     if (!currentTip) return;
 
