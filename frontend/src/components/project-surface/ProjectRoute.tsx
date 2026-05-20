@@ -9,6 +9,7 @@ import type { ProjectUpdate } from "@/lib/local-api";
 import SharePopup from "@/components/SharePopup";
 import Tooltip from "@/components/Tooltip";
 import LiveMarkdownEditor from "@/components/LiveMarkdownEditor";
+import ResultsGallery from "@/components/project-surface/ResultsGallery";
 import { fileService } from "@/lib/file-system/file-service";
 import { fileEvents } from "@/lib/attachments/file-events";
 import { imageEvents } from "@/lib/attachments/image-events";
@@ -317,7 +318,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
           editOwner={effectiveOwnerOf(project)}
           readOnly={isViewOnlyReceiver}
         />
-        <Section id="results" title="Results" />
+        <ResultsGallery project={project} />
         <Section id="methods" title="Methods" />
         <Section id="activity" title="Activity" />
       </div>
