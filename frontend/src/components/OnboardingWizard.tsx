@@ -11,11 +11,13 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import BeakerBot from "./BeakerBot";
+import TelegramPairingModal from "./TelegramPairingModal";
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import {
   USE_CASES,
   seedVisibleTabsForStep3,
 } from "@/lib/onboarding/use-case-tab-mapping";
+import { createFeed } from "@/lib/calendar/external-feeds-store";
 
 /**
  * The Onboarding v2 7-step wizard component.
@@ -102,6 +104,17 @@ interface WizardData {
    *  NOT added to `useCases` — it's purely captured for analytics /
    *  future personalization. */
   otherUseCase: string;
+  /** Phase 2b: step-4 outcome. `"paired"` when the inline pair flow
+   *  finished. `"later"` when the user clicked "Maybe later".
+   *  `"skipped"` when the step auto-skipped (computational-only). */
+  telegramDecision?: "paired" | "later" | "skipped";
+  /** Phase 2b: step-5 outcome. `"added"` after a successful
+   *  createFeed call, `"later"` on the Maybe-later button. */
+  calendarDecision?: "added" | "later";
+  /** Phase 2b: step-6 outcome. `"copied"` after navigator.clipboard
+   *  succeeds (or the fallback textarea is surfaced), `"later"` on
+   *  the Maybe-later button. */
+  aiHelperDecision?: "copied" | "later";
 }
 
 interface OnboardingWizardProps {
@@ -141,6 +154,13 @@ interface OnboardingWizardProps {
    *  `?wizard-preview=1` URL-param hook (master flag #2 from CDP
    *  testing). */
   previewMode?: boolean;
+  /** Phase 2b: fires whenever `wizardData.useCases` mutates. The
+   *  orchestrator can subscribe to log analytics or pre-fetch
+   *  downstream resources. Ships with a no-op consumer in Phase 2b,
+   *  Phase 2c may use it. The wizard fires this EXACTLY ONCE per
+   *  mutation (in the step-2 chip-toggle handler), not on every
+   *  render. */
+  onUseCasesChange?: (useCases: string[]) => void;
 }
 
 /** Custom hook: trap Tab/Shift+Tab cycling inside `containerRef`
@@ -224,11 +244,12 @@ function useFocusTrap(
 }
 
 export default function OnboardingWizard({
-  username: _username,
+  username,
   isMultiUserFolder,
   onComplete,
   onSkip,
   previewMode = false,
+  onUseCasesChange,
 }: OnboardingWizardProps) {
   const [mounted, setMounted] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
@@ -329,14 +350,26 @@ export default function OnboardingWizard({
 
   const toggleUseCase = useCallback(
     (id: string) => {
+      // Fire `onUseCasesChange` exactly once per click. We capture the
+      // computed next array out of the functional setter (StrictMode
+      // may invoke the updater twice in dev, but both invocations
+      // produce the same value, so the final captured array is
+      // correct) and call the callback once, AFTER `setWizardData`,
+      // so React's batching keeps the state + callback in sync.
+      let nextUseCases: string[] | null = null;
       setWizardData((cur) => {
         const set = new Set(cur.useCases);
         if (set.has(id)) set.delete(id);
         else set.add(id);
-        return { ...cur, useCases: Array.from(set) };
+        const next = Array.from(set);
+        nextUseCases = next;
+        return { ...cur, useCases: next };
       });
+      if (nextUseCases !== null) {
+        onUseCasesChange?.(nextUseCases);
+      }
     },
-    [],
+    [onUseCasesChange],
   );
 
   const toggleVisibleTab = useCallback((href: string) => {
@@ -355,6 +388,22 @@ export default function OnboardingWizard({
     () => Math.round((currentStep / TOTAL_STEPS) * 100),
     [currentStep],
   );
+
+  /** Programmatic step advance used by step-body click handlers (the
+   *  Continue button on the auto-skip notice, the success path after
+   *  createFeed, etc.). Caps at TOTAL_STEPS so an over-eager handler
+   *  can't push past step 7. */
+  const advanceStep = useCallback(() => {
+    setCurrentStep((s) => Math.min(TOTAL_STEPS, s + 1));
+  }, []);
+
+  /** Step-4 auto-skip predicate: computational-only users get the
+   *  notice card instead of the pair-bot flow. By brief, this is the
+   *  ONLY combination that auto-skips: any other single pick, or any
+   *  multi-pick that includes computational, lands in the normal Step
+   *  4 view. (Master locked the single-use-case rule via the brief.) */
+  const shouldAutoSkipTelegram =
+    wizardData.useCases.length === 1 && wizardData.useCases[0] === "computational";
 
   if (!mounted) return null;
 
@@ -438,9 +487,33 @@ export default function OnboardingWizard({
               onToggle={toggleVisibleTab}
             />
           )}
-          {currentStep >= 4 && (
+          {currentStep === 4 && (
+            <Step4Telegram
+              username={username}
+              autoSkip={shouldAutoSkipTelegram}
+              decision={wizardData.telegramDecision}
+              onDecision={(d) => updateWizardData({ telegramDecision: d })}
+              onAdvance={advanceStep}
+            />
+          )}
+          {currentStep === 5 && (
+            <Step5Calendar
+              username={username}
+              decision={wizardData.calendarDecision}
+              onDecision={(d) => updateWizardData({ calendarDecision: d })}
+              onAdvance={advanceStep}
+            />
+          )}
+          {currentStep === 6 && (
+            <Step6AIHelper
+              decision={wizardData.aiHelperDecision}
+              onDecision={(d) => updateWizardData({ aiHelperDecision: d })}
+              onAdvance={advanceStep}
+            />
+          )}
+          {currentStep === 7 && (
             <div className="min-h-[200px] flex items-center justify-center text-center text-gray-500 text-sm leading-relaxed">
-              Step {currentStep}: {stepSlug}, content lands in Phase 2b/2c.
+              Step {currentStep}: {stepSlug}, content lands in Phase 2c.
             </div>
           )}
         </div>
@@ -649,6 +722,465 @@ function Step3TabConfig({
             </label>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+/** Step 4: Telegram pairing. Two modes:
+ *   1. Auto-skip, when `autoSkip === true` (computational-only). Renders
+ *      a friendly amber notice card; the Continue button advances to
+ *      step 5 and marks `telegramDecision = "skipped"`.
+ *   2. Normal, every other use-case combo. Renders two CTAs: "Set it up
+ *      now" reveals the inline TelegramPairingModal (`inline=true` so it
+ *      drops the portal/backdrop chrome) and "Maybe later" advances
+ *      with `telegramDecision = "later"`.
+ *
+ *  On successful pair: `telegramDecision = "paired"` + advance. On
+ *  cancel inside the inline pair flow: re-show the two CTAs so the
+ *  user can pick "Maybe later" instead. On disconnect (shouldn't
+ *  happen during the wizard since fresh users haven't paired yet,
+ *  but the inline modal supports it): treat as cancel. */
+function Step4Telegram({
+  username,
+  autoSkip,
+  decision: _decision,
+  onDecision,
+  onAdvance,
+}: {
+  username: string;
+  autoSkip: boolean;
+  decision: "paired" | "later" | "skipped" | undefined;
+  onDecision: (d: "paired" | "later" | "skipped") => void;
+  onAdvance: () => void;
+}) {
+  const [showPair, setShowPair] = useState(false);
+
+  if (autoSkip) {
+    return (
+      <div className="space-y-4 min-h-[200px]">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <h3 className="text-sm font-semibold text-amber-900">
+            We&apos;re skipping Telegram setup for now
+          </h3>
+          <p className="mt-2 text-sm text-amber-800 leading-relaxed">
+            You picked computational research, which usually doesn&apos;t
+            need an image inbox via Telegram. You can always pair the
+            bot later from Settings, Telegram.
+          </p>
+        </div>
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => {
+              onDecision("skipped");
+              onAdvance();
+            }}
+            className="px-4 py-2 text-sm font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm"
+          >
+            Continue
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (showPair) {
+    return (
+      <div className="space-y-3">
+        <TelegramPairingModal
+          username={username}
+          inline
+          onClose={(updated) => {
+            // Success path: a TelegramPairing object came back.
+            // Cancel/disconnect paths: undefined or null. Re-show the
+            // two CTAs in the cancel path so the user can still pick
+            // "Maybe later".
+            if (updated) {
+              onDecision("paired");
+              onAdvance();
+            } else {
+              setShowPair(false);
+            }
+          }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 min-h-[200px]">
+      <div>
+        <h3 className="text-base font-medium text-gray-900">
+          Want to set up Telegram for image inbox?
+        </h3>
+        <p className="mt-1 text-sm text-gray-600 leading-relaxed">
+          Text photos from your phone and they&apos;ll auto-attach to
+          the active experiment, or land in your Inbox.
+        </p>
+      </div>
+      <div className="flex flex-col gap-2">
+        <button
+          type="button"
+          onClick={() => setShowPair(true)}
+          className="w-full px-4 py-3 text-sm font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm"
+        >
+          Set it up now
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            onDecision("later");
+            onAdvance();
+          }}
+          className="w-full px-4 py-3 text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+        >
+          Maybe later
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Step 5: calendar feed subscription. Two CTAs ("Add one now" / "Maybe
+ *  later"); the former reveals a mini inline form that calls
+ *  `createFeed()` with `{ provider: "other", label, icsUrl, color }`.
+ *  On success: `calendarDecision = "added"` + 1-second auto-advance
+ *  (lets the green "Subscribed!" check breathe before the step
+ *  flips). On error: render a red line and keep the form open. */
+function Step5Calendar({
+  username,
+  decision: _decision,
+  onDecision,
+  onAdvance,
+}: {
+  username: string;
+  decision: "added" | "later" | undefined;
+  onDecision: (d: "added" | "later") => void;
+  onAdvance: () => void;
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [name, setName] = useState("");
+  const [url, setUrl] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  const validUrl = /^(https?|webcal):\/\//i.test(url.trim());
+  const canSubmit = name.trim().length > 0 && validUrl && !submitting;
+
+  const handleSubscribe = useCallback(async () => {
+    if (!canSubmit) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await createFeed(username, {
+        provider: "other",
+        label: name.trim(),
+        icsUrl: url.trim(),
+        color: "#3b82f6",
+      });
+      setSuccess(true);
+      onDecision("added");
+      // Brief 1s pause so the user sees the green check before the
+      // step flips. Avoids a jarring "click → instantly on next step"
+      // feel. The wizard's footer Continue button is also live during
+      // this pause if the user wants to advance manually.
+      window.setTimeout(() => onAdvance(), 1000);
+    } catch (err) {
+      console.error("[onboarding] step-5 createFeed failed", err);
+      setError("Couldn't subscribe. Check the URL and try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }, [canSubmit, name, url, username, onDecision, onAdvance]);
+
+  if (showForm) {
+    return (
+      <div className="space-y-4 min-h-[200px]">
+        <div>
+          <h3 className="text-base font-medium text-gray-900">
+            Subscribe to a calendar feed
+          </h3>
+          <p className="mt-1 text-sm text-gray-600">
+            Paste the ICS URL from Google, Apple, Outlook, or any public
+            calendar.
+          </p>
+        </div>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Name
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="My Google calendar"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+              disabled={submitting || success}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              ICS URL
+            </label>
+            <input
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://calendar.google.com/calendar/ical/..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+              disabled={submitting || success}
+            />
+          </div>
+          {error && <p className="text-xs text-red-600">{error}</p>}
+          {success && (
+            <p className="text-xs text-emerald-600 flex items-center gap-1.5">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              Subscribed!
+            </p>
+          )}
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setShowForm(false);
+              setError(null);
+              setName("");
+              setUrl("");
+            }}
+            disabled={submitting || success}
+            className="text-sm text-gray-500 hover:text-gray-700 underline disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleSubscribe()}
+            disabled={!canSubmit || success}
+            className="px-4 py-2 text-sm font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitting ? "Subscribing…" : success ? "Subscribed" : "Subscribe"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 min-h-[200px]">
+      <div>
+        <h3 className="text-base font-medium text-gray-900">
+          Want to subscribe to a calendar feed?
+        </h3>
+        <p className="mt-1 text-sm text-gray-600 leading-relaxed">
+          Bring in Google, Apple, Outlook, or any public ICS URL. They
+          show up next to your experiments.
+        </p>
+      </div>
+      <div className="flex flex-col gap-2">
+        <button
+          type="button"
+          onClick={() => setShowForm(true)}
+          className="w-full px-4 py-3 text-sm font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm"
+        >
+          Add one now
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            onDecision("later");
+            onAdvance();
+          }}
+          className="w-full px-4 py-3 text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+        >
+          Maybe later
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Step 6: copy the lean AI Helper prompt to the clipboard. Two CTAs;
+ *  "Copy prompt now" fetches `/ai-helper/lean.md` and writes it via
+ *  `navigator.clipboard.writeText()`. On clipboard failure (rare,
+ *  insecure-context, denied permission), surface a fallback textarea
+ *  the user can select-all + copy manually. Sets
+ *  `aiHelperDecision = "copied"` on copy success, `"later"` on
+ *  Maybe-later. */
+function Step6AIHelper({
+  decision: _decision,
+  onDecision,
+  onAdvance,
+}: {
+  decision: "copied" | "later" | undefined;
+  onDecision: (d: "copied" | "later") => void;
+  onAdvance: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const [fetching, setFetching] = useState(false);
+  const [fallbackText, setFallbackText] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  const handleCopy = useCallback(async () => {
+    setFetching(true);
+    setFetchError(null);
+    try {
+      // Mirror the AIHelperSection pattern: fetch lean.md directly,
+      // no-store so a stale dev cache doesn't serve an older prompt.
+      const res = await fetch("/ai-helper/lean.md", { cache: "no-store" });
+      if (!res.ok) throw new Error(`prompt fetch failed (${res.status})`);
+      const text = await res.text();
+      // Try the modern clipboard API first. Falls back to a textarea
+      // the user can select-all + copy from on insecure contexts
+      // (HTTP, some older WebViews) where navigator.clipboard is
+      // either undefined or rejects.
+      let clipboardOk = false;
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(text);
+          clipboardOk = true;
+        } catch {
+          // fall through to the textarea fallback below
+        }
+      }
+      if (clipboardOk) {
+        setCopied(true);
+        onDecision("copied");
+      } else {
+        setFallbackText(text);
+        // Treat the fallback path as "copied": the user explicitly
+        // requested the prompt, and they have it on screen. Phase 2c
+        // can split this into a separate decision if needed.
+        onDecision("copied");
+      }
+    } catch (err) {
+      console.error("[onboarding] step-6 AI helper fetch failed", err);
+      setFetchError(
+        "Couldn't fetch the prompt. You can grab it later from Settings, AI Helper.",
+      );
+    } finally {
+      setFetching(false);
+    }
+  }, [onDecision]);
+
+  // The textarea fallback view, surfacing the raw prompt for manual
+  // select-all + copy. Auto-selects on mount so Cmd/Ctrl-C lands the
+  // copy in one keystroke.
+  if (fallbackText) {
+    return (
+      <div className="space-y-3 min-h-[200px]">
+        <p className="text-sm text-gray-600">
+          We couldn&apos;t reach the clipboard automatically. Select all
+          the text below and copy it manually, then paste into Claude,
+          ChatGPT, or Gemini&apos;s system instructions.
+        </p>
+        <textarea
+          readOnly
+          value={fallbackText}
+          autoFocus
+          onFocus={(e) => e.currentTarget.select()}
+          className="w-full h-32 px-3 py-2 border border-gray-300 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-sky-500"
+        />
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={onAdvance}
+            className="px-4 py-2 text-sm font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm"
+          >
+            Continue
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (copied) {
+    return (
+      <div className="space-y-3 min-h-[200px]">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+          <div className="flex items-start gap-2">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-emerald-600 mt-0.5 flex-shrink-0"
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            <div>
+              <p className="text-sm font-medium text-emerald-900">Copied!</p>
+              <p className="mt-1 text-sm text-emerald-800 leading-relaxed">
+                Paste it into Claude, ChatGPT, or Gemini&apos;s system
+                instructions.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={onAdvance}
+            className="px-4 py-2 text-sm font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm"
+          >
+            Continue
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 min-h-[200px]">
+      <div>
+        <h3 className="text-base font-medium text-gray-900">
+          Want a prompt for Claude, ChatGPT, or Gemini?
+        </h3>
+        <p className="mt-1 text-sm text-gray-600 leading-relaxed">
+          Paste it once and your AI knows ResearchOS, its features,
+          schema, drafting helpers.
+        </p>
+      </div>
+      {fetchError && <p className="text-xs text-red-600">{fetchError}</p>}
+      <div className="flex flex-col gap-2">
+        <button
+          type="button"
+          onClick={() => void handleCopy()}
+          disabled={fetching}
+          className="w-full px-4 py-3 text-sm font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {fetching ? "Fetching…" : "Copy prompt now"}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            onDecision("later");
+            onAdvance();
+          }}
+          className="w-full px-4 py-3 text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+        >
+          Maybe later
+        </button>
       </div>
     </div>
   );
