@@ -58,6 +58,7 @@ vi.mock("./file-system/indexeddb-store", () => ({
   clearCurrentUserCache: vi.fn(() => {}),
   getMainUser: vi.fn(async () => ""),
   storeMainUser: vi.fn(async () => {}),
+  clearMainUser: vi.fn(async () => {}),
 }));
 
 // ── Imports (after mocks) ───────────────────────────────────────────────────
@@ -173,6 +174,113 @@ describe("usersApi.delete — tombstone register", () => {
 
     const { users } = await usersApi.list();
     expect(users).toEqual(["alice"]);
+  });
+});
+
+describe("usersApi.getMainUser — tombstone-aware validation", () => {
+  // The user-tombstone work at 3f83e157 filtered discoverUsers + usersApi.list
+  // but left getMainUser returning the raw IDB candidate without validation.
+  // Symptom: Grant exited Lab Mode and landed on user `alex` — a deleted user
+  // whose folder no longer existed but whose username still sat in IDB's
+  // mainUser key (carryover from an old demo lab copy). The fix validates the
+  // candidate against discoverUsers and clears the stale IDB key when invalid.
+  // See app/lab/page.tsx:164 (handleLogout) for the calling site.
+
+  let store: typeof import("./file-system/indexeddb-store");
+
+  beforeEach(async () => {
+    store = await import("./file-system/indexeddb-store");
+    (store.getMainUser as ReturnType<typeof vi.fn>).mockClear();
+    (store.clearMainUser as ReturnType<typeof vi.fn>).mockClear();
+    (store.getCurrentUser as ReturnType<typeof vi.fn>).mockClear();
+    const { fileService } = await import("./file-system/file-service");
+    (fileService.listDirectories as ReturnType<typeof vi.fn>).mockClear();
+  });
+
+  it("returns the candidate unchanged when it is a valid (non-tombstoned) user", async () => {
+    (store.getMainUser as ReturnType<typeof vi.fn>).mockResolvedValueOnce("alex");
+    const { fileService } = await import("./file-system/file-service");
+    (fileService.listDirectories as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      "alex",
+      "morgan",
+    ]);
+    memFs.set("users/_user_metadata.json", {
+      users: {
+        alex: { color: "#10b981", created_at: "2026-01-01T00:00:00.000Z" },
+        morgan: { color: "#3b82f6", created_at: "2026-01-01T00:00:00.000Z" },
+      },
+    });
+
+    const result = await usersApi.getMainUser();
+    expect(result.main_user).toBe("alex");
+    expect(store.clearMainUser).not.toHaveBeenCalled();
+  });
+
+  it("clears the stale IDB key and returns empty when the candidate no longer exists on disk", async () => {
+    (store.getMainUser as ReturnType<typeof vi.fn>).mockResolvedValueOnce("alex");
+    const { fileService } = await import("./file-system/file-service");
+    (fileService.listDirectories as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      "morgan",
+      "GrantNickles",
+    ]);
+    memFs.set("users/_user_metadata.json", {
+      users: {
+        morgan: { color: "#3b82f6", created_at: "2026-01-01T00:00:00.000Z" },
+        GrantNickles: { color: "#a855f7", created_at: "2026-01-01T00:00:00.000Z" },
+      },
+    });
+
+    const result = await usersApi.getMainUser();
+    expect(result.main_user).toBe("");
+    expect(store.clearMainUser).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears the IDB key when the candidate is tombstoned (deleted_at set)", async () => {
+    (store.getMainUser as ReturnType<typeof vi.fn>).mockResolvedValueOnce("kritika");
+    const { fileService } = await import("./file-system/file-service");
+    // OneDrive Files On-Demand has restored `kritika/` as a placeholder — the
+    // directory listing surfaces her, but the deleted_at tombstone hides her
+    // from discoverUsers. getMainUser should still treat the candidate as
+    // invalid and clear the IDB key.
+    (fileService.listDirectories as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      "alice",
+      "kritika",
+    ]);
+    memFs.set("users/_user_metadata.json", {
+      users: {
+        alice: { color: "#3b82f6", created_at: "2026-01-01T00:00:00.000Z" },
+        kritika: {
+          color: "#ef4444",
+          created_at: "2026-01-01T00:00:00.000Z",
+          deleted_at: "2026-05-15T12:00:00.000Z",
+        },
+      },
+    });
+
+    const result = await usersApi.getMainUser();
+    expect(result.main_user).toBe("");
+    expect(store.clearMainUser).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns empty without validation when the IDB key is already empty", async () => {
+    (store.getMainUser as ReturnType<typeof vi.fn>).mockResolvedValueOnce("");
+    const { fileService } = await import("./file-system/file-service");
+
+    const result = await usersApi.getMainUser();
+    expect(result.main_user).toBe("");
+    // Skip the validation path entirely — no discoverUsers call, no clear.
+    expect(store.clearMainUser).not.toHaveBeenCalled();
+    expect(fileService.listDirectories).not.toHaveBeenCalled();
+  });
+
+  it("clears the IDB key when discoverUsers returns an empty list (fresh folder)", async () => {
+    (store.getMainUser as ReturnType<typeof vi.fn>).mockResolvedValueOnce("alex");
+    const { fileService } = await import("./file-system/file-service");
+    (fileService.listDirectories as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
+
+    const result = await usersApi.getMainUser();
+    expect(result.main_user).toBe("");
+    expect(store.clearMainUser).toHaveBeenCalledTimes(1);
   });
 });
 
