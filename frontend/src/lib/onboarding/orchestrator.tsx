@@ -13,7 +13,7 @@ import {
 import { usePathname } from "next/navigation";
 import OnboardingTipCard from "@/components/OnboardingTipCard";
 import OnboardingTutorialSequencer from "@/components/OnboardingTutorialSequencer";
-import OnboardingWelcomeModal from "@/components/OnboardingWelcomeModal";
+import OnboardingWizard from "@/components/OnboardingWizard";
 import {
   isDemoOrWikiCapture,
   isTutorialMode,
@@ -23,6 +23,7 @@ import {
   initActiveTime,
   stopActiveTime,
 } from "./active-time";
+import { isFreshUserForWizard } from "./is-fresh-user";
 import {
   patchOnboarding,
   readOnboarding,
@@ -31,6 +32,8 @@ import {
   type OnboardingSidecar,
   type TipOutcome,
 } from "./sidecar";
+import { tabsForUseCases } from "./use-case-tab-mapping";
+import { patchUserSettings } from "@/lib/settings/user-settings";
 import {
   ACTIVE_SECONDS_CAP,
   MIN_GAP_SECONDS,
@@ -135,6 +138,12 @@ export function OnboardingOrchestrator({
   const [sidecar, setSidecar] = useState<OnboardingSidecar | null>(null);
   const [activeTip, setActiveTip] = useState<OnboardingTip | null>(null);
   const [activeTarget, setActiveTarget] = useState<HTMLElement | null>(null);
+  // Onboarding v2 Phase 1: fresh-user predicate result. null while the
+  // probe is in flight; true if the user has no sidecar / settings /
+  // metadata footprint (per isFreshUserForWizard), false otherwise.
+  // Gates the wizard mount alongside sidecar.wizard_completed_at /
+  // wizard_skipped_at. See `is-fresh-user.ts` for the predicate.
+  const [isFreshUser, setIsFreshUser] = useState<boolean | null>(null);
 
   // Active-seconds at which the user landed on the current route. Used
   // to enforce the 30s "route dwell" gate before any tip on this route
@@ -151,9 +160,17 @@ export function OnboardingOrchestrator({
     let cancelled = false;
     (async () => {
       await initActiveTime(username);
-      const initial = await readOnboarding(username);
+      // Phase 1: probe the fresh-user predicate in parallel with the
+      // sidecar read so the wizard mount decision is settled by the
+      // time both finish. The predicate is a pure read (no writes), so
+      // running it before the sidecar exists is safe.
+      const [initial, fresh] = await Promise.all([
+        readOnboarding(username),
+        isFreshUserForWizard(username),
+      ]);
       if (cancelled) return;
       setSidecar(initial);
+      setIsFreshUser(fresh);
       routeEnterActiveRef.current = getActiveSeconds();
     })();
 
@@ -443,26 +460,96 @@ export function OnboardingOrchestrator({
     [activeTip, recordOutcome],
   );
 
-  const handleWelcomePick = useCallback(
-    (mode: Exclude<OnboardingMode, null>) => {
-      void setMode(mode);
+  // ── Onboarding v2 Phase 1: wizard completion + skip handlers ──────
+  // The OnboardingWizard component does NOT write to the sidecar or
+  // settings.json itself; it surfaces onComplete / onSkip and the
+  // orchestrator owns the persistence. Both handlers also seed
+  // `mode: "suggestions"` if mode is still null so tips can fire
+  // post-wizard (the roll loop's `mode === null` gate is the same
+  // gate the v1 welcome modal blocked tips with, and it's intentionally
+  // unchanged for Phase 1).
+  const handleWizardComplete = useCallback(
+    (useCases: string[]) => {
+      void (async () => {
+        // Settings write first: visibleTabs derived from the user's
+        // picks. Wrap in try/catch so a settings-write failure does
+        // NOT block wizard completion (the sidecar write below is the
+        // source of truth for "wizard done"; visibleTabs is a polish).
+        try {
+          const visibleTabs = tabsForUseCases(useCases);
+          await patchUserSettings(username, { visibleTabs });
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error("[onboarding] wizard complete: visibleTabs write failed", err);
+        }
+        // Sidecar write: use_cases + wizard_completed_at + seed mode.
+        // The `cur.mode ?? "suggestions"` guard means re-runs (Phase 4)
+        // that already have a mode picked don't clobber the user's
+        // earlier Settings → Tips choice.
+        const next = await patchOnboarding(username, (cur) => ({
+          ...cur,
+          use_cases: useCases,
+          wizard_completed_at: new Date().toISOString(),
+          mode: cur.mode ?? "suggestions",
+        }));
+        setSidecar(next);
+        // Reset route-dwell baseline so the first post-wizard tip can
+        // fire without waiting another 30s of dwell on the current
+        // route. Mirrors the v1 setMode() pattern for the welcome
+        // modal pick. See setMode() above for the rationale.
+        routeEnterActiveRef.current = -999_999;
+      })();
     },
-    [setMode],
+    [username],
   );
+
+  const handleWizardSkip = useCallback(() => {
+    void (async () => {
+      // Skip writes wizard_skipped_at only. By master's lock
+      // (2026-05-20), use_cases stays null on skip; the null-vs-empty-
+      // array distinction encodes "skipped" vs "submitted with no
+      // picks". visibleTabs is left at the user's defaults
+      // (DEFAULT_SETTINGS.visibleTabs is all tabs) on skip.
+      const next = await patchOnboarding(username, (cur) => ({
+        ...cur,
+        wizard_skipped_at: new Date().toISOString(),
+        mode: cur.mode ?? "suggestions",
+      }));
+      setSidecar(next);
+      // Reset route-dwell baseline (same rationale as the completion
+      // handler — skipped users should still see a first tip promptly).
+      routeEnterActiveRef.current = -999_999;
+    })();
+  }, [username]);
 
   const value = useMemo<OrchestratorContextValue>(
     () => ({ cancelTip, forceFireTip, sidecar, setMode }),
     [cancelTip, forceFireTip, sidecar, setMode],
   );
 
-  // Welcome modal shows when the sidecar's loaded AND the user hasn't
-  // picked a mode yet AND no tip is on screen. (The last clause is
-  // belt-and-suspenders — the roll loop blocks tip fires while
-  // `mode === null`, so this shouldn't happen, but if a force-fire
-  // races the initial sidecar read we'd rather show the tip than
-  // double-stack.)
-  const showWelcome =
-    sidecar !== null && sidecar.mode === null && activeTip === null;
+  // Onboarding v2 Phase 1: wizard mount gate. Replaces the v1
+  // OnboardingWelcomeModal entirely (the v1 component file stays on
+  // disk per the Phase 1 brief; only its mount path here retires).
+  //
+  // The wizard fires for fresh users only: no prior sidecar /
+  // settings / metadata footprint (isFreshUserForWizard()), AND the
+  // sidecar's wizard_completed_at / wizard_skipped_at are both null.
+  // The active-tip gate is belt-and-suspenders (a force-fire shouldn't
+  // race the initial wizard mount, but if it does we'd rather show
+  // the tip than double-stack the surface).
+  //
+  // Master locks pinned by this gate:
+  //  - "Existing users skip the wizard automatically and load their
+  //    profile" (onboarding v2 brief Phase 0).
+  //  - The v1 welcome modal retires (onboarding v2 brief Phase 1).
+  //  - use_cases stays null on skip vs. an empty array on
+  //    submitted-with-no-picks (master lock 2026-05-20).
+  const showWizard =
+    sidecar !== null &&
+    isFreshUser === true &&
+    sidecar.wizard_completed_at === null &&
+    sidecar.wizard_skipped_at === null &&
+    activeTip === null;
 
   return (
     <OrchestratorContext.Provider value={value}>
@@ -474,7 +561,13 @@ export function OnboardingOrchestrator({
           onClose={handleDismiss}
         />
       )}
-      {showWelcome && <OnboardingWelcomeModal onPick={handleWelcomePick} />}
+      {showWizard && (
+        <OnboardingWizard
+          username={username}
+          onComplete={handleWizardComplete}
+          onSkip={handleWizardSkip}
+        />
+      )}
     </OrchestratorContext.Provider>
   );
 }
