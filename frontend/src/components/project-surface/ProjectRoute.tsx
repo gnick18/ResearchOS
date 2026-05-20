@@ -10,6 +10,7 @@ import SharePopup from "@/components/SharePopup";
 import Tooltip from "@/components/Tooltip";
 import LiveMarkdownEditor from "@/components/LiveMarkdownEditor";
 import ResultsGallery from "@/components/project-surface/ResultsGallery";
+import MethodsInventory from "@/components/project-surface/MethodsInventory";
 import { fileService } from "@/lib/file-system/file-service";
 import { fileEvents } from "@/lib/attachments/file-events";
 import { imageEvents } from "@/lib/attachments/image-events";
@@ -319,7 +320,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
           readOnly={isViewOnlyReceiver}
         />
         <ResultsGallery project={project} />
-        <Section id="methods" title="Methods" />
+        <MethodsInventory project={project} />
         <Section id="activity" title="Activity" />
       </div>
 
