@@ -53,9 +53,22 @@ export async function findExistingTaskResultsBase(
  * results.md / list Images/. Critical for capture mode, where seeded
  * markdown bodies are blobs (not JSON files) and `fileExists` reports them
  * as missing — but `readFileAsBlob` / `listFiles` resolve them correctly.
+ *
+ * If the canonical base has the migration sentinel (`.migrated-from-legacy.json`)
+ * we DROP the legacy global from the candidate list: the marker proves the
+ * per-user namespacing copy already ran, so anything still sitting at
+ * `results/task-N/` is orphan content the hero card must not surface. Without
+ * this guard the hero card pulled stale legacy images while the popup's
+ * per-tab strips (which never scan legacy) showed nothing — the
+ * surfaced-orphan bug Grant manually cleaned up for tasks 37 + 47 on 2026-05-20.
  */
-function candidateBases(task: ExperimentTaskRef): string[] {
-  return [taskResultsBase(task), legacyTaskResultsBase(task.id)];
+async function candidateBases(task: ExperimentTaskRef): Promise<string[]> {
+  const canonical = taskResultsBase(task);
+  const migrated = await fileService.fileExists(
+    `${canonical}/.migrated-from-legacy.json`
+  );
+  if (migrated) return [canonical];
+  return [canonical, legacyTaskResultsBase(task.id)];
 }
 
 async function firstImageInDir(subdir: string): Promise<string | null> {
@@ -83,7 +96,7 @@ async function firstImageInDir(subdir: string): Promise<string | null> {
 export async function getHeroImageForTask(
   task: ExperimentTaskRef,
 ): Promise<string | null> {
-  for (const base of candidateBases(task)) {
+  for (const base of await candidateBases(task)) {
     for (const subdir of [`${base}/Images`, `${base}/results/Images`]) {
       const hit = await firstImageInDir(subdir);
       if (hit) return hit;
@@ -125,7 +138,7 @@ export async function getResultsPreview(
   task: ExperimentTaskRef,
   maxLines = 3,
 ): Promise<string | null> {
-  for (const base of candidateBases(task)) {
+  for (const base of await candidateBases(task)) {
     const body = await readResultsBody(base);
     if (body) return previewLinesFrom(body, maxLines);
   }
@@ -143,7 +156,7 @@ export async function getResultsPreview(
 export async function hasResultContent(
   task: ExperimentTaskRef,
 ): Promise<boolean> {
-  for (const base of candidateBases(task)) {
+  for (const base of await candidateBases(task)) {
     if (await readResultsBody(base)) return true;
     for (const subdir of [`${base}/Images`, `${base}/results/Images`]) {
       if (await firstImageInDir(subdir)) return true;
@@ -171,7 +184,7 @@ export async function probeTaskResults(
   let heroImagePath: string | null = null;
   let resultsPreview: string | null = null;
 
-  for (const base of candidateBases(task)) {
+  for (const base of await candidateBases(task)) {
     if (!heroImagePath) {
       for (const subdir of [`${base}/Images`, `${base}/results/Images`]) {
         const hit = await firstImageInDir(subdir);
