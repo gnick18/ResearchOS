@@ -8,7 +8,15 @@ import { projectsApi as rawProjectsApi } from "@/lib/local-api";
 import type { ProjectUpdate } from "@/lib/local-api";
 import SharePopup from "@/components/SharePopup";
 import Tooltip from "@/components/Tooltip";
-import HybridMarkdownEditor from "@/components/HybridMarkdownEditor";
+import LiveMarkdownEditor from "@/components/LiveMarkdownEditor";
+import { fileService } from "@/lib/file-system/file-service";
+import { fileEvents } from "@/lib/attachments/file-events";
+import { imageEvents } from "@/lib/attachments/image-events";
+import {
+  projectAttachmentsBase,
+  projectFilesBase,
+  projectImagesBase,
+} from "@/lib/projects/attachment-paths";
 import type { Project } from "@/lib/types";
 
 const DEFAULT_COLOR = "#3b82f6";
@@ -304,7 +312,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
 
       <div className="px-6 py-6 flex flex-col gap-10 max-w-4xl">
         <OverviewSection
-          projectId={project.id}
+          project={project}
           ownerHint={ownerHint}
           editOwner={effectiveOwnerOf(project)}
           readOnly={isViewOnlyReceiver}
@@ -436,7 +444,7 @@ function Section({ id, title }: { id: string; title: string }) {
 const OVERVIEW_AUTOSAVE_DELAY_MS = 1500;
 
 interface OverviewSectionProps {
-  projectId: number;
+  project: Project;
   // The URL `?owner=` hint used for READS. When present, the overview is
   // loaded from that user's directory. View-only receivers and edit-permission
   // receivers both pass the same hint here.
@@ -449,8 +457,26 @@ interface OverviewSectionProps {
   readOnly: boolean;
 }
 
-function OverviewSection({ projectId, ownerHint, editOwner, readOnly }: OverviewSectionProps) {
+// Suffix `-1`, `-2`, … on collision. Mirrors the dedup helper used by every
+// other attachment-drop surface (methods/page.tsx, attach-image.ts, etc.) —
+// kept local because it's three lines and pulling it into a shared util is
+// out of scope for this chip.
+async function pickUniqueAttachmentName(dirPath: string, desired: string): Promise<string> {
+  const dot = desired.lastIndexOf(".");
+  const stem = dot > 0 ? desired.slice(0, dot) : desired;
+  const ext = dot > 0 ? desired.slice(dot) : "";
+  let candidate = desired;
+  let n = 1;
+  while (await fileService.fileExists(`${dirPath}/${candidate}`)) {
+    candidate = `${stem}-${n}${ext}`;
+    n += 1;
+  }
+  return candidate;
+}
+
+function OverviewSection({ project, ownerHint, editOwner, readOnly }: OverviewSectionProps) {
   const queryClient = useQueryClient();
+  const projectId = project.id;
 
   const queryKey = useMemo(
     () => ["projects", ownerHint ?? "self", projectId, "overview"] as const,
@@ -492,6 +518,15 @@ function OverviewSection({ projectId, ownerHint, editOwner, readOnly }: Overview
     };
   }, []);
 
+  // Attachment paths derived from the project. Owner-namespaced via
+  // `projectAttachmentsBase`, so receivers with edit permission write to the
+  // owner's directory (matching `editOwner` semantics for overview prose).
+  // View-only receivers never reach this path — readOnly suppresses the
+  // drop callbacks below.
+  const attachmentsBase = useMemo(() => projectAttachmentsBase(project), [project]);
+  const imagesDir = useMemo(() => projectImagesBase(project), [project]);
+  const filesDir = useMemo(() => projectFilesBase(project), [project]);
+
   const handleChange = useCallback(
     (next: string) => {
       if (readOnly) return;
@@ -517,6 +552,65 @@ function OverviewSection({ projectId, ownerHint, editOwner, readOnly }: Overview
       }, OVERVIEW_AUTOSAVE_DELAY_MS);
     },
     [readOnly, projectId, editOwner, queryClient, queryKey]
+  );
+
+  // Drop handler shared between image and file drops. Writes each file to
+  // its target subdir with collision-safe naming, emits the matching event
+  // bus message, and appends a markdown snippet to the draft so the user
+  // sees the attachment in the prose immediately.
+  //
+  // Why splice inline (unlike NoteDetailPopup / TaskDetailPopup / methods
+  // page): those surfaces render an ImageStrip / FileStrip below the
+  // editor that users drag from to place refs. Project Surface Overview
+  // has no strip yet — a silent drop would look broken. The snippet
+  // append flows through `handleChange`, which schedules autosave, so the
+  // attachment + the reference reach disk together.
+  const writeDroppedAttachments = useCallback(
+    async (
+      files: File[],
+      kind: "image" | "file"
+    ): Promise<void> => {
+      if (readOnly) return;
+      const targetDir = kind === "image" ? imagesDir : filesDir;
+      const insertions: string[] = [];
+      for (const file of files) {
+        try {
+          const finalName = await pickUniqueAttachmentName(targetDir, file.name);
+          await fileService.writeFileFromBlob(`${targetDir}/${finalName}`, file);
+          const relativePath =
+            kind === "image" ? `Images/${finalName}` : `Files/${finalName}`;
+          if (kind === "image") {
+            imageEvents.emitAttached({ basePath: attachmentsBase, relativePath });
+            insertions.push(`![${finalName}](${relativePath})`);
+          } else {
+            fileEvents.emitAttached({ basePath: attachmentsBase, relativePath });
+            insertions.push(`[${finalName}](${relativePath})`);
+          }
+        } catch (err) {
+          console.error(`[ProjectRoute] Failed to attach ${file.name}:`, err);
+          alert(`Failed to attach ${file.name}`);
+        }
+      }
+      if (insertions.length === 0) return;
+      const separator = draft.length === 0 || draft.endsWith("\n") ? "" : "\n\n";
+      const appended = `${draft}${separator}${insertions.join("\n\n")}\n`;
+      handleChange(appended);
+    },
+    [readOnly, imagesDir, filesDir, attachmentsBase, draft, handleChange]
+  );
+
+  const handleImageDrop = useCallback(
+    (files: File[]) => {
+      void writeDroppedAttachments(files, "image");
+    },
+    [writeDroppedAttachments]
+  );
+
+  const handleFileDrop = useCallback(
+    (files: File[]) => {
+      void writeDroppedAttachments(files, "file");
+    },
+    [writeDroppedAttachments]
   );
 
   return (
@@ -545,7 +639,7 @@ function OverviewSection({ projectId, ownerHint, editOwner, readOnly }: Overview
       ) : isError ? (
         <p className="text-sm text-red-500">Couldn&apos;t load this project&apos;s overview.</p>
       ) : (
-        <HybridMarkdownEditor
+        <LiveMarkdownEditor
           value={draft}
           onChange={handleChange}
           placeholder={
@@ -554,6 +648,11 @@ function OverviewSection({ projectId, ownerHint, editOwner, readOnly }: Overview
               : "Capture the hypothesis, motivation, and big-picture context for this project…"
           }
           disabled={readOnly}
+          imageBasePath={attachmentsBase}
+          showToolbar={!readOnly}
+          allowAnyFileType={!readOnly}
+          onImageDrop={readOnly ? undefined : handleImageDrop}
+          onFileDrop={readOnly ? undefined : handleFileDrop}
         />
       )}
     </section>
