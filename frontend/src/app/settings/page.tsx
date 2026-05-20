@@ -56,6 +56,7 @@ import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
 import { readPairing } from "@/lib/telegram/telegram-store";
 import { USER_COLOR_QUERY_KEY } from "@/hooks/useUserColor";
 import {
+  clearWizardCompletion,
   readOnboarding,
   replayOnboarding,
   setOnboardingMode,
@@ -2370,6 +2371,28 @@ function TipsSection() {
     }
   }, [currentUser]);
 
+  // Phase 4: Re-run welcome wizard. Calls clearWizardCompletion() which
+  // null-s wizard_completed_at + wizard_skipped_at and sets the new
+  // additive sidecar field wizard_force_show: true. The orchestrator
+  // re-evaluates on next mount, so we trigger a reload so the wizard
+  // re-mounts against the current user's folder. router.refresh() is
+  // not enough because the orchestrator's sidecar state isn't reactive
+  // to disk changes on its own.
+  const handleRerunWizard = useCallback(async () => {
+    if (!currentUser) return;
+    setBusy(true);
+    setStatus(null);
+    try {
+      await clearWizardCompletion(currentUser);
+      setStatus("Wizard will re-open on next refresh.");
+      setTimeout(() => window.location.reload(), 600);
+    } catch (err) {
+      console.error("[Settings/Tips] re-run wizard failed", err);
+      setStatus("Couldn't reset. See console for details.");
+      setBusy(false);
+    }
+  }, [currentUser]);
+
   const handleModeChange = useCallback(
     async (next: Exclude<OnboardingMode, null>) => {
       if (!currentUser) return;
@@ -2466,6 +2489,24 @@ function TipsSection() {
           className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
         >
           {busy ? "Resetting…" : "Replay tips"}
+        </button>
+      </div>
+
+      <div className="flex items-start justify-between gap-4 pt-3 border-t border-gray-100">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm text-gray-800">Re-run welcome wizard</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Reopens the welcome wizard so you can revise your use cases, tabs,
+            and integration setup.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleRerunWizard}
+          disabled={busy || !currentUser}
+          className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
+        >
+          {busy ? "Resetting…" : "Re-run wizard"}
         </button>
       </div>
     </SectionShell>

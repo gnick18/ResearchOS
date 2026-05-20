@@ -55,3 +55,22 @@ The predicate is conservative: returns false on ANY existing-user signal (sideca
 ## Recommendation for follow-up chips
 
 None — invariant holds. The seven test cases pin every signal independently and combined, the orchestrator gate is the exact five-condition shape the brief locked, and the replay button preserves the wizard timestamps. Phase 4's "Re-run welcome wizard" entry (not yet built) will need its own dedicated clear function that sets both `wizard_completed_at` and `wizard_skipped_at` to null — flagging here as a forward-looking note rather than a follow-up chip.
+
+## Phase 4 follow-up (2026-05-20)
+
+The forward-looking flag from this audit was acted on in Phase 4
+(`<commit-sha>`): the Re-run welcome wizard entry in Settings calls
+`clearWizardCompletion(username)` which sets a new additive sidecar
+field `wizard_force_show: true` alongside null-ing the two wizard
+timestamps. The orchestrator's `showWizard` gate ORs
+`sidecar.wizard_force_show === true` with `isFreshUser === true`,
+preserving the existing-user invisibility invariant for everyone
+EXCEPT users who explicitly clicked Re-run. The wizard's
+onComplete/onSkip handlers clear `wizard_force_show` back to false
+so the bypass is one-shot per Re-run click.
+
+The Phase 5 invariant tests at `is-fresh-user.test.ts` remain valid
+unchanged: `isFreshUserForWizard()` returns false for existing
+users regardless of `wizard_force_show`. The gate-bypass logic
+lives in `orchestrator.tsx` where it's testable as a UI integration
+case if needed.
