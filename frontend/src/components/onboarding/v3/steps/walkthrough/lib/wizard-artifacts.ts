@@ -130,3 +130,53 @@ export function encodeSettingsChangeId(
 ): string {
   return `${field}:${from}→${to}`;
 }
+
+/** Encode a telegram_image artifact id as `"<filename>:<location>"`. The
+ *  location is either `"inbox"` (the file still lives at
+ *  `users/<u>/inbox/Images/<filename>`) or `"task-<taskId>"` (the
+ *  user clicked "Attach to my experiment" and the file moved into the
+ *  experiment's results folder). Phase 4 cleanup splits on the colon to
+ *  pick the right base path before deleting. */
+export function encodeTelegramImageId(
+  filename: string,
+  location: "inbox" | { taskId: number },
+): string {
+  if (location === "inbox") return `${filename}:inbox`;
+  return `${filename}:task-${location.taskId}`;
+}
+
+export function decodeTelegramImageLocation(
+  id: string,
+): { filename: string; location: "inbox" | { taskId: number } } | null {
+  const lastColon = id.lastIndexOf(":");
+  if (lastColon < 0) return null;
+  const filename = id.slice(0, lastColon);
+  const loc = id.slice(lastColon + 1);
+  if (loc === "inbox") return { filename, location: "inbox" };
+  if (loc.startsWith("task-")) {
+    const taskId = Number(loc.slice(5));
+    if (!Number.isFinite(taskId)) return null;
+    return { filename, location: { taskId } };
+  }
+  return null;
+}
+
+/** Encode a calendar_feed artifact id as `"<feed-id>:<ics-url>"` so
+ *  Phase 4 can show the user the feed URL it&apos;s about to delete
+ *  without re-reading `_calendar-feeds.json`. The feed-id portion is
+ *  the integer id returned by `createFeed`. */
+export function encodeCalendarFeedId(feedId: number, icsUrl: string): string {
+  return `${feedId}:${icsUrl}`;
+}
+
+export function decodeCalendarFeedId(
+  id: string,
+): { feedId: number; icsUrl: string } | null {
+  const firstColon = id.indexOf(":");
+  if (firstColon < 0) return null;
+  const feedId = Number(id.slice(0, firstColon));
+  if (!Number.isFinite(feedId)) return null;
+  const icsUrl = id.slice(firstColon + 1);
+  if (!icsUrl) return null;
+  return { feedId, icsUrl };
+}

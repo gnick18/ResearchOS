@@ -42,6 +42,11 @@ import W6PersonalizationStep from "./steps/walkthrough/W6PersonalizationStep";
 import W7SearchTourStep from "./steps/walkthrough/W7SearchTourStep";
 import W8NotificationsTourStep from "./steps/walkthrough/W8NotificationsTourStep";
 import W9WikiPointerStep from "./steps/walkthrough/W9WikiPointerStep";
+import W10PurchasesTourStep from "./steps/walkthrough/W10PurchasesTourStep";
+import W11GoalsTourStep from "./steps/walkthrough/W11GoalsTourStep";
+import W12TelegramWithImageStep from "./steps/walkthrough/W12TelegramWithImageStep";
+import W13CalendarTourStep from "./steps/walkthrough/W13CalendarTourStep";
+import W14AiHelperStep from "./steps/walkthrough/W14AiHelperStep";
 
 /**
  * The Onboarding v3 wizard shell.
@@ -625,8 +630,9 @@ function stepTitle(step: WizardStep): string {
 
 /** Step body dispatcher. P2a fills in the real bodies for the 9 Phase 1
  *  setup steps (intro + setup-q1 + setup-q1a + setup-q1b + setup-q2
- *  through setup-q6). P2b fills in W1-W9. W10-W14, L1-L11, and
- *  phase4-cleanup remain placeholders for P2c, P3a, and P4. */
+ *  through setup-q6). P2b fills in W1-W9. P2c fills in W10-W14
+ *  (conditional walkthrough). L1-L11 and phase4-cleanup remain
+ *  placeholders for P3a and P4. */
 function StepBody({
   step,
   username,
@@ -770,6 +776,47 @@ function StepBody({
       );
     case "W9":
       return <W9WikiPointerStep setNextDisabled={setNextDisabled} />;
+    case "W10":
+      return (
+        <W10PurchasesTourStep
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+          patchSidecar={patchSidecar}
+        />
+      );
+    case "W11":
+      return (
+        <W11GoalsTourStep
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+          patchSidecar={patchSidecar}
+        />
+      );
+    case "W12":
+      return (
+        <W12TelegramWithImageStep
+          username={username}
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+          patchSidecar={patchSidecar}
+        />
+      );
+    case "W13":
+      return (
+        <W13CalendarTourStep
+          username={username}
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+          patchSidecar={patchSidecar}
+        />
+      );
+    case "W14":
+      return (
+        <W14AiHelperStep
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+        />
+      );
     default:
       return (
         <PlaceholderBody
