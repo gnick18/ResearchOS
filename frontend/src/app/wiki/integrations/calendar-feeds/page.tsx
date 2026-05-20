@@ -61,8 +61,8 @@ export default function CalendarFeedsIntegrationPage() {
         </Step>
         <Step>
           If the feed parses but contains no events within a ±2-year
-          window of today, you'll get a confirmation dialog before the
-          subscription saves. That's the normal case for stale or empty
+          window of today, you&apos;ll get a confirmation dialog before the
+          subscription saves. That&apos;s the normal case for stale or empty
           calendars.
         </Step>
       </Steps>
@@ -137,9 +137,9 @@ export default function CalendarFeedsIntegrationPage() {
       </p>
 
       <Callout variant="warning" title="Secret URLs leak your whole calendar">
-        Google's <em>Secret address in iCal format</em> grants read access
+        Google&apos;s <em>Secret address in iCal format</em> grants read access
         to every event title, time, and note in that calendar to anyone
-        who has the URL. Treat it like a password (e.g., don't paste it
+        who has the URL. Treat it like a password (e.g., don&apos;t paste it
         into Slack, a public repo, or a shared notes doc). ResearchOS
         keeps the URL in your private data folder.
       </Callout>
@@ -161,15 +161,15 @@ export default function CalendarFeedsIntegrationPage() {
         </li>
         <li>
           A 5-swatch color strip on the left edge of the row. Click any
-          swatch to recolor that calendar's events on the grid.
+          swatch to recolor that calendar&apos;s events on the grid.
         </li>
         <li>
           An <strong>On</strong> / <strong>Off</strong> checkbox to hide
-          a calendar's events without removing the subscription.
+          a calendar&apos;s events without removing the subscription.
         </li>
         <li>
           A red <strong>Remove</strong> link to drop the subscription. A
-          confirmation dialog reminds you that ResearchOS events aren't
+          confirmation dialog reminds you that ResearchOS events aren&apos;t
           touched.
         </li>
       </ul>
@@ -180,8 +180,8 @@ export default function CalendarFeedsIntegrationPage() {
         browser session. The fetch goes through a small server proxy
         (the same Vercel function that bypasses CORS for Google, Outlook,
         and iCloud), and the proxy caches the response on its own edge
-        cache for another 15 minutes. Back-to-back page loads don't
-        hammer the source calendar's servers as a result.
+        cache for another 15 minutes. Back-to-back page loads don&apos;t
+        hammer the source calendar&apos;s servers as a result.
       </p>
       <p>
         If you just added an event in the source calendar and want it on
@@ -192,14 +192,14 @@ export default function CalendarFeedsIntegrationPage() {
       <h2>What URLs the server proxy will fetch</h2>
       <p>
         The proxy is the small server endpoint that fetches each ICS URL
-        on your behalf, because browsers can't fetch{" "}
-        <code>calendar.google.com</code> directly (Google doesn't set the
+        on your behalf, because browsers can&apos;t fetch{" "}
+        <code>calendar.google.com</code> directly (Google doesn&apos;t set the
         right CORS headers). The proxy refuses a few classes of URL
-        outright so it can't be used to scan internal infrastructure:
+        outright so it can&apos;t be used to scan internal infrastructure:
       </p>
       <ul className="list-disc pl-6 space-y-1">
         <li>
-          Anything that isn't <code>http://</code> or <code>https://</code>{" "}
+          Anything that isn&apos;t <code>http://</code> or <code>https://</code>{" "}
           (so no <code>file://</code>, no <code>ftp://</code>). The{" "}
           <code>webcal://</code> prefix is rewritten to{" "}
           <code>https://</code> first, so iCloud URLs still work.
@@ -218,7 +218,7 @@ export default function CalendarFeedsIntegrationPage() {
           <code>::1</code>).
         </li>
         <li>
-          Responses that don't start with <code>BEGIN:VCALENDAR</code>.
+          Responses that don&apos;t start with <code>BEGIN:VCALENDAR</code>.
           This catches the case where a calendar share URL redirects to
           an HTML sign-in page instead of returning iCal text.
         </li>

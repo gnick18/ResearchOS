@@ -34,38 +34,38 @@ export default function ExperimentsFeaturePage() {
         date for upcoming runs), the duration, and a small purple{" "}
         <strong>Has Method</strong> badge if a method is attached. An{" "}
         <strong>In Progress</strong> tile picks up a green progress bar showing
-        "Day N of M."
+        &quot;Day N of M.&quot;
       </p>
       <p>
         The colored pills above the grid are project filters. Click one to
-        hide every other project's experiments. Use <strong>+ New
+        hide every other project&apos;s experiments. Use <strong>+ New
         Experiment</strong> on the right to create a fresh experiment task
-        (the same New Task modal you'd get on the Gantt, but the type is
+        (the same New Task modal you&apos;d get on the Gantt, but the type is
         pre-selected to <em>experiment</em>).
       </p>
 
       <h2>Chains of dependent experiments</h2>
       <p>
-        When two or more experiments are linked by a dependency (e.g., "PCR
-        screen" depends on "Transformation"), they collapse into a single
+        When two or more experiments are linked by a dependency (e.g., &quot;PCR
+        screen&quot; depends on &quot;Transformation&quot;), they collapse into a single
         stacked-card tile labeled <strong>N tasks</strong>. Clicking the
         stacked card opens the <em>root</em> experiment in the popup, and from
-        there the Method and Results tabs are the same surface you'd see on
+        there the Method and Results tabs are the same surface you&apos;d see on
         any single experiment. The Gantt page is where you actually walk a
         chain step-by-step.
       </p>
 
       <h2>Earlier results</h2>
       <p>
-        Finished experiments don't clutter the main grid. They collect in
+        Finished experiments don&apos;t clutter the main grid. They collect in
         the Earlier results section at the bottom of the Workbench, which
-        keeps the active grid focused on what you're running now. The
+        keeps the active grid focused on what you&apos;re running now. The
         section header renders in uppercase as{" "}
         <strong>EARLIER RESULTS</strong>, with a project-grouping toggle
         (flat list vs. one block per project) and no time cap, so the
         whole completion history is reachable from one place. Each
         archived tile is still clickable, opening the same task popup
-        you'd get from an active tile.
+        you&apos;d get from an active tile.
       </p>
       <Screenshot
         src="/wiki/screenshots/workbench-earlier.png"
@@ -95,8 +95,8 @@ export default function ExperimentsFeaturePage() {
       </p>
       <p>
         Each row in the queue shows the task name, project pill, and a date
-        signal phrased relative to today ("3d overdue", "Started yesterday",
-        "Starts in 4d"). Clicking a row opens the same list-task popup you
+        signal phrased relative to today (&quot;3d overdue&quot;, &quot;Started yesterday&quot;,
+        &quot;Starts in 4d&quot;). Clicking a row opens the same list-task popup you
         get from the Gantt or Home page.
       </p>
       <Screenshot
@@ -143,7 +143,7 @@ export default function ExperimentsFeaturePage() {
         The header row holds a green completion checkmark, an{" "}
         <strong>Export</strong> icon (down-arrow, experiments only), a Share
         button, a fullscreen toggle, and Delete. Drag any file onto the popup
-        and it lands in the last-viewed editor tab's <code>Files/</code> or{" "}
+        and it lands in the last-viewed editor tab&apos;s <code>Files/</code> or{" "}
         <code>Images/</code> folder, with a confirmation toast at the drop
         point.
       </p>
@@ -155,7 +155,7 @@ export default function ExperimentsFeaturePage() {
         record: running observations, what reagents you grabbed, what
         went sideways, the photo you took at the bench five minutes ago.{" "}
         <strong>Results</strong> is the final-output write-up: the gel
-        image you'd put in a paper, the plot for a thesis chapter, the
+        image you&apos;d put in a paper, the plot for a thesis chapter, the
         short summary of what the experiment actually showed. Both live
         on the same task and both write to the same per-task folder on
         disk, so flipping between the two tabs in the popup is
@@ -219,7 +219,7 @@ export default function ExperimentsFeaturePage() {
       <p>
         For PCR-typed methods, the gradient editor and recipe table below the
         variation panel are editable per-experiment. <strong>Reset to
-        Method</strong> drops your overrides back to the protocol's defaults,
+        Method</strong> drops your overrides back to the protocol&apos;s defaults,
         and <strong>Save Changes</strong> writes them to this task only.
       </p>
 
@@ -299,7 +299,7 @@ export default function ExperimentsFeaturePage() {
       <Callout variant="info" title="Sub-tasks live on simple tasks, not experiments">
         The sub-task checklist you may have seen on the Home page belongs to
         the <em>list</em> task type, not <em>experiment</em>. Experiment
-        popups don't carry a sub-task list. If you want a checklist alongside
+        popups don&apos;t carry a sub-task list. If you want a checklist alongside
         an experiment, make a separate list task and link it as a dependency.
       </Callout>
     </WikiPage>
