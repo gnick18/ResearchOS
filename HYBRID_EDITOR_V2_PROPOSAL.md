@@ -1494,4 +1494,55 @@ Grant or HR-memory lookup.
 
 ---
 
-*planning bot (hybrid editor v2)*
+## 11. Decisions locked (2026-05-20)
+
+Grant locked the design directly via clickable questions on 2026-05-20. The chip series fires against these answers; any further design change requires a new round of questions.
+
+**D-1. Thesis: (C) soft-line-break + explicit split.**
+Enter inserts a soft break, Shift+Enter performs the hard paragraph split. Recommended thesis won outright; runners-up (B / A / E / D) deferred.
+
+**D-2. Enter polarity: Enter = soft break, Shift+Enter = hard split.**
+Matches the bug-class fix at root, even though it diverges from Notion / Google Docs convention. Grant's call.
+
+**D-3. Soft-break on-disk form: trailing-two-spaces + `\n` (CommonMark canonical), i.e. `  \n`.**
+Confirmed implicitly via the planning bot's recommendation. Master will explicitly verify with Grant at chip-1 brief time if any ambiguity surfaces in implementation.
+
+**D-4. Migration of existing notes: NO dual-mode rendering.**
+Reading rule stays standard CommonMark: single `\n` is whitespace-in-paragraph, `\n\n` is paragraph split. Existing notes keep rendering as they always have under that rule, which means past content with paragraph breaks (`\n\n`) continues to render as separate paragraphs. A one-time fix script is queued as a separate chip to clean up over-fragmentation that v1 bugs introduced into Grant's notes specifically (he is currently the only user, so blast radius is bounded to his content). Grant's framing: "I don't like the idea of having fragmented documents and ways the tool reads and writes hybrid mode. That sounds like a disaster waiting to happen."
+
+**D-5. Backspace at start of paragraph: merge with previous paragraph, BUT show a confirm popup first.**
+Hard to revert silently, so the user gets an explicit "Merge with previous paragraph?" dialog. Adds a small UX papercut in exchange for safety. Chip-2 owns this.
+
+**D-6. 3-mode toggle: edit mode stays for now, removal deferred.**
+Grant: "I'm ok with removing edit mode but we really need to make hybrid mode iron clad." Edit mode is the current escape hatch when hybrid glitches; removing it before v2 proves iron-clad in real use would strand him. Edit-mode removal becomes its own chip after Grant reports 1-2 weeks of daily use with zero fallbacks to edit mode.
+
+**D-7. Split-paragraph affordance: inline button + Shift+Enter shortcut, both ship.**
+The button is discoverable for new users; the shortcut is for keyboard flow. Chip-1 includes the button rendering and Shift+Enter handling together.
+
+**D-8. Rollback: per-chip git revert.**
+Chips 1-4 land as independent commits. Bad ones revert cleanly. No feature flag, no settings toggle.
+
+### Acceptance bar lift (consequence of D-6)
+
+Edit mode being kept-but-deprecated raises the bar for the v2 chip series. Each chip must ship with:
+
+- A targeted manual repro of the bug class it kills (the 4 SHAs in §2).
+- A regression check against the OTHER three bug SHAs (verify they still work).
+- Backspace-merge confirm popup tested in isolation (chip-2 only).
+- The "+ Add paragraph" button's `setTimeout(0)` strict-mode unsafety flagged at chip-1 review (deep-read finding 4) but only fixed if it surfaces during testing, not preemptively.
+
+If a chip ships and Grant has to reach for edit mode to add content within the first week, that chip's hypothesis is wrong and gets reverted, not patched. This is the iron-clad bar he locked in.
+
+### Revised chip ordering (post-decision)
+
+1. Chip-1: render soft-breaks (`  \n` to `<br>`) + Shift+Enter handler + "Split here" inline button. Acceptance: Enter inside a paragraph no longer fragments the parser-block.
+2. Chip-2: Backspace-at-start merge with confirm popup. Acceptance: cursor at position 0 of paragraph N + Backspace, then confirm dialog, then merge into paragraph N-1 with soft-break boundary.
+3. Chip-3: ValueHistory `boundaryChars` opt for `  \n` so soft-break typing creates a single undo entry per word, not per char. Acceptance: type a sentence with mid-sentence soft breaks, undo once, whole word reverts.
+4. Chip-4: one-time fix script for Grant's existing notes (defragment over-split paragraphs the v1 bugs introduced). Run-once, manual, dry-run first. Acceptance: Grant reviews dry-run output before any writes.
+5. Chip-5 (deferred, fires only after 1-2 weeks of clean v2 use): remove edit mode from the 3-mode toggle. Acceptance: Grant reports zero edit-mode reaches in the prior week.
+
+Optional chip-6 (out-of-scope unless surfaced): route image-resize and outer-drop through `pushAndCommit` for undo-stack hygiene (deep-read finding 3).
+
+---
+
+*planning bot (hybrid editor v2). Decisions appended by master after AskUserQuestion lock-in 2026-05-20.*
