@@ -117,7 +117,7 @@ The popup's only unique value is project-level CRUD (rename, recolor, retag, sha
 
 ## 8. Cross-arc coordination notes
 
-- **Onboarding v3 manager** (parallel session, spawned 2026-05-20): also touches AppShell on their P1 mount integration. P9's sidebar nav entry is the only meaningful collision; will relay intent through master before that chip fires.
+- **Onboarding v3 manager** (parallel session, spawned 2026-05-20): per master's P0-ratify relay, v3's P1 mount logic likely lives entirely in `lib/onboarding/orchestrator.tsx` (swapping the no-op `OnboardingOrchestrator` body for the v3 wizard surface), NOT `AppShell.tsx`. Collision risk on AppShell is smaller than initially anticipated. P9's sidebar nav entry may be the only AppShell touch in either arc; will still relay through master before that chip fires to confirm.
 - **Wiki manager:** P9 hands off wiki page authoring; do not write yourself.
 - **Wiki capture fixture:** the new route must load under `?wikiCapture=1` so the wiki manager can screenshot it in P9. Plan the gate-precedence story in P1; don't leave it for wiki manager to discover.
 
@@ -125,4 +125,4 @@ The popup's only unique value is project-level CRUD (rename, recolor, retag, sha
 
 ## 9. Sign-off
 
-Phase 0 complete when this doc has all 10 locks (L1-L10) and master ratifies. Signed: **project surface UI manager**, 2026-05-20.
+Phase 0 complete: all 11 locks (L1-L11) ratified by Grant via AskUserQuestion 2026-05-20 + master via relay same day. Signed: **project surface UI manager**, 2026-05-20.
