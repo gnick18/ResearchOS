@@ -33,6 +33,7 @@ import {
   type OnboardingSidecar,
   type TipOutcome,
 } from "./sidecar";
+import { markWizardCoveredTips } from "./wizard-tip-marking";
 import { patchUserSettings } from "@/lib/settings/user-settings";
 import {
   ACTIVE_SECONDS_CAP,
@@ -545,17 +546,31 @@ export function OnboardingOrchestrator({
         // Settings → Tips choice. Decisions coerce undefined → null so
         // a partial wizard run (defensive — shouldn't happen on a real
         // step-7 completion) still persists cleanly.
+        //
+        // Phase 3: also stamp `outcome: "action-cancel"` on the three
+        // wizard-covered catalog tips (telegram-send-to-task,
+        // link-calendars, ai-helper-prompt) so they don't re-fire as
+        // redundant context post-wizard. Marking is conditional on the
+        // user having seen the corresponding step's pitch content;
+        // auto-skip mode (telegram_decision: "skipped") skips the mark
+        // because the user saw an auto-skip notice card, not the
+        // pitch. Wizard-skippers (handleWizardSkip below) get NO marks.
+        // See markWizardCoveredTips() for the full rule table.
         const trimmedOther = result.otherUseCase?.trim() ?? "";
-        const next = await patchOnboarding(username, (cur) => ({
-          ...cur,
-          use_cases: result.useCases,
-          other_use_case: trimmedOther.length > 0 ? trimmedOther : null,
-          wizard_completed_at: new Date().toISOString(),
-          telegram_decision: result.telegramDecision ?? null,
-          calendar_decision: result.calendarDecision ?? null,
-          ai_helper_decision: result.aiHelperDecision ?? null,
-          mode: cur.mode ?? "suggestions",
-        }));
+        const next = await patchOnboarding(username, (cur) => {
+          const nowIso = new Date().toISOString();
+          return {
+            ...cur,
+            use_cases: result.useCases,
+            other_use_case: trimmedOther.length > 0 ? trimmedOther : null,
+            wizard_completed_at: nowIso,
+            telegram_decision: result.telegramDecision ?? null,
+            calendar_decision: result.calendarDecision ?? null,
+            ai_helper_decision: result.aiHelperDecision ?? null,
+            mode: cur.mode ?? "suggestions",
+            tips: markWizardCoveredTips(cur, result, nowIso),
+          };
+        });
         setSidecar(next);
         // Reset route-dwell baseline so the first post-wizard tip can
         // fire without waiting another 30s of dwell on the current
