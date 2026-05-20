@@ -1,157 +1,123 @@
 # ResearchOS
 
-A local-first research project management app. GANTT scheduling with dependency-aware date shifting, lab notes with rich markdown + image attachments, multi-user shared folders, Telegram image ingestion, external calendar overlays, and more.
+**Local-first research management. Experiments, lab notes, methods, calendar, all on your disk.**
 
-Your data lives in a folder on your disk — JSON and markdown, version-controllable if you want, no database to host. The browser talks to that folder directly via the File System Access API.
+ResearchOS is a browser-based tool for planning experiments, writing lab notes, managing reusable methods, and tracking the day-to-day of a research project. Your data lives in a folder you pick on your own computer (JSON + markdown, no database). The app talks to that folder directly through the File System Access API. There is no server account to create, and your notes never leave your machine unless you ask them to (via export, or by pointing your own backup tool at the folder).
 
----
+ResearchOS is for benchwork researchers, computational scientists, lab managers, postdocs, PhD students, undergrads, staff scientists, and solo researchers in academic, industry, and startup settings. The welcome wizard asks a few questions about how you work and tailors the interface accordingly.
 
-## Two ways to run it
-
-### Option A — Use the hosted version
-
-Open **[research-os-xi.vercel.app](https://research-os-xi.vercel.app/)** in **Chrome, Edge, or Brave** and connect a folder on your machine. Nothing installs on your computer; data never leaves your disk. (Hosted on Vercel. The server-side code is a thin proxy used only for fetching Telegram media and external calendar feeds — your notes and files are never sent to it.)
-
-### Option B — Run it locally
-
-If you'd rather host the frontend yourself (offline use, dev work, or just preference):
-
-**Prerequisites**
-
-| Requirement | Version | Where to Get It |
-|-------------|---------|-----------------|
-| **Node.js** | 18+ | [nodejs.org](https://nodejs.org/) |
-| **Chromium browser** | Recent | Chrome, Edge, or Brave — Firefox/Safari aren't supported (File System Access API) |
-
-**Setup**
-
-```bash
-git clone https://github.com/gnick18/ResearchOS.git
-cd ResearchOS/frontend
-npm install
-```
-
-**Run**
-
-```bash
-# macOS/Linux
-./start.sh
-
-# Windows
-.\start.ps1
-```
-
-Then open [http://localhost:3000](http://localhost:3000).
-
-### Option C — Deploy your own to Vercel
-
-```bash
-cd frontend
-npx vercel
-```
-
-The repo is configured for Vercel out of the box. No environment variables are required for the core app; the Telegram and calendar features work with no extra setup because they use server-side proxy routes that pass the user's own credentials through (see [Telegram pairing](#telegram-pairing) below). After deploy, share the URL with your lab — each user picks the same shared folder (OneDrive, Dropbox, iCloud, …) and signs in under their own username.
+> Try the hosted demo: **[research-os-xi.vercel.app/demo](https://research-os-xi.vercel.app/demo)**. The demo runs entirely in your browser against synthetic fixture data, so you can poke around without picking a folder.
 
 ---
 
-## Features
+## What ResearchOS does
 
-### Core
-- **Projects & GANTT chart** — organize work into projects, schedule tasks, drag to reschedule. Dependency-aware date shifts cascade through the chain.
-- **Tasks with subtypes** — experiments, purchases, and simple checklists, each with their own UI affordances.
-- **Lab notes & results** — hybrid markdown editor with toolbar, live preview, image strip, drag-drop attachments, and an in-app image gallery picker.
-- **PCR protocol builder** — design PCR runs with temperature gradients and reagent calculators.
-- **Methods library** — write methods as markdown documents, attach them to experiments, log per-experiment variations.
-- **High-level goals** — long-running goals with SMART subgoals visible alongside the Gantt.
+**Plan and schedule**
 
-### Multi-user / sharing
-- **Multiple users in one folder** — a single shared folder (OneDrive, Dropbox, iCloud) can host many users. Each picks the same folder and selects their username from the login screen.
-- **Password-protected accounts** — optional per-user password gate (PBKDF2). Manageable from the login screen; recoverable by deleting `_auth.json` if forgotten.
-- **Share experiments with edit permission** — owner shares with another user, receiver edits the task and the writes route back to the owner's directory. Drag-to-reschedule works through the dependency graph.
-- **Lab mode** — view everyone's data side-by-side: combined Gantt, experiment list, purchases, and an activity feed.
+- Projects + Gantt with dependency-aware date shifting (drag one task, everything downstream moves with it).
+- Workbench: a single view that surfaces what is ready, blocked, running, awaiting writeup, and recently done.
+- Calendar with external ICS feed overlays (Google Calendar, Outlook, iCloud, university calendars).
+- High-level goals with SMART subgoals running alongside the schedule.
 
-### Integrations
-- **Telegram image ingestion** — pair a Telegram bot once; photos you send the bot arrive in your inbox in seconds. Captions become image titles. Drag from the inbox onto any note to attach. See [Telegram pairing](#telegram-pairing).
-- **External calendar overlays** — subscribe to public ICS feeds (Google Calendar, Outlook, iCloud, university calendars). The Calendar tab overlays those events on top of your task schedule. Read-only — your tasks don't sync back. See [External calendars](#external-calendars).
+**Document and iterate**
 
-### UX niceties
-- **Image strip** — every image attached to a note shown along the bottom; click to scroll to it; drag to the trash icon to delete.
-- **Markdown editor** — three modes (raw, hybrid block-by-block, full preview) with keyboard shortcuts, image resize popover, broken-image auto-recovery.
-- **Inbox + activity toasts** — Telegram arrivals fire a one-click toast that opens the inbox to that image.
-- **Fast reconnect** — the app remembers the folder you picked. On reload you usually get the data back without going through the OS picker.
+- Lab Notes and Results tabs per experiment, both backed by a hybrid markdown editor with image attachments, file drops, and click-to-edit blocks.
+- Methods library with ten different method types: free-form markdown, PDF, PCR protocol, LC gradient, well-plate layout, cell culture passage schedule, coding workflow, mass spec parameters, qPCR analysis, and compound methods that bundle the others into reusable kits.
+- Per-task method variations: attach a method, then record deviations on the experiment.
+- Experiment comparison view for side-by-side outcomes across runs.
 
----
+**Collaborate**
 
-## First-time setup
+- Multiple users in one shared folder (OneDrive, Dropbox, iCloud, git, network share). Each user picks the folder, picks their username from the login screen, and gets their own subdirectory.
+- Project sharing across users with optional edit permission. Writes route back to the owning user's directory so the owner stays in control of their data.
+- Lab Mode: a multi-user overview of combined experiments, purchases, methods, and activity.
+- Receiver-side editing for shared tasks, including drag-to-reschedule through the dependency graph.
 
-1. Open the app (hosted URL or `localhost:3000`).
-2. Click **Connect Folder**. Pick (or create) an empty folder on your disk. On macOS/Windows this can be a OneDrive / iCloud / Dropbox folder if you want sync.
-3. The browser asks for read/write access. Click **Allow**.
-4. Pick or create a username. Multiple users can share the same folder; each one's data lives at `users/{username}/`.
-5. Optionally set a password on your user from the login screen's lock icon.
+**Connect**
 
-Subsequent visits: the app remembers the folder via IndexedDB and reconnects with a single click — no slow OS picker dialog unless you switch folders.
+- **Telegram image inbox.** Pair a Telegram bot once; photos you send the bot arrive in your inbox in seconds with captions as titles. Drag onto any note to attach.
+- **Calendar feed overlays.** Subscribe to public ICS feeds; events overlay on your Gantt and Calendar views (read-only).
+- **AI Helper prompts.** Generate a prompt that turns Claude, ChatGPT, or Gemini into a ResearchOS-aware assistant. Paste into your own chat tier (no API key needed); the model knows your schemas, examples, and feature inventory.
+- **LabArchives ELN import.** Bring existing notebooks from LabArchives offline ZIP exports as ResearchOS projects + tasks with attachments preserved.
 
 ---
 
-## Telegram pairing
-
-Sending lab photos from your phone is way faster than uploading through the browser, so ResearchOS supports a one-bot-per-user Telegram pipeline.
-
-**Setup (~5 minutes, one time):**
-
-1. Open Telegram, chat with [@BotFather](https://t.me/BotFather), send `/newbot`, follow the prompts. Copy the **bot token** it gives you.
-2. In ResearchOS, click the Telegram icon in the top bar → **Pair bot**.
-3. Paste your token. The app verifies it and stores it locally (in your browser's IndexedDB; never written to your data folder, never sent to anyone but Telegram).
-4. Open Telegram, find your new bot, click **Start**. Done.
-
-**Daily use:** snap a photo with your phone, send it to your bot. Within a few seconds it shows up in the ResearchOS inbox with the caption as the title. Drag it onto any task's notes or use the inbox panel to file it.
-
-**How private is this?**
-- The bot token lives only in your browser. If you clear IndexedDB or switch browsers, you'll re-pair.
-- Telegram's file CDN doesn't allow direct browser fetches (CORS), so ResearchOS proxies file downloads through a tiny Vercel function (`/api/telegram-file`). The function just passes bytes through — never stores or logs them.
-- If you self-host on Vercel, that proxy runs in your project; if you use the public hosted version, it runs in mine. Either way the bot token isn't logged.
-
----
-
-## External calendars
-
-The Calendar tab can overlay events from any ICS-compatible feed.
-
-**Add a feed:**
-
-1. Calendar tab → **Manage feeds** → **Add subscription**.
-2. Paste the ICS URL. Examples:
-   - **Google Calendar** — Calendar settings → Integrate calendar → Secret address in iCal format.
-   - **Outlook / Office365** — Calendar settings → Shared calendars → Publish a calendar → ICS link.
-   - **iCloud** — Calendar.app → right-click calendar → Share → Public Calendar → copy URL (rewrite `webcal://` to `https://` if needed; the app handles both).
-3. Pick a color and name. Save.
-
-Feeds are read-only — your ResearchOS tasks don't push back into Google/Outlook. Subscriptions are stored in your data folder (per-user) so they're shared / synced like everything else.
-
-**How it works:** ICS feeds are fetched through a Vercel function (`/api/calendar-feed`) for the same CORS reason as Telegram. The function refuses to fetch private/internal IPs and caches responses for 15 minutes at the edge, so it stays well within Vercel's free-tier limits.
-
----
-
-## How data storage works
+## How data is stored
 
 ```
 +-----------------------------+
 |        Your Browser         |
 |  (Chrome / Edge / Brave)    |
 |                             |
-|  ResearchOS                 |
+|  ResearchOS UI              |
 |     |                       |
 |     | File System Access    |
 |     v                       |
 |  Folder on your disk        |
-|  - users/{username}/...     |
-|  - methods/...              |
-|  - results/task-{id}/...    |
+|  - users/<username>/...     |
+|  - results/task-<id>/...    |
 +-----------------------------+
 ```
 
-Everything lives in the folder you picked. To back up, sync, or share with collaborators, point a tool you already trust at that folder (OneDrive, Dropbox, iCloud, git, rsync, Time Machine, …). The server-side proxy routes (`/api/telegram-file`, `/api/calendar-feed`) only see traffic for those specific integrations — never your notes, tasks, or projects.
+Everything lives in the folder you picked. To back up, sync, or share, point a tool you already trust at that folder. The two server-side routes (`/api/telegram-file` and `/api/calendar-feed`) are pure passthrough proxies that exist only because some third-party CDNs block direct browser fetches; they never store or log the traffic that flows through them. Settings has a "Data inventory" diagnostic that lists every file the app has ever written, and `/wiki/security` walks through the privacy model in detail.
+
+---
+
+## Run it
+
+### Option A: hosted
+
+Open **[research-os-xi.vercel.app](https://research-os-xi.vercel.app/)** in Chrome, Edge, or Brave. Click "Connect folder," pick (or create) an empty folder on your machine, allow the read-write prompt, then pick or create a username. Your folder can live anywhere on disk; OneDrive, Dropbox, iCloud, or a plain local directory all work.
+
+### Option B: run it yourself
+
+```bash
+git clone https://github.com/gnick18/ResearchOS.git
+cd ResearchOS/frontend
+npm install
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000). Convenience launchers `./start.sh` (macOS, Linux) and `.\start.ps1` (Windows) handle port cleanup.
+
+### Option C: deploy your own to Vercel
+
+```bash
+cd frontend
+npx vercel
+```
+
+The repo is preconfigured for Vercel. No environment variables required for the core app. After deploy, share the URL with your team; each user picks the same shared folder and signs in under their own username.
+
+**Browser support.** Chrome, Edge, and Brave only. Firefox and Safari do not implement the File System Access API the app depends on.
+
+---
+
+## First-time setup: the welcome wizard
+
+The first time you open ResearchOS against a fresh folder, a multi-step welcome wizard asks what brings you to the tool. You pick from nine use cases (PhD experiments, lab manager, teaching, computational research, postdoc, solo researcher, staff scientist, undergrad researcher, or just exploring; multi-select), the wizard tailors which tabs you see by default, then offers optional inline setup for Telegram, calendar feeds, and the AI Helper prompt. Everything is reversible: tabs can be toggled in Settings, and Settings has a "Re-run welcome wizard" button if you want to start the flow over.
+
+Skip the wizard entirely if you prefer; it never re-fires for the same user, and all features remain reachable from the navbar and Settings.
+
+---
+
+## Recovery and trust
+
+ResearchOS treats your data folder as the source of truth, but a few small safety nets exist for the credentials and identity state that live alongside it:
+
+- **Atomic file writes.** Every write goes through a temp-file plus rename so a torn write (tab crash, OS reboot) leaves the old contents intact rather than zero bytes.
+- **Per-user tombstones for deleted accounts.** Tombstones survive cloud-sync round-trips so re-created cloud-stub directories never re-resurrect a user you intended to delete.
+- **Three-layer Telegram bot-token recovery.** Plaintext `_telegram.json` sidecar on disk is the primary; a browser-scoped IndexedDB cache backs it up per-user-per-folder; an opt-in encrypted backup (AES-GCM-256 with a key derived from your login password via PBKDF2-SHA-256) survives across browsers and machines. Settings shows what is enabled and lets you wipe any layer.
+
+See `/wiki/security` for a full security audit, threat model, and findings.
+
+---
+
+## Continuous integration
+
+ResearchOS runs lint, type-checking, unit tests (vitest), and end-to-end tests (Playwright) on every pull request and push to `main`. Test coverage reports are uploaded as workflow artifacts. The CI configuration lives at `.github/workflows/ci.yml`.
+
+The project is preparing for submission to the [Journal of Open Source Software (JOSS)](https://joss.theoj.org). The CI pipeline, test coverage, and contribution guidelines target JOSS reviewer expectations.
 
 ---
 
@@ -159,22 +125,23 @@ Everything lives in the folder you picked. To back up, sync, or share with colla
 
 ```
 ResearchOS/
-├── frontend/                  # Next.js + React app — all the application code
+├── frontend/                              Next.js + React app (all the application code)
 │   ├── src/
-│   │   ├── app/              # Pages and Vercel API routes
-│   │   │   ├── api/          # Server-side: Telegram file proxy, calendar feed proxy
-│   │   │   ├── gantt/        # GANTT chart page
-│   │   │   ├── calendar/     # Calendar view + ICS overlays
-│   │   │   ├── methods/      # Methods library
-│   │   │   ├── purchases/    # Purchase tracking
-│   │   │   ├── lab/          # Multi-user lab mode
-│   │   │   └── …
-│   │   ├── components/       # React components (Task popup, image strip, etc.)
-│   │   └── lib/              # FSA layer, telegram client, calendar parser, …
+│   │   ├── app/                           Pages and the two Vercel passthrough proxies
+│   │   ├── components/                    React components
+│   │   ├── lib/                           FSA layer, telegram client, calendar parser, methods, onboarding
+│   │   └── __mocks__/                     FSA mock layer for headless CI tests
+│   ├── e2e/                               Playwright end-to-end specs
+│   ├── playwright.config.ts
+│   ├── vitest.config.mts
 │   └── package.json
-├── scripts/                   # One-off maintenance scripts (e.g. legacy-image cleanup)
-├── start.sh                   # Local dev launcher (macOS/Linux)
-└── start.ps1                  # Local dev launcher (Windows)
+├── scripts/                               One-off maintenance scripts (legacy folder sweep, AI Helper builder, demo zip)
+├── ai-helper/                             Prose partials + eval harness for the AI Helper prompt build pipeline
+├── SECURITY_AUDIT.md                      Security audit + threat model + findings
+├── AGENTS.md                              Repo conventions, traps, and audit trail
+├── .github/workflows/ci.yml               Lint + tsc + vitest + Playwright
+├── start.sh / start.ps1                   Local dev launchers
+└── README.md                              This file
 ```
 
 ---
@@ -184,46 +151,112 @@ ResearchOS/
 ```bash
 cd frontend
 npm install
-npm run dev          # http://localhost:3000
-npm test             # unit tests (vitest)
-npx tsc --noEmit     # type check
-npx eslint src/      # lint
+npm run dev                 # http://localhost:3000
+npm test                    # vitest run (node environment)
+npm run test:coverage       # vitest with v8 coverage report
+npm run test:e2e            # Playwright against a started dev server
+npx tsc --noEmit            # type check
+npm run lint                # eslint
 ```
 
-The app is fully client-side; there is no backend server to run. The two Next.js API routes (`/api/telegram-file`, `/api/calendar-feed`) are pure passthrough proxies and only run when their respective integrations are in use.
+The app is fully client-side. The two Next.js API routes (`/api/telegram-file`, `/api/calendar-feed`) are pure passthrough proxies and only run when their respective integrations are in use.
+
+---
+
+## Telegram pairing
+
+Sending lab photos from your phone is faster than uploading through the browser, so ResearchOS supports a one-bot-per-user Telegram pipeline.
+
+1. Open Telegram, chat with [@BotFather](https://t.me/BotFather), send `/newbot`, follow the prompts. Copy the bot token.
+2. In ResearchOS, click the Telegram icon in the top bar, then **Pair bot**.
+3. Paste your token. The app verifies it and writes the pairing to your folder.
+4. Open Telegram, find your new bot, click **Start**.
+
+After pairing, snap a photo on your phone, send it to your bot, and it shows up in the ResearchOS inbox within a few seconds with the caption as the title. Drag it onto any note to attach. Telegram pairings are per-user, so a shared lab folder can host one bot per researcher.
+
+---
+
+## External calendars
+
+The Calendar tab can overlay events from any ICS-compatible feed.
+
+1. Calendar tab, then **Manage feeds**, then **Add subscription**.
+2. Paste the ICS URL. Google Calendar, Outlook / Office 365, iCloud, and university calendars all expose one (usually under Calendar settings, "Share" or "Publish").
+3. Pick a color and a name. Save.
+
+Feeds are read-only; your tasks do not push back to Google or Outlook. Subscriptions are stored in your data folder (per-user), so they sync alongside everything else.
+
+---
+
+## AI Helper
+
+ResearchOS does not run any AI models. Instead, the app generates a structured prompt that teaches your existing AI assistant (Claude, ChatGPT, or Gemini) what ResearchOS is, what entities it tracks, and how features connect. You paste the prompt into your usual chat and get a ResearchOS-aware helper for the duration of that conversation.
+
+Settings has an "AI Helper" section with a one-click copy button and three "Open in" shortcuts that paste the prompt into a fresh chat in each provider. Three size variants exist (full for big-context models, lean for the default, minimal for small-context or local models with an explicit "you got the degraded variant" disclaimer).
+
+The prompt build pipeline auto-extracts entity schemas from `types.ts` and canonical examples from fixture data, so it stays in sync with the codebase release-by-release. No API key is required, no usage is metered through ResearchOS, and your chat tier (Claude Max, ChatGPT Plus, Gemini Advanced) works fine without adding API credits.
+
+---
+
+## Documentation
+
+Detailed feature documentation lives in the in-app wiki at `/wiki/`, also reachable on the hosted version. Highlights:
+
+- `/wiki/getting-started` for first-time setup paths
+- `/wiki/security` for the privacy model, threat surface, and findings
+- `/wiki/features/methods` for the ten method types and how they compose
+- `/wiki/integrations/telegram`, `/wiki/integrations/calendar-feeds`, `/wiki/integrations/labarchives`, `/wiki/integrations/ai-helper` for setup details
+
+The wiki uses fixture-mode screenshots (`?wikiCapture=1`), so anything pictured is synthetic data; your real folder is never captured.
 
 ---
 
 ## Troubleshooting
 
-**Folder picker is slow / browser looks frozen** — Normal for OneDrive / iCloud folders on first open. The OS has to spin up the file provider. The "Don't refresh" callout that appears on the loading screen explains this; just wait.
+**Folder picker is slow or browser looks frozen.** Normal on first open of an OneDrive or iCloud folder. The OS has to spin up the file provider. The "Don't refresh" callout on the loading screen explains this; just wait.
 
-**Port already in use (local install)** — `start.sh` already kills port 3000 before launching. If something else is stuck:
+**Port already in use (local install).** `start.sh` kills port 3000 before launching. If something else is stuck:
+
 ```bash
-lsof -ti tcp:3000 | xargs kill -9    # macOS/Linux
-netstat -ano | findstr :3000          # Windows — then taskkill /PID <pid> /F
+lsof -ti tcp:3000 | xargs kill -9    # macOS, Linux
+netstat -ano | findstr :3000          # Windows, then taskkill /PID <pid> /F
 ```
 
-**Telegram bot says "Conflict: getUpdates"** — Another browser tab or another device is polling the same bot. ResearchOS holds a per-tab lock; close other tabs / devices.
+**Telegram bot says "Conflict: getUpdates".** Another browser tab or another device is polling the same bot. ResearchOS holds a per-tab lock; close the other tabs or devices.
 
-**Forgot password** — Open your shared data folder, navigate to `users/<your-username>/`, delete `_auth.json`. Sign in normally.
+**Forgot your account password.** Open your shared data folder, navigate to `users/<your-username>/`, delete `_auth.json`. Sign in normally.
 
-**Calendar feed isn't updating** — Feeds are edge-cached for 15 minutes to keep server invocations low. Force a refresh by removing and re-adding the feed.
+**Calendar feed isn't updating.** Feeds are edge-cached for 15 minutes to keep serverless function invocations low. Remove and re-add the feed to force a refresh.
+
+**Hero card on the Workbench shows an image I removed.** ResearchOS migrated to a per-tab attachment layout in May 2026. If you have legacy `results/task-N/Images/` content from before that migration, run `node scripts/sweep-legacy-task-folders.mjs <your-folder> --dry-run` to see what is left, then re-run with `--apply` to migrate or report unrecognized content.
 
 ---
 
-## Supporting the project
+## Contributing
 
-ResearchOS is a solo side project; the hosted version is paid for out of pocket. If it's useful to you, there's a tiny "Support this project" link in the app (PayPal / Venmo) — entirely optional.
+Pull requests welcome. The repo is set up for clean CI runs:
+
+```bash
+cd frontend
+npm install
+npm test                    # vitest (438+ tests as of 2026-05-20)
+npm run test:e2e            # Playwright baseline against the dev server
+npx tsc --noEmit
+npm run lint                # 0 errors expected on main
+```
+
+Before opening a PR, please run all four locally. The CI workflow runs them on every push to `main` and on every pull request. Coverage reports and Playwright traces are uploaded as workflow artifacts.
+
+See `AGENTS.md` for repo conventions, known traps, and the development audit trail. New features that touch network paths, IndexedDB writes, or on-disk credential storage should be discussed in an issue first so the security model stays coherent.
 
 ---
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
 
 ---
 
 ## Issues
 
-Open an issue on [GitHub](https://github.com/gnick18/ResearchOS/issues).
+[github.com/gnick18/ResearchOS/issues](https://github.com/gnick18/ResearchOS/issues)
