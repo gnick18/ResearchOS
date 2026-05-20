@@ -49,6 +49,16 @@ export default function CreatingAUserPage() {
         </Step>
       </Steps>
 
+      <Callout variant="info" title="What happens right after Create">
+        Brand-new users land in a seven-step welcome wizard that picks the
+        tabs you see and offers to set up Telegram, a calendar feed, and an
+        AI Helper prompt. See{" "}
+        <Link href="/wiki/getting-started/welcome-wizard">
+          The Welcome Wizard
+        </Link>{" "}
+        for the full walkthrough, or skip it and explore on your own.
+      </Callout>
+
       <h2>Optional password</h2>
       <p>
         If you share a laptop, or you&apos;re storing the folder in a shared

@@ -2496,8 +2496,9 @@ function TipsSection() {
         <div className="min-w-0 flex-1">
           <p className="text-sm text-gray-800">Re-run welcome wizard</p>
           <p className="text-xs text-gray-500 mt-1">
-            Reopens the welcome wizard so you can revise your use cases, tabs,
-            and integration setup.
+            The welcome wizard is the seven-step setup new users see on first
+            sign-in. Launch it again to revisit your use cases, tab choices,
+            and the three integration prompts.
           </p>
         </div>
         <button

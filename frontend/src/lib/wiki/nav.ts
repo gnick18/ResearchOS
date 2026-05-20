@@ -71,6 +71,11 @@ export const WIKI_NAV: WikiNode[] = [
         blurb: "Pick a username, set an optional password.",
       },
       {
+        href: "/wiki/getting-started/welcome-wizard",
+        label: "The Welcome Wizard",
+        blurb: "Seven-step setup that picks your tabs and offers three integrations.",
+      },
+      {
         href: "/wiki/getting-started/demo-mode",
         label: "Demo Mode",
         blurb: "Try ResearchOS in the browser with a seeded yeast lab.",

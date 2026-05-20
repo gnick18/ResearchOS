@@ -1692,6 +1692,162 @@ const FIXTURE_ROUTES = [
       }
     },
   },
+  // ── Onboarding v2 welcome-wizard captures ─────────────────────────
+  //
+  // Wiki target: /wiki/getting-started/welcome-wizard
+  //
+  // FIXTURE NOTE (2026-05-20): the brief asked for the combo
+  // ?wikiCapture=1 + ?wizard-preview=1 to force-mount the wizard in
+  // fixture mode. The current orchestrator wiring blocks this: in
+  // frontend/src/lib/onboarding/orchestrator.tsx the OnboardingProvider
+  // short-circuits to `<>{children}</>` whenever `isDemoOrWikiCapture()`
+  // returns true (line ~740), so `OnboardingOrchestrator` (which owns
+  // the `wizardPreviewMode` URL-param read at line ~146) never mounts
+  // under wikiCapture. That means a Playwright visit to
+  // /?wikiCapture=1&wizard-preview=1 lands on the home page with no
+  // wizard rendered, and the seven step-body captures below cannot
+  // be produced from this script as-is.
+  //
+  // Options for a future fix (out of scope for the wiki-page chip):
+  //   a. Loosen the OnboardingProvider gate so `wizardPreviewMode`
+  //      overrides the `isDemoOrWikiCapture()` short-circuit (one-line
+  //      change, but should be vetted by master — it threads
+  //      preview-mode through demo-tab carve-outs).
+  //   b. Add a dedicated capture-only fixture variant (e.g.
+  //      ?wikiCapture=wizard) that seeds an empty `_onboarding.json`
+  //      and lets the orchestrator mount the wizard naturally as a
+  //      fresh user.
+  //   c. Capture against a real fresh data folder outside fixture
+  //      mode (slow, manual, not repeatable in CI).
+  //
+  // Until one of those lands, entries 1-9 below are intentionally NOT
+  // wired into the FIXTURE_ROUTES array. The <Screenshot> tags in the
+  // wiki page will render the "Screenshot pending" placeholder until
+  // the orchestrator gate is updated and we rerun this script.
+  //
+  // Capture intent (for future hand-off, in the same order the wiki
+  // page references them):
+  //
+  //   1. onboarding-wizard-step-1-welcome.png
+  //      path: "/?wizard-preview=1", waitFor: "text=Welcome to ResearchOS"
+  //      settleMs: 600, no action (the wizard mounts on step 1).
+  //
+  //   2. onboarding-wizard-step-2-use-cases.png
+  //      Click Continue once to reach step 2, then click two chips
+  //      ("PhD running experiments" and "Postdoc") so the screenshot
+  //      shows the chip-selected state. Other remains collapsed.
+  //
+  //   3. onboarding-wizard-step-2-other-open.png
+  //      Same as #2 reach-path, then click the "Other" row at the
+  //      bottom of the chip grid so the free-form input field renders.
+  //
+  //   4. onboarding-wizard-step-3-tabs.png
+  //      From step 2, pick a postdoc-style multi-chip (Postdoc +
+  //      Workbench/Gantt-friendly) then click Continue once more to
+  //      land on step 3. The grid shows the seeded toggles.
+  //
+  //   5. onboarding-wizard-step-4-telegram-cta.png
+  //      Reach step 4 with any non-computational-only chip set (e.g.
+  //      PhD running experiments). Two-CTA view renders.
+  //
+  //   6. onboarding-wizard-step-4-telegram-autoskip.png
+  //      Reach step 2, click ONLY "Computational researcher", then
+  //      Continue twice (step-2 → step-3 → step-4). The amber notice
+  //      card renders. (Single-chip multi-select state is the tricky
+  //      bit — Playwright needs to assert no other chip is highlighted
+  //      before advancing.)
+  //
+  //   7. onboarding-wizard-step-5-calendar-form.png
+  //      Reach step 5 via any chip set, then click "Add one now" to
+  //      reveal the Name + ICS URL form. Optionally pre-fill the
+  //      Name field with "My Google calendar" for a realistic shot.
+  //
+  //   8. onboarding-wizard-step-6-aihelper.png
+  //      Reach step 6 (Continue through 5 with "Maybe later" so we
+  //      don't actually subscribe a feed). Two-CTA initial state.
+  //
+  //   9. onboarding-wizard-step-7-wrapup.png
+  //      Reach step 7. For a populated decision-echo block, the
+  //      ideal walk is: step 2 Other-toggle on with text "running a
+  //      clinical research coordinator role", step 4 "Maybe later",
+  //      step 5 "Maybe later", step 6 "Copy prompt now" then Continue.
+  //      Captures decision rows for all three integrations.
+  //
+  // Entry 10 below IS reachable via the fixture (the settings page
+  // is already captured in non-wizard mode at settings.png, so the
+  // Tips section renders identically here).
+  {
+    path: "/settings",
+    file: "onboarding-settings-rerun-button.png",
+    waitFor: "text=Settings, text=Tips",
+    settleMs: 800,
+    action: async (page) => {
+      // The Tips section sits near the bottom of the long Settings
+      // panel stack. Scroll the "Re-run welcome wizard" row into view
+      // and capture a tight clip around the Tips card so the wiki shot
+      // matches the section the prose describes.
+      try {
+        const label = page
+          .getByText(/Re-run welcome wizard/i)
+          .first();
+        if (await label.count()) {
+          await label
+            .scrollIntoViewIfNeeded({ timeout: 3000 })
+            .catch(() => {});
+          await page.waitForTimeout(500);
+        }
+      } catch (err) {
+        console.warn(
+          `  ⚠ onboarding-settings-rerun-button scroll: ${err.message}`,
+        );
+      }
+      // Compute a clip that spans the entire Tips section (its
+      // SectionShell header through the Re-run row's button). This
+      // keeps the surrounding settings panels out of the shot so the
+      // reader's eye lands on the right control.
+      try {
+        const clip = await page.evaluate(() => {
+          const headings = Array.from(
+            document.querySelectorAll("h2, h3"),
+          );
+          const tipsHeading = headings.find(
+            (el) => (el.textContent || "").trim() === "Tips",
+          );
+          if (!tipsHeading) return null;
+          // Walk up to the SectionShell wrapper so the clip catches
+          // the title + the radio set + both action rows.
+          let shell = tipsHeading.parentElement;
+          for (let i = 0; i < 4 && shell; i++) {
+            const cs = getComputedStyle(shell);
+            if (
+              cs.borderRadius !== "0px" ||
+              shell.className.includes("rounded")
+            ) {
+              break;
+            }
+            shell = shell.parentElement;
+          }
+          if (!shell) return null;
+          const rect = shell.getBoundingClientRect();
+          const pad = 12;
+          return {
+            x: Math.max(0, Math.floor(rect.left - pad)),
+            y: Math.max(0, Math.floor(rect.top - pad)),
+            width: Math.ceil(rect.width + pad * 2),
+            height: Math.ceil(rect.height + pad * 2),
+          };
+        });
+        if (clip && clip.width > 100 && clip.height > 100) {
+          return { clip };
+        }
+      } catch (err) {
+        console.warn(
+          `  ⚠ onboarding-settings-rerun-button clip calc: ${err.message}`,
+        );
+      }
+    },
+    highlight: { text: "Re-run wizard" },
+  },
 ];
 
 /** Hide dev/beta UI that distracts from docs. Re-applied per page.
