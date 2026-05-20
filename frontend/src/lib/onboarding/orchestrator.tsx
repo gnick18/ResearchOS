@@ -501,11 +501,22 @@ export function OnboardingOrchestrator({
   // verbatim rather than recomputing via `tabsForUseCases()`. The
   // step-3 seed is initialized from `seedVisibleTabsForStep3()` so the
   // no-touch case still lands at the locked default.
+  //
+  // Phase 2c: `result` further expands with the three integration-step
+  // decisions (telegram / calendar / ai_helper). Each is undefined when
+  // the user never made a decision (shouldn't happen on step-7
+  // completion since steps 4-6 record on every exit path, but defensive
+  // — undefined coerces to null on persistence). These land in the
+  // sidecar's additive v3 decision fields so future surfaces can read
+  // what the user picked.
   const handleWizardComplete = useCallback(
     (result: {
       useCases: string[];
       visibleTabs: string[];
       otherUseCase?: string;
+      telegramDecision?: "paired" | "later" | "skipped";
+      calendarDecision?: "added" | "later";
+      aiHelperDecision?: "copied" | "later";
     }) => {
       // Phase 2a master flag #2: in preview mode, the wizard renders
       // and is fully interactive but nothing persists. Just unmount.
@@ -528,15 +539,21 @@ export function OnboardingOrchestrator({
           console.error("[onboarding] wizard complete: visibleTabs write failed", err);
         }
         // Sidecar write: use_cases + other_use_case + wizard_completed_at
-        // + seed mode. The `cur.mode ?? "suggestions"` guard means
-        // re-runs (Phase 4) that already have a mode picked don't
-        // clobber the user's earlier Settings → Tips choice.
+        // + seed mode + the three Phase 2c integration decisions. The
+        // `cur.mode ?? "suggestions"` guard means re-runs (Phase 4) that
+        // already have a mode picked don't clobber the user's earlier
+        // Settings → Tips choice. Decisions coerce undefined → null so
+        // a partial wizard run (defensive — shouldn't happen on a real
+        // step-7 completion) still persists cleanly.
         const trimmedOther = result.otherUseCase?.trim() ?? "";
         const next = await patchOnboarding(username, (cur) => ({
           ...cur,
           use_cases: result.useCases,
           other_use_case: trimmedOther.length > 0 ? trimmedOther : null,
           wizard_completed_at: new Date().toISOString(),
+          telegram_decision: result.telegramDecision ?? null,
+          calendar_decision: result.calendarDecision ?? null,
+          ai_helper_decision: result.aiHelperDecision ?? null,
           mode: cur.mode ?? "suggestions",
         }));
         setSidecar(next);

@@ -120,6 +120,9 @@ function freshSidecar(overrides: Partial<OnboardingSidecar> = {}): OnboardingSid
     wizard_completed_at: null,
     wizard_skipped_at: null,
     other_use_case: null,
+    telegram_decision: null,
+    calendar_decision: null,
+    ai_helper_decision: null,
     ...overrides,
   };
 }

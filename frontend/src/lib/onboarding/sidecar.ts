@@ -35,6 +35,14 @@ import { fileService } from "@/lib/file-system/file-service";
  *    field to `null` on any older record. Stored separately from
  *    `use_cases` so analytics can read what the user wrote without that
  *    string ever appearing in the tab-mapping logic.
+ *  - v3 (2026-05-20, additive extension during Phase 2c): adds
+ *    `telegram_decision`, `calendar_decision`, `ai_helper_decision`.
+ *    These record the outcome of the wizard's step 4 / 5 / 6 integration
+ *    gates so future surfaces (Settings → Tips, AI Helper config) can
+ *    read what the user chose without re-running the wizard. All three
+ *    are additive on the v3 shape, no schema-version bump — `normalize()`
+ *    backfills each to `null` on any older record. Enum values are
+ *    validated; unknown / non-string values normalize to `null`.
  */
 
 const SCHEMA_VERSION = 3;
@@ -99,6 +107,18 @@ export interface OnboardingSidecar {
    *  sees this string. Whitespace-only values are normalized to `null`
    *  on the write path. */
   other_use_case: string | null;
+  /** Step 4 (Telegram) decision recorded by the v2 wizard. `null` =
+   *  not yet through the wizard (or wizard was skipped before step 4).
+   *  "paired" = user completed inline pair flow. "later" = explicit
+   *  "Maybe later" click. "skipped" = auto-skip (computational-only). */
+  telegram_decision: "paired" | "later" | "skipped" | null;
+  /** Step 5 (Calendar feed) decision. `null` = not through. "added" =
+   *  user subscribed inline. "later" = explicit "Maybe later". */
+  calendar_decision: "added" | "later" | null;
+  /** Step 6 (AI Helper) decision. `null` = not through. "copied" = user
+   *  clicked Copy and the clipboard write succeeded (or used the
+   *  textarea fallback). "later" = explicit "Maybe later". */
+  ai_helper_decision: "copied" | "later" | null;
 }
 
 function sidecarPath(username: string): string {
@@ -119,6 +139,9 @@ function makeDefault(): OnboardingSidecar {
     wizard_completed_at: null,
     wizard_skipped_at: null,
     other_use_case: null,
+    telegram_decision: null,
+    calendar_decision: null,
+    ai_helper_decision: null,
   };
 }
 
@@ -179,6 +202,27 @@ function normalize(raw: Partial<OnboardingSidecar> | null): OnboardingSidecar {
     typeof rawOther === "string" && rawOther.trim().length > 0
       ? rawOther
       : null;
+  // Phase 2c additive v3 fields. Each is enum-validated; unknown values
+  // (older record without the field, or a malformed write from a buggy
+  // build) normalize to `null` so the wrap-up screen can render the
+  // "didn't decide" state cleanly.
+  const rawTelegram = (raw as { telegram_decision?: unknown }).telegram_decision;
+  const telegram_decision: "paired" | "later" | "skipped" | null =
+    rawTelegram === "paired" ||
+    rawTelegram === "later" ||
+    rawTelegram === "skipped"
+      ? rawTelegram
+      : null;
+  const rawCalendar = (raw as { calendar_decision?: unknown }).calendar_decision;
+  const calendar_decision: "added" | "later" | null =
+    rawCalendar === "added" || rawCalendar === "later"
+      ? rawCalendar
+      : null;
+  const rawAiHelper = (raw as { ai_helper_decision?: unknown }).ai_helper_decision;
+  const ai_helper_decision: "copied" | "later" | null =
+    rawAiHelper === "copied" || rawAiHelper === "later"
+      ? rawAiHelper
+      : null;
   return {
     version: SCHEMA_VERSION,
     first_seen_at:
@@ -204,6 +248,9 @@ function normalize(raw: Partial<OnboardingSidecar> | null): OnboardingSidecar {
     wizard_completed_at,
     wizard_skipped_at,
     other_use_case,
+    telegram_decision,
+    calendar_decision,
+    ai_helper_decision,
   };
 }
 
