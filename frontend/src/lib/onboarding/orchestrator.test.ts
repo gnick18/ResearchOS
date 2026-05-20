@@ -441,6 +441,149 @@ describe("Onboarding v2 Phase 1: wizard mount gate", () => {
   });
 });
 
+describe("wizard-gate fix: ?wizard-preview=1 + ?wikiCapture=1 override", () => {
+  // The wizard-preview override lifts `<OnboardingOrchestrator>` past the
+  // OnboardingProvider's wiki-capture short-circuit so the wizard surface
+  // can render on top of fixture data for wiki-capture screenshot
+  // captures. This is a single-site fix in `OnboardingProvider` — none of
+  // the orchestrator's 6 internal `isDemoOrWikiCapture()` short-circuits
+  // (sidecar load, cancelTip, setMode, tutorial signal subscriber, roll
+  // loop, forceFireTip) get the override, because they gate behaviors
+  // (writes, persistence, auto-fire) that should STAY exempted in
+  // preview-against-fixture mode. The wizard's complete / skip handlers
+  // separately no-op in `wizardPreviewMode === true` (Phase 2a), so the
+  // no-write invariant still holds end-to-end.
+
+  /** Pure model of the end-to-end "would the wizard be visible?"
+   *  decision, spanning both the OnboardingProvider's mount gate and
+   *  the orchestrator's internal `showWizard` gate. Mirrors the
+   *  source-of-truth logic in `orchestrator.tsx`:
+   *
+   *  - Provider gate (line ~740): `isDemoOrWikiCapture() && !wizardPreviewMode`
+   *    short-circuits the orchestrator out entirely.
+   *  - Orchestrator gate (line ~669): in preview mode, wizard mounts
+   *    iff `!previewDismissed`; otherwise the sidecar-based gate runs.
+   */
+  function wouldShowWizard(args: {
+    currentUser: string | null;
+    wizardPreviewMode: boolean;
+    sidecar: OnboardingSidecar | null;
+    isFreshUser: boolean | null;
+    activeTip: boolean;
+    previewDismissed: boolean;
+  }): boolean {
+    if (!args.currentUser) return false;
+    if (isDemoOrWikiCapture() && !args.wizardPreviewMode) return false;
+    if (args.wizardPreviewMode) return !args.previewDismissed;
+    if (args.sidecar === null) return false;
+    return (
+      (args.isFreshUser === true ||
+        args.sidecar.wizard_force_show === true) &&
+      args.sidecar.wizard_completed_at === null &&
+      args.sidecar.wizard_skipped_at === null &&
+      !args.activeTip
+    );
+  }
+
+  it("?wikiCapture=1 alone → wizard NOT mounted (existing fixture-mode invariant)", () => {
+    demoModeMock = true;
+    expect(
+      wouldShowWizard({
+        currentUser: "alex",
+        wizardPreviewMode: false,
+        sidecar: freshSidecar({ mode: null }),
+        isFreshUser: true,
+        activeTip: false,
+        previewDismissed: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("?wizard-preview=1 alone → wizard mounted (Phase 2a behavior preserved)", () => {
+    demoModeMock = false;
+    expect(
+      wouldShowWizard({
+        currentUser: "alex",
+        wizardPreviewMode: true,
+        // Preview mode bypasses the sidecar-based gate entirely, so an
+        // existing-user sidecar (completed wizard) shouldn't block.
+        sidecar: freshSidecar({
+          mode: "suggestions",
+          wizard_completed_at: "2026-04-01T00:00:00.000Z",
+        }),
+        isFreshUser: false,
+        activeTip: false,
+        previewDismissed: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("?wizard-preview=1 + ?wikiCapture=1 → wizard mounted (THE NEW BEHAVIOR)", () => {
+    demoModeMock = true;
+    expect(
+      wouldShowWizard({
+        currentUser: "alex",
+        wizardPreviewMode: true,
+        // Fixture-mode sidecar shape is irrelevant — preview mode
+        // bypasses sidecar-based gates entirely.
+        sidecar: null,
+        isFreshUser: null,
+        activeTip: false,
+        previewDismissed: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("neither flag + existing user → wizard NOT mounted (Phase 5 invariant)", () => {
+    demoModeMock = false;
+    expect(
+      wouldShowWizard({
+        currentUser: "alex",
+        wizardPreviewMode: false,
+        sidecar: freshSidecar({
+          mode: "suggestions",
+          wizard_completed_at: "2026-04-01T00:00:00.000Z",
+        }),
+        isFreshUser: false,
+        activeTip: false,
+        previewDismissed: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("neither flag + fresh user → wizard mounted (Phase 1 fresh-user flow)", () => {
+    demoModeMock = false;
+    expect(
+      wouldShowWizard({
+        currentUser: "alex",
+        wizardPreviewMode: false,
+        sidecar: freshSidecar({ mode: null }),
+        isFreshUser: true,
+        activeTip: false,
+        previewDismissed: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("?wizard-preview=1 + ?wikiCapture=1 + previewDismissed → wizard unmounts (complete/skip path)", () => {
+    // Belt-and-suspenders: the wizard's complete / skip handlers flip
+    // `setPreviewDismissed(true)` in preview mode (no persistence). Once
+    // dismissed, the wizard unmounts even though preview mode is still
+    // active. Confirms the override doesn't lock the wizard on-screen.
+    demoModeMock = true;
+    expect(
+      wouldShowWizard({
+        currentUser: "alex",
+        wizardPreviewMode: true,
+        sidecar: null,
+        isFreshUser: null,
+        activeTip: false,
+        previewDismissed: true,
+      }),
+    ).toBe(false);
+  });
+});
+
 describe("tip catalog shape", () => {
   it("exposes the 10-tip orchestrator catalog", () => {
     // 11th tip (lab-mode-picker) is standalone, not in this array.

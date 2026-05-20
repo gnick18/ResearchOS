@@ -709,6 +709,14 @@ export function useOnboarding(): OrchestratorContextValue | null {
  * Top-level provider that decides what onboarding surface (if any) to
  * mount. Decision matrix:
  *  - `!currentUser` → pass-through (no signed-in user, no orchestrator).
+ *  - `?wizard-preview=1` set (regardless of demo/wiki-capture) → mount
+ *    `<OnboardingOrchestrator>` so the wizard surface can render against
+ *    fixture data for wiki-capture screenshots. The orchestrator's
+ *    internal short-circuits (sidecar writes, mode persistence, tip roll
+ *    loop, etc.) still keep `isDemoOrWikiCapture()` exempted — only the
+ *    mount itself bypasses the fixture gate, and the wizard's complete /
+ *    skip handlers no-op in preview mode (see `wizardPreviewMode` paths
+ *    in `OnboardingOrchestrator`).
  *  - demo/wiki-capture mode AND a non-null tutorial mode (`?tutorial=1`
  *    for the full intro tour, `?tutorial=telegram` for the standalone
  *    Telegram walkthrough) → mount the Phase-4
@@ -733,11 +741,21 @@ export function OnboardingProvider({
   currentUser: string | null;
   children: ReactNode;
 }) {
+  // `?wizard-preview=1` override: when set, mount the orchestrator
+  // regardless of demo/wiki-capture mode so the wizard fixture-mode
+  // screenshot captures can render the wizard on top of fixture data.
+  // Read here (in addition to the orchestrator's own read at line ~146)
+  // because this provider gates whether the orchestrator mounts at all
+  // — without this read, `?wizard-preview=1 + ?wikiCapture=1` would
+  // short-circuit before the orchestrator ever sees the URL.
+  const searchParams = useSearchParams();
+  const wizardPreviewMode = searchParams?.get("wizard-preview") === "1";
+
   // Re-evaluate on currentUser change. If currentUser flips to null
   // (sign-out), we unmount the orchestrator entirely — which flushes
   // the active-time tracker via its cleanup.
   if (!currentUser) return <>{children}</>;
-  if (isDemoOrWikiCapture()) {
+  if (isDemoOrWikiCapture() && !wizardPreviewMode) {
     if (isTutorialMode()) {
       return (
         <>
