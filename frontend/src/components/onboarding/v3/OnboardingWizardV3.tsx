@@ -270,63 +270,33 @@ export default function OnboardingWizardV3({
     // Q2-Q5 and Q6 already carry their defaults via initialFeaturePicks,
     // but writing them explicitly here keeps the skip a single
     // idempotent persistence call regardless of prior state.
+    //
+    // We also append the skipped step id to
+    // `wizard_resume_state.skipped_steps` in the same patch so P5's
+    // Resume modal can surface the list and P4's cleanup grid can tag
+    // auto-created prerequisites as "skipped, auto-created". The
+    // append is idempotent: a state-machine corner case that re-fires
+    // skip on the same step id will not duplicate the entry. The
+    // lab_tour_decision: sentinel scheme P1 wrote into the same array
+    // remains untouched: real step ids (e.g. "setup-q2", "W5") never
+    // start with that prefix.
     await patchSidecar((cur) => {
-      switch (currentStep) {
-        case "setup-q1": {
-          const base = cur.feature_picks ?? initialFeaturePicks("solo");
-          return {
-            ...cur,
-            feature_picks: { ...base, account_type: "solo" },
-          };
-        }
-        case "setup-q1a": {
-          if (!cur.feature_picks) return cur;
-          return {
-            ...cur,
-            feature_picks: {
-              ...cur.feature_picks,
-              lab_storage: "deferred",
-            },
-          };
-        }
-        case "setup-q2": {
-          if (!cur.feature_picks) return cur;
-          return {
-            ...cur,
-            feature_picks: { ...cur.feature_picks, purchases: "maybe" },
-          };
-        }
-        case "setup-q3": {
-          if (!cur.feature_picks) return cur;
-          return {
-            ...cur,
-            feature_picks: { ...cur.feature_picks, calendar: "maybe" },
-          };
-        }
-        case "setup-q4": {
-          if (!cur.feature_picks) return cur;
-          return {
-            ...cur,
-            feature_picks: { ...cur.feature_picks, goals: "maybe" },
-          };
-        }
-        case "setup-q5": {
-          if (!cur.feature_picks) return cur;
-          return {
-            ...cur,
-            feature_picks: { ...cur.feature_picks, telegram: "maybe" },
-          };
-        }
-        case "setup-q6": {
-          if (!cur.feature_picks) return cur;
-          return {
-            ...cur,
-            feature_picks: { ...cur.feature_picks, ai_helper: "full" },
-          };
-        }
-        default:
-          return cur;
+      const featurePicksPatched = applyFeaturePicksDefault(cur, currentStep);
+      const existingResume = featurePicksPatched.wizard_resume_state ?? {
+        current_step: currentStep,
+        skipped_steps: [],
+        artifacts_created: [],
+      };
+      if (existingResume.skipped_steps.includes(currentStep)) {
+        return featurePicksPatched;
       }
+      return {
+        ...featurePicksPatched,
+        wizard_resume_state: {
+          ...existingResume,
+          skipped_steps: [...existingResume.skipped_steps, currentStep],
+        },
+      };
     });
     const next = getNextStep(currentStep, sidecar, picks);
     if (!next) return;
@@ -487,6 +457,74 @@ export default function OnboardingWizardV3({
     </div>,
     document.body,
   );
+}
+
+/** Apply the Phase 1 Skip-this-step default for the field owned by
+ *  `step`. Returns the sidecar unchanged for non-setup steps (W*, L*,
+ *  phase4-cleanup); those steps have no feature_picks field to
+ *  default. Pulled out of `handleSkipThisStep` so the skipped-step
+ *  log append can compose with the feature_picks write in a single
+ *  patch call. */
+function applyFeaturePicksDefault(
+  cur: OnboardingSidecar,
+  step: WizardStep,
+): OnboardingSidecar {
+  switch (step) {
+    case "setup-q1": {
+      const base = cur.feature_picks ?? initialFeaturePicks("solo");
+      return {
+        ...cur,
+        feature_picks: { ...base, account_type: "solo" },
+      };
+    }
+    case "setup-q1a": {
+      if (!cur.feature_picks) return cur;
+      return {
+        ...cur,
+        feature_picks: {
+          ...cur.feature_picks,
+          lab_storage: "deferred",
+        },
+      };
+    }
+    case "setup-q2": {
+      if (!cur.feature_picks) return cur;
+      return {
+        ...cur,
+        feature_picks: { ...cur.feature_picks, purchases: "maybe" },
+      };
+    }
+    case "setup-q3": {
+      if (!cur.feature_picks) return cur;
+      return {
+        ...cur,
+        feature_picks: { ...cur.feature_picks, calendar: "maybe" },
+      };
+    }
+    case "setup-q4": {
+      if (!cur.feature_picks) return cur;
+      return {
+        ...cur,
+        feature_picks: { ...cur.feature_picks, goals: "maybe" },
+      };
+    }
+    case "setup-q5": {
+      if (!cur.feature_picks) return cur;
+      return {
+        ...cur,
+        feature_picks: { ...cur.feature_picks, telegram: "maybe" },
+      };
+    }
+    case "setup-q6": {
+      if (!cur.feature_picks) return cur;
+      return {
+        ...cur,
+        feature_picks: { ...cur.feature_picks, ai_helper: "full" },
+      };
+    }
+    default:
+      return cur;
+  }
 }
 
 function nextButtonLabel(step: WizardStep, uiState: UiState): string {
