@@ -108,7 +108,7 @@ function shouldFire(
 
 function freshSidecar(overrides: Partial<OnboardingSidecar> = {}): OnboardingSidecar {
   return {
-    version: 2,
+    version: 3,
     first_seen_at: "2026-05-14T00:00:00.000Z",
     active_seconds: 1000,
     last_tip_at: 0,
@@ -116,6 +116,9 @@ function freshSidecar(overrides: Partial<OnboardingSidecar> = {}): OnboardingSid
     tips_off: false,
     shown_count: 0,
     mode: "suggestions",
+    use_cases: null,
+    wizard_completed_at: null,
+    wizard_skipped_at: null,
     ...overrides,
   };
 }
@@ -228,7 +231,11 @@ describe("sidecar action-cancel persistence", () => {
 
   it("normalizes a missing sidecar into a fresh default on read", async () => {
     const sc = await readOnboarding("brand-new-user");
-    expect(sc.version).toBe(2);
+    // Schema is at v3 as of the Onboarding v2 Phase 0 chip; v3 added
+    // additive wizard fields (use_cases / wizard_completed_at /
+    // wizard_skipped_at). Sidecar v2/v3 migration is pinned in
+    // `sidecar.test.ts`.
+    expect(sc.version).toBe(3);
     expect(sc.shown_count).toBe(0);
     expect(sc.tips_off).toBe(false);
     expect(sc.active_seconds).toBe(0);
