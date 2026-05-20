@@ -43,6 +43,16 @@ import { fileService } from "@/lib/file-system/file-service";
  *    are additive on the v3 shape, no schema-version bump — `normalize()`
  *    backfills each to `null` on any older record. Enum values are
  *    validated; unknown / non-string values normalize to `null`.
+ *  - v3 (2026-05-20, additive extension during Phase 4): adds
+ *    `wizard_force_show` (boolean). The Settings → Tips "Re-run welcome
+ *    wizard" button sets this to `true` (alongside null-ing the two
+ *    wizard timestamps); the orchestrator's `showWizard` gate ORs
+ *    `wizard_force_show === true` with `isFreshUserForWizard() === true`
+ *    so existing users who explicitly click Re-run see the wizard
+ *    again. The wizard's onComplete / onSkip handlers clear the flag
+ *    back to `false`, making the bypass one-shot per Re-run click.
+ *    Additive on the v3 shape, no schema-version bump — `normalize()`
+ *    backfills `false` on any older record or non-boolean value.
  */
 
 const SCHEMA_VERSION = 3;
@@ -119,6 +129,15 @@ export interface OnboardingSidecar {
    *  clicked Copy and the clipboard write succeeded (or used the
    *  textarea fallback). "later" = explicit "Maybe later". */
   ai_helper_decision: "copied" | "later" | null;
+  /** One-shot gate-bypass flag for the v2 wizard. Set to `true` by the
+   *  Settings → Tips "Re-run welcome wizard" button (via
+   *  `clearWizardCompletion()`). The orchestrator's `showWizard` gate
+   *  ORs this with `isFreshUserForWizard()` so existing users who
+   *  explicitly clicked Re-run see the wizard mount again. The wizard's
+   *  onComplete / onSkip handlers clear it back to `false`, so the
+   *  bypass is one-shot per Re-run click. Additive v3 field (Phase 4,
+   *  2026-05-20). Default `false`. */
+  wizard_force_show: boolean;
 }
 
 function sidecarPath(username: string): string {
@@ -142,6 +161,7 @@ function makeDefault(): OnboardingSidecar {
     telegram_decision: null,
     calendar_decision: null,
     ai_helper_decision: null,
+    wizard_force_show: false,
   };
 }
 
@@ -223,6 +243,11 @@ function normalize(raw: Partial<OnboardingSidecar> | null): OnboardingSidecar {
     rawAiHelper === "copied" || rawAiHelper === "later"
       ? rawAiHelper
       : null;
+  // Phase 4 additive v3 field. Strict boolean check — string "true",
+  // number 1, etc. all normalize to false so the Re-run bypass can only
+  // be armed by an explicit `clearWizardCompletion()` write.
+  const rawForceShow = (raw as { wizard_force_show?: unknown }).wizard_force_show;
+  const wizard_force_show: boolean = rawForceShow === true;
   return {
     version: SCHEMA_VERSION,
     first_seen_at:
@@ -251,6 +276,7 @@ function normalize(raw: Partial<OnboardingSidecar> | null): OnboardingSidecar {
     telegram_decision,
     calendar_decision,
     ai_helper_decision,
+    wizard_force_show,
   };
 }
 
@@ -308,6 +334,33 @@ export async function replayOnboarding(
     tips_off: false,
     last_tip_at: cur.active_seconds,
     shown_count: 0,
+  }));
+}
+
+/** Reset the wizard's "user has been through it" state so the v2
+ *  wizard mounts again on the next orchestrator read. Used by the
+ *  Settings → Tips "Re-run welcome wizard" button.
+ *
+ *  Sets:
+ *    - wizard_completed_at = null
+ *    - wizard_skipped_at = null
+ *    - wizard_force_show = true  (the gate-bypass field; the wizard
+ *      mounts even though the user is now an existing-user per
+ *      isFreshUserForWizard())
+ *
+ *  Leaves EVERYTHING else untouched (use_cases, other_use_case, the
+ *  three decision fields, mode, tips, tips_off, shown_count,
+ *  active_seconds, first_seen_at). The wizard's onComplete and
+ *  onSkip handlers clear wizard_force_show back to false after the
+ *  re-run finishes. */
+export async function clearWizardCompletion(
+  username: string,
+): Promise<OnboardingSidecar> {
+  return patchOnboarding(username, (cur) => ({
+    ...cur,
+    wizard_completed_at: null,
+    wizard_skipped_at: null,
+    wizard_force_show: true,
   }));
 }
 

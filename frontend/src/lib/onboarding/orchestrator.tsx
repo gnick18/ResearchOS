@@ -33,6 +33,7 @@ import {
   type OnboardingSidecar,
   type TipOutcome,
 } from "./sidecar";
+import { markWizardCoveredTips } from "./wizard-tip-marking";
 import { patchUserSettings } from "@/lib/settings/user-settings";
 import {
   ACTIVE_SECONDS_CAP,
@@ -545,17 +546,36 @@ export function OnboardingOrchestrator({
         // Settings → Tips choice. Decisions coerce undefined → null so
         // a partial wizard run (defensive — shouldn't happen on a real
         // step-7 completion) still persists cleanly.
+        //
+        // Phase 3: also stamp `outcome: "action-cancel"` on the three
+        // wizard-covered catalog tips (telegram-send-to-task,
+        // link-calendars, ai-helper-prompt) so they don't re-fire as
+        // redundant context post-wizard. Marking is conditional on the
+        // user having seen the corresponding step's pitch content;
+        // auto-skip mode (telegram_decision: "skipped") skips the mark
+        // because the user saw an auto-skip notice card, not the
+        // pitch. Wizard-skippers (handleWizardSkip below) get NO marks.
+        // See markWizardCoveredTips() for the full rule table.
         const trimmedOther = result.otherUseCase?.trim() ?? "";
-        const next = await patchOnboarding(username, (cur) => ({
-          ...cur,
-          use_cases: result.useCases,
-          other_use_case: trimmedOther.length > 0 ? trimmedOther : null,
-          wizard_completed_at: new Date().toISOString(),
-          telegram_decision: result.telegramDecision ?? null,
-          calendar_decision: result.calendarDecision ?? null,
-          ai_helper_decision: result.aiHelperDecision ?? null,
-          mode: cur.mode ?? "suggestions",
-        }));
+        const next = await patchOnboarding(username, (cur) => {
+          const nowIso = new Date().toISOString();
+          return {
+            ...cur,
+            use_cases: result.useCases,
+            other_use_case: trimmedOther.length > 0 ? trimmedOther : null,
+            wizard_completed_at: nowIso,
+            telegram_decision: result.telegramDecision ?? null,
+            calendar_decision: result.calendarDecision ?? null,
+            ai_helper_decision: result.aiHelperDecision ?? null,
+            mode: cur.mode ?? "suggestions",
+            tips: markWizardCoveredTips(cur, result, nowIso),
+            // Phase 4: clear the Re-run bypass flag unconditionally
+            // (idempotent — false is the resting state). A user who
+            // re-ran the wizard and is now completing it should end
+            // up back in a clean "wizard is over" state.
+            wizard_force_show: false,
+          };
+        });
         setSidecar(next);
         // Reset route-dwell baseline so the first post-wizard tip can
         // fire without waiting another 30s of dwell on the current
@@ -589,10 +609,16 @@ export function OnboardingOrchestrator({
       // array distinction encodes "skipped" vs "submitted with no
       // picks". visibleTabs is left at the user's defaults
       // (DEFAULT_SETTINGS.visibleTabs is all tabs) on skip.
+      //
+      // Phase 4: also clear `wizard_force_show` unconditionally
+      // (idempotent — false is the resting state). A user who clicked
+      // Re-run from Settings and then skipped the re-opened wizard
+      // should end up back in a clean "wizard is over" state.
       const next = await patchOnboarding(username, (cur) => ({
         ...cur,
         wizard_skipped_at: new Date().toISOString(),
         mode: cur.mode ?? "suggestions",
+        wizard_force_show: false,
       }));
       setSidecar(next);
       // Reset route-dwell baseline (same rationale as the completion
@@ -607,8 +633,8 @@ export function OnboardingOrchestrator({
   );
 
   // Onboarding v2 Phase 1: wizard mount gate. Replaces the v1
-  // OnboardingWelcomeModal entirely (the v1 component file stays on
-  // disk per the Phase 1 brief; only its mount path here retires).
+  // OnboardingWelcomeModal entirely (Phase 4 deletes the v1 component
+  // file; the mount path here retired in Phase 1).
   //
   // The wizard fires for fresh users only: no prior sidecar /
   // settings / metadata footprint (isFreshUserForWizard()), AND the
@@ -629,10 +655,21 @@ export function OnboardingOrchestrator({
   // against any folder state. `previewDismissed` lets the wizard's
   // own Complete / Skip handlers visually unmount without persisting
   // anything (the handlers themselves no-op in preview mode).
+  //
+  // Phase 4 (master + Grant lock via AskUserQuestion 2026-05-20): the
+  // Settings → Tips "Re-run welcome wizard" entry sets the additive
+  // sidecar field `wizard_force_show: true` (via
+  // `clearWizardCompletion()`). The gate ORs that flag with
+  // `isFreshUser === true` so existing users who explicitly click
+  // Re-run see the wizard mount again, while the existing-user
+  // invisibility invariant still holds for everyone else (the wizard
+  // never mounts unsolicited for an existing user). The wizard's
+  // onComplete / onSkip handlers clear `wizard_force_show` back to
+  // false so the bypass is one-shot per click.
   const showWizard = wizardPreviewMode
     ? !previewDismissed
     : sidecar !== null &&
-      isFreshUser === true &&
+      (isFreshUser === true || sidecar.wizard_force_show === true) &&
       sidecar.wizard_completed_at === null &&
       sidecar.wizard_skipped_at === null &&
       activeTip === null;

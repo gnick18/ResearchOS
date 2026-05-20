@@ -25,7 +25,11 @@ vi.mock("@/lib/file-system/file-service", () => ({
   },
 }));
 
-import { readOnboarding, writeOnboarding } from "./sidecar";
+import {
+  clearWizardCompletion,
+  readOnboarding,
+  writeOnboarding,
+} from "./sidecar";
 
 const USER = "alex";
 const PATH = `users/${USER}/_onboarding.json`;
@@ -188,6 +192,8 @@ describe("sidecar v2 → v3 migration", () => {
     expect(sc.telegram_decision).toBeNull();
     expect(sc.calendar_decision).toBeNull();
     expect(sc.ai_helper_decision).toBeNull();
+    // Phase 4 additive v3 field defaults to false.
+    expect(sc.wizard_force_show).toBe(false);
   });
 
   it("round-trips other_use_case (Phase 2a additive v3 extension)", async () => {
@@ -297,5 +303,124 @@ describe("sidecar v2 → v3 migration", () => {
     });
     const sc = await readOnboarding(USER);
     expect(sc.ai_helper_decision).toBeNull();
+  });
+
+  // ── Phase 4: Re-run welcome wizard ──────────────────────────────
+  // Master + Grant lock via AskUserQuestion 2026-05-20. The Settings
+  // → Tips "Re-run welcome wizard" button calls
+  // `clearWizardCompletion()` which null-s the two wizard timestamps
+  // AND sets the new additive sidecar field `wizard_force_show` to
+  // true. The orchestrator's `showWizard` gate ORs that flag with
+  // `isFreshUserForWizard() === true` so existing users who clicked
+  // Re-run see the wizard mount again.
+
+  it("clearWizardCompletion() round-trips: null-s both timestamps and arms wizard_force_show, leaves everything else untouched", async () => {
+    memFs.set(PATH, {
+      version: 3,
+      first_seen_at: "2026-05-14T08:00:00.000Z",
+      active_seconds: 4242,
+      last_tip_at: 1200,
+      tips: {
+        "home-welcome": {
+          shown_at: "2026-05-14T10:05:00.000Z",
+          dismissed_at: "2026-05-14T10:05:30.000Z",
+          outcome: "got-it",
+        },
+      },
+      tips_off: false,
+      shown_count: 3,
+      mode: "suggestions",
+      use_cases: ["postdoc", "phd_experiments"],
+      wizard_completed_at: "2026-05-20T12:00:00Z",
+      wizard_skipped_at: null,
+      other_use_case: "physics simulations",
+      telegram_decision: "paired",
+      calendar_decision: "added",
+      ai_helper_decision: "copied",
+      wizard_force_show: false,
+    });
+    const sc = await clearWizardCompletion(USER);
+    // The three fields we set.
+    expect(sc.wizard_completed_at).toBeNull();
+    expect(sc.wizard_skipped_at).toBeNull();
+    expect(sc.wizard_force_show).toBe(true);
+    // Everything else preserved.
+    expect(sc.first_seen_at).toBe("2026-05-14T08:00:00.000Z");
+    expect(sc.active_seconds).toBe(4242);
+    expect(sc.last_tip_at).toBe(1200);
+    expect(sc.tips["home-welcome"].outcome).toBe("got-it");
+    expect(sc.tips_off).toBe(false);
+    expect(sc.shown_count).toBe(3);
+    expect(sc.mode).toBe("suggestions");
+    expect(sc.use_cases).toEqual(["postdoc", "phd_experiments"]);
+    expect(sc.other_use_case).toBe("physics simulations");
+    expect(sc.telegram_decision).toBe("paired");
+    expect(sc.calendar_decision).toBe("added");
+    expect(sc.ai_helper_decision).toBe("copied");
+    // Re-read to confirm the disk write committed the same shape.
+    const sc2 = await readOnboarding(USER);
+    expect(sc2.wizard_force_show).toBe(true);
+    expect(sc2.wizard_completed_at).toBeNull();
+    expect(sc2.wizard_skipped_at).toBeNull();
+    expect(sc2.use_cases).toEqual(["postdoc", "phd_experiments"]);
+  });
+
+  it("backfills wizard_force_show to false on a legacy v3 record (field absent)", async () => {
+    // A v3 record from before Phase 4 — wizard_force_show is not
+    // present. normalize() should treat it as false without clobbering
+    // the rest of the record.
+    memFs.set(PATH, {
+      version: 3,
+      first_seen_at: "2026-05-20T08:00:00.000Z",
+      active_seconds: 1200,
+      last_tip_at: 600,
+      tips: {},
+      tips_off: false,
+      shown_count: 0,
+      mode: "suggestions",
+      use_cases: ["postdoc"],
+      wizard_completed_at: "2026-05-20T12:00:00Z",
+      wizard_skipped_at: null,
+      other_use_case: null,
+      telegram_decision: null,
+      calendar_decision: null,
+      ai_helper_decision: null,
+    });
+    const sc = await readOnboarding(USER);
+    expect(sc.wizard_force_show).toBe(false);
+    // Untouched-field preservation.
+    expect(sc.use_cases).toEqual(["postdoc"]);
+    expect(sc.wizard_completed_at).toBe("2026-05-20T12:00:00Z");
+    expect(sc.mode).toBe("suggestions");
+  });
+
+  it("normalizes a string 'true' wizard_force_show to false (strict boolean check)", async () => {
+    memFs.set(PATH, {
+      version: 3,
+      wizard_force_show: "true",
+    });
+    const sc = await readOnboarding(USER);
+    expect(sc.wizard_force_show).toBe(false);
+  });
+
+  it("normalizes a number 1 wizard_force_show to false (strict boolean check)", async () => {
+    memFs.set(PATH, {
+      version: 3,
+      wizard_force_show: 1,
+    });
+    const sc = await readOnboarding(USER);
+    expect(sc.wizard_force_show).toBe(false);
+  });
+
+  it("round-trips wizard_force_show: true through normalize() + write", async () => {
+    memFs.set(PATH, {
+      version: 3,
+      wizard_force_show: true,
+    });
+    const sc = await readOnboarding(USER);
+    expect(sc.wizard_force_show).toBe(true);
+    await writeOnboarding(USER, sc);
+    const sc2 = await readOnboarding(USER);
+    expect(sc2.wizard_force_show).toBe(true);
   });
 });
