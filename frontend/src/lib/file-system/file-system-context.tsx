@@ -222,6 +222,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         } else if (
           currentUser &&
           currentUser.toLowerCase() !== "lab" &&
+          users.length > 0 &&
           !users.includes(currentUser)
         ) {
           // Stale currentUser pointing at a deleted/tombstoned/never-existed
@@ -231,6 +232,11 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
           // both read paths needed to be filtered against discoverUsers.
           // "lab" is the Lab Mode sentinel and is intentionally not a
           // discoverable user, so preserve it.
+          //
+          // `users.length > 0` guard: discoverUsers returns [] both for a
+          // genuinely fresh folder AND for transient FS errors. Clearing on
+          // [] risks wiping a valid pointer on an FS hiccup; bias toward
+          // keeping the IDB key in that ambiguous case.
           await clearCurrentUser();
           currentUser = null;
         }

@@ -4289,13 +4289,23 @@ export const usersApi = {
       // instead of attempting login("alex") on a vanished user. The user
       // tombstone work at 3f83e157 filtered discoverUsers/usersApi.list
       // but left getMainUser un-validated — see INVESTIGATION_USER_LEAKS.md.
+      //
+      // Only clear when discoverUsers returned a non-empty list. An empty
+      // list is ambiguous: it can mean either a genuinely fresh folder OR
+      // a transient FS error (discoverUsers swallows errors and returns []
+      // the same way). Clearing on [] caused a regression where a valid
+      // mainUser pin was wiped on browser refresh whenever a concurrent
+      // listDirectories call hiccupped — Grant hit this 2026-05-20 right
+      // after the initial fix. A genuinely stale key in an empty folder
+      // costs nothing (next set-as-main overwrites it); a wiped valid key
+      // costs a UX regression. Bias toward keeping the key.
       let validUsers: string[];
       try {
         validUsers = await discoverUsers();
       } catch {
         return { main_user: mainUserCandidate, current_user: currentUser || "" };
       }
-      if (!validUsers.includes(mainUserCandidate)) {
+      if (validUsers.length > 0 && !validUsers.includes(mainUserCandidate)) {
         await clearMainUser();
         return { main_user: "", current_user: currentUser || "" };
       }
