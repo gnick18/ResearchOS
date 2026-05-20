@@ -183,5 +183,46 @@ describe("sidecar v2 → v3 migration", () => {
     expect(sc.use_cases).toBeNull();
     expect(sc.wizard_completed_at).toBeNull();
     expect(sc.wizard_skipped_at).toBeNull();
+    expect(sc.other_use_case).toBeNull();
+  });
+
+  it("round-trips other_use_case (Phase 2a additive v3 extension)", async () => {
+    memFs.set(PATH, {
+      version: 3,
+      first_seen_at: "2026-05-20T08:00:00.000Z",
+      active_seconds: 0,
+      last_tip_at: 0,
+      tips: {},
+      tips_off: false,
+      shown_count: 0,
+      mode: "suggestions",
+      use_cases: [],
+      wizard_completed_at: "2026-05-20T12:00:00Z",
+      wizard_skipped_at: null,
+      other_use_case: "physics simulations",
+    });
+    const sc = await readOnboarding(USER);
+    expect(sc.other_use_case).toBe("physics simulations");
+    await writeOnboarding(USER, sc);
+    const sc2 = await readOnboarding(USER);
+    expect(sc2.other_use_case).toBe("physics simulations");
+  });
+
+  it("normalizes whitespace-only other_use_case to null", async () => {
+    memFs.set(PATH, {
+      version: 3,
+      other_use_case: "   ",
+    });
+    const sc = await readOnboarding(USER);
+    expect(sc.other_use_case).toBeNull();
+  });
+
+  it("normalizes a non-string other_use_case to null", async () => {
+    memFs.set(PATH, {
+      version: 3,
+      other_use_case: 42,
+    });
+    const sc = await readOnboarding(USER);
+    expect(sc.other_use_case).toBeNull();
   });
 });
