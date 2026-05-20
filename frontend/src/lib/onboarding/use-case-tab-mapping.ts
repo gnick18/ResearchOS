@@ -186,3 +186,19 @@ export function tabsForUseCases(selected: string[]): string[] {
   // Preserve NAV_ITEMS canonical order.
   return NAV_ITEMS.map((item) => item.href).filter((href) => union.has(href));
 }
+
+/** Same as tabsForUseCases but adds the folder-state-aware /links
+ *  override: when the data folder has more than one non-system user
+ *  directory, /links defaults on regardless of static mapping.
+ *  Master lock 2026-05-20 (Phase 0 refinement). */
+export function seedVisibleTabsForStep3(
+  useCases: string[],
+  isMultiUserFolder: boolean,
+): string[] {
+  const base = tabsForUseCases(useCases);
+  if (!isMultiUserFolder) return base;
+  if (base.includes("/links")) return base;
+  // Insert /links in NAV_ITEMS canonical order.
+  const next = new Set([...base, "/links"]);
+  return NAV_ITEMS.map((i) => i.href).filter((href) => next.has(href));
+}

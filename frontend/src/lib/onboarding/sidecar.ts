@@ -28,6 +28,13 @@ import { fileService } from "@/lib/file-system/file-service";
  *    normalize cleanly: existing `mode` / `tips` / `tips_off` /
  *    `shown_count` / `active_seconds` / `last_tip_at` / `first_seen_at`
  *    are preserved untouched, the three new fields backfill to `null`.
+ *  - v3 (2026-05-20, additive extension during Phase 2a): adds
+ *    `other_use_case` (the free-form string a user typed in the wizard
+ *    step-2 "Other" affordance, or `null` when not used). Additive on
+ *    the v3 shape, no schema-version bump — `normalize()` backfills the
+ *    field to `null` on any older record. Stored separately from
+ *    `use_cases` so analytics can read what the user wrote without that
+ *    string ever appearing in the tab-mapping logic.
  */
 
 const SCHEMA_VERSION = 3;
@@ -86,6 +93,12 @@ export interface OnboardingSidecar {
   /** ISO timestamp of wizard skip (persistent Skip link). Mutually
    *  exclusive with `wizard_completed_at`. */
   wizard_skipped_at: string | null;
+  /** Free-form string the user typed into the wizard step-2 "Other"
+   *  affordance, or `null` when not used. Additive v3 field (Phase 2a).
+   *  Stored separately from `use_cases` so the static tab-mapping never
+   *  sees this string. Whitespace-only values are normalized to `null`
+   *  on the write path. */
+  other_use_case: string | null;
 }
 
 function sidecarPath(username: string): string {
@@ -105,6 +118,7 @@ function makeDefault(): OnboardingSidecar {
     use_cases: null,
     wizard_completed_at: null,
     wizard_skipped_at: null,
+    other_use_case: null,
   };
 }
 
@@ -160,6 +174,11 @@ function normalize(raw: Partial<OnboardingSidecar> | null): OnboardingSidecar {
     .wizard_skipped_at;
   const wizard_skipped_at: string | null =
     typeof rawSkipped === "string" ? rawSkipped : null;
+  const rawOther = (raw as { other_use_case?: unknown }).other_use_case;
+  const other_use_case: string | null =
+    typeof rawOther === "string" && rawOther.trim().length > 0
+      ? rawOther
+      : null;
   return {
     version: SCHEMA_VERSION,
     first_seen_at:
@@ -184,6 +203,7 @@ function normalize(raw: Partial<OnboardingSidecar> | null): OnboardingSidecar {
     use_cases,
     wizard_completed_at,
     wizard_skipped_at,
+    other_use_case,
   };
 }
 

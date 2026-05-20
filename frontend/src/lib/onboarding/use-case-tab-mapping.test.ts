@@ -14,6 +14,7 @@ import {
   USE_CASE_IDS,
   USE_CASE_TAB_MAP,
   tabsForUseCases,
+  seedVisibleTabsForStep3,
 } from "./use-case-tab-mapping";
 
 describe("USE_CASES catalog", () => {
@@ -126,5 +127,45 @@ describe("tabsForUseCases()", () => {
     expect(searchIdx).toBeGreaterThanOrEqual(0);
     expect(linksIdx).toBeGreaterThanOrEqual(0);
     expect(searchIdx).toBeLessThan(linksIdx);
+  });
+});
+
+describe("seedVisibleTabsForStep3()", () => {
+  // Phase 2a wraps tabsForUseCases with a folder-state-aware override:
+  // when the data folder has >1 non-system user dir, /links defaults
+  // on regardless of static mapping. Master-locked 2026-05-20 as a
+  // Phase 0 refinement. Tests pin both the no-op cases (no multi-user
+  // override) and the override path.
+
+  it("no override when isMultiUserFolder=false (phd_experiments keeps 7-tab list, no /links)", () => {
+    const result = seedVisibleTabsForStep3(["phd_experiments"], false);
+    expect(result).toEqual(tabsForUseCases(["phd_experiments"]));
+    expect(result).not.toContain("/links");
+    expect(result).toHaveLength(7);
+  });
+
+  it("adds /links when isMultiUserFolder=true for a use case that doesn't include /links by default", () => {
+    const result = seedVisibleTabsForStep3(["phd_experiments"], true);
+    expect(result).toContain("/links");
+    expect(result).toHaveLength(8);
+    // Order must follow NAV_ITEMS canonical order.
+    expect(result).toEqual(
+      NAV_ITEMS.map((i) => i.href).filter((href) =>
+        new Set([...tabsForUseCases(["phd_experiments"]), "/links"]).has(href),
+      ),
+    );
+  });
+
+  it("no-op when /links is already in the base list (lab_manager + multi-user)", () => {
+    expect(seedVisibleTabsForStep3(["lab_manager"], true)).toEqual(
+      tabsForUseCases(["lab_manager"]),
+    );
+  });
+
+  it("empty selection in a multi-user folder still returns all 8 tabs (just_exploring short-circuit)", () => {
+    // tabsForUseCases([]) returns ALL_TAB_HREFS, which already
+    // includes /links — so the multi-user override is a no-op here.
+    const result = seedVisibleTabsForStep3([], true);
+    expect(result).toEqual([...ALL_TAB_HREFS]);
   });
 });

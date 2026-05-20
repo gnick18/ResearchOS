@@ -10,10 +10,11 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import OnboardingTipCard from "@/components/OnboardingTipCard";
 import OnboardingTutorialSequencer from "@/components/OnboardingTutorialSequencer";
 import OnboardingWizard from "@/components/OnboardingWizard";
+import { discoverUsers } from "@/lib/file-system/user-discovery";
 import {
   isDemoOrWikiCapture,
   isTutorialMode,
@@ -32,7 +33,6 @@ import {
   type OnboardingSidecar,
   type TipOutcome,
 } from "./sidecar";
-import { tabsForUseCases } from "./use-case-tab-mapping";
 import { patchUserSettings } from "@/lib/settings/user-settings";
 import {
   ACTIVE_SECONDS_CAP,
@@ -135,6 +135,19 @@ export function OnboardingOrchestrator({
   children,
 }: OnboardingOrchestratorProps) {
   const pathname = usePathname() ?? "/";
+  const searchParams = useSearchParams();
+  // Onboarding v2 Phase 2a (master flag #2 from CDP testing): when the
+  // URL carries `?wizard-preview=1`, bypass the fresh-user + wizard-
+  // state + active-tip gates so a testing agent (or a dev iterating on
+  // the surface) can force-mount the wizard against any folder state.
+  // The completion / skip handlers also no-op in preview mode so
+  // nothing persists.
+  const wizardPreviewMode = searchParams?.get("wizard-preview") === "1";
+  // Local "dismissed" flag used only in preview mode. Toggled on by
+  // the completion / skip handlers so the wizard visually unmounts
+  // without writing anything. Real flow uses the sidecar-state gates
+  // for the same purpose.
+  const [previewDismissed, setPreviewDismissed] = useState(false);
   const [sidecar, setSidecar] = useState<OnboardingSidecar | null>(null);
   const [activeTip, setActiveTip] = useState<OnboardingTip | null>(null);
   const [activeTarget, setActiveTarget] = useState<HTMLElement | null>(null);
@@ -144,6 +157,14 @@ export function OnboardingOrchestrator({
   // Gates the wizard mount alongside sidecar.wizard_completed_at /
   // wizard_skipped_at. See `is-fresh-user.ts` for the predicate.
   const [isFreshUser, setIsFreshUser] = useState<boolean | null>(null);
+  // Onboarding v2 Phase 2a: multi-user-folder detection. Probed once
+  // on mount via discoverUsers(). Passed to the wizard so its step-2
+  // → step-3 transition can seed `visibleTabs` with the /links
+  // override (master lock 2026-05-20, Phase 0 refinement). Defaults to
+  // false until the probe resolves — the wizard reads this only at
+  // the transition, so the brief window between mount and probe is a
+  // no-op for the seeding logic.
+  const [isMultiUserFolder, setIsMultiUserFolder] = useState(false);
 
   // Active-seconds at which the user landed on the current route. Used
   // to enforce the 30s "route dwell" gate before any tip on this route
@@ -164,13 +185,18 @@ export function OnboardingOrchestrator({
       // sidecar read so the wizard mount decision is settled by the
       // time both finish. The predicate is a pure read (no writes), so
       // running it before the sidecar exists is safe.
-      const [initial, fresh] = await Promise.all([
+      // Phase 2a: also probe discoverUsers() for the multi-user-folder
+      // /links default-on override on the wizard's step-3 seed. The
+      // call is a directory listing, no writes.
+      const [initial, fresh, users] = await Promise.all([
         readOnboarding(username),
         isFreshUserForWizard(username),
+        discoverUsers().catch(() => [] as string[]),
       ]);
       if (cancelled) return;
       setSidecar(initial);
       setIsFreshUser(fresh);
+      setIsMultiUserFolder(users.length > 1);
       routeEnterActiveRef.current = getActiveSeconds();
     })();
 
@@ -460,7 +486,7 @@ export function OnboardingOrchestrator({
     [activeTip, recordOutcome],
   );
 
-  // ── Onboarding v2 Phase 1: wizard completion + skip handlers ──────
+  // ── Onboarding v2 Phase 1/2a: wizard completion + skip handlers ──
   // The OnboardingWizard component does NOT write to the sidecar or
   // settings.json itself; it surfaces onComplete / onSkip and the
   // orchestrator owns the persistence. Both handlers also seed
@@ -468,27 +494,48 @@ export function OnboardingOrchestrator({
   // post-wizard (the roll loop's `mode === null` gate is the same
   // gate the v1 welcome modal blocked tips with, and it's intentionally
   // unchanged for Phase 1).
+  //
+  // Phase 2a: `result` expands from `string[]` (just useCases) to
+  // `{ useCases, visibleTabs, otherUseCase }`. The wizard's step-3
+  // tab toggles are now authoritative — we write `result.visibleTabs`
+  // verbatim rather than recomputing via `tabsForUseCases()`. The
+  // step-3 seed is initialized from `seedVisibleTabsForStep3()` so the
+  // no-touch case still lands at the locked default.
   const handleWizardComplete = useCallback(
-    (useCases: string[]) => {
+    (result: {
+      useCases: string[];
+      visibleTabs: string[];
+      otherUseCase?: string;
+    }) => {
+      // Phase 2a master flag #2: in preview mode, the wizard renders
+      // and is fully interactive but nothing persists. Just unmount.
+      if (wizardPreviewMode) {
+        setPreviewDismissed(true);
+        return;
+      }
       void (async () => {
-        // Settings write first: visibleTabs derived from the user's
-        // picks. Wrap in try/catch so a settings-write failure does
-        // NOT block wizard completion (the sidecar write below is the
-        // source of truth for "wizard done"; visibleTabs is a polish).
+        // Settings write first: visibleTabs from the wizard's step-3
+        // toggles (authoritative). Wrap in try/catch so a settings-
+        // write failure does NOT block wizard completion (the sidecar
+        // write below is the source of truth for "wizard done";
+        // visibleTabs is a polish).
         try {
-          const visibleTabs = tabsForUseCases(useCases);
-          await patchUserSettings(username, { visibleTabs });
+          await patchUserSettings(username, {
+            visibleTabs: result.visibleTabs,
+          });
         } catch (err) {
           // eslint-disable-next-line no-console
           console.error("[onboarding] wizard complete: visibleTabs write failed", err);
         }
-        // Sidecar write: use_cases + wizard_completed_at + seed mode.
-        // The `cur.mode ?? "suggestions"` guard means re-runs (Phase 4)
-        // that already have a mode picked don't clobber the user's
-        // earlier Settings → Tips choice.
+        // Sidecar write: use_cases + other_use_case + wizard_completed_at
+        // + seed mode. The `cur.mode ?? "suggestions"` guard means
+        // re-runs (Phase 4) that already have a mode picked don't
+        // clobber the user's earlier Settings → Tips choice.
+        const trimmedOther = result.otherUseCase?.trim() ?? "";
         const next = await patchOnboarding(username, (cur) => ({
           ...cur,
-          use_cases: useCases,
+          use_cases: result.useCases,
+          other_use_case: trimmedOther.length > 0 ? trimmedOther : null,
           wizard_completed_at: new Date().toISOString(),
           mode: cur.mode ?? "suggestions",
         }));
@@ -500,10 +547,14 @@ export function OnboardingOrchestrator({
         routeEnterActiveRef.current = -999_999;
       })();
     },
-    [username],
+    [username, wizardPreviewMode],
   );
 
   const handleWizardSkip = useCallback(() => {
+    if (wizardPreviewMode) {
+      setPreviewDismissed(true);
+      return;
+    }
     void (async () => {
       // Skip writes wizard_skipped_at only. By master's lock
       // (2026-05-20), use_cases stays null on skip; the null-vs-empty-
@@ -520,7 +571,7 @@ export function OnboardingOrchestrator({
       // handler — skipped users should still see a first tip promptly).
       routeEnterActiveRef.current = -999_999;
     })();
-  }, [username]);
+  }, [username, wizardPreviewMode]);
 
   const value = useMemo<OrchestratorContextValue>(
     () => ({ cancelTip, forceFireTip, sidecar, setMode }),
@@ -544,12 +595,19 @@ export function OnboardingOrchestrator({
   //  - The v1 welcome modal retires (onboarding v2 brief Phase 1).
   //  - use_cases stays null on skip vs. an empty array on
   //    submitted-with-no-picks (master lock 2026-05-20).
-  const showWizard =
-    sidecar !== null &&
-    isFreshUser === true &&
-    sidecar.wizard_completed_at === null &&
-    sidecar.wizard_skipped_at === null &&
-    activeTip === null;
+  //
+  // Phase 2a master flag #2: when the URL carries `?wizard-preview=1`,
+  // bypass every gate so a testing agent can force-mount the wizard
+  // against any folder state. `previewDismissed` lets the wizard's
+  // own Complete / Skip handlers visually unmount without persisting
+  // anything (the handlers themselves no-op in preview mode).
+  const showWizard = wizardPreviewMode
+    ? !previewDismissed
+    : sidecar !== null &&
+      isFreshUser === true &&
+      sidecar.wizard_completed_at === null &&
+      sidecar.wizard_skipped_at === null &&
+      activeTip === null;
 
   return (
     <OrchestratorContext.Provider value={value}>
@@ -564,8 +622,10 @@ export function OnboardingOrchestrator({
       {showWizard && (
         <OnboardingWizard
           username={username}
+          isMultiUserFolder={isMultiUserFolder}
           onComplete={handleWizardComplete}
           onSkip={handleWizardSkip}
+          previewMode={wizardPreviewMode}
         />
       )}
     </OrchestratorContext.Provider>
