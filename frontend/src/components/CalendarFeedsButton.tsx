@@ -16,6 +16,7 @@ export default function CalendarFeedsButton() {
   const searchParams = useSearchParams();
   useEffect(() => {
     if (searchParams?.get("addFeed") !== "1") return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- deep-link handler: imperatively opens modal once when URL param is present, then strips the param. Decoupling to URL-derived open state would require URL navigation on every open/close, which changes user-visible behavior.
     setOpen(true);
     const next = new URLSearchParams(searchParams.toString());
     next.delete("addFeed");

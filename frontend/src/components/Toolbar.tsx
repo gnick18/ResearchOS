@@ -89,6 +89,7 @@ export default function Toolbar({
     const wantsAnimations = searchParams.get("animations") === "1";
     const wantsCreateGoal = searchParams.get("createGoal") === "1";
     if (!wantsAnimations && !wantsCreateGoal) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- deep-link handler: imperatively opens animation-settings popup when URL param is present, then strips the param so reload doesn't re-trigger. Derived-state alternative would require URL navigation on every open/close, breaking the onboarding tip's setupAction flow.
     if (wantsAnimations) setShowAnimationSettings(true);
     if (wantsCreateGoal) onCreateGoal();
     const next = new URLSearchParams(searchParams.toString());
