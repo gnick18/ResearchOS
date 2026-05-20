@@ -55,7 +55,7 @@ function canonicalizeRefSrc(raw: string): string {
 type HelperTab = "shortcuts" | "styleguide";
 
 // Type for editor mode
-export type EditorMode = "edit" | "hybrid" | "preview";
+export type EditorMode = "hybrid" | "preview";
 
 /**
  * Pre-process markdown to preserve blank line spacing.
@@ -743,14 +743,9 @@ export default function LiveMarkdownEditor({
         }, 1400);
       };
 
-      if (currentMode === "edit") {
-        setMode("preview");
-        requestAnimationFrame(() => requestAnimationFrame(scroll));
-      } else {
-        requestAnimationFrame(scroll);
-      }
+      requestAnimationFrame(scroll);
     },
-    [currentMode, setMode]
+    []
   );
   const processedBrokenSrcsRef = useRef<Set<string>>(new Set());
   // Separate set for file refs so a `Files/foo.pdf` scan never collides with
@@ -2295,21 +2290,9 @@ export default function LiveMarkdownEditor({
       {/* Toolbar */}
       {showToolbar && (
         <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 bg-gray-50/50">
-          {/* Three-way mode toggle: Edit | Hybrid | Preview */}
+          {/* Two-way mode toggle: Hybrid | Preview. Edit mode (raw textarea)
+              was removed after hybrid v2 proved iron-clad in real use. */}
           <div className="flex items-center bg-gray-100 rounded-md p-0.5">
-            <button
-              type="button"
-              onClick={() => setMode("edit")}
-              disabled={disabled}
-              className={`px-2.5 py-1 text-xs rounded transition-colors ${
-                currentMode === "edit"
-                  ? "bg-white text-gray-800 font-medium shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
-              } disabled:opacity-50`}
-              title="Traditional textarea editor with keyboard shortcuts"
-            >
-              Edit
-            </button>
             <button
               type="button"
               onClick={() => setMode("hybrid")}
@@ -2381,76 +2364,6 @@ export default function LiveMarkdownEditor({
           >
             Strip
           </button>
-          
-          {/* Resize Image Button with Dropdown — only useful in Edit mode
-              (raw textarea). In Hybrid/Preview mode users click the rendered
-              image directly to open the resize popover. */}
-          {currentMode === "edit" && (
-            <div className="relative" ref={resizeDropdownRef}>
-              <button
-                type="button"
-                onClick={() => {
-                  if (hasValidImageSelection) {
-                    setShowResizeDropdown(!showResizeDropdown);
-                    setShowDisabledPopup(false);
-                  } else {
-                    setShowDisabledPopup(true);
-                    setShowResizeDropdown(false);
-                    // Auto-hide popup after 4 seconds
-                    if (disabledPopupTimeoutRef.current) {
-                      clearTimeout(disabledPopupTimeoutRef.current);
-                    }
-                    disabledPopupTimeoutRef.current = setTimeout(() => {
-                      setShowDisabledPopup(false);
-                    }, 4000);
-                  }
-                }}
-                disabled={disabled}
-                className={`px-2.5 py-1 text-xs rounded transition-colors ${
-                  hasValidImageSelection
-                    ? "bg-blue-100 text-blue-700 font-medium hover:bg-blue-200"
-                    : "bg-gray-100 text-gray-400 hover:bg-gray-150"
-                } disabled:opacity-50`}
-                title={hasValidImageSelection
-                  ? "Choose a size percentage for the selected image"
-                  : "Select an image path or markdown image syntax first"
-                }
-              >
-                Resize Image
-              </button>
-              {showResizeDropdown && hasValidImageSelection && (
-                <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 py-1 min-w-[100px]">
-                  <div className="px-3 py-1.5 text-xs text-gray-500 border-b border-gray-100 cursor-help" title="Choose how big the image should appear">
-                    Select size:
-                  </div>
-                  {RESIZE_OPTIONS.map((pct) => (
-                    <button
-                      key={pct}
-                      type="button"
-                      onClick={() => handleResizeImage(pct)}
-                      className="w-full px-3 py-1.5 text-xs text-left text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
-                      title={`Resize image to ${pct}% of its original size`}
-                    >
-                      {pct}%
-                    </button>
-                  ))}
-                </div>
-              )}
-              {showDisabledPopup && !hasValidImageSelection && (
-                <div className="absolute top-full left-0 mt-1 bg-amber-50 border border-amber-200 rounded-md shadow-lg z-10 p-3 max-w-[280px]">
-                  <p className="text-xs text-amber-800 font-medium mb-1.5">How to resize an image:</p>
-                  <p className="text-xs text-amber-700">
-                    Select the entire image text, such as:
-                  </p>
-                  <ul className="text-xs text-amber-600 mt-1 space-y-0.5 ml-3">
-                    <li>• <code className="bg-amber-100 px-1 rounded">![alt](image.png)</code></li>
-                    <li>• <code className="bg-amber-100 px-1 rounded">&lt;img src=&quot;...&quot;&gt;</code></li>
-                    <li>• <code className="bg-amber-100 px-1 rounded">./path/image.png</code></li>
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
           
           <input
             ref={fileInputRef}
@@ -2621,165 +2534,11 @@ export default function LiveMarkdownEditor({
           }
           if (!snippet) return;
 
-          const ta = textareaRef.current;
-          if (currentMode === "edit" && ta) {
-            // Browsers don't expose a character offset from a drop point on
-            // textareas (caretRangeFromPoint only works on contentEditable),
-            // so we mirror the textarea offscreen and measure. Falls back to
-            // the textarea's current selection on failure.
-            let dropOffset: number;
-            try {
-              dropOffset = caretOffsetFromPoint(ta, e.clientX, e.clientY);
-            } catch {
-              dropOffset = ta.selectionStart ?? value.length;
-            }
-            const before = value.slice(0, dropOffset);
-            const after = value.slice(dropOffset);
-            const needsLeadingNl = before.length > 0 && !before.endsWith("\n");
-            const needsTrailingNl = after.length > 0 && !after.startsWith("\n");
-            const insert = `${needsLeadingNl ? "\n" : ""}${snippet}${needsTrailingNl ? "\n" : ""}`;
-            const next = before + insert + after;
-            onChange(next);
-            // Move caret to just after the inserted snippet on the next tick.
-            const caret = (before + insert).length;
-            requestAnimationFrame(() => {
-              ta.focus();
-              ta.setSelectionRange(caret, caret);
-            });
-          } else {
-            const trailing = value.endsWith("\n") ? "" : "\n";
-            onChange(`${value}${trailing}${snippet}\n`);
-            if (currentMode === "preview") setMode("hybrid");
-          }
+          const trailing = value.endsWith("\n") ? "" : "\n";
+          onChange(`${value}${trailing}${snippet}\n`);
+          if (currentMode === "preview") setMode("hybrid");
         }}
       >
-        {/* Keyboard Shortcuts Helper Panel - only show in edit mode */}
-        {showShortcutsHelper && currentMode === "edit" && (
-          <div className={`${helperCollapsed ? "w-8" : "w-52"} flex-shrink-0 border-r border-gray-100 bg-gray-50/30 flex flex-col transition-all duration-200`}>
-            {/* Collapse/Expand button */}
-            <button
-              type="button"
-              onClick={() => setHelperCollapsed(!helperCollapsed)}
-              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors self-end m-1"
-              title={helperCollapsed ? "Expand helper panel" : "Collapse helper panel"}
-            >
-              <svg
-                className={`w-4 h-4 transition-transform ${helperCollapsed ? "rotate-180" : ""}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            
-            {!helperCollapsed && (
-              <div className="flex-1 overflow-y-auto px-2 pb-2">
-                {/* Tab Switcher */}
-                <div className="flex gap-1 mb-3 bg-gray-100 rounded-lg p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setHelperTab("shortcuts")}
-                    className={`flex-1 px-2 py-1 text-xs rounded-md transition-colors ${
-                      helperTab === "shortcuts"
-                        ? "bg-white text-gray-800 font-medium shadow-sm"
-                        : "text-gray-500 hover:text-gray-700"
-                    }`}
-                  >
-                    Shortcuts
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setHelperTab("styleguide")}
-                    className={`flex-1 px-2 py-1 text-xs rounded-md transition-colors ${
-                      helperTab === "styleguide"
-                        ? "bg-white text-gray-800 font-medium shadow-sm"
-                        : "text-gray-500 hover:text-gray-700"
-                    }`}
-                  >
-                    Style Guide
-                  </button>
-                </div>
-
-                {helperTab === "shortcuts" ? (
-                  <div className="space-y-1">
-                    {KEYBOARD_SHORTCUTS.filter((s) => !s.description.startsWith("Heading")).map((shortcut) => (
-                      <div
-                        key={shortcut.key + shortcut.shiftKey}
-                        className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group"
-                      >
-                        <span className="text-xs text-gray-600 group-hover:text-gray-800">
-                          {shortcut.description}
-                        </span>
-                        <span className="text-xs font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
-                          {shortcut.label}
-                        </span>
-                      </div>
-                    ))}
-                    {/* Consolidated heading shortcut */}
-                    <div className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group">
-                      <span className="text-xs text-gray-600 group-hover:text-gray-800">
-                        Headings 1-6
-                      </span>
-                      <span className="text-xs font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
-                        ⌘1-6
-                      </span>
-                    </div>
-                    {/* Heading level adjustment shortcuts */}
-                    <div className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group">
-                      <span className="text-xs text-gray-600 group-hover:text-gray-800">
-                        Heading Up
-                      </span>
-                      <span className="text-xs font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
-                        ⌘⌃+
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group">
-                      <span className="text-xs text-gray-600 group-hover:text-gray-800">
-                        Heading Down
-                      </span>
-                      <span className="text-xs font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
-                        ⌘⌃-
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    {MARKDOWN_STYLE_GUIDE.map((item, index) => (
-                      <div
-                        key={index}
-                        className="px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group cursor-pointer"
-                        onClick={() => {
-                          // Insert the syntax at cursor position
-                          const textarea = textareaRef.current;
-                          if (textarea && !disabled) {
-                            const start = textarea.selectionStart;
-                            const end = textarea.selectionEnd;
-                            const newValue = value.substring(0, start) + item.syntax + value.substring(end);
-                            onChange(newValue);
-                            setTimeout(() => {
-                              textarea.focus();
-                              textarea.setSelectionRange(start + item.syntax.length, start + item.syntax.length);
-                            }, 0);
-                          }
-                        }}
-                        title={`Click to insert: ${item.syntax}`}
-                      >
-                        <div className="text-xs font-mono text-gray-700 group-hover:text-blue-600 bg-gray-50 px-1.5 py-0.5 rounded mb-0.5">
-                          {item.syntax}
-                        </div>
-                        <div className="text-[10px] text-gray-400 group-hover:text-gray-500">
-                          {item.description}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Editor / Preview — `min-h-0` lets the flex slot shrink below
             its content's natural size so we scroll INSIDE this column
             instead of bursting out of a small popup. */}
@@ -2880,7 +2639,7 @@ export default function LiveMarkdownEditor({
                 </p>
               )}
             </div>
-          ) : currentMode === "hybrid" ? (
+          ) : (
             <HybridMarkdownEditor
               value={value}
               onChange={onChange}
@@ -2892,18 +2651,6 @@ export default function LiveMarkdownEditor({
               onFileDrop={onFileDrop}
               onImageDrop={onImageDrop}
               allowAnyFileType={allowAnyFileType}
-            />
-          ) : (
-            <textarea
-              ref={textareaRef}
-              value={value}
-              onChange={handleTextChange}
-              onKeyDown={handleKeyDown}
-              onBlur={() => historyRef.current?.flushBoundary()}
-              disabled={disabled}
-              className="w-full h-full p-4 text-sm font-mono text-gray-800 bg-white resize-none focus:outline-none border-0 disabled:bg-gray-50 disabled:text-gray-500"
-              style={{ lineHeight: "1.7" }}
-              placeholder={placeholder || "Write in Markdown..."}
             />
           )}
         </div>
