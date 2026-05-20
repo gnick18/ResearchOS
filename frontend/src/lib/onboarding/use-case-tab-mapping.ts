@@ -132,6 +132,12 @@ export const USE_CASE_TAB_MAP: Record<string, string[]> = {
     "/search",
     "/links",
   ],
+  // Solo researcher: no team to share with by default, so /links is hidden.
+  // Refined by master 2026-05-20 (originally locked ✓, corrected to ✗). A
+  // solo researcher who later grows a team can re-enable Lab Links per-tab
+  // via Settings. Phase 2's tab-config step also adds a folder-state-aware
+  // override (Lab Mode default-on inside multi-user folders regardless of
+  // static mapping).
   solo_researcher: [
     "/",
     "/workbench",
@@ -140,7 +146,6 @@ export const USE_CASE_TAB_MAP: Record<string, string[]> = {
     "/purchases",
     "/calendar",
     "/search",
-    "/links",
   ],
   staff_scientist: [
     "/",

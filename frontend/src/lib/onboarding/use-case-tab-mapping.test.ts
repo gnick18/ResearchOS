@@ -93,6 +93,19 @@ describe("tabsForUseCases()", () => {
     );
   });
 
+  it("solo_researcher picks exactly 7 tabs (all minus /links)", () => {
+    // Master refinement 2026-05-20: solo_researcher should NOT default-show
+    // /links since solo means no team to share with. A solo researcher who
+    // later grows a team re-enables Lab Links via Settings, or Phase 2's
+    // multi-user-folder override surfaces it automatically.
+    const result = tabsForUseCases(["solo_researcher"]);
+    expect(result).toHaveLength(7);
+    expect(result).not.toContain("/links");
+    expect(result).toEqual(
+      NAV_ITEMS.map((i) => i.href).filter((h) => h !== "/links"),
+    );
+  });
+
   it("ignores unknown ids and returns only Home", () => {
     expect(tabsForUseCases(["unknown_id"])).toEqual(["/"]);
   });
