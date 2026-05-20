@@ -229,6 +229,32 @@ export const projectsApi = {
    * `readHostedManifestNormalized` from `lib/sharing/project-hosting`
    * directly.
    */
+  // Overview prose lives in a sidecar markdown file at
+  // `users/<owner>/projects/<id>-overview.md` (Project Surface L6). The
+  // existing `users/<owner>/projects/<id>.json` is untouched: storing prose
+  // as raw markdown avoids JSON-escape pain and keeps the body greppable
+  // and external-editable.
+  //
+  // Owner-routing mirrors `get` / `update`: pass `owner` when a receiver
+  // with edit permission needs to read/write the original owner's file.
+  // Missing file is NOT an error — it means "no overview written yet" —
+  // and resolves to an empty string for callers.
+  getOverview: async (id: number, owner?: string): Promise<string> => {
+    const effectiveOwner = owner ?? (await getCurrentUserCached()) ?? "";
+    if (!effectiveOwner) return "";
+    const path = `users/${effectiveOwner}/projects/${id}-overview.md`;
+    const text = await fileService.readText(path);
+    return text ?? "";
+  },
+
+  setOverview: async (id: number, body: string, owner?: string): Promise<void> => {
+    const effectiveOwner = owner ?? (await getCurrentUserCached()) ?? "";
+    if (!effectiveOwner) throw new Error("No current user; cannot save project overview");
+    await fileService.ensureDir(`users/${effectiveOwner}/projects`);
+    const path = `users/${effectiveOwner}/projects/${id}-overview.md`;
+    await fileService.writeText(path, body);
+  },
+
   listHostedTasks: async (
     projectOwner: string,
     projectId: number

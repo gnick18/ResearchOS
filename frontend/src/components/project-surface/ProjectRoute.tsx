@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -8,6 +8,7 @@ import { projectsApi as rawProjectsApi } from "@/lib/local-api";
 import type { ProjectUpdate } from "@/lib/local-api";
 import SharePopup from "@/components/SharePopup";
 import Tooltip from "@/components/Tooltip";
+import HybridMarkdownEditor from "@/components/HybridMarkdownEditor";
 import type { Project } from "@/lib/types";
 
 const DEFAULT_COLOR = "#3b82f6";
@@ -302,7 +303,12 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
       )}
 
       <div className="px-6 py-6 flex flex-col gap-10 max-w-4xl">
-        <Section id="overview" title="Overview" />
+        <OverviewSection
+          projectId={project.id}
+          ownerHint={ownerHint}
+          editOwner={effectiveOwnerOf(project)}
+          readOnly={isViewOnlyReceiver}
+        />
         <Section id="results" title="Results" />
         <Section id="methods" title="Methods" />
         <Section id="activity" title="Activity" />
@@ -419,6 +425,137 @@ function Section({ id, title }: { id: string; title: string }) {
     <section id={id} className="scroll-mt-32">
       <h2 className="text-base font-semibold text-gray-900 mb-2">{title}</h2>
       <p className="text-sm text-gray-400 italic">Coming soon.</p>
+    </section>
+  );
+}
+
+// Autosave debounce for overview prose. Matches NoteDetailPopup's
+// running-log entry autosave (1500ms after the last keystroke) so the
+// UX stays consistent across long-form markdown surfaces. P5 will retrofit
+// `recordProjectActivity` into setOverview for the `prose_edited` event.
+const OVERVIEW_AUTOSAVE_DELAY_MS = 1500;
+
+interface OverviewSectionProps {
+  projectId: number;
+  // The URL `?owner=` hint used for READS. When present, the overview is
+  // loaded from that user's directory. View-only receivers and edit-permission
+  // receivers both pass the same hint here.
+  ownerHint: string | null;
+  // The owner-routing target for WRITES. Set only for edit-permission
+  // receivers (the shared project's actual owner); undefined for own
+  // projects (writes go to the current user). View-only receivers never
+  // reach the write path because `readOnly` short-circuits autosave.
+  editOwner: string | undefined;
+  readOnly: boolean;
+}
+
+function OverviewSection({ projectId, ownerHint, editOwner, readOnly }: OverviewSectionProps) {
+  const queryClient = useQueryClient();
+
+  const queryKey = useMemo(
+    () => ["projects", ownerHint ?? "self", projectId, "overview"] as const,
+    [projectId, ownerHint]
+  );
+
+  const {
+    data: serverValue,
+    isLoading,
+    isError,
+  } = useQuery<string>({
+    queryKey,
+    queryFn: () => rawProjectsApi.getOverview(projectId, ownerHint ?? undefined),
+  });
+
+  // Local-first edit buffer: typing updates this immediately, the debounced
+  // save flushes to disk. Without a local mirror, every keystroke would
+  // round-trip through React Query refetch and the cursor would jump.
+  //
+  // The "store information from previous renders" pattern (React docs) is
+  // used here in place of a useEffect that calls setState — that latter
+  // shape triggers a cascading-render lint error and is discouraged.
+  // React bails out of the current render and re-renders cleanly when
+  // setState is called during render with a different value.
+  const [draft, setDraft] = useState<string>("");
+  const [lastSyncedServer, setLastSyncedServer] = useState<string | null>(null);
+  if (serverValue !== undefined && lastSyncedServer !== serverValue) {
+    setLastSyncedServer(serverValue);
+    setDraft(serverValue);
+  }
+
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savedFlashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      if (savedFlashTimeoutRef.current) clearTimeout(savedFlashTimeoutRef.current);
+    };
+  }, []);
+
+  const handleChange = useCallback(
+    (next: string) => {
+      if (readOnly) return;
+      setDraft(next);
+      setSaveStatus("saving");
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = setTimeout(async () => {
+        try {
+          await rawProjectsApi.setOverview(projectId, next, editOwner);
+          // Mirror the write back into React Query AND advance the
+          // "last synced from server" cursor in lockstep — otherwise the
+          // render-time prop-sync check above would see the new server
+          // value and overwrite the user's freshly-typed draft.
+          queryClient.setQueryData(queryKey, next);
+          setLastSyncedServer(next);
+          setSaveStatus("saved");
+          if (savedFlashTimeoutRef.current) clearTimeout(savedFlashTimeoutRef.current);
+          savedFlashTimeoutRef.current = setTimeout(() => setSaveStatus("idle"), 1500);
+        } catch (err) {
+          console.error("[ProjectRoute] Failed to save overview:", err);
+          setSaveStatus("error");
+        }
+      }, OVERVIEW_AUTOSAVE_DELAY_MS);
+    },
+    [readOnly, projectId, editOwner, queryClient, queryKey]
+  );
+
+  return (
+    <section id="overview" className="scroll-mt-32">
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-base font-semibold text-gray-900">Overview</h2>
+        {!readOnly && saveStatus !== "idle" && (
+          <span
+            className={`text-xs ${
+              saveStatus === "error"
+                ? "text-red-500"
+                : saveStatus === "saving"
+                  ? "text-gray-400"
+                  : "text-gray-400"
+            }`}
+            aria-live="polite"
+          >
+            {saveStatus === "saving" && "Saving…"}
+            {saveStatus === "saved" && "Saved"}
+            {saveStatus === "error" && "Couldn't save"}
+          </span>
+        )}
+      </div>
+      {isLoading ? (
+        <p className="text-sm text-gray-400 italic">Loading overview…</p>
+      ) : isError ? (
+        <p className="text-sm text-red-500">Couldn&apos;t load this project&apos;s overview.</p>
+      ) : (
+        <HybridMarkdownEditor
+          value={draft}
+          onChange={handleChange}
+          placeholder={
+            readOnly
+              ? "No overview yet."
+              : "Capture the hypothesis, motivation, and big-picture context for this project…"
+          }
+          disabled={readOnly}
+        />
+      )}
     </section>
   );
 }
