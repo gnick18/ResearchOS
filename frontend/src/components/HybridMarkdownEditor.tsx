@@ -19,6 +19,7 @@ import { rewriteImageBySrcAlt, parseWidthPercent } from "@/lib/image-resize-util
 import { ValueHistory, type PushKind } from "@/lib/undo/value-history";
 import ImageResizePopover from "./ImageResizePopover";
 import FileViewerModal, { classifyFileLink, type FileViewerKind } from "./FileViewerModal";
+import Tooltip from "./Tooltip";
 
 // Transparent 1×1 GIF used as the `src` placeholder while the real blob URL
 // is being resolved asynchronously, so the browser never tries to fetch the
@@ -1131,7 +1132,82 @@ export default function HybridMarkdownEditor({
         }
         return;
       }
-      
+
+      // Plain Enter inserts a CommonMark soft break (two trailing spaces +
+      // newline). The parser keeps this inside the current paragraph block, so
+      // editingBlockOffset stays put and the textarea does not remount. We
+      // still update editingBlockOriginalLengthRef so subsequent splices into
+      // this block use the new length. Guards skip non-shift modifier combos
+      // (so Cmd+Enter / Ctrl+Enter remain available to parents) and IME
+      // composition (so the textarea's native Enter commits the composition).
+      if (
+        e.key === "Enter" &&
+        !e.altKey &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.shiftKey &&
+        !(e.nativeEvent as KeyboardEvent).isComposing
+      ) {
+        e.preventDefault();
+        const textarea = textareaRef.current;
+        if (!textarea || editingBlockOffset === null) return;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const softBreak = "  \n";
+        const newContent =
+          editingBlockContent.substring(0, start) +
+          softBreak +
+          editingBlockContent.substring(end);
+        setEditingBlockContent(newContent);
+        const originalLength = editingBlockOriginalLengthRef.current;
+        const newFullContent =
+          value.substring(0, editingBlockOffset) +
+          newContent +
+          value.substring(editingBlockOffset + originalLength);
+        editingBlockOriginalLengthRef.current = newContent.length;
+        pushAndCommit(newFullContent, "type");
+        const newCursor = start + softBreak.length;
+        setTimeout(() => {
+          textarea.focus();
+          textarea.setSelectionRange(newCursor, newCursor);
+        }, 0);
+        return;
+      }
+
+      // Shift+Enter performs a hard paragraph split. Inserts a blank line at
+      // the cursor and exits edit mode so the next re-parse cleanly produces
+      // two paragraph blocks. Exiting beats transitioning into the new lower
+      // block: the textarea would have to remount on a new offset anyway,
+      // which is the rekey path that was the root cause of several prior
+      // focus / cursor bugs in this editor.
+      if (
+        e.key === "Enter" &&
+        e.shiftKey &&
+        !e.altKey &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !(e.nativeEvent as KeyboardEvent).isComposing
+      ) {
+        e.preventDefault();
+        const textarea = textareaRef.current;
+        if (!textarea || editingBlockOffset === null) return;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const hardSplit = "\n\n";
+        const newContent =
+          editingBlockContent.substring(0, start) +
+          hardSplit +
+          editingBlockContent.substring(end);
+        const originalLength = editingBlockOriginalLengthRef.current;
+        const newFullContent =
+          value.substring(0, editingBlockOffset) +
+          newContent +
+          value.substring(editingBlockOffset + originalLength);
+        pushAndCommit(newFullContent, "paste");
+        handleEditBlur();
+        return;
+      }
+
       // Check if this key combination matches any shortcut
       const isMac = typeof navigator !== "undefined" && navigator.platform.toUpperCase().indexOf("MAC") >= 0;
       const cmdKey = isMac ? e.metaKey : e.ctrlKey;
@@ -1302,7 +1378,7 @@ export default function HybridMarkdownEditor({
         }
       }
     },
-    [editingBlockContent, editingBlockOffset, updateDocumentContent, handleEditBlur, disabled, performUndo, performRedo]
+    [editingBlockContent, editingBlockOffset, updateDocumentContent, handleEditBlur, disabled, performUndo, performRedo, value, pushAndCommit]
   );
 
   /**
@@ -1445,6 +1521,35 @@ export default function HybridMarkdownEditor({
   );
 
   /**
+   * Inline "Split here" affordance. Same semantic as Shift+Enter: inserts a
+   * hard paragraph split at the textarea's cursor, commits, and exits edit
+   * mode so the next re-parse produces two paragraph blocks. Discoverable for
+   * users who would not find the keyboard shortcut. Only rendered inside
+   * paragraph blocks (see renderBlock); headings, lists, code, blockquotes,
+   * tables do not surface it because splitting them mid-edit either makes no
+   * sense or produces broken markdown.
+   */
+  const handleSplitHere = useCallback(() => {
+    if (editingBlockOffset === null) return;
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const hardSplit = "\n\n";
+    const newContent =
+      editingBlockContent.substring(0, start) +
+      hardSplit +
+      editingBlockContent.substring(end);
+    const originalLength = editingBlockOriginalLengthRef.current;
+    const newFullContent =
+      value.substring(0, editingBlockOffset) +
+      newContent +
+      value.substring(editingBlockOffset + originalLength);
+    pushAndCommit(newFullContent, "paste");
+    handleEditBlur();
+  }, [editingBlockOffset, editingBlockContent, value, pushAndCommit, handleEditBlur]);
+
+  /**
    * Render a single block
    */
   const renderBlock = useCallback(
@@ -1466,7 +1571,7 @@ export default function HybridMarkdownEditor({
         return (
           <div
             key={`editing-${editingBlockOffset}`}
-            className="hybrid-block editing-block"
+            className="hybrid-block editing-block relative"
             data-block-type={block.type}
           >
             <textarea
@@ -1479,6 +1584,26 @@ export default function HybridMarkdownEditor({
               style={{ lineHeight: "1.6", minHeight: "60px" }}
               placeholder="Type here..."
             />
+            {block.type === "paragraph" && !disabled && (
+              <Tooltip label="Split into new paragraph here (Shift+Enter)" placement="top">
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    // onMouseDown + preventDefault + stopPropagation, not
+                    // onClick: the textarea must retain focus through the
+                    // click so handleSplitHere reads selectionStart from the
+                    // live cursor. A plain onClick would lose focus first and
+                    // selectionStart would snap back to 0.
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleSplitHere();
+                  }}
+                  className="absolute -top-2 -right-2 px-2 py-0.5 text-[10px] text-blue-700 bg-white border border-blue-300 rounded-full shadow-sm hover:bg-blue-50 z-10"
+                >
+                  Split here
+                </button>
+              </Tooltip>
+            )}
           </div>
         );
       }
@@ -1709,6 +1834,7 @@ export default function HybridMarkdownEditor({
       handleEditChange,
       handleEditBlur,
       handleEditKeyDown,
+      handleSplitHere,
       handleImageError,
       handleFileLinkClick,
       imageBasePath,
