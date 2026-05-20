@@ -20,6 +20,12 @@ interface TelegramPairingModalProps {
    *  disconnected) so the parent can update its cached state. Pass `undefined`
    *  if the user simply cancelled without changing anything. */
   onClose: (updated: TelegramPairing | null | undefined) => void;
+  /** When true, render only the white card contents (no fixed-position
+   *  black overlay, no rounded outer chrome). Used by the Onboarding v2
+   *  wizard's Step 4 to embed the pair flow inline inside the wizard's
+   *  body. Default false preserves the original modal behavior the
+   *  Settings page consumer depends on. */
+  inline?: boolean;
 }
 
 type Step =
@@ -39,7 +45,11 @@ type Step =
     }
   | { kind: "success"; pairing: TelegramPairing };
 
-export default function TelegramPairingModal({ username, onClose }: TelegramPairingModalProps) {
+export default function TelegramPairingModal({
+  username,
+  onClose,
+  inline = false,
+}: TelegramPairingModalProps) {
   const [step, setStep] = useState<Step>({ kind: "loading" });
   const [tokenInput, setTokenInput] = useState("");
   const [showToken, setShowToken] = useState(false);
@@ -256,16 +266,12 @@ export default function TelegramPairingModal({ username, onClose }: TelegramPair
     onClose(undefined);
   };
 
-  return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm"
-      onClick={handleCancel}
-    >
-      <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
+  // The pair-flow card body. Identical between modal and inline modes;
+  // the only difference is the surrounding chrome (fixed-position
+  // overlay + max-w-md card vs. fits-the-wizard-body container).
+  const cardBody = (
+    <>
+      <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
           <h3 className="text-base font-semibold text-gray-900">Connect Telegram</h3>
           <p className="text-xs text-gray-500 mt-0.5">
             Send lab-bench photos straight into the open experiment.
@@ -552,6 +558,35 @@ export default function TelegramPairingModal({ username, onClose }: TelegramPair
             </p>
           </div>
         )}
+    </>
+  );
+
+  // Inline mode (Onboarding v2 wizard Step 4): render the bare card
+  // content inside a transparent wrapper so the wizard's body owns the
+  // chrome. No backdrop, no fixed positioning, no rounded outer card,
+  // the wizard's white card already provides those.
+  if (inline) {
+    return (
+      <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
+        {cardBody}
+      </div>
+    );
+  }
+
+  // Modal mode (Settings consumer): the original portal-less overlay
+  // pattern. Click on the dim background = cancel; click on the inner
+  // card stops propagation so the user doesn't accidentally close while
+  // pasting a token.
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      onClick={handleCancel}
+    >
+      <div
+        className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {cardBody}
       </div>
     </div>
   );

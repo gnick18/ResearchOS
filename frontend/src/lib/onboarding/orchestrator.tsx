@@ -550,6 +550,17 @@ export function OnboardingOrchestrator({
     [username, wizardPreviewMode],
   );
 
+  // Onboarding v2 Phase 2b: stable no-op consumer for the wizard's
+  // `onUseCasesChange` prop. The wizard fires this every time the
+  // step-2 chip-toggle handler mutates `wizardData.useCases`. Phase
+  // 2b doesn't react to it; analytics + pre-fetch hooks land in
+  // Phase 2c. Stable via `useCallback` with an empty deps array so
+  // the wizard's `toggleUseCase` callback identity doesn't churn
+  // every render.
+  const handleUseCasesChange = useCallback((_useCases: string[]) => {
+    /* Phase 2b: no-op. Phase 2c may subscribe. */
+  }, []);
+
   const handleWizardSkip = useCallback(() => {
     if (wizardPreviewMode) {
       setPreviewDismissed(true);
@@ -626,6 +637,7 @@ export function OnboardingOrchestrator({
           onComplete={handleWizardComplete}
           onSkip={handleWizardSkip}
           previewMode={wizardPreviewMode}
+          onUseCasesChange={handleUseCasesChange}
         />
       )}
     </OrchestratorContext.Provider>
