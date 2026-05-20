@@ -26,7 +26,12 @@
  *   2. The first paragraph's last non-whitespace char must be a letter
  *      (no terminal punctuation `. ! ? : ; " ) ]`, no trailing comma).
  *   3. The second paragraph's first non-whitespace char must be lowercase.
- *   4. Content inside fenced code blocks is never inspected.
+ *   4. Both blocks must look like prose: trimmed length >= 30 chars AND
+ *      at least one internal space. This excludes PCR-recipe entries
+ *      ("11 ul" + "pFC902" + "water" + "10s" + "x 35") that happen to
+ *      end in letters and start lowercase but are clearly single-token
+ *      lab data, not accidentally split prose.
+ *   5. Content inside fenced code blocks is never inspected.
  *
  * If either side fails the test the `\n\n` boundary is preserved.
  *
@@ -197,6 +202,8 @@ function firstChar(s) {
  * like accidental fragmentation. The rule (deliberately tight): first
  * block ends in a letter, second block starts with a lowercase letter.
  */
+const PROSE_MIN_CHARS = 30;
+
 function looksFragmented(prevBlock, nextBlock) {
   if (!isParagraphBlock(prevBlock) || !isParagraphBlock(nextBlock)) return false;
   const last = lastChar(prevBlock);
@@ -204,7 +211,18 @@ function looksFragmented(prevBlock, nextBlock) {
   if (!last || !first) return false;
   const lastIsLetter = /[a-zA-Z]/.test(last);
   const firstIsLowercase = /[a-z]/.test(first);
-  return lastIsLetter && firstIsLowercase;
+  if (!lastIsLetter || !firstIsLowercase) return false;
+  // Prose gate: short single-token blocks (lab measurements like "11 ul",
+  // reagent names like "pFC902", PCR multipliers like "x 35") are excluded
+  // even though they pass the letter / lowercase check. Real prose
+  // fragmentation has multi-word content on both sides.
+  const prevTrim = prevBlock.trim();
+  const nextTrim = nextBlock.trim();
+  if (prevTrim.length < PROSE_MIN_CHARS || nextTrim.length < PROSE_MIN_CHARS) {
+    return false;
+  }
+  if (!prevTrim.includes(" ") || !nextTrim.includes(" ")) return false;
+  return true;
 }
 
 /**
