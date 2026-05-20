@@ -14,7 +14,6 @@ import BeakerBot from "@/components/BeakerBot";
 import {
   getNextStep,
   getPreviousStep,
-  isSetupStep,
   stepIndex,
   stepCreatesPrerequisite,
   totalSteps,
@@ -24,6 +23,16 @@ import type {
   FeaturePicks,
   OnboardingSidecar,
 } from "@/lib/onboarding/sidecar";
+import WelcomeStep from "./steps/setup/WelcomeStep";
+import Q1AccountTypeStep from "./steps/setup/Q1AccountTypeStep";
+import Q1aLabStorageStep from "./steps/setup/Q1aLabStorageStep";
+import Q1bLabConnectInfoStep from "./steps/setup/Q1bLabConnectInfoStep";
+import Q2PurchasesStep from "./steps/setup/Q2PurchasesStep";
+import Q3CalendarStep from "./steps/setup/Q3CalendarStep";
+import Q4GoalsStep from "./steps/setup/Q4GoalsStep";
+import Q5TelegramStep from "./steps/setup/Q5TelegramStep";
+import Q6AiHelperStep from "./steps/setup/Q6AiHelperStep";
+import { initialFeaturePicks } from "./steps/setup/feature-picks-init";
 
 /**
  * The Onboarding v3 wizard shell.
@@ -79,6 +88,14 @@ interface OnboardingWizardV3Props {
    *  UI; this preserves the L10 invariant that a tab close
    *  mid-write doesn't drop the snapshot. */
   onTransition: (next: WizardStep) => Promise<void>;
+  /** Generic sidecar patcher fired by Phase 1 step bodies to persist
+   *  feature_picks (and any other field a future step body needs to
+   *  write). The wizard threads this to each step component; WizardMount
+   *  wraps `patchOnboarding` and rolls the returned sidecar into its
+   *  decision state so the next render sees the writes. */
+  patchSidecar: (
+    patch: (cur: OnboardingSidecar) => OnboardingSidecar,
+  ) => Promise<void>;
   /** Fires on phase4-cleanup completion (P1: also fires when the
    *  user clicks Finish on the placeholder cleanup step). The parent
    *  writes wizard_completed_at and clears resume state. */
@@ -161,6 +178,7 @@ export default function OnboardingWizardV3({
   initialStep,
   sidecar,
   onTransition,
+  patchSidecar,
   onComplete,
   onSkip,
   previewMode = false,
@@ -169,6 +187,10 @@ export default function OnboardingWizardV3({
   const [currentStep, setCurrentStep] = useState<WizardStep>(initialStep);
   const [uiState, setUiState] = useState<UiState>("idle");
   const [showSkipConfirm, setShowSkipConfirm] = useState(false);
+  // Setup-step Next-button gate. The step body calls setNextDisabled to
+  // control whether the shell's Next button is clickable; required for
+  // Q1-Q5 where Next is disabled until the user makes a pick.
+  const [nextDisabled, setNextDisabled] = useState(false);
 
   const titleId = useId();
   const cardRef = useRef<HTMLDivElement | null>(null);
@@ -241,10 +263,75 @@ export default function OnboardingWizardV3({
     if (stepCreatesPrerequisite(currentStep)) {
       // TODO P2b: auto-create prerequisite for skipped step
     }
+    // For Phase 1 setup steps, skipping = falling through with the
+    // field's default. Manager lock (P2a brief): Q1 defaults to solo
+    // (the lighter branch; lab would force the user into Q1a + Q1b they
+    // didn't explicitly opt into). Q1a defaults to lab_storage=deferred.
+    // Q2-Q5 and Q6 already carry their defaults via initialFeaturePicks,
+    // but writing them explicitly here keeps the skip a single
+    // idempotent persistence call regardless of prior state.
+    await patchSidecar((cur) => {
+      switch (currentStep) {
+        case "setup-q1": {
+          const base = cur.feature_picks ?? initialFeaturePicks("solo");
+          return {
+            ...cur,
+            feature_picks: { ...base, account_type: "solo" },
+          };
+        }
+        case "setup-q1a": {
+          if (!cur.feature_picks) return cur;
+          return {
+            ...cur,
+            feature_picks: {
+              ...cur.feature_picks,
+              lab_storage: "deferred",
+            },
+          };
+        }
+        case "setup-q2": {
+          if (!cur.feature_picks) return cur;
+          return {
+            ...cur,
+            feature_picks: { ...cur.feature_picks, purchases: "maybe" },
+          };
+        }
+        case "setup-q3": {
+          if (!cur.feature_picks) return cur;
+          return {
+            ...cur,
+            feature_picks: { ...cur.feature_picks, calendar: "maybe" },
+          };
+        }
+        case "setup-q4": {
+          if (!cur.feature_picks) return cur;
+          return {
+            ...cur,
+            feature_picks: { ...cur.feature_picks, goals: "maybe" },
+          };
+        }
+        case "setup-q5": {
+          if (!cur.feature_picks) return cur;
+          return {
+            ...cur,
+            feature_picks: { ...cur.feature_picks, telegram: "maybe" },
+          };
+        }
+        case "setup-q6": {
+          if (!cur.feature_picks) return cur;
+          return {
+            ...cur,
+            feature_picks: { ...cur.feature_picks, ai_helper: "full" },
+          };
+        }
+        default:
+          return cur;
+      }
+    });
     const next = getNextStep(currentStep, sidecar, picks);
     if (!next) return;
     await transitionTo(next);
-  }, [currentStep, sidecar, picks, transitionTo]);
+  }, [currentStep, sidecar, picks, patchSidecar, transitionTo]);
 
   const handleGotItConfirm = useCallback(async () => {
     setShowSkipConfirm(false);
@@ -332,7 +419,14 @@ export default function OnboardingWizardV3({
         </div>
 
         <div className="px-7 py-6">
-          <StepBody step={currentStep} username={username} />
+          <StepBody
+            key={currentStep}
+            step={currentStep}
+            username={username}
+            sidecar={sidecar}
+            setNextDisabled={setNextDisabled}
+            patchSidecar={patchSidecar}
+          />
         </div>
 
         <div className="px-7 pb-4 pt-2 flex items-center justify-between gap-3">
@@ -345,7 +439,7 @@ export default function OnboardingWizardV3({
             Back
           </button>
 
-          {!isCleanupStep && !isSetupStep(currentStep) && (
+          {!isCleanupStep && currentStep !== "intro" && (
             <button
               type="button"
               onClick={() => void handleSkipThisStep()}
@@ -359,8 +453,13 @@ export default function OnboardingWizardV3({
           <button
             type="button"
             onClick={() => void handleNext()}
-            disabled={uiState === "navigating" || uiState === "persisting"}
+            disabled={
+              nextDisabled ||
+              uiState === "navigating" ||
+              uiState === "persisting"
+            }
             data-wizard-state={uiState}
+            data-next-disabled={nextDisabled ? "true" : "false"}
             className="px-4 py-2 text-sm font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {nextButtonLabel(currentStep, uiState)}
@@ -477,32 +576,108 @@ function stepTitle(step: WizardStep): string {
   }
 }
 
-/** Placeholder step body. P2a/b/c and P3a swap each branch for the
- *  real implementation; for P1 every step except "intro" renders a
- *  small placeholder note so smoke testing still confirms the step
- *  graph walks. */
+/** Step body dispatcher. P2a fills in the real bodies for the 9 Phase 1
+ *  setup steps (intro + setup-q1 + setup-q1a + setup-q1b + setup-q2
+ *  through setup-q6); W1-W14, L1-L11, and phase4-cleanup remain
+ *  placeholders for P2b/c, P3a, and P4 to swap in. */
 function StepBody({
   step,
   username: _username,
+  sidecar,
+  setNextDisabled,
+  patchSidecar,
 }: {
   step: WizardStep;
   username: string;
+  sidecar: OnboardingSidecar | null;
+  setNextDisabled: (disabled: boolean) => void;
+  patchSidecar: (
+    patch: (cur: OnboardingSidecar) => OnboardingSidecar,
+  ) => Promise<void>;
 }) {
-  if (step === "intro") {
-    return (
-      <div className="space-y-3">
-        <p className="text-base text-gray-700 leading-relaxed">
-          ResearchOS keeps your experiments, lab notes, methods, and
-          calendar in one local-first place. I&apos;m BeakerBot, and
-          I&apos;m gonna help you get set up in about ten minutes. Ready?
-        </p>
-        <p className="text-sm text-gray-500">
-          You can stop at any time. Anything we create together appears in
-          a cleanup grid at the end so you can keep it or toss it.
-        </p>
-      </div>
-    );
+  switch (step) {
+    case "intro":
+      return <WelcomeStep setNextDisabled={setNextDisabled} />;
+    case "setup-q1":
+      return (
+        <Q1AccountTypeStep
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+          patchSidecar={patchSidecar}
+        />
+      );
+    case "setup-q1a":
+      return (
+        <Q1aLabStorageStep
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+          patchSidecar={patchSidecar}
+        />
+      );
+    case "setup-q1b":
+      return <Q1bLabConnectInfoStep setNextDisabled={setNextDisabled} />;
+    case "setup-q2":
+      return (
+        <Q2PurchasesStep
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+          patchSidecar={patchSidecar}
+        />
+      );
+    case "setup-q3":
+      return (
+        <Q3CalendarStep
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+          patchSidecar={patchSidecar}
+        />
+      );
+    case "setup-q4":
+      return (
+        <Q4GoalsStep
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+          patchSidecar={patchSidecar}
+        />
+      );
+    case "setup-q5":
+      return (
+        <Q5TelegramStep
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+          patchSidecar={patchSidecar}
+        />
+      );
+    case "setup-q6":
+      return (
+        <Q6AiHelperStep
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+          patchSidecar={patchSidecar}
+        />
+      );
+    default:
+      return (
+        <PlaceholderBody
+          step={step}
+          setNextDisabled={setNextDisabled}
+        />
+      );
   }
+}
+
+function PlaceholderBody({
+  step,
+  setNextDisabled,
+}: {
+  step: WizardStep;
+  setNextDisabled: (disabled: boolean) => void;
+}) {
+  // P2b/c, P3a, P4 land the real bodies. Placeholders keep Next enabled
+  // so the smoke test still walks the step graph end-to-end.
+  useEffect(() => {
+    setNextDisabled(false);
+  }, [setNextDisabled]);
   return (
     <div className="space-y-2 min-h-[120px]">
       <p className="text-sm text-gray-600">

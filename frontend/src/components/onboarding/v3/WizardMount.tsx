@@ -134,6 +134,18 @@ export default function WizardMount({ username }: WizardMountProps) {
     [username],
   );
 
+  const handlePatch = useCallback(
+    async (patch: (cur: OnboardingSidecar) => OnboardingSidecar) => {
+      const updated = await patchOnboarding(username, patch);
+      setDecision((prev) =>
+        prev.kind === "show"
+          ? { ...prev, sidecar: updated }
+          : prev,
+      );
+    },
+    [username],
+  );
+
   const handleComplete = useCallback(async () => {
     await patchOnboarding(username, (cur) => ({
       ...cur,
@@ -169,6 +181,7 @@ export default function WizardMount({ username }: WizardMountProps) {
       initialStep={decision.initialStep}
       sidecar={decision.sidecar}
       onTransition={handleTransition}
+      patchSidecar={handlePatch}
       onComplete={handleComplete}
       onSkip={handleSkip}
       previewMode={previewMode}
