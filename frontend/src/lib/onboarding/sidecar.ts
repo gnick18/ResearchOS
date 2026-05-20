@@ -3,141 +3,116 @@ import { fileService } from "@/lib/file-system/file-service";
 /**
  * Per-user onboarding sidecar at `users/<u>/_onboarding.json`.
  *
- * Mirrors `_telegram.json` / `_calendar-feeds.json` / `_labarchives.json` —
- * one JSON blob per user that captures whether this user has seen the
- * brand-new tip set, how much active engagement she has accumulated, and
- * which tips have been dismissed. The "brand-new" bit lives here (not in
- * `localStorage`) so a user who opens the same folder from a second
- * machine inherits her dismissal history — see proposal §"What
- * brand-new means here".
+ * Mirrors `_telegram.json` / `_calendar-feeds.json` / `_labarchives.json`,
+ * one JSON blob per user that captures where this user is in the
+ * onboarding v3 walkthrough and which feature picks they made at Phase 1.
  *
  * Schema history:
  *  - v1 (2026-05-14): initial. active_seconds + last_tip_at + tips map +
  *    tips_off + shown_count.
  *  - v2 (2026-05-14): adds `mode`. Welcome-modal pick:
- *    `tutorial | suggestions | silenced | null`. `null` = the user has
- *    not picked yet → the orchestrator blocks tips and shows the welcome
- *    modal instead. Defaulted to `null` on read so any legacy v1 sidecar
- *    re-triggers the welcome modal once.
- *  - v3 (2026-05-20): adds the Onboarding v2 wizard fields, all additive
- *    and defaulted to `null`: `use_cases` (the picks from the 9-option
- *    use-case wizard, or `null` if the wizard hasn't run for this user),
- *    `wizard_completed_at` (ISO timestamp of Continue on step 7), and
- *    `wizard_skipped_at` (ISO timestamp if the persistent Skip link was
- *    used). The two timestamps are mutually exclusive. v2 records
- *    normalize cleanly: existing `mode` / `tips` / `tips_off` /
- *    `shown_count` / `active_seconds` / `last_tip_at` / `first_seen_at`
- *    are preserved untouched, the three new fields backfill to `null`.
- *  - v3 (2026-05-20, additive extension during Phase 2a): adds
- *    `other_use_case` (the free-form string a user typed in the wizard
- *    step-2 "Other" affordance, or `null` when not used). Additive on
- *    the v3 shape, no schema-version bump — `normalize()` backfills the
- *    field to `null` on any older record. Stored separately from
- *    `use_cases` so analytics can read what the user wrote without that
- *    string ever appearing in the tab-mapping logic.
- *  - v3 (2026-05-20, additive extension during Phase 2c): adds
- *    `telegram_decision`, `calendar_decision`, `ai_helper_decision`.
- *    These record the outcome of the wizard's step 4 / 5 / 6 integration
- *    gates so future surfaces (Settings → Tips, AI Helper config) can
- *    read what the user chose without re-running the wizard. All three
- *    are additive on the v3 shape, no schema-version bump — `normalize()`
- *    backfills each to `null` on any older record. Enum values are
- *    validated; unknown / non-string values normalize to `null`.
- *  - v3 (2026-05-20, additive extension during Phase 4): adds
- *    `wizard_force_show` (boolean). The Settings → Tips "Re-run welcome
- *    wizard" button sets this to `true` (alongside null-ing the two
- *    wizard timestamps); the orchestrator's `showWizard` gate ORs
- *    `wizard_force_show === true` with `isFreshUserForWizard() === true`
- *    so existing users who explicitly click Re-run see the wizard
- *    again. The wizard's onComplete / onSkip handlers clear the flag
- *    back to `false`, making the bypass one-shot per Re-run click.
- *    Additive on the v3 shape, no schema-version bump — `normalize()`
- *    backfills `false` on any older record or non-boolean value.
+ *    `tutorial | suggestions | silenced | null`.
+ *  - v3 (2026-05-20): adds the Onboarding v2 wizard fields (`use_cases`,
+ *    `wizard_completed_at`, `wizard_skipped_at`, then `other_use_case`,
+ *    then `telegram_decision` / `calendar_decision` / `ai_helper_decision`,
+ *    then `wizard_force_show`). All additive on the v2 shape.
+ *  - v4 (2026-05-20): Onboarding v3.0 migration. The whole v1/v2 tip
+ *    system (`mode`, `tips`, `last_tip_at`, `shown_count`, `tips_off`)
+ *    is removed, along with the v2 wizard taxonomy fields (`use_cases`,
+ *    `other_use_case`) and the three integration decision fields
+ *    (`telegram_decision`, `calendar_decision`, `ai_helper_decision`).
+ *    Adds the v3.0 walkthrough fields: `feature_picks` (nullable; the
+ *    Phase 1 setup-question outcomes), `wizard_resume_state` (nullable;
+ *    mid-walkthrough resume snapshot), `lab_tour_pending`, and
+ *    `lab_tour_dismissed_at`. Retains `wizard_completed_at`,
+ *    `wizard_skipped_at`, `wizard_force_show`, `first_seen_at`,
+ *    `active_seconds`. Migration rule for existing users with a
+ *    v1/v2/v3 record: `feature_picks = null` and `wizard_force_show =
+ *    false` so existing users get nothing automatic (L1/L22). Tab
+ *    visibility falls back to settings.json visibleTabs while
+ *    feature_picks is null. See ONBOARDING_V3_PROPOSAL.md §10 + §11.
  */
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
-/** Per-tip outcome enum. `action-cancel` is the no-fire case: the user
- *  did the thing the tip would have explained before the tip fired, so
- *  we mark it served without ever showing it. */
-export type TipOutcome =
-  | "x"
-  | "later"
-  | "got-it"
-  | "read"
-  | "action-cancel";
+/** Phase 1 setup-question outcomes. Populated by the v3 wizard's Phase
+ *  1 (Welcome + Q1 solo/lab + Q1a/Q1b storage + Q2-Q6 feature picks).
+ *  `null` on the parent sidecar field means the user has not been
+ *  through Phase 1; tab visibility falls back to settings.json
+ *  visibleTabs in that case. See ONBOARDING_V3_PROPOSAL.md §10. */
+export interface FeaturePicks {
+  account_type: "solo" | "lab";
+  /** Lab accounts only. `"deferred"` means user picked lab but chose to
+   *  set up storage later. */
+  lab_storage?: "local" | "google_drive" | "onedrive" | "box" | "deferred";
+  purchases: "yes" | "no" | "maybe";
+  calendar: "yes" | "no" | "maybe";
+  goals: "yes" | "no" | "maybe";
+  telegram: "yes" | "no" | "maybe";
+  ai_helper: "full" | "medium" | "minimal" | "no" | "maybe";
+}
 
-/** Welcome-modal pick. `null` = not picked yet (orchestrator shows the
- *  modal and blocks tips). */
-export type OnboardingMode = "tutorial" | "suggestions" | "silenced" | null;
+/** One artifact the v3 wizard created on the user's real account. The
+ *  Phase 4 cleanup selector iterates these to render the keep/discard
+ *  grid. `cleanup_default` matches L24: all items pre-checked as keep. */
+export interface WizardArtifact {
+  /** Domain category: "project", "method", "experiment", "purchase",
+   *  "goal", "calendar_feed", "telegram_link", "lab_user", "lab_task",
+   *  "settings_change", "hybrid_edit", etc. Free-form string so the
+   *  Phase 4 UI can group/sort without coupling to a fixed enum. */
+  type: string;
+  /** Domain-specific identifier (project id, task id, feed id, etc.).
+   *  The Phase 4 cleanup code uses this to delete / restore the
+   *  artifact via the matching domain's API. */
+  id: string;
+  cleanup_default: "keep" | "discard";
+}
 
-export interface TipRecord {
-  shown_at: string | null;
-  dismissed_at: string | null;
-  outcome: TipOutcome;
+/** Mid-walkthrough snapshot. The wizard writes this on each step so a
+ *  mid-close → next open can offer Restart / Resume / Discard (L10). */
+export interface WizardResumeState {
+  /** Step id the user was on: "W3", "L4", "phase4-cleanup", etc. */
+  current_step: string;
+  /** Step ids the user used "skip this step" on (L9). */
+  skipped_steps: string[];
+  /** Artifacts created so far (populated as the walkthrough progresses). */
+  artifacts_created: WizardArtifact[];
 }
 
 export interface OnboardingSidecar {
   version: number;
-  /** ISO timestamp of the first time THIS USER opened this folder under a
-   *  build that had the onboarding system. Pure record-keeping. */
+  /** ISO timestamp of the first time THIS USER opened this folder under
+   *  a build that had the onboarding system. Pure record-keeping;
+   *  retained from v3 so resume-state heuristics still have a baseline. */
   first_seen_at: string;
   /** Total wall-clock seconds the user has spent with at least one
-   *  ResearchOS tab visible-and-focused. See active-time.ts. */
+   *  ResearchOS tab visible-and-focused. Retained from v3; the v3
+   *  walkthrough may still consult active-time for resume-state nudges. */
   active_seconds: number;
-  /** Last time any tip was successfully shown to this user, in
-   *  active-seconds (not wall-clock). */
-  last_tip_at: number;
-  /** Per-tip dismissal record, keyed by tip id. */
-  tips: Record<string, TipRecord>;
-  /** Global off-switch. Sticky per-user; reset via Settings → Tips
-   *  replay button. */
-  tips_off: boolean;
-  /** Total tips successfully displayed to this user (not counting
-   *  action-cancel records). Secondary off-switch. */
-  shown_count: number;
-  /** Welcome-modal pick. `null` = the user has not picked yet, so the
-   *  orchestrator blocks tips and renders the welcome modal. */
-  mode: OnboardingMode;
-  /** Use cases the user selected in the v2 wizard. `null` = wizard
-   *  not yet run (or user is migrated from v1/v2 with no wizard pick).
-   *  `[]` = wizard run and submitted with no picks (treat as "show
-   *  all tabs"). Specific ids = picked use cases. See
-   *  `use-case-tab-mapping.ts` for the canonical id list. */
-  use_cases: string[] | null;
-  /** ISO timestamp of wizard completion (Continue on step 7).
-   *  Mutually exclusive with `wizard_skipped_at`. */
+  /** Phase 1 outcome. `null` = the user has not been through the v3
+   *  wizard (migrated user OR fresh user pre-Phase-1 completion).
+   *  Populated by the v3 wizard's Phase 1 with the full object shape. */
+  feature_picks: FeaturePicks | null;
+  /** ISO timestamp of wizard completion (Continue on the final step
+   *  of Phase 4 cleanup). Mutually exclusive with `wizard_skipped_at`. */
   wizard_completed_at: string | null;
-  /** ISO timestamp of wizard skip (persistent Skip link). Mutually
-   *  exclusive with `wizard_completed_at`. */
+  /** ISO timestamp of wizard skip ("I've got it from here" link on any
+   *  step, L8). Mutually exclusive with `wizard_completed_at`. */
   wizard_skipped_at: string | null;
-  /** Free-form string the user typed into the wizard step-2 "Other"
-   *  affordance, or `null` when not used. Additive v3 field (Phase 2a).
-   *  Stored separately from `use_cases` so the static tab-mapping never
-   *  sees this string. Whitespace-only values are normalized to `null`
-   *  on the write path. */
-  other_use_case: string | null;
-  /** Step 4 (Telegram) decision recorded by the v2 wizard. `null` =
-   *  not yet through the wizard (or wizard was skipped before step 4).
-   *  "paired" = user completed inline pair flow. "later" = explicit
-   *  "Maybe later" click. "skipped" = auto-skip (computational-only). */
-  telegram_decision: "paired" | "later" | "skipped" | null;
-  /** Step 5 (Calendar feed) decision. `null` = not through. "added" =
-   *  user subscribed inline. "later" = explicit "Maybe later". */
-  calendar_decision: "added" | "later" | null;
-  /** Step 6 (AI Helper) decision. `null` = not through. "copied" = user
-   *  clicked Copy and the clipboard write succeeded (or used the
-   *  textarea fallback). "later" = explicit "Maybe later". */
-  ai_helper_decision: "copied" | "later" | null;
-  /** One-shot gate-bypass flag for the v2 wizard. Set to `true` by the
-   *  Settings → Tips "Re-run welcome wizard" button (via
-   *  `clearWizardCompletion()`). The orchestrator's `showWizard` gate
-   *  ORs this with `isFreshUserForWizard()` so existing users who
-   *  explicitly clicked Re-run see the wizard mount again. The wizard's
-   *  onComplete / onSkip handlers clear it back to `false`, so the
-   *  bypass is one-shot per Re-run click. Additive v3 field (Phase 4,
-   *  2026-05-20). Default `false`. */
+  /** One-shot gate-bypass flag. Set to `true` by the Settings
+   *  "Re-run welcome tour" button (via `clearWizardCompletion()`); the
+   *  wizard's onComplete / onSkip handlers clear it back to `false`. */
   wizard_force_show: boolean;
+  /** Mid-walkthrough snapshot. `null` when no walkthrough is in
+   *  flight (the user never started, completed, or skipped wholesale). */
+  wizard_resume_state: WizardResumeState | null;
+  /** True when the user finished Phase 2 with a "later" pick on the
+   *  Lab Mode tour offer (L18). Cleared when the user takes the tour
+   *  on a natural Lab Mode entry, or when they pick Dismiss. */
+  lab_tour_pending: boolean;
+  /** ISO timestamp set when the user picked Dismiss on the natural-
+   *  entry Lab Mode tour offer. Permanent — no further auto-firing. */
+  lab_tour_dismissed_at: string | null;
 }
 
 function sidecarPath(username: string): string {
@@ -149,134 +124,172 @@ function makeDefault(): OnboardingSidecar {
     version: SCHEMA_VERSION,
     first_seen_at: new Date().toISOString(),
     active_seconds: 0,
-    last_tip_at: 0,
-    tips: {},
-    tips_off: false,
-    shown_count: 0,
-    mode: null,
-    use_cases: null,
+    feature_picks: null,
     wizard_completed_at: null,
     wizard_skipped_at: null,
-    other_use_case: null,
-    telegram_decision: null,
-    calendar_decision: null,
-    ai_helper_decision: null,
     wizard_force_show: false,
+    wizard_resume_state: null,
+    lab_tour_pending: false,
+    lab_tour_dismissed_at: null,
   };
 }
 
-/** Back-fill missing fields on records written by older builds. Defensive
- *  — every field defaults to the value a fresh sidecar would carry. */
+/** Migration-aware normalizer. Accepts a v1/v2/v3/v4 raw record and
+ *  produces a v4-shaped output. All removed v3 fields are stripped
+ *  silently. Existing users (any v1/v2/v3 record) carry
+ *  `feature_picks = null` and `wizard_force_show = false` so they get
+ *  nothing automatic (L1/L22). Tab visibility falls back to
+ *  settings.json visibleTabs while feature_picks is null. */
 function normalize(raw: Partial<OnboardingSidecar> | null): OnboardingSidecar {
   if (!raw) return makeDefault();
-  const tips: Record<string, TipRecord> = {};
-  if (raw.tips && typeof raw.tips === "object") {
-    for (const [id, rec] of Object.entries(raw.tips)) {
-      if (!rec || typeof rec !== "object") continue;
-      const r = rec as Partial<TipRecord>;
-      tips[id] = {
-        shown_at: typeof r.shown_at === "string" ? r.shown_at : null,
-        dismissed_at: typeof r.dismissed_at === "string" ? r.dismissed_at : null,
-        outcome: ((): TipOutcome => {
-          const o = r.outcome;
-          if (
-            o === "x" ||
-            o === "later" ||
-            o === "got-it" ||
-            o === "read" ||
-            o === "action-cancel"
-          ) {
-            return o;
-          }
-          return "x";
-        })(),
-      };
-    }
-  }
-  const rawMode = (raw as { mode?: unknown }).mode;
-  const mode: OnboardingMode =
-    rawMode === "tutorial" ||
-    rawMode === "suggestions" ||
-    rawMode === "silenced"
-      ? rawMode
+  const r = raw as Record<string, unknown>;
+
+  const first_seen_at =
+    typeof r.first_seen_at === "string"
+      ? (r.first_seen_at as string)
+      : new Date().toISOString();
+  const active_seconds =
+    typeof r.active_seconds === "number" && r.active_seconds >= 0
+      ? (r.active_seconds as number)
+      : 0;
+
+  const wizard_completed_at =
+    typeof r.wizard_completed_at === "string"
+      ? (r.wizard_completed_at as string)
       : null;
-  // v3 wizard fields. All three are additive on a v2 record — defended
-  // to `null` if missing or malformed so a legacy v2 sidecar reads
-  // cleanly without clobbering its other fields.
-  const rawUseCases = (raw as { use_cases?: unknown }).use_cases;
-  const use_cases: string[] | null =
-    Array.isArray(rawUseCases) &&
-    rawUseCases.every((id) => typeof id === "string")
-      ? (rawUseCases as string[])
+  const wizard_skipped_at =
+    typeof r.wizard_skipped_at === "string"
+      ? (r.wizard_skipped_at as string)
       : null;
-  const rawCompleted = (raw as { wizard_completed_at?: unknown })
-    .wizard_completed_at;
-  const wizard_completed_at: string | null =
-    typeof rawCompleted === "string" ? rawCompleted : null;
-  const rawSkipped = (raw as { wizard_skipped_at?: unknown })
-    .wizard_skipped_at;
-  const wizard_skipped_at: string | null =
-    typeof rawSkipped === "string" ? rawSkipped : null;
-  const rawOther = (raw as { other_use_case?: unknown }).other_use_case;
-  const other_use_case: string | null =
-    typeof rawOther === "string" && rawOther.trim().length > 0
-      ? rawOther
+
+  // Existing-user invisibility invariant (L1/L22): any pre-v4 record
+  // normalizes with feature_picks=null AND wizard_force_show=false. The
+  // tab-visibility consumer (P1+) treats feature_picks=null as "use
+  // settings.json visibleTabs as-is", which preserves the user's
+  // existing tab set. A v4 record carries through the persisted
+  // feature_picks object as long as it has the required keys; any
+  // partial / malformed object normalizes back to null so we never
+  // half-trust a corrupt write.
+  const existingVersion =
+    typeof r.version === "number" ? (r.version as number) : 0;
+  const isPreV4Record = existingVersion < SCHEMA_VERSION;
+  const feature_picks = isPreV4Record
+    ? null
+    : parseFeaturePicks(r.feature_picks);
+
+  const wizard_force_show = isPreV4Record
+    ? false
+    : r.wizard_force_show === true;
+
+  const wizard_resume_state = parseWizardResumeState(r.wizard_resume_state);
+
+  const lab_tour_pending = r.lab_tour_pending === true;
+  const lab_tour_dismissed_at =
+    typeof r.lab_tour_dismissed_at === "string"
+      ? (r.lab_tour_dismissed_at as string)
       : null;
-  // Phase 2c additive v3 fields. Each is enum-validated; unknown values
-  // (older record without the field, or a malformed write from a buggy
-  // build) normalize to `null` so the wrap-up screen can render the
-  // "didn't decide" state cleanly.
-  const rawTelegram = (raw as { telegram_decision?: unknown }).telegram_decision;
-  const telegram_decision: "paired" | "later" | "skipped" | null =
-    rawTelegram === "paired" ||
-    rawTelegram === "later" ||
-    rawTelegram === "skipped"
-      ? rawTelegram
-      : null;
-  const rawCalendar = (raw as { calendar_decision?: unknown }).calendar_decision;
-  const calendar_decision: "added" | "later" | null =
-    rawCalendar === "added" || rawCalendar === "later"
-      ? rawCalendar
-      : null;
-  const rawAiHelper = (raw as { ai_helper_decision?: unknown }).ai_helper_decision;
-  const ai_helper_decision: "copied" | "later" | null =
-    rawAiHelper === "copied" || rawAiHelper === "later"
-      ? rawAiHelper
-      : null;
-  // Phase 4 additive v3 field. Strict boolean check — string "true",
-  // number 1, etc. all normalize to false so the Re-run bypass can only
-  // be armed by an explicit `clearWizardCompletion()` write.
-  const rawForceShow = (raw as { wizard_force_show?: unknown }).wizard_force_show;
-  const wizard_force_show: boolean = rawForceShow === true;
+
   return {
     version: SCHEMA_VERSION,
-    first_seen_at:
-      typeof raw.first_seen_at === "string"
-        ? raw.first_seen_at
-        : new Date().toISOString(),
-    active_seconds:
-      typeof raw.active_seconds === "number" && raw.active_seconds >= 0
-        ? raw.active_seconds
-        : 0,
-    last_tip_at:
-      typeof raw.last_tip_at === "number"
-        ? raw.last_tip_at
-        : 0,
-    tips,
-    tips_off: raw.tips_off === true,
-    shown_count:
-      typeof raw.shown_count === "number" && raw.shown_count >= 0
-        ? raw.shown_count
-        : 0,
-    mode,
-    use_cases,
+    first_seen_at,
+    active_seconds,
+    feature_picks,
     wizard_completed_at,
     wizard_skipped_at,
-    other_use_case,
-    telegram_decision,
-    calendar_decision,
-    ai_helper_decision,
     wizard_force_show,
+    wizard_resume_state,
+    lab_tour_pending,
+    lab_tour_dismissed_at,
+  };
+}
+
+const ACCOUNT_TYPES: ReadonlySet<string> = new Set(["solo", "lab"]);
+const LAB_STORAGES: ReadonlySet<string> = new Set([
+  "local",
+  "google_drive",
+  "onedrive",
+  "box",
+  "deferred",
+]);
+const YES_NO_MAYBE: ReadonlySet<string> = new Set(["yes", "no", "maybe"]);
+const AI_HELPER_VALUES: ReadonlySet<string> = new Set([
+  "full",
+  "medium",
+  "minimal",
+  "no",
+  "maybe",
+]);
+
+function parseFeaturePicks(raw: unknown): FeaturePicks | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.account_type !== "string" || !ACCOUNT_TYPES.has(o.account_type)) {
+    return null;
+  }
+  if (typeof o.purchases !== "string" || !YES_NO_MAYBE.has(o.purchases)) {
+    return null;
+  }
+  if (typeof o.calendar !== "string" || !YES_NO_MAYBE.has(o.calendar)) {
+    return null;
+  }
+  if (typeof o.goals !== "string" || !YES_NO_MAYBE.has(o.goals)) {
+    return null;
+  }
+  if (typeof o.telegram !== "string" || !YES_NO_MAYBE.has(o.telegram)) {
+    return null;
+  }
+  if (
+    typeof o.ai_helper !== "string" ||
+    !AI_HELPER_VALUES.has(o.ai_helper)
+  ) {
+    return null;
+  }
+  const picks: FeaturePicks = {
+    account_type: o.account_type as FeaturePicks["account_type"],
+    purchases: o.purchases as FeaturePicks["purchases"],
+    calendar: o.calendar as FeaturePicks["calendar"],
+    goals: o.goals as FeaturePicks["goals"],
+    telegram: o.telegram as FeaturePicks["telegram"],
+    ai_helper: o.ai_helper as FeaturePicks["ai_helper"],
+  };
+  if (
+    typeof o.lab_storage === "string" &&
+    LAB_STORAGES.has(o.lab_storage)
+  ) {
+    picks.lab_storage = o.lab_storage as FeaturePicks["lab_storage"];
+  }
+  return picks;
+}
+
+function parseWizardResumeState(raw: unknown): WizardResumeState | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.current_step !== "string") return null;
+  const skipped: string[] = Array.isArray(o.skipped_steps)
+    ? (o.skipped_steps as unknown[]).filter(
+        (v): v is string => typeof v === "string",
+      )
+    : [];
+  const artifacts: WizardArtifact[] = Array.isArray(o.artifacts_created)
+    ? (o.artifacts_created as unknown[]).flatMap((entry) => {
+        if (!entry || typeof entry !== "object") return [];
+        const e = entry as Record<string, unknown>;
+        if (typeof e.type !== "string" || typeof e.id !== "string") return [];
+        const cleanup =
+          e.cleanup_default === "discard" ? "discard" : "keep";
+        return [
+          {
+            type: e.type,
+            id: e.id,
+            cleanup_default: cleanup,
+          },
+        ];
+      })
+    : [];
+  return {
+    current_step: o.current_step,
+    skipped_steps: skipped,
+    artifacts_created: artifacts,
   };
 }
 
@@ -284,7 +297,7 @@ function normalize(raw: Partial<OnboardingSidecar> | null): OnboardingSidecar {
  *  record if the file is missing — callers shouldn't have to special-
  *  case the first-read. Does NOT persist the default; that happens
  *  lazily on the first `writeOnboarding()` so a tab that only reads
- *  (e.g. wiki-only browsing) doesn't dirty the folder. */
+ *  doesn't dirty the folder. */
 export async function readOnboarding(
   username: string,
 ): Promise<OnboardingSidecar> {
@@ -308,7 +321,7 @@ export async function writeOnboarding(
 
 /** Read-modify-write helper. The `patch` callback receives the current
  *  sidecar (or a default) and returns the next one. Single I/O cycle
- *  per call; safe for the orchestrator's flush-on-tick pattern. */
+ *  per call. */
 export async function patchOnboarding(
   username: string,
   patch: (current: OnboardingSidecar) => OnboardingSidecar,
@@ -319,40 +332,20 @@ export async function patchOnboarding(
   return next;
 }
 
-/** Reset state for the Settings "Replay onboarding tips" button. Clears
- *  the `tips` map, flips `tips_off` off, and resets `last_tip_at` to
- *  the current `active_seconds` so the cooldown starts fresh. Leaves
- *  `first_seen_at`, `active_seconds`, and `mode` in place — the
- *  freshness taper still applies and the user's mode pick is preserved
- *  (the welcome modal does NOT re-fire on replay). */
-export async function replayOnboarding(
-  username: string,
-): Promise<OnboardingSidecar> {
-  return patchOnboarding(username, (cur) => ({
-    ...cur,
-    tips: {},
-    tips_off: false,
-    last_tip_at: cur.active_seconds,
-    shown_count: 0,
-  }));
-}
-
-/** Reset the wizard's "user has been through it" state so the v2
+/** Reset the wizard's "user has been through it" state so the v3
  *  wizard mounts again on the next orchestrator read. Used by the
- *  Settings → Tips "Re-run welcome wizard" button.
+ *  Settings "Re-run welcome tour" button.
  *
  *  Sets:
  *    - wizard_completed_at = null
- *    - wizard_skipped_at = null
- *    - wizard_force_show = true  (the gate-bypass field; the wizard
- *      mounts even though the user is now an existing-user per
- *      isFreshUserForWizard())
+ *    - wizard_skipped_at   = null
+ *    - wizard_force_show   = true  (the gate-bypass flag; the wizard
+ *      mounts even for an existing user whose fresh-folder probe
+ *      would otherwise return false)
  *
- *  Leaves EVERYTHING else untouched (use_cases, other_use_case, the
- *  three decision fields, mode, tips, tips_off, shown_count,
- *  active_seconds, first_seen_at). The wizard's onComplete and
- *  onSkip handlers clear wizard_force_show back to false after the
- *  re-run finishes. */
+ *  Leaves the rest untouched. The wizard's onComplete and onSkip
+ *  handlers clear `wizard_force_show` back to false after the re-run
+ *  finishes. */
 export async function clearWizardCompletion(
   username: string,
 ): Promise<OnboardingSidecar> {
@@ -364,26 +357,11 @@ export async function clearWizardCompletion(
   }));
 }
 
-/** Persist a new onboarding mode pick. After picking, the user
- *  should see the FIRST tip immediately (subject to route-dwell +
- *  target-in-DOM gates) rather than waiting a full cooldown. To
- *  satisfy the orchestrator's `now - last_tip_at >= minGap`
- *  predicate at the moment of pick, this sets `last_tip_at` to
- *  `active_seconds - 999999` (a sentinel that's effectively
- *  -infinity for any sensible minGap). Subsequent tips obey the
- *  real cooldown because `recordShown()` bumps `last_tip_at` to
- *  the current `active_seconds` on each fire.
- *
- *  Also flips `tips_off` off — picking a non-silenced mode after
- *  silenced should unstick the global off-switch. */
-export async function setOnboardingMode(
+/** No-op kept for the brief P0→P7 window so legacy Settings tip cards
+ *  that still call this don't break the build. P7 deletes the calling
+ *  surface entirely. */
+export async function replayOnboarding(
   username: string,
-  mode: OnboardingMode,
 ): Promise<OnboardingSidecar> {
-  return patchOnboarding(username, (cur) => ({
-    ...cur,
-    mode,
-    last_tip_at: cur.active_seconds - 999_999,
-    tips_off: mode === "silenced" ? cur.tips_off : false,
-  }));
+  return readOnboarding(username);
 }

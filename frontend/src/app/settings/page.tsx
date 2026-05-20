@@ -55,13 +55,7 @@ import {
 import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
 import { readPairing } from "@/lib/telegram/telegram-store";
 import { USER_COLOR_QUERY_KEY } from "@/hooks/useUserColor";
-import {
-  clearWizardCompletion,
-  readOnboarding,
-  replayOnboarding,
-  setOnboardingMode,
-  type OnboardingMode,
-} from "@/lib/onboarding/sidecar";
+import { clearWizardCompletion } from "@/lib/onboarding/sidecar";
 import { forgetAllTelegramTokenCache } from "@/lib/telegram/telegram-token-cache";
 
 const USER_COLOR_PALETTE = [
@@ -2309,75 +2303,19 @@ function AIHelperSection() {
 }
 
 /**
- * Tips replay surface. Clicking the button clears the user's per-tip
- * dismiss history, flips `tips_off` back on, and resets `last_tip_at`
- * to the current `active_seconds` so the cooldown starts fresh. The
- * orchestrator picks up the change on its next sidecar read (which it
- * re-runs on every load), so there's no provider-side notify needed
- * here — the user navigates back to the home page and the system
- * fires when the dwell + cooldown allow.
- *
- * Toast is a single inline status message that auto-clears after 4s,
- * mirroring the lightweight feedback pattern used by `RepairRow`.
+ * Onboarding section. Surfaces the "Re-run welcome tour" button that
+ * arms `wizard_force_show` so the wizard mounts again on the next
+ * reload. The legacy "tips mode picker" + "Replay tips" controls were
+ * removed with sidecar v3 → v4 (P0 of the Onboarding v3 arc per
+ * ONBOARDING_V3_PROPOSAL.md §10); the v3 walkthrough subsumes both.
+ * TODO P7: this section will be rewritten alongside the wider tips
+ * deprecation sweep.
  */
 function TipsSection() {
   const { currentUser } = useFileSystem();
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  /** Current mode (from sidecar). `null` = the user hasn't picked yet
-   *  via the welcome modal; we treat it as `"suggestions"` in the
-   *  radio UI since the modal blocks this surface from being useful
-   *  before the user picks. */
-  const [mode, setMode] = useState<OnboardingMode>(null);
-  const [modeLoading, setModeLoading] = useState(true);
 
-  // Pull the current mode on mount so the radio reflects what's
-  // actually on disk. Re-read after a mode change to keep the UI in
-  // sync if persist fails halfway.
-  useEffect(() => {
-    if (!currentUser) {
-      setModeLoading(false);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const sc = await readOnboarding(currentUser);
-        if (!cancelled) setMode(sc.mode);
-      } catch (err) {
-        console.error("[Settings/Tips] readOnboarding failed", err);
-      } finally {
-        if (!cancelled) setModeLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [currentUser]);
-
-  const handleReplay = useCallback(async () => {
-    if (!currentUser) return;
-    setBusy(true);
-    setStatus(null);
-    try {
-      await replayOnboarding(currentUser);
-      setStatus("Tips re-enabled. They'll fire as you visit pages again.");
-      setTimeout(() => setStatus(null), 4000);
-    } catch (err) {
-      console.error("[Settings/Tips] replay failed", err);
-      setStatus("Couldn't reset tips. See console for details.");
-    } finally {
-      setBusy(false);
-    }
-  }, [currentUser]);
-
-  // Phase 4: Re-run welcome wizard. Calls clearWizardCompletion() which
-  // null-s wizard_completed_at + wizard_skipped_at and sets the new
-  // additive sidecar field wizard_force_show: true. The orchestrator
-  // re-evaluates on next mount, so we trigger a reload so the wizard
-  // re-mounts against the current user's folder. router.refresh() is
-  // not enough because the orchestrator's sidecar state isn't reactive
-  // to disk changes on its own.
   const handleRerunWizard = useCallback(async () => {
     if (!currentUser) return;
     setBusy(true);
@@ -2393,113 +2331,19 @@ function TipsSection() {
     }
   }, [currentUser]);
 
-  const handleModeChange = useCallback(
-    async (next: Exclude<OnboardingMode, null>) => {
-      if (!currentUser) return;
-      setStatus(null);
-      // Optimistic update — the radio flips instantly. If persist
-      // fails we revert below.
-      const previous = mode;
-      setMode(next);
-      try {
-        await setOnboardingMode(currentUser, next);
-      } catch (err) {
-        console.error("[Settings/Tips] setOnboardingMode failed", err);
-        setMode(previous);
-        setStatus("Couldn't save that. See console for details.");
-      }
-    },
-    [currentUser, mode],
-  );
-
-  // Effective radio value — `null` rendered as "suggestions" since
-  // that's the visual default. The user can still click a different
-  // option to persist a real pick.
-  const effectiveMode: Exclude<OnboardingMode, null> =
-    mode === "tutorial" || mode === "silenced" ? mode : "suggestions";
-
   return (
     <SectionShell
-      title="Tips"
-      description="Brand-new orientation tips show in a small card with a friendly mascot pointing at the affordance."
+      title="Onboarding"
+      description="Re-run the welcome tour to revisit setup picks and the BeakerBot walkthrough on your real account."
     >
-      <div className="space-y-3">
-        <p className="text-sm font-medium text-gray-800">How should I help?</p>
-        <div className="flex flex-col gap-2">
-          {(
-            [
-              {
-                value: "tutorial",
-                label: "Walk me through it",
-                desc: "Force-fire each tip one after another, 60s apart. Best on day one.",
-              },
-              {
-                value: "suggestions",
-                label: "Show me as I go",
-                desc: "Land a tip about every 5 minutes when the matching feature is on screen.",
-              },
-              {
-                value: "silenced",
-                label: "Stay quiet, thanks",
-                desc: "No tips at all. You can flip this back on any time.",
-              },
-            ] as const
-          ).map((opt) => (
-            <label
-              key={opt.value}
-              className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
-                effectiveMode === opt.value
-                  ? "border-blue-300 bg-blue-50"
-                  : "border-gray-200 hover:border-gray-300"
-              } ${modeLoading || !currentUser ? "opacity-50 cursor-not-allowed" : ""}`}
-            >
-              <input
-                type="radio"
-                name="onboarding-mode"
-                value={opt.value}
-                checked={effectiveMode === opt.value}
-                disabled={modeLoading || !currentUser}
-                onChange={() => void handleModeChange(opt.value)}
-                className="mt-0.5"
-              />
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-gray-800">{opt.label}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{opt.desc}</p>
-              </div>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex items-start justify-between gap-4 pt-3 border-t border-gray-100">
+      <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <p className="text-sm text-gray-800">
-            Show me the onboarding tips again
-          </p>
+          <p className="text-sm text-gray-800">Re-run welcome tour</p>
           <p className="text-xs text-gray-500 mt-1">
-            Re-fires the whole tip sequence. They land one at a time, only on
-            pages where the affordance actually exists.
+            Launches the v3 walkthrough again. New users see this once on
+            first sign-in; existing users can opt back in here.
           </p>
           {status && <p className="text-xs text-emerald-600 mt-2">{status}</p>}
-        </div>
-        <button
-          type="button"
-          onClick={handleReplay}
-          disabled={busy || !currentUser}
-          className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
-        >
-          {busy ? "Resetting…" : "Replay tips"}
-        </button>
-      </div>
-
-      <div className="flex items-start justify-between gap-4 pt-3 border-t border-gray-100">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm text-gray-800">Re-run welcome wizard</p>
-          <p className="text-xs text-gray-500 mt-1">
-            The welcome wizard is the seven-step setup new users see on first
-            sign-in. Launch it again to revisit your use cases, tab choices,
-            and the three integration prompts.
-          </p>
         </div>
         <button
           type="button"
@@ -2507,7 +2351,7 @@ function TipsSection() {
           disabled={busy || !currentUser}
           className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
         >
-          {busy ? "Resetting…" : "Re-run wizard"}
+          {busy ? "Resetting…" : "Re-run tour"}
         </button>
       </div>
     </SectionShell>
