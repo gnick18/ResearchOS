@@ -1206,7 +1206,20 @@ export default function HybridMarkdownEditor({
           (b) => b.startOffset === editingBlockOffset
         );
         if (currentIdx <= 0) return;
-        const prevBlock = blocks[currentIdx - 1];
+        // parseMarkdownBlocks emits a `blankLine` block for every blank-line
+        // separator between paragraphs (any two adjacent paragraphs in
+        // CommonMark are split by at least one blank line), so the
+        // immediately-previous index is almost always a blankLine, never the
+        // previous paragraph. Walk backwards over blankLines to find the real
+        // merge target. The splice range below still uses prevBlock.startOffset
+        // to currentBlock.startOffset + currentBlock.content.length, which
+        // correctly subsumes the intervening blankLine span.
+        let prevIdx = currentIdx - 1;
+        while (prevIdx >= 0 && blocks[prevIdx].type === "blankLine") {
+          prevIdx -= 1;
+        }
+        if (prevIdx < 0) return;
+        const prevBlock = blocks[prevIdx];
         const currentBlock = blocks[currentIdx];
         if (prevBlock.type !== "paragraph" || currentBlock.type !== "paragraph") {
           return;
