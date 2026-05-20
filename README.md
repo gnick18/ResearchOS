@@ -6,6 +6,11 @@ ResearchOS is a browser-based tool for planning experiments, writing lab notes, 
 
 ResearchOS is for benchwork researchers, computational scientists, lab managers, postdocs, PhD students, undergrads, staff scientists, and solo researchers in academic, industry, and startup settings. The welcome wizard asks a few questions about how you work and tailors the interface accordingly.
 
+<p align="center">
+  <img src="frontend/public/wiki/screenshots/home-projects.png" alt="ResearchOS home screen showing project overview cards with progress bars, tags, and team avatars." width="720" />
+</p>
+<p align="center"><em>The home screen: every project at a glance, with progress, tags, and the people working on it.</em></p>
+
 > Try the hosted demo: **[research-os-xi.vercel.app/demo](https://research-os-xi.vercel.app/demo)**. The demo runs entirely in your browser against synthetic fixture data, so you can poke around without picking a folder.
 
 ---
@@ -19,12 +24,16 @@ ResearchOS is for benchwork researchers, computational scientists, lab managers,
 - Calendar with external ICS feed overlays (Google Calendar, Outlook, iCloud, university calendars).
 - High-level goals with SMART subgoals running alongside the schedule.
 
+![Gantt chart view of a research project with dependency-linked tasks across multiple lanes.](frontend/public/wiki/screenshots/gantt-overview.png)
+
 **Document and iterate**
 
 - Lab Notes and Results tabs per experiment, both backed by a hybrid markdown editor with image attachments, file drops, and click-to-edit blocks.
 - Methods library with ten different method types: free-form markdown, PDF, PCR protocol, LC gradient, well-plate layout, cell culture passage schedule, coding workflow, mass spec parameters, qPCR analysis, and compound methods that bundle the others into reusable kits.
 - Per-task method variations: attach a method, then record deviations on the experiment.
 - Experiment comparison view for side-by-side outcomes across runs.
+
+![Experiment editor with the hybrid markdown editor, lab-notes tab, and attached images on the right.](frontend/public/wiki/screenshots/experiments-editor.png)
 
 **Collaborate**
 
@@ -33,12 +42,16 @@ ResearchOS is for benchwork researchers, computational scientists, lab managers,
 - Lab Mode: a multi-user overview of combined experiments, purchases, methods, and activity.
 - Receiver-side editing for shared tasks, including drag-to-reschedule through the dependency graph.
 
+![Lab Mode overview showing combined experiments and activity across multiple lab members.](frontend/public/wiki/screenshots/lab-mode.png)
+
 **Connect**
 
 - **Telegram image inbox.** Pair a Telegram bot once; photos you send the bot arrive in your inbox in seconds with captions as titles. Drag onto any note to attach.
 - **Calendar feed overlays.** Subscribe to public ICS feeds; events overlay on your Gantt and Calendar views (read-only).
 - **AI Helper prompts.** Generate a prompt that turns Claude, ChatGPT, or Gemini into a ResearchOS-aware assistant. Paste into your own chat tier (no API key needed); the model knows your schemas, examples, and feature inventory.
 - **LabArchives ELN import.** Bring existing notebooks from LabArchives offline ZIP exports as ResearchOS projects + tasks with attachments preserved.
+
+![Telegram inbox panel with photos sent from a phone, ready to drag onto a note.](frontend/public/wiki/screenshots/telegram-inbox.png)
 
 ---
 
@@ -96,6 +109,21 @@ The repo is preconfigured for Vercel. No environment variables required for the 
 ## First-time setup: the welcome wizard
 
 The first time you open ResearchOS against a fresh folder, a multi-step welcome wizard asks what brings you to the tool. You pick from nine use cases (PhD experiments, lab manager, teaching, computational research, postdoc, solo researcher, staff scientist, undergrad researcher, or just exploring; multi-select), the wizard tailors which tabs you see by default, then offers optional inline setup for Telegram, calendar feeds, and the AI Helper prompt. Everything is reversible: tabs can be toggled in Settings, and Settings has a "Re-run welcome wizard" button if you want to start the flow over.
+
+<p align="center">
+  <img src="frontend/public/wiki/screenshots/onboarding-wizard-step-1-welcome.png" alt="Step 1 of the welcome wizard: BeakerBot mascot and a two-sentence intro." width="520" />
+</p>
+<p align="center"><em>Step 1: a two-sentence intro from BeakerBot, then on to picking how you work.</em></p>
+
+<p align="center">
+  <img src="frontend/public/wiki/screenshots/onboarding-wizard-step-2-use-cases.png" alt="Step 2 of the welcome wizard: nine use-case chips with two selected." width="320" />
+</p>
+<p align="center"><em>Step 2: pick the ways you'll use ResearchOS (multi-select). The picks drive which tabs are visible by default.</em></p>
+
+<p align="center">
+  <img src="frontend/public/wiki/screenshots/onboarding-wizard-step-7-wrapup.png" alt="Step 7 of the welcome wizard: 'You're all set' confirmation with setup decisions and an optional feature tour link." width="600" />
+</p>
+<p align="center"><em>Step 7: confirmation. Each setup decision is echoed back, with an optional feature tour link before "Go to home."</em></p>
 
 Skip the wizard entirely if you prefer; it never re-fires for the same user, and all features remain reachable from the navbar and Settings.
 
@@ -167,6 +195,8 @@ The app is fully client-side. The two Next.js API routes (`/api/telegram-file`, 
 
 Sending lab photos from your phone is faster than uploading through the browser, so ResearchOS supports a one-bot-per-user Telegram pipeline.
 
+![Telegram pairing modal with a bot-token input ready for the value pasted from BotFather.](frontend/public/wiki/screenshots/telegram-pairing.png)
+
 1. Open Telegram, chat with [@BotFather](https://t.me/BotFather), send `/newbot`, follow the prompts. Copy the bot token.
 2. In ResearchOS, click the Telegram icon in the top bar, then **Pair bot**.
 3. Paste your token. The app verifies it and writes the pairing to your folder.
@@ -180,6 +210,8 @@ After pairing, snap a photo on your phone, send it to your bot, and it shows up 
 
 The Calendar tab can overlay events from any ICS-compatible feed.
 
+![External Feeds modal with the provider picker expanded showing iCloud, Google, Outlook, and Other.](frontend/public/wiki/screenshots/calendar-feeds-modal.png)
+
 1. Calendar tab, then **Manage feeds**, then **Add subscription**.
 2. Paste the ICS URL. Google Calendar, Outlook / Office 365, iCloud, and university calendars all expose one (usually under Calendar settings, "Share" or "Publish").
 3. Pick a color and a name. Save.
@@ -191,6 +223,8 @@ Feeds are read-only; your tasks do not push back to Google or Outlook. Subscript
 ## AI Helper
 
 ResearchOS does not run any AI models. Instead, the app generates a structured prompt that teaches your existing AI assistant (Claude, ChatGPT, or Gemini) what ResearchOS is, what entities it tracks, and how features connect. You paste the prompt into your usual chat and get a ResearchOS-aware helper for the duration of that conversation.
+
+![Settings AI Helper section: size picker with Lean (recommended) preselected, copy button, and Open-in shortcuts for Claude, ChatGPT, and Gemini.](frontend/public/wiki/screenshots/settings-ai-helper.png)
 
 Settings has an "AI Helper" section with a one-click copy button and three "Open in" shortcuts that paste the prompt into a fresh chat in each provider. Three size variants exist (full for big-context models, lean for the default, minimal for small-context or local models with an explicit "you got the degraded variant" disclaimer).
 
