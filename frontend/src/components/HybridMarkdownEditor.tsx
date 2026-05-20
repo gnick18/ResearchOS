@@ -1174,6 +1174,52 @@ export default function HybridMarkdownEditor({
         return;
       }
 
+      // Backspace at the very start of a paragraph block merges it into the
+      // previous paragraph via a soft-break boundary. Notion / Google Docs
+      // style. A confirmation prompt is required because the merge changes
+      // block structure and is hard to undo silently. Limited to
+      // paragraph-paragraph merges: joining a heading or list via soft-break
+      // would produce structurally weird markdown.
+      if (
+        e.key === "Backspace" &&
+        !e.altKey &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.shiftKey &&
+        !(e.nativeEvent as KeyboardEvent).isComposing
+      ) {
+        const textarea = textareaRef.current;
+        if (!textarea || editingBlockOffset === null) return;
+        if (textarea.selectionStart !== 0 || textarea.selectionEnd !== 0) {
+          // Not at the very start with empty selection; let default run.
+          return;
+        }
+        const currentIdx = blocks.findIndex(
+          (b) => b.startOffset === editingBlockOffset
+        );
+        if (currentIdx <= 0) return;
+        const prevBlock = blocks[currentIdx - 1];
+        const currentBlock = blocks[currentIdx];
+        if (prevBlock.type !== "paragraph" || currentBlock.type !== "paragraph") {
+          return;
+        }
+        e.preventDefault();
+        const ok = window.confirm(
+          "Merge with previous paragraph? This combines the two paragraphs into one."
+        );
+        if (!ok) return;
+        const softBreak = "  \n";
+        const merged =
+          prevBlock.content + softBreak + currentBlock.content;
+        const newFullContent =
+          value.substring(0, prevBlock.startOffset) +
+          merged +
+          value.substring(currentBlock.startOffset + currentBlock.content.length);
+        pushAndCommit(newFullContent, "paste");
+        handleEditBlur();
+        return;
+      }
+
       // Shift+Enter performs a hard paragraph split. Inserts a blank line at
       // the cursor and exits edit mode so the next re-parse cleanly produces
       // two paragraph blocks. Exiting beats transitioning into the new lower
@@ -1378,7 +1424,7 @@ export default function HybridMarkdownEditor({
         }
       }
     },
-    [editingBlockContent, editingBlockOffset, updateDocumentContent, handleEditBlur, disabled, performUndo, performRedo, value, pushAndCommit]
+    [editingBlockContent, editingBlockOffset, updateDocumentContent, handleEditBlur, disabled, performUndo, performRedo, value, pushAndCommit, blocks]
   );
 
   /**
