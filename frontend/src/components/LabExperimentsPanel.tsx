@@ -81,6 +81,7 @@ export default function LabExperimentsPanel({
 
   const [viewMode, setViewMode] = useState<ViewMode>("gallery");
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR-safe localStorage hydration: useState seed must match the server-rendered HTML ("gallery"), then we read the persisted value on mount. A lazy useState initializer would cause a hydration mismatch warning since the server has no localStorage.
     setViewMode(readStoredViewMode());
   }, []);
   const setAndPersistMode = (next: ViewMode) => {

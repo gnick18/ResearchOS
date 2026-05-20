@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useFileSystem, isFileSystemAccessSupported } from "@/lib/file-system/file-system-context";
 import BetaDonationButton from "@/components/BetaDonationButton";
 import FeedbackModal from "@/components/FeedbackModal";
@@ -596,7 +597,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
         )}
 
         <div className="mt-4 flex flex-col items-center gap-2">
-          <a
+          <Link
             href="/demo"
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-100 hover:text-white border border-amber-300/40 hover:border-amber-300/70 rounded-lg text-sm font-semibold transition-colors"
           >
@@ -615,7 +616,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
               />
             </svg>
             Explore demo in browser
-          </a>
+          </Link>
           <a
             href="/demo-lab.zip"
             className="text-xs text-slate-400 hover:text-amber-200 underline-offset-2 hover:underline transition-colors"

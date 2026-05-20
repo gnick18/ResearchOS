@@ -117,6 +117,7 @@ export default function HomePage() {
           (p) => p.id === pid && (p.owner ?? currentUser) === currentUser,
         );
         if (match) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- deep-link handler: opens popup imperatively once the async-loaded projects/allTasks include the URL-referenced id. Cannot be useMemo (setSelectedProject is a side-effect, not derived state); cannot be useState lazy init (data arrives async after mount).
           setSelectedProject(match);
           didOpen = true;
         }

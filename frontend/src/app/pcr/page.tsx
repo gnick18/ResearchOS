@@ -277,7 +277,7 @@ function GradientVisualizer({ gradient }: { gradient: PCRGradient }) {
     );
   };
 
-  let currentX = 40;
+  const layout = computeGradientLayout(gradient, 40, barWidth);
 
   return (
     <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 overflow-x-auto">
@@ -288,18 +288,14 @@ function GradientVisualizer({ gradient }: { gradient: PCRGradient }) {
         <text x="5" y={height - 15} className="text-[10px] fill-gray-500">{minTemp}°C</text>
 
         {/* Initial steps */}
-        {gradient.initial.map((step) => {
-          const elem = renderStep(step, currentX);
-          currentX += barWidth;
-          return elem;
-        })}
+        {layout.initial.map(({ step, x }) => renderStep(step, x))}
 
         {/* Cycle steps with bracket */}
-        {gradient.cycles.map((cycle, cycleIndex) => (
+        {layout.cycles.map(({ cycle, startX: cycleX, steps }, cycleIndex) => (
           <g key={cycleIndex}>
             {/* Bracket for cycle */}
             <rect
-              x={currentX - 5}
+              x={cycleX - 5}
               y={10}
               width={cycle.steps.length * barWidth + 10}
               height={height - 30}
@@ -310,34 +306,53 @@ function GradientVisualizer({ gradient }: { gradient: PCRGradient }) {
               rx="8"
             />
             <text
-              x={currentX + (cycle.steps.length * barWidth) / 2 - 5}
+              x={cycleX + (cycle.steps.length * barWidth) / 2 - 5}
               y={height - 5}
               textAnchor="middle"
               className="text-[11px] fill-purple-600 font-bold"
             >
               x{cycle.repeats}
             </text>
-            
-            {cycle.steps.map((step) => {
-              const elem = renderStep(step, currentX, true);
-              currentX += barWidth;
-              return elem;
-            })}
+
+            {steps.map(({ step, x }) => renderStep(step, x, true))}
           </g>
         ))}
 
         {/* Final steps */}
-        {gradient.final.map((step) => {
-          const elem = renderStep(step, currentX);
-          currentX += barWidth;
-          return elem;
-        })}
+        {layout.final.map(({ step, x }) => renderStep(step, x))}
 
         {/* Hold */}
-        {gradient.hold && renderStep(gradient.hold, currentX)}
+        {gradient.hold && renderStep(gradient.hold, layout.holdX)}
       </svg>
     </div>
   );
+}
+
+// Precompute x-positions for every PCR step so the JSX never mutates a
+// running cursor mid-render (the react-hooks/immutability rule forbids
+// reassigning render-scoped variables once JSX evaluation has begun).
+function computeGradientLayout(gradient: PCRGradient, startX: number, barWidth: number) {
+  let cursor = startX;
+  const initial = gradient.initial.map((step) => {
+    const x = cursor;
+    cursor += barWidth;
+    return { step, x };
+  });
+  const cycles = gradient.cycles.map((cycle) => {
+    const cycleStartX = cursor;
+    const steps = cycle.steps.map((step) => {
+      const x = cursor;
+      cursor += barWidth;
+      return { step, x };
+    });
+    return { cycle, startX: cycleStartX, steps };
+  });
+  const final = gradient.final.map((step) => {
+    const x = cursor;
+    cursor += barWidth;
+    return { step, x };
+  });
+  return { initial, cycles, final, holdX: cursor };
 }
 
 // ── Gradient Table Component ────────────────────────────────────────────────────

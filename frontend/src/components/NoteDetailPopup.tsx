@@ -48,7 +48,7 @@ function useDebouncedCallback<T extends (...args: string[]) => void>(
   }, [callback]);
   
   const debounced = useCallback(
-    ((...args: Parameters<T>) => {
+    (...args: Parameters<T>) => {
       argsRef.current = args;
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
@@ -57,9 +57,9 @@ function useDebouncedCallback<T extends (...args: string[]) => void>(
         callback(...args);
         argsRef.current = null;
       }, delay);
-    }) as T,
+    },
     [callback, delay]
-  );
+  ) as T;
   
   return { debounced, cancel, flush };
 }
