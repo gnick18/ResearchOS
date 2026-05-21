@@ -65,6 +65,17 @@ export const TOUR_DOM_EVENTS = {
    * unmounts on route change, cancelling the in-flight `runScript`.
    */
   projectRouteEntered: "tour:project-route-entered",
+  /**
+   * Dispatched by `CreateMethodModal.tsx` on mount (the picker is the
+   * first thing the modal renders, so a mount-effect fires the moment
+   * the picker is on screen). The §6.4 `methods-open-picker` sub-step
+   * advances on this event so the follow-up type-tour body kicks in
+   * only after the picker is actually visible. Without this beat the
+   * tour would jump straight from category creation to the wall of
+   * type-breadth speech with no on-screen anchor for the user to
+   * orient against.
+   */
+  methodsPickerOpened: "tour:methods-picker-opened",
 } as const;
 
 /**
@@ -325,6 +336,70 @@ export function watchTaskCreated(
     },
     advance,
   );
+}
+
+/**
+ * Watch for the New Method picker modal to mount. `CreateMethodModal`
+ * dispatches `tour:methods-picker-opened` on mount, so the §6.4
+ * `methods-open-picker` sub-step can advance the moment the picker is
+ * visible. A DOM-mount fallback watches for the picker anchor so a
+ * future refactor that drops the explicit dispatch still trips the
+ * advance.
+ *
+ * Mirrors `watchHomeCreateModalOpened` shape since the use case is
+ * identical: BeakerBot's cursor clicks the affordance that opens a
+ * modal, and we want the controller to advance the instant the modal
+ * is on screen.
+ */
+export function watchMethodsPickerOpened(
+  advance: () => void,
+): () => void {
+  let fired = false;
+  const fireOnce = () => {
+    if (fired) return;
+    fired = true;
+    advance();
+  };
+
+  let removeListener: (() => void) | undefined;
+  let mo: MutationObserver | undefined;
+
+  if (typeof window !== "undefined") {
+    const handler = () => fireOnce();
+    window.addEventListener(TOUR_DOM_EVENTS.methodsPickerOpened, handler);
+    removeListener = () =>
+      window.removeEventListener(
+        TOUR_DOM_EVENTS.methodsPickerOpened,
+        handler,
+      );
+  }
+
+  if (typeof document !== "undefined") {
+    // DOM-mount fallback. If the picker is already on screen (e.g. the
+    // tour entered this step after the user manually opened the modal),
+    // fire immediately so we don't wait for a second event.
+    if (
+      document.querySelector('[data-tour-target="methods-type-picker"]')
+    ) {
+      fireOnce();
+    } else if (typeof MutationObserver !== "undefined") {
+      mo = new MutationObserver(() => {
+        if (
+          document.querySelector(
+            '[data-tour-target="methods-type-picker"]',
+          )
+        ) {
+          fireOnce();
+        }
+      });
+      mo.observe(document.body, { childList: true, subtree: true });
+    }
+  }
+
+  return () => {
+    removeListener?.();
+    mo?.disconnect();
+  };
 }
 
 /**

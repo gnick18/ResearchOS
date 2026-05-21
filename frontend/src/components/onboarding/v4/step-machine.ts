@@ -75,6 +75,11 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "notifications",
   // Methods page deep-dive (§6.4)
   "methods-category",       // §6.4a
+  // §6.4 open-picker beat (sub-bot 2026-05-21): narrative bridge
+  // between finishing the category and the type-breadth wall of speech.
+  // BeakerBot announces the move and the cursor clicks "+ New Method"
+  // so the picker mounts before the next step's speech bubble fires.
+  "methods-open-picker",
   "methods-type-tour",      // §6.4b + §6.4c (type breadth + compound peek)
   "methods-create",         // §6.4d (BeakerBot's funny markdown method)
   // Workbench experiment creation (§6.5)

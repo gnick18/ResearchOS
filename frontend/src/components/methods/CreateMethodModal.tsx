@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   methodsApi as rawMethodsApi,
   filesApi,
@@ -97,6 +97,19 @@ export function CreateMethodModal({
   // both buttons (+ Cancel) while either flow is in flight.
   const [savingMode, setSavingMode] = useState<"save" | "extend" | null>(null);
   const saving = savingMode !== null;
+
+  // Onboarding v4 §6.4 open-picker beat dispatches a custom DOM event the
+  // moment the modal mounts so the `methods-open-picker` walkthrough step
+  // advances the instant the picker is on screen. The dispatch is
+  // unconditional (fires regardless of whether a tour is active) so the
+  // tour-only module never has to import this component, and the cost
+  // when no tour is running is a single no-op event per modal open. See
+  // `watchMethodsPickerOpened` in
+  // `components/onboarding/v4/steps/walkthrough/lib/tour-events.ts`.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(new CustomEvent("tour:methods-picker-opened"));
+  }, []);
 
   // Markdown state
   const [mdContent, setMdContent] = useState("");

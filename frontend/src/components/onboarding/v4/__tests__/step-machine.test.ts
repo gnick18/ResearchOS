@@ -56,6 +56,7 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER).toContain("setup-q1b");
     expect(TOUR_STEP_ORDER).toContain("setup-q6");
     expect(TOUR_STEP_ORDER).toContain("home-create-project");
+    expect(TOUR_STEP_ORDER).toContain("methods-open-picker");
     expect(TOUR_STEP_ORDER).toContain("methods-create");
     expect(TOUR_STEP_ORDER).toContain("hybrid-editor");
     expect(TOUR_STEP_ORDER).toContain("gantt-drag-drop");
@@ -76,6 +77,18 @@ describe("TOUR_STEP_ORDER", () => {
 
   it("starts with welcome", () => {
     expect(TOUR_STEP_ORDER[0]).toBe("welcome");
+  });
+
+  it("places methods-open-picker between methods-category and methods-type-tour (sub-bot 2026-05-21)", () => {
+    // §6.4 open-picker beat sits between finishing the category and the
+    // wall of type-breadth speech. The cursor click on "+ New Method"
+    // owns the modal-open transition before the type-tour body fires.
+    const categoryIdx = TOUR_STEP_ORDER.indexOf("methods-category");
+    const openPickerIdx = TOUR_STEP_ORDER.indexOf("methods-open-picker");
+    const typeTourIdx = TOUR_STEP_ORDER.indexOf("methods-type-tour");
+    expect(categoryIdx).toBeGreaterThanOrEqual(0);
+    expect(openPickerIdx).toBeGreaterThan(categoryIdx);
+    expect(typeTourIdx).toBeGreaterThan(openPickerIdx);
   });
 });
 
@@ -216,6 +229,7 @@ describe("getNextStep — forward traversal", () => {
     expect(visited).not.toContain("ai-helper-deep-explain");
     // Always includes core walkthrough
     expect(visited).toContain("home-create-project");
+    expect(visited).toContain("methods-open-picker");
     expect(visited).toContain("methods-create");
     expect(visited).toContain("hybrid-editor");
     expect(visited).toContain("gantt-drag-drop");

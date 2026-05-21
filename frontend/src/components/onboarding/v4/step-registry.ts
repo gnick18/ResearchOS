@@ -79,6 +79,7 @@ import { projectOverviewNavStep } from "./steps/walkthrough/ProjectOverviewNavSt
 import { projectOverviewStep } from "./steps/walkthrough/ProjectOverviewStep";
 import { notificationsStep } from "./steps/walkthrough/NotificationsStep";
 import { methodsCategoryStep } from "./steps/walkthrough/MethodsCategoryStep";
+import { methodsOpenPickerStep } from "./steps/walkthrough/MethodsOpenPickerStep";
 import { methodsBreadthStep } from "./steps/walkthrough/MethodsBreadthStep";
 import { methodsCreateStep } from "./steps/walkthrough/MethodsCreateStep";
 import { workbenchCreateExperimentStep } from "./steps/walkthrough/WorkbenchCreateExperimentStep";
@@ -112,6 +113,7 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [projectOverviewStep.id]: projectOverviewStep,
   [notificationsStep.id]: notificationsStep,
   [methodsCategoryStep.id]: methodsCategoryStep,
+  [methodsOpenPickerStep.id]: methodsOpenPickerStep,
   [methodsBreadthStep.id]: methodsBreadthStep,
   [methodsCreateStep.id]: methodsCreateStep,
   [workbenchCreateExperimentStep.id]: workbenchCreateExperimentStep,

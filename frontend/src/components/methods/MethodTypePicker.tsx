@@ -22,7 +22,7 @@ export function MethodTypeCategoryPicker({
   const structured = getMethodTypesByCategory("structured");
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-tour-target="methods-type-picker">
       <MethodTypeSection
         heading="Standard methods"
         types={standard}

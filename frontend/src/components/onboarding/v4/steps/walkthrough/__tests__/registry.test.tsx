@@ -14,6 +14,7 @@ const P5_STEP_IDS = [
   "project-overview-prose",
   "notifications",
   "methods-category",
+  "methods-open-picker",
   "methods-type-tour",
   "methods-create",
   "workbench-create-experiment",

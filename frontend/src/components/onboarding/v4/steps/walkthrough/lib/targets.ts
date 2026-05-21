@@ -38,6 +38,12 @@ export const TOUR_TARGETS = {
   methodsAddCategory: "methods-add-category",
   methodsCategoryNameInput: "methods-category-name-input",
   methodsNewMethod: "methods-new-method",
+  // §6.4 open-picker beat (sub-bot, 2026-05-21): the "+ New Method"
+  // button anchor used by the dedicated `methods-open-picker` step that
+  // sits between category creation and the type-tour. The older
+  // `methodsNewMethod` constant is kept for backwards compat (the
+  // breadth step already references it as the picker-open click target).
+  methodsNewMethodButton: "methods-new-method-button",
   methodsTypePicker: "methods-type-picker",
   methodsTypeMarkdown: "methods-type-markdown",
   methodsCreateForm: "methods-create-form",

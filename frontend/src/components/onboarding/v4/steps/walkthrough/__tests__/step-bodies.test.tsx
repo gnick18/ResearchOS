@@ -23,6 +23,7 @@ import { projectOverviewNavStep } from "../ProjectOverviewNavStep";
 import { projectOverviewStep, PLACEHOLDER_HYPOTHESIS } from "../ProjectOverviewStep";
 import { notificationsStep } from "../NotificationsStep";
 import { methodsCategoryStep } from "../MethodsCategoryStep";
+import { methodsOpenPickerStep } from "../MethodsOpenPickerStep";
 import { methodsBreadthStep } from "../MethodsBreadthStep";
 import { methodsCreateStep, FUNNY_METHOD_NAME } from "../MethodsCreateStep";
 import {
@@ -73,6 +74,7 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   projectOverviewStep,
   notificationsStep,
   methodsCategoryStep,
+  methodsOpenPickerStep,
   methodsBreadthStep,
   methodsCreateStep,
   workbenchCreateExperimentStep,
@@ -109,6 +111,7 @@ describe("P5 step bodies — universal contract", () => {
       "project-overview-prose",
       "notifications",
       "methods-category",
+      "methods-open-picker",
       "methods-type-tour",
       "methods-create",
       "workbench-create-experiment",
@@ -154,6 +157,7 @@ describe("P5 step bodies — universal contract", () => {
       projectOverviewStep,
       notificationsStep,
       methodsCategoryStep,
+      methodsOpenPickerStep,
       methodsBreadthStep,
       methodsCreateStep,
       methodAttachmentStep,
@@ -420,6 +424,60 @@ describe("Methods steps (§6.4)", () => {
   it("methods-create step uses the funny coffee protocol name", () => {
     expect(FUNNY_METHOD_NAME).toMatch(/Coffee Brewing/);
     expect(methodsCreateStep.completion.type).toBe("event");
+  });
+});
+
+describe("MethodsOpenPickerStep (§6.4 open-picker beat)", () => {
+  it("declares event-driven completion (methods-picker-opened DOM event)", () => {
+    expect(methodsOpenPickerStep.completion.type).toBe("event");
+  });
+  it("uses pose: pointing per the brief", () => {
+    expect(methodsOpenPickerStep.pose).toBe("pointing");
+  });
+  it("targets the New Method button anchor", () => {
+    expect(methodsOpenPickerStep.targetSelector).toBe(
+      "[data-tour-target=\"methods-new-method-button\"]",
+    );
+  });
+  it("speech announces the New Method click verbatim", () => {
+    const text = renderSpeech(methodsOpenPickerStep);
+    expect(text).toMatch(
+      /I'm clicking New Method to open the picker/,
+    );
+    // Also lock the leading prose so a future copy edit gets surfaced.
+    expect(text).toMatch(/Now let me show you the kinds of methods/);
+  });
+  it("cursor script issues a click against the New Method button", async () => {
+    const button = document.createElement("button");
+    button.setAttribute("data-tour-target", "methods-new-method-button");
+    document.body.appendChild(button);
+    try {
+      expect(methodsOpenPickerStep.cursorScript).toBeDefined();
+      const actions = await methodsOpenPickerStep.cursorScript!();
+      expect(actions).toHaveLength(1);
+      expect(actions[0]).toMatchObject({ type: "click", target: button });
+    } finally {
+      button.remove();
+    }
+  });
+  it("advances when the tour:methods-picker-opened DOM event fires", async () => {
+    if (methodsOpenPickerStep.completion.type !== "event") {
+      throw new Error("completion contract changed shape; update test");
+    }
+    let advanced = false;
+    const stop = methodsOpenPickerStep.completion.eventListener(() => {
+      advanced = true;
+    });
+    try {
+      window.dispatchEvent(new CustomEvent("tour:methods-picker-opened"));
+      await Promise.resolve();
+      expect(advanced).toBe(true);
+    } finally {
+      stop();
+    }
+  });
+  it("expectedRoute is /methods so refresh lands the user back on the page", () => {
+    expect(methodsOpenPickerStep.expectedRoute).toBe("/methods");
   });
 });
 
