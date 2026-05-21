@@ -3,16 +3,19 @@
  * the five Workbench Lists-tab sections. Order matters — see
  * LISTS_TAB_PROPOSAL.md (Proposal A).
  *
- *   1. complete + end_date within last 30 days → recentlyDone
- *   2. complete + end_date older than 30 days  → earlier
+ *   1. complete + end_date today-or-future, OR up to 30 days past → recentlyDone
+ *   2. complete + end_date more than 30 days in the past         → earlier
  *   3. !complete + end_date < today            → overdue
  *   4. !complete + start_date <= today <= end_date → doing
  *   5. !complete + start_date > today          → upcoming
  *
+ * Note: Task has no completed_at timestamp, so we use end_date as a proxy.
+ * A task completed *before* its scheduled end (end_date in the future)
+ * was necessarily completed today-or-earlier-today, so it belongs in
+ * recentlyDone — never earlier.
+ *
  * Lighter than the Experiments-tab counterpart (no dep graph, no result
- * probe). Pure date math against `today`. The function returns null for
- * any task that is_complete + null/invalid end_date — caller decides
- * whether to drop or assign to a fallback section.
+ * probe). Pure date math against `today`.
  */
 import type { Task } from "@/lib/types";
 
@@ -38,9 +41,8 @@ export function assignListSection(
   if (task.is_complete) {
     if (!task.end_date) return "recentlyDone";
     const days = daysBetween(today, task.end_date);
-    return days >= 0 && days <= RECENT_WINDOW_DAYS
-      ? "recentlyDone"
-      : "earlier";
+    // days < 0 → end_date is in the future, task was completed early → recentlyDone.
+    return days <= RECENT_WINDOW_DAYS ? "recentlyDone" : "earlier";
   }
 
   if (task.end_date && task.end_date < today) return "overdue";

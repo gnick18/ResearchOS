@@ -106,6 +106,27 @@ describe("assignListSection", () => {
     });
     expect(assignListSection(t, { today: TODAY })).toBe("doing");
   });
+
+  it("classifies a Doing task completed early (end_date in future) as recentlyDone", () => {
+    // Regression: toggling complete on a Doing task whose end_date is still in
+    // the future used to fall through to "earlier" because the bucketing
+    // demanded days >= 0 (i.e. end_date in the past).
+    const t = makeTask({
+      start_date: "2026-05-13",
+      end_date: "2026-05-20",
+      is_complete: true,
+    });
+    expect(assignListSection(t, { today: TODAY })).toBe("recentlyDone");
+  });
+
+  it("classifies a complete task with end_date today as recentlyDone", () => {
+    const t = makeTask({
+      start_date: "2026-05-14",
+      end_date: TODAY,
+      is_complete: true,
+    });
+    expect(assignListSection(t, { today: TODAY })).toBe("recentlyDone");
+  });
 });
 
 describe("bucketListTasks", () => {
