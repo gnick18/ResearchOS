@@ -70,6 +70,27 @@ export function matchesProjectFilter(
 }
 
 /**
+ * Multi-key OR variant for the global project-filter pills (Gantt /
+ * Workbench / Purchases). Returns true when the task belongs to ANY
+ * project in `filterKeys`. An empty array means "no filter" -> always
+ * passes, matching the existing `.length === 0` short-circuit those pages
+ * use. Composite-key strings disambiguate alex:1 from morgan:1, which the
+ * old `selectedProjectIds.includes(task.project_id)` bare-numeric form
+ * collapsed (persona 18 collision; same root cause as the /search fix at
+ * ab1548a8).
+ */
+export function matchesAnyProjectFilter(
+  task: { owner: string; project_id: number | null },
+  filterKeys: readonly FilterKey[],
+): boolean {
+  if (filterKeys.length === 0) return true;
+  for (const key of filterKeys) {
+    if (matchesProjectFilter(task, key)) return true;
+  }
+  return false;
+}
+
+/**
  * Method-filter predicate. Returns true when the task's primary method
  * attachment resolves to the method identified by `filterKey`. A
  * null/empty filter key means "no method filter" -> always passes.

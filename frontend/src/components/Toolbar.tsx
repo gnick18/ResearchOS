@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAppStore } from "@/lib/store";
+import { encodeFilterKey, parseFilterKey } from "@/lib/search/filterKey";
 import type { Project, ViewMode } from "@/lib/types";
 import AnimationSettingsPopup from "@/components/AnimationSettingsPopup";
 import { ANIMATION_METADATA } from "@/components/animations";
@@ -81,10 +82,13 @@ export default function Toolbar({
   // Deep-link hooks. `/gantt?animations=1` auto-opens the animation
   // settings popup (used by the `gantt-animations` onboarding tip's
   // "Pick an animation" setupAction). `/gantt?createGoal=1` fires the
-  // create-goal flow. `/gantt?project=<id>` initializes the project
-  // filter to that single project (used by the Project Surface "View
-  // timeline →" link). Each strips its param after acting so a reload
-  // doesn't re-trigger.
+  // create-goal flow. `/gantt?project=<owner>:<id>` initializes the
+  // project filter to that single project (used by the Project Surface
+  // "View timeline →" link). The `project` param now carries a composite
+  // owner:id key — a bare numeric form is rejected because two projects
+  // can share the same numeric id across owners (persona 18 collision;
+  // same fix shape as /search at ab1548a8). Each param strips after
+  // acting so a reload doesn't re-trigger.
   const router = useRouter();
   const searchParams = useSearchParams();
   useEffect(() => {
@@ -92,13 +96,13 @@ export default function Toolbar({
     const wantsAnimations = searchParams.get("animations") === "1";
     const wantsCreateGoal = searchParams.get("createGoal") === "1";
     const projectParam = searchParams.get("project");
-    const projectId = projectParam ? Number(projectParam) : NaN;
-    const wantsProjectFilter = Number.isFinite(projectId);
+    const projectKeyParts = parseFilterKey(projectParam);
+    const wantsProjectFilter = projectKeyParts !== null;
     if (!wantsAnimations && !wantsCreateGoal && !wantsProjectFilter) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- deep-link handler: imperatively opens animation-settings popup when URL param is present, then strips the param so reload doesn't re-trigger. Derived-state alternative would require URL navigation on every open/close, breaking the onboarding tip's setupAction flow.
     if (wantsAnimations) setShowAnimationSettings(true);
     if (wantsCreateGoal) onCreateGoal();
-    if (wantsProjectFilter) setSelectedProjects([projectId]);
+    if (wantsProjectFilter && projectParam) setSelectedProjects([projectParam]);
     const next = new URLSearchParams(searchParams.toString());
     next.delete("animations");
     next.delete("createGoal");
@@ -163,14 +167,15 @@ export default function Toolbar({
           Projects:
         </span>
         {projects.map((p) => {
+          const pKey = encodeFilterKey(p);
           const isSelected =
             selectedProjectIds.length === 0 ||
-            selectedProjectIds.includes(p.id);
+            selectedProjectIds.includes(pKey);
           const projectColor = projectColors?.[projectKey(p)] || "#3b82f6";
           return (
             <button
-              key={`${p.owner}:${p.id}`}
-              onClick={() => toggleProject(p.id)}
+              key={pKey}
+              onClick={() => toggleProject(pKey)}
               className={`
                 px-2.5 py-1 text-xs rounded-full transition-colors
                 ${

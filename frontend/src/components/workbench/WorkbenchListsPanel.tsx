@@ -8,6 +8,7 @@ import {
 } from "@/lib/local-api";
 import { useAppStore } from "@/lib/store";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { matchesAnyProjectFilter } from "@/lib/search/filterKey";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import TaskModal from "@/components/TaskModal";
 import { taskKey, type Project, type Task } from "@/lib/types";
@@ -114,11 +115,10 @@ export default function WorkbenchListsPanel({ projects }: Props) {
   const today = new Date().toLocaleDateString("en-CA");
 
   // All list tasks, filtered by the global project selector.
+  // Composite-key match (alex:1 vs morgan:1 disambiguated by owner).
   const lists = useMemo(() => {
     let xs = allTasks.filter((t) => t.task_type === "list");
-    if (selectedProjectIds.length > 0) {
-      xs = xs.filter((t) => selectedProjectIds.includes(t.project_id));
-    }
+    xs = xs.filter((t) => matchesAnyProjectFilter(t, selectedProjectIds));
     return xs;
   }, [allTasks, selectedProjectIds]);
 

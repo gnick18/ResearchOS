@@ -20,6 +20,7 @@ import type {
 } from "@/lib/types";
 import Tooltip from "@/components/Tooltip";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
+import { matchesAnyProjectFilter } from "@/lib/search/filterKey";
 
 // SAFEGUARD: aggregations scope to PurchaseItem by identity, not field name.
 // LabLink also has a `category` field (~10 instances in wiki-capture fixture);
@@ -50,7 +51,9 @@ interface SpendingDashboardProps {
   fundingAccounts: FundingAccount[];
   // global project-filter state from useAppStore. The "All projects" toggle
   // below lets the user override it within the dashboard without leaving.
-  selectedProjectIds: number[];
+  // Composite `${owner}:${id}` keys (per-user id collision fix; see
+  // useAppStore.selectedProjectIds comment and matchesAnyProjectFilter).
+  selectedProjectIds: string[];
 }
 
 function timeRangeStartIso(option: TimeRangeOption): string | null {
@@ -151,7 +154,9 @@ export default function SpendingDashboard({
       if (!task) return false;
       if (startIso && task.start_date < startIso) return false;
       if (endIso && task.start_date > endIso) return false;
-      if (projectFilterActive && !selectedProjectIds.includes(task.project_id))
+      // Composite-key match (alex:1 vs morgan:1 disambiguated by owner).
+      // Pre-fix bare `.includes(task.project_id)` collapsed across owners.
+      if (projectFilterActive && !matchesAnyProjectFilter(task, selectedProjectIds))
         return false;
       return true;
     });

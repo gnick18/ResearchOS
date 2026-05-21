@@ -1,6 +1,7 @@
 "use client";
 
 import { useAppStore } from "@/lib/store";
+import { encodeFilterKey } from "@/lib/search/filterKey";
 import type { Project } from "@/lib/types";
 
 const projectKey = (p: Pick<Project, "id" | "owner">) => `${p.owner}:${p.id}`;
@@ -19,13 +20,16 @@ export default function WorkbenchProjectFilterPills({
   return (
     <div className="flex items-center gap-2 mb-6 flex-wrap">
       {projects.map((p) => {
+        // Composite `${owner}:${id}` (same shape the store now stores).
+        // Pre-fix bug: bare `.includes(p.id)` collapsed alex:1 and morgan:1.
+        const pKey = encodeFilterKey(p);
         const isSelected =
           selectedProjectIds.length === 0 ||
-          selectedProjectIds.includes(p.id);
+          selectedProjectIds.includes(pKey);
         return (
           <button
-            key={`${p.owner}:${p.id}`}
-            onClick={() => useAppStore.getState().toggleProject(p.id)}
+            key={pKey}
+            onClick={() => useAppStore.getState().toggleProject(pKey)}
             className={`px-2.5 py-1 text-xs rounded-full transition-colors ${
               isSelected
                 ? "text-white font-medium"
