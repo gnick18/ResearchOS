@@ -105,6 +105,25 @@ export const TOUR_DOM_EVENTS = {
    * fires. §6.3 delete sub-step advances on this.
    */
   notificationDeleted: "tour:notification-deleted",
+  /**
+   * Dispatched by `TaskDetailPopup.tsx` on mount when the task is an
+   * experiment. The §6.6 walkthrough splits the original
+   * `experiment-attach-method` step into four sub-steps because the
+   * popup mounts mid-script (same class of bug as §6.2's route-spanning
+   * cursor script). The `experiment-attach-method-open` sub-step's
+   * cursor clicks the workbench experiment row; this event lets the
+   * follow-up `experiment-attach-method-tab` sub-step start its own
+   * cursor script AFTER the popup is on screen.
+   */
+  experimentPopupOpened: "tour:experiment-popup-opened",
+  /**
+   * Dispatched by `TaskDetailPopup.tsx` when `selectTab("method")` runs.
+   * The `experiment-attach-method-tab` sub-step's cursor clicks the
+   * Methods tab; this event signals "the Methods tab body is now
+   * rendered" so the follow-up `experiment-attach-method-attach`
+   * sub-step's cursor script can resolve the Attach button selector.
+   */
+  experimentMethodsTabActive: "tour:experiment-methods-tab-active",
 } as const;
 
 /**
@@ -577,6 +596,140 @@ export function watchNotificationDeleted(
   window.addEventListener(TOUR_DOM_EVENTS.notificationDeleted, handler);
   return () => {
     window.removeEventListener(TOUR_DOM_EVENTS.notificationDeleted, handler);
+  };
+}
+
+/**
+ * Watch for the experiment detail popup to mount. `TaskDetailPopup.tsx`
+ * dispatches `tour:experiment-popup-opened` on mount when the task is an
+ * experiment, so the §6.6 `experiment-attach-method-open` sub-step can
+ * advance the moment the popup is on screen. Follow-up sub-steps then
+ * run their cursor scripts against the now-mounted popup DOM with a
+ * fresh overlay mount + cursor ref. A single cursor script can't span
+ * the popup-mount boundary (the targets don't exist until the popup
+ * renders, and the cursor script's `safeClickAction` timeouts before the
+ * popup paints in some cases).
+ *
+ * DOM-mount fallback watches for the popup's methods-tab anchor so a
+ * future refactor that drops the explicit dispatch still trips the
+ * advance.
+ */
+export function watchExperimentPopupOpened(
+  advance: () => void,
+): () => void {
+  let fired = false;
+  const fireOnce = () => {
+    if (fired) return;
+    fired = true;
+    advance();
+  };
+
+  let removeListener: (() => void) | undefined;
+  let mo: MutationObserver | undefined;
+
+  if (typeof window !== "undefined") {
+    const handler = () => fireOnce();
+    window.addEventListener(TOUR_DOM_EVENTS.experimentPopupOpened, handler);
+    removeListener = () =>
+      window.removeEventListener(
+        TOUR_DOM_EVENTS.experimentPopupOpened,
+        handler,
+      );
+  }
+
+  if (typeof document !== "undefined") {
+    // DOM-mount fallback. The popup's Methods tab carries
+    // `data-tour-target="experiment-methods-tab"` (wired by sub-bot
+    // a97cdccfcd914de7b's product-surface attr work). If it's already
+    // rendered (e.g. tour resumed after the user opened the popup
+    // manually), fire immediately so we don't wait for a second event.
+    if (
+      document.querySelector(
+        "[data-tour-target=\"experiment-methods-tab\"]",
+      )
+    ) {
+      fireOnce();
+    } else if (typeof MutationObserver !== "undefined") {
+      mo = new MutationObserver(() => {
+        if (
+          document.querySelector(
+            "[data-tour-target=\"experiment-methods-tab\"]",
+          )
+        ) {
+          fireOnce();
+        }
+      });
+      mo.observe(document.body, { childList: true, subtree: true });
+    }
+  }
+
+  return () => {
+    removeListener?.();
+    mo?.disconnect();
+  };
+}
+
+/**
+ * Watch for the experiment popup's Methods tab to become active.
+ * `TaskDetailPopup.tsx` dispatches `tour:experiment-methods-tab-active`
+ * from `selectTab` when the new tab is `"method"`. The §6.6
+ * `experiment-attach-method-tab` sub-step advances on this so the
+ * follow-up `experiment-attach-method-attach` sub-step's cursor script
+ * runs once the Methods tab body has rendered.
+ *
+ * DOM-mount fallback watches for the Attach Method anchor so a future
+ * refactor that drops the explicit dispatch still trips the advance.
+ */
+export function watchExperimentMethodsTabActive(
+  advance: () => void,
+): () => void {
+  let fired = false;
+  const fireOnce = () => {
+    if (fired) return;
+    fired = true;
+    advance();
+  };
+
+  let removeListener: (() => void) | undefined;
+  let mo: MutationObserver | undefined;
+
+  if (typeof window !== "undefined") {
+    const handler = () => fireOnce();
+    window.addEventListener(
+      TOUR_DOM_EVENTS.experimentMethodsTabActive,
+      handler,
+    );
+    removeListener = () =>
+      window.removeEventListener(
+        TOUR_DOM_EVENTS.experimentMethodsTabActive,
+        handler,
+      );
+  }
+
+  if (typeof document !== "undefined") {
+    if (
+      document.querySelector(
+        "[data-tour-target=\"experiment-attach-method\"]",
+      )
+    ) {
+      fireOnce();
+    } else if (typeof MutationObserver !== "undefined") {
+      mo = new MutationObserver(() => {
+        if (
+          document.querySelector(
+            "[data-tour-target=\"experiment-attach-method\"]",
+          )
+        ) {
+          fireOnce();
+        }
+      });
+      mo.observe(document.body, { childList: true, subtree: true });
+    }
+  }
+
+  return () => {
+    removeListener?.();
+    mo?.disconnect();
   };
 }
 

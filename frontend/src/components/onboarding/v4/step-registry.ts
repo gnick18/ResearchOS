@@ -94,7 +94,13 @@ import { methodsPcrConfirmCycleStep } from "./steps/walkthrough/MethodsPcrConfir
 import { methodsLcDemoStep } from "./steps/walkthrough/MethodsLcDemoStep";
 import { methodsCreateStep } from "./steps/walkthrough/MethodsCreateStep";
 import { workbenchCreateExperimentStep } from "./steps/walkthrough/WorkbenchCreateExperimentStep";
-import { methodAttachmentStep } from "./steps/walkthrough/MethodAttachmentStep";
+// §6.6 method-attachment split (2026-05-21): the original
+// `methodAttachmentStep` was split into 4 popup-mount-safe sub-steps.
+// Re-export glue lives in MethodAttachmentStep.tsx for back-compat.
+import { methodAttachmentOpenStep } from "./steps/walkthrough/MethodAttachmentOpenStep";
+import { methodAttachmentTabStep } from "./steps/walkthrough/MethodAttachmentTabStep";
+import { methodAttachmentAttachStep } from "./steps/walkthrough/MethodAttachmentAttachStep";
+import { methodAttachmentNotesStep } from "./steps/walkthrough/MethodAttachmentNotesStep";
 import { hybridEditorShortcutsStep } from "./steps/walkthrough/HybridEditorShortcutsStep";
 import { hybridEditorParagraphsStep } from "./steps/walkthrough/HybridEditorParagraphsStep";
 import { hybridEditorImageDropStep } from "./steps/walkthrough/HybridEditorImageDropStep";
@@ -135,7 +141,10 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [methodsLcDemoStep.id]: methodsLcDemoStep,
   [methodsCreateStep.id]: methodsCreateStep,
   [workbenchCreateExperimentStep.id]: workbenchCreateExperimentStep,
-  [methodAttachmentStep.id]: methodAttachmentStep,
+  [methodAttachmentOpenStep.id]: methodAttachmentOpenStep,
+  [methodAttachmentTabStep.id]: methodAttachmentTabStep,
+  [methodAttachmentAttachStep.id]: methodAttachmentAttachStep,
+  [methodAttachmentNotesStep.id]: methodAttachmentNotesStep,
   [hybridEditorShortcutsStep.id]: hybridEditorShortcutsStep,
   [hybridEditorParagraphsStep.id]: hybridEditorParagraphsStep,
   [hybridEditorImageDropStep.id]: hybridEditorImageDropStep,

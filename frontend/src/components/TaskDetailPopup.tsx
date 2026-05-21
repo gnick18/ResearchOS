@@ -93,6 +93,16 @@ export default function TaskDetailPopup({
     setActiveTab(tab);
     if (tab === "notes") setLastEditorTab("notes");
     else if (tab === "results") setLastEditorTab("results");
+    // Onboarding v4 §6.6 `experiment-attach-method-tab` sub-step advances
+    // on this event. Same pattern as the bell/silence/delete and
+    // project-route-entered dispatches: a window-level CustomEvent so
+    // the tour module never needs to import the popup's internals.
+    // Cheap when no tour is active (one dispatchEvent per tab click).
+    if (tab === "method" && typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("tour:experiment-methods-tab-active"),
+      );
+    }
   }, []);
   const [task, setTask] = useState(initialTask);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -320,6 +330,21 @@ export default function TaskDetailPopup({
     setActiveTask({ id: task.id, owner: task.owner, name: task.name });
     return () => setActiveTask(null);
   }, [setActiveTask, task.id, task.owner, task.name]);
+
+  // Onboarding v4 §6.6 `experiment-attach-method-open` sub-step advances
+  // on this event so the follow-up sub-step's cursor script runs against
+  // the now-mounted popup DOM. Only fires for experiment tasks (the §6.6
+  // teach is experiment-specific). See `watchExperimentPopupOpened` in
+  // `components/onboarding/v4/steps/walkthrough/lib/tour-events.ts`.
+  useEffect(() => {
+    if (!isExperiment) return;
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(
+      new CustomEvent("tour:experiment-popup-opened", {
+        detail: { experimentId: initialTask.id },
+      }),
+    );
+  }, [isExperiment, initialTask.id]);
   
   // Stable callback for animation completion to prevent re-triggering
   const handleAnimationComplete = useCallback(() => {

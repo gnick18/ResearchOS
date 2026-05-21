@@ -25,7 +25,13 @@ const P5_STEP_IDS = [
   "methods-lc-demo",
   "methods-create",
   "workbench-create-experiment",
-  "experiment-attach-method",
+  // §6.6 method-attachment split (2026-05-21): the original single
+  // `experiment-attach-method` id was split into 4 popup-mount-safe
+  // sub-steps. Registry must resolve every new id to a non-placeholder.
+  "experiment-attach-method-open",
+  "experiment-attach-method-tab",
+  "experiment-attach-method-attach",
+  "experiment-attach-method-notes",
   "hybrid-editor",
   "hybrid-editor-paragraphs",
   "hybrid-editor-image-drop",

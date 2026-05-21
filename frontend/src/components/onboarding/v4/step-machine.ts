@@ -103,8 +103,16 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "methods-create",          // §6.4d (BeakerBot's funny markdown method)
   // Workbench experiment creation (§6.5)
   "workbench-create-experiment",
-  // Method attachment + variation notes + snapshot teach (§6.6)
-  "experiment-attach-method",
+  // Method attachment + variation notes + snapshot teach (§6.6).
+  // Split into 4 popup-mount-safe sub-steps (2026-05-21, HR-dispatched):
+  // the original single `experiment-attach-method` step's cursor script
+  // spanned the popup-mount boundary and the second click either timed
+  // out or fired on a stale DOM. Same class of bug as §6.2's
+  // route-spanning script. See MethodAttachmentStep.tsx for the split.
+  "experiment-attach-method-open",    // §6.6a click workbench row → open popup
+  "experiment-attach-method-tab",     // §6.6b click Methods tab inside popup
+  "experiment-attach-method-attach",  // §6.6c click Attach + pick funny method
+  "experiment-attach-method-notes",   // §6.6d type variation note + mental model
   // Hybrid editor — shortcuts + paragraph chunks + image drops + resize (§6.7)
   // P5 split the original single `hybrid-editor` id into four sub-steps
   // matching the proposal's four cursor scripts (FLAG to master: this

@@ -76,6 +76,12 @@ export default function ExperimentResultCard({
     <button
       type="button"
       onClick={onClick}
+      // Onboarding v4 §6.6 `experiment-attach-method-open` sub-step
+      // anchor. The cursor demo opens the experiment popup by clicking
+      // the most-recently-created experiment row in the workbench list.
+      // Per-row id keeps the selector specific so a future tour beat
+      // can target a particular experiment if needed.
+      data-tour-target={`workbench-experiment-row-${task.id}`}
       className="group text-left bg-white rounded-xl border border-gray-200 overflow-hidden hover:border-emerald-300 hover:shadow-sm transition flex flex-col"
     >
       <div

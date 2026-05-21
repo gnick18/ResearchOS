@@ -1,79 +1,47 @@
 /**
- * §6.6 Method attachment + variation notes + snapshot teach.
+ * §6.6 Method attachment + variation notes + snapshot teach (split into
+ * 4 popup-mount-safe sub-steps as of 2026-05-21, HR-dispatched).
  *
- * Critical mental-model moment per Grant's voice-to-text: editing a
- * method from inside an experiment edits THIS EXPERIMENT'S COPY. The
- * original method stays untouched.
+ * The original single `experiment-attach-method` step spanned the
+ * popup-mount boundary in a single cursor script: it clicked the
+ * methods tab, the attach button, and the variation-notes field in one
+ * shot. Same class of bug as §6.2's project-route-entered: the cursor
+ * script's targets don't exist until the popup mounts, so the second
+ * click in the script either timed out or fired on a stale DOM.
  *
- * Cursor flow:
- *   1. Click the experiment (created in §6.5) to open detail popup.
- *   2. Click the Methods tab inside the popup.
- *   3. Click "Attach Method." Method picker opens.
- *   4. Click the method created in §6.4d. Attached.
- *   5. Click the variation-notes field on the attachment.
- *   6. Type a placeholder note.
+ * The split mirrors §6.2's NAV / PROSE pattern, scaled to four beats:
  *
- * Two-paragraph speech bubble. The second paragraph (the mental model)
- * is bolded subtly via a visual marker the registry can pass through.
+ *   1. `experiment-attach-method-open`   — click the workbench row to
+ *                                          open the popup.
+ *   2. `experiment-attach-method-tab`    — click the Methods tab inside
+ *                                          the now-open popup.
+ *   3. `experiment-attach-method-attach` — click Attach + pick first
+ *                                          method (the funny markdown
+ *                                          one from §6.4d).
+ *   4. `experiment-attach-method-notes`  — type the variation note +
+ *                                          deliver the mental-model
+ *                                          speech.
  *
- * Artifact:
- *   { type: "method_attachment", id: "<taskId>:<methodId>", cleanup_default: "discard" }
+ * Each sub-step's cursor script runs against a stable overlay mount
+ * (the popup mounts during step 1, stays mounted through steps 2-4).
  *
- * Cleanup default discard — the attachment exists only for the demo,
- * users won't typically want it past the tour.
- *
- * Classification: BEAKERBOT DEMO (per Grant's design correction
- * 2026-05-21). Speech is "Open your experiment. See that Methods tab?
- * You attach methods there. I'm doing it now." The closing "I'm doing
- * it now" is the explicit BeakerBot-led demo promise. Cursor performs
- * the methods-tab open + attach + variation note typing as advertised.
+ * This file is kept as a re-export hub so the test fixtures and
+ * back-compat callers (`import { methodAttachmentStep } from
+ * "../MethodAttachmentStep"`) keep working. `methodAttachmentStep`
+ * aliases the terminal id (`experiment-attach-method-notes`) — the
+ * "step completed" telemetry beat still fires at the same logical
+ * moment (user attached a method and added a variation note).
  */
-import {
-  cursorScript,
-  safeClickAction,
-  safeTypeAction,
-  compactScript,
-} from "./lib/cursor-script";
-import { autoAdvanceAfter, buildWalkthroughStep } from "./lib/step-helpers";
-import { TOUR_TARGETS, targetSelector } from "./lib/targets";
+export { methodAttachmentOpenStep } from "./MethodAttachmentOpenStep";
+export { methodAttachmentTabStep } from "./MethodAttachmentTabStep";
+export { methodAttachmentAttachStep } from "./MethodAttachmentAttachStep";
+export {
+  methodAttachmentNotesStep,
+  VARIATION_NOTE,
+} from "./MethodAttachmentNotesStep";
 
-const VARIATION_NOTE = "This experiment uses 30 C instead of 25 C.";
-
-export const methodAttachmentStep = buildWalkthroughStep({
-  id: "experiment-attach-method",
-  speech: (
-    <>
-      <p className="mb-2">
-        Open your experiment. See that Methods tab? You attach methods
-        there. I&apos;m doing it now.
-      </p>
-      <p>
-        <strong>Important:</strong> when you edit a method from inside
-        an experiment, you&apos;re editing this experiment&apos;s COPY. The
-        original method stays untouched. So you can tweak per-experiment
-        without worrying about overriding the master.
-      </p>
-    </>
-  ),
-  pose: "pointing",
-  targetSelector: targetSelector(TOUR_TARGETS.experimentMethodsTab),
-  cursorScript: cursorScript(async () => {
-    // The experiment detail popup is opened by clicking the most
-    // recently created experiment row. Selector is best-effort; if the
-    // selector doesn't resolve (user is on a different page), the
-    // cursor script no-ops and the user can manually advance.
-    const openMethodsTab = await safeClickAction(
-      targetSelector(TOUR_TARGETS.experimentMethodsTab),
-    );
-    const clickAttach = await safeClickAction(
-      targetSelector(TOUR_TARGETS.experimentAttachMethod),
-    );
-    const typeNote = await safeTypeAction(
-      targetSelector(TOUR_TARGETS.experimentVariationNotes),
-      VARIATION_NOTE,
-    );
-    return compactScript([openMethodsTab, clickAttach, typeNote]);
-  }),
-  // BeakerBotCursor types at 48ms (commit 95de59e2); +1s lead + 1.5s tail.
-  completion: autoAdvanceAfter(1000 + Math.ceil(VARIATION_NOTE.length * 48) + 1500),
-});
+// Back-compat alias: the original `methodAttachmentStep` export now
+// points at the terminal id of the split. Callers that pinned the old
+// id (renamed to `experiment-attach-method-notes` here) keep working.
+import { methodAttachmentNotesStep } from "./MethodAttachmentNotesStep";
+export const methodAttachmentStep = methodAttachmentNotesStep;

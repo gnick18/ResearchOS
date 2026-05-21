@@ -55,6 +55,15 @@ import {
   workbenchCreateExperimentStep,
   PLACEHOLDER_EXPERIMENT_NAME,
 } from "../WorkbenchCreateExperimentStep";
+// §6.6 method-attachment split (2026-05-21, HR-dispatched): the
+// original single `methodAttachmentStep` was split into 4 sub-steps to
+// dodge the popup-mount-spanning cursor-script bug. `methodAttachmentStep`
+// re-exports `methodAttachmentNotesStep` for back-compat (the
+// MethodAttachmentStep.tsx file is now a glue module).
+import { methodAttachmentOpenStep } from "../MethodAttachmentOpenStep";
+import { methodAttachmentTabStep } from "../MethodAttachmentTabStep";
+import { methodAttachmentAttachStep } from "../MethodAttachmentAttachStep";
+import { methodAttachmentNotesStep } from "../MethodAttachmentNotesStep";
 import { methodAttachmentStep } from "../MethodAttachmentStep";
 import { hybridEditorShortcutsStep } from "../HybridEditorShortcutsStep";
 import { hybridEditorParagraphsStep } from "../HybridEditorParagraphsStep";
@@ -110,7 +119,10 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   methodsLcDemoStep,
   methodsCreateStep,
   workbenchCreateExperimentStep,
-  methodAttachmentStep,
+  methodAttachmentOpenStep,
+  methodAttachmentTabStep,
+  methodAttachmentAttachStep,
+  methodAttachmentNotesStep,
   hybridEditorShortcutsStep,
   hybridEditorParagraphsStep,
   hybridEditorImageDropStep,
@@ -154,7 +166,10 @@ describe("P5 step bodies — universal contract", () => {
       "methods-lc-demo",
       "methods-create",
       "workbench-create-experiment",
-      "experiment-attach-method",
+      "experiment-attach-method-open",
+      "experiment-attach-method-tab",
+      "experiment-attach-method-attach",
+      "experiment-attach-method-notes",
       "hybrid-editor",
       "hybrid-editor-paragraphs",
       "hybrid-editor-image-drop",
@@ -205,7 +220,10 @@ describe("P5 step bodies — universal contract", () => {
       methodsPcrConfirmCycleStep,
       methodsLcDemoStep,
       methodsCreateStep,
-      methodAttachmentStep,
+      methodAttachmentOpenStep,
+      methodAttachmentTabStep,
+      methodAttachmentAttachStep,
+      methodAttachmentNotesStep,
       hybridEditorShortcutsStep,
       hybridEditorParagraphsStep,
       hybridEditorImageDropStep,
@@ -788,8 +806,111 @@ describe("WorkbenchCreateExperimentStep (§6.5)", () => {
 
 describe("MethodAttachmentStep (§6.6)", () => {
   it("speech includes the mental-model paragraph about edits being a copy", () => {
+    // The mental-model paragraph now lives on the notes sub-step (the
+    // terminal id of the 2026-05-21 split). `methodAttachmentStep` is
+    // an alias for `methodAttachmentNotesStep` so this still passes.
     const speech = renderSpeech(methodAttachmentStep);
     expect(speech).toMatch(/this experiment's COPY/i);
+  });
+});
+
+describe("MethodAttachment split sub-steps (§6.6 popup-mount split, 2026-05-21)", () => {
+  it("open sub-step declares event-driven completion (experiment-popup-opened)", () => {
+    expect(methodAttachmentOpenStep.completion.type).toBe("event");
+  });
+  it("open sub-step has id `experiment-attach-method-open`", () => {
+    expect(methodAttachmentOpenStep.id).toBe("experiment-attach-method-open");
+  });
+  it("open sub-step expectedRoute is /workbench (popup is portal-mounted)", () => {
+    expect(methodAttachmentOpenStep.expectedRoute).toBe("/workbench");
+  });
+  it("open sub-step speech promises BeakerBot will open the experiment", () => {
+    expect(renderSpeech(methodAttachmentOpenStep)).toMatch(
+      /Now let me open the experiment we just made/,
+    );
+  });
+  it("open sub-step advances when tour:experiment-popup-opened fires", async () => {
+    if (methodAttachmentOpenStep.completion.type !== "event") {
+      throw new Error("completion contract changed shape; update test");
+    }
+    let advanced = false;
+    const stop = methodAttachmentOpenStep.completion.eventListener(() => {
+      advanced = true;
+    });
+    try {
+      window.dispatchEvent(
+        new CustomEvent("tour:experiment-popup-opened", {
+          detail: { experimentId: 7 },
+        }),
+      );
+      await Promise.resolve();
+      expect(advanced).toBe(true);
+    } finally {
+      stop();
+    }
+  });
+
+  it("tab sub-step has id `experiment-attach-method-tab`", () => {
+    expect(methodAttachmentTabStep.id).toBe("experiment-attach-method-tab");
+  });
+  it("tab sub-step declares event-driven completion (methods-tab-active)", () => {
+    expect(methodAttachmentTabStep.completion.type).toBe("event");
+  });
+  it("tab sub-step targets experiment-methods-tab anchor", () => {
+    expect(methodAttachmentTabStep.targetSelector).toBe(
+      "[data-tour-target=\"experiment-methods-tab\"]",
+    );
+  });
+  it("tab sub-step advances when tour:experiment-methods-tab-active fires", async () => {
+    if (methodAttachmentTabStep.completion.type !== "event") {
+      throw new Error("completion contract changed shape; update test");
+    }
+    let advanced = false;
+    const stop = methodAttachmentTabStep.completion.eventListener(() => {
+      advanced = true;
+    });
+    try {
+      window.dispatchEvent(
+        new CustomEvent("tour:experiment-methods-tab-active"),
+      );
+      await Promise.resolve();
+      expect(advanced).toBe(true);
+    } finally {
+      stop();
+    }
+  });
+
+  it("attach sub-step has id `experiment-attach-method-attach`", () => {
+    expect(methodAttachmentAttachStep.id).toBe(
+      "experiment-attach-method-attach",
+    );
+  });
+  it("attach sub-step declares auto-advance completion", () => {
+    expect(methodAttachmentAttachStep.completion.type).toBe("auto");
+  });
+  it("attach sub-step targets experiment-attach-method anchor", () => {
+    expect(methodAttachmentAttachStep.targetSelector).toBe(
+      "[data-tour-target=\"experiment-attach-method\"]",
+    );
+  });
+
+  it("notes sub-step has id `experiment-attach-method-notes`", () => {
+    expect(methodAttachmentNotesStep.id).toBe(
+      "experiment-attach-method-notes",
+    );
+  });
+  it("notes sub-step declares auto-advance completion", () => {
+    expect(methodAttachmentNotesStep.completion.type).toBe("auto");
+  });
+  it("notes sub-step uses pose typing-on-laptop", () => {
+    expect(methodAttachmentNotesStep.pose).toBe("typing-on-laptop");
+  });
+  it("notes sub-step retains the mental-model paragraph", () => {
+    const speech = renderSpeech(methodAttachmentNotesStep);
+    expect(speech).toMatch(/this experiment's COPY/i);
+  });
+  it("methodAttachmentStep re-export aliases the notes sub-step (back-compat)", () => {
+    expect(methodAttachmentStep.id).toBe("experiment-attach-method-notes");
   });
 });
 
