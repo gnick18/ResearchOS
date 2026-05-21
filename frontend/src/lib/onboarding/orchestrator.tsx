@@ -139,6 +139,13 @@ export function OnboardingProvider({
   const wizardPreviewMode = searchParams?.get("wizard-preview") === "1";
 
   if (!currentUser) return <>{children}</>;
+  // Lab Mode is a read-only cross-user view, not a real account. The
+  // "lab" sentinel flows through FileSystemProvider just like a normal
+  // username, so without this gate the wizard + tips orchestrator
+  // mounts on /lab and the Welcome modal can pop in front of the Exit
+  // Lab Mode button (QA persona 05, 2026-05-20). Mirror the !currentUser
+  // and fixture-mode short-circuits: Lab Mode never owns user-setup UI.
+  if (currentUser.toLowerCase() === "lab") return <>{children}</>;
   if (isDemoOrWikiCapture() && !wizardPreviewMode) {
     return <>{children}</>;
   }

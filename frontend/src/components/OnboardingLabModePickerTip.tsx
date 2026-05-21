@@ -9,15 +9,16 @@ import BeakerBot from "./BeakerBot";
  * `UserLoginScreen`. Lives entirely outside the orchestrator — no
  * sidecar reads/writes, no welcome-modal/mode coupling. The user
  * isn't logged in yet at this point, so the orchestrator can't run
- * anyway.
+ * anyway, and there's no sidecar to write to.
  *
- * Persistence: a single sessionStorage key
- * `researchos:labModePickerTipDismissed`. Once set to "1" the tip
- * stays gone for the rest of this browser session. Next session
- * (or after the user clears site data) it re-fires. That's the
- * intended behavior — the login screen is a low-stakes surface and
- * "make sure new visitors notice Lab Mode" beats "remember dismissal
- * forever."
+ * Persistence: a single localStorage key
+ * `researchos:labModePickerTipSeen`. Once set to "1" the tip stays
+ * gone in this browser forever (until the user clears site data).
+ * It's a one-shot discovery prompt for brand-new visitors, not a
+ * per-session reminder. The pre-auth surface (the picker) is the
+ * ONLY place we let a tip fire without a `currentUser`, so it must
+ * not re-fire on every new tab for returning users (QA persona 01,
+ * 2026-05-20).
  *
  * Visuals: same vocabulary as `OnboardingTipCard` (96px BeakerBot +
  * comic-callout speech bubble + pulsing red glow on the target), but
@@ -25,7 +26,7 @@ import BeakerBot from "./BeakerBot";
  * passes by ref. No "Show me later"/"Stop showing" — single X.
  */
 
-const STORAGE_KEY = "researchos:labModePickerTipDismissed";
+const STORAGE_KEY = "researchos:labModePickerTipSeen";
 
 const MASCOT_SIZE_PX = 96;
 const MASCOT_CARD_GAP_PX = 12;
@@ -48,7 +49,7 @@ export default function OnboardingLabModePickerTip({
 }: OnboardingLabModePickerTipProps) {
   const [dismissed, setDismissed] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
-    return window.sessionStorage.getItem(STORAGE_KEY) === "1";
+    return window.localStorage.getItem(STORAGE_KEY) === "1";
   });
   const [mounted, setMounted] = useState(false);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
@@ -99,17 +100,16 @@ export default function OnboardingLabModePickerTip({
   // target. Without this, the tip only counts as dismissed when the
   // user clicks the X — picking a user (Lab Mode or otherwise) just
   // unmounts UserLoginScreen, which means the NEXT mount re-fires
-  // the tip. Grant's complaint: "I got the notification over and
-  // over." Writing the sessionStorage flag on first paint makes the
-  // tip strictly once-per-browser-session: if the user dismisses via
-  // X, fine; if they click away to pick a user, fine; if they reload
-  // the picker, the flag's already set so the tip stays quiet.
+  // the tip. Writing the flag on first paint makes the tip strictly
+  // once-per-browser: if the user dismisses via X, fine; if they click
+  // away to pick a user, fine; if they reload the picker, the flag's
+  // already set so the tip stays quiet.
   useEffect(() => {
     if (!target || dismissed) return;
     try {
-      window.sessionStorage.setItem(STORAGE_KEY, "1");
+      window.localStorage.setItem(STORAGE_KEY, "1");
     } catch {
-      // sessionStorage can fail in private mode or sandboxed iframes
+      // localStorage can fail in private mode or sandboxed iframes
       // — the in-memory `dismissed` state isn't flipped here so the
       // current render still shows the tip; only the persistence is
       // best-effort.
@@ -118,9 +118,9 @@ export default function OnboardingLabModePickerTip({
 
   const handleDismiss = () => {
     try {
-      window.sessionStorage.setItem(STORAGE_KEY, "1");
+      window.localStorage.setItem(STORAGE_KEY, "1");
     } catch {
-      // sessionStorage can fail in private mode or sandboxed iframes —
+      // localStorage can fail in private mode or sandboxed iframes —
       // we still flip the local state so the tip disappears.
     }
     setDismissed(true);

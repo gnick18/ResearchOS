@@ -416,4 +416,33 @@ describe("OnboardingProvider fixture-mode gate precedence (master 4-state truth 
     expect(screen.queryByTestId("wizard-shell")).toBeNull();
     expect(screen.queryByTestId("tutorial-sequencer")).toBeNull();
   });
+
+  it("currentUser='lab' sentinel: provider renders children only (Lab Mode never mounts the wizard)", async () => {
+    // QA persona 05 (2026-05-20): the "STEP 1 OF 17 / Welcome" wizard
+    // popped on /lab during an enter→exit→enter cycle and blocked the
+    // Exit Lab Mode button. Lab Mode is a read-only cross-user view,
+    // not a real account — user-setup UI does not belong here.
+    render(
+      <OnboardingProvider currentUser="lab">
+        <div data-testid="children" />
+      </OnboardingProvider>,
+    );
+    await waitForMountDecision();
+
+    expect(screen.getByTestId("children")).toBeInTheDocument();
+    expect(screen.queryByTestId("wizard-shell")).toBeNull();
+    expect(screen.queryByTestId("tutorial-sequencer")).toBeNull();
+  });
+
+  it("currentUser='Lab' sentinel (case-insensitive): provider renders children only", async () => {
+    render(
+      <OnboardingProvider currentUser="Lab">
+        <div data-testid="children" />
+      </OnboardingProvider>,
+    );
+    await waitForMountDecision();
+
+    expect(screen.getByTestId("children")).toBeInTheDocument();
+    expect(screen.queryByTestId("wizard-shell")).toBeNull();
+  });
 });
