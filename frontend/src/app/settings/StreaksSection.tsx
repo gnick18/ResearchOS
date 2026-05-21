@@ -32,6 +32,8 @@ import {
   readStreak,
   type StreakSidecar,
 } from "@/lib/streak/streak-sidecar";
+import PtoEditor from "./PtoEditor";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 export default function StreaksSection() {
   const { currentUser, isConnected } = useFileSystem();
@@ -165,7 +167,7 @@ export default function StreaksSection() {
               </div>
             )}
 
-            <PtoStub />
+            <PtoSubsection />
           </>
         )}
       </div>
@@ -227,28 +229,14 @@ function StatTile({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Placeholder for the real PTO editor that S4 will wire up. Keeps the
- *  Settings affordance discoverable without committing to the editor
- *  shape here. The data-testid lets the integration test assert the
- *  placeholder is reachable without coupling to copy. */
-function PtoStub() {
+/** Wires the S4 PtoEditor into the Streaks section. Replaces the
+ *  earlier stub that S3 shipped; the data-testid is preserved on the
+ *  container so the integration test still resolves. */
+function PtoSubsection() {
+  const { currentUser } = useCurrentUser();
   return (
-    <div className="border-t border-gray-100 pt-4">
-      <h3 className="text-sm font-medium text-gray-800">Days off (PTO)</h3>
-      <p className="text-xs text-gray-500 mt-0.5">
-        Mark days that don't break your streak.
-      </p>
-      <div className="mt-2 flex items-center gap-2">
-        <button
-          type="button"
-          disabled
-          className="px-3 py-1.5 text-sm font-medium text-gray-500 bg-gray-100 rounded-lg cursor-not-allowed"
-          data-testid="streaks-pto-stub"
-        >
-          Edit PTO dates
-        </button>
-        <span className="text-xs text-gray-400">(S4 will wire this up)</span>
-      </div>
+    <div className="border-t border-gray-100 pt-4" data-testid="streaks-pto-stub">
+      {currentUser ? <PtoEditor username={currentUser} /> : null}
     </div>
   );
 }

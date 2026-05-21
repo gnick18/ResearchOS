@@ -1,12 +1,15 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState, useEffect, useLayoutEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { tasksApi, dependenciesApi } from "@/lib/local-api";
 import { taskKey } from "@/lib/types";
 import type { Dependency, Task, ShiftResult, Project, HighLevelGoal } from "@/lib/types";
 import { useAppStore } from "@/lib/store";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import Tooltip from "@/components/Tooltip";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { patchStreak, readStreak } from "@/lib/streak/streak-sidecar";
 
 interface GanttChartProps {
   tasks: Task[];
@@ -508,7 +511,95 @@ export default function GanttChart({
   
   // Goal hover state
   const [, setHoveredGoal] = useState<HighLevelGoal | null>(null);
-  
+
+  // ---- PTO (Streak Phase S4) ------------------------------------------
+  // Load the active user's PTO list once per user-switch. Used for:
+  //   1. Striped PTO overlay on day cells / headers (visual)
+  //   2. Right-click "Mark / Unmark as PTO" context menu (mutation)
+  //   3. (Indirectly) chain reschedule via tasksApi.move — that call site
+  //      reads its own copy of pto_dates inside local-api.ts to avoid a
+  //      prop-drilling round trip.
+  // In lab mode the streak/PTO surface is hidden — lab mode is a
+  // shared-view of other users' work and PTO is per-individual private.
+  const { currentUser: providerCurrentUser } = useCurrentUser();
+  const currentUser = providerCurrentUser ?? "";
+  const ptoQueryEnabled = !isLabMode && currentUser.length > 0;
+  const { data: streakSidecar } = useQuery({
+    queryKey: ["streak", currentUser],
+    queryFn: () => readStreak(currentUser),
+    enabled: ptoQueryEnabled,
+  });
+  // Memoize directly off streakSidecar so the dep array only changes
+  // when the underlying sidecar object identity changes (react-query
+  // returns a stable ref between fetches when the JSON is identical).
+  // Set lookup is O(1) per day-render; the array would be O(n) per cell.
+  const ptoSet = useMemo(
+    () => new Set(streakSidecar?.pto_dates ?? []),
+    [streakSidecar],
+  );
+
+  // Right-click context menu state. One menu at a time; click-outside
+  // dismisses (effect below).
+  const [ptoMenu, setPtoMenu] = useState<{
+    date: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  const handleDayContextMenu = useCallback(
+    (e: React.MouseEvent, date: string) => {
+      // Lab mode users don't own the underlying PTO list, so the right-click
+      // affordance just stays out of their way. The native context menu
+      // falls through (no preventDefault).
+      if (isLabMode || !currentUser) return;
+      e.preventDefault();
+      setPtoMenu({ date, x: e.clientX, y: e.clientY });
+    },
+    [isLabMode, currentUser],
+  );
+
+  const closePtoMenu = useCallback(() => setPtoMenu(null), []);
+
+  // Click-outside / Escape to dismiss the context menu.
+  useEffect(() => {
+    if (!ptoMenu) return;
+    const onDocClick = () => closePtoMenu();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closePtoMenu();
+    };
+    // Defer attaching the click handler one tick so the same click that
+    // opened the menu doesn't immediately close it.
+    const t = window.setTimeout(() => {
+      document.addEventListener("click", onDocClick);
+      document.addEventListener("contextmenu", onDocClick);
+    }, 0);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      window.clearTimeout(t);
+      document.removeEventListener("click", onDocClick);
+      document.removeEventListener("contextmenu", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [ptoMenu, closePtoMenu]);
+
+  const handlePtoToggle = useCallback(async () => {
+    if (!ptoMenu || !currentUser) return;
+    const target = ptoMenu.date;
+    closePtoMenu();
+    await patchStreak(currentUser, (cur) => {
+      const isMarked = cur.pto_dates.includes(target);
+      return {
+        ...cur,
+        pto_dates: isMarked
+          ? cur.pto_dates.filter((d) => d !== target)
+          : [...cur.pto_dates, target],
+      };
+    });
+    // Invalidate so the new PTO list reflows visually (striped overlay)
+    // and any in-flight chain reschedule pulls the updated list.
+    await queryClient.invalidateQueries({ queryKey: ["streak", currentUser] });
+  }, [ptoMenu, currentUser, queryClient, closePtoMenu]);
+
   // Use refs for task elements and positions to avoid render loops
   const taskElementsRef = useRef<TaskElementMap>(new Map());
   // Keyed by composite (owner, id) so two tasks with the same numeric id never
@@ -1305,14 +1396,21 @@ export default function GanttChart({
                 const ds = formatDate(d);
                 const isToday = ds === today;
                 const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                const isPto = ptoSet.has(ds);
                 const isDropTarget = !isLabMode && draggedTask && dragOverDate === ds;
-                return (
+                const headerEl = (
                   <div
-                    key={`header-${weekIdx}-${ds}`}
                     onDragOver={isLabMode ? undefined : (e) => handleDragOver(e, ds)}
                     onDragLeave={isLabMode ? undefined : handleDragLeave}
                     onDrop={isLabMode ? undefined : (e) => handleDrop(e, ds)}
-                    className={`px-2 py-1.5 text-center text-xs font-medium transition-colors ${
+                    onContextMenu={(e) => handleDayContextMenu(e, ds)}
+                    // Two testids per header. The generic one (day-header-X)
+                    // gives PTO + Gantt tests a stable handle for ANY day;
+                    // the pto-specific one is a faster filter for assertions
+                    // that only care about PTO-marked headers.
+                    data-testid={`day-header-${ds}`}
+                    data-pto-header={isPto ? "true" : undefined}
+                    className={`relative px-2 py-1.5 text-center text-xs font-medium transition-colors ${
                       isDropTarget
                         ? "bg-blue-200 text-blue-800"
                         : isToday
@@ -1323,7 +1421,30 @@ export default function GanttChart({
                     }`}
                   >
                     {formatDayLabel(d)}
+                    {/* PTO indicator: a small dot in the header. Counter-direction
+                        stripes live on the cell body (below) so the header stays
+                        legible at small viewports. */}
+                    {isPto && !isToday && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute right-1 top-1 inline-block h-1.5 w-1.5 rounded-full bg-sky-500"
+                      />
+                    )}
                   </div>
+                );
+                // Tooltip is appended only on PTO headers — adding it to every
+                // day cell would be noise. Per Grant's standing rule we use
+                // the <Tooltip> component, never native title=.
+                return isPto ? (
+                  <Tooltip
+                    key={`header-${weekIdx}-${ds}`}
+                    label="PTO — won't break your streak"
+                    placement="top"
+                  >
+                    {headerEl}
+                  </Tooltip>
+                ) : (
+                  <div key={`header-${weekIdx}-${ds}`}>{headerEl}</div>
                 );
               })}
             </div>
@@ -1374,6 +1495,7 @@ export default function GanttChart({
                         {weekDates.map((d) => {
                           const ds = formatDate(d);
                           const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                          const isPto = ptoSet.has(ds);
                           const isToday2 = ds === today;
                           const isDropTarget = !isLabMode && draggedTask && dragOverDate === ds;
                           return (
@@ -1383,11 +1505,26 @@ export default function GanttChart({
                               onDragLeave={isLabMode ? undefined : handleDragLeave}
                               onDrop={isLabMode ? undefined : (e) => handleDrop(e, ds)}
                               onDoubleClick={isLabMode ? undefined : () => handleDoubleClick(ds)}
-                              className={`border-r border-gray-50 last:border-r-0 transition-colors ${
+                              onContextMenu={(e) => handleDayContextMenu(e, ds)}
+                              data-testid={isPto ? `pto-day-cell-${ds}` : undefined}
+                              className={`relative border-r border-gray-50 last:border-r-0 transition-colors ${
                                 isDropTarget ? "bg-blue-100" : ""
                               } ${isWeekend ? "bg-gray-50/50" : ""} ${
+                                isPto ? "pto-day-cell" : ""
+                              } ${
                                 isToday2 ? "bg-red-50/30" : ""
                               }`}
+                              // PTO uses -45deg sky-blue stripes; weekends use 45deg
+                              // black/15 stripes elsewhere in the chart, so the two
+                              // overlays are visually distinguishable when a PTO date
+                              // happens to fall on a weekend.
+                              style={
+                                isPto
+                                  ? {
+                                      backgroundImage: `repeating-linear-gradient(-45deg, transparent, transparent 3px, rgba(14, 165, 233, 0.18) 3px, rgba(14, 165, 233, 0.18) 6px)`,
+                                    }
+                                  : undefined
+                              }
                             />
                           );
                         })}
@@ -1679,6 +1816,35 @@ export default function GanttChart({
       
       {/* Loading overlay for operations */}
       <LoadingOverlay />
+
+      {/* PTO right-click context menu (Streak Phase S4, proposal §6.4).
+          Renders inside the chart container so absolute positioning anchors
+          to clientX/clientY in viewport coords via position: fixed. */}
+      {ptoMenu && (
+        <div
+          role="menu"
+          data-testid="pto-context-menu"
+          className="fixed z-50 min-w-[200px] rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+          style={{ top: ptoMenu.y, left: ptoMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={handlePtoToggle}
+            data-testid="pto-context-menu-toggle"
+            className="block w-full px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-sky-50"
+          >
+            {ptoSet.has(ptoMenu.date)
+              ? `Unmark ${ptoMenu.date} as PTO`
+              : `Mark ${ptoMenu.date} as PTO`}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

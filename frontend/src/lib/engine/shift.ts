@@ -133,12 +133,18 @@ async function findSSSiblings(taskId: number, owner?: string): Promise<TaskDict[
  * that owner's directory instead of the current user's. Cross-user
  * dependencies aren't supported; the cascade only traverses tasks in
  * the same `users/{owner}/` namespace.
+ *
+ * Streak Phase S4 / proposal L9: `ptoDates` extends the weekend-skip
+ * behavior for any task whose effective `weekend_active` is FALSE.
+ * Default `[]` preserves identical behavior for all existing callers
+ * and for users who have never marked a PTO day.
  */
 export async function shiftTask(
   taskId: number,
   newStartDate: Date,
   confirmed: boolean = false,
-  owner?: string
+  owner?: string,
+  ptoDates: readonly string[] = [],
 ): Promise<ShiftResult> {
   const task = await getTaskForOwner(taskId, owner);
   if (!task) {
@@ -146,20 +152,20 @@ export async function shiftTask(
   }
 
   const wa = await getTaskWeekendActive(task, owner);
-  const resolvedStart = resolveWeekend(newStartDate, wa);
+  const resolvedStart = resolveWeekend(newStartDate, wa, ptoDates);
 
   const oldStart = parseDate(task.start_date);
-  const oldEnd = computeEndDate(oldStart, task.duration_days, wa);
+  const oldEnd = computeEndDate(oldStart, task.duration_days, wa, ptoDates);
 
   // end_date on disk is a derived/cached value (see Task.end_date in
   // ../types.ts). Recompute and persist it alongside start_date so we don't
   // leave a stale end_date behind — that's the bug that caused tasks to
   // silently drop from the gantt when end_date < start_date.
   task.start_date = formatDate(resolvedStart);
-  task.end_date = formatDate(computeEndDate(resolvedStart, task.duration_days, false));
+  task.end_date = formatDate(computeEndDate(resolvedStart, task.duration_days, false, ptoDates));
   await saveTaskForOwner(taskId, task, owner);
 
-  const newEnd = computeEndDate(resolvedStart, task.duration_days, wa);
+  const newEnd = computeEndDate(resolvedStart, task.duration_days, wa, ptoDates);
 
   const affected: ShiftedTask[] = [
     {
@@ -189,13 +195,14 @@ export async function shiftTask(
 
       const parentWa = await getTaskWeekendActive(parentTask, owner);
       const parentOldStart = parseDate(parentTask.start_date);
-      const parentOldEnd = computeEndDate(parentOldStart, parentTask.duration_days, parentWa);
+      const parentOldEnd = computeEndDate(parentOldStart, parentTask.duration_days, parentWa, ptoDates);
 
       const currentStart = parseDate(currentTask.start_date);
       const currentEnd = computeEndDate(
         currentStart,
         currentTask.duration_days,
-        await getTaskWeekendActive(currentTask, owner)
+        await getTaskWeekendActive(currentTask, owner),
+        ptoDates,
       );
 
       const depType = dep.dep_type;
@@ -207,7 +214,7 @@ export async function shiftTask(
           if (parentWa) {
             parentNewStart = subDays(requiredParentEnd, parentTask.duration_days - 1);
           } else {
-            parentNewStart = computeStartDateFromEnd(requiredParentEnd, parentTask.duration_days, false);
+            parentNewStart = computeStartDateFromEnd(requiredParentEnd, parentTask.duration_days, false, ptoDates);
           }
         }
       } else if (depType === "SS") {
@@ -221,11 +228,11 @@ export async function shiftTask(
       }
 
       if (parentNewStart) {
-        parentNewStart = resolveWeekend(parentNewStart, parentWa);
-        const parentNewEnd = computeEndDate(parentNewStart, parentTask.duration_days, parentWa);
+        parentNewStart = resolveWeekend(parentNewStart, parentWa, ptoDates);
+        const parentNewEnd = computeEndDate(parentNewStart, parentTask.duration_days, parentWa, ptoDates);
 
         parentTask.start_date = formatDate(parentNewStart);
-        parentTask.end_date = formatDate(computeEndDate(parentNewStart, parentTask.duration_days, false));
+        parentTask.end_date = formatDate(computeEndDate(parentNewStart, parentTask.duration_days, false, ptoDates));
         await saveTaskForOwner(parentTask.id!, parentTask, owner);
 
         affected.push({
@@ -258,7 +265,7 @@ export async function shiftTask(
 
       const childWa = await getTaskWeekendActive(childTask, owner);
       const childOldStart = parseDate(childTask.start_date);
-      const childOldEnd = computeEndDate(childOldStart, childTask.duration_days, childWa);
+      const childOldEnd = computeEndDate(childOldStart, childTask.duration_days, childWa, ptoDates);
 
       const allParents = await getDependencyParents(childTask.id, owner);
       const requiredStarts: Date[] = [];
@@ -266,7 +273,7 @@ export async function shiftTask(
       for (const { parentTask: pt, dep: parentDep } of allParents) {
         const parentWa = await getTaskWeekendActive(pt, owner);
         const parentStart = parseDate(pt.start_date);
-        const parentEnd = computeEndDate(parentStart, pt.duration_days, parentWa);
+        const parentEnd = computeEndDate(parentStart, pt.duration_days, parentWa, ptoDates);
 
         const parentDepType = parentDep.dep_type;
 
@@ -277,7 +284,7 @@ export async function shiftTask(
           for (const sibling of ssSiblings) {
             const siblingWa = await getTaskWeekendActive(sibling, owner);
             const siblingStart = parseDate(sibling.start_date);
-            const siblingEnd = computeEndDate(siblingStart, sibling.duration_days, siblingWa);
+            const siblingEnd = computeEndDate(siblingStart, sibling.duration_days, siblingWa, ptoDates);
             if (siblingEnd > latestEnd) {
               latestEnd = siblingEnd;
             }
@@ -290,7 +297,7 @@ export async function shiftTask(
           if (childWa) {
             requiredStarts.push(subDays(parentStart, childTask.duration_days - 1));
           } else {
-            const computedStart = computeStartDateFromEnd(parentStart, childTask.duration_days, false);
+            const computedStart = computeStartDateFromEnd(parentStart, childTask.duration_days, false, ptoDates);
             requiredStarts.push(computedStart);
           }
         }
@@ -305,8 +312,8 @@ export async function shiftTask(
         }
       }
 
-      childNewStart = resolveWeekend(childNewStart, childWa);
-      const childNewEnd = computeEndDate(childNewStart, childTask.duration_days, childWa);
+      childNewStart = resolveWeekend(childNewStart, childWa, ptoDates);
+      const childNewEnd = computeEndDate(childNewStart, childTask.duration_days, childWa, ptoDates);
 
       const depType = dep.dep_type;
       const today = new Date();

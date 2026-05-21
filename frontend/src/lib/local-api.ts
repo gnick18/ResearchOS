@@ -4,6 +4,7 @@ import { recordProjectActivity } from "./project-activity/event-log";
 import { getCurrentUser, getMainUser, storeCurrentUser, storeMainUser, clearCurrentUser, clearMainUser } from "./file-system/indexeddb-store";
 import { shiftTask } from "./engine/shift";
 import { formatDate, parseDate } from "./engine/dates";
+import { readStreak } from "./streak/streak-sidecar";
 import { canonicalEndDate, computeTaskEndDate } from "./tasks/end-date";
 import {
   taskResultsBase,
@@ -757,7 +758,25 @@ export const tasksApi = {
 
   move: async (id: number, data: TaskMoveRequest, owner?: string): Promise<ShiftResult> => {
     const newStartDate = parseDate(data.new_start_date);
-    const result = await shiftTask(id, newStartDate, data.confirmed ?? false, owner);
+    // Streak Phase S4 / proposal L9: load the active user's PTO list so the
+    // shift cascade treats those weekdays as skip-days same as weekends. Best
+    // effort — if the sidecar is missing or unreadable, ptoDates falls back
+    // to [] and behavior is identical to pre-S4. The PTO list is always read
+    // from the ACTIVE user (the caller's session), never `owner`, since PTO
+    // is per-individual private data and the L9 invariant is "the user's
+    // PTO" not "the task owner's PTO".
+    const activeUser = await getCurrentUserCached();
+    let ptoDates: readonly string[] = [];
+    if (activeUser) {
+      try {
+        const streak = await readStreak(activeUser);
+        ptoDates = streak.pto_dates;
+      } catch {
+        // Sidecar missing or unreadable; preserve pre-S4 behavior.
+        ptoDates = [];
+      }
+    }
+    const result = await shiftTask(id, newStartDate, data.confirmed ?? false, owner, ptoDates);
     // Append a `_shifted-alerts.json` entry for every affected task that's
     // shared with someone, so receivers can decide whether to realign their
     // own dependent work on their next load. Best-effort; never throws.
