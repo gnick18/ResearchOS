@@ -180,7 +180,14 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
               )}
             </div>
 
-            <div className="flex items-center gap-1 flex-shrink-0">
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <Link
+                href={`/gantt?project=${project.id}`}
+                className="text-sm text-gray-500 hover:text-gray-700 hover:underline whitespace-nowrap"
+              >
+                View timeline →
+              </Link>
+              <div className="flex items-center gap-1">
               {!isMiscellaneousProject && (
                 <Tooltip
                   label={
@@ -282,6 +289,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
                   </button>
                 </Tooltip>
               )}
+              </div>
             </div>
           </div>
 

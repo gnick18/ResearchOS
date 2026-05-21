@@ -66,6 +66,7 @@ export default function Toolbar({
   const setViewMode = useAppStore((s) => s.setViewMode);
   const selectedProjectIds = useAppStore((s) => s.selectedProjectIds);
   const toggleProject = useAppStore((s) => s.toggleProject);
+  const setSelectedProjects = useAppStore((s) => s.setSelectedProjects);
   const selectedTags = useAppStore((s) => s.selectedTags);
   const toggleTag = useAppStore((s) => s.toggleTag);
   const showShared = useAppStore((s) => s.showShared);
@@ -80,7 +81,9 @@ export default function Toolbar({
   // Deep-link hooks. `/gantt?animations=1` auto-opens the animation
   // settings popup (used by the `gantt-animations` onboarding tip's
   // "Pick an animation" setupAction). `/gantt?createGoal=1` fires the
-  // create-goal flow. Each strips its param after acting so a reload
+  // create-goal flow. `/gantt?project=<id>` initializes the project
+  // filter to that single project (used by the Project Surface "View
+  // timeline →" link). Each strips its param after acting so a reload
   // doesn't re-trigger.
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -88,16 +91,21 @@ export default function Toolbar({
     if (!searchParams) return;
     const wantsAnimations = searchParams.get("animations") === "1";
     const wantsCreateGoal = searchParams.get("createGoal") === "1";
-    if (!wantsAnimations && !wantsCreateGoal) return;
+    const projectParam = searchParams.get("project");
+    const projectId = projectParam ? Number(projectParam) : NaN;
+    const wantsProjectFilter = Number.isFinite(projectId);
+    if (!wantsAnimations && !wantsCreateGoal && !wantsProjectFilter) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- deep-link handler: imperatively opens animation-settings popup when URL param is present, then strips the param so reload doesn't re-trigger. Derived-state alternative would require URL navigation on every open/close, breaking the onboarding tip's setupAction flow.
     if (wantsAnimations) setShowAnimationSettings(true);
     if (wantsCreateGoal) onCreateGoal();
+    if (wantsProjectFilter) setSelectedProjects([projectId]);
     const next = new URLSearchParams(searchParams.toString());
     next.delete("animations");
     next.delete("createGoal");
+    next.delete("project");
     const query = next.toString();
     router.replace(query ? `/gantt?${query}` : "/gantt");
-  }, [searchParams, router, onCreateGoal]);
+  }, [searchParams, router, onCreateGoal, setSelectedProjects]);
 
   // Calculate weeks to show based on view mode
   const weeksToShow = useMemo(() => {
