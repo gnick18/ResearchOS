@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useSearchParams } from "next/navigation";
-import Link from "next/link";
+import Link from "@/components/FixtureLink";
 import AppShell from "@/components/AppShell";
 import ProjectRoute from "@/components/project-surface/ProjectRoute";
 

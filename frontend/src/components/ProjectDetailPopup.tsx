@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
+import Link from "@/components/FixtureLink";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { projectsApi as rawProjectsApi, tasksApi as rawTasksApi } from "@/lib/local-api";
 import type { ProjectUpdate } from "@/lib/local-api";

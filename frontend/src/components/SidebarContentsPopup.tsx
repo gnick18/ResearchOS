@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import Link from "next/link";
+import Link from "@/components/FixtureLink";
 import { useAppStore } from "@/lib/store";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import Tooltip from "./Tooltip";
