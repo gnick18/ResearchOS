@@ -44,14 +44,20 @@ describe("InputLockOverlay", () => {
     });
   });
 
+  // Helper: tag a synthetic event with the cursor-origin marker so the
+  // overlay lets it through (Grant 2026-05-21 follow-up). Production
+  // cursors mint MouseEvent themselves and tag it; tests reproduce that
+  // wire-format here so the bypass path is exercised end-to-end.
+  const markCursorOrigin = <E extends Event>(e: E): E => {
+    (e as unknown as { __beakerBotCursor: boolean }).__beakerBotCursor = true;
+    return e;
+  };
+
   it("blocks a wheel event when active=true", async () => {
     const { findByTestId } = render(<InputLockOverlay active={true} />);
     await findByTestId("tour-input-lock-overlay");
 
-    const wheel = new WheelEvent("wheel", {
-      bubbles: true,
-      cancelable: true,
-    });
+    const wheel = new WheelEvent("wheel", { bubbles: true, cancelable: true });
     const preventSpy = vi.spyOn(wheel, "preventDefault");
     window.dispatchEvent(wheel);
     expect(preventSpy).toHaveBeenCalled();
@@ -67,13 +73,32 @@ describe("InputLockOverlay", () => {
     pageBtn.textContent = "Unrelated page button";
     document.body.appendChild(pageBtn);
     try {
-      const click = new MouseEvent("click", {
-        bubbles: true,
-        cancelable: true,
-      });
+      const click = new MouseEvent("click", { bubbles: true, cancelable: true });
       const preventSpy = vi.spyOn(click, "preventDefault");
       pageBtn.dispatchEvent(click);
       expect(preventSpy).toHaveBeenCalled();
+    } finally {
+      pageBtn.remove();
+    }
+  });
+
+  it("ALLOWS cursor-marked clicks through (BeakerBotCursor's dispatched events)", async () => {
+    const { findByTestId } = render(<InputLockOverlay active={true} />);
+    await findByTestId("tour-input-lock-overlay");
+
+    const pageBtn = document.createElement("button");
+    document.body.appendChild(pageBtn);
+    try {
+      const click = markCursorOrigin(
+        new MouseEvent("click", { bubbles: true, cancelable: true }),
+      );
+      const preventSpy = vi.spyOn(click, "preventDefault");
+      pageBtn.dispatchEvent(click);
+      // Marker present → overlay lets the click through so the
+      // underlying React onClick fires (Grant 2026-05-21: §6.4 New
+      // Category and Create Empty clicks were animating but never
+      // actually triggering before this bypass landed).
+      expect(preventSpy).not.toHaveBeenCalled();
     } finally {
       pageBtn.remove();
     }

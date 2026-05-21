@@ -328,9 +328,27 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
         // imperceptible delay but ordering is preserved.
         await sleep(30);
         try {
-          el.click();
+          // Dispatch a marked click event rather than `el.click()` so
+          // the InputLockOverlay's capture-phase blocker can let it
+          // through. The overlay blocks every click while a cursor
+          // script is running, but it needs to let the cursor's own
+          // clicks reach React's onClick handler. Native `el.click()`
+          // produces a synthetic event with no way for the overlay to
+          // distinguish "cursor demo click" from "stray user click"
+          // (isTrusted is read-only in real browsers and not settable
+          // in jsdom either), so we mint the MouseEvent ourselves and
+          // tag it with `__beakerBotCursor: true`. See
+          // `frontend/src/components/onboarding/v4/InputLockOverlay.tsx`.
+          const evt = new MouseEvent("click", {
+            bubbles: true,
+            cancelable: true,
+            view: window,
+          });
+          (evt as unknown as { __beakerBotCursor: boolean }).__beakerBotCursor =
+            true;
+          el.dispatchEvent(evt);
         } catch {
-          // No-op: if click() throws (e.g. detached node), we still
+          // No-op: if dispatchEvent throws (e.g. detached node), we still
           // resolve so the calling script doesn't deadlock.
         }
         // Wait for the ripple animation to finish, then prune it.
