@@ -558,7 +558,11 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
         position: "fixed",
         top: 0,
         left: 0,
-        transform: `translate3d(${state.x}px, ${state.y}px, 0)`,
+        // Round to integer pixels so the GPU rasterizer doesn't sample
+        // the label glyphs at sub-pixel positions during glide — that
+        // sub-pixel sampling is what made the BeakerBot label read as
+        // visibly blurry vs the rest of the page (Grant 2026-05-21).
+        transform: `translate3d(${Math.round(state.x)}px, ${Math.round(state.y)}px, 0)`,
         transition,
         // Don't intercept pointer events — the cursor is a visual
         // overlay, not an interactive element.
@@ -695,6 +699,14 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
             // the initial reveal alongside the cursor).
             transition: reduced ? "none" : "opacity 200ms ease-out",
             userSelect: "none",
+            // Text crispness inside the GPU-composited wrapper. The
+            // translate3d transform on the parent puts this label on a
+            // GPU layer; without these hints the rasterizer samples
+            // glyph edges at sub-pixel positions and the text reads as
+            // blurry next to the rest of the page (Grant 2026-05-21).
+            WebkitFontSmoothing: "antialiased",
+            MozOsxFontSmoothing: "grayscale",
+            textRendering: "geometricPrecision",
           }}
         >
           BeakerBot
