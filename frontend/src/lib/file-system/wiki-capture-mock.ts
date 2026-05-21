@@ -47,6 +47,24 @@ const DEMO_PNG_PATHS = [
   "users/morgan/results/task-3/Images/gel-qpcr-products.png",
 ];
 
+/** Markdown method bodies. The JSON fixtures point at these via `source_path`
+ *  (e.g. `users/public/methods/1.md`), but the bodies themselves live as
+ *  separate `.md` files on disk under `frontend/public/demo-data/`. The
+ *  wiki-capture fixture seeds method *metadata* into `files`; without
+ *  fetching the `.md` siblings into `blobs` here, `filesApi.readFile`
+ *  (which goes through `readFileAsBlob`) returns null and the method
+ *  viewer modal renders "Method file not found." for every markdown
+ *  method. Mirrors the `DEMO_PNG_PATHS` pattern below. */
+const DEMO_METHOD_MD_PATHS = [
+  "users/public/methods/1.md",
+  "users/alex/methods/1.md",
+  "users/alex/methods/2.md",
+  "users/alex/methods/3.md",
+  "users/alex/methods/4.md",
+  "users/morgan/methods/1.md",
+  "users/morgan/methods/2.md",
+];
+
 /** JSON sidecars that live alongside the inbox PNG (caption / sender /
  *  timestamp). Loaded into the `files` map so the inbox panel renders
  *  the metadata next to each card. */
@@ -539,6 +557,28 @@ export async function installWikiCaptureFixture(
         addParentDirs(normalizePath(relPath), dirs);
       } catch (err) {
         console.warn(`[wiki-capture-mock] PNG fetch failed for ${relPath}:`, err);
+      }
+    }),
+  );
+
+  // Method markdown bodies. Symmetric with the PNG fetch above — these
+  // exist on disk under `frontend/public/demo-data/users/.../methods/*.md`
+  // but only the JSON sibling is seeded into the `files` map by the
+  // static fixture, so the viewer's `filesApi.readFile(source_path)` 404s
+  // without this loop.
+  await Promise.all(
+    DEMO_METHOD_MD_PATHS.map(async (relPath) => {
+      try {
+        const res = await fetch(`/demo-data/${relPath}`);
+        if (!res.ok) {
+          console.warn(`[wiki-capture-mock] method md fetch ${res.status}: ${relPath}`);
+          return;
+        }
+        const blob = await res.blob();
+        blobs.set(normalizePath(relPath), blob);
+        addParentDirs(normalizePath(relPath), dirs);
+      } catch (err) {
+        console.warn(`[wiki-capture-mock] method md fetch failed for ${relPath}:`, err);
       }
     }),
   );
