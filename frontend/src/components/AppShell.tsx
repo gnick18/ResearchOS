@@ -187,6 +187,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         >
           {filtered.map((item) => {
             const isActive = pathname === item.href;
+            // Onboarding v4 §6.12+ walkthrough anchors. Each top-nav
+            // item gets a `data-tour-target` keyed off its route
+            // (purchases-tab, calendar-tab, etc.) so cursor demos can
+            // hover over it without depending on label text. New
+            // routes flow through here automatically.
+            const tourTarget =
+              item.href === "/purchases"
+                ? "purchases-tab"
+                : item.href === "/calendar"
+                  ? "calendar-tab"
+                  : undefined;
             // Onboarding v4 L23: when an in-product walkthrough is
             // running, render each nav-item as a non-Link button that
             // visually grays out + suppresses click. Cursor-driven
@@ -203,6 +214,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   disabled
                   aria-disabled="true"
                   data-tour-nav-item={item.href}
+                  data-tour-target={tourTarget}
                   className={`${baseStyle} opacity-50 cursor-not-allowed`}
                   onClick={(e) => {
                     // Defensive: <button disabled> already no-ops click in
@@ -223,6 +235,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 <Link
                   key={item.href}
                   href={item.href}
+                  data-tour-target={tourTarget}
                   className={`px-3 py-1.5 text-sm rounded-full transition-colors shadow-sm ${
                     isActive
                       ? "bg-white text-gray-900 font-medium"
@@ -237,6 +250,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.href}
                 href={item.href}
+                data-tour-target={tourTarget}
                 className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                   isActive
                     ? "bg-blue-50 text-blue-700 font-medium"
@@ -259,6 +273,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <Link
             href={helpHref}
             aria-label="Open the ResearchOS wiki"
+            data-tour-target="wiki-nav-tab"
             className={`p-1.5 rounded-full transition-colors ${
               tinted
                 ? pathname?.startsWith(HELP_HREF)

@@ -362,7 +362,7 @@ export default function VariationNotesPanel({ task, methodId, variationNotes, on
   const entries = useMemo(() => parseVariationEntries(variationNotes || ""), [variationNotes]);
 
   return (
-    <div className="border-b border-gray-200">
+    <div className="border-b border-gray-200" data-tour-target="experiment-variation-notes">
       {/* Header - always visible */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}

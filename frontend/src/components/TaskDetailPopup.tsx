@@ -758,6 +758,13 @@ export default function TaskDetailPopup({
             <button
               key={tab}
               onClick={() => selectTab(tab)}
+              data-tour-target={
+                tab === "method"
+                  ? "experiment-methods-tab"
+                  : tab === "notes"
+                    ? "experiment-notes-tab"
+                    : undefined
+              }
               className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === tab
                   ? "border-blue-500 text-blue-600 bg-white"

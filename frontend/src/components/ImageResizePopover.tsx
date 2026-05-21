@@ -87,6 +87,7 @@ export default function ImageResizePopover({
   return (
     <div
       ref={ref}
+      data-tour-target="hybrid-editor-resize-handle"
       className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl min-w-[160px] select-none"
       style={{ top: position.y, left: position.x }}
       onClick={(e) => e.stopPropagation()}

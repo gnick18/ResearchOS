@@ -272,6 +272,7 @@ export default function Toolbar({
       {/* Add goal button */}
       <button
         onClick={onCreateGoal}
+        data-tour-target="gantt-goals-button"
         className="px-3 py-1.5 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors flex items-center gap-1"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -285,6 +286,7 @@ export default function Toolbar({
       {/* Add task button */}
       <button
         onClick={onCreateTask}
+        data-tour-target="gantt-new-task-button"
         className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
       >
         + Task
@@ -294,6 +296,7 @@ export default function Toolbar({
       <Tooltip label="Animation Settings" placement="bottom">
         <button
           onClick={() => setShowAnimationSettings(true)}
+          data-tour-target="gantt-animation-picker"
           className="px-2.5 py-1.5 text-sm bg-white border border-gray-200 text-gray-700 rounded-lg hover:border-gray-300 hover:shadow-sm transition-all flex items-center gap-1.5 hover:animate-jiggle"
         >
           <span className="text-base">{ANIMATION_METADATA[animationType].icon}</span>

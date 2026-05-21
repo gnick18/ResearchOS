@@ -444,10 +444,11 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
   };
 
   return (
-    <div data-current-tab="experiments">
+    <div data-current-tab="experiments" data-tour-target="workbench-shared-experiments">
       <div className="flex justify-end mb-4">
         <button
           onClick={handleCreateExperiment}
+          data-tour-target="workbench-new-experiment"
           className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           + New Experiment
@@ -462,6 +463,7 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
           </p>
           <button
             onClick={handleCreateExperiment}
+            data-tour-target="workbench-new-experiment"
             className="px-6 py-3 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             + New Experiment

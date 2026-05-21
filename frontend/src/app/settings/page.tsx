@@ -313,6 +313,7 @@ function SectionShell({
   description,
   children,
   id,
+  tourTarget,
 }: {
   title: string;
   description?: string;
@@ -321,9 +322,17 @@ function SectionShell({
    *  `/settings#telegram` and `/settings#personalize` (fired by the
    *  Telegram and Personalize-Colors onboarding tips' setupActions). */
   id?: string;
+  /** Optional `data-tour-target` value — used by the Onboarding v4
+   *  walkthrough to anchor spotlights on specific Settings sections
+   *  (e.g. the AI Helper section in §6.10). */
+  tourTarget?: string;
 }) {
   return (
-    <section id={id} className="bg-white rounded-xl border border-gray-200 p-6 scroll-mt-4">
+    <section
+      id={id}
+      data-tour-target={tourTarget}
+      className="bg-white rounded-xl border border-gray-200 p-6 scroll-mt-4"
+    >
       <div className="mb-4">
         <h2 className="text-base font-semibold text-gray-900">{title}</h2>
         {description && <p className="text-xs text-gray-500 mt-1">{description}</p>}
@@ -387,7 +396,7 @@ function ProfileSection({ settings, update }: SectionProps) {
         </p>
       </div>
 
-      <div>
+      <div data-tour-target="settings-color-picker">
         <label className="block text-xs font-medium text-gray-700 mb-2">User color</label>
         <div className="flex flex-wrap gap-2">
           {USER_COLOR_PALETTE.map((c) => {
@@ -2141,6 +2150,7 @@ function AIHelperSection() {
   return (
     <SectionShell
       id="ai-helper"
+      tourTarget="settings-ai-helper-section"
       title="AI Helper"
       description="Train your own AI chatbot to know ResearchOS inside out. Paste this prompt into Claude, ChatGPT, or Gemini and the chatbot becomes a schema-aware support assistant."
     >
@@ -2153,9 +2163,24 @@ function AIHelperSection() {
               const selected = selectedSize === opt.value;
               const sizeBytes = manifest?.sizes[opt.value]?.bytes;
               const sizeTokens = manifest?.sizes[opt.value]?.tokens;
+              // Onboarding v4 §6.10 walkthrough anchors. The
+              // TOUR_TARGETS registry uses "medium" as the slug for the
+              // middle-sized option (which is `lean` here — the
+              // recommended ~10k-token build). Map `full`/`lean`/
+              // `minimal` -> `tab-full`/`tab-medium`/`tab-minimal` so
+              // the cursor demo can address each tile by name.
+              const tourTarget =
+                opt.value === "full"
+                  ? "settings-ai-helper-tab-full"
+                  : opt.value === "lean"
+                    ? "settings-ai-helper-tab-medium"
+                    : opt.value === "minimal"
+                      ? "settings-ai-helper-tab-minimal"
+                      : undefined;
               return (
                 <label
                   key={opt.value}
+                  data-tour-target={tourTarget}
                   className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
                     selected
                       ? "border-blue-300 bg-blue-50"
@@ -2191,6 +2216,7 @@ function AIHelperSection() {
             type="button"
             onClick={handleCopy}
             disabled={!promptReady}
+            data-tour-target="settings-ai-helper-copy"
             className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg"
           >
             {loadingSize === selectedSize

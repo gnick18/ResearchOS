@@ -90,6 +90,7 @@ export default function AnimationSettingsPopup({
               <button
                 key={type}
                 onClick={(e) => handleSelectAnimation(type, e)}
+                data-animation-theme={type}
                 className={`flex items-center gap-2 p-3 rounded-lg border-2 transition-all ${
                   isSelected
                     ? "border-purple-400 bg-purple-50 shadow-sm"

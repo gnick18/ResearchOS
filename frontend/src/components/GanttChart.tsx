@@ -662,6 +662,27 @@ export default function GanttChart({
     });
   }, [filteredTasks]);
 
+  // §6.8 onboarding-v4 walkthrough anchors. The chained-deps demo step
+  // spawns three tasks named per `DEP_CHAIN_NAMES` ("BeakerBot Boil",
+  // "BeakerBot Brew", "BeakerBot Sip") and the cursor script targets
+  // them via `[data-tour-target='gantt-demo-bar-{0,1,2}']`. Match by
+  // task name so the attrs only land on the demo bars (not arbitrary
+  // user tasks). `gantt-first-task-bar` lands on the very first sorted
+  // bar so the early Gantt step always has an anchor regardless of
+  // whether the demo tasks exist yet.
+  const DEMO_BAR_NAMES = ["BeakerBot Boil", "BeakerBot Brew", "BeakerBot Sip"];
+  const demoBarIndexByKey = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const t of sortedTasks) {
+      const idx = DEMO_BAR_NAMES.indexOf(t.name);
+      if (idx >= 0 && !map.has(taskKey(t))) {
+        map.set(taskKey(t), idx);
+      }
+    }
+    return map;
+  }, [sortedTasks]);
+  const firstTaskKey = sortedTasks.length > 0 ? taskKey(sortedTasks[0]) : null;
+
   // Check if a task has dependents (children). Dependencies are loaded only
   // from the viewer's own directory, so a shared task never has dependents
   // here even if its numeric id collides with one of the viewer's own.
@@ -1178,7 +1199,7 @@ export default function GanttChart({
   }
 
   return (
-    <div className="flex-1 overflow-auto bg-gray-50 p-4 relative" ref={containerRef}>
+    <div className="flex-1 overflow-auto bg-gray-50 p-4 relative" data-tour-target="gantt-timeline" ref={containerRef}>
       {/* Shift Confirmation Modal */}
       {showShiftConfirm && shiftResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
@@ -1584,6 +1605,25 @@ export default function GanttChart({
                           const taskColor = baseColor;
 
                           const isTaskDragged = draggedTask !== null && taskKey(draggedTask) === tk;
+                          // §6.8 walkthrough anchors (computed once per
+                          // sortedTasks above). `demoBarIdx` only lands
+                          // when the task name matches one of
+                          // `DEP_CHAIN_NAMES`; `isFirstTaskBar` only
+                          // lands on the first bar's first weekly slice.
+                          // Guard both attrs with `weekIdx === 0` so a
+                          // task spanning multiple weeks only emits the
+                          // attr once (querySelector picks the first
+                          // match, but duplicate attrs would confuse
+                          // CSS selectors and screen readers).
+                          const demoBarIdx =
+                            weekIdx === 0 ? demoBarIndexByKey.get(tk) : undefined;
+                          const isFirstTaskBar = firstTaskKey === tk && weekIdx === 0;
+                          const tourTarget =
+                            demoBarIdx !== undefined
+                              ? `gantt-demo-bar-${demoBarIdx}`
+                              : isFirstTaskBar
+                                ? "gantt-first-task-bar"
+                                : undefined;
 
                           return (
                             <div
@@ -1597,6 +1637,7 @@ export default function GanttChart({
                               {/* Task bar */}
                               <div
                                 ref={(el) => registerTaskElement(tk, el, weekIdx, rowNum, spanInfo)}
+                                data-tour-target={tourTarget}
                                 draggable={!isLabMode}
                                 onDragStart={isLabMode ? undefined : (e) => handleDragStart(e, task)}
                                 onDragEnd={isLabMode ? undefined : handleDragEnd}

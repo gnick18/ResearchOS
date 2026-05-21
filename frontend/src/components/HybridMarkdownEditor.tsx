@@ -2068,6 +2068,7 @@ export default function HybridMarkdownEditor({
         
         <div
           ref={containerRef}
+          data-tour-target="hybrid-editor-textarea"
           className="hybrid-editor p-4 min-h-0 h-full overflow-y-auto cursor-text flex-1"
           onClick={() => {
             if (!disabled && editingBlockOffset === null) {
@@ -2262,7 +2263,7 @@ export default function HybridMarkdownEditor({
         </div>
       )}
       
-      <div ref={containerRef} className="hybrid-editor p-4 min-h-0 h-full overflow-y-auto flex-1">
+      <div ref={containerRef} data-tour-target="hybrid-editor-textarea" className="hybrid-editor p-4 min-h-0 h-full overflow-y-auto flex-1">
         {blocks.map((block) => renderBlock(block))}
         
         {/* Add new block button at the end */}
