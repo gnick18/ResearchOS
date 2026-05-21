@@ -42,7 +42,7 @@ import { autoAdvanceAfter, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 
 export const PLACEHOLDER_HYPOTHESIS =
-  "Test the hypothesis that BeakerBot scales linearly.";
+  "You are smart, confident, and capable of anything you put your mind to. - BeakerBot";
 
 export const projectOverviewStep = buildWalkthroughStep({
   id: "project-overview-prose",

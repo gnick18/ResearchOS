@@ -66,6 +66,7 @@ export default function NotificationBadge({ pill = false }: NotificationBadgePro
       <Tooltip label="Notifications" placement="bottom">
         <button
           aria-label="Notifications"
+          data-tour-target="notifications-bell"
           onClick={() => setShowPopup(!showPopup)}
           className={`relative transition-colors ${
             pill
