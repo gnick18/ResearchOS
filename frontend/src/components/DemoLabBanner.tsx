@@ -139,7 +139,7 @@ export default function DemoLabBanner() {
           {isTutorial
             ? "This is a practice tab. Your real folder is still safe in the original tab — come back any time."
             : isInBrowserDemo
-            ? "Edits stay in this browser tab and disappear on reload. Save them as a starter folder before you leave."
+            ? "Edits stay in this browser tab and reset when you leave the demo."
             : "This data is fake, generated for tutorial purposes. Connect a different folder to use ResearchOS for real research."}{" "}
           <a
             href="/wiki/getting-started/connecting-your-folder"
