@@ -159,13 +159,24 @@
  * the visible motion is left-down, right-down, left-down ... reading as
  * "two hands hammering keys in alternation."
  *
- * Same transform-box: view-box pitfall as .typeHand. The -1.5% travel
- * resolves to 0.6 view-box units (~1.8px at 120px); this is a "hand
- * tap," not a "scattered dot jumping a quarter of the SVG." See
- * commit 272dd3da for the trap writeup and the original .typeHand fix.
+ * Redesigned 2026-05-21 (Grant: the v1 hand pulse was visually
+ * imperceptible). Two changes from v1:
+ *   1. Hammer DOWN, not up. Hands rest off the keyboard and tap down
+ *      onto it. Reads more like typing than the v1 "lift then return."
+ *   2. ABSOLUTE units (translateY in px, evaluated against the SVG
+ *      user-space because the wrapper sets `transform-box: view-box`),
+ *      not percent translates. With transform-box: view-box, a px
+ *      translate is interpreted as user-space units against the SVG
+ *      view-box, so 2px == 2 view-box units == ~6px of visible travel
+ *      at the 120px tour display size. Percent translates resolve
+ *      against the 40-unit view-box height under transform-box: view-box,
+ *      which is the trap that produced the v4 6.2 scattered-dots bug
+ *      (commit 272dd3da). Staying in px keeps the travel cleanly
+ *      readable as a hammer.
  *
- * Left hand: starts down at 0% (hammer impact at the start of the cycle).
- * Right hand: same keyframe, but phase-shifted by 50% via an
+ * Left hand: starts up, hammers down 50% into the cycle (impact mid-
+ *            cycle), returns to rest.
+ * Right hand: same keyframe, phase-shifted by 50% via an
  *             animation-delay of -120ms on the .typeHandRight rule
  *             below. Using a negative delay starts the animation
  *             mid-cycle on first paint, avoiding the 120ms of "neither
@@ -173,12 +184,9 @@
 @keyframes beakerBotTypeHandLaptopLeft {
   0%,
   100% {
-    transform: translateY(0);
+    transform: translateY(-2px);
   }
-  20% {
-    transform: translateY(-1.5%);
-  }
-  40% {
+  50% {
     transform: translateY(0);
   }
 }
@@ -614,16 +622,18 @@
 /* Typing-on-laptop sub-element animations. Both hands share the same
  * keyframe + duration; .typeHandRight uses a negative animation-delay
  * to phase-shift its cycle by 50%, so left and right hammer in
- * alternation. */
+ * alternation.
+ *
+ * Note no `transform-box: view-box` and no percent translates: the
+ * keyframe uses absolute px values which the browser interprets in the
+ * inner SVG's user-space (1px == 1 view-box unit at this nesting),
+ * giving a clean 2-unit hand hammer that reads as ~6px of pixel travel
+ * at the 120px tour display size. */
 .typeHandLeft.animated {
-  transform-origin: 26px 30px;
-  transform-box: view-box;
   animation: beakerBotTypeHandLaptopLeft 240ms ease-in-out infinite;
 }
 
 .typeHandRight.animated {
-  transform-origin: 32px 30px;
-  transform-box: view-box;
   animation: beakerBotTypeHandLaptopLeft 240ms ease-in-out infinite;
   animation-delay: -120ms;
 }

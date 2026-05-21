@@ -326,8 +326,12 @@ describe("ProjectOverviewStep (§6.2 prose)", () => {
       "[data-tour-target=\"project-overview-textarea\"]",
     );
   });
-  it("uses pose: typing", () => {
-    expect(projectOverviewStep.pose).toBe("typing");
+  it("uses pose: typing-on-laptop", () => {
+    // Updated 2026-05-21: the §6.2 ProjectOverviewStep was migrated to
+    // the clearer typing-on-laptop pose (commit 89bb9ec8) so the user
+    // sees two hands hammering a side-profile keyboard slab rather than
+    // the vague single-hand pulse of the bare `typing` pose.
+    expect(projectOverviewStep.pose).toBe("typing-on-laptop");
   });
   it("speech promises BeakerBot will type a hypothesis", () => {
     expect(renderSpeech(projectOverviewStep)).toMatch(

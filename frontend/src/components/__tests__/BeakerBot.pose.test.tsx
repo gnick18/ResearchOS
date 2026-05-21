@@ -463,37 +463,42 @@ describe("BeakerBot yawn pose", () => {
 });
 
 /**
- * Typing-on-laptop pose: clearer typing variant added 2026-05-21 (Grant
- * feedback: the bare hand-pulse `typing` pose wasn't reading clearly as
- * "typing on a keyboard"). The pose adds a small laptop SVG in front of
- * BeakerBot and renders two arms reaching down to it. Both hand dots
- * animate on a 240ms keyframe with a 50% phase offset so the visible
- * motion reads as alternating keyboard hammers.
+ * Typing-on-laptop pose: side-profile L variant redesigned 2026-05-21
+ * (Grant feedback: the v1 front-view laptop made BeakerBot look like he
+ * was reaching across a wall, and the percent-translate hand pulse was
+ * imperceptible at the v4 tour's 120px display size).
+ *
+ * v2 geometry: the laptop is shown FROM THE SIDE as an L (one vertical
+ * rect = back of the screen, one horizontal rect = keyboard slab). No
+ * screen content, no keyboard detail. BeakerBot's two arms reach down
+ * onto the horizontal portion and the hand dots hammer in alternation
+ * with absolute-px keyframes (~2-unit travel, ~6px at 120px).
  */
 describe("BeakerBot typing-on-laptop pose", () => {
-  // Laptop body uses fill="#374151" (dark gray) on the screen bezel +
-  // base. No other pose uses this fill color, so it's a clean signal
-  // that the laptop is mounted.
+  // Laptop body uses fill="#374151" (dark gray) on both the vertical
+  // and horizontal portions of the L. No other pose uses this fill
+  // color, so it's a clean signal that the laptop is mounted.
   const LAPTOP_BODY_FILL = "#374151";
 
-  it("renders the laptop screen + base rects when pose=typing-on-laptop", () => {
+  it("renders the L's vertical + horizontal rects when pose=typing-on-laptop", () => {
     const { container } = render(<BeakerBot pose="typing-on-laptop" />);
     const rects = container.querySelectorAll("rect");
     const laptopRects = Array.from(rects).filter(
       (r) => r.getAttribute("fill") === LAPTOP_BODY_FILL,
     );
-    // Two laptop body rects: the screen bezel and the keyboard base.
+    // Two laptop body rects forming an L: vertical screen-side bar +
+    // horizontal keyboard slab.
     expect(laptopRects.length).toBe(2);
   });
 
-  it("renders two hand dots (one at x=26, one at x=32) when pose=typing-on-laptop", () => {
+  it("renders two hand dots on the keyboard slab (cx=28 and cx=33, cy=30) when pose=typing-on-laptop", () => {
     const { container } = render(<BeakerBot pose="typing-on-laptop" />);
     const circles = Array.from(container.querySelectorAll("circle"));
     const leftHand = circles.filter(
-      (c) => c.getAttribute("cx") === "26" && c.getAttribute("cy") === "30",
+      (c) => c.getAttribute("cx") === "28" && c.getAttribute("cy") === "30",
     );
     const rightHand = circles.filter(
-      (c) => c.getAttribute("cx") === "32" && c.getAttribute("cy") === "30",
+      (c) => c.getAttribute("cx") === "33" && c.getAttribute("cy") === "30",
     );
     expect(leftHand.length).toBe(1);
     expect(rightHand.length).toBe(1);
@@ -549,7 +554,7 @@ describe("BeakerBot typing-on-laptop pose", () => {
     const circles = Array.from(container.querySelectorAll("circle"));
     const hands = circles.filter(
       (c) =>
-        (c.getAttribute("cx") === "26" || c.getAttribute("cx") === "32") &&
+        (c.getAttribute("cx") === "28" || c.getAttribute("cx") === "33") &&
         c.getAttribute("cy") === "30",
     );
     expect(hands.length).toBe(2);
@@ -564,12 +569,16 @@ describe("BeakerBot typing-on-laptop pose", () => {
     }
   });
 
-  it("typing-on-laptop hand keyframe uses a small percentage (transform-box: view-box trap guard)", async () => {
-    // Same guard as the .typeHand test above: under transform-box:
-    // view-box, translateY(%) resolves against the 40-unit view-box
-    // height, not the wrapped element's bounding box. A large
-    // percentage produces the v4 §6.2 scattered-dots bug. The
-    // two-hand keyframe must stay below 5% magnitude.
+  it("typing-on-laptop hand keyframe uses absolute px units, not percent (view-box trap guard)", async () => {
+    // v2 rewrite (Grant: the v1 -1.5% pulse was visually imperceptible
+    // at the 120px tour display size). The keyframe now uses absolute
+    // px translates which the browser interprets in the inner SVG's
+    // user-space, so 2px == 2 view-box units == ~6px of visible hand
+    // travel at 120px. The trap we keep guarding against: percent
+    // translates inside a `transform-box: view-box` rule resolve
+    // against the 40-unit view-box and produce the v4 6.2 scattered-
+    // dots bug (commit 272dd3da). This test pins the keyframe to px
+    // and forbids any percent translate from sneaking back in.
     const fs = await import("node:fs/promises");
     const path = await import("node:path");
     const cssPath = path.resolve(__dirname, "..", "BeakerBot.module.css");
@@ -582,11 +591,41 @@ describe("BeakerBot typing-on-laptop pose", () => {
       "beakerBotTypeHandLaptopLeft keyframe should be defined",
     ).not.toBeNull();
     const block = match![0];
+    // Forbid percent translates inside the keyframe.
     const percents = Array.from(
-      block.matchAll(/translateY\(\s*(-?\d+(?:\.\d+)?)%\s*\)/g),
+      block.matchAll(/translate[XY]?\(\s*-?\d+(?:\.\d+)?%/g),
+    );
+    expect(
+      percents.length,
+      "keyframe must not use percent translates (view-box trap)",
+    ).toBe(0);
+    // Require at least one absolute-px translate, and pin its magnitude
+    // to the readable hammer range (1.5..3 units).
+    const pxValues = Array.from(
+      block.matchAll(/translateY\(\s*(-?\d+(?:\.\d+)?)px\s*\)/g),
     ).map((m) => Math.abs(Number(m[1])));
-    expect(percents.length).toBeGreaterThan(0);
-    expect(Math.max(...percents)).toBeLessThan(5);
+    expect(pxValues.length).toBeGreaterThan(0);
+    const maxPx = Math.max(...pxValues);
+    expect(maxPx).toBeGreaterThanOrEqual(1.5);
+    expect(maxPx).toBeLessThanOrEqual(3);
+  });
+
+  it("typing-on-laptop hand wrappers do NOT set transform-box: view-box (forces user-space px interpretation)", async () => {
+    // Pair to the keyframe test above. With `transform-box: view-box`
+    // the browser would still resolve px in user-space, but the brief
+    // calls for "straight transform on the hand's <g> element with
+    // absolute SVG values" — i.e. no view-box mapping on the wrapper.
+    // Pin both .typeHandLeft and .typeHandRight to that contract.
+    const fs = await import("node:fs/promises");
+    const path = await import("node:path");
+    const cssPath = path.resolve(__dirname, "..", "BeakerBot.module.css");
+    const css = await fs.readFile(cssPath, "utf8");
+    const leftBlock = css.match(/\.typeHandLeft\.animated\s*\{[\s\S]*?\n\}/);
+    const rightBlock = css.match(/\.typeHandRight\.animated\s*\{[\s\S]*?\n\}/);
+    expect(leftBlock).not.toBeNull();
+    expect(rightBlock).not.toBeNull();
+    expect(leftBlock![0]).not.toMatch(/transform-box\s*:\s*view-box/);
+    expect(rightBlock![0]).not.toMatch(/transform-box\s*:\s*view-box/);
   });
 });
 

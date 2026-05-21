@@ -633,73 +633,66 @@ export default function BeakerBot({
         </>
       )}
 
-      {/* Typing-on-laptop: clearer typing pose. A small laptop sits in
-       *  front of BeakerBot, his two arms reach forward to the keyboard,
-       *  and each hand dot alternates hammering down (left at 0%, right
-       *  at 50% of a 240ms cycle). Reads as "BeakerBot typing at a
-       *  laptop" instead of the vague single-hand pulse of `typing`.
+      {/* Typing-on-laptop: simple side-profile L pose. We are looking at
+       *  the laptop FROM THE SIDE, so the laptop reduces to an L: a
+       *  short vertical bar (the screen panel seen edge-on) plus a
+       *  horizontal slab (the keyboard surface seen edge-on). No screen
+       *  content, no keyboard detail. BeakerBot stands behind the L,
+       *  leaning slightly forward, and his two arms reach DOWN onto the
+       *  horizontal portion of the L so each hand can hammer up and
+       *  down on the keyboard surface in alternation.
+       *
+       *  Redesigned 2026-05-21 (Grant feedback on the v1 front-view
+       *  laptop): the front-view rectangle made BeakerBot read as
+       *  "reaching across a wall" rather than typing on a horizontal
+       *  surface, and the small -1.5% percent translates didn't move
+       *  the hands visibly at the v4 tour's 120px display size.
        *
        *  Geometry (SVG viewBox 0..40):
-       *    Screen panel: x=22..34, y=22..30 (dark gray #374151, light
-       *                  blue inner screen #A6D2F4 at x=22.8..33.2,
-       *                  y=22.6..29.4).
-       *    Base/keyboard: x=20..36, y=30..32 (dark gray #374151).
-       *    Left arm: from (28, 22) to (26, 30), left hand dot at
-       *              (26, 30).
-       *    Right arm: from (28, 22) to (32, 30), right hand dot at
-       *               (32, 30).
+       *    L vertical bar (screen edge): x=23..24.5, y=22..30
+       *                                  (1.5 x 8 units, dark gray #374151).
+       *    L horizontal slab (keyboard edge): x=23..36.5, y=30..31.5
+       *                                  (13.5 x 1.5 units, dark gray #374151).
+       *    Left arm: shoulder (28, 22) down to hand at (28, 30).
+       *    Right arm: shoulder (28, 22) down to hand at (33, 30).
        *
-       *  Why small percentages on the hand-hammer keyframes: the
-       *  transform-box: view-box pitfall (commit 272dd3da). At -1.5%
-       *  each hand dot moves 0.6 view-box units (~1.8px at 120px),
-       *  which reads as a clean keyboard hammer; -30% would resolve to
-       *  12 view-box units and produce the scattered-dots jump from the
-       *  v4 §6.2 bug. */}
+       *  Hand hammer animation uses ABSOLUTE SVG units (px on the
+       *  transform), not percentages. At BeakerBot's 120px display size
+       *  each SVG unit is 3px, so 2px of translate -> 6px visible
+       *  vertical hand travel, clearly readable as a "hammer." See
+       *  BeakerBot.module.css beakerBotTypeHandLaptopLeft for the
+       *  keyframe + the rationale for staying off percent translates
+       *  (the transform-box: view-box trap, commit 272dd3da). */}
       {effectivePose === "typing-on-laptop" && (
         <>
-          {/* Laptop screen panel (rear). Dark gray bezel with a light
-              blue "screen" inset to suggest the display BeakerBot is
-              looking at. */}
+          {/* Laptop side profile, vertical bar: the "back of the screen"
+              seen edge-on. No display surface, no inset color. */}
           <rect
-            x="22"
+            x="23"
             y="22"
-            width="12"
+            width="1.5"
             height="8"
-            rx="0.6"
-            ry="0.6"
             fill="#374151"
-            stroke="currentColor"
-            strokeWidth="0.5"
-          />
-          <rect
-            x="22.8"
-            y="22.6"
-            width="10.4"
-            height="6.8"
-            fill="#A6D2F4"
             stroke="none"
           />
-          {/* Laptop base / keyboard slab. Wider than the screen to read
-              as a laptop in 3/4 perspective; the screen sits on the
-              back edge of the base. */}
+          {/* Laptop side profile, horizontal slab: the keyboard surface
+              seen edge-on. The hands hammer ONTO this slab at y=30. */}
           <rect
-            x="20"
+            x="23"
             y="30"
-            width="16"
-            height="2"
-            rx="0.5"
-            ry="0.5"
+            width="13.5"
+            height="1.5"
             fill="#374151"
-            stroke="currentColor"
-            strokeWidth="0.5"
+            stroke="none"
           />
-          {/* Left arm: from body shoulder (28, 22) down-and-left to
-              the keyboard hand position (26, 30). */}
-          <path d="M28 22 L26 30" />
+          {/* Left arm: from body shoulder (28, 22) straight down to
+              the keyboard hand position (28, 30). */}
+          <path d="M28 22 L28 30" />
           {/* Right arm: from body shoulder (28, 22) down-and-right to
-              the keyboard hand position (32, 30). */}
-          <path d="M28 22 L32 30" />
-          {/* Left hand: hammers down at 0% of the cycle. */}
+              the keyboard hand position (33, 30). */}
+          <path d="M28 22 L33 30" />
+          {/* Left hand: hammers down at 0% of the cycle. The hand dot
+              sits on the top edge of the horizontal slab (y=30). */}
           <g
             className={
               animated
@@ -707,7 +700,7 @@ export default function BeakerBot({
                 : undefined
             }
           >
-            <circle cx="26" cy="30" r="0.9" fill="currentColor" stroke="none" />
+            <circle cx="28" cy="30" r="0.9" fill="currentColor" stroke="none" />
           </g>
           {/* Right hand: hammers down at 50% of the cycle (so the two
               hands alternate, ~120ms apart on a 240ms cycle). */}
@@ -718,7 +711,7 @@ export default function BeakerBot({
                 : undefined
             }
           >
-            <circle cx="32" cy="30" r="0.9" fill="currentColor" stroke="none" />
+            <circle cx="33" cy="30" r="0.9" fill="currentColor" stroke="none" />
           </g>
         </>
       )}
