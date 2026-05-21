@@ -1,7 +1,7 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { FileSystemProvider, useFileSystem, isFileSystemAccessSupported } from "@/lib/file-system/file-system-context";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
@@ -17,6 +17,60 @@ import LabTourResumePrompt from "@/components/onboarding/v3/LabTourResumePrompt"
 import V4MountForUser from "@/components/onboarding/v4/V4MountForUser";
 import CelebrationManager from "@/components/onboarding/CelebrationManager";
 import { initializeErrorHandlers } from "@/lib/error-reporting";
+import { projectsApi } from "@/lib/local-api";
+
+/**
+ * One-shot orphan-project sweep on first sign-in this session.
+ *
+ * Reads through the current user's projects/ folder and removes any
+ * record that has no integer id OR a blank name. Fires once per
+ * (page-load, username) pair; a subsequent username switch (rare in
+ * practice, but possible from the user picker) re-fires for the new
+ * user. Lab Mode and demo / wiki-capture modes are gated out at the
+ * caller in AppContent — this component only mounts when a real
+ * signed-in user is selected on a real folder.
+ *
+ * Why this lives here rather than in a useEffect inside the home page:
+ * the home page is one of several entry points (the user might land on
+ * /workbench, /pcr, /settings from a bookmark), and we want the cleanup
+ * regardless of where the first render happens. Mounting here also
+ * means the React Query cache invalidations the home page does on
+ * mount will see the post-cleanup state on the very first fetch.
+ *
+ * Failures are logged but never user-visible: a malformed-record sweep
+ * failure cannot block the rest of the app, and the home page's
+ * always-visible kebab + banner on orphan cards is the fallback
+ * recovery path. (orphan v2 sub-bot, 2026-05-21)
+ */
+function OrphanProjectSweep({ currentUser }: { currentUser: string }) {
+  const sweptForUser = useRef<string | null>(null);
+  useEffect(() => {
+    if (!currentUser) return;
+    if (sweptForUser.current === currentUser) return;
+    sweptForUser.current = currentUser;
+    void (async () => {
+      try {
+        const removed = await projectsApi.purgeMalformed();
+        if (removed.length > 0) {
+          console.warn(
+            `[OrphanProjectSweep] purged ${removed.length} malformed project file(s) for user "${currentUser}":`,
+            removed,
+          );
+        } else {
+          console.log(
+            `[OrphanProjectSweep] no malformed project files found for user "${currentUser}"`,
+          );
+        }
+      } catch (err) {
+        console.error(
+          `[OrphanProjectSweep] sweep failed for user "${currentUser}":`,
+          err,
+        );
+      }
+    })();
+  }, [currentUser]);
+  return null;
+}
 
 function AppContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -196,6 +250,12 @@ function AppContent({ children }: { children: ReactNode }) {
   const isLabUser = currentUser.toLowerCase() === "lab";
   return (
     <QueryClientProvider client={queryClient}>
+      {/* Once-per-session orphan-project sweep. Mounted as a sibling of
+          OnboardingProvider so it runs whether the user lands on /home,
+          /workbench, or any other route on their first paint. Skipped
+          for the lab pseudo-user since the lab namespace doesn't host
+          per-user projects in the same shape. (orphan v2 sub-bot) */}
+      {!isLabUser && <OrphanProjectSweep currentUser={currentUser} />}
       <OnboardingProvider currentUser={currentUser}>
         {isLabUser ? (
           <>

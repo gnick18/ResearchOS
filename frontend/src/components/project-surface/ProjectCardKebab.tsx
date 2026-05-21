@@ -101,7 +101,14 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
     setDeleting(true);
     try {
       if (isMalformedRecord) {
-        const removed = await projectsApi.purgeMalformed();
+        // purgeMalformed lives on the raw module-level projectsApi
+        // (not on the owner-routed wrapper above — the wrapper only
+        // exposes update/archive/delete because those are the only
+        // owner-routed mutations). Calling it via the wrapper used to
+        // throw "projectsApi.purgeMalformed is not a function" and
+        // surface as an alert to the user, which is exactly the
+        // "blocked from deleting" symptom Grant hit. (orphan v2 fix)
+        const removed = await rawProjectsApi.purgeMalformed();
         if (removed.length === 0) {
           throw new Error("No malformed records found to purge");
         }
@@ -127,10 +134,18 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
   // has nothing to offer either. Suppress entirely.
   if (isMiscellaneousProject) return null;
 
+  // Malformed records: keep the kebab visible (no opacity-0) so a user
+  // doesn't have to discover hover to find the Delete action on a card
+  // that has no name to indicate why it's there. The whole point of the
+  // visible kebab on these cards is "you can clean this up". (orphan v2)
+  const kebabVisibilityClass = isMalformedRecord
+    ? "opacity-100"
+    : "opacity-0 group-hover:opacity-100 focus-within:opacity-100";
+
   return (
     <div
       ref={menuRef}
-      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity z-10"
+      className={`absolute top-2 right-2 transition-opacity z-10 ${kebabVisibilityClass}`}
       onClick={stop}
     >
       <button

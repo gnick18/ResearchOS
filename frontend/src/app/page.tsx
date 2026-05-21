@@ -523,10 +523,47 @@ export default function HomePage() {
                   style={{ backgroundColor: displayColor }}
                 />
 
+                {/* Malformed-record banner. A project file on disk with a
+                    blank name or a bad id renders as a ghost card; before
+                    the orphan v2 pass the user had no clue what they were
+                    looking at. The banner labels it explicitly and points
+                    at the kebab so the cleanup action is obvious. The
+                    banner does NOT navigate (the parent's onClick still
+                    fires on the rest of the card, but the user will
+                    almost always reach for the kebab Delete first when
+                    they see this). The startup auto-purge in providers
+                    should mean this banner is rarely seen, but if it
+                    does surface, the affordance is clear. */}
+                {(!project.name || project.name.trim().length === 0) && (
+                  <div className="bg-red-50 border-b border-red-200 px-4 py-2 flex items-center gap-2">
+                    <svg
+                      className="w-4 h-4 text-red-500 flex-shrink-0"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                      aria-hidden="true"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <span className="text-xs font-medium text-red-700">
+                      Orphan project, click the kebab to clean up
+                    </span>
+                  </div>
+                )}
+
                 <div className="p-5">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-base font-semibold text-gray-900">
-                      {project.name}
+                      {project.name && project.name.trim().length > 0
+                        ? project.name
+                        : (
+                          <span className="italic text-gray-400">
+                            (unnamed project)
+                          </span>
+                        )}
                     </h3>
                     <div className="flex items-center gap-2">
                       {project.weekend_active && (

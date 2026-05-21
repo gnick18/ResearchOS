@@ -155,6 +155,20 @@ export const projectsApi = {
    * (home cards, search index, share manifests) rely on for a visible label.
    */
   create: async (data: ProjectCreate): Promise<Project> => {
+    // Orphan-project diagnostic instrumentation (orphan v2 sub-bot,
+    // 2026-05-21). Every call to projectsApi.create is logged with the
+    // incoming name AND a fresh stack trace so we can pinpoint which call
+    // site is responsible if a blank-name project surfaces again. The
+    // hard guard below still throws on empty names; this warn fires for
+    // ALL calls so legitimate creates also trace, giving a baseline to
+    // diff against. Console-only, no UI noise.
+    if (typeof console !== "undefined") {
+      const trace = new Error("projectsApi.create call-site trace").stack;
+      console.warn(
+        `[projectsApi.create] call with name=${JSON.stringify(data?.name)} (typeof=${typeof data?.name})`,
+        { input: data, stack: trace },
+      );
+    }
     if (!data.name || typeof data.name !== "string" || data.name.trim().length === 0) {
       throw new Error("projectsApi.create: name is required and cannot be empty");
     }
