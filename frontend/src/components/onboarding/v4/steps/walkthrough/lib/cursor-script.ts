@@ -136,6 +136,35 @@ export async function safeTypeAction(
 }
 
 /**
+ * Build a glide action to the center of the element matching `selector`,
+ * waiting for the target to mount. Resolves the element's center via
+ * `getBoundingClientRect` at script-build time, so the resulting `glide`
+ * action carries fixed coords (no re-layout once the script is dispatched).
+ *
+ * Used by hover-tour bodies (the §6.4b method-type breadth tour) where
+ * the cursor visits multiple tiles in sequence without clicking. Each
+ * `glide` blocks for the cursor's configured glideMs (default 1000ms),
+ * which provides the natural "linger on each tile" beat. There is no
+ * separate sleep / pause primitive on the cursor.
+ *
+ * Returns `null` if the target never mounts; caller filters with
+ * `compactScript`.
+ */
+export async function safeGlideToElementAction(
+  selector: string,
+  timeoutMs?: number,
+): Promise<CursorAction | null> {
+  const el = await waitForElement(selector, timeoutMs);
+  if (!el) return null;
+  const rect = el.getBoundingClientRect();
+  return {
+    type: "glide",
+    x: rect.left + rect.width / 2,
+    y: rect.top + rect.height / 2,
+  };
+}
+
+/**
  * Build a drag action between two selectors, waiting for both to mount.
  * Returns `null` if either selector misses — caller filters nulls.
  */

@@ -42,7 +42,10 @@ import { notificationsDeleteStep } from "../NotificationsDeleteStep";
 import { methodsCategoryStep } from "../MethodsCategoryStep";
 import { methodsCategoryPromptStep } from "../MethodsCategoryPromptStep";
 import { methodsOpenPickerStep } from "../MethodsOpenPickerStep";
-import { methodsBreadthStep } from "../MethodsBreadthStep";
+import {
+  methodsBreadthStep,
+  METHODS_BREADTH_TILE_TARGETS,
+} from "../MethodsBreadthStep";
 import { methodsCreateStep, FUNNY_METHOD_NAME } from "../MethodsCreateStep";
 import {
   workbenchCreateExperimentStep,
@@ -460,6 +463,87 @@ describe("Methods steps (§6.4)", () => {
     const speech = renderSpeech(methodsBreadthStep);
     expect(speech).toMatch(/PCR/);
     expect(speech).toMatch(/Compound/);
+  });
+  it("breadth step speech uses concrete language (v4 sec 6.4b rewrite, 2026-05-21)", () => {
+    // Grant's 2026-05-21 feedback on the previous body: it leaned on
+    // jargon ("kit", "downstream protocol"). The rewrite drops both
+    // phrases and uses a concrete PCR + gel electrophoresis example
+    // for the Compound paragraph. Lock the new phrasing so a future
+    // copy edit that re-introduces the jargon gets surfaced.
+    const speech = renderSpeech(methodsBreadthStep);
+    expect(speech).toMatch(/editable graphic/);
+    expect(speech).toMatch(/gel electrophoresis/);
+    expect(speech).not.toMatch(/downstream protocol/);
+    expect(speech).not.toMatch(/Just FYI/);
+  });
+  it("breadth step hover sweep targets the visible method-type tiles", async () => {
+    // The cursor script glides to each picker tile in sequence so the
+    // user sees that each type is its own editable graphic. Mount a
+    // fixture per tile, run the script, and assert the produced
+    // CursorAction[] visits them in declared order. Each tile's rect
+    // is stubbed so the glide coords are deterministic.
+    const fixtures: Array<{ el: HTMLElement; cleanup: () => void }> = [];
+    try {
+      METHODS_BREADTH_TILE_TARGETS.forEach((slug, idx) => {
+        const el = document.createElement("button");
+        el.setAttribute("data-tour-target", slug);
+        // Stub each rect so jsdom returns real coords (idx-shifted so
+        // the assertions can distinguish them).
+        const top = 100 + idx * 50;
+        el.getBoundingClientRect = () =>
+          ({
+            left: 0,
+            top,
+            width: 100,
+            height: 50,
+            right: 100,
+            bottom: top + 50,
+            x: 0,
+            y: top,
+            toJSON() {
+              return {};
+            },
+          }) as DOMRect;
+        document.body.appendChild(el);
+        fixtures.push({
+          el,
+          cleanup: () => {
+            el.remove();
+          },
+        });
+      });
+      // Also mount the picker container the script awaits on.
+      const picker = document.createElement("div");
+      picker.setAttribute("data-tour-target", "methods-type-picker");
+      document.body.appendChild(picker);
+      fixtures.push({
+        el: picker,
+        cleanup: () => {
+          picker.remove();
+        },
+      });
+      expect(methodsBreadthStep.cursorScript).toBeDefined();
+      const actions = await methodsBreadthStep.cursorScript!();
+      expect(actions).toHaveLength(METHODS_BREADTH_TILE_TARGETS.length);
+      actions.forEach((action, idx) => {
+        expect(action.type).toBe("glide");
+        if (action.type === "glide") {
+          // Center is (50, top + 25) per the stubbed rect.
+          expect(action.x).toBe(50);
+          expect(action.y).toBe(100 + idx * 50 + 25);
+        }
+      });
+    } finally {
+      for (const f of fixtures) f.cleanup();
+    }
+  });
+  it("breadth step omits Compound from the hover sweep (hiddenFromPicker)", () => {
+    // The registry marks `compound` hiddenFromPicker because compounds
+    // are reached by extending an existing method, not via the +New
+    // Method picker. The hover sweep must therefore not list it; if a
+    // future registry change unhides Compound, this test fails so the
+    // step list gets re-audited intentionally.
+    expect(METHODS_BREADTH_TILE_TARGETS).not.toContain("method-type-compound");
   });
   it("methods-create step uses the funny coffee protocol name", () => {
     expect(FUNNY_METHOD_NAME).toMatch(/Coffee Brewing/);

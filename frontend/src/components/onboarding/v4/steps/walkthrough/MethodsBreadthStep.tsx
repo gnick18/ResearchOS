@@ -1,76 +1,127 @@
 /**
- * §6.4b + §6.4c Methods page — type-breadth tour + compound method
- * peek. The two sub-steps live in one body because the cursor flow
- * runs continuously: open the type picker, hover across PCR / LC
- * Gradient / Plate / Cell Culture / Mass Spec / qPCR / Sequencing /
- * Coding / Compound, briefly open PCR + LC Gradient builders to show
- * they're editable graphics, then briefly open a Compound method to
- * narrate the bundling idea. No method gets saved here — the cursor
- * always cancels back out before §6.4d takes over.
+ * §6.4b + §6.4c Methods page, type-breadth tour + Compound explanation.
  *
- * Speech bubble (combined from §6.4b + §6.4c, no em-dashes per Grant's
- * standing rule):
+ * Grant's 2026-05-21 feedback on the previous body: the speech leaned on
+ * jargon ("kit", "downstream protocol") and the cursor never visibly
+ * demonstrated that each method type is its own editable graphic. The
+ * cursor opened the picker and stopped there. This rewrite:
  *
- *   "Quick tour of method types. ResearchOS ships structured editors
- *    for PCR, LC Gradient, Plate layouts, Cell Culture, Mass Spec,
- *    qPCR, Sequencing, Coding, and Compound bundles. Watch the cursor
- *    hover, oh, see how each one is its own editable graphic.
+ *  1. Replaces the speech with concrete language, drops "sequencing"
+ *     (not a method type) and "Compound" from the hover-tour list since
+ *     Compound is hidden from the picker.
+ *  2. Adds a clearer Compound paragraph with a concrete two-method
+ *     example (PCR + gel electrophoresis) instead of the abstract
+ *     "kit / downstream protocol" framing.
+ *  3. Adds a real cursor demo: after the picker is open, the cursor
+ *     glides to each visible method-type tile in turn (PCR, LC Gradient,
+ *     Plate Layout, Cell Culture, Mass Spec, qPCR, Coding) so the user
+ *     can see them light up as the cursor passes over. Each glide blocks
+ *     for the cursor's configured glideMs (default 1000ms) which acts as
+ *     the per-tile pause. No tile is clicked, nothing is saved.
  *
- *    Sometimes you want a kit, a method that combines a blank plate
- *    layout with a downstream protocol. Build it once, reuse it across
- *    experiments. Just FYI for now."
+ * The Compound tile is omitted from the hover sweep because the registry
+ * marks it `hiddenFromPicker` (compounds are reached by extending an
+ * existing method, not as a standalone "+ New Method" choice). The
+ * speech still describes Compound prominently so users know it exists.
  *
- * Manual advance — there's no API event to listen for since nothing
- * persists; the cursor narrative is the whole step.
+ * Scope chosen: A (hover sweep across tiles). Scope B (clicking into
+ * PCR + LC Gradient builders to demonstrate editable wells / gradient
+ * rows, then closing back out) is Grant's "ideal" version but a heavier
+ * lift, since it requires navigating into the per-type builders,
+ * triggering an edit affordance, and exiting cleanly without persisting.
+ * Scope B is documented here as future work; the data-tour-target
+ * attributes on the tiles are reusable by a Scope B implementation
+ * (they'd add click + nested glide actions on the editor surface).
+ *
+ * Speech (no em-dashes per Grant's standing rule):
+ *
+ *   "ResearchOS has structured editors for common lab techniques: PCR,
+ *    qPCR, LC Gradient, Plate Layouts, Cell Culture, Mass Spec, and
+ *    Coding. Each one is its own editable graphic, not just a text
+ *    form. Watch, I'll move across them so you can see what I mean.
+ *
+ *    There's also a special type called Compound. It bundles multiple
+ *    methods together so you don't have to re-attach the same
+ *    combination every time. For example: if every experiment in your
+ *    lab starts with the same PCR setup followed by the same gel
+ *    electrophoresis, make a Compound that includes both. Attach the
+ *    Compound to an experiment and you get both methods at once, with
+ *    all their defaults pre-filled."
+ *
+ * Manual advance, no API event to listen for since nothing persists.
+ * The cursor narrative is the whole step.
  *
  * No artifact (transient hovers, no save).
  *
- * Classification: BEAKERBOT DEMO (per Grant's design correction
- * 2026-05-21). Speech is "Watch the cursor hover, see how each one is
- * its own editable graphic." The "Watch the cursor" framing is the
- * canonical demo signal. Cursor opens the picker as advertised.
+ * Classification: BEAKERBOT DEMO. Speech says "Watch, I'll move across
+ * them" so the cursor performs the hover sweep.
  */
 import {
   cursorScript,
-  safeClickAction,
+  safeGlideToElementAction,
   compactScript,
   waitForElement,
 } from "./lib/cursor-script";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 
+/**
+ * The kebab-case tile slugs the cursor hovers over, in display order.
+ * Matches `methodTypeTourSlug()` in `MethodTypePicker.tsx`. PCR leads
+ * since it's the most-recognised technique; the rest follow the
+ * registry's "Structured methods" group order. Compound is omitted
+ * because the registry hides it from the picker.
+ */
+export const METHODS_BREADTH_TILE_TARGETS = [
+  "method-type-pcr",
+  "method-type-lc-gradient",
+  "method-type-plate-layout",
+  "method-type-cell-culture",
+  "method-type-mass-spec",
+  "method-type-qpcr",
+  "method-type-coding",
+] as const;
+
 export const methodsBreadthStep = buildWalkthroughStep({
   id: "methods-type-tour",
   speech: (
     <>
       <p className="mb-2">
-        Quick tour of method types. ResearchOS ships structured editors
-        for PCR, LC Gradient, Plate layouts, Cell Culture, Mass Spec,
-        qPCR, Sequencing, Coding, and Compound bundles. Watch the
-        cursor hover, see how each one is its own editable graphic.
+        ResearchOS has structured editors for common lab techniques:
+        PCR, qPCR, LC Gradient, Plate Layouts, Cell Culture, Mass Spec,
+        and Coding. Each one is its own editable graphic, not just a
+        text form. Watch, I&apos;ll move across them so you can see
+        what I mean.
       </p>
       <p>
-        Sometimes you want a kit: a method that combines a blank plate
-        layout with a downstream protocol. Build it once, reuse it
-        across experiments. Just FYI for now.
+        There&apos;s also a special type called Compound. It bundles
+        multiple methods together so you don&apos;t have to re-attach
+        the same combination every time. For example: if every
+        experiment in your lab starts with the same PCR setup followed
+        by the same gel electrophoresis, make a Compound that includes
+        both. Attach the Compound to an experiment and you get both
+        methods at once, with all their defaults pre-filled.
       </p>
     </>
   ),
   pose: "thinking",
   targetSelector: targetSelector(TOUR_TARGETS.methodsTypePicker),
   cursorScript: cursorScript(async () => {
-    // Open the "+ New Method" picker.
-    const openPicker = await safeClickAction(
-      targetSelector(TOUR_TARGETS.methodsNewMethod),
+    // Wait for the picker to be visible (the open-picker beat
+    // immediately preceding this step opens it; in dev / replay it may
+    // already be open).
+    await waitForElement(targetSelector(TOUR_TARGETS.methodsTypePicker), 3000);
+    // Glide to each tile in sequence. Each glide takes the cursor's
+    // configured glideMs (default 1000ms) which provides the per-tile
+    // pause without a separate sleep primitive. Tiles that fail to
+    // resolve are silently filtered by compactScript, so the demo
+    // degrades gracefully if a method type ships hidden in the future.
+    const tileGlides = await Promise.all(
+      METHODS_BREADTH_TILE_TARGETS.map((slug) =>
+        safeGlideToElementAction(`[data-tour-target="${slug}"]`, 2000),
+      ),
     );
-    // The picker contains tile-style buttons for each method type. We
-    // can't reasonably hover-via-cursor for each one (the cursor API
-    // is glide+click+type+drag; there's no hover primitive in P2). The
-    // cursor glides to the picker, which is enough to signal "this is
-    // where the variety lives." Future refinement: add a hover
-    // primitive in P13.
-    await waitForElement(targetSelector(TOUR_TARGETS.methodsTypePicker), 2000);
-    return compactScript([openPicker]);
+    return compactScript(tileGlides);
   }),
   completion: manualAdvance("Got it, next"),
   expectedRoute: "/methods",

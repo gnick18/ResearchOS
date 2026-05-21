@@ -41,6 +41,35 @@ export function MethodTypeCategoryPicker({
   );
 }
 
+/**
+ * Map a `MethodTypeId` to the `data-tour-target` slug used by the
+ * Onboarding v4 walkthrough (§6.4b breadth tour). Kebab-cased, prefixed
+ * `method-type-`. The breadth-tour cursor script hovers each tile in
+ * sequence so users see that each type is its own editable graphic.
+ *
+ * Mapping rules:
+ *   - underscores become hyphens (lc_gradient -> lc-gradient)
+ *   - `plate` aliases to `plate-layout` per the breadth-step brief
+ *   - `qpcr_analysis` aliases to `qpcr`
+ *   - `coding_workflow` aliases to `coding`
+ *
+ * The aliases mirror how the speech bubble names the type ("Plate layouts",
+ * "qPCR", "Coding") so the v4 step body can list one canonical kebab key
+ * per type without leaking the internal `_analysis` / `_workflow` suffixes.
+ */
+export function methodTypeTourSlug(id: MethodTypeId): string {
+  switch (id) {
+    case "plate":
+      return "method-type-plate-layout";
+    case "qpcr_analysis":
+      return "method-type-qpcr";
+    case "coding_workflow":
+      return "method-type-coding";
+    default:
+      return `method-type-${id.replace(/_/g, "-")}`;
+  }
+}
+
 function MethodTypeSection({
   heading,
   types,
@@ -66,6 +95,7 @@ function MethodTypeSection({
               key={meta.id}
               type="button"
               onClick={() => onSelect(meta.id)}
+              data-tour-target={methodTypeTourSlug(meta.id)}
               className={`flex-1 min-w-[180px] text-left px-4 py-3 rounded-lg border transition-colors ${
                 selected
                   ? `${meta.color.bg} ${meta.color.text} border-current font-medium`

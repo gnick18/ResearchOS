@@ -12,6 +12,7 @@ import {
   safeClickAction,
   safeTypeAction,
   safeDragAction,
+  safeGlideToElementAction,
   waitForElement,
   tryQuery,
   compactScript,
@@ -172,6 +173,51 @@ describe("safeDragAction()", () => {
     const action = await safeDragAction(
       "[data-tour-target='nope-src']",
       "[data-tour-target='nope-dst']",
+      150,
+    );
+    expect(action).toBeNull();
+  });
+});
+
+describe("safeGlideToElementAction()", () => {
+  it("builds a glide action to the element's center", async () => {
+    const { el, cleanup } = mountFixture("glide-target", "div");
+    try {
+      // jsdom's default getBoundingClientRect returns zeros for an
+      // un-laid-out element; stub it so the helper has real coords to
+      // compute against.
+      el.getBoundingClientRect = () =>
+        ({
+          left: 100,
+          top: 50,
+          width: 200,
+          height: 80,
+          right: 300,
+          bottom: 130,
+          x: 100,
+          y: 50,
+          toJSON() {
+            return {};
+          },
+        }) as DOMRect;
+      const action = await safeGlideToElementAction(
+        "[data-tour-target='glide-target']",
+        500,
+      );
+      expect(action).not.toBeNull();
+      expect(action?.type).toBe("glide");
+      if (action?.type === "glide") {
+        // Center of (100,50,200,80) is (200, 90).
+        expect(action.x).toBe(200);
+        expect(action.y).toBe(90);
+      }
+    } finally {
+      cleanup();
+    }
+  });
+  it("returns null when the target never mounts", async () => {
+    const action = await safeGlideToElementAction(
+      "[data-tour-target='glide-no-mount']",
       150,
     );
     expect(action).toBeNull();
