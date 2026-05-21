@@ -34,6 +34,8 @@ import {
   getSetupDescriptor,
   type SetupStepDescriptor,
 } from "./steps/setup";
+import Phase4CleanupStep from "./steps/cleanup/Phase4CleanupStep";
+import type { CleanupSummary } from "./steps/cleanup/cleanup-execution";
 import type { TourStep, TourStepId } from "./step-types";
 
 /**
@@ -119,6 +121,12 @@ export interface TourControllerState {
    *  doesn't enforce a write contract — P4 (setup port) wires this up
    *  to the sidecar patch on each setup answer. */
   featurePicks: FeaturePicks | null;
+  /** True once the user reached the Phase 4 cleanup grid via the
+   *  "I've got it from here" link (per L10) rather than by completing
+   *  every prior step. Sticky once flipped; the cleanup grid's Finish
+   *  handler reads this to pick onComplete (writes wizard_completed_at)
+   *  vs onSkip (writes wizard_skipped_at). */
+  enteredCleanupViaSkip: boolean;
 }
 
 export interface TourControllerActions {
@@ -212,6 +220,7 @@ type Action =
   | { type: "PAUSE" }
   | { type: "RESUME" }
   | { type: "SET_FEATURE_PICKS"; picks: FeaturePicks | null }
+  | { type: "MARK_CLEANUP_ENTERED_VIA_SKIP" }
   | { type: "EXIT" };
 
 interface ReducerState extends TourControllerState {
@@ -228,6 +237,7 @@ const initialState: ReducerState = {
   paused: false,
   featurePicks: null,
   skippedSteps: [],
+  enteredCleanupViaSkip: false,
 };
 
 /** Compute the tour mode that the given step belongs to. Setup steps →
@@ -289,6 +299,9 @@ function reducer(state: ReducerState, action: Action): ReducerState {
       return { ...state, paused: false };
     case "SET_FEATURE_PICKS":
       return { ...state, featurePicks: action.picks };
+    case "MARK_CLEANUP_ENTERED_VIA_SKIP":
+      if (state.enteredCleanupViaSkip) return state;
+      return { ...state, enteredCleanupViaSkip: true };
     case "EXIT":
       return {
         ...state,
@@ -316,13 +329,15 @@ export interface TourControllerProviderProps {
    *  ACTIVE state at this step. When unset (P1 default), the controller
    *  starts dormant and `start()` activates it. */
   initialStep?: TourStepId | null;
-  /** Current onboarding sidecar snapshot. Threaded into the modal-setup
-   *  step bodies (P4 / Phase 1) so they can read feature_picks + write
-   *  picks via `patchSidecar`. Optional because the controller is
-   *  usable for non-setup tours (P5+ walkthroughs) without sidecar
-   *  access; setup-phase mounts will simply degrade to a body that
-   *  shows the prose but can't persist a pick (the body's setNextDisabled
-   *  gate keeps the user from advancing without an answer). */
+  /** Current onboarding sidecar snapshot. Threaded into:
+   *  - the modal-setup step bodies (P4 / Phase 1) so they can read
+   *    feature_picks and write picks via `patchSidecar`,
+   *  - the Phase 4 cleanup grid (P8) so the grid can read
+   *    `wizard_resume_state.artifacts_created`.
+   *  Optional: tours that don't need sidecar access (e.g. P5+
+   *  walkthroughs in isolation tests) work without it. Setup-phase
+   *  bodies degrade to a no-persist mode; the cleanup grid degrades
+   *  to its empty-state. */
   sidecar?: OnboardingSidecar | null;
   /** Persistence hook the modal-setup bodies call to write Q1-Q6
    *  feature_picks. Same signature as v3's `OnboardingWizardV3.patchSidecar`.
@@ -332,6 +347,24 @@ export interface TourControllerProviderProps {
   patchSidecar?: (
     patch: (cur: OnboardingSidecar) => OnboardingSidecar,
   ) => Promise<void>;
+  /** Username for the active user. Threaded into the Phase 4 cleanup
+   *  step so its `cleanupArtifacts` sweep can resolve per-user file
+   *  paths (settings revert, telegram inbox, etc.). Optional because
+   *  the controller is used in tests without an end-to-end user
+   *  identity. */
+  username?: string;
+  /** Called when the user clicks Finish on the Phase 4 cleanup grid on
+   *  the normal completion path. The parent (typically a v4 wizard
+   *  shell, lands in P11) writes `wizard_completed_at` and clears
+   *  `wizard_resume_state` here. P8 plumbs the prop; P11 wires the
+   *  persistence end. */
+  onComplete?: (summary: CleanupSummary) => void | Promise<void>;
+  /** Called when the user clicks Finish on the Phase 4 cleanup grid
+   *  AND `enteredCleanupViaSkip` is true (user came from the "I've
+   *  got it from here" path). The parent writes `wizard_skipped_at`
+   *  instead of `wizard_completed_at`. P8 plumbs the prop; P11 wires
+   *  the persistence end. */
+  onSkip?: (summary: CleanupSummary) => void | Promise<void>;
 }
 
 export function TourControllerProvider({
@@ -340,6 +373,9 @@ export function TourControllerProvider({
   initialStep = null,
   sidecar = null,
   patchSidecar,
+  username,
+  onComplete,
+  onSkip,
 }: TourControllerProviderProps) {
   const [state, dispatch] = useReducer(reducer, {
     ...initialState,
@@ -408,7 +444,12 @@ export function TourControllerProvider({
   const exitTour = useCallback(() => {
     // "I've got it from here" (L10) — jump straight to the cleanup
     // grid so the user can decide which artifacts the partial tour
-    // created should be kept vs discarded.
+    // created should be kept vs discarded. Mark the entered-via-skip
+    // flag BEFORE the SET_STEP so the cleanup grid (which reads the
+    // flag on render) renders the skip-flavored intro copy on the
+    // very first paint, and so Finish routes through onSkip even on
+    // a fast double-click that bypasses a re-render.
+    dispatch({ type: "MARK_CLEANUP_ENTERED_VIA_SKIP" });
     dispatch({
       type: "SET_STEP",
       nextStep: "phase4-cleanup",
@@ -587,36 +628,61 @@ export function TourControllerProvider({
   return (
     <TourControllerContext.Provider value={value}>
       {children}
-      <TourOverlay sidecar={sidecar} patchSidecar={patchSidecar} />
+      <TourOverlay
+        sidecar={sidecar}
+        patchSidecar={patchSidecar}
+        username={username}
+        onComplete={onComplete}
+        onSkip={onSkip}
+      />
     </TourControllerContext.Provider>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Overlay — BeakerBot mascot + speech bubble + cursor + spotlight
+// Overlay — BeakerBot mascot + speech bubble + cursor + spotlight + cleanup
 // ---------------------------------------------------------------------------
+
+interface TourOverlayProps {
+  sidecar: OnboardingSidecar | null;
+  patchSidecar?: (
+    patch: (cur: OnboardingSidecar) => OnboardingSidecar,
+  ) => Promise<void>;
+  username?: string;
+  onComplete?: (summary: CleanupSummary) => void | Promise<void>;
+  onSkip?: (summary: CleanupSummary) => void | Promise<void>;
+}
 
 /**
  * The single component that paints every tour-mode visual: spotlight,
- * cursor, the bottom-right BeakerBot + speech bubble, AND (P4) the
- * Phase 1 modal-setup shell when `tourMode === "modal-setup"`. Lives
- * inside the provider so a consumer just has to mount the provider,
+ * cursor, the bottom-right BeakerBot + speech bubble, AND:
+ *   - (P4) the Phase 1 modal-setup shell when `tourMode === "modal-setup"`,
+ *   - (P8) the full-screen Phase 4 cleanup grid when `tourMode === "cleanup"`.
+ * Lives inside the provider so a consumer just has to mount the provider,
  * not multiple components.
  *
  * Short-circuits to `null` when no tour is active OR when the tour is
  * paused (per L23). The cost-when-off is a single context read + a
  * boolean check.
  */
-interface TourOverlayProps {
-  sidecar: OnboardingSidecar | null;
-  patchSidecar?: (
-    patch: (cur: OnboardingSidecar) => OnboardingSidecar,
-  ) => Promise<void>;
-}
-
-function TourOverlay({ sidecar, patchSidecar }: TourOverlayProps) {
+function TourOverlay({
+  sidecar,
+  patchSidecar,
+  username,
+  onComplete,
+  onSkip,
+}: TourOverlayProps) {
   const controller = useTourController();
   const cursorRef = useRef<BeakerBotCursorRef>(null);
+
+  // Lifted decision state for the Phase 4 cleanup grid. Externalized
+  // here (vs co-located inside Phase4CleanupStep) so a back-step into
+  // the cleanup grid restores the user's toggles. P12's resume contract
+  // will fold this into `wizard_resume_state` so a mid-cleanup tab close
+  // can be resumed without losing per-row decisions.
+  const [cleanupDecisions, setCleanupDecisions] = useState<
+    Record<string, "keep" | "discard">
+  >({});
 
   if (!controller.currentStep || controller.paused) return null;
 
@@ -643,12 +709,38 @@ function TourOverlay({ sidecar, patchSidecar }: TourOverlayProps) {
     );
   }
 
+  // Phase 4 cleanup-grid surface (P8). Per §6.17 + L24 + the P8 brief
+  // this is a full-screen review surface, NOT the bottom-right BeakerBot
+  // overlay. The grid owns its own modal-style backdrop + a tiny
+  // BeakerBot in the corner; the bottom-right BeakerBot suppresses
+  // during cleanup so the two don't visually compete. Finish dispatches
+  // `cleanupArtifacts` and calls onComplete (or onSkip if reached via
+  // "I've got it from here"). The host (P11 wizard shell) wires
+  // onComplete + onSkip to the sidecar persistence.
+  if (controller.tourMode === "cleanup") {
+    return (
+      <Phase4CleanupStep
+        sidecar={sidecar}
+        enteredViaSkip={controller.enteredCleanupViaSkip}
+        username={username ?? ""}
+        decisions={cleanupDecisions}
+        setDecisions={setCleanupDecisions}
+        onComplete={async (summary) => {
+          await onComplete?.(summary);
+        }}
+        onSkip={async (summary) => {
+          await onSkip?.(summary);
+        }}
+      />
+    );
+  }
+
   const body = getStep(controller.currentStep);
 
   // Spotlight only renders during the in-product walkthrough mode
   // (setup steps live in a modal, lab steps spawn their own surfaces,
-  // cleanup step is a full-screen grid — none want the dim-and-glow
-  // anchor treatment).
+  // cleanup step is a full-screen grid handled above — none want the
+  // dim-and-glow anchor treatment).
   const showSpotlight =
     controller.tourMode === "in-product-walkthrough" && !!body?.targetSelector;
 
