@@ -24,6 +24,7 @@ const ALL_POSES: BeakerBotPose[] = [
   "bouncing",
   "thinking",
   "typing",
+  "typing-on-laptop",
   "bow-wink",
   "volcano-eruption",
   "sleeping",
@@ -458,6 +459,134 @@ describe("BeakerBot yawn pose", () => {
     // gated by animated, so the static yawn silhouette still renders.
     const ellipses = container.querySelectorAll("ellipse");
     expect(ellipses.length).toBe(1);
+  });
+});
+
+/**
+ * Typing-on-laptop pose: clearer typing variant added 2026-05-21 (Grant
+ * feedback: the bare hand-pulse `typing` pose wasn't reading clearly as
+ * "typing on a keyboard"). The pose adds a small laptop SVG in front of
+ * BeakerBot and renders two arms reaching down to it. Both hand dots
+ * animate on a 240ms keyframe with a 50% phase offset so the visible
+ * motion reads as alternating keyboard hammers.
+ */
+describe("BeakerBot typing-on-laptop pose", () => {
+  // Laptop body uses fill="#374151" (dark gray) on the screen bezel +
+  // base. No other pose uses this fill color, so it's a clean signal
+  // that the laptop is mounted.
+  const LAPTOP_BODY_FILL = "#374151";
+
+  it("renders the laptop screen + base rects when pose=typing-on-laptop", () => {
+    const { container } = render(<BeakerBot pose="typing-on-laptop" />);
+    const rects = container.querySelectorAll("rect");
+    const laptopRects = Array.from(rects).filter(
+      (r) => r.getAttribute("fill") === LAPTOP_BODY_FILL,
+    );
+    // Two laptop body rects: the screen bezel and the keyboard base.
+    expect(laptopRects.length).toBe(2);
+  });
+
+  it("renders two hand dots (one at x=26, one at x=32) when pose=typing-on-laptop", () => {
+    const { container } = render(<BeakerBot pose="typing-on-laptop" />);
+    const circles = Array.from(container.querySelectorAll("circle"));
+    const leftHand = circles.filter(
+      (c) => c.getAttribute("cx") === "26" && c.getAttribute("cy") === "30",
+    );
+    const rightHand = circles.filter(
+      (c) => c.getAttribute("cx") === "32" && c.getAttribute("cy") === "30",
+    );
+    expect(leftHand.length).toBe(1);
+    expect(rightHand.length).toBe(1);
+  });
+
+  it("does NOT render the laptop body for pose=idle", () => {
+    const { container } = render(<BeakerBot pose="idle" />);
+    const rects = container.querySelectorAll("rect");
+    const laptopRects = Array.from(rects).filter(
+      (r) => r.getAttribute("fill") === LAPTOP_BODY_FILL,
+    );
+    expect(laptopRects.length).toBe(0);
+  });
+
+  it("does NOT render the laptop body for pose=typing (bare-hand variant)", () => {
+    const { container } = render(<BeakerBot pose="typing" />);
+    const rects = container.querySelectorAll("rect");
+    const laptopRects = Array.from(rects).filter(
+      (r) => r.getAttribute("fill") === LAPTOP_BODY_FILL,
+    );
+    expect(laptopRects.length).toBe(0);
+  });
+
+  it("emits data-pose=typing-on-laptop when the pose is active", () => {
+    const { container } = render(<BeakerBot pose="typing-on-laptop" />);
+    const svg = container.querySelector("svg");
+    expect(svg?.getAttribute("data-pose")).toBe("typing-on-laptop");
+  });
+
+  it("flips horizontally for direction=left (the pose is directional)", () => {
+    const { container } = render(
+      <BeakerBot pose="typing-on-laptop" direction="left" />,
+    );
+    const svg = container.querySelector("svg") as SVGSVGElement | null;
+    expect(svg?.style.transform).toBe("scaleX(-1)");
+  });
+
+  it("reduced-motion path: animated=false drops per-hand animation classes", () => {
+    const { container } = render(
+      <BeakerBot pose="typing-on-laptop" animated={false} />,
+    );
+    const svg = container.querySelector("svg");
+    expect(svg?.getAttribute("data-pose")).toBe("typing-on-laptop");
+    expect(svg?.getAttribute("data-animated")).toBe("false");
+    // Laptop body + hand dots still render structurally (the static
+    // tableau is the reduced-motion silhouette), but the hand <g>
+    // wrappers carry no class so the keyframe doesn't bind.
+    const rects = container.querySelectorAll("rect");
+    const laptopRects = Array.from(rects).filter(
+      (r) => r.getAttribute("fill") === LAPTOP_BODY_FILL,
+    );
+    expect(laptopRects.length).toBe(2);
+    const circles = Array.from(container.querySelectorAll("circle"));
+    const hands = circles.filter(
+      (c) =>
+        (c.getAttribute("cx") === "26" || c.getAttribute("cx") === "32") &&
+        c.getAttribute("cy") === "30",
+    );
+    expect(hands.length).toBe(2);
+    // Each hand circle's parent <g> should have no class attribute set
+    // when animated=false (the animation class is the only thing the
+    // branch puts on the wrapper).
+    for (const hand of hands) {
+      const parent = hand.parentElement;
+      // Parent should be a <g> wrapper with no class.
+      expect(parent?.tagName.toLowerCase()).toBe("g");
+      expect(parent?.getAttribute("class") ?? "").toBe("");
+    }
+  });
+
+  it("typing-on-laptop hand keyframe uses a small percentage (transform-box: view-box trap guard)", async () => {
+    // Same guard as the .typeHand test above: under transform-box:
+    // view-box, translateY(%) resolves against the 40-unit view-box
+    // height, not the wrapped element's bounding box. A large
+    // percentage produces the v4 §6.2 scattered-dots bug. The
+    // two-hand keyframe must stay below 5% magnitude.
+    const fs = await import("node:fs/promises");
+    const path = await import("node:path");
+    const cssPath = path.resolve(__dirname, "..", "BeakerBot.module.css");
+    const css = await fs.readFile(cssPath, "utf8");
+    const match = css.match(
+      /@keyframes\s+beakerBotTypeHandLaptopLeft\s*\{[\s\S]*?\n\}/,
+    );
+    expect(
+      match,
+      "beakerBotTypeHandLaptopLeft keyframe should be defined",
+    ).not.toBeNull();
+    const block = match![0];
+    const percents = Array.from(
+      block.matchAll(/translateY\(\s*(-?\d+(?:\.\d+)?)%\s*\)/g),
+    ).map((m) => Math.abs(Number(m[1])));
+    expect(percents.length).toBeGreaterThan(0);
+    expect(Math.max(...percents)).toBeLessThan(5);
   });
 });
 

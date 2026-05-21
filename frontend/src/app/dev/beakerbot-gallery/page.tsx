@@ -6,22 +6,23 @@
 // via its real product flow.
 //
 // Catalog covers:
-//   - 17 poses from the BeakerBotPose union (idle, pointing,
+//   - 18 poses from the BeakerBotPose union (idle, pointing,
 //     pointing-up, pointing-down, cheering, waving, bouncing,
-//     thinking, typing, bow-wink, giggle, rolling-laughing,
-//     volcano-eruption, sleeping, hiccup, yawn, reading)
+//     thinking, typing, typing-on-laptop, bow-wink, giggle,
+//     rolling-laughing, volcano-eruption, sleeping, hiccup, yawn,
+//     reading)
 //   - 8 multi-stage scene components (Ladder, BugStomp, Skateboard,
 //     ScreenBump, TooManyBeakers, MouseWave, Centrifuge, Eureka)
 //   - 3 pose-celebration variants (cheering, bouncing, volcano-eruption)
-//   = 28 entries total
+//   = 29 entries total
 //
 // Loop mechanic:
 //   - Scenes: on onComplete, flip active=false, wait 500ms, bump a
 //     React key, flip active=true. Re-mount runs the whole timeline
 //     from frame zero.
 //   - Looping poses (sleeping, reading, idle, thinking, typing,
-//     waving, pointing*, giggle, rolling-laughing): just render
-//     <BeakerBot pose=... /> and let the CSS keyframes loop.
+//     typing-on-laptop, waving, pointing*, giggle, rolling-laughing):
+//     just render <BeakerBot pose=... /> and let the CSS keyframes loop.
 //   - One-shot poses (bouncing, cheering, bow-wink, volcano-eruption,
 //     hiccup, yawn): interval-bump a React key every N ms (N derived
 //     from the pose's animation duration).
@@ -104,7 +105,7 @@ type CatalogEntry = PoseEntry | SceneEntry | PoseCelebrationEntry;
 
 // ── Catalog data ───────────────────────────────────────────────────────────
 
-/** All 17 poses from the BeakerBotPose union, in the order they appear
+/** All 18 poses from the BeakerBotPose union, in the order they appear
  *  in BeakerBot.tsx. Tests rely on this length so adding/removing a
  *  pose here requires an explicit test update. */
 const POSES: PoseEntry[] = [
@@ -194,6 +195,16 @@ const POSES: PoseEntry[] = [
     description:
       "Extended arm with hand pulse (~190ms cadence-matched to typewriter).",
     timingNote: "Looping (190ms hand-pulse)",
+  },
+  {
+    kind: "pose",
+    id: "pose:typing-on-laptop",
+    label: "typing-on-laptop",
+    pose: "typing-on-laptop",
+    loopType: "looping",
+    description:
+      "Small laptop in front, two arms reach to keyboard, hands alternate hammering keys (240ms cycle, 50% phase offset).",
+    timingNote: "Looping (240ms two-hand hammer)",
   },
   {
     kind: "pose",

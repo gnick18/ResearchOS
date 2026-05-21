@@ -58,6 +58,14 @@ import styles from "./BeakerBot.module.css";
  *                       of 95ms x 2 ticks). W5 + W7 live-typing
  *                       demos. The cadence-match is the integration
  *                       hook; `use-typewriter.ts` itself is unchanged.
+ *  - `typing-on-laptop` - clearer "typing" variant: a small laptop
+ *                       SVG (base + screen) sits in front of BeakerBot
+ *                       and two arms extend forward to the keyboard.
+ *                       Each hand alternates hammering down on a 240ms
+ *                       cycle (left at 0%, right at 50% phase), so the
+ *                       motion reads as keyboard hammering rather than
+ *                       a single hand pulse. Used by the v4 walkthrough
+ *                       project-overview-prose step.
  *  - `bow-wink`       - combo pose: right eye winks first, then the
  *                       whole body bows forward. Used on the final
  *                       wizard exit screen after Phase 4 Finish.
@@ -90,9 +98,9 @@ import styles from "./BeakerBot.module.css";
  * The dotted pointer-line in `OnboardingTipCard` emits from the
  * triangle tip in the `pointing*` poses; the non-pointing poses
  * (`cheering`, `waving`, `bouncing`, `thinking`, `typing`,
- * `bow-wink`, `volcano-eruption`, `sleeping`, `hiccup`, `yawn`,
- * `reading`) are used in the modal mascot slot and don't drive a
- * pointer line.
+ * `typing-on-laptop`, `bow-wink`, `volcano-eruption`, `sleeping`,
+ * `hiccup`, `yawn`, `reading`) are used in the modal mascot slot
+ * and don't drive a pointer line.
  */
 
 export type BeakerBotPose =
@@ -105,6 +113,7 @@ export type BeakerBotPose =
   | "bouncing"
   | "thinking"
   | "typing"
+  | "typing-on-laptop"
   | "bow-wink"
   | "giggle"
   | "rolling-laughing"
@@ -148,6 +157,7 @@ const DIRECTIONAL_POSES: ReadonlySet<BeakerBotPose> = new Set([
   "pointing-down",
   "waving",
   "typing",
+  "typing-on-laptop",
 ]);
 
 /** Map each pose to its root-level animation class. Sub-element
@@ -165,6 +175,8 @@ function rootAnimationClass(
       return `${styles.bouncing} ${styles.animated}`;
     case "thinking":
       return `${styles.thinking} ${styles.animated}`;
+    case "typing-on-laptop":
+      return `${styles.typingLaptop} ${styles.animated}`;
     case "cheering":
       return `${styles.celebrating} ${styles.animated}`;
     case "bow-wink":
@@ -617,6 +629,96 @@ export default function BeakerBot({
             {/* Hand dot at the tip; pulses up/down on a 190ms cadence
                 to visually echo the typewriter's per-char ticks. */}
             <circle cx="33" cy="20" r="1.1" fill="currentColor" stroke="none" />
+          </g>
+        </>
+      )}
+
+      {/* Typing-on-laptop: clearer typing pose. A small laptop sits in
+       *  front of BeakerBot, his two arms reach forward to the keyboard,
+       *  and each hand dot alternates hammering down (left at 0%, right
+       *  at 50% of a 240ms cycle). Reads as "BeakerBot typing at a
+       *  laptop" instead of the vague single-hand pulse of `typing`.
+       *
+       *  Geometry (SVG viewBox 0..40):
+       *    Screen panel: x=22..34, y=22..30 (dark gray #374151, light
+       *                  blue inner screen #A6D2F4 at x=22.8..33.2,
+       *                  y=22.6..29.4).
+       *    Base/keyboard: x=20..36, y=30..32 (dark gray #374151).
+       *    Left arm: from (28, 22) to (26, 30), left hand dot at
+       *              (26, 30).
+       *    Right arm: from (28, 22) to (32, 30), right hand dot at
+       *               (32, 30).
+       *
+       *  Why small percentages on the hand-hammer keyframes: the
+       *  transform-box: view-box pitfall (commit 272dd3da). At -1.5%
+       *  each hand dot moves 0.6 view-box units (~1.8px at 120px),
+       *  which reads as a clean keyboard hammer; -30% would resolve to
+       *  12 view-box units and produce the scattered-dots jump from the
+       *  v4 §6.2 bug. */}
+      {effectivePose === "typing-on-laptop" && (
+        <>
+          {/* Laptop screen panel (rear). Dark gray bezel with a light
+              blue "screen" inset to suggest the display BeakerBot is
+              looking at. */}
+          <rect
+            x="22"
+            y="22"
+            width="12"
+            height="8"
+            rx="0.6"
+            ry="0.6"
+            fill="#374151"
+            stroke="currentColor"
+            strokeWidth="0.5"
+          />
+          <rect
+            x="22.8"
+            y="22.6"
+            width="10.4"
+            height="6.8"
+            fill="#A6D2F4"
+            stroke="none"
+          />
+          {/* Laptop base / keyboard slab. Wider than the screen to read
+              as a laptop in 3/4 perspective; the screen sits on the
+              back edge of the base. */}
+          <rect
+            x="20"
+            y="30"
+            width="16"
+            height="2"
+            rx="0.5"
+            ry="0.5"
+            fill="#374151"
+            stroke="currentColor"
+            strokeWidth="0.5"
+          />
+          {/* Left arm: from body shoulder (28, 22) down-and-left to
+              the keyboard hand position (26, 30). */}
+          <path d="M28 22 L26 30" />
+          {/* Right arm: from body shoulder (28, 22) down-and-right to
+              the keyboard hand position (32, 30). */}
+          <path d="M28 22 L32 30" />
+          {/* Left hand: hammers down at 0% of the cycle. */}
+          <g
+            className={
+              animated
+                ? `${styles.typeHandLeft} ${styles.animated}`
+                : undefined
+            }
+          >
+            <circle cx="26" cy="30" r="0.9" fill="currentColor" stroke="none" />
+          </g>
+          {/* Right hand: hammers down at 50% of the cycle (so the two
+              hands alternate, ~120ms apart on a 240ms cycle). */}
+          <g
+            className={
+              animated
+                ? `${styles.typeHandRight} ${styles.animated}`
+                : undefined
+            }
+          >
+            <circle cx="32" cy="30" r="0.9" fill="currentColor" stroke="none" />
           </g>
         </>
       )}

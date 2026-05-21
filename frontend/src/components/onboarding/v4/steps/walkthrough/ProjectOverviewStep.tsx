@@ -43,7 +43,7 @@ export const projectOverviewStep = buildWalkthroughStep({
   id: "project-overview-prose",
   speech:
     "I'm taking us into your project. Watch, I'll type a hypothesis sentence into the Overview.",
-  pose: "typing",
+  pose: "typing-on-laptop",
   targetSelector: targetSelector(TOUR_TARGETS.projectOverviewTextarea),
   cursorScript: cursorScript(async () => {
     // Click the most recently created project card if present (best

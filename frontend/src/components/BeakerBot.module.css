@@ -154,6 +154,49 @@
   }
 }
 
+/* Typing-on-laptop pose: two-hand keyboard hammer. Each hand has its
+ * own keyframe at the same 240ms cycle but with a 50% phase offset, so
+ * the visible motion is left-down, right-down, left-down ... reading as
+ * "two hands hammering keys in alternation."
+ *
+ * Same transform-box: view-box pitfall as .typeHand. The -1.5% travel
+ * resolves to 0.6 view-box units (~1.8px at 120px); this is a "hand
+ * tap," not a "scattered dot jumping a quarter of the SVG." See
+ * commit 272dd3da for the trap writeup and the original .typeHand fix.
+ *
+ * Left hand: starts down at 0% (hammer impact at the start of the cycle).
+ * Right hand: same keyframe, but phase-shifted by 50% via an
+ *             animation-delay of -120ms on the .typeHandRight rule
+ *             below. Using a negative delay starts the animation
+ *             mid-cycle on first paint, avoiding the 120ms of "neither
+ *             hand is moving yet" that a positive delay would give. */
+@keyframes beakerBotTypeHandLaptopLeft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  20% {
+    transform: translateY(-1.5%);
+  }
+  40% {
+    transform: translateY(0);
+  }
+}
+
+/* Subtle forward tilt on the body when the laptop pose is active so
+ * BeakerBot reads as "leaning into the keyboard." Slow loop with a
+ * small rotation amplitude — keep it well under the volcano/giggle
+ * magnitudes so the laptop frame stays readable. */
+@keyframes beakerBotTypingLaptopBody {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-0.5%) rotate(-1.5deg);
+  }
+}
+
 /* Easter egg: giggle. Triggered when the user clicks BeakerBot or
  * jiggles the cursor rapidly over him. Quick small shakes side-to-side
  * with little vertical bounces — reads as "you tickled me, hee hee."
@@ -568,6 +611,30 @@
   animation: beakerBotTypeHand 190ms ease-in-out infinite;
 }
 
+/* Typing-on-laptop sub-element animations. Both hands share the same
+ * keyframe + duration; .typeHandRight uses a negative animation-delay
+ * to phase-shift its cycle by 50%, so left and right hammer in
+ * alternation. */
+.typeHandLeft.animated {
+  transform-origin: 26px 30px;
+  transform-box: view-box;
+  animation: beakerBotTypeHandLaptopLeft 240ms ease-in-out infinite;
+}
+
+.typeHandRight.animated {
+  transform-origin: 32px 30px;
+  transform-box: view-box;
+  animation: beakerBotTypeHandLaptopLeft 240ms ease-in-out infinite;
+  animation-delay: -120ms;
+}
+
+/* Typing-on-laptop body class: applied to the SVG root via
+ * rootAnimationClass(). Pairs with the per-hand hammers above to give
+ * the pose a complete "leaning forward, typing at a laptop" silhouette. */
+.typingLaptop.animated {
+  animation: beakerBotTypingLaptopBody 2400ms ease-in-out infinite;
+}
+
 .winkEye.animated {
   transform-origin: 23px 18px;
   transform-box: view-box;
@@ -938,6 +1005,9 @@
   .volcanoDizzyStar,
   .waveArm.animated,
   .typeHand.animated,
+  .typeHandLeft.animated,
+  .typeHandRight.animated,
+  .typingLaptop.animated,
   .winkEye.animated,
   .laughTextGiggle,
   .laughTextRoll,
