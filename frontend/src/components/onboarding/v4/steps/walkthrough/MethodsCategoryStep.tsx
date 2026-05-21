@@ -81,9 +81,24 @@ export const methodsCategoryDemoStep = buildWalkthroughStep({
   targetSelector: targetSelector(TOUR_TARGETS.methodsNewCategoryButton),
   cursorScript: cursorScript(async () => {
     const label = resolvePickedCategoryLabel();
-    const openAffordance = await safeClickAction(
-      targetSelector(TOUR_TARGETS.methodsNewCategoryButton),
-    );
+    // Grant 2026-05-21 follow-up: if the user opened the modal themselves
+    // before the demo step fires (eg. they clicked "+ New Category"
+    // during the picker prompt to peek), the page-header button is now
+    // sitting behind the modal backdrop. A cursor click on it lands on
+    // the backdrop instead, closing the modal — the type + submit then
+    // fail because their targets are gone. Detect the modal-open state
+    // by querying for the name input (a child of the modal): if it's
+    // already mounted, skip the open-click entirely.
+    const modalAlreadyOpen =
+      typeof document !== "undefined" &&
+      document.querySelector(
+        targetSelector(TOUR_TARGETS.methodsCategoryNameInput),
+      ) !== null;
+    const openAffordance = modalAlreadyOpen
+      ? null
+      : await safeClickAction(
+          targetSelector(TOUR_TARGETS.methodsNewCategoryButton),
+        );
     const typeName = await safeTypeAction(
       targetSelector(TOUR_TARGETS.methodsCategoryNameInput),
       label,
