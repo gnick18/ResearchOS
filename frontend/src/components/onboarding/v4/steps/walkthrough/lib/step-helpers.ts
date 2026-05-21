@@ -22,7 +22,7 @@ export interface StepBuilderInput {
   targetSelector?: string;
   cursorScript?: () => CursorAction[] | Promise<CursorAction[]>;
   completion: TourStepCompletion;
-  onEnter?: () => void | Promise<void>;
+  onEnter?: TourStep["onEnter"];
   onExit?: () => void | Promise<void>;
   conditionalOn?: TourStep["conditionalOn"];
   expectedRoute?: string;

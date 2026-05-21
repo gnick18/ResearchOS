@@ -88,9 +88,15 @@ export interface TourStep {
   cursorScript?: () => CursorAction[] | Promise<CursorAction[]>;
   /** Completion-detection contract. See `TourStepCompletion` doc. */
   completion: TourStepCompletion;
-  /** Optional side effect fired the moment the step becomes current —
-   *  spawn demo tasks, navigate via router.push(...), etc. */
-  onEnter?: () => void | Promise<void>;
+  /** Optional side-effect hook called once when this step becomes the
+   *  active step. Used by steps that need to spawn demo artifacts or
+   *  trigger programmatic events (§6.3 fires a test notification,
+   *  §6.8 spawns demo dependency-chain tasks, etc.). Errors are caught
+   *  by the controller and logged; an onEnter failure should never wedge
+   *  the tour. Receives a context object with the active username (or
+   *  `null` outside an end-to-end user identity, e.g. in tests) so the
+   *  hook can resolve per-user storage paths via `local-api`. */
+  onEnter?: (ctx: { username: string | null }) => void | Promise<void>;
   /** Optional side effect fired the moment the step exits — clean up
    *  demo artifacts, unsubscribe to listeners other than `completion`. */
   onExit?: () => void | Promise<void>;

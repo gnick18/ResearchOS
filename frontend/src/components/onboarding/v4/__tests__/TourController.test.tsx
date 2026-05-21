@@ -65,6 +65,8 @@ import {
   useOptionalTourController,
   useTourController,
 } from "../TourController";
+import { TOUR_STEPS } from "../step-registry";
+import type { TourStep } from "../step-types";
 
 function picks(over: Partial<FeaturePicks> = {}): FeaturePicks {
   return {
@@ -701,7 +703,7 @@ describe("TourController — expectedRoute auto-navigation", () => {
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(),
     });
-    act(() => result.current.start("welcome"));
+    act(() => result.current.start("setup-q1"));
     expect(pushMock).not.toHaveBeenCalled();
   });
 
@@ -763,5 +765,134 @@ describe("TourController — expectedRoute auto-navigation", () => {
     expect(pushMock).not.toHaveBeenCalled();
     act(() => result.current.start("methods-category"));
     expect(pushMock).toHaveBeenCalledWith("/methods");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Step `onEnter` invocation. Covers the fix for the v4 §6.3 bug where
+// the NotificationsStep's speech told the user "I'm firing a test
+// notification" but nothing actually fired.
+// ---------------------------------------------------------------------------
+
+describe("TourController step onEnter invocation", () => {
+  const TEST_STEP_ID = "welcome";
+  let originalBody: TourStep | undefined;
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    originalBody = TOUR_STEPS[TEST_STEP_ID];
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    if (originalBody) TOUR_STEPS[TEST_STEP_ID] = originalBody;
+    warnSpy.mockRestore();
+  });
+
+  function patchStepWithOnEnter(
+    onEnter: (ctx: { username: string | null }) => void | Promise<void>,
+  ): void {
+    const base = originalBody;
+    if (!base) throw new Error("test setup: missing original step body");
+    TOUR_STEPS[TEST_STEP_ID] = { ...base, onEnter };
+  }
+
+  it("invokes onEnter on step entry with the active username ctx", async () => {
+    const onEnter = vi.fn();
+    patchStepWithOnEnter(onEnter);
+
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: function Wrap({ children }: { children: React.ReactNode }) {
+        return (
+          <TourControllerProvider username="alex">
+            {children}
+          </TourControllerProvider>
+        );
+      },
+    });
+    act(() => result.current.start(TEST_STEP_ID));
+
+    await waitFor(() => {
+      expect(onEnter).toHaveBeenCalledTimes(1);
+    });
+    expect(onEnter).toHaveBeenCalledWith({ username: "alex" });
+  });
+
+  it("passes username: null when no username prop is wired", async () => {
+    const onEnter = vi.fn();
+    patchStepWithOnEnter(onEnter);
+
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: wrapper(),
+    });
+    act(() => result.current.start(TEST_STEP_ID));
+
+    await waitFor(() => {
+      expect(onEnter).toHaveBeenCalledTimes(1);
+    });
+    expect(onEnter).toHaveBeenCalledWith({ username: null });
+  });
+
+  it("does not invoke anything when the step has no onEnter", async () => {
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: wrapper(),
+    });
+    act(() => result.current.start(TEST_STEP_ID));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it("does NOT invoke onEnter while the tour is paused", async () => {
+    const onEnter = vi.fn();
+    const originalSetupQ1 = TOUR_STEPS["setup-q1"];
+    patchStepWithOnEnter(onEnter);
+    TOUR_STEPS["setup-q1"] = { ...originalSetupQ1!, onEnter };
+    try {
+      const { result } = renderHook(() => useTourController(), {
+        wrapper: wrapper(),
+      });
+      act(() => result.current.start("welcome"));
+      await waitFor(() => {
+        expect(onEnter).toHaveBeenCalledTimes(1);
+      });
+      onEnter.mockClear();
+      act(() => {
+        result.current.pause();
+      });
+      act(() => {
+        result.current.advance();
+      });
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(onEnter).not.toHaveBeenCalled();
+    } finally {
+      if (originalSetupQ1) TOUR_STEPS["setup-q1"] = originalSetupQ1;
+    }
+  });
+
+  it("catches a throwing onEnter and keeps the controller usable", async () => {
+    const onEnter = vi.fn(() => {
+      throw new Error("boom");
+    });
+    patchStepWithOnEnter(onEnter);
+
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: wrapper(),
+    });
+    act(() => result.current.start(TEST_STEP_ID));
+
+    await waitFor(() => {
+      expect(onEnter).toHaveBeenCalledTimes(1);
+    });
+    expect(warnSpy).toHaveBeenCalled();
+    act(() => {
+      result.current.advance();
+    });
+    expect(result.current.currentStep).not.toBe(TEST_STEP_ID);
   });
 });

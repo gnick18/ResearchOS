@@ -545,8 +545,10 @@ export function TourControllerProvider({
     });
   }, [state.currentStep, skipList, patchSidecar]);
 
-  // Step lifecycle: fire onEnter on entry, schedule auto-advance timer,
-  // wire up the step's event listener (if any), call onExit on exit.
+  // Step lifecycle: schedule auto-advance timer, wire up the step's
+  // event listener (if any), call onExit on exit. `onEnter` lives in
+  // its own sibling effect below so it can thread the active username
+  // through ctx without entangling listener-cleanup deps.
   // The dependency only on `state.currentStep` is intentional — the
   // body lookup is stable across renders within a step (the registry is
   // module-level), so re-running the effect on every render would tear
@@ -559,19 +561,6 @@ export function TourControllerProvider({
     let cancelled = false;
     let autoTimer: ReturnType<typeof setTimeout> | undefined;
     let unsubscribe: (() => void) | undefined;
-
-    // Fire onEnter — awaited so the controller doesn't race with side
-    // effects (e.g., onEnter calls router.push and the next paint needs
-    // to wait for navigation). Errors are swallowed + logged; a buggy
-    // onEnter shouldn't deadlock the whole tour.
-    Promise.resolve()
-      .then(() => body.onEnter?.())
-      .catch((err) => {
-        console.error(
-          `[TourController] onEnter for step "${body.id}" threw:`,
-          err,
-        );
-      });
 
     // Wire up event-driven completion if declared.
     if (body.completion.type === "event") {
@@ -615,6 +604,44 @@ export function TourControllerProvider({
         });
     };
   }, [state.currentStep]);
+
+  // Per-step `onEnter` side-effect hook (sibling to the lifecycle
+  // effect above). Steps use this to fire programmatic side effects
+  // tied to step entry. §6.3 fires a test notification so the bell
+  // badge lights up before BeakerBot's cursor demos the click; §6.8
+  // spawns demo dependency-chain tasks; etc.
+  //
+  // The hook receives a context object with the active username so the
+  // side effect can resolve per-user storage paths via local-api
+  // (`sharingApi.createEventReminder` reads `getCurrentUserCached()`
+  // internally so the explicit ctx is currently informational; future
+  // hooks that need a different writer identity can take it from ctx).
+  //
+  // Paused tours skip the hook entirely so an in-flight pause doesn't
+  // race ahead and spawn artifacts the user hasn't seen the lead-in for.
+  // Errors are caught + logged so a buggy hook never wedges the tour.
+  useEffect(() => {
+    if (!state.currentStep || state.paused) return;
+    const body = getStep(state.currentStep);
+    if (!body?.onEnter) return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        await body.onEnter?.({ username: username ?? null });
+      } catch (err) {
+        if (!cancelled) {
+          console.warn(
+            `[onboarding-v4] step onEnter for "${body.id}" failed`,
+            err,
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [state.currentStep, state.paused, username]);
 
   // The auto-advance-on-MARK_EVENT_FIRED path lives in the effect above
   // (the `completion.type === "event"` branch advances when
