@@ -136,7 +136,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     : undefined;
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    // `data-app-shell-mounted` is the static DOM marker the v4 tour
+    // bootstrap uses to detect whether the underlying app rendered
+    // (vs Next.js 404 fallback, error boundary, pre-login screen, etc).
+    // Onboarding v4 P12 follow-up: when Grant restarts the dev server
+    // and the root route compiles into a 404, the v4 Resume modal
+    // still portals onto document.body but `controller.start` + the
+    // expectedRoute push silently no-op because there is no AppShell
+    // to render the next step into. TourBootstrap queries for this
+    // attribute on Resume; if it's missing it hard-reloads the target
+    // route instead of soft-locking the user on the 404. Keep this
+    // static (not state-derived) so it is present immediately on first
+    // paint — the selector must resolve synchronously from the very
+    // first render.
+    <div data-app-shell-mounted className="h-screen flex flex-col bg-gray-50">
       <DemoLabBanner />
       <TelegramRecoveryPrompt />
       <TelegramEncryptedRecoveryPrompt />

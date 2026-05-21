@@ -125,10 +125,17 @@ describe("V4MountForUser:onComplete callback", () => {
         },
       }),
     );
+    // Wrap in a data-app-shell-mounted marker so the v4 Resume handler
+    // takes the controller.start happy path rather than the stuck-404
+    // hard-reload mitigation (P12 follow-up). In production this marker
+    // lives on the AppShell wrapper, which V4MountForUser is mounted
+    // beneath; in this isolated unit test we simulate that ancestor.
     render(
-      <V4MountForUser username={USER}>
-        <div data-testid="child">child</div>
-      </V4MountForUser>,
+      <div data-app-shell-mounted>
+        <V4MountForUser username={USER}>
+          <div data-testid="child">child</div>
+        </V4MountForUser>
+      </div>,
     );
     // P12: the Resume modal appears first; click Resume to advance
     // into the cleanup grid.
@@ -177,10 +184,15 @@ describe("V4MountForUser:onSkip callback via exitTour", () => {
         },
       }),
     );
+    // Wrap in a data-app-shell-mounted marker so the v4 Resume handler
+    // takes the controller.start happy path rather than the stuck-404
+    // hard-reload mitigation (P12 follow-up).
     render(
-      <V4MountForUser username={USER}>
-        <div>child</div>
-      </V4MountForUser>,
+      <div data-app-shell-mounted>
+        <V4MountForUser username={USER}>
+          <div>child</div>
+        </V4MountForUser>
+      </div>,
     );
 
     // P12: click Resume on the modal to land on the saved step.

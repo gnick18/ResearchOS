@@ -76,8 +76,27 @@ function renderWithProvider(node: React.ReactNode) {
   return render(<TourControllerProvider>{node}</TourControllerProvider>);
 }
 
+/**
+ * Render TourBootstrap wrapped in a stand-in AppShell that carries the
+ * `data-app-shell-mounted` marker. The v4 Resume handler queries for
+ * that marker to decide whether it can call `controller.start` (marker
+ * present) or must hard-reload (marker absent — the stuck-404 case).
+ * Tests that assert the normal Resume happy path need the marker; the
+ * stuck-404 tests intentionally render without it.
+ */
+function renderWithAppShellAndProvider(node: React.ReactNode) {
+  return render(
+    <div data-app-shell-mounted>
+      <TourControllerProvider>{node}</TourControllerProvider>
+    </div>,
+  );
+}
+
 beforeEach(() => {
   memFs.clear();
+  if (typeof sessionStorage !== "undefined") {
+    sessionStorage.clear();
+  }
 });
 
 describe("TourBootstrap:fresh user", () => {
@@ -203,7 +222,9 @@ describe("TourBootstrap:v4 mid-tour resume", () => {
         },
       }),
     );
-    renderWithProvider(<TourBootstrap username={USER} />);
+    // AppShell marker present: Resume should take the happy path
+    // (controller.start), not the stuck-404 hard-reload mitigation.
+    renderWithAppShellAndProvider(<TourBootstrap username={USER} />);
     const resume = await screen.findByTestId("v4-resume-resume");
     await userEvent.click(resume);
     // The overlay should appear (home-create-project is an in-product
@@ -217,6 +238,147 @@ describe("TourBootstrap:v4 mid-tour resume", () => {
     expect(
       document.body.querySelector("[data-testid='v4-resume-prompt']"),
     ).toBeNull();
+    // Happy path did NOT write the auto-resume handoff flag.
+    expect(sessionStorage.getItem("v4_auto_resume_on_next_mount")).toBeNull();
+  });
+
+  // P12 follow-up: stuck-404 mitigation. After Grant restarted the dev
+  // server and clicked Resume, the Resume modal portaled fine (it lives
+  // on document.body) but controller.start silently no-op'd because the
+  // root route was Next.js's 404 fallback, not AppShell. The Resume
+  // handler now detects the missing AppShell marker and hard-reloads
+  // the target route, writing a sessionStorage flag so the next mount
+  // auto-resumes instead of re-prompting.
+  it(
+    "Resume without AppShell hard-reloads to target route and writes auto-resume flag",
+    async () => {
+      memFs.set(
+        PATH,
+        fullSidecar({
+          wizard_resume_state: {
+            current_step: "home-create-project",
+            skipped_steps: [],
+            artifacts_created: [],
+          },
+        }),
+      );
+
+      // Intercept window.location assignments. The handler uses
+      // `window.location.href = <route>`, which jsdom would otherwise
+      // try to navigate (and complain about). Replace the descriptor
+      // with a setter we can observe.
+      const originalDescriptor = Object.getOwnPropertyDescriptor(
+        window,
+        "location",
+      );
+      const setHref = vi.fn();
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: {
+          ...window.location,
+          set href(v: string) {
+            setHref(v);
+          },
+          get href() {
+            return "http://localhost/";
+          },
+        },
+      });
+
+      try {
+        // No AppShell wrapper -> data-app-shell-mounted is absent ->
+        // Resume should take the mitigation branch.
+        renderWithProvider(<TourBootstrap username={USER} />);
+        const resume = await screen.findByTestId("v4-resume-resume");
+        await userEvent.click(resume);
+
+        await waitFor(() => {
+          expect(setHref).toHaveBeenCalledTimes(1);
+        });
+        // home-create-project has expectedRoute "/" (it's a home-screen
+        // step), so the hard-reload target falls back to "/".
+        expect(setHref).toHaveBeenCalledWith("/");
+        // The auto-resume flag was written so the post-reload mount can
+        // skip the modal and start at the saved step directly.
+        expect(sessionStorage.getItem("v4_auto_resume_on_next_mount")).toBe(
+          "home-create-project",
+        );
+        // No overlay (and no controller.start side effect) before the
+        // reload — the controller call is bypassed on this branch.
+        expect(
+          document.body.querySelector("[data-testid='tour-beakerbot-overlay']"),
+        ).toBeNull();
+      } finally {
+        if (originalDescriptor) {
+          Object.defineProperty(window, "location", originalDescriptor);
+        }
+      }
+    },
+  );
+
+  // P12 follow-up companion: on the post-reload mount, the bootstrap
+  // sees the sessionStorage flag, confirms AppShell IS mounted now,
+  // and jumps straight to controller.start(savedStep). It clears the
+  // flag and does NOT re-prompt the user with the modal.
+  it("auto-resume flag on mount skips modal and starts at saved step", async () => {
+    memFs.set(
+      PATH,
+      fullSidecar({
+        wizard_resume_state: {
+          current_step: "home-create-project",
+          skipped_steps: [],
+          artifacts_created: [],
+        },
+      }),
+    );
+    sessionStorage.setItem(
+      "v4_auto_resume_on_next_mount",
+      "home-create-project",
+    );
+
+    renderWithAppShellAndProvider(<TourBootstrap username={USER} />);
+    // Overlay should appear (saved step activated directly).
+    await waitFor(() => {
+      expect(
+        document.body.querySelector("[data-testid='tour-beakerbot-overlay']"),
+      ).toBeTruthy();
+    });
+    // Resume modal is NOT shown — the auto-resume bypass skipped it.
+    expect(
+      document.body.querySelector("[data-testid='v4-resume-prompt']"),
+    ).toBeNull();
+    // Flag is cleared so a subsequent refresh follows the normal
+    // sidecar-driven path.
+    expect(sessionStorage.getItem("v4_auto_resume_on_next_mount")).toBeNull();
+  });
+
+  it("stale auto-resume flag (unknown step id) falls back to the modal and clears the flag", async () => {
+    memFs.set(
+      PATH,
+      fullSidecar({
+        wizard_resume_state: {
+          current_step: "home-create-project",
+          skipped_steps: [],
+          artifacts_created: [],
+        },
+      }),
+    );
+    // Step id no longer in TOUR_STEP_ORDER (could happen mid-rollout).
+    sessionStorage.setItem(
+      "v4_auto_resume_on_next_mount",
+      "removed-legacy-step",
+    );
+
+    renderWithAppShellAndProvider(<TourBootstrap username={USER} />);
+    // The stale-flag path falls through to the sidecar's resume state,
+    // so the modal still surfaces — better UX than silent no-op.
+    await waitFor(() => {
+      expect(
+        document.body.querySelector("[data-testid='v4-resume-prompt']"),
+      ).toBeTruthy();
+    });
+    // Flag is cleared either way so the user never re-loops on it.
+    expect(sessionStorage.getItem("v4_auto_resume_on_next_mount")).toBeNull();
   });
 
   it("Restart click clears resume_state + feature_picks, starts at welcome", async () => {

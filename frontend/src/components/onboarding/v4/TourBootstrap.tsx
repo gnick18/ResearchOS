@@ -10,7 +10,65 @@ import {
   type OnboardingSidecar,
 } from "@/lib/onboarding/sidecar";
 import { TOUR_STEP_ORDER } from "./step-machine";
+import { getStep } from "./step-registry";
 import { useTourController } from "./TourController";
+
+/** sessionStorage key carrying a step id across a hard reload triggered
+ *  by the Resume-stuck-404 mitigation. See `handleResume` for the full
+ *  handoff narrative. */
+const AUTO_RESUME_FLAG = "v4_auto_resume_on_next_mount";
+
+/** Selector for the AppShell's static mount marker. Stays in sync with
+ *  the `data-app-shell-mounted` attribute set on AppShell's outer wrapper
+ *  div. When the selector doesn't resolve, the page rendered something
+ *  other than AppShell (most commonly the Next.js 404 fallback after a
+ *  dev-server restart) and the tour can't actually proceed. */
+const APP_SHELL_SELECTOR = "[data-app-shell-mounted]";
+
+/** True when the AppShell's static mount marker is present in the DOM.
+ *  SSR-safe: returns false when `document` is undefined. */
+function isAppShellMounted(): boolean {
+  if (typeof document === "undefined") return false;
+  return document.querySelector(APP_SHELL_SELECTOR) !== null;
+}
+
+/** Resolve the expected route for a step id, falling back to "/" when
+ *  the step body has no fixed route (dynamic-route steps) or the id
+ *  isn't registered. Mirrors the controller's auto-navigate effect. */
+function computeExpectedRoute(stepId: string): string {
+  return getStep(stepId)?.expectedRoute ?? "/";
+}
+
+/** Read + clear the auto-resume sessionStorage flag. Returns the saved
+ *  step id when present, `null` otherwise. Swallows storage errors
+ *  (private-mode / disabled storage) so the bootstrap never throws. */
+function readAutoResumeFlag(): string | null {
+  if (typeof sessionStorage === "undefined") return null;
+  try {
+    const v = sessionStorage.getItem(AUTO_RESUME_FLAG);
+    return v && v.length > 0 ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearAutoResumeFlag(): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.removeItem(AUTO_RESUME_FLAG);
+  } catch {
+    // Swallow.
+  }
+}
+
+function writeAutoResumeFlag(stepId: string): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.setItem(AUTO_RESUME_FLAG, stepId);
+  } catch {
+    // Swallow.
+  }
+}
 
 /**
  * Onboarding v4 P11 bootstrap. Sits inside `<TourControllerProvider>`
@@ -78,6 +136,19 @@ export default function TourBootstrap({ username }: TourBootstrapProps) {
           // Dev hook (parallels v3's WizardMount). Always start at
           // the first applicable step so wiki screenshots + manual
           // tests don't have to wipe sidecars.
+          // P12 follow-up: previewMode pre-empts the auto-resume flag.
+          // Preview is always a force-start, so any stale flag from a
+          // prior session is cleared here too (otherwise a sessionStorage
+          // value left over from a real-user reload could bleed into the
+          // preview surface).
+          if (typeof sessionStorage !== "undefined") {
+            try {
+              sessionStorage.removeItem(AUTO_RESUME_FLAG);
+            } catch {
+              // sessionStorage can throw in private-mode / locked-down
+              // browsers; swallow and continue.
+            }
+          }
           controller.start();
           setState({ kind: "resolved" });
           return;
@@ -88,6 +159,30 @@ export default function TourBootstrap({ username }: TourBootstrapProps) {
         if (sidecar.wizard_completed_at || sidecar.wizard_skipped_at) {
           setState({ kind: "resolved" });
           return;
+        }
+
+        // P12 follow-up: auto-resume handoff. If the previous render
+        // detected a stuck-404 (no AppShell) when the user clicked
+        // Resume, we set a sessionStorage flag and hard-reloaded the
+        // target route. On this mount the AppShell should now be there;
+        // jump straight to controller.start(savedStep) and skip the
+        // modal (re-prompting would be confusing — the user already
+        // clicked Resume once). The flag is always cleared, even when
+        // the saved step is stale (no longer in TOUR_STEP_ORDER) or
+        // AppShell still isn't mounted, so it cannot pin the user in a
+        // loop.
+        const savedAutoResume = readAutoResumeFlag();
+        if (savedAutoResume) {
+          clearAutoResumeFlag();
+          if (isV4StepId(savedAutoResume) && isAppShellMounted()) {
+            controller.start(savedAutoResume);
+            setState({ kind: "resolved" });
+            return;
+          }
+          // Stale flag (step removed from the graph, or AppShell still
+          // missing). Fall through to the normal sidecar-driven path so
+          // the user sees the resume modal again — better than a silent
+          // no-op.
         }
 
         const resumeId = sidecar.wizard_resume_state?.current_step ?? null;
@@ -177,6 +272,35 @@ export default function TourBootstrap({ username }: TourBootstrapProps) {
     if (state.kind !== "v4-resume") return;
     const target = state.resumeStep;
     setState({ kind: "resolved" });
+
+    // P12 follow-up: stuck-404 mitigation. The Resume modal is portaled
+    // onto document.body, which means it renders fine even when the
+    // underlying page failed to compile and Next.js fell back to its
+    // built-in 404 surface (the exact failure mode Grant hit after
+    // killing + restarting the dev server). In that state:
+    //   1. The patch sidecar call still succeeds.
+    //   2. controller.start(target) flips internal state but there is
+    //      no AppShell mounted to render the next step into, so nothing
+    //      visible happens.
+    //   3. The controller's expectedRoute effect calls router.push to
+    //      the target, but router.push on the same path is a silent
+    //      no-op — and even if it pushed, the 404 page wouldn't
+    //      reactively re-render into the real route.
+    // The user sees: same 404, same speech bubble overlaying it.
+    // Soft-lock. Force a hard reload of the target route instead so
+    // Next.js gets a fresh compile pass and the real AppShell renders.
+    // The sidecar's `wizard_resume_state` is untouched (we don't even
+    // patch it on Resume), so the auto-resume flag plus the original
+    // sidecar entry combine to put the user back on the right step
+    // after the reload.
+    if (!isAppShellMounted()) {
+      writeAutoResumeFlag(target);
+      if (typeof window !== "undefined") {
+        window.location.href = computeExpectedRoute(target);
+      }
+      return;
+    }
+
     // TourStepId is a free-form string alias; isV4StepId guarded the
     // value before we transitioned into "v4-resume", so it is safe to
     // hand straight to start() without re-validating.
