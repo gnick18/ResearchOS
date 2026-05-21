@@ -2,17 +2,13 @@
 
 import { createContext, useCallback, useContext, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
-import OnboardingTutorialSequencer from "@/components/OnboardingTutorialSequencer";
 import WizardMount from "@/components/onboarding/v3/WizardMount";
 import type { WizardStep } from "@/components/onboarding/v3/WizardStepMachine";
 import {
   clearWizardCompletion,
   patchOnboarding,
 } from "@/lib/onboarding/sidecar";
-import {
-  isDemoOrWikiCapture,
-  isTutorialMode,
-} from "@/lib/file-system/wiki-capture-mock";
+import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 
 /**
  * Onboarding v3 orchestrator + provider.
@@ -23,10 +19,10 @@ import {
  * gate-precedence states stay deterministic:
  *
  *   ?wikiCapture=1 alone               → fixture mode, wizard HIDDEN.
- *                                          If isTutorialMode() is also
- *                                          set, mount the tutorial
- *                                          sequencer; otherwise just
- *                                          render children.
+ *                                          Just renders children; no
+ *                                          tutorial overlay (the v1
+ *                                          `/demo?tutorial=1` sequencer
+ *                                          is deleted in P7).
  *   ?wizard-preview=1 alone            → real account, wizard SHOWN
  *                                          (dev hook).
  *   ?wikiCapture=1 & ?wizard-preview=1 → fixture mode WITH wizard
@@ -127,8 +123,8 @@ export function useOnboarding(): OrchestratorContextValue | null {
  * to mount. The decision tree below is the authoritative four-state
  * truth table — keep it in sync with the docblock above.
  *
- * LOCKED: line 71 below. The `(isDemoOrWikiCapture() && !wizardPreviewMode)`
- * short-circuit is the gate-precedence pivot. Touching it changes
+ * LOCKED: the `(isDemoOrWikiCapture() && !wizardPreviewMode)`
+ * short-circuit below is the gate-precedence pivot. Touching it changes
  * the fixture × preview combined case (P6 wiki-manager screenshot
  * path) so leave it as-is unless master explicitly re-litigates.
  */
@@ -144,14 +140,6 @@ export function OnboardingProvider({
 
   if (!currentUser) return <>{children}</>;
   if (isDemoOrWikiCapture() && !wizardPreviewMode) {
-    if (isTutorialMode()) {
-      return (
-        <>
-          {children}
-          <OnboardingTutorialSequencer />
-        </>
-      );
-    }
     return <>{children}</>;
   }
   return (
