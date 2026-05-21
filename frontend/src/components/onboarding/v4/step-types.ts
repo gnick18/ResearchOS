@@ -97,4 +97,32 @@ export interface TourStep {
   /** When this predicate returns `false`, the step is skipped (gating
    *  per L16). When `undefined`, the step always fires. */
   conditionalOn?: (picks: FeaturePicks | null) => boolean;
+  /** Pathname (or pathname prefix) the step expects to render against.
+   *  When set, the TourController auto-navigates here on step enter if
+   *  `window.location.pathname` doesn't already match.
+   *
+   *  Match contract:
+   *   - `expectedRoute: "/"` matches ONLY the literal "/" pathname.
+   *     The home route can't use a prefix match because `/` is a
+   *     prefix of every path. Any non-`/` pathname triggers a push.
+   *   - Every other value is a `startsWith` prefix check, so
+   *     `expectedRoute: "/methods"` treats both `/methods` and
+   *     `/methods/structured/pcr-builder` as "already on the right
+   *     page" and skips the navigation.
+   *
+   *  Steps with dynamic routes (the project page at
+   *  `/workbench/projects/<id>`, the experiment popup overlay) leave
+   *  this unset because their expected route depends on artifact ids;
+   *  those steps are entered via cursor demos clicking through, not
+   *  via a hard route push. Modal-based steps (setup phase, telegram
+   *  conditional, cleanup grid) also leave this unset because the
+   *  surface owns the page regardless of route.
+   *
+   *  Why this exists: Grant's refresh-mid-tour bug. Refreshing on a
+   *  non-home page (e.g. while viewing a project) and resuming the
+   *  tour put BeakerBot on, say, `home-create-project` while the
+   *  browser was still on the project route. BeakerBot said "click
+   *  the blue New Project button" but there was no such button on
+   *  that page. Auto-navigating to the expected route fixes this. */
+  expectedRoute?: string;
 }

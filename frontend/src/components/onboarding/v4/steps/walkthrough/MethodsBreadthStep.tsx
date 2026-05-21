@@ -68,4 +68,5 @@ export const methodsBreadthStep = buildWalkthroughStep({
     return compactScript([openPicker]);
   }),
   completion: manualAdvance("Got it, next"),
+  expectedRoute: "/methods",
 });

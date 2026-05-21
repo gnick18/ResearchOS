@@ -46,4 +46,5 @@ export const workbenchCreateExperimentStep = buildWalkthroughStep({
     return compactScript([openModal, typeName, submit]);
   }),
   completion: advanceOnEvent(watchTaskCreated),
+  expectedRoute: "/workbench",
 });

@@ -47,4 +47,5 @@ export const methodsCategoryStep = buildWalkthroughStep({
     return compactScript([openAffordance, typeName]);
   }),
   completion: manualAdvance("Got it, next"),
+  expectedRoute: "/methods",
 });

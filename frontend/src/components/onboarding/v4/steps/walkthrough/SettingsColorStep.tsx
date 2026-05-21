@@ -34,6 +34,7 @@ export const settingsColorStep = buildWalkthroughStep({
     return compactScript([swatch]);
   }),
   completion: autoAdvanceAfter(2000),
+  expectedRoute: "/settings",
 });
 
 /**
@@ -48,4 +49,5 @@ export const settingsMoreStep = buildWalkthroughStep({
   pose: "thinking",
   // No spotlight — narrative beat between two anchored steps.
   completion: autoAdvanceAfter(3500),
+  expectedRoute: "/settings",
 });

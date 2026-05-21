@@ -161,6 +161,14 @@ function setupStep(id: TourStepId): TourStep {
       // resolves itself.
       buttonLabel: id === "welcome" ? "Let's go" : "Next",
     },
+    // Welcome owns expectedRoute "/" so Restart (from V4ResumePrompt or
+    // Settings re-run) navigates to home BEFORE the modal paints. The
+    // modal itself is page-agnostic, but the in-product walkthrough that
+    // follows Q6 lives on home, and the user shouldn't see anything
+    // weird underneath the setup modal in the meantime. Per Grant's
+    // 2026-05-21 feedback: "if the user's ever starting the tutorial
+    // from the beginning, just automatically take them to the home page."
+    expectedRoute: id === "welcome" ? "/" : undefined,
     conditionalOn: (picks: FeaturePicks | null) => !isStepGatedOut(id, picks),
   };
 }

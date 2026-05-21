@@ -47,4 +47,6 @@ export const animationPickerStep = buildWalkthroughStep({
     return compactScript([openPicker, pickCelebration]);
   }),
   completion: autoAdvanceAfter(2500),
+  // Animation picker lives on the Gantt toolbar.
+  expectedRoute: "/gantt",
 });

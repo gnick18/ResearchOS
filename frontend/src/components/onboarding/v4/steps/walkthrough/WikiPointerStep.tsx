@@ -25,4 +25,5 @@ export const wikiPointerStep = buildWalkthroughStep({
     return compactScript([click]);
   }),
   completion: autoAdvanceAfter(3000),
+  expectedRoute: "/wiki",
 });

@@ -1,5 +1,19 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { act, render, screen } from "@testing-library/react";
+
+// Stub next/navigation's useRouter for the TourController auto-
+// navigate effect (Onboarding v4 route-nav fix). push() is a no-op.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    prefetch: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    refresh: vi.fn(),
+  }),
+}));
+
 import {
   calendarConditionalStep,
   READ_DURATION_MS,

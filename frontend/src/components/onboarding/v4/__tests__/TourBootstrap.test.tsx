@@ -36,8 +36,18 @@ vi.mock("@/lib/file-system/file-service", () => ({
 
 // Stub next/navigation's useSearchParams so the bootstrap's
 // previewMode probe reads as null (the default in tests).
+// Also stub useRouter for TourController's auto-navigate effect
+// (Onboarding v4 route-nav fix); push() is a no-op stub here.
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    prefetch: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    refresh: vi.fn(),
+  }),
 }));
 
 import TourBootstrap from "../TourBootstrap";

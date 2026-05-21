@@ -53,4 +53,5 @@ export const ganttGoalsStep = buildWalkthroughStep({
   // Gate matches step-machine.ts `isStepGatedOut`:
   //   gantt-goals-overview → picks?.goals !== "yes"
   conditionalOn: (picks) => picks?.goals === "yes",
+  expectedRoute: "/gantt",
 });

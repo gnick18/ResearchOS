@@ -25,6 +25,7 @@ export interface StepBuilderInput {
   onEnter?: () => void | Promise<void>;
   onExit?: () => void | Promise<void>;
   conditionalOn?: TourStep["conditionalOn"];
+  expectedRoute?: string;
 }
 
 /**
@@ -46,6 +47,7 @@ export function buildWalkthroughStep(input: StepBuilderInput): TourStep {
     onEnter: input.onEnter,
     onExit: input.onExit,
     conditionalOn: input.conditionalOn,
+    expectedRoute: input.expectedRoute,
   };
 }
 

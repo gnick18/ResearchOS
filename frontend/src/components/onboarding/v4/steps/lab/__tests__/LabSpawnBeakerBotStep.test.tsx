@@ -20,6 +20,19 @@ vi.mock("@/lib/storage/json-store", async () => {
   return { ...actual, getCurrentUserCached };
 });
 
+// Stub next/navigation's useRouter for the TourController auto-
+// navigate effect (Onboarding v4 route-nav fix). push() is a no-op.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    prefetch: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    refresh: vi.fn(),
+  }),
+}));
+
 import LabSpawnInner from "../LabSpawnBeakerBotStep";
 import { TourControllerProvider } from "../../../TourController";
 import type { FeaturePicks } from "@/lib/onboarding/sidecar";

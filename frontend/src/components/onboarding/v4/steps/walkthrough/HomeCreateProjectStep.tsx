@@ -43,4 +43,8 @@ export const homeCreateProjectStep = buildWalkthroughStep({
     return compactScript([click]);
   }),
   completion: advanceOnEvent(watchHomeCreateModalOpened),
+  // Auto-navigate to the home page when a refresh lands the user
+  // somewhere else (Grant's refresh-mid-tour bug: BeakerBot pointed at
+  // a "New Project" button that wasn't on the project page he was on).
+  expectedRoute: "/",
 });

@@ -48,4 +48,5 @@ export const ganttDragDropStep = buildWalkthroughStep({
     return compactScript([drag]);
   }),
   completion: autoAdvanceAfter(3000),
+  expectedRoute: "/gantt",
 });

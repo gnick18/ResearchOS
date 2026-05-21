@@ -101,4 +101,5 @@ export const settingsAiHelperStep = buildWalkthroughStep({
     const v = picks?.ai_helper;
     return v === "full" || v === "medium" || v === "minimal";
   },
+  expectedRoute: "/settings",
 });

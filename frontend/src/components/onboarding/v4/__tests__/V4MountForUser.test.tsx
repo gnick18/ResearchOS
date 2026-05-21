@@ -33,6 +33,17 @@ vi.mock("@/lib/file-system/file-service", () => ({
 
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
+  // useRouter mock supports TourController's auto-navigate effect
+  // (Onboarding v4 route-nav fix). push() is a no-op stub here; tests
+  // that need to observe pushes do so in TourController.test.tsx.
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    prefetch: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    refresh: vi.fn(),
+  }),
 }));
 
 // Mock the cleanup-execution helper so onComplete/onSkip resolve

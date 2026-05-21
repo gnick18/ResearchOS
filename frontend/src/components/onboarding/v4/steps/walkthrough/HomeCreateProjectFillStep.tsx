@@ -59,4 +59,6 @@ export const homeCreateProjectFillStep = buildWalkthroughStep({
   // A typed-name cursor demo would be wrong here because the user is
   // picking their own real project name. Spotlight + speech is enough.
   completion: advanceOnEvent(watchProjectCreated),
+  // Auto-navigate to home so the form anchor resolves on refresh.
+  expectedRoute: "/",
 });

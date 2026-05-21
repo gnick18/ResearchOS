@@ -313,6 +313,9 @@ export const purchasesConditionalStep: TourStep = {
   // when the user is on a non-Purchases route.
   targetSelector: "[data-tour-target='purchases-tab']",
   conditionalOn: (picks) => picks?.purchases === "yes",
+  // Auto-navigate to /purchases on refresh so the demo's tab + cards
+  // are visible (per Grant's refresh-mid-tour bug).
+  expectedRoute: "/purchases",
 };
 
 // Re-exports for tests + P8 cleanup-grid matching.

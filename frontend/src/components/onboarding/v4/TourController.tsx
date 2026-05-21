@@ -13,6 +13,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import BeakerBot from "@/components/BeakerBot";
 import BeakerBotCursor, {
   type BeakerBotCursorRef,
@@ -377,6 +378,7 @@ export function TourControllerProvider({
   onComplete,
   onSkip,
 }: TourControllerProviderProps) {
+  const router = useRouter();
   const [state, dispatch] = useReducer(reducer, {
     ...initialState,
     featurePicks: initialFeaturePicks,
@@ -620,6 +622,43 @@ export function TourControllerProvider({
   // same `eventFired` flag — see the comment at the SET_STEP handler.
   // This keeps the state vector minimal (one boolean per "non-manual
   // completion") while still letting "manual" steps wait for the user.
+
+  // Auto-navigate to the step's `expectedRoute` when the browser is on
+  // the wrong page. Grant's refresh-mid-tour bug: refreshing on a
+  // non-home page (e.g. while viewing a project) and resuming the
+  // tour put BeakerBot on `home-create-project` while the browser was
+  // still on the project route, so BeakerBot pointed at a "New
+  // Project" button that wasn't on screen. Pushing to `expectedRoute`
+  // on step entry restores the assumed-route invariant for every
+  // fixed-route step. Dynamic-route steps (project page,
+  // experiment popup) leave `expectedRoute` unset and are entered via
+  // cursor demos clicking through. The match is a prefix `startsWith`
+  // check so `expectedRoute: "/methods"` treats both `/methods` and
+  // `/methods/structured/pcr-builder` as "already on the right page."
+  useEffect(() => {
+    if (!state.currentStep || state.paused) return;
+    const body = getStep(state.currentStep);
+    if (!body?.expectedRoute) return;
+
+    // SSR guard. Tests under jsdom still have `window`; the guard is
+    // here for the rare case of the controller mounting during an
+    // SSR hydration before window is defined.
+    if (typeof window === "undefined") return;
+    const current = window.location.pathname;
+    const expected = body.expectedRoute;
+
+    // Match contract: prefix match (`startsWith`) for everything EXCEPT
+    // the home route. `/` would prefix-match every path, which would
+    // mean home-rooted steps never auto-navigate from a sub-page (the
+    // exact bug Grant hit, where refreshing on /workbench/projects/<id>
+    // while on a home-rooted step never moved him back to home). Treat
+    // `/` as an exact-match route and any other path as a prefix.
+    const alreadyOnRoute =
+      expected === "/" ? current === "/" : current.startsWith(expected);
+    if (alreadyOnRoute) return;
+
+    router.push(expected);
+  }, [state.currentStep, state.paused, router]);
 
   // -------------------------------------------------------------------
   // Memoized context value

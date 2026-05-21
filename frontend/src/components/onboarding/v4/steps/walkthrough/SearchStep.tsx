@@ -53,4 +53,5 @@ export const searchStep = buildWalkthroughStep({
     return compactScript([type]);
   }),
   completion: autoAdvanceAfter(Math.ceil(SEARCH_QUERY.length * 95) + 2000),
+  expectedRoute: "/search",
 });

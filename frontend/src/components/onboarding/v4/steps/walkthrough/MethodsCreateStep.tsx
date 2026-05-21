@@ -98,4 +98,5 @@ export const methodsCreateStep = buildWalkthroughStep({
     return compactScript([pickMarkdown, typeName, typeBody, submit]);
   }),
   completion: advanceOnEvent(watchMethodCreated),
+  expectedRoute: "/methods",
 });

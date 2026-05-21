@@ -64,4 +64,5 @@ export const ganttIntroStep = buildWalkthroughStep({
     return compactScript([dblA, dblB, buttonClick]);
   }),
   completion: manualAdvance("Got it, next"),
+  expectedRoute: "/gantt",
 });

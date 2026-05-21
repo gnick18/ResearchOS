@@ -97,6 +97,8 @@ export const calendarConditionalStep: TourStep = {
   // selector path.
   targetSelector: "[data-tour-target='calendar-tab']",
   conditionalOn: (picks) => picks?.calendar === "yes",
+  // Auto-navigate to /calendar on refresh so the month view is visible.
+  expectedRoute: "/calendar",
 };
 
 // Export the read duration for tests + future tuning chips.

@@ -103,4 +103,5 @@ export const ganttDependenciesStep = buildWalkthroughStep({
     return compactScript([linkAB, linkBC, reschedA]);
   }),
   completion: autoAdvanceAfter(4500),
+  expectedRoute: "/gantt",
 });
