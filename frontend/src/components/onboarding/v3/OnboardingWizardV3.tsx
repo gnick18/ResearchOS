@@ -857,7 +857,12 @@ function StepBody({
         />
       );
     case "setup-q1b":
-      return <Q1bLabConnectInfoStep setNextDisabled={setNextDisabled} />;
+      return (
+        <Q1bLabConnectInfoStep
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+        />
+      );
     case "setup-q2":
       return (
         <Q2PurchasesStep

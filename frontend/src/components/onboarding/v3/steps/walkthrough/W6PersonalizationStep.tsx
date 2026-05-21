@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { patchUserSettings, readUserSettings } from "@/lib/settings/user-settings";
 import { ANIMATION_METADATA, type AnimationType } from "@/components/animations";
+import DynamicAnimation from "@/components/DynamicAnimation";
 import type { OnboardingSidecar } from "@/lib/onboarding/sidecar";
 import SpeechBubble from "./lib/SpeechBubble";
 import {
@@ -62,6 +63,16 @@ export default function W6PersonalizationStep({
   const [originalAnimation, setOriginalAnimation] =
     useState<AnimationType | null>(null);
   const [loading, setLoading] = useState(true);
+  // Preview-fire state: when the user clicks an animation theme tile, fire
+  // the actual animation at the click point so they SEE what they're
+  // picking rather than just an emoji. `key` increments per click so React
+  // remounts DynamicAnimation even if the same type is clicked twice.
+  const [preview, setPreview] = useState<{
+    type: AnimationType;
+    x: number;
+    y: number;
+    key: number;
+  } | null>(null);
 
   useEffect(() => {
     setNextDisabled(false);
@@ -108,7 +119,20 @@ export default function W6PersonalizationStep({
     }
   };
 
-  const handleAnimation = async (next: AnimationType) => {
+  const handleAnimation = async (
+    next: AnimationType,
+    clickEvent: React.MouseEvent<HTMLButtonElement>,
+  ) => {
+    // Fire the actual animation as a preview at the click point so the
+    // user SEES what they're picking. Even when clicking the same type
+    // twice the key increments so DynamicAnimation remounts and replays.
+    const rect = clickEvent.currentTarget.getBoundingClientRect();
+    setPreview({
+      type: next,
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+      key: (preview?.key ?? 0) + 1,
+    });
     if (!originalAnimation || next === animation) return;
     setAnimation(next);
     try {
@@ -186,7 +210,7 @@ export default function W6PersonalizationStep({
                   <button
                     key={k}
                     type="button"
-                    onClick={() => void handleAnimation(k)}
+                    onClick={(e) => void handleAnimation(k, e)}
                     aria-pressed={selected}
                     className={`flex items-center gap-2 px-3 py-2 rounded-md border text-left text-xs transition-colors ${
                       selected
@@ -206,6 +230,15 @@ export default function W6PersonalizationStep({
             </div>
           </div>
         </div>
+      )}
+      {preview && (
+        <DynamicAnimation
+          key={preview.key}
+          type={preview.type}
+          x={preview.x}
+          y={preview.y}
+          onComplete={() => setPreview(null)}
+        />
       )}
     </div>
   );
