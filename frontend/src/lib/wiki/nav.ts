@@ -141,8 +141,8 @@ export const WIKI_NAV: WikiNode[] = [
       },
       {
         href: "/wiki/features/experiments",
-        label: "Experiments & Notes",
-        blurb: "Tile grid, popup with Notes / Method / Results, PDF / HTML / Raw export.",
+        label: "The Workbench",
+        blurb: "Three tabs (Experiments, Notes, Lists) with a shared project filter, popup with Details / Lab Notes / Method / Results, PDF / HTML / Raw export.",
       },
       {
         href: "/wiki/features/markdown-editor",

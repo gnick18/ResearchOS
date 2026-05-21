@@ -502,15 +502,49 @@ const FIXTURE_ROUTES = [
     },
   },
   {
-    path: "/experiments",
-    file: "experiments-list.png",
-    waitFor: "h1, h2, text=Lab Notes",
+    // The Workbench landing view: tab strip + project filter pills +
+    // first stacked sections (Ready to start / Blocked / Running ...)
+    // visible above the fold. Highlight + New Experiment.
+    path: "/workbench",
+    file: "workbench-experiments.png",
+    waitFor: "text=Workbench, text=Experiments",
+    settleMs: 600,
     highlight: { text: "New Experiment" },
   },
   {
-    path: "/experiments",
+    // Scroll the Experiments tab so several stacked section headers are
+    // in frame at once (e.g. Running, Awaiting writeup). The fullPage
+    // capture pulls in the whole stack so readers can see the full
+    // section vocabulary without scrolling the wiki shot.
+    path: "/workbench",
+    file: "workbench-experiments-sections.png",
+    waitFor: "text=Workbench, text=Experiments",
+    settleMs: 600,
+    fullPage: true,
+  },
+  {
+    // Notes tab: flat search-driven list. Click the Notes tab button in
+    // the Workbench tab bar to switch views before capturing. The
+    // project pill strip currently hides on Notes (a separate chip
+    // restores it); when that lands, this capture should rerun.
+    path: "/workbench",
+    file: "workbench-notes.png",
+    waitFor: "text=Workbench, text=Notes",
+    settleMs: 700,
+    action: async (page) => {
+      try {
+        const tab = page.getByRole("button", { name: /^Notes$/ }).first();
+        if (await tab.count()) {
+          await tab.click({ timeout: 3000 });
+          await page.waitForTimeout(700);
+        }
+      } catch {}
+    },
+  },
+  {
+    path: "/workbench",
     file: "experiments-editor.png",
-    waitFor: "h1, h2, text=Lab Notes",
+    waitFor: "text=Workbench, text=Experiments",
     settleMs: 800,
     action: async (page) => {
       await revealCompletedAndOpenTask(
