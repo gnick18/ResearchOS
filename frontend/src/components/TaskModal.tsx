@@ -154,6 +154,15 @@ export default function TaskModal({ projects }: TaskModalProps) {
     return startDate;
   }, [selectedParentTask, depType, durationDays, startDate]);
 
+  useEffect(() => {
+    if (!isCreatingTask) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsCreatingTask(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isCreatingTask, setIsCreatingTask]);
+
   // Reset form when modal opens
   useEffect(() => {
     if (isCreatingTask) {

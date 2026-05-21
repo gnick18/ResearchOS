@@ -646,6 +646,10 @@ function BehaviorSection({ settings, update }: SectionProps) {
       title="Notifications & behavior"
       description="Master switches for messaging and safety prompts."
     >
+      {/* Alias anchor so `/settings#behavior` also lands on this section
+          (some docs/links use the section's title word rather than the
+          original `#telegram` id). */}
+      <span id="behavior" aria-hidden="true" />
       <div className="flex items-start justify-between gap-4 pb-2 border-b border-gray-100">
         <div className="min-w-0">
           <p className="text-sm font-medium text-gray-800">Set up Telegram</p>

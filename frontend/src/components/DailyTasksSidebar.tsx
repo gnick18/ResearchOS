@@ -182,6 +182,7 @@ export default function DailyTasksSidebar() {
         <button
           ref={gearRef}
           onClick={() => setSettingsOpen((v) => !v)}
+          aria-label="Sidebar contents"
           className="absolute top-2 right-2 z-20 p-1 text-gray-300 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
         >
           <svg

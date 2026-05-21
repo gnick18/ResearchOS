@@ -241,6 +241,7 @@ export default function OnboardingLabModePickerTip({
       {/* Tip card */}
       <div
         role="dialog"
+        aria-modal="true"
         aria-labelledby="onboarding-lab-mode-picker-title"
         className="fixed z-[201] bg-white border border-gray-200 rounded-xl shadow-2xl p-4"
         style={{
