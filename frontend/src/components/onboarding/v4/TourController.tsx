@@ -841,12 +841,23 @@ function TourOverlay({
   // walkthrough mode, which also scopes the cursor + spotlight portals
   // to the lifetime of the walkthrough — they tear down cleanly when
   // the tour exits or transitions to a different mode.
+  //
+  // The Back affordance (v4 polish round 3) only renders when goBack()
+  // would actually move somewhere — `firstApplicableStep(featurePicks)`
+  // identifies the head of the current applicable sequence, and we
+  // hide the link when the user is sitting on it. Hiding (not just
+  // disabling) keeps the bottom-left of the bubble clean for the
+  // common case where Back is unavailable.
+  const isAtFirstStep =
+    controller.currentStep === firstApplicableStep(controller.featurePicks);
   return (
     <InProductWalkthroughOverlay
       currentStep={controller.currentStep}
       onManualAdvance={controller.noteManualAdvance}
       onSkipStep={controller.skipStep}
       onExitTour={controller.exitTour}
+      onBack={controller.goBack}
+      canGoBack={!isAtFirstStep}
     />
   );
 }
@@ -860,6 +871,14 @@ interface InProductWalkthroughOverlayProps {
   onManualAdvance: () => void;
   onSkipStep: () => void;
   onExitTour: () => void;
+  /** v4 polish round 3: surface goBack() in the speech bubble so a user
+   *  who clicked off-target or deleted a step's prereq can rewind one
+   *  step without restarting the tour. */
+  onBack: () => void;
+  /** False when the controller is already on the first applicable step
+   *  (goBack would be a no-op); the overlay hides the Back link in that
+   *  state so the bubble's bottom-left stays clean. */
+  canGoBack: boolean;
 }
 
 /**
@@ -896,6 +915,8 @@ function InProductWalkthroughOverlay({
   onManualAdvance,
   onSkipStep,
   onExitTour,
+  onBack,
+  canGoBack,
 }: InProductWalkthroughOverlayProps) {
   const cursorRef = useRef<BeakerBotCursorRef>(null);
   const body = getStep(currentStep);
@@ -944,6 +965,8 @@ function InProductWalkthroughOverlay({
         onManualAdvance={onManualAdvance}
         onSkipStep={onSkipStep}
         onExitTour={onExitTour}
+        onBack={onBack}
+        canGoBack={canGoBack}
       />
     </>
   );
@@ -1225,6 +1248,12 @@ interface TourBeakerBotOverlayProps {
   onManualAdvance: () => void;
   onSkipStep: () => void;
   onExitTour: () => void;
+  /** v4 polish round 3: "← Back" link in the bubble's bottom-left.
+   *  Hidden when `canGoBack` is false (user is at the first applicable
+   *  step). Mirrors the existing skip links on the right edge of the
+   *  same action row. */
+  onBack: () => void;
+  canGoBack: boolean;
 }
 
 function TourBeakerBotOverlay({
@@ -1232,6 +1261,8 @@ function TourBeakerBotOverlay({
   onManualAdvance,
   onSkipStep,
   onExitTour,
+  onBack,
+  canGoBack,
 }: TourBeakerBotOverlayProps) {
   if (!step) return null;
 
@@ -1269,16 +1300,32 @@ function TourBeakerBotOverlay({
         <div data-testid="tour-beakerbot-speech" className="leading-relaxed">
           {speechNode}
         </div>
-        {/* Action row: manual-advance CTA on the left (when the step
-            declares one), and the two skip affordances on the right.
-            "Skip this step" comes first (Grant's preferred wording for
-            single-step skip); "Skip walkthrough" follows, separated by
-            a middle-dot, slightly lighter weight to signal it's the
-            more destructive option (jumps to the cleanup grid). Both
-            sit in the same right-edge container so users see the two
-            opt-out paths together rather than scattered around the
-            bubble. */}
+        {/* Action row: three slots. Bottom-left holds the "← Back"
+            link (v4 polish round 3 — surfaces controller.goBack() so a
+            user who clicked off-target or deleted a step's prereq can
+            rewind one step without restarting). Center holds the
+            manual-advance CTA when the step declares one. Bottom-right
+            holds the two skip affordances ("Skip this step" first per
+            Grant's preferred wording, then "Skip walkthrough" — the
+            cleanup-grid jump — separated by a middle-dot and slightly
+            lighter weight to signal it's the more destructive option).
+            The Back link styling matches "Skip this step" (text-gray-500
+            underlined small) since both are tour-navigation
+            affordances; "Skip walkthrough" stays slightly lighter
+            (text-gray-400) to keep it visually deprioritized. */}
         <div className="mt-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 whitespace-nowrap">
+            {canGoBack ? (
+              <button
+                type="button"
+                onClick={onBack}
+                className="text-xs text-gray-500 hover:text-gray-700 underline underline-offset-2"
+                aria-label="Back"
+              >
+                {"← Back"}
+              </button>
+            ) : null}
+          </div>
           {manualButtonLabel ? (
             <button
               type="button"

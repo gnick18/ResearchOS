@@ -16,7 +16,14 @@ import { createPortal } from "react-dom";
  * performs four "primitive" actions on real product surfaces:
  *
  *   1. **Glide**  — animate the cursor's screen position to (x, y)
- *      over ~300-500ms via a CSS transform transition.
+ *      over ~800-900ms via a CSS transform transition. Tuned up from
+ *      the original 300-500ms band after Grant's v4 round-3 testing —
+ *      the faster default made step transitions too easy to miss
+ *      ("the first step is happening so freaking fast"), so the glide
+ *      now reads as a slow, trackable arc the user can follow even at
+ *      120px BeakerBot tour size on a typical monitor. Click ripple
+ *      stays at ~150ms (it's an attention beat, not a path) and the
+ *      typewriter cadence stays at ~95ms.
  *   2. **Click**  — emit a brief ripple animation at the cursor tip,
  *      then programmatically fire `target.click()` so the app handles
  *      the event normally.
@@ -97,8 +104,9 @@ export interface BeakerBotCursorProps {
    *  the cursor doesn't flash at (0,0) before its first glide. */
   initialX?: number;
   initialY?: number;
-  /** Glide duration in ms. Default 400 (within the 300-500ms band
-   *  locked by L17). */
+  /** Glide duration in ms. Default 850 (within the 800-900ms band
+   *  set by v4 polish round 3, bumped from the original 400ms after
+   *  Grant flagged first-step glides as too fast to track). */
   glideMs?: number;
   /** Click ripple duration in ms. Default 150 per L17. */
   rippleMs?: number;
@@ -113,7 +121,7 @@ export interface BeakerBotCursorProps {
 // Animation defaults
 // ---------------------------------------------------------------------------
 
-const DEFAULT_GLIDE_MS = 400;
+const DEFAULT_GLIDE_MS = 850;
 const DEFAULT_RIPPLE_MS = 150;
 const DEFAULT_TYPE_CADENCE_MS = 95;
 /** Cubic-bezier matching the brief — "natural feel" easing. */
