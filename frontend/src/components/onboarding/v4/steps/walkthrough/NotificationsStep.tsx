@@ -81,15 +81,14 @@ export async function fireNotificationsStepTestNotification(): Promise<void> {
 export const notificationsStep = buildWalkthroughStep({
   id: "notifications",
   speech:
-    "Quick universal: notifications. I'm firing a test one now, see the bell badge?",
+    "Quick universal: notifications. I just fired a test one — see the bell badge? Click it to open your inbox.",
   pose: "pointing-up",
   targetSelector: targetSelector(TOUR_TARGETS.notificationsBell),
-  cursorScript: cursorScript(async () => {
-    const bellClick = await safeClickAction(
-      targetSelector(TOUR_TARGETS.notificationsBell),
-    );
-    return compactScript([bellClick]);
-  }),
+  // No cursorScript: per Grant's 2026-05-21 cursor-responsibility
+  // revision, BeakerBot fires the test notification programmatically
+  // (onEnter), but OPENING the inbox is a user action so the user can
+  // click the spotlighted bell themselves. The spotlight + speech
+  // guide the eye; the user does the clicking.
   completion: manualAdvance("Got it"),
   onEnter: async () => {
     await fireNotificationsStepTestNotification();

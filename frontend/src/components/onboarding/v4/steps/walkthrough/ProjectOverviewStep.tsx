@@ -64,14 +64,12 @@ export const projectOverviewStep = buildWalkthroughStep({
     );
     return compactScript([focusClick, typeAction]);
   }),
-  // Typing cadence was bumped from 95ms to 48ms per character in commit
-  // 95de59e2. Auto-advance timer needs to track that or it overshoots
-  // typing-finished by several seconds and feels stuck. ~1s glide-in +
-  // 52 chars at 48ms = ~3.5s, plus 1s breath = 4.5s total. The
-  // breath is intentionally short because Grant observed the long
-  // post-typing pause read as "nothing's happening".
+  // Auto-advance budget: ~1s glide-in + chars*48ms typing + 3000ms
+  // post-typing breath so the user can READ the affirmation before
+  // BeakerBot launches into the next step. Grant flagged the prior
+  // 1s breath as feeling like an instant snap to §6.3.
   completion: autoAdvanceAfter(
-    1000 + Math.ceil(PLACEHOLDER_HYPOTHESIS.length * 48) + 1000,
+    1000 + Math.ceil(PLACEHOLDER_HYPOTHESIS.length * 48) + 3000,
   ),
   // Prefix match handles the dynamic `/workbench/projects/<id>` route.
   // The TourController auto-nav skips when `current.startsWith(expected)`.

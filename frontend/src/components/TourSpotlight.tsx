@@ -118,7 +118,7 @@ function prefersReducedMotion(): boolean {
 
 export default function TourSpotlight({
   target,
-  glowColor = "#0ea5e9",
+  glowColor = "#0284c7",
   pulseDurationMs = 1500,
   scrollIntoView = true,
 }: TourSpotlightProps) {
@@ -332,8 +332,11 @@ export default function TourSpotlight({
           width: ring.width,
           height: ring.height,
           borderRadius: 8,
-          border: `2px solid ${glowColor}`,
-          boxShadow: `0 0 16px 4px ${glowColor}, inset 0 0 8px 0 ${glowColor}`,
+          // Brighter + deeper-blue spotlight per Grant feedback 2026-05-21:
+          // bumped border to 3px and box-shadow spread to 8px with stronger
+          // outer glow at 32px so the highlight reads from across the screen.
+          border: `3px solid ${glowColor}`,
+          boxShadow: `0 0 0 2px ${glowColor}40, 0 0 32px 8px ${glowColor}, inset 0 0 12px 0 ${glowColor}`,
           pointerEvents: "none",
           opacity: reducedMotion ? 0.8 : undefined,
           animation: reducedMotion
