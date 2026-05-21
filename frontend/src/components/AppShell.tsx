@@ -25,6 +25,7 @@ import DevDemoToggleButton from "./DevDemoToggleButton";
 import DataSetupScreen from "./DataSetupScreen";
 import UserLoginScreen from "./UserLoginScreen";
 import FeedbackModal from "./FeedbackModal";
+import BeakerBot from "./BeakerBot";
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { HELP_HREF, appRouteToWikiRoute } from "@/lib/wiki/nav";
 import { useAppStore } from "@/lib/store";
@@ -117,9 +118,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         style={headerStyle}
       >
         <PillWrap on={tinted}>
-          <h1 className="text-base font-bold text-gray-900 tracking-tight">
-            ResearchOS
-          </h1>
+          <div className="flex items-center gap-1.5">
+            {/* Small static BeakerBot brand-mark accent. No animation — the
+                idle bob is reserved for the onboarding wizard; a moving
+                mascot next to the word-mark would compete with nav. */}
+            <BeakerBot
+              pose="idle"
+              ariaLabel="ResearchOS BeakerBot logo"
+              className="w-6 h-6 text-sky-500 shrink-0"
+            />
+            <h1 className="text-base font-bold text-gray-900 tracking-tight">
+              ResearchOS
+            </h1>
+          </div>
         </PillWrap>
 
         {/* Navigation */}

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import BeakerBot from "../BeakerBot";
 
 /**
  * Slim top bar shown above the wiki sidebar + content. Two affordances:
@@ -70,9 +71,16 @@ export default function WikiTopBar() {
       <div className="px-5 py-2 flex items-center gap-3">
         <Link
           href="/"
-          className="text-sm font-bold text-gray-900 tracking-tight hover:text-blue-700 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm font-bold text-gray-900 tracking-tight hover:text-blue-700 transition-colors"
           title="Go to ResearchOS home"
         >
+          {/* BeakerBot brand-mark — static, sky-blue, sized to match the
+              text-sm wordmark next to it. Matches AppShell + login. */}
+          <BeakerBot
+            pose="idle"
+            ariaLabel="ResearchOS BeakerBot logo"
+            className="w-5 h-5 text-sky-500 shrink-0"
+          />
           ResearchOS
         </Link>
         <span className="text-gray-300">/</span>
