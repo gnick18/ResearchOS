@@ -396,17 +396,6 @@ export default function UnderwaterAnimation({ x, y, onComplete }: UnderwaterAnim
         </div>
       ))}
       
-      {/* Central splash effect */}
-      <div
-        className="absolute rounded-full"
-        style={{
-          left: x - 50,
-          top: y - 50,
-          width: 100,
-          height: 100,
-          background: "radial-gradient(circle, rgba(100,200,255,0.5) 0%, rgba(0,100,150,0.2) 50%, transparent 70%)",
-        }}
-      />
     </div>
   );
 }

@@ -393,17 +393,6 @@ export default function ScienceAnimation({ x, y, onComplete }: ScienceAnimationP
         </div>
       ))}
       
-      {/* Central glow with pulse */}
-      <div
-        className="absolute rounded-full"
-        style={{
-          left: x - 40,
-          top: y - 40,
-          width: 80,
-          height: 80,
-          background: `radial-gradient(circle, rgba(0,188,212,${0.5 + Math.sin(glowPulse) * 0.2}) 0%, rgba(156,39,176,0.2) 50%, transparent 70%)`,
-        }}
-      />
     </div>
   );
 }

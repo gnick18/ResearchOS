@@ -394,17 +394,6 @@ export default function PlantsAnimation({ x, y, onComplete }: PlantsAnimationPro
         </div>
       ))}
       
-      {/* Central glow */}
-      <div
-        className="absolute rounded-full"
-        style={{
-          left: x - 40,
-          top: y - 40,
-          width: 80,
-          height: 80,
-          background: "radial-gradient(circle, rgba(16,172,132,0.5) 0%, rgba(46,125,50,0.2) 50%, transparent 70%)",
-        }}
-      />
     </div>
   );
 }

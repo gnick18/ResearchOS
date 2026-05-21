@@ -394,17 +394,6 @@ export default function SpaceAnimation({ x, y, onComplete }: SpaceAnimationProps
         </div>
       ))}
       
-      {/* Central glow */}
-      <div
-        className="absolute rounded-full"
-        style={{
-          left: x - 40,
-          top: y - 40,
-          width: 80,
-          height: 80,
-          background: "radial-gradient(circle, rgba(138,43,226,0.6) 0%, rgba(75,0,130,0.3) 50%, transparent 70%)",
-        }}
-      />
     </div>
   );
 }

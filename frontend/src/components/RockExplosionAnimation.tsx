@@ -374,18 +374,6 @@ export default function RockExplosionAnimation({ x, y, onComplete }: RockExplosi
         </div>
       ))}
       
-      {/* Central explosion glow */}
-      <div
-        className="absolute rounded-full"
-        style={{
-          left: x - 30,
-          top: y - 30,
-          width: 60,
-          height: 60,
-          background: "radial-gradient(circle, rgba(255,200,0,0.8) 0%, rgba(255,100,0,0.4) 50%, transparent 70%)",
-          animation: "pulse 0.3s ease-out",
-        }}
-      />
     </div>
   );
 }

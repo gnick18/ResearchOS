@@ -398,17 +398,6 @@ export default function ScaryAnimation({ x, y, onComplete }: ScaryAnimationProps
         </div>
       ))}
       
-      {/* Central dark glow */}
-      <div
-        className="absolute rounded-full"
-        style={{
-          left: x - 50,
-          top: y - 50,
-          width: 100,
-          height: 100,
-          background: "radial-gradient(circle, rgba(74,0,0,0.6) 0%, rgba(26,26,26,0.3) 50%, transparent 70%)",
-        }}
-      />
     </div>
   );
 }

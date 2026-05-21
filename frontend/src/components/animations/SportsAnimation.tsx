@@ -350,17 +350,6 @@ export default function SportsAnimation({ x, y, onComplete }: SportsAnimationPro
         </div>
       ))}
       
-      {/* Central glow */}
-      <div
-        className="absolute rounded-full"
-        style={{
-          left: x - 35,
-          top: y - 35,
-          width: 70,
-          height: 70,
-          background: "radial-gradient(circle, rgba(34,139,34,0.6) 0%, rgba(0,100,0,0.2) 50%, transparent 70%)",
-        }}
-      />
     </div>
   );
 }

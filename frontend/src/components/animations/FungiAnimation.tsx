@@ -363,17 +363,6 @@ export default function FungiAnimation({ x, y, onComplete }: FungiAnimationProps
         </div>
       ))}
       
-      {/* Central glow */}
-      <div
-        className="absolute rounded-full"
-        style={{
-          left: x - 40,
-          top: y - 40,
-          width: 80,
-          height: 80,
-          background: "radial-gradient(circle, rgba(139,69,19,0.5) 0%, rgba(93,64,55,0.2) 50%, transparent 70%)",
-        }}
-      />
     </div>
   );
 }

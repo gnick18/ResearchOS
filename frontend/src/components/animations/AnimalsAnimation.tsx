@@ -389,17 +389,6 @@ export default function AnimalsAnimation({ x, y, onComplete }: AnimalsAnimationP
         </div>
       ))}
       
-      {/* Central glow */}
-      <div
-        className="absolute rounded-full"
-        style={{
-          left: x - 40,
-          top: y - 40,
-          width: 80,
-          height: 80,
-          background: "radial-gradient(circle, rgba(255,159,67,0.5) 0%, rgba(139,69,19,0.2) 50%, transparent 70%)",
-        }}
-      />
     </div>
   );
 }
