@@ -17,6 +17,16 @@ interface PurchaseEditorProps {
   // tasks" line. Informational only — does not block editing. Callers that
   // omit this prop (e.g. LabPurchasesPanel) suppress the note entirely.
   taskType?: Task["task_type"];
+  // When true the task is shared INTO the current user. Mirrors the parent
+  // /purchases page destructive-gate at a87dfeb0: purchasesApi.create /
+  // update / delete are current-user scoped (no owner arg) so writes from a
+  // shared task would land in the receiver's data dir under the same
+  // numeric task_id — clobbering or orphaning items. Disable every write
+  // affordance with an owner-aware Tooltip; items stay viewable.
+  isSharedWithMe?: boolean;
+  // Owner username shown in the disabled-button tooltip when shared.
+  // Falls back to "the owner" when omitted.
+  ownerLabel?: string;
 }
 
 interface EditingRow {
@@ -63,8 +73,20 @@ function itemToEditingRow(item: PurchaseItem): EditingRow {
 const VENDOR_DATALIST_ID = "purchase-editor-vendor-options";
 const CATEGORY_DATALIST_ID = "purchase-editor-category-options";
 
-export default function PurchaseEditor({ taskId, readOnly = false, username, taskType }: PurchaseEditorProps) {
+export default function PurchaseEditor({
+  taskId,
+  readOnly = false,
+  username,
+  taskType,
+  isSharedWithMe = false,
+  ownerLabel,
+}: PurchaseEditorProps) {
   const queryClient = useQueryClient();
+  // Writes are blocked when the host marks the editor as read-only (lab
+  // mode) OR when the task is shared into the current user. Used to gate
+  // buttons, hide the new-row input, and skip the autocomplete query.
+  const writesDisabled = readOnly || isSharedWithMe;
+  const sharedTooltip = `Only the owner${ownerLabel ? ` (${ownerLabel})` : ""} can edit this shared purchase order`;
   const [newRow, setNewRow] = useState<EditingRow>({ ...EMPTY_ROW });
   const [suggestions, setSuggestions] = useState<CatalogItem[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -111,7 +133,7 @@ export default function PurchaseEditor({ taskId, readOnly = false, username, tas
   const { data: autocompleteItems = [] } = useQuery({
     queryKey: ["purchases-all", currentUser],
     queryFn: () => purchasesApi.listAllIncludingShared(currentUser),
-    enabled: !readOnly && !!currentUser,
+    enabled: !writesDisabled && !!currentUser,
   });
   const vendorOptions = useMemo(() => {
     const set = new Set<string>();
@@ -651,6 +673,7 @@ export default function PurchaseEditor({ taskId, readOnly = false, username, tas
                   <td className="py-2 px-1 flex items-center gap-1">
                     <Tooltip label="Save changes" placement="bottom">
                       <button
+                        aria-label="Save changes"
                         onClick={handleSaveEdit}
                         disabled={saving || !editingRow.item_name.trim()}
                         className="text-green-500 hover:text-green-700 text-sm font-bold disabled:opacity-30"
@@ -660,6 +683,7 @@ export default function PurchaseEditor({ taskId, readOnly = false, username, tas
                     </Tooltip>
                     <Tooltip label="Cancel editing" placement="bottom">
                       <button
+                        aria-label="Cancel editing"
                         onClick={handleCancelEdit}
                         className="text-gray-400 hover:text-gray-600 text-sm"
                       >
@@ -672,8 +696,8 @@ export default function PurchaseEditor({ taskId, readOnly = false, username, tas
                 // View mode row
                 <tr
                   key={item.id}
-                  className={`border-b border-gray-50 ${!readOnly ? "hover:bg-gray-50 cursor-pointer" : ""}`}
-                  onClick={!readOnly ? () => handleStartEdit(item) : undefined}
+                  className={`border-b border-gray-50 ${!writesDisabled ? "hover:bg-gray-50 cursor-pointer" : ""}`}
+                  onClick={!writesDisabled ? () => handleStartEdit(item) : undefined}
                 >
                   <td className="py-2 px-2 text-gray-700">{item.item_name}</td>
                   <td className="py-2 px-2 text-gray-700">{item.quantity}</td>
@@ -717,9 +741,16 @@ export default function PurchaseEditor({ taskId, readOnly = false, username, tas
                     {item.notes || "—"}
                   </td>
                   <td className="py-2 px-1">
-                    {!readOnly && (
+                    {/* Lab-mode (readOnly) hides the affordance entirely
+                        because the comment thread / mascot is the canonical
+                        ask-the-owner path. Shared-into-me mode keeps the
+                        button visible but disabled with an owner-aware
+                        Tooltip + aria-label — mirrors the parent-chip
+                        destructive-gate at a87dfeb0. */}
+                    {!readOnly && !isSharedWithMe && (
                       <Tooltip label="Delete item" placement="left">
                         <button
+                          aria-label="Delete item"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDeleteItem(item.id);
@@ -730,13 +761,29 @@ export default function PurchaseEditor({ taskId, readOnly = false, username, tas
                         </button>
                       </Tooltip>
                     )}
+                    {isSharedWithMe && (
+                      <Tooltip label={sharedTooltip} placement="left">
+                        <button
+                          aria-label={sharedTooltip}
+                          disabled
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-red-400 text-xs opacity-30 cursor-not-allowed"
+                        >
+                          ✕
+                        </button>
+                      </Tooltip>
+                    )}
                   </td>
                 </tr>
               )
             ))}
 
-            {/* New row input - hidden in readOnly mode */}
-            {!readOnly && (
+            {/* New row input — hidden in readOnly (lab) mode AND in
+                isSharedWithMe mode. Hiding (vs disabling) is the cleaner
+                surface for the shared case: a disabled empty input row
+                would be visual noise without explaining why, and the
+                view-mode row gate above already prevents click-to-edit. */}
+            {!writesDisabled && (
               <tr className="bg-blue-50/30">
                 <td className="py-2 px-2 relative" ref={suggestionsRef}>
                   <input
@@ -875,6 +922,7 @@ export default function PurchaseEditor({ taskId, readOnly = false, username, tas
                 <td className="py-2 px-1">
                   <Tooltip label="Add item" placement="left">
                     <button
+                      aria-label="Add item"
                       onClick={handleAddRow}
                       disabled={saving || !newRow.item_name.trim() || !newRow.quantity}
                       className="text-blue-500 hover:text-blue-700 text-sm font-bold disabled:opacity-30"

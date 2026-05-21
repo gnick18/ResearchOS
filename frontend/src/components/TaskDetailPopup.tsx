@@ -793,6 +793,16 @@ export default function TaskDetailPopup({
               readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")}
               username={username ?? (task.is_shared_with_me ? task.owner : undefined)}
               taskType={task.task_type}
+              // Existing readOnly gate only covers shared+VIEW. For
+              // shared+EDIT the editor is mounted writable, but
+              // purchasesApi.create/update/delete are current-user scoped
+              // (no owner arg), so writes would land items under the
+              // receiver's data dir at the shared task's numeric id —
+              // clobbering or orphaning items. isSharedWithMe disables the
+              // write affordances with an owner-aware Tooltip, mirroring
+              // the destructive-button gate at a87dfeb0.
+              isSharedWithMe={task.is_shared_with_me ?? false}
+              ownerLabel={task.is_shared_with_me ? task.owner : undefined}
             />
           )}
         </div>
