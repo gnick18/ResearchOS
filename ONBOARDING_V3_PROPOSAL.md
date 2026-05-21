@@ -145,7 +145,7 @@ Every step has:
 |---|---|---|
 | W10 | Purchases tour | Q2 = Yes. BeakerBot creates a sample purchase request and walks the user through approving + receiving it. |
 | W11 | Goals tour | Q4 = Yes. BeakerBot creates a sample goal and demos linking it to W3's experiment. |
-| W12 | Telegram tour (with image attach) | Q5 = Yes. Inline Telegram bot pair flow. BeakerBot then demos sending an image from Telegram and showing it appearing in the user's image inbox AND attaching it to W3's experiment note. |
+| W12 | Telegram tour (with image attach) | Q5 = Yes. One step with two halves: inline Telegram bot pair flow, then BeakerBot demos sending an image from Telegram and showing it appearing in the user's image inbox AND attaching it to W3's experiment note. |
 | W13 | Calendar tour | Q3 = Yes. Inline calendar feed subscribe flow. BeakerBot shows the feed appearing on the Calendar tab. |
 | W14 | AI Helper tour | Q6 = Yes (any size). BeakerBot grabs the chosen prompt size, copies it to clipboard with a "Copied!" toast, and explains how to paste it into Claude / ChatGPT / Gemini. |
 
@@ -166,7 +166,7 @@ Fires at Phase 2 end with a prompt: "Want to tour Lab Mode now or later?" If **l
 | L7 | Gantt + activity feed | User views the lab Gantt (shows both their tasks + BeakerBot's shared task). Activity feed shows the shares and revokes from L4-L6. |
 | L8 | Lab purchases (if Q2 = Yes) | Brief tour of the Lab Mode purchases page. BeakerBot creates a sample request as "BeakerBot" so user sees a teammate's request appear. |
 | L9 | Lab search | User searches Lab Mode; results include BeakerBot's shared task. |
-| L10 | (reserved / merged into L8 if Q2 = No) | — |
+| L10 | Lab tour wrap | Brief recap before L11. Implemented as a standalone step (`L10LabWrap.tsx`) rather than the originally-considered merge-into-L8 pattern, so the Q2-conditional gating stays localized to L8 alone. |
 | L11 | BeakerBot cleanup option | At end: "Want me to clean up the BeakerBot user and the demo tasks I made? Yes / No / Decide at the end" → defaults to surfacing in Phase 4 cleanup selector. |
 
 ---

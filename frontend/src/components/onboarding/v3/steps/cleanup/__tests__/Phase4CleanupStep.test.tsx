@@ -115,11 +115,13 @@ function withArtifacts(
   });
 }
 
+type WizardProps = Parameters<typeof OnboardingWizardV3>[0];
+
 interface Harness {
-  onComplete: ReturnType<typeof vi.fn>;
-  onSkip: ReturnType<typeof vi.fn>;
-  onTransition: ReturnType<typeof vi.fn>;
-  patchSidecar: ReturnType<typeof vi.fn>;
+  onComplete: WizardProps["onComplete"];
+  onSkip: WizardProps["onSkip"];
+  onTransition: WizardProps["onTransition"];
+  patchSidecar: WizardProps["patchSidecar"];
 }
 
 function renderAt(
