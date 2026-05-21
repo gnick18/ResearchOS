@@ -137,6 +137,14 @@ interface LiveMarkdownEditorProps {
   mode?: EditorMode;
   /** Callback when mode changes */
   onModeChange?: (mode: EditorMode) => void;
+  /** When true AND the editor mounts with empty content, the hybrid empty
+   *  state mounts a textarea immediately instead of the "Click to start
+   *  writing..." placeholder. Used by the new-method Create modal where the
+   *  modal IS the editing surface — a click-to-start placeholder reads as
+   *  "no editor" (the persona-09 Create-modal bug). Defaults to false so
+   *  existing surfaces (notes, results, task body) keep their
+   *  placeholder-first empty state. */
+  autoStartEditing?: boolean;
 }
 
 /**
@@ -159,6 +167,7 @@ export default function LiveMarkdownEditor({
   allowAnyFileType = false,
   mode = "hybrid",
   onModeChange,
+  autoStartEditing = false,
 }: LiveMarkdownEditorProps) {
   // Internal mode state (used if onModeChange is not provided)
   const [internalMode, setInternalMode] = useState<EditorMode>(mode);
@@ -1755,6 +1764,7 @@ export default function LiveMarkdownEditor({
               onFileDrop={onFileDrop}
               onImageDrop={onImageDrop}
               allowAnyFileType={allowAnyFileType}
+              autoStartEditing={autoStartEditing}
             />
           )}
         </div>

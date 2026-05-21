@@ -275,6 +275,15 @@ interface HybridMarkdownEditorProps {
   onFileDrop?: (files: File[]) => void;
   onImageDrop?: (files: File[]) => void;
   allowAnyFileType?: boolean;
+  /** When true AND the editor mounts with an empty value, the empty-state
+   *  textarea mounts immediately (instead of the "Click to start writing..."
+   *  placeholder) so the user has a real input element to type into. Used by
+   *  the new-method Create modal where the modal IS the editing surface — a
+   *  click-to-start placeholder there reads as "no editor" because users
+   *  expect a textbox the moment the markdown tile is selected. Defaults to
+   *  false so existing surfaces (notes, results, etc.) keep their
+   *  placeholder-first behavior. */
+  autoStartEditing?: boolean;
 }
 
 /**
@@ -417,11 +426,20 @@ export default function HybridMarkdownEditor({
   onFileDrop,
   onImageDrop,
   allowAnyFileType = false,
+  autoStartEditing = false,
 }: HybridMarkdownEditorProps) {
   // Track which block is currently being edited by its start offset
   // Using startOffset is more stable than block ID because it doesn't
-  // change when the block content changes during editing
-  const [editingBlockOffset, setEditingBlockOffset] = useState<number | null>(null);
+  // change when the block content changes during editing.
+  //
+  // autoStartEditing seeds offset=0 on first mount when value is empty so
+  // the empty-state textarea renders immediately. The empty-state branch
+  // below renders a virtual textarea at offset 0 when value is "" + we're
+  // in edit mode, since parseMarkdownBlocks("") returns [] and renderBlock
+  // would otherwise have nothing to attach to.
+  const [editingBlockOffset, setEditingBlockOffset] = useState<number | null>(
+    autoStartEditing && !value.trim() && !disabled ? 0 : null,
+  );
   // Single-click selects a block (without entering edit mode), double-click
   // enters edit. Selection enables keyboard delete + future drag/reorder
   // without competing with the textarea's own cursor placement.
@@ -1442,10 +1460,23 @@ export default function HybridMarkdownEditor({
     [editingBlockContent, editingBlockOffset, updateDocumentContent, handleEditBlur, disabled, performUndo, performRedo, value, pushAndCommit, blocks]
   );
 
+  // When autoStartEditing seeds editingBlockOffset on the initial mount we
+  // must NOT yank focus into the textarea — the caller (e.g. CreateMethodModal)
+  // typically has another field (Method Name) autoFocused at modal-open and
+  // stealing focus here makes the autoFocus invisible. Subsequent
+  // editingBlockOffset transitions still focus normally.
+  const skipInitialAutoFocusRef = useRef(
+    autoStartEditing && !value.trim() && !disabled,
+  );
+
   /**
    * Focus the textarea when entering edit mode
    */
   useEffect(() => {
+    if (skipInitialAutoFocusRef.current) {
+      skipInitialAutoFocusRef.current = false;
+      return;
+    }
     if (editingBlockOffset !== null && textareaRef.current) {
       textareaRef.current.focus();
       if (editCursorPosition !== null) {
@@ -1911,8 +1942,13 @@ export default function HybridMarkdownEditor({
     ]
   );
 
-  // If no content, show placeholder
-  if (!value.trim() && editingBlockOffset === null) {
+  // If no content, show placeholder OR an inline textarea when we've been
+  // asked to start in edit mode (caller passed autoStartEditing, or the user
+  // clicked the placeholder). parseMarkdownBlocks("") returns []  — without
+  // this branch a click-to-edit attempt sets state but renderBlock has no
+  // block to attach a textarea to, leaving the editor area visually empty
+  // and blocking type-to-create flows (CreateMethodModal markdown body).
+  if (!value.trim()) {
     return (
       <div className="flex h-full">
         {/* Helper panel */}
@@ -2029,7 +2065,7 @@ export default function HybridMarkdownEditor({
           ref={containerRef}
           className="hybrid-editor p-4 min-h-0 h-full overflow-y-auto cursor-text flex-1"
           onClick={() => {
-            if (!disabled) {
+            if (!disabled && editingBlockOffset === null) {
               // Create a new empty paragraph block to edit
               // Use offset 0 for new content
               isEditingRef.current = true;
@@ -2039,11 +2075,24 @@ export default function HybridMarkdownEditor({
             }
           }}
         >
-          <p className="text-sm text-gray-300 italic">
-            {placeholder || "Click to start writing..."}
-          </p>
+          {editingBlockOffset !== null ? (
+            <textarea
+              ref={textareaRef}
+              value={editingBlockContent}
+              onChange={handleEditChange}
+              onKeyDown={handleEditKeyDown}
+              disabled={disabled}
+              className="w-full p-3 text-sm font-mono text-gray-800 bg-white border border-blue-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent resize-none overflow-hidden"
+              style={{ lineHeight: "1.6", minHeight: "60px" }}
+              placeholder={placeholder || "Type here..."}
+            />
+          ) : (
+            <p className="text-sm text-gray-300 italic">
+              {placeholder || "Click to start writing..."}
+            </p>
+          )}
         </div>
-        
+
         {/* Language Selector Popup */}
         {showLanguageSelector && (
           <div

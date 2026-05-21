@@ -726,8 +726,14 @@ export function CreateMethodModal({
                     allowAnyFileType={true}
                     imageBasePath={`methods/${slug}`}
                     showToolbar={true}
+                    autoStartEditing
                   />
                 </div>
+                {!mdContent.trim() && (
+                  <p className="mt-1 text-xs text-gray-400">
+                    Add method content above to enable Create.
+                  </p>
+                )}
                 {uploadWarning && (
                   <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
                     <span className="text-amber-500">⚠️</span>
