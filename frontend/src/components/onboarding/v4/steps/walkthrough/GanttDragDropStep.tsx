@@ -1,0 +1,51 @@
+/**
+ * §6.8 Gantt — drag-drop demo sub-step.
+ *
+ * Cursor moves to the experiment's bar on the timeline. Drags from
+ * current position to a different date. Bar moves; date updates. Then
+ * cursor grabs the right edge of the bar and drags right to resize
+ * duration.
+ *
+ * Source selector: `[data-tour-target="gantt-first-task-bar"]` is set
+ * on the most recently created experiment's bar element by the Gantt
+ * surface (real product UI patch lands as part of this P5 chip).
+ *
+ * Destination: best-effort — drag 100-150px right on the timeline.
+ * The `safeDragAction` primitive takes element-to-element, not
+ * element-to-offset. We pick the rightmost visible day cell of the
+ * timeline as the drop target; the actual offset depends on viewport
+ * width but the visual is "task moved right." A P13 polish chip can
+ * add an offset variant to the cursor primitive.
+ */
+import {
+  cursorScript,
+  safeDragAction,
+  compactScript,
+  waitForElement,
+} from "./lib/cursor-script";
+import { autoAdvanceAfter, buildWalkthroughStep } from "./lib/step-helpers";
+import { TOUR_TARGETS, targetSelector } from "./lib/targets";
+
+export const ganttDragDropStep = buildWalkthroughStep({
+  id: "gantt-drag-drop",
+  speech:
+    "Drag a task bar to reschedule it. Drag the right edge to resize the duration.",
+  pose: "pointing",
+  targetSelector: targetSelector(TOUR_TARGETS.ganttFirstTaskBar),
+  cursorScript: cursorScript(async () => {
+    const bar = await waitForElement(
+      targetSelector(TOUR_TARGETS.ganttFirstTaskBar),
+    );
+    if (!bar) return [];
+    // Target the timeline element as the drop site. Real Gantt
+    // implementations parse the drop X-coordinate against day-cell
+    // widths; dropping anywhere on the timeline will trigger a date
+    // update.
+    const drag = await safeDragAction(
+      targetSelector(TOUR_TARGETS.ganttFirstTaskBar),
+      targetSelector(TOUR_TARGETS.ganttTimeline),
+    );
+    return compactScript([drag]);
+  }),
+  completion: autoAdvanceAfter(3000),
+});

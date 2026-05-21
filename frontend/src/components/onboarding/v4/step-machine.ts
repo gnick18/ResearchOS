@@ -69,8 +69,15 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "workbench-create-experiment",
   // Method attachment + variation notes + snapshot teach (§6.6)
   "experiment-attach-method",
-  // Hybrid editor — shortcuts + paragraph chunks + image drops (§6.7)
+  // Hybrid editor — shortcuts + paragraph chunks + image drops + resize (§6.7)
+  // P5 split the original single `hybrid-editor` id into four sub-steps
+  // matching the proposal's four cursor scripts (FLAG to master: this
+  // adds three new ids; the machine treats each as part of the
+  // walkthrough phase so no gate update is needed).
   "hybrid-editor",
+  "hybrid-editor-paragraphs",
+  "hybrid-editor-image-drop",
+  "hybrid-editor-resize",
   // Gantt page deep-dive (§6.8)
   "gantt-task-types",
   "gantt-drag-drop",

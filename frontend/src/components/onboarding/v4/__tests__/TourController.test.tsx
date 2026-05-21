@@ -262,7 +262,11 @@ describe("TourController — noteInteraction / noteEventFired / noteManualAdvanc
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(),
     });
-    act(() => result.current.start("home-create-project"));
+    // §6.3 notifications step ships a `manual` completion ("Got it")
+    // per P5; using it here keeps the test honest about which steps
+    // accept manual advance. The earlier P1 version started on
+    // home-create-project when every step was a manual placeholder.
+    act(() => result.current.start("notifications"));
     const start = result.current.currentStep;
     act(() => result.current.noteManualAdvance());
     // Effect-driven advance fires synchronously inside the same act.

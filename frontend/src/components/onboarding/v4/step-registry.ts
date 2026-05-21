@@ -56,6 +56,69 @@ function placeholderStep(id: TourStepId): TourStep {
   };
 }
 
+// ---------------------------------------------------------------------
+// P5 universal-walkthrough step body imports (§6.1 - §6.12)
+//
+// Each id in TOUR_STEP_ORDER between "home-create-project" and
+// "wiki-pointer" maps to a real body here. Setup steps (P4), conditional
+// walkthroughs (P6), lab tour (P7), and the cleanup grid (P8) still
+// render placeholders until their dispatching phase lands.
+// ---------------------------------------------------------------------
+import { homeCreateProjectStep } from "./steps/walkthrough/HomeCreateProjectStep";
+import { projectOverviewStep } from "./steps/walkthrough/ProjectOverviewStep";
+import { notificationsStep } from "./steps/walkthrough/NotificationsStep";
+import { methodsCategoryStep } from "./steps/walkthrough/MethodsCategoryStep";
+import { methodsBreadthStep } from "./steps/walkthrough/MethodsBreadthStep";
+import { methodsCreateStep } from "./steps/walkthrough/MethodsCreateStep";
+import { workbenchCreateExperimentStep } from "./steps/walkthrough/WorkbenchCreateExperimentStep";
+import { methodAttachmentStep } from "./steps/walkthrough/MethodAttachmentStep";
+import { hybridEditorShortcutsStep } from "./steps/walkthrough/HybridEditorShortcutsStep";
+import { hybridEditorParagraphsStep } from "./steps/walkthrough/HybridEditorParagraphsStep";
+import { hybridEditorImageDropStep } from "./steps/walkthrough/HybridEditorImageDropStep";
+import { hybridEditorResizeStep } from "./steps/walkthrough/HybridEditorResizeStep";
+import { ganttIntroStep } from "./steps/walkthrough/GanttIntroStep";
+import { ganttDragDropStep } from "./steps/walkthrough/GanttDragDropStep";
+import { ganttDependenciesStep } from "./steps/walkthrough/GanttDependenciesStep";
+import { ganttGoalsStep } from "./steps/walkthrough/GanttGoalsStep";
+import { animationPickerStep } from "./steps/walkthrough/AnimationPickerStep";
+import {
+  settingsColorStep,
+  settingsMoreStep,
+} from "./steps/walkthrough/SettingsColorStep";
+import { settingsAiHelperStep } from "./steps/walkthrough/SettingsAiHelperStep";
+import { searchStep } from "./steps/walkthrough/SearchStep";
+import { wikiPointerStep } from "./steps/walkthrough/WikiPointerStep";
+
+/** P5 step body map. Keys must match `TOUR_STEP_ORDER` entries (the
+ *  step-machine drives ordering, this map drives body lookup). Adding
+ *  a key here without a matching `TOUR_STEP_ORDER` entry means the
+ *  step is never reached; vice versa means the controller renders a
+ *  placeholder. */
+const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
+  [homeCreateProjectStep.id]: homeCreateProjectStep,
+  [projectOverviewStep.id]: projectOverviewStep,
+  [notificationsStep.id]: notificationsStep,
+  [methodsCategoryStep.id]: methodsCategoryStep,
+  [methodsBreadthStep.id]: methodsBreadthStep,
+  [methodsCreateStep.id]: methodsCreateStep,
+  [workbenchCreateExperimentStep.id]: workbenchCreateExperimentStep,
+  [methodAttachmentStep.id]: methodAttachmentStep,
+  [hybridEditorShortcutsStep.id]: hybridEditorShortcutsStep,
+  [hybridEditorParagraphsStep.id]: hybridEditorParagraphsStep,
+  [hybridEditorImageDropStep.id]: hybridEditorImageDropStep,
+  [hybridEditorResizeStep.id]: hybridEditorResizeStep,
+  [ganttIntroStep.id]: ganttIntroStep,
+  [ganttDragDropStep.id]: ganttDragDropStep,
+  [ganttDependenciesStep.id]: ganttDependenciesStep,
+  [ganttGoalsStep.id]: ganttGoalsStep,
+  [animationPickerStep.id]: animationPickerStep,
+  [settingsColorStep.id]: settingsColorStep,
+  [settingsMoreStep.id]: settingsMoreStep,
+  [settingsAiHelperStep.id]: settingsAiHelperStep,
+  [searchStep.id]: searchStep,
+  [wikiPointerStep.id]: wikiPointerStep,
+};
+
 /**
  * Build a real Phase 1 modal-setup step body from the setup descriptor
  * map. P4 populates every Phase 1 step id (welcome + setup-q1 +
@@ -92,18 +155,20 @@ function setupStep(id: TourStepId): TourStep {
 }
 
 /**
- * The v4 tour step registry. P4 populates every Phase 1 modal-setup
- * step with a real body (see `setupStep` above); the remaining steps
- * stay on the placeholder until P5-P7 replaces them one-at-a-time.
+ * The v4 tour step registry. Each id resolves in priority order:
+ *   1. P4 setup step (modal-setup phase, via SETUP_STEP_DESCRIPTORS)
+ *   2. P5 universal walkthrough step body (§6.1 - §6.12)
+ *   3. Placeholder (P6/P7/P8 fill remaining slots)
  *
  * The type is `Record<TourStepId, TourStep>` so a real body just
  * overwrites the placeholder at the matching key. Iteration order
- * is NOT load-bearing — the machine drives ordering via
+ * is NOT load-bearing, the machine drives ordering via
  * `TOUR_STEP_ORDER`, not via this registry.
  */
 export const TOUR_STEPS: Record<TourStepId, TourStep> = Object.fromEntries(
   TOUR_STEP_ORDER.map((id) => {
     if (SETUP_STEP_DESCRIPTORS[id]) return [id, setupStep(id)];
+    if (WALKTHROUGH_STEP_BODIES[id]) return [id, WALKTHROUGH_STEP_BODIES[id]];
     return [id, placeholderStep(id)];
   }),
 );
