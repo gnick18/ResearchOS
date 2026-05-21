@@ -2,7 +2,7 @@
  * Onboarding v4 P11 V4MountForUser tests. Exercises the sidecar
  * persistence callbacks the wrapper hands to TourControllerProvider:
  * onComplete (normal cleanup-finish path) writes wizard_completed_at +
- * clears resume_state; onSkip (came via "I've got it from here") writes
+ * clears resume_state; onSkip (came via "Skip walkthrough") writes
  * wizard_skipped_at + clears resume_state.
  *
  * Both code paths are reached by spinning a TourController + driving
@@ -144,7 +144,7 @@ describe("V4MountForUser:onComplete callback", () => {
 describe("V4MountForUser:onSkip callback via exitTour", () => {
   it("patches sidecar with wizard_skipped_at when user exited the tour", async () => {
     // Seed mid-walkthrough so the bootstrap calls start("home-create-project"),
-    // then we'll click the "I've got it from here" exit affordance to
+    // then we'll click the "Skip walkthrough" exit affordance to
     // route Finish through onSkip.
     memFs.set(
       PATH,
@@ -170,10 +170,12 @@ describe("V4MountForUser:onSkip callback via exitTour", () => {
         ),
       ).toBeTruthy();
     });
-    // Click the "I've got it from here" exit link in the speech
-    // bubble. The aria-label is set on that button.
+    // Click the "Skip walkthrough" exit link in the speech bubble.
+    // The aria-label is set on that button (renamed from "Exit tour:
+    // I've got it from here" in the v4 polish pass per Grant's
+    // feedback that the original copy wasn't intuitive enough).
     const exitBtn = document.body.querySelector(
-      "[aria-label=\"Exit tour: I've got it from here\"]",
+      "[aria-label=\"Skip walkthrough\"]",
     ) as HTMLButtonElement;
     expect(exitBtn).toBeTruthy();
     await userEvent.click(exitBtn);

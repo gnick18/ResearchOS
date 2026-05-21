@@ -27,10 +27,8 @@ export default function WelcomeStep({ setNextDisabled }: SetupStepProps) {
       <p className="text-sm text-gray-500">
         Hit <span className="font-medium text-gray-700">Let&apos;s go</span>{" "}
         when you&apos;re ready, or use{" "}
-        <span className="font-medium text-gray-700">
-          I&apos;ve got it from here
-        </span>{" "}
-        to skip straight to the cleanup grid. Anything we make together
+        <span className="font-medium text-gray-700">Skip walkthrough</span>{" "}
+        to jump straight to the cleanup grid. Anything we make together
         appears there so you can keep it or toss it.
       </p>
     </div>

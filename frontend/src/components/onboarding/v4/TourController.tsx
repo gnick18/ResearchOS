@@ -949,8 +949,9 @@ function ModalSetupShell({
             type="button"
             onClick={() => setShowSkipConfirm(true)}
             className="text-xs text-gray-500 hover:text-gray-700 underline"
+            aria-label="Skip walkthrough"
           >
-            I&apos;ve got it from here
+            Skip walkthrough
           </button>
         </div>
       </div>
@@ -1015,15 +1016,20 @@ function SetupSkipConfirmModal({
 }
 
 /**
- * BeakerBot mascot floating bottom-right + speech bubble above-left
- * per L4. The bubble shows the active step's `speech` content, an
- * "I've got it from here" exit link in the corner, and a per-step
- * "Skip" link. Manual completion ("Got it, next") button is shown only
- * when the step's body declares manual completion.
+ * BeakerBot mascot floating bottom-right (above AppShell's FAB
+ * cluster) + speech bubble above-left per L4. The bubble shows the
+ * active step's `speech` content and, in the bottom-right action
+ * row, two skip affordances: "Skip this step" (skips just the
+ * current step) and "Skip walkthrough" (jumps to the cleanup grid).
+ * Manual completion ("Got it, next") button is shown on the
+ * bottom-left of the same row only when the step's body declares
+ * manual completion.
  *
- * P1 ships a minimal but functional bubble — P5+ may dress it further
- * (typewriter cadence, pose transitions per speech beat). The minimal
- * shape unblocks every P4-P7 chip from depending on overlay polish.
+ * v4 polish (post-P11): both opt-out links moved to the bottom-right
+ * of the bubble (previously "Skip walkthrough" sat at the top under
+ * its old "I've got it from here" copy) so users see the two
+ * skip paths together. Mascot size bumped from 80px to 120px and the
+ * whole overlay anchor lifted above the FAB cluster.
  */
 interface TourBeakerBotOverlayProps {
   step: TourStep | undefined;
@@ -1047,11 +1053,20 @@ function TourBeakerBotOverlay({
       ? step.completion.buttonLabel ?? "Got it, next"
       : null;
 
+  // Anchor position: bottom-right, but clear of AppShell's FAB cluster.
+  // AppShell mounts a horizontal row of ~7 round 48px buttons at
+  // `fixed bottom-6 right-6` (see AppShell.tsx ~line 306). With the
+  // 24px bottom inset + 48px button height, that cluster occupies the
+  // bottom 72px of the right edge. We anchor BeakerBot 24px above the
+  // cluster's top (bottom: 96px) so the mascot + speech bubble sit
+  // clearly above the row instead of overlapping the donation /
+  // bug-report buttons. The right-6 (24px) inset matches the cluster
+  // so the two elements visually align on the right edge.
   return (
     <div
       data-testid="tour-beakerbot-overlay"
-      className="fixed bottom-6 right-6 z-[450] pointer-events-none flex flex-col items-end gap-2"
-      style={{ maxWidth: 360 }}
+      className="fixed right-6 z-[450] pointer-events-none flex flex-col items-end gap-2"
+      style={{ maxWidth: 380, bottom: 96 }}
     >
       {/* Speech bubble. Above-and-to-the-left of the BeakerBot per L4.
           Pointer events are re-enabled here so the user can click
@@ -1060,31 +1075,22 @@ function TourBeakerBotOverlay({
       <div
         data-testid="tour-beakerbot-bubble"
         className="pointer-events-auto bg-white border border-gray-200 rounded-2xl shadow-xl p-4 text-sm text-gray-800"
-        style={{ maxWidth: 320 }}
+        style={{ maxWidth: 340 }}
       >
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <button
-            type="button"
-            onClick={onExitTour}
-            className="text-xs text-sky-600 hover:text-sky-700 underline underline-offset-2 whitespace-nowrap"
-            aria-label="Exit tour: I've got it from here"
-          >
-            I&apos;ve got it from here
-          </button>
-        </div>
         <div data-testid="tour-beakerbot-speech" className="leading-relaxed">
           {speechNode}
         </div>
+        {/* Action row: manual-advance CTA on the left (when the step
+            declares one), and the two skip affordances on the right.
+            "Skip this step" comes first (Grant's preferred wording for
+            single-step skip); "Skip walkthrough" follows, separated by
+            a middle-dot, slightly lighter weight to signal it's the
+            more destructive option (jumps to the cleanup grid). Both
+            sit in the same right-edge container so users see the two
+            opt-out paths together rather than scattered around the
+            bubble. */}
         <div className="mt-3 flex items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={onSkipStep}
-            className="text-xs text-gray-500 hover:text-gray-700 underline underline-offset-2"
-            aria-label="Skip this step"
-          >
-            Skip this step
-          </button>
-          {manualButtonLabel && (
+          {manualButtonLabel ? (
             <button
               type="button"
               onClick={onManualAdvance}
@@ -1093,14 +1099,42 @@ function TourBeakerBotOverlay({
             >
               {manualButtonLabel}
             </button>
+          ) : (
+            <span />
           )}
+          <div className="flex items-center gap-1.5 whitespace-nowrap">
+            <button
+              type="button"
+              onClick={onSkipStep}
+              className="text-xs text-gray-500 hover:text-gray-700 underline underline-offset-2"
+              aria-label="Skip this step"
+            >
+              Skip this step
+            </button>
+            <span aria-hidden className="text-xs text-gray-300">
+              {"·"}
+            </span>
+            <button
+              type="button"
+              onClick={onExitTour}
+              className="text-xs text-gray-400 hover:text-gray-600 underline underline-offset-2"
+              aria-label="Skip walkthrough"
+            >
+              Skip walkthrough
+            </button>
+          </div>
         </div>
       </div>
-      {/* BeakerBot mascot — pointing pose by default, overridden by the
-          step's `pose` declaration. Pointer events stay off so the
-          mascot doesn't intercept clicks on the page body. */}
-      <div className="pointer-events-none">
-        <BeakerBot pose={step.pose} className="w-20 h-20 text-sky-500" />
+      {/* BeakerBot mascot. Size bumped from 80px to 120px per Grant's
+          v4 polish feedback so the mascot reads at a comparable
+          presence to the speech bubble at typical viewport widths.
+          Pointer events stay off so the mascot doesn't intercept
+          clicks on the page body. */}
+      <div className="pointer-events-none" style={{ width: 120, height: 120 }}>
+        <BeakerBot
+          pose={step.pose}
+          className="w-full h-full text-sky-500"
+        />
       </div>
     </div>
   );

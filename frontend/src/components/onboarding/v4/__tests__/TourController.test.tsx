@@ -337,4 +337,27 @@ describe("TourController — provider mount", () => {
       document.body.querySelector("[data-testid='tour-beakerbot-overlay']"),
     ).toBeTruthy();
   });
+
+  it("places Skip-walkthrough next to Skip-this-step (post-polish layout)", () => {
+    // Polish pass: both skip affordances live in the same right-edge
+    // action container at the bottom of the bubble, not split between
+    // the top-corner and the bottom-row. Asserting via the shared
+    // parent guards against a regression where the exit link drifts
+    // back to the top of the bubble.
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: wrapper(),
+    });
+    act(() => result.current.start("home-create-project"));
+    const skipStepBtn = document.body.querySelector(
+      "[aria-label='Skip this step']",
+    );
+    const skipWalkthroughBtn = document.body.querySelector(
+      "[aria-label='Skip walkthrough']",
+    );
+    expect(skipStepBtn).toBeTruthy();
+    expect(skipWalkthroughBtn).toBeTruthy();
+    expect(skipStepBtn?.parentElement).toBe(
+      skipWalkthroughBtn?.parentElement,
+    );
+  });
 });
