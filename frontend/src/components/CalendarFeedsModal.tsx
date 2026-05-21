@@ -60,6 +60,14 @@ export default function CalendarFeedsModal({ onClose }: Props) {
     };
   }, [currentUser]);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   const invalidate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["calendar-feeds", currentUser] });
     queryClient.invalidateQueries({ queryKey: ["calendar-feed-events"] });

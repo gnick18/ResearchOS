@@ -18,6 +18,7 @@ import {
 } from "@/components/calendar/utils";
 import CalendarFeedsModal from "./CalendarFeedsModal";
 import CalendarRemindersModal from "./CalendarRemindersModal";
+import Tooltip from "./Tooltip";
 import type { CalendarFeed, Event, ExternalEvent } from "@/lib/types";
 
 type UpcomingItem =
@@ -110,21 +111,23 @@ export default function CalendarSidebar() {
             Calendars
           </h2>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setRemindersModalOpen(true)}
-              title="Configure event reminders"
-              className="text-[11px] text-blue-600 hover:underline"
-            >
-              Reminders
-            </button>
+            <Tooltip label="Configure event reminders" placement="bottom">
+              <button
+                onClick={() => setRemindersModalOpen(true)}
+                className="text-[11px] text-blue-600 hover:underline"
+              >
+                Reminders
+              </button>
+            </Tooltip>
             <span className="text-[10px] text-gray-300">·</span>
-            <button
-              onClick={() => setFeedsModalOpen(true)}
-              title="Manage linked calendars"
-              className="text-[11px] text-blue-600 hover:underline"
-            >
-              Manage
-            </button>
+            <Tooltip label="Manage linked calendars" placement="bottom">
+              <button
+                onClick={() => setFeedsModalOpen(true)}
+                className="text-[11px] text-blue-600 hover:underline"
+              >
+                Manage
+              </button>
+            </Tooltip>
           </div>
         </div>
         <div className="px-3 py-2 space-y-1">

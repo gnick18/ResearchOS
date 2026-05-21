@@ -433,9 +433,15 @@ function EventModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="event-details-title"
+        className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h3 className="text-base font-semibold text-gray-900">
+          <h3 id="event-details-title" className="text-base font-semibold text-gray-900">
             {isEditing ? "Edit Event" : "Event Details"}
           </h3>
           <Tooltip label="Close" placement="bottom">
