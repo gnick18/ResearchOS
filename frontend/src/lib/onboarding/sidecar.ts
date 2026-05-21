@@ -45,11 +45,17 @@ export interface FeaturePicks {
   /** Lab accounts only. `"deferred"` means user picked lab but chose to
    *  set up storage later. */
   lab_storage?: "local" | "google_drive" | "onedrive" | "box" | "deferred";
-  purchases: "yes" | "no" | "maybe";
-  calendar: "yes" | "no" | "maybe";
-  goals: "yes" | "no" | "maybe";
-  telegram: "yes" | "no" | "maybe";
-  ai_helper: "full" | "medium" | "minimal" | "no" | "maybe";
+  /** Q2-Q6 picks are OPTIONAL. Absent means the user has not yet
+   *  explicitly answered. The wizard sets account_type at Q1 and leaves
+   *  Q2-Q6 fields undefined until the user picks; that way the radios
+   *  on Q2-Q5 don't show a "Maybe later" pre-selection on first encounter.
+   *  Downstream readers must handle undefined (e.g. `=== "yes"` already
+   *  evaluates false for undefined, so most existing checks are safe). */
+  purchases?: "yes" | "no" | "maybe";
+  calendar?: "yes" | "no" | "maybe";
+  goals?: "yes" | "no" | "maybe";
+  telegram?: "yes" | "no" | "maybe";
+  ai_helper?: "full" | "medium" | "minimal" | "no" | "maybe";
 }
 
 /** One artifact the v3 wizard created on the user's real account. The
