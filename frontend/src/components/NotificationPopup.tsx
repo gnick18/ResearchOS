@@ -96,6 +96,17 @@ export default function NotificationPopup({
       await sharingApi.markAllNotificationsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       onNotificationRead();
+      // Onboarding v4 §6.3 silence sub-step also advances on Mark-all-read.
+      // Grant flagged that clicking the header link should count: the
+      // tour cares about "the user silenced a notification," not which
+      // specific button they used. Detail kind lets analytics differ.
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("tour:notification-silenced", {
+            detail: { kind: "all" },
+          }),
+        );
+      }
     } catch (err) {
       console.error("Failed to mark all notifications as read:", err);
     }
@@ -210,7 +221,8 @@ export default function NotificationPopup({
           {unreadCount > 0 && (
             <button
               onClick={handleMarkAllRead}
-              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+              data-tour-secondary-anchor="notification-silence"
+              className="text-xs text-blue-600 hover:text-blue-800 font-medium tour-secondary-pulse"
             >
               Mark all read
             </button>
@@ -309,8 +321,10 @@ export default function NotificationPopup({
                 <div
                   key={notification.id}
                   onClick={handleClickRow}
-                  className={`p-3 hover:bg-gray-50 transition-colors cursor-pointer ${
-                    !notification.read ? "bg-blue-50" : ""
+                  className={`relative p-3 hover:bg-gray-50 transition-colors cursor-pointer ${
+                    !notification.read
+                      ? "bg-blue-50 border-l-4 border-blue-500 pl-2"
+                      : "border-l-4 border-transparent"
                   }`}
                   title={
                     notification.read
@@ -392,11 +406,13 @@ export default function NotificationPopup({
                               e.stopPropagation();
                               handleMarkRead(notification.id);
                             }}
-                            className="text-blue-600 hover:text-blue-800"
+                            aria-label="Mark as read"
+                            className="flex items-center gap-1 px-2 py-1 rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 text-xs font-medium border border-blue-200"
                           >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                             </svg>
+                            <span>Mark read</span>
                           </button>
                         </Tooltip>
                       )}

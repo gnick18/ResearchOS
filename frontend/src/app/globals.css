@@ -416,3 +416,21 @@ body {
   box-shadow: 0 0 0 2px #ffffff, 0 0 0 6px #60a5fa;
   transition: box-shadow 150ms ease;
 }
+
+/* Onboarding v4 secondary-anchor pulse. The TourSpotlight portal can only
+   highlight one element at a time, but some steps have a primary +
+   secondary affordance the user can pick from (e.g., §6.3 silence: the
+   per-row "Mark read" checkmark OR the header "Mark all read" link).
+   Mark the secondary with `data-tour-secondary-anchor="<id>"` AND the
+   `tour-secondary-pulse` class. The rule below only kicks in when the
+   tour controller has set `body[data-tour-step]` to a matching step
+   (wired in TourController.tsx), so the pulse is dormant outside the
+   relevant step. */
+@keyframes tour-secondary-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(2, 132, 199, 0.55); }
+  50% { box-shadow: 0 0 0 6px rgba(2, 132, 199, 0); }
+}
+body[data-tour-step="notifications-silence"] .tour-secondary-pulse[data-tour-secondary-anchor="notification-silence"] {
+  animation: tour-secondary-pulse 1.5s ease-in-out infinite;
+  border-radius: 0.25rem;
+}

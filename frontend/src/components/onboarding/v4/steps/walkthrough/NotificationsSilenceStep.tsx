@@ -28,10 +28,13 @@ import { watchNotificationSilenced } from "./lib/tour-events";
 export const notificationsSilenceStep = buildWalkthroughStep({
   id: "notifications-silence",
   speech:
-    "Nice. See the checkmark on that notification? Click it to mark the row as read and silence the bell badge.",
+    "Nice. To silence the bell badge, click the blue Mark read button on any notification row, or use Mark all read in the header (both glow). The bell will stop bugging you.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.notificationSilence),
-  // No cursorScript: user-action step. The user clicks the spotlighted
-  // mark-as-read affordance themselves.
+  // No cursorScript: user-action step. The user clicks either the
+  // primary spotlight (row Mark-read) OR the soft-pulsing secondary
+  // (header Mark-all-read). Both buttons fire
+  // `tour:notification-silenced` (see NotificationPopup.tsx) so the
+  // step advances on whichever the user picks.
   completion: advanceOnEvent(watchNotificationSilenced),
 });

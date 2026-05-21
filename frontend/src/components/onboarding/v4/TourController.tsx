@@ -693,6 +693,23 @@ export function TourControllerProvider({
     router.push(expected);
   }, [state.currentStep, state.paused, router]);
 
+  // Expose the current step id on document.body so global CSS rules can
+  // target it. Used by steps that need a secondary "soft" affordance to
+  // pulse alongside the primary spotlight, eg. §6.3 silence highlights
+  // both the per-row checkmark AND the "Mark all read" header link (the
+  // primary spotlight covers one, CSS handles the other).
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (state.currentStep && !state.paused) {
+      document.body.dataset.tourStep = state.currentStep;
+    } else {
+      delete document.body.dataset.tourStep;
+    }
+    return () => {
+      if (typeof document !== "undefined") delete document.body.dataset.tourStep;
+    };
+  }, [state.currentStep, state.paused]);
+
   // -------------------------------------------------------------------
   // Memoized context value
   // -------------------------------------------------------------------
