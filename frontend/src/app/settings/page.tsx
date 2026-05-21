@@ -58,6 +58,7 @@ import { USER_COLOR_QUERY_KEY } from "@/hooks/useUserColor";
 import { patchOnboarding } from "@/lib/onboarding/sidecar";
 import { useOptionalTourController } from "@/components/onboarding/v4/TourController";
 import { forgetAllTelegramTokenCache } from "@/lib/telegram/telegram-token-cache";
+import StreaksSection from "./StreaksSection";
 
 const USER_COLOR_PALETTE = [
   "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
@@ -270,6 +271,7 @@ function SettingsBody() {
         <DefaultsSection settings={settings} update={update} />
         <AnimationSection settings={settings} update={update} />
         <BehaviorSection settings={settings} update={update} />
+        <StreaksSection />
         <DataInventorySection />
         <MaintenanceSection />
         <TipsSection />

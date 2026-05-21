@@ -1,0 +1,339 @@
+"use client";
+
+/**
+ * Settings page Streaks section (Phase S3 of the Streak-and-Milestones arc).
+ *
+ * See STREAK_AND_MILESTONES_PROPOSAL.md §3 L6 (disable path), §6.2 (the
+ * spec this implements), §7.2 (celebrations_seen contract: account
+ * anniversaries are date-anchored, so they can NEVER be cleared from this
+ * UI; only streak_milestones may be reset).
+ *
+ * Scope (UI-only):
+ *  - Enable / disable toggle. Disabling preserves existing streak state.
+ *  - Read-only stat trio (current count, personal best, started_on)
+ *    visible only when enabled.
+ *  - Reset streak with a confirmation modal. Optional second checkbox in
+ *    the modal clears celebrations_seen.streak_milestones so streak
+ *    milestone scenes can re-fire.
+ *  - PTO subsection placeholder (S4 owns the actual editor).
+ *
+ * What this section does NOT do:
+ *  - No write-path / activity tracking hook (S1).
+ *  - No top-nav StreakBadge (S2).
+ *  - No PTO editor implementation (S4).
+ *  - No milestone scheduler / celebration manager (S6).
+ */
+
+import { useCallback, useEffect, useState } from "react";
+
+import { useFileSystem } from "@/lib/file-system/file-system-context";
+import {
+  patchStreak,
+  readStreak,
+  type StreakSidecar,
+} from "@/lib/streak/streak-sidecar";
+
+export default function StreaksSection() {
+  const { currentUser, isConnected } = useFileSystem();
+
+  const [sidecar, setSidecar] = useState<StreakSidecar | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showResetModal, setShowResetModal] = useState(false);
+
+  // Initial load + reload on user switch. The file system context is the
+  // canonical signal: we can't read a per-user sidecar without a connected
+  // user, so we short-circuit to a null sidecar (which renders nothing).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      if (!currentUser || !isConnected) {
+        setSidecar(null);
+        setLoading(false);
+        return;
+      }
+      try {
+        const s = await readStreak(currentUser);
+        if (!cancelled) setSidecar(s);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser, isConnected]);
+
+  const applyPatch = useCallback(
+    async (mutator: (cur: StreakSidecar) => StreakSidecar) => {
+      if (!currentUser) return;
+      const next = await patchStreak(currentUser, mutator);
+      setSidecar(next);
+    },
+    [currentUser],
+  );
+
+  const handleToggle = useCallback(
+    (nextEnabled: boolean) => {
+      void applyPatch((cur) => ({ ...cur, enabled: nextEnabled }));
+    },
+    [applyPatch],
+  );
+
+  const handleReset = useCallback(
+    (alsoClearCelebrationsSeen: boolean) => {
+      void applyPatch((cur) => ({
+        ...cur,
+        current_count: 0,
+        started_on: null,
+        last_activity_date: null,
+        // personal best is intentionally preserved per spec.
+        celebrations_seen: alsoClearCelebrationsSeen
+          ? {
+              ...cur.celebrations_seen,
+              streak_milestones: [],
+            }
+          : cur.celebrations_seen,
+      }));
+      setShowResetModal(false);
+    },
+    [applyPatch],
+  );
+
+  // Match the existing SectionShell silhouette so this slots in cleanly
+  // between the other Settings sections. (Inlined instead of importing
+  // SectionShell, since page.tsx keeps SectionShell private, and duplicating
+  // ~12 lines is cheaper than refactoring the shared file from S3 scope.)
+  return (
+    <section
+      id="streaks"
+      className="bg-white rounded-xl border border-gray-200 p-6 scroll-mt-4"
+      data-testid="streaks-section"
+    >
+      <div className="mb-4">
+        <h2 className="text-base font-semibold text-gray-900 flex items-center gap-1.5">
+          <LockIcon className="h-3.5 w-3.5 text-sky-500" />
+          Streaks (private to you)
+        </h2>
+        <p className="text-xs text-gray-500 mt-1">
+          {sidecar && sidecar.enabled === false
+            ? "Streaks are off. Re-enable to start tracking from today onward. Your existing state is kept but won't update."
+            : "Tracks how many workdays in a row you've saved something. Visible only to you."}
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        {loading || !sidecar ? (
+          <div className="text-xs text-gray-400">Loading.</div>
+        ) : (
+          <>
+            <StreakToggleRow
+              checked={sidecar.enabled}
+              onChange={handleToggle}
+            />
+
+            {sidecar.enabled && (
+              <div
+                className="grid grid-cols-3 gap-3"
+                data-testid="streaks-stats"
+              >
+                <StatTile
+                  label="Current streak"
+                  value={`${sidecar.current_count} ${sidecar.current_count === 1 ? "day" : "days"}`}
+                />
+                <StatTile
+                  label="Personal best"
+                  value={`${sidecar.longest_count} ${sidecar.longest_count === 1 ? "day" : "days"}`}
+                />
+                <StatTile
+                  label="Started on"
+                  value={sidecar.started_on ?? "Not started yet"}
+                />
+              </div>
+            )}
+
+            {sidecar.enabled && (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowResetModal(true)}
+                  className="px-3 py-1.5 text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors"
+                  data-testid="streaks-reset-button"
+                >
+                  Reset streak
+                </button>
+              </div>
+            )}
+
+            <PtoStub />
+          </>
+        )}
+      </div>
+
+      {showResetModal && sidecar && (
+        <ResetStreakModal
+          currentCount={sidecar.current_count}
+          onCancel={() => setShowResetModal(false)}
+          onConfirm={handleReset}
+        />
+      )}
+    </section>
+  );
+}
+
+// ── Internal pieces ─────────────────────────────────────────────────────────
+
+/** Local toggle. Mirrors the visual shape of page.tsx's ToggleRow but
+ *  uses sky-blue (matches the streak's privacy-friendly palette per the
+ *  proposal's §6.2 lock icon color) and accepts a single label rather
+ *  than label + description so it sits cleanly under our subhead. */
+function StreakToggleRow({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="flex items-center justify-between gap-4 cursor-pointer">
+      <span className="text-sm text-gray-800">Enable streak tracking</span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label="Enable streak tracking"
+        onClick={() => onChange(!checked)}
+        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors ${
+          checked ? "bg-sky-500" : "bg-gray-300"
+        }`}
+        data-testid="streaks-enable-toggle"
+      >
+        <span
+          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+            checked ? "translate-x-4" : "translate-x-0.5"
+          } translate-y-0.5`}
+        />
+      </button>
+    </label>
+  );
+}
+
+function StatTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+      <p className="text-[11px] uppercase tracking-wide text-gray-500">{label}</p>
+      <p className="text-sm font-semibold text-gray-900 mt-1">{value}</p>
+    </div>
+  );
+}
+
+/** Placeholder for the real PTO editor that S4 will wire up. Keeps the
+ *  Settings affordance discoverable without committing to the editor
+ *  shape here. The data-testid lets the integration test assert the
+ *  placeholder is reachable without coupling to copy. */
+function PtoStub() {
+  return (
+    <div className="border-t border-gray-100 pt-4">
+      <h3 className="text-sm font-medium text-gray-800">Days off (PTO)</h3>
+      <p className="text-xs text-gray-500 mt-0.5">
+        Mark days that don't break your streak.
+      </p>
+      <div className="mt-2 flex items-center gap-2">
+        <button
+          type="button"
+          disabled
+          className="px-3 py-1.5 text-sm font-medium text-gray-500 bg-gray-100 rounded-lg cursor-not-allowed"
+          data-testid="streaks-pto-stub"
+        >
+          Edit PTO dates
+        </button>
+        <span className="text-xs text-gray-400">(S4 will wire this up)</span>
+      </div>
+    </div>
+  );
+}
+
+/** Small lock glyph (the codebase ships inline SVGs rather than pulling
+ *  in lucide-react; mirrors the AppShell icon idiom). Reinforces the
+ *  "private to you" framing in the section header. */
+function LockIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  );
+}
+
+function ResetStreakModal({
+  currentCount,
+  onCancel,
+  onConfirm,
+}: {
+  currentCount: number;
+  onCancel: () => void;
+  onConfirm: (alsoClearCelebrationsSeen: boolean) => void;
+}) {
+  const [alsoClear, setAlsoClear] = useState(false);
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="streaks-reset-title"
+      data-testid="streaks-reset-modal"
+    >
+      <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl">
+        <h3
+          id="streaks-reset-title"
+          className="text-base font-semibold text-gray-900"
+        >
+          Reset your {currentCount}-day streak?
+        </h3>
+        <p className="mt-2 text-sm text-gray-600">This can't be undone.</p>
+
+        <label className="mt-4 flex items-start gap-2 cursor-pointer text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={alsoClear}
+            onChange={(e) => setAlsoClear(e.target.checked)}
+            className="mt-0.5 accent-sky-600"
+            data-testid="streaks-reset-also-clear-celebrations"
+          />
+          <span>
+            Also clear celebrations seen (so milestones can re-fire)
+          </span>
+        </label>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
+            data-testid="streaks-reset-cancel"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => onConfirm(alsoClear)}
+            className="px-3 py-1.5 text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors"
+            data-testid="streaks-reset-confirm"
+          >
+            Reset streak
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
