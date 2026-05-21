@@ -494,10 +494,13 @@ export default function BeakerBot({
 
       {/* Laugh-text speech bubble: pops up above BeakerBot during the
        *  giggle and rolling-laughing easter-egg poses so the laughter
-       *  reads clearly without relying solely on body motion. Counter-
-       *  rotates against the body's tilt on rolling-laughing via the
-       *  laughText className so the text stays upright while BeakerBot
-       *  is sideways on the ground. */}
+       *  reads clearly without relying solely on body motion. White
+       *  rounded-pill background separates the text from BeakerBot's
+       *  body + outline (same color via currentColor) so the letters
+       *  stay legible even where the bubble overlaps the body silhouette.
+       *  Counter-rotates against the body's tilt on rolling-laughing
+       *  via the laughText className so the bubble + text stay upright
+       *  while BeakerBot is sideways on the ground. */}
       {(effectivePose === "giggle" ||
         effectivePose === "rolling-laughing") && (
         <g
@@ -507,9 +510,20 @@ export default function BeakerBot({
               : styles.laughTextGiggle
           }`}
         >
+          <rect
+            x="24.5"
+            y="4.4"
+            width="15"
+            height="6.2"
+            rx="3.1"
+            ry="3.1"
+            fill="white"
+            stroke="currentColor"
+            strokeWidth="0.5"
+          />
           <text
             x="32"
-            y="8"
+            y="8.6"
             textAnchor="middle"
             fontSize="3.6"
             fontWeight="700"
