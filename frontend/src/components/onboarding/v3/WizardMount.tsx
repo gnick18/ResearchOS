@@ -9,6 +9,7 @@ import {
 } from "@/lib/onboarding/sidecar";
 import { isFreshUserForWizard } from "@/lib/onboarding/is-fresh-user";
 import OnboardingWizardV3 from "./OnboardingWizardV3";
+import WizardResumeModal from "./WizardResumeModal";
 import type { WizardStep } from "./WizardStepMachine";
 
 /**
@@ -60,6 +61,14 @@ export default function WizardMount({ username }: WizardMountProps) {
     | { kind: "hidden" }
     | { kind: "show"; sidecar: OnboardingSidecar; initialStep: WizardStep }
   >({ kind: "loading" });
+
+  // P5: the L10 resume modal sits in front of the wizard shell when the
+  // sidecar carries a non-null `wizard_resume_state` and the wizard
+  // would otherwise mount. `modalResolved` flips to true once the user
+  // picks Resume / Restart / Discard so a parent re-render (sidecar
+  // patch from elsewhere, etc.) does not re-summon the modal in the
+  // same session.
+  const [modalResolved, setModalResolved] = useState(false);
 
   const computeMount = useCallback(async () => {
     try {
@@ -175,6 +184,51 @@ export default function WizardMount({ username }: WizardMountProps) {
 
   if (decision.kind !== "show") return null;
 
+  // P5 (§8 L10): if the sidecar carries a non-null wizard_resume_state
+  // and the user has not yet resolved the modal in this session, the
+  // mid-walkthrough close modal renders in place of the wizard shell.
+  // The modal's three buttons all converge back into the same parent
+  // state (modalResolved=true plus an optional initialStep override) so
+  // the wizard mounts at the right step once the modal dismisses.
+  const resumeState = decision.sidecar.wizard_resume_state;
+  if (resumeState && !modalResolved) {
+    return (
+      <WizardResumeModal
+        username={username}
+        resumeState={resumeState}
+        onResume={(savedStep) => {
+          setDecision((prev) =>
+            prev.kind === "show"
+              ? { ...prev, initialStep: savedStep }
+              : prev,
+          );
+          setModalResolved(true);
+        }}
+        onRestart={() => {
+          // Restart wrote `wizard_resume_state = null` inside the modal;
+          // we drop our cached copy and mount the wizard at intro.
+          setDecision((prev) =>
+            prev.kind === "show"
+              ? {
+                  ...prev,
+                  sidecar: { ...prev.sidecar, wizard_resume_state: null },
+                  initialStep: "intro",
+                }
+              : prev,
+          );
+          setModalResolved(true);
+        }}
+        onDiscard={() => {
+          // Discard persisted `wizard_skipped_at`; the wizard does not
+          // mount this session. Settings re-run still works because
+          // clearWizardCompletion() clears wizard_skipped_at.
+          setDecision({ kind: "hidden" });
+          setModalResolved(true);
+        }}
+      />
+    );
+  }
+
   return (
     <OnboardingWizardV3
       username={username}
@@ -189,13 +243,14 @@ export default function WizardMount({ username }: WizardMountProps) {
   );
 }
 
-/** Pull a resume step out of the sidecar's wizard_resume_state. P1
- *  resumes silently; P5 will surface a Resume / Restart / Discard
- *  modal here instead. */
+/** Pull a resume step out of the sidecar's wizard_resume_state. The
+ *  P5 resume modal sits in front of the wizard shell when this returns
+ *  a non-null step; users pick Resume (mount at this step), Restart
+ *  (mount at intro), or Discard (skip). The initialStep we hand back
+ *  here is what the wizard sees AFTER the modal resolves to Resume. */
 function resumeStepFromSidecar(
   sidecar: OnboardingSidecar | null,
 ): WizardStep | null {
-  // TODO P5: surface Resume/Restart/Discard modal here instead of silent resume
   const step = sidecar?.wizard_resume_state?.current_step;
   if (!step) return null;
   return step as WizardStep;
