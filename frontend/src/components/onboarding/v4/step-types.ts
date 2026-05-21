@@ -103,6 +103,32 @@ export interface TourStep {
   /** When this predicate returns `false`, the step is skipped (gating
    *  per L16). When `undefined`, the step always fires. */
   conditionalOn?: (picks: FeaturePicks | null) => boolean;
+  /** Optional CSS selector for a LARGER surface that should be fully in
+   *  viewport before the cursor demo runs. The per-action `ensureInViewport`
+   *  inside cursor-script helpers only scrolls the small click target
+   *  (e.g. the "Add Cycle" button) into view; on tall builders like the
+   *  PCR gradient editor or LC chart, the user is meant to be looking at
+   *  the whole CARD, not just the button. Setting `viewportAnchor` makes
+   *  the controller scroll that big container into view at step entry,
+   *  BEFORE any cursor script runs.
+   *
+   *  Behavior:
+   *   - When unset (the default): no anchor scroll runs; per-action
+   *     `ensureInViewport` calls inside the cursor-script helpers handle
+   *     scroll on their own. This matches the pre-anchor behavior so
+   *     unrelated steps don't change.
+   *   - When set: at step entry, the controller resolves the selector
+   *     and compares the element's height to `window.innerHeight`. If
+   *     the anchor fits, it scrolls to `block: "center"`. If the anchor
+   *     is TALLER than the viewport, it scrolls to `block: "start"` so
+   *     the user sees the TOP of the widget ("show me all of this,
+   *     starting from the top"). The per-action `ensureInViewport` still
+   *     runs afterward for the small click target.
+   *
+   *  Use this for the §6.4b PCR + LC Gradient deep-demo steps where the
+   *  cursor's target is a small toolbar button but the user's actual
+   *  attention should be on the whole builder card. */
+  viewportAnchor?: string;
   /** Pathname (or pathname prefix) the step expects to render against.
    *  When set, the TourController auto-navigates here on step enter if
    *  `window.location.pathname` doesn't already match.

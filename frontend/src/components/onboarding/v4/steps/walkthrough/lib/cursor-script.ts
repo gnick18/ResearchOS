@@ -193,6 +193,78 @@ async function ensureInViewport(el: HTMLElement): Promise<void> {
 export const __test_ensureInViewport = ensureInViewport;
 
 /**
+ * Scroll a LARGER anchor surface (e.g. the whole PCR builder card) into
+ * view BEFORE the cursor script's per-action `ensureInViewport` runs.
+ * Differs from `ensureInViewport`:
+ *
+ *  - Resolves the selector itself (waits up to `timeoutMs` for mount).
+ *    Per-action helpers receive the element already-resolved; this one
+ *    is the entry point for the controller, which only knows the selector.
+ *  - Block decision depends on anchor height: if the anchor fits in the
+ *    viewport, scrolls to `block: "center"` (the user can see the whole
+ *    widget centered). If the anchor is TALLER than the viewport, scrolls
+ *    to `block: "start"` so the user sees the TOP of the widget ("show
+ *    me all of this, starting from the top" per Grant's brief).
+ *
+ * Returns when the scroll settles or the iteration cap fires (~640ms).
+ * No-op if the selector misses (logs a warn so tour authors notice
+ * stale anchor selectors), or if `scrollIntoView` is unavailable.
+ */
+export async function ensureViewportAnchor(
+  selector: string,
+  timeoutMs = 2000,
+): Promise<void> {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  const el = await waitForElement(selector, timeoutMs);
+  if (!el) {
+    // Log so a tour author who renamed an anchor selector sees the
+    // miss in the console; the demo still proceeds (per-action
+    // ensureInViewport will handle the small target).
+    console.warn(
+      `[onboarding-v4] viewportAnchor selector "${selector}" did not mount`,
+    );
+    return;
+  }
+  if (typeof el.scrollIntoView !== "function") return;
+
+  const rect = el.getBoundingClientRect();
+  // Choose block based on whether the anchor fits. window.innerHeight is
+  // the comparison rather than a smaller floor because the user's
+  // viewport IS the budget — if the anchor is even a few pixels taller,
+  // centering would hide either its top or bottom; scrolling to start
+  // gives the user the top of the widget (which the brief specifies as
+  // "all of this widget, starting from the top").
+  const block: ScrollLogicalPosition =
+    rect.height > window.innerHeight ? "start" : "center";
+
+  try {
+    el.scrollIntoView({ block, inline: "center", behavior: "smooth" });
+  } catch {
+    // Some environments throw on options; fall through to the poll.
+  }
+
+  // Poll the rect to detect when the smooth scroll has settled, with the
+  // same iteration cap as `ensureInViewport` so a stuck scroll doesn't
+  // deadlock the cursor.
+  const MAX_ITERATIONS = 40;
+  const POLL_INTERVAL_MS = 16;
+  let prevRect = rect;
+  for (let i = 0; i < MAX_ITERATIONS; i++) {
+    await new Promise<void>((resolve) => {
+      window.setTimeout(resolve, POLL_INTERVAL_MS);
+    });
+    const nextRect = el.getBoundingClientRect();
+    if (
+      Math.abs(nextRect.top - prevRect.top) < 0.5 &&
+      Math.abs(nextRect.left - prevRect.left) < 0.5
+    ) {
+      return;
+    }
+    prevRect = nextRect;
+  }
+}
+
+/**
  * Build a click action against a selector, waiting for the target to
  * mount. Returns `null` if the target never appears, so the caller can
  * filter nulls out of the action list with `.filter((a): a is

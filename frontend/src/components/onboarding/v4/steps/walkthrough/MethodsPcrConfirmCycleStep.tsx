@@ -47,6 +47,10 @@ export const methodsPcrConfirmCycleStep = buildWalkthroughStep({
   }),
   completion: autoAdvanceAfter(PCR_CONFIRM_CYCLE_BUDGET_MS),
   expectedRoute: "/methods",
+  // §6.4b viewport anchor (input-lock + viewport-anchor sub-bot 2026-05-21):
+  // anchor the whole PCR builder card so when the new cycle drops into
+  // the flow the user actually sees it.
+  viewportAnchor: targetSelector(TOUR_TARGETS.pcrEditorWrapper),
 });
 
 export { PCR_CONFIRM_CYCLE_BUDGET_MS };

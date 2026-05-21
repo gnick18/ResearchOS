@@ -870,7 +870,7 @@ export function CreateMethodModal({
 
             {/* LC Gradient editor */}
             {uploadType === "lc_gradient" && (
-              <div className="space-y-2">
+              <div className="space-y-2" data-tour-target="lc-editor-wrapper">
                 <p className="text-xs text-gray-400">
                   LC gradient protocols store the solvent gradient (%A/%B over time + flow), column geometry, detection wavelength, and ingredient list.
                 </p>
@@ -1002,7 +1002,7 @@ export function CreateMethodModal({
 
             {/* PCR editor */}
             {uploadType === "pcr" && (
-              <div className="space-y-4">
+              <div className="space-y-4" data-tour-target="pcr-editor-wrapper">
                 <p className="text-xs text-gray-400">
                   PCR protocols store thermal cycler gradients and reaction recipes.
                 </p>

@@ -56,6 +56,11 @@ export const methodsPcrEditStep = buildWalkthroughStep({
   }),
   completion: autoAdvanceAfter(PCR_EDIT_TOGGLE_BUDGET_MS),
   expectedRoute: "/methods",
+  // §6.4b viewport anchor (input-lock + viewport-anchor sub-bot 2026-05-21):
+  // the whole PCR builder card (description + Thermal Gradient heading +
+  // InteractiveGradientEditor + Reaction Recipe) is the user's intended
+  // focus, not just the Edit Cycle toggle.
+  viewportAnchor: targetSelector(TOUR_TARGETS.pcrEditorWrapper),
 });
 
 /** Helper for tests so the budget constant doesn't need re-exporting

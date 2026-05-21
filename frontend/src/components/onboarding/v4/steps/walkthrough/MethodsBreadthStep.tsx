@@ -119,4 +119,11 @@ export const methodsBreadthStep = buildWalkthroughStep({
   }),
   completion: autoAdvanceAfter(PCR_TILE_CLICK_BUDGET_MS),
   expectedRoute: "/methods",
+  // §6.4b viewport anchor (input-lock + viewport-anchor sub-bot 2026-05-21):
+  // the cursor only clicks the small PCR tile, but the user should see
+  // the whole CreateMethodModal surface so the tile click context is
+  // visible. Using the modal wrapper (methodsCreateForm) rather than a
+  // narrower per-builder wrapper because this step is the picker entry —
+  // the PCR builder hasn't mounted yet.
+  viewportAnchor: targetSelector(TOUR_TARGETS.methodsCreateForm),
 });

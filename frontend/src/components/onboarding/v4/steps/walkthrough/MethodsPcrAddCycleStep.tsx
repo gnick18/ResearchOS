@@ -56,6 +56,10 @@ export const methodsPcrAddCycleStep = buildWalkthroughStep({
   }),
   completion: autoAdvanceAfter(PCR_ADD_CYCLE_BUDGET_MS),
   expectedRoute: "/methods",
+  // §6.4b viewport anchor (input-lock + viewport-anchor sub-bot 2026-05-21):
+  // anchor the whole PCR builder card so the user sees the gradient flow
+  // change after the Add Cycle confirmation, not just the toolbar button.
+  viewportAnchor: targetSelector(TOUR_TARGETS.pcrEditorWrapper),
 });
 
 export { PCR_ADD_CYCLE_BUDGET_MS };

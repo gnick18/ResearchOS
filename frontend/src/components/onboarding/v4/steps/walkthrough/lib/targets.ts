@@ -76,6 +76,15 @@ export const TOUR_TARGETS = {
   pcrEditToggle: "pcr-edit-toggle",
   pcrAddCycle: "pcr-add-cycle",
   pcrAddCycleConfirm: "pcr-add-cycle-confirm",
+  // §6.4b viewport-anchor (sub-bot 2026-05-21): the WHOLE PCR builder
+  // card inside CreateMethodModal — description text + Thermal Gradient
+  // heading + InteractiveGradientEditor + Reaction Recipe table. The
+  // smaller per-action targets (pcrEditToggle, pcrAddCycle) only get
+  // the button in view, but Grant wants the whole card visible during
+  // the demo. Used via `TourStep.viewportAnchor` to scroll the inner
+  // modal scroll container so the card's top sits at the viewport top.
+  pcrEditorWrapper: "pcr-editor-wrapper",
+  lcEditorWrapper: "lc-editor-wrapper",
   // LC Gradient editor (LcGradientEditor.tsx) affordances. `lcStepRow0`
   // is the first gradient-step row (the modal seeds with a 2-step
   // default; index 0 = the t=0 starting point). `lcAddStep` is the

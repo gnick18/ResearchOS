@@ -17,6 +17,7 @@ import {
   tryQuery,
   compactScript,
   __test_ensureInViewport,
+  ensureViewportAnchor,
 } from "../lib/cursor-script";
 import { TOUR_TARGETS, targetSelector } from "../lib/targets";
 import { homeCreateProjectStep } from "../HomeCreateProjectStep";
@@ -355,6 +356,171 @@ describe("compactScript()", () => {
     expect(result).toHaveLength(2);
     expect(result[0].type).toBe("click");
     expect(result[1].type).toBe("glide");
+  });
+});
+
+describe("ensureViewportAnchor() — Bug A viewport anchor (sub-bot 2026-05-21)", () => {
+  /**
+   * Builds a fixture div with a stubbed `scrollIntoView`, a stubbed
+   * `getBoundingClientRect` that returns a fixed-height rect, and a
+   * data-tour-target attribute. The helper resolves the selector via
+   * `waitForElement` so we mount the element BEFORE asserting against
+   * the spy.
+   */
+  function mountAnchor(
+    name: string,
+    rectHeight: number,
+  ): { el: HTMLElement; scrollSpy: ReturnType<typeof vi.fn>; cleanup: () => void } {
+    const el = document.createElement("div");
+    el.setAttribute("data-tour-target", name);
+    document.body.appendChild(el);
+    el.getBoundingClientRect = () =>
+      ({
+        top: 200,
+        left: 100,
+        width: 500,
+        height: rectHeight,
+        right: 600,
+        bottom: 200 + rectHeight,
+        x: 100,
+        y: 200,
+        toJSON() {
+          return {};
+        },
+      }) as DOMRect;
+    const scrollSpy = vi.fn();
+    el.scrollIntoView = scrollSpy as unknown as typeof el.scrollIntoView;
+    return {
+      el,
+      scrollSpy,
+      cleanup: () => {
+        el.remove();
+      },
+    };
+  }
+
+  it("scrolls to center when the anchor fits inside the viewport", async () => {
+    // jsdom default innerHeight is 768; rectHeight=400 fits.
+    const { scrollSpy, cleanup } = mountAnchor("fits-anchor", 400);
+    try {
+      await ensureViewportAnchor(
+        "[data-tour-target='fits-anchor']",
+        500,
+      );
+      expect(scrollSpy).toHaveBeenCalledTimes(1);
+      const arg = scrollSpy.mock.calls[0][0];
+      expect(arg.block).toBe("center");
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("scrolls to start when the anchor is taller than the viewport", async () => {
+    // window.innerHeight = 768; rectHeight=1200 overflows.
+    const { scrollSpy, cleanup } = mountAnchor("tall-anchor", 1200);
+    try {
+      await ensureViewportAnchor(
+        "[data-tour-target='tall-anchor']",
+        500,
+      );
+      expect(scrollSpy).toHaveBeenCalledTimes(1);
+      const arg = scrollSpy.mock.calls[0][0];
+      // Per Grant's brief: "scroll so the TOP of the anchor is at the
+      // top of the viewport since the user wants to see all of this
+      // widget, starting from the top."
+      expect(arg.block).toBe("start");
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("is a no-op (no scroll) when the selector misses", async () => {
+    // No fixture mounted. With a short timeout the helper logs a warn
+    // (silenced via spy) and returns without throwing.
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      await ensureViewportAnchor(
+        "[data-tour-target='missing-anchor']",
+        100,
+      );
+      expect(warnSpy).toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it("is a no-op when scrollIntoView is unavailable", async () => {
+    const el = document.createElement("div");
+    el.setAttribute("data-tour-target", "no-scroll");
+    el.getBoundingClientRect = () =>
+      ({
+        top: 0,
+        left: 0,
+        width: 100,
+        height: 100,
+        right: 100,
+        bottom: 100,
+        x: 0,
+        y: 0,
+        toJSON() {
+          return {};
+        },
+      }) as DOMRect;
+    (el as unknown as { scrollIntoView: undefined }).scrollIntoView =
+      undefined;
+    document.body.appendChild(el);
+    try {
+      // Should resolve quickly without throwing.
+      await ensureViewportAnchor(
+        "[data-tour-target='no-scroll']",
+        500,
+      );
+    } finally {
+      el.remove();
+    }
+  });
+});
+
+describe("§6.4b step bodies declare the expected viewportAnchor — Bug A", () => {
+  /**
+   * Per Grant's brief, the 5 §6.4b sub-steps must declare a
+   * `viewportAnchor` so the controller scrolls the larger builder card
+   * into view before the cursor demo runs. Catches a regression where
+   * a future maintainer drops the field by accident.
+   */
+  it("methodsBreadthStep anchors the methods modal", async () => {
+    const { methodsBreadthStep } = await import("../MethodsBreadthStep");
+    expect(methodsBreadthStep.viewportAnchor).toBe(
+      '[data-tour-target="methods-create-form"]',
+    );
+  });
+  it("methodsPcrEditStep anchors the PCR editor wrapper", async () => {
+    const { methodsPcrEditStep } = await import("../MethodsPcrEditStep");
+    expect(methodsPcrEditStep.viewportAnchor).toBe(
+      '[data-tour-target="pcr-editor-wrapper"]',
+    );
+  });
+  it("methodsPcrAddCycleStep anchors the PCR editor wrapper", async () => {
+    const { methodsPcrAddCycleStep } = await import(
+      "../MethodsPcrAddCycleStep"
+    );
+    expect(methodsPcrAddCycleStep.viewportAnchor).toBe(
+      '[data-tour-target="pcr-editor-wrapper"]',
+    );
+  });
+  it("methodsPcrConfirmCycleStep anchors the PCR editor wrapper", async () => {
+    const { methodsPcrConfirmCycleStep } = await import(
+      "../MethodsPcrConfirmCycleStep"
+    );
+    expect(methodsPcrConfirmCycleStep.viewportAnchor).toBe(
+      '[data-tour-target="pcr-editor-wrapper"]',
+    );
+  });
+  it("methodsLcDemoStep anchors the LC editor wrapper", async () => {
+    const { methodsLcDemoStep } = await import("../MethodsLcDemoStep");
+    expect(methodsLcDemoStep.viewportAnchor).toBe(
+      '[data-tour-target="lc-editor-wrapper"]',
+    );
   });
 });
 

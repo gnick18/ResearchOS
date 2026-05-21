@@ -107,4 +107,10 @@ export const methodsLcDemoStep = buildWalkthroughStep({
   }),
   completion: manualAdvance("Got it, next"),
   expectedRoute: "/methods",
+  // §6.4b viewport anchor (input-lock + viewport-anchor sub-bot 2026-05-21):
+  // anchor the whole LC builder card so users see the recharts line chart
+  // update when the cursor clicks "+ Add step". The LC tile click pre-
+  // mounts the LcGradientEditor, then the anchor scrolls the whole card
+  // (description + chart + table) into view before the cursor demo runs.
+  viewportAnchor: targetSelector(TOUR_TARGETS.lcEditorWrapper),
 });

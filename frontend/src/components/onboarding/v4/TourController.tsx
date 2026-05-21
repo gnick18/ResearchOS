@@ -38,6 +38,8 @@ import {
 import Phase4CleanupStep from "./steps/cleanup/Phase4CleanupStep";
 import type { CleanupSummary } from "./steps/cleanup/cleanup-execution";
 import type { TourStep, TourStepId } from "./step-types";
+import { ensureViewportAnchor } from "./steps/walkthrough/lib/cursor-script";
+import InputLockOverlay from "./InputLockOverlay";
 
 /**
  * Onboarding v4 tour controller — see ONBOARDING_V4_PROPOSAL.md §4.1.
@@ -943,6 +945,15 @@ function InProductWalkthroughOverlay({
 }: InProductWalkthroughOverlayProps) {
   const cursorRef = useRef<BeakerBotCursorRef>(null);
   const body = getStep(currentStep);
+  // Mirror of "BeakerBotCursor is currently driving an animation."
+  // Flipped true right before `runScript`, false after the script
+  // resolves OR when the step transitions (cleanup cancels in-flight
+  // scripts). Drives the InputLockOverlay so the user can't scroll
+  // or click random buttons while the cursor's pre-computed coordinates
+  // are still valid — per Grant's "block the user from kind of clicking
+  // anything or scrolling anything on the screen when BeakerBot is
+  // actively typing using the cursor" mandate (2026-05-21).
+  const [cursorActive, setCursorActive] = useState(false);
 
   // Run the step's cursorScript on entry. Re-running when `currentStep`
   // changes is the desired contract: every step gets one fresh play.
@@ -950,28 +961,66 @@ function InProductWalkthroughOverlay({
   // prior step continuing to drive the cursor after the user advanced.
   useEffect(() => {
     const stepBody = getStep(currentStep);
-    if (!stepBody?.cursorScript) return;
+    if (!stepBody?.cursorScript) {
+      // No cursor demo on this step — the input lock must stay off so
+      // user-action steps (e.g. home-create-project) remain interactive.
+      setCursorActive(false);
+      return;
+    }
     const ref = cursorRef.current;
     if (!ref) return;
 
     let cancelled = false;
     void (async () => {
       try {
+        // Build the action list FIRST. Some step bodies (e.g. the LC
+        // demo) silent-pre-click a tile inside the builder so the
+        // anchor wrapper mounts; running the anchor scroll before the
+        // builder mounts would log a "selector did not mount" warn.
         const actions = await stepBody.cursorScript!();
         if (cancelled) return;
+
+        // Viewport-anchor scroll (Bug A, sub-bot 2026-05-21). Ensures
+        // the LARGE surface (the whole PCR builder card / LC gradient
+        // card / methods modal) is visible BEFORE the cursor animates.
+        // Without this, `ensureInViewport` inside the cursor-script
+        // helpers only guarantees the small click target on screen —
+        // the user may be looking at a builder whose top is cut off.
+        if (stepBody.viewportAnchor) {
+          await ensureViewportAnchor(stepBody.viewportAnchor);
+          if (cancelled) return;
+        }
+
         const liveRef = cursorRef.current;
         if (!liveRef) return;
-        await liveRef.runScript(actions);
+        // Flip the input lock ON for the duration of the script. The
+        // overlay portal mounts immediately on the next React commit
+        // (synchronous-batched setState here followed by an await
+        // gives React a microtask to render before runScript starts
+        // dispatching click events).
+        setCursorActive(true);
+        try {
+          await liveRef.runScript(actions);
+        } finally {
+          if (!cancelled) setCursorActive(false);
+        }
       } catch (err) {
         console.warn(
           `[TourController] cursor script for step "${currentStep}" failed:`,
           err,
         );
+        if (!cancelled) setCursorActive(false);
       }
     })();
 
     return () => {
       cancelled = true;
+      // Release the lock the moment the step exits — even if runScript
+      // is still mid-animation, we want the user free to interact with
+      // the next step's surface. Skip / Back paths from the speech
+      // bubble (which stays clickable through the overlay) trigger this
+      // cleanup as the step changes.
+      setCursorActive(false);
     };
   }, [currentStep]);
 
@@ -983,6 +1032,10 @@ function InProductWalkthroughOverlay({
         <TourSpotlight target={body.targetSelector} />
       )}
       <BeakerBotCursor ref={cursorRef} />
+      {/* Input lock overlay (Bug B, sub-bot 2026-05-21). Renders only
+          while the cursor is actively running a script; absent otherwise
+          so user-action steps + idle gaps don't lock the page. */}
+      <InputLockOverlay active={cursorActive} />
       <TourBeakerBotOverlay
         step={body}
         onManualAdvance={onManualAdvance}
