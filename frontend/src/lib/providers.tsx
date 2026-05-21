@@ -15,6 +15,7 @@ import OpenDocsButton from "@/components/OpenDocsButton";
 import { OnboardingProvider } from "@/lib/onboarding/orchestrator";
 import LabTourResumePrompt from "@/components/onboarding/v3/LabTourResumePrompt";
 import V4MountForUser from "@/components/onboarding/v4/V4MountForUser";
+import CelebrationManager from "@/components/onboarding/CelebrationManager";
 import { initializeErrorHandlers } from "@/lib/error-reporting";
 
 function AppContent({ children }: { children: ReactNode }) {
@@ -197,9 +198,28 @@ function AppContent({ children }: { children: ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <OnboardingProvider currentUser={currentUser}>
         {isLabUser ? (
-          children
+          <>
+            {children}
+            {/* Lab Mode bypasses the v4 tour entirely, so no
+                TourControllerProvider is in the tree. CelebrationManager
+                still mounts here so streak milestones earned by a lab
+                user (rare but possible, since they can write to their data
+                folder) fire as expected. useOptionalTourController()
+                will return null in this branch, which the manager
+                treats as "no tour active" → fires normally. */}
+            <CelebrationManager username={currentUser} />
+          </>
         ) : (
-          <V4MountForUser username={currentUser}>{children}</V4MountForUser>
+          <V4MountForUser username={currentUser}>
+            {children}
+            {/* CelebrationManager is a peer of TourBootstrap inside
+                the TourControllerProvider tree. Inside the provider so
+                useOptionalTourController() returns the live controller
+                value (the manager defers firing while a tour is
+                active, per proposal §6.7 "don't overlap with the
+                bottom-right tour BeakerBot"). */}
+            <CelebrationManager username={currentUser} />
+          </V4MountForUser>
         )}
       </OnboardingProvider>
       <LabTourResumePrompt username={currentUser} />

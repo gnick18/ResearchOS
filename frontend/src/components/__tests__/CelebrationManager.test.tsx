@@ -1,0 +1,385 @@
+// Component tests for the Phase S6 CelebrationManager.
+//
+// Covers:
+//  - Renders nothing when no celebrations are pending
+//  - Renders one scene when a celebration is pending
+//  - onComplete advances and persists the seen-tag
+//  - One-per-session cap (queue of 3 → only scene 1 fires)
+//  - Live milestone events (onStreakMilestoneCrossed) feed the queue
+//  - Random scene pick covers all 6 pool entries over many iterations
+//  - Tour-active deferral: when tourMode !== null, no scene fires; when
+//    tourMode flips back to null, the deferred scene fires
+//
+// The streak-sidecar fileService is replaced with an in-memory Map.
+// The tour controller is faked via a tiny test-only provider so we
+// can control tourMode without spinning up the full v4 TourController
+// machinery.
+
+import {
+  describe,
+  expect,
+  it,
+  vi,
+  beforeEach,
+  afterEach,
+} from "vitest";
+import { act, render, waitFor } from "@testing-library/react";
+
+// ---- mocks -------------------------------------------------------
+
+const memFs = new Map<string, unknown>();
+vi.mock("@/lib/file-system/file-service", () => ({
+  fileService: {
+    readJson: vi.fn(async (path: string) => {
+      const v = memFs.get(path);
+      return v === undefined ? null : v;
+    }),
+    writeJson: vi.fn(async (path: string, data: unknown) => {
+      memFs.set(path, data);
+    }),
+    isConnected: vi.fn(() => true),
+  },
+}));
+
+const userMetaMap = new Map<string, { created_at: string; color: string }>();
+vi.mock("@/lib/file-system/user-metadata", () => ({
+  getUserMetadata: vi.fn(async (username: string) => {
+    return userMetaMap.get(username) ?? null;
+  }),
+}));
+
+// Fake tour controller: the manager only reads `tourMode`. We expose
+// a setter via a module-level ref so each test can flip tourMode at
+// will, then re-render the manager.
+const tourState: { mode: "in-product-walkthrough" | null } = { mode: null };
+vi.mock("@/components/onboarding/v4/TourController", () => ({
+  useOptionalTourController: () => {
+    return tourState.mode === null
+      ? null
+      : ({ tourMode: tourState.mode } as { tourMode: string | null });
+  },
+}));
+
+// Capture the manager's milestone listener so tests can fire events
+// without standing up the full S1 tick path. The real implementation
+// is also available via vi.importActual for tests that prefer it; here
+// we use the captured-listener approach so the queue-from-event test
+// can assert the listener wiring AND drive a synthetic event.
+const capturedListeners = new Set<
+  (event: { username: string; tag: string; count: number }) => void
+>();
+vi.mock("@/lib/streak/streak-activity-tracker", () => ({
+  onStreakMilestoneCrossed: (
+    cb: (event: { username: string; tag: string; count: number }) => void,
+  ) => {
+    capturedListeners.add(cb);
+    return () => {
+      capturedListeners.delete(cb);
+    };
+  },
+  __resetStreakActivityTrackerForTests: () => {
+    capturedListeners.clear();
+  },
+}));
+
+// ---- module under test ------------------------------------------
+
+import {
+  __resetStreakWriteQueueForTests,
+  type StreakSidecar,
+} from "@/lib/streak/streak-sidecar";
+import { __resetStreakActivityTrackerForTests } from "@/lib/streak/streak-activity-tracker";
+import CelebrationManager, {
+  CELEBRATION_POOL,
+  pickRandomCelebration,
+} from "@/components/onboarding/CelebrationManager";
+
+const USER = "alex";
+const PATH = `users/${USER}/_streak.json`;
+
+function freshSidecar(over: Partial<StreakSidecar> = {}): StreakSidecar {
+  return {
+    schema_version: 1,
+    enabled: true,
+    current_count: 0,
+    longest_count: 0,
+    last_activity_date: null,
+    started_on: null,
+    shown_privacy_notice: false,
+    pto_dates: [],
+    celebrations_seen: {
+      account_anniversaries: [],
+      streak_milestones: [],
+    },
+    ...over,
+  };
+}
+
+beforeEach(() => {
+  memFs.clear();
+  userMetaMap.clear();
+  __resetStreakWriteQueueForTests();
+  __resetStreakActivityTrackerForTests();
+  tourState.mode = null;
+  // Default matchMedia stub: not reduced-motion. Multi-stage scenes
+  // (Ladder / Eureka / MouseWave) inspect this when their effects run.
+  if (typeof window !== "undefined") {
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      configurable: true,
+      value: (query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => false,
+      }),
+    });
+  }
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+/** Query for any rendered celebration scene (multi-stage OR
+ *  pose-only). The manager renders ONE of these at a time. */
+function celebrationSceneCount(): number {
+  return (
+    document.querySelectorAll(
+      [
+        '[data-testid="beakerbot-ladder-scene"]',
+        '[data-testid="beakerbot-eureka-scene"]',
+        '[data-testid="beakerbot-mouse-wave-scene"]',
+        '[data-testid="beakerbot-pose-celebration-scene"]',
+      ].join(","),
+    ).length
+  );
+}
+
+describe("CelebrationManager", () => {
+  it("renders nothing when no celebrations are pending", async () => {
+    // Empty sidecar + no user_metadata → no pending tags.
+    memFs.set(PATH, freshSidecar());
+    render(<CelebrationManager username={USER} />);
+    // Give the async evaluator a chance to settle.
+    await waitFor(() => {
+      // The manager has neither active state nor queued items.
+      expect(celebrationSceneCount()).toBe(0);
+    });
+  });
+
+  it("renders nothing when username is null", () => {
+    render(<CelebrationManager username={null} />);
+    expect(celebrationSceneCount()).toBe(0);
+  });
+
+  it("renders one scene when a celebration is pending on mount", async () => {
+    // Seed a pending streak-milestone (3d crossing).
+    memFs.set(PATH, freshSidecar({ current_count: 3 }));
+    render(<CelebrationManager username={USER} />);
+
+    await waitFor(() => {
+      expect(celebrationSceneCount()).toBe(1);
+    });
+  });
+
+  it("persists the seen-tag when the scene completes", async () => {
+    // Force the pose-only branch by stubbing pickRandomCelebration via
+    // the cheering pose (easier to drive to completion with fake timers
+    // than the multi-stage scenes' 10-second timelines). We can't easily
+    // override the module-level pickRandomCelebration without
+    // dependency-injection plumbing, so we rely on the random pick
+    // landing on the pose branch eventually, or test the persistence
+    // through the scheduler API directly. Here we DO drive a render +
+    // verify the seen-tag is persisted by force-completing via the
+    // BeakerBotPoseCelebrationScene's hold timer when it's picked.
+    //
+    // Force-seed Math.random so the manager's pickRandomCelebration
+    // lands on the cheering pose (index 4 in the pool).
+    const realRandom = Math.random;
+    Math.random = () => 4 / CELEBRATION_POOL.length + 0.001;
+    try {
+      vi.useFakeTimers();
+      memFs.set(PATH, freshSidecar({ current_count: 7 }));
+      render(<CelebrationManager username={USER} />);
+
+      // Flush the async evaluator + mount effect.
+      await act(async () => {
+        await Promise.resolve();
+      });
+      // Run the queue-drain effect.
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      // A pose-celebration scene should now be on screen.
+      expect(
+        document.querySelector(
+          '[data-testid="beakerbot-pose-celebration-scene"]',
+        ),
+      ).not.toBeNull();
+
+      // Advance past the pose-celebration's 2-second hold so it fires
+      // onComplete.
+      await act(async () => {
+        vi.advanceTimersByTime(2100);
+      });
+      // Wait for the async markCelebrationSeen patch to settle.
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      // The 3d tag (the first crossed threshold for count=7) should be
+      // persisted; we may get any of 3d/7d depending on pick order, so
+      // assert at least one streak_milestone tag is present.
+      const stored = memFs.get(PATH) as StreakSidecar;
+      expect(
+        stored.celebrations_seen.streak_milestones.length,
+      ).toBeGreaterThan(0);
+    } finally {
+      Math.random = realRandom;
+      vi.useRealTimers();
+    }
+  });
+
+  it("one-per-session: queue with multiple items only fires one scene", async () => {
+    // Seed multiple pending tags. count=14 → 3d, 7d, 14d all pending.
+    memFs.set(PATH, freshSidecar({ current_count: 14 }));
+    render(<CelebrationManager username={USER} />);
+
+    await waitFor(() => {
+      expect(celebrationSceneCount()).toBe(1);
+    });
+
+    // Even after waiting, only ONE scene should be on screen. We don't
+    // need to complete it: the session lock is based on "did we
+    // START a celebration" not "did we finish one".
+    await new Promise((r) => setTimeout(r, 50));
+    expect(celebrationSceneCount()).toBe(1);
+  });
+
+  it("live milestone event appends to the queue and fires a scene", async () => {
+    // Start with no pending celebrations.
+    memFs.set(PATH, freshSidecar());
+    render(<CelebrationManager username={USER} />);
+
+    // Wait for the on-mount evaluator to settle and the manager to
+    // register its listener via the mocked onStreakMilestoneCrossed.
+    await waitFor(() => {
+      expect(capturedListeners.size).toBe(1);
+    });
+    expect(celebrationSceneCount()).toBe(0);
+
+    // Fire a live milestone event matching the active username. The
+    // listener appends to the queue, the drain effect picks it up.
+    act(() => {
+      for (const cb of capturedListeners) {
+        cb({ username: USER, tag: "3d", count: 3 });
+      }
+    });
+
+    await waitFor(() => {
+      expect(celebrationSceneCount()).toBe(1);
+    });
+  });
+
+  it("ignores milestone events for a different username", async () => {
+    memFs.set(PATH, freshSidecar());
+    render(<CelebrationManager username={USER} />);
+
+    await waitFor(() => {
+      expect(capturedListeners.size).toBe(1);
+    });
+
+    act(() => {
+      for (const cb of capturedListeners) {
+        cb({ username: "someone-else", tag: "3d", count: 3 });
+      }
+    });
+
+    // Give the queue/drain a tick to verify nothing fires.
+    await new Promise((r) => setTimeout(r, 30));
+    expect(celebrationSceneCount()).toBe(0);
+  });
+
+  it("tour active (tourMode !== null) defers firing", async () => {
+    tourState.mode = "in-product-walkthrough";
+    memFs.set(PATH, freshSidecar({ current_count: 7 }));
+    const { rerender } = render(<CelebrationManager username={USER} />);
+
+    // Even with pending celebrations, no scene should fire while the
+    // tour is active.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(celebrationSceneCount()).toBe(0);
+
+    // Flip the tour off, re-render so the manager re-reads the
+    // mocked controller value, and the deferred scene should now fire.
+    tourState.mode = null;
+    rerender(<CelebrationManager username={USER} />);
+
+    await waitFor(() => {
+      expect(celebrationSceneCount()).toBe(1);
+    });
+  });
+});
+
+describe("CELEBRATION_POOL composition", () => {
+  it("contains exactly six entries", () => {
+    expect(CELEBRATION_POOL).toHaveLength(6);
+  });
+
+  it("contains three multi-stage scenes and three pose entries", () => {
+    const scenes = CELEBRATION_POOL.filter((c) => c.type === "scene");
+    const poses = CELEBRATION_POOL.filter((c) => c.type === "pose");
+    expect(scenes).toHaveLength(3);
+    expect(poses).toHaveLength(3);
+  });
+
+  it("includes the resolved pool members per proposal §6.7", () => {
+    const keys = CELEBRATION_POOL.map((c) =>
+      c.type === "scene" ? `scene:${c.component}` : `pose:${c.pose}`,
+    ).sort();
+    expect(keys).toEqual(
+      [
+        "pose:bouncing",
+        "pose:cheering",
+        "pose:volcano-eruption",
+        "scene:eureka",
+        "scene:ladder",
+        "scene:mouseWave",
+      ].sort(),
+    );
+  });
+
+  it("excludes slapstick scenes per proposal §6.7", () => {
+    const keys = CELEBRATION_POOL.map((c) =>
+      c.type === "scene" ? c.component : "",
+    );
+    expect(keys).not.toContain("centrifuge");
+    expect(keys).not.toContain("bugStomp");
+    expect(keys).not.toContain("tooManyBeakers");
+    expect(keys).not.toContain("screenBump");
+    expect(keys).not.toContain("skateboard");
+  });
+});
+
+describe("pickRandomCelebration distribution", () => {
+  it("covers all six pool entries within 1000 picks", () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 1000; i++) {
+      const pick = pickRandomCelebration();
+      const key =
+        pick.type === "scene" ? `scene:${pick.component}` : `pose:${pick.pose}`;
+      seen.add(key);
+    }
+    // All six pool entries should have been picked at least once over
+    // 1000 draws. The chance of missing any one entry is
+    // (5/6)^1000 ≈ 5e-80, effectively zero.
+    expect(seen.size).toBe(6);
+  });
+});
