@@ -292,6 +292,17 @@ Use this for any field rename. **Do NOT do hard on-disk cutovers** — rewrite-a
 
 **Snapshot frozen at commit `1b19b524` (2026-05-13).** This list will drift as new work lands — always prefer `git log --oneline -20` over this section for the current state, and treat anything below as historical context only. Highlights from this collaboration:
 
+### Workbench QA persona 12 — canonical decisions (2026-05-20)
+
+From QA persona 12 (Workbench panel) exploration. Locked-in design calls so future dispatches don't re-litigate:
+
+- **TaskDetailPopup default tab is `Details`**, NOT state-aware. Recipe vocabulary that calls for "Results-on-completed / Lab-Notes-on-in-progress" is outdated. Wiki captures + persona recipes should expect Details first.
+- **Workbench Experiments section labels (canonical):** `Ready to start / Blocked / Running / Awaiting writeup / Recent results / Earlier results` (6 sections). The to-do-shaped vocabulary (`Overdue / Doing / Recently done / Earlier`) lives on the **Lists** tab only (5 sections). Wiki + recipe vocabulary needs to mirror this split. Chip queued for wiki alignment.
+- **Three majors found by persona 12, fix chips queued (2026-05-20):**
+  - Notes tab missing project pill filter row (regression from `d0a4625f`).
+  - List parent-task checkbox does not cascade to sub-tasks.
+  - Same-day-completed list task buckets into Earlier instead of Recently done.
+
 - README revamp with hosted-URL + Telegram + calendar sections.
 - Drag-to-trash double-delete fix + middle-state image-ref migration persistence.
 - Image strip + scroll-to-image, sticky in non-fullscreen.
