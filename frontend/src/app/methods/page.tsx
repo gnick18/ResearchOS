@@ -590,7 +590,17 @@ export default function MethodsPage() {
           </h2>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setCreatingCategory(true)}
+              onClick={() => {
+                setCreatingCategory(true);
+                // Onboarding v4 §6.4: the new methods-category-open
+                // sub-step waits for this DOM event to advance. Cheap
+                // no-op when no tour is active (one ignored dispatch).
+                if (typeof window !== "undefined") {
+                  window.dispatchEvent(
+                    new CustomEvent("tour:methods-category-modal-opened"),
+                  );
+                }
+              }}
               data-tour-target="methods-add-category"
               className="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
             >

@@ -95,7 +95,12 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // breadth wall of speech by having BeakerBot click "+ New Method" so
   // the modal mounts before the next step fires.
   "methods-category-prompt", // §6.4a-prompt (interactive picker)
-  "methods-category",        // §6.4a-demo (cursor demos the picked label)
+  // Grant 2026-05-21 rethink: separate the user-action open-click from
+  // BeakerBot's type+submit demo. The user clicks "+ New Category"
+  // themselves; the cursor then takes over to type the picked label and
+  // click Create Empty.
+  "methods-category-open",   // §6.4a-open (user opens the modal)
+  "methods-category",        // §6.4a-demo (cursor types + clicks Create Empty)
   "methods-open-picker",     // §6.4 bridge (click New Method, modal mounts)
   // §6.4b deep-demo (v4 sec 6.4b upgrade sub-bot 2026-05-21): replaces
   // the prior 7-tile hover sweep with five sub-steps that click INTO

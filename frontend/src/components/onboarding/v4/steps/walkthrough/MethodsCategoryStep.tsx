@@ -80,25 +80,10 @@ export const methodsCategoryDemoStep = buildWalkthroughStep({
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.methodsNewCategoryButton),
   cursorScript: cursorScript(async () => {
+    // Grant 2026-05-21 rethink: the user opens the modal themselves in
+    // the previous `methods-category-open` step. The demo step's job
+    // is JUST to type the picked label and click Create Empty.
     const label = resolvePickedCategoryLabel();
-    // Grant 2026-05-21 follow-up: if the user opened the modal themselves
-    // before the demo step fires (eg. they clicked "+ New Category"
-    // during the picker prompt to peek), the page-header button is now
-    // sitting behind the modal backdrop. A cursor click on it lands on
-    // the backdrop instead, closing the modal — the type + submit then
-    // fail because their targets are gone. Detect the modal-open state
-    // by querying for the name input (a child of the modal): if it's
-    // already mounted, skip the open-click entirely.
-    const modalAlreadyOpen =
-      typeof document !== "undefined" &&
-      document.querySelector(
-        targetSelector(TOUR_TARGETS.methodsCategoryNameInput),
-      ) !== null;
-    const openAffordance = modalAlreadyOpen
-      ? null
-      : await safeClickAction(
-          targetSelector(TOUR_TARGETS.methodsNewCategoryButton),
-        );
     const typeName = await safeTypeAction(
       targetSelector(TOUR_TARGETS.methodsCategoryNameInput),
       label,
@@ -106,7 +91,7 @@ export const methodsCategoryDemoStep = buildWalkthroughStep({
     const submit = await safeClickAction(
       targetSelector(TOUR_TARGETS.methodsCategoryCreateEmpty),
     );
-    return compactScript([openAffordance, typeName, submit]);
+    return compactScript([typeName, submit]);
   }),
   // Event-driven: methods page dispatches
   // `tour:methods-category-created` from its category-create success

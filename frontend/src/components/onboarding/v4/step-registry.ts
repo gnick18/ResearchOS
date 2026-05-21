@@ -86,6 +86,7 @@ import { notificationsBellStep } from "./steps/walkthrough/NotificationsBellStep
 import { notificationsSilenceStep } from "./steps/walkthrough/NotificationsSilenceStep";
 import { notificationsDeleteStep } from "./steps/walkthrough/NotificationsDeleteStep";
 import { methodsCategoryPromptStep } from "./steps/walkthrough/MethodsCategoryPromptStep";
+import { methodsCategoryOpenStep } from "./steps/walkthrough/MethodsCategoryOpenStep";
 import { methodsCategoryStep } from "./steps/walkthrough/MethodsCategoryStep";
 import { methodsOpenPickerStep } from "./steps/walkthrough/MethodsOpenPickerStep";
 import { methodsBreadthStep } from "./steps/walkthrough/MethodsBreadthStep";
@@ -134,6 +135,7 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [notificationsSilenceStep.id]: notificationsSilenceStep,
   [notificationsDeleteStep.id]: notificationsDeleteStep,
   [methodsCategoryPromptStep.id]: methodsCategoryPromptStep,
+  [methodsCategoryOpenStep.id]: methodsCategoryOpenStep,
   [methodsCategoryStep.id]: methodsCategoryStep,
   [methodsOpenPickerStep.id]: methodsOpenPickerStep,
   [methodsBreadthStep.id]: methodsBreadthStep,

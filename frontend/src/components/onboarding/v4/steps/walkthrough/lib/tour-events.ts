@@ -81,6 +81,13 @@ export const TOUR_DOM_EVENTS = {
    */
   methodsCategoryCreated: "tour:methods-category-created",
   /**
+   * Dispatched by methods/page.tsx when the user clicks "+ New Category"
+   * and the New Category modal mounts. The §6.4 methods-category-open
+   * user-action sub-step (Grant 2026-05-21 follow-up) listens on this
+   * to advance into the type+submit demo step.
+   */
+  methodsCategoryModalOpened: "tour:methods-category-modal-opened",
+  /**
    * Dispatched by `CreateMethodModal.tsx` after a successful save (both
    * plain Create and Save-and-extend). The §6.4d `methods-create` demo
    * step listens on this so the cursor's typed-then-Save sequence
@@ -499,6 +506,43 @@ export function watchMethodsCategoryCreated(
   return () => {
     window.removeEventListener(
       TOUR_DOM_EVENTS.methodsCategoryCreated,
+      handler,
+    );
+  };
+}
+
+/**
+ * Watch for the §6.4 user-action open-step to complete. methods/page.tsx
+ * dispatches `tour:methods-category-modal-opened` when the user clicks
+ * "+ New Category". DOM-mount fallback so the watcher also trips if the
+ * modal is already on screen when the step mounts (eg. the user clicked
+ * the button during the picker prompt before this step took over).
+ */
+export function watchMethodsCategoryModalOpened(
+  advance: () => void,
+): () => void {
+  if (typeof window === "undefined") return () => {};
+  let fired = false;
+  const fire = () => {
+    if (fired) return;
+    fired = true;
+    advance();
+  };
+  // Mount fallback: if the name input is already in the DOM, the modal
+  // is already open and we advance immediately.
+  if (
+    document.querySelector(
+      "[data-tour-target=\"methods-category-name-input\"]",
+    )
+  ) {
+    fire();
+    return () => {};
+  }
+  const handler = () => fire();
+  window.addEventListener(TOUR_DOM_EVENTS.methodsCategoryModalOpened, handler);
+  return () => {
+    window.removeEventListener(
+      TOUR_DOM_EVENTS.methodsCategoryModalOpened,
       handler,
     );
   };

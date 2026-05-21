@@ -187,18 +187,15 @@ describe("MethodsCategoryDemoStep (v4 sec 6.4 redesign)", () => {
     unmount();
   });
 
-  it("cursor script skips the open-click when the modal is already mounted (modal-open path)", async () => {
+  it("cursor script types the picked label and clicks Create Empty (no open-click)", async () => {
     window.localStorage.setItem(V4_METHODS_CATEGORY_PICK_KEY, "Cell Biology");
-    // Modal already open: input + submit are in DOM; new-category page
-    // button may also be in DOM behind the modal but the demo should
-    // skip clicking it (Grant 2026-05-21 follow-up).
-    const newCategoryBtn = document.createElement("button");
-    newCategoryBtn.setAttribute("data-tour-target", "methods-add-category");
+    // Grant 2026-05-21 rethink: the new methods-category-open user-action
+    // step opens the modal; the demo step is ONLY responsible for type +
+    // submit. No open-click in the script.
     const nameInput = document.createElement("input");
     nameInput.setAttribute("data-tour-target", "methods-category-name-input");
     const submitBtn = document.createElement("button");
     submitBtn.setAttribute("data-tour-target", "methods-category-create-empty");
-    document.body.appendChild(newCategoryBtn);
     document.body.appendChild(nameInput);
     document.body.appendChild(submitBtn);
     try {
@@ -214,44 +211,6 @@ describe("MethodsCategoryDemoStep (v4 sec 6.4 redesign)", () => {
         target: submitBtn,
       });
     } finally {
-      newCategoryBtn.remove();
-      nameInput.remove();
-      submitBtn.remove();
-    }
-  });
-
-  it("cursor script clicks New Category first when the modal is closed (modal-closed path)", async () => {
-    window.localStorage.setItem(V4_METHODS_CATEGORY_PICK_KEY, "Cell Biology");
-    // Only the page button is in DOM; input + submit mount AFTER the
-    // open-click. waitForElement polls so test fixtures simulate the
-    // delayed mount by injecting the input / submit shortly after the
-    // cursor script is invoked.
-    const newCategoryBtn = document.createElement("button");
-    newCategoryBtn.setAttribute("data-tour-target", "methods-add-category");
-    document.body.appendChild(newCategoryBtn);
-    const nameInput = document.createElement("input");
-    nameInput.setAttribute("data-tour-target", "methods-category-name-input");
-    const submitBtn = document.createElement("button");
-    submitBtn.setAttribute("data-tour-target", "methods-category-create-empty");
-    try {
-      const actionsPromise = methodsCategoryDemoStep.cursorScript!();
-      // Simulate the modal opening shortly after the first click — once
-      // safeClickAction resolves, the next safeTypeAction waits for the
-      // input. Mount it now so the polling resolves.
-      setTimeout(() => {
-        document.body.appendChild(nameInput);
-        document.body.appendChild(submitBtn);
-      }, 10);
-      const actions = await actionsPromise;
-      expect(actions).toHaveLength(3);
-      expect(actions[0]).toMatchObject({
-        type: "click",
-        target: newCategoryBtn,
-      });
-      expect(actions[1]).toMatchObject({ type: "type", text: "Cell Biology" });
-      expect(actions[2]).toMatchObject({ type: "click" });
-    } finally {
-      newCategoryBtn.remove();
       nameInput.remove();
       submitBtn.remove();
     }

@@ -17,6 +17,7 @@ const P5_STEP_IDS = [
   "notifications-silence",
   "notifications-delete",
   "methods-category-prompt",
+  "methods-category-open",
   "methods-category",
   "methods-open-picker",
   "methods-type-tour",
