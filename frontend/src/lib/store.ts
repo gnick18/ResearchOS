@@ -51,9 +51,16 @@ interface AppState extends ConnectionState {
   activeTask: ActiveTask | null;
   setActiveTask: (task: ActiveTask | null) => void;
 
-  selectedProjectIds: number[];
-  toggleProject: (id: number) => void;
-  setSelectedProjects: (ids: number[]) => void;
+  // Composite `${owner}:${id}` keys (mirrors taskKey shape in lib/types.ts
+  // and the /search-page form-layer fix at ab1548a8). A raw `number[]`
+  // collides across owners: alex's project 1 and morgan's project 1 both
+  // look like `1`, so both projects' rows leak through whichever the user
+  // picked. Pages that filter against this array should reach for
+  // `matchesAnyProjectFilter` in lib/search/filterKey.ts rather than
+  // calling `.includes(task.project_id)`.
+  selectedProjectIds: string[];
+  toggleProject: (key: string) => void;
+  setSelectedProjects: (keys: string[]) => void;
 
   selectedTags: string[];
   toggleTag: (tag: string) => void;
@@ -162,13 +169,13 @@ export const useAppStore = create<AppState>()((set) => ({
   setConnectionError: (error) => set({ connectionError: error }),
 
   selectedProjectIds: [],
-  toggleProject: (id) =>
+  toggleProject: (key) =>
     set((s) => ({
-      selectedProjectIds: s.selectedProjectIds.includes(id)
-        ? s.selectedProjectIds.filter((pid) => pid !== id)
-        : [...s.selectedProjectIds, id],
+      selectedProjectIds: s.selectedProjectIds.includes(key)
+        ? s.selectedProjectIds.filter((k) => k !== key)
+        : [...s.selectedProjectIds, key],
     })),
-  setSelectedProjects: (ids) => set({ selectedProjectIds: ids }),
+  setSelectedProjects: (keys) => set({ selectedProjectIds: keys }),
 
   selectedTags: [],
   toggleTag: (tag) =>

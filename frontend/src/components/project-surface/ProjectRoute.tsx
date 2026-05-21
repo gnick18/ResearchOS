@@ -212,7 +212,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
 
             <div className="flex items-center gap-3 flex-shrink-0">
               <Link
-                href={`/gantt?project=${project.id}`}
+                href={`/gantt?project=${encodeURIComponent(`${project.owner}:${project.id}`)}`}
                 className="text-sm text-gray-500 hover:text-gray-700 hover:underline whitespace-nowrap"
               >
                 View timeline →

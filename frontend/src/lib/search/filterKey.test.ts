@@ -4,6 +4,7 @@ import {
   parseFilterKey,
   matchesProjectFilter,
   matchesMethodFilter,
+  matchesAnyProjectFilter,
 } from "./filterKey";
 
 describe("filterKey: encode / parse round-trip", () => {
@@ -110,5 +111,40 @@ describe("matchesMethodFilter: per-owner disambiguation via attachments", () => 
     };
     expect(matchesMethodFilter(task, null)).toBe(true);
     expect(matchesMethodFilter(task, "")).toBe(true);
+  });
+});
+
+describe("matchesAnyProjectFilter: multi-key OR for global pill bar", () => {
+  const alexProj1Task = { owner: "alex", project_id: 1 };
+  const morganProj1Task = { owner: "morgan", project_id: 1 };
+  const alexProj2Task = { owner: "alex", project_id: 2 };
+
+  it("empty key array passes everything (matches the `.length === 0` short-circuit)", () => {
+    expect(matchesAnyProjectFilter(alexProj1Task, [])).toBe(true);
+    expect(matchesAnyProjectFilter(morganProj1Task, [])).toBe(true);
+  });
+
+  it("alex:1 vs morgan:1 do NOT collide through the OR helper (persona 18)", () => {
+    // Pre-fix code: `selectedProjectIds.includes(task.project_id)` against
+    // `[1]` matched both alex's and morgan's project 1. With composite
+    // keys ["alex:1"] should NOT match morgan, and ["morgan:1"] should
+    // NOT match alex.
+    expect(matchesAnyProjectFilter(alexProj1Task, ["alex:1"])).toBe(true);
+    expect(matchesAnyProjectFilter(morganProj1Task, ["alex:1"])).toBe(false);
+    expect(matchesAnyProjectFilter(alexProj1Task, ["morgan:1"])).toBe(false);
+    expect(matchesAnyProjectFilter(morganProj1Task, ["morgan:1"])).toBe(true);
+  });
+
+  it("OR semantics: any matching key passes", () => {
+    const keys = ["alex:1", "morgan:1"];
+    expect(matchesAnyProjectFilter(alexProj1Task, keys)).toBe(true);
+    expect(matchesAnyProjectFilter(morganProj1Task, keys)).toBe(true);
+    expect(matchesAnyProjectFilter(alexProj2Task, keys)).toBe(false);
+  });
+
+  it("rejects when no key matches the task", () => {
+    expect(matchesAnyProjectFilter(alexProj2Task, ["alex:1", "morgan:1"])).toBe(
+      false,
+    );
   });
 });

@@ -13,6 +13,7 @@ import NotesPanel from "@/components/NotesPanel";
 import WorkbenchExperimentsPanel from "@/components/workbench/WorkbenchExperimentsPanel";
 import WorkbenchListsPanel from "@/components/workbench/WorkbenchListsPanel";
 import WorkbenchProjectFilterPills from "@/components/workbench/WorkbenchProjectFilterPills";
+import { matchesAnyProjectFilter } from "@/lib/search/filterKey";
 import type { Project } from "@/lib/types";
 
 type TabType = "experiments" | "notes" | "lists";
@@ -64,9 +65,9 @@ export default function WorkbenchPage() {
     let xs = allTasks.filter(
       (t) => t.task_type === "experiment" && !t.is_complete,
     );
-    if (selectedProjectIds.length > 0) {
-      xs = xs.filter((t) => selectedProjectIds.includes(t.project_id));
-    }
+    // Composite-key match (alex:1 vs morgan:1 are different projects). See
+    // matchesAnyProjectFilter / store.ts selectedProjectIds type comment.
+    xs = xs.filter((t) => matchesAnyProjectFilter(t, selectedProjectIds));
     return xs.length;
   }, [allTasks, selectedProjectIds]);
 
@@ -74,9 +75,7 @@ export default function WorkbenchPage() {
     let xs = allTasks.filter(
       (t) => t.task_type === "list" && !t.is_complete,
     );
-    if (selectedProjectIds.length > 0) {
-      xs = xs.filter((t) => selectedProjectIds.includes(t.project_id));
-    }
+    xs = xs.filter((t) => matchesAnyProjectFilter(t, selectedProjectIds));
     return xs.length;
   }, [allTasks, selectedProjectIds]);
 

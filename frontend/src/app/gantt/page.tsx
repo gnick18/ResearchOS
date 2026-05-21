@@ -13,6 +13,7 @@ import TaskModal from "@/components/TaskModal";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import HighLevelGoalModal from "@/components/HighLevelGoalModal";
 import HighLevelGoalSidebar from "@/components/HighLevelGoalSidebar";
+import { matchesAnyProjectFilter } from "@/lib/search/filterKey";
 import { taskKey } from "@/lib/types";
 import type { HighLevelGoal, Project } from "@/lib/types";
 
@@ -136,9 +137,13 @@ export default function Home() {
     let tasks = activeTasks;
     
     if (selectedProjectIds.length > 0) {
+      // Composite-key match (alex:1 vs morgan:1 disambiguated by owner).
+      // Shared-into-me tasks bypass the project filter on purpose: their
+      // project lives in the other user's namespace and would never
+      // satisfy a local owner:id key.
       tasks = tasks.filter((t) => {
         if (t.is_shared_with_me) return true;
-        return selectedProjectIds.includes(t.project_id);
+        return matchesAnyProjectFilter(t, selectedProjectIds);
       });
       console.log("[Gantt.filteredTasks] After project filter:", tasks.length);
     }
