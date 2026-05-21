@@ -35,6 +35,7 @@ import { useErrorReporting } from "@/hooks/useErrorReporting";
 import { useFeaturePicks } from "@/hooks/useFeaturePicks";
 import { deriveVisibleTabs } from "@/lib/onboarding/feature-picks-tabs";
 import { headerGradient } from "@/lib/colors";
+import { useOptionalTourController } from "@/components/onboarding/v4/TourController";
 
 const SETTINGS_HREF = "/settings";
 
@@ -93,6 +94,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       item.href === HOME_HREF || effectiveVisibleTabs.includes(item.href),
   );
 
+  // Onboarding v4 L23: while the in-product walkthrough is active, the
+  // top-nav tabs are visually disabled + onClick-suppressed so the user
+  // can't navigate away from the step's anchor. BeakerBot's cursor uses
+  // `useRouter().push()` for programmatic navigation, which bypasses the
+  // DOM click event and so still works under the gate. `useOptionalTourController`
+  // returns `null` when the provider isn't mounted (the production state
+  // until P4+P11 land), so this is a strict no-op until the tour
+  // controller activates.
+  const tourController = useOptionalTourController();
+  const navDisabledByTour =
+    tourController?.tourMode === "in-product-walkthrough" &&
+    !tourController.paused;
+
   // Header is tinted only when (a) a user is signed in, AND (b) the user
   // has opted into a colored header in Settings → Profile. Either off →
   // the classic white header. On the tinted variant, every interactive
@@ -134,9 +148,43 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </PillWrap>
 
         {/* Navigation */}
-        <nav className="flex items-center gap-1">
+        <nav
+          className="flex items-center gap-1"
+          data-tour-nav-disabled={navDisabledByTour ? "true" : undefined}
+        >
           {filtered.map((item) => {
             const isActive = pathname === item.href;
+            // Onboarding v4 L23: when an in-product walkthrough is
+            // running, render each nav-item as a non-Link button that
+            // visually grays out + suppresses click. Cursor-driven
+            // programmatic navigation (via Next router) still works,
+            // since it bypasses the DOM click event entirely.
+            if (navDisabledByTour) {
+              const baseStyle = tinted
+                ? "px-3 py-1.5 text-sm rounded-full transition-colors shadow-sm bg-white/75 text-gray-700"
+                : "px-3 py-1.5 text-sm rounded-lg transition-colors text-gray-500";
+              return (
+                <button
+                  key={item.href}
+                  type="button"
+                  disabled
+                  aria-disabled="true"
+                  data-tour-nav-item={item.href}
+                  className={`${baseStyle} opacity-50 cursor-not-allowed`}
+                  onClick={(e) => {
+                    // Defensive: <button disabled> already no-ops click in
+                    // the browser, but a synthetic-event test or a future
+                    // refactor that swaps the element off `disabled` would
+                    // start firing onClick. preventDefault + stopPropagation
+                    // make the gate explicit either way.
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                >
+                  {item.label}
+                </button>
+              );
+            }
             if (tinted) {
               return (
                 <Link

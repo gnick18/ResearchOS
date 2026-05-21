@@ -1,0 +1,100 @@
+/**
+ * Step shape for the Onboarding v4 tour controller — see
+ * ONBOARDING_V4_PROPOSAL.md §4.4. P1 declares the type surface only;
+ * the actual step bodies land in P4 (setup phase port) and P5-P7
+ * (walkthrough + conditional + lab phases).
+ *
+ * The split into a dedicated file (vs co-locating with TourController)
+ * lets step-machine.ts + step-registry.ts both import the type without
+ * pulling in the React provider — keeps the pure-function step machine
+ * vitest-able with zero React surface.
+ */
+import type { ReactNode } from "react";
+import type { BeakerBotPose } from "@/components/BeakerBot";
+import type { CursorAction } from "@/components/BeakerBotCursor";
+import type { FeaturePicks } from "@/lib/onboarding/sidecar";
+
+// Re-export CursorAction so consumers (P5+ step bodies) can import
+// everything tour-related from this file without juggling two import
+// paths. Also re-export BeakerBotPose for the same reason.
+export type { BeakerBotPose, CursorAction };
+
+/**
+ * Identifier for one step in the v4 tour. Free-form string per §4.4 so
+ * P4-P7 can introduce new ids without a centralized union update; the
+ * step-machine enforces validity via `TOUR_STEP_ORDER` membership.
+ */
+export type TourStepId = string;
+
+/**
+ * Step-completion strategy per L6 (hybrid: event-driven where feasible,
+ * manual fallback where ambiguous, auto-advance for narrative-only
+ * moments like the wiki pointer).
+ *
+ *  - `"event"`  — the step subscribes to a domain event bus (project
+ *                 create, method save, search query rendered, etc.) via
+ *                 `eventListener`. The listener returns an unsubscribe
+ *                 function. When the event fires, the controller calls
+ *                 `advance()` automatically.
+ *  - `"manual"` — the step shows a "Got it, next" affordance in the
+ *                 BeakerBot speech bubble. User clicks to advance.
+ *  - `"auto"`   — the step auto-advances after `autoAdvanceAfterMs`.
+ *                 Used for cursor-driven demos that complete after a
+ *                 fixed animation budget (e.g. typewriter ends → +1.5s
+ *                 → advance).
+ */
+export type TourStepCompletion =
+  | {
+      type: "event";
+      /** Subscribe to whatever signal marks step completion; return an
+       *  unsubscribe function. The controller calls the unsubscribe on
+       *  step exit so we never leak listeners across steps. */
+      eventListener: (advance: () => void) => () => void;
+    }
+  | {
+      type: "manual";
+      /** Optional override for the "Got it, next" button label. */
+      buttonLabel?: string;
+    }
+  | {
+      type: "auto";
+      /** Required for auto: how many ms after step entry to advance. */
+      autoAdvanceAfterMs: number;
+    };
+
+/**
+ * One step in the v4 in-product tour. See §4.4 of the proposal. P5+
+ * fills in `cursorScript` + real `speech` + concrete `completion`
+ * handlers; P1 ships placeholder bodies via `step-registry.ts`.
+ */
+export interface TourStep {
+  /** Stable string id matching the entry in `TOUR_STEP_ORDER`. */
+  id: TourStepId;
+  /** BeakerBot's speech bubble content for this step. Can be a literal
+   *  ReactNode (for static prose) or a thunk so step bodies can produce
+   *  dynamic content (e.g. interpolate the user's name). */
+  speech: ReactNode | (() => ReactNode);
+  /** BeakerBot's pose for the duration of this step. */
+  pose: BeakerBotPose;
+  /** CSS selector OR `data-tour-target` value for the spotlight anchor.
+   *  `undefined` means no anchor — the step is BeakerBot-speech-only
+   *  (e.g., the very first welcome modal step, the wiki pointer
+   *  outro). */
+  targetSelector?: string;
+  /** Pre-baked cursor primitives the controller plays on step entry.
+   *  Computed lazily (function returning the script) so the step body
+   *  can resolve anchors at runtime — `document.querySelector(...)`
+   *  fails if called at module load before the page renders. */
+  cursorScript?: () => CursorAction[] | Promise<CursorAction[]>;
+  /** Completion-detection contract. See `TourStepCompletion` doc. */
+  completion: TourStepCompletion;
+  /** Optional side effect fired the moment the step becomes current —
+   *  spawn demo tasks, navigate via router.push(...), etc. */
+  onEnter?: () => void | Promise<void>;
+  /** Optional side effect fired the moment the step exits — clean up
+   *  demo artifacts, unsubscribe to listeners other than `completion`. */
+  onExit?: () => void | Promise<void>;
+  /** When this predicate returns `false`, the step is skipped (gating
+   *  per L16). When `undefined`, the step always fires. */
+  conditionalOn?: (picks: FeaturePicks | null) => boolean;
+}
