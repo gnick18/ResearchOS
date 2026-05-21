@@ -121,9 +121,16 @@ export interface BeakerBotCursorProps {
 // Animation defaults
 // ---------------------------------------------------------------------------
 
-const DEFAULT_GLIDE_MS = 850;
+// Glide: bumped from 400 -> 850 -> 1000ms across two Grant feedback
+// rounds. Watching the cursor traverse needs to be visible without
+// becoming tedious.
+const DEFAULT_GLIDE_MS = 1000;
 const DEFAULT_RIPPLE_MS = 150;
-const DEFAULT_TYPE_CADENCE_MS = 95;
+// Type cadence: bumped 95 -> 48ms per character (~2x faster) per Grant
+// feedback. Reading at human-typing speed felt awful when watching
+// BeakerBot type a full sentence; ~21 chars/sec keeps the "characters
+// appearing one at a time" charm without dragging.
+const DEFAULT_TYPE_CADENCE_MS = 48;
 /** Cubic-bezier matching the brief — "natural feel" easing. */
 const GLIDE_EASING = "cubic-bezier(0.4, 0, 0.2, 1)";
 
