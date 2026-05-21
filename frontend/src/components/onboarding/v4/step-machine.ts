@@ -90,7 +90,16 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "methods-category-prompt", // §6.4a-prompt (interactive picker)
   "methods-category",        // §6.4a-demo (cursor demos the picked label)
   "methods-open-picker",     // §6.4 bridge (click New Method, modal mounts)
-  "methods-type-tour",       // §6.4b + §6.4c (type breadth + compound peek)
+  // §6.4b deep-demo (v4 sec 6.4b upgrade sub-bot 2026-05-21): replaces
+  // the prior 7-tile hover sweep with five sub-steps that click INTO
+  // the PCR and LC Gradient builders and exercise real affordances so
+  // users see these are interactive editors (not text forms). Speech-
+  // first compound paragraph stays on `methods-type-tour`.
+  "methods-type-tour",       // §6.4b-1: intro speech + click PCR tile
+  "methods-pcr-edit",        // §6.4b-2: click Edit Cycle in PCR toolbar
+  "methods-pcr-add-cycle",   // §6.4b-3: click + Add Cycle (modal opens)
+  "methods-pcr-confirm-cycle", // §6.4b-4: confirm Add (new cycle drops in)
+  "methods-lc-demo",         // §6.4b-5: click LC tile, hover chart, Add step
   "methods-create",          // §6.4d (BeakerBot's funny markdown method)
   // Workbench experiment creation (§6.5)
   "workbench-create-experiment",

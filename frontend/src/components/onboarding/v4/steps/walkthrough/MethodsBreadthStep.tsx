@@ -1,97 +1,97 @@
 /**
- * §6.4b + §6.4c Methods page, type-breadth tour + Compound explanation.
+ * §6.4b Methods page, type-breadth INTRO + PCR builder entry (v4 sec
+ * 6.4b upgrade sub-bot, 2026-05-21).
  *
- * Grant's 2026-05-21 feedback on the previous body: the speech leaned on
- * jargon ("kit", "downstream protocol") and the cursor never visibly
- * demonstrated that each method type is its own editable graphic. The
- * cursor opened the picker and stopped there. This rewrite:
+ * Grant's 2026-05-21 feedback on the prior 7-tile hover sweep: "We
+ * don't want them to go through all seven. Just show off the PCR and
+ * the LC gradient. And I don't just wanna click on it and then show it
+ * for a second. Have them show that these are interactive things that
+ * are built into the website... three to five things [per builder].
+ * Doesn't need to be anything more than 15-20 seconds per step."
  *
- *  1. Replaces the speech with concrete language, drops "sequencing"
- *     (not a method type) and "Compound" from the hover-tour list since
- *     Compound is hidden from the picker.
- *  2. Adds a clearer Compound paragraph with a concrete two-method
- *     example (PCR + gel electrophoresis) instead of the abstract
- *     "kit / downstream protocol" framing.
- *  3. Adds a real cursor demo: after the picker is open, the cursor
- *     glides to each visible method-type tile in turn (PCR, LC Gradient,
- *     Plate Layout, Cell Culture, Mass Spec, qPCR, Coding) so the user
- *     can see them light up as the cursor passes over. Each glide blocks
- *     for the cursor's configured glideMs (default 1000ms) which acts as
- *     the per-tile pause. No tile is clicked, nothing is saved.
+ * This step now does the INTRO + PCR tile click only. The deeper PCR
+ * demo (Edit Cycle toggle, Add Cycle modal) lives in two follow-up
+ * steps so each cursor script can resolve elements that exist at script
+ * build time without the silent-pre-render trick (which doesn't survive
+ * non-idempotent state changes like toggling Edit Cycle).
  *
- * The Compound tile is omitted from the hover sweep because the registry
- * marks it `hiddenFromPicker` (compounds are reached by extending an
- * existing method, not as a standalone "+ New Method" choice). The
- * speech still describes Compound prominently so users know it exists.
+ * Sub-step flow (5 steps total replacing the prior 1):
  *
- * Scope chosen: A (hover sweep across tiles). Scope B (clicking into
- * PCR + LC Gradient builders to demonstrate editable wells / gradient
- * rows, then closing back out) is Grant's "ideal" version but a heavier
- * lift, since it requires navigating into the per-type builders,
- * triggering an edit affordance, and exiting cleanly without persisting.
- * Scope B is documented here as future work; the data-tour-target
- * attributes on the tiles are reusable by a Scope B implementation
- * (they'd add click + nested glide actions on the editor surface).
+ *   1. `methods-type-tour` (this file) ─ speech intro + cursor clicks
+ *      the PCR tile. PCR editor (`InteractiveGradientEditor`) mounts
+ *      inside the same modal (the picker stays visible at the top, the
+ *      per-type editor swaps below). Auto-advance after the click.
+ *   2. `methods-pcr-edit` ─ cursor clicks the "Edit Cycle" toggle so
+ *      the toolbar expands and the Add Cycle button mounts.
+ *   3. `methods-pcr-add-cycle` ─ cursor clicks "+ Add Cycle" then the
+ *      confirmation modal's "Add" button. A new empty cycle appears in
+ *      the gradient flow.
+ *   4. `methods-lc-demo` ─ cursor clicks the LC Gradient tile (editor
+ *      swaps), glides over the recharts line chart so users see the
+ *      hover indicator, then clicks "+ Add step" to demonstrate the
+ *      live graph update.
  *
- * Speech (no em-dashes per Grant's standing rule):
+ * Builder pattern investigation (per brief): CreateMethodModal is a
+ * modal-in-place pattern, NOT a route nav. The picker (`MethodTypeCategoryPicker`)
+ * renders ALWAYS at the top of the modal regardless of `uploadType`; the
+ * per-type editor (PCR / LC Gradient / Plate / etc.) renders conditionally
+ * below it. Clicking another tile swaps the editor in the same DOM
+ * subtree without navigating. This means the modal stays mounted across
+ * all sub-steps, and `methodsCreateStep` (§6.4d) picks up with the same
+ * modal still open and just switches the editor back to Markdown.
  *
- *   "ResearchOS has structured editors for common lab techniques: PCR,
- *    qPCR, LC Gradient, Plate Layouts, Cell Culture, Mass Spec, and
- *    Coding. Each one is its own editable graphic, not just a text
- *    form. Watch, I'll move across them so you can see what I mean.
+ * Cursor responsibility: BEAKERBOT DEMO. Speech literally says "I'll
+ * click into one" so the cursor performs the click.
  *
- *    There's also a special type called Compound. It bundles multiple
- *    methods together so you don't have to re-attach the same
- *    combination every time. For example: if every experiment in your
- *    lab starts with the same PCR setup followed by the same gel
- *    electrophoresis, make a Compound that includes both. Attach the
- *    Compound to an experiment and you get both methods at once, with
- *    all their defaults pre-filled."
+ * Auto-advance after the click. The PCR editor mounts synchronously
+ * after the React commit, but we give a small buffer (1500ms) so the
+ * user sees the click ripple fade before the next speech bubble lands.
  *
- * Manual advance, no API event to listen for since nothing persists.
- * The cursor narrative is the whole step.
- *
- * No artifact (transient hovers, no save).
- *
- * Classification: BEAKERBOT DEMO. Speech says "Watch, I'll move across
- * them" so the cursor performs the hover sweep.
+ * No artifact (the modal stays open across sub-steps; the eventual
+ * methodsCreateStep saves a Markdown method, this builder pivot
+ * persists nothing).
  */
 import {
   cursorScript,
-  safeGlideToElementAction,
+  safeClickAction,
   compactScript,
   waitForElement,
 } from "./lib/cursor-script";
-import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
+import { autoAdvanceAfter, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 
 /**
- * The kebab-case tile slugs the cursor hovers over, in display order.
- * Matches `methodTypeTourSlug()` in `MethodTypePicker.tsx`. PCR leads
- * since it's the most-recognised technique; the rest follow the
- * registry's "Structured methods" group order. Compound is omitted
- * because the registry hides it from the picker.
+ * The two tiles the deep-demo sub-steps visit, in display order. PCR
+ * first (it's the most-recognised technique and lands the user in the
+ * most visually interesting editor), then LC Gradient (which adds the
+ * live-chart hook).
+ *
+ * Kept as an exported const so the v4 sec 6.4b upgrade tests can assert
+ * the demo visits exactly these two tiles and no others (regression
+ * guard against re-introducing the 7-tile sweep).
  */
 export const METHODS_BREADTH_TILE_TARGETS = [
   "method-type-pcr",
   "method-type-lc-gradient",
-  "method-type-plate-layout",
-  "method-type-cell-culture",
-  "method-type-mass-spec",
-  "method-type-qpcr",
-  "method-type-coding",
 ] as const;
+
+/**
+ * Total cursor budget for the PCR-tile click. One safeClickAction =
+ * ~1180ms (1000ms glide + 30ms + 150ms ripple). 1500ms gives the ripple
+ * a small fade window before the next step's speech bubble lands.
+ */
+const PCR_TILE_CLICK_BUDGET_MS = 1500;
 
 export const methodsBreadthStep = buildWalkthroughStep({
   id: "methods-type-tour",
   speech: (
     <>
       <p className="mb-2">
-        ResearchOS has structured editors for common lab techniques:
-        PCR, qPCR, LC Gradient, Plate Layouts, Cell Culture, Mass Spec,
-        and Coding. Each one is its own editable graphic, not just a
-        text form. Watch, I&apos;ll move across them so you can see
-        what I mean.
+        Most of ResearchOS&apos;s method types are interactive editors,
+        not text forms. Let me show you two. First, PCR. I&apos;ll click
+        into the builder, enter edit mode, and add a new thermal cycle.
+        Then we&apos;ll do the LC Gradient editor where the graph
+        updates as you change steps. Watch.
       </p>
       <p>
         There&apos;s also a special type called Compound. It bundles
@@ -104,25 +104,19 @@ export const methodsBreadthStep = buildWalkthroughStep({
       </p>
     </>
   ),
-  pose: "thinking",
-  targetSelector: targetSelector(TOUR_TARGETS.methodsTypePicker),
+  pose: "pointing",
+  targetSelector: targetSelector(TOUR_TARGETS.methodsTypePcrTile),
   cursorScript: cursorScript(async () => {
-    // Wait for the picker to be visible (the open-picker beat
-    // immediately preceding this step opens it; in dev / replay it may
-    // already be open).
+    // Wait for the picker (already visible from the open-picker beat
+    // immediately preceding this step; in dev / replay it may already
+    // be open).
     await waitForElement(targetSelector(TOUR_TARGETS.methodsTypePicker), 3000);
-    // Glide to each tile in sequence. Each glide takes the cursor's
-    // configured glideMs (default 1000ms) which provides the per-tile
-    // pause without a separate sleep primitive. Tiles that fail to
-    // resolve are silently filtered by compactScript, so the demo
-    // degrades gracefully if a method type ships hidden in the future.
-    const tileGlides = await Promise.all(
-      METHODS_BREADTH_TILE_TARGETS.map((slug) =>
-        safeGlideToElementAction(`[data-tour-target="${slug}"]`, 2000),
-      ),
+    const clickPcr = await safeClickAction(
+      targetSelector(TOUR_TARGETS.methodsTypePcrTile),
+      2000,
     );
-    return compactScript(tileGlides);
+    return compactScript([clickPcr]);
   }),
-  completion: manualAdvance("Got it, next"),
+  completion: autoAdvanceAfter(PCR_TILE_CLICK_BUDGET_MS),
   expectedRoute: "/methods",
 });

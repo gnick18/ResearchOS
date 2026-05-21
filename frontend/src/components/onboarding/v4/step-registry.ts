@@ -84,6 +84,10 @@ import { methodsCategoryPromptStep } from "./steps/walkthrough/MethodsCategoryPr
 import { methodsCategoryStep } from "./steps/walkthrough/MethodsCategoryStep";
 import { methodsOpenPickerStep } from "./steps/walkthrough/MethodsOpenPickerStep";
 import { methodsBreadthStep } from "./steps/walkthrough/MethodsBreadthStep";
+import { methodsPcrEditStep } from "./steps/walkthrough/MethodsPcrEditStep";
+import { methodsPcrAddCycleStep } from "./steps/walkthrough/MethodsPcrAddCycleStep";
+import { methodsPcrConfirmCycleStep } from "./steps/walkthrough/MethodsPcrConfirmCycleStep";
+import { methodsLcDemoStep } from "./steps/walkthrough/MethodsLcDemoStep";
 import { methodsCreateStep } from "./steps/walkthrough/MethodsCreateStep";
 import { workbenchCreateExperimentStep } from "./steps/walkthrough/WorkbenchCreateExperimentStep";
 import { methodAttachmentStep } from "./steps/walkthrough/MethodAttachmentStep";
@@ -121,6 +125,10 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [methodsCategoryStep.id]: methodsCategoryStep,
   [methodsOpenPickerStep.id]: methodsOpenPickerStep,
   [methodsBreadthStep.id]: methodsBreadthStep,
+  [methodsPcrEditStep.id]: methodsPcrEditStep,
+  [methodsPcrAddCycleStep.id]: methodsPcrAddCycleStep,
+  [methodsPcrConfirmCycleStep.id]: methodsPcrConfirmCycleStep,
+  [methodsLcDemoStep.id]: methodsLcDemoStep,
   [methodsCreateStep.id]: methodsCreateStep,
   [workbenchCreateExperimentStep.id]: workbenchCreateExperimentStep,
   [methodAttachmentStep.id]: methodAttachmentStep,

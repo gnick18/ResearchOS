@@ -276,7 +276,10 @@ export function LcGradientEditor(props: LcGradientEditorProps) {
       )}
 
       {/* Chart */}
-      <div className="border border-gray-200 rounded-lg p-3 bg-white">
+      <div
+        data-tour-target="lc-gradient-chart"
+        className="border border-gray-200 rounded-lg p-3 bg-white"
+      >
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={chartData} margin={{ top: 8, right: 24, bottom: 4, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -350,6 +353,7 @@ export function LcGradientEditor(props: LcGradientEditorProps) {
                     editable={editable}
                     onUpdate={(field, value) => updateStep(idx, field, value)}
                     onRemove={() => removeStep(idx)}
+                    rowIndex={idx}
                   />
                 );
               })}
@@ -372,6 +376,7 @@ export function LcGradientEditor(props: LcGradientEditorProps) {
           {editable && (
             <button
               onClick={addStep}
+              data-tour-target="lc-add-step"
               className="w-full py-2 text-xs text-blue-600 hover:bg-blue-50 border-t border-gray-200"
             >
               + Add step
@@ -527,6 +532,7 @@ function StepRow({
   editable,
   onUpdate,
   onRemove,
+  rowIndex,
 }: {
   step: LCGradientStep;
   origStep: LCGradientStep | undefined;
@@ -534,6 +540,7 @@ function StepRow({
   editable: boolean;
   onUpdate: (field: keyof LCGradientStep, value: number) => void;
   onRemove: () => void;
+  rowIndex?: number;
 }) {
   const cellClass = (field: keyof LCGradientStep) =>
     origStep && step[field] !== origStep[field] ? MODIFIED_CELL_CLASSES : "";
@@ -543,7 +550,10 @@ function StepRow({
       : undefined;
 
   return (
-    <tr className={rowClass}>
+    <tr
+      className={rowClass}
+      data-tour-target={rowIndex !== undefined ? `lc-step-row-${rowIndex}` : undefined}
+    >
       <NumericCell
         value={step.time_min}
         cellClass={cellClass("time_min")}

@@ -661,6 +661,7 @@ export function EditingToolbar({
     <div className="flex items-center gap-2 mb-4 flex-wrap">
       <button
         onClick={onToggleEdit}
+        data-tour-target="pcr-edit-toggle"
         className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
           isEditing
             ? "bg-blue-600 text-white hover:bg-blue-700"
@@ -704,6 +705,7 @@ export function EditingToolbar({
           
           <button
             onClick={onAddCycle}
+            data-tour-target="pcr-add-cycle"
             className="px-3 py-1.5 text-xs font-medium bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors"
           >
             + Add Cycle
@@ -1695,6 +1697,7 @@ export function InteractiveGradientEditor({
               </button>
               <button
                 onClick={handleAddCycle}
+                data-tour-target="pcr-add-cycle-confirm"
                 className="flex-1 px-4 py-2 text-sm text-white bg-purple-600 hover:bg-purple-700 rounded-lg"
               >
                 Add

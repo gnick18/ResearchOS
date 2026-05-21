@@ -58,6 +58,26 @@ export const TOUR_TARGETS = {
   methodsNewMethodButton: "methods-new-method-button",
   methodsTypePicker: "methods-type-picker",
   methodsTypeMarkdown: "method-type-markdown",
+  // §6.4b deep-demo (sub-bot v4 sec 6.4b upgrade, 2026-05-21): replaces
+  // the prior 7-tile hover sweep with two focused builder demos (PCR +
+  // LC Gradient). The cursor clicks INTO each builder and exercises
+  // ~3-4 affordances so users see that these editors are interactive
+  // (not text forms). See MethodsBreadthStep / MethodsPcrEditStep /
+  // MethodsPcrAddCycleStep / MethodsLcDemoStep for the per-step bodies.
+  // PCR editor (InteractiveGradientEditor.tsx) affordances:
+  methodsTypePcrTile: "method-type-pcr",
+  methodsTypeLcGradientTile: "method-type-lc-gradient",
+  pcrEditToggle: "pcr-edit-toggle",
+  pcrAddCycle: "pcr-add-cycle",
+  pcrAddCycleConfirm: "pcr-add-cycle-confirm",
+  // LC Gradient editor (LcGradientEditor.tsx) affordances. `lcStepRow0`
+  // is the first gradient-step row (the modal seeds with a 2-step
+  // default; index 0 = the t=0 starting point). `lcAddStep` is the
+  // table footer's "+ Add step" button which appends a new row and
+  // the recharts line picks up the new data point automatically.
+  lcGradientChart: "lc-gradient-chart",
+  lcStepRow0: "lc-step-row-0",
+  lcAddStep: "lc-add-step",
   methodsCreateForm: "methods-create-form",
   methodsCreateNameInput: "methods-create-name-input",
   // §6.4d sub-bot 2026-05-21: the Folder input doubles as the category

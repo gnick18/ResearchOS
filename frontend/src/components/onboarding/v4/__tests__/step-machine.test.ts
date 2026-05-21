@@ -110,6 +110,32 @@ describe("TOUR_STEP_ORDER", () => {
     expect(openPickerIdx).toBeGreaterThan(categoryIdx);
     expect(typeTourIdx).toBeGreaterThan(openPickerIdx);
   });
+
+  it("walks the methods-type-tour deep-demo arc in PCR-then-LC order (v4 sec 6.4b upgrade sub-bot 2026-05-21)", () => {
+    // §6.4b deep-demo: methods-type-tour clicks the PCR tile, then
+    // the four PCR/LC sub-steps fire in order, then methods-create
+    // takes over with Standard Markdown. Lock the order so a future
+    // re-shuffle (e.g. re-introducing the old 7-tile hover) breaks
+    // visibly.
+    const order = [
+      "methods-type-tour",
+      "methods-pcr-edit",
+      "methods-pcr-add-cycle",
+      "methods-pcr-confirm-cycle",
+      "methods-lc-demo",
+      "methods-create",
+    ];
+    const indices = order.map((id) => TOUR_STEP_ORDER.indexOf(id));
+    indices.forEach((idx, i) => {
+      expect(idx, `${order[i]} missing from TOUR_STEP_ORDER`).toBeGreaterThanOrEqual(0);
+      if (i > 0) {
+        expect(
+          idx,
+          `${order[i]} must follow ${order[i - 1]}`,
+        ).toBe(indices[i - 1] + 1);
+      }
+    });
+  });
 });
 
 describe("isSetupPhaseStep / isLabPhaseStep", () => {

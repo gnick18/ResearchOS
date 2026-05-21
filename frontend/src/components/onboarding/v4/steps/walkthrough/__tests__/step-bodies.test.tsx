@@ -46,6 +46,10 @@ import {
   methodsBreadthStep,
   METHODS_BREADTH_TILE_TARGETS,
 } from "../MethodsBreadthStep";
+import { methodsPcrEditStep } from "../MethodsPcrEditStep";
+import { methodsPcrAddCycleStep } from "../MethodsPcrAddCycleStep";
+import { methodsPcrConfirmCycleStep } from "../MethodsPcrConfirmCycleStep";
+import { methodsLcDemoStep } from "../MethodsLcDemoStep";
 import { methodsCreateStep, FUNNY_METHOD_NAME } from "../MethodsCreateStep";
 import {
   workbenchCreateExperimentStep,
@@ -100,6 +104,10 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   methodsCategoryStep,
   methodsOpenPickerStep,
   methodsBreadthStep,
+  methodsPcrEditStep,
+  methodsPcrAddCycleStep,
+  methodsPcrConfirmCycleStep,
+  methodsLcDemoStep,
   methodsCreateStep,
   workbenchCreateExperimentStep,
   methodAttachmentStep,
@@ -140,6 +148,10 @@ describe("P5 step bodies — universal contract", () => {
       "methods-category",
       "methods-open-picker",
       "methods-type-tour",
+      "methods-pcr-edit",
+      "methods-pcr-add-cycle",
+      "methods-pcr-confirm-cycle",
+      "methods-lc-demo",
       "methods-create",
       "workbench-create-experiment",
       "experiment-attach-method",
@@ -188,6 +200,10 @@ describe("P5 step bodies — universal contract", () => {
       methodsCategoryStep,
       methodsOpenPickerStep,
       methodsBreadthStep,
+      methodsPcrEditStep,
+      methodsPcrAddCycleStep,
+      methodsPcrConfirmCycleStep,
+      methodsLcDemoStep,
       methodsCreateStep,
       methodAttachmentStep,
       hybridEditorShortcutsStep,
@@ -471,83 +487,233 @@ describe("Methods steps (§6.4)", () => {
     // for the Compound paragraph. Lock the new phrasing so a future
     // copy edit that re-introduces the jargon gets surfaced.
     const speech = renderSpeech(methodsBreadthStep);
-    expect(speech).toMatch(/editable graphic/);
     expect(speech).toMatch(/gel electrophoresis/);
     expect(speech).not.toMatch(/downstream protocol/);
     expect(speech).not.toMatch(/Just FYI/);
   });
-  it("breadth step hover sweep targets the visible method-type tiles", async () => {
-    // The cursor script glides to each picker tile in sequence so the
-    // user sees that each type is its own editable graphic. Mount a
-    // fixture per tile, run the script, and assert the produced
-    // CursorAction[] visits them in declared order. Each tile's rect
-    // is stubbed so the glide coords are deterministic.
+  it("breadth step speech replaces the hover-sweep framing with two-builder demo intro (v4 sec 6.4b upgrade, 2026-05-21)", () => {
+    // Grant's 2026-05-21 upgrade pushback: the prior 7-tile hover
+    // sweep was "ridiculous"; he wanted two deep builder demos
+    // instead. Lock the new framing — concrete PCR + LC builder
+    // mentions, no "move across them" hover language.
+    const speech = renderSpeech(methodsBreadthStep);
+    expect(speech).toMatch(/interactive editors/);
+    expect(speech).toMatch(/LC Gradient/);
+    expect(speech).toMatch(/Watch/);
+    // Old hover framing must be gone.
+    expect(speech).not.toMatch(/move across them/);
+    expect(speech).not.toMatch(/editable graphic/);
+  });
+  it("breadth step targets only PCR and LC Gradient (v4 sec 6.4b upgrade)", () => {
+    // The deep-demo arc visits PCR + LC Gradient in order; the prior
+    // 7-tile sweep is gone. Regression guard against re-introducing
+    // the wide hover.
+    expect(METHODS_BREADTH_TILE_TARGETS).toEqual([
+      "method-type-pcr",
+      "method-type-lc-gradient",
+    ]);
+  });
+  it("breadth step clicks the PCR tile only (v4 sec 6.4b upgrade)", async () => {
+    // First beat of the deep-demo arc: click PCR tile so
+    // InteractiveGradientEditor mounts. The follow-up methods-pcr-edit
+    // step then clicks Edit Cycle. Mount the picker + PCR tile fixture
+    // and assert the produced action list is exactly one click action
+    // against the PCR tile.
     const fixtures: Array<{ el: HTMLElement; cleanup: () => void }> = [];
     try {
-      METHODS_BREADTH_TILE_TARGETS.forEach((slug, idx) => {
-        const el = document.createElement("button");
-        el.setAttribute("data-tour-target", slug);
-        // Stub each rect so jsdom returns real coords (idx-shifted so
-        // the assertions can distinguish them).
-        const top = 100 + idx * 50;
-        el.getBoundingClientRect = () =>
-          ({
-            left: 0,
-            top,
-            width: 100,
-            height: 50,
-            right: 100,
-            bottom: top + 50,
-            x: 0,
-            y: top,
-            toJSON() {
-              return {};
-            },
-          }) as DOMRect;
-        document.body.appendChild(el);
-        fixtures.push({
-          el,
-          cleanup: () => {
-            el.remove();
-          },
-        });
-      });
-      // Also mount the picker container the script awaits on.
       const picker = document.createElement("div");
       picker.setAttribute("data-tour-target", "methods-type-picker");
       document.body.appendChild(picker);
-      fixtures.push({
-        el: picker,
-        cleanup: () => {
-          picker.remove();
-        },
-      });
+      fixtures.push({ el: picker, cleanup: () => picker.remove() });
+
+      const pcrTile = document.createElement("button");
+      pcrTile.setAttribute("data-tour-target", "method-type-pcr");
+      document.body.appendChild(pcrTile);
+      fixtures.push({ el: pcrTile, cleanup: () => pcrTile.remove() });
+
       expect(methodsBreadthStep.cursorScript).toBeDefined();
       const actions = await methodsBreadthStep.cursorScript!();
-      expect(actions).toHaveLength(METHODS_BREADTH_TILE_TARGETS.length);
-      actions.forEach((action, idx) => {
-        expect(action.type).toBe("glide");
-        if (action.type === "glide") {
-          // Center is (50, top + 25) per the stubbed rect.
-          expect(action.x).toBe(50);
-          expect(action.y).toBe(100 + idx * 50 + 25);
-        }
-      });
+      expect(actions).toHaveLength(1);
+      expect(actions[0].type).toBe("click");
+      if (actions[0].type === "click") {
+        expect(actions[0].target).toBe(pcrTile);
+      }
     } finally {
       for (const f of fixtures) f.cleanup();
     }
   });
-  it("breadth step omits Compound from the hover sweep (hiddenFromPicker)", () => {
-    // The registry marks `compound` hiddenFromPicker because compounds
-    // are reached by extending an existing method, not via the +New
-    // Method picker. The hover sweep must therefore not list it; if a
-    // future registry change unhides Compound, this test fails so the
-    // step list gets re-audited intentionally.
-    expect(METHODS_BREADTH_TILE_TARGETS).not.toContain("method-type-compound");
+  it("breadth step auto-advances after the PCR tile click", () => {
+    // The step now auto-advances (was manual). Lock the contract so a
+    // future refactor that re-introduces a "Got it" button surfaces.
+    expect(methodsBreadthStep.completion.type).toBe("auto");
   });
   it("methods-create step uses the funny coffee protocol name", () => {
     expect(FUNNY_METHOD_NAME).toMatch(/Coffee Brewing/);
     expect(methodsCreateStep.completion.type).toBe("event");
+  });
+});
+
+describe("MethodsPcrEditStep (§6.4b-2 PCR enter-edit-mode beat)", () => {
+  it("targets the PCR Edit Cycle toggle", () => {
+    expect(methodsPcrEditStep.targetSelector).toBe(
+      "[data-tour-target=\"pcr-edit-toggle\"]",
+    );
+  });
+  it("auto-advances after the click", () => {
+    expect(methodsPcrEditStep.completion.type).toBe("auto");
+  });
+  it("speech says BeakerBot is flipping into edit mode", () => {
+    expect(renderSpeech(methodsPcrEditStep)).toMatch(/edit mode/);
+  });
+  it("cursor script issues exactly one click against the Edit Cycle toggle", async () => {
+    const fixtures: Array<{ el: HTMLElement; cleanup: () => void }> = [];
+    try {
+      const editBtn = document.createElement("button");
+      editBtn.setAttribute("data-tour-target", "pcr-edit-toggle");
+      document.body.appendChild(editBtn);
+      fixtures.push({ el: editBtn, cleanup: () => editBtn.remove() });
+
+      const actions = await methodsPcrEditStep.cursorScript!();
+      expect(actions).toHaveLength(1);
+      expect(actions[0].type).toBe("click");
+      if (actions[0].type === "click") {
+        expect(actions[0].target).toBe(editBtn);
+      }
+    } finally {
+      for (const f of fixtures) f.cleanup();
+    }
+  });
+});
+
+describe("MethodsPcrAddCycleStep (§6.4b-3 PCR add-cycle open beat)", () => {
+  it("targets the + Add Cycle button", () => {
+    expect(methodsPcrAddCycleStep.targetSelector).toBe(
+      "[data-tour-target=\"pcr-add-cycle\"]",
+    );
+  });
+  it("auto-advances after the click", () => {
+    expect(methodsPcrAddCycleStep.completion.type).toBe("auto");
+  });
+  it("speech mentions the new thermal cycle", () => {
+    expect(renderSpeech(methodsPcrAddCycleStep)).toMatch(/thermal cycle/);
+  });
+  it("cursor script issues exactly one click against the Add Cycle button", async () => {
+    const fixtures: Array<{ el: HTMLElement; cleanup: () => void }> = [];
+    try {
+      const addBtn = document.createElement("button");
+      addBtn.setAttribute("data-tour-target", "pcr-add-cycle");
+      document.body.appendChild(addBtn);
+      fixtures.push({ el: addBtn, cleanup: () => addBtn.remove() });
+
+      const actions = await methodsPcrAddCycleStep.cursorScript!();
+      expect(actions).toHaveLength(1);
+      expect(actions[0].type).toBe("click");
+      if (actions[0].type === "click") {
+        expect(actions[0].target).toBe(addBtn);
+      }
+    } finally {
+      for (const f of fixtures) f.cleanup();
+    }
+  });
+});
+
+describe("MethodsPcrConfirmCycleStep (§6.4b-4 PCR confirm beat)", () => {
+  it("targets the Add-cycle confirmation modal's Add button", () => {
+    expect(methodsPcrConfirmCycleStep.targetSelector).toBe(
+      "[data-tour-target=\"pcr-add-cycle-confirm\"]",
+    );
+  });
+  it("auto-advances after the click", () => {
+    expect(methodsPcrConfirmCycleStep.completion.type).toBe("auto");
+  });
+  it("speech mentions the cycle dropping in", () => {
+    expect(renderSpeech(methodsPcrConfirmCycleStep)).toMatch(/drops/);
+  });
+  it("cursor script issues exactly one click against the confirm button", async () => {
+    const fixtures: Array<{ el: HTMLElement; cleanup: () => void }> = [];
+    try {
+      const confirmBtn = document.createElement("button");
+      confirmBtn.setAttribute("data-tour-target", "pcr-add-cycle-confirm");
+      document.body.appendChild(confirmBtn);
+      fixtures.push({ el: confirmBtn, cleanup: () => confirmBtn.remove() });
+
+      const actions = await methodsPcrConfirmCycleStep.cursorScript!();
+      expect(actions).toHaveLength(1);
+      expect(actions[0].type).toBe("click");
+      if (actions[0].type === "click") {
+        expect(actions[0].target).toBe(confirmBtn);
+      }
+    } finally {
+      for (const f of fixtures) f.cleanup();
+    }
+  });
+});
+
+describe("MethodsLcDemoStep (§6.4b-5 LC Gradient deep-demo beat)", () => {
+  it("targets the LC Gradient tile", () => {
+    expect(methodsLcDemoStep.targetSelector).toBe(
+      "[data-tour-target=\"method-type-lc-gradient\"]",
+    );
+  });
+  it("manual-advances ('Got it, next') as the final deep-demo beat", () => {
+    expect(methodsLcDemoStep.completion.type).toBe("manual");
+  });
+  it("speech mentions the graph updating", () => {
+    expect(renderSpeech(methodsLcDemoStep)).toMatch(/line chart/);
+  });
+  it("cursor script clicks LC tile, glides to chart, and clicks + Add step in order", async () => {
+    const fixtures: Array<{ el: HTMLElement; cleanup: () => void }> = [];
+    const stubRect = (el: HTMLElement, top: number) => {
+      el.getBoundingClientRect = () =>
+        ({
+          left: 0,
+          top,
+          width: 100,
+          height: 50,
+          right: 100,
+          bottom: top + 50,
+          x: 0,
+          y: top,
+          toJSON() {
+            return {};
+          },
+        }) as DOMRect;
+    };
+    try {
+      const lcTile = document.createElement("button");
+      lcTile.setAttribute("data-tour-target", "method-type-lc-gradient");
+      stubRect(lcTile, 100);
+      document.body.appendChild(lcTile);
+      fixtures.push({ el: lcTile, cleanup: () => lcTile.remove() });
+
+      const chart = document.createElement("div");
+      chart.setAttribute("data-tour-target", "lc-gradient-chart");
+      stubRect(chart, 200);
+      document.body.appendChild(chart);
+      fixtures.push({ el: chart, cleanup: () => chart.remove() });
+
+      const addStep = document.createElement("button");
+      addStep.setAttribute("data-tour-target", "lc-add-step");
+      stubRect(addStep, 300);
+      document.body.appendChild(addStep);
+      fixtures.push({ el: addStep, cleanup: () => addStep.remove() });
+
+      const actions = await methodsLcDemoStep.cursorScript!();
+      expect(actions).toHaveLength(3);
+      expect(actions[0].type).toBe("click");
+      if (actions[0].type === "click") expect(actions[0].target).toBe(lcTile);
+      expect(actions[1].type).toBe("glide");
+      if (actions[1].type === "glide") {
+        // chart center (50, 200 + 25 = 225)
+        expect(actions[1].x).toBe(50);
+        expect(actions[1].y).toBe(225);
+      }
+      expect(actions[2].type).toBe("click");
+      if (actions[2].type === "click")
+        expect(actions[2].target).toBe(addStep);
+    } finally {
+      for (const f of fixtures) f.cleanup();
+    }
   });
 });
 
