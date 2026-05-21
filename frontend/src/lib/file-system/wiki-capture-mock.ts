@@ -634,6 +634,97 @@ export async function installWikiCaptureFixture(
     addParentDirs(norm, dirs);
   }
 
+  // Optional URL-driven sidecar seed for the wizard-screenshot capture
+  // path. `?wizardSeedStep=<step>` (combined with `?wikiCapture=1` and
+  // `?wizard-preview=1`) plants an `_onboarding.json` on the alex user
+  // with `wizard_force_show: true` plus a `wizard_resume_state` pointing
+  // at the requested step. The capture script clicks Resume on the
+  // WizardResumeModal to land on the requested step body. Lab-account
+  // feature_picks are seeded so the L-series steps mount. Dev-only by
+  // construction (the wikiCapture flag itself is hard-gated to dev /
+  // localhost).
+  try {
+    const seedStep = new URLSearchParams(window.location.search).get(
+      "wizardSeedStep",
+    );
+    if (seedStep && signIn) {
+      // The Phase 4 cleanup grid only renders rows when
+      // `artifacts_created` is non-empty. Seed a representative spread
+      // (project / method / experiment / purchase / goal / calendar /
+      // lab teammate + lab task) so the grid screenshot shows the
+      // category structure the wiki copy describes. One method row is
+      // marked auto-created to demonstrate L9's discard-by-default
+      // contract. Earlier seeded steps just get an empty list so the
+      // resume modal's "no artifacts" copy reads honestly.
+      const seedArtifacts =
+        seedStep === "phase4-cleanup"
+          ? [
+              { type: "project", id: "proj-1", cleanup_default: "keep" },
+              {
+                type: "method",
+                id: "method-auto-1",
+                cleanup_default: "discard",
+              },
+              {
+                type: "experiment",
+                id: "task-1",
+                cleanup_default: "keep",
+              },
+              {
+                type: "purchase",
+                id: "purchase-1",
+                cleanup_default: "keep",
+              },
+              { type: "goal", id: "goal-1", cleanup_default: "keep" },
+              {
+                type: "calendar_feed",
+                id: "feed-1",
+                cleanup_default: "keep",
+              },
+              {
+                type: "lab_user",
+                id: "BeakerBot",
+                cleanup_default: "keep",
+              },
+              {
+                type: "lab_task",
+                id: "lab-task-1",
+                cleanup_default: "keep",
+              },
+            ]
+          : [];
+      const sidecarKey = normalizePath("users/alex/_onboarding.json");
+      files.set(sidecarKey, {
+        version: 4,
+        first_seen_at: new Date().toISOString(),
+        active_seconds: 0,
+        feature_picks: {
+          account_type: "lab",
+          lab_storage: "local",
+          purchases: "yes",
+          calendar: "yes",
+          goals: "yes",
+          telegram: "yes",
+          ai_helper: "full",
+        },
+        wizard_completed_at: null,
+        wizard_skipped_at: null,
+        wizard_force_show: true,
+        wizard_resume_state: {
+          current_step: seedStep,
+          skipped_steps: [],
+          artifacts_created: seedArtifacts,
+        },
+        lab_tour_pending: false,
+        lab_tour_dismissed_at: null,
+      });
+      addParentDirs(sidecarKey, dirs);
+    }
+  } catch {
+    // best-effort; the capture script falls back to a Screenshot-pending
+    // placeholder for any step that fails to seed.
+  }
+
   // Rebase demo dates against today's date. Same logic as the on-disk
   // path — when the fixture's `last_rebased_at` is older than today,
   // shift every task/goal/event/project/shared date forward so the

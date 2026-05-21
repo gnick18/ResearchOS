@@ -2005,33 +2005,24 @@ const FIXTURE_ROUTES = [
   // to /?wizard-preview=1&wikiCapture=1 (the combined case) and the
   // wizard mounts at the intro step.
   //
-  // The shipped entries below cover the easy reach paths:
+  // The shipped entries below cover:
   //   - onboarding-welcome-step       (default mount at intro)
   //   - onboarding-q1-account-type    (one Next click past intro)
+  //   - onboarding-w1-create-project       (W1, seeded resume_state)
+  //   - onboarding-w5-hybrid-editor-typing (W5, seeded resume_state)
+  //   - onboarding-l4-permission-practice  (L4, seeded resume_state +
+  //                                          lab feature_picks)
+  //   - onboarding-phase4-cleanup-grid     (Phase 4, seeded resume_state)
+  //   - onboarding-resume-modal            (WizardResumeModal, modal
+  //                                          shown by seeded resume_state)
   //
-  // FIXTURE NOTE, deferred (not shipped):
-  //   - onboarding-w1-create-project       (W1)
-  //   - onboarding-w5-hybrid-editor-typing (W5)
-  //   - onboarding-l4-permission-practice  (L4, lab-only)
-  //   - onboarding-phase4-cleanup-grid     (Phase 4)
-  //   - onboarding-resume-modal            (WizardResumeModal)
-  // These require multi-step state seeding. Walking the wizard via
-  // Playwright clicks (Next + Q1 radio + Next x 7 to reach W1) is
-  // feasible for the setup steps, but every W/L step body mutates the
-  // real account via local-api (projectsApi.create, sharingApi.share
-  // Task, etc.). Without a wikiCapture-aware inert-mock layer for
-  // these APIs the captures either touch real data (unsafe under
-  // wikiCapture mode where ops are expected to be inert) OR fail
-  // silently when the API stubs no-op. Reach-path seed alternatives
-  // also explored: pre-writing wizard_resume_state via page.evaluate
-  // before the wizard's mount probe is racy (the probe is async and
-  // reads on first paint), and the capture script does not yet expose
-  // a hook to defer wizard mount until a sidecar seed lands. Fix path:
-  // extend wiki-capture-fixture.ts to seed a per-step _onboarding.json
-  // payload, or add a wikiCapture-only inert-mock layer for the W/L
-  // step bodies' local-api calls. Either pattern is a separate chip.
-  // The wiki page ships with Screenshot-pending placeholders for these
-  // five files in the meantime.
+  // The seeded entries use the `?wizardSeedStep=<id>` URL flag handled
+  // by installWikiCaptureFixture in wiki-capture-mock.ts, which plants
+  // a `_onboarding.json` with `wizard_force_show: true` plus a
+  // `wizard_resume_state` pointing at the chosen step. The fixture
+  // mock backs every fileService method with an in-memory map, so the
+  // W/L step body local-api calls (projectsApi.create, etc.) write
+  // through to the mock rather than touching real disk.
   //
   // The settings-rerun entry below IS reachable via the fixture (the
   // settings page is already captured in non-wizard mode at
@@ -2213,6 +2204,276 @@ const FIXTURE_ROUTES = [
       }
     },
     highlight: { text: "Re-run welcome tour" },
+  },
+  // Wizard-step-seeded captures (P6 wiki manager dispatch).
+  //
+  // `?wizardSeedStep=<id>` is read by installWikiCaptureFixture in
+  // wiki-capture-mock.ts. When present, it plants an alex/_onboarding.json
+  // with `wizard_force_show: true` plus a `wizard_resume_state` pointing
+  // at the requested step. The mount probe in WizardMount.tsx surfaces
+  // the WizardResumeModal first (because resume_state is non-null), so
+  // each route's action() clicks the modal's "Resume" button to advance
+  // to the actual step body. The resume-modal capture itself stops at
+  // the modal and screenshots it directly.
+  //
+  // The seed bakes lab-account feature_picks (account_type=lab + every
+  // optional Q=yes) so L-series steps can mount on the demo fixture.
+  {
+    path: "/?wizard-preview=1&wizardSeedStep=W1",
+    file: "onboarding-w1-create-project.png",
+    waitFor: '[data-resume-modal-state="idle"], [data-step-id="W1"]',
+    settleMs: 900,
+    action: async (page) => {
+      try {
+        const resume = page
+          .locator('[data-resume-modal-action="resume"]')
+          .first();
+        if (await resume.count()) {
+          await resume.click({ timeout: 3000 });
+          await page
+            .waitForSelector('[data-step-id="W1"]', { timeout: 5000 })
+            .catch(() => {});
+          await page.waitForTimeout(700);
+        }
+      } catch (err) {
+        console.warn(
+          `  ⚠ onboarding-w1-create-project resume click: ${err.message}`,
+        );
+      }
+      try {
+        const clip = await page.evaluate(() => {
+          const root = document.querySelector('[data-wizard-root="v3"]');
+          if (!root) return null;
+          const card = root.querySelector('div[class*="rounded-2xl"]');
+          if (!card) return null;
+          const r = card.getBoundingClientRect();
+          const pad = 24;
+          return {
+            x: Math.max(0, Math.floor(r.left - pad)),
+            y: Math.max(0, Math.floor(r.top - pad)),
+            width: Math.min(
+              Math.max(0, window.innerWidth - Math.floor(r.left - pad)),
+              Math.ceil(r.width + pad * 2),
+            ),
+            height: Math.min(
+              Math.max(0, window.innerHeight - Math.floor(r.top - pad)),
+              Math.ceil(r.height + pad * 2),
+            ),
+          };
+        });
+        if (clip && clip.width > 100 && clip.height > 100) {
+          return { clip };
+        }
+      } catch (err) {
+        console.warn(
+          `  ⚠ onboarding-w1-create-project clip calc: ${err.message}`,
+        );
+      }
+    },
+  },
+  {
+    path: "/?wizard-preview=1&wizardSeedStep=W5",
+    file: "onboarding-w5-hybrid-editor-typing.png",
+    waitFor: '[data-resume-modal-state="idle"], [data-step-id="W5"]',
+    settleMs: 900,
+    action: async (page) => {
+      try {
+        const resume = page
+          .locator('[data-resume-modal-action="resume"]')
+          .first();
+        if (await resume.count()) {
+          await resume.click({ timeout: 3000 });
+          await page
+            .waitForSelector('[data-step-id="W5"]', { timeout: 5000 })
+            .catch(() => {});
+          await page.waitForTimeout(900);
+        }
+      } catch (err) {
+        console.warn(
+          `  ⚠ onboarding-w5-hybrid-editor-typing resume click: ${err.message}`,
+        );
+      }
+      try {
+        const clip = await page.evaluate(() => {
+          const root = document.querySelector('[data-wizard-root="v3"]');
+          if (!root) return null;
+          const card = root.querySelector('div[class*="rounded-2xl"]');
+          if (!card) return null;
+          const r = card.getBoundingClientRect();
+          const pad = 24;
+          return {
+            x: Math.max(0, Math.floor(r.left - pad)),
+            y: Math.max(0, Math.floor(r.top - pad)),
+            width: Math.min(
+              Math.max(0, window.innerWidth - Math.floor(r.left - pad)),
+              Math.ceil(r.width + pad * 2),
+            ),
+            height: Math.min(
+              Math.max(0, window.innerHeight - Math.floor(r.top - pad)),
+              Math.ceil(r.height + pad * 2),
+            ),
+          };
+        });
+        if (clip && clip.width > 100 && clip.height > 100) {
+          return { clip };
+        }
+      } catch (err) {
+        console.warn(
+          `  ⚠ onboarding-w5-hybrid-editor-typing clip calc: ${err.message}`,
+        );
+      }
+    },
+  },
+  {
+    path: "/?wizard-preview=1&wizardSeedStep=L4",
+    file: "onboarding-l4-permission-practice.png",
+    waitFor: '[data-resume-modal-state="idle"], [data-step-id="L4"]',
+    settleMs: 900,
+    action: async (page) => {
+      try {
+        const resume = page
+          .locator('[data-resume-modal-action="resume"]')
+          .first();
+        if (await resume.count()) {
+          await resume.click({ timeout: 3000 });
+          await page
+            .waitForSelector('[data-step-id="L4"]', { timeout: 5000 })
+            .catch(() => {});
+          await page.waitForTimeout(700);
+        }
+      } catch (err) {
+        console.warn(
+          `  ⚠ onboarding-l4-permission-practice resume click: ${err.message}`,
+        );
+      }
+      try {
+        const clip = await page.evaluate(() => {
+          const root = document.querySelector('[data-wizard-root="v3"]');
+          if (!root) return null;
+          const card = root.querySelector('div[class*="rounded-2xl"]');
+          if (!card) return null;
+          const r = card.getBoundingClientRect();
+          const pad = 24;
+          return {
+            x: Math.max(0, Math.floor(r.left - pad)),
+            y: Math.max(0, Math.floor(r.top - pad)),
+            width: Math.min(
+              Math.max(0, window.innerWidth - Math.floor(r.left - pad)),
+              Math.ceil(r.width + pad * 2),
+            ),
+            height: Math.min(
+              Math.max(0, window.innerHeight - Math.floor(r.top - pad)),
+              Math.ceil(r.height + pad * 2),
+            ),
+          };
+        });
+        if (clip && clip.width > 100 && clip.height > 100) {
+          return { clip };
+        }
+      } catch (err) {
+        console.warn(
+          `  ⚠ onboarding-l4-permission-practice clip calc: ${err.message}`,
+        );
+      }
+    },
+  },
+  {
+    path: "/?wizard-preview=1&wizardSeedStep=phase4-cleanup",
+    file: "onboarding-phase4-cleanup-grid.png",
+    waitFor:
+      '[data-resume-modal-state="idle"], [data-step-id="phase4-cleanup"]',
+    settleMs: 900,
+    action: async (page) => {
+      try {
+        const resume = page
+          .locator('[data-resume-modal-action="resume"]')
+          .first();
+        if (await resume.count()) {
+          await resume.click({ timeout: 3000 });
+          await page
+            .waitForSelector('[data-step-id="phase4-cleanup"]', {
+              timeout: 5000,
+            })
+            .catch(() => {});
+          await page.waitForTimeout(800);
+        }
+      } catch (err) {
+        console.warn(
+          `  ⚠ onboarding-phase4-cleanup-grid resume click: ${err.message}`,
+        );
+      }
+      try {
+        const clip = await page.evaluate(() => {
+          const root = document.querySelector('[data-wizard-root="v3"]');
+          if (!root) return null;
+          const card = root.querySelector('div[class*="rounded-2xl"]');
+          if (!card) return null;
+          const r = card.getBoundingClientRect();
+          const pad = 24;
+          return {
+            x: Math.max(0, Math.floor(r.left - pad)),
+            y: Math.max(0, Math.floor(r.top - pad)),
+            width: Math.min(
+              Math.max(0, window.innerWidth - Math.floor(r.left - pad)),
+              Math.ceil(r.width + pad * 2),
+            ),
+            height: Math.min(
+              Math.max(0, window.innerHeight - Math.floor(r.top - pad)),
+              Math.ceil(r.height + pad * 2),
+            ),
+          };
+        });
+        if (clip && clip.width > 100 && clip.height > 100) {
+          return { clip };
+        }
+      } catch (err) {
+        console.warn(
+          `  ⚠ onboarding-phase4-cleanup-grid clip calc: ${err.message}`,
+        );
+      }
+    },
+  },
+  {
+    // The resume modal capture stops AT the modal (no Resume click).
+    // Seed any step (W3 is a midway point so the "you were on W3"
+    // summary copy reads naturally), then screenshot the modal portal.
+    path: "/?wizard-preview=1&wizardSeedStep=W3",
+    file: "onboarding-resume-modal.png",
+    waitFor: '[data-resume-modal-state="idle"]',
+    settleMs: 700,
+    action: async (page) => {
+      try {
+        const clip = await page.evaluate(() => {
+          const modal = document.querySelector(
+            '[data-resume-modal-state="idle"]',
+          );
+          if (!modal) return null;
+          const card = modal.querySelector('div[class*="rounded-2xl"]');
+          if (!card) return null;
+          const r = card.getBoundingClientRect();
+          const pad = 24;
+          return {
+            x: Math.max(0, Math.floor(r.left - pad)),
+            y: Math.max(0, Math.floor(r.top - pad)),
+            width: Math.min(
+              Math.max(0, window.innerWidth - Math.floor(r.left - pad)),
+              Math.ceil(r.width + pad * 2),
+            ),
+            height: Math.min(
+              Math.max(0, window.innerHeight - Math.floor(r.top - pad)),
+              Math.ceil(r.height + pad * 2),
+            ),
+          };
+        });
+        if (clip && clip.width > 100 && clip.height > 100) {
+          return { clip };
+        }
+      } catch (err) {
+        console.warn(
+          `  ⚠ onboarding-resume-modal clip calc: ${err.message}`,
+        );
+      }
+    },
   },
 ];
 

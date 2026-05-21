@@ -451,6 +451,58 @@ export default function WelcomeWizardPage() {
         way).
       </Callout>
 
+      <h2>Dev affordances: the BeakerBot button</h2>
+      <p>
+        In development builds, a small BeakerBot button sits in the
+        bottom-right floating cluster alongside the data-folder and switch-user
+        controls. Clicking it opens a dropdown with three escape hatches for
+        driving the tour without walking it from scratch. The whole control
+        is gated on <code>process.env.NODE_ENV === &quot;development&quot;</code>,
+        so production builds drop it as dead code.
+      </p>
+      <p>
+        The three actions are:
+      </p>
+      <ul>
+        <li>
+          <strong>Mount at step.</strong> Pick any step ID from the dropdown
+          (every node in the W1 to W14 graph, the L1 to L11 graph, and the
+          Phase 4 cleanup grid) and click <strong>Mount wizard at this
+          step</strong>. The orchestrator writes a resume_state pointing at
+          your pick, flips the force-show flag on the current user&apos;s
+          sidecar, and reloads. The tour re-mounts at the chosen step with
+          every prior artifact intact. Useful for QA on a specific step body,
+          or for staging a screenshot capture at an arbitrary point in the
+          flow.
+        </li>
+        <li>
+          <strong>Reset wizard state.</strong> Clears
+          <code> wizard_completed_at</code>,{" "}
+          <code>wizard_skipped_at</code>, <code>wizard_resume_state</code>,
+          <code> wizard_force_show</code>, and <code>feature_picks</code> on
+          the current user&apos;s sidecar, then reloads. The tour fires from
+          the intro on next mount, identical to a brand-new user. Faster than
+          deleting the JSON by hand when iterating on the step bodies.
+        </li>
+        <li>
+          <strong>Test-N sandbox.</strong> The third row,{" "}
+          <strong>Show welcome wizard (creates Test user)</strong>, spawns a
+          throwaway <code>Test-N</code> user (auto-incrementing N), force-shows
+          the wizard on that user&apos;s sidecar, and swaps the active user.
+          The sandbox user is real (it lives in <code>_user_metadata</code>{" "}
+          and writes to disk), but it never touches the seen-once state on
+          your primary account. Useful for capturing fresh-user screenshots
+          or for stress-testing the wizard without disturbing the account you
+          actually use.
+        </li>
+      </ul>
+      <Callout variant="warning" title="Development builds only">
+        The BeakerBot button never renders in production. It is also a no-op
+        in demo and wiki-capture mode because the orchestrator is not mounted
+        there. If you need to drive the tour in fixture mode, use the URL
+        flag combo (<code>?wikiCapture=1&amp;wizard-preview=1</code>) instead.
+      </Callout>
+
       <h2>Where to go next</h2>
       <ul>
         <li>
