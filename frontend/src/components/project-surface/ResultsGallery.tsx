@@ -45,8 +45,8 @@ function sortNewestFirst(entries: FolderImageEntry[]): FolderImageEntry[] {
 }
 
 export default function ResultsGallery({ project }: ResultsGalleryProps) {
-  // Mirror ProjectDetailPopup's owner-routing for reads: receivers of a
-  // shared project read tasks from the owner's directory.
+  // Owner-routing for reads: receivers of a shared project read tasks
+  // from the owner's directory.
   const taskListOwner = project.is_shared_with_me ? project.owner : undefined;
 
   const { data: ownTasks = [], isLoading: ownLoading } = useQuery({
@@ -59,8 +59,8 @@ export default function ResultsGallery({ project }: ResultsGalleryProps) {
     queryFn: () => tasksApi.listByProject(project.id, taskListOwner),
   });
 
-  // Cross-owner experiments hosted INTO this project (Option C, see
-  // ProjectDetailPopup). Suppress for archived projects to match that popup.
+  // Cross-owner experiments hosted INTO this project (Option C share
+  // pattern). Suppress for archived projects.
   const { data: hostedTasks = [], isLoading: hostedLoading } = useQuery({
     queryKey: ["projects", project.owner, project.id, "hosted-tasks"],
     queryFn: () => projectsApi.listHostedTasks(project.owner, project.id),
@@ -132,7 +132,10 @@ export default function ResultsGallery({ project }: ResultsGalleryProps) {
       // array reference each render when data is undefined; without this
       // guard, the effect would loop (new map -> rerender -> new groups
       // ref -> effect fires -> new map -> ...). Keeping the same Map
-      // reference short-circuits React's bailout.
+      // reference short-circuits React's bailout. The eslint rule
+      // `react-hooks/set-state-in-effect` doesn't recognize the
+      // functional-bailout pattern as safe, so disable inline.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- functional bailout
       setBlobUrls((prev) => (prev.size === 0 ? prev : new Map()));
       return;
     }

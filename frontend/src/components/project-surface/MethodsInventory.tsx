@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import Link from "next/link";
+import Link from "@/components/FixtureLink";
 import { useQuery } from "@tanstack/react-query";
 import { tasksApi, projectsApi, methodsApi } from "@/lib/local-api";
 import { getMethodTypeMeta } from "@/lib/methods/method-type-registry";
@@ -33,8 +33,8 @@ interface ResolvedMethodRow {
 }
 
 export default function MethodsInventory({ project }: MethodsInventoryProps) {
-  // Same owner-routing pattern as ResultsGallery / ProjectDetailPopup: a
-  // receiver of a shared project reads tasks from the owner's directory.
+  // Same owner-routing pattern as ResultsGallery: a receiver of a shared
+  // project reads tasks from the owner's directory.
   const taskListOwner = project.is_shared_with_me ? project.owner : undefined;
 
   const { data: ownTasks = [], isLoading: ownLoading } = useQuery({

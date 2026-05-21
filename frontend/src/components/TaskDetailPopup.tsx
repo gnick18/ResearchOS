@@ -334,8 +334,8 @@ export default function TaskDetailPopup({
   // would silently overwrite the popup with whatever task happens to share the
   // same numeric id in the viewer's folder — the "screen freakout" symptom.
   // For shared tasks the on-disk record lives in the owner's directory, so the
-  // refetch must thread `initialTask.owner` (mirrors the read-side pattern in
-  // ProjectDetailPopup). Distinct from `ownerScopedTasksApi`, which only routes
+  // refetch must thread `initialTask.owner` (standard read-side owner-routing
+  // pattern). Distinct from `ownerScopedTasksApi`, which only routes
   // when `shared_permission === "edit"` — reads should follow the same
   // directory regardless of whether the receiver can mutate.
   const ownerForTask = initialTask.is_shared_with_me ? initialTask.owner : undefined;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/FixtureLink";
 import {
   Bar,
   BarChart,
@@ -113,8 +113,7 @@ export default function SpendingDashboard({
     useState<boolean>(true);
   const [nonPurchaseExpanded, setNonPurchaseExpanded] = useState(false);
   // Row-click affordance for the non-purchase-tasks panel: opens the parent
-  // task's detail popup on the Items tab (mirrors ProjectDetailPopup's
-  // selectedTask pattern). Items tab is the surface where users reclassify
+  // task's detail popup on the Items tab. Items tab is the surface where users reclassify
   // or relocate orphan items (see TaskDetailPopup `initialTab` plumbing
   // c83528aa + Items-tab expansion 4d4da06d).
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
