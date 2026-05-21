@@ -148,18 +148,22 @@ function rootAnimationClass(
 }
 
 // Easter egg interaction config: tickle BeakerBot (click or rapid
-// mouse-jiggle over him) and he giggles; sustain it and he falls on
-// his side laughing. Thresholds + decay are tuned for "feels playful
-// without firing accidentally."
+// back-and-forth mouse-jiggle over him) and he giggles; sustain it
+// and he falls on his side laughing. Thresholds + decay tuned for
+// "feels playful without firing accidentally on a single swipe."
 const TICKLE_THRESHOLD_GIGGLE = 1;
-const TICKLE_THRESHOLD_ROLL = 5;
-const TICKLE_DECAY_MS = 1500;
+const TICKLE_THRESHOLD_ROLL = 4;
+const TICKLE_DECAY_MS = 1800;
 const GIGGLE_DURATION_MS = 1400;
 const ROLL_LAUGH_DURATION_MS = 3400;
-// Distance (in pixels) between consecutive mousemoves required to
-// register as one "jiggle tick." Tuned so a gentle pointer drift
-// doesn't tickle but rapid back-and-forth does.
-const MOUSEMOVE_JIGGLE_PX = 8;
+// Minimum distance (in pixels) for a mousemove segment to count toward
+// jiggle detection. Filters out micro-motion / jitter.
+const MOUSEMOVE_MIN_PX = 5;
+// How much each detected direction reversal contributes to the tickle
+// counter. Requires ~3 reversals (= ~2-3 quick back-and-forth swipes)
+// to reach the giggle threshold, so a single one-direction swipe over
+// BeakerBot doesn't trigger anything.
+const REVERSAL_TICKLE_WEIGHT = 0.35;
 
 export default function BeakerBot({
   pose,
@@ -185,7 +189,16 @@ export default function BeakerBot({
   const tickleCountRef = useRef(0);
   const decayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const overrideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastMoveRef = useRef<{ x: number; y: number } | null>(null);
+  // Tracks the most recent mousemove vector over BeakerBot. We tickle
+  // on DIRECTION REVERSALS (dot product < 0) rather than raw moves, so
+  // a single one-way swipe across him produces zero tickle while a
+  // genuine back-and-forth jiggle ratchets up quickly.
+  const lastMoveRef = useRef<{
+    x: number;
+    y: number;
+    dx: number;
+    dy: number;
+  } | null>(null);
 
   useEffect(() => {
     return () => {
@@ -235,13 +248,29 @@ export default function BeakerBot({
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     const prev = lastMoveRef.current;
-    lastMoveRef.current = { x: e.clientX, y: e.clientY };
-    if (!prev) return;
+    if (!prev) {
+      lastMoveRef.current = { x: e.clientX, y: e.clientY, dx: 0, dy: 0 };
+      return;
+    }
     const dx = e.clientX - prev.x;
     const dy = e.clientY - prev.y;
-    if (Math.hypot(dx, dy) >= MOUSEMOVE_JIGGLE_PX) {
-      bumpTickle(0.5);
+    if (Math.hypot(dx, dy) < MOUSEMOVE_MIN_PX) {
+      // Below the noise floor; don't update lastMoveRef so a slow
+      // diagonal drift doesn't accidentally accumulate "reversals."
+      return;
     }
+    // Direction reversal check via dot product against the previous
+    // segment vector. dot < 0 means the cursor changed direction by
+    // more than 90 degrees, which is what a back-and-forth jiggle
+    // produces. A single straight swipe across BeakerBot has no
+    // prior vector or a positive dot product, so it contributes 0.
+    if (prev.dx !== 0 || prev.dy !== 0) {
+      const dot = dx * prev.dx + dy * prev.dy;
+      if (dot < 0) {
+        bumpTickle(REVERSAL_TICKLE_WEIGHT);
+      }
+    }
+    lastMoveRef.current = { x: e.clientX, y: e.clientY, dx, dy };
   };
 
   const handleMouseLeave = () => {
@@ -344,8 +373,20 @@ export default function BeakerBot({
       >
         <circle cx="23" cy="18" r="1.2" fill="currentColor" stroke="none" />
       </g>
-      {/* Smile */}
-      <path d="M18 22 Q 20 24, 22 22" />
+      {/* Mouth: smile by default, open-laugh for giggle/rolling.
+       *  Open-mouth path is wider + filled so it reads as "ha ha"
+       *  rather than a static smile during the laugh poses. */}
+      {effectivePose === "giggle" ||
+      effectivePose === "rolling-laughing" ? (
+        <path
+          d="M17 22 Q 20 26.5, 23 22 Q 20 23.5, 17 22 Z"
+          fill="currentColor"
+          stroke="currentColor"
+          strokeWidth={1}
+        />
+      ) : (
+        <path d="M18 22 Q 20 24, 22 22" />
+      )}
       {/* Measurement-mark "cheek" dashes: slightly higher so they
           sit above the liquid meniscus and stay visible */}
       <path d="M14 26 L15.5 26" />
@@ -449,6 +490,35 @@ export default function BeakerBot({
         // sub-element animation on the right eye (above). No extra
         // geometry needed here.
         null
+      )}
+
+      {/* Laugh-text speech bubble: pops up above BeakerBot during the
+       *  giggle and rolling-laughing easter-egg poses so the laughter
+       *  reads clearly without relying solely on body motion. Counter-
+       *  rotates against the body's tilt on rolling-laughing via the
+       *  laughText className so the text stays upright while BeakerBot
+       *  is sideways on the ground. */}
+      {(effectivePose === "giggle" ||
+        effectivePose === "rolling-laughing") && (
+        <g
+          className={`${styles.laughText} ${
+            effectivePose === "rolling-laughing"
+              ? styles.laughTextRoll
+              : styles.laughTextGiggle
+          }`}
+        >
+          <text
+            x="32"
+            y="8"
+            textAnchor="middle"
+            fontSize="3.6"
+            fontWeight="700"
+            fill="currentColor"
+            stroke="none"
+          >
+            {effectivePose === "rolling-laughing" ? "HAHA!" : "hehe!"}
+          </text>
+        </g>
       )}
     </svg>
   );

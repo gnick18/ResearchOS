@@ -267,6 +267,58 @@
   animation: beakerBotRollLaugh 3400ms ease-in-out 1 forwards;
 }
 
+/* Laugh-text speech that pops up above BeakerBot during the easter-egg
+ * poses. Two keyframe variants: a short pop for `giggle` and a longer
+ * sustained pop with a counter-rotation for `rolling-laughing` (so the
+ * text stays upright while the body lies sideways). */
+@keyframes beakerBotLaughTextGiggle {
+  0% {
+    opacity: 0;
+    transform: translateY(2px) scale(0.6);
+  }
+  20%,
+  80% {
+    opacity: 1;
+    transform: translateY(-1px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-3px) scale(0.9);
+  }
+}
+
+@keyframes beakerBotLaughTextRoll {
+  0% {
+    opacity: 0;
+    transform: translate(0, 2px) rotate(0deg) scale(0.6);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-2px, -1px) rotate(-90deg) scale(1);
+  }
+  85% {
+    opacity: 1;
+    transform: translate(-2px, -1px) rotate(-90deg) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-2px, -4px) rotate(0deg) scale(0.9);
+  }
+}
+
+.laughText {
+  transform-origin: 32px 8px;
+  transform-box: view-box;
+}
+
+.laughTextGiggle {
+  animation: beakerBotLaughTextGiggle 1400ms ease-out 1 forwards;
+}
+
+.laughTextRoll {
+  animation: beakerBotLaughTextRoll 3400ms ease-in-out 1 forwards;
+}
+
 /* Sub-element animations. Applied to inner <g> wrappers around the
  * specific limb / feature. */
 .waveArm.animated {
@@ -299,7 +351,9 @@
   .rollLaughing.animated,
   .waveArm.animated,
   .typeHand.animated,
-  .winkEye.animated {
+  .winkEye.animated,
+  .laughTextGiggle,
+  .laughTextRoll {
     animation: none;
   }
 }
