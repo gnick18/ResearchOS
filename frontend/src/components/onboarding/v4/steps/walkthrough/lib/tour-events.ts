@@ -68,14 +68,21 @@ export const TOUR_DOM_EVENTS = {
   /**
    * Dispatched by `CreateMethodModal.tsx` on mount (the picker is the
    * first thing the modal renders, so a mount-effect fires the moment
-   * the picker is on screen). The §6.4 `methods-open-picker` sub-step
+   * the picker is on screen). The `methods-open-picker` sub-step
    * advances on this event so the follow-up type-tour body kicks in
-   * only after the picker is actually visible. Without this beat the
-   * tour would jump straight from category creation to the wall of
-   * type-breadth speech with no on-screen anchor for the user to
-   * orient against.
+   * only after the picker is actually visible.
    */
   methodsPickerOpened: "tour:methods-picker-opened",
+  /**
+   * Dispatched by `app/methods/page.tsx` from its `handleCategoryCreated`
+   * callback when the user (or the §6.4 demo cursor) confirms the
+   * "Create Empty" or "Create & Add Method" affordance in the New
+   * Category modal. Categories on the methods page are local-state
+   * only (no API call); they live in localStorage as
+   * `emptyMethodCategories` until a method is filed under them. The
+   * `methods-category` demo step listens on this event for completion.
+   */
+  methodsCategoryCreated: "tour:methods-category-created",
 } as const;
 
 /**
@@ -375,9 +382,6 @@ export function watchMethodsPickerOpened(
   }
 
   if (typeof document !== "undefined") {
-    // DOM-mount fallback. If the picker is already on screen (e.g. the
-    // tour entered this step after the user manually opened the modal),
-    // fire immediately so we don't wait for a second event.
     if (
       document.querySelector('[data-tour-target="methods-type-picker"]')
     ) {
@@ -399,6 +403,31 @@ export function watchMethodsPickerOpened(
   return () => {
     removeListener?.();
     mo?.disconnect();
+  };
+}
+
+/**
+ * Watch for the §6.4 methods-category-demo step to complete. The methods
+ * page dispatches `tour:methods-category-created` from its
+ * handleCategoryCreated callback after the New Category modal saves.
+ * No polling fallback: categories are local-state only.
+ */
+export function watchMethodsCategoryCreated(
+  advance: () => void,
+): () => void {
+  if (typeof window === "undefined") return () => {};
+  let fired = false;
+  const handler = () => {
+    if (fired) return;
+    fired = true;
+    advance();
+  };
+  window.addEventListener(TOUR_DOM_EVENTS.methodsCategoryCreated, handler);
+  return () => {
+    window.removeEventListener(
+      TOUR_DOM_EVENTS.methodsCategoryCreated,
+      handler,
+    );
   };
 }
 

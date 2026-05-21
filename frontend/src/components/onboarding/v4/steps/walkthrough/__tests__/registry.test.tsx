@@ -13,6 +13,7 @@ const P5_STEP_IDS = [
   "project-overview-nav",
   "project-overview-prose",
   "notifications",
+  "methods-category-prompt",
   "methods-category",
   "methods-open-picker",
   "methods-type-tour",

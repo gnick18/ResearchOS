@@ -15,14 +15,30 @@
  * resolved target's data-tour-target attribute into a test fixture for
  * easy assertion.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
+
+// The §6.4-prompt picker step's speech is a React component that
+// reads the tour controller via `useTourController()`. The universal
+// renderSpeech() helper below mounts those component-speech bodies
+// in isolation (no provider), so stub the hook with a no-op
+// controller. The hook returns enough surface for the picker's
+// button onClick handlers to call `noteManualAdvance()` without
+// throwing; specific tests below assert the localStorage write and
+// advance behaviour through this same stub.
+vi.mock("../../../TourController", () => ({
+  useTourController: () => ({
+    noteManualAdvance: () => {},
+    exitTour: () => {},
+  }),
+}));
 import { homeCreateProjectStep } from "../HomeCreateProjectStep";
 import { homeCreateProjectFillStep } from "../HomeCreateProjectFillStep";
 import { projectOverviewNavStep } from "../ProjectOverviewNavStep";
 import { projectOverviewStep, PLACEHOLDER_HYPOTHESIS } from "../ProjectOverviewStep";
 import { notificationsStep } from "../NotificationsStep";
 import { methodsCategoryStep } from "../MethodsCategoryStep";
+import { methodsCategoryPromptStep } from "../MethodsCategoryPromptStep";
 import { methodsOpenPickerStep } from "../MethodsOpenPickerStep";
 import { methodsBreadthStep } from "../MethodsBreadthStep";
 import { methodsCreateStep, FUNNY_METHOD_NAME } from "../MethodsCreateStep";
@@ -73,6 +89,7 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   projectOverviewNavStep,
   projectOverviewStep,
   notificationsStep,
+  methodsCategoryPromptStep,
   methodsCategoryStep,
   methodsOpenPickerStep,
   methodsBreadthStep,
@@ -110,6 +127,7 @@ describe("P5 step bodies — universal contract", () => {
       "project-overview-nav",
       "project-overview-prose",
       "notifications",
+      "methods-category-prompt",
       "methods-category",
       "methods-open-picker",
       "methods-type-tour",
@@ -413,8 +431,13 @@ describe("NotificationsStep (§6.3)", () => {
 });
 
 describe("Methods steps (§6.4)", () => {
-  it("category step has manual completion", () => {
-    expect(methodsCategoryStep.completion.type).toBe("manual");
+  it("category demo step advances on the methods-category-created event (v4 sec 6.4 redesign)", () => {
+    // The pre-redesign step manually advanced; the redesign wires
+    // the methods page to dispatch `tour:methods-category-created`
+    // from its category-create handler so the demo's
+    // cursor-then-modal sequence advances the moment the modal
+    // saves.
+    expect(methodsCategoryStep.completion.type).toBe("event");
   });
   it("breadth step renders the type-tour speech", () => {
     const speech = renderSpeech(methodsBreadthStep);

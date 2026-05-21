@@ -37,6 +37,12 @@ export const TOUR_TARGETS = {
   // §6.4 Methods page
   methodsAddCategory: "methods-add-category",
   methodsCategoryNameInput: "methods-category-name-input",
+  // §6.4 v4 sec 6.4 redesign: the demo step types the user-picked
+  // category name into the "New Category" modal. `methodsAddCategory`
+  // covers the page-header "+ New Category" button; the alias key
+  // below documents the demo intent. Same selector value so the
+  // product surface only sets one attribute.
+  methodsNewCategoryButton: "methods-add-category",
   methodsNewMethod: "methods-new-method",
   // §6.4 open-picker beat (sub-bot, 2026-05-21): the "+ New Method"
   // button anchor used by the dedicated `methods-open-picker` step that

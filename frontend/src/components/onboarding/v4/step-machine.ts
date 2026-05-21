@@ -74,14 +74,19 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // Notifications universal moment (§6.3)
   "notifications",
   // Methods page deep-dive (§6.4)
-  "methods-category",       // §6.4a
-  // §6.4 open-picker beat (sub-bot 2026-05-21): narrative bridge
-  // between finishing the category and the type-breadth wall of speech.
-  // BeakerBot announces the move and the cursor clicks "+ New Method"
-  // so the picker mounts before the next step's speech bubble fires.
-  "methods-open-picker",
-  "methods-type-tour",      // §6.4b + §6.4c (type breadth + compound peek)
-  "methods-create",         // §6.4d (BeakerBot's funny markdown method)
+  // sec 6.4 redesign (Grant 2026-05-21): split the original
+  // category step into a prompt (BeakerBot asks the user what kind of
+  // technique they do) + a demo (cursor types the user's pick and
+  // saves). The picker lives in MethodsCategoryPromptStep.tsx; the
+  // demo retains the `methods-category` id.
+  // Then the open-picker beat (Grant 2026-05-21) bridges to the type-
+  // breadth wall of speech by having BeakerBot click "+ New Method" so
+  // the modal mounts before the next step fires.
+  "methods-category-prompt", // §6.4a-prompt (interactive picker)
+  "methods-category",        // §6.4a-demo (cursor demos the picked label)
+  "methods-open-picker",     // §6.4 bridge (click New Method, modal mounts)
+  "methods-type-tour",       // §6.4b + §6.4c (type breadth + compound peek)
+  "methods-create",          // §6.4d (BeakerBot's funny markdown method)
   // Workbench experiment creation (§6.5)
   "workbench-create-experiment",
   // Method attachment + variation notes + snapshot teach (§6.6)

@@ -547,6 +547,19 @@ export default function MethodsPage() {
       }
       return prev;
     });
+    // Onboarding v4 §6.4 demo step (`methods-category`) advances on
+    // this DOM event. Categories are local-state only (no API call),
+    // so this is the only completion signal the demo step can listen
+    // for. Dispatched unconditionally: when no tour is active, the
+    // listener set is empty and the cost is one ignored
+    // `dispatchEvent` call.
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("tour:methods-category-created", {
+          detail: { categoryName },
+        }),
+      );
+    }
     if (addMethodNow) {
       setPrefilledFolder(categoryName);
       setCreating(true);
@@ -578,6 +591,7 @@ export default function MethodsPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setCreatingCategory(true)}
+              data-tour-target="methods-add-category"
               className="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
             >
               + New Category
@@ -849,6 +863,7 @@ function CreateCategoryModal({
             value={categoryName}
             onChange={(e) => setCategoryName(e.target.value)}
             placeholder="e.g. Molecular Biology"
+            data-tour-target="methods-category-name-input"
             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             autoFocus
             onKeyDown={(e) => {
