@@ -77,8 +77,7 @@ export function CreateMethodModal({
   existingFolders: string[];
   prefilledFolder?: string;
   /** When true, the "Make this method public" checkbox starts checked.
-   *  Used by the `public-methods` onboarding tip's `setupAction` deep
-   *  link (`/methods?createMethod=public`). */
+   *  Wired up to the `/methods?createMethod=public` deep link. */
   initialIsPublic?: boolean;
   onClose: () => void;
   /** Fires after a successful save. When the user clicks "Save & extend

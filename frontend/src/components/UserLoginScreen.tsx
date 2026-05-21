@@ -677,7 +677,6 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
               <div className="mt-4">
                 <button
                   ref={setLabModeButtonEl}
-                  data-onboarding-target="lab-mode-picker"
                   onClick={handleLabModeLogin}
                   disabled={loggingIn !== null || !hasUsers}
                   title={!hasUsers ? "No users exist yet" : ""}

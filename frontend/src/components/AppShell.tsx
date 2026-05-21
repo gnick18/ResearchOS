@@ -111,7 +111,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <IdlePasswordWipe />
       {/* Header */}
       <header
-        data-onboarding-target="personalize-colors"
         className={`px-4 py-2.5 flex items-center gap-2 ${
           tinted ? "shadow-sm" : "bg-white border-b border-gray-200"
         }`}
@@ -168,7 +167,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <Link
             href={helpHref}
             aria-label="Open the ResearchOS wiki"
-            data-onboarding-target="wiki-entry"
             className={`p-1.5 rounded-full transition-colors ${
               tinted
                 ? pathname?.startsWith(HELP_HREF)
@@ -199,7 +197,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <Tooltip label="Account & app settings" placement="bottom">
           <Link
             href={SETTINGS_HREF}
-            data-onboarding-target="ai-helper-cog"
             className={`p-1.5 rounded-full transition-colors ${
               tinted
                 ? pathname === SETTINGS_HREF
@@ -247,10 +244,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           flex container owns the fixed positioning and z-index; each
           button inside just declares size/color/shape, so spacing stays
           uniform regardless of how many buttons live here. */}
-      <div
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2"
-        data-onboarding-target="appshell-cluster"
-      >
+      <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2">
         <DevTestNotificationButton />
 
         <DevDemoToggleButton />
