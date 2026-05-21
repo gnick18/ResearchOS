@@ -170,6 +170,19 @@ export default function PurchasesPage() {
             );
             const tkey = taskKey(task);
             const isOpen = selectedTask !== null && taskKey(selectedTask) === tkey;
+            // Destructive + write actions are gated on `!task.is_shared_with_me`.
+            // `tasksApi.delete` and `tasksApi.update` (no `owner` arg) are
+            // current-user-scoped, so on id-collision between an own task and a
+            // shared task with the same numeric id they would clobber the OWN
+            // task. Mirrors the gate used by TaskDetailPopup's delete affordance.
+            const completeLabel = task.is_shared_with_me
+              ? `Only the owner (${task.owner}) can change completion`
+              : task.is_complete
+                ? "Mark as incomplete"
+                : "Mark as complete";
+            const deleteLabel = task.is_shared_with_me
+              ? `Only the owner (${task.owner}) can delete this purchase order`
+              : "Delete purchase order";
 
             return (
               <div
@@ -212,11 +225,11 @@ export default function PurchasesPage() {
                 {isOpen && (
                   <div className="relative">
                     <PurchaseEditor taskId={task.id} taskType={task.task_type} />
-                    {/* Action buttons */}
                     <div className="absolute bottom-3 right-4 flex items-center gap-2">
                       {/* Complete toggle button */}
-                      <Tooltip label={task.is_complete ? "Mark as incomplete" : "Mark as complete"} placement="bottom">
+                      <Tooltip label={completeLabel} placement="bottom">
                         <button
+                          aria-label={completeLabel}
                           onClick={async (e) => {
                             e.stopPropagation();
                             try {
@@ -226,7 +239,8 @@ export default function PurchasesPage() {
                               alert("Failed to update task");
                             }
                           }}
-                          className={`p-1.5 rounded-full transition-all ${
+                          disabled={task.is_shared_with_me}
+                          className={`p-1.5 rounded-full transition-all disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent ${
                             task.is_complete
                               ? "bg-green-500 text-white hover:bg-green-600"
                               : "text-gray-300 hover:text-green-500 hover:bg-green-50"
@@ -238,14 +252,15 @@ export default function PurchasesPage() {
                         </button>
                       </Tooltip>
                       {/* Delete task button */}
-                      <Tooltip label="Delete purchase order" placement="bottom">
+                      <Tooltip label={deleteLabel} placement="bottom">
                         <button
+                          aria-label={deleteLabel}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDeleteTask(task.id);
                           }}
-                          disabled={deletingTaskId === task.id}
-                          className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                          disabled={task.is_shared_with_me || deletingTaskId === task.id}
+                          className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-red-400 disabled:hover:bg-transparent"
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
