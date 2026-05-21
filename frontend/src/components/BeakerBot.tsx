@@ -970,7 +970,17 @@ export default function BeakerBot({
        *  stay legible even where the bubble overlaps the body silhouette.
        *  Counter-rotates against the body's tilt on rolling-laughing
        *  via the laughText className so the bubble + text stay upright
-       *  while BeakerBot is sideways on the ground. */}
+       *  while BeakerBot is sideways on the ground.
+       *
+       *  Bubble bounds: x=[22, 36], y=[4.4, 10.6], center (29, 7.5).
+       *  When rolling-laughing rotates the parent SVG ~92deg, the
+       *  bubble's counter-rotation (laughTextRoll keyframe) pivots
+       *  around (29, 7.5) and lands the bubble at viewBox x=[23.9,
+       *  30.1], y=[1.5, 15.5] (Grant feedback 2026-05-21: the bubble
+       *  was previously sized to x=[24.5, 39.5] and clipped against
+       *  the viewBox top after counter-rotation, which appeared as a
+       *  right-side clip on the page after the body's 92deg tilt).
+       *  Right edge at 36 leaves 4 SVG units of breathing room. */}
       {(effectivePose === "giggle" ||
         effectivePose === "rolling-laughing") && (
         <g
@@ -981,9 +991,9 @@ export default function BeakerBot({
           }`}
         >
           <rect
-            x="24.5"
+            x="22"
             y="4.4"
-            width="15"
+            width="14"
             height="6.2"
             rx="3.1"
             ry="3.1"
@@ -992,7 +1002,7 @@ export default function BeakerBot({
             strokeWidth="0.5"
           />
           <text
-            x="32"
+            x="29"
             y="8.6"
             textAnchor="middle"
             fontSize="3.6"

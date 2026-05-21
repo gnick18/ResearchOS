@@ -5,14 +5,18 @@ import { createPortal } from "react-dom";
 
 /**
  * Anchor-highlight primitive for the Onboarding v4 tour controller (P3 of the
- * v4 arc — see ONBOARDING_V4_PROPOSAL.md §4.3). Given a target element (or a
- * CSS selector that resolves to one), this overlay renders:
+ * v4 arc, see ONBOARDING_V4_PROPOSAL.md §4.3). Given a target element (or a
+ * CSS selector that resolves to one), this overlay renders ONLY a pulsing
+ * sky-blue glow ring tracking the target's bounding rectangle.
  *
- *  1. A pulsing sky-blue glow ring tracking the target's bounding rectangle.
- *  2. A 60%-ish dim layer covering the entire viewport EXCEPT a clean cutout
- *     around the target (rendered as four dim rectangles around the cutout —
- *     simpler than clip-path tricks, no SVG mask required, and avoids the
- *     pointer-event quirks `clip-path` has with `evenodd` masking on Safari).
+ * Note on the dim layer (Grant feedback 2026-05-21): the v4 proposal's L5
+ * lock originally specified "pulsing glow ring + slight dim ~60%" to focus
+ * attention on the highlighted target. Browser testing of v4 surfaced that
+ * dimming the entire viewport also dimmed BeakerBot's own speech bubble and
+ * surrounding callouts, hurting readability. Grant revised the decision: keep
+ * the pulsing glow ring as the single, universal highlight primitive across
+ * every walkthrough step. The four-rect dim layer has been removed entirely
+ * (not made configurable via prop) so the v4 visual language stays uniform.
  *
  * The overlay is mounted via React portal at `document.body` so it sits above
  * app chrome (z-index 9000) but below modals (which typically live at 10000+).
@@ -26,10 +30,10 @@ import { createPortal } from "react-dom";
  * removal mid-tour and hides the spotlight gracefully.
  *
  * When `prefers-reduced-motion: reduce` is set, the ring renders at full
- * opacity with the pulse animation disabled (it remains visible — only the
+ * opacity with the pulse animation disabled (it remains visible, only the
  * breathing motion is suppressed).
  *
- * No external animation deps — pulse + fade are pure CSS keyframes injected
+ * No external animation deps. Pulse + fade are pure CSS keyframes injected
  * via a `<style>` element inside the portal (so multiple spotlights on the
  * same page don't fight over a global stylesheet).
  */
@@ -41,19 +45,12 @@ export interface TourSpotlightProps {
   target: HTMLElement | string | null;
   /** Glow ring color. Defaults to `#0ea5e9` (Tailwind `sky-500`). */
   glowColor?: string;
-  /** Dim layer opacity in `0..1`. Defaults to `0.6` — high enough to focus
-   *  attention, low enough that surrounding UI remains readable. */
-  dimOpacity?: number;
   /** Pulse cycle duration in ms. Defaults to 1500. */
   pulseDurationMs?: number;
   /** When true (default), scroll the target into view smoothly if it leaves
    *  the viewport. When false, the spotlight stays at the last known
    *  position. */
   scrollIntoView?: boolean;
-  /** When true, the dim layer captures pointer events outside the cutout
-   *  so the user must interact with the target. Defaults to `false` —
-   *  the overlay is purely visual and the user can click anywhere. */
-  blockClickOutsideTarget?: boolean;
 }
 
 interface Rect {
@@ -67,12 +64,12 @@ interface Rect {
  *  modal stacks (which live at 10000+ in this codebase). */
 const Z_INDEX = 9000;
 
-/** Padding (px) added around the target's bounding rect so the cutout has a
- *  little breathing room and the ring doesn't kiss the element's own border. */
+/** Padding (px) added around the target's bounding rect so the ring has a
+ *  little breathing room and doesn't kiss the element's own border. */
 const CUTOUT_PADDING = 4;
 
-/** Ring offset (px) beyond the padded cutout — the ring sits just outside the
- *  dim cutout to look like a glow around it rather than on the element. */
+/** Ring offset (px) beyond the padded rect, so the glow sits just outside
+ *  the target's bounding box rather than directly on the element edge. */
 const RING_OFFSET = 2;
 
 /** Bool indicating we've already warned about an unresolved selector. The
@@ -122,10 +119,8 @@ function prefersReducedMotion(): boolean {
 export default function TourSpotlight({
   target,
   glowColor = "#0ea5e9",
-  dimOpacity = 0.6,
   pulseDurationMs = 1500,
   scrollIntoView = true,
-  blockClickOutsideTarget = false,
 }: TourSpotlightProps) {
   // SSR-safe portal mount — `document.body` is undefined during server render,
   // so the lazy initializer guards on `typeof document` and returns null on
@@ -275,30 +270,24 @@ export default function TourSpotlight({
 
   if (!portalNode || !resolved || !rect) return null;
 
-  // Cutout rect with padding. Clamped to non-negative for safety — a target
-  // briefly anchored above the viewport can produce a negative top, and our
-  // dim-strip math expects non-negative widths/heights.
-  const cutout = {
+  // Padded rect (small breathing room around the target's bounding box) plus
+  // a ring offset, so the glow sits just outside the element rather than on
+  // its border. Clamped at non-negative for safety in case a target briefly
+  // anchors above the viewport.
+  const padded = {
     left: rect.left - CUTOUT_PADDING,
     top: rect.top - CUTOUT_PADDING,
     width: rect.width + CUTOUT_PADDING * 2,
     height: rect.height + CUTOUT_PADDING * 2,
   };
 
-  // Ring sits one extra offset outside the cutout to form a halo.
+  // Ring sits one extra offset outside the padded rect to form a halo.
   const ring = {
-    left: cutout.left - RING_OFFSET,
-    top: cutout.top - RING_OFFSET,
-    width: cutout.width + RING_OFFSET * 2,
-    height: cutout.height + RING_OFFSET * 2,
+    left: padded.left - RING_OFFSET,
+    top: padded.top - RING_OFFSET,
+    width: padded.width + RING_OFFSET * 2,
+    height: padded.height + RING_OFFSET * 2,
   };
-
-  // Four dim rectangles surrounding the cutout. Total opacity matches
-  // `dimOpacity`. Pointer events are disabled by default (the overlay is
-  // visual only); when `blockClickOutsideTarget` is true the strips capture
-  // events to force interaction with the target.
-  const dimBg = `rgba(0, 0, 0, ${dimOpacity})`;
-  const dimPointerEvents = blockClickOutsideTarget ? "auto" : "none";
 
   // Pulse animation parameters. The keyframe oscillates opacity (0.4 -> 0.8)
   // and scale (1 -> 1.05). With reduced motion, we lock the ring at 0.8.
@@ -327,66 +316,12 @@ export default function TourSpotlight({
         }
       `}</style>
 
-      {/* Dim strips — top / left-of-cutout / right-of-cutout / bottom. The
-          four-rect approach keeps each strip a simple solid-colored div, no
-          SVG mask or clip-path. Performance is one paint per frame with no
-          compositor recalculation of mask shapes. */}
-      <div
-        data-testid="tour-spotlight-dim-top"
-        style={{
-          position: "fixed",
-          left: 0,
-          top: 0,
-          width: "100vw",
-          height: Math.max(0, cutout.top),
-          background: dimBg,
-          pointerEvents: dimPointerEvents,
-          animation: "tourSpotlightFadeIn 200ms ease-out",
-        }}
-      />
-      <div
-        data-testid="tour-spotlight-dim-bottom"
-        style={{
-          position: "fixed",
-          left: 0,
-          top: cutout.top + cutout.height,
-          width: "100vw",
-          height: `calc(100vh - ${cutout.top + cutout.height}px)`,
-          background: dimBg,
-          pointerEvents: dimPointerEvents,
-          animation: "tourSpotlightFadeIn 200ms ease-out",
-        }}
-      />
-      <div
-        data-testid="tour-spotlight-dim-left"
-        style={{
-          position: "fixed",
-          left: 0,
-          top: cutout.top,
-          width: Math.max(0, cutout.left),
-          height: cutout.height,
-          background: dimBg,
-          pointerEvents: dimPointerEvents,
-          animation: "tourSpotlightFadeIn 200ms ease-out",
-        }}
-      />
-      <div
-        data-testid="tour-spotlight-dim-right"
-        style={{
-          position: "fixed",
-          left: cutout.left + cutout.width,
-          top: cutout.top,
-          width: `calc(100vw - ${cutout.left + cutout.width}px)`,
-          height: cutout.height,
-          background: dimBg,
-          pointerEvents: dimPointerEvents,
-          animation: "tourSpotlightFadeIn 200ms ease-out",
-        }}
-      />
-
-      {/* Glow ring — positioned around the cutout. `boxShadow` builds the
-          glow (a colored shadow expanding outward + a soft inner sky-blue
-          edge). Always pointer-events: none — the ring is decorative. */}
+      {/* Glow ring around the target. `boxShadow` builds the glow (a colored
+          shadow expanding outward + a soft inner sky-blue edge). Always
+          pointer-events: none, the ring is decorative. The viewport dim
+          layer was removed 2026-05-21 per Grant feedback (see file header):
+          dimming the page also dimmed BeakerBot itself, so v4 now uses just
+          the pulsing glow ring as the single, universal highlight. */}
       <div
         data-testid="tour-spotlight-ring"
         data-reduced-motion={reducedMotion ? "true" : "false"}

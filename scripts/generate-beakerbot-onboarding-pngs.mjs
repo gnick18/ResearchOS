@@ -158,17 +158,23 @@ function rollingLaughingSvg() {
   // both fit inside the viewbox after the rotation.
   const bodyTransform = "translate(0, 2) rotate(85, 20, 22)";
   // The speech bubble + HAHA text in the live component is positioned
-  // at SVG coords (24.5..39.5, 4.4..10.6). When the body rotates 85deg
+  // at SVG coords (22..36, 4.4..10.6). When the body rotates 85deg
   // the bubble would swing wildly, so the original component uses a
   // counter-rotation on .laughTextRoll to keep it upright. For the
   // still, we just leave the bubble at its un-rotated position above
   // the (now-horizontal) body.
-  // Tightened viewbox: rotated body + speech bubble together span
-  // roughly x≈7-32, y≈3-32. We use a square 29x29 box (slight extra
-  // horizontal headroom so the rotated arm doesn't kiss the edge), and
-  // the canvas pre-scales us to a square 200x200 output.
+  //
+  // Viewbox: rotated body extents land roughly at x=[7.3, 32.7],
+  // y=[12, 32], stroke width ~1 in either direction, plus we want a
+  // small margin of breathing room so the body silhouette + HAHA
+  // bubble don't kiss any edge of the rendered PNG. Square 33x33 box
+  // (3..36 on both axes) gives the body and bubble a comfortable
+  // 1.5-ish-unit margin on every side. Expanded from the previous
+  // 5 3 29 29 box on 2026-05-21 (Grant feedback): the prior framing
+  // left the rolled body + HAHA bubble barely inside the right edge
+  // and the bubble's right rounded cap appeared clipped in the PNG.
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="5 3 29 29" fill="none"
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="3 3 33 33" fill="none"
      stroke="${SKY_500}" stroke-width="2"
      stroke-linecap="round" stroke-linejoin="round">
   <defs>
@@ -182,11 +188,13 @@ function rollingLaughingSvg() {
     ${coreBody({ eyes: "normal", mouth: "laugh" })}
   </g>
   <!-- HAHA! speech bubble, counter-rotated to stay upright. Pulled
-       toward the upper-left corner so the rotated body has room. -->
-  <g transform="translate(-12, 0)">
-    <rect x="24.5" y="4.4" width="15" height="6.2" rx="3.1" ry="3.1"
+       toward the upper-left corner so the rotated body has room. With
+       the expanded viewbox above, the bubble's right edge sits well
+       inside the frame and no longer clips. -->
+  <g transform="translate(-13.5, 0)">
+    <rect x="24.5" y="4.4" width="14" height="6.2" rx="3.1" ry="3.1"
           fill="white" stroke="${SKY_500}" stroke-width="0.5" />
-    <text x="32" y="8.9" text-anchor="middle"
+    <text x="31.5" y="8.9" text-anchor="middle"
           font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
           font-size="3.6" font-weight="700"
           fill="${SKY_500}" stroke="none">HAHA!</text>

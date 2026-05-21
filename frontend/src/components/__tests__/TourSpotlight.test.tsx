@@ -1,8 +1,10 @@
-// Component tests for <TourSpotlight /> — P3 of the Onboarding v4 arc. Covers
-// the public contract from ONBOARDING_V4_PROPOSAL.md §4.3:
+// Component tests for <TourSpotlight />, P3 of the Onboarding v4 arc. Covers
+// the public contract from ONBOARDING_V4_PROPOSAL.md §4.3 (revised 2026-05-21:
+// dim layer removed per Grant feedback, see TourSpotlight.tsx file header):
 //
 //  - Resolves an HTMLElement OR a CSS selector target; null = no render.
-//  - Mounts via portal into document.body with ring + four dim strips.
+//  - Mounts via portal into document.body with ONLY the pulsing glow ring
+//    (no dim strips, no cutout).
 //  - Updates position on scroll + resize via requestAnimationFrame batching.
 //  - Honors prefers-reduced-motion (ring stays visible, pulse animation off).
 //  - Warns once when a selector doesn't resolve.
@@ -147,15 +149,17 @@ function mountTarget(opts: {
 }
 
 describe("<TourSpotlight />", () => {
-  it("renders ring + four dim strips when given an HTMLElement target", () => {
+  it("renders just the glow ring (no dim strips) when given an HTMLElement target", () => {
     const target = mountTarget({ id: "anchor-a" });
     render(<TourSpotlight target={target} />);
     expect(screen.getByTestId("tour-spotlight")).toBeInTheDocument();
     expect(screen.getByTestId("tour-spotlight-ring")).toBeInTheDocument();
-    expect(screen.getByTestId("tour-spotlight-dim-top")).toBeInTheDocument();
-    expect(screen.getByTestId("tour-spotlight-dim-bottom")).toBeInTheDocument();
-    expect(screen.getByTestId("tour-spotlight-dim-left")).toBeInTheDocument();
-    expect(screen.getByTestId("tour-spotlight-dim-right")).toBeInTheDocument();
+    // Dim layer removed 2026-05-21 (Grant feedback). None of the four
+    // historical dim-strip test ids should appear in the DOM.
+    expect(screen.queryByTestId("tour-spotlight-dim-top")).toBeNull();
+    expect(screen.queryByTestId("tour-spotlight-dim-bottom")).toBeNull();
+    expect(screen.queryByTestId("tour-spotlight-dim-left")).toBeNull();
+    expect(screen.queryByTestId("tour-spotlight-dim-right")).toBeNull();
   });
 
   it("unmounts when target is null", () => {

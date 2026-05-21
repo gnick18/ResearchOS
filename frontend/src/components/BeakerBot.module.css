@@ -514,20 +514,25 @@
   }
   15% {
     opacity: 1;
-    transform: translate(-2px, -1px) rotate(-90deg) scale(1);
+    transform: translate(-2px, 1px) rotate(-90deg) scale(1);
   }
   85% {
     opacity: 1;
-    transform: translate(-2px, -1px) rotate(-90deg) scale(1);
+    transform: translate(-2px, 1px) rotate(-90deg) scale(1);
   }
   100% {
     opacity: 0;
-    transform: translate(-2px, -4px) rotate(0deg) scale(0.9);
+    transform: translate(-2px, -2px) rotate(0deg) scale(0.9);
   }
 }
 
+/* Pivot the bubble around its own center (29, 7.5) so the counter-rotation
+ * in laughTextRoll keeps it tidily framed inside the 0..40 viewBox even
+ * after the parent SVG body tilts ~92deg. Adjusted 2026-05-21 along with
+ * the bubble rect move from x=24.5,w=15 to x=22,w=14 (Grant feedback: the
+ * HAHA bubble was being clipped on the right of the rolled body). */
 .laughText {
-  transform-origin: 32px 8px;
+  transform-origin: 29px 7.5px;
   transform-box: view-box;
 }
 

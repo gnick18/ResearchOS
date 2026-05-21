@@ -195,11 +195,12 @@ describe("<StreaksSection />", () => {
     ]);
   });
 
-  it("renders the PTO stub with its contract testid", async () => {
+  it("renders the PTO subsection with its contract testid", async () => {
     await renderSection();
-    const stub = screen.getByTestId("streaks-pto-stub");
-    expect(stub).toBeInTheDocument();
-    expect(stub).toBeDisabled();
+    // S4 replaced the disabled stub button with the real PtoEditor mount.
+    // The testid moved to the container <div>, so it stays discoverable.
+    const subsection = screen.getByTestId("streaks-pto-stub");
+    expect(subsection).toBeInTheDocument();
   });
 
   it("shows 'Not started yet' when started_on is null", async () => {
