@@ -91,6 +91,64 @@ export function matchesAnyProjectFilter(
 }
 
 /**
+ * Lab-mode search uses a server-side endpoint (labApi.search) that takes
+ * a flat `usernames` CSV plus separate numeric `project_id` / `method_id`
+ * params. The dropdown layer carries composite "<owner>:<id>" keys to
+ * avoid the same per-user id collision (alex:1 vs morgan:1) Persona 18
+ * caught on the client-side /search page; this helper bridges the two
+ * shapes: parse the composite key into a numeric id for the API plus an
+ * owner narrowing for the usernames CSV.
+ *
+ * Narrowing rule: when a specific project or method is picked, the owner
+ * half of its composite key IS the disambiguator and overrides the
+ * caller's baseline usernames. Project narrowing wins if both keys are
+ * set with different owners (cross-owner combinations are pathological,
+ * and project is the broader, more-anchored filter). A method whose
+ * owner equals the synthetic public marker ("public" by default) does
+ * not narrow at all because the marketplace method pool lives across
+ * every user's task method_ids.
+ *
+ * Returned `usernames` is the CSV string the API expects, or undefined
+ * for "no filter, search all users". `projectId` / `methodId` are
+ * numbers when a key was parsed, null otherwise.
+ */
+export function narrowLabSearchByCompositeKeys(input: {
+  baselineUsernames: readonly string[];
+  projectKey: FilterKey | null | undefined;
+  methodKey: FilterKey | null | undefined;
+  publicMarker?: string;
+}): {
+  usernames: string | undefined;
+  projectId: number | null;
+  methodId: number | null;
+} {
+  const publicMarker = input.publicMarker ?? "public";
+  const projectParts = parseFilterKey(input.projectKey);
+  const methodParts = parseFilterKey(input.methodKey);
+
+  let ownerNarrowing: string | null = null;
+  if (projectParts) {
+    ownerNarrowing = projectParts.owner;
+  } else if (methodParts && methodParts.owner !== publicMarker) {
+    ownerNarrowing = methodParts.owner;
+  }
+
+  let usernames: string | undefined;
+  if (ownerNarrowing !== null) {
+    usernames = ownerNarrowing;
+  } else {
+    const csv = input.baselineUsernames.join(",");
+    usernames = csv.length > 0 ? csv : undefined;
+  }
+
+  return {
+    usernames,
+    projectId: projectParts?.id ?? null,
+    methodId: methodParts?.id ?? null,
+  };
+}
+
+/**
  * Method-filter predicate. Returns true when the task's primary method
  * attachment resolves to the method identified by `filterKey`. A
  * null/empty filter key means "no method filter" -> always passes.

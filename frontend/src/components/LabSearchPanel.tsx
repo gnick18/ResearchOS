@@ -16,6 +16,11 @@ import {
 } from "@/lib/export/orchestrate";
 import type { ExportFormat } from "@/lib/export/types";
 import type { Task } from "@/lib/types";
+import {
+  encodeFilterKey,
+  narrowLabSearchByCompositeKeys,
+  type FilterKey,
+} from "@/lib/search/filterKey";
 
 interface LabSearchPanelProps {
   selectedUsernames: Set<string>;
@@ -32,9 +37,17 @@ interface SearchFilters {
   dateFrom: string;
   dateTo: string;
   taskType: "all" | "experiment" | "purchase" | "list";
-  methodId: number | null;
+  // Composite "<owner>:<id>" keys for the Method / Project filters. A raw
+  // numeric id collides across users (alex's project 1 vs morgan's project
+  // 1, alex's private method 2 vs the public method 2), browsers snap
+  // selectedIndex to the first matching <option value>, and the search
+  // silently merges results from both owners. Persona 18 caught this on
+  // /search; lib/search/filterKey.ts is the shared encoder/parser, and
+  // narrowLabSearchByCompositeKeys bridges to the labApi.search payload.
+  // Null = no filter.
+  methodKey: FilterKey | null;
   methodFolder: string;
-  projectId: number | null;
+  projectKey: FilterKey | null;
   completionStatus: "all" | "complete" | "incomplete";
   username: string; // Specific user filter
 }
@@ -63,9 +76,9 @@ export default function LabSearchPanel({
     dateFrom: "",
     dateTo: "",
     taskType: "all",
-    methodId: null,
+    methodKey: null,
     methodFolder: "",
-    projectId: null,
+    projectKey: null,
     completionStatus: "all",
     username: "", // Empty means all selected users
   });
@@ -95,15 +108,25 @@ export default function LabSearchPanel({
     setHasSearched(true);
 
     try {
-      // Build usernames parameter
-      let usernamesParam: string | undefined;
-      if (filters.username) {
-        // Specific user selected
-        usernamesParam = filters.username;
-      } else {
-        // Use the globally selected users
-        usernamesParam = Array.from(selectedUsernames).join(",") || undefined;
-      }
+      // The baseline username scope is "specific user filter beats global
+      // user-multi-select"; the composite-key narrowing below may override
+      // both when a project/method is picked, because the owner half of
+      // the composite key is itself the disambiguator.
+      const baselineUsernames = filters.username
+        ? [filters.username]
+        : Array.from(selectedUsernames);
+
+      // Project / method composite keys carry their owner — narrow the API
+      // call to that owner so e.g. picking alex's project 1 doesn't merge
+      // with morgan's project 1. See narrowLabSearchByCompositeKeys for
+      // the cross-key precedence rule (project wins) and the public-method
+      // carve-out.
+      const { usernames: usernamesParam, projectId, methodId } =
+        narrowLabSearchByCompositeKeys({
+          baselineUsernames,
+          projectKey: filters.projectKey,
+          methodKey: filters.methodKey,
+        });
 
       // Build task types parameter
       let taskTypesParam: string | undefined;
@@ -117,8 +140,8 @@ export default function LabSearchPanel({
         task_types: taskTypesParam,
         date_from: filters.dateFrom || undefined,
         date_to: filters.dateTo || undefined,
-        project_id: filters.projectId || undefined,
-        method_id: filters.methodId || undefined,
+        project_id: projectId ?? undefined,
+        method_id: methodId ?? undefined,
         method_folder: filters.methodFolder || undefined,
         completion_status: filters.completionStatus !== "all" ? filters.completionStatus : undefined,
       });
@@ -144,9 +167,9 @@ export default function LabSearchPanel({
       dateFrom: "",
       dateTo: "",
       taskType: "all",
-      methodId: null,
+      methodKey: null,
       methodFolder: "",
-      projectId: null,
+      projectKey: null,
       completionStatus: "all",
       username: "",
     });
@@ -413,16 +436,27 @@ export default function LabSearchPanel({
               Project
             </label>
             <select
-              value={filters.projectId ?? ""}
-              onChange={(e) => updateFilter("projectId", e.target.value ? Number(e.target.value) : null)}
+              value={filters.projectKey ?? ""}
+              onChange={(e) => updateFilter("projectKey", e.target.value || null)}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
             >
               <option value="">All Projects</option>
-              {projects.map((p) => (
-                <option key={`${p.username}-${p.id}`} value={p.id}>
-                  {p.name} ({p.username})
-                </option>
-              ))}
+              {projects.map((p) => {
+                // Composite "<owner>:<id>" is both the React key AND the
+                // option value. A bare `p.id` collides for alex's project
+                // 1 vs morgan's project 1 because browsers snap
+                // selectedIndex to the first matching value, silently
+                // widening the filter to both owners (persona 18 on the
+                // /search page; same bug class here). encodeFilterKey
+                // keeps this in lockstep with the /search dropdowns and
+                // with narrowLabSearchByCompositeKeys below.
+                const key = encodeFilterKey({ owner: p.username, id: p.id });
+                return (
+                  <option key={key} value={key}>
+                    {p.name} ({p.username})
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -432,16 +466,25 @@ export default function LabSearchPanel({
               Specific Method
             </label>
             <select
-              value={filters.methodId ?? ""}
-              onChange={(e) => updateFilter("methodId", e.target.value ? Number(e.target.value) : null)}
+              value={filters.methodKey ?? ""}
+              onChange={(e) => updateFilter("methodKey", e.target.value || null)}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
             >
               <option value="">Any Method</option>
-              {methods.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name} {m.is_public ? "(public)" : `(${m.username})`}
-                </option>
-              ))}
+              {methods.map((m) => {
+                // Same composite-key shape as the Project select above.
+                // For public marketplace methods, LabMethod.username is
+                // the synthetic marker "public" (set in labApi.getMethods);
+                // narrowLabSearchByCompositeKeys treats that marker as
+                // "do not narrow" so the marketplace pool still searches
+                // across every user's task method_ids.
+                const key = encodeFilterKey({ owner: m.username, id: m.id });
+                return (
+                  <option key={key} value={key}>
+                    {m.name} {m.is_public ? "(public)" : `(${m.username})`}
+                  </option>
+                );
+              })}
             </select>
           </div>
 

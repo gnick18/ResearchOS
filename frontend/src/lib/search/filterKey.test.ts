@@ -5,6 +5,7 @@ import {
   matchesProjectFilter,
   matchesMethodFilter,
   matchesAnyProjectFilter,
+  narrowLabSearchByCompositeKeys,
 } from "./filterKey";
 
 describe("filterKey: encode / parse round-trip", () => {
@@ -146,5 +147,101 @@ describe("matchesAnyProjectFilter: multi-key OR for global pill bar", () => {
     expect(matchesAnyProjectFilter(alexProj2Task, ["alex:1", "morgan:1"])).toBe(
       false,
     );
+  });
+});
+
+describe("narrowLabSearchByCompositeKeys: lab-mode payload disambiguation", () => {
+  const baseline = ["alex", "morgan"];
+
+  it("no composite keys -> baseline CSV passes through, ids null", () => {
+    expect(
+      narrowLabSearchByCompositeKeys({
+        baselineUsernames: baseline,
+        projectKey: null,
+        methodKey: null,
+      }),
+    ).toEqual({ usernames: "alex,morgan", projectId: null, methodId: null });
+  });
+
+  it("empty baseline + no keys -> undefined (search all users)", () => {
+    expect(
+      narrowLabSearchByCompositeKeys({
+        baselineUsernames: [],
+        projectKey: null,
+        methodKey: null,
+      }),
+    ).toEqual({ usernames: undefined, projectId: null, methodId: null });
+  });
+
+  it("project key narrows usernames to the owner half", () => {
+    // The collision the helper exists to prevent: a bare project_id=1
+    // would match alex's AND morgan's project 1. Narrowing usernames to
+    // "alex" restricts the per-user iteration to the right namespace.
+    const out = narrowLabSearchByCompositeKeys({
+      baselineUsernames: baseline,
+      projectKey: "alex:1",
+      methodKey: null,
+    });
+    expect(out).toEqual({ usernames: "alex", projectId: 1, methodId: null });
+  });
+
+  it("method key narrows usernames to the owner half", () => {
+    const out = narrowLabSearchByCompositeKeys({
+      baselineUsernames: baseline,
+      projectKey: null,
+      methodKey: "morgan:2",
+    });
+    expect(out).toEqual({ usernames: "morgan", projectId: null, methodId: 2 });
+  });
+
+  it("public-marker method does NOT narrow", () => {
+    // Public marketplace methods live across every user's task
+    // method_ids, so the "public" username is a marker, not a real user.
+    // Narrowing to it would yield an empty target list.
+    const out = narrowLabSearchByCompositeKeys({
+      baselineUsernames: baseline,
+      projectKey: null,
+      methodKey: "public:5",
+    });
+    expect(out).toEqual({
+      usernames: "alex,morgan",
+      projectId: null,
+      methodId: 5,
+    });
+  });
+
+  it("project key wins over method key when both are set", () => {
+    // Cross-owner combos are pathological; project is the broader,
+    // more-anchored filter so it wins the narrowing race.
+    const out = narrowLabSearchByCompositeKeys({
+      baselineUsernames: baseline,
+      projectKey: "alex:1",
+      methodKey: "morgan:2",
+    });
+    expect(out).toEqual({ usernames: "alex", projectId: 1, methodId: 2 });
+  });
+
+  it("respects a custom publicMarker", () => {
+    const out = narrowLabSearchByCompositeKeys({
+      baselineUsernames: baseline,
+      projectKey: null,
+      methodKey: "shared:9",
+      publicMarker: "shared",
+    });
+    expect(out.usernames).toBe("alex,morgan");
+    expect(out.methodId).toBe(9);
+  });
+
+  it("malformed keys fall through to baseline (no narrowing, no ids)", () => {
+    const out = narrowLabSearchByCompositeKeys({
+      baselineUsernames: baseline,
+      projectKey: "garbage",
+      methodKey: "",
+    });
+    expect(out).toEqual({
+      usernames: "alex,morgan",
+      projectId: null,
+      methodId: null,
+    });
   });
 });
