@@ -183,6 +183,50 @@ function sortAndDedupeDates(dates: readonly string[]): string[] {
   return Array.from(set).sort();
 }
 
+// ----- sidecar change-event subscribers ----------------------------
+//
+// S2 needs to re-render the badge whenever the sidecar is patched
+// (S1's debounced tick AND the Settings toggle that lands in S3).
+// Rather than have every UI surface poll readStreak on a timer, the
+// patcher itself emits a synchronous event after the write resolves.
+// Listeners get (username, nextSidecar) so they can re-render without
+// a follow-up read. Non-breaking additive export.
+
+type SidecarChangeListener = (
+  username: string,
+  next: StreakSidecar,
+) => void;
+
+const sidecarChangeListeners = new Set<SidecarChangeListener>();
+
+/**
+ * Subscribe to sidecar-change events. Fires after every successful
+ * `patchStreak` write with the post-normalize shape. Returns an
+ * unsubscribe fn. Listener exceptions are caught per-listener so one
+ * bad subscriber cannot starve the others.
+ */
+export function onStreakSidecarChanged(
+  cb: SidecarChangeListener,
+): () => void {
+  sidecarChangeListeners.add(cb);
+  return () => {
+    sidecarChangeListeners.delete(cb);
+  };
+}
+
+function emitSidecarChange(username: string, next: StreakSidecar): void {
+  for (const cb of sidecarChangeListeners) {
+    try {
+      cb(username, next);
+    } catch (err) {
+      console.warn(
+        "[streak-sidecar] change listener threw:",
+        err,
+      );
+    }
+  }
+}
+
 // ----- per-user write queue ----------------------------------------
 //
 // Per-user promise chain. Concurrent patchStreak calls on the same
@@ -247,6 +291,7 @@ export async function patchStreak(
     // unsorted pto_dates or a slightly-off shape still persists cleanly.
     const cleaned = normalize(next);
     await fileService.writeJson(sidecarPath(username), cleaned);
+    emitSidecarChange(username, cleaned);
     return cleaned;
   });
 }
@@ -288,6 +333,7 @@ export async function initializeStreakForUser(
       },
     };
     await fileService.writeJson(sidecarPath(username), sidecar);
+    emitSidecarChange(username, sidecar);
     return sidecar;
   });
 }
@@ -408,7 +454,11 @@ export function computeReachedAnniversaries(
 // queued write from one test doesn't leak into the next. Exposed as
 // an internal helper, not part of the public surface.
 
-/** @internal — test-only. Clears the per-user write queues. */
+/** @internal — test-only. Clears the per-user write queues AND the
+ *  sidecar-change listener set. Tests should call this in beforeEach so
+ *  a leftover subscription from a prior test cannot fire mid-render in
+ *  the next one. */
 export function __resetStreakWriteQueueForTests(): void {
   userWriteQueues.clear();
+  sidecarChangeListeners.clear();
 }

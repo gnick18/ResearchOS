@@ -2,7 +2,7 @@
 
 import Link from "@/components/FixtureLink";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import DailyTasksSidebar from "./DailyTasksSidebar";
 import CalendarSidebar from "./CalendarSidebar";
@@ -26,6 +26,8 @@ import DataSetupScreen from "./DataSetupScreen";
 import UserLoginScreen from "./UserLoginScreen";
 import FeedbackModal from "./FeedbackModal";
 import BeakerBot from "./BeakerBot";
+import StreakBadge from "./StreakBadge";
+import { installStreakActivityTracking } from "@/lib/streak/streak-activity-bootstrap";
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { HELP_HREF, appRouteToWikiRoute } from "@/lib/wiki/nav";
 import { useAppStore } from "@/lib/store";
@@ -64,6 +66,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // on every AppShell-wrapped route — no per-page duplication.
   const [showDataSetup, setShowDataSetup] = useState(false);
   const [showUserSwitch, setShowUserSwitch] = useState(false);
+
+  // Phase S2 bootstrap (Streak-and-Milestones, see proposal §4.2 / §5).
+  // `installStreakActivityTracking` is idempotent — it registers the
+  // file-write observer + beforeunload flusher exactly once even when
+  // AppShell remounts (route changes don't unmount AppShell on this
+  // app, but a future provider-stack tweak could). Mounting from the
+  // shell rather than from the provider stack keeps the bootstrap in
+  // the same surface that hosts the badge: any code path that renders
+  // the AppShell gets streak tracking. Pre-login / data-setup screens
+  // that don't render AppShell don't tick streaks, which matches the
+  // "no active user, no tracking" contract.
+  useEffect(() => {
+    installStreakActivityTracking();
+  }, []);
   const {
     showBugReport,
     showErrorToast,
@@ -141,6 +157,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               ariaLabel="ResearchOS BeakerBot logo"
               className="w-6 h-6 text-sky-500 shrink-0"
             />
+            {/* Streak badge sits between brand mark and wordmark per
+                proposal §6.1. Hidden when current_count is 0, when the
+                user has disabled streaks in Settings, or pre-login. */}
+            <StreakBadge username={currentUser} />
             <h1 className="text-base font-bold text-gray-900 tracking-tight">
               ResearchOS
             </h1>
