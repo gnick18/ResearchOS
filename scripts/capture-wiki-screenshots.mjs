@@ -192,6 +192,259 @@ const FIXTURE_ROUTES = [
     },
   },
   {
+    // Project Surface — the slim Inspector popup (P7-stripped) over Home.
+    // Click the FakeYeast project card on Home, then compute a tight clip
+    // around the popup so the screenshot focuses on the Inspector itself
+    // and not the dimmed page behind it.
+    path: "/",
+    file: "projects-slim-popup.png",
+    waitFor: "text=Research Project Overview",
+    settleMs: 900,
+    action: async (page) => {
+      try {
+        const heading = page
+          .locator("h3")
+          .filter({ hasText: /^DEMO:\s*Engineer FakeYeast for biofuel$/ })
+          .first();
+        if (!(await heading.count())) return;
+        await heading.click({ timeout: 3000 });
+        await page.waitForTimeout(900);
+      } catch (err) {
+        console.warn(`  ⚠ projects-slim-popup open card: ${err.message}`);
+        return;
+      }
+      // Tight clip around the popup. The popup container is a fixed-inset
+      // overlay whose first child is the white card (max-w-lg, max-h-80vh).
+      // The `Open full view →` Link text is a stable marker that the slim
+      // P7 popup is mounted.
+      try {
+        const clip = await page.evaluate(() => {
+          const anchors = Array.from(document.querySelectorAll("a"));
+          const cta = anchors.find((a) =>
+            (a.textContent || "").trim().startsWith("Open full view"),
+          );
+          if (!cta) return null;
+          // Walk up to the popup card (the rounded-xl shadow-xl wrapper).
+          let card = cta.parentElement;
+          while (card && card !== document.body) {
+            if (card.className && /rounded-xl/.test(card.className) && /shadow/.test(card.className)) {
+              break;
+            }
+            card = card.parentElement;
+          }
+          if (!card || card === document.body) return null;
+          const r = card.getBoundingClientRect();
+          const pad = 16;
+          const x = Math.max(0, Math.floor(r.left - pad));
+          const y = Math.max(0, Math.floor(r.top - pad));
+          const width = Math.min(
+            Math.max(0, window.innerWidth - x),
+            Math.ceil(r.width + pad * 2),
+          );
+          const height = Math.min(
+            Math.max(0, window.innerHeight - y),
+            Math.ceil(r.height + pad * 2),
+          );
+          return { x, y, width, height };
+        });
+        if (clip && clip.width > 100 && clip.height > 100) {
+          return { clip };
+        }
+      } catch (err) {
+        console.warn(`  ⚠ projects-slim-popup clip calc: ${err.message}`);
+      }
+    },
+  },
+  {
+    // Project Surface route — Overview section + the sticky anchor strip.
+    // FakeYeast project (alex/1) is the demo project. The fixture seeds no
+    // overview prose, so the editor's empty-state placeholder is what
+    // shows up. fullPage so the section spacing reads cleanly below the
+    // sticky top bar.
+    path: "/workbench/projects/1",
+    file: "projects-route-overview.png",
+    waitFor: '[data-testid="project-route-topbar"], text=Overview',
+    settleMs: 800,
+  },
+  {
+    // Project Surface route — Results section. Scroll to the #results
+    // anchor, then tight-clip around the section's grouped galleries.
+    // FIXTURE NOTE: the fixture seeds task images under
+    // users/alex/tasks/2-Lab-Notes/Images/ but not under task Results tabs,
+    // so the ResultsGallery will show its empty state ("No results yet…")
+    // rather than thumbnail groups. The screenshot still demonstrates the
+    // section header + caption shape, just without thumbnails.
+    path: "/workbench/projects/1",
+    file: "projects-route-results.png",
+    waitFor: '[data-testid="project-route-topbar"], text=Overview',
+    settleMs: 1000,
+    action: async (page) => {
+      try {
+        await page.evaluate(() => {
+          const el = document.getElementById("results");
+          if (el) el.scrollIntoView({ block: "start", behavior: "instant" });
+        });
+        await page.waitForTimeout(500);
+        const clip = await page.evaluate(() => {
+          const section = document.getElementById("results");
+          if (!section) return null;
+          const r = section.getBoundingClientRect();
+          const pad = 12;
+          const x = Math.max(0, Math.floor(r.left - pad));
+          const y = Math.max(0, Math.floor(r.top - pad));
+          const width = Math.min(
+            Math.max(0, window.innerWidth - x),
+            Math.ceil(r.width + pad * 2),
+          );
+          const height = Math.min(
+            Math.max(0, window.innerHeight - y),
+            Math.ceil(r.height + pad * 2),
+          );
+          return { x, y, width, height };
+        });
+        if (clip && clip.width > 100 && clip.height > 100) {
+          return { clip };
+        }
+      } catch (err) {
+        console.warn(`  ⚠ projects-route-results clip: ${err.message}`);
+      }
+    },
+  },
+  {
+    // Project Surface route — Methods inventory. Tasks 2 + 7 + 8 + 11 on
+    // alex's project 1 carry method_attachments to methods 1/2/3, so the
+    // MethodsInventory section will populate with usage badges.
+    path: "/workbench/projects/1",
+    file: "projects-route-methods.png",
+    waitFor: '[data-testid="project-route-topbar"], text=Overview',
+    settleMs: 1000,
+    action: async (page) => {
+      try {
+        await page.evaluate(() => {
+          const el = document.getElementById("methods");
+          if (el) el.scrollIntoView({ block: "start", behavior: "instant" });
+        });
+        await page.waitForTimeout(500);
+        const clip = await page.evaluate(() => {
+          const section = document.getElementById("methods");
+          if (!section) return null;
+          const r = section.getBoundingClientRect();
+          const pad = 12;
+          const x = Math.max(0, Math.floor(r.left - pad));
+          const y = Math.max(0, Math.floor(r.top - pad));
+          const width = Math.min(
+            Math.max(0, window.innerWidth - x),
+            Math.ceil(r.width + pad * 2),
+          );
+          const height = Math.min(
+            Math.max(0, window.innerHeight - y),
+            Math.ceil(r.height + pad * 2),
+          );
+          return { x, y, width, height };
+        });
+        if (clip && clip.width > 100 && clip.height > 100) {
+          return { clip };
+        }
+      } catch (err) {
+        console.warn(`  ⚠ projects-route-methods clip: ${err.message}`);
+      }
+    },
+  },
+  {
+    // Project Surface route — Activity feed.
+    // FIXTURE NOTE: the fixture does not seed a
+    // users/alex/projects/1-activity.json sidecar, so ActivityFeed will
+    // render its "No activity yet." empty state. The screenshot captures
+    // the section header + empty state shape. To get a populated feed
+    // post-fixture-update, seed several events into that sidecar mirroring
+    // the ProjectActivityEvent shape from
+    // frontend/src/lib/project-activity/event-log.ts (task_completed,
+    // image_added, method_added, prose_edited, project_shared).
+    path: "/workbench/projects/1",
+    file: "projects-route-activity.png",
+    waitFor: '[data-testid="project-route-topbar"], text=Overview',
+    settleMs: 1000,
+    action: async (page) => {
+      try {
+        await page.evaluate(() => {
+          const el = document.getElementById("activity");
+          if (el) el.scrollIntoView({ block: "start", behavior: "instant" });
+        });
+        await page.waitForTimeout(500);
+        const clip = await page.evaluate(() => {
+          const section = document.getElementById("activity");
+          if (!section) return null;
+          const r = section.getBoundingClientRect();
+          const pad = 12;
+          const x = Math.max(0, Math.floor(r.left - pad));
+          const y = Math.max(0, Math.floor(r.top - pad));
+          const width = Math.min(
+            Math.max(0, window.innerWidth - x),
+            Math.ceil(r.width + pad * 2),
+          );
+          const height = Math.min(
+            Math.max(0, window.innerHeight - y),
+            Math.ceil(r.height + pad * 2),
+          );
+          return { x, y, width, height };
+        });
+        if (clip && clip.width > 100 && clip.height > 100) {
+          return { clip };
+        }
+      } catch (err) {
+        console.warn(`  ⚠ projects-route-activity clip: ${err.message}`);
+      }
+    },
+  },
+  {
+    // Project Surface — the left sidebar Projects rail. Land on any
+    // project route so SidebarProjectsNav renders with an active highlight,
+    // then tight-clip the left rail. The rail is the 48-wide aside
+    // (className "w-48 border-r border-gray-200 bg-white …") immediately
+    // inside AppShell's flex row.
+    path: "/workbench/projects/1",
+    file: "projects-sidebar-nav.png",
+    waitFor: '[data-testid="project-route-topbar"], text=Overview',
+    settleMs: 800,
+    action: async (page) => {
+      try {
+        const clip = await page.evaluate(() => {
+          // The rail's Link to "/" with label "Projects" is the stable
+          // marker. Walk up to the enclosing <aside>.
+          const links = Array.from(document.querySelectorAll("aside a"));
+          const projectsLink = links.find(
+            (a) =>
+              (a.getAttribute("href") || "") === "/" &&
+              (a.textContent || "").trim() === "Projects",
+          );
+          if (!projectsLink) return null;
+          let aside = projectsLink.closest("aside");
+          if (!aside) return null;
+          const r = aside.getBoundingClientRect();
+          const pad = 8;
+          const x = Math.max(0, Math.floor(r.left - pad));
+          const y = Math.max(0, Math.floor(r.top - pad));
+          const width = Math.min(
+            Math.max(0, window.innerWidth - x),
+            Math.ceil(r.width + pad * 2),
+          );
+          // Cap the rail height so a tall sub-list doesn't drag the
+          // capture down past the visible region.
+          const maxHeight = Math.min(
+            Math.max(0, window.innerHeight - y),
+            Math.ceil(r.height + pad * 2),
+          );
+          return { x, y, width, height: maxHeight };
+        });
+        if (clip && clip.width > 50 && clip.height > 80) {
+          return { clip };
+        }
+      } catch (err) {
+        console.warn(`  ⚠ projects-sidebar-nav clip: ${err.message}`);
+      }
+    },
+  },
+  {
     path: "/gantt",
     file: "gantt-overview.png",
     waitFor: ".gantt, [role='grid'], text=GANTT",

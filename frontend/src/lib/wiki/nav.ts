@@ -19,6 +19,12 @@ export const APP_ROUTE_TO_WIKI: Record<string, string> = {
   "/search": "/wiki/features/search",
   "/links": "/wiki/features/links",
   "/settings": "/wiki/features/settings",
+  // FOLLOW-UP: Project Surface lives at the dynamic route
+  // `/workbench/projects/<id>`. The lookup below is exact-match only, so a
+  // single literal entry can't cover every id. The `?` help icon will fall
+  // back to the wiki landing via `appRouteToWikiRoute`'s null-coalescing.
+  // Switching this map to prefix-matching is the right next step; until
+  // then, see /wiki/features/projects for the documentation.
 };
 
 /** Lookup with wiki-landing fallback. Use for affordances that should
@@ -122,6 +128,11 @@ export const WIKI_NAV: WikiNode[] = [
         href: "/wiki/features/home",
         label: "Home & Projects",
         blurb: "Create, color, archive, and reorder projects.",
+      },
+      {
+        href: "/wiki/features/projects",
+        label: "Project Surface",
+        blurb: "Slim Inspector popup plus a full Workspace route for each project.",
       },
       {
         href: "/wiki/features/gantt",

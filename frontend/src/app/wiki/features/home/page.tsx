@@ -54,6 +54,12 @@ export default function HomeFeaturePage() {
         into the full task detail.
       </p>
       <p>
+        For the full Project Surface walkthrough (the slim Inspector popup
+        plus the dedicated Workspace route with Overview, Results, Methods,
+        Goals, and Activity), see{" "}
+        <Link href="/wiki/features/projects">Project Surface</Link>.
+      </p>
+      <p>
         Three icon buttons sit in the popup header. A <strong>pencil</strong>{" "}
         enters edit mode (rename, change color, edit tags, toggle the 7-day
         schedule, or delete the project). A connected-circles{" "}
