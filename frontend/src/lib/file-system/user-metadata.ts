@@ -18,6 +18,16 @@ export interface UserMetadataEntry {
   // provider (OneDrive Files On-Demand, Dropbox, etc.) re-creates the
   // directory as a placeholder underneath us. See INVESTIGATION_USER_LEAKS.md.
   deleted_at?: string;
+  // Onboarding v3 Phase 3 fake lab partner marker. When true, this user
+  // was spawned by the Lab Mode tour (L2 / L19) as a temporary teammate
+  // so the user could practice sharing, edit, and view-only permission
+  // flavors. Phase 4 cleanup uses the flag to surface a discard option
+  // alongside the lab_user artifact that wraps this entry. Mirrors the
+  // existing `tutorial_test: true` flag on Telegram image sidecars (W12)
+  // so cleanup logic across surfaces follows the same pattern. The flag
+  // is purely informational; no other consumer alters behavior based on
+  // it (lab mode still surfaces the user normally during the tour).
+  is_tutorial?: boolean;
 }
 
 export interface UserMetadataFile {

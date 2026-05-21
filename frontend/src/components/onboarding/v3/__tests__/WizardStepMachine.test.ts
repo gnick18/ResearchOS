@@ -184,13 +184,9 @@ describe("WizardStepMachine: lab maximal path", () => {
   });
 
   it("when lab user defers ('later'), skips L1-L11 but keeps lab-prompt", () => {
-    const sidecar = baseSidecar({
-      wizard_resume_state: {
-        current_step: "lab-prompt",
-        skipped_steps: ["lab_tour_decision:later"],
-        artifacts_created: [],
-      },
-    });
+    // P3a moved the "later" signal off the sentinel-in-skipped_steps
+    // scheme onto the real sidecar field that P0 shipped (lab_tour_pending).
+    const sidecar = baseSidecar({ lab_tour_pending: true });
     const picks = fullPicks({
       account_type: "lab",
       purchases: "yes",
@@ -201,12 +197,9 @@ describe("WizardStepMachine: lab maximal path", () => {
   });
 
   it("when lab user dismisses, skips L1-L11", () => {
+    // P3a reads lab_tour_dismissed_at directly.
     const sidecar = baseSidecar({
-      wizard_resume_state: {
-        current_step: "lab-prompt",
-        skipped_steps: ["lab_tour_decision:dismiss"],
-        artifacts_created: [],
-      },
+      lab_tour_dismissed_at: "2026-05-20T01:23:45.000Z",
     });
     const picks = fullPicks({ account_type: "lab" });
     expect(getNextStep("lab-prompt", sidecar, picks)).toBe("phase4-cleanup");
@@ -243,22 +236,28 @@ describe("WizardStepMachine: conditional W10-W14 gating", () => {
     expect(isStepSkippedByGate("W14", fullPicks({ ai_helper: "maybe" }), baseSidecar())).toBe(true);
   });
 
-  it("lab L8 fires only for lab + lab-tour:now + purchases:yes", () => {
+  it("lab L8 fires only for lab + lab-tour-active + purchases:yes", () => {
+    // P3a: "lab tour active" = sidecar has neither lab_tour_pending nor
+    // lab_tour_dismissed_at set. The "Now" pick at lab-prompt writes
+    // nothing, so the sidecar stays in this shape and L1-L11 (including
+    // L8) flow as part of the universal walkthrough.
     const labNowYesPurchases = fullPicks({ account_type: "lab", purchases: "yes" });
-    const sidecarNow = baseSidecar({
-      wizard_resume_state: {
-        current_step: "lab-prompt",
-        skipped_steps: ["lab_tour_decision:now"],
-        artifacts_created: [],
-      },
-    });
-    expect(isStepSkippedByGate("L8", labNowYesPurchases, sidecarNow)).toBe(false);
+    const sidecarActive = baseSidecar();
+    expect(isStepSkippedByGate("L8", labNowYesPurchases, sidecarActive)).toBe(false);
 
     const labNowNoPurchases = fullPicks({ account_type: "lab", purchases: "no" });
-    expect(isStepSkippedByGate("L8", labNowNoPurchases, sidecarNow)).toBe(true);
+    expect(isStepSkippedByGate("L8", labNowNoPurchases, sidecarActive)).toBe(true);
 
     const solo = fullPicks({ account_type: "solo", purchases: "yes" });
-    expect(isStepSkippedByGate("L8", solo, sidecarNow)).toBe(true);
+    expect(isStepSkippedByGate("L8", solo, sidecarActive)).toBe(true);
+
+    // L8 also skips when the lab user opted out at lab-prompt.
+    const labLater = baseSidecar({ lab_tour_pending: true });
+    expect(isStepSkippedByGate("L8", labNowYesPurchases, labLater)).toBe(true);
+    const labDismiss = baseSidecar({
+      lab_tour_dismissed_at: "2026-05-20T00:00:00.000Z",
+    });
+    expect(isStepSkippedByGate("L8", labNowYesPurchases, labDismiss)).toBe(true);
   });
 });
 
@@ -311,13 +310,10 @@ describe("WizardStepMachine: stepIndex / totalSteps", () => {
   });
 
   it("lab maximal: every step in the union", () => {
-    const sidecar = baseSidecar({
-      wizard_resume_state: {
-        current_step: "lab-prompt",
-        skipped_steps: ["lab_tour_decision:now"],
-        artifacts_created: [],
-      },
-    });
+    // P3a: no sentinel needed. A fresh sidecar with no opt-out fields
+    // means the lab tour is "active" (undecided / Now-pick branch),
+    // so the L-step gate lets every L1-L11 through.
+    const sidecar = baseSidecar();
     const picks = fullPicks({
       account_type: "lab",
       purchases: "yes",
@@ -338,29 +334,33 @@ describe("WizardStepMachine: stepIndex / totalSteps", () => {
 });
 
 describe("WizardStepMachine: getLabTourDecision", () => {
-  it("defaults to now when no decision is recorded", () => {
-    expect(getLabTourDecision(null)).toBe("now");
-    expect(getLabTourDecision(baseSidecar())).toBe("now");
+  it("defaults to undecided when no opt-out is recorded (P3a default flip)", () => {
+    // P1 defaulted to "now" so test reachability worked; P3a flipped
+    // the default to "undecided" once the real lab-prompt step body
+    // landed. "Now" is no longer a return value; absence of opt-out =
+    // active tour, evaluated via isLabTourActive.
+    expect(getLabTourDecision(null)).toBe("undecided");
+    expect(getLabTourDecision(baseSidecar())).toBe("undecided");
   });
 
-  it("reads later from resume state", () => {
-    const sidecar = baseSidecar({
-      wizard_resume_state: {
-        current_step: "lab-prompt",
-        skipped_steps: ["lab_tour_decision:later"],
-        artifacts_created: [],
-      },
-    });
+  it("reads later from lab_tour_pending sidecar field", () => {
+    const sidecar = baseSidecar({ lab_tour_pending: true });
     expect(getLabTourDecision(sidecar)).toBe("later");
   });
 
-  it("reads dismiss from resume state", () => {
+  it("reads dismiss from lab_tour_dismissed_at sidecar field", () => {
     const sidecar = baseSidecar({
-      wizard_resume_state: {
-        current_step: "lab-prompt",
-        skipped_steps: ["lab_tour_decision:dismiss"],
-        artifacts_created: [],
-      },
+      lab_tour_dismissed_at: "2026-05-20T00:00:00.000Z",
+    });
+    expect(getLabTourDecision(sidecar)).toBe("dismiss");
+  });
+
+  it("dismissed_at takes precedence over pending (terminal opt-out)", () => {
+    // Defensive: if both fields ever end up set on the same sidecar
+    // (e.g. a race between two P3b prompts), the terminal dismiss wins.
+    const sidecar = baseSidecar({
+      lab_tour_pending: true,
+      lab_tour_dismissed_at: "2026-05-20T00:00:00.000Z",
     });
     expect(getLabTourDecision(sidecar)).toBe("dismiss");
   });

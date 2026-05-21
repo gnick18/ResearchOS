@@ -47,6 +47,18 @@ import W11GoalsTourStep from "./steps/walkthrough/W11GoalsTourStep";
 import W12TelegramWithImageStep from "./steps/walkthrough/W12TelegramWithImageStep";
 import W13CalendarTourStep from "./steps/walkthrough/W13CalendarTourStep";
 import W14AiHelperStep from "./steps/walkthrough/W14AiHelperStep";
+import LabPromptStep from "./steps/lab/LabPromptStep";
+import L1WhatIsLabMode from "./steps/lab/L1WhatIsLabMode";
+import L2SpawnFakeBeakerBot from "./steps/lab/L2SpawnFakeBeakerBot";
+import L3SeeBeakerBotTask from "./steps/lab/L3SeeBeakerBotTask";
+import L4PermissionPractice from "./steps/lab/L4PermissionPractice";
+import L5UserSharesBack from "./steps/lab/L5UserSharesBack";
+import L6RevokeShare from "./steps/lab/L6RevokeShare";
+import L7GanttAndActivityFeed from "./steps/lab/L7GanttAndActivityFeed";
+import L8LabPurchases from "./steps/lab/L8LabPurchases";
+import L9LabSearch from "./steps/lab/L9LabSearch";
+import L10LabWrap from "./steps/lab/L10LabWrap";
+import L11BeakerBotCleanupOption from "./steps/lab/L11BeakerBotCleanupOption";
 
 /**
  * The Onboarding v3 wizard shell.
@@ -815,6 +827,86 @@ function StepBody({
         <W14AiHelperStep
           sidecar={sidecar}
           setNextDisabled={setNextDisabled}
+        />
+      );
+    case "lab-prompt":
+      return (
+        <LabPromptStep
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+          patchSidecar={patchSidecar}
+        />
+      );
+    case "L1":
+      return <L1WhatIsLabMode setNextDisabled={setNextDisabled} />;
+    case "L2":
+      return (
+        <L2SpawnFakeBeakerBot
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+          patchSidecar={patchSidecar}
+        />
+      );
+    case "L3":
+      return (
+        <L3SeeBeakerBotTask
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+        />
+      );
+    case "L4":
+      return (
+        <L4PermissionPractice
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+          patchSidecar={patchSidecar}
+        />
+      );
+    case "L5":
+      return (
+        <L5UserSharesBack
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+          patchSidecar={patchSidecar}
+        />
+      );
+    case "L6":
+      return (
+        <L6RevokeShare
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+        />
+      );
+    case "L7":
+      return (
+        <L7GanttAndActivityFeed
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+        />
+      );
+    case "L8":
+      return (
+        <L8LabPurchases
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+          patchSidecar={patchSidecar}
+        />
+      );
+    case "L9":
+      return (
+        <L9LabSearch
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+        />
+      );
+    case "L10":
+      return <L10LabWrap setNextDisabled={setNextDisabled} />;
+    case "L11":
+      return (
+        <L11BeakerBotCleanupOption
+          sidecar={sidecar}
+          setNextDisabled={setNextDisabled}
+          patchSidecar={patchSidecar}
         />
       );
     default:

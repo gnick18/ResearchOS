@@ -124,13 +124,17 @@ const SETUP_STEP_IDS: ReadonlySet<WizardStep> = new Set<WizardStep>([
   "setup-q6",
 ]);
 
-/** Mid-walkthrough decision the user makes at the end of Phase 2 (lab
- *  accounts only). "now" enters the L1-L11 tour, "later" defers via
- *  lab_tour_pending, "dismiss" sets lab_tour_dismissed_at. None of
- *  these branches are forced by the state machine; the lab-prompt
- *  step renderer drives the pick and getNextStep consumes it via the
- *  sidecar arg. */
-export type LabTourDecision = "now" | "later" | "dismiss";
+/** Mid-walkthrough opt-out signal for the Lab Mode tour. "later" defers
+ *  via `lab_tour_pending` (P3b's natural-Lab-Mode-entry trigger will
+ *  re-prompt), "dismiss" sets `lab_tour_dismissed_at` (permanent),
+ *  "undecided" means no opt-out is persisted. The "Take Lab tour now"
+ *  branch of the lab-prompt step body writes nothing and steps the
+ *  wizard forward to L1 directly, so "undecided" + lab account flows
+ *  through the L-steps from this reader's perspective. There is no
+ *  "now" return value: the absence of an opt-out is the active state.
+ *  See {@link isLabTourActive} for the gate predicate that consumes
+ *  this. */
+export type LabTourDecision = "later" | "dismiss" | "undecided";
 
 /** Returns true when this step is gated by a feature pick that
  *  evaluates falsy under the given sidecar/featurePicks. The wizard
@@ -164,12 +168,13 @@ export function isStepSkippedByGate(
 
   // Lab tour gate. lab-prompt only fires for lab accounts. L1-L11
   // only fire when the user picked "now" at lab-prompt — the renderer
-  // for lab-prompt is expected to write the pick into
-  // sidecar.wizard_resume_state (the brief reserves the
-  // implementation detail for the lab-prompt body). For P1 we treat
-  // the lab tour as gated by a synthetic `lab_tour_active` flag we
-  // stash on resume state; the lab-prompt placeholder defaults to
-  // "now" so the universal smoke test still walks through L1-L11.
+  // for lab-prompt (P3a, LabPromptStep) writes `lab_tour_pending` /
+  // `lab_tour_dismissed_at` into the sidecar via patchSidecar; the
+  // "now" branch writes nothing and falls through to L1. P3a migrated
+  // the reader off the P1 sentinel-in-skipped_steps scheme onto the
+  // real sidecar fields that P0 already shipped for exactly this
+  // purpose; the default is "undecided" so an unfinished lab-prompt
+  // never lets the state machine wander into L1-L11 on its own.
   if (step === "lab-prompt") {
     return picks?.account_type !== "lab";
   }
@@ -186,33 +191,58 @@ export function isStepSkippedByGate(
     step === "L11"
   ) {
     if (picks?.account_type !== "lab") return true;
-    return getLabTourDecision(sidecar) !== "now";
+    return !isLabTourActive(sidecar);
   }
   if (step === "L8") {
     if (picks?.account_type !== "lab") return true;
-    if (getLabTourDecision(sidecar) !== "now") return true;
+    if (!isLabTourActive(sidecar)) return true;
     return picks?.purchases !== "yes";
   }
 
   return false;
 }
 
-/** Read the lab-tour pick from the sidecar's resume state. The
- *  lab-prompt step renderer (P3a) writes a string into
- *  `wizard_resume_state.skipped_steps` with a `lab_tour_decision:`
- *  prefix so the state machine can read it back without expanding
- *  the sidecar schema. P1 defaults to "now" when no value is found
- *  so the smoke-test walks the full lab path. */
+/** Read the lab-tour pick from the sidecar. P3a migrated this reader
+ *  off the P1 sentinel-strings-in-`wizard_resume_state.skipped_steps`
+ *  scheme onto the real sidecar fields P0 shipped for exactly this
+ *  purpose:
+ *
+ *    - `lab_tour_dismissed_at` set → "dismiss" (terminal; never fires
+ *      again automatically per L18)
+ *    - `lab_tour_pending: true`    → "later" (P3b's natural-Lab-Mode-
+ *      entry trigger reads the same flag and re-prompts)
+ *    - neither set                 → "undecided" by default. The
+ *      lab-prompt step body writes nothing on the "Now" branch so the
+ *      state machine flows straight through to L1; on Later/Dismiss
+ *      it patches the corresponding sidecar field before transitioning,
+ *      and `getNextStep` consults this reader on the next render to
+ *      route around L1-L11 to phase4-cleanup.
+ *
+ *  Default flipped from "now" → "undecided" in P3a so an unfinished
+ *  lab-prompt no longer pulls a partial walkthrough into the lab tour.
+ *  P1's "now" default was only kept so the universal smoke test walked
+ *  the full graph; the real step body now drives the decision. */
 export function getLabTourDecision(
   sidecar: OnboardingSidecar | null,
 ): LabTourDecision {
-  const skipped = sidecar?.wizard_resume_state?.skipped_steps ?? [];
-  for (const entry of skipped) {
-    if (entry === "lab_tour_decision:later") return "later";
-    if (entry === "lab_tour_decision:dismiss") return "dismiss";
-    if (entry === "lab_tour_decision:now") return "now";
-  }
-  return "now";
+  if (!sidecar) return "undecided";
+  if (sidecar.lab_tour_dismissed_at) return "dismiss";
+  if (sidecar.lab_tour_pending) return "later";
+  return "undecided";
+}
+
+/** True when the L1-L11 step bodies should render. Active iff the
+ *  user has not explicitly opted out (Later or Dismiss). "undecided"
+ *  is treated as active so the universal walkthrough flows straight
+ *  into the lab tour from W14 / lab-prompt without a sentinel write
+ *  for the "Now" pick — the brief's writer contract says Now writes
+ *  nothing and proceeds, so any non-opted-out lab user reaches L1
+ *  through this predicate. */
+export function isLabTourActive(
+  sidecar: OnboardingSidecar | null,
+): boolean {
+  const decision = getLabTourDecision(sidecar);
+  return decision !== "later" && decision !== "dismiss";
 }
 
 /** Compute the next applicable step. Returns `"phase4-cleanup"` once
