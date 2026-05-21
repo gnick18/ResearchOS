@@ -11,6 +11,7 @@ import Tooltip from "@/components/Tooltip";
 import LiveMarkdownEditor from "@/components/LiveMarkdownEditor";
 import ResultsGallery from "@/components/project-surface/ResultsGallery";
 import MethodsInventory from "@/components/project-surface/MethodsInventory";
+import GoalsSection from "@/components/project-surface/GoalsSection";
 import { fileService } from "@/lib/file-system/file-service";
 import { fileEvents } from "@/lib/attachments/file-events";
 import { imageEvents } from "@/lib/attachments/image-events";
@@ -21,6 +22,8 @@ import {
 } from "@/lib/projects/attachment-paths";
 import { recordProjectActivity } from "@/lib/project-activity/event-log";
 import ActivityFeed from "@/components/project-surface/ActivityFeed";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useFeaturePicks } from "@/hooks/useFeaturePicks";
 import type { Project } from "@/lib/types";
 
 const DEFAULT_COLOR = "#3b82f6";
@@ -29,12 +32,17 @@ const DEFAULT_COLORS = [
   "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1",
 ];
 
-const SECTIONS = [
+// Anchor set is derived per-render from feature_picks (see `sections` below)
+// so the Goals entry only appears when L11's gating condition is met. The
+// L2 literal anchor set is preserved for users without goals enabled.
+const BASE_SECTIONS = [
   { id: "overview", label: "Overview" },
   { id: "results", label: "Results" },
   { id: "methods", label: "Methods" },
   { id: "activity", label: "Activity" },
 ] as const;
+
+const GOALS_SECTION = { id: "goals", label: "Goals" } as const;
 
 // Mirrors ProjectDetailPopup's owner-routing for mutations. When the viewer is
 // a receiver of a shared project with edit permission, every mutation needs to
@@ -54,6 +62,15 @@ interface ProjectRouteProps {
 export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
+
+  // L11 gate: Goals section + jump anchor are conditional on the viewer's
+  // own feature_picks.goals === "yes" (the wizard's Q4 outcome). undefined
+  // (still loading) and null (existing user) both fall through to "hidden",
+  // which means migrated users never see the surface until they opt in via
+  // Settings. Matches W11GoalsTourStep / Q4GoalsStep's gating check.
+  const { currentUser } = useCurrentUser();
+  const featurePicks = useFeaturePicks(currentUser);
+  const goalsEnabled = featurePicks?.goals === "yes";
 
   // ownerHint comes from the URL `?owner=` query. When present, treat this as
   // a shared-project view and read from that user's directory. When absent,
@@ -146,6 +163,19 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
   const isViewOnlyReceiver =
     project.is_shared_with_me === true && project.shared_permission === "view";
   const isAnyReceiver = project.is_shared_with_me === true;
+
+  // Splice the Goals anchor between Methods and Activity to mirror the
+  // rendered section order below. The proposal's §4 surface inventory and
+  // L11 both place Goals just above Activity.
+  const sections = goalsEnabled
+    ? [
+        BASE_SECTIONS[0],
+        BASE_SECTIONS[1],
+        BASE_SECTIONS[2],
+        GOALS_SECTION,
+        BASE_SECTIONS[3],
+      ]
+    : BASE_SECTIONS;
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto bg-white">
@@ -294,7 +324,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
           </div>
 
           <nav className="flex items-center gap-1 -mb-px" aria-label="Project sections">
-            {SECTIONS.map((section, idx) => (
+            {sections.map((section, idx) => (
               <span key={section.id} className="flex items-center">
                 {idx > 0 && <span className="text-gray-300 mx-1">│</span>}
                 <a
@@ -331,6 +361,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
         />
         <ResultsGallery project={project} />
         <MethodsInventory project={project} />
+        {goalsEnabled && <GoalsSection project={project} />}
         <ActivityFeed project={project} />
       </div>
 
