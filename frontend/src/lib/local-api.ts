@@ -3455,6 +3455,103 @@ export const sharingApi = {
     return { status: "ok", item_id: taskId, shared_with: username };
   },
 
+  /**
+   * Admin-mode share: same semantics as `shareTask` but the sender is an
+   * explicit `actorId` instead of the current user. Used by the v4 Lab Mode
+   * tour (P7) so the wizard can make a fake BeakerBot user share placeholder
+   * tasks with the real user — a direction the user-as-sender contract of
+   * `shareTask` can't express.
+   *
+   * Sidecar writes:
+   *   - mutates the task at `users/<actorId>/tasks/<taskId>.json`
+   *   - appends to recipient's `users/<recipient>/_shared_with_me.json` with
+   *     `owner: actorId`
+   *   - appends a `task_shared` notification to recipient's
+   *     `users/<recipient>/_notifications.json` with `from_user: actorId`
+   *
+   * Differences vs `shareTask`:
+   *   - No `include_chain` option. The lab-tour scope (L19) shares standalone
+   *     placeholder tasks; chained shares from a non-current actor would need
+   *     `getTaskAncestors` to also be actor-scoped (not currently the case),
+   *     so we skip the feature rather than ship a half-correct impl.
+   *   - Self-share guard is `actorId === recipient` (not against currentUser).
+   *     An admin caller might invoke this with currentUser==recipient (that's
+   *     the whole point), so the guard against sharing-with-yourself shifts
+   *     to the actor↔recipient axis.
+   */
+  shareTaskAs: async (
+    actorId: string,
+    taskId: number,
+    recipient: string,
+    permission: "view" | "edit"
+  ): Promise<{
+    status: string;
+    item_id: number;
+    shared_with: string;
+    permission: string;
+    actor: string;
+  }> => {
+    if (!actorId) throw new Error("actorId is required");
+    if (!recipient) throw new Error("recipient is required");
+    if (actorId === recipient) {
+      throw new Error("Cannot share a task with the actor themselves");
+    }
+    const task = await tasksStore.getForUser(taskId, actorId);
+    if (!task) {
+      throw new Error(`Task ${taskId} not found in user ${actorId}'s workspace`);
+    }
+    const sharedAt = new Date().toISOString();
+    const updated = upsertSharedWith(task, recipient, permission);
+    await tasksStore.saveForUser(taskId, updated, actorId);
+    await addReceiverShare(
+      recipient,
+      "task",
+      { id: taskId, owner: actorId, permission, shared_at: sharedAt },
+      task.name ?? `Task ${taskId}`
+    );
+    return {
+      status: "ok",
+      item_id: taskId,
+      shared_with: recipient,
+      permission,
+      actor: actorId,
+    };
+  },
+
+  /**
+   * Admin-mode revoke: paired with `shareTaskAs`. Removes `recipient` from
+   * the task's `shared_with` list inside the actor's namespace and prunes the
+   * matching entry from the recipient's `_shared_with_me.json`.
+   *
+   * Mirrors `unshareTask` exactly, except the source-of-truth task lives in
+   * `users/<actorId>/...` instead of the current user's namespace.
+   */
+  unshareTaskAs: async (
+    actorId: string,
+    taskId: number,
+    recipient: string
+  ): Promise<{
+    status: string;
+    item_id: number;
+    shared_with: string;
+    actor: string;
+  }> => {
+    if (!actorId) throw new Error("actorId is required");
+    if (!recipient) throw new Error("recipient is required");
+    const task = await tasksStore.getForUser(taskId, actorId);
+    if (task) {
+      const updated = removeSharedWith(task, recipient);
+      await tasksStore.saveForUser(taskId, updated, actorId);
+    }
+    await removeReceiverShare(recipient, "task", taskId, actorId);
+    return {
+      status: "ok",
+      item_id: taskId,
+      shared_with: recipient,
+      actor: actorId,
+    };
+  },
+
   getTaskDependencyChain: async (
     taskId: number
   ): Promise<{ task_id: number; chain_task_ids: number[]; chain_count: number }> => {
