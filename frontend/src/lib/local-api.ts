@@ -5099,6 +5099,20 @@ export const fetchAllProjectsIncludingShared = async (): Promise<Project[]> => {
   const ownProjectsWithOwner = ownProjects.map((p) =>
     p.owner ? p : ({ ...p, owner: currentUser ?? "" } as Project),
   );
+  // Default ordering: newest first within sort_order ties so freshly-created
+  // projects land at the top of the home + workbench grids. The onboarding
+  // walkthrough relies on this: §6.2 opens the just-created project by
+  // clicking the first card, so the new project must be deterministically
+  // first. Manually-reordered projects keep their sort_order (which the
+  // reorder API assigns as 0..N); the created_at tie-break only kicks in
+  // for the default sort_order=0 case (every project pre-reorder, plus any
+  // new project after a reorder).
+  ownProjectsWithOwner.sort((a, b) => {
+    const aSort = a.sort_order ?? 0;
+    const bSort = b.sort_order ?? 0;
+    if (aSort !== bSort) return aSort - bSort;
+    return (b.created_at ?? "").localeCompare(a.created_at ?? "");
+  });
 
   const sharedProjects: Project[] = [];
   try {
