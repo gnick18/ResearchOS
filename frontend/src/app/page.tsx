@@ -505,6 +505,14 @@ export default function HomePage() {
                     : `/workbench/projects/${project.id}`;
                   router.push(href);
                 }}
+                // Onboarding v4 §6.2 cursor-script anchor. The
+                // walkthrough clicks `[data-tour-target^='home-project-card-']`
+                // to navigate from Home into the new project's route
+                // before typing the placeholder hypothesis into the
+                // Overview textarea. The per-id suffix keeps the
+                // selector specific to the freshly created project
+                // (the only matching card on a fresh setup).
+                data-tour-target={`home-project-card-${project.id}`}
                 className={`group relative bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer ${
                   isBeingDragged ? "opacity-50 scale-95" : ""
                 } ${isDropTarget ? "ring-2 ring-blue-400 ring-offset-2" : ""}`}

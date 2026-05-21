@@ -706,7 +706,6 @@ function TourOverlay({
   onSkip,
 }: TourOverlayProps) {
   const controller = useTourController();
-  const cursorRef = useRef<BeakerBotCursorRef>(null);
 
   // Lifted decision state for the Phase 4 cleanup grid. Externalized
   // here (vs co-located inside Phase4CleanupStep) so a back-step into
@@ -768,14 +767,105 @@ function TourOverlay({
     );
   }
 
-  const body = getStep(controller.currentStep);
+  // In-product walkthrough surface — extracted into its own component
+  // so the cursorRef + cursor-script effect get a stable hook order
+  // (TourOverlay's tourMode branching produces a different hook count
+  // per render, so attaching the effect here would violate rules-of-
+  // hooks). The dedicated component mounts only while we're in the
+  // walkthrough mode, which also scopes the cursor + spotlight portals
+  // to the lifetime of the walkthrough — they tear down cleanly when
+  // the tour exits or transitions to a different mode.
+  return (
+    <InProductWalkthroughOverlay
+      currentStep={controller.currentStep}
+      onManualAdvance={controller.noteManualAdvance}
+      onSkipStep={controller.skipStep}
+      onExitTour={controller.exitTour}
+    />
+  );
+}
 
-  // Spotlight only renders during the in-product walkthrough mode
-  // (setup steps live in a modal, lab steps spawn their own surfaces,
-  // cleanup step is a full-screen grid handled above — none want the
-  // dim-and-glow anchor treatment).
-  const showSpotlight =
-    controller.tourMode === "in-product-walkthrough" && !!body?.targetSelector;
+// ---------------------------------------------------------------------------
+// In-product walkthrough overlay: spotlight + cursor + BeakerBot bubble
+// ---------------------------------------------------------------------------
+
+interface InProductWalkthroughOverlayProps {
+  currentStep: TourStepId;
+  onManualAdvance: () => void;
+  onSkipStep: () => void;
+  onExitTour: () => void;
+}
+
+/**
+ * Renders the three in-product walkthrough surfaces (spotlight, cursor,
+ * BeakerBot speech bubble) AND runs the active step's `cursorScript`
+ * through the BeakerBotCursor's imperative ref on every step entry.
+ *
+ * Why this lives in its own component (vs inline inside `TourOverlay`):
+ *  - The cursorRef + the cursor-script effect need a stable hook order.
+ *    `TourOverlay` branches on `tourMode` and short-circuits via
+ *    multiple early returns, so a hook declared there would tear down
+ *    + re-attach on every mode change — fragile + violates rules-of-
+ *    hooks if the branches return before the hook runs.
+ *  - Mounting the cursor here scopes its lifetime to the walkthrough
+ *    phase. When the tour ends or hands off to cleanup/lab modes the
+ *    cursor portal unmounts automatically, so we don't leave a
+ *    fixed-position SVG floating in the DOM.
+ *
+ * Cursor-script contract (per P5's lib/cursor-script.ts):
+ *  - `step.cursorScript` is `() => Promise<CursorAction[]>`.
+ *  - The effect awaits the builder, then plays the resulting actions
+ *    through `cursorRef.current.runScript(actions)`. The runScript
+ *    primitive sequences glide/click/type/drag with awaits per step,
+ *    so a single `await` here covers the whole demo.
+ *  - Errors from the script (e.g., a target never mounted) are logged
+ *    + swallowed so a buggy step doesn't deadlock the rest of the
+ *    tour. The step's `completion` contract still drives advance.
+ *  - A new step entry cancels any in-flight script via a `cancelled`
+ *    flag captured in the effect cleanup, so back-to-back step
+ *    transitions don't pile up overlapping cursor animations.
+ */
+function InProductWalkthroughOverlay({
+  currentStep,
+  onManualAdvance,
+  onSkipStep,
+  onExitTour,
+}: InProductWalkthroughOverlayProps) {
+  const cursorRef = useRef<BeakerBotCursorRef>(null);
+  const body = getStep(currentStep);
+
+  // Run the step's cursorScript on entry. Re-running when `currentStep`
+  // changes is the desired contract: every step gets one fresh play.
+  // The cleanup `cancelled` flag prevents an in-flight script from a
+  // prior step continuing to drive the cursor after the user advanced.
+  useEffect(() => {
+    const stepBody = getStep(currentStep);
+    if (!stepBody?.cursorScript) return;
+    const ref = cursorRef.current;
+    if (!ref) return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const actions = await stepBody.cursorScript!();
+        if (cancelled) return;
+        const liveRef = cursorRef.current;
+        if (!liveRef) return;
+        await liveRef.runScript(actions);
+      } catch (err) {
+        console.warn(
+          `[TourController] cursor script for step "${currentStep}" failed:`,
+          err,
+        );
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentStep]);
+
+  const showSpotlight = !!body?.targetSelector;
 
   return (
     <>
@@ -785,9 +875,9 @@ function TourOverlay({
       <BeakerBotCursor ref={cursorRef} />
       <TourBeakerBotOverlay
         step={body}
-        onManualAdvance={controller.noteManualAdvance}
-        onSkipStep={controller.skipStep}
-        onExitTour={controller.exitTour}
+        onManualAdvance={onManualAdvance}
+        onSkipStep={onSkipStep}
+        onExitTour={onExitTour}
       />
     </>
   );

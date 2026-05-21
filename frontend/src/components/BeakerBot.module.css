@@ -133,14 +133,24 @@
 
 /* Typing hand: fast cadence pulse, matched to the typewriter's 95ms
  * tick so visually the hand looks like it's hammering keys in sync
- * with the live-typed text (W5 shortcut demos, W7 search query). */
+ * with the live-typed text (W5 shortcut demos, W7 search query).
+ *
+ * Why -1.5% (not -30%): the .typeHand wrapper applies `transform-box:
+ * view-box`, which resolves percentage translates against the SVG
+ * view-box height (40 units) rather than the wrapped element's
+ * bounding box. The original -30% therefore moved the hand dot by 12
+ * view-box units (a quarter of the SVG up), which at the v4 tour's
+ * 120px display size produced a wild ~36px vertical bounce at 5.3 Hz
+ * that read as scattered floating dots, not a keyboard hammer. -1.5%
+ * = 0.6 view-box units = ~1.8px at 120px, matching the small pulse
+ * the comment originally described. */
 @keyframes beakerBotTypeHand {
   0%,
   100% {
     transform: translateY(0);
   }
   50% {
-    transform: translateY(-30%);
+    transform: translateY(-1.5%);
   }
 }
 

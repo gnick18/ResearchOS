@@ -106,6 +106,45 @@ describe("BeakerBot pose mechanism", () => {
     expect(typeHand.length).toBe(1);
   });
 
+  it("typing-hand keyframe uses a small percentage so the 120px tour size renders a hand pulse, not a scattered-dots jump", async () => {
+    // Regression test for the v4 §6.2 pose bug: the original
+    // .typeHand keyframe used `translateY(-30%)` which under
+    // `transform-box: view-box` resolves to 30% of the SVG view-box
+    // height (40 units = 12 user-space units). At the v4 tour's
+    // 120px display size that produced a ~36px vertical jump at
+    // 5.3 Hz which read as scattered floating dots. The fix dropped
+    // the percentage to a small value (~1-2%) so the pulse is a
+    // subtle keyboard-hammer motion at every display size.
+    //
+    // We assert by reading the CSS module source directly — jsdom
+    // doesn't run keyframes so a render-side assertion would be
+    // a no-op. Going via the filesystem ties the test to the file
+    // we actually changed.
+    const fs = await import("node:fs/promises");
+    const path = await import("node:path");
+    const cssPath = path.resolve(
+      __dirname,
+      "..",
+      "BeakerBot.module.css",
+    );
+    const css = await fs.readFile(cssPath, "utf8");
+    // Pull just the @keyframes beakerBotTypeHand block.
+    const match = css.match(
+      /@keyframes\s+beakerBotTypeHand\s*\{[\s\S]*?\n\}/,
+    );
+    expect(match, "beakerBotTypeHand keyframe should be defined").not.toBeNull();
+    const block = match![0];
+    // Find every translateY(...) percentage in the block, parse to a
+    // number, take the largest magnitude. The pulse should be small
+    // (< 5%) so the hand reads as a hammer, not a viewbox-wide jump.
+    const percents = Array.from(
+      block.matchAll(/translateY\(\s*(-?\d+(?:\.\d+)?)%\s*\)/g),
+    ).map((m) => Math.abs(Number(m[1])));
+    expect(percents.length).toBeGreaterThan(0);
+    const maxMagnitude = Math.max(...percents);
+    expect(maxMagnitude).toBeLessThan(5);
+  });
+
   it("flips the SVG horizontally when direction=left and pose is directional", () => {
     const { container } = render(
       <BeakerBot pose="pointing" direction="left" />,

@@ -8,9 +8,41 @@
  * `noteManualAdvance()` to drive the auto-advance-on-completion effect
  * the same way the real overlay's "Got it, next" button will.
  */
-import { act, render, renderHook } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FeaturePicks, OnboardingSidecar } from "@/lib/onboarding/sidecar";
+
+// Mock BeakerBotCursor with an instrumented stub so the cursor-script
+// wiring tests can assert that `runScript(actions)` is called with the
+// resolved CursorAction[]. vi.hoisted lets us declare the spy at the
+// top of the module so vi.mock's hoisted factory can close over it
+// without TDZ errors. The spy is reset in beforeEach so each test
+// starts clean.
+const { cursorRunScriptMock } = vi.hoisted(() => ({
+  cursorRunScriptMock: vi.fn(),
+}));
+vi.mock("@/components/BeakerBotCursor", async () => {
+  const { forwardRef, useImperativeHandle } = await import("react");
+  const MockCursor = forwardRef<unknown>(function MockCursor(_, ref) {
+    useImperativeHandle(
+      ref,
+      () => ({
+        glideTo: () => Promise.resolve(),
+        clickAt: () => Promise.resolve(),
+        typeInto: () => Promise.resolve(),
+        dragFromTo: () => Promise.resolve(),
+        hide: () => {},
+        show: () => {},
+        runScript: (actions: readonly unknown[]) =>
+          cursorRunScriptMock(actions),
+      }),
+      [],
+    );
+    return null;
+  });
+  return { default: MockCursor };
+});
+
 import {
   TourControllerProvider,
   useOptionalTourController,
@@ -523,5 +555,148 @@ describe("TourController — provider mount", () => {
     expect(skipStepBtn?.parentElement).toBe(
       skipWalkthroughBtn?.parentElement,
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cursor script wiring — covers the fix for the v4 §6.2 bug where step
+// bodies declared a `cursorScript` but the controller never invoked it.
+// The contract: on entry to an in-product-walkthrough step that has a
+// cursorScript, the controller awaits the builder + plays the resulting
+// actions through the BeakerBotCursor ref's `runScript(actions)`.
+// ---------------------------------------------------------------------------
+
+describe("TourController — cursor-script invocation", () => {
+  // Pre-mounted targets matching the data-tour-target selectors the
+  // real §6.1 / §6.2 step bodies look up. Without these in the DOM,
+  // `safeClickAction` / `safeTypeAction` would hit their 5-second
+  // waitForElement timeout — the cursor script would still resolve
+  // (with an empty action array after compactScript filters nulls)
+  // but each test would block for 5s. Mounting the targets makes
+  // waitForElement resolve synchronously so the runScript assertion
+  // lands within the normal waitFor budget.
+  let mountedTargets: HTMLElement[] = [];
+
+  beforeEach(() => {
+    cursorRunScriptMock.mockReset();
+    cursorRunScriptMock.mockResolvedValue(undefined);
+
+    // §6.1 new-project button + §6.2 project-overview textarea + a
+    // dummy project card (the §6.2 script also tries to click
+    // [data-tour-target^='home-project-card-']).
+    mountedTargets = [];
+    for (const target of [
+      "home-new-project",
+      "project-overview-textarea",
+      "home-project-card-test",
+    ]) {
+      const el = document.createElement("button");
+      el.setAttribute("data-tour-target", target);
+      document.body.appendChild(el);
+      mountedTargets.push(el);
+    }
+  });
+
+  afterEach(() => {
+    cursorRunScriptMock.mockReset();
+    for (const el of mountedTargets) {
+      el.remove();
+    }
+    mountedTargets = [];
+  });
+
+  it("invokes the active step's cursorScript on entry (in-product-walkthrough)", async () => {
+    // Render at the §6.2 ProjectOverview step which ships a real
+    // cursorScript that returns at least one action (typing the
+    // placeholder hypothesis into the Overview textarea). The mock
+    // cursor's runScript receives the action array.
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: wrapper(),
+    });
+    act(() => result.current.start("project-overview-prose"));
+    // The cursor script is awaited inside an async effect; wait for
+    // the mock to be invoked rather than checking synchronously.
+    await waitFor(() => {
+      expect(cursorRunScriptMock).toHaveBeenCalledTimes(1);
+    });
+    const [calledWith] = cursorRunScriptMock.mock.calls[0];
+    expect(Array.isArray(calledWith)).toBe(true);
+    // §6.2's script returns at least the type action against the
+    // overview textarea (the click against the project card is also
+    // present when a card is in the DOM).
+    expect((calledWith as readonly unknown[]).length).toBeGreaterThan(0);
+  });
+
+  it("does not invoke runScript while the tour is paused", async () => {
+    // Pause guard: a paused tour returns null from the overlay, so the
+    // in-product walkthrough surface never mounts and the cursor ref
+    // never resolves. We start the tour, wait for the first cursor
+    // call to land, then pause and advance — the SET_STEP transition
+    // out of step A should NOT trigger a cursor script for step B
+    // because the overlay is suppressed. (`start()` resets paused, so
+    // we exercise the post-start advance path instead of pre-pausing.)
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: wrapper(),
+    });
+    act(() => result.current.start("home-create-project"));
+    await waitFor(() => {
+      expect(cursorRunScriptMock).toHaveBeenCalledTimes(1);
+    });
+    cursorRunScriptMock.mockClear();
+    act(() => {
+      result.current.pause();
+    });
+    act(() => {
+      // advance() doesn't reset paused, so the controller is at the
+      // next step but the overlay (and cursor) stays unmounted.
+      result.current.advance();
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(cursorRunScriptMock).not.toHaveBeenCalled();
+  });
+
+  it("invokes runScript only when the step actually declares a cursorScript", async () => {
+    // A placeholder step (e.g. an unwired §6.x slot) declares no
+    // cursorScript. The effect short-circuits and the mock stays
+    // silent — guards against a regression where the controller
+    // attempts to call `undefined()` on bodies without a script.
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: wrapper(),
+    });
+    // welcome is a setup-modal step body with no cursorScript field.
+    act(() => result.current.start("welcome"));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(cursorRunScriptMock).not.toHaveBeenCalled();
+  });
+
+  it("re-invokes runScript on each step transition", async () => {
+    // Stepping from one cursor-script-bearing step to another should
+    // produce a fresh runScript call for the new step. The home-create-
+    // project step also defines a cursorScript (the create-project
+    // demo); pairing it with project-overview-prose gives us two
+    // distinct in-product-walkthrough steps to observe.
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: wrapper(),
+    });
+    act(() => result.current.start("home-create-project"));
+    await waitFor(() => {
+      expect(cursorRunScriptMock).toHaveBeenCalledTimes(1);
+    });
+    cursorRunScriptMock.mockClear();
+    act(() => {
+      // Jump directly to the next cursor-script step via start() so we
+      // bypass any intermediate steps and observe a clean second
+      // invocation.
+      result.current.start("project-overview-prose");
+    });
+    await waitFor(() => {
+      expect(cursorRunScriptMock).toHaveBeenCalledTimes(1);
+    });
   });
 });

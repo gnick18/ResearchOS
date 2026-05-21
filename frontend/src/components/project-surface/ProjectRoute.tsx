@@ -586,6 +586,11 @@ function OverviewSection({ project, ownerHint, editOwner, readOnly }: OverviewSe
               : "Capture the hypothesis, motivation, and big-picture context for this project…"
           }
           disabled={readOnly}
+          // Onboarding v4 §6.2 spotlight + typewriter anchor. The
+          // walkthrough's ProjectOverviewStep types a placeholder
+          // hypothesis here via the cursor script (see
+          // steps/walkthrough/lib/targets.ts → projectOverviewTextarea).
+          data-tour-target="project-overview-textarea"
           className="w-full min-h-[180px] p-3 text-sm text-gray-800 border border-gray-200 rounded-md resize-y focus:outline-none focus:ring-1 focus:ring-blue-300"
         />
       )}
