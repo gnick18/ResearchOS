@@ -44,7 +44,7 @@ export const settingsColorStep = buildWalkthroughStep({
 export const settingsMoreStep = buildWalkthroughStep({
   id: "settings-more",
   speech:
-    "By the way, there's a lot more you can change in Settings, explore later. For now, let me scroll down to one more thing.",
+    "By the way, there's a lot more you can change in Settings, explore later. There's also a streak counter that turns on when you start saving stuff. Private to you, off in Settings if you don't want it. For now, let me scroll down to one more thing.",
   pose: "thinking",
   // No spotlight — narrative beat between two anchored steps.
   completion: autoAdvanceAfter(3500),
