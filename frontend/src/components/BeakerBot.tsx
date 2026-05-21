@@ -68,12 +68,31 @@ import styles from "./BeakerBot.module.css";
  *                       upward, BeakerBot wobbles dizzy, then settles.
  *                       Total ~3.2s. No trigger logic shipped yet;
  *                       future idle trigger will dispatch it.
+ *  - `sleeping`       - side easter-egg looping idle: eyes close to
+ *                       flat lines, a small blanket drapes over the
+ *                       lower body, three ZZZ letters drift up + right
+ *                       above the head on staggered fades, body sways
+ *                       gently left/right. Looping infinite, intended
+ *                       for long-idle states.
+ *  - `hiccup`         - side easter-egg one-shot (~2s): body jolts, a
+ *                       rainbow bubble forms inside the beaker, rises,
+ *                       escapes out the top, then pops in a rainbow
+ *                       particle ring; a small follow-up jolt suggests
+ *                       persistent hiccups.
+ *  - `yawn`           - side easter-egg one-shot (~1.5s): mouth opens
+ *                       wide, body stretches upward, mouth closes,
+ *                       body relaxes back with a small overshoot.
+ *  - `reading`        - side easter-egg looping idle: a small book
+ *                       appears in front of BeakerBot, eyes scan
+ *                       left/right across the pages, every ~6s the
+ *                       right page flips to the left. Looping infinite.
  *
  * The dotted pointer-line in `OnboardingTipCard` emits from the
  * triangle tip in the `pointing*` poses; the non-pointing poses
  * (`cheering`, `waving`, `bouncing`, `thinking`, `typing`,
- * `bow-wink`, `volcano-eruption`) are used in the modal mascot slot
- * and don't drive a pointer line.
+ * `bow-wink`, `volcano-eruption`, `sleeping`, `hiccup`, `yawn`,
+ * `reading`) are used in the modal mascot slot and don't drive a
+ * pointer line.
  */
 
 export type BeakerBotPose =
@@ -89,7 +108,11 @@ export type BeakerBotPose =
   | "bow-wink"
   | "giggle"
   | "rolling-laughing"
-  | "volcano-eruption";
+  | "volcano-eruption"
+  | "sleeping"
+  | "hiccup"
+  | "yawn"
+  | "reading";
 
 export interface BeakerBotProps {
   pose: BeakerBotPose;
@@ -152,6 +175,14 @@ function rootAnimationClass(
       return `${styles.rollLaughing} ${styles.animated}`;
     case "volcano-eruption":
       return `${styles.volcanoErupting} ${styles.animated}`;
+    case "sleeping":
+      return `${styles.sleeping} ${styles.animated}`;
+    case "hiccup":
+      return `${styles.hiccup} ${styles.animated}`;
+    case "yawn":
+      return `${styles.yawning} ${styles.animated}`;
+    case "reading":
+      return `${styles.reading} ${styles.animated}`;
     default:
       return undefined;
   }
@@ -195,6 +226,40 @@ const VOLCANO_DIZZY_STARS: ReadonlyArray<{
   { cx: 14, cy: 8, delayMs: 0 },
   { cx: 26, cy: 7, delayMs: 120 },
   { cx: 20, cy: 5, delayMs: 60 },
+];
+
+// Sleeping ZZZs: three "Z" glyphs that drift up + right above
+// BeakerBot's head with staggered fade-in/out delays so the trio reads
+// as a continuous puff rather than a synchronized blink. Each Z grows
+// in size moving up to suggest depth + perspective.
+const SLEEPING_ZZZS: ReadonlyArray<{
+  x: number;
+  y: number;
+  fontSize: number;
+  delayMs: number;
+}> = [
+  { x: 27, y: 10, fontSize: 3.2, delayMs: 0 },
+  { x: 30, y: 7, fontSize: 3.8, delayMs: 800 },
+  { x: 33, y: 4, fontSize: 4.4, delayMs: 1600 },
+];
+
+// Hiccup pop particles: 8 small droplets bursting outward in a ring
+// when the rainbow bubble pops outside the beaker. Spawn point is the
+// bubble's escape position (cx=20, cy=8 — just above the beaker lip).
+// Each particle has its own outward angle so the burst reads as a ring.
+const HICCUP_POP_PARTICLES: ReadonlyArray<{
+  endX: number;
+  endY: number;
+  fill: string;
+}> = [
+  { endX: -6, endY: 0, fill: "#FFD2B0" },
+  { endX: -4.2, endY: -4.2, fill: "#FFF1A8" },
+  { endX: 0, endY: -6, fill: "#B7EBB1" },
+  { endX: 4.2, endY: -4.2, fill: "#A6D2F4" },
+  { endX: 6, endY: 0, fill: "#D6B5F0" },
+  { endX: 4.2, endY: 4.2, fill: "#FFD2B0" },
+  { endX: 0, endY: 6, fill: "#FFF1A8" },
+  { endX: -4.2, endY: 4.2, fill: "#B7EBB1" },
 ];
 
 // Easter egg interaction config: tickle BeakerBot (click or rapid
@@ -410,20 +475,40 @@ export default function BeakerBot({
       <path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" />
       {/* Beaker lip */}
       <path d="M11 12 L29 12" />
-      {/* Left eye */}
-      <circle cx="17" cy="18" r="1.2" fill="currentColor" stroke="none" />
-      {/* Right eye: wrapped in a <g> so the bow-wink pose can scale
-          it to a closed line independently of the body's bow tilt. */}
+      {/* Left eye: wrapped in a <g> so the sleeping pose can close it
+          to a flat line and the reading pose can horizontally scan it
+          across the book. Idle / pointing / etc. leave the wrapper as
+          a no-op pass-through. */}
       <g
         className={
-          effectivePose === "bow-wink" && animated
+          animated && effectivePose === "sleeping"
+            ? `${styles.sleepEye} ${styles.animated}`
+            : animated && effectivePose === "reading"
+              ? `${styles.readEye} ${styles.animated}`
+              : undefined
+        }
+      >
+        <circle cx="17" cy="18" r="1.2" fill="currentColor" stroke="none" />
+      </g>
+      {/* Right eye: wrapped in a <g> so the bow-wink pose can scale
+          it to a closed line independently of the body's bow tilt.
+          Also closes for the sleeping pose and scans for reading. */}
+      <g
+        className={
+          animated && effectivePose === "bow-wink"
             ? `${styles.winkEye} ${styles.animated}`
-            : undefined
+            : animated && effectivePose === "sleeping"
+              ? `${styles.sleepEye} ${styles.animated}`
+              : animated && effectivePose === "reading"
+                ? `${styles.readEye} ${styles.animated}`
+                : undefined
         }
       >
         <circle cx="23" cy="18" r="1.2" fill="currentColor" stroke="none" />
       </g>
-      {/* Mouth: smile by default, open-laugh for giggle/rolling.
+      {/* Mouth: smile by default, open-laugh for giggle/rolling, yawn-
+       *  oval for yawn (wrapped in a scaling <g> to animate open/close),
+       *  closed flat line for sleeping (peaceful).
        *  Open-mouth path is wider + filled so it reads as "ha ha"
        *  rather than a static smile during the laugh poses. */}
       {effectivePose === "giggle" ||
@@ -434,6 +519,27 @@ export default function BeakerBot({
           stroke="currentColor"
           strokeWidth={1}
         />
+      ) : effectivePose === "yawn" ? (
+        <g
+          className={
+            animated ? `${styles.yawnMouth} ${styles.animated}` : undefined
+          }
+        >
+          {/* Yawn oval: wide-open mouth, filled. The animation scales
+              this oval from a small smile up to its full open size and
+              back, anchored at the mouth's center (20, 23). */}
+          <ellipse
+            cx="20"
+            cy="23"
+            rx="2.4"
+            ry="2.0"
+            fill="currentColor"
+            stroke="none"
+          />
+        </g>
+      ) : effectivePose === "sleeping" ? (
+        /* Sleeping: tiny flat-line mouth, no smile curve. Peaceful. */
+        <path d="M18.5 23 L21.5 23" />
       ) : (
         <path d="M18 22 Q 20 24, 22 22" />
       )}
@@ -643,6 +749,217 @@ export default function BeakerBot({
             ))}
           </g>
         </>
+      )}
+
+      {/* Sleeping: side easter-egg looping idle. Decorative layers:
+       *   1. Blanket draped over BeakerBot's lower body (~y=24-30)
+       *      with a wavy upper edge and a soft folded-edge detail.
+       *   2. Three "Z" letters drifting up + right above his head on
+       *      staggered fade-in/out cycles, increasing in size to
+       *      suggest depth.
+       * The eyes are closed via the .sleepEye <g> wrappers above and
+       * the mouth is a flat line. The body sway is the root
+       * .sleeping.animated keyframe (subtle ±2deg rotation). */}
+      {effectivePose === "sleeping" && (
+        <>
+          {/* Blanket: a soft-blue rectangle with a wavy upper edge
+           *  draped over BeakerBot's lower body. The wavy top edge
+           *  follows the same pattern as the rainbow liquid meniscus
+           *  so the blanket reads as a soft fabric, not a hard slab.
+           *  A small folded-edge stripe sits along the top for a
+           *  fabric-fold detail. */}
+          <g className={styles.sleepBlanket}>
+            {/* Main blanket panel: wavy top, follows body silhouette
+             *  on the bottom. Soft blue fill, faint outline. */}
+            <path
+              d="M 12 26 Q 14 25, 16 26 T 20 26 T 24 26 T 28 26 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 26 Z"
+              fill="#A6D2F4"
+              stroke="currentColor"
+              strokeWidth="0.6"
+              opacity="0.85"
+            />
+            {/* Folded-edge highlight stripe: a thinner band along the
+             *  wavy top edge, slightly darker, to suggest the blanket
+             *  has been folded back at the top. */}
+            <path
+              d="M 12 26 Q 14 25, 16 26 T 20 26 T 24 26 T 28 26"
+              fill="none"
+              stroke="#7AB8E0"
+              strokeWidth="0.8"
+              opacity="0.7"
+            />
+          </g>
+          {/* ZZZs: three glyphs drifting up + right. Each has its own
+           *  fade-in/out cycle via animation-delay. */}
+          <g className={styles.sleepZzzs}>
+            {SLEEPING_ZZZS.map((z, i) => (
+              <text
+                key={i}
+                x={z.x}
+                y={z.y}
+                textAnchor="middle"
+                fontSize={z.fontSize}
+                fontWeight="700"
+                fill="currentColor"
+                stroke="none"
+                className={animated ? styles.sleepZzz : undefined}
+                style={
+                  animated
+                    ? { animationDelay: `${z.delayMs}ms` }
+                    : undefined
+                }
+              >
+                Z
+              </text>
+            ))}
+          </g>
+        </>
+      )}
+
+      {/* Hiccup: side easter-egg one-shot. A rainbow bubble forms
+       *  inside the beaker, rises, escapes out the top, then pops in a
+       *  ring of rainbow particles. The body jolt is the root
+       *  .hiccup.animated keyframe. Total ~2s. */}
+      {effectivePose === "hiccup" && (
+        <>
+          {/* Rainbow bubble: starts inside the beaker (cy ~ 26),
+           *  rises to the meniscus, then escapes to above the lip
+           *  (cy ~ 8), where it pops. The bubble uses its own radial
+           *  gradient to fake a multi-color sheen. */}
+          <defs>
+            <radialGradient id={`${gradId}-hiccup`} cx="0.5" cy="0.5" r="0.5">
+              <stop offset="0%" stopColor="#FFD2B0" />
+              <stop offset="30%" stopColor="#FFF1A8" />
+              <stop offset="55%" stopColor="#B7EBB1" />
+              <stop offset="80%" stopColor="#A6D2F4" />
+              <stop offset="100%" stopColor="#D6B5F0" />
+            </radialGradient>
+          </defs>
+          <g
+            className={
+              animated
+                ? `${styles.hiccupBubble} ${styles.animated}`
+                : undefined
+            }
+          >
+            <circle
+              cx="20"
+              cy="26"
+              r="1.6"
+              fill={`url(#${gradId}-hiccup)`}
+              stroke="currentColor"
+              strokeWidth="0.4"
+              opacity="0.9"
+            />
+          </g>
+          {/* Pop particles: ring of 8 small rainbow droplets bursting
+           *  outward from the bubble's pop position (~20, 8). Each
+           *  particle keyframe starts in-place at zero opacity and
+           *  expands to its (endX, endY) offset on the pop stage. */}
+          <g className={styles.hiccupParticles}>
+            {HICCUP_POP_PARTICLES.map((p, i) => (
+              <circle
+                key={i}
+                cx="20"
+                cy="8"
+                r="0.7"
+                fill={p.fill}
+                stroke="none"
+                className={animated ? styles.hiccupParticle : undefined}
+                style={
+                  animated
+                    ? ({
+                        "--hiccup-end-x": `${p.endX}px`,
+                        "--hiccup-end-y": `${p.endY}px`,
+                      } as React.CSSProperties)
+                    : undefined
+                }
+              />
+            ))}
+          </g>
+        </>
+      )}
+
+      {/* Yawn: side easter-egg one-shot. The mouth oval renders above
+       *  (in the mouth-branch conditional) so the yawn animation
+       *  scales it open + closed. No additional decoration here — the
+       *  body stretch is the root .yawning.animated keyframe. The
+       *  branch is kept present (with no JSX) so the pose union stays
+       *  exhaustive at switch sites. */}
+      {effectivePose === "yawn" && null}
+
+      {/* Reading: side easter-egg looping idle. A small book held in
+       *  front of BeakerBot (~y=22-29). Two pages with a fold down the
+       *  middle. The eyes scan left-right via the .readEye wrappers
+       *  above. Every ~6s the right page flips to the left as the
+       *  .readPageFlip keyframe. The body stays still. */}
+      {effectivePose === "reading" && (
+        <g className={styles.readBook}>
+          {/* Book cover: a darker burgundy rectangle behind the
+           *  pages, with rounded corners. Sits in front of BeakerBot's
+           *  body so the eyes appear to look down at it. */}
+          <rect
+            x="13"
+            y="22"
+            width="14"
+            height="7"
+            rx="0.6"
+            ry="0.6"
+            fill="#7A3B3B"
+            stroke="currentColor"
+            strokeWidth="0.6"
+          />
+          {/* Left page: off-white rectangle with horizontal lines
+           *  suggesting text. */}
+          <rect
+            x="13.6"
+            y="22.6"
+            width="6.2"
+            height="5.8"
+            fill="#FAF6EC"
+            stroke="none"
+          />
+          {/* Right page: a separate rect so it can rotate around the
+           *  spine (x=20) during the page-flip keyframe. Static lines
+           *  inside read as text. */}
+          <g
+            className={
+              animated
+                ? `${styles.readPageRight} ${styles.animated}`
+                : undefined
+            }
+          >
+            <rect
+              x="20.2"
+              y="22.6"
+              width="6.2"
+              height="5.8"
+              fill="#FAF6EC"
+              stroke="none"
+            />
+            {/* Right-page text lines */}
+            <path
+              d="M 21 24 L 25.6 24 M 21 25.2 L 25.6 25.2 M 21 26.4 L 24.4 26.4 M 21 27.6 L 25.2 27.6"
+              stroke="#7A3B3B"
+              strokeWidth="0.3"
+              opacity="0.6"
+            />
+          </g>
+          {/* Left-page text lines (static; left page doesn't flip) */}
+          <path
+            d="M 14.4 24 L 19 24 M 14.4 25.2 L 19 25.2 M 14.4 26.4 L 17.8 26.4 M 14.4 27.6 L 18.6 27.6"
+            stroke="#7A3B3B"
+            strokeWidth="0.3"
+            opacity="0.6"
+          />
+          {/* Center spine fold */}
+          <path
+            d="M 20 22.6 L 20 28.4"
+            stroke="#7A3B3B"
+            strokeWidth="0.5"
+            opacity="0.7"
+          />
+        </g>
       )}
 
       {/* Laugh-text speech bubble: pops up above BeakerBot during the

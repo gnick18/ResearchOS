@@ -26,6 +26,10 @@ const ALL_POSES: BeakerBotPose[] = [
   "typing",
   "bow-wink",
   "volcano-eruption",
+  "sleeping",
+  "hiccup",
+  "yawn",
+  "reading",
 ];
 
 describe("BeakerBot pose mechanism", () => {
@@ -254,5 +258,215 @@ describe("BeakerBot volcano-eruption pose", () => {
       expect(style).not.toMatch(/--volcano-end-x/);
       expect(cls).not.toMatch(/animated/);
     }
+  });
+});
+
+/**
+ * Side easter-egg pose batch 2: sleeping / hiccup / yawn / reading.
+ *
+ * Each pose adds its own decorative SVG layer(s). These tests assert
+ * the layer renders when the pose is dispatched, does NOT render for
+ * other poses, and degrades to the static silhouette under
+ * animated=false (the reduced-motion analogue, since the @media
+ * (prefers-reduced-motion: reduce) block sets animation: none AND
+ * display: none on the decorative <g>s; in jsdom we only validate the
+ * animated=false branch since jsdom doesn't enforce media queries).
+ */
+
+describe("BeakerBot sleeping pose", () => {
+  // The blanket uses fill="#A6D2F4" (soft blue) — no other pose uses
+  // this exact fill on a path, so it's a clean signal that the
+  // blanket is mounted.
+  const SLEEP_BLANKET_FILL = "#A6D2F4";
+
+  it("renders the blanket SVG when pose=sleeping", () => {
+    const { container } = render(<BeakerBot pose="sleeping" />);
+    const paths = container.querySelectorAll("path");
+    const blanketPaths = Array.from(paths).filter(
+      (p) => p.getAttribute("fill") === SLEEP_BLANKET_FILL,
+    );
+    expect(blanketPaths.length).toBeGreaterThan(0);
+  });
+
+  it("renders 3 ZZZ text glyphs when pose=sleeping", () => {
+    const { container } = render(<BeakerBot pose="sleeping" />);
+    const zTexts = Array.from(container.querySelectorAll("text")).filter(
+      (t) => t.textContent === "Z",
+    );
+    expect(zTexts.length).toBe(3);
+  });
+
+  it("does NOT render the blanket or ZZZs for pose=idle", () => {
+    const { container } = render(<BeakerBot pose="idle" />);
+    const paths = container.querySelectorAll("path");
+    const blanketPaths = Array.from(paths).filter(
+      (p) => p.getAttribute("fill") === SLEEP_BLANKET_FILL,
+    );
+    expect(blanketPaths.length).toBe(0);
+    const zTexts = Array.from(container.querySelectorAll("text")).filter(
+      (t) => t.textContent === "Z",
+    );
+    expect(zTexts.length).toBe(0);
+  });
+
+  it("reduced-motion path: sleeping with animated=false renders silhouette without per-glyph animation classes", () => {
+    const { container } = render(
+      <BeakerBot pose="sleeping" animated={false} />,
+    );
+    const svg = container.querySelector("svg");
+    expect(svg?.getAttribute("data-pose")).toBe("sleeping");
+    expect(svg?.getAttribute("data-animated")).toBe("false");
+    // ZZZ glyphs still render structurally but without the
+    // animationDelay inline style binding them to the keyframe.
+    const zTexts = Array.from(container.querySelectorAll("text")).filter(
+      (t) => t.textContent === "Z",
+    );
+    expect(zTexts.length).toBe(3);
+    for (const z of zTexts) {
+      const style = z.getAttribute("style") ?? "";
+      expect(style).not.toMatch(/animation-delay/i);
+    }
+  });
+});
+
+describe("BeakerBot hiccup pose", () => {
+  it("renders the rainbow bubble SVG when pose=hiccup", () => {
+    const { container } = render(<BeakerBot pose="hiccup" />);
+    // The bubble is a circle with cx=20, cy=26 and a url(#...-hiccup)
+    // radial-gradient fill — that fill signature is unique to this
+    // pose.
+    const bubble = Array.from(
+      container.querySelectorAll("circle"),
+    ).filter((c) => {
+      const fill = c.getAttribute("fill") ?? "";
+      return fill.includes("-hiccup");
+    });
+    expect(bubble.length).toBe(1);
+  });
+
+  it("renders 8 pop particles at cx=20, cy=8 when pose=hiccup", () => {
+    const { container } = render(<BeakerBot pose="hiccup" />);
+    // Pop particles spawn at the bubble's pop position (20, 8). The
+    // base mascot has no circles at this exact position.
+    const particles = Array.from(
+      container.querySelectorAll("circle"),
+    ).filter(
+      (c) =>
+        c.getAttribute("cx") === "20" && c.getAttribute("cy") === "8",
+    );
+    expect(particles.length).toBe(8);
+  });
+
+  it("does NOT render the hiccup bubble or particles for pose=idle", () => {
+    const { container } = render(<BeakerBot pose="idle" />);
+    const bubble = Array.from(
+      container.querySelectorAll("circle"),
+    ).filter((c) => (c.getAttribute("fill") ?? "").includes("-hiccup"));
+    expect(bubble.length).toBe(0);
+    const particles = Array.from(
+      container.querySelectorAll("circle"),
+    ).filter(
+      (c) =>
+        c.getAttribute("cx") === "20" && c.getAttribute("cy") === "8",
+    );
+    expect(particles.length).toBe(0);
+  });
+
+  it("reduced-motion path: hiccup with animated=false drops per-particle CSS vars", () => {
+    const { container } = render(
+      <BeakerBot pose="hiccup" animated={false} />,
+    );
+    expect(
+      container.querySelector("svg")?.getAttribute("data-animated"),
+    ).toBe("false");
+    const particles = Array.from(
+      container.querySelectorAll("circle"),
+    ).filter(
+      (c) =>
+        c.getAttribute("cx") === "20" && c.getAttribute("cy") === "8",
+    );
+    expect(particles.length).toBe(8);
+    for (const p of particles) {
+      const style = p.getAttribute("style") ?? "";
+      expect(style).not.toMatch(/--hiccup-end-x/);
+    }
+  });
+});
+
+describe("BeakerBot yawn pose", () => {
+  it("renders the open-mouth ellipse when pose=yawn", () => {
+    const { container } = render(<BeakerBot pose="yawn" />);
+    // The yawn replaces the smile path with a filled ellipse at the
+    // mouth position (20, 23). No other pose renders an <ellipse>.
+    const ellipses = container.querySelectorAll("ellipse");
+    expect(ellipses.length).toBe(1);
+    expect(ellipses[0].getAttribute("cx")).toBe("20");
+    expect(ellipses[0].getAttribute("cy")).toBe("23");
+  });
+
+  it("does NOT render the yawn ellipse for pose=idle (default smile path)", () => {
+    const { container } = render(<BeakerBot pose="idle" />);
+    const ellipses = container.querySelectorAll("ellipse");
+    expect(ellipses.length).toBe(0);
+  });
+
+  it("reduced-motion path: yawn with animated=false renders the static ellipse", () => {
+    const { container } = render(<BeakerBot pose="yawn" animated={false} />);
+    const svg = container.querySelector("svg");
+    expect(svg?.getAttribute("data-pose")).toBe("yawn");
+    expect(svg?.getAttribute("data-animated")).toBe("false");
+    // The ellipse is structural geometry; only the animation class is
+    // gated by animated, so the static yawn silhouette still renders.
+    const ellipses = container.querySelectorAll("ellipse");
+    expect(ellipses.length).toBe(1);
+  });
+});
+
+describe("BeakerBot reading pose", () => {
+  // The book cover uses fill="#7A3B3B" (burgundy). No other pose uses
+  // this exact fill, so it's a clean signal that the book is mounted.
+  const BOOK_COVER_FILL = "#7A3B3B";
+
+  it("renders the book cover when pose=reading", () => {
+    const { container } = render(<BeakerBot pose="reading" />);
+    const rects = container.querySelectorAll("rect");
+    const cover = Array.from(rects).filter(
+      (r) => r.getAttribute("fill") === BOOK_COVER_FILL,
+    );
+    expect(cover.length).toBe(1);
+  });
+
+  it("renders 2 page rects (off-white) when pose=reading", () => {
+    const { container } = render(<BeakerBot pose="reading" />);
+    const rects = container.querySelectorAll("rect");
+    const pages = Array.from(rects).filter(
+      (r) => r.getAttribute("fill") === "#FAF6EC",
+    );
+    expect(pages.length).toBe(2);
+  });
+
+  it("does NOT render the book for pose=idle", () => {
+    const { container } = render(<BeakerBot pose="idle" />);
+    const rects = container.querySelectorAll("rect");
+    const cover = Array.from(rects).filter(
+      (r) => r.getAttribute("fill") === BOOK_COVER_FILL,
+    );
+    expect(cover.length).toBe(0);
+  });
+
+  it("reduced-motion path: reading with animated=false renders the static book silhouette", () => {
+    const { container } = render(
+      <BeakerBot pose="reading" animated={false} />,
+    );
+    const svg = container.querySelector("svg");
+    expect(svg?.getAttribute("data-pose")).toBe("reading");
+    expect(svg?.getAttribute("data-animated")).toBe("false");
+    // Book + pages still render as structural SVG; only animation
+    // classes are gated.
+    const rects = container.querySelectorAll("rect");
+    const cover = Array.from(rects).filter(
+      (r) => r.getAttribute("fill") === BOOK_COVER_FILL,
+    );
+    expect(cover.length).toBe(1);
   });
 });
