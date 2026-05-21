@@ -88,7 +88,10 @@ export const methodsCategoryDemoStep = buildWalkthroughStep({
       targetSelector(TOUR_TARGETS.methodsCategoryNameInput),
       label,
     );
-    return compactScript([openAffordance, typeName]);
+    const submit = await safeClickAction(
+      targetSelector(TOUR_TARGETS.methodsCategoryCreateEmpty),
+    );
+    return compactScript([openAffordance, typeName, submit]);
   }),
   // Event-driven: methods page dispatches
   // `tour:methods-category-created` from its category-create success

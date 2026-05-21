@@ -106,6 +106,93 @@ export function tryQuery(selector: string): HTMLElement | null {
 }
 
 /**
+ * Internal helper: ensure `el` is fully visible in the viewport before
+ * the cursor action targeting it runs. Called by every safe* factory
+ * after the element resolves and BEFORE the CursorAction is returned —
+ * by the time the controller invokes `cursor.runScript(actions)` the
+ * target has already been scrolled into view (and the rect has settled),
+ * so the glide+click hits an element the user can actually see.
+ *
+ * Without this, a cursor demo on a small viewport (Grant's §6.4b PCR +
+ * LC Gradient editor case, 2026-05-21) silently fires below the fold —
+ * the cursor animates off-screen, the click() succeeds, but the user
+ * sees nothing because the target is below the fold.
+ *
+ * Strategy:
+ *  1. SSR / non-browser → resolve immediately (no DOM to scroll).
+ *  2. `scrollIntoView` missing (jsdom, ancient browsers) → resolve
+ *     immediately. Tests that mock scrollIntoView can still observe the
+ *     call via the mock; the in-view rect check is the only thing they
+ *     short-circuit.
+ *  3. Element already fully inside the viewport → resolve immediately
+ *     (the rect check makes this a true no-op).
+ *  4. Otherwise call `scrollIntoView({ block: "center", inline: "center",
+ *     behavior: "smooth" })` and poll the rect (~16ms cadence) until two
+ *     consecutive samples match (rect stopped moving) OR until we hit
+ *     the iteration cap. The cap (~600ms total) is the upper bound on
+ *     "smooth" scroll duration in evergreen browsers; past that we assume
+ *     the scroll settled or the element is stuck, and proceed.
+ *  5. `scrollIntoView` also handles scrollable ancestors natively — no
+ *     special "find scroll parent" logic needed.
+ */
+async function ensureInViewport(el: HTMLElement): Promise<void> {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  // scrollIntoView is missing in jsdom by default; some test fixtures
+  // stub it. Either way, if it's not a function, there's nothing to do.
+  if (typeof el.scrollIntoView !== "function") return;
+
+  const isFullyVisible = (rect: DOMRect): boolean =>
+    rect.top >= 0 &&
+    rect.left >= 0 &&
+    rect.bottom <= window.innerHeight &&
+    rect.right <= window.innerWidth;
+
+  const initialRect = el.getBoundingClientRect();
+  if (isFullyVisible(initialRect)) return;
+
+  try {
+    el.scrollIntoView({
+      block: "center",
+      inline: "center",
+      behavior: "smooth",
+    });
+  } catch {
+    // Some test environments throw on scrollIntoView options; fall
+    // through and just rely on the rect-poll below to give the scroll
+    // (if any) a chance to settle.
+  }
+
+  // Poll the rect at ~one-frame cadence until it stops moving or until
+  // we hit the cap. We compare against the previous sample instead of a
+  // fixed target rect because the scroll might not bring the element to
+  // the exact center (e.g. constrained by document bounds), so "settled"
+  // is the more reliable signal than "matches goal."
+  const MAX_ITERATIONS = 40; // ~640ms at 16ms cadence
+  const POLL_INTERVAL_MS = 16;
+  let prevRect = initialRect;
+  for (let i = 0; i < MAX_ITERATIONS; i++) {
+    await new Promise<void>((resolve) => {
+      window.setTimeout(resolve, POLL_INTERVAL_MS);
+    });
+    const nextRect = el.getBoundingClientRect();
+    if (
+      Math.abs(nextRect.top - prevRect.top) < 0.5 &&
+      Math.abs(nextRect.left - prevRect.left) < 0.5
+    ) {
+      // Two consecutive identical samples → scroll has settled.
+      return;
+    }
+    prevRect = nextRect;
+  }
+  // Iteration cap hit — proceed anyway so a stuck scroll doesn't deadlock
+  // the script. The cursor will still animate to wherever the element
+  // ended up.
+}
+
+// Export for tests; not part of the public API.
+export const __test_ensureInViewport = ensureInViewport;
+
+/**
  * Build a click action against a selector, waiting for the target to
  * mount. Returns `null` if the target never appears, so the caller can
  * filter nulls out of the action list with `.filter((a): a is
@@ -117,6 +204,7 @@ export async function safeClickAction(
 ): Promise<CursorAction | null> {
   const el = await waitForElement(selector, timeoutMs);
   if (!el) return null;
+  await ensureInViewport(el);
   return { type: "click", target: el };
 }
 
@@ -132,6 +220,7 @@ export async function safeTypeAction(
 ): Promise<CursorAction | null> {
   const el = await waitForElement(selector, timeoutMs);
   if (!el) return null;
+  await ensureInViewport(el);
   return { type: "type", target: el, text, cadenceMs };
 }
 

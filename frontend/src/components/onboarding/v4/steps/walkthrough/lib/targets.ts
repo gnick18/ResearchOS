@@ -43,6 +43,12 @@ export const TOUR_TARGETS = {
   // §6.4 Methods page
   methodsAddCategory: "methods-add-category",
   methodsCategoryNameInput: "methods-category-name-input",
+  // §6.4 cursor demo (Grant 2026-05-21 follow-up): the demo was typing
+  // the picked label but never clicking submit, so the modal sat open
+  // waiting for the user. The cursor now clicks "Create Empty" which
+  // creates the category without auto-cascading into the method picker
+  // (the next step `methods-open-picker` opens it separately).
+  methodsCategoryCreateEmpty: "methods-category-create-empty",
   // §6.4 v4 sec 6.4 redesign: the demo step types the user-picked
   // category name into the "New Category" modal. `methodsAddCategory`
   // covers the page-header "+ New Category" button; the alias key

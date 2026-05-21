@@ -896,6 +896,7 @@ function CreateCategoryModal({
           <button
             onClick={() => handleCreate(false)}
             disabled={!categoryName.trim()}
+            data-tour-target="methods-category-create-empty"
             className="px-4 py-2 text-sm border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg disabled:opacity-50"
           >
             Create Empty
