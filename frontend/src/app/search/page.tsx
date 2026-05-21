@@ -18,6 +18,12 @@ import {
 import type { ExportFormat } from "@/lib/export/types";
 import { taskKey, type Task, type Method, type Project } from "@/lib/types";
 import { resolveMethodById } from "@/lib/methods/lookup";
+import {
+  encodeFilterKey,
+  matchesMethodFilter,
+  matchesProjectFilter,
+  type FilterKey,
+} from "@/lib/search/filterKey";
 
 const DEFAULT_COLORS = [
   "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
@@ -29,9 +35,15 @@ interface SearchFilters {
   dateFrom: string;
   dateTo: string;
   taskType: "all" | "experiment" | "purchase" | "list";
-  methodId: number | null;
+  // Composite "<owner>:<id>" keys for the Method / Project filters. Numeric
+  // ids collide across owners (alex's project 1 vs morgan's project 1, the
+  // public method 2 vs alex's private method 2), so the form layer carries
+  // the owner alongside the id and resolves it via lib/search/filterKey.ts.
+  // Persona 18 caught the collision on the Project dropdown; the same
+  // composite-key shape lands on Method here. Null = no filter.
+  methodKey: FilterKey | null;
   methodFolder: string;
-  projectId: number | null;
+  projectKey: FilterKey | null;
   completionStatus: "all" | "complete" | "incomplete";
 }
 
@@ -59,9 +71,9 @@ export default function SearchPage() {
     dateFrom: "",
     dateTo: "",
     taskType: "all",
-    methodId: null,
+    methodKey: null,
     methodFolder: "",
-    projectId: null,
+    projectKey: null,
     completionStatus: "all",
   });
 
@@ -158,8 +170,10 @@ export default function SearchPage() {
         continue;
       }
 
-      // Filter by project
-      if (filters.projectId !== null && task.project_id !== filters.projectId) {
+      // Filter by project (composite owner:id match — see filterKey.ts).
+      // Persona 18 collision class: bare `task.project_id === filters.id`
+      // silently merges alex's project 1 with morgan's project 1.
+      if (!matchesProjectFilter(task, filters.projectKey)) {
         continue;
       }
 
@@ -185,8 +199,11 @@ export default function SearchPage() {
       // about the old top-level method_id field here.
       const primaryMethodId: number | null = task.method_ids?.[0] ?? null;
 
-      // Filter by method
-      if (filters.methodId !== null && primaryMethodId !== filters.methodId) {
+      // Filter by method (composite owner:id match — see filterKey.ts).
+      // Same collision class as projects: the public method id 2 and
+      // alex's private method id 2 are different records; matching on a
+      // raw numeric id silently merges them.
+      if (!matchesMethodFilter(task, filters.methodKey)) {
         continue;
       }
 
@@ -242,9 +259,9 @@ export default function SearchPage() {
       dateFrom: "",
       dateTo: "",
       taskType: "all",
-      methodId: null,
+      methodKey: null,
       methodFolder: "",
-      projectId: null,
+      projectKey: null,
       completionStatus: "all",
     });
     setHasSearched(false);
@@ -473,16 +490,28 @@ export default function SearchPage() {
                 Project
               </label>
               <select
-                value={filters.projectId ?? ""}
-                onChange={(e) => updateFilter("projectId", e.target.value ? Number(e.target.value) : null)}
+                value={filters.projectKey ?? ""}
+                onChange={(e) =>
+                  updateFilter("projectKey", e.target.value ? e.target.value : null)
+                }
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">All Projects</option>
-                {projects.map((p) => (
-                  <option key={`${p.owner}:${p.id}`} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
+                {projects.map((p) => {
+                  // Composite "<owner>:<id>" is both the React key AND the
+                  // option value: a bare `p.id` collides for alex's project
+                  // 1 vs morgan's project 1, browsers snap selectedIndex to
+                  // the first match, and filtering silently widens to both
+                  // (persona 18). encodeFilterKey mirrors `taskKey()` in
+                  // lib/types.ts so the form, lookup map, and color map all
+                  // share one key shape.
+                  const key = encodeFilterKey(p);
+                  return (
+                    <option key={key} value={key}>
+                      {p.name}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -492,16 +521,26 @@ export default function SearchPage() {
                 Specific Method
               </label>
               <select
-                value={filters.methodId ?? ""}
-                onChange={(e) => updateFilter("methodId", e.target.value ? Number(e.target.value) : null)}
+                value={filters.methodKey ?? ""}
+                onChange={(e) =>
+                  updateFilter("methodKey", e.target.value ? e.target.value : null)
+                }
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Any Method</option>
-                {methods.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
+                {methods.map((m) => {
+                  // Same composite-key shape as the Project select above.
+                  // Method.owner is `"public"` for marketplace methods and
+                  // a username otherwise, so two methods with id 2 (one
+                  // public, one alex's private) get distinct option values
+                  // instead of both rendering as `value="2"`.
+                  const key = encodeFilterKey(m);
+                  return (
+                    <option key={key} value={key}>
+                      {m.name}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
