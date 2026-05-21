@@ -1954,22 +1954,27 @@ export default function HybridMarkdownEditor({
         {/* Helper panel */}
         {showShortcutsHelper && (
           <div className={`${helperCollapsed ? "w-8" : "w-52"} flex-shrink-0 border-r border-gray-100 bg-gray-50/30 flex flex-col transition-all duration-200`}>
-            <button
-              type="button"
-              onClick={() => setHelperCollapsed(!helperCollapsed)}
-              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors self-end m-1"
-              title={helperCollapsed ? "Expand helper panel" : "Collapse helper panel"}
+            <Tooltip
+              label={helperCollapsed ? "Expand helper panel" : "Collapse helper panel"}
+              placement="right"
             >
-              <svg
-                className={`w-4 h-4 transition-transform ${helperCollapsed ? "rotate-180" : ""}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+              <button
+                type="button"
+                onClick={() => setHelperCollapsed(!helperCollapsed)}
+                aria-label={helperCollapsed ? "Expand helper panel" : "Collapse helper panel"}
+                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors self-end m-1"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            
+                <svg
+                  className={`w-4 h-4 transition-transform ${helperCollapsed ? "rotate-180" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            </Tooltip>
+
             {!helperCollapsed && (
               <div className="flex-1 overflow-y-auto px-2 pb-2">
                 <div className="flex gap-1 mb-3 bg-gray-100 rounded-lg p-0.5">
@@ -2145,22 +2150,27 @@ export default function HybridMarkdownEditor({
       {/* Helper panel */}
       {showShortcutsHelper && (
         <div className={`${helperCollapsed ? "w-8" : "w-52"} flex-shrink-0 border-r border-gray-100 bg-gray-50/30 flex flex-col transition-all duration-200`}>
-          <button
-            type="button"
-            onClick={() => setHelperCollapsed(!helperCollapsed)}
-            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors self-end m-1"
-            title={helperCollapsed ? "Expand helper panel" : "Collapse helper panel"}
+          <Tooltip
+            label={helperCollapsed ? "Expand helper panel" : "Collapse helper panel"}
+            placement="right"
           >
-            <svg
-              className={`w-4 h-4 transition-transform ${helperCollapsed ? "rotate-180" : ""}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+            <button
+              type="button"
+              onClick={() => setHelperCollapsed(!helperCollapsed)}
+              aria-label={helperCollapsed ? "Expand helper panel" : "Collapse helper panel"}
+              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors self-end m-1"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          
+              <svg
+                className={`w-4 h-4 transition-transform ${helperCollapsed ? "rotate-180" : ""}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          </Tooltip>
+
           {!helperCollapsed && (
             <div className="flex-1 overflow-y-auto px-2 pb-2">
               <div className="flex gap-1 mb-3 bg-gray-100 rounded-lg p-0.5">

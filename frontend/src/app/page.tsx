@@ -7,6 +7,7 @@ import { projectsApi, fetchAllTasksIncludingShared, fetchAllProjectsIncludingSha
 import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import ProjectCardKebab from "@/components/project-surface/ProjectCardKebab";
+import Tooltip from "@/components/Tooltip";
 import UserLoginScreen from "@/components/UserLoginScreen";
 import SubTaskProgressDots from "@/components/workbench/SubTaskProgressDots";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
@@ -367,15 +368,16 @@ export default function HomePage() {
                 </label>
                 <div className="flex gap-2">
                   {DEFAULT_COLORS.map((c) => (
-                    <button
-                      key={c}
-                      onClick={() => setNewColor(c)}
-                      title={`Use color ${c}`}
-                      className={`w-7 h-7 rounded-full transition-transform ${
-                        newColor === c ? "ring-2 ring-offset-2 ring-gray-400 scale-110" : ""
-                      }`}
-                      style={{ backgroundColor: c }}
-                    />
+                    <Tooltip key={c} label={`Use color ${c}`} placement="bottom">
+                      <button
+                        onClick={() => setNewColor(c)}
+                        aria-label={`Use color ${c}`}
+                        className={`w-7 h-7 rounded-full transition-transform ${
+                          newColor === c ? "ring-2 ring-offset-2 ring-gray-400 scale-110" : ""
+                        }`}
+                        style={{ backgroundColor: c }}
+                      />
+                    </Tooltip>
                   ))}
                 </div>
               </div>

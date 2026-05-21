@@ -553,15 +553,16 @@ function EventModal({
                 <label className="block text-xs font-medium text-gray-500 mb-1">Color</label>
                 <div className="flex gap-2">
                   {DEFAULT_COLORS.map((c) => (
-                    <button
-                      key={c}
-                      onClick={() => setColor(c)}
-                      title={`Use color ${c}`}
-                      className={`w-6 h-6 rounded-full transition-transform ${
-                        color === c ? "ring-2 ring-offset-2 ring-gray-400 scale-110" : ""
-                      }`}
-                      style={{ backgroundColor: c }}
-                    />
+                    <Tooltip key={c} label={`Use color ${c}`} placement="bottom">
+                      <button
+                        onClick={() => setColor(c)}
+                        aria-label={`Use color ${c}`}
+                        className={`w-6 h-6 rounded-full transition-transform ${
+                          color === c ? "ring-2 ring-offset-2 ring-gray-400 scale-110" : ""
+                        }`}
+                        style={{ backgroundColor: c }}
+                      />
+                    </Tooltip>
                   ))}
                 </div>
               </div>
@@ -796,16 +797,17 @@ function CreateEventModal({
             <label className="block text-xs font-medium text-gray-500 mb-1">Color</label>
             <div className="flex gap-2">
               {DEFAULT_COLORS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setColor(c)}
-                  title={`Use color ${c}`}
-                  className={`w-6 h-6 rounded-full transition-transform ${
-                    color === c ? "ring-2 ring-offset-2 ring-gray-400 scale-110" : ""
-                  }`}
-                  style={{ backgroundColor: c }}
-                />
+                <Tooltip key={c} label={`Use color ${c}`} placement="bottom">
+                  <button
+                    type="button"
+                    onClick={() => setColor(c)}
+                    aria-label={`Use color ${c}`}
+                    className={`w-6 h-6 rounded-full transition-transform ${
+                      color === c ? "ring-2 ring-offset-2 ring-gray-400 scale-110" : ""
+                    }`}
+                    style={{ backgroundColor: c }}
+                  />
+                </Tooltip>
               ))}
             </div>
           </div>

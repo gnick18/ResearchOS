@@ -212,15 +212,16 @@ export default function CalendarFeedsModal({ onClose }: Props) {
                   >
                     <div className="flex flex-col gap-1 pt-0.5">
                       {DEFAULT_COLORS.slice(0, 5).map((c) => (
-                        <button
-                          key={c}
-                          onClick={() => handleRecolor(feed, c)}
-                          title={`Use color ${c}`}
-                          className={`w-3 h-3 rounded-full transition-transform ${
-                            feed.color === c ? "ring-2 ring-offset-1 ring-gray-400" : ""
-                          }`}
-                          style={{ backgroundColor: c }}
-                        />
+                        <Tooltip key={c} label={`Use color ${c}`} placement="right">
+                          <button
+                            onClick={() => handleRecolor(feed, c)}
+                            aria-label={`Use color ${c}`}
+                            className={`w-3 h-3 rounded-full transition-transform ${
+                              feed.color === c ? "ring-2 ring-offset-1 ring-gray-400" : ""
+                            }`}
+                            style={{ backgroundColor: c }}
+                          />
+                        </Tooltip>
                       ))}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -352,17 +353,18 @@ export default function CalendarFeedsModal({ onClose }: Props) {
                 </label>
                 <div className="flex gap-2">
                   {DEFAULT_COLORS.map((c) => (
-                    <button
-                      key={c}
-                      onClick={() => setDraftColor(c)}
-                      title={`Use color ${c}`}
-                      className={`w-6 h-6 rounded-full transition-transform ${
-                        draftColor === c
-                          ? "ring-2 ring-offset-2 ring-gray-400 scale-110"
-                          : ""
-                      }`}
-                      style={{ backgroundColor: c }}
-                    />
+                    <Tooltip key={c} label={`Use color ${c}`} placement="bottom">
+                      <button
+                        onClick={() => setDraftColor(c)}
+                        aria-label={`Use color ${c}`}
+                        className={`w-6 h-6 rounded-full transition-transform ${
+                          draftColor === c
+                            ? "ring-2 ring-offset-2 ring-gray-400 scale-110"
+                            : ""
+                        }`}
+                        style={{ backgroundColor: c }}
+                      />
+                    </Tooltip>
                   ))}
                 </div>
               </div>

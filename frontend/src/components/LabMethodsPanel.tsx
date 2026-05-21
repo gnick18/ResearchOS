@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { labApi, LabTask, LabMethod } from "@/lib/local-api";
 import { useLabData } from "@/hooks/useLabData";
 import UserAvatar from "@/components/UserAvatar";
+import Tooltip from "@/components/Tooltip";
 
 interface LabMethodsPanelProps {
   selectedUsernames: Set<string>;
@@ -317,20 +318,25 @@ function MethodRowView({
         {/* User-color avatar cluster */}
         <div className="flex -space-x-1 flex-shrink-0">
           {sortedUsers.slice(0, 4).map((u) => (
-            <button
+            <Tooltip
               key={u}
-              type="button"
-              onClick={(e) => {
-                if (onUserClick) {
-                  e.stopPropagation();
-                  onUserClick(u);
-                }
-              }}
-              className="rounded-full ring-2 ring-white hover:ring-emerald-300 transition-shadow"
-              title={onUserClick ? `View ${u}'s dashboard` : u}
+              label={onUserClick ? `View ${u}'s dashboard` : u}
+              placement="bottom"
             >
-              <UserAvatar username={u} size="xs" />
-            </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  if (onUserClick) {
+                    e.stopPropagation();
+                    onUserClick(u);
+                  }
+                }}
+                aria-label={onUserClick ? `View ${u}'s dashboard` : u}
+                className="rounded-full ring-2 ring-white hover:ring-emerald-300 transition-shadow"
+              >
+                <UserAvatar username={u} size="xs" />
+              </button>
+            </Tooltip>
           ))}
           {sortedUsers.length > 4 && (
             <div className="w-6 h-6 rounded-full ring-2 ring-white bg-gray-200 flex items-center justify-center text-[10px] text-gray-600 font-medium">

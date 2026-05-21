@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { labApi, LabGoal } from "@/lib/local-api";
 import { useLabData } from "@/hooks/useLabData";
 import UserAvatar from "@/components/UserAvatar";
+import Tooltip from "@/components/Tooltip";
 
 interface LabRoadmapsPanelProps {
   selectedUsernames: Set<string>;
@@ -151,15 +152,20 @@ export default function LabRoadmapsPanel({
           >
             {/* User header */}
             <div className="p-4 border-b border-gray-200 flex items-center gap-3 bg-gray-50">
-              <button
-                type="button"
-                onClick={() => onUserClick?.(username)}
-                disabled={!onUserClick}
-                className="rounded-full hover:ring-2 hover:ring-emerald-300 disabled:hover:ring-0 transition-shadow"
-                title={onUserClick ? `View ${username}'s dashboard` : username}
+              <Tooltip
+                label={onUserClick ? `View ${username}'s dashboard` : username}
+                placement="bottom"
               >
-                <UserAvatar username={username} size="md" />
-              </button>
+                <button
+                  type="button"
+                  onClick={() => onUserClick?.(username)}
+                  disabled={!onUserClick}
+                  aria-label={onUserClick ? `View ${username}'s dashboard` : username}
+                  className="rounded-full hover:ring-2 hover:ring-emerald-300 disabled:hover:ring-0 transition-shadow"
+                >
+                  <UserAvatar username={username} size="md" />
+                </button>
+              </Tooltip>
               <div className="flex-1">
                 <h3 className="text-sm font-semibold text-gray-900">{username}</h3>
                 <p className="text-xs text-gray-500">

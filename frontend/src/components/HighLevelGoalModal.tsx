@@ -262,16 +262,17 @@ export default function HighLevelGoalModal({
             </label>
             <div className="flex gap-2">
               {GOAL_COLORS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setColor(c)}
-                  title={`Use color ${c}`}
-                  className={`w-8 h-8 rounded-full transition-transform ${
-                    color === c ? "ring-2 ring-offset-2 ring-gray-400 scale-110" : ""
-                  }`}
-                  style={{ backgroundColor: c }}
-                />
+                <Tooltip key={c} label={`Use color ${c}`} placement="bottom">
+                  <button
+                    type="button"
+                    onClick={() => setColor(c)}
+                    aria-label={`Use color ${c}`}
+                    className={`w-8 h-8 rounded-full transition-transform ${
+                      color === c ? "ring-2 ring-offset-2 ring-gray-400 scale-110" : ""
+                    }`}
+                    style={{ backgroundColor: c }}
+                  />
+                </Tooltip>
               ))}
             </div>
           </div>
