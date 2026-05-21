@@ -55,12 +55,12 @@ export default function ExperimentsFeaturePage() {
         project. That keeps a single research question coherent across
         the three views.
       </p>
-      <Callout variant="info" title="Notes will join the shared filter">
-        The project pill strip currently hides on the Notes tab (Notes
-        is project-agnostic for now). A follow-up change restores it
-        there so the same filter applies to all three tabs. Until that
-        lands, switching to Notes drops the project narrowing and shows
-        every note.
+      <Callout variant="info" title="Notes intentionally skips the project filter">
+        Notes aren&apos;t tied to any single project, so the pill strip
+        hides on this tab by design. A filter that can&apos;t actually
+        narrow anything would just be visual noise. To scope the note
+        grid, use the search box at the top of the tab and filter by
+        content instead.
       </Callout>
 
       <h2>The Experiments tab</h2>
