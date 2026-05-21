@@ -1,3 +1,5 @@
+import { notifyFileWritten } from "./file-write-hooks";
+
 export interface FileServiceConfig {
   directoryHandle: FileSystemDirectoryHandle;
 }
@@ -459,6 +461,14 @@ export class FileService {
       }
       throw err;
     }
+
+    // Notify any registered observers (e.g. the S1 streak activity
+    // tracker) that a successful write just landed. Fire-and-forget,
+    // observer exceptions are swallowed inside notifyFileWritten so a
+    // bad observer can never poison the write path. See
+    // streak-activity-tracker.ts (Streaks-and-Milestones S1) for the
+    // canonical consumer.
+    notifyFileWritten(path);
   }
 
   async createWritable(path: string): Promise<FileSystemWritableFileStream | null> {
