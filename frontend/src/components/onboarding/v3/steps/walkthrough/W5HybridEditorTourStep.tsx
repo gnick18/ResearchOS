@@ -7,6 +7,7 @@ import {
   appendArtifact,
   findArtifact,
 } from "./lib/wizard-artifacts";
+import RenderedMarkdown from "@/components/RenderedMarkdown";
 
 /**
  * W5: Hybrid editor tour (universal walkthrough).
@@ -164,10 +165,10 @@ export default function W5HybridEditorTourStep({
   return (
     <div data-step-id="W5" className="space-y-4">
       <SpeechBubble>
-        Watch this. I&apos;m gonna make this bold like it just got cast in a
-        summer blockbuster. Italics, code blocks, quotes, headings, all from
-        keyboard shortcuts. Try one yourself in your experiment&apos;s note
-        when you&apos;re done watching.
+        Quick fact: ResearchOS runs on markdown. Notes, methods, results,
+        task descriptions, project overviews, the whole shebang. These
+        keyboard shortcuts work in every markdown editor on the site, so
+        once you&apos;ve got them, you&apos;ve got them everywhere. Watch.
       </SpeechBubble>
 
       <div className="grid grid-cols-2 gap-3 text-xs">
@@ -193,7 +194,7 @@ export default function W5HybridEditorTourStep({
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium text-gray-600">
-            BeakerBot is typing into the editor
+            Type these shortcuts, see them render
           </span>
           {!doneScript && (
             <button
@@ -208,13 +209,31 @@ export default function W5HybridEditorTourStep({
             </button>
           )}
         </div>
-        <pre
-          data-w5-preview
-          className="font-mono text-xs bg-gray-900 text-gray-100 rounded-md px-3 py-3 whitespace-pre-wrap leading-relaxed min-h-[160px] max-h-[200px] overflow-y-auto"
-        >
-          {cumulative}
-          {!doneScript && <span className="animate-pulse">|</span>}
-        </pre>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <span className="text-[10px] uppercase tracking-wide text-gray-500">
+              You type
+            </span>
+            <pre
+              data-w5-preview
+              className="font-mono text-xs bg-gray-900 text-gray-100 rounded-md px-3 py-3 whitespace-pre-wrap leading-relaxed min-h-[200px] max-h-[240px] overflow-y-auto"
+            >
+              {cumulative}
+              {!doneScript && <span className="animate-pulse">|</span>}
+            </pre>
+          </div>
+          <div className="space-y-1">
+            <span className="text-[10px] uppercase tracking-wide text-gray-500">
+              You see
+            </span>
+            <div
+              data-w5-rendered
+              className="bg-white border border-gray-200 rounded-md px-3 py-3 min-h-[200px] max-h-[240px] overflow-y-auto prose prose-sm prose-gray max-w-none"
+            >
+              <RenderedMarkdown content={cumulative} enableSyntaxHighlight />
+            </div>
+          </div>
+        </div>
       </div>
 
       {doneScript && (
