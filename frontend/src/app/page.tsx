@@ -239,11 +239,26 @@ export default function HomePage() {
   }, [newName, newWeekendActive, newTags, newColor, queryClient]);
 
   // Drag and drop handlers
+  //
+  // Only own (non-shared-in) cards are draggable; shared-in cards don't attach
+  // these handlers and pass draggable={false}. The early-return guards below
+  // are belt-and-suspenders: if a shared card's id somehow reaches a handler
+  // (event bubbling, stale state, etc.) we bail before mutating order, because
+  // projectsApi.reorder is current-user-scoped and a shared id would silently
+  // mis-order the receiver's own list (own id N and shared id N can collide
+  // since project ids are namespaced per-owner).
   const handleDragStart = useCallback((e: React.DragEvent, projectId: number) => {
+    const startProject = activeSummaries.find(
+      (s) => s.project.id === projectId && !s.project.is_shared_with_me,
+    );
+    if (!startProject) {
+      e.preventDefault();
+      return;
+    }
     setDraggedProjectId(projectId);
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", projectId.toString());
-  }, []);
+  }, [activeSummaries]);
 
   const handleDragOver = useCallback((e: React.DragEvent, projectId: number) => {
     e.preventDefault();
@@ -258,17 +273,27 @@ export default function HomePage() {
   const handleDrop = useCallback(async (e: React.DragEvent, targetProjectId: number) => {
     e.preventDefault();
     setDragOverProjectId(null);
-    
+
     if (!draggedProjectId || draggedProjectId === targetProjectId) {
       setDraggedProjectId(null);
       return;
     }
 
-    // Find the indices and reorder
-    const currentIds = activeSummaries.map((s) => s.project.id);
+    // Reorder is current-user-scoped — refuse if either endpoint is a
+    // shared-in card. Own list indices must come from own cards only.
+    const ownActive = activeSummaries.filter((s) => !s.project.is_shared_with_me);
+    const draggedIsOwn = ownActive.some((s) => s.project.id === draggedProjectId);
+    const targetIsOwn = ownActive.some((s) => s.project.id === targetProjectId);
+    if (!draggedIsOwn || !targetIsOwn) {
+      setDraggedProjectId(null);
+      return;
+    }
+
+    // Find the indices and reorder within the own-only list
+    const currentIds = ownActive.map((s) => s.project.id);
     const draggedIdx = currentIds.indexOf(draggedProjectId);
     const targetIdx = currentIds.indexOf(targetProjectId);
-    
+
     if (draggedIdx === -1 || targetIdx === -1) {
       setDraggedProjectId(null);
       return;
@@ -436,15 +461,23 @@ export default function HomePage() {
         {/* Active Project cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {activeSummaries.map(
-            ({ project, total, completed, upcoming, overdue, inProgress, displayColor }, cardIdx) => (
+            ({ project, total, completed, upcoming, overdue, inProgress, displayColor }, cardIdx) => {
+              // Only own cards participate in reorder drag — shared-in cards
+              // can't be reordered into the receiver's own list (the reorder
+              // API is current-user-scoped), so they don't get draggable
+              // affordances, drag handlers, or drag-state visual feedback.
+              const cardIsDraggable = !project.is_shared_with_me;
+              const isBeingDragged = cardIsDraggable && draggedProjectId === project.id;
+              const isDropTarget = cardIsDraggable && dragOverProjectId === project.id;
+              return (
               <div
                 key={`${project.owner}:${project.id}`}
-                draggable
-                onDragStart={(e) => handleDragStart(e, project.id)}
-                onDragOver={(e) => handleDragOver(e, project.id)}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, project.id)}
-                onDragEnd={handleDragEnd}
+                draggable={cardIsDraggable}
+                onDragStart={cardIsDraggable ? (e) => handleDragStart(e, project.id) : undefined}
+                onDragOver={cardIsDraggable ? (e) => handleDragOver(e, project.id) : undefined}
+                onDragLeave={cardIsDraggable ? handleDragLeave : undefined}
+                onDrop={cardIsDraggable ? (e) => handleDrop(e, project.id) : undefined}
+                onDragEnd={cardIsDraggable ? handleDragEnd : undefined}
                 onClick={() => {
                   const href = project.is_shared_with_me
                     ? `/workbench/projects/${project.id}?owner=${encodeURIComponent(project.owner)}`
@@ -462,8 +495,8 @@ export default function HomePage() {
                   "data-onboarding-target": "drop-to-replace",
                 })}
                 className={`group relative bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer ${
-                  draggedProjectId === project.id ? "opacity-50 scale-95" : ""
-                } ${dragOverProjectId === project.id ? "ring-2 ring-blue-400 ring-offset-2" : ""}`}
+                  isBeingDragged ? "opacity-50 scale-95" : ""
+                } ${isDropTarget ? "ring-2 ring-blue-400 ring-offset-2" : ""}`}
               >
                 <ProjectCardKebab project={project} />
                 {/* Color bar — also doubles as the cross-owner-share +
@@ -495,11 +528,15 @@ export default function HomePage() {
                           7-day
                         </span>
                       )}
-                      <span className="text-gray-300 cursor-grab" title="Drag to reorder">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M7 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 14zm6-8a2 2 0 1 0-.001-4.001A2 2 0 0 0 13 6zm0 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 14z" />
-                        </svg>
-                      </span>
+                      {cardIsDraggable && (
+                        <Tooltip label="Drag to reorder" placement="bottom">
+                          <span className="text-gray-300 cursor-grab" aria-label="Drag to reorder">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M7 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 14zm6-8a2 2 0 1 0-.001-4.001A2 2 0 0 0 13 6zm0 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 14z" />
+                            </svg>
+                          </span>
+                        </Tooltip>
+                      )}
                     </div>
                   </div>
 
@@ -611,7 +648,8 @@ export default function HomePage() {
                   )}
                 </div>
               </div>
-            )
+              );
+            }
           )}
         </div>
 
