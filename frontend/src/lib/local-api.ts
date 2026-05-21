@@ -1,5 +1,6 @@
 import { JsonStore, getPublicStore, getLabStore, getCurrentUserCached, clearCurrentUserCache } from "./storage/json-store";
 import { fileService } from "./file-system/file-service";
+import { recordProjectActivity } from "./project-activity/event-log";
 import { getCurrentUser, getMainUser, storeCurrentUser, storeMainUser, clearCurrentUser, clearMainUser } from "./file-system/indexeddb-store";
 import { shiftTask } from "./engine/shift";
 import { formatDate, parseDate } from "./engine/dates";
@@ -211,9 +212,13 @@ export const projectsApi = {
   archive: async (id: number, isArchived: boolean, owner?: string): Promise<Project | null> => {
     const archivedAt = isArchived ? new Date().toISOString() : null;
     const patch = { is_archived: isArchived, archived_at: archivedAt };
-    return owner
-      ? projectsStore.updateForUser(id, patch, owner)
-      : projectsStore.update(id, patch);
+    const result = owner
+      ? await projectsStore.updateForUser(id, patch, owner)
+      : await projectsStore.update(id, patch);
+    if (result) {
+      void recordProjectActivity(result.owner, id, { type: "project_archived", archived: isArchived });
+    }
+    return result;
   },
 
   /**
@@ -229,6 +234,33 @@ export const projectsApi = {
    * `readHostedManifestNormalized` from `lib/sharing/project-hosting`
    * directly.
    */
+  // Overview prose lives in a sidecar markdown file at
+  // `users/<owner>/projects/<id>-overview.md` (Project Surface L6). The
+  // existing `users/<owner>/projects/<id>.json` is untouched: storing prose
+  // as raw markdown avoids JSON-escape pain and keeps the body greppable
+  // and external-editable.
+  //
+  // Owner-routing mirrors `get` / `update`: pass `owner` when a receiver
+  // with edit permission needs to read/write the original owner's file.
+  // Missing file is NOT an error — it means "no overview written yet" —
+  // and resolves to an empty string for callers.
+  getOverview: async (id: number, owner?: string): Promise<string> => {
+    const effectiveOwner = owner ?? (await getCurrentUserCached()) ?? "";
+    if (!effectiveOwner) return "";
+    const path = `users/${effectiveOwner}/projects/${id}-overview.md`;
+    const text = await fileService.readText(path);
+    return text ?? "";
+  },
+
+  setOverview: async (id: number, body: string, owner?: string): Promise<void> => {
+    const effectiveOwner = owner ?? (await getCurrentUserCached()) ?? "";
+    if (!effectiveOwner) throw new Error("No current user; cannot save project overview");
+    await fileService.ensureDir(`users/${effectiveOwner}/projects`);
+    const path = `users/${effectiveOwner}/projects/${id}-overview.md`;
+    await fileService.writeText(path, body);
+    void recordProjectActivity(effectiveOwner, id, { type: "prose_edited" });
+  },
+
   listHostedTasks: async (
     projectOwner: string,
     projectId: number
@@ -519,7 +551,62 @@ export const tasksApi = {
       );
     }
 
-    return updateTaskForCaller(id, writePatch, owner);
+    const result = await updateTaskForCaller(id, writePatch, owner);
+
+    // Project activity emissions (best-effort). For tasks hosted INTO a
+    // foreign project (Option C), the activity log lives in the foreign
+    // project owner's directory, not the task owner's. Native tasks (no
+    // external_project) have project_owner === task.owner.
+    if (result && result.project_id !== 0) {
+      const projectOwner =
+        result.external_project?.owner ?? result.owner;
+      if (data.is_complete === true && !existing.is_complete) {
+        void recordProjectActivity(projectOwner, result.project_id, {
+          type: "task_completed",
+          task_id: result.id,
+          task_owner: result.owner,
+          task_name: result.name,
+        });
+      }
+      if (writePatch.method_attachments !== undefined) {
+        const before = new Map(
+          (existing.method_attachments ?? []).map(
+            (a) => [`${a.owner ?? ""}:${a.method_id}`, a] as const
+          )
+        );
+        const after = new Map(
+          (writePatch.method_attachments ?? []).map(
+            (a) => [`${a.owner ?? ""}:${a.method_id}`, a] as const
+          )
+        );
+        for (const [key, a] of after) {
+          if (!before.has(key)) {
+            void recordProjectActivity(projectOwner, result.project_id, {
+              type: "method_added",
+              task_id: result.id,
+              task_owner: result.owner,
+              task_name: result.name,
+              method_id: a.method_id,
+              method_owner: a.owner,
+            });
+          }
+        }
+        for (const [key, a] of before) {
+          if (!after.has(key)) {
+            void recordProjectActivity(projectOwner, result.project_id, {
+              type: "method_removed",
+              task_id: result.id,
+              task_owner: result.owner,
+              task_name: result.name,
+              method_id: a.method_id,
+              method_owner: a.owner,
+            });
+          }
+        }
+      }
+    }
+
+    return result;
   },
 
   // Note: delete is intentionally not owner-routed — only the task's owner
@@ -3368,103 +3455,6 @@ export const sharingApi = {
     return { status: "ok", item_id: taskId, shared_with: username };
   },
 
-  /**
-   * Admin-mode share: same semantics as `shareTask` but the sender is an
-   * explicit `actorId` instead of the current user. Used by the v4 Lab Mode
-   * tour (P7) so the wizard can make a fake BeakerBot user share placeholder
-   * tasks with the real user — a direction the user-as-sender contract of
-   * `shareTask` can't express.
-   *
-   * Sidecar writes:
-   *   - mutates the task at `users/<actorId>/tasks/<taskId>.json`
-   *   - appends to recipient's `users/<recipient>/_shared_with_me.json` with
-   *     `owner: actorId`
-   *   - appends a `task_shared` notification to recipient's
-   *     `users/<recipient>/_notifications.json` with `from_user: actorId`
-   *
-   * Differences vs `shareTask`:
-   *   - No `include_chain` option. The lab-tour scope (L19) shares standalone
-   *     placeholder tasks; chained shares from a non-current actor would need
-   *     `getTaskAncestors` to also be actor-scoped (not currently the case),
-   *     so we skip the feature rather than ship a half-correct impl.
-   *   - Self-share guard is `actorId === recipient` (not against currentUser).
-   *     An admin caller might invoke this with currentUser==recipient (that's
-   *     the whole point), so the guard against sharing-with-yourself shifts
-   *     to the actor↔recipient axis.
-   */
-  shareTaskAs: async (
-    actorId: string,
-    taskId: number,
-    recipient: string,
-    permission: "view" | "edit"
-  ): Promise<{
-    status: string;
-    item_id: number;
-    shared_with: string;
-    permission: string;
-    actor: string;
-  }> => {
-    if (!actorId) throw new Error("actorId is required");
-    if (!recipient) throw new Error("recipient is required");
-    if (actorId === recipient) {
-      throw new Error("Cannot share a task with the actor themselves");
-    }
-    const task = await tasksStore.getForUser(taskId, actorId);
-    if (!task) {
-      throw new Error(`Task ${taskId} not found in user ${actorId}'s workspace`);
-    }
-    const sharedAt = new Date().toISOString();
-    const updated = upsertSharedWith(task, recipient, permission);
-    await tasksStore.saveForUser(taskId, updated, actorId);
-    await addReceiverShare(
-      recipient,
-      "task",
-      { id: taskId, owner: actorId, permission, shared_at: sharedAt },
-      task.name ?? `Task ${taskId}`
-    );
-    return {
-      status: "ok",
-      item_id: taskId,
-      shared_with: recipient,
-      permission,
-      actor: actorId,
-    };
-  },
-
-  /**
-   * Admin-mode revoke: paired with `shareTaskAs`. Removes `recipient` from
-   * the task's `shared_with` list inside the actor's namespace and prunes the
-   * matching entry from the recipient's `_shared_with_me.json`.
-   *
-   * Mirrors `unshareTask` exactly, except the source-of-truth task lives in
-   * `users/<actorId>/...` instead of the current user's namespace.
-   */
-  unshareTaskAs: async (
-    actorId: string,
-    taskId: number,
-    recipient: string
-  ): Promise<{
-    status: string;
-    item_id: number;
-    shared_with: string;
-    actor: string;
-  }> => {
-    if (!actorId) throw new Error("actorId is required");
-    if (!recipient) throw new Error("recipient is required");
-    const task = await tasksStore.getForUser(taskId, actorId);
-    if (task) {
-      const updated = removeSharedWith(task, recipient);
-      await tasksStore.saveForUser(taskId, updated, actorId);
-    }
-    await removeReceiverShare(recipient, "task", taskId, actorId);
-    return {
-      status: "ok",
-      item_id: taskId,
-      shared_with: recipient,
-      actor: actorId,
-    };
-  },
-
   getTaskDependencyChain: async (
     taskId: number
   ): Promise<{ task_id: number; chain_task_ids: number[]; chain_count: number }> => {
@@ -3527,6 +3517,11 @@ export const sharingApi = {
       { id: projectId, owner: currentUser, permission, shared_at: new Date().toISOString() },
       project.name
     );
+    void recordProjectActivity(currentUser, projectId, {
+      type: "project_shared",
+      recipient: data.username,
+      permission: permission as "view" | "edit",
+    });
     return { status: "ok", item_id: projectId, shared_with: data.username, permission };
   },
 
