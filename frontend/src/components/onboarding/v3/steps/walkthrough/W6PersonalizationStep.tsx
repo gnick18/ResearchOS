@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { patchUserSettings, readUserSettings } from "@/lib/settings/user-settings";
 import { ANIMATION_METADATA, type AnimationType } from "@/components/animations";
 import DynamicAnimation from "@/components/DynamicAnimation";
@@ -77,6 +77,18 @@ export default function W6PersonalizationStep({
   useEffect(() => {
     setNextDisabled(false);
   }, [setNextDisabled]);
+
+  // Stable callback reference so DynamicAnimation's useEffect dep array
+  // doesn't re-trigger the particle setup on every W6 render. Without
+  // this, setAnimation + patchUserSettings + patchSidecar each re-render
+  // W6, each creates a new onComplete inline arrow function reference,
+  // and CelebrationAnimation (and siblings) re-fire their setup
+  // useEffect because onComplete is listed in its deps. Net effect:
+  // animation fires once on click, then again ~50-500ms later as the
+  // async state writes complete.
+  const handlePreviewComplete = useCallback(() => {
+    setPreview(null);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -237,7 +249,7 @@ export default function W6PersonalizationStep({
           type={preview.type}
           x={preview.x}
           y={preview.y}
-          onComplete={() => setPreview(null)}
+          onComplete={handlePreviewComplete}
         />
       )}
     </div>
