@@ -55,7 +55,8 @@ import {
 import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
 import { readPairing } from "@/lib/telegram/telegram-store";
 import { USER_COLOR_QUERY_KEY } from "@/hooks/useUserColor";
-import { clearWizardCompletion } from "@/lib/onboarding/sidecar";
+import { patchOnboarding } from "@/lib/onboarding/sidecar";
+import { useOptionalTourController } from "@/components/onboarding/v4/TourController";
 import { forgetAllTelegramTokenCache } from "@/lib/telegram/telegram-token-cache";
 
 const USER_COLOR_PALETTE = [
@@ -2307,15 +2308,17 @@ function AIHelperSection() {
 
 /**
  * Onboarding section. Surfaces the "Re-run welcome tour" button that
- * arms `wizard_force_show` so the wizard mounts again on the next
- * reload. The legacy "tips mode picker" + "Replay tips" controls were
- * removed with sidecar v3 → v4 (P0 of the Onboarding v3 arc per
- * ONBOARDING_V3_PROPOSAL.md §10); the v3 walkthrough subsumes both.
- * TODO P7: this section will be rewritten alongside the wider tips
- * deprecation sweep.
+ * resets the v4 sidecar completion/skip/resume fields + clears
+ * feature_picks (so Phase 1 setup runs again), then calls
+ * `tourController.start()` to re-fire the v4 walkthrough in place
+ * (no page reload). The legacy "tips mode picker" + "Replay tips"
+ * controls were removed with sidecar v3 -> v4 (P0 of the Onboarding
+ * v3 arc per ONBOARDING_V3_PROPOSAL.md §10); the v4 walkthrough
+ * subsumes both.
  */
 function TipsSection() {
   const { currentUser } = useFileSystem();
+  const tourController = useOptionalTourController();
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -2324,15 +2327,34 @@ function TipsSection() {
     setBusy(true);
     setStatus(null);
     try {
-      await clearWizardCompletion(currentUser);
-      setStatus("Wizard will re-open on next refresh.");
-      setTimeout(() => window.location.reload(), 600);
+      // Clear all v4 completion / skip / resume + feature_picks so the
+      // tour starts from a clean slate (Phase 1 setup re-runs, then
+      // the in-product walkthrough). wizard_force_show is kept as a
+      // dev affordance for the v3 DevForceTipButton compat path; v4's
+      // TourController does not consult that flag.
+      await patchOnboarding(currentUser, (cur) => ({
+        ...cur,
+        wizard_completed_at: null,
+        wizard_skipped_at: null,
+        wizard_resume_state: null,
+        feature_picks: null,
+        wizard_force_show: false,
+        lab_tour_pending: false,
+        lab_tour_dismissed_at: null,
+      }));
+      // Reset the controller's in-memory feature_picks snapshot so the
+      // re-run's gating machine sees the cleared picks immediately,
+      // then start the tour at the first applicable step.
+      tourController?.setFeaturePicks(null);
+      tourController?.start();
+      setStatus("Re-running the tour. BeakerBot is on the way.");
+      setTimeout(() => setBusy(false), 600);
     } catch (err) {
       console.error("[Settings/Tips] re-run wizard failed", err);
       setStatus("Couldn't reset. See console for details.");
       setBusy(false);
     }
-  }, [currentUser]);
+  }, [currentUser, tourController]);
 
   return (
     <SectionShell
@@ -2343,8 +2365,9 @@ function TipsSection() {
         <div className="min-w-0 flex-1">
           <p className="text-sm text-gray-800">Re-run welcome tour</p>
           <p className="text-xs text-gray-500 mt-1">
-            Launches the v3 walkthrough again. New users see this once on
-            first sign-in; existing users can opt back in here.
+            Launches the BeakerBot walkthrough again. New users see
+            this once on first sign-in; existing users can opt back in
+            here.
           </p>
           {status && <p className="text-xs text-emerald-600 mt-2">{status}</p>}
         </div>
@@ -2352,9 +2375,10 @@ function TipsSection() {
           type="button"
           onClick={handleRerunWizard}
           disabled={busy || !currentUser}
+          data-testid="settings-rerun-welcome-tour"
           className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
         >
-          {busy ? "Resetting…" : "Re-run tour"}
+          {busy ? "Resetting..." : "Re-run tour"}
         </button>
       </div>
     </SectionShell>

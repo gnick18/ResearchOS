@@ -282,7 +282,14 @@ describe("WizardResumeModal (component-level)", () => {
   });
 });
 
-describe("WizardResumeModal integration via WizardMount", () => {
+// P11 (Onboarding v4): v3's WizardMount no longer auto-fires (it
+// renders null). The integration tests below exercised the v3
+// mount-probe -> WizardResumeModal -> wizard-shell handshake; with
+// v3 auto-fire disabled, the modal is no longer surfaced through
+// WizardMount. v4's TourBootstrap (TourBootstrap.test.tsx) covers
+// the equivalent in-flight migration prompt for the v3 -> v4 cutover.
+// P9 deletes this file entirely.
+describe.skip("WizardResumeModal integration via WizardMount (post-P11: v3 auto-fire disabled)", () => {
   it("renders the modal when wizard_resume_state is non-null and the wizard would mount", async () => {
     readOnboardingMock.mockResolvedValue(baseSidecar());
     freshUserMock.mockResolvedValue(true);

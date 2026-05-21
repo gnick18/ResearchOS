@@ -14,6 +14,7 @@ import FloatingLeaveDemoButton from "@/components/FloatingLeaveDemoButton";
 import OpenDocsButton from "@/components/OpenDocsButton";
 import { OnboardingProvider } from "@/lib/onboarding/orchestrator";
 import LabTourResumePrompt from "@/components/onboarding/v3/LabTourResumePrompt";
+import V4MountForUser from "@/components/onboarding/v4/V4MountForUser";
 import { initializeErrorHandlers } from "@/lib/error-reporting";
 
 function AppContent({ children }: { children: ReactNode }) {
@@ -181,9 +182,26 @@ function AppContent({ children }: { children: ReactNode }) {
   // Lives outside OnboardingProvider so it doesn't depend on the wizard
   // context, but inside the same demo / wiki-capture exemption (the outer
   // conditional in this file peels those modes off before reaching here).
+  //
+  // V4MountForUser (P11) mounts INSIDE OnboardingProvider so both the
+  // v3 orchestrator context and the v4 TourController context coexist
+  // during the cutover window. v3's auto-fire is gated off (see
+  // WizardMount.tsx), so the two do not conflict at runtime. v3's
+  // remaining surface (the orchestrator context + LabTourResumePrompt)
+  // stays available for in-flight users until P9 deletes v3. Lab Mode
+  // users skip v4 because OnboardingProvider already returns
+  // children-only for them; this also matches v3's behavior for Lab
+  // Mode (no welcome tour on a read-only cross-user view).
+  const isLabUser = currentUser.toLowerCase() === "lab";
   return (
     <QueryClientProvider client={queryClient}>
-      <OnboardingProvider currentUser={currentUser}>{children}</OnboardingProvider>
+      <OnboardingProvider currentUser={currentUser}>
+        {isLabUser ? (
+          children
+        ) : (
+          <V4MountForUser username={currentUser}>{children}</V4MountForUser>
+        )}
+      </OnboardingProvider>
       <LabTourResumePrompt username={currentUser} />
     </QueryClientProvider>
   );

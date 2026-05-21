@@ -252,16 +252,20 @@ describe("WizardMount existing-user invisibility (L1/L22 integration)", () => {
 });
 
 describe("WizardMount fresh-user + escape-hatch (§11 positive cases)", () => {
-  it("no sidecar + no settings + no user metadata: fresh-folder probe true, wizard MOUNTS at intro", async () => {
-    // No files in memFs, no metadata. isFreshUserForWizard returns true.
+  // P11 (Onboarding v4): v3's auto-fire is disabled. The two "MOUNTS"
+  // cases below now assert the post-P11 behavior: WizardMount renders
+  // null regardless of fresh-folder / force-show. The v4 equivalents
+  // (TourBootstrap fresh user + Settings re-run) cover the activation
+  // surface in `TourBootstrap.test.tsx` + the settings page. P9 will
+  // delete this file entirely.
+  it("post-P11: fresh user does NOT auto-mount v3 (v4's TourBootstrap owns activation)", async () => {
     render(<WizardMount username={USER} />);
     await waitForMountDecision();
 
-    const shell = await screen.findByTestId("wizard-shell");
-    expect(shell).toHaveAttribute("data-initial-step", "intro");
+    expect(screen.queryByTestId("wizard-shell")).toBeNull();
   });
 
-  it("v4 sidecar with feature_picks=null AND wizard_force_show=true (Settings Re-run escape hatch): wizard MOUNTS", async () => {
+  it("post-P11: wizard_force_show=true does NOT auto-mount v3 (Settings re-run hits v4 now)", async () => {
     fsState.files.set(SIDECAR_PATH, {
       version: 4,
       first_seen_at: "2026-05-14T08:00:00.000Z",
@@ -278,8 +282,7 @@ describe("WizardMount fresh-user + escape-hatch (§11 positive cases)", () => {
     render(<WizardMount username={USER} />);
     await waitForMountDecision();
 
-    const shell = await screen.findByTestId("wizard-shell");
-    expect(shell).toHaveAttribute("data-initial-step", "intro");
+    expect(screen.queryByTestId("wizard-shell")).toBeNull();
   });
 
   it("v4 sidecar with populated feature_picks AND wizard_completed_at set: completed v3 user stays quiet", async () => {
@@ -351,7 +354,10 @@ describe("OnboardingProvider fixture-mode gate precedence (master 4-state truth 
     expect(screen.queryByTestId("tutorial-sequencer")).toBeNull();
   });
 
-  it("?wikiCapture=1 + ?wizard-preview=1: wiki-manager screenshot path, wizard MOUNTS on fixtures (master-locked precedence)", async () => {
+  it("post-P11: ?wikiCapture=1 + ?wizard-preview=1 does NOT mount v3 (v4 owns the screenshot path now)", async () => {
+    // P11 disabled v3 auto-fire. The wiki-manager screenshot route is
+    // now served by v4's TourBootstrap (which respects ?wizard-preview=1).
+    // See the TourBootstrap.test.tsx fresh-user case.
     fsState.isDemoOrWikiCapture = true;
     fsState.isTutorialMode = false;
     fsState.searchParams = new URLSearchParams("wizard-preview=1");
@@ -364,11 +370,10 @@ describe("OnboardingProvider fixture-mode gate precedence (master 4-state truth 
     await waitForMountDecision();
 
     expect(screen.getByTestId("children")).toBeInTheDocument();
-    const shell = await screen.findByTestId("wizard-shell");
-    expect(shell).toHaveAttribute("data-initial-step", "intro");
+    expect(screen.queryByTestId("wizard-shell")).toBeNull();
   });
 
-  it("?wizard-preview=1 alone (real account, no fixture): wizard MOUNTS regardless of sidecar completion state", async () => {
+  it("post-P11: ?wizard-preview=1 alone does NOT mount v3 (v4's TourBootstrap consumes the flag)", async () => {
     // The dev-preview hook must NOT consult wizard_completed_at; the
     // whole point is to preview the wizard against an existing
     // account.
@@ -400,8 +405,7 @@ describe("OnboardingProvider fixture-mode gate precedence (master 4-state truth 
     );
     await waitForMountDecision();
 
-    const shell = await screen.findByTestId("wizard-shell");
-    expect(shell).toHaveAttribute("data-initial-step", "intro");
+    expect(screen.queryByTestId("wizard-shell")).toBeNull();
   });
 
   it("neither flag, currentUser=null: provider renders children only (upstream short-circuit)", async () => {
