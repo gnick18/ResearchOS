@@ -101,9 +101,9 @@ describe("V4MountForUser:children render", () => {
 describe("V4MountForUser:onComplete callback", () => {
   it("patches sidecar with wizard_completed_at + clears resume_state", async () => {
     // Seed a sidecar with a resume_state at phase4-cleanup so the
-    // tour boots straight into the cleanup grid; the bootstrap calls
-    // controller.start("phase4-cleanup") which routes the Finish to
-    // onComplete (since enteredCleanupViaSkip stays false).
+    // bootstrap surfaces the P12 Resume modal; click Resume to land
+    // on the cleanup grid. Finish there routes to onComplete since
+    // enteredCleanupViaSkip stays false on a direct Resume.
     memFs.set(
       PATH,
       fullSidecar({
@@ -119,6 +119,16 @@ describe("V4MountForUser:onComplete callback", () => {
         <div data-testid="child">child</div>
       </V4MountForUser>,
     );
+    // P12: the Resume modal appears first; click Resume to advance
+    // into the cleanup grid.
+    const resumeBtn = await waitFor(() => {
+      const btn = document.body.querySelector(
+        "[data-testid='v4-resume-resume']",
+      ) as HTMLButtonElement | null;
+      expect(btn).toBeTruthy();
+      return btn as HTMLButtonElement;
+    });
+    await userEvent.click(resumeBtn);
     // Wait for the cleanup grid to mount: assert via the Finish
     // button's data-cleanup-action="finish" attribute.
     await waitFor(() => {
@@ -143,9 +153,9 @@ describe("V4MountForUser:onComplete callback", () => {
 
 describe("V4MountForUser:onSkip callback via exitTour", () => {
   it("patches sidecar with wizard_skipped_at when user exited the tour", async () => {
-    // Seed mid-walkthrough so the bootstrap calls start("home-create-project"),
-    // then we'll click the "Skip walkthrough" exit affordance to
-    // route Finish through onSkip.
+    // Seed mid-walkthrough so the P12 Resume modal appears, click
+    // Resume to land on the overlay, then click "Skip walkthrough"
+    // to route Finish through onSkip.
     memFs.set(
       PATH,
       fullSidecar({
@@ -161,6 +171,16 @@ describe("V4MountForUser:onSkip callback via exitTour", () => {
         <div>child</div>
       </V4MountForUser>,
     );
+
+    // P12: click Resume on the modal to land on the saved step.
+    const resumeBtn = await waitFor(() => {
+      const btn = document.body.querySelector(
+        "[data-testid='v4-resume-resume']",
+      ) as HTMLButtonElement | null;
+      expect(btn).toBeTruthy();
+      return btn as HTMLButtonElement;
+    });
+    await userEvent.click(resumeBtn);
 
     // Wait for the BeakerBot overlay (in-product walkthrough mode).
     await waitFor(() => {

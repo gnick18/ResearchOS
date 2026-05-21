@@ -7,16 +7,20 @@ import type { SetupStepProps } from "./types";
  * Q4: want a goal-tracking page? Yes / No / Maybe later. Persists
  * `feature_picks.goals`. Local-pick state pattern to avoid the
  * sidecar-write-latency flicker (see Q2 docstring for the full why).
+ * P12: hydrates from the sidecar on mount so Resume / back-step lands
+ * on the saved answer (see Q2 docstring for the fix rationale).
  *
- * v4 port: same shape as v3's Q4GoalsStep, mounted on the v4
- * tour controller's modal-setup surface per L9.
+ * v4 port: same shape as v3's Q4GoalsStep plus P12 hydration, mounted
+ * on the v4 tour controller's modal-setup surface per L9.
  */
 export default function Q4GoalsStep({
-  sidecar: _sidecar,
+  sidecar,
   setNextDisabled,
   patchSidecar,
 }: SetupStepProps) {
-  const [pick, setPick] = useState<FeaturePicks["goals"] | null>(null);
+  const [pick, setPick] = useState<FeaturePicks["goals"] | null>(
+    () => sidecar?.feature_picks?.goals ?? null,
+  );
 
   useEffect(() => {
     setNextDisabled(pick === null);

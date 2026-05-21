@@ -14,19 +14,30 @@ import type { SetupStepProps } from "./types";
  * shows the previous value briefly and flickers the "Maybe later" radio
  * because the initial feature_picks object defaults every Q2-Q5 field
  * to "maybe". Single-source-of-truth on the local pick eliminates the
- * flicker. Back-stepping into this step from a later step remounts the
- * component, so `pick` resets to null and the user re-confirms before
- * Next re-enables.
+ * flicker.
  *
- * v4 port: same shape as v3's Q2PurchasesStep, mounted on the v4
- * tour controller's modal-setup surface per L9.
+ * P12 fix: on mount, hydrate `pick` from the sidecar so a Resume from
+ * the mid-tour modal lands on the step with the saved answer still
+ * selected. Pre-P12 the local state always started at `null` which
+ * forced the user to re-click their pick after every refresh; that
+ * was part of the "I keep losing my answers" complaint. We treat
+ * `"maybe"` as a real saved value too — it is the default but Q1
+ * sets it explicitly when initializing feature_picks, so seeing it
+ * pre-selected after Resume matches what the user explicitly chose or
+ * deferred. Back-stepping into this step from a later step also lands
+ * the user on their previous answer.
+ *
+ * v4 port: same shape as v3's Q2PurchasesStep plus P12 hydration,
+ * mounted on the v4 tour controller's modal-setup surface per L9.
  */
 export default function Q2PurchasesStep({
-  sidecar: _sidecar,
+  sidecar,
   setNextDisabled,
   patchSidecar,
 }: SetupStepProps) {
-  const [pick, setPick] = useState<FeaturePicks["purchases"] | null>(null);
+  const [pick, setPick] = useState<FeaturePicks["purchases"] | null>(
+    () => sidecar?.feature_picks?.purchases ?? null,
+  );
 
   useEffect(() => {
     setNextDisabled(pick === null);

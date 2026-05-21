@@ -10,7 +10,7 @@
  */
 import { act, render, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import type { FeaturePicks } from "@/lib/onboarding/sidecar";
+import type { FeaturePicks, OnboardingSidecar } from "@/lib/onboarding/sidecar";
 import {
   TourControllerProvider,
   useOptionalTourController,
@@ -305,6 +305,170 @@ describe("TourController — mode transitions", () => {
     });
     act(() => result.current.start("phase4-cleanup"));
     expect(result.current.tourMode).toBe("cleanup");
+  });
+});
+
+describe("TourController — P12 wizard_resume_state persistence", () => {
+  // The controller persists `current_step` + `skipped_steps` on every
+  // step transition. Grant's blocker: refresh wiped his Q1-Q6 answers
+  // because the controller never patched the sidecar's resume state
+  // until P12. We assert the patch fires on advance / goBack / skipStep
+  // / exitTour and stays silent when currentStep is null.
+  function recordingPatchSidecar() {
+    const calls: Array<{ current_step: string; skipped_steps: string[] }> = [];
+    const cur: OnboardingSidecar = {
+      version: 4,
+      first_seen_at: "2026-05-20T00:00:00.000Z",
+      active_seconds: 0,
+      feature_picks: null,
+      wizard_completed_at: null,
+      wizard_skipped_at: null,
+      wizard_force_show: false,
+      wizard_resume_state: null,
+      lab_tour_pending: false,
+      lab_tour_dismissed_at: null,
+    };
+    const patch = async (mut: (s: OnboardingSidecar) => OnboardingSidecar) => {
+      const next = mut(cur);
+      if (next.wizard_resume_state) {
+        calls.push({
+          current_step: next.wizard_resume_state.current_step,
+          skipped_steps: [...next.wizard_resume_state.skipped_steps],
+        });
+      }
+      // Mutate `cur` in place so back-to-back patches see prior writes
+      // (mirrors how V4MountForUser.patchOnboarding behaves on disk).
+      Object.assign(cur, next);
+    };
+    return { calls, patch };
+  }
+
+  function withPatch(
+    patch: (mut: (s: OnboardingSidecar) => OnboardingSidecar) => Promise<void>,
+    initialPicks?: FeaturePicks | null,
+  ) {
+    return function Wrapper({ children }: { children: React.ReactNode }) {
+      return (
+        <TourControllerProvider
+          patchSidecar={patch}
+          initialFeaturePicks={initialPicks ?? null}
+        >
+          {children}
+        </TourControllerProvider>
+      );
+    };
+  }
+
+  it("persists current_step on start()", async () => {
+    const { calls, patch } = recordingPatchSidecar();
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: withPatch(patch, picks()),
+    });
+    act(() => result.current.start());
+    // Wait for the effect to flush.
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(calls.some((c) => c.current_step === "welcome")).toBe(true);
+  });
+
+  it("persists current_step on advance()", async () => {
+    const { calls, patch } = recordingPatchSidecar();
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: withPatch(patch, picks({ account_type: "solo" })),
+    });
+    act(() => result.current.start());
+    act(() => result.current.advance());
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(calls.some((c) => c.current_step === "setup-q1")).toBe(true);
+  });
+
+  it("persists current_step on goBack()", async () => {
+    const { calls, patch } = recordingPatchSidecar();
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: withPatch(patch, picks()),
+    });
+    act(() => result.current.start("setup-q2"));
+    act(() => result.current.goBack());
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    // Solo: goBack from setup-q2 lands on setup-q1 (q1a/q1b gated).
+    expect(calls.some((c) => c.current_step === "setup-q1")).toBe(true);
+  });
+
+  it("persists skipped_steps on skipStep()", async () => {
+    const { calls, patch } = recordingPatchSidecar();
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: withPatch(patch, picks()),
+    });
+    act(() => result.current.start("home-create-project"));
+    act(() => result.current.skipStep());
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    // The post-skip patch should include home-create-project in the
+    // skipped_steps list.
+    const lastWithSkip = [...calls]
+      .reverse()
+      .find((c) => c.skipped_steps.length > 0);
+    expect(lastWithSkip?.skipped_steps).toContain("home-create-project");
+  });
+
+  it("persists current_step on exitTour() (advances to phase4-cleanup)", async () => {
+    const { calls, patch } = recordingPatchSidecar();
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: withPatch(patch, picks()),
+    });
+    act(() => result.current.start("home-create-project"));
+    act(() => result.current.exitTour());
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(calls.some((c) => c.current_step === "phase4-cleanup")).toBe(true);
+  });
+
+  it("does NOT persist when currentStep transitions to null (tour ended)", async () => {
+    const { calls, patch } = recordingPatchSidecar();
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: withPatch(patch, picks()),
+    });
+    act(() => result.current.start("phase4-cleanup"));
+    // advance() from phase4-cleanup transitions currentStep to null.
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const callsBefore = calls.length;
+    act(() => result.current.advance());
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    // No new persistence call should have fired for the null transition.
+    // (Any earlier null-state patches would have a current_step set;
+    // we assert that the per-transition watch is silent here.)
+    const nullCalls = calls
+      .slice(callsBefore)
+      .filter((c) => !c.current_step);
+    expect(nullCalls.length).toBe(0);
+  });
+
+  it("is a no-op when patchSidecar prop is not wired", () => {
+    // No patchSidecar prop -> no crash, no calls (covers the test +
+    // dev-sandbox case where the controller mounts without a host).
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: wrapper(picks()),
+    });
+    act(() => result.current.start());
+    // Just asserting we did not throw / crash.
+    expect(result.current.currentStep).toBe("welcome");
   });
 });
 

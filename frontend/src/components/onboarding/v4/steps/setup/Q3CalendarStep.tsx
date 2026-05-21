@@ -7,16 +7,20 @@ import type { SetupStepProps } from "./types";
  * Q3: want calendar feeds? Yes / No / Maybe later. Persists
  * `feature_picks.calendar`. Local-pick state pattern to avoid the
  * sidecar-write-latency flicker (see Q2 docstring for the full why).
+ * P12: hydrates from the sidecar on mount so Resume / back-step lands
+ * on the saved answer (see Q2 docstring for the fix rationale).
  *
- * v4 port: same shape as v3's Q3CalendarStep, mounted on the v4
- * tour controller's modal-setup surface per L9.
+ * v4 port: same shape as v3's Q3CalendarStep plus P12 hydration,
+ * mounted on the v4 tour controller's modal-setup surface per L9.
  */
 export default function Q3CalendarStep({
-  sidecar: _sidecar,
+  sidecar,
   setNextDisabled,
   patchSidecar,
 }: SetupStepProps) {
-  const [pick, setPick] = useState<FeaturePicks["calendar"] | null>(null);
+  const [pick, setPick] = useState<FeaturePicks["calendar"] | null>(
+    () => sidecar?.feature_picks?.calendar ?? null,
+  );
 
   useEffect(() => {
     setNextDisabled(pick === null);

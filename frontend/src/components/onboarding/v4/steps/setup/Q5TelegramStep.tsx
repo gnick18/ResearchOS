@@ -7,20 +7,24 @@ import type { SetupStepProps } from "./types";
  * Q5: want a Telegram bot for image inbox? Yes / No / Maybe later.
  * Persists `feature_picks.telegram`. Local-pick state pattern to avoid
  * the sidecar-write-latency flicker (see Q2 docstring for the full why).
+ * P12: hydrates from the sidecar on mount so Resume / back-step lands
+ * on the saved answer (see Q2 docstring for the fix rationale).
  *
  * Note: this step ONLY captures the user's intent. The actual Telegram
  * pair flow runs in v4 Phase 2b (§6.13), conditional on
  * `picks.telegram === "yes"`.
  *
- * v4 port: same shape as v3's Q5TelegramStep, mounted on the v4
- * tour controller's modal-setup surface per L9.
+ * v4 port: same shape as v3's Q5TelegramStep plus P12 hydration,
+ * mounted on the v4 tour controller's modal-setup surface per L9.
  */
 export default function Q5TelegramStep({
-  sidecar: _sidecar,
+  sidecar,
   setNextDisabled,
   patchSidecar,
 }: SetupStepProps) {
-  const [pick, setPick] = useState<FeaturePicks["telegram"] | null>(null);
+  const [pick, setPick] = useState<FeaturePicks["telegram"] | null>(
+    () => sidecar?.feature_picks?.telegram ?? null,
+  );
 
   useEffect(() => {
     setNextDisabled(pick === null);

@@ -127,7 +127,11 @@ describe("TourBootstrap:skipped user", () => {
 });
 
 describe("TourBootstrap:v4 mid-tour resume", () => {
-  it("starts the tour at the saved v4 step id", async () => {
+  it("renders the Restart/Resume/Discard modal for a non-welcome v4 step", async () => {
+    // P12: a mid-tour user with progress past welcome should see the
+    // modal on next mount, NOT a silent jump back to the saved step.
+    // Grant flagged the silent-jump pattern as disorienting; the
+    // modal lets him pick.
     memFs.set(
       PATH,
       fullSidecar({
@@ -139,14 +143,138 @@ describe("TourBootstrap:v4 mid-tour resume", () => {
       }),
     );
     renderWithProvider(<TourBootstrap username={USER} />);
-    // home-create-project is an in-product-walkthrough step, so the
-    // BeakerBot overlay should render (no setup modal). We assert the
-    // overlay portal appears.
+    await waitFor(() => {
+      expect(
+        document.body.querySelector("[data-testid='v4-resume-prompt']"),
+      ).toBeTruthy();
+    });
+    // The overlay should NOT have auto-started; the user must pick
+    // Resume / Restart / Discard first.
+    expect(
+      document.body.querySelector("[data-testid='tour-beakerbot-overlay']"),
+    ).toBeNull();
+  });
+
+  it("treats a welcome-step resume as fresh and auto-starts at welcome", async () => {
+    // P12 carve-out: current_step === "welcome" has no meaningful
+    // mid-tour progress to ask about (the user has not advanced past
+    // the opening card). Skip the modal and start at welcome.
+    memFs.set(
+      PATH,
+      fullSidecar({
+        wizard_resume_state: {
+          current_step: "welcome",
+          skipped_steps: [],
+          artifacts_created: [],
+        },
+      }),
+    );
+    renderWithProvider(<TourBootstrap username={USER} />);
+    await waitFor(() => {
+      const modal = document.body.querySelector(
+        "[data-tour-modal='v4-setup']",
+      );
+      expect(modal).toBeTruthy();
+      expect(modal?.getAttribute("data-tour-step")).toBe("welcome");
+    });
+    expect(
+      document.body.querySelector("[data-testid='v4-resume-prompt']"),
+    ).toBeNull();
+  });
+
+  it("Resume click closes the modal and starts at the saved step", async () => {
+    memFs.set(
+      PATH,
+      fullSidecar({
+        wizard_resume_state: {
+          current_step: "home-create-project",
+          skipped_steps: [],
+          artifacts_created: [],
+        },
+      }),
+    );
+    renderWithProvider(<TourBootstrap username={USER} />);
+    const resume = await screen.findByTestId("v4-resume-resume");
+    await userEvent.click(resume);
+    // The overlay should appear (home-create-project is an in-product
+    // walkthrough step), confirming the saved step was activated.
     await waitFor(() => {
       expect(
         document.body.querySelector("[data-testid='tour-beakerbot-overlay']"),
       ).toBeTruthy();
     });
+    // Modal is gone.
+    expect(
+      document.body.querySelector("[data-testid='v4-resume-prompt']"),
+    ).toBeNull();
+  });
+
+  it("Restart click clears resume_state + feature_picks, starts at welcome", async () => {
+    memFs.set(
+      PATH,
+      fullSidecar({
+        feature_picks: {
+          account_type: "solo",
+          purchases: "yes",
+          calendar: "no",
+          goals: "no",
+          telegram: "no",
+          ai_helper: "full",
+        },
+        wizard_resume_state: {
+          current_step: "home-create-project",
+          skipped_steps: [],
+          artifacts_created: [],
+        },
+      }),
+    );
+    renderWithProvider(<TourBootstrap username={USER} />);
+    const restart = await screen.findByTestId("v4-resume-restart");
+    await userEvent.click(restart);
+    // After Restart: welcome modal appears; sidecar has feature_picks
+    // and resume_state cleared.
+    await waitFor(() => {
+      const modal = document.body.querySelector(
+        "[data-tour-modal='v4-setup']",
+      );
+      expect(modal).toBeTruthy();
+      expect(modal?.getAttribute("data-tour-step")).toBe("welcome");
+    });
+    const persisted = memFs.get(PATH) as OnboardingSidecar;
+    expect(persisted.wizard_resume_state).toBeNull();
+    expect(persisted.feature_picks).toBeNull();
+  });
+
+  it("Discard click sets wizard_skipped_at + clears resume_state, no tour starts", async () => {
+    memFs.set(
+      PATH,
+      fullSidecar({
+        wizard_resume_state: {
+          current_step: "home-create-project",
+          skipped_steps: [],
+          artifacts_created: [],
+        },
+      }),
+    );
+    renderWithProvider(<TourBootstrap username={USER} />);
+    const discard = await screen.findByTestId("v4-resume-discard");
+    await userEvent.click(discard);
+    await waitFor(() => {
+      expect(
+        document.body.querySelector("[data-testid='v4-resume-prompt']"),
+      ).toBeNull();
+    });
+    const persisted = memFs.get(PATH) as OnboardingSidecar;
+    expect(persisted.wizard_skipped_at).toBeTruthy();
+    expect(persisted.wizard_resume_state).toBeNull();
+    expect(persisted.wizard_force_show).toBe(false);
+    // No tour surface mounted post-discard.
+    expect(
+      document.body.querySelector("[data-tour-modal='v4-setup']"),
+    ).toBeNull();
+    expect(
+      document.body.querySelector("[data-testid='tour-beakerbot-overlay']"),
+    ).toBeNull();
   });
 });
 

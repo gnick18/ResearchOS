@@ -510,6 +510,39 @@ export function TourControllerProvider({
     advance,
   ]);
 
+  // P12 resume contract: persist `current_step` + `skipped_steps` to the
+  // sidecar's `wizard_resume_state` on every step transition. The
+  // TourBootstrap component reads this on next mount and offers
+  // Restart / Resume / Discard. Without this effect, a refresh wipes the
+  // user's progress and the welcome step re-fires from scratch — the
+  // bug Grant flagged in P12 brief.
+  //
+  // Skip the write when:
+  //   - patchSidecar isn't wired (test/no-persist mode),
+  //   - currentStep is null (tour ended / not started — the onComplete /
+  //     onSkip handlers own clearing the resume state in those cases).
+  // Keep `artifacts_created` from the current sidecar untouched; P5+
+  // steps that mint artifacts manage that list via separate patches.
+  useEffect(() => {
+    if (!patchSidecar) return;
+    if (state.currentStep === null) return;
+    const stepId = state.currentStep;
+    const skipped = [...skipList];
+    void patchSidecar((cur) => ({
+      ...cur,
+      wizard_resume_state: {
+        current_step: stepId,
+        skipped_steps: skipped,
+        artifacts_created: cur.wizard_resume_state?.artifacts_created ?? [],
+      },
+    })).catch((err) => {
+      console.error(
+        "[TourController] persist wizard_resume_state failed:",
+        err,
+      );
+    });
+  }, [state.currentStep, skipList, patchSidecar]);
+
   // Step lifecycle: fire onEnter on entry, schedule auto-advance timer,
   // wire up the step's event listener (if any), call onExit on exit.
   // The dependency only on `state.currentStep` is intentional — the
