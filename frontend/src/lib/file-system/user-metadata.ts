@@ -2,6 +2,28 @@ import { fileService } from "./file-service";
 
 const METADATA_PATH = "users/_user_metadata.json";
 
+// Module-level write queue serializes all read-modify-write operations on
+// _user_metadata.json so concurrent callers don't race the underlying
+// atomic-write pattern (.tmp create + write + move). The race surfaced as
+// "Failed to move _user_metadata.json.tmp. A FileSystemHandle cannot be
+// moved while it is locked" when the W6 onboarding step triggered two
+// rapid setUserMetadataField calls (color + hide_goals_from_lab via
+// writeUserSettings) that overlapped a parallel ensureLabUserMetadata
+// call from a list-users API path. The atomic-write pattern protects
+// against torn writes (.tmp checkpoint survives) but doesn't serialize
+// concurrent .tmp file manipulation on the same final path; this queue
+// closes that gap. Tab-scoped (does NOT protect against cross-tab or
+// cross-process writes — those would need an FSA lock layer above).
+let metadataWriteQueue: Promise<unknown> = Promise.resolve();
+function enqueueMetadataWrite<T>(fn: () => Promise<T>): Promise<T> {
+  const next = metadataWriteQueue.then(fn, fn);
+  // Chain the queue but swallow errors so a single failed write doesn't
+  // poison every subsequent write. Caller still receives the original
+  // rejection via the returned promise.
+  metadataWriteQueue = next.catch(() => {});
+  return next;
+}
+
 const USER_COLOR_PALETTE = [
   "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
   "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1",
@@ -77,31 +99,33 @@ export async function readAllUserMetadata(): Promise<Record<string, UserMetadata
 export async function ensureLabUserMetadata(
   usernames: string[],
 ): Promise<Record<string, UserMetadataEntry>> {
-  const file = await readMetadataFile();
-  let mutated = false;
+  return enqueueMetadataWrite(async () => {
+    const file = await readMetadataFile();
+    let mutated = false;
 
-  const takenColors = new Set<string>(
-    Object.values(file.users).map((entry) => entry.color),
-  );
+    const takenColors = new Set<string>(
+      Object.values(file.users).map((entry) => entry.color),
+    );
 
-  const now = new Date().toISOString();
-  for (const username of usernames) {
-    if (file.users[username]) continue;
-    const color = pickColor(takenColors, username);
-    takenColors.add(color);
-    file.users[username] = { color, created_at: now };
-    mutated = true;
-  }
-
-  if (mutated && fileService.isConnected()) {
-    try {
-      await fileService.writeJson(METADATA_PATH, file);
-    } catch (err) {
-      console.error("ensureLabUserMetadata: failed to persist metadata", err);
+    const now = new Date().toISOString();
+    for (const username of usernames) {
+      if (file.users[username]) continue;
+      const color = pickColor(takenColors, username);
+      takenColors.add(color);
+      file.users[username] = { color, created_at: now };
+      mutated = true;
     }
-  }
 
-  return file.users;
+    if (mutated && fileService.isConnected()) {
+      try {
+        await fileService.writeJson(METADATA_PATH, file);
+      } catch (err) {
+        console.error("ensureLabUserMetadata: failed to persist metadata", err);
+      }
+    }
+
+    return file.users;
+  });
 }
 
 export function fallbackUserColor(username: string): string {
@@ -118,27 +142,29 @@ export async function setUserMetadataField<K extends keyof UserMetadataEntry>(
   value: UserMetadataEntry[K],
 ): Promise<UserMetadataEntry | null> {
   if (!fileService.isConnected()) return null;
-  const file = await readMetadataFile();
-  const existing = file.users[username];
-  if (existing) {
-    file.users[username] = { ...existing, [field]: value };
-  } else {
-    const takenColors = new Set<string>(
-      Object.values(file.users).map((entry) => entry.color),
-    );
-    file.users[username] = {
-      color: pickColor(takenColors, username),
-      created_at: new Date().toISOString(),
-      [field]: value,
-    };
-  }
-  try {
-    await fileService.writeJson(METADATA_PATH, file);
-  } catch (err) {
-    console.error("setUserMetadataField: failed to persist", err);
-    return null;
-  }
-  return file.users[username];
+  return enqueueMetadataWrite(async () => {
+    const file = await readMetadataFile();
+    const existing = file.users[username];
+    if (existing) {
+      file.users[username] = { ...existing, [field]: value };
+    } else {
+      const takenColors = new Set<string>(
+        Object.values(file.users).map((entry) => entry.color),
+      );
+      file.users[username] = {
+        color: pickColor(takenColors, username),
+        created_at: new Date().toISOString(),
+        [field]: value,
+      };
+    }
+    try {
+      await fileService.writeJson(METADATA_PATH, file);
+    } catch (err) {
+      console.error("setUserMetadataField: failed to persist", err);
+      return null;
+    }
+    return file.users[username];
+  });
 }
 
 /**
