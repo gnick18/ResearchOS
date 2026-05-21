@@ -127,8 +127,13 @@ export default function ResultsGallery({ project }: ResultsGalleryProps) {
   const [blobUrls, setBlobUrls] = useState<Map<string, string>>(new Map());
   useEffect(() => {
     if (groups.length === 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot reset
-      setBlobUrls(new Map());
+      // Functional setState bails out by reference if already empty. The
+      // `groups = []` useQuery destructure default produces a new empty
+      // array reference each render when data is undefined; without this
+      // guard, the effect would loop (new map -> rerender -> new groups
+      // ref -> effect fires -> new map -> ...). Keeping the same Map
+      // reference short-circuits React's bailout.
+      setBlobUrls((prev) => (prev.size === 0 ? prev : new Map()));
       return;
     }
     let cancelled = false;
