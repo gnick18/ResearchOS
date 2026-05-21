@@ -27,6 +27,7 @@
 import type { FeaturePicks } from "@/lib/onboarding/sidecar";
 import type { TourStep, TourStepId } from "./step-types";
 import { TOUR_STEP_ORDER, isStepGatedOut } from "./step-machine";
+import { SETUP_STEP_DESCRIPTORS } from "./steps/setup";
 
 /**
  * Build a placeholder step body matching the brief's "Step bodies in
@@ -56,10 +57,44 @@ function placeholderStep(id: TourStepId): TourStep {
 }
 
 /**
- * The v4 tour step registry. P1 populates every entry in
- * `TOUR_STEP_ORDER` with a placeholder so the controller can render
- * the full graph end-to-end without erroring. P4-P7 replaces entries
- * one-at-a-time with real step bodies.
+ * Build a real Phase 1 modal-setup step body from the setup descriptor
+ * map. P4 populates every Phase 1 step id (welcome + setup-q1 +
+ * setup-q1a + setup-q1b + setup-q2..q6) here so the modal-setup surface
+ * sees full speech + pose + a manual completion contract.
+ *
+ * The body component itself is mounted by the modal-setup shell via the
+ * `SETUP_STEP_DESCRIPTORS` lookup, not by this TourStep record. The
+ * TourStep here owns the BeakerBot-side metadata (speech bubble, pose,
+ * completion contract); the modal body lives in `./steps/setup/`.
+ */
+function setupStep(id: TourStepId): TourStep {
+  const d = SETUP_STEP_DESCRIPTORS[id];
+  if (!d) {
+    // Defensive fallback. Should never fire because every entry in
+    // SETUP_STEP_IDS has a descriptor; if a future contributor adds a
+    // setup step id to the machine but forgets the descriptor, this
+    // keeps the controller from blowing up.
+    return placeholderStep(id);
+  }
+  return {
+    id,
+    speech: d.speech,
+    pose: d.pose,
+    completion: {
+      type: "manual",
+      // Welcome's modal Next-button label is "Let's go" per v3 parity;
+      // the rest use the default "Next" label which the modal shell
+      // resolves itself.
+      buttonLabel: id === "welcome" ? "Let's go" : "Next",
+    },
+    conditionalOn: (picks: FeaturePicks | null) => !isStepGatedOut(id, picks),
+  };
+}
+
+/**
+ * The v4 tour step registry. P4 populates every Phase 1 modal-setup
+ * step with a real body (see `setupStep` above); the remaining steps
+ * stay on the placeholder until P5-P7 replaces them one-at-a-time.
  *
  * The type is `Record<TourStepId, TourStep>` so a real body just
  * overwrites the placeholder at the matching key. Iteration order
@@ -67,7 +102,10 @@ function placeholderStep(id: TourStepId): TourStep {
  * `TOUR_STEP_ORDER`, not via this registry.
  */
 export const TOUR_STEPS: Record<TourStepId, TourStep> = Object.fromEntries(
-  TOUR_STEP_ORDER.map((id) => [id, placeholderStep(id)]),
+  TOUR_STEP_ORDER.map((id) => {
+    if (SETUP_STEP_DESCRIPTORS[id]) return [id, setupStep(id)];
+    return [id, placeholderStep(id)];
+  }),
 );
 
 /**

@@ -5,18 +5,23 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useId,
   useMemo,
   useReducer,
   useRef,
   useState,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import BeakerBot from "@/components/BeakerBot";
 import BeakerBotCursor, {
   type BeakerBotCursorRef,
 } from "@/components/BeakerBotCursor";
 import TourSpotlight from "@/components/TourSpotlight";
-import type { FeaturePicks } from "@/lib/onboarding/sidecar";
+import type {
+  FeaturePicks,
+  OnboardingSidecar,
+} from "@/lib/onboarding/sidecar";
 import { getStep, TOUR_STEPS } from "./step-registry";
 import {
   firstApplicableStep,
@@ -25,6 +30,10 @@ import {
   isLabPhaseStep,
   isSetupPhaseStep,
 } from "./step-machine";
+import {
+  getSetupDescriptor,
+  type SetupStepDescriptor,
+} from "./steps/setup";
 import type { TourStep, TourStepId } from "./step-types";
 
 /**
@@ -307,12 +316,30 @@ export interface TourControllerProviderProps {
    *  ACTIVE state at this step. When unset (P1 default), the controller
    *  starts dormant and `start()` activates it. */
   initialStep?: TourStepId | null;
+  /** Current onboarding sidecar snapshot. Threaded into the modal-setup
+   *  step bodies (P4 / Phase 1) so they can read feature_picks + write
+   *  picks via `patchSidecar`. Optional because the controller is
+   *  usable for non-setup tours (P5+ walkthroughs) without sidecar
+   *  access; setup-phase mounts will simply degrade to a body that
+   *  shows the prose but can't persist a pick (the body's setNextDisabled
+   *  gate keeps the user from advancing without an answer). */
+  sidecar?: OnboardingSidecar | null;
+  /** Persistence hook the modal-setup bodies call to write Q1-Q6
+   *  feature_picks. Same signature as v3's `OnboardingWizardV3.patchSidecar`.
+   *  Returns a promise the body awaits before clearing its local in-flight
+   *  flag; absent means step bodies render in a no-op state (see `sidecar`
+   *  prop docstring). */
+  patchSidecar?: (
+    patch: (cur: OnboardingSidecar) => OnboardingSidecar,
+  ) => Promise<void>;
 }
 
 export function TourControllerProvider({
   children,
   initialFeaturePicks = null,
   initialStep = null,
+  sidecar = null,
+  patchSidecar,
 }: TourControllerProviderProps) {
   const [state, dispatch] = useReducer(reducer, {
     ...initialState,
@@ -560,7 +587,7 @@ export function TourControllerProvider({
   return (
     <TourControllerContext.Provider value={value}>
       {children}
-      <TourOverlay />
+      <TourOverlay sidecar={sidecar} patchSidecar={patchSidecar} />
     </TourControllerContext.Provider>
   );
 }
@@ -571,19 +598,50 @@ export function TourControllerProvider({
 
 /**
  * The single component that paints every tour-mode visual: spotlight,
- * cursor, and the bottom-right BeakerBot + speech bubble. Lives inside
- * the provider so a consumer just has to mount the provider, not three
- * separate components.
+ * cursor, the bottom-right BeakerBot + speech bubble, AND (P4) the
+ * Phase 1 modal-setup shell when `tourMode === "modal-setup"`. Lives
+ * inside the provider so a consumer just has to mount the provider,
+ * not multiple components.
  *
  * Short-circuits to `null` when no tour is active OR when the tour is
  * paused (per L23). The cost-when-off is a single context read + a
  * boolean check.
  */
-function TourOverlay() {
+interface TourOverlayProps {
+  sidecar: OnboardingSidecar | null;
+  patchSidecar?: (
+    patch: (cur: OnboardingSidecar) => OnboardingSidecar,
+  ) => Promise<void>;
+}
+
+function TourOverlay({ sidecar, patchSidecar }: TourOverlayProps) {
   const controller = useTourController();
   const cursorRef = useRef<BeakerBotCursorRef>(null);
 
   if (!controller.currentStep || controller.paused) return null;
+
+  // Phase 1 modal-setup surface (P4). Per L9 the setup phase stays
+  // modal-contained because the questions are pure data collection with
+  // no real product surface to anchor on. The shell mirrors v3's
+  // OnboardingWizardV3 modal chrome (centered card on a dim backdrop)
+  // and routes Next / Back / Skip / Exit through the controller's
+  // existing actions so the rest of the tour graph stays consistent.
+  if (controller.tourMode === "modal-setup") {
+    const descriptor = getSetupDescriptor(controller.currentStep);
+    if (!descriptor) return null;
+    return (
+      <ModalSetupShell
+        stepId={controller.currentStep}
+        descriptor={descriptor}
+        sidecar={sidecar}
+        patchSidecar={patchSidecar}
+        onAdvance={controller.advance}
+        onBack={controller.goBack}
+        onSkipStep={controller.skipStep}
+        onExitTour={controller.exitTour}
+      />
+    );
+  }
 
   const body = getStep(controller.currentStep);
 
@@ -607,6 +665,260 @@ function TourOverlay() {
         onExitTour={controller.exitTour}
       />
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// P4: Modal-setup shell. Phase 1 Q1-Q6 mount surface
+// ---------------------------------------------------------------------------
+
+/**
+ * Modal shell that renders the active Phase 1 setup step's body
+ * (Welcome / Q1 / Q1a / Q1b / Q2..Q6). Mirrors the v3
+ * `OnboardingWizardV3.tsx` chrome (modal portal, BeakerBot header,
+ * Next / Back / Skip footer, persistent "I've got it from here" link)
+ * but routes every transition through the v4 TourController so the
+ * setup phase smoothly hands off to the in-product walkthrough at the
+ * end of Q6.
+ *
+ * The shell owns:
+ *   - the modal portal + backdrop
+ *   - the BeakerBot header (pose from the descriptor)
+ *   - the local `nextDisabled` gate the body controls via `setNextDisabled`
+ *   - the Next / Back / Skip / Exit buttons + label resolution
+ *
+ * It does NOT own:
+ *   - the step ordering (the controller's reducer + step machine handle
+ *     advance / back / skip / exit)
+ *   - the feature_picks persistence (the body writes through
+ *     `patchSidecar`, which the parent of the controller wires up)
+ *   - resume-state writes (P12 owns that, separately from this shell)
+ *
+ * The v3 "I've got it from here" inline confirm modal pattern is kept
+ * so the user's safety net for skipping the whole walkthrough still
+ * reads and behaves the same way.
+ */
+interface ModalSetupShellProps {
+  stepId: TourStepId;
+  descriptor: SetupStepDescriptor;
+  sidecar: OnboardingSidecar | null;
+  patchSidecar?: (
+    patch: (cur: OnboardingSidecar) => OnboardingSidecar,
+  ) => Promise<void>;
+  onAdvance: () => void;
+  onBack: () => void;
+  onSkipStep: () => void;
+  onExitTour: () => void;
+}
+
+function ModalSetupShell({
+  stepId,
+  descriptor,
+  sidecar,
+  patchSidecar,
+  onAdvance,
+  onBack,
+  onSkipStep,
+  onExitTour,
+}: ModalSetupShellProps) {
+  const [mounted, setMounted] = useState(false);
+  const [nextDisabled, setNextDisabled] = useState(false);
+  const [showSkipConfirm, setShowSkipConfirm] = useState(false);
+  const titleId = useId();
+
+  // Stable patchSidecar for the body, falling back to a no-op when the
+  // parent didn't pass one (matches the optional-prop contract above).
+  // The no-op still resolves cleanly so the body's `await patchSidecar`
+  // chain doesn't hang.
+  const stableNoopPatch = useCallback(
+    async (_patch: (cur: OnboardingSidecar) => OnboardingSidecar) => {
+      // Intentional no-op: the parent didn't wire a patch hook. The
+      // body still flips its local `pick` state for Q2-Q5 so the UI
+      // doesn't feel dead; only persistence is skipped. P4 default for
+      // tests + dev sandbox usage.
+    },
+    [],
+  );
+  const effectivePatch = patchSidecar ?? stableNoopPatch;
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- portal target is client-only; flip mounted after first client render.
+    setMounted(true);
+  }, []);
+
+  // Reset the Next-disabled gate on every step transition. The body's
+  // own useEffect calls setNextDisabled on mount; this reset prevents a
+  // leftover `true` from a prior step blocking the new body's mount
+  // window before its own effect runs.
+  useEffect(() => {
+    setNextDisabled(false);
+  }, [stepId]);
+
+  if (!mounted) return null;
+
+  const { Component, title, pose } = descriptor;
+  const isWelcome = stepId === "welcome";
+  const nextLabel = isWelcome ? "Let's go" : "Next";
+
+  const handleNext = () => {
+    if (nextDisabled) return;
+    onAdvance();
+  };
+
+  const handleGotItConfirm = () => {
+    setShowSkipConfirm(false);
+    onExitTour();
+  };
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      data-tour-modal="v4-setup"
+      data-tour-step={stepId}
+      className="fixed inset-0 z-[300] flex items-center justify-center bg-black/30 backdrop-blur-sm"
+    >
+      <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-[560px] max-w-[calc(100vw-2rem)] mx-4 overflow-hidden">
+        <div className="px-7 pt-6 pb-4 border-b border-gray-100">
+          <div className="flex items-start gap-4">
+            <div
+              aria-hidden
+              className="flex-shrink-0"
+              style={{ width: 120, height: 120 }}
+            >
+              <BeakerBot
+                pose={pose}
+                direction="right"
+                className="w-full h-full text-sky-500"
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  Setup
+                </span>
+                <span className="text-[10px] font-mono text-gray-400">
+                  {stepId}
+                </span>
+              </div>
+              <h2
+                id={titleId}
+                className="mt-1 text-xl font-semibold text-gray-900"
+              >
+                {title}
+              </h2>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-7 py-6">
+          <Component
+            sidecar={sidecar}
+            setNextDisabled={setNextDisabled}
+            patchSidecar={effectivePatch}
+          />
+        </div>
+
+        <div className="px-7 pb-4 pt-2 flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            disabled={isWelcome}
+            className="px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+          >
+            Back
+          </button>
+
+          {!isWelcome && (
+            <button
+              type="button"
+              onClick={onSkipStep}
+              className="text-xs text-gray-500 hover:text-gray-700 underline"
+            >
+              Skip this step
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={handleNext}
+            disabled={nextDisabled}
+            data-tour-next="setup"
+            data-next-disabled={nextDisabled ? "true" : "false"}
+            className="px-4 py-2 text-sm font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {nextLabel}
+          </button>
+        </div>
+
+        <div className="px-7 pb-4 border-t border-gray-100 pt-3 text-center">
+          <button
+            type="button"
+            onClick={() => setShowSkipConfirm(true)}
+            className="text-xs text-gray-500 hover:text-gray-700 underline"
+          >
+            I&apos;ve got it from here
+          </button>
+        </div>
+      </div>
+
+      {showSkipConfirm && (
+        <SetupSkipConfirmModal
+          onCancel={() => setShowSkipConfirm(false)}
+          onConfirm={handleGotItConfirm}
+        />
+      )}
+    </div>,
+    document.body,
+  );
+}
+
+/**
+ * Inline confirm modal for the "I've got it from here" link. Mirrors
+ * the v3 `SkipConfirmModal` shape so the user's safety net for skipping
+ * the whole walkthrough still reads + behaves the same way.
+ */
+function SetupSkipConfirmModal({
+  onCancel,
+  onConfirm,
+}: {
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Skip to cleanup selector"
+      className="fixed inset-0 z-[400] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+    >
+      <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-[420px] max-w-[calc(100vw-2rem)] mx-4 p-6">
+        <h3 className="text-lg font-semibold text-gray-900">
+          Skip to the cleanup selector?
+        </h3>
+        <p className="mt-2 text-sm text-gray-600 leading-relaxed">
+          You can review everything we made and keep or discard each item.
+        </p>
+        <div className="mt-5 flex items-center justify-end gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="px-4 py-2 text-sm font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm"
+          >
+            Yes, skip ahead
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
