@@ -109,6 +109,13 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
   return (
     <div
       ref={menuRef}
+      // `archive-projects` onboarding anchor lives on this wrapper
+      // (always mounted, fades in on group-hover) rather than on the
+      // Archive menuitem inside the dropdown, which only enters the DOM
+      // once `open` is true. Suppressed on archived projects: the
+      // dropdown reads "Unarchive" there, so an "archive your projects"
+      // tip pointed at this corner would be misleading.
+      data-onboarding-target={project.is_archived ? undefined : "archive-projects"}
       className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity z-10"
       onClick={stop}
     >
@@ -167,7 +174,6 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
           <button
             role="menuitem"
             disabled={isViewOnlyReceiver || archiving}
-            data-onboarding-target={project.is_archived ? undefined : "archive-projects"}
             onClick={(e) => {
               stop(e);
               setOpen(false);
