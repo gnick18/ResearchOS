@@ -144,6 +144,93 @@
   }
 }
 
+/* Easter egg: giggle. Triggered when the user clicks BeakerBot or
+ * jiggles the cursor rapidly over him. Quick small shakes side-to-side
+ * with little vertical bounces — reads as "you tickled me, hee hee."
+ * Duration matches BeakerBot.tsx GIGGLE_DURATION_MS (1400ms). */
+@keyframes beakerBotGiggle {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  10% {
+    transform: translateY(-3%) rotate(-5deg);
+  }
+  20% {
+    transform: translateY(-2%) rotate(4deg);
+  }
+  30% {
+    transform: translateY(-4%) rotate(-4deg);
+  }
+  40% {
+    transform: translateY(-2%) rotate(5deg);
+  }
+  50% {
+    transform: translateY(-5%) rotate(-3deg);
+  }
+  60% {
+    transform: translateY(-2%) rotate(4deg);
+  }
+  70% {
+    transform: translateY(-4%) rotate(-4deg);
+  }
+  80% {
+    transform: translateY(-2%) rotate(3deg);
+  }
+  90% {
+    transform: translateY(-1%) rotate(-2deg);
+  }
+}
+
+/* Easter egg: rolling-laughing. Sustained tickling tips BeakerBot
+ * onto his side as if he's collapsed laughing, then he twitches
+ * with bouts of laughter. Duration matches BeakerBot.tsx
+ * ROLL_LAUGH_DURATION_MS (3400ms). */
+@keyframes beakerBotRollLaugh {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+  10% {
+    transform: translateY(-2%) rotate(-15deg);
+  }
+  18% {
+    transform: translateY(8%) rotate(70deg);
+  }
+  25% {
+    transform: translateY(15%) rotate(92deg);
+  }
+  32% {
+    transform: translateY(15%) rotate(86deg);
+  }
+  39% {
+    transform: translateY(15%) rotate(95deg);
+  }
+  46% {
+    transform: translateY(15%) rotate(88deg);
+  }
+  53% {
+    transform: translateY(15%) rotate(94deg);
+  }
+  60% {
+    transform: translateY(15%) rotate(87deg);
+  }
+  67% {
+    transform: translateY(15%) rotate(93deg);
+  }
+  74% {
+    transform: translateY(15%) rotate(89deg);
+  }
+  82% {
+    transform: translateY(15%) rotate(92deg);
+  }
+  90% {
+    transform: translateY(8%) rotate(45deg);
+  }
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
 /* Pose root classes applied to the <svg>. The `.animated` modifier
  * gates the animation so call sites can opt out (decorative chips,
  * settings page, dev buttons). */
@@ -170,6 +257,14 @@
 
 .bowing.animated {
   animation: beakerBotBow 1400ms ease-in-out 1 forwards;
+}
+
+.giggling.animated {
+  animation: beakerBotGiggle 1400ms ease-in-out 1 forwards;
+}
+
+.rollLaughing.animated {
+  animation: beakerBotRollLaugh 3400ms ease-in-out 1 forwards;
 }
 
 /* Sub-element animations. Applied to inner <g> wrappers around the
@@ -200,6 +295,8 @@
   .thinking.animated,
   .celebrating.animated,
   .bowing.animated,
+  .giggling.animated,
+  .rollLaughing.animated,
   .waveArm.animated,
   .typeHand.animated,
   .winkEye.animated {

@@ -484,7 +484,7 @@ export default function OnboardingWizardV3({
             <div
               aria-hidden
               className="flex-shrink-0"
-              style={{ width: 80, height: 80 }}
+              style={{ width: 120, height: 120 }}
             >
               <BeakerBot
                 pose={headerPose}

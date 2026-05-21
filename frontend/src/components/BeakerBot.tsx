@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import styles from "./BeakerBot.module.css";
 
 /**
@@ -79,7 +79,9 @@ export type BeakerBotPose =
   | "bouncing"
   | "thinking"
   | "typing"
-  | "bow-wink";
+  | "bow-wink"
+  | "giggle"
+  | "rolling-laughing";
 
 export interface BeakerBotProps {
   pose: BeakerBotPose;
@@ -136,10 +138,28 @@ function rootAnimationClass(
       return `${styles.celebrating} ${styles.animated}`;
     case "bow-wink":
       return `${styles.bowing} ${styles.animated}`;
+    case "giggle":
+      return `${styles.giggling} ${styles.animated}`;
+    case "rolling-laughing":
+      return `${styles.rollLaughing} ${styles.animated}`;
     default:
       return undefined;
   }
 }
+
+// Easter egg interaction config: tickle BeakerBot (click or rapid
+// mouse-jiggle over him) and he giggles; sustain it and he falls on
+// his side laughing. Thresholds + decay are tuned for "feels playful
+// without firing accidentally."
+const TICKLE_THRESHOLD_GIGGLE = 1;
+const TICKLE_THRESHOLD_ROLL = 5;
+const TICKLE_DECAY_MS = 1500;
+const GIGGLE_DURATION_MS = 1400;
+const ROLL_LAUGH_DURATION_MS = 3400;
+// Distance (in pixels) between consecutive mousemoves required to
+// register as one "jiggle tick." Tuned so a gentle pointer drift
+// doesn't tickle but rapid back-and-forth does.
+const MOUSEMOVE_JIGGLE_PX = 8;
 
 export default function BeakerBot({
   pose,
@@ -154,11 +174,87 @@ export default function BeakerBot({
   const rawId = useId();
   const gradId = `beaker-liquid-${rawId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
+  // Easter egg state: tickle override. When the user clicks or rapidly
+  // jiggles the cursor over BeakerBot, we temporarily override the
+  // pose prop with `giggle` or `rolling-laughing` for the duration of
+  // the animation, then fall back to the parent's pose. Works on every
+  // mount of BeakerBot anywhere in the app.
+  const [tickleOverride, setTickleOverride] = useState<
+    "giggle" | "rolling-laughing" | null
+  >(null);
+  const tickleCountRef = useRef(0);
+  const decayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const overrideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastMoveRef = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (decayTimeoutRef.current) clearTimeout(decayTimeoutRef.current);
+      if (overrideTimeoutRef.current) clearTimeout(overrideTimeoutRef.current);
+    };
+  }, []);
+
+  const scheduleDecay = () => {
+    if (decayTimeoutRef.current) clearTimeout(decayTimeoutRef.current);
+    decayTimeoutRef.current = setTimeout(() => {
+      tickleCountRef.current = 0;
+    }, TICKLE_DECAY_MS);
+  };
+
+  const scheduleOverrideReset = (durationMs: number) => {
+    if (overrideTimeoutRef.current) clearTimeout(overrideTimeoutRef.current);
+    overrideTimeoutRef.current = setTimeout(() => {
+      setTickleOverride(null);
+      // Hard reset so a brief calm period doesn't carry over residual
+      // tickle into the next interaction.
+      tickleCountRef.current = 0;
+    }, durationMs);
+  };
+
+  const bumpTickle = (amount: number) => {
+    tickleCountRef.current += amount;
+    scheduleDecay();
+    if (tickleCountRef.current >= TICKLE_THRESHOLD_ROLL) {
+      // Sustained tickling: rolling on the ground laughing.
+      setTickleOverride("rolling-laughing");
+      scheduleOverrideReset(ROLL_LAUGH_DURATION_MS);
+      return;
+    }
+    if (
+      tickleCountRef.current >= TICKLE_THRESHOLD_GIGGLE &&
+      tickleOverride !== "rolling-laughing"
+    ) {
+      setTickleOverride("giggle");
+      scheduleOverrideReset(GIGGLE_DURATION_MS);
+    }
+  };
+
+  const handleClick = () => {
+    bumpTickle(1);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    const prev = lastMoveRef.current;
+    lastMoveRef.current = { x: e.clientX, y: e.clientY };
+    if (!prev) return;
+    const dx = e.clientX - prev.x;
+    const dy = e.clientY - prev.y;
+    if (Math.hypot(dx, dy) >= MOUSEMOVE_JIGGLE_PX) {
+      bumpTickle(0.5);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    lastMoveRef.current = null;
+  };
+
+  const effectivePose = tickleOverride ?? pose;
+
   // Mirror via CSS transform so the path data stays canonical
   // (cheaper than maintaining two mirrored sets).
-  const flip = DIRECTIONAL_POSES.has(pose) && direction === "left";
+  const flip = DIRECTIONAL_POSES.has(effectivePose) && direction === "left";
 
-  const rootAnim = rootAnimationClass(pose, animated);
+  const rootAnim = rootAnimationClass(effectivePose, animated);
   const wrapperClass = [
     styles.root,
     rootAnim,
@@ -177,10 +273,16 @@ export default function BeakerBot({
       strokeLinejoin="round"
       role="img"
       aria-label={ariaLabel}
-      data-pose={pose}
+      data-pose={effectivePose}
       data-animated={animated ? "true" : "false"}
       className={wrapperClass}
-      style={flip ? { transform: "scaleX(-1)" } : undefined}
+      style={{
+        ...(flip ? { transform: "scaleX(-1)" } : undefined),
+        cursor: "pointer",
+      }}
+      onClick={handleClick}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
     >
       <defs>
         {/* Pastel rainbow gradient for the liquid. Vertical (top to
@@ -235,7 +337,7 @@ export default function BeakerBot({
           it to a closed line independently of the body's bow tilt. */}
       <g
         className={
-          pose === "bow-wink" && animated
+          effectivePose === "bow-wink" && animated
             ? `${styles.winkEye} ${styles.animated}`
             : undefined
         }
@@ -249,7 +351,7 @@ export default function BeakerBot({
       <path d="M14 26 L15.5 26" />
       <path d="M24.5 26 L26 26" />
 
-      {pose === "pointing" && (
+      {effectivePose === "pointing" && (
         <>
           {/* Arm extended right */}
           <path d="M28 18 L33 16" />
@@ -259,7 +361,7 @@ export default function BeakerBot({
         </>
       )}
 
-      {pose === "pointing-up" && (
+      {effectivePose === "pointing-up" && (
         <>
           {/* Arm raised up-and-out to the upper right */}
           <path d="M28 16 L32 10" />
@@ -268,7 +370,7 @@ export default function BeakerBot({
         </>
       )}
 
-      {pose === "pointing-down" && (
+      {effectivePose === "pointing-down" && (
         <>
           {/* Arm lowered down-and-out to the lower right */}
           <path d="M28 22 L32 30" />
@@ -277,7 +379,7 @@ export default function BeakerBot({
         </>
       )}
 
-      {pose === "cheering" && (
+      {effectivePose === "cheering" && (
         <>
           {/* Both arms up in a V, hand dots instead of triangles,
               celebratory / "ta-da" energy. Symmetric so flipping
@@ -292,7 +394,7 @@ export default function BeakerBot({
         </>
       )}
 
-      {pose === "waving" && (
+      {effectivePose === "waving" && (
         <g
           className={
             animated ? `${styles.waveArm} ${styles.animated}` : undefined
@@ -306,7 +408,7 @@ export default function BeakerBot({
         </g>
       )}
 
-      {pose === "typing" && (
+      {effectivePose === "typing" && (
         <>
           {/* Arm out forward to the right (toward a virtual keyboard) */}
           <path d="M28 20 L33 20" />
@@ -322,7 +424,7 @@ export default function BeakerBot({
         </>
       )}
 
-      {pose === "thinking" && (
+      {effectivePose === "thinking" && (
         <>
           {/* Three small thought dots floating up and to the right.
               Static positions; the head-tilt comes from the root
@@ -334,7 +436,7 @@ export default function BeakerBot({
         </>
       )}
 
-      {pose === "bouncing" && (
+      {effectivePose === "bouncing" && (
         // The bounce is purely a root-transform animation, no extra
         // geometry. Keep this branch present (even with no JSX) so
         // typecheck on the pose union stays exhaustive at the call
@@ -342,7 +444,7 @@ export default function BeakerBot({
         null
       )}
 
-      {pose === "bow-wink" && (
+      {effectivePose === "bow-wink" && (
         // Bow tilt is a root-transform animation; the wink is a
         // sub-element animation on the right eye (above). No extra
         // geometry needed here.
