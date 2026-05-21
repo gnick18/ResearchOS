@@ -94,7 +94,6 @@ export default function TelegramStatusBadge() {
           ? `Paired with @${pairing.botUsername}${presentation.label ? ` (${presentation.label})` : ""}`
           : "Connect a Telegram bot to send photos"
       }
-      data-onboarding-target="telegram-send-to-task"
       className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${toneClass}`}
     >
       {presentation.glow ? (

@@ -1588,7 +1588,6 @@ function LabArchivesSection() {
           <button
             type="button"
             onClick={() => setElnImportOpen(true)}
-            data-onboarding-target="labarchives-import"
             className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
           >
             Open import…
@@ -2142,7 +2141,7 @@ function AIHelperSection() {
       title="AI Helper"
       description="Train your own AI chatbot to know ResearchOS inside out. Paste this prompt into Claude, ChatGPT, or Gemini and the chatbot becomes a schema-aware support assistant."
     >
-      <div data-onboarding-target="ai-helper-prompt" className="space-y-4">
+      <div className="space-y-4">
         {/* Size picker */}
         <div>
           <p className="text-sm font-medium text-gray-800 mb-2">Pick a size</p>

@@ -114,7 +114,6 @@ export default function WorkbenchPage() {
           </button>
           <button
             onClick={() => setActiveTab("notes")}
-            data-onboarding-target="workbench-notes"
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
               activeTab === "notes"
                 ? "bg-emerald-100 text-emerald-700"
@@ -128,7 +127,6 @@ export default function WorkbenchPage() {
           </button>
           <button
             onClick={() => setActiveTab("lists")}
-            data-onboarding-target="workbench-lists"
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
               activeTab === "lists"
                 ? "bg-violet-100 text-violet-700"

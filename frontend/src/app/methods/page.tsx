@@ -127,8 +127,7 @@ export default function MethodsPage() {
   const [isHydrated, setIsHydrated] = useState(false);
 
   // Deep-link: `/methods?createMethod=public` auto-opens the create
-  // modal with the public checkbox pre-checked. Used by the
-  // `public-methods` onboarding tip's setupAction.
+  // modal with the public checkbox pre-checked.
   const router = useRouter();
   const searchParams = useSearchParams();
   useEffect(() => {
@@ -165,12 +164,9 @@ export default function MethodsPage() {
   // Deep-link: `/methods?openMethod=<id>` opens the method detail panel
   // (`viewingMethod`) for the matching method once the methods list has
   // loaded, then strips just that param so a reload doesn't re-trigger.
-  // Used by the Phase-4 tutorial sequencer to land on /methods with
-  // the `public-methods` tip target (the Private/Public toggle button)
-  // already in the DOM. Other params (notably `?tutorial=1`) pass
-  // through untouched. Resolves the method from the current user's
-  // own list first, then falls back to the public namespace so demo
-  // IDs like `users/public/methods/1` work too.
+  // Other params pass through untouched. Resolves the method from the
+  // current user's own list first, then falls back to the public
+  // namespace so demo IDs like `users/public/methods/1` work too.
   useEffect(() => {
     if (!searchParams) return;
     const wantsMethod = searchParams.get("openMethod");
@@ -574,10 +570,7 @@ export default function MethodsPage() {
 
   return (
     <AppShell>
-      <div
-        className="flex-1 overflow-auto p-6"
-        data-onboarding-target="methods-folder-tree"
-      >
+      <div className="flex-1 overflow-auto p-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-gray-900">
             Method Library
@@ -1270,7 +1263,6 @@ function MarkdownMethodViewer({
                 {canModify && (
                   <button
                     onClick={() => setShowSharePopup(true)}
-                    data-onboarding-target="public-methods"
                     className={`px-3 py-1.5 text-xs rounded-lg ${
                       currentMethod.is_public
                         ? "bg-green-50 text-green-600 hover:bg-green-100"
@@ -1472,7 +1464,6 @@ function PdfViewer({
             {canModify && !currentMethod.is_shared_with_me && (
               <button
                 onClick={() => setShowSharePopup(true)}
-                data-onboarding-target="public-methods"
                 className={`px-3 py-1.5 text-xs rounded-lg ${
                   currentMethod.is_public
                     ? "bg-green-50 text-green-600 hover:bg-green-100"
@@ -1668,7 +1659,6 @@ function PcrViewer({
             {canModify && !currentMethod.is_shared_with_me && (
               <button
                 onClick={() => setShowSharePopup(true)}
-                data-onboarding-target="public-methods"
                 className={`px-3 py-1.5 text-xs rounded-lg ${
                   currentMethod.is_public
                     ? "bg-green-50 text-green-600 hover:bg-green-100"

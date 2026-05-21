@@ -28,7 +28,6 @@ export default function CalendarFeedsButton() {
     <>
       <button
         type="button"
-        data-onboarding-target="link-calendars"
         onClick={() => setOpen(true)}
         title="Link external calendars (Google / Outlook / iCloud)"
         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-200 text-gray-700 bg-white hover:bg-gray-50 rounded-lg"

@@ -80,15 +80,14 @@ export default function Toolbar({
   const [showAnimationSettings, setShowAnimationSettings] = useState(false);
 
   // Deep-link hooks. `/gantt?animations=1` auto-opens the animation
-  // settings popup (used by the `gantt-animations` onboarding tip's
-  // "Pick an animation" setupAction). `/gantt?createGoal=1` fires the
-  // create-goal flow. `/gantt?project=<owner>:<id>` initializes the
-  // project filter to that single project (used by the Project Surface
-  // "View timeline →" link). The `project` param now carries a composite
-  // owner:id key — a bare numeric form is rejected because two projects
-  // can share the same numeric id across owners (persona 18 collision;
-  // same fix shape as /search at ab1548a8). Each param strips after
-  // acting so a reload doesn't re-trigger.
+  // settings popup. `/gantt?createGoal=1` fires the create-goal flow.
+  // `/gantt?project=<owner>:<id>` initializes the project filter to
+  // that single project (used by the Project Surface "View timeline →"
+  // link). The `project` param now carries a composite owner:id key —
+  // a bare numeric form is rejected because two projects can share the
+  // same numeric id across owners (persona 18 collision; same fix shape
+  // as /search at ab1548a8). Each param strips after acting so a reload
+  // doesn't re-trigger.
   const router = useRouter();
   const searchParams = useSearchParams();
   useEffect(() => {
@@ -273,7 +272,6 @@ export default function Toolbar({
       {/* Add goal button */}
       <button
         onClick={onCreateGoal}
-        data-onboarding-target="create-goal"
         className="px-3 py-1.5 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors flex items-center gap-1"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -296,7 +294,6 @@ export default function Toolbar({
       <Tooltip label="Animation Settings" placement="bottom">
         <button
           onClick={() => setShowAnimationSettings(true)}
-          data-onboarding-target="gantt-animations"
           className="px-2.5 py-1.5 text-sm bg-white border border-gray-200 text-gray-700 rounded-lg hover:border-gray-300 hover:shadow-sm transition-all flex items-center gap-1.5 hover:animate-jiggle"
         >
           <span className="text-base">{ANIMATION_METADATA[animationType].icon}</span>

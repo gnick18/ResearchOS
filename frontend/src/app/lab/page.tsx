@@ -249,10 +249,7 @@ export default function LabModePage() {
           </div>
           
           {/* Tabs */}
-          <div
-            className="flex gap-1 flex-wrap"
-            data-onboarding-target="lab-mode"
-          >
+          <div className="flex gap-1 flex-wrap">
             <button
               onClick={() => setActiveTab("activity")}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
