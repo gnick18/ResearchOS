@@ -583,15 +583,35 @@ export default function BeakerBotGalleryPage() {
 
   return (
     <div className="mx-auto max-w-5xl p-6">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">
-          BeakerBot Animation Gallery
-        </h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Dev only. Browse every BeakerBot pose and every scene component on
-          one page. The loop toggle re-plays scenes after onComplete (and
-          re-mounts one-shot poses on an interval).
-        </p>
+      <header className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">
+            BeakerBot Animation Gallery
+          </h1>
+          <p className="mt-1 text-sm text-slate-600">
+            Dev only. Browse every BeakerBot pose and every scene component
+            on one page. The loop toggle re-plays scenes after onComplete
+            (and re-mounts one-shot poses on an interval).
+          </p>
+        </div>
+        {/* "Back to app" routes via router.back() so the user lands
+            exactly where they were before clicking the dev FAB. If
+            they arrived here directly (no history entry), fall back
+            to the home route. */}
+        <button
+          type="button"
+          onClick={() => {
+            if (typeof window !== "undefined" && window.history.length > 1) {
+              window.history.back();
+            } else if (typeof window !== "undefined") {
+              window.location.href = "/";
+            }
+          }}
+          className="shrink-0 inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-400"
+          data-testid="gallery-back-to-app"
+        >
+          <span aria-hidden="true">&larr;</span> Back to app
+        </button>
       </header>
 
       <div className="mb-4 flex flex-wrap items-end gap-4 rounded-lg border border-slate-200 bg-white p-4">

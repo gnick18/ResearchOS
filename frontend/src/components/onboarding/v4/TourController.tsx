@@ -576,10 +576,16 @@ export function TourControllerProvider({
       }
     }
 
-    // Schedule auto-advance if declared.
+    // Schedule auto-advance if declared. The completion watcher above
+    // only advances on `event` or `manual` completion types, so for
+    // `auto` we must call advance() directly here. (Earlier code
+    // dispatched MARK_EVENT_FIRED but that flag is only consumed when
+    // completion.type === "event"; auto steps got stuck because the
+    // watcher silently ignored the flag. Grant's repeated "§6.2 hangs
+    // after typing" reports surfaced this.)
     if (body.completion.type === "auto") {
       autoTimer = setTimeout(() => {
-        if (!cancelled) dispatch({ type: "MARK_EVENT_FIRED" });
+        if (!cancelled) advance();
       }, body.completion.autoAdvanceAfterMs);
     }
 
