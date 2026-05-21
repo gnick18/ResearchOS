@@ -204,18 +204,28 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             // programmatic navigation (via Next router) still works,
             // since it bypasses the DOM click event entirely.
             if (navDisabledByTour) {
-              const baseStyle = tinted
-                ? "px-3 py-1.5 text-sm rounded-full transition-colors shadow-sm bg-white/75 text-gray-700"
-                : "px-3 py-1.5 text-sm rounded-lg transition-colors text-gray-500";
+              // Keep the active-tab indicator even when nav clicks are
+              // disabled during a walkthrough. Grant flagged that the
+              // current route was visually indistinguishable from the
+              // others while the cursor was driving, so the user had no
+              // anchor for "where am I." Active stays full-opacity with
+              // its normal selected styling; inactive dims to opacity-50.
+              const inactiveStyle = tinted
+                ? "px-3 py-1.5 text-sm rounded-full shadow-sm bg-white/75 text-gray-700 opacity-50"
+                : "px-3 py-1.5 text-sm rounded-lg text-gray-500 opacity-50";
+              const activeStyle = tinted
+                ? "px-3 py-1.5 text-sm rounded-full shadow-sm bg-white text-gray-900 font-medium"
+                : "px-3 py-1.5 text-sm rounded-lg bg-blue-50 text-blue-700 font-medium";
               return (
                 <button
                   key={item.href}
                   type="button"
                   disabled
                   aria-disabled="true"
+                  aria-current={isActive ? "page" : undefined}
                   data-tour-nav-item={item.href}
                   data-tour-target={tourTarget}
-                  className={`${baseStyle} opacity-50 cursor-not-allowed`}
+                  className={`${isActive ? activeStyle : inactiveStyle} transition-colors cursor-not-allowed`}
                   onClick={(e) => {
                     // Defensive: <button disabled> already no-ops click in
                     // the browser, but a synthetic-event test or a future

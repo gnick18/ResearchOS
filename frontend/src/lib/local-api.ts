@@ -3768,6 +3768,22 @@ export const sharingApi = {
     return { status: "ok", notification_id: notificationId };
   },
 
+  // Symmetric to markNotificationRead. Used by onboarding v4 §6.3 to
+  // re-light an existing welcome-test notification when the tour
+  // re-enters the bell step (instead of spawning a duplicate row).
+  markNotificationUnread: async (
+    notificationId: string,
+  ): Promise<{ status: string; notification_id: string }> => {
+    const currentUser = await getCurrentUserCached();
+    const file = await readNotificationsFile(currentUser);
+    const idx = file.notifications.findIndex((n) => n.id === notificationId);
+    if (idx >= 0) {
+      file.notifications[idx] = { ...file.notifications[idx], read: false };
+      await writeNotificationsFile(currentUser, file);
+    }
+    return { status: "ok", notification_id: notificationId };
+  },
+
   markAllNotificationsRead: async (): Promise<{ status: string; dismissed_count: number }> => {
     const currentUser = await getCurrentUserCached();
     const file = await readNotificationsFile(currentUser);

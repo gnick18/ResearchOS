@@ -46,6 +46,13 @@ function toLocalDateString(d: Date): string {
  * stays compact + the unit test can drive the same code path that the
  * controller invokes on step entry.
  *
+ * Idempotent: if a notification with the §6.3 demo title is already in
+ * the user's inbox (eg. they completed §6.3 once and re-entered the
+ * tour via Settings re-run), this re-flips that row to unread instead
+ * of spawning a duplicate. Grant's screenshot showed 4 stacked welcome
+ * notifications after multiple tour entries; this collapses them to 1
+ * row whose unread state re-lights on every re-entry.
+ *
  * Best-effort: a notifications-storage failure (e.g., tests without a
  * mocked local-api) is logged + swallowed so the rest of the tour
  * keeps running. The user can still try the bell; only the badge-
@@ -53,6 +60,25 @@ function toLocalDateString(d: Date): string {
  */
 export async function fireNotificationsStepTestNotification(): Promise<void> {
   try {
+    const existing = await sharingApi.getNotifications();
+    const matching = existing.notifications.find((n) => {
+      // Event-reminder rows are the only shape this spawn creates, so
+      // narrow before reading event_title.
+      return (
+        n.type === "event_reminder" &&
+        n.event_title === NOTIFICATIONS_STEP_TEST_TITLE
+      );
+    });
+    if (matching) {
+      // Re-light the existing row instead of stacking a duplicate.
+      if (matching.read) {
+        await sharingApi.markNotificationUnread(matching.id);
+      }
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("ros-notifications-changed"));
+      }
+      return;
+    }
     const now = new Date();
     const eventStart = new Date(now.getTime() + 15 * 60 * 1000);
     await sharingApi.createEventReminder({

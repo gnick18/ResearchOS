@@ -18,13 +18,21 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { createEventReminderMock } = vi.hoisted(() => ({
+const {
+  createEventReminderMock,
+  getNotificationsMock,
+  markNotificationUnreadMock,
+} = vi.hoisted(() => ({
   createEventReminderMock: vi.fn(),
+  getNotificationsMock: vi.fn(),
+  markNotificationUnreadMock: vi.fn(),
 }));
 
 vi.mock("@/lib/local-api", () => ({
   sharingApi: {
     createEventReminder: createEventReminderMock,
+    getNotifications: getNotificationsMock,
+    markNotificationUnread: markNotificationUnreadMock,
   },
 }));
 
@@ -41,10 +49,24 @@ describe("NotificationsBellStep §6.3a (bell click)", () => {
   beforeEach(() => {
     createEventReminderMock.mockReset();
     createEventReminderMock.mockResolvedValue(undefined);
+    getNotificationsMock.mockReset();
+    // Default: empty inbox so the spawn path runs (matches first-time
+    // tour entry). Tests that want the idempotency branch override.
+    getNotificationsMock.mockResolvedValue({
+      notifications: [],
+      unread_count: 0,
+    });
+    markNotificationUnreadMock.mockReset();
+    markNotificationUnreadMock.mockResolvedValue({
+      status: "ok",
+      notification_id: "stub",
+    });
   });
 
   afterEach(() => {
     createEventReminderMock.mockReset();
+    getNotificationsMock.mockReset();
+    markNotificationUnreadMock.mockReset();
   });
 
   it("declares the canonical id", () => {

@@ -170,11 +170,24 @@ describe("AppShell — top-nav gate", () => {
     // Every nav-item now renders as a <button disabled>.
     const buttons = homeNav!.querySelectorAll("button[disabled]");
     expect(buttons.length).toBeGreaterThan(0);
-    // Each disabled button is visually grayed.
+    // Each disabled button is non-clickable; INACTIVE tabs are also
+    // opacity-50, the ACTIVE tab keeps full opacity so the user can
+    // still see which page they're on (Grant 2026-05-21 follow-up).
+    let activeCount = 0;
+    let inactiveCount = 0;
     buttons.forEach((b) => {
-      expect(b.className).toMatch(/opacity-50/);
       expect(b.className).toMatch(/cursor-not-allowed/);
+      if (b.getAttribute("aria-current") === "page") {
+        activeCount += 1;
+        expect(b.className).not.toMatch(/opacity-50/);
+      } else {
+        inactiveCount += 1;
+        expect(b.className).toMatch(/opacity-50/);
+      }
     });
+    // Test renders at "/" so exactly one Home button reads aria-current.
+    expect(activeCount).toBe(1);
+    expect(inactiveCount).toBeGreaterThan(0);
     // No <Link>-rendered anchors in the nav while gated.
     expect(homeNav!.querySelectorAll("a").length).toBe(0);
   });
