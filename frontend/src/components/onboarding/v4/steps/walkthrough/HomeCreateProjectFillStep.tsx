@@ -42,8 +42,8 @@ export const homeCreateProjectFillStep = buildWalkthroughStep({
   speech: (
     <>
       <p className="mb-2">
-        Give your project a name and pick a color so its cards and Gantt
-        bars stand out from the rest.
+        Give your project a name and pick a color. Don&apos;t worry,
+        these choices can always be changed later on.
       </p>
       <p>
         The seven-day work week toggle controls whether weekends count
