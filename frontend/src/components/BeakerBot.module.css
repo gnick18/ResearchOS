@@ -231,6 +231,178 @@
   }
 }
 
+/* Easter egg: volcano-eruption. Side animation triggered occasionally
+ * to keep BeakerBot visible outside the onboarding walkthrough. Stages:
+ *   1. Pour setup  (0-19%,    ~600ms): test tube slides in, hovers
+ *   2. Pour        (19-31%,   ~400ms): test tube tilts 90deg, droplets fall
+ *   3. React       (31-40%,   ~300ms): rainbow liquid intensifies
+ *   4. Erupt       (40-65%,   ~800ms): particle fountain bursts up + out
+ *   5. Dizzy       (65-90%,   ~800ms): body wobble + orbiting stars
+ *   6. Recover     (90-100%,  ~320ms): wobble subsides to neutral
+ * Total cadence: 3200ms. The stage timings below are percentages of
+ * that total so any future re-tuning only needs the duration to shift. */
+
+/* Root body wobble: gentle pre-pour anticipation, hold steady through
+ * the pour + react + erupt stages, then dizzy oscillation at the end
+ * before settling. The eruption itself is on the particle layer so the
+ * root body stays mostly upright (BeakerBot is the FOUNTAIN, not the
+ * one blown over). */
+@keyframes beakerBotVolcanoBody {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+  31% {
+    transform: translateY(0) rotate(0deg);
+  }
+  35% {
+    transform: translateY(-1%) rotate(0deg);
+  }
+  40% {
+    transform: translateY(0) rotate(0deg);
+  }
+  65% {
+    transform: translateY(0) rotate(0deg);
+  }
+  70% {
+    transform: translateY(-1%) rotate(-7deg);
+  }
+  75% {
+    transform: translateY(0) rotate(6deg);
+  }
+  80% {
+    transform: translateY(-1%) rotate(-6deg);
+  }
+  85% {
+    transform: translateY(0) rotate(5deg);
+  }
+  90% {
+    transform: translateY(0) rotate(-3deg);
+  }
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
+/* Test tube choreography: slide in from off-screen-right, hover
+ * upright over BeakerBot's head, tilt 90deg forward at the pour stage,
+ * fly off-screen at the erupt stage. The transform-origin sits on the
+ * test tube's mouth (its open end, ~36, 10) so the tilt reads as a
+ * pivot at the lip rather than a center-spin. */
+@keyframes beakerBotVolcanoTestTube {
+  0% {
+    transform: translate(28px, -6px) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  19% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  31% {
+    transform: translate(-3px, 2px) rotate(95deg);
+    opacity: 1;
+  }
+  40% {
+    transform: translate(-3px, 2px) rotate(95deg);
+    opacity: 1;
+  }
+  55% {
+    transform: translate(18px, -10px) rotate(180deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(18px, -10px) rotate(180deg);
+    opacity: 0;
+  }
+}
+
+/* Particle fountain: each circle stays at its cx,cy origin until the
+ * erupt stage fires, then arcs to its (--volcano-end-x, --volcano-end-y)
+ * offset on a fast outward burst, then falls back down. The
+ * per-particle CSS var is the destination; we layer animation-delay on
+ * top so the burst staggers. The arc effect comes from an ease-out
+ * timing on the y component (encoded via the keyframe percentages,
+ * since CSS doesn't separate x/y easing). */
+@keyframes beakerBotVolcanoParticle {
+  0%,
+  39% {
+    transform: translate(0, 0) scale(0.4);
+    opacity: 0;
+  }
+  40% {
+    transform: translate(0, 0) scale(0.4);
+    opacity: 1;
+  }
+  55% {
+    transform: translate(
+        calc(var(--volcano-end-x) * 0.85),
+        calc(var(--volcano-end-y) * 1.05)
+      )
+      scale(1);
+    opacity: 1;
+  }
+  65% {
+    transform: translate(var(--volcano-end-x), var(--volcano-end-y))
+      scale(0.9);
+    opacity: 1;
+  }
+  90% {
+    transform: translate(
+        calc(var(--volcano-end-x) * 0.9),
+        calc(var(--volcano-end-y) + 18px)
+      )
+      scale(0.7);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(
+        calc(var(--volcano-end-x) * 0.9),
+        calc(var(--volcano-end-y) + 18px)
+      )
+      scale(0.5);
+    opacity: 0;
+  }
+}
+
+/* Dizzy stars: fade-in + small orbital wobble around BeakerBot's head
+ * during the dizzy stage, then fade out as he recovers. The orbit
+ * radius is small (~1.5px) so the stars read as "twinkling around"
+ * rather than spinning hula-hoop style. */
+@keyframes beakerBotVolcanoDizzyStar {
+  0%,
+  64% {
+    transform: translate(0, 0) scale(0.5);
+    opacity: 0;
+  }
+  68% {
+    transform: translate(0, -1px) scale(1);
+    opacity: 1;
+  }
+  75% {
+    transform: translate(1.5px, 0) scale(1);
+    opacity: 1;
+  }
+  82% {
+    transform: translate(0, 1px) scale(1);
+    opacity: 1;
+  }
+  88% {
+    transform: translate(-1.5px, 0) scale(1);
+    opacity: 1;
+  }
+  92% {
+    transform: translate(0, -1px) scale(0.9);
+    opacity: 0.6;
+  }
+  100% {
+    transform: translate(0, -2px) scale(0.6);
+    opacity: 0;
+  }
+}
+
 /* Pose root classes applied to the <svg>. The `.animated` modifier
  * gates the animation so call sites can opt out (decorative chips,
  * settings page, dev buttons). */
@@ -265,6 +437,54 @@
 
 .rollLaughing.animated {
   animation: beakerBotRollLaugh 3400ms ease-in-out 1 forwards;
+}
+
+/* Volcano-eruption root body wobble. Total cadence 3200ms; see the
+ * keyframe header for the stage breakdown. */
+.volcanoErupting.animated {
+  animation: beakerBotVolcanoBody 3200ms ease-in-out 1 forwards;
+}
+
+/* Volcano test tube layer: own animation on the test tube <g>. Same
+ * 3200ms total so the test tube's per-stage positions stay in sync
+ * with the root body keyframes above. */
+.volcanoTestTube {
+  transform-origin: 36px 4px;
+  transform-box: view-box;
+}
+
+.volcanoTestTube.animated {
+  animation: beakerBotVolcanoTestTube 3200ms ease-in-out 1 forwards;
+}
+
+/* Volcano particles: container has no animation of its own; each child
+ * .volcanoParticle handles its own arc + delay. */
+.volcanoParticles {
+  transform-box: view-box;
+}
+
+.volcanoParticle {
+  transform-origin: 20px 12px;
+  transform-box: view-box;
+  /* Particles use 0,0 as their starting translate offset; their cx,cy
+   * positions BeakerBot's beaker-top spawn point. The CSS vars set
+   * per-particle on the inline style define the arc destination. */
+  --volcano-end-x: 0px;
+  --volcano-end-y: -20px;
+  opacity: 0;
+  animation: beakerBotVolcanoParticle 3200ms ease-out 1 forwards;
+}
+
+/* Volcano dizzy stars: each star gets its own animation with a small
+ * stagger via inline style animation-delay. */
+.volcanoDizzyStars {
+  transform-box: view-box;
+}
+
+.volcanoDizzyStar {
+  transform-box: view-box;
+  opacity: 0;
+  animation: beakerBotVolcanoDizzyStar 3200ms ease-in-out 1 forwards;
 }
 
 /* Laugh-text speech that pops up above BeakerBot during the easter-egg
@@ -340,7 +560,10 @@
 }
 
 /* Reduced-motion: kill all animation cycles. The mascot still renders
- * in its pose's resting silhouette so the visual hint is preserved. */
+ * in its pose's resting silhouette so the visual hint is preserved.
+ * Volcano-eruption hides its decorative layers entirely under reduced
+ * motion (test tube + particles + dizzy stars) so the user sees the
+ * neutral BeakerBot pose without the splash. */
 @media (prefers-reduced-motion: reduce) {
   .idle.animated,
   .bouncing.animated,
@@ -349,11 +572,24 @@
   .bowing.animated,
   .giggling.animated,
   .rollLaughing.animated,
+  .volcanoErupting.animated,
+  .volcanoTestTube.animated,
+  .volcanoParticle,
+  .volcanoDizzyStar,
   .waveArm.animated,
   .typeHand.animated,
   .winkEye.animated,
   .laughTextGiggle,
   .laughTextRoll {
     animation: none;
+  }
+
+  /* Hide the volcano decorative SVG layers entirely under reduced
+   * motion so the static silhouette is just BeakerBot's neutral pose
+   * without an unmoving test tube hanging in space. */
+  .volcanoTestTube,
+  .volcanoParticles,
+  .volcanoDizzyStars {
+    display: none;
   }
 }

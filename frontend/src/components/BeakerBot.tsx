@@ -61,12 +61,19 @@ import styles from "./BeakerBot.module.css";
  *  - `bow-wink`       - combo pose: right eye winks first, then the
  *                       whole body bows forward. Used on the final
  *                       wizard exit screen after Phase 4 Finish.
+ *  - `volcano-eruption` - side easter-egg one-shot: a small floating
+ *                       test tube tilts over BeakerBot's head, pours
+ *                       a purple liquid into his beaker, his rainbow
+ *                       liquid "reacts," a particle fountain erupts
+ *                       upward, BeakerBot wobbles dizzy, then settles.
+ *                       Total ~3.2s. No trigger logic shipped yet;
+ *                       future idle trigger will dispatch it.
  *
  * The dotted pointer-line in `OnboardingTipCard` emits from the
  * triangle tip in the `pointing*` poses; the non-pointing poses
  * (`cheering`, `waving`, `bouncing`, `thinking`, `typing`,
- * `bow-wink`) are used in the modal mascot slot and don't drive a
- * pointer line.
+ * `bow-wink`, `volcano-eruption`) are used in the modal mascot slot
+ * and don't drive a pointer line.
  */
 
 export type BeakerBotPose =
@@ -81,7 +88,8 @@ export type BeakerBotPose =
   | "typing"
   | "bow-wink"
   | "giggle"
-  | "rolling-laughing";
+  | "rolling-laughing"
+  | "volcano-eruption";
 
 export interface BeakerBotProps {
   pose: BeakerBotPose;
@@ -142,10 +150,52 @@ function rootAnimationClass(
       return `${styles.giggling} ${styles.animated}`;
     case "rolling-laughing":
       return `${styles.rollLaughing} ${styles.animated}`;
+    case "volcano-eruption":
+      return `${styles.volcanoErupting} ${styles.animated}`;
     default:
       return undefined;
   }
 }
+
+// Volcano eruption particle fountain: 10 droplets that arc upward and
+// outward from BeakerBot's beaker top, then fall. Each particle has a
+// per-index angle + delay offset so the burst reads as a fountain
+// rather than a synchronized ring. Colors pull from the rainbow
+// gradient palette (peach, yellow, mint, sky, lavender) so the burst
+// looks like a piece of BeakerBot's own liquid was ejected. Coords
+// are in SVG viewBox units (0-40), origin at the beaker top (~20,12).
+const VOLCANO_PARTICLES: ReadonlyArray<{
+  cx: number;
+  cy: number;
+  r: number;
+  fill: string;
+  delayMs: number;
+  endX: number;
+  endY: number;
+}> = [
+  { cx: 20, cy: 12, r: 0.9, fill: "#FFD2B0", delayMs: 0, endX: -8, endY: -14 },
+  { cx: 20, cy: 12, r: 0.7, fill: "#FFF1A8", delayMs: 40, endX: -4, endY: -18 },
+  { cx: 20, cy: 12, r: 0.8, fill: "#B7EBB1", delayMs: 80, endX: 0, endY: -20 },
+  { cx: 20, cy: 12, r: 0.6, fill: "#A6D2F4", delayMs: 30, endX: 5, endY: -18 },
+  { cx: 20, cy: 12, r: 0.9, fill: "#D6B5F0", delayMs: 60, endX: 9, endY: -14 },
+  { cx: 20, cy: 12, r: 0.7, fill: "#FFD2B0", delayMs: 110, endX: -11, endY: -8 },
+  { cx: 20, cy: 12, r: 0.8, fill: "#B7EBB1", delayMs: 90, endX: -2, endY: -22 },
+  { cx: 20, cy: 12, r: 0.6, fill: "#A6D2F4", delayMs: 50, endX: 3, endY: -22 },
+  { cx: 20, cy: 12, r: 0.7, fill: "#D6B5F0", delayMs: 70, endX: 11, endY: -8 },
+  { cx: 20, cy: 12, r: 0.6, fill: "#FFF1A8", delayMs: 120, endX: -6, endY: -10 },
+];
+
+// Dizzy stars: 3 small four-point sparkles that orbit BeakerBot's head
+// during the dizzy stage. Hand-placed offsets so they don't all clump.
+const VOLCANO_DIZZY_STARS: ReadonlyArray<{
+  cx: number;
+  cy: number;
+  delayMs: number;
+}> = [
+  { cx: 14, cy: 8, delayMs: 0 },
+  { cx: 26, cy: 7, delayMs: 120 },
+  { cx: 20, cy: 5, delayMs: 60 },
+];
 
 // Easter egg interaction config: tickle BeakerBot (click or rapid
 // back-and-forth mouse-jiggle over him) and he giggles; sustain it
@@ -490,6 +540,109 @@ export default function BeakerBot({
         // sub-element animation on the right eye (above). No extra
         // geometry needed here.
         null
+      )}
+
+      {/* Volcano-eruption: side easter-egg one-shot. A small floating
+       *  test tube tilts over BeakerBot's head and pours a purple
+       *  liquid into his beaker; a fountain of pastel rainbow particles
+       *  erupts upward; dizzy stars orbit during the wobble recovery.
+       *  Total cadence is ~3.2s, sequenced via stage-specific keyframes
+       *  in BeakerBot.module.css (test-tube appear/pour, particle
+       *  erupt, dizzy stars orbit). The root body wobble is driven by
+       *  the .volcanoErupting class on the SVG root. All animations
+       *  collapse to a static silhouette under prefers-reduced-motion. */}
+      {effectivePose === "volcano-eruption" && (
+        <>
+          {/* Test tube: small flask above and slightly right of
+           *  BeakerBot's head. Two paths layered: outline (white fill
+           *  for body, currentColor stroke) + purple liquid inside.
+           *  Animation tilts it forward 90deg at the pour stage then
+           *  flings it off-screen on the erupt stage. */}
+          <g
+            className={
+              animated
+                ? `${styles.volcanoTestTube} ${styles.animated}`
+                : undefined
+            }
+          >
+            {/* Test tube body: rectangular flask with rounded bottom. */}
+            <path
+              d="M 32 -2 L 32 8 Q 32 10, 34 10 L 38 10 Q 40 10, 40 8 L 40 -2 Z"
+              fill="white"
+              stroke="currentColor"
+              strokeWidth="1.2"
+            />
+            {/* Test tube liquid: purple, settled at the bottom half. */}
+            <path
+              d="M 32 4 L 40 4 L 40 8 Q 40 10, 38 10 L 34 10 Q 32 10, 32 8 Z"
+              fill="#8b5cf6"
+              stroke="none"
+            />
+          </g>
+
+          {/* Particle fountain: 10 droplets that erupt upward + outward
+           *  from the beaker top. Each particle has its own keyframe
+           *  delay so the burst staggers rather than firing as one
+           *  ring. The animation-delay is composed by the .animated
+           *  class via the inline style on each circle. */}
+          <g
+            className={
+              animated
+                ? `${styles.volcanoParticles} ${styles.animated}`
+                : undefined
+            }
+          >
+            {VOLCANO_PARTICLES.map((p, i) => (
+              <circle
+                key={i}
+                cx={p.cx}
+                cy={p.cy}
+                r={p.r}
+                fill={p.fill}
+                stroke="none"
+                className={animated ? styles.volcanoParticle : undefined}
+                style={
+                  animated
+                    ? ({
+                        animationDelay: `${p.delayMs}ms`,
+                        "--volcano-end-x": `${p.endX}px`,
+                        "--volcano-end-y": `${p.endY}px`,
+                      } as React.CSSProperties)
+                    : undefined
+                }
+              />
+            ))}
+          </g>
+
+          {/* Dizzy stars: 3 small four-point sparkles that orbit
+           *  BeakerBot's head during the dizzy stage. Pure decoration;
+           *  the wobble itself is on the root body. */}
+          <g
+            className={
+              animated
+                ? `${styles.volcanoDizzyStars} ${styles.animated}`
+                : undefined
+            }
+          >
+            {VOLCANO_DIZZY_STARS.map((s, i) => (
+              <g
+                key={i}
+                className={animated ? styles.volcanoDizzyStar : undefined}
+                style={
+                  animated
+                    ? { animationDelay: `${s.delayMs}ms` }
+                    : undefined
+                }
+              >
+                <path
+                  d={`M ${s.cx - 1.2} ${s.cy} L ${s.cx + 1.2} ${s.cy} M ${s.cx} ${s.cy - 1.2} L ${s.cx} ${s.cy + 1.2}`}
+                  stroke="currentColor"
+                  strokeWidth="0.8"
+                />
+              </g>
+            ))}
+          </g>
+        </>
       )}
 
       {/* Laugh-text speech bubble: pops up above BeakerBot during the

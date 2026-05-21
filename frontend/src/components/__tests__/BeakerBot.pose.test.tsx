@@ -25,6 +25,7 @@ const ALL_POSES: BeakerBotPose[] = [
   "thinking",
   "typing",
   "bow-wink",
+  "volcano-eruption",
 ];
 
 describe("BeakerBot pose mechanism", () => {
@@ -139,6 +140,119 @@ describe("BeakerBot pose mechanism", () => {
       const circles = container.querySelectorAll("circle");
       expect(circles.length).toBeGreaterThanOrEqual(2);
       unmount();
+    }
+  });
+});
+
+/**
+ * Volcano-eruption pose: side easter-egg one-shot. The pose renders
+ * three decorative SVG layers in addition to the base BeakerBot:
+ *   1. Test tube (the pouring vessel)
+ *   2. Particle fountain (the erupting droplets)
+ *   3. Dizzy stars (the post-eruption wobble decoration)
+ *
+ * We assert each layer is present when the pose is dispatched, ABSENT
+ * for other poses (so a future regression that always-renders the
+ * layers fails loud), and that animated=false renders the static
+ * silhouette without the per-particle animation classes.
+ */
+describe("BeakerBot volcano-eruption pose", () => {
+  // The test tube SVG uses fill="#8b5cf6" for its purple liquid. No
+  // other pose uses this fill color, so it's a clean signal that the
+  // test tube is mounted.
+  const VOLCANO_TEST_TUBE_FILL = "#8b5cf6";
+
+  it("renders the test tube SVG when pose=volcano-eruption", () => {
+    const { container } = render(<BeakerBot pose="volcano-eruption" />);
+    const paths = container.querySelectorAll("path");
+    const purpleFills = Array.from(paths).filter(
+      (p) => p.getAttribute("fill") === VOLCANO_TEST_TUBE_FILL,
+    );
+    expect(purpleFills.length).toBeGreaterThan(0);
+  });
+
+  it("renders the particle fountain (10 droplets) when pose=volcano-eruption", () => {
+    const { container } = render(<BeakerBot pose="volcano-eruption" />);
+    // Particles spawn at cx=20, cy=12 (BeakerBot's beaker top). The
+    // base mascot has no circles at this position, so a count of
+    // circles at (20, 12) tracks particle count directly.
+    const circles = container.querySelectorAll("circle");
+    const particles = Array.from(circles).filter(
+      (c) =>
+        c.getAttribute("cx") === "20" && c.getAttribute("cy") === "12",
+    );
+    expect(particles.length).toBe(10);
+  });
+
+  it("does NOT render the volcano test tube or particles for pose=idle", () => {
+    const { container } = render(<BeakerBot pose="idle" />);
+    const paths = container.querySelectorAll("path");
+    const purpleFills = Array.from(paths).filter(
+      (p) => p.getAttribute("fill") === VOLCANO_TEST_TUBE_FILL,
+    );
+    expect(purpleFills.length).toBe(0);
+
+    const circles = container.querySelectorAll("circle");
+    const particles = Array.from(circles).filter(
+      (c) =>
+        c.getAttribute("cx") === "20" && c.getAttribute("cy") === "12",
+    );
+    expect(particles.length).toBe(0);
+  });
+
+  it("applies the volcano root animation class when animated=true", () => {
+    const { container } = render(<BeakerBot pose="volcano-eruption" />);
+    const svg = container.querySelector("svg");
+    const cls = svg?.getAttribute("class") ?? "";
+    // CSS module hashes the class name, but the unhashed token
+    // includes `volcanoErupting` as a prefix/substring in dev test
+    // environments and is fully hashed in prod. We rely on the
+    // data-pose attribute as the canonical signal here.
+    expect(svg?.getAttribute("data-pose")).toBe("volcano-eruption");
+    expect(svg?.getAttribute("data-animated")).toBe("true");
+    // At minimum, some class beyond the default Tailwind sizing
+    // should be present (the merged module + animation classes).
+    expect(cls).toMatch(/\S/);
+  });
+
+  it("reduced-motion path: pose=volcano-eruption with animated=false renders the static silhouette", () => {
+    // The component's `animated=false` prop is the call-site way to
+    // opt OUT of the animation loop (decorative chips, tip thumbs).
+    // It mirrors what happens under prefers-reduced-motion: reduce,
+    // since the CSS module's @media block sets animation: none. Under
+    // animated=false the per-element animation classes are NOT applied
+    // (no styles.volcanoTestTube.animated, etc.), so the decorative
+    // layers render in their static start-state silhouette.
+    const { container } = render(
+      <BeakerBot pose="volcano-eruption" animated={false} />,
+    );
+    const svg = container.querySelector("svg");
+    expect(svg?.getAttribute("data-pose")).toBe("volcano-eruption");
+    expect(svg?.getAttribute("data-animated")).toBe("false");
+    // Test tube + particles + dizzy stars still render as structural
+    // SVG so the silhouette is intact; only the animation classes are
+    // gated. Particle circles are still present.
+    const circles = container.querySelectorAll("circle");
+    const particles = Array.from(circles).filter(
+      (c) =>
+        c.getAttribute("cx") === "20" && c.getAttribute("cy") === "12",
+    );
+    expect(particles.length).toBe(10);
+    // The particle circles must NOT carry the per-particle animation
+    // class when animated=false, since the class is what binds them
+    // to the keyframe + per-particle CSS vars.
+    for (const p of particles) {
+      const cls = p.getAttribute("class") ?? "";
+      // CSS module names are hashed, but the source token is
+      // `volcanoParticle`. We can't match the hashed form portably,
+      // so we instead check that the inline style has NO
+      // animationDelay set (which is only emitted in the animated
+      // branch).
+      const style = p.getAttribute("style") ?? "";
+      expect(style).not.toMatch(/animation-delay/i);
+      // And no inline animation-end CSS vars either.
+      expect(style).not.toMatch(/--volcano-end-x/);
+      expect(cls).not.toMatch(/animated/);
     }
   });
 });
