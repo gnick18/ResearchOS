@@ -1,15 +1,13 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
+import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { projectsApi as rawProjectsApi, tasksApi as rawTasksApi } from "@/lib/local-api";
 import type { ProjectUpdate } from "@/lib/local-api";
-import TaskDetailPopup from "@/components/TaskDetailPopup";
-import TaskQuickPopup from "@/components/TaskQuickPopup";
 import SharePopup from "@/components/SharePopup";
 import Tooltip from "@/components/Tooltip";
-import { taskKey } from "@/lib/types";
-import type { Project, Task } from "@/lib/types";
+import type { Project } from "@/lib/types";
 
 /**
  * When the current viewer is a receiver of a shared project with edit
@@ -63,20 +61,7 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [archiving, setArchiving] = useState(false);
-  
-  // For quick popup
-  const [quickPopupTask, setQuickPopupTask] = useState<Task | null>(null);
-  const [quickPopupPosition, setQuickPopupPosition] = useState({ x: 0, y: 0 });
-  
-  // For full detail popup
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  // When opening the detail popup straight from the "Recently completed"
-  // section, land on the Results tab — same behavior the dead /results page
-  // used to provide.
-  const [selectedTaskInitialTab, setSelectedTaskInitialTab] = useState<
-    "results" | undefined
-  >(undefined);
-  
+
   // For share popup
   const [showSharePopup, setShowSharePopup] = useState(false);
 
@@ -91,104 +76,24 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
     project.is_shared_with_me === true && project.shared_permission === "view";
   const isAnyReceiver = project.is_shared_with_me === true;
 
-  // Fetch tasks for this project. For shared projects, the tasks live in the
-  // owner's directory — read access only requires `is_shared_with_me`,
-  // independent of edit permission, so this thread-through differs from the
-  // edit-only `effectiveOwnerOf` used for mutations above.
+  // Fetch tasks for this project — kept (post-P7 slim-down) ONLY to power the
+  // three count chips in the stats panel below (total / completed / overdue).
+  // The full task lists were stripped per L3 of PROJECT_SURFACE_PROPOSAL.md;
+  // the project route at /workbench/projects/<id> is now the place those lists
+  // live. For shared projects, the tasks live in the owner's directory — read
+  // access only requires `is_shared_with_me`, independent of edit permission,
+  // so this thread-through differs from the edit-only `effectiveOwnerOf` used
+  // for mutations above.
   const taskListOwner = project.is_shared_with_me ? project.owner : undefined;
   const { data: tasks = [] } = useQuery({
     queryKey: ["tasks", project.is_shared_with_me ? `${project.owner}:${project.id}` : `self:${project.id}`],
     queryFn: () => rawTasksApi.listByProject(project.id, taskListOwner),
   });
 
-  // Cross-owner "hosted from others" tasks (Option C). Foreign-owned tasks
-  // shared INTO this project surface here so the popup's task list shows the
-  // full picture, not just the owner's native tasks. Drift in the manifest
-  // is repaired on read by `lib/sharing/project-hosting.ts`.
-  //
-  // Always-on for own projects; suppressed for shared-into projects to keep
-  // the surface tight (v1 — the destination project's owner is the only one
-  // who really cares about who's hosted here).
-  const { data: hostedTasks = [] } = useQuery({
-    queryKey: [
-      "projects",
-      project.owner,
-      project.id,
-      "hosted-tasks",
-    ],
-    queryFn: () => rawProjectsApi.listHostedTasks(project.owner, project.id),
-    enabled: !project.is_archived,
-  });
-
-  // Per-task removal-in-progress flag, keyed by composite key. Lets us
-  // disable the X mid-flight without blocking other rows.
-  const [removingHosted, setRemovingHosted] = useState<Set<string>>(new Set());
-  const handleRemoveHostedTask = useCallback(
-    async (hosted: Task) => {
-      const key = taskKey(hosted);
-      if (
-        !confirm(
-          `Remove "${hosted.name}" from this project? ${hosted.owner} keeps the task in their library; it just won't appear on this project's Gantt anymore.`
-        )
-      ) {
-        return;
-      }
-      setRemovingHosted((prev) => new Set(prev).add(key));
-      try {
-        // `unshareFromProject` is symmetric — either the task owner OR the
-        // destination project owner can call it. Here the destination
-        // owner is the caller (the project belongs to them).
-        await rawTasksApi.unshareFromProject(
-          hosted.owner,
-          hosted.id,
-          project.owner,
-          project.id
-        );
-        await Promise.all([
-          queryClient.refetchQueries({
-            queryKey: ["projects", project.owner, project.id, "hosted-tasks"],
-          }),
-          queryClient.refetchQueries({ queryKey: ["tasks"] }),
-        ]);
-      } catch (err) {
-        console.error("Failed to remove hosted task:", err);
-        alert("Failed to remove task from project");
-      } finally {
-        setRemovingHosted((prev) => {
-          const next = new Set(prev);
-          next.delete(key);
-          return next;
-        });
-      }
-    },
-    [project.owner, project.id, queryClient]
-  );
-
-  const today = new Date().toISOString().split("T")[0];
-
-  // Filter future tasks (not completed, start date >= today or in progress)
-  const futureTasks = useMemo(() => {
-    return tasks
-      .filter((t) => !t.is_complete && (t.start_date >= today || (t.start_date <= today && t.end_date >= today)))
-      .sort((a, b) => a.start_date.localeCompare(b.start_date));
-  }, [tasks, today]);
-
-  // Group tasks by status
-  const tasksByStatus = useMemo(() => {
-    const inProgress = futureTasks.filter((t) => t.start_date <= today && t.end_date >= today);
-    const upcoming = futureTasks.filter((t) => t.start_date > today);
-    const overdue = tasks.filter((t) => !t.is_complete && t.end_date < today);
-    // 30-day completion window — chip 1 of the /results kill rollout (see
-    // RESULTS_PAGE_PROPOSAL.md @ ba8d10f4). Hardcoded window/all-types by
-    // design; no filter UI in v1.
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400_000)
-      .toISOString()
-      .slice(0, 10);
-    const recentlyCompleted = tasks
-      .filter((t) => t.is_complete && t.end_date >= thirtyDaysAgo)
-      .sort((a, b) => b.end_date.localeCompare(a.end_date));
-    return { inProgress, upcoming, overdue, recentlyCompleted };
-  }, [futureTasks, tasks, today]);
+  const overdueCount = useMemo(() => {
+    const today = new Date().toISOString().split("T")[0];
+    return tasks.filter((t) => !t.is_complete && t.end_date < today).length;
+  }, [tasks]);
 
   const handleSave = async () => {
     if (!name.trim()) return;
@@ -258,51 +163,26 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
 
   const projectColor = project.color || DEFAULT_COLORS[0];
 
-  // Format date for display
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    if (dateStr === today) return "Today";
-    if (dateStr === tomorrow.toISOString().split("T")[0]) return "Tomorrow";
-    
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  };
-
   // Format archived date
   const formatArchivedDate = (dateStr: string | null) => {
     if (!dateStr) return "";
     const date = new Date(dateStr);
-    return date.toLocaleDateString("en-US", { 
-      year: "numeric", 
-      month: "long", 
-      day: "numeric" 
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric"
     });
   };
 
-  // Handle task click - show quick popup
-  const handleTaskClick = useCallback((task: Task, event: React.MouseEvent) => {
-    setQuickPopupTask(task);
-    setQuickPopupPosition({ x: event.clientX, y: event.clientY });
-  }, []);
+  // P7: the popup links out to the route page where the full surface lives.
+  // `?owner=` matches the shape ProjectRoute reads in /workbench/projects/[id]/page.tsx.
+  const projectHref =
+    `/workbench/projects/${project.id}` +
+    (project.is_shared_with_me ? `?owner=${encodeURIComponent(project.owner)}` : "");
 
-  // Handle expand from quick popup to full detail
-  const handleExpandToDetail = useCallback(() => {
-    if (quickPopupTask) {
-      setSelectedTask(quickPopupTask);
-      setQuickPopupTask(null);
-    }
-  }, [quickPopupTask]);
-
-  // Completed-task click: skip the quick popup and open the full detail popup
-  // on the Results tab. Mirrors how the (now-defunct) /results page surfaced
-  // a finished task.
-  const handleCompletedTaskClick = useCallback((task: Task) => {
-    setSelectedTaskInitialTab("results");
-    setSelectedTask(task);
-  }, []);
+  // Miscellaneous is a permanent catch-all bucket; the route view assumes a
+  // real project, so suppress both the header link and the bottom CTA there.
+  const showOpenFullView = !isMiscellaneousProject;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
@@ -312,7 +192,7 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
       >
         {/* Header */}
         <div className="h-2 flex-shrink-0" style={{ backgroundColor: isEditing ? color : projectColor }} />
-        
+
         <div className="p-6 flex-shrink-0">
           <div className="flex items-center justify-between mb-4">
             {isEditing ? (
@@ -334,6 +214,15 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
               </div>
             )}
             <div className="flex items-center gap-2">
+              {!isEditing && showOpenFullView && (
+                <Link
+                  href={projectHref}
+                  onClick={onClose}
+                  className="text-xs text-gray-500 hover:text-blue-600 hover:underline whitespace-nowrap"
+                >
+                  Open full view →
+                </Link>
+              )}
               {!isEditing && !project.is_archived && !isMiscellaneousProject && (
                 <Tooltip
                   label={
@@ -527,10 +416,10 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
                   <span className="text-gray-400">Completed</span>
                   <p className="font-semibold text-gray-700">{tasks.filter((t) => t.is_complete).length}</p>
                 </div>
-                {tasksByStatus.overdue.length > 0 && (
+                {overdueCount > 0 && (
                   <div>
                     <span className="text-red-400">Overdue</span>
-                    <p className="font-semibold text-red-600">{tasksByStatus.overdue.length}</p>
+                    <p className="font-semibold text-red-600">{overdueCount}</p>
                   </div>
                 )}
               </div>
@@ -602,231 +491,24 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
                   </p>
                 </div>
               )}
+
+              {/* P7: full-width CTA to the project route. This popup is the
+                  inspector; the route page is where every surface (Gantt,
+                  methods, results, activity, overview) actually lives. */}
+              {showOpenFullView && (
+                <div className="pt-4">
+                  <Link
+                    href={projectHref}
+                    onClick={onClose}
+                    className="flex items-center justify-center w-full h-10 rounded-lg bg-blue-50 text-blue-700 text-sm font-medium hover:bg-blue-100 transition-colors"
+                  >
+                    Open full view →
+                  </Link>
+                </div>
+              )}
             </>
           )}
         </div>
-
-        {/* Task list - only show when not editing */}
-        {!isEditing && !project.is_archived && (
-          <div className="flex-1 overflow-y-auto border-t border-gray-100">
-            {/* In Progress */}
-            {tasksByStatus.inProgress.length > 0 && (
-              <div className="p-4 border-b border-gray-100">
-                <h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-2">
-                  In Progress ({tasksByStatus.inProgress.length})
-                </h3>
-                <div className="space-y-1.5">
-                  {tasksByStatus.inProgress.map((t) => (
-                    <div
-                      key={t.id}
-                      onClick={(e) => handleTaskClick(t, e)}
-                      className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        {t.task_type === "experiment" && (
-                          <div className="w-1 h-4 rounded-full bg-purple-400 flex-shrink-0" />
-                        )}
-                        <span className="text-sm text-gray-700 truncate">{t.name}</span>
-                      </div>
-                      <span className="text-xs text-gray-400 group-hover:text-gray-600">
-                        {formatDate(t.end_date)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Overdue */}
-            {tasksByStatus.overdue.length > 0 && (
-              <div className="p-4 border-b border-gray-100 bg-red-50/50">
-                <h3 className="text-xs font-bold text-red-600 uppercase tracking-wider mb-2">
-                  Overdue ({tasksByStatus.overdue.length})
-                </h3>
-                <div className="space-y-1.5">
-                  {tasksByStatus.overdue.map((t) => (
-                    <div
-                      key={t.id}
-                      onClick={(e) => handleTaskClick(t, e)}
-                      className="flex items-center justify-between p-2 rounded-lg hover:bg-red-100 cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        {t.task_type === "experiment" && (
-                          <div className="w-1 h-4 rounded-full bg-purple-400 flex-shrink-0" />
-                        )}
-                        <span className="text-sm text-gray-700 truncate">{t.name}</span>
-                      </div>
-                      <span className="text-xs text-red-500 group-hover:text-red-600">
-                        Due {formatDate(t.end_date)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Upcoming */}
-            {tasksByStatus.upcoming.length > 0 && (
-              <div className="p-4">
-                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-                  Upcoming ({tasksByStatus.upcoming.length})
-                </h3>
-                <div className="space-y-1.5">
-                  {tasksByStatus.upcoming.map((t) => (
-                    <div
-                      key={t.id}
-                      onClick={(e) => handleTaskClick(t, e)}
-                      className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        {t.task_type === "experiment" && (
-                          <div className="w-1 h-4 rounded-full bg-purple-400 flex-shrink-0" />
-                        )}
-                        <span className="text-sm text-gray-700 truncate">{t.name}</span>
-                      </div>
-                      <span className="text-xs text-gray-400 group-hover:text-gray-600">
-                        {formatDate(t.start_date)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Recently completed — 30-day window, all task types. Replaces
-                the /results page (chip 1 of 4 in the kill rollout). Clicking
-                opens the task detail popup straight to the Results tab. */}
-            {tasksByStatus.recentlyCompleted.length > 0 && (
-              <div className="p-4 border-t border-gray-100">
-                <h3 className="text-xs font-bold text-green-600 uppercase tracking-wider mb-2">
-                  Recently completed ({tasksByStatus.recentlyCompleted.length})
-                </h3>
-                <div className="space-y-1.5">
-                  {tasksByStatus.recentlyCompleted.map((t) => (
-                    <div
-                      key={t.id}
-                      onClick={() => handleCompletedTaskClick(t)}
-                      className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <div
-                          className={`w-1 h-4 rounded-full flex-shrink-0 ${
-                            t.task_type === "experiment"
-                              ? "bg-purple-400"
-                              : t.task_type === "purchase"
-                                ? "bg-blue-400"
-                                : "bg-gray-400"
-                          }`}
-                        />
-                        <span className="text-sm text-gray-700 truncate">{t.name}</span>
-                      </div>
-                      <span className="text-xs text-gray-400 group-hover:text-gray-600 flex-shrink-0 ml-2">
-                        Completed {formatDate(t.end_date)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Hosted from others — cross-owner tasks (Option C). Foreign
-                tasks shared INTO this project show here so the project view
-                is the complete picture, not just native tasks. The X removes
-                a single hosted task; the task owner retains the file in
-                their library, the manifest entry on this project just goes
-                away. */}
-            {hostedTasks.length > 0 && (
-              <div className="p-4 border-t border-amber-100 bg-amber-50/30">
-                <div className="flex items-center gap-2 mb-2">
-                  <h3 className="text-xs font-bold text-amber-700 uppercase tracking-wider">
-                    Hosted from others ({hostedTasks.length})
-                  </h3>
-                  <Tooltip
-                    label="Tasks owned by other users that have been shared into this project. They appear here so this project's view stays complete; the task file itself lives in the original owner's library."
-                    placement="bottom"
-                  >
-                    <span className="text-xs text-amber-500 cursor-help">?</span>
-                  </Tooltip>
-                </div>
-                <div className="space-y-1.5">
-                  {hostedTasks.map((t) => {
-                    const key = taskKey(t);
-                    const removing = removingHosted.has(key);
-                    return (
-                      <div
-                        key={key}
-                        onClick={(e) => handleTaskClick(t, e)}
-                        className="flex items-center justify-between gap-2 p-2 rounded-lg hover:bg-amber-100/50 cursor-pointer group bg-white border border-amber-100"
-                      >
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          {t.task_type === "experiment" && (
-                            <div className="w-1 h-4 rounded-full bg-purple-400 flex-shrink-0" />
-                          )}
-                          <span className="text-sm text-gray-700 truncate">{t.name}</span>
-                          <span className="text-[10px] text-amber-600 bg-amber-100 rounded px-1.5 py-0.5 flex-shrink-0">
-                            by {t.owner}
-                          </span>
-                        </div>
-                        <span className="text-xs text-gray-400 group-hover:text-gray-600">
-                          {formatDate(t.start_date)}
-                        </span>
-                        <Tooltip
-                          label={`Remove from this project (keeps the task in ${t.owner}'s library)`}
-                          placement="bottom"
-                        >
-                          <button
-                            type="button"
-                            disabled={removing}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleRemoveHostedTask(t);
-                            }}
-                            className="text-amber-500 hover:text-amber-700 p-1 rounded-full hover:bg-amber-100 disabled:opacity-50 disabled:cursor-wait"
-                            aria-label="Remove from project"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="14"
-                              height="14"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <line x1="18" y1="6" x2="6" y2="18" />
-                              <line x1="6" y1="6" x2="18" y2="18" />
-                            </svg>
-                          </button>
-                        </Tooltip>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* No tasks message */}
-            {futureTasks.length === 0 && tasksByStatus.overdue.length === 0 && hostedTasks.length === 0 && (
-              <div className="p-8 text-center">
-                <p className="text-gray-400 text-sm">No active tasks in this project</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Archived project task summary */}
-        {!isEditing && project.is_archived && (
-          <div className="flex-1 overflow-y-auto border-t border-gray-100 p-4">
-            <div className="text-sm text-gray-500">
-              <p className="mb-2">This project has {tasks.length} task{tasks.length !== 1 ? "s" : ""}.</p>
-              <p className="text-xs text-gray-400">
-                Unarchive this project to view and manage tasks.
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* Delete Confirmation Dialog */}
         {showDeleteConfirm && (
@@ -899,30 +581,6 @@ export default function ProjectDetailPopup({ project, onClose }: ProjectDetailPo
               </div>
             </div>
           </div>
-        )}
-
-        {/* Task Quick Popup */}
-        {quickPopupTask && (
-          <TaskQuickPopup
-            task={quickPopupTask}
-            project={project}
-            position={quickPopupPosition}
-            onClose={() => setQuickPopupTask(null)}
-            onExpand={handleExpandToDetail}
-          />
-        )}
-
-        {/* Task Detail Popup */}
-        {selectedTask && (
-          <TaskDetailPopup
-            task={selectedTask}
-            project={project}
-            initialTab={selectedTaskInitialTab}
-            onClose={() => {
-              setSelectedTask(null);
-              setSelectedTaskInitialTab(undefined);
-            }}
-          />
         )}
 
         {/* Share Popup */}
