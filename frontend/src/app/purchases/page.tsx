@@ -224,7 +224,31 @@ export default function PurchasesPage() {
                 {/* Expanded purchase editor */}
                 {isOpen && (
                   <div className="relative">
-                    <PurchaseEditor taskId={task.id} taskType={task.task_type} />
+                    {/* Shared purchase tasks: thread isSharedWithMe so
+                        write affordances (add-row, delete-item, click-to-
+                        edit) inside PurchaseEditor are gated the same way
+                        the destructive task-level buttons above are.
+                        purchasesApi.create/update/delete are current-user
+                        scoped (no owner arg), so without this gate a
+                        write would land items under the receiver's data
+                        dir at the shared task's numeric id — clobbering
+                        or orphaning items. Mirrors the parent-chip
+                        TaskDetailPopup pattern (TaskDetailPopup.tsx:794
+                        already passes username for shared tasks).
+
+                        username={task.owner} is passed too so the editor
+                        reads items from the owner's data dir (matching
+                        the brief's "items remain viewable" claim);
+                        without it the editor calls
+                        purchasesApi.listByTask(taskId) under the current
+                        user and shows empty / collision items. */}
+                    <PurchaseEditor
+                      taskId={task.id}
+                      taskType={task.task_type}
+                      isSharedWithMe={task.is_shared_with_me ?? false}
+                      ownerLabel={task.is_shared_with_me ? task.owner : undefined}
+                      username={task.is_shared_with_me ? task.owner : undefined}
+                    />
                     <div className="absolute bottom-3 right-4 flex items-center gap-2">
                       {/* Complete toggle button */}
                       <Tooltip label={completeLabel} placement="bottom">
