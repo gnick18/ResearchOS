@@ -1909,15 +1909,22 @@ const FIXTURE_ROUTES = [
   // Reach paths:
   //   - Step 1 "Choose format" is reachable by clicking the "Open import…"
   //     button. The format-picker renders with no upstream state, so the
-  //     capture is reliable.
+  //     capture is reliable (wired below).
   //   - Steps 2-6 (Upload / Preview / Project mapping / Fetch images /
-  //     Apply / Done) all require an actual notebook .zip parsed through
-  //     JSZip + linkedom. The wiki-capture fixture does NOT seed a
-  //     pre-parsed wizard state, and Playwright can't reliably hand a
-  //     File object to the wizard's <input type="file">. Those steps are
-  //     documented in prose on /wiki/features/import-from-eln with a
-  //     "screenshots pending" callout; rerun this script against a
-  //     future fixture that seeds parsed wizard state to fill them in.
+  //     Apply / Done) all require an actual LabArchives Offline Notebook
+  //     ZIP that survives `parseELNZip` (JSZip + linkedom). Playwright
+  //     can hand a File to the wizard's <input type="file"> via
+  //     setInputFiles, but the script does NOT currently carry a
+  //     fixture ZIP for the parser to consume. The wiki page references
+  //     three of these (import-eln-preview.png at Step 3,
+  //     import-eln-project-mapping.png at Step 4, import-eln-bulk-sort.png
+  //     on the post-import BulkSortScreen). Wiring them up requires
+  //     either: (a) committing a synthetic .zip fixture under
+  //     scripts/fixtures/ that mirrors the LabArchives export schema
+  //     parseELNZip expects (folder/page/entry XML + attachments), or
+  //     (b) seeding the wizard's React state via a wikiCapture-only
+  //     forceStep prop on ImportELNDialog. Both are tractable but out
+  //     of scope for this chip; deferred to a dedicated fixture chip.
   //   - BulkSortScreen requires a completed import to mount. Same
   //     fixture gap — deferred.
   {
@@ -1979,86 +1986,58 @@ const FIXTURE_ROUTES = [
       }
     },
   },
-  // ── Onboarding v2 welcome-wizard captures ─────────────────────────
+  // ── Onboarding welcome-wizard captures ────────────────────────────
   //
   // Wiki target: /wiki/getting-started/welcome-wizard
   //
-  // FIXTURE NOTE (2026-05-20): the brief asked for the combo
-  // ?wikiCapture=1 + ?wizard-preview=1 to force-mount the wizard in
-  // fixture mode. The current orchestrator wiring blocks this: in
-  // frontend/src/lib/onboarding/orchestrator.tsx the OnboardingProvider
-  // short-circuits to `<>{children}</>` whenever `isDemoOrWikiCapture()`
-  // returns true (line ~740), so `OnboardingOrchestrator` (which owns
-  // the `wizardPreviewMode` URL-param read at line ~146) never mounts
-  // under wikiCapture. That means a Playwright visit to
-  // /?wikiCapture=1&wizard-preview=1 lands on the home page with no
-  // wizard rendered, and the seven step-body captures below cannot
-  // be produced from this script as-is.
+  // BLOCKED ON WIKI REWRITE (2026-05-20, refreshed from QA persona 16):
+  // the welcome-wizard wiki page describes the v2 wizard (a 7-step
+  // modal whose Step 2 is a 9-chip use-case picker with an "Other"
+  // text affordance, Step 3 a tab-visibility checkbox grid, Step 4 a
+  // Telegram pair flow with a computational-only auto-skip, etc.).
+  // v3 shipped at the 2026-05-20 onboarding arc and explicitly
+  // deprecated the v2 wizard in full (see ONBOARDING_V3_PROPOSAL.md
+  // §2: row "OnboardingWizard.tsx (v2 7-step modal) | Deleted" and
+  // row "Wiki page wiki/getting-started/welcome-wizard | Rewritten
+  // end-to-end for v3 (see Phase 6)" — the Phase 6 rewrite never
+  // landed). The current shipped wizard is OnboardingWizardV3.tsx,
+  // a multi-phase flow (intro → setup Q1 Solo/Lab → setup Q1a/Q1b
+  // lab-specific → Q2-Q6 feature picks → W1-W14 walkthrough →
+  // L1-L11 optional lab tour → phase4-cleanup), and the wiki page's
+  // 9 use-case chips / "Other" row / tab-picker / computational
+  // autoskip simply do not exist in the codebase anymore.
   //
-  // Options for a future fix (out of scope for the wiki-page chip):
-  //   a. Loosen the OnboardingProvider gate so `wizardPreviewMode`
-  //      overrides the `isDemoOrWikiCapture()` short-circuit (one-line
-  //      change, but should be vetted by master — it threads
-  //      preview-mode through demo-tab carve-outs).
-  //   b. Add a dedicated capture-only fixture variant (e.g.
-  //      ?wikiCapture=wizard) that seeds an empty `_onboarding.json`
-  //      and lets the orchestrator mount the wizard naturally as a
-  //      fresh user.
-  //   c. Capture against a real fresh data folder outside fixture
-  //      mode (slow, manual, not repeatable in CI).
+  // The orchestrator gate IS already loose for the fixture-plus-preview
+  // case: OnboardingProvider at orchestrator.tsx:142 short-circuits on
+  // `isDemoOrWikiCapture() && !wizardPreviewMode`, so a Playwright
+  // visit to /?wikiCapture=1&wizard-preview=1 DOES mount v3 today.
+  // The 3 surviving PNGs on disk
+  // (onboarding-wizard-step-1-welcome.png,
+  //  onboarding-wizard-step-2-use-cases.png,
+  //  onboarding-wizard-step-7-wrapup.png) were captured against v2
+  // before the v3 cutover and are stale; the captioned prose on the
+  // wiki page describes those v2 screens, so the captures and prose
+  // still read coherently together even though neither matches the
+  // shipped v3 wizard. The 6 missing PNGs reference v2-only screens
+  // (Step 2 Other-open, Step 3 tabs, Step 4 telegram-cta + autoskip,
+  // Step 5 calendar-form, Step 6 ai-helper) that have no v3 equivalent
+  // to capture against.
   //
-  // Until one of those lands, entries 1-9 below are intentionally NOT
-  // wired into the FIXTURE_ROUTES array. The <Screenshot> tags in the
-  // wiki page will render the "Screenshot pending" placeholder until
-  // the orchestrator gate is updated and we rerun this script.
+  // Fix path:
+  //   1. Wiki manager rewrites the welcome-wizard page for the
+  //      v3 wizard (Solo/Lab branching, Q2-Q6 feature picks,
+  //      walkthrough W1-W14, lab tour L1-L11, cleanup grid).
+  //   2. Once the rewrite lands with the new <Screenshot src=...>
+  //      filenames the v3 flow actually produces, this comment block
+  //      gets replaced with FIXTURE_ROUTES entries that walk the v3
+  //      step machine via Playwright (action callbacks click the
+  //      "Let's go" / Q1 radio / Continue chain to reach each step).
   //
-  // Capture intent (for future hand-off, in the same order the wiki
-  // page references them):
-  //
-  //   1. onboarding-wizard-step-1-welcome.png
-  //      path: "/?wizard-preview=1", waitFor: "text=Welcome to ResearchOS"
-  //      settleMs: 600, no action (the wizard mounts on step 1).
-  //
-  //   2. onboarding-wizard-step-2-use-cases.png
-  //      Click Continue once to reach step 2, then click two chips
-  //      ("PhD running experiments" and "Postdoc") so the screenshot
-  //      shows the chip-selected state. Other remains collapsed.
-  //
-  //   3. onboarding-wizard-step-2-other-open.png
-  //      Same as #2 reach-path, then click the "Other" row at the
-  //      bottom of the chip grid so the free-form input field renders.
-  //
-  //   4. onboarding-wizard-step-3-tabs.png
-  //      From step 2, pick a postdoc-style multi-chip (Postdoc +
-  //      Workbench/Gantt-friendly) then click Continue once more to
-  //      land on step 3. The grid shows the seeded toggles.
-  //
-  //   5. onboarding-wizard-step-4-telegram-cta.png
-  //      Reach step 4 with any non-computational-only chip set (e.g.
-  //      PhD running experiments). Two-CTA view renders.
-  //
-  //   6. onboarding-wizard-step-4-telegram-autoskip.png
-  //      Reach step 2, click ONLY "Computational researcher", then
-  //      Continue twice (step-2 → step-3 → step-4). The amber notice
-  //      card renders. (Single-chip multi-select state is the tricky
-  //      bit — Playwright needs to assert no other chip is highlighted
-  //      before advancing.)
-  //
-  //   7. onboarding-wizard-step-5-calendar-form.png
-  //      Reach step 5 via any chip set, then click "Add one now" to
-  //      reveal the Name + ICS URL form. Optionally pre-fill the
-  //      Name field with "My Google calendar" for a realistic shot.
-  //
-  //   8. onboarding-wizard-step-6-aihelper.png
-  //      Reach step 6 (Continue through 5 with "Maybe later" so we
-  //      don't actually subscribe a feed). Two-CTA initial state.
-  //
-  //   9. onboarding-wizard-step-7-wrapup.png
-  //      Reach step 7. For a populated decision-echo block, the
-  //      ideal walk is: step 2 Other-toggle on with text "running a
-  //      clinical research coordinator role", step 4 "Maybe later",
-  //      step 5 "Maybe later", step 6 "Copy prompt now" then Continue.
-  //      Captures decision rows for all three integrations.
+  // Master-side: this chip cannot fix the placeholder PNGs without
+  // first getting the wiki page rewritten for v3 — capturing v3
+  // screens into v2-named files would put images-of-v3 under
+  // captions-describing-v2, which is a worse user experience than
+  // the current "screenshot pending" placeholder.
   //
   // Entry 10 below IS reachable via the fixture (the settings page
   // is already captured in non-wizard mode at settings.png, so the
