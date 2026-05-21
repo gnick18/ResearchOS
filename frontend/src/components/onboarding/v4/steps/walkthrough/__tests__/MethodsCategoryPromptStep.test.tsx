@@ -187,18 +187,21 @@ describe("MethodsCategoryDemoStep (v4 sec 6.4 redesign)", () => {
     unmount();
   });
 
-  it("cursor script types the picked label into the category-name input", async () => {
+  it("cursor script types the picked label and clicks Create Empty", async () => {
     window.localStorage.setItem(V4_METHODS_CATEGORY_PICK_KEY, "Cell Biology");
     const newCategoryBtn = document.createElement("button");
     newCategoryBtn.setAttribute("data-tour-target", "methods-add-category");
     const nameInput = document.createElement("input");
     nameInput.setAttribute("data-tour-target", "methods-category-name-input");
+    const submitBtn = document.createElement("button");
+    submitBtn.setAttribute("data-tour-target", "methods-category-create-empty");
     document.body.appendChild(newCategoryBtn);
     document.body.appendChild(nameInput);
+    document.body.appendChild(submitBtn);
     try {
       expect(methodsCategoryDemoStep.cursorScript).toBeDefined();
       const actions = await methodsCategoryDemoStep.cursorScript!();
-      expect(actions).toHaveLength(2);
+      expect(actions).toHaveLength(3);
       expect(actions[0]).toMatchObject({
         type: "click",
         target: newCategoryBtn,
@@ -208,9 +211,14 @@ describe("MethodsCategoryDemoStep (v4 sec 6.4 redesign)", () => {
         target: nameInput,
         text: "Cell Biology",
       });
+      expect(actions[2]).toMatchObject({
+        type: "click",
+        target: submitBtn,
+      });
     } finally {
       newCategoryBtn.remove();
       nameInput.remove();
+      submitBtn.remove();
     }
   });
 

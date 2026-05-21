@@ -245,6 +245,9 @@ export async function safeGlideToElementAction(
 ): Promise<CursorAction | null> {
   const el = await waitForElement(selector, timeoutMs);
   if (!el) return null;
+  await ensureInViewport(el);
+  // Re-read the rect AFTER scrolling settled — pre-scroll coords would
+  // glide the cursor to where the element used to sit, not where it is.
   const rect = el.getBoundingClientRect();
   return {
     type: "glide",
@@ -265,6 +268,15 @@ export async function safeDragAction(
   const src = await waitForElement(sourceSelector, timeoutMs);
   const dst = src ? await waitForElement(destSelector, timeoutMs) : null;
   if (!src || !dst) return null;
+  // Scroll the source into view first so the press lands on something
+  // visible; the cursor's drag glide will then carry the user's eye to
+  // the destination naturally. We don't scroll BOTH endpoints into view
+  // at once because they may not coexist in the same viewport — the
+  // animation itself is what should bridge them. If the destination
+  // ends up off-screen after the source scroll, the drag will still
+  // execute, and authors who need the dest scrolled too can author the
+  // step accordingly.
+  await ensureInViewport(src);
   return { type: "drag", source: src, dest: dst };
 }
 

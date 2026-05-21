@@ -16,6 +16,7 @@ import {
   waitForElement,
   tryQuery,
   compactScript,
+  __test_ensureInViewport,
 } from "../lib/cursor-script";
 import { TOUR_TARGETS, targetSelector } from "../lib/targets";
 import { homeCreateProjectStep } from "../HomeCreateProjectStep";
@@ -97,6 +98,126 @@ describe("tryQuery()", () => {
   it("returns null when missing", () => {
     expect(tryQuery("[data-tour-target='missing']")).toBeNull();
   });
+});
+
+describe("ensureInViewport() (private helper)", () => {
+  /**
+   * jsdom doesn't ship scrollIntoView and doesn't implement layout, so
+   * each test stubs `el.scrollIntoView` + `el.getBoundingClientRect()`
+   * to simulate the four code paths: above viewport, below viewport,
+   * already in viewport, no scrollIntoView available (the jsdom-fallback
+   * path that the brief calls out).
+   */
+  function makeStubElement(rects: DOMRect[]): {
+    el: HTMLElement;
+    scrollSpy: ReturnType<typeof vi.fn>;
+  } {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    let i = 0;
+    el.getBoundingClientRect = () => {
+      const r = rects[Math.min(i, rects.length - 1)];
+      i += 1;
+      return r;
+    };
+    const scrollSpy = vi.fn();
+    el.scrollIntoView = scrollSpy as unknown as typeof el.scrollIntoView;
+    return { el, scrollSpy };
+  }
+
+  function rect(top: number, left: number, w = 100, h = 30): DOMRect {
+    return {
+      top,
+      left,
+      width: w,
+      height: h,
+      right: left + w,
+      bottom: top + h,
+      x: left,
+      y: top,
+      toJSON() {
+        return {};
+      },
+    } as DOMRect;
+  }
+
+  it("no-op when the element is already fully in the viewport", async () => {
+    // jsdom default innerWidth/innerHeight is 1024/768.
+    const { el, scrollSpy } = makeStubElement([rect(100, 100)]);
+    await __test_ensureInViewport(el);
+    expect(scrollSpy).not.toHaveBeenCalled();
+    el.remove();
+  });
+
+  it("scrolls when the element is below the viewport", async () => {
+    // window.innerHeight is 768 in jsdom; place the element at top=900 so
+    // it's below the fold. Second poll matches first → settles immediately.
+    const offScreen = rect(900, 100);
+    const settled = rect(384, 100); // simulated post-scroll position
+    const { el, scrollSpy } = makeStubElement([
+      offScreen,
+      settled,
+      settled,
+    ]);
+    await __test_ensureInViewport(el);
+    expect(scrollSpy).toHaveBeenCalledTimes(1);
+    expect(scrollSpy).toHaveBeenCalledWith({
+      block: "center",
+      inline: "center",
+      behavior: "smooth",
+    });
+    el.remove();
+  });
+
+  it("scrolls when the element is above the viewport (negative top)", async () => {
+    const aboveFold = rect(-200, 100);
+    const settled = rect(300, 100);
+    const { el, scrollSpy } = makeStubElement([aboveFold, settled, settled]);
+    await __test_ensureInViewport(el);
+    expect(scrollSpy).toHaveBeenCalledTimes(1);
+    el.remove();
+  });
+
+  it("scrolls when the element is to the right of the viewport", async () => {
+    // window.innerWidth is 1024 in jsdom; place left=2000.
+    const offScreenX = rect(100, 2000);
+    const settled = rect(100, 500);
+    const { el, scrollSpy } = makeStubElement([offScreenX, settled, settled]);
+    await __test_ensureInViewport(el);
+    expect(scrollSpy).toHaveBeenCalledTimes(1);
+    el.remove();
+  });
+
+  it("resolves immediately when scrollIntoView is unavailable (jsdom default)", async () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    el.getBoundingClientRect = () => rect(900, 100);
+    // Explicitly clobber scrollIntoView with `undefined` to mirror the
+    // jsdom default (where it isn't a function). The helper must early-
+    // return without polling so existing tests don't hang.
+    (el as unknown as { scrollIntoView: undefined }).scrollIntoView = undefined;
+    // No assertion needed beyond "this resolves quickly without throwing."
+    await __test_ensureInViewport(el);
+    el.remove();
+  });
+
+  it("gives up after the iteration cap if the rect keeps moving", async () => {
+    // Return a constantly-changing rect so the settle check never fires.
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    let i = 0;
+    el.getBoundingClientRect = () => {
+      i += 1;
+      return rect(900 - i, 100); // moves by 1px every read
+    };
+    const scrollSpy = vi.fn();
+    el.scrollIntoView = scrollSpy as unknown as typeof el.scrollIntoView;
+    // Must complete (not deadlock) within a few seconds even though the
+    // rect never settles.
+    await __test_ensureInViewport(el);
+    expect(scrollSpy).toHaveBeenCalledTimes(1);
+    el.remove();
+  }, 5000);
 });
 
 describe("safeClickAction()", () => {
