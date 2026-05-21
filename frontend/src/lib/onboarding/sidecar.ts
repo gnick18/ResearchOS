@@ -342,10 +342,20 @@ export async function patchOnboarding(
  *    - wizard_force_show   = true  (the gate-bypass flag; the wizard
  *      mounts even for an existing user whose fresh-folder probe
  *      would otherwise return false)
+ *    - lab_tour_pending = false       (P3b, master-locked: a stale
+ *      Later flag from a prior run is wiped so the re-run lab-prompt
+ *      starts clean. The user re-picks Now / Later / Dismiss as part
+ *      of the re-run flow.)
+ *    - lab_tour_dismissed_at = null   (P3b, master-locked: a
+ *      permanent Dismiss on the natural-Lab-Mode-entry prompt is
+ *      undone here so a Settings re-run can re-surface the lab tour
+ *      offer. Without this, a user who dismissed the resume modal
+ *      would never see the lab tour again, even after re-running.)
  *
- *  Leaves the rest untouched. The wizard's onComplete and onSkip
- *  handlers clear `wizard_force_show` back to false after the re-run
- *  finishes. */
+ *  Semantic: re-run = fresh start across all wizard surfaces,
+ *  including the lab tour deferral state. The wizard's onComplete
+ *  and onSkip handlers clear `wizard_force_show` back to false after
+ *  the re-run finishes. */
 export async function clearWizardCompletion(
   username: string,
 ): Promise<OnboardingSidecar> {
@@ -354,6 +364,8 @@ export async function clearWizardCompletion(
     wizard_completed_at: null,
     wizard_skipped_at: null,
     wizard_force_show: true,
+    lab_tour_pending: false,
+    lab_tour_dismissed_at: null,
   }));
 }
 

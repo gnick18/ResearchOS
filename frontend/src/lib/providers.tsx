@@ -13,6 +13,7 @@ import GlobalDropGuard from "@/components/GlobalDropGuard";
 import FloatingLeaveDemoButton from "@/components/FloatingLeaveDemoButton";
 import OpenDocsButton from "@/components/OpenDocsButton";
 import { OnboardingProvider } from "@/lib/onboarding/orchestrator";
+import LabTourResumePrompt from "@/components/onboarding/v3/LabTourResumePrompt";
 import { initializeErrorHandlers } from "@/lib/error-reporting";
 
 function AppContent({ children }: { children: ReactNode }) {
@@ -175,9 +176,15 @@ function AppContent({ children }: { children: ReactNode }) {
   // are exempt by design (they short-circuit the previous branch); the
   // provider itself also asserts the exemption via isDemoOrWikiCapture()
   // so a stray mount can't fire tips during a screenshot run.
+  //
+  // LabTourResumePrompt is a sibling — P3b's deferred lab-tour trigger.
+  // Lives outside OnboardingProvider so it doesn't depend on the wizard
+  // context, but inside the same demo / wiki-capture exemption (the outer
+  // conditional in this file peels those modes off before reaching here).
   return (
     <QueryClientProvider client={queryClient}>
       <OnboardingProvider currentUser={currentUser}>{children}</OnboardingProvider>
+      <LabTourResumePrompt username={currentUser} />
     </QueryClientProvider>
   );
 }

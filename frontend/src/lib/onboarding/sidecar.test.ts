@@ -372,7 +372,13 @@ describe("existing-user invisibility invariant (L1/L22)", () => {
 });
 
 describe("clearWizardCompletion (v4 Re-run-tour bypass)", () => {
-  it("on a v4 sidecar: null-s both wizard timestamps and arms wizard_force_show, leaves everything else untouched", async () => {
+  it("on a v4 sidecar: null-s both wizard timestamps, arms wizard_force_show, and clears the lab-tour deferral fields (P3b master-locked)", async () => {
+    // P3b master-lock: re-running the welcome tour is a fresh start
+    // across all wizard surfaces. lab_tour_pending and
+    // lab_tour_dismissed_at both clear so the re-run lab-prompt can
+    // re-offer the tour cleanly. Everything outside the wizard-state
+    // tuple (feature_picks, first_seen_at, active_seconds, etc.)
+    // stays untouched.
     const initial: OnboardingSidecar = {
       version: 4,
       first_seen_at: "2026-05-14T08:00:00.000Z",
@@ -399,15 +405,57 @@ describe("clearWizardCompletion (v4 Re-run-tour bypass)", () => {
     expect(sc.wizard_completed_at).toBeNull();
     expect(sc.wizard_skipped_at).toBeNull();
     expect(sc.wizard_force_show).toBe(true);
-    // Everything else preserved.
+    // P3b master-lock: both lab-tour deferral fields clear too.
+    expect(sc.lab_tour_pending).toBe(false);
+    expect(sc.lab_tour_dismissed_at).toBeNull();
+    // Everything outside the wizard-state tuple preserved.
     expect(sc.feature_picks).toEqual(initial.feature_picks);
     expect(sc.first_seen_at).toBe(initial.first_seen_at);
     expect(sc.active_seconds).toBe(initial.active_seconds);
-    expect(sc.lab_tour_pending).toBe(true);
 
     // Re-read confirms the disk write committed the same shape.
     const sc2 = await readOnboarding(USER);
     expect(sc2.wizard_force_show).toBe(true);
     expect(sc2.feature_picks).toEqual(initial.feature_picks);
+    expect(sc2.lab_tour_pending).toBe(false);
+    expect(sc2.lab_tour_dismissed_at).toBeNull();
+  });
+
+  it("on a previously-dismissed lab-tour: null-s lab_tour_dismissed_at so the re-run lab-prompt can re-offer the tour", async () => {
+    // P3b master-lock: a user who clicked Dismiss on the
+    // LabTourResumePrompt sets `lab_tour_dismissed_at`. Without this
+    // clear, the re-run welcome tour would step them through the
+    // lab-prompt but the natural-Lab-Mode-entry trigger would still
+    // see a non-null dismissed_at and skip the offer forever. The
+    // Re-run flow resets dismissal so the resume-prompt can fire
+    // again on subsequent /lab entries.
+    const initial: OnboardingSidecar = {
+      version: 4,
+      first_seen_at: "2026-05-14T08:00:00.000Z",
+      active_seconds: 0,
+      feature_picks: {
+        account_type: "lab",
+        lab_storage: "local",
+        purchases: "no",
+        calendar: "no",
+        goals: "no",
+        telegram: "no",
+        ai_helper: "no",
+      },
+      wizard_completed_at: "2026-05-20T12:00:00Z",
+      wizard_skipped_at: null,
+      wizard_force_show: false,
+      wizard_resume_state: null,
+      lab_tour_pending: false,
+      lab_tour_dismissed_at: "2026-05-21T09:30:00.000Z",
+    };
+    await writeOnboarding(USER, initial);
+
+    const sc = await clearWizardCompletion(USER);
+    expect(sc.lab_tour_dismissed_at).toBeNull();
+    expect(sc.wizard_force_show).toBe(true);
+
+    const sc2 = await readOnboarding(USER);
+    expect(sc2.lab_tour_dismissed_at).toBeNull();
   });
 });
