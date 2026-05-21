@@ -28,6 +28,9 @@ import type { FeaturePicks } from "@/lib/onboarding/sidecar";
 import type { TourStep, TourStepId } from "./step-types";
 import { TOUR_STEP_ORDER, isStepGatedOut } from "./step-machine";
 import { SETUP_STEP_DESCRIPTORS } from "./steps/setup";
+import { telegramConditionalStep } from "./steps/walkthrough/TelegramConditionalStep";
+import { purchasesConditionalStep } from "./steps/walkthrough/PurchasesConditionalStep";
+import { calendarConditionalStep } from "./steps/walkthrough/CalendarConditionalStep";
 
 /**
  * Build a placeholder step body matching the brief's "Step bodies in
@@ -172,6 +175,15 @@ export const TOUR_STEPS: Record<TourStepId, TourStep> = Object.fromEntries(
     return [id, placeholderStep(id)];
   }),
 );
+
+// P6: conditional walkthrough bodies (§6.13 - §6.15). One-line per
+// step so a future P5/P7 patch can land alongside without merge pain.
+// Each real body retains the same `id` + matching `conditionalOn`
+// predicate the placeholder used, so step-machine.ts's gating contract
+// continues to apply.
+TOUR_STEPS["telegram"] = telegramConditionalStep;
+TOUR_STEPS["purchases"] = purchasesConditionalStep;
+TOUR_STEPS["calendar"] = calendarConditionalStep;
 
 /**
  * Look up the registered step body for an id. Returns `undefined` when
