@@ -11,7 +11,9 @@
  *   P5 → home-create-project through wiki-pointer (universal §6.1-6.12)
  *   P6 → telegram + purchases + calendar (conditional §6.13-6.15)
  *   P7 → lab-prompt + lab-spawn-beakerbot + lab-permission-practice
- *        (§6.16, minimal lab tour per L19)
+ *      + lab-cleanup (§6.16, minimal lab tour per L19; lab-cleanup
+ *        is the terminal step that auto-tombstones the fake user
+ *        per L21).
  *
  * The registry is intentionally a flat map so future arc phases can do
  * a single-line `TOUR_STEPS["home-create-project"] = { ... real body }`
@@ -31,6 +33,10 @@ import { SETUP_STEP_DESCRIPTORS } from "./steps/setup";
 import { telegramConditionalStep } from "./steps/walkthrough/TelegramConditionalStep";
 import { purchasesConditionalStep } from "./steps/walkthrough/PurchasesConditionalStep";
 import { calendarConditionalStep } from "./steps/walkthrough/CalendarConditionalStep";
+import { buildLabPromptStep } from "./steps/lab/LabPromptStep";
+import { buildLabSpawnStep } from "./steps/lab/LabSpawnBeakerBotStep";
+import { buildLabPermissionPracticeStep } from "./steps/lab/LabPermissionPracticeStep";
+import { buildLabCleanupStep } from "./steps/lab/LabAutoCleanupStep";
 
 /**
  * Build a placeholder step body matching the brief's "Step bodies in
@@ -184,6 +190,27 @@ export const TOUR_STEPS: Record<TourStepId, TourStep> = Object.fromEntries(
 TOUR_STEPS["telegram"] = telegramConditionalStep;
 TOUR_STEPS["purchases"] = purchasesConditionalStep;
 TOUR_STEPS["calendar"] = calendarConditionalStep;
+
+// P7 — real lab tour bodies (§6.16, minimal scope per L19). The
+// placeholders are overwritten in-place so iteration order +
+// step-machine gating stay identical to P1.
+//
+// We preserve the placeholder's `conditionalOn` predicate by reading
+// it off the existing entry rather than re-deriving via
+// `isStepGatedOut` — that keeps the gating logic single-sourced in
+// the machine (one less moving part to keep in sync).
+function patchLabStep(id: TourStepId, body: TourStep): void {
+  const existing = TOUR_STEPS[id];
+  TOUR_STEPS[id] = {
+    ...body,
+    conditionalOn: existing?.conditionalOn,
+  };
+}
+
+patchLabStep("lab-prompt", buildLabPromptStep());
+patchLabStep("lab-spawn-beakerbot", buildLabSpawnStep());
+patchLabStep("lab-permission-practice", buildLabPermissionPracticeStep());
+patchLabStep("lab-cleanup", buildLabCleanupStep());
 
 /**
  * Look up the registered step body for an id. Returns `undefined` when

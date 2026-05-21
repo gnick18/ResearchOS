@@ -66,6 +66,7 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER).toContain("lab-prompt");
     expect(TOUR_STEP_ORDER).toContain("lab-spawn-beakerbot");
     expect(TOUR_STEP_ORDER).toContain("lab-permission-practice");
+    expect(TOUR_STEP_ORDER).toContain("lab-cleanup");
     expect(TOUR_STEP_ORDER).toContain("phase4-cleanup");
   });
 
@@ -93,6 +94,7 @@ describe("isSetupPhaseStep / isLabPhaseStep", () => {
     expect(isLabPhaseStep("lab-prompt")).toBe(true);
     expect(isLabPhaseStep("lab-spawn-beakerbot")).toBe(true);
     expect(isLabPhaseStep("lab-permission-practice")).toBe(true);
+    expect(isLabPhaseStep("lab-cleanup")).toBe(true);
     expect(isLabPhaseStep("welcome")).toBe(false);
     expect(isLabPhaseStep("home-create-project")).toBe(false);
     expect(isLabPhaseStep("phase4-cleanup")).toBe(false);
@@ -175,6 +177,7 @@ describe("isStepGatedOut — Phase 2c lab tour cluster", () => {
     expect(isStepGatedOut("lab-prompt", p)).toBe(true);
     expect(isStepGatedOut("lab-spawn-beakerbot", p)).toBe(true);
     expect(isStepGatedOut("lab-permission-practice", p)).toBe(true);
+    expect(isStepGatedOut("lab-cleanup", p)).toBe(true);
   });
 
   it("shows all lab steps for lab accounts", () => {
@@ -182,12 +185,14 @@ describe("isStepGatedOut — Phase 2c lab tour cluster", () => {
     expect(isStepGatedOut("lab-prompt", p)).toBe(false);
     expect(isStepGatedOut("lab-spawn-beakerbot", p)).toBe(false);
     expect(isStepGatedOut("lab-permission-practice", p)).toBe(false);
+    expect(isStepGatedOut("lab-cleanup", p)).toBe(false);
   });
 
   it("hides lab steps when picks is null", () => {
     expect(isStepGatedOut("lab-prompt", null)).toBe(true);
     expect(isStepGatedOut("lab-spawn-beakerbot", null)).toBe(true);
     expect(isStepGatedOut("lab-permission-practice", null)).toBe(true);
+    expect(isStepGatedOut("lab-cleanup", null)).toBe(true);
   });
 });
 
@@ -202,6 +207,7 @@ describe("getNextStep — forward traversal", () => {
     expect(visited).not.toContain("lab-prompt");
     expect(visited).not.toContain("lab-spawn-beakerbot");
     expect(visited).not.toContain("lab-permission-practice");
+    expect(visited).not.toContain("lab-cleanup");
     // All-no skips conditionals
     expect(visited).not.toContain("telegram");
     expect(visited).not.toContain("purchases");
@@ -237,6 +243,7 @@ describe("getNextStep — forward traversal", () => {
     expect(visited).toContain("lab-prompt");
     expect(visited).toContain("lab-spawn-beakerbot");
     expect(visited).toContain("lab-permission-practice");
+    expect(visited).toContain("lab-cleanup");
     expect(visited[visited.length - 1]).toBe("phase4-cleanup");
   });
 
@@ -321,8 +328,8 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     const labCount = totalApplicableSteps(labMax);
     expect(labCount).toBeGreaterThan(soloCount);
     // Solo+minimal: q1a/q1b skipped (-2), 5 conditionals skipped (-5),
-    // 3 lab steps skipped (-3) = TOUR_STEP_ORDER.length - 10
-    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 10);
+    // 4 lab steps skipped (-4) = TOUR_STEP_ORDER.length - 11
+    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 11);
     expect(labCount).toBe(TOUR_STEP_ORDER.length);
   });
 

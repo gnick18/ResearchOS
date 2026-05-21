@@ -105,6 +105,11 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "lab-prompt",
   "lab-spawn-beakerbot",
   "lab-permission-practice",
+  // §6.16c auto-cleanup (L21): tombstones the fake BeakerBot user +
+  // shared tasks. Runs as a dedicated terminal lab step so back-
+  // stepping inside the cluster (permission-practice → spawn) does
+  // not prematurely tear down the fake teammate.
+  "lab-cleanup",
 
   // ----- Phase 4: cleanup grid (§6.17)
   "phase4-cleanup",
@@ -132,6 +137,7 @@ const LAB_STEP_IDS: ReadonlySet<TourStepId> = new Set<TourStepId>([
   "lab-prompt",
   "lab-spawn-beakerbot",
   "lab-permission-practice",
+  "lab-cleanup",
 ]);
 
 /** True when this step is one of the Phase 1 modal setup questions. */
