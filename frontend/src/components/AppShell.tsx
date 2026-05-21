@@ -148,20 +148,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         style={headerStyle}
       >
         <PillWrap on={tinted}>
-          <div className="flex items-center gap-1.5">
-            {/* Small static BeakerBot brand-mark accent. No animation — the
-                idle bob is reserved for the onboarding wizard; a moving
-                mascot next to the word-mark would compete with nav. */}
+          <div className="flex items-center gap-1.5 leading-none">
+            {/* Small static BeakerBot brand-mark accent. No animation;
+                the idle bob is reserved for the onboarding wizard. */}
             <BeakerBot
               pose="idle"
               ariaLabel="ResearchOS BeakerBot logo"
-              className="w-6 h-6 text-sky-500 shrink-0"
+              className="w-6 h-6 text-sky-500 shrink-0 block"
             />
             {/* Streak badge sits between brand mark and wordmark per
                 proposal §6.1. Hidden when current_count is 0, when the
                 user has disabled streaks in Settings, or pre-login. */}
             <StreakBadge username={currentUser} />
-            <h1 className="text-base font-bold text-gray-900 tracking-tight">
+            <h1 className="text-base font-bold text-gray-900 tracking-tight leading-none">
               ResearchOS
             </h1>
           </div>
