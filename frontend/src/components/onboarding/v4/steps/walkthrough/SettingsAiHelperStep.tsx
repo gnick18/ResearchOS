@@ -33,6 +33,13 @@
  * the "artifact" is a clipboard write that's already happened; the
  * grid offers a UX-honest "you copied this prompt during the tour"
  * record rather than a destructive cleanup.
+ *
+ * Classification: BEAKERBOT DEMO (per Grant's design correction
+ * 2026-05-21). Speech is a long explainer (no "click X" directive to
+ * the user). The cursor cycles through Full / Medium / Minimal tabs
+ * to surface the size diff the speech describes. Brief explicitly
+ * classifies settings-ai-helper as demo. Cursor keeps the tab cycle
+ * + Copy click.
  */
 import {
   cursorScript,

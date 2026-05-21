@@ -20,6 +20,13 @@
  * theme. The encoded id format matches v3's
  * `encodeSettingsChangeId(field, from, to)` so the Phase 4 grid can
  * re-use the same restore path.
+ *
+ * Classification: BEAKERBOT DEMO (per Grant's design correction
+ * 2026-05-21). Brief explicitly classifies personalization-animations
+ * as demo: cursor opens the picker and picks the "celebration"
+ * default so the user sees the animation fire. The cleanup grid
+ * later lets the user revert if they prefer a quieter theme.
+ * Cursor keeps the open + pick.
  */
 import {
   cursorScript,

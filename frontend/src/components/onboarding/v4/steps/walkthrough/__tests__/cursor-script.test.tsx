@@ -200,16 +200,12 @@ describe("targetSelector + TOUR_TARGETS", () => {
 });
 
 describe("step bodies — cursor scripts produce expected actions", () => {
-  it("HomeCreateProjectStep: glides + clicks the home-new-project button", async () => {
-    const { cleanup } = mountFixture(TOUR_TARGETS.homeNewProject);
-    try {
-      const script = await homeCreateProjectStep.cursorScript?.();
-      expect(script).toBeDefined();
-      expect(script).toHaveLength(1);
-      expect(script?.[0].type).toBe("click");
-    } finally {
-      cleanup();
-    }
+  it("HomeCreateProjectStep: no cursorScript (user-action step, Grant 2026-05-21)", () => {
+    // Per the cursor-responsibility audit: HomeCreateProjectStep is a
+    // user-action step ("Click the blue plus button"). BeakerBot must
+    // NOT click the button for the user. Spotlight does the visual
+    // work and the user owns the action. No cursorScript on this body.
+    expect(homeCreateProjectStep.cursorScript).toBeUndefined();
   });
 
   it("SearchStep: types the placeholder query into the search input", async () => {
@@ -227,29 +223,28 @@ describe("step bodies — cursor scripts produce expected actions", () => {
     }
   });
 
-  it("WorkbenchCreateExperimentStep: opens modal, types name, clicks submit", async () => {
-    const a = mountFixture(TOUR_TARGETS.workbenchNewExperiment);
-    const b = mountFixture(TOUR_TARGETS.workbenchExperimentNameInput, "input");
-    const c = mountFixture(TOUR_TARGETS.workbenchExperimentSubmit);
-    try {
-      const script = await workbenchCreateExperimentStep.cursorScript?.();
-      expect(script).toBeDefined();
-      expect(script).toHaveLength(3);
-      expect(script?.[0].type).toBe("click");
-      expect(script?.[1].type).toBe("type");
-      expect(script?.[2].type).toBe("click");
-    } finally {
-      a.cleanup();
-      b.cleanup();
-      c.cleanup();
-    }
+  it("WorkbenchCreateExperimentStep: no cursorScript (user-action step, Grant 2026-05-21)", () => {
+    // Per the cursor-responsibility audit: experiment creation is a
+    // simple-enough user action that BeakerBot should NOT auto-click
+    // the New Experiment button, type the name, or submit. Spotlight
+    // points to the button; user fills the modal themselves.
+    expect(workbenchCreateExperimentStep.cursorScript).toBeUndefined();
   });
 
-  it("script gracefully no-ops when target missing", async () => {
-    // No fixture mounted: every safeClick/safeType will return null,
-    // and compactScript filters them, so the cursor script ends up
-    // empty (rather than throwing).
-    const script = await homeCreateProjectStep.cursorScript?.();
-    expect(script).toEqual([]);
-  }, 10000);
+  it("user-action steps with no cursorScript don't expose any glide/click actions", async () => {
+    // Defense in depth: even if a future maintainer wires a cursorScript
+    // back onto these user-action steps by accident, the test will
+    // catch any click/type/drag actions and flag the regression.
+    const userActionSteps = [homeCreateProjectStep, workbenchCreateExperimentStep];
+    for (const step of userActionSteps) {
+      const script = await step.cursorScript?.();
+      if (!script) continue;
+      for (const action of script) {
+        expect(
+          ["click", "type", "drag"].includes(action.type),
+          `${step.id} cursorScript leaked a ${action.type} action: user-action steps must not auto-perform`,
+        ).toBe(false);
+      }
+    }
+  });
 });

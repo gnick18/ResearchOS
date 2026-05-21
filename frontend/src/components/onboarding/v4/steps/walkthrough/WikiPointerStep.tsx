@@ -5,6 +5,14 @@
  * scrolls once. Speech outro: "OK, back to your work."
  *
  * Auto-advance — wiki page renders and we move on. No artifact.
+ *
+ * Classification: NAVIGATION + BEAKERBOT DEMO (per Grant's design
+ * correction 2026-05-21). Speech is "If you ever get stuck, the Wiki
+ * tab has guides. I'll show you where it is. Then back to your work."
+ * The "I'll show you where it is" is an explicit navigation-led
+ * promise. Cursor performs the wiki-tab click as advertised: exactly
+ * the case where the rule lets BeakerBot do the navigation while his
+ * speech narrates ("I'll show you").
  */
 import {
   cursorScript,

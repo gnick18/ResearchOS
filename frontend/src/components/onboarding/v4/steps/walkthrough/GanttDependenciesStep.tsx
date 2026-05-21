@@ -23,6 +23,13 @@
  * `artifacts_created`. P5 ships the spawn helper; the actual sidecar
  * write is routed via the controller's hook in P12 (resume contract),
  * NOT inline here, so the body stays unit-testable.
+ *
+ * Classification: BEAKERBOT DEMO (per Grant's design correction
+ * 2026-05-21). Speech is "Quick demo: I made three throwaway tasks.
+ * Watch how dependencies work." Both "I made" (BeakerBot-led API
+ * spawn) and "Watch how" (canonical demo signal) are explicit
+ * BeakerBot-led promises. Cursor performs the linking drags + the
+ * reschedule drag as advertised.
  */
 import { tasksApi } from "@/lib/local-api";
 import {

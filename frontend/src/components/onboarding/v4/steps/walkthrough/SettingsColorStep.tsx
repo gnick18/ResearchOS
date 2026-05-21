@@ -10,6 +10,13 @@
  *
  * Artifact:
  *   { type: "settings_change", id: "color:<from>→<to>", cleanup_default: "discard" }
+ *
+ * Classification: BEAKERBOT DEMO (per Grant's design correction
+ * 2026-05-21). Speech is "Now let's pick your color. Watch the chrome
+ * shift live." The "Watch" is the canonical demo signal: BeakerBot
+ * is showing the live-shift effect, not asking the user to choose
+ * their final color (Phase 4 cleanup lets the user revert / re-pick).
+ * Cursor keeps the swatch click.
  */
 import {
   cursorScript,

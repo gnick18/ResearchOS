@@ -50,6 +50,16 @@ import { appendArtifact } from "./lib/artifacts";
  *
  * **Speech copy rule (Grant standing):** NO EM-DASHES. The speech
  * uses commas, colons, period splits.
+ *
+ * Classification (per Grant's design correction 2026-05-21): MIXED.
+ * Branch A (yes-now) is USER ACTION: the user picks the branch, the
+ * user pairs through the modal, the user sends a real photo from
+ * their phone. No cursor performs any of these on the user's behalf.
+ * Branches B (yes-later) and C (synthetic) are BEAKERBOT DEMO: the
+ * synthetic photo inject is BeakerBot-led ("let me show you what it
+ * WOULD look like"). No cursorScript is wired into this step body at
+ * all (the inline React component drives the flow), so there's nothing
+ * to strip; the classification is documented for future maintainers.
  */
 
 // ---------------------------------------------------------------------------

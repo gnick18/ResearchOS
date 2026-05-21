@@ -17,6 +17,14 @@
  * Cleanup default "discard" — the user didn't write it, BeakerBot did,
  * and the content is not real lab work. The Phase 4 grid pre-unchecks
  * keep for placeholder methods.
+ *
+ * Classification: BEAKERBOT DEMO (per Grant's design correction
+ * 2026-05-21). Speech is "I'm picking Standard Markdown and typing in
+ * something obviously-not-real lab work." Both clauses are explicit
+ * BeakerBot-led promises. Cursor performs the type-picker click +
+ * name + body + submit as advertised: the whole point is BeakerBot
+ * filling in a funny method so the user can see the editor flow
+ * without composing it themselves.
  */
 import {
   cursorScript,

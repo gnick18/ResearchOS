@@ -25,6 +25,11 @@
  *    work in every markdown editor on the site:
  *    Cmd+B bold, Cmd+I italic, triple-backtick code block, > blockquote,
  *    ## heading two."
+ *
+ * Classification: BEAKERBOT DEMO (per Grant's design correction
+ * 2026-05-21). Speech closes with "I'll type a chunk to show the
+ * preview", an explicit BeakerBot-led promise. Cursor performs the
+ * notes-tab open + the markdown chunk typing as advertised.
  */
 import {
   cursorScript,

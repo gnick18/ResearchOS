@@ -20,6 +20,13 @@
  * the instant the project file hits disk. A polling watcher backs the
  * DOM event up for any code path that bypasses `projectsApi.create`.
  *
+ * Classification: USER ACTION (per Grant's design correction 2026-05-21).
+ * Speech tells the user to give the project a name, pick a color, then
+ * click Create. BeakerBot is narrating the inputs, not doing them.
+ * A typed-name cursor demo would be wrong here because the user is
+ * picking their own real project name. No cursorScript: spotlight on
+ * the whole form panel is enough.
+ *
  * Artifact tracking: cleanup_default "keep" — the first project is
  * useful past the tour.
  *

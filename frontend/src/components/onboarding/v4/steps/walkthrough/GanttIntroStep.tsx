@@ -22,6 +22,15 @@
  *
  * Manual advance — there's no clean API event to wait for; the cursor
  * narrative is the whole demo.
+ *
+ * Classification: BEAKERBOT DEMO (per Grant's design correction
+ * 2026-05-21). Speech closes with "You already made yours on the
+ * Workbench", i.e. the cursor's double-click + Task-button click
+ * sequence is purely demonstrative, NOT a directive for the user to
+ * follow. The point is to show the two affordances exist. Cursor
+ * keeps the click sequence as a demo. (Note: the modal that opens
+ * from the + Task click is dismissed by the next step's onEnter:
+ * out of scope for this body, but flagged for follow-up.)
  */
 import {
   cursorScript,

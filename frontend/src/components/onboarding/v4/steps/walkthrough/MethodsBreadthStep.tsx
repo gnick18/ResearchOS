@@ -24,6 +24,11 @@
  * persists; the cursor narrative is the whole step.
  *
  * No artifact (transient hovers, no save).
+ *
+ * Classification: BEAKERBOT DEMO (per Grant's design correction
+ * 2026-05-21). Speech is "Watch the cursor hover, see how each one is
+ * its own editable graphic." The "Watch the cursor" framing is the
+ * canonical demo signal. Cursor opens the picker as advertised.
  */
 import {
   cursorScript,

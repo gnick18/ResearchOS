@@ -608,6 +608,7 @@ describe("TourController — cursor-script invocation", () => {
       "home-new-project",
       "project-overview-textarea",
       "home-project-card-test",
+      "notifications-bell",
     ]) {
       const el = document.createElement("button");
       el.setAttribute("data-tour-target", target);
@@ -639,7 +640,7 @@ describe("TourController — cursor-script invocation", () => {
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(),
     });
-    act(() => result.current.start("home-create-project"));
+    act(() => result.current.start("project-overview-prose"));
     await waitFor(() => {
       expect(cursorRunScriptMock).toHaveBeenCalledTimes(1);
     });
@@ -673,13 +674,13 @@ describe("TourController — cursor-script invocation", () => {
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(),
     });
-    act(() => result.current.start("home-create-project"));
+    act(() => result.current.start("project-overview-prose"));
     await waitFor(() => {
       expect(cursorRunScriptMock).toHaveBeenCalledTimes(1);
     });
     cursorRunScriptMock.mockClear();
     act(() => {
-      result.current.start("project-overview-prose");
+      result.current.start("notifications");
     });
     await waitFor(() => {
       expect(cursorRunScriptMock).toHaveBeenCalledTimes(1);

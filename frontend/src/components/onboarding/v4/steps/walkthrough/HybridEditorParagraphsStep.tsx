@@ -11,6 +11,12 @@
  *
  * No new artifact — the content lands inside the same notes-content
  * artifact tracked at §6.7's last sub-step.
+ *
+ * Classification: BEAKERBOT DEMO (per Grant's design correction
+ * 2026-05-21). Speech describes the paragraph-chunk concept; the
+ * cursor demos it by typing a new chunk into the existing editor (a
+ * continuation of §6.7's "I'll type" demo flow from the shortcuts
+ * sub-step). No user-directed click language; cursor keeps the typing.
  */
 import {
   cursorScript,

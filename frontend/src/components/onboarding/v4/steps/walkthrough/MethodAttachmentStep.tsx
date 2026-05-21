@@ -21,6 +21,12 @@
  *
  * Cleanup default discard — the attachment exists only for the demo,
  * users won't typically want it past the tour.
+ *
+ * Classification: BEAKERBOT DEMO (per Grant's design correction
+ * 2026-05-21). Speech is "Open your experiment. See that Methods tab?
+ * You attach methods there. I'm doing it now." The closing "I'm doing
+ * it now" is the explicit BeakerBot-led demo promise. Cursor performs
+ * the methods-tab open + attach + variation note typing as advertised.
  */
 import {
   cursorScript,

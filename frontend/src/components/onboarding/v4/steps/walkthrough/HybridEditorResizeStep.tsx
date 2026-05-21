@@ -21,6 +21,12 @@
  *
  * Cleanup default discard — the notes content was BeakerBot's typing,
  * not the user's research.
+ *
+ * Classification: BEAKERBOT DEMO (per Grant's design correction
+ * 2026-05-21). Speech describes the inline-resize behavior; the cursor
+ * demos it by dragging the resize handle. The speech doesn't direct
+ * the user ("Drag the handle to resize"): it explains a capability,
+ * and the cursor demonstrates. Cursor keeps the drag.
  */
 import {
   cursorScript,

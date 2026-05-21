@@ -42,6 +42,14 @@ import { readOnboarding } from "@/lib/onboarding/sidecar";
  *
  * **Speech copy rule (Grant standing):** NO EM-DASHES. The speech uses
  * commas, colons, period splits.
+ *
+ * Classification (per Grant's design correction 2026-05-21): BEAKERBOT
+ * DEMO. Speech is "Let me show you how it works. I'll make us a
+ * funding source and a sample purchase", an explicit BeakerBot-led
+ * promise. The inner React component drives the API spawn directly;
+ * no cursorScript is wired into this step body (the cursor primitives
+ * aren't expressive enough for this flow), so there's no click/type
+ * action to strip. Classification documented for future maintainers.
  */
 
 // ---------------------------------------------------------------------------

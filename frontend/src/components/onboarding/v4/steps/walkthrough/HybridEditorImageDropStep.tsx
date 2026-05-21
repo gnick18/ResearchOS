@@ -26,6 +26,12 @@
  * content. The encoded id matches the v3 telegram-image scheme
  * (`encodeTelegramImageId`) so the Phase 4 grid can re-use the same
  * cleanup path.
+ *
+ * Classification: BEAKERBOT DEMO (per Grant's design correction
+ * 2026-05-21). Speech is "Drag-drop time. Here's my selfie from the
+ * image strip into your notes." The "Here's my selfie [...] into your
+ * notes" is a BeakerBot-led drag demo (BeakerBot's own selfie, not
+ * the user's content). Cursor performs the drag as advertised.
  */
 import {
   cursorScript,

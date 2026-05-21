@@ -18,6 +18,12 @@
  * Category cleanup lives in the Phase 4 grid (P8). The cleanup_default
  * here is "keep" — categories are lightweight metadata; the user
  * picked the name + may want to keep it.
+ *
+ * Classification: BEAKERBOT DEMO (per Grant's design correction
+ * 2026-05-21). Speech is "First, a category to file things under.
+ * I'll set one up now." The "I'll set one up" is an explicit
+ * BeakerBot-led promise. Cursor performs the affordance open + the
+ * name typing as advertised.
  */
 import {
   cursorScript,

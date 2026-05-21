@@ -24,6 +24,12 @@
  * exercises, so the demo notification looks identical to a real one.
  * Phase 4 cleanup catches this artifact via the standard notifications
  * sweep (no new sidecar surface required).
+ *
+ * Classification: BEAKERBOT DEMO (per Grant's design correction
+ * 2026-05-21). Speech is "I'm firing a test one now, see the bell
+ * badge?" The "I'm firing" is BeakerBot-led (the test notification is
+ * programmatic), and the cursor click on the bell OPENS the panel,
+ * not creates anything. Cursor keeps the bell click.
  */
 import { sharingApi } from "@/lib/local-api";
 import { cursorScript, safeClickAction, compactScript } from "./lib/cursor-script";

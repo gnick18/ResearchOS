@@ -2,10 +2,10 @@
  * §6.1 Home page + first project — TRIGGER sub-step.
  *
  * First of two §6.1 sub-steps. BeakerBot points to the home page's
- * "+ New Project" button and waits for the user (or the cursor script's
- * synthetic click) to open the create-project form. Advances the
- * moment `tour:home-create-modal-opened` fires (dispatched by
- * `app/page.tsx` on the button's onClick).
+ * "+ New Project" button and waits for the user to open the
+ * create-project form. Advances the moment
+ * `tour:home-create-modal-opened` fires (dispatched by `app/page.tsx`
+ * on the button's onClick).
  *
  * Split rationale: Grant's v4 §6.1 walkthrough surfaced that BeakerBot's
  * speech never updated between "click the button" and "the project is
@@ -19,10 +19,15 @@
  * tour controller's `interactedWithCurrentStep` flag, out of scope for
  * this file; the registry hookup is what wires the body in.
  *
+ * Classification: USER ACTION (per Grant's design correction 2026-05-21).
+ * Speech tells the user to "click the blue plus button". BeakerBot is
+ * directing the user, not promising to do it himself. The spotlight on
+ * the New Project button is the whole visual cue: a synthetic click
+ * would steal the action and confuse the moment. No cursorScript here.
+ *
  * Artifact tracking lives on the fill sub-step's completion, where the
  * project actually lands. This trigger step creates no artifact.
  */
-import { cursorScript, safeClickAction, compactScript } from "./lib/cursor-script";
 import {
   buildWalkthroughStep,
   advanceOnEvent,
@@ -36,12 +41,10 @@ export const homeCreateProjectStep = buildWalkthroughStep({
     "Let's make your first project. Click the blue plus button up there to get started.",
   pose: "pointing-up",
   targetSelector: targetSelector(TOUR_TARGETS.homeNewProject),
-  cursorScript: cursorScript(async () => {
-    const click = await safeClickAction(
-      targetSelector(TOUR_TARGETS.homeNewProject),
-    );
-    return compactScript([click]);
-  }),
+  // Intentionally no cursorScript: BeakerBot tells the user to click;
+  // the user clicks. A synthetic click would clash with the speech and
+  // remove the user's agency on a simple first action. The spotlight
+  // does the visual work.
   completion: advanceOnEvent(watchHomeCreateModalOpened),
   // Auto-navigate to the home page when a refresh lands the user
   // somewhere else (Grant's refresh-mid-tour bug: BeakerBot pointed at

@@ -27,6 +27,14 @@ import type { TourStep } from "../../step-types";
  * spotlights the Calendar tab marker via `targetSelector`. The
  * spotlight silently no-ops when the user is elsewhere; the speech
  * still fires either way.
+ *
+ * Classification (per Grant's design correction 2026-05-21):
+ * BEAKERBOT NARRATION (no cursor action at all). The step is a pure
+ * explainer with no cursorScript wired in: BeakerBot describes the
+ * Calendar tab capability while the spotlight points to the nav. No
+ * click/type/drag to strip. When future navigation wiring lands, the
+ * cursor click on the Calendar tab would qualify as a navigation
+ * beat per the rule (BeakerBot's speech narrates the move).
  */
 
 const READ_DURATION_MS = 7500;

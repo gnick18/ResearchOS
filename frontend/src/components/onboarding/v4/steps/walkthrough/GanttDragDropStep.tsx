@@ -16,6 +16,16 @@
  * timeline as the drop target; the actual offset depends on viewport
  * width but the visual is "task moved right." A P13 polish chip can
  * add an offset variant to the cursor primitive.
+ *
+ * Classification: BEAKERBOT DEMO (per Grant's design correction
+ * 2026-05-21). Although the speech reads imperatively ("Drag a task
+ * bar to reschedule it"), the brief lists gantt-* as canonical demo
+ * territory: drag mechanics on the Gantt are the kind of action where
+ * "watch BeakerBot do it once" reads more clearly than asking the
+ * user to perform on their own bar. Cursor keeps the drag. (A future
+ * polish chip could rephrase the speech to "Watch me drag this bar"
+ * for full intent alignment; deferred so the gantt suite ships
+ * consistent with the brief's classification table.)
  */
 import {
   cursorScript,

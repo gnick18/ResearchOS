@@ -140,6 +140,40 @@ describe("P5 step bodies — universal contract", () => {
       expect(["event", "manual", "auto"]).toContain(step.completion.type);
     }
   });
+
+  it("BeakerBot-demo steps retain a cursorScript (Grant 2026-05-21 audit)", () => {
+    // Cursor responsibility audit: every step classified as demo
+    // (BeakerBot-led) must still expose a cursorScript so the demo
+    // beat actually plays. This is the symmetric guard for the
+    // user-action steps that explicitly drop cursorScript.
+    const DEMO_STEPS_WITH_CURSOR_SCRIPT = [
+      projectOverviewStep,
+      notificationsStep,
+      methodsCategoryStep,
+      methodsBreadthStep,
+      methodsCreateStep,
+      methodAttachmentStep,
+      hybridEditorShortcutsStep,
+      hybridEditorParagraphsStep,
+      hybridEditorImageDropStep,
+      hybridEditorResizeStep,
+      ganttIntroStep,
+      ganttDragDropStep,
+      ganttDependenciesStep,
+      ganttGoalsStep,
+      animationPickerStep,
+      settingsColorStep,
+      settingsAiHelperStep,
+      searchStep,
+      wikiPointerStep,
+    ];
+    for (const step of DEMO_STEPS_WITH_CURSOR_SCRIPT) {
+      expect(
+        step.cursorScript,
+        `demo step ${step.id} lost its cursorScript; re-check the audit classification`,
+      ).toBeDefined();
+    }
+  });
 });
 
 describe("HomeCreateProjectStep (§6.1 trigger)", () => {
@@ -153,6 +187,12 @@ describe("HomeCreateProjectStep (§6.1 trigger)", () => {
   });
   it("speech mentions the blue plus button", () => {
     expect(renderSpeech(homeCreateProjectStep)).toMatch(/blue plus button/);
+  });
+  it("has no cursorScript (user-action step, Grant 2026-05-21)", () => {
+    // Cursor responsibility audit: BeakerBot tells the user to click
+    // the blue plus button. The cursor must NOT click it for them.
+    // Spotlight is the visual cue; user owns the action.
+    expect(homeCreateProjectStep.cursorScript).toBeUndefined();
   });
   it("advances when the home-create-modal-opened DOM event fires", async () => {
     if (homeCreateProjectStep.completion.type !== "event") {
@@ -178,6 +218,11 @@ describe("HomeCreateProjectStep (§6.1 trigger)", () => {
 describe("HomeCreateProjectFillStep (§6.1 fill)", () => {
   it("declares event-driven completion (projectsApi.create event)", () => {
     expect(homeCreateProjectFillStep.completion.type).toBe("event");
+  });
+  it("has no cursorScript (user-action step, Grant 2026-05-21)", () => {
+    // Cursor responsibility audit: user picks their own project name,
+    // color, and seven-day-week toggle. BeakerBot narrates; user fills.
+    expect(homeCreateProjectFillStep.cursorScript).toBeUndefined();
   });
   it("targets the create-project form container selector", () => {
     expect(homeCreateProjectFillStep.targetSelector).toBe(
@@ -257,6 +302,12 @@ describe("WorkbenchCreateExperimentStep (§6.5)", () => {
   });
   it("declares event-driven completion (tasksApi.create poll)", () => {
     expect(workbenchCreateExperimentStep.completion.type).toBe("event");
+  });
+  it("has no cursorScript (user-action step, Grant 2026-05-21)", () => {
+    // Cursor responsibility audit: experiment creation is the user's
+    // action. BeakerBot points to the New Experiment affordance via
+    // the spotlight; the user clicks, fills, submits on their own.
+    expect(workbenchCreateExperimentStep.cursorScript).toBeUndefined();
   });
 });
 

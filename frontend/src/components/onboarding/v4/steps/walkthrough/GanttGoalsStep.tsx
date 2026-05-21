@@ -18,6 +18,12 @@
  *
  * Cleanup default keep — goals the user opted into are useful even
  * after the tour. Q4 was opt-in, so the user signaled they cared.
+ *
+ * Classification: BEAKERBOT DEMO (per Grant's design correction
+ * 2026-05-21). Speech is purely explanatory (no "click X" directive
+ * to the user). The cursor opens the goals affordance to surface the
+ * overlay BeakerBot just described. Cursor keeps the click as a
+ * reveal of the explained concept.
  */
 import {
   cursorScript,

@@ -12,6 +12,12 @@
  *
  * Auto-advance after the typing completes + a beat to read the
  * results. No artifact (search is transient).
+ *
+ * Classification: BEAKERBOT DEMO (per Grant's design correction
+ * 2026-05-21). Speech is descriptive ("Search across everything...");
+ * the cursor types a query so the user sees the search behavior with
+ * a known input. Brief explicitly classifies search as demo. Cursor
+ * keeps the type action.
  */
 import {
   cursorScript,
