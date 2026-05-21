@@ -1986,62 +1986,160 @@ const FIXTURE_ROUTES = [
       }
     },
   },
-  // ── Onboarding welcome-wizard captures ────────────────────────────
+  // ── Onboarding welcome-tour (v3) captures ─────────────────────────
   //
   // Wiki target: /wiki/getting-started/welcome-wizard
   //
-  // BLOCKED ON WIKI REWRITE (2026-05-20, refreshed from QA persona 16):
-  // the welcome-wizard wiki page describes the v2 wizard (a 7-step
-  // modal whose Step 2 is a 9-chip use-case picker with an "Other"
-  // text affordance, Step 3 a tab-visibility checkbox grid, Step 4 a
-  // Telegram pair flow with a computational-only auto-skip, etc.).
-  // v3 shipped at the 2026-05-20 onboarding arc and explicitly
-  // deprecated the v2 wizard in full (see ONBOARDING_V3_PROPOSAL.md
-  // §2: row "OnboardingWizard.tsx (v2 7-step modal) | Deleted" and
-  // row "Wiki page wiki/getting-started/welcome-wizard | Rewritten
-  // end-to-end for v3 (see Phase 6)" — the Phase 6 rewrite never
-  // landed). The current shipped wizard is OnboardingWizardV3.tsx,
-  // a multi-phase flow (intro → setup Q1 Solo/Lab → setup Q1a/Q1b
-  // lab-specific → Q2-Q6 feature picks → W1-W14 walkthrough →
-  // L1-L11 optional lab tour → phase4-cleanup), and the wiki page's
-  // 9 use-case chips / "Other" row / tab-picker / computational
-  // autoskip simply do not exist in the codebase anymore.
+  // Refreshed 2026-05-20 (wiki manager onboarding v3 sub-agent): the
+  // v2 7-step wizard is fully deprecated. The current shipped wizard is
+  // OnboardingWizardV3.tsx, a multi-phase BeakerBot tour (intro → Q1
+  // solo/lab → Q1a/Q1b lab branch → Q2-Q6 feature picks → W1-W9
+  // universal walkthrough → W10-W14 conditional walkthrough → optional
+  // lab-prompt + L1-L11 lab tour → phase4-cleanup grid).
   //
-  // The orchestrator gate IS already loose for the fixture-plus-preview
-  // case: OnboardingProvider at orchestrator.tsx:142 short-circuits on
-  // `isDemoOrWikiCapture() && !wizardPreviewMode`, so a Playwright
-  // visit to /?wikiCapture=1&wizard-preview=1 DOES mount v3 today.
-  // The 3 surviving PNGs on disk
-  // (onboarding-wizard-step-1-welcome.png,
-  //  onboarding-wizard-step-2-use-cases.png,
-  //  onboarding-wizard-step-7-wrapup.png) were captured against v2
-  // before the v3 cutover and are stale; the captioned prose on the
-  // wiki page describes those v2 screens, so the captures and prose
-  // still read coherently together even though neither matches the
-  // shipped v3 wizard. The 6 missing PNGs reference v2-only screens
-  // (Step 2 Other-open, Step 3 tabs, Step 4 telegram-cta + autoskip,
-  // Step 5 calendar-form, Step 6 ai-helper) that have no v3 equivalent
-  // to capture against.
+  // Gate precedence (orchestrator.tsx line 149 !wizardPreviewMode
+  // short-circuit): ?wikiCapture=1 ALONE hides the wizard; the
+  // combined ?wikiCapture=1&wizard-preview=1 case mounts the v3 wizard
+  // against the fixture. capturePage's URL builder always appends
+  // wikiCapture=1, so a route with path: "/?wizard-preview=1" resolves
+  // to /?wizard-preview=1&wikiCapture=1 (the combined case) and the
+  // wizard mounts at the intro step.
   //
-  // Fix path:
-  //   1. Wiki manager rewrites the welcome-wizard page for the
-  //      v3 wizard (Solo/Lab branching, Q2-Q6 feature picks,
-  //      walkthrough W1-W14, lab tour L1-L11, cleanup grid).
-  //   2. Once the rewrite lands with the new <Screenshot src=...>
-  //      filenames the v3 flow actually produces, this comment block
-  //      gets replaced with FIXTURE_ROUTES entries that walk the v3
-  //      step machine via Playwright (action callbacks click the
-  //      "Let's go" / Q1 radio / Continue chain to reach each step).
+  // The shipped entries below cover the easy reach paths:
+  //   - onboarding-welcome-step       (default mount at intro)
+  //   - onboarding-q1-account-type    (one Next click past intro)
   //
-  // Master-side: this chip cannot fix the placeholder PNGs without
-  // first getting the wiki page rewritten for v3 — capturing v3
-  // screens into v2-named files would put images-of-v3 under
-  // captions-describing-v2, which is a worse user experience than
-  // the current "screenshot pending" placeholder.
+  // FIXTURE NOTE, deferred (not shipped):
+  //   - onboarding-w1-create-project       (W1)
+  //   - onboarding-w5-hybrid-editor-typing (W5)
+  //   - onboarding-l4-permission-practice  (L4, lab-only)
+  //   - onboarding-phase4-cleanup-grid     (Phase 4)
+  //   - onboarding-resume-modal            (WizardResumeModal)
+  // These require multi-step state seeding. Walking the wizard via
+  // Playwright clicks (Next + Q1 radio + Next x 7 to reach W1) is
+  // feasible for the setup steps, but every W/L step body mutates the
+  // real account via local-api (projectsApi.create, sharingApi.share
+  // Task, etc.). Without a wikiCapture-aware inert-mock layer for
+  // these APIs the captures either touch real data (unsafe under
+  // wikiCapture mode where ops are expected to be inert) OR fail
+  // silently when the API stubs no-op. Reach-path seed alternatives
+  // also explored: pre-writing wizard_resume_state via page.evaluate
+  // before the wizard's mount probe is racy (the probe is async and
+  // reads on first paint), and the capture script does not yet expose
+  // a hook to defer wizard mount until a sidecar seed lands. Fix path:
+  // extend wiki-capture-fixture.ts to seed a per-step _onboarding.json
+  // payload, or add a wikiCapture-only inert-mock layer for the W/L
+  // step bodies' local-api calls. Either pattern is a separate chip.
+  // The wiki page ships with Screenshot-pending placeholders for these
+  // five files in the meantime.
   //
-  // Entry 10 below IS reachable via the fixture (the settings page
-  // is already captured in non-wizard mode at settings.png, so the
-  // Tips section renders identically here).
+  // The settings-rerun entry below IS reachable via the fixture (the
+  // settings page is already captured in non-wizard mode at
+  // settings.png; the Tips section renders identically here).
+  {
+    path: "/?wizard-preview=1",
+    file: "onboarding-welcome-step.png",
+    // The shell renders data-wizard-root="v3" on the portal root, and
+    // the intro step body renders data-step-id="intro" once mounted.
+    // Both selectors are stable across step transitions; we wait for
+    // both so the BeakerBot pose has had time to settle on "waving".
+    waitFor: '[data-wizard-root="v3"], [data-step-id="intro"]',
+    settleMs: 900,
+    action: async (page) => {
+      // Clip the modal card so the dimmed page behind it stays out of
+      // the shot. The card is the first child of the wizard root with
+      // the rounded-2xl + shadow-2xl classes.
+      try {
+        const clip = await page.evaluate(() => {
+          const root = document.querySelector(
+            '[data-wizard-root="v3"]',
+          );
+          if (!root) return null;
+          const card = root.querySelector('div[class*="rounded-2xl"]');
+          if (!card) return null;
+          const r = card.getBoundingClientRect();
+          const pad = 24;
+          return {
+            x: Math.max(0, Math.floor(r.left - pad)),
+            y: Math.max(0, Math.floor(r.top - pad)),
+            width: Math.min(
+              Math.max(0, window.innerWidth - Math.floor(r.left - pad)),
+              Math.ceil(r.width + pad * 2),
+            ),
+            height: Math.min(
+              Math.max(0, window.innerHeight - Math.floor(r.top - pad)),
+              Math.ceil(r.height + pad * 2),
+            ),
+          };
+        });
+        if (clip && clip.width > 100 && clip.height > 100) {
+          return { clip };
+        }
+      } catch (err) {
+        console.warn(
+          `  ⚠ onboarding-welcome-step clip calc: ${err.message}`,
+        );
+      }
+    },
+  },
+  {
+    path: "/?wizard-preview=1",
+    file: "onboarding-q1-account-type.png",
+    waitFor: '[data-step-id="intro"]',
+    settleMs: 700,
+    action: async (page) => {
+      // Click Let's go to advance from intro to setup-q1. The shell's
+      // Next button label switches to "Let's go" on the intro step
+      // (see nextButtonLabel in OnboardingWizardV3.tsx). After the
+      // click we wait for the Q1 step body to mount.
+      try {
+        const letsGo = page.getByRole("button", { name: /Let's go/i }).first();
+        if (await letsGo.count()) {
+          await letsGo.click({ timeout: 3000 });
+          await page
+            .waitForSelector('[data-step-id="setup-q1"]', { timeout: 4000 })
+            .catch(() => {});
+          await page.waitForTimeout(500);
+        }
+      } catch (err) {
+        console.warn(
+          `  ⚠ onboarding-q1-account-type advance: ${err.message}`,
+        );
+      }
+      // Clip the modal card.
+      try {
+        const clip = await page.evaluate(() => {
+          const root = document.querySelector(
+            '[data-wizard-root="v3"]',
+          );
+          if (!root) return null;
+          const card = root.querySelector('div[class*="rounded-2xl"]');
+          if (!card) return null;
+          const r = card.getBoundingClientRect();
+          const pad = 24;
+          return {
+            x: Math.max(0, Math.floor(r.left - pad)),
+            y: Math.max(0, Math.floor(r.top - pad)),
+            width: Math.min(
+              Math.max(0, window.innerWidth - Math.floor(r.left - pad)),
+              Math.ceil(r.width + pad * 2),
+            ),
+            height: Math.min(
+              Math.max(0, window.innerHeight - Math.floor(r.top - pad)),
+              Math.ceil(r.height + pad * 2),
+            ),
+          };
+        });
+        if (clip && clip.width > 100 && clip.height > 100) {
+          return { clip };
+        }
+      } catch (err) {
+        console.warn(
+          `  ⚠ onboarding-q1-account-type clip calc: ${err.message}`,
+        );
+      }
+    },
+  },
   {
     path: "/settings",
     file: "onboarding-settings-rerun-button.png",
@@ -2049,12 +2147,14 @@ const FIXTURE_ROUTES = [
     settleMs: 800,
     action: async (page) => {
       // The Tips section sits near the bottom of the long Settings
-      // panel stack. Scroll the "Re-run welcome wizard" row into view
+      // panel stack. Scroll the "Re-run welcome tour" row into view
       // and capture a tight clip around the Tips card so the wiki shot
-      // matches the section the prose describes.
+      // matches the section the prose describes. Label updated 2026-05-20
+      // when the v3 wizard cutover renamed the affordance from
+      // "Re-run welcome wizard" to "Re-run welcome tour".
       try {
         const label = page
-          .getByText(/Re-run welcome wizard/i)
+          .getByText(/Re-run welcome tour/i)
           .first();
         if (await label.count()) {
           await label
@@ -2112,7 +2212,7 @@ const FIXTURE_ROUTES = [
         );
       }
     },
-    highlight: { text: "Re-run wizard" },
+    highlight: { text: "Re-run welcome tour" },
   },
 ];
 

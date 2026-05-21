@@ -50,11 +50,11 @@ export default function CreatingAUserPage() {
       </Steps>
 
       <Callout variant="info" title="What happens right after Create">
-        Brand-new users land in a seven-step welcome wizard that picks the
-        tabs you see and offers to set up Telegram, a calendar feed, and an
-        AI Helper prompt. See{" "}
+        Brand-new users land in BeakerBot&apos;s welcome tour, a short guided
+        walkthrough on your real account. Plan on roughly five to ten
+        minutes, depending on which features you opt into. See{" "}
         <Link href="/wiki/getting-started/welcome-wizard">
-          The Welcome Wizard
+          Welcome Tour (BeakerBot)
         </Link>{" "}
         for the full walkthrough, or skip it and explore on your own.
       </Callout>

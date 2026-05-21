@@ -78,8 +78,8 @@ export const WIKI_NAV: WikiNode[] = [
       },
       {
         href: "/wiki/getting-started/welcome-wizard",
-        label: "The Welcome Wizard",
-        blurb: "Seven-step setup that picks your tabs and offers three integrations.",
+        label: "Welcome Tour (BeakerBot)",
+        blurb: "Guided walkthrough on your real account: setup Q&A, hands-on tour, cleanup grid.",
       },
       {
         href: "/wiki/getting-started/demo-mode",
