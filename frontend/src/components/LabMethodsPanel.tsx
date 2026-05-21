@@ -37,12 +37,66 @@ function formatDate(iso: string): string {
   }
 }
 
-interface MethodRow {
+export interface MethodRow {
   method: LabMethod;
   taskCount: number;
   users: Set<string>;
   lastUsed: string | null; // ISO date, max start_date of tasks using this method
   tasks: LabTask[];
+}
+
+// Pure helper extracted from the rollup useMemo so the cross-owner-collision
+// fix is unit-testable. Mirrors the resolver in LabExperimentsPanel:
+// (owner, id) composite first, then `public:${id}`, then bare-id fallback.
+// Rows are keyed internally by `${owner}:${id}` so alex:5 / morgan:5 / public:5
+// stay distinct instead of collapsing onto whichever method was inserted last.
+export function buildMethodRows(
+  methods: LabMethod[],
+  visibleTasks: LabTask[],
+): MethodRow[] {
+  const byOwnerId = new Map<string, LabMethod>();
+  for (const m of methods) {
+    byOwnerId.set(`${m.username}:${m.id}`, m);
+  }
+  const byIdOnly = new Map<number, LabMethod>();
+  for (const m of methods) {
+    if (!byIdOnly.has(m.id)) byIdOnly.set(m.id, m);
+  }
+  const resolve = (task: LabTask, mid: number): LabMethod | null =>
+    byOwnerId.get(`${task.username}:${mid}`) ??
+    byOwnerId.get(`public:${mid}`) ??
+    byIdOnly.get(mid) ??
+    null;
+
+  const byMethod = new Map<string, MethodRow>();
+  for (const m of methods) {
+    byMethod.set(`${m.username}:${m.id}`, {
+      method: m,
+      taskCount: 0,
+      users: new Set<string>(),
+      lastUsed: null,
+      tasks: [],
+    });
+  }
+  for (const t of visibleTasks) {
+    for (const mid of t.method_ids || []) {
+      const resolved = resolve(t, mid);
+      if (!resolved) continue;
+      const row = byMethod.get(`${resolved.username}:${resolved.id}`);
+      if (!row) continue;
+      row.taskCount += 1;
+      row.users.add(t.username);
+      row.tasks.push(t);
+      if (t.start_date && (!row.lastUsed || t.start_date > row.lastUsed)) {
+        row.lastUsed = t.start_date;
+      }
+    }
+  }
+  return Array.from(byMethod.values());
+}
+
+export function methodRowKey(method: LabMethod): string {
+  return `${method.username}:${method.id}`;
 }
 
 export default function LabMethodsPanel({
@@ -60,7 +114,9 @@ export default function LabMethodsPanel({
 
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("usage");
-  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  // Composite `${owner}:${id}` keys so same-id methods from different owners
+  // (alex:5 vs morgan:5 vs public:5) don't share an expanded-state slot.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const userColorFor = useMemo(() => {
     const map = new Map<string, string>();
@@ -78,29 +134,7 @@ export default function LabMethodsPanel({
   // Build per-method rollup from tasks the current user-filter says to include.
   const rows: MethodRow[] = useMemo(() => {
     const visibleTasks = tasks.filter((t) => selectedUsernames.has(t.username));
-    const byMethod = new Map<number, MethodRow>();
-    for (const m of methods) {
-      byMethod.set(m.id, {
-        method: m,
-        taskCount: 0,
-        users: new Set<string>(),
-        lastUsed: null,
-        tasks: [],
-      });
-    }
-    for (const t of visibleTasks) {
-      for (const mid of t.method_ids || []) {
-        const row = byMethod.get(mid);
-        if (!row) continue;
-        row.taskCount += 1;
-        row.users.add(t.username);
-        row.tasks.push(t);
-        if (t.start_date && (!row.lastUsed || t.start_date > row.lastUsed)) {
-          row.lastUsed = t.start_date;
-        }
-      }
-    }
-    return Array.from(byMethod.values());
+    return buildMethodRows(methods, visibleTasks);
   }, [methods, tasks, selectedUsernames]);
 
   const filtered = useMemo(() => {
@@ -132,11 +166,11 @@ export default function LabMethodsPanel({
   const used = sorted.filter((r) => r.lastUsed && r.lastUsed >= cutoff);
   const unused = sorted.filter((r) => !r.lastUsed || r.lastUsed < cutoff);
 
-  const toggleExpand = (id: number) => {
+  const toggleExpand = (key: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   };
@@ -182,18 +216,21 @@ export default function LabMethodsPanel({
         {used.length === 0 ? (
           <EmptyRow>No matching methods used recently.</EmptyRow>
         ) : (
-          used.map((row) => (
-            <MethodRowView
-              key={`u-${row.method.id}`}
-              row={row}
-              expanded={expanded.has(row.method.id)}
-              onToggle={() => toggleExpand(row.method.id)}
-              userColorFor={userColorFor}
-              projectNameFor={projectNameFor}
-              onTaskClick={onTaskClick}
-              onUserClick={onUserClick}
-            />
-          ))
+          used.map((row) => {
+            const key = methodRowKey(row.method);
+            return (
+              <MethodRowView
+                key={`u-${key}`}
+                row={row}
+                expanded={expanded.has(key)}
+                onToggle={() => toggleExpand(key)}
+                userColorFor={userColorFor}
+                projectNameFor={projectNameFor}
+                onTaskClick={onTaskClick}
+                onUserClick={onUserClick}
+              />
+            );
+          })
         )}
       </Section>
 
@@ -206,19 +243,22 @@ export default function LabMethodsPanel({
         {unused.length === 0 ? (
           <EmptyRow>None.</EmptyRow>
         ) : (
-          unused.map((row) => (
-            <MethodRowView
-              key={`x-${row.method.id}`}
-              row={row}
-              expanded={expanded.has(row.method.id)}
-              onToggle={() => toggleExpand(row.method.id)}
-              userColorFor={userColorFor}
-              projectNameFor={projectNameFor}
-              onTaskClick={onTaskClick}
-              onUserClick={onUserClick}
-              dimmed
-            />
-          ))
+          unused.map((row) => {
+            const key = methodRowKey(row.method);
+            return (
+              <MethodRowView
+                key={`x-${key}`}
+                row={row}
+                expanded={expanded.has(key)}
+                onToggle={() => toggleExpand(key)}
+                userColorFor={userColorFor}
+                projectNameFor={projectNameFor}
+                onTaskClick={onTaskClick}
+                onUserClick={onUserClick}
+                dimmed
+              />
+            );
+          })
         )}
       </Section>
     </div>
