@@ -15,24 +15,23 @@ interface Q4Props {
 
 /**
  * Q4: want a goal-tracking page? Yes / No / Maybe later. Persists
- * `feature_picks.goals`. Same hasInteracted-gated Next pattern as Q2/Q3.
+ * `feature_picks.goals`. Local-pick state pattern to avoid the
+ * sidecar-write-latency flicker (see Q2 docstring for the full why).
  */
 export default function Q4GoalsStep({
-  sidecar,
+  sidecar: _sidecar,
   setNextDisabled,
   patchSidecar,
 }: Q4Props) {
-  const picks = sidecar?.feature_picks ?? null;
-  const current = picks?.goals ?? "maybe";
-  const [hasInteracted, setHasInteracted] = useState(false);
+  const [pick, setPick] = useState<FeaturePicks["goals"] | null>(null);
 
   useEffect(() => {
-    setNextDisabled(!hasInteracted);
-  }, [hasInteracted, setNextDisabled]);
+    setNextDisabled(pick === null);
+  }, [pick, setNextDisabled]);
 
-  const handleChange = async (next: FeaturePicks["goals"]) => {
-    setHasInteracted(true);
-    await patchSidecar((cur) => {
+  const handleChange = (next: FeaturePicks["goals"]) => {
+    setPick(next);
+    void patchSidecar((cur) => {
       if (!cur.feature_picks) return cur;
       return {
         ...cur,
@@ -53,24 +52,24 @@ export default function Q4GoalsStep({
         <RadioCard
           name="q4-goals"
           value="yes"
-          selected={hasInteracted && current === "yes"}
-          onChange={(v) => void handleChange(v)}
+          selected={pick === "yes"}
+          onChange={handleChange}
           label="Yes"
           description="Walk me through the goals flow and surface goals next to my Gantt."
         />
         <RadioCard
           name="q4-goals"
           value="no"
-          selected={hasInteracted && current === "no"}
-          onChange={(v) => void handleChange(v)}
+          selected={pick === "no"}
+          onChange={handleChange}
           label="No"
           description="Skip goals. I can turn them on later from Settings."
         />
         <RadioCard
           name="q4-goals"
           value="maybe"
-          selected={hasInteracted && current === "maybe"}
-          onChange={(v) => void handleChange(v)}
+          selected={pick === "maybe"}
+          onChange={handleChange}
           label="Maybe later"
           description="Skip for now. We can revisit."
         />

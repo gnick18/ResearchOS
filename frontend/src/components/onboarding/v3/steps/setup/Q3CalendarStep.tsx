@@ -15,24 +15,23 @@ interface Q3Props {
 
 /**
  * Q3: want calendar feeds? Yes / No / Maybe later. Persists
- * `feature_picks.calendar`. Same hasInteracted-gated Next pattern as Q2.
+ * `feature_picks.calendar`. Local-pick state pattern to avoid the
+ * sidecar-write-latency flicker (see Q2 docstring for the full why).
  */
 export default function Q3CalendarStep({
-  sidecar,
+  sidecar: _sidecar,
   setNextDisabled,
   patchSidecar,
 }: Q3Props) {
-  const picks = sidecar?.feature_picks ?? null;
-  const current = picks?.calendar ?? "maybe";
-  const [hasInteracted, setHasInteracted] = useState(false);
+  const [pick, setPick] = useState<FeaturePicks["calendar"] | null>(null);
 
   useEffect(() => {
-    setNextDisabled(!hasInteracted);
-  }, [hasInteracted, setNextDisabled]);
+    setNextDisabled(pick === null);
+  }, [pick, setNextDisabled]);
 
-  const handleChange = async (next: FeaturePicks["calendar"]) => {
-    setHasInteracted(true);
-    await patchSidecar((cur) => {
+  const handleChange = (next: FeaturePicks["calendar"]) => {
+    setPick(next);
+    void patchSidecar((cur) => {
       if (!cur.feature_picks) return cur;
       return {
         ...cur,
@@ -52,24 +51,24 @@ export default function Q3CalendarStep({
         <RadioCard
           name="q3-calendar"
           value="yes"
-          selected={hasInteracted && current === "yes"}
-          onChange={(v) => void handleChange(v)}
+          selected={pick === "yes"}
+          onChange={handleChange}
           label="Yes"
           description="Show the Calendar tab and walk me through subscribing to a feed."
         />
         <RadioCard
           name="q3-calendar"
           value="no"
-          selected={hasInteracted && current === "no"}
-          onChange={(v) => void handleChange(v)}
+          selected={pick === "no"}
+          onChange={handleChange}
           label="No"
           description="Hide the Calendar tab. I can turn it on later from Settings."
         />
         <RadioCard
           name="q3-calendar"
           value="maybe"
-          selected={hasInteracted && current === "maybe"}
-          onChange={(v) => void handleChange(v)}
+          selected={pick === "maybe"}
+          onChange={handleChange}
           label="Maybe later"
           description="Hide it for now. Ask me again sometime."
         />

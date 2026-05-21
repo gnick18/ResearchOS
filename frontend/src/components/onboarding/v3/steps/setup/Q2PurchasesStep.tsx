@@ -17,30 +17,31 @@ interface Q2Props {
  * Q2: track lab purchases? Yes / No / Maybe later. Persists
  * `feature_picks.purchases`.
  *
- * The initial feature_picks object (built by Q1) defaults every Q2-Q5
- * field to "maybe", which means the radio visually starts pre-selected
- * even before the user has interacted. To honor the brief's "Next
- * disabled until a pick is made" rule, this component tracks a local
- * `hasInteracted` flag and gates Next on it (not on the sidecar value).
- * Back-stepping into this step from a later step resets `hasInteracted`,
- * so the user re-confirms the answer before Next re-enables.
+ * The radio's visual state reads from a local `pick` value, NOT from the
+ * sidecar's `feature_picks.purchases`. The sidecar is the eventual
+ * persistence target but writes are async (50-200ms via fileService
+ * .tmp+move), so reading the sidecar between click and write completion
+ * shows the previous value briefly and flickers the "Maybe later" radio
+ * because the initial feature_picks object defaults every Q2-Q5 field
+ * to "maybe". Single-source-of-truth on the local pick eliminates the
+ * flicker. Back-stepping into this step from a later step remounts the
+ * component, so `pick` resets to null and the user re-confirms before
+ * Next re-enables.
  */
 export default function Q2PurchasesStep({
-  sidecar,
+  sidecar: _sidecar,
   setNextDisabled,
   patchSidecar,
 }: Q2Props) {
-  const picks = sidecar?.feature_picks ?? null;
-  const current = picks?.purchases ?? "maybe";
-  const [hasInteracted, setHasInteracted] = useState(false);
+  const [pick, setPick] = useState<FeaturePicks["purchases"] | null>(null);
 
   useEffect(() => {
-    setNextDisabled(!hasInteracted);
-  }, [hasInteracted, setNextDisabled]);
+    setNextDisabled(pick === null);
+  }, [pick, setNextDisabled]);
 
-  const handleChange = async (next: FeaturePicks["purchases"]) => {
-    setHasInteracted(true);
-    await patchSidecar((cur) => {
+  const handleChange = (next: FeaturePicks["purchases"]) => {
+    setPick(next);
+    void patchSidecar((cur) => {
       if (!cur.feature_picks) return cur;
       return {
         ...cur,
@@ -60,24 +61,24 @@ export default function Q2PurchasesStep({
         <RadioCard
           name="q2-purchases"
           value="yes"
-          selected={hasInteracted && current === "yes"}
-          onChange={(v) => void handleChange(v)}
+          selected={pick === "yes"}
+          onChange={handleChange}
           label="Yes"
           description="Show the Purchases tab and walk me through the purchase flow during the tour."
         />
         <RadioCard
           name="q2-purchases"
           value="no"
-          selected={hasInteracted && current === "no"}
-          onChange={(v) => void handleChange(v)}
+          selected={pick === "no"}
+          onChange={handleChange}
           label="No"
           description="Hide the Purchases tab. I can turn it on later from Settings."
         />
         <RadioCard
           name="q2-purchases"
           value="maybe"
-          selected={hasInteracted && current === "maybe"}
-          onChange={(v) => void handleChange(v)}
+          selected={pick === "maybe"}
+          onChange={handleChange}
           label="Maybe later"
           description="Hide it for now. Same as No, but a friendlier no."
         />

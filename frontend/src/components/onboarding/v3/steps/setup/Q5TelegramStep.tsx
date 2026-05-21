@@ -15,28 +15,26 @@ interface Q5Props {
 
 /**
  * Q5: want a Telegram bot for image inbox? Yes / No / Maybe later.
- * Persists `feature_picks.telegram`. Same hasInteracted-gated Next
- * pattern as Q2-Q4.
+ * Persists `feature_picks.telegram`. Local-pick state pattern to avoid
+ * the sidecar-write-latency flicker (see Q2 docstring for the full why).
  *
  * Note: this step ONLY captures the user's intent. The actual Telegram
  * pair flow runs in W12 (P2c), conditional on `picks.telegram === "yes"`.
  */
 export default function Q5TelegramStep({
-  sidecar,
+  sidecar: _sidecar,
   setNextDisabled,
   patchSidecar,
 }: Q5Props) {
-  const picks = sidecar?.feature_picks ?? null;
-  const current = picks?.telegram ?? "maybe";
-  const [hasInteracted, setHasInteracted] = useState(false);
+  const [pick, setPick] = useState<FeaturePicks["telegram"] | null>(null);
 
   useEffect(() => {
-    setNextDisabled(!hasInteracted);
-  }, [hasInteracted, setNextDisabled]);
+    setNextDisabled(pick === null);
+  }, [pick, setNextDisabled]);
 
-  const handleChange = async (next: FeaturePicks["telegram"]) => {
-    setHasInteracted(true);
-    await patchSidecar((cur) => {
+  const handleChange = (next: FeaturePicks["telegram"]) => {
+    setPick(next);
+    void patchSidecar((cur) => {
       if (!cur.feature_picks) return cur;
       return {
         ...cur,
@@ -57,24 +55,24 @@ export default function Q5TelegramStep({
         <RadioCard
           name="q5-telegram"
           value="yes"
-          selected={hasInteracted && current === "yes"}
-          onChange={(v) => void handleChange(v)}
+          selected={pick === "yes"}
+          onChange={handleChange}
           label="Yes"
           description="Walk me through pairing the bot during the tour."
         />
         <RadioCard
           name="q5-telegram"
           value="no"
-          selected={hasInteracted && current === "no"}
-          onChange={(v) => void handleChange(v)}
+          selected={pick === "no"}
+          onChange={handleChange}
           label="No"
           description="Skip the Telegram bot. I can pair it later from Settings."
         />
         <RadioCard
           name="q5-telegram"
           value="maybe"
-          selected={hasInteracted && current === "maybe"}
-          onChange={(v) => void handleChange(v)}
+          selected={pick === "maybe"}
+          onChange={handleChange}
           label="Maybe later"
           description="Skip for now. The bot will still be there if I change my mind."
         />
