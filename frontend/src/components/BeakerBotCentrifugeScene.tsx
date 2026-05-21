@@ -1,0 +1,900 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import BeakerBot from "./BeakerBot";
+
+/**
+ * Side easter-egg slapstick scene: BeakerBot walks in carrying a small
+ * centrifuge, sets it on the bench, starts it spinning. It ramps up
+ * smoothly, then immediately gets the wobbles, then violently shakes
+ * and jumps on the bench. The lid pops off, sample tubes fly out on
+ * independent gravity trajectories, liquid splatters everywhere.
+ * BeakerBot freezes wide-eyed ("!"), then does a sheepish shrug
+ * (sweat-bead) and slinks off the other side. Dented centrifuge stays.
+ *
+ * Same skeleton + portal/z-index/pointer-events conventions as
+ * BeakerBotTooManyBeakersScene and BeakerBotBugStompScene. Multi-stage
+ * state machine driven by chained setTimeouts, smooth tweening between
+ * stage transforms via CSS transitions. Falling sample tubes reuse the
+ * --bb-fall-x / --bb-fall-y / --bb-fall-rot custom-property pattern
+ * from the beaker scene so a single @keyframes block covers all four.
+ *
+ * Stage timeline (defaults total = 5800ms):
+ *   1. Walk-in           — 700ms — BeakerBot enters carrying centrifuge
+ *   2. Set down          — 400ms — centrifuge placed on bench
+ *   3. Start spinning    — 600ms — disc ramps up; smooth spin
+ *   4. Out of control    — 1200ms — violent shake, disc accelerates,
+ *                                    BeakerBot's eyes widen
+ *   5. Explosion         — 500ms — lid pops, tubes fly, liquid splats
+ *   6. Reaction          — 600ms — frozen surprised "!" speech bubble
+ *   7. Sheepish shrug    — 800ms — sigh + sweat bead, "..."
+ *   8. Exit              — 1000ms — walks off the OPPOSITE side
+ *
+ * Mounted via React portal at `document.body`, position: fixed,
+ * z-index 800 (above app shell, below modals).
+ *
+ * Reduced-motion fallback: prefers-reduced-motion: reduce skips the
+ * full sequence and renders a static aftermath tableau (sheepish
+ * BeakerBot next to tilted centrifuge with tubes scattered around)
+ * for 2000ms before firing onComplete.
+ *
+ * Component-only — no trigger logic. Parent decides when to mount
+ * (random easter-egg roll, dev button, achievement unlock, etc.).
+ */
+
+export interface BeakerBotCentrifugeSceneProps {
+  /** When false, the scene is not rendered at all (parent unmounts).
+   *  When toggled from false to true, the animation restarts. */
+  active: boolean;
+  /** Fired once the scene finishes (whether full or reduced-motion).
+   *  Parent typically uses this to unmount via `setActive(false)`. */
+  onComplete?: () => void;
+  /** Side from which BeakerBot enters carrying the centrifuge. He exits
+   *  off the OPPOSITE side. Default "left". */
+  enterFrom?: "left" | "right";
+}
+
+/** Pastel sample-tube palette — four distinct colors so the tubes
+ *  read as separate items mid-flight, not a single colored blob. */
+const TUBE_COLORS = ["#FFD2B0", "#B7EBB1", "#A6D2F4", "#D6B5F0"] as const;
+
+/** Stage durations in ms. Exported for tests + parent timing math. */
+export const STAGE_DURATIONS = {
+  walkIn: 700,
+  setDown: 400,
+  startSpinning: 600,
+  outOfControl: 1200,
+  explosion: 500,
+  reaction: 600,
+  sheepishShrug: 800,
+  exit: 1000,
+} as const;
+
+export const TOTAL_DURATION_MS =
+  STAGE_DURATIONS.walkIn +
+  STAGE_DURATIONS.setDown +
+  STAGE_DURATIONS.startSpinning +
+  STAGE_DURATIONS.outOfControl +
+  STAGE_DURATIONS.explosion +
+  STAGE_DURATIONS.reaction +
+  STAGE_DURATIONS.sheepishShrug +
+  STAGE_DURATIONS.exit;
+
+/** Reduced-motion aftermath dwell time before onComplete fires. */
+export const REDUCED_MOTION_DURATION_MS = 2000;
+
+/** Discrete stages the state machine cycles through. */
+export type SceneStage =
+  | "idle"
+  | "walkIn"
+  | "setDown"
+  | "startSpinning"
+  | "outOfControl"
+  | "explosion"
+  | "reaction"
+  | "sheepishShrug"
+  | "exit"
+  | "done";
+
+/** Order of stages driven by the timer chain. Exported so tests can
+ *  walk through it without re-deriving the sequence. */
+export const STAGE_ORDER: readonly SceneStage[] = [
+  "walkIn",
+  "setDown",
+  "startSpinning",
+  "outOfControl",
+  "explosion",
+  "reaction",
+  "sheepishShrug",
+  "exit",
+] as const;
+
+/** Read prefers-reduced-motion once at mount. SSR safe. */
+function readsPrefersReducedMotion(): boolean {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return false;
+  }
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+/** Per-tube fall trajectory. Each tube launches outward + upward then
+ *  arcs down on its own path with independent rotation. Deterministic
+ *  per-index so tests + SSR stay stable (no Math.random). */
+function buildTubeTrajectory(index: number, count: number) {
+  const seed = (index * 7919 + 104729) % 233280;
+  const r1 = seed / 233280;
+  const r2 = ((seed * 11) % 233280) / 233280;
+  const r3 = ((seed * 17) % 233280) / 233280;
+
+  // Spread tubes left + right of the centrifuge. Center tubes go
+  // mostly straight up, outer tubes fan out further sideways. Range
+  // about plus or minus 140px horizontally.
+  const horizontal =
+    ((index - (count - 1) / 2) / Math.max(1, count - 1)) * 220 + (r1 - 0.5) * 40;
+  // Rotation: alternating direction, magnitude jitter so they spin
+  // chaotically not in lockstep.
+  const rotateTo = (index % 2 === 0 ? 1 : -1) * (270 + r2 * 360);
+  // Stagger start delay slightly so they don't fire in perfect sync.
+  const delayMs = index * 25 + r3 * 40;
+  // Vertical drop target after the arc.
+  const fallY = 35 + r3 * 15; // vh
+  return { horizontal, rotateTo, delayMs, fallY };
+}
+
+export default function BeakerBotCentrifugeScene({
+  active,
+  onComplete,
+  enterFrom = "left",
+}: BeakerBotCentrifugeSceneProps) {
+  const [mounted, setMounted] = useState(false);
+  const [stage, setStage] = useState<SceneStage>("idle");
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  // onComplete pinned to a ref so the stage-driver effect doesn't
+  // re-fire on every parent re-render that passes a new inline fn.
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  // Portal mount + reduced-motion detection (one-shot client gate).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot SSR to client portal gate + prefers-reduced-motion read, same pattern as BeakerBotTooManyBeakersScene
+    setMounted(true);
+    setPrefersReducedMotion(readsPrefersReducedMotion());
+  }, []);
+
+  // Stage driver: chains setTimeouts through STAGE_ORDER, then fires
+  // onComplete. Reduced-motion mode shortcuts to the static tableau.
+  useEffect(() => {
+    if (!active || !mounted) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset stage when scene deactivates so a re-activation restarts from "walkIn"
+      setStage("idle");
+      return;
+    }
+
+    if (prefersReducedMotion) {
+      setStage("done");
+      const t = window.setTimeout(() => {
+        onCompleteRef.current?.();
+      }, REDUCED_MOTION_DURATION_MS);
+      return () => window.clearTimeout(t);
+    }
+
+    const timers: number[] = [];
+    let elapsed = 0;
+    setStage(STAGE_ORDER[0]);
+    for (let i = 1; i < STAGE_ORDER.length; i++) {
+      const prev = STAGE_ORDER[i - 1];
+      elapsed += STAGE_DURATIONS[prev as keyof typeof STAGE_DURATIONS];
+      const next = STAGE_ORDER[i];
+      const handle = window.setTimeout(() => setStage(next), elapsed);
+      timers.push(handle);
+    }
+    const lastStage = STAGE_ORDER[STAGE_ORDER.length - 1];
+    elapsed += STAGE_DURATIONS[lastStage as keyof typeof STAGE_DURATIONS];
+    const doneHandle = window.setTimeout(() => {
+      setStage("done");
+      onCompleteRef.current?.();
+    }, elapsed);
+    timers.push(doneHandle);
+
+    return () => {
+      for (const t of timers) window.clearTimeout(t);
+    };
+  }, [active, mounted, prefersReducedMotion]);
+
+  // Memoize tube trajectories so a re-render mid-explosion doesn't
+  // recompute (and the falling animation doesn't restart).
+  const tubes = useMemo(
+    () =>
+      TUBE_COLORS.map((color, i) => ({
+        color,
+        ...buildTubeTrajectory(i, TUBE_COLORS.length),
+      })),
+    [],
+  );
+
+  if (!active || !mounted || typeof document === "undefined") {
+    return null;
+  }
+
+  // ---------- Visual transforms per stage ----------
+
+  // Sign convention: enterFrom "left" means BeakerBot starts at -25vw
+  // and exits to +60vw; "right" mirrors that.
+  const sideSign = enterFrom === "left" ? 1 : -1;
+  const offscreenStartVw = -25 * sideSign;
+  const benchPosVw = -2 * sideSign; // settled at bench, slightly off-center
+  const offscreenExitVw = 60 * -sideSign; // exit OPPOSITE side
+
+  let bodyTranslateXVw: number;
+  let bodyTranslateYPx = 0;
+  let bodyRotateDeg = 0;
+  let bodyShakeAmp = 0; // when non-zero, body wobbles
+  let centrifugeTranslateYPx = -12; // held above bench while walking
+  let centrifugeRotateDeg = 0; // tilt for visual variety
+  let centrifugeShakeAmp = 0;
+  let discSpinDeg = 0; // current static rotation; CSS handles spin
+  let discSpinSpeedSec = 0; // animation duration; 0 = stopped
+  let lidPopped = false;
+  let tubesFlying = false;
+  let panelLit = false;
+  let eyeWiden = false;
+  let beakerVisible = true;
+  let centrifugeVisible = true;
+  let centrifugeDented = false;
+  let showAlarmBubble = false; // "!"
+  let showShrugBubble = false; // "..." sweat bead
+
+  switch (stage) {
+    case "walkIn":
+      bodyTranslateXVw = offscreenStartVw + (benchPosVw - offscreenStartVw) * 1;
+      bodyTranslateYPx = -2;
+      break;
+    case "setDown":
+      bodyTranslateXVw = benchPosVw;
+      centrifugeTranslateYPx = 22; // dropped onto bench surface
+      break;
+    case "startSpinning":
+      bodyTranslateXVw = benchPosVw;
+      centrifugeTranslateYPx = 22;
+      discSpinSpeedSec = 0.7; // moderate spin
+      panelLit = true;
+      break;
+    case "outOfControl":
+      bodyTranslateXVw = benchPosVw;
+      centrifugeTranslateYPx = 22;
+      discSpinSpeedSec = 0.18; // much faster
+      centrifugeShakeAmp = 4;
+      bodyShakeAmp = 1.5;
+      panelLit = true;
+      eyeWiden = true;
+      break;
+    case "explosion":
+      bodyTranslateXVw = benchPosVw + 0.5 * sideSign;
+      centrifugeTranslateYPx = 22;
+      discSpinSpeedSec = 0.12;
+      centrifugeShakeAmp = 5;
+      bodyShakeAmp = 2;
+      lidPopped = true;
+      tubesFlying = true;
+      panelLit = true;
+      eyeWiden = true;
+      break;
+    case "reaction":
+      bodyTranslateXVw = benchPosVw + 0.5 * sideSign;
+      centrifugeTranslateYPx = 24; // settles slightly lower (dented)
+      centrifugeRotateDeg = -4 * sideSign;
+      discSpinSpeedSec = 0; // wobbled to a stop
+      tubesFlying = true; // tubes still on the floor
+      eyeWiden = true;
+      showAlarmBubble = true;
+      centrifugeDented = true;
+      break;
+    case "sheepishShrug":
+      bodyTranslateXVw = benchPosVw + 1 * sideSign;
+      centrifugeTranslateYPx = 24;
+      centrifugeRotateDeg = -4 * sideSign;
+      tubesFlying = true;
+      showShrugBubble = true;
+      centrifugeDented = true;
+      break;
+    case "exit":
+      bodyTranslateXVw = offscreenExitVw;
+      bodyTranslateYPx = -1;
+      centrifugeTranslateYPx = 24;
+      centrifugeRotateDeg = -4 * sideSign;
+      tubesFlying = true;
+      centrifugeDented = true;
+      break;
+    case "done":
+    case "idle":
+    default:
+      // Reduced-motion aftermath: bench-side sheepish frame with
+      // tilted dented centrifuge and scattered tubes.
+      bodyTranslateXVw = prefersReducedMotion ? benchPosVw + 1 * sideSign : offscreenStartVw;
+      centrifugeTranslateYPx = 24;
+      centrifugeRotateDeg = prefersReducedMotion ? -8 * sideSign : 0;
+      centrifugeDented = prefersReducedMotion;
+      break;
+  }
+
+  // Reuse existing poses (no new entries in BeakerBotPose union):
+  // walk-in: idle, set-down + start: pointing-down (looking at bench),
+  // outOfControl + explosion + reaction: thinking (closest "uh oh"),
+  // sheepish shrug: pointing-up (arms up like "whoops"),
+  // exit: idle (head down feel via translateY).
+  let pose: "idle" | "pointing-down" | "thinking" | "pointing-up" = "idle";
+  switch (stage) {
+    case "setDown":
+    case "startSpinning":
+      pose = "pointing-down";
+      break;
+    case "outOfControl":
+    case "explosion":
+    case "reaction":
+      pose = "thinking";
+      break;
+    case "sheepishShrug":
+      pose = "pointing-up";
+      break;
+    default:
+      pose = "idle";
+  }
+
+  // CSS transition timing per stage (handles smooth tweening of the
+  // discrete transforms — shake jitter still runs via @keyframes).
+  const transitionMs =
+    stage === "walkIn"
+      ? STAGE_DURATIONS.walkIn
+      : stage === "exit"
+        ? STAGE_DURATIONS.exit
+        : stage === "setDown"
+          ? STAGE_DURATIONS.setDown
+          : 220;
+
+  const isAftermath = prefersReducedMotion && stage === "done";
+
+  return createPortal(
+    <div
+      className="fixed inset-0 pointer-events-none"
+      style={{ zIndex: 800 }}
+      data-testid="beakerbot-centrifuge-scene"
+      data-stage={stage}
+      data-reduced-motion={prefersReducedMotion ? "true" : "false"}
+      aria-hidden="true"
+    >
+      {/* BeakerBot + held centrifuge wrapper — anchored bottom-center,
+          translated horizontally by stage. */}
+      <div
+        className="absolute"
+        style={{
+          left: "50%",
+          bottom: "8vh",
+          width: "140px",
+          height: "180px",
+          transform: `translateX(calc(-50% + ${bodyTranslateXVw}vw)) translateY(${bodyTranslateYPx}px) rotate(${bodyRotateDeg}deg)`,
+          transformOrigin: "center bottom",
+          transition: `transform ${transitionMs}ms ease-in-out`,
+          animation:
+            bodyShakeAmp > 0
+              ? `bb-centrifuge-shake ${bodyShakeAmp > 1.5 ? "70ms" : "100ms"} ease-in-out infinite`
+              : undefined,
+        }}
+        data-testid="beakerbot-body"
+      >
+        {/* Centrifuge — slightly off-center (toward BeakerBot's hands
+            during walkIn, then settled on bench from setDown onward).
+            We render it INSIDE the body wrapper so the walk-in carries
+            it along; once setDown happens the centrifuge's translateY
+            handles "set on bench" while the body stays put. */}
+        {centrifugeVisible && (
+          <div
+            className="absolute left-1/2"
+            style={{
+              top: "10px",
+              transform: `translateX(-50%) translateY(${centrifugeTranslateYPx}px) rotate(${centrifugeRotateDeg}deg)`,
+              transformOrigin: "center bottom",
+              transition: `transform ${transitionMs}ms ease-out`,
+              animation:
+                centrifugeShakeAmp > 0
+                  ? `bb-centrifuge-jump ${centrifugeShakeAmp > 4.5 ? "60ms" : "90ms"} ease-in-out infinite`
+                  : undefined,
+              willChange: "transform",
+            }}
+            data-testid="centrifuge"
+          >
+            <CentrifugeGlyph
+              discSpinSpeedSec={discSpinSpeedSec}
+              lidPopped={lidPopped}
+              panelLit={panelLit}
+              dented={centrifugeDented}
+            />
+          </div>
+        )}
+
+        {/* BeakerBot himself */}
+        {beakerVisible && (
+          <div
+            className="absolute left-1/2"
+            style={{
+              bottom: 0,
+              transform: `translateX(-50%)`,
+              width: "80px",
+              height: "80px",
+              transition: "transform 220ms ease-out",
+            }}
+          >
+            <BeakerBot
+              pose={pose}
+              className="w-20 h-20 text-sky-500"
+              ariaLabel="BeakerBot operating a centrifuge"
+            />
+            {/* Eye-widen overlay — same trick as BugStompScene: a
+                stacked BeakerBot at slightly larger scale, semi-
+                transparent, only visible during the "uh oh" stages. */}
+            {eyeWiden && (
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  transform: "scale(1.08)",
+                  transformOrigin: "center 30%",
+                  opacity: 0.55,
+                  transition: "opacity 200ms ease-out",
+                }}
+                data-testid="eye-widen-overlay"
+              >
+                <BeakerBot
+                  pose={pose}
+                  className="w-20 h-20 text-sky-500"
+                  ariaLabel=""
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Alarm "!" bubble — fires during the reaction stage. */}
+        {showAlarmBubble && (
+          <div
+            className="absolute left-1/2 text-red-600"
+            style={{
+              top: "-22px",
+              transform: "translateX(-50%)",
+              animation: "bb-centrifuge-bubble 500ms ease-out",
+            }}
+            data-testid="alarm-bubble"
+          >
+            <div className="relative rounded-2xl bg-white px-3 py-1 shadow-md border border-red-200">
+              <span
+                className="text-base font-extrabold whitespace-nowrap leading-none"
+                style={{ color: "currentColor" }}
+              >
+                !
+              </span>
+              {/* Tail */}
+              <div
+                className="absolute left-1/2"
+                style={{
+                  bottom: "-5px",
+                  transform: "translateX(-50%) rotate(45deg)",
+                  width: "8px",
+                  height: "8px",
+                  background: "white",
+                  borderRight: "1px solid rgb(254 202 202)",
+                  borderBottom: "1px solid rgb(254 202 202)",
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Shrug bubble + sweat bead — fires during sheepish shrug. */}
+        {showShrugBubble && (
+          <div
+            className="absolute left-1/2 text-sky-700"
+            style={{
+              top: "-22px",
+              transform: "translateX(-50%)",
+              animation: "bb-centrifuge-bubble 600ms ease-out",
+            }}
+            data-testid="shrug-bubble"
+          >
+            <div className="relative rounded-2xl bg-white px-3 py-1 shadow-md border border-sky-200">
+              <span
+                className="text-xs font-semibold whitespace-nowrap"
+                style={{ color: "currentColor" }}
+              >
+                ...
+              </span>
+              <div
+                className="absolute left-1/2"
+                style={{
+                  bottom: "-5px",
+                  transform: "translateX(-50%) rotate(45deg)",
+                  width: "8px",
+                  height: "8px",
+                  background: "white",
+                  borderRight: "1px solid rgb(186 230 253)",
+                  borderBottom: "1px solid rgb(186 230 253)",
+                }}
+              />
+            </div>
+            {/* Sweat bead */}
+            <svg
+              className="absolute"
+              style={{ top: "-2px", right: "-10px" }}
+              width="10"
+              height="14"
+              viewBox="0 0 10 14"
+              fill="none"
+            >
+              <path
+                d="M5 1 C 5 1, 1 7, 1 10 A 4 4 0 0 0 9 10 C 9 7, 5 1, 5 1 Z"
+                fill="#A6D2F4"
+                stroke="#6FB5E8"
+                strokeWidth="0.8"
+              />
+            </svg>
+          </div>
+        )}
+      </div>
+
+      {/* Flying sample tubes — render once the explosion fires. Each
+          tube launches from the centrifuge position on its own
+          trajectory via CSS keyframes (driven by --bb-fall-* custom
+          properties — same pattern as the BeakerBot beaker scene). */}
+      {tubesFlying && !isAftermath && (
+        <div
+          className="absolute"
+          style={{
+            left: "50%",
+            bottom: "8vh",
+            transform: `translateX(calc(-50% + ${benchPosVw}vw))`,
+          }}
+          data-testid="flying-tubes"
+        >
+          {tubes.map((t, i) => (
+            <FlyingTube
+              key={i}
+              index={i}
+              color={t.color}
+              horizontalPx={t.horizontal}
+              rotateToDeg={t.rotateTo}
+              delayMs={t.delayMs}
+              fallYVh={t.fallY}
+            />
+          ))}
+          {/* Liquid splatter sparkles on the floor — tiny colored
+              droplets scattered around where the tubes land. */}
+          <SplatterField tubes={tubes} />
+        </div>
+      )}
+
+      {/* Reduced-motion aftermath: sheepish BeakerBot + tilted dented
+          centrifuge + scattered tubes around bench. */}
+      {isAftermath && (
+        <div
+          className="absolute"
+          style={{
+            left: "50%",
+            bottom: "8vh",
+            transform: `translateX(calc(-50% + ${benchPosVw}vw))`,
+            display: "flex",
+            gap: "16px",
+            alignItems: "flex-end",
+          }}
+          data-testid="aftermath-scattered"
+        >
+          {tubes.map((t, i) => (
+            <div
+              key={i}
+              style={{
+                transform: `rotate(${(i % 2 === 0 ? -1 : 1) * (50 + i * 10)}deg)`,
+                transformOrigin: "bottom center",
+                opacity: 0.85,
+              }}
+            >
+              <TubeGlyph color={t.color} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Scoped keyframes — colocated to keep the component self-
+          contained (no Tailwind config edits). */}
+      <style>{`
+        @keyframes bb-centrifuge-disc-spin {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
+        }
+        @keyframes bb-centrifuge-shake {
+          0%, 100% { transform: translate(0, 0); }
+          25%      { transform: translate(1px, -1px); }
+          50%      { transform: translate(-1px, 1px); }
+          75%      { transform: translate(1px, 1px); }
+        }
+        @keyframes bb-centrifuge-jump {
+          0%, 100% { transform: translateX(-50%) translateY(var(--bb-cf-y, 22px)) rotate(0deg); }
+          25%      { transform: translateX(-50%) translateY(calc(var(--bb-cf-y, 22px) - 4px)) rotate(-2deg); }
+          50%      { transform: translateX(-50%) translateY(var(--bb-cf-y, 22px)) rotate(2deg); }
+          75%      { transform: translateX(-50%) translateY(calc(var(--bb-cf-y, 22px) - 3px)) rotate(-1deg); }
+        }
+        @keyframes bb-centrifuge-bubble {
+          0%   { opacity: 0; transform: translateX(-50%) translateY(6px) scale(0.85); }
+          30%  { opacity: 1; transform: translateX(-50%) translateY(0) scale(1.1); }
+          100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+        }
+        @keyframes bb-centrifuge-tube-fly {
+          0% {
+            transform: translate(0, 0) rotate(0deg);
+            opacity: 1;
+          }
+          30% {
+            transform: translate(calc(var(--bb-fall-x, 0px) * 0.6), -20vh)
+              rotate(calc(var(--bb-fall-rot, 360deg) * 0.4));
+            opacity: 1;
+          }
+          85% {
+            transform: translate(var(--bb-fall-x, 0px), var(--bb-fall-y, 35vh))
+              rotate(var(--bb-fall-rot, 360deg));
+            opacity: 1;
+          }
+          100% {
+            transform: translate(var(--bb-fall-x, 0px), var(--bb-fall-y, 35vh))
+              rotate(var(--bb-fall-rot, 360deg)) scale(0.7);
+            opacity: 0;
+          }
+        }
+        @keyframes bb-centrifuge-splatter {
+          0%   { opacity: 0; transform: translate(var(--bb-sp-x, 0), -20px) scale(0.4); }
+          60%  { opacity: 0.9; transform: translate(var(--bb-sp-x, 0), var(--bb-sp-y, 20px)) scale(1); }
+          100% { opacity: 0.7; transform: translate(var(--bb-sp-x, 0), var(--bb-sp-y, 20px)) scale(1); }
+        }
+      `}</style>
+    </div>,
+    document.body,
+  );
+}
+
+// --------------------------------------------------------------------
+// Subcomponents
+// --------------------------------------------------------------------
+
+interface CentrifugeGlyphProps {
+  discSpinSpeedSec: number;
+  lidPopped: boolean;
+  panelLit: boolean;
+  dented: boolean;
+}
+
+/** Centrifuge SVG: gray/silver base (50x35 rect), rounded lid (40x10
+ *  ellipse on top), inner disc (24x24 with 4 tube-slot dots at 0/90/
+ *  180/270 degrees), control panel band with 2 dots that "light up"
+ *  when running. Lid pops upward when `lidPopped`. */
+function CentrifugeGlyph({
+  discSpinSpeedSec,
+  lidPopped,
+  panelLit,
+  dented,
+}: CentrifugeGlyphProps) {
+  return (
+    <svg
+      viewBox="0 0 60 60"
+      width="68"
+      height="68"
+      fill="none"
+      aria-hidden="true"
+      data-testid="centrifuge-svg"
+    >
+      {/* Base body (50x35 rect, rounded corners) */}
+      <rect
+        x="5"
+        y="20"
+        width="50"
+        height="35"
+        rx="4"
+        ry="4"
+        fill="#CBD5E1"
+        stroke="#475569"
+        strokeWidth="1.2"
+      />
+      {/* Bench shadow stripe under the centrifuge */}
+      <ellipse cx="30" cy="55" rx="26" ry="2" fill="#1e293b" opacity="0.18" />
+      {/* Inner disc well (recessed darker area) */}
+      <ellipse cx="30" cy="32" rx="13" ry="13" fill="#94A3B8" stroke="#475569" strokeWidth="0.8" />
+      {/* Spinning disc — group rotates via CSS animation when speed > 0. */}
+      <g
+        style={{
+          transformOrigin: "30px 32px",
+          animation:
+            discSpinSpeedSec > 0
+              ? `bb-centrifuge-disc-spin ${discSpinSpeedSec}s linear infinite`
+              : undefined,
+        }}
+        data-testid="centrifuge-disc"
+      >
+        {/* Inner disc circle */}
+        <circle cx="30" cy="32" r="11" fill="#E2E8F0" stroke="#475569" strokeWidth="0.8" />
+        {/* 4 tube-slot dots at 0/90/180/270 — visual cue the disc is
+            actually spinning even at moderate speeds. */}
+        <circle cx="30" cy="23" r="2" fill="#475569" />
+        <circle cx="39" cy="32" r="2" fill="#475569" />
+        <circle cx="30" cy="41" r="2" fill="#475569" />
+        <circle cx="21" cy="32" r="2" fill="#475569" />
+        {/* Spoke marker so the rotation reads even when blurred. */}
+        <line x1="30" y1="32" x2="30" y2="22" stroke="#0F172A" strokeWidth="1" />
+      </g>
+      {/* Control panel band — 2 dots that light up red/green when
+          running. Dim gray when stopped. */}
+      <rect x="9" y="44" width="42" height="7" rx="1.5" fill="#1e293b" />
+      <circle cx="14" cy="47.5" r="1.6" fill={panelLit ? "#22c55e" : "#475569"} />
+      <circle cx="20" cy="47.5" r="1.6" fill={panelLit ? "#ef4444" : "#475569"} />
+      {/* Tiny progress slats next to the dots */}
+      <rect x="26" y="46" width="20" height="1" fill={panelLit ? "#a7f3d0" : "#475569"} opacity="0.7" />
+      <rect x="26" y="48.5" width="14" height="1" fill={panelLit ? "#a7f3d0" : "#475569"} opacity="0.5" />
+      {/* Lid (rounded ellipse on top). Pops upward + tilts when
+          lidPopped. transform: translate so it stays attached visually
+          to the base when closed. */}
+      <g
+        style={{
+          transformOrigin: "30px 20px",
+          transform: lidPopped ? "translateY(-22px) rotate(-25deg)" : "translateY(0) rotate(0deg)",
+          transition: "transform 320ms cubic-bezier(0.4, 0, 0.7, 1.2)",
+        }}
+        data-testid="centrifuge-lid"
+      >
+        <ellipse
+          cx="30"
+          cy="18"
+          rx="22"
+          ry="5"
+          fill="#94A3B8"
+          stroke="#475569"
+          strokeWidth="1.2"
+        />
+        {/* Lid handle nub */}
+        <rect x="27" y="13" width="6" height="3" rx="1" fill="#475569" />
+      </g>
+      {/* Loose nuts / bolts — only when dented. Small circles +
+          a tiny stroke "crack" line on the side for slapstick polish. */}
+      {dented && (
+        <g data-testid="centrifuge-dent">
+          <circle cx="9" cy="40" r="1.2" fill="#475569" />
+          <circle cx="52" cy="40" r="1.2" fill="#475569" />
+          <path d="M 50 25 L 53 28 L 50 30" stroke="#1e293b" strokeWidth="1" fill="none" />
+        </g>
+      )}
+    </svg>
+  );
+}
+
+interface FlyingTubeProps {
+  index: number;
+  color: string;
+  horizontalPx: number;
+  rotateToDeg: number;
+  delayMs: number;
+  fallYVh: number;
+}
+
+/** Sample tube mid-flight: thin vertical pill (3x14 base), drives a
+ *  one-shot keyframe animation that arcs up-and-out then falls. CSS
+ *  custom properties carry the trajectory so a single @keyframes block
+ *  covers every tube. */
+function FlyingTube({
+  index,
+  color,
+  horizontalPx,
+  rotateToDeg,
+  delayMs,
+  fallYVh,
+}: FlyingTubeProps) {
+  return (
+    <div
+      className="absolute left-1/2"
+      style={{
+        top: "-18px",
+        transform: "translateX(-50%)",
+        width: "10px",
+        height: "26px",
+        ["--bb-fall-x" as string]: `${horizontalPx}px`,
+        ["--bb-fall-y" as string]: `${fallYVh}vh`,
+        ["--bb-fall-rot" as string]: `${rotateToDeg}deg`,
+        animation: `bb-centrifuge-tube-fly 900ms ease-in ${delayMs}ms forwards`,
+      }}
+      data-testid={`flying-tube-${index}`}
+    >
+      <TubeGlyph color={color} />
+    </div>
+  );
+}
+
+/** Static sample-tube glyph: thin vertical pill, colored liquid in
+ *  the lower portion, dark cap on top. Used both for flying tubes and
+ *  the reduced-motion aftermath scatter. */
+function TubeGlyph({ color }: { color: string }) {
+  return (
+    <svg viewBox="0 0 8 24" width="100%" height="100%" fill="none">
+      {/* Outer pill shape — white backing */}
+      <path d="M 1.5 2 L 1.5 19 A 2.5 4 0 0 0 6.5 19 L 6.5 2 Z" fill="white" />
+      {/* Colored liquid in lower portion */}
+      <path d="M 1.5 11 L 1.5 19 A 2.5 4 0 0 0 6.5 19 L 6.5 11 Z" fill={color} />
+      {/* Outline */}
+      <path
+        d="M 1.5 2 L 1.5 19 A 2.5 4 0 0 0 6.5 19 L 6.5 2"
+        stroke="#475569"
+        strokeWidth="0.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      {/* Cap */}
+      <rect x="1" y="1" width="6" height="2.5" rx="0.8" fill="#475569" />
+    </svg>
+  );
+}
+
+interface SplatterFieldProps {
+  tubes: ReadonlyArray<{
+    color: string;
+    horizontal: number;
+    rotateTo: number;
+    delayMs: number;
+    fallY: number;
+  }>;
+}
+
+/** A handful of small colored droplets scattered on the floor around
+ *  where the tubes landed. Pure decoration — fades in after the tubes
+ *  arc down so the splatter feels like a consequence of the landing. */
+function SplatterField({ tubes }: SplatterFieldProps) {
+  // Build 3 droplets per tube at random-ish offsets near the landing
+  // point (deterministic so SSR + tests stay stable).
+  const droplets: Array<{
+    color: string;
+    x: number;
+    y: number;
+    size: number;
+    delayMs: number;
+  }> = [];
+  tubes.forEach((t, i) => {
+    for (let k = 0; k < 3; k++) {
+      const seed = (i * 100 + k * 31 + 7) % 233280;
+      const r1 = seed / 233280;
+      const r2 = ((seed * 13) % 233280) / 233280;
+      droplets.push({
+        color: t.color,
+        x: t.horizontal + (r1 - 0.5) * 50,
+        y: (t.fallY + (r2 - 0.5) * 5) * 0.8, // place near landing y
+        size: 3 + r2 * 3,
+        delayMs: t.delayMs + 600 + k * 50,
+      });
+    }
+  });
+
+  return (
+    <div className="absolute left-1/2 top-0" style={{ transform: "translateX(-50%)" }} data-testid="splatter-field">
+      {droplets.map((d, i) => (
+        <div
+          key={i}
+          className="absolute"
+          style={{
+            top: 0,
+            left: 0,
+            width: `${d.size}px`,
+            height: `${d.size}px`,
+            borderRadius: "50%",
+            background: d.color,
+            opacity: 0,
+            ["--bb-sp-x" as string]: `${d.x}px`,
+            ["--bb-sp-y" as string]: `${d.y}vh`,
+            animation: `bb-centrifuge-splatter 800ms ease-out ${d.delayMs}ms forwards`,
+            boxShadow: `0 0 1px rgba(0,0,0,0.15)`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
