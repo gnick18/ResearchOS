@@ -599,7 +599,7 @@ interface EditProjectModalProps {
   onSave: (patch: ProjectUpdate) => Promise<void>;
 }
 
-function EditProjectModal({ project, onClose, onSave }: EditProjectModalProps) {
+export function EditProjectModal({ project, onClose, onSave }: EditProjectModalProps) {
   const [name, setName] = useState(project.name);
   const [tagsText, setTagsText] = useState(project.tags?.join(", ") || "");
   const [color, setColor] = useState(project.color || DEFAULT_COLORS[0]);

@@ -6,12 +6,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { projectsApi, fetchAllTasksIncludingShared, fetchAllProjectsIncludingShared } from "@/lib/local-api";
 import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
-import ProjectDetailPopup from "@/components/ProjectDetailPopup";
+import ProjectCardKebab from "@/components/project-surface/ProjectCardKebab";
 import UserLoginScreen from "@/components/UserLoginScreen";
 import SubTaskProgressDots from "@/components/workbench/SubTaskProgressDots";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useAppStore } from "@/lib/store";
-import type { Project, Task } from "@/lib/types";
+import type { Task } from "@/lib/types";
 
 // Only redirect to the user's default landing tab once per tab/session. If
 // they manually navigate back to "/" later, we respect that.
@@ -46,7 +46,6 @@ export default function HomePage() {
   const [newWeekendActive, setNewWeekendActive] = useState(false);
   const [newTags, setNewTags] = useState("");
   const [newColor, setNewColor] = useState(DEFAULT_COLORS[0]);
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const { currentUser: providerCurrentUser, isLoading: fsLoading } = useFileSystem();
   const currentUser = providerCurrentUser ?? "";
@@ -95,21 +94,21 @@ export default function HomePage() {
     queryFn: fetchAllTasksIncludingShared,
   });
 
-  // Deep-link: `/?openProject=<id>` and `/?openTask=<id>` open the
-  // matching detail popup once the project/task data has loaded, then
-  // strip just that param so a reload doesn't re-trigger. Used by the
-  // Phase-4 tutorial sequencer to land on the home tab with the
-  // `archive-projects` (project popup) or `fullscreen-task` (task
-  // popup) tip targets already in the DOM. Other params (notably
-  // `?tutorial=1`) pass through untouched so the sequencer's gate
-  // stays satisfied.
+  // Deep-link: `/?openTask=<id>` opens the task detail popup once the
+  // task data has loaded, then strips that param so a reload doesn't
+  // re-trigger. Other params (notably `?tutorial=1`) pass through
+  // untouched so the sequencer's gate stays satisfied.
+  //
+  // `?openProject=<id>` previously opened the now-deleted
+  // ProjectDetailPopup; it now navigates to the project route
+  // (/workbench/projects/<id>) which is the canonical place every
+  // project surface lives.
   const searchParams = useSearchParams();
   useEffect(() => {
     if (!searchParams) return;
     const wantsProject = searchParams.get("openProject");
     const wantsTask = searchParams.get("openTask");
     if (!wantsProject && !wantsTask) return;
-    let didOpen = false;
     if (wantsProject) {
       const pid = Number(wantsProject);
       if (Number.isFinite(pid)) {
@@ -117,12 +116,17 @@ export default function HomePage() {
           (p) => p.id === pid && (p.owner ?? currentUser) === currentUser,
         );
         if (match) {
-          // eslint-disable-next-line react-hooks/set-state-in-effect -- deep-link handler: opens popup imperatively once the async-loaded projects/allTasks include the URL-referenced id. Cannot be useMemo (setSelectedProject is a side-effect, not derived state); cannot be useState lazy init (data arrives async after mount).
-          setSelectedProject(match);
-          didOpen = true;
+          const next = new URLSearchParams(searchParams.toString());
+          next.delete("openProject");
+          const ownerSuffix = match.is_shared_with_me
+            ? `?owner=${encodeURIComponent(match.owner)}${next.toString() ? `&${next.toString()}` : ""}`
+            : (next.toString() ? `?${next.toString()}` : "");
+          router.replace(`/workbench/projects/${match.id}${ownerSuffix}`);
+          return;
         }
       }
     }
+    let didOpen = false;
     if (wantsTask) {
       const tid = Number(wantsTask);
       if (Number.isFinite(tid)) {
@@ -130,18 +134,14 @@ export default function HomePage() {
           (t) => t.id === tid && (t.owner ?? currentUser) === currentUser,
         );
         if (match) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- deep-link handler: opens popup imperatively once the async-loaded allTasks include the URL-referenced id. Cannot be useMemo (setSelectedTask is a side-effect, not derived state); cannot be useState lazy init (data arrives async after mount).
           setSelectedTask(match);
           didOpen = true;
         }
       }
     }
-    // Strip only the popup-open params; keep tutorial=1 + anything
-    // else intact. If the data hasn't loaded yet we just leave the
-    // params in place — this effect re-runs as projects/allTasks
-    // populate.
     if (didOpen) {
       const next = new URLSearchParams(searchParams.toString());
-      next.delete("openProject");
       next.delete("openTask");
       const query = next.toString();
       router.replace(query ? `/?${query}` : "/");
@@ -420,7 +420,12 @@ export default function HomePage() {
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, project.id)}
                 onDragEnd={handleDragEnd}
-                onClick={() => setSelectedProject(project)}
+                onClick={() => {
+                  const href = project.is_shared_with_me
+                    ? `/workbench/projects/${project.id}?owner=${encodeURIComponent(project.owner)}`
+                    : `/workbench/projects/${project.id}`;
+                  router.push(href);
+                }}
                 // Onboarding-tip targets: only the first card carries
                 // them so the orchestrator has a single anchor to point
                 // its mascot at. The same card doubles as the
@@ -431,10 +436,11 @@ export default function HomePage() {
                 {...(cardIdx === 0 && {
                   "data-onboarding-target": "drop-to-replace",
                 })}
-                className={`bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer ${
+                className={`group relative bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer ${
                   draggedProjectId === project.id ? "opacity-50 scale-95" : ""
                 } ${dragOverProjectId === project.id ? "ring-2 ring-blue-400 ring-offset-2" : ""}`}
               >
+                <ProjectCardKebab project={project} />
                 {/* Color bar — also doubles as the cross-owner-share +
                     duplicate-upload onboarding anchor on the first card
                     (a separate data attribute per id so the orchestrator
@@ -598,9 +604,15 @@ export default function HomePage() {
                 ({ project, total, completed, displayColor }) => (
                   <div
                     key={`${project.owner}:${project.id}`}
-                    onClick={() => setSelectedProject(project)}
-                    className="bg-gray-50 border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer opacity-75 hover:opacity-100"
+                    onClick={() => {
+                      const href = project.is_shared_with_me
+                        ? `/workbench/projects/${project.id}?owner=${encodeURIComponent(project.owner)}`
+                        : `/workbench/projects/${project.id}`;
+                      router.push(href);
+                    }}
+                    className="group relative bg-gray-50 border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer opacity-75 hover:opacity-100"
                   >
+                    <ProjectCardKebab project={project} />
                     {/* Color bar - muted */}
                     <div className="h-1.5" style={{ backgroundColor: displayColor }} />
 
@@ -683,14 +695,6 @@ export default function HomePage() {
           </div>
         )}
       </div>
-
-      {/* Project Detail Popup */}
-      {selectedProject && (
-        <ProjectDetailPopup
-          project={selectedProject}
-          onClose={() => setSelectedProject(null)}
-        />
-      )}
 
       {/* Task Detail Popup */}
       {selectedTask && (

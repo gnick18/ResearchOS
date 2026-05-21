@@ -1,0 +1,329 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { projectsApi as rawProjectsApi } from "@/lib/local-api";
+import type { ProjectUpdate } from "@/lib/local-api";
+import SharePopup from "@/components/SharePopup";
+import { EditProjectModal } from "@/components/project-surface/ProjectRoute";
+import type { Project } from "@/lib/types";
+
+// Owner-routed mutation api: for shared projects with edit permission,
+// writes go to the OWNER's directory; for own projects, writes go to the
+// current user. Delete is intentionally not owner-routed (only the owner
+// should destroy the file). Mirrors ProjectRoute's effectiveOwnerOf.
+function effectiveEditOwner(project: Project): string | undefined {
+  return project.is_shared_with_me && project.shared_permission === "edit"
+    ? project.owner
+    : undefined;
+}
+
+interface ProjectCardKebabProps {
+  project: Project;
+}
+
+/**
+ * Hover-reveal three-dots menu on the home-page project card. Standard
+ * Linear/Notion-style list-item pattern: hover the card -> kebab appears
+ * in the corner -> click opens dropdown with Edit / Share / Archive /
+ * Delete. Suppressed entirely for the Miscellaneous catch-all (the route
+ * page also hides all four CRUD buttons for it).
+ *
+ * The card itself navigates to the project route on click; the kebab
+ * stops event propagation so kebab clicks don't trigger navigation.
+ */
+export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showSharePopup, setShowSharePopup] = useState(false);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  const isMiscellaneousProject = project.name === "Miscellaneous";
+  const isViewOnlyReceiver =
+    project.is_shared_with_me === true && project.shared_permission === "view";
+  const isAnyReceiver = project.is_shared_with_me === true;
+
+  const projectsApi = useMemo(() => {
+    const owner = effectiveEditOwner(project);
+    return {
+      update: (id: number, data: ProjectUpdate) => rawProjectsApi.update(id, data, owner),
+      archive: (id: number, isArchived: boolean) =>
+        rawProjectsApi.archive(id, isArchived, owner),
+      delete: (id: number) => rawProjectsApi.delete(id),
+    };
+  }, [project]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (!menuRef.current) return;
+      if (!menuRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [open]);
+
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
+
+  const handleArchive = async () => {
+    setArchiving(true);
+    try {
+      await projectsApi.archive(project.id, !project.is_archived);
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["projects"] }),
+        queryClient.refetchQueries({ queryKey: ["tasks"] }),
+      ]);
+    } catch {
+      alert("Failed to update archive state");
+    } finally {
+      setArchiving(false);
+      setShowArchiveConfirm(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await projectsApi.delete(project.id);
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["projects"] }),
+        queryClient.refetchQueries({ queryKey: ["tasks"] }),
+      ]);
+    } catch {
+      alert("Failed to delete project");
+    } finally {
+      setDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
+  // Miscellaneous: route page hides all four CRUD buttons, so the kebab
+  // has nothing to offer either. Suppress entirely.
+  if (isMiscellaneousProject) return null;
+
+  return (
+    <div
+      ref={menuRef}
+      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity z-10"
+      onClick={stop}
+    >
+      <button
+        type="button"
+        onClick={(e) => {
+          stop(e);
+          setOpen((v) => !v);
+        }}
+        aria-label="Project actions"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+      >
+        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+          <circle cx="4" cy="10" r="1.5" />
+          <circle cx="10" cy="10" r="1.5" />
+          <circle cx="16" cy="10" r="1.5" />
+        </svg>
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute top-full right-0 mt-1 w-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50"
+        >
+          <button
+            role="menuitem"
+            disabled={isViewOnlyReceiver}
+            onClick={(e) => {
+              stop(e);
+              setOpen(false);
+              setShowEditModal(true);
+            }}
+            className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${
+              isViewOnlyReceiver
+                ? "text-gray-300 cursor-not-allowed"
+                : "text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            Edit
+          </button>
+          {!project.is_shared_with_me && (
+            <button
+              role="menuitem"
+              onClick={(e) => {
+                stop(e);
+                setOpen(false);
+                setShowSharePopup(true);
+              }}
+              className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              Share
+            </button>
+          )}
+          <button
+            role="menuitem"
+            disabled={isViewOnlyReceiver || archiving}
+            data-onboarding-target={project.is_archived ? undefined : "archive-projects"}
+            onClick={(e) => {
+              stop(e);
+              setOpen(false);
+              if (project.is_archived) {
+                void handleArchive();
+              } else {
+                setShowArchiveConfirm(true);
+              }
+            }}
+            className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${
+              isViewOnlyReceiver
+                ? "text-gray-300 cursor-not-allowed"
+                : "text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            {project.is_archived ? "Unarchive" : "Archive"}
+          </button>
+          <button
+            role="menuitem"
+            disabled={isAnyReceiver || deleting}
+            onClick={(e) => {
+              stop(e);
+              setOpen(false);
+              setShowDeleteConfirm(true);
+            }}
+            className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${
+              isAnyReceiver
+                ? "text-gray-300 cursor-not-allowed"
+                : "text-red-600 hover:bg-red-50"
+            }`}
+          >
+            Delete
+          </button>
+        </div>
+      )}
+
+      {showEditModal && (
+        <EditProjectModal
+          project={project}
+          onClose={() => setShowEditModal(false)}
+          onSave={async (patch) => {
+            await projectsApi.update(project.id, patch);
+            await queryClient.refetchQueries({ queryKey: ["projects"] });
+          }}
+        />
+      )}
+
+      {showSharePopup && (
+        <SharePopup
+          isOpen={showSharePopup}
+          onClose={() => setShowSharePopup(false)}
+          itemType="project"
+          itemId={project.id}
+          itemName={project.name}
+          currentOwner={project.owner}
+          currentSharedWith={project.shared_with || []}
+          onShared={() => queryClient.refetchQueries({ queryKey: ["projects"] })}
+        />
+      )}
+
+      {showArchiveConfirm && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]"
+          onClick={(e) => {
+            stop(e);
+            setShowArchiveConfirm(false);
+          }}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl max-w-sm w-full mx-4 p-6"
+            onClick={stop}
+          >
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Archive project?</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Are you sure you want to archive &quot;{project.name}&quot;?
+            </p>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+              <p className="text-xs text-amber-700">
+                <strong>This will:</strong>
+              </p>
+              <ul className="text-xs text-amber-600 mt-1 list-disc list-inside">
+                <li>Hide the project from the main project list</li>
+                <li>Remove tasks from Gantt chart and task sidebar</li>
+                <li>Prevent adding new tasks to this project</li>
+              </ul>
+              <p className="text-xs text-amber-700 mt-2">
+                <strong>All data will be preserved</strong> and you can unarchive at any time.
+              </p>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={(e) => {
+                  stop(e);
+                  setShowArchiveConfirm(false);
+                }}
+                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={(e) => {
+                  stop(e);
+                  void handleArchive();
+                }}
+                disabled={archiving}
+                className="px-4 py-2 text-sm text-white bg-amber-600 hover:bg-amber-700 rounded-lg disabled:opacity-50"
+              >
+                {archiving ? "Archiving..." : "Archive project"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteConfirm && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]"
+          onClick={(e) => {
+            stop(e);
+            setShowDeleteConfirm(false);
+          }}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl max-w-sm w-full mx-4 p-6"
+            onClick={stop}
+          >
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Delete project?</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to delete &quot;{project.name}&quot;? This will also
+              delete all tasks associated with this project. This action cannot be
+              undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={(e) => {
+                  stop(e);
+                  setShowDeleteConfirm(false);
+                }}
+                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={(e) => {
+                  stop(e);
+                  void handleDelete();
+                }}
+                disabled={deleting}
+                className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50"
+              >
+                {deleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
