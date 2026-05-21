@@ -46,6 +46,7 @@ import { attachImageToTask } from "@/lib/attachments/attach-image";
 import { fileEvents } from "@/lib/attachments/file-events";
 import { stripAttachmentReferences } from "@/lib/attachments/strip-references";
 import { imageEvents } from "@/lib/attachments/image-events";
+import { recordProjectActivity } from "@/lib/project-activity/event-log";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 interface TaskDetailPopupProps {
@@ -219,6 +220,20 @@ export default function TaskDetailPopup({
         const detail = { basePath: tabRoot, relativePath: `${folder}/${finalName}` };
         if (isImage) imageEvents.emitAttached(detail);
         else fileEvents.emitAttached(detail);
+        if (isImage && task.project_id !== 0) {
+          void recordProjectActivity(
+            task.external_project?.owner ?? task.owner,
+            task.project_id,
+            {
+              type: "image_added",
+              image_name: finalName,
+              surface: lastEditorTab === "results" ? "task_results" : "task_notes",
+              task_id: task.id,
+              task_owner: task.owner,
+              task_name: task.name,
+            }
+          );
+        }
         landed.push(finalName);
       };
 
@@ -283,7 +298,16 @@ export default function TaskDetailPopup({
         window.setTimeout(() => setUniversalDropToast(null), 3000);
       }
     },
-    [lastEditorTab, popupBasePath, resolveUniversalDuplicates]
+    [
+      lastEditorTab,
+      popupBasePath,
+      resolveUniversalDuplicates,
+      task.id,
+      task.name,
+      task.owner,
+      task.project_id,
+      task.external_project,
+    ]
   );
 
   // Get the selected animation type from the store

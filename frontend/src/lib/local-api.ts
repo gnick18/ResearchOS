@@ -1,5 +1,6 @@
 import { JsonStore, getPublicStore, getLabStore, getCurrentUserCached, clearCurrentUserCache } from "./storage/json-store";
 import { fileService } from "./file-system/file-service";
+import { recordProjectActivity } from "./project-activity/event-log";
 import { getCurrentUser, getMainUser, storeCurrentUser, storeMainUser, clearCurrentUser, clearMainUser } from "./file-system/indexeddb-store";
 import { shiftTask } from "./engine/shift";
 import { formatDate, parseDate } from "./engine/dates";
@@ -211,9 +212,13 @@ export const projectsApi = {
   archive: async (id: number, isArchived: boolean, owner?: string): Promise<Project | null> => {
     const archivedAt = isArchived ? new Date().toISOString() : null;
     const patch = { is_archived: isArchived, archived_at: archivedAt };
-    return owner
-      ? projectsStore.updateForUser(id, patch, owner)
-      : projectsStore.update(id, patch);
+    const result = owner
+      ? await projectsStore.updateForUser(id, patch, owner)
+      : await projectsStore.update(id, patch);
+    if (result) {
+      void recordProjectActivity(result.owner, id, { type: "project_archived", archived: isArchived });
+    }
+    return result;
   },
 
   /**
@@ -253,6 +258,7 @@ export const projectsApi = {
     await fileService.ensureDir(`users/${effectiveOwner}/projects`);
     const path = `users/${effectiveOwner}/projects/${id}-overview.md`;
     await fileService.writeText(path, body);
+    void recordProjectActivity(effectiveOwner, id, { type: "prose_edited" });
   },
 
   listHostedTasks: async (
@@ -545,7 +551,62 @@ export const tasksApi = {
       );
     }
 
-    return updateTaskForCaller(id, writePatch, owner);
+    const result = await updateTaskForCaller(id, writePatch, owner);
+
+    // Project activity emissions (best-effort). For tasks hosted INTO a
+    // foreign project (Option C), the activity log lives in the foreign
+    // project owner's directory, not the task owner's. Native tasks (no
+    // external_project) have project_owner === task.owner.
+    if (result && result.project_id !== 0) {
+      const projectOwner =
+        result.external_project?.owner ?? result.owner;
+      if (data.is_complete === true && !existing.is_complete) {
+        void recordProjectActivity(projectOwner, result.project_id, {
+          type: "task_completed",
+          task_id: result.id,
+          task_owner: result.owner,
+          task_name: result.name,
+        });
+      }
+      if (writePatch.method_attachments !== undefined) {
+        const before = new Map(
+          (existing.method_attachments ?? []).map(
+            (a) => [`${a.owner ?? ""}:${a.method_id}`, a] as const
+          )
+        );
+        const after = new Map(
+          (writePatch.method_attachments ?? []).map(
+            (a) => [`${a.owner ?? ""}:${a.method_id}`, a] as const
+          )
+        );
+        for (const [key, a] of after) {
+          if (!before.has(key)) {
+            void recordProjectActivity(projectOwner, result.project_id, {
+              type: "method_added",
+              task_id: result.id,
+              task_owner: result.owner,
+              task_name: result.name,
+              method_id: a.method_id,
+              method_owner: a.owner,
+            });
+          }
+        }
+        for (const [key, a] of before) {
+          if (!after.has(key)) {
+            void recordProjectActivity(projectOwner, result.project_id, {
+              type: "method_removed",
+              task_id: result.id,
+              task_owner: result.owner,
+              task_name: result.name,
+              method_id: a.method_id,
+              method_owner: a.owner,
+            });
+          }
+        }
+      }
+    }
+
+    return result;
   },
 
   // Note: delete is intentionally not owner-routed — only the task's owner
@@ -3456,6 +3517,11 @@ export const sharingApi = {
       { id: projectId, owner: currentUser, permission, shared_at: new Date().toISOString() },
       project.name
     );
+    void recordProjectActivity(currentUser, projectId, {
+      type: "project_shared",
+      recipient: data.username,
+      permission: permission as "view" | "edit",
+    });
     return { status: "ok", item_id: projectId, shared_with: data.username, permission };
   },
 
