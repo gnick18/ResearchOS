@@ -303,6 +303,66 @@ From QA persona 12 (Workbench panel) exploration. Locked-in design calls so futu
   - List parent-task checkbox does not cascade to sub-tasks.
   - Same-day-completed list task buckets into Earlier instead of Recently done.
 
+### Onboarding v3: canonical wizard flow (2026-05-20)
+
+Both v1 (tip catalog plus tutorial sequencer) and v2 (use-case to tab mapper) shipped fully on `main` and were then deleted by the P7 deprecation sweep (commits `ce59cef1` and `8ce3510f`) plus the P8 invisibility integration test (`a07a58ba`). v3 replaces them with a single modal wizard that mounts once for fresh users and stays out of the way for everyone else. **QA dispatches that script against v1 / v2 affordances (a tip catalog, a 3-radio mode picker, per-tip `DevForceTipButton` fire, the `/demo?tutorial=1` slideshow, the 3-button welcome modal) are testing features that no longer ship.** Rewrite the recipe against the wizard before dispatching.
+
+**Where the v3 surface lives:**
+
+- `frontend/src/components/onboarding/v3/`: `WizardMount.tsx` (gate + sidecar I/O), `OnboardingWizardV3.tsx` (shell), `WizardStepMachine.ts` (pure step graph + gating predicates), `WizardResumeModal.tsx` (mid-walkthrough Resume / Restart / Discard prompt), `LabTourResumePrompt.tsx` (deferred-entry trigger for users who picked "Later" at lab-prompt).
+- `frontend/src/components/onboarding/v3/steps/setup/`: `WelcomeStep`, `Q1AccountTypeStep`, `Q1aLabStorageStep`, `Q1bLabConnectInfoStep`, `Q2PurchasesStep`, `Q3CalendarStep`, `Q4GoalsStep`, `Q5TelegramStep`, `Q6AiHelperStep`, plus `RadioCard.tsx` and `feature-picks-init.ts`.
+- `frontend/src/components/onboarding/v3/steps/walkthrough/`: `W1CreateProjectStep` through `W14AiHelperStep`. W1 through W9 always run; W10 through W14 are gated on the matching feature pick.
+- `frontend/src/components/onboarding/v3/steps/lab/`: `LabPromptStep` plus `L1WhatIsLabMode` through `L11BeakerBotCleanupOption`. Run only when `account_type === "lab"` and the user picked "Take Lab tour now" at the prompt.
+- `frontend/src/components/onboarding/v3/steps/cleanup/`: `Phase4CleanupStep.tsx` plus `cleanup-execution.ts`. Final grid and the "I've got it from here" routing path (P4).
+- `frontend/src/lib/onboarding/sidecar.ts`: v4 schema fields `feature_picks`, `wizard_completed_at`, `wizard_skipped_at`, `wizard_force_show`, `wizard_resume_state`, `lab_tour_pending`, `lab_tour_dismissed_at`.
+- `frontend/src/lib/onboarding/orchestrator.tsx`: thin React context exposing `skipWizard`, `completeWizard`, `jumpToStep`. The orchestrator no longer carries a tip catalog or an active-time ticker; it just wraps children and mounts `<WizardMount>`.
+- `frontend/src/lib/onboarding/is-fresh-user.ts`: the §11 freshness probe (no `_user_metadata` mainUser AND no completed-or-skipped flag on the sidecar).
+
+**Step sequence** (the `FULL_STEP_ORDER` constant in `WizardStepMachine.ts`):
+
+`intro` → `setup-q1` (account type) → `setup-q1a`, `setup-q1b` (lab branch only) → `setup-q2` (purchases) → `setup-q3` (calendar) → `setup-q4` (goals) → `setup-q5` (telegram) → `setup-q6` (AI helper) → `W1` (create project) → `W2` (create method) → `W3` (create experiment) → `W4` (link method to experiment) → `W5` (hybrid editor tour) → `W6` (personalization) → `W7` (search tour) → `W8` (notifications tour) → `W9` (wiki pointer) → `W10` (purchases tour, gated on `picks.purchases === "yes"`) → `W11` (goals tour, gated on `goals === "yes"`) → `W12` (telegram with image, gated on `telegram === "yes"`) → `W13` (calendar tour, gated on `calendar === "yes"`) → `W14` (AI helper, gated on `ai_helper` in {full, medium, minimal}) → `lab-prompt` (lab only) → `L1`..`L11` (lab only AND not opted out via Later / Dismiss) → `phase4-cleanup`.
+
+All gating lives in `isStepSkippedByGate`. `getNextStep` and `getPreviousStep` walk the full order and filter through the same predicate, so the wizard never lands on a step that does not apply.
+
+**Mount-precedence truth table** (LOCKED in `orchestrator.tsx` plus `WizardMount.tsx`, four-state):
+
+1. `?wikiCapture=1` alone: fixture mode, wizard HIDDEN. Orchestrator returns children-only.
+2. `?wizard-preview=1` alone: real account, wizard ALWAYS shown. Dev / wiki-screenshot hook; bypasses the §11 gate.
+3. `?wikiCapture=1&wizard-preview=1`: fixture mode WITH wizard shown. P6 wiki-manager screenshot path.
+4. Neither flag: standard §11 fresh-user gate.
+
+**§11 fresh-user gate** (all required for auto-mount):
+
+1. `_user_metadata` has no mainUser for the active username (verified by `isFreshUserForWizard`).
+2. `_onboarding.json` is absent OR has no `wizard_completed_at` and no `wizard_skipped_at`.
+3. UNLESS `wizard_force_show === true`, which short-circuits the gate. Settings re-run and `DevForceTipButton` both flip this flag.
+
+**Existing-user invisibility** (P8 invariant): any pre-v4 sidecar normalizes with `feature_picks = null` AND `wizard_force_show = false`. The wizard does NOT auto-mount for an existing user without an explicit opt-in. Integration test at `frontend/src/components/onboarding/v3/__tests__/WizardMount.invisibility.test.tsx`.
+
+**Settings "Re-run welcome tour"** ([frontend/src/app/settings/page.tsx:2334](frontend/src/app/settings/page.tsx), `TipsSection`): one button. Click calls `clearWizardCompletion(currentUser)` (clears completed / skipped / resume-state and flips `wizard_force_show = true`), shows a 600ms confirm, reloads. The legacy 3-radio mode picker (tutorial / suggestions / silenced) and the "Replay tips" button were removed by P0.
+
+**DevForceTipButton** ([frontend/src/components/DevForceTipButton.tsx](frontend/src/components/DevForceTipButton.tsx), `IS_DEV` gated): no longer fires individual tips. The dropdown exposes three actions:
+
+1. **Mount wizard at <step>**: select any id from `ALL_STEP_IDS`, call `orchestrator.jumpToStep(step)` (which writes `wizard_force_show = true` plus a resume_state pointing at the chosen step), reload. The wizard auto-mounts at the chosen step on next render.
+2. **Reset wizard state (current user)**: nukes `feature_picks`, completed, skipped, resume, and force-show on the current user's sidecar so the wizard re-runs from scratch.
+3. **Show welcome wizard (creates Test user)**: spawns a fresh `Test-N` sandbox user (`nextTestUserName`), force-shows the wizard on the new user's sidecar, swaps the active user. Same path the v2 sandbox button used; only the mounted shell changed.
+
+**Resume modal** (P5, `WizardResumeModal.tsx`): when the sidecar carries a non-null `wizard_resume_state` and the wizard would otherwise mount, the resume modal renders in front of the wizard shell. Three buttons: Resume (mount at the saved step), Restart (mount at `intro`, clear resume state), Discard (write `wizard_skipped_at = now`, do not mount this session). Resolves once per session via `modalResolved`.
+
+**Lab tour deferred entry** (P3b, `LabTourResumePrompt.tsx`): a user who picked "Later" at `lab-prompt` (so `lab_tour_pending = true`) is re-prompted on natural Lab Mode entry (route to `/lab`). The prompt offers Resume / Dismiss; Dismiss writes `lab_tour_dismissed_at`, which is terminal per L18 (no further auto-prompts).
+
+**What got deleted in P7** (so future readers do not go looking for it):
+
+- `frontend/src/lib/onboarding/tips.ts` (v1 11-tip catalog, deleted in `ce59cef1`).
+- `frontend/src/components/OnboardingTipCard.tsx` (v1 tip card UI, cascade-deleted because its only consumer was the tutorial sequencer).
+- `frontend/src/components/OnboardingTutorialSequencer.tsx` (v1 `/demo?tutorial=1` slideshow, deleted in `8ce3510f`).
+- `frontend/src/components/OnboardingWelcomeModal.tsx` (v1 3-button welcome modal: tutorial / suggestions / silenced).
+- `frontend/src/lib/onboarding/use-case-tab-mapping.ts` plus its test file (v2 use-case to tab mapping; v3 successor is `frontend/src/lib/onboarding/feature-picks-tabs.ts`).
+- `frontend/src/lib/onboarding/wizard-tip-marking.ts` plus its test file (P7 placeholder gutted by P0).
+- The Settings 3-radio mode picker, the "Replay tips" button, the active-engagement-time ticker, and the per-tip force-fire affordance no longer exist anywhere in the tree.
+
+---
+
 - README revamp with hosted-URL + Telegram + calendar sections.
 - Drag-to-trash double-delete fix + middle-state image-ref migration persistence.
 - Image strip + scroll-to-image, sticky in non-fullscreen.
@@ -617,159 +677,7 @@ Fix in [BeakerBot.tsx](frontend/src/components/BeakerBot.tsx): added an opaque w
 
 Also refactored [DevForceTipButton.tsx](frontend/src/components/DevForceTipButton.tsx) to render `<BeakerBot pose="idle" noLiquid />` instead of inlining a duplicate copy of the beaker silhouette path. The duplication had drifted (the inline copy never picked up the white-fill change); using the actual component means future mascot tweaks propagate automatically. `noLiquid` keeps the dev-button icon monochrome at 20px.
 
-Was meant to be done by a sub-bot (`a2603c0a0a131a722`) but the API rate limit cut the bot off before it committed anything (its branch was empty). Did inline as a focused single-pass change. Single commit `5141b6bf`. 150/150 tests pass; typecheck EXIT 0. All 4 BeakerBot usages benefit transparently (tip card, welcome modal, lab-mode picker tip, tutorial sequencer card).
-
----
-
-### Recently landed (2026-05-15 — onboarding tips Phase 4: guided tutorial tour as a slideshow in the demo lab)
-
-Reworks the "Walk me through it" mode-pick from the post-Phase-3 "fast suggestions" hack (60s gap + force-fire on highest-priority each tick) into a proper guided slideshow. Welcome-modal click now opens `/demo?tutorial=1` in a NEW TAB; the user's real folder tab keeps the persisted `mode: "tutorial"` flag but the actual walkthrough runs against the demo lab's seeded fixtures so popup-gated tips have valid targets. Closes Grant's "the current Tutorial mode is NOT what I want" course-correct.
-
-**The shape:**
-
-- **Welcome-modal tutorial click → `window.open("/demo?tutorial=1", "_blank", "noopener")` + `onPick("tutorial")`.** Synchronous order keeps popup-blockers happy (no async setState before the open call). The user's current tab unmounts the welcome modal as the orchestrator's setMode flow runs; the new tab lands on `/demo` with the fixture and the tutorial flag.
-- **`OnboardingProvider` carve-out**: when `isDemoOrWikiCapture() && isTutorialMode()`, mounts `<OnboardingTutorialSequencer>` instead of pass-through. Plain demo (no `?tutorial=1`) still pass-through — public-demo + screenshots see no tips.
-- **`isTutorialMode()` helper** added to `wiki-capture-mock.ts` — SSR-safe URL-param check, mirrors `isDemoOrWikiCapture()`'s shape.
-- **`<OnboardingTutorialSequencer>`** (new, ~250 LOC) walks `ONBOARDING_TIPS` in priority order. Per tip: `router.push` to the tip's route + popup-open deep-link (preserving `?tutorial=1`), poll DOM up to 3s for the data-attr target, render `<OnboardingTipCard>` with tutorial controls. After last tip OR End: end-screen with BeakerBot (cheering) + "Close this tab" → `window.close()` (best-effort).
-- **`<OnboardingTipCard>` extended** with optional `tutorial` prop (currentIndex / totalCount / onBack / onSkip / onNext / onEnd). When set, footer becomes "<i+1> of <n>" + small "End tutorial" link on top, Back / Skip / Next → on bottom. X close → inline confirm "Skip the rest of the tour?" before ending. SetupAction button + Read more both suppressed in tutorial mode (tour is for discovery, not setup).
-- **Walk order** = catalog priority order: telegram-send-to-task → personalize-colors → archive-projects → link-calendars → public-methods → gantt-animations → workbench-notes → fullscreen-task → goals-vs-tasks. The 10th tip (`lab-mode-picker`) stays standalone — it's pre-user, lives in `UserLoginScreen`, never part of the orchestrator catalog.
-- **Three new deep-link query params** (`/?openProject=<id>`, `/?openTask=<id>`, `/methods?openMethod=<id>`) wire popup-gated tips into the tour. Each handler waits for its react-query data fixture, opens the popup, then `router.replace` strips ONLY the popup-open param — `?tutorial=1` and any other params pass through. Mirrors the existing `?addFeed=1` / `?animations=1` / `?createMethod=public` patterns.
-- **Demo IDs hard-coded** in `OnboardingTutorialSequencer.tsx` (`TUTORIAL_DEMO_IDS` const map, sourced from `wiki-capture-fixture.ts`): `archiveProjectId: 1` (alex's "Engineer FakeYeast for biofuel"), `publicMethodId: 1` (public "Plasmid mini-prep"), `fullscreenTaskId: 2` (alex's "Yeast transformation: pYES-GAL1::flbA" experiment task — first non-trivial task with method attachments).
-- **`gantt-animations` pre-target delay** of 350ms so the burst-on-show animation doesn't kick off mid-route-change. Other tips have no extra pacing.
-- **End-screen** is a centered modal-shaped card (smaller than welcome modal: 420px), BeakerBot in cheering pose, body "Close this tab to head back to your work — your real folder's still waiting", single "Close this tab" button calling `window.close()` (no-op if browser refuses on a manually-pasted URL).
-
-**Files added:**
-- [frontend/src/components/OnboardingTutorialSequencer.tsx](frontend/src/components/OnboardingTutorialSequencer.tsx) (~250) — sequencer state machine + end-screen.
-
-**Files modified:**
-- [frontend/src/lib/file-system/wiki-capture-mock.ts](frontend/src/lib/file-system/wiki-capture-mock.ts) — `isTutorialMode()` helper.
-- [frontend/src/lib/onboarding/orchestrator.tsx](frontend/src/lib/onboarding/orchestrator.tsx) — provider mount carve-out.
-- [frontend/src/components/OnboardingTipCard.tsx](frontend/src/components/OnboardingTipCard.tsx) — `tutorial` prop + tutorial-footer branch + X confirm.
-- [frontend/src/components/OnboardingWelcomeModal.tsx](frontend/src/components/OnboardingWelcomeModal.tsx) — tutorial click handler opens new tab.
-- [frontend/src/app/page.tsx](frontend/src/app/page.tsx) — `?openProject=<id>` + `?openTask=<id>` deep-link useEffect.
-- [frontend/src/app/methods/page.tsx](frontend/src/app/methods/page.tsx) — `?openMethod=<id>` deep-link useEffect.
-- [frontend/src/lib/onboarding/orchestrator.test.ts](frontend/src/lib/onboarding/orchestrator.test.ts) — 6 new tests (5 carve-out + 1 catalog-walk-order). 142/142 PASS.
-
-**Card-variant approach:** chose the `tutorial` prop on `OnboardingTipCard` over a separate `<TutorialTipCard>` component. Reusing the existing card preserves the smart positioning, mascot, callout tail, and red-glow overlay for free; the duplication cost would have been ~400 LOC versus ~80 LOC for the prop branch. Coupling is minimal — one optional prop + a footer conditional + a tutorial-aware close button.
-
-**Edge cases worth flagging:**
-- Demo IDs in `TUTORIAL_DEMO_IDS` are hardcoded; if `scripts/generate-demo-data.mjs` ever regenerates fixtures with different IDs (e.g. someone renumbers projects), the deep-links would silently fail to resolve and the affected tips render without a target glow (Skip/Next still work, just no anchor). Cheap follow-up if it surfaces: route the IDs through a fixture-lookup helper.
-- `window.close()` on the end-screen only works for tabs JS opened (which is our case via the welcome modal). On a manually-pasted `/demo?tutorial=1` URL the button is a visible no-op.
-- The tutorial sequencer doesn't write to the user's sidecar — the demo lab is exempt from the sidecar layer entirely (no fileService writes happen in-fixture). Only the user's current tab, where the welcome-modal `onPick("tutorial")` flowed through `setMode`, persists the choice.
-- Next.js may show a brief flash of welcome-modal-still-mounted before the new tab takes the user's attention — acceptable per spec; the modal unmounts on the next render tick.
-
-**Live-test path for Grant:** clear `_onboarding.json` (or use `<DevForceTipButton>`'s reset), reload, click "Walk me through it" in the welcome modal, switch to the new tab that opens (`/demo?tutorial=1`), step through Back/Skip/Next on each card, hit X for the inline-confirm, confirm the end-screen lands and "Close this tab" closes the tab.
-
-### Recently landed (2026-05-14 — onboarding tips Phase 3: rewritten 9-tip catalog + welcome modal + 3-mode system + tutorial mode + setupAction CTAs + onShow animation burst + workbench-tab DOM gate + tip card visual-novel redesign)
-
-The follow-up to Phase 1+2 (logged directly below this entry). Closes out the onboarding feature end-to-end. Manager session collaborated with Grant on tip copy and on mascot integration (BeakerBot won the comparison, got pastel-rainbow liquid + 4 new poses + scaled to 96px + comic-callout tail). The dotted pointer-line was dropped in favor of a pulsing red-glow on the target element. Final-pass sub-bot landed the tip catalog rewrite + welcome modal + mode system + setupAction/onShow/gate fields + retrofits + deep-link query-params + Settings mode picker. Master's relay then asked for one course-correct on the `workbench-experiments-tab` gate (URL → DOM data-attr), which landed at the tip of this work (commit `5c5d98c7`).
-
-**Shape changes since Phase 2:**
-
-- **Mascot evolved**: pastel-rainbow gradient liquid in the beaker body (peach → yellow → mint → sky → lavender via `<linearGradient>` with a per-mount `useId()` id so multiple BeakerBots on one page don't collide). 4 new poses on top of `idle` and `pointing`: `pointing-up`, `pointing-down`, `cheering` (both arms in a V + sparkles, direction-agnostic), `waving` (single hand raised, no triangle, used for welcome modal). New `noLiquid` prop for monochrome contexts.
-- **Mascot scaled up to 96px**, lifted OUT of the tip card to stand standalone next to it (visual-novel layout: mascot left, 12px gap, card right). Card got a comic-book callout tail on its left edge (open-path SVG outline so it merges seamlessly with the card border).
-- **Dotted pointer-line removed entirely**. Replaced with: (a) pulsing red glow on the target element via a `.onboarding-tip-highlight` class injected on the target by a useEffect; (b) smart positioning of the assembly that tries `right → below → left → above → fallback` slots for fit; (c) adaptive mascot pose (`pointing` / `pointing-up` / `pointing-down` + direction flip) based on where the target lands relative to the mascot's screen position. Way less visually busy, way more conventional UX.
-- **Welcome modal** (`<OnboardingWelcomeModal>`) is the first thing a fresh user sees post-signin. Center-screen blocking, BeakerBot in `waving` pose, three buttons: "Walk me through it" (tutorial mode) / "Show me as I go" (suggestions mode, default visual emphasis) / "Stay quiet, thanks" (silenced mode). Persists `mode` to sidecar; orchestrator blocks all tips while `mode === null`.
-- **Mode system** on the sidecar: schema v2 adds a `mode: "tutorial" | "suggestions" | "silenced" | null` field. Tutorial mode uses `TUTORIAL_MIN_GAP_SECONDS = 60` (down from 300) AND force-fires the highest-priority eligible tip each tick (no random roll). Suggestions mode is the legacy passive behavior. Silenced is `tips_off = true` semantics. The Settings page's "Tips" section now has a 3-radio mode picker + the existing replay button (which also resets `last_tip_at` so flipping out of silenced doesn't force the user to wait the full cooldown).
-- **Standalone Lab Mode picker tip** (`<OnboardingLabModePickerTip>`): rendered inline inside `UserLoginScreen`, sessionStorage-gated (`researchos:labModePickerTipDismissed`). Bypasses the orchestrator entirely because the orchestrator requires a `currentUser` and the picker is pre-user.
-- **`setupAction` field** on tips renders a custom CTA button in the card footer next to "Read more →". Kind is `"navigate"` only today; clicking router-pushes to `setupAction.href` and closes the tip with `"got-it"` outcome. Used by 6 of the 9 tips.
-- **`onShow: "animation-burst"` hook** on the `gantt-animations` tip fires 5 animations 200ms apart near screen center when the card mounts: scary → plants → underwater → fungi → celebration. The card body reads "Sorry for the jump scare. You can pick a different vibe for task completions any time."
-- **`gate` field** on tips for additional eligibility predicates beyond `route`. Only one gate today: `"workbench-experiments-tab"` on the `workbench-notes` tip.
-- **Workbench-tab gate uses a DOM data-attribute**, not URL or store (per master's relay). `WorkbenchExperimentsPanel`'s root `<div>` carries `data-current-tab="experiments"`. The panel only renders when activeTab=experiments, so attribute presence is the signal. Gate predicate is a one-line `document.querySelector` check. Leaves Workbench's local-useState tab state untouched and uncouples the gate from any future Lists-tab routing decision.
-- **Deep-link query-param hooks** wired in 5 places so `setupAction` navigates land where they should: `/settings#telegram`, `/settings#personalize`, `/calendar?addFeed=1`, `/gantt?animations=1`, `/gantt?createGoal=1`, `/methods?createMethod=public`.
-- **Retrofit data-attrs** added: `personalize-colors` on AppShell header, `link-calendars` on CalendarFeedsButton, `gantt-animations` + `create-goal` on Toolbar buttons, `fullscreen-task` on TaskDetailPopup expand button, `workbench-notes` on Workbench Notes tab button, `public-methods` on methods page create button, `lab-mode-picker` on UserLoginScreen's Lab Mode pseudo-user button. `drop-to-replace` (already exists) is reused for `archive-projects`.
-- **DevForceTipButton** in the AppShell cluster (dev-only, `IS_DEV` gated): dropdown lists all tips, click navigates + force-fires bypassing cooldown/dwell/roll. Useful for previewing without burning real engagement-time. Doesn't persist to sidecar.
-- **Mascot gallery** at `/dev/mascot-gallery` (dev-only): the BeakerBot full pose catalog, scale ladder, outline tint variations + reference rows for the 4 alternative mascots Grant didn't pick (TardigradeBot, PetriDishBot, OwlBot, PipetteBot). Alternative mascots stay in `frontend/src/components/onboarding-mascots/` for now — Grant hasn't formally locked-and-cleanup-confirmed BeakerBot per the master-relay handshake.
-
-**Tip catalog (9 in orchestrator + 1 standalone):**
-
-| # | id | Route | Title | setupAction |
-|---|---|---|---|---|
-| 1 | `telegram-send-to-task` | `/` | Your phone is a lab notebook | Pair Telegram → `/settings#telegram` |
-| 2 | `personalize-colors` | `/` | Make it yours | Open Settings → `/settings#personalize` |
-| 3 | `archive-projects` | `/` | Archive, don't delete | (none) |
-| 4 | `link-calendars` | `/calendar` | Link your calendars | Add a calendar → `/calendar?addFeed=1` |
-| 5* | `lab-mode-picker` | (UserLoginScreen) | What's Lab Mode? | (standalone, sessionStorage-gated) |
-| 6 | `public-methods` | `/methods` | Make a method public | Start a public method → `/methods?createMethod=public` |
-| 7 | `gantt-animations` | `/gantt` | Pick your vibe | Pick an animation → `/gantt?animations=1` (+ `onShow: "animation-burst"`) |
-| 8 | `workbench-notes` | `/workbench` | There's a Notes tab too | (none; gate: `workbench-experiments-tab`) |
-| 9 | `fullscreen-task` | `/` (popup-gated) | Need more room? | (none) |
-| 10 | `goals-vs-tasks` | `/gantt` | Goals vs Tasks | Create a goal → `/gantt?createGoal=1` |
-
-(*) `lab-mode-picker` is standalone — bypasses the orchestrator.
-
-**Tests**: 125/125 pass across 12 files. New tests for mode-null blocking, tutorial-mode 60s gap, workbench-experiments-tab gate.
-
-**Live-test priorities for Grant** (this surface remains UN-bot-testable — demo + wiki-capture short-circuit by design):
-1. Sign into a real folder for the first time. Welcome modal should appear center-screen with BeakerBot waving + 3 buttons. Pick "Show me as I go" (suggestions). Verify mode persists across reload.
-2. Tutorial mode: sign into a fresh folder, pick "Walk me through it". First tip should fire after 30s of route-dwell (no 5-min wait). Subsequent tips fire on a 60s cooldown.
-3. Welcome modal exempt in demo / `?wikiCapture=1`. Verify no welcome modal appears in either mode.
-4. Setup-button deep-links: trigger each via DevForceTipButton, verify they navigate + auto-open the relevant modal/dialog.
-5. Workbench-tab gate: on `/workbench` Experiments tab → `workbench-notes` tip is eligible. Switch to Notes tab → ineligible. Switch back → eligible.
-6. UserLoginScreen Lab Mode picker tip: on first browser session, the standalone tip should appear next to the Lab Mode pseudo-user button with red-glow.
-7. Animation burst on `gantt-animations` tip: navigate to `/gantt`, force-fire the tip. Five animations should fire 200ms apart at screen center.
-
-**For the wiki manager** (still pending; will hand off explicitly):
-- `/wiki/features/settings` needs a screenshot refresh — Tips section now has the mode-picker radio + replay button.
-- Deep-link shortcuts worth a callout: `/calendar?addFeed=1`, `/gantt?animations=1`, `/gantt?createGoal=1`, `/methods?createMethod=public`, `/settings#telegram`, `/settings#personalize`.
-- New `/wiki/getting-started/*` content possible: the welcome modal is the first thing a fresh user sees, worth a screenshot + explainer.
-- Tip-linked wiki paths to verify exist (currently referenced by tip catalog): `/wiki/integrations/telegram`, `/wiki/features/settings`, `/wiki/features/home`, `/wiki/integrations/calendar-feeds`, `/wiki/features/methods`, `/wiki/features/lab-mode`, `/wiki/features/gantt`, `/wiki/features/markdown-editor`.
-
-**Open follow-ups (not blocking):**
-- The 4 alternative mascots (`onboarding-mascots/*.tsx`) plus the dev gallery (`app/dev/mascot-gallery/`) are unused in production paths. Safe to keep until Grant formally locks BeakerBot, then a small cleanup chip can drop them.
-- `cancelTip(tipId)` orchestrator API (from Phase 2) still has no callers wired. Action-cancel path is implemented but un-invoked; follow-up to hook it into drop-to-replace's drop handler, duplicate-upload's upload-button click, etc.
-- `setupAction.kind === "modal"` is reserved in the schema but no implementation today.
-- No `min_build` field on tips (proposal punted to second-wave).
-- Telegram pairing section in Settings doesn't exist yet — `#telegram` anchor currently lands on the BehaviorSection that hosts the Telegram-notifications toggle. If a dedicated pairing section lands, the anchor should move.
-
----
-
-### Recently landed (2026-05-14 — onboarding tips Phase 1+2: per-user sidecar, active-time trigger, beaker-bot mascot, 10-tip catalog)
-
-End-to-end feature for brand-new accounts. Phase 1 = planning artifact `ONBOARDING_TIPS_PROPOSAL.md` (proposal merged at `6af73b44`). Phase 2 = implementation by sub-bot `worktree-agent-afc87f47363b80e58`, merged at the next commit on `main`.
-
-**The shape:**
-- **Detection**: per-user sidecar `users/<u>/_onboarding.json` (NOT folder-root). Same idiom as `_telegram.json` / `_calendar-feeds.json`. Mirrors `external-feeds-store.ts`'s versioned read/normalize/lazy-default pattern.
-- **Trigger**: active-engagement-time based, NOT wall-clock. `active_seconds` ticks every 1000ms while `document.visibilityState === "visible" && document.hasFocus()`, flushed to sidecar every 30s and on visibility-hidden. Tips fire when: (1) user is on a route matching tip's `route` startsWith, (2) ≥30s of focused dwell on the route THIS session, (3) `active_seconds - last_tip_at >= 300` (5 min of active engagement since last tip), (4) no tip currently on screen, (5) tip not in `tips` history. Once eligible, orchestrator rolls 15% per 5s → "appears at random" feel Grant asked for.
-- **Brand-new threshold**: `active_seconds < 3600` (1h cumulative focus) AND `shown_count < 10` (= initial tip set size). Both must be true.
-- **Demo + wiki-capture exemption**: `isDemoOrWikiCapture()` short-circuits — orchestrator is not even mounted in those modes. No fixture pollution, no screenshot-bombing. Tested.
-- **Mascot**: `<BeakerBot>` component (`frontend/src/components/BeakerBot.tsx`, 79 LOC). Inline SVG, single-path stroke-only style matching the recent emoji-sweep commits (`f3e39af3`, `11054b2a`, `1bc9fe36`, `72b0c385`). Two poses (idle / pointing) + `direction: "left" | "right"` horizontal-mirror prop.
-- **Card UI**: `<OnboardingTipCard>` (`frontend/src/components/OnboardingTipCard.tsx`, 231 LOC). Portal-rendered at `bottom-20 right-4` (clear of AppShell cluster + FloatingLeaveDemoButton corner; demo + onboarding are exempt anyway so no real collision). SVG dotted pointer-line from card pointer-edge to target's bounding-rect center, rAF-debounced resize/scroll sync, single 300ms opacity pulse on entry. Three exits: close (X, permanent), Show me later (re-eligible next session), Stop showing tips (folder-wide off-switch). Plus implicit "Read more →" wiki link.
-- **Tip catalog**: 10 tips in `frontend/src/lib/onboarding/tips.ts` — drop-to-replace, telegram-send-to-task, duplicate-upload, cross-owner-share, appshell-cluster, labarchives-import, lab-mode, wiki-entry, high-level-goals, methods-folder-tree. Each has `{id, title, route, target, body, wikiPath, priority}`.
-- **Target registration**: `data-onboarding-target="<id>"` data-attribute (simpler than ref-passing for ~10 retrofit sites). Helper at `frontend/src/lib/onboarding/use-onboarding-target.ts`.
-- **Sub-bot deviations from proposal**: (1) routes were tightened from "or"-options to concrete paths after looking at where each affordance actually lives — e.g. `labarchives-import` → `/settings` (wizard lives in Settings, not `/methods`); `high-level-goals` → `/gantt` (`HighLevelGoalSidebar` only renders there); five other tips homed to `/` since their affordances live on the home page. (2) drop-to-replace / cross-owner-share / duplicate-upload all anchor to sub-regions of the FIRST project card on `/` (card wrapper / color bar / title) since the affordances themselves live inside `ProjectDetailPopup` — tip text narratively prompts the user to open the card. (3) "schedule-then-fire" was simplified to "roll-and-fire" — page-leave-cancels-scheduled is now a no-op (annotated in orchestrator).
-- **Replay**: Settings → new "Tips" section (between Maintenance and Security) → "Replay tips" button clears `tips`, sets `tips_off: false`, resets `last_tip_at` to current `active_seconds`. 4s status toast confirmation. Leaves `first_seen_at` + `active_seconds` so the freshness taper still applies.
-- **Tests**: 10 vitest cases in `frontend/src/lib/onboarding/orchestrator.test.ts` covering all gate predicates + sidecar normalization + catalog shape + demo-exemption short-circuit. Full suite 117/117 PASS, `npx tsc --noEmit` EXIT 0 post-merge on main.
-
-**Files (new)**:
-- `frontend/src/lib/onboarding/sidecar.ts` (179) — read/write `_onboarding.json`, `replayOnboarding()` helper.
-- `frontend/src/lib/onboarding/active-time.ts` (163) — cumulative engagement ticker.
-- `frontend/src/lib/onboarding/tips.ts` (178) — 10-tip catalog + tuning constants.
-- `frontend/src/lib/onboarding/use-onboarding-target.ts` (39) — `onboardingTarget(id)` spread helper + `findOnboardingTarget(id)` DOM lookup.
-- `frontend/src/lib/onboarding/orchestrator.tsx` (339) — provider + state machine.
-- `frontend/src/lib/onboarding/orchestrator.test.ts` (205) — vitest coverage.
-- `frontend/src/components/BeakerBot.tsx` (79) — mascot.
-- `frontend/src/components/OnboardingTipCard.tsx` (231) — card UI.
-- Total ~1413 LOC across 8 new files.
-
-**Files (modified)**: `frontend/src/lib/providers.tsx` (wrap `<AppContent>` with `<OnboardingProvider>` inside the non-demo branch), `frontend/src/app/settings/page.tsx` (new Tips section), `frontend/src/app/page.tsx` (3 retrofits on first project card), `frontend/src/app/lab/page.tsx`, `frontend/src/app/methods/page.tsx`, `frontend/src/components/AppShell.tsx`, `frontend/src/components/InboxToast.tsx`, `frontend/src/components/HighLevelGoalSidebar.tsx` — data-attr-only retrofits.
-
-**Open follow-ups (not blocking)**:
-- `cancelTip(id)` orchestrator API is wired but no caller hooks it yet. The "action-cancel" path described in the proposal (user does the thing before the tip fires → record `outcome: "action-cancel"`, never re-fire) is implemented but un-invoked. Follow-up: wire it into drop-to-replace's drop handler, duplicate-upload's upload-button click, telegram inbox image-click, share-affordance click, etc. Small handoff, ~15-line touch per call site.
-- Replay scope is currently "replay ALL tips including dismissed ones" per the proposal default. Tunable in 1 line if Grant wants "only un-engaged" semantics.
-- No `min_build` field on tips yet (proposal punted to "addable later when the second wave ships").
-
-**Live-test priorities for Grant** (this surface CANNOT be fixture/bot tested — both demo + wiki-capture short-circuit by design):
-1. Open a real research folder for the first time, click through home / methods / lab / gantt, leave the tab focused. Tips should fire after ~5 min of active engagement at 15%/5s rolls (so somewhere in the 5-7 min window after eligibility opens).
-2. Background the tab for 10 minutes, come back. `active_seconds` should NOT have ticked during the away time — the cooldown axis is engagement-time, not wall-clock.
-3. Settings → Tips → "Replay tips". History should clear; cooldown should restart at the current `active_seconds`. `first_seen_at` should NOT change.
-4. Demo (`/demo`) + wiki-capture (`?wikiCapture=1`): no tip card should ever surface. Both code paths short-circuit before provider mount (verified by passing test).
-5. `_onboarding.json` should appear under `users/<u>/` after the first eligible tip fires (sidecar is lazy-init on first write).
-
-**For the wiki manager**:
-- New section in `/wiki/features/settings` mentioning the "Tips" replay button.
-- A new wiki page documenting the tip system itself (e.g. `/wiki/features/settings/onboarding` or similar) was floated in the proposal — not written here. Wiki manager's call whether to draft it.
-- Existing tip-linked wiki paths the catalog references (verify each resolves, or queue creation): `/wiki/features/markdown-editor#drop-to-replace`, `/wiki/features/markdown-editor#duplicate-upload`, `/wiki/integrations/telegram`, `/wiki/features/links#cross-owner`, `/wiki/integrations/labarchives`, `/wiki/features/lab-mode`, `/wiki/features/home`, `/wiki/features/methods`, `/wiki/features/settings`.
+Was meant to be done by a sub-bot (`a2603c0a0a131a722`) but the API rate limit cut the bot off before it committed anything (its branch was empty). Did inline as a focused single-pass change. Single commit `5141b6bf`. 150/150 tests pass; typecheck EXIT 0. All BeakerBot usages benefit transparently. (Three of the four call sites listed in the original entry, v1 tip card, v1 welcome modal, v1 tutorial sequencer card, were removed by the Onboarding v3 P7 deprecation sweep; the DevForceTipButton mascot icon survives, and v3 step bodies have since added their own usages.)
 
 ---
 
