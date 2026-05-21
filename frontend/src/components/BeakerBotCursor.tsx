@@ -134,6 +134,16 @@ const DEFAULT_TYPE_CADENCE_MS = 48;
 /** Cubic-bezier matching the brief — "natural feel" easing. */
 const GLIDE_EASING = "cubic-bezier(0.4, 0, 0.2, 1)";
 
+/**
+ * Label offset relative to the cursor wrapper's origin (which lands at
+ * the cursor TIP coords thanks to the SVG path having its tip at 2,2).
+ * The label is positioned slightly below + right of the tip so it
+ * trails the cursor naturally and never visually covers the click
+ * target. Falls within the 16-24px band specified by the brief.
+ */
+const LABEL_OFFSET_X = 18;
+const LABEL_OFFSET_Y = 20;
+
 // ---------------------------------------------------------------------------
 // Utility: detect reduced-motion preference, SSR-safe
 // ---------------------------------------------------------------------------
@@ -628,6 +638,48 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
             }}
           />
         ))}
+
+        {/* Reassurance label. A user seeing a foreign cursor glide
+            across their screen can reasonably worry about a remote
+            takeover or virus; the label names the source ("BeakerBot")
+            so it reads as a friendly product animation, not a live
+            operator. Positioned ~20px below + ~18px right of the
+            cursor TIP (which sits at SVG coords 2, 2). The label is a
+            child of the same wrapper as the cursor SVG, so it inherits
+            the wrapper's translate3d glide and the wrapper's
+            display:none when hide() is called, so no separate
+            visibility wiring is needed. */}
+        <span
+          data-beakerbot-cursor-label
+          data-label-offset-x={LABEL_OFFSET_X}
+          data-label-offset-y={LABEL_OFFSET_Y}
+          style={{
+            position: "absolute",
+            left: LABEL_OFFSET_X,
+            top: LABEL_OFFSET_Y,
+            // The label is wider than the 28x28 cursor wrapper; allow
+            // it to overflow without being clipped or wrapped.
+            whiteSpace: "nowrap",
+            backgroundColor: "#0ea5e9", // bg-sky-500, pairs with the cursor stroke
+            color: "white",
+            fontSize: 11,
+            fontWeight: 600,
+            lineHeight: 1,
+            padding: "3px 8px", // px-2 py-0.5 equivalent
+            borderRadius: 9999, // rounded-full
+            boxShadow:
+              "0 1px 3px rgba(0, 0, 0, 0.18), 0 1px 2px rgba(0, 0, 0, 0.12)",
+            pointerEvents: "none",
+            // Match the cursor SVG's fade behavior: instant in jsdom,
+            // soft fade-in for real browsers (the wrapper's display
+            // toggle handles hide/show; this transition just softens
+            // the initial reveal alongside the cursor).
+            transition: reduced ? "none" : "opacity 200ms ease-out",
+            userSelect: "none",
+          }}
+        >
+          BeakerBot
+        </span>
       </div>
     );
 

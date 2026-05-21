@@ -288,6 +288,98 @@ describe("BeakerBotCursor — hide/show + visibility", () => {
   });
 });
 
+describe("BeakerBotCursor: reassurance label", () => {
+  it("renders the 'BeakerBot' label inside the cursor wrapper", async () => {
+    renderWithRef();
+    await act(async () => {});
+    const label = document.body.querySelector(
+      "[data-beakerbot-cursor-label]",
+    ) as HTMLElement | null;
+    expect(label).not.toBeNull();
+    expect(label?.textContent).toBe("BeakerBot");
+  });
+
+  it("nests the label inside the cursor wrapper so it inherits the wrapper's transform glide", async () => {
+    renderWithRef();
+    await act(async () => {});
+    const cursor = document.body.querySelector(
+      "[data-beakerbot-cursor]",
+    ) as HTMLElement;
+    const label = cursor.querySelector(
+      "[data-beakerbot-cursor-label]",
+    ) as HTMLElement | null;
+    // Label must be a child of the cursor wrapper, otherwise it
+    // wouldn't be carried along by the wrapper's translate3d.
+    expect(label).not.toBeNull();
+  });
+
+  it("hides the label alongside the cursor when hide() is called (via wrapper display:none)", async () => {
+    const { ref } = renderWithRef();
+    await act(async () => {});
+    // Sanity: visible by default.
+    let cursor = document.body.querySelector(
+      "[data-beakerbot-cursor]",
+    ) as HTMLElement;
+    expect(cursor.style.display).toBe("block");
+    let label = cursor.querySelector(
+      "[data-beakerbot-cursor-label]",
+    ) as HTMLElement | null;
+    expect(label).not.toBeNull();
+
+    await act(async () => {
+      ref.current?.hide();
+    });
+    cursor = document.body.querySelector(
+      "[data-beakerbot-cursor]",
+    ) as HTMLElement;
+    // The wrapper is display:none, which hides everything inside it
+    // (including the label) without any per-element wiring.
+    expect(cursor.style.display).toBe("none");
+    // The label element still exists (so show() restores instantly)
+    // but is now visually hidden via its ancestor.
+    label = cursor.querySelector(
+      "[data-beakerbot-cursor-label]",
+    ) as HTMLElement | null;
+    expect(label).not.toBeNull();
+  });
+
+  it("positions the label below + right of the cursor tip via inline style + data attributes", async () => {
+    renderWithRef();
+    await act(async () => {});
+    const label = document.body.querySelector(
+      "[data-beakerbot-cursor-label]",
+    ) as HTMLElement;
+    // Inline style offsets must be non-zero positive values (below +
+    // right of the tip at the wrapper origin).
+    expect(label.style.position).toBe("absolute");
+    const leftPx = parseInt(label.style.left, 10);
+    const topPx = parseInt(label.style.top, 10);
+    expect(leftPx).toBeGreaterThan(0);
+    expect(topPx).toBeGreaterThan(0);
+    // Data attributes mirror the offsets for easy assertion + future
+    // tour debugging. Both should fall in the 16-24px band per the
+    // brief.
+    const offsetX = Number(label.dataset.labelOffsetX);
+    const offsetY = Number(label.dataset.labelOffsetY);
+    expect(offsetX).toBeGreaterThanOrEqual(16);
+    expect(offsetX).toBeLessThanOrEqual(24);
+    expect(offsetY).toBeGreaterThanOrEqual(16);
+    expect(offsetY).toBeLessThanOrEqual(24);
+    // Inline style must agree with the data attributes.
+    expect(leftPx).toBe(offsetX);
+    expect(topPx).toBe(offsetY);
+  });
+
+  it("renders the label with pointer-events: none so clicks pass through", async () => {
+    renderWithRef();
+    await act(async () => {});
+    const label = document.body.querySelector(
+      "[data-beakerbot-cursor-label]",
+    ) as HTMLElement;
+    expect(label.style.pointerEvents).toBe("none");
+  });
+});
+
 describe("BeakerBotCursor — edge cases", () => {
   it("handles a target off the right edge of the viewport", async () => {
     // Far off-viewport coordinates — the cursor should still position
