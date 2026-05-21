@@ -19,6 +19,8 @@ import {
   projectFilesBase,
   projectImagesBase,
 } from "@/lib/projects/attachment-paths";
+import { recordProjectActivity } from "@/lib/project-activity/event-log";
+import ActivityFeed from "@/components/project-surface/ActivityFeed";
 import type { Project } from "@/lib/types";
 
 const DEFAULT_COLOR = "#3b82f6";
@@ -321,7 +323,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
         />
         <ResultsGallery project={project} />
         <MethodsInventory project={project} />
-        <Section id="activity" title="Activity" />
+        <ActivityFeed project={project} />
       </div>
 
       {showSharePopup && (
@@ -430,19 +432,9 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
   );
 }
 
-function Section({ id, title }: { id: string; title: string }) {
-  return (
-    <section id={id} className="scroll-mt-32">
-      <h2 className="text-base font-semibold text-gray-900 mb-2">{title}</h2>
-      <p className="text-sm text-gray-400 italic">Coming soon.</p>
-    </section>
-  );
-}
-
 // Autosave debounce for overview prose. Matches NoteDetailPopup's
 // running-log entry autosave (1500ms after the last keystroke) so the
-// UX stays consistent across long-form markdown surfaces. P5 will retrofit
-// `recordProjectActivity` into setOverview for the `prose_edited` event.
+// UX stays consistent across long-form markdown surfaces.
 const OVERVIEW_AUTOSAVE_DELAY_MS = 1500;
 
 interface OverviewSectionProps {
@@ -584,6 +576,11 @@ function OverviewSection({ project, ownerHint, editOwner, readOnly }: OverviewSe
           if (kind === "image") {
             imageEvents.emitAttached({ basePath: attachmentsBase, relativePath });
             insertions.push(`![${finalName}](${relativePath})`);
+            void recordProjectActivity(project.owner, project.id, {
+              type: "image_added",
+              image_name: finalName,
+              surface: "overview",
+            });
           } else {
             fileEvents.emitAttached({ basePath: attachmentsBase, relativePath });
             insertions.push(`[${finalName}](${relativePath})`);
@@ -598,7 +595,16 @@ function OverviewSection({ project, ownerHint, editOwner, readOnly }: OverviewSe
       const appended = `${draft}${separator}${insertions.join("\n\n")}\n`;
       handleChange(appended);
     },
-    [readOnly, imagesDir, filesDir, attachmentsBase, draft, handleChange]
+    [
+      readOnly,
+      imagesDir,
+      filesDir,
+      attachmentsBase,
+      draft,
+      handleChange,
+      project.owner,
+      project.id,
+    ]
   );
 
   const handleImageDrop = useCallback(
