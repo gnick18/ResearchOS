@@ -37,6 +37,10 @@ import { buildLabPromptStep } from "./steps/lab/LabPromptStep";
 import { buildLabSpawnStep } from "./steps/lab/LabSpawnBeakerBotStep";
 import { buildLabPermissionPracticeStep } from "./steps/lab/LabPermissionPracticeStep";
 import { buildLabCleanupStep } from "./steps/lab/LabAutoCleanupStep";
+import {
+  onEnterGanttChainedDeps,
+  onEnterHybridEditorImageDrop,
+} from "./steps/walkthrough/lib/on-enter-helpers";
 
 /**
  * Build a placeholder step body matching the brief's "Step bodies in
@@ -239,6 +243,31 @@ patchLabStep("lab-prompt", buildLabPromptStep());
 patchLabStep("lab-spawn-beakerbot", buildLabSpawnStep());
 patchLabStep("lab-permission-practice", buildLabPermissionPracticeStep());
 patchLabStep("lab-cleanup", buildLabCleanupStep());
+
+// §6.10 onEnter side-effects. The step body files in
+// `walkthrough/GanttDependenciesStep.tsx` +
+// `walkthrough/HybridEditorImageDropStep.tsx` don't own these hooks
+// directly because both spawns depend on an "active project /
+// experiment" id that the step body can't resolve in isolation. We
+// wire them here so the body files stay unit-testable without
+// pulling in `projectsApi` / `tasksApi` / `fileService` mocks.
+//
+// Both hooks are idempotent + best-effort; see
+// `lib/on-enter-helpers.ts` for the exact contracts. TourController
+// catches throws + logs, but the hooks themselves also swallow so a
+// partial failure produces a no-op step instead of a tour-wedge.
+TOUR_STEPS["gantt-chained-deps"] = {
+  ...TOUR_STEPS["gantt-chained-deps"],
+  onEnter: async () => {
+    await onEnterGanttChainedDeps();
+  },
+};
+TOUR_STEPS["hybrid-editor-image-drop"] = {
+  ...TOUR_STEPS["hybrid-editor-image-drop"],
+  onEnter: async (ctx) => {
+    await onEnterHybridEditorImageDrop(ctx);
+  },
+};
 
 /**
  * Look up the registered step body for an id. Returns `undefined` when
