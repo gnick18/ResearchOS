@@ -8,19 +8,9 @@ import { projectsApi as rawProjectsApi } from "@/lib/local-api";
 import type { ProjectUpdate } from "@/lib/local-api";
 import SharePopup from "@/components/SharePopup";
 import Tooltip from "@/components/Tooltip";
-import LiveMarkdownEditor from "@/components/LiveMarkdownEditor";
 import ResultsGallery from "@/components/project-surface/ResultsGallery";
 import MethodsInventory from "@/components/project-surface/MethodsInventory";
 import GoalsSection from "@/components/project-surface/GoalsSection";
-import { fileService } from "@/lib/file-system/file-service";
-import { fileEvents } from "@/lib/attachments/file-events";
-import { imageEvents } from "@/lib/attachments/image-events";
-import {
-  projectAttachmentsBase,
-  projectFilesBase,
-  projectImagesBase,
-} from "@/lib/projects/attachment-paths";
-import { recordProjectActivity } from "@/lib/project-activity/event-log";
 import ActivityFeed from "@/components/project-surface/ActivityFeed";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useFeaturePicks } from "@/hooks/useFeaturePicks";
@@ -490,23 +480,6 @@ interface OverviewSectionProps {
   readOnly: boolean;
 }
 
-// Suffix `-1`, `-2`, … on collision. Mirrors the dedup helper used by every
-// other attachment-drop surface (methods/page.tsx, attach-image.ts, etc.) —
-// kept local because it's three lines and pulling it into a shared util is
-// out of scope for this chip.
-async function pickUniqueAttachmentName(dirPath: string, desired: string): Promise<string> {
-  const dot = desired.lastIndexOf(".");
-  const stem = dot > 0 ? desired.slice(0, dot) : desired;
-  const ext = dot > 0 ? desired.slice(dot) : "";
-  let candidate = desired;
-  let n = 1;
-  while (await fileService.fileExists(`${dirPath}/${candidate}`)) {
-    candidate = `${stem}-${n}${ext}`;
-    n += 1;
-  }
-  return candidate;
-}
-
 function OverviewSection({ project, ownerHint, editOwner, readOnly }: OverviewSectionProps) {
   const queryClient = useQueryClient();
   const projectId = project.id;
@@ -551,15 +524,6 @@ function OverviewSection({ project, ownerHint, editOwner, readOnly }: OverviewSe
     };
   }, []);
 
-  // Attachment paths derived from the project. Owner-namespaced via
-  // `projectAttachmentsBase`, so receivers with edit permission write to the
-  // owner's directory (matching `editOwner` semantics for overview prose).
-  // View-only receivers never reach this path — readOnly suppresses the
-  // drop callbacks below.
-  const attachmentsBase = useMemo(() => projectAttachmentsBase(project), [project]);
-  const imagesDir = useMemo(() => projectImagesBase(project), [project]);
-  const filesDir = useMemo(() => projectFilesBase(project), [project]);
-
   const handleChange = useCallback(
     (next: string) => {
       if (readOnly) return;
@@ -585,79 +549,6 @@ function OverviewSection({ project, ownerHint, editOwner, readOnly }: OverviewSe
       }, OVERVIEW_AUTOSAVE_DELAY_MS);
     },
     [readOnly, projectId, editOwner, queryClient, queryKey]
-  );
-
-  // Drop handler shared between image and file drops. Writes each file to
-  // its target subdir with collision-safe naming, emits the matching event
-  // bus message, and appends a markdown snippet to the draft so the user
-  // sees the attachment in the prose immediately.
-  //
-  // Why splice inline (unlike NoteDetailPopup / TaskDetailPopup / methods
-  // page): those surfaces render an ImageStrip / FileStrip below the
-  // editor that users drag from to place refs. Project Surface Overview
-  // has no strip yet — a silent drop would look broken. The snippet
-  // append flows through `handleChange`, which schedules autosave, so the
-  // attachment + the reference reach disk together.
-  const writeDroppedAttachments = useCallback(
-    async (
-      files: File[],
-      kind: "image" | "file"
-    ): Promise<void> => {
-      if (readOnly) return;
-      const targetDir = kind === "image" ? imagesDir : filesDir;
-      const insertions: string[] = [];
-      for (const file of files) {
-        try {
-          const finalName = await pickUniqueAttachmentName(targetDir, file.name);
-          await fileService.writeFileFromBlob(`${targetDir}/${finalName}`, file);
-          const relativePath =
-            kind === "image" ? `Images/${finalName}` : `Files/${finalName}`;
-          if (kind === "image") {
-            imageEvents.emitAttached({ basePath: attachmentsBase, relativePath });
-            insertions.push(`![${finalName}](${relativePath})`);
-            void recordProjectActivity(project.owner, project.id, {
-              type: "image_added",
-              image_name: finalName,
-              surface: "overview",
-            });
-          } else {
-            fileEvents.emitAttached({ basePath: attachmentsBase, relativePath });
-            insertions.push(`[${finalName}](${relativePath})`);
-          }
-        } catch (err) {
-          console.error(`[ProjectRoute] Failed to attach ${file.name}:`, err);
-          alert(`Failed to attach ${file.name}`);
-        }
-      }
-      if (insertions.length === 0) return;
-      const separator = draft.length === 0 || draft.endsWith("\n") ? "" : "\n\n";
-      const appended = `${draft}${separator}${insertions.join("\n\n")}\n`;
-      handleChange(appended);
-    },
-    [
-      readOnly,
-      imagesDir,
-      filesDir,
-      attachmentsBase,
-      draft,
-      handleChange,
-      project.owner,
-      project.id,
-    ]
-  );
-
-  const handleImageDrop = useCallback(
-    (files: File[]) => {
-      void writeDroppedAttachments(files, "image");
-    },
-    [writeDroppedAttachments]
-  );
-
-  const handleFileDrop = useCallback(
-    (files: File[]) => {
-      void writeDroppedAttachments(files, "file");
-    },
-    [writeDroppedAttachments]
   );
 
   return (
@@ -686,20 +577,16 @@ function OverviewSection({ project, ownerHint, editOwner, readOnly }: OverviewSe
       ) : isError ? (
         <p className="text-sm text-red-500">Couldn&apos;t load this project&apos;s overview.</p>
       ) : (
-        <LiveMarkdownEditor
+        <textarea
           value={draft}
-          onChange={handleChange}
+          onChange={(e) => handleChange(e.target.value)}
           placeholder={
             readOnly
               ? "No overview yet."
               : "Capture the hypothesis, motivation, and big-picture context for this project…"
           }
           disabled={readOnly}
-          imageBasePath={attachmentsBase}
-          showToolbar={!readOnly}
-          allowAnyFileType={!readOnly}
-          onImageDrop={readOnly ? undefined : handleImageDrop}
-          onFileDrop={readOnly ? undefined : handleFileDrop}
+          className="w-full min-h-[180px] p-3 text-sm text-gray-800 border border-gray-200 rounded-md resize-y focus:outline-none focus:ring-1 focus:ring-blue-300"
         />
       )}
     </section>
