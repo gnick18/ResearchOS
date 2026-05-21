@@ -32,3 +32,11 @@ frontend/tsconfig.tsbuildinfo
 # ELN-import sub-bot scratch (sample ZIP recon dir + ad-hoc parser dump)
 scratch-labarchives-recon/
 frontend/scratch-parse-output.json
+
+# Per-developer agent state (worktrees, session logs, transcripts, agent caches)
+.claude/
+
+# Kilo Code plugin state — node_modules + lockfile are per-developer.
+# `.kilo/plans/` stays tracked intentionally as a shared development log.
+.kilo/node_modules/
+.kilo/package-lock.json
