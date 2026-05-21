@@ -190,7 +190,7 @@ export default function WizardResumeModal({
             <div
               aria-hidden
               className="flex-shrink-0"
-              style={{ width: 64, height: 64 }}
+              style={{ width: 120, height: 120 }}
             >
               <BeakerBot
                 pose="waving"
