@@ -71,6 +71,13 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // ProjectOverviewNavStep.tsx for the split rationale.
   "project-overview-nav",
   "project-overview-prose",
+  // Transition beat (Grant 2026-05-21): cursor glides to the Home nav
+  // tab and the controller pushes the browser back to "/" so §6.3
+  // notifications fires from the home surface, not from inside the
+  // project page. Avoids the jarring "still in /workbench/projects/123
+  // but suddenly talking about the bell" cut. See
+  // ProjectOverviewExitStep.tsx for the rationale.
+  "project-overview-exit",
   // Notifications universal moment (§6.3). Split into three beats so
   // the user actually opens the inbox, silences the row, and dismisses
   // it before moving on — see ONBOARDING_V4_PROPOSAL.md §6.3 (Grant's

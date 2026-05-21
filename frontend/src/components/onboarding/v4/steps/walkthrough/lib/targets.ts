@@ -133,6 +133,12 @@ export const TOUR_TARGETS = {
 
   // §6.12 Wiki
   wikiNavTab: "wiki-nav-tab",
+
+  // §6.2→6.3 transition (Grant 2026-05-21): BeakerBot glides to the Home
+  // tab and the controller programmatically navigates back to "/" so
+  // §6.3 notifications fires from the home surface, not from inside the
+  // project page. Visible "exiting the project" beat per Grant.
+  homeNavTab: "home-nav-tab",
 } as const;
 
 export type TourTargetName = (typeof TOUR_TARGETS)[keyof typeof TOUR_TARGETS];

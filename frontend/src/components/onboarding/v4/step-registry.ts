@@ -81,6 +81,7 @@ import { homeCreateProjectStep } from "./steps/walkthrough/HomeCreateProjectStep
 import { homeCreateProjectFillStep } from "./steps/walkthrough/HomeCreateProjectFillStep";
 import { projectOverviewNavStep } from "./steps/walkthrough/ProjectOverviewNavStep";
 import { projectOverviewStep } from "./steps/walkthrough/ProjectOverviewStep";
+import { projectOverviewExitStep } from "./steps/walkthrough/ProjectOverviewExitStep";
 import { notificationsBellStep } from "./steps/walkthrough/NotificationsBellStep";
 import { notificationsSilenceStep } from "./steps/walkthrough/NotificationsSilenceStep";
 import { notificationsDeleteStep } from "./steps/walkthrough/NotificationsDeleteStep";
@@ -128,6 +129,7 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [homeCreateProjectFillStep.id]: homeCreateProjectFillStep,
   [projectOverviewNavStep.id]: projectOverviewNavStep,
   [projectOverviewStep.id]: projectOverviewStep,
+  [projectOverviewExitStep.id]: projectOverviewExitStep,
   [notificationsBellStep.id]: notificationsBellStep,
   [notificationsSilenceStep.id]: notificationsSilenceStep,
   [notificationsDeleteStep.id]: notificationsDeleteStep,

@@ -193,11 +193,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             // hover over it without depending on label text. New
             // routes flow through here automatically.
             const tourTarget =
-              item.href === "/purchases"
-                ? "purchases-tab"
-                : item.href === "/calendar"
-                  ? "calendar-tab"
-                  : undefined;
+              item.href === HOME_HREF
+                ? "home-nav-tab"
+                : item.href === "/purchases"
+                  ? "purchases-tab"
+                  : item.href === "/calendar"
+                    ? "calendar-tab"
+                    : undefined;
             // Onboarding v4 L23: when an in-product walkthrough is
             // running, render each nav-item as a non-Link button that
             // visually grays out + suppresses click. Cursor-driven
