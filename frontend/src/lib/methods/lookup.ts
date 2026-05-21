@@ -1,6 +1,31 @@
 import type { Method, TaskMethodAttachment } from "@/lib/types";
 
 /**
+ * Composite `(owner, id)` key for a method record. Use anywhere a Map / Set /
+ * React key would otherwise collapse two same-id different-owner records into
+ * one slot (e.g. alex's private id 2 and the public id 2). Pairs with
+ * `attachmentKey` below — both produce the same string for the same (owner,
+ * id) pair, so an attachment's key matches the resolved method's key.
+ */
+export function methodKey(method: Pick<Method, "id" | "owner">): string {
+  return `${method.owner}:${method.id}`;
+}
+
+/**
+ * Composite key for a task method attachment, applying the same
+ * owner-resolution rule as `resolveMethodForAttachment`: an explicit
+ * attachment owner wins; null falls back to the task owner. Use anywhere a
+ * Map / Set / React key needs to distinguish two same-id attachments whose
+ * methods live in different owner namespaces.
+ */
+export function attachmentKey(
+  attachment: Pick<TaskMethodAttachment, "method_id" | "owner">,
+  taskOwner: string,
+): string {
+  return `${attachment.owner ?? taskOwner}:${attachment.method_id}`;
+}
+
+/**
  * Resolve a method record for a given attachment, honoring the attachment's
  * `owner` field to disambiguate against per-user id collisions (e.g. alex's
  * private method id 2 vs public method id 2). When the attachment owner is

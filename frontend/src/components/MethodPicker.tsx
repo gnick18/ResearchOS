@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchAllTasks, fetchAllMethodsIncludingShared, filesApi } from "@/lib/local-api";
-import type { Method, Task } from "@/lib/types";
+import type { Method, Task, TaskMethodAttachment } from "@/lib/types";
 import { getMethodTypeMeta } from "@/lib/methods/method-type-registry";
+import { attachmentKey, methodKey } from "@/lib/methods/lookup";
 import RenderedMarkdown from "@/components/RenderedMarkdown";
 
 interface MethodPickerProps {
@@ -42,16 +43,29 @@ function methodIdsOf(t: Task): number[] {
 }
 
 /**
- * Map of method-id -> most recent task start_date that used it.
- * Caller filters which tasks to consider (e.g. by project).
+ * Map of composite `(owner, id)` method key -> most recent task start_date
+ * that used it. Keyed on the composite so two same-id different-owner
+ * methods (e.g. alex's private 5 and morgan's private 5 surfaced in the
+ * same project's recency window) don't shadow each other. The owner is
+ * resolved per the same rule as `resolveMethodForAttachment`: an explicit
+ * `attachment.owner` wins; null falls back to the task owner.
  */
-function buildRecency(tasks: Task[]): Map<number, string> {
-  const out = new Map<number, string>();
+function buildRecency(tasks: Task[]): Map<string, string> {
+  const out = new Map<string, string>();
   for (const t of tasks) {
+    const attachmentByMid = new Map<number, TaskMethodAttachment>();
+    for (const a of t.method_attachments ?? []) {
+      attachmentByMid.set(a.method_id, a);
+    }
     for (const mid of methodIdsOf(t)) {
-      const existing = out.get(mid);
+      const att = attachmentByMid.get(mid);
+      const key = attachmentKey(
+        { method_id: mid, owner: att?.owner ?? null },
+        t.owner,
+      );
+      const existing = out.get(key);
       if (!existing || (t.start_date && t.start_date > existing)) {
-        out.set(mid, t.start_date ?? "");
+        out.set(key, t.start_date ?? "");
       }
     }
   }
@@ -59,14 +73,14 @@ function buildRecency(tasks: Task[]): Map<number, string> {
 }
 
 function topByRecency(
-  recency: Map<number, string>,
-  byId: Map<number, Method>,
+  recency: Map<string, string>,
+  byKey: Map<string, Method>,
   limit: number
 ): Method[] {
   return Array.from(recency.entries())
     .sort((a, b) => b[1].localeCompare(a[1]))
     .slice(0, limit)
-    .map(([id]) => byId.get(id))
+    .map(([key]) => byKey.get(key))
     .filter((m): m is Method => !!m);
 }
 
@@ -131,21 +145,21 @@ export default function MethodPicker({
     if (open) requestAnimationFrame(() => inputRef.current?.focus());
   }, [open]);
 
-  const methodById = useMemo(() => {
-    const m = new Map<number, Method>();
-    for (const x of methods) m.set(x.id, x);
+  const methodByKey = useMemo(() => {
+    const m = new Map<string, Method>();
+    for (const x of methods) m.set(methodKey(x), x);
     return m;
   }, [methods]);
 
   const recentInProject = useMemo(() => {
     if (currentProjectId == null) return [] as Method[];
     const projectTasks = tasks.filter((t) => t.project_id === currentProjectId);
-    return topByRecency(buildRecency(projectTasks), methodById, RECENT_LIMIT);
-  }, [tasks, currentProjectId, methodById]);
+    return topByRecency(buildRecency(projectTasks), methodByKey, RECENT_LIMIT);
+  }, [tasks, currentProjectId, methodByKey]);
 
   const recentAnywhere = useMemo(() => {
-    return topByRecency(buildRecency(tasks), methodById, RECENT_LIMIT);
-  }, [tasks, methodById]);
+    return topByRecency(buildRecency(tasks), methodByKey, RECENT_LIMIT);
+  }, [tasks, methodByKey]);
 
   const flatRows: FlatRow[] = useMemo(() => {
     const raw = query.trim().toLowerCase();
@@ -178,9 +192,11 @@ export default function MethodPicker({
       }
 
       // Skip "Recently used" if its top entries are the same as the project
-      // section above — avoid an identical pinned block.
-      const projectIds = new Set(recentInProject.map((m) => m.id));
-      const recentDeduped = recentAnywhere.filter((m) => !projectIds.has(m.id));
+      // section above — avoid an identical pinned block. Dedup on the
+      // composite `(owner, id)` key so two methods that happen to share a
+      // numeric id but live in different owner namespaces both still surface.
+      const projectKeys = new Set(recentInProject.map((m) => methodKey(m)));
+      const recentDeduped = recentAnywhere.filter((m) => !projectKeys.has(methodKey(m)));
       if (recentDeduped.length > 0) {
         rows.push({
           kind: "header",
@@ -384,7 +400,7 @@ export default function MethodPicker({
               const isHighlighted = index === highlightedIndex;
               return (
                 <button
-                  key={`${row.sectionKey}:${m.id}`}
+                  key={`${row.sectionKey}:${methodKey(m)}`}
                   ref={(el) => {
                     if (el) rowRefs.current.set(index, el);
                     else rowRefs.current.delete(index);

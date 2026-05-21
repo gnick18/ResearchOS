@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchAllMethodsIncludingShared } from "@/lib/local-api";
 import type { Task } from "@/lib/types";
-import { resolveMethodForAttachment } from "@/lib/methods/lookup";
+import { attachmentKey, resolveMethodForAttachment } from "@/lib/methods/lookup";
 import MethodPicker from "./MethodPicker";
 import Tooltip from "./Tooltip";
 import { ownerScopedTasksApi } from "@/lib/tasks/owner-scoped-api";
@@ -34,7 +34,12 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
   // namespace and silently fork the task on disk (orphan write under
   // users/{receiver}/tasks/...).
   const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
-  const [activeMethodId, setActiveMethodId] = useState<number | null>(null);
+  // Composite `(owner:method_id)` key — bare method_id can't disambiguate
+  // two attachments that happen to share a numeric id but reference methods
+  // in different owner namespaces (e.g. alex's private 5 vs the public 5).
+  // Resolved through `attachmentKey` so the same string matches the tab,
+  // the click handler, and the lookup that hydrates `activeMethod`.
+  const [activeAttachmentKey, setActiveAttachmentKey] = useState<string | null>(null);
   const [showMethodSelector, setShowMethodSelector] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -43,10 +48,10 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
 
   // Set initial active method
   useEffect(() => {
-    if (methodAttachments.length > 0 && !activeMethodId) {
-      setActiveMethodId(methodAttachments[0].method_id);
+    if (methodAttachments.length > 0 && !activeAttachmentKey) {
+      setActiveAttachmentKey(attachmentKey(methodAttachments[0], task.owner));
     }
-  }, [methodAttachments, activeMethodId]);
+  }, [methodAttachments, activeAttachmentKey, task.owner]);
 
   // Load all available methods
   const { data: allMethods = [] } = useQuery({
@@ -58,7 +63,9 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
   // attachment so the per-attachment `owner` field disambiguates against
   // per-user id collisions (e.g. attaching a public method whose id
   // collides with one of the current user's private methods).
-  const activeAttachment = methodAttachments.find(a => a.method_id === activeMethodId);
+  const activeAttachment = methodAttachments.find(
+    (a) => attachmentKey(a, task.owner) === activeAttachmentKey,
+  );
   const activeMethod = resolveMethodForAttachment(activeAttachment, allMethods, task.owner);
 
   // Add method to task. `methodOwner` is the picker-selected method's owner
@@ -71,7 +78,12 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
       const updatedTask = await tasksApi.addMethod(task.id, methodId, methodOwner);
       await queryClient.refetchQueries({ queryKey: ["tasks"] });
       await queryClient.refetchQueries({ queryKey: ["task", task.id] });
-      setActiveMethodId(methodId);
+      // The newly-added attachment's persisted `owner` mirrors `methodOwner`
+      // (or null when same as the task owner) — either way `attachmentKey`
+      // produces the same string for the active key as for the tab lookup.
+      setActiveAttachmentKey(
+        attachmentKey({ method_id: methodId, owner: methodOwner }, task.owner),
+      );
       setShowMethodSelector(false);
       if (updatedTask) onTaskUpdate?.(updatedTask);
     } catch (err) {
@@ -80,10 +92,13 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
     } finally {
       setSaving(false);
     }
-  }, [task.id, queryClient, onTaskUpdate, tasksApi]);
+  }, [task.id, task.owner, queryClient, onTaskUpdate, tasksApi]);
 
-  // Remove method from task
-  const handleRemoveMethod = useCallback(async (methodId: number) => {
+  // Remove method from task. `removedKey` is the composite `(owner:id)` of
+  // the tab the user clicked the X on; without it we can't tell whether the
+  // active tab is the one being removed when two attachments share a
+  // numeric id but reference methods in different owner namespaces.
+  const handleRemoveMethod = useCallback(async (methodId: number, removedKey: string) => {
     if (!confirm("Remove this method from the experiment?")) return;
 
     setSaving(true);
@@ -95,9 +110,13 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
       await queryClient.refetchQueries({ queryKey: ["task", task.id] });
 
       // Switch to another method if the removed one was active
-      if (activeMethodId === methodId) {
-        const remainingMethods = (updatedTask.method_attachments || []).filter(a => a.method_id !== methodId);
-        setActiveMethodId(remainingMethods.length > 0 ? remainingMethods[0].method_id : null);
+      if (activeAttachmentKey === removedKey) {
+        const remaining = (updatedTask.method_attachments || []).filter(
+          (a) => attachmentKey(a, task.owner) !== removedKey,
+        );
+        setActiveAttachmentKey(
+          remaining.length > 0 ? attachmentKey(remaining[0], task.owner) : null,
+        );
       }
 
       if (updatedTask) onTaskUpdate?.(updatedTask);
@@ -107,7 +126,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
     } finally {
       setSaving(false);
     }
-  }, [task.id, activeMethodId, queryClient, onTaskUpdate, tasksApi]);
+  }, [task.id, task.owner, activeAttachmentKey, queryClient, onTaskUpdate, tasksApi]);
 
   return (
     <div className="flex flex-col h-full">
@@ -117,17 +136,18 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
         <div className="flex items-end gap-0.5 flex-1 overflow-x-auto">
           {methodAttachments.map((attachment) => {
             const method = resolveMethodForAttachment(attachment, allMethods, task.owner);
-            const isActive = activeMethodId === attachment.method_id;
+            const tabKey = attachmentKey(attachment, task.owner);
+            const isActive = activeAttachmentKey === tabKey;
 
             return (
               <div
-                key={attachment.method_id}
+                key={tabKey}
                 className={`group relative flex items-center gap-1 px-3 py-2 rounded-t-lg text-sm font-medium cursor-pointer transition-colors min-w-[120px] max-w-[200px] ${
                   isActive
                     ? "bg-white text-gray-900 shadow-sm border-t border-l border-r border-gray-200"
                     : "bg-gray-200 text-gray-600 hover:bg-gray-300"
                 }`}
-                onClick={() => setActiveMethodId(attachment.method_id)}
+                onClick={() => setActiveAttachmentKey(tabKey)}
               >
                 {/* Tab icon based on method type */}
                 {method?.method_type === "pcr" ? (
@@ -163,7 +183,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleRemoveMethod(attachment.method_id);
+                        handleRemoveMethod(attachment.method_id, tabKey);
                       }}
                       disabled={saving}
                       className="opacity-0 group-hover:opacity-100 hover:bg-gray-300 rounded p-0.5 transition-opacity"
@@ -201,7 +221,14 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
             <WrapAsCompoundAction
               method={activeMethod}
               task={task}
-              onWrapped={(compound) => setActiveMethodId(compound.id)}
+              onWrapped={(compound) =>
+                setActiveAttachmentKey(
+                  attachmentKey(
+                    { method_id: compound.id, owner: compound.owner },
+                    task.owner,
+                  ),
+                )
+              }
             />
           </div>
         )}
@@ -227,7 +254,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
 
       {/* Tab content — dispatch to per-type viewer */}
       <div className="flex-1 overflow-y-auto">
-        {activeMethodId === null || !activeMethod ? (
+        {activeAttachmentKey === null || !activeMethod ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-400">
             <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -248,6 +275,11 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
             // Default falls through to markdown (the historical default
             // for legacy records that predate `method_type`).
             const resolvedType = resolveMethodType(activeMethod.method_type, activeMethod.source_path);
+            // `activeAttachment` is guaranteed defined inside this branch:
+            // `activeMethod` is only truthy when its attachment was found
+            // above. Narrow once here so each viewer receives a `number`
+            // (their `methodId` prop is non-nullable).
+            const activeMethodId = activeAttachment!.method_id;
             // Switch (not registry lookup) so each viewer's bundle can be
             // dynamically code-split per route. Adding a new method type
             // here adds one case + one import — same shape, new viewer.
@@ -338,7 +370,16 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
                     readOnly={readOnly}
-                    onSwitchActiveMethod={(nextId) => setActiveMethodId(nextId)}
+                    onSwitchActiveMethod={(nextId) =>
+                      setActiveAttachmentKey(
+                        nextId === null
+                          ? null
+                          : attachmentKey(
+                              { method_id: nextId, owner: null },
+                              task.owner,
+                            ),
+                      )
+                    }
                   />
                 );
               case "coding_workflow":
