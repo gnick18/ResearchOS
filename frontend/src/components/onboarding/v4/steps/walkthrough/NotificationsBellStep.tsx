@@ -1,20 +1,20 @@
 /**
- * §6.3 Notifications (universal UI moment), universal walkthrough.
+ * §6.3 Notifications, beat 1 of 3: bell click.
  *
- * Fires right after the Project Overview prose demo. Teaches the
- * notification bell as a universal element before drilling into
- * specific tabs.
+ * Fires a programmatic test notification on step entry so the badge lights
+ * up, then asks the user to click the spotlighted bell to open their
+ * inbox. The two follow-up beats (silence, delete) keep the user
+ * exercising real affordances on that test row before the tour moves on.
  *
- * Cursor glides to the bell icon (top-nav area) and clicks it. A test
- * notification is emitted programmatically in `onEnter` so the badge
- * shows. The panel opens, the cursor points at the test notification
- * and the dismiss affordance.
+ * Per Grant's 2026-05-21 cursor responsibility audit, this is a USER-
+ * ACTION step: BeakerBot fires the notification, but opening the inbox
+ * belongs to the user. The spotlight + speech direct the eye; no
+ * cursor script.
  *
- * Per §6.3: completion is manual ("Got it" button, no specific user
- * action required). The "Got it" button is a passive advance affordance,
- * NOT the trigger for the notification fire. The notification fires the
- * moment the step becomes active so the badge update reads as a side
- * effect of arriving on this step, not a side effect of a button click.
+ * The single big-button "Got it" affordance from the original §6.3 step
+ * is gone (Grant's 2026-05-21 design feedback). Completion is now
+ * event-driven on the popup-opened DOM event so the next beat only
+ * mounts after the user has actually opened the inbox.
  *
  * Why we re-use `sharingApi.createEventReminder` (vs minting a bespoke
  * "test" notification type): the existing notification union is closed
@@ -24,17 +24,11 @@
  * exercises, so the demo notification looks identical to a real one.
  * Phase 4 cleanup catches this artifact via the standard notifications
  * sweep (no new sidecar surface required).
- *
- * Classification: BEAKERBOT DEMO (per Grant's design correction
- * 2026-05-21). Speech is "I'm firing a test one now, see the bell
- * badge?" The "I'm firing" is BeakerBot-led (the test notification is
- * programmatic), and the cursor click on the bell OPENS the panel,
- * not creates anything. Cursor keeps the bell click.
  */
 import { sharingApi } from "@/lib/local-api";
-import { cursorScript, safeClickAction, compactScript } from "./lib/cursor-script";
-import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
+import { advanceOnEvent, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
+import { watchNotificationsPopupOpened } from "./lib/tour-events";
 
 /** Title shown in the inbox row for the §6.3 demo notification. */
 export const NOTIFICATIONS_STEP_TEST_TITLE = "Welcome to ResearchOS";
@@ -54,8 +48,8 @@ function toLocalDateString(d: Date): string {
  *
  * Best-effort: a notifications-storage failure (e.g., tests without a
  * mocked local-api) is logged + swallowed so the rest of the tour
- * keeps running. The cursor still demos the bell click; only the
- * badge-pre-fill demo degrades.
+ * keeps running. The user can still try the bell; only the badge-
+ * pre-fill demo degrades.
  */
 export async function fireNotificationsStepTestNotification(): Promise<void> {
   try {
@@ -78,18 +72,15 @@ export async function fireNotificationsStepTestNotification(): Promise<void> {
   }
 }
 
-export const notificationsStep = buildWalkthroughStep({
-  id: "notifications",
+export const notificationsBellStep = buildWalkthroughStep({
+  id: "notifications-bell",
   speech:
-    "Quick universal: notifications. I just fired a test one — see the bell badge? Click it to open your inbox.",
+    "Quick universal: notifications. I just fired a test one, see the bell badge? Click the bell to open your inbox.",
   pose: "pointing-up",
   targetSelector: targetSelector(TOUR_TARGETS.notificationsBell),
-  // No cursorScript: per Grant's 2026-05-21 cursor-responsibility
-  // revision, BeakerBot fires the test notification programmatically
-  // (onEnter), but OPENING the inbox is a user action so the user can
-  // click the spotlighted bell themselves. The spotlight + speech
-  // guide the eye; the user does the clicking.
-  completion: manualAdvance("Got it"),
+  // No cursorScript: user-action step. The user clicks the spotlighted
+  // bell themselves.
+  completion: advanceOnEvent(watchNotificationsPopupOpened),
   onEnter: async () => {
     await fireNotificationsStepTestNotification();
   },

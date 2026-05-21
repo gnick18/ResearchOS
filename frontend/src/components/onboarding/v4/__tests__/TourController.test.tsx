@@ -328,11 +328,13 @@ describe("TourController — noteInteraction / noteEventFired / noteManualAdvanc
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(),
     });
-    // §6.3 notifications step ships a `manual` completion ("Got it")
+    // §6.4 methods-category ships a `manual` completion ("Got it, next")
     // per P5; using it here keeps the test honest about which steps
     // accept manual advance. The earlier P1 version started on
-    // home-create-project when every step was a manual placeholder.
-    act(() => result.current.start("notifications"));
+    // home-create-project when every step was a manual placeholder; the
+    // §6.3 notifications step was used here before the 2026-05-21 split
+    // turned it into three event-driven sub-steps.
+    act(() => result.current.start("methods-category"));
     const start = result.current.currentStep;
     act(() => result.current.noteManualAdvance());
     // Effect-driven advance fires synchronously inside the same act.
@@ -783,8 +785,16 @@ describe("TourController — cursor-script invocation", () => {
       expect(cursorRunScriptMock).toHaveBeenCalledTimes(1);
     });
     cursorRunScriptMock.mockClear();
+    // Use project-overview-nav (has cursorScript and its target —
+    // `[data-tour-target^='home-project-card-']` — is mounted in this
+    // suite's beforeEach as `home-project-card-test`). Previously this
+    // used `notifications`, but the 2026-05-21 §6.3 split dropped the
+    // cursor script from every notifications sub-step (all three are
+    // user-action now). Picking project-overview-nav keeps the test
+    // scoped to "transition between two cursor-script steps actually
+    // re-invokes runScript" without needing fresh fixture targets.
     act(() => {
-      result.current.start("notifications");
+      result.current.start("project-overview-nav");
     });
     await waitFor(() => {
       expect(cursorRunScriptMock).toHaveBeenCalledTimes(1);

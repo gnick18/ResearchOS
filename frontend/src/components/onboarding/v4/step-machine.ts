@@ -71,8 +71,13 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // ProjectOverviewNavStep.tsx for the split rationale.
   "project-overview-nav",
   "project-overview-prose",
-  // Notifications universal moment (§6.3)
-  "notifications",
+  // Notifications universal moment (§6.3). Split into three beats so
+  // the user actually opens the inbox, silences the row, and dismisses
+  // it before moving on — see ONBOARDING_V4_PROPOSAL.md §6.3 (Grant's
+  // 2026-05-21 design feedback "be smarter than a Got it button").
+  "notifications-bell",      // §6.3a: open the inbox
+  "notifications-silence",   // §6.3b: mark-as-read (mute the bell badge)
+  "notifications-delete",    // §6.3c: dismiss the row
   // Methods page deep-dive (§6.4)
   // sec 6.4 redesign (Grant 2026-05-21): split the original
   // category step into a prompt (BeakerBot asks the user what kind of

@@ -77,7 +77,9 @@ import { homeCreateProjectStep } from "./steps/walkthrough/HomeCreateProjectStep
 import { homeCreateProjectFillStep } from "./steps/walkthrough/HomeCreateProjectFillStep";
 import { projectOverviewNavStep } from "./steps/walkthrough/ProjectOverviewNavStep";
 import { projectOverviewStep } from "./steps/walkthrough/ProjectOverviewStep";
-import { notificationsStep } from "./steps/walkthrough/NotificationsStep";
+import { notificationsBellStep } from "./steps/walkthrough/NotificationsBellStep";
+import { notificationsSilenceStep } from "./steps/walkthrough/NotificationsSilenceStep";
+import { notificationsDeleteStep } from "./steps/walkthrough/NotificationsDeleteStep";
 import { methodsCategoryPromptStep } from "./steps/walkthrough/MethodsCategoryPromptStep";
 import { methodsCategoryStep } from "./steps/walkthrough/MethodsCategoryStep";
 import { methodsOpenPickerStep } from "./steps/walkthrough/MethodsOpenPickerStep";
@@ -112,7 +114,9 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [homeCreateProjectFillStep.id]: homeCreateProjectFillStep,
   [projectOverviewNavStep.id]: projectOverviewNavStep,
   [projectOverviewStep.id]: projectOverviewStep,
-  [notificationsStep.id]: notificationsStep,
+  [notificationsBellStep.id]: notificationsBellStep,
+  [notificationsSilenceStep.id]: notificationsSilenceStep,
+  [notificationsDeleteStep.id]: notificationsDeleteStep,
   [methodsCategoryPromptStep.id]: methodsCategoryPromptStep,
   [methodsCategoryStep.id]: methodsCategoryStep,
   [methodsOpenPickerStep.id]: methodsOpenPickerStep,

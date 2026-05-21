@@ -71,6 +71,26 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER).toContain("phase4-cleanup");
   });
 
+  it("contains the three §6.3 notification sub-step ids", () => {
+    // Grant 2026-05-21: split the original single `notifications` step
+    // into three beats (bell → silence → delete). The old id MUST be
+    // gone so a stale resume_state record can't pin the controller to
+    // a step that no longer exists.
+    expect(TOUR_STEP_ORDER).toContain("notifications-bell");
+    expect(TOUR_STEP_ORDER).toContain("notifications-silence");
+    expect(TOUR_STEP_ORDER).toContain("notifications-delete");
+    expect(TOUR_STEP_ORDER).not.toContain("notifications");
+  });
+
+  it("orders the §6.3 sub-steps bell → silence → delete", () => {
+    const bellIdx = TOUR_STEP_ORDER.indexOf("notifications-bell");
+    const silenceIdx = TOUR_STEP_ORDER.indexOf("notifications-silence");
+    const deleteIdx = TOUR_STEP_ORDER.indexOf("notifications-delete");
+    expect(bellIdx).toBeGreaterThanOrEqual(0);
+    expect(silenceIdx).toBe(bellIdx + 1);
+    expect(deleteIdx).toBe(silenceIdx + 1);
+  });
+
   it("ends with phase4-cleanup", () => {
     expect(TOUR_STEP_ORDER[TOUR_STEP_ORDER.length - 1]).toBe("phase4-cleanup");
   });

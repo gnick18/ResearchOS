@@ -74,15 +74,28 @@ export const TOUR_DOM_EVENTS = {
    */
   methodsPickerOpened: "tour:methods-picker-opened",
   /**
-   * Dispatched by `app/methods/page.tsx` from its `handleCategoryCreated`
-   * callback when the user (or the §6.4 demo cursor) confirms the
-   * "Create Empty" or "Create & Add Method" affordance in the New
-   * Category modal. Categories on the methods page are local-state
-   * only (no API call); they live in localStorage as
-   * `emptyMethodCategories` until a method is filed under them. The
-   * `methods-category` demo step listens on this event for completion.
+   * Dispatched by `app/methods/page.tsx` from its handleCategoryCreated
+   * callback. The `methods-category` demo step listens on this event
+   * for completion. Categories are local-state only (no API count to
+   * poll), so this event is the only completion signal.
    */
   methodsCategoryCreated: "tour:methods-category-created",
+  /**
+   * Dispatched by NotificationPopup.tsx on open. The §6.3 bell sub-step
+   * advances on this so the silence sub-step's spotlight lands AFTER
+   * the popup is on screen.
+   */
+  notificationsPopupOpened: "tour:notifications-popup-opened",
+  /**
+   * Dispatched by NotificationPopup.tsx when the row's Mark-as-read
+   * button fires. §6.3 silence sub-step advances on this.
+   */
+  notificationSilenced: "tour:notification-silenced",
+  /**
+   * Dispatched by NotificationPopup.tsx when the row's Dismiss (X)
+   * fires. §6.3 delete sub-step advances on this.
+   */
+  notificationDeleted: "tour:notification-deleted",
 } as const;
 
 /**
@@ -428,6 +441,101 @@ export function watchMethodsCategoryCreated(
       TOUR_DOM_EVENTS.methodsCategoryCreated,
       handler,
     );
+  };
+}
+
+/**
+ * Watch for the notifications popup to open. NotificationPopup.tsx
+ * dispatches `tour:notifications-popup-opened` on mount so the §6.3
+ * bell sub-step can advance the moment the inbox panel appears.
+ *
+ * DOM-mount fallback watches for the popup's silence-button anchor.
+ */
+export function watchNotificationsPopupOpened(
+  advance: () => void,
+): () => void {
+  let fired = false;
+  const fireOnce = () => {
+    if (fired) return;
+    fired = true;
+    advance();
+  };
+
+  let removeListener: (() => void) | undefined;
+  let mo: MutationObserver | undefined;
+
+  if (typeof window !== "undefined") {
+    const handler = () => fireOnce();
+    window.addEventListener(TOUR_DOM_EVENTS.notificationsPopupOpened, handler);
+    removeListener = () =>
+      window.removeEventListener(
+        TOUR_DOM_EVENTS.notificationsPopupOpened,
+        handler,
+      );
+  }
+
+  if (typeof document !== "undefined") {
+    if (
+      document.querySelector("[data-tour-target=\"notification-silence\"]")
+    ) {
+      fireOnce();
+    } else if (typeof MutationObserver !== "undefined") {
+      mo = new MutationObserver(() => {
+        if (
+          document.querySelector(
+            "[data-tour-target=\"notification-silence\"]",
+          )
+        ) {
+          fireOnce();
+        }
+      });
+      mo.observe(document.body, { childList: true, subtree: true });
+    }
+  }
+
+  return () => {
+    removeListener?.();
+    mo?.disconnect();
+  };
+}
+
+/**
+ * Watch for the row-level "Mark as read" button to fire. The popup
+ * dispatches `tour:notification-silenced` from inside `handleMarkRead`.
+ */
+export function watchNotificationSilenced(
+  advance: () => void,
+): () => void {
+  if (typeof window === "undefined") return () => {};
+  let fired = false;
+  const handler = () => {
+    if (fired) return;
+    fired = true;
+    advance();
+  };
+  window.addEventListener(TOUR_DOM_EVENTS.notificationSilenced, handler);
+  return () => {
+    window.removeEventListener(TOUR_DOM_EVENTS.notificationSilenced, handler);
+  };
+}
+
+/**
+ * Watch for the row-level "Dismiss" (X) button to fire. The popup
+ * dispatches `tour:notification-deleted` from inside `handleDismiss`.
+ */
+export function watchNotificationDeleted(
+  advance: () => void,
+): () => void {
+  if (typeof window === "undefined") return () => {};
+  let fired = false;
+  const handler = () => {
+    if (fired) return;
+    fired = true;
+    advance();
+  };
+  window.addEventListener(TOUR_DOM_EVENTS.notificationDeleted, handler);
+  return () => {
+    window.removeEventListener(TOUR_DOM_EVENTS.notificationDeleted, handler);
   };
 }
 

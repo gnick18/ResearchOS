@@ -27,6 +27,15 @@ export default function NotificationPopup({
   useEffect(() => {
     if (isOpen) {
       loadNotifications();
+      // Onboarding v4 §6.3: the bell sub-step listens for this event
+      // so the silence sub-step's spotlight only mounts after the
+      // popup is actually visible. Cheap dispatch regardless of
+      // listeners; no-op outside a tour.
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("tour:notifications-popup-opened"),
+        );
+      }
     }
   }, [isOpen]);
 
@@ -66,6 +75,17 @@ export default function NotificationPopup({
         prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
       );
       onNotificationRead();
+      // Onboarding v4 §6.3 silence sub-step listens for this. Fires
+      // for both the explicit "Mark as read" button and the row-body
+      // click path (both flow through this handler), so the tour
+      // advances on either user action.
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("tour:notification-silenced", {
+            detail: { id: notificationId },
+          }),
+        );
+      }
     } catch (err) {
       console.error("Failed to mark notification as read:", err);
     }
@@ -87,6 +107,15 @@ export default function NotificationPopup({
       setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
       onNotificationRead();
       window.dispatchEvent(new CustomEvent("ros-notifications-changed"));
+      // Onboarding v4 §6.3 delete sub-step listens for this. The
+      // bell-badge change event above keeps the badge count fresh;
+      // this dedicated event lets the tour controller distinguish a
+      // dismiss action from any other notifications-list mutation.
+      window.dispatchEvent(
+        new CustomEvent("tour:notification-deleted", {
+          detail: { id: notificationId },
+        }),
+      );
     } catch (err) {
       console.error("Failed to dismiss notification:", err);
     }
@@ -358,6 +387,7 @@ export default function NotificationPopup({
                       {!notification.read && (
                         <Tooltip label="Mark as read" placement="left">
                           <button
+                            data-tour-target="notification-silence"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleMarkRead(notification.id);
@@ -372,6 +402,7 @@ export default function NotificationPopup({
                       )}
                       <Tooltip label="Dismiss" placement="left">
                         <button
+                          data-tour-target="notification-delete"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDismiss(notification.id);

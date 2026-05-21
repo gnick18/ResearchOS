@@ -31,8 +31,14 @@ export const TOUR_TARGETS = {
   // §6.2 Project route Overview prose
   projectOverviewTextarea: "project-overview-textarea",
 
-  // §6.3 Notifications
+  // §6.3 Notifications. Split into three sub-steps (bell → silence →
+  // delete) so the user actually exercises each affordance on the test
+  // notification before the tour moves on. "silence" maps to the
+  // "Mark as read" button (closest functional analog: muting the unread
+  // bell badge), "delete" maps to the row's "Dismiss" (X) button.
   notificationsBell: "notifications-bell",
+  notificationSilence: "notification-silence",
+  notificationDelete: "notification-delete",
 
   // §6.4 Methods page
   methodsAddCategory: "methods-add-category",

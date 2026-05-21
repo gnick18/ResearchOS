@@ -36,7 +36,9 @@ import { homeCreateProjectStep } from "../HomeCreateProjectStep";
 import { homeCreateProjectFillStep } from "../HomeCreateProjectFillStep";
 import { projectOverviewNavStep } from "../ProjectOverviewNavStep";
 import { projectOverviewStep, PLACEHOLDER_HYPOTHESIS } from "../ProjectOverviewStep";
-import { notificationsStep } from "../NotificationsStep";
+import { notificationsBellStep } from "../NotificationsBellStep";
+import { notificationsSilenceStep } from "../NotificationsSilenceStep";
+import { notificationsDeleteStep } from "../NotificationsDeleteStep";
 import { methodsCategoryStep } from "../MethodsCategoryStep";
 import { methodsCategoryPromptStep } from "../MethodsCategoryPromptStep";
 import { methodsOpenPickerStep } from "../MethodsOpenPickerStep";
@@ -88,7 +90,9 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   homeCreateProjectFillStep,
   projectOverviewNavStep,
   projectOverviewStep,
-  notificationsStep,
+  notificationsBellStep,
+  notificationsSilenceStep,
+  notificationsDeleteStep,
   methodsCategoryPromptStep,
   methodsCategoryStep,
   methodsOpenPickerStep,
@@ -126,7 +130,9 @@ describe("P5 step bodies — universal contract", () => {
       "home-create-project-fill",
       "project-overview-nav",
       "project-overview-prose",
-      "notifications",
+      "notifications-bell",
+      "notifications-silence",
+      "notifications-delete",
       "methods-category-prompt",
       "methods-category",
       "methods-open-picker",
@@ -173,7 +179,9 @@ describe("P5 step bodies — universal contract", () => {
     const DEMO_STEPS_WITH_CURSOR_SCRIPT = [
       projectOverviewNavStep,
       projectOverviewStep,
-      notificationsStep,
+      // §6.3 notifications sub-steps are all USER-ACTION per Grant's
+      // 2026-05-21 split (the user clicks bell, silence, and delete
+      // themselves); they're absent from this list deliberately.
       methodsCategoryStep,
       methodsOpenPickerStep,
       methodsBreadthStep,
@@ -363,13 +371,14 @@ describe("ProjectOverviewStep (§6.2 prose)", () => {
   it("expectedRoute is the project route prefix (handles dynamic id)", () => {
     expect(projectOverviewStep.expectedRoute).toBe("/workbench/projects");
   });
-  it("placeholder hypothesis text is the BeakerBot scaling sentence", () => {
+  it("placeholder hypothesis text is the BeakerBot affirmation sentence", () => {
     // The brief specified this exact placeholder so the cursor demo is
     // cute, on-brand, and obviously throwaway prose. Locking the text
     // here so a future copy edit gets surfaced via test fail rather
-    // than silent drift.
+    // than silent drift. Updated 2026-05-21 to match commit 96158042
+    // (affirmation copy swap).
     expect(PLACEHOLDER_HYPOTHESIS).toBe(
-      "Test the hypothesis that BeakerBot scales linearly.",
+      "You are smart, confident, and capable of anything you put your mind to. - BeakerBot",
     );
   });
   it("cursor script issues a click + a type action against the textarea", async () => {
@@ -421,12 +430,20 @@ describe("ProjectOverviewStep (§6.2 prose)", () => {
   });
 });
 
-describe("NotificationsStep (§6.3)", () => {
-  it("declares manual completion ('Got it')", () => {
-    expect(notificationsStep.completion.type).toBe("manual");
-    if (notificationsStep.completion.type === "manual") {
-      expect(notificationsStep.completion.buttonLabel).toBe("Got it");
-    }
+describe("Notifications sub-steps (§6.3 bell / silence / delete)", () => {
+  it("bell step declares event-driven completion (popup-opened DOM event)", () => {
+    expect(notificationsBellStep.completion.type).toBe("event");
+  });
+  it("silence step declares event-driven completion", () => {
+    expect(notificationsSilenceStep.completion.type).toBe("event");
+  });
+  it("delete step declares event-driven completion", () => {
+    expect(notificationsDeleteStep.completion.type).toBe("event");
+  });
+  it("all three sub-steps are user-action (no cursorScript)", () => {
+    expect(notificationsBellStep.cursorScript).toBeUndefined();
+    expect(notificationsSilenceStep.cursorScript).toBeUndefined();
+    expect(notificationsDeleteStep.cursorScript).toBeUndefined();
   });
 });
 
