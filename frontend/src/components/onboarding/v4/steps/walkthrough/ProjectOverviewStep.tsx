@@ -64,12 +64,14 @@ export const projectOverviewStep = buildWalkthroughStep({
     );
     return compactScript([focusClick, typeAction]);
   }),
-  // ~52 chars at 95ms is about 5s typing plus 1.5s breath, about 6.5s
-  // total before auto-advance. The proposal's 1500ms is "after typing
-  // finishes"; we bake the typing budget into the auto delay so the
-  // controller's single-timer model works.
+  // Typing cadence was bumped from 95ms to 48ms per character in commit
+  // 95de59e2. Auto-advance timer needs to track that or it overshoots
+  // typing-finished by several seconds and feels stuck. ~1s glide-in +
+  // 52 chars at 48ms = ~3.5s, plus 1s breath = 4.5s total. The
+  // breath is intentionally short because Grant observed the long
+  // post-typing pause read as "nothing's happening".
   completion: autoAdvanceAfter(
-    Math.ceil(PLACEHOLDER_HYPOTHESIS.length * 95) + 1500,
+    1000 + Math.ceil(PLACEHOLDER_HYPOTHESIS.length * 48) + 1000,
   ),
   // Prefix match handles the dynamic `/workbench/projects/<id>` route.
   // The TourController auto-nav skips when `current.startsWith(expected)`.
