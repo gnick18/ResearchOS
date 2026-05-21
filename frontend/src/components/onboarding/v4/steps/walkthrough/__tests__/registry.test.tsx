@@ -9,6 +9,7 @@ import { TOUR_STEPS } from "../../../step-registry";
 
 const P5_STEP_IDS = [
   "home-create-project",
+  "home-create-project-fill",
   "project-overview-prose",
   "notifications",
   "methods-category",

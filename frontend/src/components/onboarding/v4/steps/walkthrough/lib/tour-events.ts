@@ -39,6 +39,25 @@ import { methodsApi, projectsApi, tasksApi } from "@/lib/local-api";
 const DEFAULT_POLL_INTERVAL_MS = 500;
 
 /**
+ * Custom DOM event names the §6.1 home-create-project sub-steps listen
+ * for. The home page dispatches `tour:home-create-modal-opened` when the
+ * user clicks the "+ New Project" affordance (so the second sub-step
+ * can advance the moment the form mounts). `projectsApi.create` fires
+ * `tour:project-created` on success so the second sub-step doesn't have
+ * to wait for the polling tick.
+ *
+ * We keep these as plain DOM CustomEvent names rather than wiring a
+ * dedicated EventTarget bus so the surface that emits (page.tsx /
+ * local-api.ts) doesn't have to import this tour-only module. The cost
+ * when no tour is active is one `window.dispatchEvent` per modal open
+ * (cheap, fires regardless of listeners).
+ */
+export const TOUR_DOM_EVENTS = {
+  homeCreateModalOpened: "tour:home-create-modal-opened",
+  projectCreated: "tour:project-created",
+} as const;
+
+/**
  * Generic count-based poller. Resolves via `onIncrease` when the count
  * returned by `read()` grows above the baseline. Returns an unsubscribe
  * function (matches the shape the TourStep `eventListener` callback
@@ -89,17 +108,109 @@ function watchCountIncrease(
 }
 
 /**
- * Watch for a new project. Calls `advance` when `projectsApi.list()`
- * grows above the baseline observed at subscription time.
+ * Watch for a new project. Resolves via either:
+ *   1. the `tour:project-created` custom DOM event dispatched by
+ *      `projectsApi.create` on success (fast path, no polling lag), or
+ *   2. the polling baseline-grows watcher as a safety net for any code
+ *      path that bypasses `projectsApi.create` (e.g. a direct
+ *      `projectsStore.create` in a test fixture).
+ *
+ * Both paths fan into the same `advance` callback, guarded so we only
+ * fire once even if both signals race.
  */
 export function watchProjectCreated(advance: () => void): () => void {
-  return watchCountIncrease(
+  let fired = false;
+  const fireOnce = () => {
+    if (fired) return;
+    fired = true;
+    advance();
+  };
+
+  // 1. DOM event fast path. Browser-only — jsdom in tests supplies
+  // `window`, so this works there too.
+  let removeListener: (() => void) | undefined;
+  if (typeof window !== "undefined") {
+    const handler = () => fireOnce();
+    window.addEventListener(TOUR_DOM_EVENTS.projectCreated, handler);
+    removeListener = () =>
+      window.removeEventListener(TOUR_DOM_EVENTS.projectCreated, handler);
+  }
+
+  // 2. Polling safety net.
+  const stopPolling = watchCountIncrease(
     async () => {
       const projects = await projectsApi.list();
       return projects.length;
     },
-    advance,
+    fireOnce,
   );
+
+  return () => {
+    removeListener?.();
+    stopPolling();
+  };
+}
+
+/**
+ * Watch for the home-page "+ New Project" modal to mount. The home page
+ * (`app/page.tsx`) dispatches `tour:home-create-modal-opened` on the
+ * window when the user (or the cursor script's synthetic click) flips
+ * the form into the visible state. Used by the §6.1 `home-create-project`
+ * sub-step so BeakerBot can swap into the fill-form speech the instant
+ * the form appears.
+ *
+ * A second-best fallback watches the DOM for the form node mounting via
+ * its `data-tour-target="home-project-create-form"` attribute, so a
+ * future refactor that drops the explicit dispatch (e.g. moves the form
+ * into a portaled modal) still trips the advance.
+ */
+export function watchHomeCreateModalOpened(
+  advance: () => void,
+): () => void {
+  let fired = false;
+  const fireOnce = () => {
+    if (fired) return;
+    fired = true;
+    advance();
+  };
+
+  let removeListener: (() => void) | undefined;
+  let mo: MutationObserver | undefined;
+
+  if (typeof window !== "undefined") {
+    const handler = () => fireOnce();
+    window.addEventListener(TOUR_DOM_EVENTS.homeCreateModalOpened, handler);
+    removeListener = () =>
+      window.removeEventListener(
+        TOUR_DOM_EVENTS.homeCreateModalOpened,
+        handler,
+      );
+  }
+
+  if (typeof document !== "undefined") {
+    // DOM-mount fallback. If the form is already on screen (e.g. the
+    // tour entered this step after the user opened the modal manually),
+    // fire immediately so we don't wait for a second event.
+    if (document.querySelector("[data-tour-target=\"home-project-create-form\"]")) {
+      fireOnce();
+    } else if (typeof MutationObserver !== "undefined") {
+      mo = new MutationObserver(() => {
+        if (
+          document.querySelector(
+            "[data-tour-target=\"home-project-create-form\"]",
+          )
+        ) {
+          fireOnce();
+        }
+      });
+      mo.observe(document.body, { childList: true, subtree: true });
+    }
+  }
+
+  return () => {
+    removeListener?.();
+    mo?.disconnect();
+  };
 }
 
 /**

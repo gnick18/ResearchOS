@@ -23,7 +23,9 @@
 export const TOUR_TARGETS = {
   // §6.1 Home + first project
   homeNewProject: "home-new-project",
+  homeProjectCreateForm: "home-project-create-form",
   homeProjectNameInput: "home-project-name-input",
+  homeProjectWeekendToggle: "home-project-weekend-toggle",
   homeProjectCreateSubmit: "home-project-create-submit",
 
   // §6.2 Project route Overview prose

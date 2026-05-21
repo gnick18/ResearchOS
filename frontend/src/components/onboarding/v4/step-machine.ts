@@ -55,8 +55,13 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "setup-q6",
 
   // ----- Phase 2: universal walkthrough (§6.1 - §6.12)
-  // Home + first project (§6.1)
+  // Home + first project (§6.1). Split into TRIGGER (highlight the
+  // button + advance when the form opens) + FILL (explain name +
+  // color + the seven-day-week toggle + advance on
+  // `projectsApi.create`). See HomeCreateProjectStep.tsx for the
+  // split rationale.
   "home-create-project",
+  "home-create-project-fill",
   // Project route Overview prose (§6.2)
   "project-overview-prose",
   // Notifications universal moment (§6.3)

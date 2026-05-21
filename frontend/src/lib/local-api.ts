@@ -156,6 +156,17 @@ export const projectsApi = {
       owner: currentUser,
       shared_with: [],
     });
+    // Onboarding v4 §6.1: notify the home-create-project walkthrough
+    // step that a new project landed, so BeakerBot can advance without
+    // depending on the 500ms polling tick. Cheap no-op when no tour is
+    // active. SSR-safe via the `window` typeof check.
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("tour:project-created", {
+          detail: { id: project.id },
+        }),
+      );
+    }
     return project;
   },
 

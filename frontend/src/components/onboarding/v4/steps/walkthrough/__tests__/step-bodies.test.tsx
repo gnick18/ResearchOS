@@ -18,6 +18,7 @@
 import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
 import { homeCreateProjectStep } from "../HomeCreateProjectStep";
+import { homeCreateProjectFillStep } from "../HomeCreateProjectFillStep";
 import { projectOverviewStep } from "../ProjectOverviewStep";
 import { notificationsStep } from "../NotificationsStep";
 import { methodsCategoryStep } from "../MethodsCategoryStep";
@@ -66,6 +67,7 @@ function hasEmDash(text: string): boolean {
 
 const ALL_STEPS: ReadonlyArray<TourStep> = [
   homeCreateProjectStep,
+  homeCreateProjectFillStep,
   projectOverviewStep,
   notificationsStep,
   methodsCategoryStep,
@@ -100,6 +102,7 @@ describe("P5 step bodies — universal contract", () => {
   it("every step body has a stable id matching its file's named export", () => {
     const expectedIds = new Set([
       "home-create-project",
+      "home-create-project-fill",
       "project-overview-prose",
       "notifications",
       "methods-category",
@@ -139,8 +142,8 @@ describe("P5 step bodies — universal contract", () => {
   });
 });
 
-describe("HomeCreateProjectStep (§6.1)", () => {
-  it("declares event-driven completion (projectsApi.create poll)", () => {
+describe("HomeCreateProjectStep (§6.1 trigger)", () => {
+  it("declares event-driven completion (modal-opened DOM event)", () => {
     expect(homeCreateProjectStep.completion.type).toBe("event");
   });
   it("targets the home new-project button selector", () => {
@@ -150,6 +153,66 @@ describe("HomeCreateProjectStep (§6.1)", () => {
   });
   it("speech mentions the blue plus button", () => {
     expect(renderSpeech(homeCreateProjectStep)).toMatch(/blue plus button/);
+  });
+  it("advances when the home-create-modal-opened DOM event fires", async () => {
+    if (homeCreateProjectStep.completion.type !== "event") {
+      throw new Error("completion contract changed shape; update test");
+    }
+    let advanced = false;
+    const stop = homeCreateProjectStep.completion.eventListener(() => {
+      advanced = true;
+    });
+    try {
+      // Trigger the custom event after subscription.
+      window.dispatchEvent(new CustomEvent("tour:home-create-modal-opened"));
+      // The DOM event handler fires synchronously inside dispatchEvent,
+      // so `advanced` should already be true on the next microtask.
+      await Promise.resolve();
+      expect(advanced).toBe(true);
+    } finally {
+      stop();
+    }
+  });
+});
+
+describe("HomeCreateProjectFillStep (§6.1 fill)", () => {
+  it("declares event-driven completion (projectsApi.create event)", () => {
+    expect(homeCreateProjectFillStep.completion.type).toBe("event");
+  });
+  it("targets the create-project form container selector", () => {
+    expect(homeCreateProjectFillStep.targetSelector).toBe(
+      "[data-tour-target=\"home-project-create-form\"]",
+    );
+  });
+  it("speech explains the seven-day work week toggle", () => {
+    const text = renderSpeech(homeCreateProjectFillStep);
+    expect(text).toMatch(/seven-day work week/);
+    expect(text).toMatch(/weekends count for scheduling/);
+    expect(text).toMatch(/Sat and Sun/);
+  });
+  it("speech mentions the name + color + Create Project affordances", () => {
+    const text = renderSpeech(homeCreateProjectFillStep);
+    expect(text).toMatch(/name/);
+    expect(text).toMatch(/color/);
+    expect(text).toMatch(/Create Project/);
+  });
+  it("advances when the project-created DOM event fires", async () => {
+    if (homeCreateProjectFillStep.completion.type !== "event") {
+      throw new Error("completion contract changed shape; update test");
+    }
+    let advanced = false;
+    const stop = homeCreateProjectFillStep.completion.eventListener(() => {
+      advanced = true;
+    });
+    try {
+      window.dispatchEvent(
+        new CustomEvent("tour:project-created", { detail: { id: 42 } }),
+      );
+      await Promise.resolve();
+      expect(advanced).toBe(true);
+    } finally {
+      stop();
+    }
   });
 });
 

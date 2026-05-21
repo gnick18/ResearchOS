@@ -371,7 +371,20 @@ export default function HomePage() {
             </p>
           </div>
           <button
-            onClick={() => setCreating(true)}
+            data-tour-target="home-new-project"
+            onClick={() => {
+              setCreating(true);
+              // Onboarding v4 §6.1: notify the universal walkthrough's
+              // home-create-project step that the form is opening, so
+              // BeakerBot can swap into the fill-form speech without
+              // waiting on the polling watcher. Cheap no-op when no
+              // tour is active.
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(
+                  new CustomEvent("tour:home-create-modal-opened"),
+                );
+              }
+            }}
             className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             + New Project
@@ -380,7 +393,10 @@ export default function HomePage() {
 
         {/* Create project form */}
         {creating && (
-          <div className="bg-white border border-gray-200 rounded-xl p-6 mb-8 max-w-lg">
+          <div
+            data-tour-target="home-project-create-form"
+            className="bg-white border border-gray-200 rounded-xl p-6 mb-8 max-w-lg"
+          >
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               New Research Project
             </h3>
@@ -390,6 +406,7 @@ export default function HomePage() {
                   Project Name
                 </label>
                 <input
+                  data-tour-target="home-project-name-input"
                   type="text"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
@@ -429,7 +446,10 @@ export default function HomePage() {
                   ))}
                 </div>
               </div>
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label
+                data-tour-target="home-project-weekend-toggle"
+                className="flex items-center gap-2 cursor-pointer"
+              >
                 <input
                   type="checkbox"
                   checked={newWeekendActive}
@@ -448,6 +468,7 @@ export default function HomePage() {
                   Cancel
                 </button>
                 <button
+                  data-tour-target="home-project-create-submit"
                   onClick={handleCreateProject}
                   className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
                 >
@@ -727,7 +748,20 @@ export default function HomePage() {
               Create your first research project to get started
             </p>
             <button
-              onClick={() => setCreating(true)}
+              data-tour-target="home-new-project"
+              onClick={() => {
+              setCreating(true);
+              // Onboarding v4 §6.1: notify the universal walkthrough's
+              // home-create-project step that the form is opening, so
+              // BeakerBot can swap into the fill-form speech without
+              // waiting on the polling watcher. Cheap no-op when no
+              // tour is active.
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(
+                  new CustomEvent("tour:home-create-modal-opened"),
+                );
+              }
+            }}
               className="px-6 py-3 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               + New Project
