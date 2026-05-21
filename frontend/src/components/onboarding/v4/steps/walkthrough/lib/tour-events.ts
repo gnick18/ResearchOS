@@ -55,6 +55,16 @@ const DEFAULT_POLL_INTERVAL_MS = 500;
 export const TOUR_DOM_EVENTS = {
   homeCreateModalOpened: "tour:home-create-modal-opened",
   projectCreated: "tour:project-created",
+  /**
+   * Dispatched by `ProjectRoute.tsx` on mount. The §6.2 walkthrough splits
+   * into a NAV sub-step (cursor clicks the project card on home) plus a
+   * PROSE sub-step (cursor types into the Overview textarea on the project
+   * page). The NAV step advances on this event so the PROSE step's cursor
+   * script starts AFTER the route change, not before. A single cursor
+   * script can't span a navigation because `InProductWalkthroughOverlay`
+   * unmounts on route change, cancelling the in-flight `runScript`.
+   */
+  projectRouteEntered: "tour:project-route-entered",
 } as const;
 
 /**
@@ -198,6 +208,74 @@ export function watchHomeCreateModalOpened(
         if (
           document.querySelector(
             "[data-tour-target=\"home-project-create-form\"]",
+          )
+        ) {
+          fireOnce();
+        }
+      });
+      mo.observe(document.body, { childList: true, subtree: true });
+    }
+  }
+
+  return () => {
+    removeListener?.();
+    mo?.disconnect();
+  };
+}
+
+/**
+ * Watch for the project route to mount. `ProjectRoute.tsx` dispatches
+ * `tour:project-route-entered` on mount, so the §6.2 NAV sub-step
+ * (`project-overview-nav`) can advance the moment the cursor's click on
+ * the home-page project card lands on `/workbench/projects/<id>`. The
+ * follow-up PROSE sub-step (`project-overview-prose`) then runs its
+ * typing cursor script on the project page, with a fresh
+ * `InProductWalkthroughOverlay` mount and a fresh cursor ref. This is
+ * the same trigger-then-action split §6.1 used to dodge the
+ * cursor-cannot-cross-navigation problem.
+ *
+ * A DOM-mount fallback watches for the Overview textarea anchor so a
+ * future refactor that drops the explicit dispatch (e.g. moves the route
+ * detail into a subtree that re-uses a parent layout) still trips the
+ * advance.
+ */
+export function watchProjectRouteEntered(advance: () => void): () => void {
+  let fired = false;
+  const fireOnce = () => {
+    if (fired) return;
+    fired = true;
+    advance();
+  };
+
+  let removeListener: (() => void) | undefined;
+  let mo: MutationObserver | undefined;
+
+  if (typeof window !== "undefined") {
+    const handler = () => fireOnce();
+    window.addEventListener(TOUR_DOM_EVENTS.projectRouteEntered, handler);
+    removeListener = () =>
+      window.removeEventListener(
+        TOUR_DOM_EVENTS.projectRouteEntered,
+        handler,
+      );
+  }
+
+  if (typeof document !== "undefined") {
+    // DOM-mount fallback. If the Overview textarea is already on screen
+    // (e.g. the tour entered this step after the user manually navigated
+    // to the project page), fire immediately so we don't wait for a second
+    // event.
+    if (
+      document.querySelector(
+        "[data-tour-target=\"project-overview-textarea\"]",
+      )
+    ) {
+      fireOnce();
+    } else if (typeof MutationObserver !== "undefined") {
+      mo = new MutationObserver(() => {
+        if (
+          document.querySelector(
+            "[data-tour-target=\"project-overview-textarea\"]",
           )
         ) {
           fireOnce();

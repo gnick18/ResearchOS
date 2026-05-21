@@ -1,18 +1,25 @@
 /**
- * §6.2 Project route Overview prose demo — universal walkthrough.
+ * §6.2 Project route Overview prose demo (PROSE sub-step).
  *
- * After the project lands (§6.1), BeakerBot navigates to the project
- * detail route, glides the cursor to the Overview textarea, focuses
- * it, and types a placeholder hypothesis sentence at the standard
- * 95ms cadence. Auto-advances 1.5 seconds after the typing finishes
- * (matches §6.2's `autoAdvanceAfterMs: 1500` note in the proposal).
+ * Second of two §6.2 sub-steps. The NAV sub-step
+ * (`project-overview-nav`) has just clicked the project card on home and
+ * the browser is now on `/workbench/projects/<id>`. BeakerBot glides the
+ * cursor onto the Overview textarea, focuses it, and types a placeholder
+ * hypothesis sentence at the standard 95ms cadence. Auto-advances 1.5
+ * seconds after the typing finishes (matches §6.2's
+ * `autoAdvanceAfterMs: 1500` note in the proposal).
  *
- * Classification: BEAKERBOT DEMO + NAVIGATION (per Grant's design
- * correction 2026-05-21). Speech is "I'm taking us into your project.
- * Watch, I'll type a hypothesis sentence into the Overview." Both
- * "I'm taking us" (navigation) and "Watch, I'll type" (demo) are
- * explicit BeakerBot-led promises. Cursor performs the project-card
- * navigation click + the typing as advertised.
+ * Split rationale (Grant 2026-05-21): the original §6.2 step tried to
+ * click the project card AND type into the textarea in a single cursor
+ * script. The route change unmounted the overlay mid-script, recreated
+ * the cursor ref, and the cursor-script useEffect's `cancelled` cleanup
+ * fired, so the type action never ran. Splitting into NAV + PROSE
+ * mirrors §6.1's trigger / fill split: each cursor script runs against
+ * a stable overlay mount.
+ *
+ * Classification: BEAKERBOT DEMO. Speech is "Watch, I'll type a
+ * hypothesis sentence into the Overview", an explicit BeakerBot-led
+ * promise to type. The cursor performs the typing as advertised.
  *
  * Cleanup default discard: this is throwaway placeholder prose, not a
  * real hypothesis. The cleanup grid (P8) reads `cleanup_default:
@@ -20,12 +27,10 @@
  *
  *   { type: "overview_prose", id: "<projectId>", cleanup_default: "discard" }
  *
- * Navigation: §6.2 says "auto-nav via cursor click on the project card
- * on home page." Out of scope for the body itself — the cursor script
- * scopes to clicking the project card if visible, then waiting for the
- * Overview textarea to mount. If the navigation doesn't happen (eg.
- * project card never rendered), the cursor script gracefully no-ops
- * via `compactScript(...)` filtering nulls.
+ * `expectedRoute` is `/workbench/projects`, a prefix match that handles
+ * the dynamic project id. The TourController's auto-nav skips on prefix
+ * match, so refreshing on the project page during this step doesn't
+ * bounce the user home.
  */
 import {
   cursorScript,
@@ -36,31 +41,37 @@ import {
 import { autoAdvanceAfter, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 
-const PLACEHOLDER_HYPOTHESIS =
-  "Hypothesis placeholder. BeakerBot wrote this so you can see how Overview works.";
+export const PLACEHOLDER_HYPOTHESIS =
+  "Test the hypothesis that BeakerBot scales linearly.";
 
 export const projectOverviewStep = buildWalkthroughStep({
   id: "project-overview-prose",
-  speech:
-    "I'm taking us into your project. Watch, I'll type a hypothesis sentence into the Overview.",
+  speech: "Watch, I'll type a hypothesis sentence into the Overview.",
   pose: "typing-on-laptop",
   targetSelector: targetSelector(TOUR_TARGETS.projectOverviewTextarea),
   cursorScript: cursorScript(async () => {
-    // Click the most recently created project card if present (best
-    // effort; the user may already be on the project route from §6.1
-    // depending on how the create modal closes).
-    const cardClick = await safeClickAction("[data-tour-target^='home-project-card-']", 2000);
+    // Click the Overview textarea to focus it, then type the placeholder
+    // hypothesis. Both actions resolve against the same anchor; the
+    // browser is already on the project route because the NAV sub-step
+    // landed us here.
+    const focusClick = await safeClickAction(
+      targetSelector(TOUR_TARGETS.projectOverviewTextarea),
+      5000,
+    );
     const typeAction = await safeTypeAction(
       targetSelector(TOUR_TARGETS.projectOverviewTextarea),
       PLACEHOLDER_HYPOTHESIS,
     );
-    return compactScript([cardClick, typeAction]);
+    return compactScript([focusClick, typeAction]);
   }),
-  // ~30 chars at 95ms ≈ 3s typing + 1.5s breath = ~4.5s total before
-  // auto-advance. The proposal's 1500ms is "after typing finishes"; we
-  // bake the typing budget into the auto delay so the controller's
-  // single-timer model works.
+  // ~52 chars at 95ms is about 5s typing plus 1.5s breath, about 6.5s
+  // total before auto-advance. The proposal's 1500ms is "after typing
+  // finishes"; we bake the typing budget into the auto delay so the
+  // controller's single-timer model works.
   completion: autoAdvanceAfter(
     Math.ceil(PLACEHOLDER_HYPOTHESIS.length * 95) + 1500,
   ),
+  // Prefix match handles the dynamic `/workbench/projects/<id>` route.
+  // The TourController auto-nav skips when `current.startsWith(expected)`.
+  expectedRoute: "/workbench/projects",
 });

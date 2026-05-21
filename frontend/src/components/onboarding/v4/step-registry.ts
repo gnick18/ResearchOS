@@ -75,6 +75,7 @@ function placeholderStep(id: TourStepId): TourStep {
 // ---------------------------------------------------------------------
 import { homeCreateProjectStep } from "./steps/walkthrough/HomeCreateProjectStep";
 import { homeCreateProjectFillStep } from "./steps/walkthrough/HomeCreateProjectFillStep";
+import { projectOverviewNavStep } from "./steps/walkthrough/ProjectOverviewNavStep";
 import { projectOverviewStep } from "./steps/walkthrough/ProjectOverviewStep";
 import { notificationsStep } from "./steps/walkthrough/NotificationsStep";
 import { methodsCategoryStep } from "./steps/walkthrough/MethodsCategoryStep";
@@ -107,6 +108,7 @@ import { wikiPointerStep } from "./steps/walkthrough/WikiPointerStep";
 const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [homeCreateProjectStep.id]: homeCreateProjectStep,
   [homeCreateProjectFillStep.id]: homeCreateProjectFillStep,
+  [projectOverviewNavStep.id]: projectOverviewNavStep,
   [projectOverviewStep.id]: projectOverviewStep,
   [notificationsStep.id]: notificationsStep,
   [methodsCategoryStep.id]: methodsCategoryStep,

@@ -62,7 +62,14 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // split rationale.
   "home-create-project",
   "home-create-project-fill",
-  // Project route Overview prose (§6.2)
+  // Project route Overview prose (§6.2). Split into NAV (cursor clicks
+  // the project card on home + advances on `tour:project-route-entered`)
+  // + PROSE (cursor types the placeholder hypothesis into the Overview
+  // textarea on the project page). The split mirrors §6.1's trigger /
+  // fill pattern; a single cursor script can't span the navigation
+  // because the in-product overlay unmounts on route change. See
+  // ProjectOverviewNavStep.tsx for the split rationale.
+  "project-overview-nav",
   "project-overview-prose",
   // Notifications universal moment (§6.3)
   "notifications",

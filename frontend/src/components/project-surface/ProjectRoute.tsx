@@ -77,6 +77,19 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
   const [archiving, setArchiving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Onboarding v4 §6.2 NAV sub-step uses this dispatch to know when the
+  // cursor's click on the home-page project card has landed on the
+  // project route. The follow-up PROSE sub-step's cursor script then
+  // runs against the textarea with a fresh overlay mount (a single
+  // cursor script can't span the navigation because
+  // `InProductWalkthroughOverlay` unmounts on route change). See
+  // `watchProjectRouteEntered` in
+  // `components/onboarding/v4/steps/walkthrough/lib/tour-events.ts`.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(new CustomEvent("tour:project-route-entered"));
+  }, [projectId]);
+
   const projectsApi = useMemo(() => {
     if (!project) return null;
     const owner = effectiveOwnerOf(project);

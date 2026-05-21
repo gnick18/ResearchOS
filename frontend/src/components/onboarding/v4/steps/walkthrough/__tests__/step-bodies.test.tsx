@@ -19,7 +19,8 @@ import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
 import { homeCreateProjectStep } from "../HomeCreateProjectStep";
 import { homeCreateProjectFillStep } from "../HomeCreateProjectFillStep";
-import { projectOverviewStep } from "../ProjectOverviewStep";
+import { projectOverviewNavStep } from "../ProjectOverviewNavStep";
+import { projectOverviewStep, PLACEHOLDER_HYPOTHESIS } from "../ProjectOverviewStep";
 import { notificationsStep } from "../NotificationsStep";
 import { methodsCategoryStep } from "../MethodsCategoryStep";
 import { methodsBreadthStep } from "../MethodsBreadthStep";
@@ -68,6 +69,7 @@ function hasEmDash(text: string): boolean {
 const ALL_STEPS: ReadonlyArray<TourStep> = [
   homeCreateProjectStep,
   homeCreateProjectFillStep,
+  projectOverviewNavStep,
   projectOverviewStep,
   notificationsStep,
   methodsCategoryStep,
@@ -103,6 +105,7 @@ describe("P5 step bodies — universal contract", () => {
     const expectedIds = new Set([
       "home-create-project",
       "home-create-project-fill",
+      "project-overview-nav",
       "project-overview-prose",
       "notifications",
       "methods-category",
@@ -147,6 +150,7 @@ describe("P5 step bodies — universal contract", () => {
     // beat actually plays. This is the symmetric guard for the
     // user-action steps that explicitly drop cursorScript.
     const DEMO_STEPS_WITH_CURSOR_SCRIPT = [
+      projectOverviewNavStep,
       projectOverviewStep,
       notificationsStep,
       methodsCategoryStep,
@@ -261,7 +265,59 @@ describe("HomeCreateProjectFillStep (§6.1 fill)", () => {
   });
 });
 
-describe("ProjectOverviewStep (§6.2)", () => {
+describe("ProjectOverviewNavStep (§6.2 nav)", () => {
+  it("declares event-driven completion (project-route-entered DOM event)", () => {
+    expect(projectOverviewNavStep.completion.type).toBe("event");
+  });
+  it("has no targetSelector (the cursor click on the card is the cue)", () => {
+    // A spotlight would dim the rest of home and steal focus from the
+    // cursor's click animation. Card is anchored via `data-tour-target`.
+    expect(projectOverviewNavStep.targetSelector).toBeUndefined();
+  });
+  it("uses pose: pointing (click-affordance pose)", () => {
+    expect(projectOverviewNavStep.pose).toBe("pointing");
+  });
+  it("speech promises BeakerBot will navigate into the project", () => {
+    expect(renderSpeech(projectOverviewNavStep)).toMatch(
+      /I'm taking us into your project/,
+    );
+  });
+  it("expectedRoute is `/` so refresh lands the user back on home", () => {
+    expect(projectOverviewNavStep.expectedRoute).toBe("/");
+  });
+  it("advances when the tour:project-route-entered DOM event fires", async () => {
+    if (projectOverviewNavStep.completion.type !== "event") {
+      throw new Error("completion contract changed shape; update test");
+    }
+    let advanced = false;
+    const stop = projectOverviewNavStep.completion.eventListener(() => {
+      advanced = true;
+    });
+    try {
+      window.dispatchEvent(new CustomEvent("tour:project-route-entered"));
+      await Promise.resolve();
+      expect(advanced).toBe(true);
+    } finally {
+      stop();
+    }
+  });
+  it("cursor script issues a click against the project card", async () => {
+    // Mount a fixture project card matching the cursor script's selector.
+    const card = document.createElement("button");
+    card.setAttribute("data-tour-target", "home-project-card-42");
+    document.body.appendChild(card);
+    try {
+      expect(projectOverviewNavStep.cursorScript).toBeDefined();
+      const actions = await projectOverviewNavStep.cursorScript!();
+      expect(actions).toHaveLength(1);
+      expect(actions[0]).toMatchObject({ type: "click", target: card });
+    } finally {
+      card.remove();
+    }
+  });
+});
+
+describe("ProjectOverviewStep (§6.2 prose)", () => {
   it("declares auto-advance completion", () => {
     expect(projectOverviewStep.completion.type).toBe("auto");
   });
@@ -269,6 +325,73 @@ describe("ProjectOverviewStep (§6.2)", () => {
     expect(projectOverviewStep.targetSelector).toBe(
       "[data-tour-target=\"project-overview-textarea\"]",
     );
+  });
+  it("uses pose: typing", () => {
+    expect(projectOverviewStep.pose).toBe("typing");
+  });
+  it("speech promises BeakerBot will type a hypothesis", () => {
+    expect(renderSpeech(projectOverviewStep)).toMatch(
+      /Watch, I'll type a hypothesis sentence into the Overview/,
+    );
+  });
+  it("expectedRoute is the project route prefix (handles dynamic id)", () => {
+    expect(projectOverviewStep.expectedRoute).toBe("/workbench/projects");
+  });
+  it("placeholder hypothesis text is the BeakerBot scaling sentence", () => {
+    // The brief specified this exact placeholder so the cursor demo is
+    // cute, on-brand, and obviously throwaway prose. Locking the text
+    // here so a future copy edit gets surfaced via test fail rather
+    // than silent drift.
+    expect(PLACEHOLDER_HYPOTHESIS).toBe(
+      "Test the hypothesis that BeakerBot scales linearly.",
+    );
+  });
+  it("cursor script issues a click + a type action against the textarea", async () => {
+    // Mount a fixture textarea matching the cursor script's selector.
+    // The prose step's cursor runs ONLY when on the project route (after
+    // the NAV sub-step landed us here), so the type action against the
+    // textarea always resolves in the integration path. Here we mount
+    // the anchor manually to exercise the script in isolation.
+    const textarea = document.createElement("textarea");
+    textarea.setAttribute("data-tour-target", "project-overview-textarea");
+    document.body.appendChild(textarea);
+    try {
+      expect(projectOverviewStep.cursorScript).toBeDefined();
+      const actions = await projectOverviewStep.cursorScript!();
+      expect(actions).toHaveLength(2);
+      expect(actions[0]).toMatchObject({ type: "click", target: textarea });
+      expect(actions[1]).toMatchObject({
+        type: "type",
+        target: textarea,
+        text: PLACEHOLDER_HYPOTHESIS,
+      });
+    } finally {
+      textarea.remove();
+    }
+  });
+  it("cursor script no longer clicks a home-project-card (nav lives in the NAV sub-step)", async () => {
+    // Regression guard: the original §6.2 step tried to click the
+    // project card AND type into the textarea in a single script. The
+    // route change cancelled the in-flight runScript so nothing ever
+    // typed. The NAV sub-step now owns the card click; the PROSE step
+    // must NOT also click it.
+    const card = document.createElement("button");
+    card.setAttribute("data-tour-target", "home-project-card-99");
+    const textarea = document.createElement("textarea");
+    textarea.setAttribute("data-tour-target", "project-overview-textarea");
+    document.body.appendChild(card);
+    document.body.appendChild(textarea);
+    try {
+      const actions = await projectOverviewStep.cursorScript!();
+      for (const action of actions) {
+        if (action.type === "click") {
+          expect(action.target).not.toBe(card);
+        }
+      }
+    } finally {
+      card.remove();
+      textarea.remove();
+    }
   });
 });
 
