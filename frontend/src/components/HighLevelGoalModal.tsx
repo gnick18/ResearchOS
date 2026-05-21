@@ -62,6 +62,19 @@ export default function HighLevelGoalModal({
     setCelebrationPosition(null);
   }, []);
 
+  // Only own projects are selectable. Goals are always current-user-owned;
+  // cross-owner goal creation was never supported, so a shared-in project
+  // in the dropdown would just be a dead option (the underlying `<select>`
+  // value is bare `p.id`, which collides with own projects of the same id).
+  const ownProjects = useMemo(
+    () => projects.filter((p) => !p.is_shared_with_me),
+    [projects],
+  );
+  const hasSharedProjects = useMemo(
+    () => projects.some((p) => p.is_shared_with_me),
+    [projects],
+  );
+
   // Calculate days remaining
   const daysRemaining = useMemo(() => {
     if (!endDate) return null;
@@ -189,12 +202,17 @@ export default function HighLevelGoalModal({
               disabled={isEditing}
             >
               <option value="personal">📋 Personal</option>
-              {projects.map((p) => (
+              {ownProjects.map((p) => (
                 <option key={`${p.owner}:${p.id}`} value={p.id}>
                   {p.name}
                 </option>
               ))}
             </select>
+            {hasSharedProjects && (
+              <p className="text-xs text-gray-400 mt-1">
+                Shared projects aren&apos;t listed here. Goals always belong to you; open the shared project to track work there.
+              </p>
+            )}
           </div>
 
           {/* Name */}

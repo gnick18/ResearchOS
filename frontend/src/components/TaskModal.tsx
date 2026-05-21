@@ -29,9 +29,18 @@ export default function TaskModal({ projects }: TaskModalProps) {
   const setGanttLoading = useAppStore((s) => s.setGanttLoading);
   const queryClient = useQueryClient();
 
-  // Filter to only active (non-archived) projects, ensuring Miscellaneous is included
+  // Filter to only active (non-archived) projects owned by the current user.
+  // Shared-in projects are excluded by design: TaskModal creates under the
+  // active user, and cross-owner creation here would collide on bare project
+  // ids (alex's project 1 vs morgan-shared-with-alex project 1) since the
+  // HTML `<select>` value is just `p.id`. Collaborators add tasks from the
+  // shared project's own page instead.
+  const hasSharedProjects = useMemo(
+    () => projects.some((p) => p.is_shared_with_me),
+    [projects],
+  );
   const activeProjects = useMemo(() => {
-    let filtered = projects.filter((p) => !p.is_archived);
+    let filtered = projects.filter((p) => !p.is_archived && !p.is_shared_with_me);
     // Check if Miscellaneous project exists
     const hasMiscProject = filtered.some(p => p.name === "Miscellaneous");
     if (!hasMiscProject) {
@@ -97,28 +106,43 @@ export default function TaskModal({ projects }: TaskModalProps) {
     enabled: isCreatingTask && taskType === "experiment",
   });
 
-  // Load all tasks for dependency selection
+  // Load tasks for dependency selection — limited to own (non-shared)
+  // projects, mirroring the project dropdown above. Without this gate the
+  // parent-task list could surface a cross-owner sibling whose `project_id`
+  // happens to collide with the selected own project's id.
+  const ownProjectKeys = useMemo(
+    () =>
+      projects
+        .filter((p) => !p.is_shared_with_me)
+        .map((p) => p.id)
+        .join(","),
+    [projects],
+  );
   const { data: allTasks = [] } = useQuery({
-    queryKey: ["tasks"],
+    queryKey: ["tasks", "own", ownProjectKeys],
     queryFn: async () => {
-      if (projects.length === 0) return [];
+      const ownProjects = projects.filter((p) => !p.is_shared_with_me);
+      if (ownProjects.length === 0) return [];
       const results = await Promise.all(
-        projects.map((p) =>
-          tasksApi.listByProject(p.id, p.is_shared_with_me ? p.owner : undefined)
-        )
+        ownProjects.map((p) => tasksApi.listByProject(p.id)),
       );
       return results.flat();
     },
-    enabled: isCreatingTask && projects.length > 0,
+    enabled: isCreatingTask,
   });
 
-  // Filter tasks to show as potential parents (exclude tasks from different projects if needed)
-  // Also exclude tasks from archived projects
+  // Filter tasks to show as potential parents. The fetcher already restricts
+  // to own projects, but we also gate on the matched project being own here
+  // — defense in depth so a stale cache or future fetcher change cannot
+  // re-introduce cross-owner siblings.
   const availableParentTasks = useMemo(() => {
     return allTasks.filter((t) => {
       if (t.project_id !== projectId) return false;
       const project = projects.find(
-        (p) => p.id === t.project_id && p.owner === t.owner,
+        (p) =>
+          p.id === t.project_id &&
+          p.owner === t.owner &&
+          !p.is_shared_with_me,
       );
       return project && !project.is_archived;
     });
@@ -517,6 +541,11 @@ export default function TaskModal({ projects }: TaskModalProps) {
             {projectId === 0 && (
               <p className="text-xs text-gray-400 mt-1">
                 Standalone tasks are perfect for daily lists, quick notes, or small items that don&apos;t belong to a specific research project.
+              </p>
+            )}
+            {hasSharedProjects && (
+              <p className="text-xs text-gray-400 mt-1">
+                Shared projects aren&apos;t listed here. To add a task to one, open that project&apos;s page and create the task from there.
               </p>
             )}
           </div>
