@@ -634,8 +634,10 @@
 }
 
 .typeHandRight.animated {
+  /* Both hands hammer in sync (both down, both up together) per Grant's
+   * 2026-05-21 revision. The prior 120ms offset made it ambiguous which
+   * hand was moving at a glance. */
   animation: beakerBotTypeHandLaptopLeft 240ms ease-in-out infinite;
-  animation-delay: -120ms;
 }
 
 /* Typing-on-laptop body class: applied to the SVG root via

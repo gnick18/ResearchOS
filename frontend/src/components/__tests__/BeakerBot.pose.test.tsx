@@ -491,14 +491,17 @@ describe("BeakerBot typing-on-laptop pose", () => {
     expect(laptopRects.length).toBe(2);
   });
 
-  it("renders two hand dots on the keyboard slab (cx=28 and cx=33, cy=30) when pose=typing-on-laptop", () => {
+  it("renders two hand dots on the keyboard slab (cx=30 and cx=34, cy=30) when pose=typing-on-laptop", () => {
+    // Hands moved further from BeakerBot's body (x=20 area) per Grant's
+    // 2026-05-21 revision so they sit on the keyboard surface rather
+    // than under his torso.
     const { container } = render(<BeakerBot pose="typing-on-laptop" />);
     const circles = Array.from(container.querySelectorAll("circle"));
     const leftHand = circles.filter(
-      (c) => c.getAttribute("cx") === "28" && c.getAttribute("cy") === "30",
+      (c) => c.getAttribute("cx") === "30" && c.getAttribute("cy") === "30",
     );
     const rightHand = circles.filter(
-      (c) => c.getAttribute("cx") === "33" && c.getAttribute("cy") === "30",
+      (c) => c.getAttribute("cx") === "34" && c.getAttribute("cy") === "30",
     );
     expect(leftHand.length).toBe(1);
     expect(rightHand.length).toBe(1);

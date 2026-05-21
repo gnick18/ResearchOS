@@ -665,18 +665,8 @@ export default function BeakerBot({
        *  (the transform-box: view-box trap, commit 272dd3da). */}
       {effectivePose === "typing-on-laptop" && (
         <>
-          {/* Laptop side profile, vertical bar: the "back of the screen"
-              seen edge-on. No display surface, no inset color. */}
-          <rect
-            x="23"
-            y="22"
-            width="1.5"
-            height="8"
-            fill="#374151"
-            stroke="none"
-          />
-          {/* Laptop side profile, horizontal slab: the keyboard surface
-              seen edge-on. The hands hammer ONTO this slab at y=30. */}
+          {/* Laptop side profile, horizontal slab (keyboard surface
+              seen edge-on). Hands hammer ONTO this slab at y=30. */}
           <rect
             x="23"
             y="30"
@@ -685,14 +675,28 @@ export default function BeakerBot({
             fill="#374151"
             stroke="none"
           />
-          {/* Left arm: from body shoulder (28, 22) straight down to
-              the keyboard hand position (28, 30). */}
-          <path d="M28 22 L28 30" />
+          {/* Laptop side profile, vertical bar (back of the screen
+              seen edge-on). Positioned at the FAR-RIGHT end of the
+              keyboard so the screen sits AWAY from BeakerBot, matching
+              the physical posture of typing on a laptop. */}
+          <rect
+            x="35"
+            y="22"
+            width="1.5"
+            height="8"
+            fill="#374151"
+            stroke="none"
+          />
+          {/* Left arm: from body shoulder (28, 22) down-and-right to
+              hand position (30, 30). Pushed further from the body than
+              the prior layout so the hands sit on the keyboard, not
+              under his torso. */}
+          <path d="M28 22 L30 30" />
           {/* Right arm: from body shoulder (28, 22) down-and-right to
-              the keyboard hand position (33, 30). */}
-          <path d="M28 22 L33 30" />
-          {/* Left hand: hammers down at 0% of the cycle. The hand dot
-              sits on the top edge of the horizontal slab (y=30). */}
+              hand position (34, 30). */}
+          <path d="M28 22 L34 30" />
+          {/* Left hand: hammers in sync with the right hand (both up
+              and down together) per Grant's revision. */}
           <g
             className={
               animated
@@ -700,10 +704,10 @@ export default function BeakerBot({
                 : undefined
             }
           >
-            <circle cx="28" cy="30" r="0.9" fill="currentColor" stroke="none" />
+            <circle cx="30" cy="30" r="0.9" fill="currentColor" stroke="none" />
           </g>
-          {/* Right hand: hammers down at 50% of the cycle (so the two
-              hands alternate, ~120ms apart on a 240ms cycle). */}
+          {/* Right hand: shares the same keyframe phase as left (sync,
+              not alternate). */}
           <g
             className={
               animated
@@ -711,7 +715,7 @@ export default function BeakerBot({
                 : undefined
             }
           >
-            <circle cx="33" cy="30" r="0.9" fill="currentColor" stroke="none" />
+            <circle cx="34" cy="30" r="0.9" fill="currentColor" stroke="none" />
           </g>
         </>
       )}
