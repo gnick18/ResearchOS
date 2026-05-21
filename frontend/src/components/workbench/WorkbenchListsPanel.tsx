@@ -170,8 +170,21 @@ export default function WorkbenchListsPanel({ projects }: Props) {
 
   const handleToggleComplete = useCallback(
     async (task: Task) => {
+      const nextComplete = !task.is_complete;
+      // Forward-cascade only: completing the parent fills sub-tasks so the
+      // "all green" dot strip matches the parent state. Un-completing does
+      // not touch sub-tasks (one-way; user-edited sub-task state stays).
+      const cascadeSubTasks =
+        nextComplete && task.sub_tasks && task.sub_tasks.length > 0
+          ? task.sub_tasks.map((st) =>
+              st.is_complete ? st : { ...st, is_complete: true },
+            )
+          : undefined;
       try {
-        await tasksApi.update(task.id, { is_complete: !task.is_complete });
+        await tasksApi.update(task.id, {
+          is_complete: nextComplete,
+          ...(cascadeSubTasks ? { sub_tasks: cascadeSubTasks } : {}),
+        });
         await queryClient.refetchQueries({ queryKey: ["tasks"] });
       } catch {
         alert("Failed to update task");
