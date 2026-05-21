@@ -142,7 +142,22 @@ export const projectsApi = {
     return owner ? projectsStore.getForUser(id, owner) : projectsStore.get(id);
   },
 
+  /**
+   * Create a new project owned by the current user.
+   *
+   * Hard guard: `name` MUST be a non-empty string after trimming. Empty /
+   * whitespace / undefined names are rejected with a thrown Error so a
+   * malformed call site cannot persist a blank project file to disk. This
+   * is defense-in-depth on top of UI-layer guards (e.g. the home page's
+   * `if (!newName.trim()) return;` and the ELN importer's
+   * `pickImportedProjectName` collision suffix). The on-disk shape always
+   * comes out with `name.trim().length > 0`, which downstream consumers
+   * (home cards, search index, share manifests) rely on for a visible label.
+   */
   create: async (data: ProjectCreate): Promise<Project> => {
+    if (!data.name || typeof data.name !== "string" || data.name.trim().length === 0) {
+      throw new Error("projectsApi.create: name is required and cannot be empty");
+    }
     const now = new Date().toISOString();
     const currentUser = (await getCurrentUserCached()) ?? "";
     const project = await projectsStore.create({
@@ -213,6 +228,45 @@ export const projectsApi = {
       }
     }
     await projectsStore.delete(id);
+  },
+
+  /**
+   * Scan the current user's `projects/` folder and delete any file whose
+   * parsed JSON is malformed: missing `id`, non-integer `id`, or an empty /
+   * whitespace-only `name`. Returns the list of removed file paths.
+   *
+   * Recovery hatch for the orphan-card bug: when a project record on disk
+   * loses its name (e.g. via a buggy historical create path or a manual
+   * edit), the home page renders a blank card and the standard
+   * `projectsApi.delete(id)` would not be wired up if id itself is bad. This
+   * helper sweeps by file content, not by id, so it always converges.
+   *
+   * Best-effort, silent per-file: a read error on one file does not block
+   * the rest of the sweep.
+   */
+  purgeMalformed: async (): Promise<string[]> => {
+    const currentUser = await getCurrentUserCached();
+    if (!currentUser) return [];
+    const dirPath = `users/${currentUser}/projects`;
+    const fileNames = await fileService.listFiles(dirPath);
+    const removed: string[] = [];
+    for (const fileName of fileNames) {
+      if (!fileName.endsWith(".json")) continue;
+      // Skip the per-project hosted-tasks sidecar (e.g. `1-hosted.json`).
+      // Its shape is `{ version, hostedTasks }`, with no `id` / `name`, and
+      // it should not be swept by a malformed-record sweep.
+      if (fileName.endsWith("-hosted.json")) continue;
+      const filePath = `${dirPath}/${fileName}`;
+      const record = await fileService.readJson<Partial<Project>>(filePath);
+      const idValid = record && Number.isInteger(record.id) && (record.id as number) > 0;
+      const nameValid =
+        record && typeof record.name === "string" && record.name.trim().length > 0;
+      if (!record || !idValid || !nameValid) {
+        const ok = await fileService.deleteFile(filePath);
+        if (ok) removed.push(filePath);
+      }
+    }
+    return removed;
   },
 
   reorder: async (projectIds: number[]): Promise<void> => {

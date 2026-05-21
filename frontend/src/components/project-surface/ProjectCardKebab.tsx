@@ -86,16 +86,37 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
     }
   };
 
+  // A record is malformed if it lacks a valid integer id OR has a blank
+  // name. The orphan-card bug surfaced this case (a project on disk with
+  // name="" that the home page rendered as a ghost card). Standard
+  // projectsApi.delete(id) cannot resolve a bad id, so for malformed
+  // records we fall back to a content-scan sweep via purgeMalformed().
+  const isMalformedRecord =
+    !Number.isInteger(project.id) ||
+    project.id <= 0 ||
+    !project.name ||
+    project.name.trim().length === 0;
+
   const handleDelete = async () => {
     setDeleting(true);
     try {
-      await projectsApi.delete(project.id);
+      if (isMalformedRecord) {
+        const removed = await projectsApi.purgeMalformed();
+        if (removed.length === 0) {
+          throw new Error("No malformed records found to purge");
+        }
+      } else {
+        await projectsApi.delete(project.id);
+      }
       await Promise.all([
         queryClient.refetchQueries({ queryKey: ["projects"] }),
         queryClient.refetchQueries({ queryKey: ["tasks"] }),
       ]);
-    } catch {
-      alert("Failed to delete project");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      alert(
+        `Failed to delete project (id=${String(project.id)}, name=${JSON.stringify(project.name)}): ${msg}`,
+      );
     } finally {
       setDeleting(false);
       setShowDeleteConfirm(false);
