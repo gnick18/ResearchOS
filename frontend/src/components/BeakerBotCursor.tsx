@@ -328,27 +328,28 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
         // imperceptible delay but ordering is preserved.
         await sleep(30);
         try {
-          // Dispatch a marked click event rather than `el.click()` so
-          // the InputLockOverlay's capture-phase blocker can let it
-          // through. The overlay blocks every click while a cursor
-          // script is running, but it needs to let the cursor's own
-          // clicks reach React's onClick handler. Native `el.click()`
-          // produces a synthetic event with no way for the overlay to
-          // distinguish "cursor demo click" from "stray user click"
-          // (isTrusted is read-only in real browsers and not settable
-          // in jsdom either), so we mint the MouseEvent ourselves and
-          // tag it with `__beakerBotCursor: true`. See
-          // `frontend/src/components/onboarding/v4/InputLockOverlay.tsx`.
-          const evt = new MouseEvent("click", {
-            bubbles: true,
-            cancelable: true,
-            view: window,
-          });
-          (evt as unknown as { __beakerBotCursor: boolean }).__beakerBotCursor =
-            true;
-          el.dispatchEvent(evt);
+          // The InputLockOverlay's capture-phase window 'click' listener
+          // would otherwise stopPropagation our own click and React's
+          // onClick handler never sees it (Grant 2026-05-21: §6.4 New
+          // Category and Create Empty were animating but not triggering).
+          // Set a window flag for the duration of `el.click()` so the
+          // overlay can short-circuit. We use a flag rather than a marker
+          // on a self-dispatched MouseEvent because `el.click()` invokes
+          // the element's full activation behavior (which dispatchEvent
+          // does not), and several jsdom-attached `onclick`s in tests
+          // depend on that path.
+          if (typeof window !== "undefined") {
+            (window as unknown as { __beakerBotCursorClicking: boolean }).__beakerBotCursorClicking = true;
+          }
+          try {
+            el.click();
+          } finally {
+            if (typeof window !== "undefined") {
+              (window as unknown as { __beakerBotCursorClicking: boolean }).__beakerBotCursorClicking = false;
+            }
+          }
         } catch {
-          // No-op: if dispatchEvent throws (e.g. detached node), we still
+          // No-op: if click() throws (e.g. detached node), we still
           // resolve so the calling script doesn't deadlock.
         }
         // Wait for the ripple animation to finish, then prune it.

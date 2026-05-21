@@ -44,13 +44,20 @@ describe("InputLockOverlay", () => {
     });
   });
 
-  // Helper: tag a synthetic event with the cursor-origin marker so the
-  // overlay lets it through (Grant 2026-05-21 follow-up). Production
-  // cursors mint MouseEvent themselves and tag it; tests reproduce that
-  // wire-format here so the bypass path is exercised end-to-end.
-  const markCursorOrigin = <E extends Event>(e: E): E => {
-    (e as unknown as { __beakerBotCursor: boolean }).__beakerBotCursor = true;
-    return e;
+  // Helper: simulate BeakerBotCursor's `el.click()` window-flag wrapper
+  // so the overlay's bypass path is exercised. Production cursors flip
+  // `window.__beakerBotCursorClicking` true around their own el.click().
+  const withCursorFlag = (fn: () => void): void => {
+    (
+      window as unknown as { __beakerBotCursorClicking: boolean }
+    ).__beakerBotCursorClicking = true;
+    try {
+      fn();
+    } finally {
+      (
+        window as unknown as { __beakerBotCursorClicking: boolean }
+      ).__beakerBotCursorClicking = false;
+    }
   };
 
   it("blocks a wheel event when active=true", async () => {
@@ -82,22 +89,25 @@ describe("InputLockOverlay", () => {
     }
   });
 
-  it("ALLOWS cursor-marked clicks through (BeakerBotCursor's dispatched events)", async () => {
+  it("ALLOWS cursor-flagged clicks through (BeakerBotCursor's el.click() window flag)", async () => {
     const { findByTestId } = render(<InputLockOverlay active={true} />);
     await findByTestId("tour-input-lock-overlay");
 
     const pageBtn = document.createElement("button");
     document.body.appendChild(pageBtn);
     try {
-      const click = markCursorOrigin(
-        new MouseEvent("click", { bubbles: true, cancelable: true }),
-      );
+      const click = new MouseEvent("click", {
+        bubbles: true,
+        cancelable: true,
+      });
       const preventSpy = vi.spyOn(click, "preventDefault");
-      pageBtn.dispatchEvent(click);
-      // Marker present → overlay lets the click through so the
-      // underlying React onClick fires (Grant 2026-05-21: §6.4 New
-      // Category and Create Empty clicks were animating but never
-      // actually triggering before this bypass landed).
+      withCursorFlag(() => {
+        pageBtn.dispatchEvent(click);
+      });
+      // Flag was set for the duration of dispatch → overlay short-
+      // circuits and React onClick can fire (Grant 2026-05-21: §6.4
+      // New Category and Create Empty were animating but not
+      // triggering before this bypass landed).
       expect(preventSpy).not.toHaveBeenCalled();
     } finally {
       pageBtn.remove();

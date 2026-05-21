@@ -106,16 +106,19 @@ export default function InputLockOverlay({ active }: InputLockOverlayProps) {
     if (typeof window === "undefined") return;
 
     const blockEvent = (e: Event) => {
-      // BeakerBotCursor marks its dispatched click events with
-      // `__beakerBotCursor: true` (Grant 2026-05-21 follow-up). The
-      // overlay's capture-phase listener would otherwise stop propagation
-      // on those before React's delegated root handler can run, leaving
-      // the §6.4 New Category and Create Empty clicks animating but
-      // never actually triggering. isTrusted alone isn't enough because
-      // every synthetic event in jsdom is !isTrusted, and isTrusted
-      // can't be set from JS in real browsers either; the marker
-      // property is the explicit contract.
-      if ((e as { __beakerBotCursor?: boolean }).__beakerBotCursor) return;
+      // BeakerBotCursor sets `window.__beakerBotCursorClicking = true`
+      // for the duration of its own `el.click()` so the overlay's
+      // capture-phase blocker can short-circuit (Grant 2026-05-21
+      // follow-up: §6.4 New Category and Create Empty clicks were
+      // animating but never actually triggering because this listener
+      // stopPropagation'd before React's delegated handler ran).
+      if (
+        typeof window !== "undefined" &&
+        (window as unknown as { __beakerBotCursorClicking?: boolean })
+          .__beakerBotCursorClicking
+      ) {
+        return;
+      }
       // Skip + Back + Got-it (speech bubble) ALWAYS go through so the
       // user has an escape hatch when the cursor wedges. Without this
       // exception, a stuck cursor would lock the user out of every way
