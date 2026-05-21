@@ -1,0 +1,208 @@
+/*
+ * Pose animation keyframes for the BeakerBot mascot.
+ *
+ * See BeakerBot.tsx for the JSX wiring. The 7-pose menu is locked
+ * by ONBOARDING_V3_PROPOSAL.md §9 and the master's 2026-05-20 expansion
+ * note. Canonical pose values live in the BeakerBot.tsx union; this
+ * file owns the visual cadence.
+ *
+ * All animations are gated behind `prefers-reduced-motion: reduce`.
+ * Users with reduced-motion get a static pose silhouette.
+ */
+
+/* Idle bob: always-on baseline. Subtle vertical drift so the mascot
+ * feels alive without competing with the modal copy. */
+@keyframes beakerBotIdleBob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3%);
+  }
+}
+
+/* Bounce burst: ~600ms acknowledgement on Next-click step transitions.
+ * The wizard sets pose=bouncing, schedules a 650ms timer, then resets
+ * pose to the step's resting pose. */
+@keyframes beakerBotBounce {
+  0% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-10%);
+  }
+  60% {
+    transform: translateY(0);
+  }
+  80% {
+    transform: translateY(-3%);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+/* Think: subtle head-tilt loop. Mascot reads as "BeakerBot is waiting
+ * on you" while the wizard is on a Q1-Q6 setup step and no radio is
+ * selected. */
+@keyframes beakerBotThink {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-1.5%) rotate(-3deg);
+  }
+  75% {
+    transform: translateY(-1.5%) rotate(3deg);
+  }
+}
+
+/* Celebrate: big multi-bounce + rotation wiggle. Fires on Phase 4
+ * cleanup wrap-up. */
+@keyframes beakerBotCelebrate {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+  20% {
+    transform: translateY(-12%) rotate(-4deg);
+  }
+  40% {
+    transform: translateY(0) rotate(4deg);
+  }
+  60% {
+    transform: translateY(-6%) rotate(-2deg);
+  }
+  80% {
+    transform: translateY(0) rotate(2deg);
+  }
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
+/* Bow: forward tilt at the wizard's closing moment. Combo'd with the
+ * wink on the right eye via a sibling keyframe so the two read as a
+ * sequential wink-then-bow. */
+@keyframes beakerBotBow {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+  35% {
+    transform: translateY(0) rotate(0deg);
+  }
+  65% {
+    transform: translateY(4%) rotate(14deg);
+  }
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
+/* Wink: one eye briefly squishes to a line. Applied to the right eye
+ * <g> in the bow-wink pose. The wink completes BEFORE the bow tilt
+ * fires (see keyframe percentages above and below). */
+@keyframes beakerBotWink {
+  0%,
+  20%,
+  40%,
+  100% {
+    transform: scaleY(1);
+  }
+  25%,
+  35% {
+    transform: scaleY(0.05);
+  }
+}
+
+/* Wave-arm: gentle back-and-forth rotation on the waving arm during
+ * the waving pose. */
+@keyframes beakerBotWaveArm {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-15deg);
+  }
+  75% {
+    transform: rotate(15deg);
+  }
+}
+
+/* Typing hand: fast cadence pulse, matched to the typewriter's 95ms
+ * tick so visually the hand looks like it's hammering keys in sync
+ * with the live-typed text (W5 shortcut demos, W7 search query). */
+@keyframes beakerBotTypeHand {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-30%);
+  }
+}
+
+/* Pose root classes applied to the <svg>. The `.animated` modifier
+ * gates the animation so call sites can opt out (decorative chips,
+ * settings page, dev buttons). */
+.root {
+  transform-origin: 50% 80%;
+  transform-box: view-box;
+}
+
+.idle.animated {
+  animation: beakerBotIdleBob 2.6s ease-in-out infinite;
+}
+
+.bouncing.animated {
+  animation: beakerBotBounce 600ms ease-out 1 forwards;
+}
+
+.thinking.animated {
+  animation: beakerBotThink 2.8s ease-in-out infinite;
+}
+
+.celebrating.animated {
+  animation: beakerBotCelebrate 900ms ease-out 1 forwards;
+}
+
+.bowing.animated {
+  animation: beakerBotBow 1400ms ease-in-out 1 forwards;
+}
+
+/* Sub-element animations. Applied to inner <g> wrappers around the
+ * specific limb / feature. */
+.waveArm.animated {
+  transform-origin: 28px 18px;
+  transform-box: view-box;
+  animation: beakerBotWaveArm 700ms ease-in-out infinite;
+}
+
+.typeHand.animated {
+  transform-origin: 33px 18px;
+  transform-box: view-box;
+  animation: beakerBotTypeHand 190ms ease-in-out infinite;
+}
+
+.winkEye.animated {
+  transform-origin: 23px 18px;
+  transform-box: view-box;
+  animation: beakerBotWink 1400ms ease-in-out 1 forwards;
+}
+
+/* Reduced-motion: kill all animation cycles. The mascot still renders
+ * in its pose's resting silhouette so the visual hint is preserved. */
+@media (prefers-reduced-motion: reduce) {
+  .idle.animated,
+  .bouncing.animated,
+  .thinking.animated,
+  .celebrating.animated,
+  .bowing.animated,
+  .waveArm.animated,
+  .typeHand.animated,
+  .winkEye.animated {
+    animation: none;
+  }
+}

@@ -10,7 +10,7 @@ import {
   type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
-import BeakerBot from "@/components/BeakerBot";
+import BeakerBot, { type BeakerBotPose } from "@/components/BeakerBot";
 import {
   getNextStep,
   getPreviousStep,
@@ -70,8 +70,12 @@ import L11BeakerBotCleanupOption from "./steps/lab/L11BeakerBotCleanupOption";
  * P1 every step except "intro" renders a placeholder div per the
  * brief.
  *
- * No animation polish: BeakerBot renders in its idle pose, no idle
- * bob, no attention pulse, no live-typing demos. Those are P9.
+ * BeakerBot pose mechanism: P9 lands the 7-pose menu (idle-bob,
+ * wave, point, bounce, type, think, celebrate, bow-wink). The shell
+ * computes a resting pose per step (see restingPoseForStep below)
+ * and layers a bouncing burst on each step transition. Idle bob is
+ * the always-on baseline when no other pose applies; the mascot's
+ * own component honors `prefers-reduced-motion`.
  *
  * Persistence contract: the wizard fires three callbacks to its
  * parent (WizardMount):
@@ -217,6 +221,15 @@ export default function OnboardingWizardV3({
   // control whether the shell's Next button is clickable; required for
   // Q1-Q5 where Next is disabled until the user makes a pick.
   const [nextDisabled, setNextDisabled] = useState(false);
+  // P9 BeakerBot pose mechanism. `isBouncing` flips true for ~650ms
+  // after each successful step transition so the mascot acknowledges
+  // the Next click with a bounce burst before settling into the new
+  // step's resting pose. See restingPoseForStep below for the
+  // per-step pose map (welcome=wave, Q1-Q6=think, W*/L*=point,
+  // W5/W7=type, phase4-cleanup=celebrate). The very-final pose
+  // (bow-wink) fires while uiState is "persisting" on phase4-cleanup
+  // (i.e. Finish has been clicked and the parent is about to unmount).
+  const [isBouncing, setIsBouncing] = useState(false);
 
   const titleId = useId();
   const cardRef = useRef<HTMLDivElement | null>(null);
@@ -250,6 +263,10 @@ export default function OnboardingWizardV3({
         await onTransition(next);
         setCurrentStep(next);
         setUiState("idle");
+        // Fire the bounce-burst pose on each successful step move. The
+        // effect below clears it after ~650ms (matches the
+        // beakerBotBounce keyframe duration).
+        setIsBouncing(true);
       } catch (err) {
         console.error("[onboarding-v3] transition persistence failed", err);
         setUiState("error");
@@ -257,6 +274,12 @@ export default function OnboardingWizardV3({
     },
     [onTransition],
   );
+
+  useEffect(() => {
+    if (!isBouncing) return;
+    const t = window.setTimeout(() => setIsBouncing(false), 650);
+    return () => window.clearTimeout(t);
+  }, [isBouncing]);
 
   const handleNext = useCallback(async () => {
     if (currentStep === "phase4-cleanup") {
@@ -347,6 +370,23 @@ export default function OnboardingWizardV3({
   const isCleanupStep = currentStep === "phase4-cleanup";
   const progressPct = total > 0 ? Math.round((idx / total) * 100) : 0;
 
+  // P9 pose resolution. Bouncing wins during the transition window.
+  // The phase4-cleanup Finish click bumps uiState to "persisting"
+  // just before the parent unmounts the wizard; in that window we
+  // play the bow-wink farewell. Otherwise we fall back to the step's
+  // resting pose.
+  const isExitMoment =
+    currentStep === "phase4-cleanup" && uiState === "persisting";
+  const headerPose: BeakerBotPose = isExitMoment
+    ? "bow-wink"
+    : isBouncing
+      ? "bouncing"
+      : restingPoseForStep(currentStep);
+  // pointing-right is the safe default direction for the modal slot;
+  // the mascot sits to the LEFT of the title in the header, so its
+  // pointing finger gestures right toward the step title.
+  const headerDirection: "left" | "right" = "right";
+
   return createPortal(
     <div
       role="dialog"
@@ -377,8 +417,8 @@ export default function OnboardingWizardV3({
               style={{ width: 80, height: 80 }}
             >
               <BeakerBot
-                pose="waving"
-                direction="right"
+                pose={headerPose}
+                direction={headerDirection}
                 className="w-full h-full text-sky-500"
               />
             </div>
@@ -551,6 +591,61 @@ function applyFeaturePicksDefault(
     default:
       return cur;
   }
+}
+
+/** Resting-state mascot pose for each step. The wizard shell consults
+ *  this on every render so the BeakerBot in the modal header reflects
+ *  the current step's energy (welcome=wave, Q1-Q6=think, W*+L*=point,
+ *  W5/W7=type live-typing, phase4-cleanup=celebrate). The bouncing
+ *  pose layers on top for ~650ms after each step transition; bow-wink
+ *  layers on top during the phase4-cleanup persisting window
+ *  (Finish-click → unmount). See the BeakerBot.tsx pose docstring for
+ *  the canonical pose values. */
+function restingPoseForStep(step: WizardStep): BeakerBotPose {
+  if (step === "intro") return "waving";
+  if (
+    step === "setup-q1" ||
+    step === "setup-q1a" ||
+    step === "setup-q1b" ||
+    step === "setup-q2" ||
+    step === "setup-q3" ||
+    step === "setup-q4" ||
+    step === "setup-q5" ||
+    step === "setup-q6"
+  ) {
+    return "thinking";
+  }
+  if (step === "W5" || step === "W7") return "typing";
+  if (
+    step === "W1" ||
+    step === "W2" ||
+    step === "W3" ||
+    step === "W4" ||
+    step === "W6" ||
+    step === "W8" ||
+    step === "W9" ||
+    step === "W10" ||
+    step === "W11" ||
+    step === "W12" ||
+    step === "W13" ||
+    step === "W14" ||
+    step === "lab-prompt" ||
+    step === "L1" ||
+    step === "L2" ||
+    step === "L3" ||
+    step === "L4" ||
+    step === "L5" ||
+    step === "L6" ||
+    step === "L7" ||
+    step === "L8" ||
+    step === "L9" ||
+    step === "L10" ||
+    step === "L11"
+  ) {
+    return "pointing";
+  }
+  if (step === "phase4-cleanup") return "cheering";
+  return "idle";
 }
 
 function nextButtonLabel(step: WizardStep, uiState: UiState): string {
