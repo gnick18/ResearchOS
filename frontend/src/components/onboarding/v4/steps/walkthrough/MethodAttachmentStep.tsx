@@ -74,6 +74,6 @@ export const methodAttachmentStep = buildWalkthroughStep({
     );
     return compactScript([openMethodsTab, clickAttach, typeNote]);
   }),
-  // Variation note is ~38 chars at 95ms ≈ 3.6s + 1.5s buffer.
-  completion: autoAdvanceAfter(Math.ceil(VARIATION_NOTE.length * 95) + 1500),
+  // BeakerBotCursor types at 48ms (commit 95de59e2); +1s lead + 1.5s tail.
+  completion: autoAdvanceAfter(1000 + Math.ceil(VARIATION_NOTE.length * 48) + 1500),
 });

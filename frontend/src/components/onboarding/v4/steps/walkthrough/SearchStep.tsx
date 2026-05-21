@@ -58,6 +58,6 @@ export const searchStep = buildWalkthroughStep({
     );
     return compactScript([type]);
   }),
-  completion: autoAdvanceAfter(Math.ceil(SEARCH_QUERY.length * 95) + 2000),
+  completion: autoAdvanceAfter(1000 + Math.ceil(SEARCH_QUERY.length * 48) + 2000),
   expectedRoute: "/search",
 });
