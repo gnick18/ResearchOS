@@ -13,6 +13,28 @@
  * promise. Cursor performs the wiki-tab click as advertised: exactly
  * the case where the rule lets BeakerBot do the navigation while his
  * speech narrates ("I'll show you").
+ *
+ * No `expectedRoute` is declared, on purpose (conflict-fix 2026-05-21):
+ * the cursor click on `wiki-nav-tab` IS the navigation. Setting
+ * `expectedRoute: "/wiki"` would race the controller's `router.push`
+ * against the cursor click, making the auto-nav land first and turning
+ * the demo into either a no-op (no visible nav) or a redundant
+ * post-nav click on whatever wiki-nav-tab the destination page already
+ * has. Letting the cursor drive the navigation keeps the "I'll show
+ * you where it is" speech honest: the user sees BeakerBot's cursor
+ * click the tab in the AppShell navbar, and that click triggers the
+ * route change through the navbar's existing next/link wiring.
+ *
+ * Cursor-cannot-span-navigation (§6.2 split rule) does NOT apply here
+ * because the script is one action: the click. `runScript` resolves
+ * once the click event dispatches; navigation begins on the microtask
+ * AFTER the script's await chain completes, so the
+ * `InProductWalkthroughOverlay` unmount on route change can't cancel
+ * an in-flight action. The 3s auto-advance timer lives on the
+ * TourController (app-shell-level provider), survives the route
+ * change, and fires regardless of overlay remount state — leaving
+ * the destination page enough breath to render before §6.17 cleanup
+ * (or whichever step follows) takes over.
  */
 import {
   cursorScript,
@@ -33,5 +55,4 @@ export const wikiPointerStep = buildWalkthroughStep({
     return compactScript([click]);
   }),
   completion: autoAdvanceAfter(3000),
-  expectedRoute: "/wiki",
 });
