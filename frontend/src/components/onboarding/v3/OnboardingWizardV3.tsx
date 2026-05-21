@@ -7,7 +7,9 @@ import {
   useMemo,
   useRef,
   useState,
+  type Dispatch,
   type RefObject,
+  type SetStateAction,
 } from "react";
 import { createPortal } from "react-dom";
 import BeakerBot, { type BeakerBotPose } from "@/components/BeakerBot";
@@ -59,6 +61,10 @@ import L8LabPurchases from "./steps/lab/L8LabPurchases";
 import L9LabSearch from "./steps/lab/L9LabSearch";
 import L10LabWrap from "./steps/lab/L10LabWrap";
 import L11BeakerBotCleanupOption from "./steps/lab/L11BeakerBotCleanupOption";
+import Phase4CleanupStep, {
+  artifactKey,
+} from "./steps/cleanup/Phase4CleanupStep";
+import { cleanupArtifacts } from "./steps/cleanup/cleanup-execution";
 
 /**
  * The Onboarding v3 wizard shell.
@@ -230,6 +236,22 @@ export default function OnboardingWizardV3({
   // (bow-wink) fires while uiState is "persisting" on phase4-cleanup
   // (i.e. Finish has been clicked and the parent is about to unmount).
   const [isBouncing, setIsBouncing] = useState(false);
+  // P4 cleanup-grid state lifted into the shell so handleNext can read
+  // the user's keep/discard picks at Finish-click time. Keys are
+  // `${artifact.type}:${artifact.id}` (see steps/cleanup/Phase4CleanupStep
+  // artifactKey helper). Initialized lazily on first render at the
+  // cleanup step from each artifact's cleanup_default (L24 default-keep
+  // + L9 auto-prerequisite discard-by-default + L11 lab-cleanup pick).
+  const [cleanupDecisions, setCleanupDecisions] = useState<
+    Record<string, "keep" | "discard">
+  >({});
+  // P4 routing flag: flips true when the user confirms the persistent
+  // "I've got it from here" link (L8). The cleanup step still renders
+  // and the user picks keep/discard normally; on Finish the shell calls
+  // `onSkip` (writes wizard_skipped_at) instead of `onComplete` (writes
+  // wizard_completed_at). Sticky for the session: a back-step out of the
+  // cleanup grid does not undo the user's expressed intent to skip.
+  const [enteredCleanupViaSkip, setEnteredCleanupViaSkip] = useState(false);
 
   const titleId = useId();
   const cardRef = useRef<HTMLDivElement | null>(null);
@@ -281,14 +303,54 @@ export default function OnboardingWizardV3({
     return () => window.clearTimeout(t);
   }, [isBouncing]);
 
+  // Seed cleanup decisions from each artifact's cleanup_default the
+  // first time the cleanup step renders (and any time new artifacts
+  // appear in the sidecar, e.g. a back-step + forward through a W-step
+  // that wrote a new artifact). Existing keys are preserved so user
+  // checkbox toggles survive re-seeding.
+  useEffect(() => {
+    if (currentStep !== "phase4-cleanup") return;
+    const artifacts = sidecar?.wizard_resume_state?.artifacts_created ?? [];
+    if (artifacts.length === 0) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- bridging the sidecar's persisted artifact list into the wizard shell's cleanup-decision map; functional setState with a no-op return when nothing changes makes the cascading-render warning a false positive here.
+    setCleanupDecisions((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const a of artifacts) {
+        const key = `${a.type}:${a.id}`;
+        if (next[key] === undefined) {
+          next[key] = a.cleanup_default;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [currentStep, sidecar]);
+
   const handleNext = useCallback(async () => {
     if (currentStep === "phase4-cleanup") {
       setUiState("persisting");
       try {
-        await onComplete();
+        const artifacts =
+          sidecar?.wizard_resume_state?.artifacts_created ?? [];
+        const discarded = artifacts.filter(
+          (a) => cleanupDecisions[artifactKey(a)] === "discard",
+        );
+        if (discarded.length > 0) {
+          await cleanupArtifacts(discarded, username);
+        }
+        // The "I've got it from here" link routes through the cleanup
+        // grid (L8 carry-forward) but is still a skip; record it as
+        // wizard_skipped_at so the gate logic in §11 treats a re-open
+        // the same way a non-cleanup skip would.
+        if (enteredCleanupViaSkip) {
+          await onSkip();
+        } else {
+          await onComplete();
+        }
         setUiState("idle");
       } catch (err) {
-        console.error("[onboarding-v3] onComplete failed", err);
+        console.error("[onboarding-v3] cleanup finalize failed", err);
         setUiState("error");
       }
       return;
@@ -296,7 +358,17 @@ export default function OnboardingWizardV3({
     const next = getNextStep(currentStep, sidecar, picks);
     if (!next) return;
     await transitionTo(next);
-  }, [currentStep, sidecar, picks, onComplete, transitionTo]);
+  }, [
+    currentStep,
+    sidecar,
+    picks,
+    cleanupDecisions,
+    enteredCleanupViaSkip,
+    onComplete,
+    onSkip,
+    transitionTo,
+    username,
+  ]);
 
   const handleBack = useCallback(async () => {
     const prev = getPreviousStep(currentStep, sidecar, picks);
@@ -353,16 +425,14 @@ export default function OnboardingWizardV3({
   }, [currentStep, sidecar, picks, patchSidecar, transitionTo]);
 
   const handleGotItConfirm = useCallback(async () => {
+    // L8 carry-forward (proposal §8): the I've-got-it link no longer
+    // unmounts the wizard. It marks the run as skip-routed (sticky)
+    // and jumps to the cleanup grid so the user can still keep or
+    // discard everything BeakerBot helped them make.
     setShowSkipConfirm(false);
-    setUiState("persisting");
-    try {
-      await onSkip();
-      setUiState("idle");
-    } catch (err) {
-      console.error("[onboarding-v3] onSkip failed", err);
-      setUiState("error");
-    }
-  }, [onSkip]);
+    setEnteredCleanupViaSkip(true);
+    await transitionTo("phase4-cleanup");
+  }, [transitionTo]);
 
   if (!mounted) return null;
 
@@ -462,6 +532,9 @@ export default function OnboardingWizardV3({
             sidecar={sidecar}
             setNextDisabled={setNextDisabled}
             patchSidecar={patchSidecar}
+            cleanupDecisions={cleanupDecisions}
+            setCleanupDecisions={setCleanupDecisions}
+            enteredCleanupViaSkip={enteredCleanupViaSkip}
           />
         </div>
 
@@ -738,14 +811,18 @@ function stepTitle(step: WizardStep): string {
 /** Step body dispatcher. P2a fills in the real bodies for the 9 Phase 1
  *  setup steps (intro + setup-q1 + setup-q1a + setup-q1b + setup-q2
  *  through setup-q6). P2b fills in W1-W9. P2c fills in W10-W14
- *  (conditional walkthrough). L1-L11 and phase4-cleanup remain
- *  placeholders for P3a and P4. */
+ *  (conditional walkthrough). P3a fills in L1-L11. P4 fills in the
+ *  cleanup grid; the shell threads the lifted cleanup state through so
+ *  handleNext can read the user's keep/discard picks at Finish-click. */
 function StepBody({
   step,
   username,
   sidecar,
   setNextDisabled,
   patchSidecar,
+  cleanupDecisions,
+  setCleanupDecisions,
+  enteredCleanupViaSkip,
 }: {
   step: WizardStep;
   username: string;
@@ -754,6 +831,11 @@ function StepBody({
   patchSidecar: (
     patch: (cur: OnboardingSidecar) => OnboardingSidecar,
   ) => Promise<void>;
+  cleanupDecisions: Record<string, "keep" | "discard">;
+  setCleanupDecisions: Dispatch<
+    SetStateAction<Record<string, "keep" | "discard">>
+  >;
+  enteredCleanupViaSkip: boolean;
 }) {
   switch (step) {
     case "intro":
@@ -1002,6 +1084,16 @@ function StepBody({
           sidecar={sidecar}
           setNextDisabled={setNextDisabled}
           patchSidecar={patchSidecar}
+        />
+      );
+    case "phase4-cleanup":
+      return (
+        <Phase4CleanupStep
+          sidecar={sidecar}
+          enteredViaSkip={enteredCleanupViaSkip}
+          decisions={cleanupDecisions}
+          setDecisions={setCleanupDecisions}
+          setNextDisabled={setNextDisabled}
         />
       );
     default:
