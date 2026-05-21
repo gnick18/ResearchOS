@@ -2383,6 +2383,20 @@ function TipsSection() {
           {busy ? "Resetting..." : "Re-run tour"}
         </button>
       </div>
+      {process.env.NODE_ENV === "development" && (
+        <div className="mt-4 border-t border-gray-100 pt-3 text-xs text-gray-500">
+          <Link
+            href="/dev/beakerbot-gallery"
+            data-testid="settings-beakerbot-gallery-link"
+            className="text-blue-600 hover:underline"
+          >
+            BeakerBot Gallery (dev)
+          </Link>
+          <span className="ml-2 text-gray-400">
+            Browse every BeakerBot pose and scene in one place.
+          </span>
+        </div>
+      )}
     </SectionShell>
   );
 }
