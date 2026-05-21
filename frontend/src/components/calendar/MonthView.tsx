@@ -142,6 +142,8 @@ export default function MonthView({
               <div className="space-y-1">
                 {sorted.slice(0, 3).map((item) => {
                   const ended = hasEnded(item.event, now);
+                  const isPto =
+                    item.kind === "native" && item.event.is_pto === true;
                   return item.kind === "native" ? (
                     <button
                       key={`n-${item.event.id}`}
@@ -149,19 +151,30 @@ export default function MonthView({
                         e.stopPropagation();
                         onEventClick(item.event);
                       }}
-                      className={`w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80 ${ended ? ENDED_CLASSES : ""}`}
+                      title={
+                        isPto ? "PTO day, won't break your streak" : undefined
+                      }
+                      data-pto={isPto ? "true" : undefined}
+                      className={`w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80 flex items-center gap-1 ${
+                        isPto ? "ring-1 ring-sky-300 ring-inset" : ""
+                      } ${ended ? ENDED_CLASSES : ""}`}
                       style={{
                         backgroundColor:
                           item.event.color || EVENT_TYPE_COLORS[item.event.event_type],
                         color: "white",
                       }}
                     >
+                      {isPto && (
+                        <span className="flex-shrink-0 px-1 py-px text-[8px] font-bold leading-none rounded bg-sky-50 text-sky-700 border border-sky-200">
+                          PTO
+                        </span>
+                      )}
                       {item.event.start_time && (
                         <span className="font-semibold mr-1">
                           {formatTime(item.event.start_time)}
                         </span>
                       )}
-                      {item.event.title}
+                      <span className="truncate">{item.event.title}</span>
                     </button>
                   ) : (
                     <button

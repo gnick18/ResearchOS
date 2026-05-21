@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { eventsApi } from "@/lib/local-api";
 import { useAppStore } from "@/lib/store";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import AppShell from "@/components/AppShell";
 import CalendarFeedsButton from "@/components/CalendarFeedsButton";
 import DayDetailDrawer from "@/components/DayDetailDrawer";
@@ -21,6 +22,10 @@ import {
   useExternalEvents,
 } from "@/lib/calendar/use-external-events";
 import { useCalendarNavStore } from "@/lib/calendar/calendar-nav-store";
+import {
+  expandDateRange,
+  syncEventPtoChange,
+} from "@/lib/streak/calendar-pto-sync";
 import type { CalendarFeed, Event, ExternalEvent } from "@/lib/types";
 
 const DEFAULT_COLORS = [
@@ -30,6 +35,9 @@ const DEFAULT_COLORS = [
 
 export default function CalendarPage() {
   const queryClient = useQueryClient();
+  // Active user, needed for the Phase S5 PTO sync from a checked event
+  // to the user's pto_dates list (see syncEventPtoChange below).
+  const { currentUser } = useCurrentUser();
   // View mode comes from the user's settings.json via Zustand; in-session
   // changes update the store but don't write back to disk (use Settings →
   // Defaults to change the persisted default).
@@ -290,8 +298,25 @@ export default function CalendarPage() {
             if (!selectedEvent) return;
             if (!confirm(`Delete "${selectedEvent.title}"?`)) return;
             try {
+              // Capture PTO state BEFORE the delete so we can mirror the
+              // removal into pto_dates (Phase S5 §6.5: one-way sync,
+              // event deletion drops the PTO mark too).
+              const prevIsPto = selectedEvent.is_pto === true;
+              const prevDates = prevIsPto
+                ? expandDateRange(
+                    selectedEvent.start_date,
+                    selectedEvent.end_date,
+                  )
+                : [];
               await eventsApi.delete(selectedEvent.id);
               await queryClient.refetchQueries({ queryKey: ["events"] });
+              if (currentUser && prevIsPto) {
+                void syncEventPtoChange(
+                  currentUser,
+                  { isPto: true, dates: prevDates },
+                  null,
+                );
+              }
               setSelectedEvent(null);
             } catch {
               alert("Failed to delete event");
@@ -300,8 +325,34 @@ export default function CalendarPage() {
           onSave={async (data) => {
             if (!editingEvent) return;
             try {
+              // Snapshot the prev PTO state from the event that's open in
+              // the editor (its dates may have been edited; we use the
+              // original `editingEvent` dates for the "remove" side).
+              const prevIsPto = editingEvent.is_pto === true;
+              const prevDates = prevIsPto
+                ? expandDateRange(
+                    editingEvent.start_date,
+                    editingEvent.end_date,
+                  )
+                : [];
               await eventsApi.update(editingEvent.id, data);
               await queryClient.refetchQueries({ queryKey: ["events"] });
+              const nextIsPto = data.is_pto === true;
+              const nextStart = data.start_date ?? editingEvent.start_date;
+              const nextEnd =
+                data.end_date === undefined
+                  ? editingEvent.end_date
+                  : data.end_date;
+              const nextDates = nextIsPto
+                ? expandDateRange(nextStart, nextEnd)
+                : [];
+              if (currentUser && (prevIsPto || nextIsPto)) {
+                void syncEventPtoChange(
+                  currentUser,
+                  { isPto: prevIsPto, dates: prevDates },
+                  { isPto: nextIsPto, dates: nextDates },
+                );
+              }
               setEditingEvent(null);
             } catch {
               alert("Failed to update event");
@@ -373,8 +424,23 @@ export default function CalendarPage() {
                 url: data.url,
                 notes: data.notes,
                 color: data.color,
+                is_pto: data.is_pto ?? null,
               });
               await queryClient.refetchQueries({ queryKey: ["events"] });
+              // Mirror the PTO flag into the user's pto_dates list. New
+              // event => prev=null. syncEventPtoChange is a no-op when
+              // is_pto is false.
+              if (currentUser && data.is_pto === true) {
+                const dates = expandDateRange(
+                  data.start_date as string,
+                  data.end_date ?? null,
+                );
+                void syncEventPtoChange(
+                  currentUser,
+                  null,
+                  { isPto: true, dates },
+                );
+              }
               setCreating(false);
               setPrefilledStartDate(null);
               setPrefilledStartTime(null);
@@ -415,6 +481,10 @@ function EventModal({
   const [url, setUrl] = useState(event.url || "");
   const [notes, setNotes] = useState(event.notes || "");
   const [color, setColor] = useState(event.color || "");
+  // Phase S5 PTO sync: this checkbox writes the event's date(s) into the
+  // user's pto_dates list when on, removes them when off. Stored on the
+  // event record as `is_pto` so the box survives reopen.
+  const [isPto, setIsPto] = useState<boolean>(event.is_pto === true);
 
   const handleSave = () => {
     onSave({
@@ -428,6 +498,7 @@ function EventModal({
       url: url || null,
       notes: notes || null,
       color: color || null,
+      is_pto: isPto,
     });
   };
 
@@ -575,6 +646,25 @@ function EventModal({
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
+              <div className="border-t border-gray-100 pt-4">
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isPto}
+                    onChange={(e) => setIsPto(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-sky-500 focus:ring-sky-400"
+                  />
+                  <span className="flex-1">
+                    <span className="block text-sm font-medium text-gray-700">
+                      Mark as PTO day
+                    </span>
+                    <span className="block text-xs text-gray-500 mt-0.5">
+                      This day will be treated like a weekend for streaks and
+                      project schedules.
+                    </span>
+                  </span>
+                </label>
+              </div>
             </div>
           ) : (
             <div className="space-y-4">
@@ -585,6 +675,16 @@ function EventModal({
                 >
                   {event.event_type}
                 </span>
+                {event.is_pto === true && (
+                  <Tooltip
+                    label="PTO day, won't break your streak"
+                    placement="bottom"
+                  >
+                    <span className="px-2 py-0.5 text-xs rounded-full bg-sky-50 text-sky-700 border border-sky-200 font-medium">
+                      PTO
+                    </span>
+                  </Tooltip>
+                )}
               </div>
               <h4 className="text-lg font-semibold text-gray-900">{event.title}</h4>
               <p className="text-sm text-gray-600">
@@ -673,6 +773,7 @@ function CreateEventModal({
   const [url, setUrl] = useState("");
   const [notes, setNotes] = useState("");
   const [color, setColor] = useState("");
+  const [isPto, setIsPto] = useState<boolean>(false);
 
   const handleCreate = () => {
     if (!title.trim()) return;
@@ -687,6 +788,7 @@ function CreateEventModal({
       url: url || null,
       notes: notes || null,
       color: color || null,
+      is_pto: isPto,
     });
   };
 
@@ -819,6 +921,25 @@ function CreateEventModal({
               rows={3}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+          </div>
+          <div className="border-t border-gray-100 pt-4">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isPto}
+                onChange={(e) => setIsPto(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-sky-500 focus:ring-sky-400"
+              />
+              <span className="flex-1">
+                <span className="block text-sm font-medium text-gray-700">
+                  Mark as PTO day
+                </span>
+                <span className="block text-xs text-gray-500 mt-0.5">
+                  This day will be treated like a weekend for streaks and
+                  project schedules.
+                </span>
+              </span>
+            </label>
           </div>
         </div>
         <div className="flex gap-3 justify-end px-6 py-4 border-t border-gray-100">
