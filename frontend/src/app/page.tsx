@@ -4,6 +4,11 @@ import { useCallback, useMemo, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { projectsApi, fetchAllTasksIncludingShared, fetchAllProjectsIncludingShared } from "@/lib/local-api";
+import {
+  countOwnActiveProjects,
+  countOwnActiveTasks,
+  countOwnArchivedProjects,
+} from "./page-counts";
 import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import ProjectCardKebab from "@/components/project-surface/ProjectCardKebab";
@@ -94,6 +99,24 @@ export default function HomePage() {
     queryKey: ["tasks", currentUser],
     queryFn: fetchAllTasksIncludingShared,
   });
+
+  // Counts in the header reflect the viewer's own work only — projects
+  // shared in from other users (is_shared_with_me) render as cards but
+  // do not contribute to "N active projects / M active tasks / K archived".
+  // The cards still come from the full active/archived lists above; only
+  // the headline numbers are filtered.
+  const ownActiveProjectsCount = useMemo(
+    () => countOwnActiveProjects(activeProjects),
+    [activeProjects],
+  );
+  const ownActiveTasksCount = useMemo(
+    () => countOwnActiveTasks(allTasks),
+    [allTasks],
+  );
+  const ownArchivedProjectsCount = useMemo(
+    () => countOwnArchivedProjects(archivedProjects),
+    [archivedProjects],
+  );
 
   // Deep-link: `/?openTask=<id>` opens the task detail popup once the
   // task data has loaded, then strips that param so a reload doesn't
@@ -315,10 +338,10 @@ export default function HomePage() {
               Research Project Overview
             </h2>
             <p className="text-sm text-gray-400 mt-1">
-              {activeProjects.length} active project{activeProjects.length !== 1 ? "s" : ""} ·{" "}
-              {allTasks.filter((t) => !t.is_complete).length} active tasks
-              {archivedProjects.length > 0 && (
-                <span className="text-gray-300"> · {archivedProjects.length} archived</span>
+              {ownActiveProjectsCount} active project{ownActiveProjectsCount !== 1 ? "s" : ""} ·{" "}
+              {ownActiveTasksCount} active tasks
+              {ownArchivedProjectsCount > 0 && (
+                <span className="text-gray-300"> · {ownArchivedProjectsCount} archived</span>
               )}
             </p>
           </div>
