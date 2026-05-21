@@ -57,9 +57,15 @@ export const TOUR_TARGETS = {
   // breadth step already references it as the picker-open click target).
   methodsNewMethodButton: "methods-new-method-button",
   methodsTypePicker: "methods-type-picker",
-  methodsTypeMarkdown: "methods-type-markdown",
+  methodsTypeMarkdown: "method-type-markdown",
   methodsCreateForm: "methods-create-form",
   methodsCreateNameInput: "methods-create-name-input",
+  // §6.4d sub-bot 2026-05-21: the Folder input doubles as the category
+  // selector in the methods grouping (folders ARE categories — see
+  // `app/methods/page.tsx`'s grouped-by-folder render). The cursor demo
+  // types the user's earlier-picked label here so the funny markdown
+  // method lands under the category they chose in §6.4a.
+  methodsCreateCategoryInput: "methods-create-category-input",
   methodsCreateBodyInput: "methods-create-body-input",
   methodsCreateSubmit: "methods-create-submit",
 

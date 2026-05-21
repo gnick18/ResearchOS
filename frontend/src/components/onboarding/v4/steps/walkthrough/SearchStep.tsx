@@ -49,7 +49,7 @@ export const searchStep = buildWalkthroughStep({
       </p>
     </>
   ),
-  pose: "typing",
+  pose: "typing-on-laptop",
   targetSelector: targetSelector(TOUR_TARGETS.searchInput),
   cursorScript: cursorScript(async () => {
     const type = await safeTypeAction(

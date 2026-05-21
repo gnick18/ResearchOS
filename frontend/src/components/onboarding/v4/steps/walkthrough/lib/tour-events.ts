@@ -81,6 +81,15 @@ export const TOUR_DOM_EVENTS = {
    */
   methodsCategoryCreated: "tour:methods-category-created",
   /**
+   * Dispatched by `CreateMethodModal.tsx` after a successful save (both
+   * plain Create and Save-and-extend). The §6.4d `methods-create` demo
+   * step listens on this so the cursor's typed-then-Save sequence
+   * advances the instant the row lands, instead of waiting for the
+   * methodsApi.list polling tick. Mirrors `tour:project-created` from
+   * local-api.ts projectsApi.create.
+   */
+  methodCreated: "tour:method-created",
+  /**
    * Dispatched by NotificationPopup.tsx on open. The §6.3 bell sub-step
    * advances on this so the silence sub-step's spotlight lands AFTER
    * the popup is on screen.
@@ -323,16 +332,48 @@ export function watchProjectRouteEntered(advance: () => void): () => void {
 }
 
 /**
- * Watch for a new method. Same shape as `watchProjectCreated`.
+ * Watch for a new method. Same shape as `watchProjectCreated`:
+ *   1. DOM event fast path via `tour:method-created` (dispatched by
+ *      `CreateMethodModal.tsx` on save success).
+ *   2. Polling baseline-grows watcher as a safety net.
+ *
+ * Both paths fan into the same `advance` callback, guarded so we only
+ * fire once. The §6.4d methods-create cursor demo relies on the DOM
+ * event path (the polling tick can be slower than the typed body the
+ * user just watched, so the spotlight wouldn't release in time without
+ * the event).
  */
 export function watchMethodCreated(advance: () => void): () => void {
-  return watchCountIncrease(
+  let fired = false;
+  const fireOnce = () => {
+    if (fired) return;
+    fired = true;
+    advance();
+  };
+
+  // 1. DOM event fast path. Browser-only — jsdom in tests supplies
+  // `window`, so this works there too.
+  let removeListener: (() => void) | undefined;
+  if (typeof window !== "undefined") {
+    const handler = () => fireOnce();
+    window.addEventListener(TOUR_DOM_EVENTS.methodCreated, handler);
+    removeListener = () =>
+      window.removeEventListener(TOUR_DOM_EVENTS.methodCreated, handler);
+  }
+
+  // 2. Polling safety net.
+  const stopPolling = watchCountIncrease(
     async () => {
       const methods = await methodsApi.list();
       return methods.length;
     },
-    advance,
+    fireOnce,
   );
+
+  return () => {
+    removeListener?.();
+    stopPolling();
+  };
 }
 
 /**

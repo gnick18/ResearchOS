@@ -35,7 +35,7 @@ export const hybridEditorParagraphsStep = buildWalkthroughStep({
   id: "hybrid-editor-paragraphs",
   speech:
     "These paragraph chunks are unique to ResearchOS, each one is a separate editable block.",
-  pose: "typing",
+  pose: "typing-on-laptop",
   targetSelector: targetSelector(TOUR_TARGETS.hybridEditorTextarea),
   cursorScript: cursorScript(async () => {
     const typeParagraph = await safeTypeAction(

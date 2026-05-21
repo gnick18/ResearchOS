@@ -69,7 +69,7 @@ export const hybridEditorShortcutsStep = buildWalkthroughStep({
       </p>
     </>
   ),
-  pose: "typing",
+  pose: "typing-on-laptop",
   targetSelector: targetSelector(TOUR_TARGETS.hybridEditorTextarea),
   cursorScript: cursorScript(async () => {
     const openNotes = await safeClickAction(

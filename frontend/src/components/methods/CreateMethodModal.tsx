@@ -578,7 +578,23 @@ export function CreateMethodModal({
     setSavingMode("save");
     try {
       const created = await performSave();
-      if (created !== null) onCreated();
+      if (created !== null) {
+        // Onboarding v4 §6.4d demo step (`methods-create`) advances on
+        // this DOM event. Mirrors the `tour:project-created` pattern
+        // (see local-api.ts projectsApi.create) so the cursor demo's
+        // typed-then-clicked Save resolves the moment the row lands,
+        // without leaning on the polling fallback. Dispatched
+        // unconditionally (cost when no tour is active: one no-op
+        // dispatchEvent call).
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("tour:method-created", {
+              detail: { id: created.id, name: created.name },
+            }),
+          );
+        }
+        onCreated();
+      }
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Failed to create method";
       alert(msg);
@@ -612,6 +628,18 @@ export function CreateMethodModal({
       setSavingMode(null);
       return;
     }
+    // Mirror the plain-save event dispatch so the §6.4d tour also
+    // catches the extend-into-kit completion path. The walkthrough
+    // demo never takes this branch (BeakerBot uses plain Save), but
+    // any future tour step that wraps an extend can rely on the same
+    // signal.
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("tour:method-created", {
+          detail: { id: created.id, name: created.name },
+        }),
+      );
+    }
     try {
       const compound = await methodsApi.wrapAsCompound(created.id);
       onCreated(compound);
@@ -629,7 +657,10 @@ export function CreateMethodModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col">
+      <div
+        className="bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col"
+        data-tour-target="methods-create-form"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h3 className="text-base font-semibold text-gray-900">
@@ -665,6 +696,7 @@ export function CreateMethodModal({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Western Blot Protocol"
+                data-tour-target="methods-create-name-input"
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 autoFocus
               />
@@ -682,6 +714,7 @@ export function CreateMethodModal({
                   onChange={(e) => setFolder(e.target.value)}
                   placeholder="e.g. Molecular Biology"
                   list="existing-folders"
+                  data-tour-target="methods-create-category-input"
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <datalist id="existing-folders">
@@ -726,6 +759,7 @@ export function CreateMethodModal({
                 </label>
                 <div
                   className="border border-gray-200 rounded-lg overflow-hidden"
+                  data-tour-target="methods-create-body-input"
                   onDrop={handleDrop}
                   onDragOver={handleDragOver}
                 >
@@ -1152,6 +1186,7 @@ export function CreateMethodModal({
               (uploadType === "pdf" && !pdfFile) ||
               (uploadType === "markdown" && !mdContent.trim())
             }
+            data-tour-target="methods-create-submit"
             className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
           >
             {savingMode === "save" ? "Saving..." : "Create Method"}
