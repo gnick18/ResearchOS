@@ -43,6 +43,10 @@ import InputLockOverlay from "./InputLockOverlay";
 import TourPageLock, {
   PAGE_LOCK_WRONG_CLICK_EVENT,
 } from "./TourPageLock";
+import {
+  recordBranchChoice,
+  resetBranchChoices,
+} from "./steps/walkthrough/lib/branch-choices";
 
 /**
  * Onboarding v4 tour controller — see ONBOARDING_V4_PROPOSAL.md §4.1.
@@ -233,6 +237,10 @@ export interface TourControllerActions {
   /** Active wrong-click speech copy. Surfaced by the bubble when the
    *  user trips the lock. `null` when no flash is pending. */
   readonly pageLockWrongClickFlash: ReactNode | null;
+  /** Active page-lock pill label (R1 fix-pass). Populated when the
+   *  active step declares `pageLock.pillLabel`. Rendered by
+   *  TourPageLock as a bottom-center reassurance pill. */
+  readonly pageLockPillLabel: string | null;
 }
 
 export type TourControllerValue = TourControllerState & TourControllerActions;
@@ -463,6 +471,15 @@ export function TourControllerProvider({
   const [pageLockSpeech, setPageLockSpeech] = useState<ReactNode | null>(null);
   const [pageLockWrongClickFlash, setPageLockWrongClickFlash] =
     useState<ReactNode | null>(null);
+  // Pill label for the active page-lock (R1 fix-pass). Populated from a
+  // step body's declarative `pageLock.pillLabel` slot via the
+  // step-mount bridge effect below; TourPageLock renders it as a
+  // bottom-center pill so the user has a visual cue that BeakerBot is
+  // mid-beat (matches InputLockOverlay's "BeakerBot is demonstrating"
+  // pill).
+  const [pageLockPillLabel, setPageLockPillLabel] = useState<string | null>(
+    null,
+  );
 
   // Stable refs for the latest feature picks + current step so the
   // action callbacks below can read the freshest values without
@@ -505,6 +522,15 @@ export function TourControllerProvider({
     // marker stays consistent (a branch click reads as forward
     // progress, not a back-step).
     setLastTourTransition("advance");
+    // Record the branch choice so the step-machine's gate predicates
+    // can read it (R1 fix-pass P1 #7). The HE-3 markdown overview gate
+    // checks `lastBranchChoice("hybrid-markdown-familiarity")` and
+    // gates OUT when the user picked anything other than
+    // `hybrid-markdown-overview` as the next step.
+    const cur = stateRef.current;
+    if (cur.currentStep) {
+      recordBranchChoice(cur.currentStep, nextStep);
+    }
     dispatch({
       type: "SET_STEP",
       nextStep,
@@ -554,7 +580,13 @@ export function TourControllerProvider({
 
   const pause = useCallback(() => dispatch({ type: "PAUSE" }), []);
   const resume = useCallback(() => dispatch({ type: "RESUME" }), []);
-  const endTour = useCallback(() => dispatch({ type: "EXIT" }), []);
+  const endTour = useCallback(() => {
+    // Wipe any in-memory branch-choice recordings so a re-run starts
+    // clean (R1 fix-pass P1 #7). The cache is module-level so it
+    // outlives the controller's unmount without this reset.
+    resetBranchChoices();
+    dispatch({ type: "EXIT" });
+  }, []);
 
   const setFeaturePicks = useCallback((picks: FeaturePicks | null) => {
     dispatch({ type: "SET_FEATURE_PICKS", picks });
@@ -593,13 +625,50 @@ export function TourControllerProvider({
     setPageLockWrongClickFlash(null);
   }, []);
 
-  // Clear the page-lock whenever the active step changes. Step bodies
-  // own their lock via onEnter/onExit, but a step that forgets to call
-  // `clearPageLock` shouldn't leak a lock into the next step. Belt + braces.
+  // Clear the page-lock whenever the active step changes, THEN translate
+  // any declarative `body.pageLock` config into the controller state.
+  // Step bodies that use the imperative `setPageLock(...)` API still
+  // work; this just plumbs the `pageLock: { allowList, pillLabel }`
+  // declarative path the §6.7 HE-5/HE-6/HE-7 steps use.
+  //
+  // R1 fix-pass (Hybrid fix manager R1, 2026-05-22): without this
+  // translation, declaring `pageLock` on a step body was dead code —
+  // HE-5/HE-6/HE-7 leaked unlocked, so a stray user click into the
+  // editor could race BeakerBot's typing.
+  //
+  // Allow-list normalisation: body bodies may declare allow-list values
+  // as bare data-tour-target names (`"hybrid-editor-textarea"`) or as
+  // wrapped CSS selectors (`'[data-tour-target="hybrid-editor-textarea"]'`).
+  // `TourPageLock.isOnAllowList` only accepts the BARE form, so we
+  // strip the wrapper here before handing the list to setPageLock.
   useEffect(() => {
     setPageLockTargetsState(null);
     setPageLockSpeech(null);
     setPageLockWrongClickFlash(null);
+    setPageLockPillLabel(null);
+    if (!state.currentStep) return;
+    const body = getStep(state.currentStep);
+    if (!body?.pageLock) return;
+    const rawList = body.pageLock.allowList ?? [];
+    // Strip `[data-tour-target="X"]` wrapper down to bare `X`. Bare
+    // values pass through untouched.
+    const normalised = rawList
+      .map((sel) => {
+        const m = sel.match(/^\[data-tour-target="([^"]+)"\]$/);
+        return m ? m[1] : sel;
+      })
+      // Allow-list MUST be non-empty for TourPageLock to mount; if a
+      // body declares `pageLock` with no allowList, we use a sentinel
+      // empty array (lock-all-except-bubble). TourPageLock treats null
+      // as "no lock", so any defined-but-empty array still triggers a
+      // total lock.
+      .filter((v) => v.length > 0);
+    setPageLockTargetsState(normalised);
+    // No wrong-click speech for declarative locks (the pillLabel is the
+    // user-facing affordance). Imperative `setPageLock` callers still
+    // pass speech directly via the second arg.
+    setPageLockSpeech(null);
+    setPageLockPillLabel(body.pageLock.pillLabel ?? null);
   }, [state.currentStep]);
 
   // Listen for wrong-click events from the TourPageLock and flash the
@@ -891,6 +960,7 @@ export function TourControllerProvider({
       clearPageLock,
       pageLockTargets,
       pageLockWrongClickFlash,
+      pageLockPillLabel,
       branchTo,
     }),
     [
@@ -912,6 +982,7 @@ export function TourControllerProvider({
       clearPageLock,
       pageLockTargets,
       pageLockWrongClickFlash,
+      pageLockPillLabel,
       branchTo,
     ],
   );
@@ -1291,7 +1362,10 @@ function InProductWalkthroughOverlay({
               accepted here for forward compat and translates the
               allow-list selectors to the controller API. Master
               follow-up: harmonize the two contracts into one. */}
-      <TourPageLock allowedTargets={pageLockTargets} />
+      <TourPageLock
+        allowedTargets={pageLockTargets}
+        pillLabel={controller.pageLockPillLabel}
+      />
 
       <TourBeakerBotOverlay
         step={body}

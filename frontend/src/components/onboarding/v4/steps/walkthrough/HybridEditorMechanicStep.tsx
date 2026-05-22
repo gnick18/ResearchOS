@@ -29,8 +29,9 @@ export const hybridEditorMechanicStep = buildWalkthroughStep({
         renders. Bold becomes bold, headers become headers.
       </p>
       <p>
-        This way you always know what&apos;s actually being saved. No
-        hidden formatting.
+        Each paragraph is its own block, separated by a blank line,
+        edited independently. That&apos;s why you always know what&apos;s
+        saved. No hidden formatting.
       </p>
     </>
   ),

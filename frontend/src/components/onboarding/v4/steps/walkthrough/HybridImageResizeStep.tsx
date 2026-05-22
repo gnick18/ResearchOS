@@ -17,6 +17,8 @@
  * grid as a UX-honest record rather than a destructive cleanup.
  */
 import { projectsApi, tasksApi } from "@/lib/local-api";
+import { fileService } from "@/lib/file-system/file-service";
+import { taskNotesBase } from "@/lib/tasks/results-paths";
 import {
   cursorScript,
   safeClickAction,
@@ -59,6 +61,14 @@ export const hybridImageResizeStep = buildWalkthroughStep({
   }),
   completion: manualAdvance("Got it, next"),
   onEnter: async () => {
+    // R1 fix-pass (verifier A P2-14): only capture the notes_content
+    // artifact when something was actually authored. Reading the
+    // experiment's notes.md and gating on a non-empty body keeps the
+    // Phase 4 cleanup grid from showing a noisy "your notes content"
+    // row when the user advanced past every typing beat without
+    // anything landing (e.g. HE-5 / HE-6 page-lock pacing race where
+    // the cursor didn't reach the typed-character commit before the
+    // user clicked Got-it-next).
     try {
       const projects = await projectsApi.list();
       if (!projects.length) return;
@@ -75,6 +85,22 @@ export const hybridImageResizeStep = buildWalkthroughStep({
         .sort((a, b) => b.id - a.id);
       const experiment = experiments[0];
       if (!experiment) return;
+      const owner = experiment.owner || "";
+      if (!owner) return;
+
+      // Probe notes.md for actual content before adding the artifact.
+      const notesPath = `${taskNotesBase({ id: experiment.id, owner })}/notes.md`;
+      let body = "";
+      try {
+        const f = await fileService.readFileAsBlob(notesPath);
+        if (f) body = await f.text();
+      } catch {
+        body = "";
+      }
+      // Trim then check — a notes.md containing only whitespace /
+      // empty paragraphs shouldn't count as "user typed something".
+      if (body.trim().length === 0) return;
+
       pendingArtifactStore.add(STEP_ID, {
         type: "notes_content",
         id: String(experiment.id),

@@ -57,6 +57,19 @@ interface TourPageLockProps {
   /** When null, the lock is disabled. Otherwise an array of allowed
    *  `data-tour-target` attribute values. */
   allowedTargets: readonly string[] | null;
+  /** Optional pill label rendered bottom-center while the lock is
+   *  active. Mirrors `InputLockOverlay`'s pill so cursor-driven and
+   *  user-action page locks read with the same visual language. The
+   *  copy comes from the step's `pageLock.pillLabel` declaration via
+   *  the TourController bridge.
+   *
+   *  R1 fix-pass (Hybrid fix manager R1, 2026-05-22): previously the
+   *  pill label sat in `TourStep.pageLock.pillLabel` but nothing
+   *  surfaced it — declaring a label was visually dead. The hybrid
+   *  editor §6.7 typing sequences benefit from the "BeakerBot is
+   *  typing — back in a sec." reassurance pill while the cursor is
+   *  driving a multi-second beat. */
+  pillLabel?: string | null;
 }
 
 /** Selector used to identify the speech bubble (and its children) so
@@ -120,7 +133,7 @@ function cssEscape(s: string): string {
   return s.replace(/"/g, '\\"');
 }
 
-export default function TourPageLock({ allowedTargets }: TourPageLockProps) {
+export default function TourPageLock({ allowedTargets, pillLabel }: TourPageLockProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot client mount detection so the portal target is safe.
@@ -191,7 +204,55 @@ export default function TourPageLock({ allowedTargets }: TourPageLockProps) {
         zIndex: 419,
         pointerEvents: "none",
       }}
-    />,
+    >
+      {pillLabel ? (
+        <div
+          data-testid="tour-page-lock-pill"
+          // Bottom-center pill, same vocabulary as InputLockOverlay's
+          // pill so cursor-driven + user-action page locks read with
+          // consistent visual language. Pointer-events: none so it
+          // never intercepts a click (the gating is window-level
+          // capture-phase, this is purely informational).
+          style={{
+            position: "fixed",
+            bottom: 24,
+            left: "50%",
+            transform: "translateX(-50%)",
+            backgroundColor: "rgba(15, 23, 42, 0.88)", // slate-900/88
+            color: "white",
+            fontSize: 12,
+            fontWeight: 500,
+            padding: "8px 14px",
+            borderRadius: 9999,
+            boxShadow: "0 4px 10px rgba(0, 0, 0, 0.2)",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            pointerEvents: "none",
+            userSelect: "none",
+          }}
+        >
+          <span
+            aria-hidden
+            style={{
+              display: "inline-block",
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              backgroundColor: "#0ea5e9", // sky-500
+              animation: "tour-page-lock-pulse 1.4s ease-in-out infinite",
+            }}
+          />
+          {pillLabel}
+          <style>{`
+            @keyframes tour-page-lock-pulse {
+              0%, 100% { opacity: 1; }
+              50% { opacity: 0.35; }
+            }
+          `}</style>
+        </div>
+      ) : null}
+    </div>,
     document.body,
   );
 }

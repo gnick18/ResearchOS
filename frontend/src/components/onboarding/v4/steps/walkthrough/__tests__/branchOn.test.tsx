@@ -1,33 +1,26 @@
 /**
  * §6.7 HE-2 branchOn primitive tests.
  *
- * Asserts:
+ * R1 fix-pass (Hybrid fix manager R1, 2026-05-22): HE-2 was refactored
+ * to use the declarative `branchOn` completion primitive. The inline
+ * picker UI is gone; the controller renders one button per branch
+ * underneath the speech. Tests asserting on the inner-picker
+ * rendering have been retired; the new shape is verified by:
+ *
  *   - `branchOn(...)` produces a TourStepCompletion with type "branch"
- *     and the expected branches array shape
- *   - The hybrid-markdown-familiarity step's inner picker renders the
- *     yes/no buttons initially, then transitions to the follow-up
- *     question on the "no" branch.
- *   - Each terminal button calls `branchTo` with the expected next step.
+ *     and the expected branches array
+ *   - HE-2's completion declares the three branches mapping to the
+ *     HE2_BRANCH_TARGETS destinations
+ *   - The HE-2 speech is pure narration (no rendered buttons inside
+ *     the speech itself)
  */
-import { describe, expect, it, vi } from "vitest";
-import { render, fireEvent } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import { render } from "@testing-library/react";
 import {
   hybridMarkdownFamiliarityStep,
   HE2_BRANCH_TARGETS,
 } from "../HybridMarkdownFamiliarityStep";
 import { branchOn } from "../lib/step-helpers";
-
-// Mock useTourController so the picker can read it without a full
-// provider mount. The mock captures branchTo calls so the test can
-// assert on the chosen next step.
-const branchToMock = vi.fn();
-vi.mock("../../../TourController", () => ({
-  useTourController: () => ({
-    branchTo: branchToMock,
-    noteManualAdvance: () => {},
-    exitTour: () => {},
-  }),
-}));
 
 describe("branchOn helper", () => {
   it("produces a TourStepCompletion with type 'branch' + the branches array", () => {
@@ -45,74 +38,39 @@ describe("branchOn helper", () => {
 });
 
 describe("HybridMarkdownFamiliarityStep (§6.7 HE-2 branch gate)", () => {
-  it("step body uses pose: thinking + manual completion", () => {
+  it("step body uses pose: thinking + branch completion", () => {
     expect(hybridMarkdownFamiliarityStep.pose).toBe("thinking");
-    expect(hybridMarkdownFamiliarityStep.completion.type).toBe("manual");
+    expect(hybridMarkdownFamiliarityStep.completion.type).toBe("branch");
   });
 
-  it("renders the yes/no buttons initially", () => {
-    branchToMock.mockReset();
-    const speechNode =
-      typeof hybridMarkdownFamiliarityStep.speech === "function"
-        ? hybridMarkdownFamiliarityStep.speech()
-        : hybridMarkdownFamiliarityStep.speech;
-    const { getByText, queryByText } = render(<>{speechNode}</>);
-    expect(getByText("Yes, I know markdown")).toBeTruthy();
-    expect(getByText("No, never used it")).toBeTruthy();
-    // Follow-up buttons not visible yet.
-    expect(queryByText("Sure, show me")).toBeNull();
+  it("declares three branches mapping to the HE2_BRANCH_TARGETS destinations", () => {
+    const c = hybridMarkdownFamiliarityStep.completion;
+    expect(c.type).toBe("branch");
+    if (c.type !== "branch") return;
+    expect(c.branches).toHaveLength(3);
+    const dests = new Set(c.branches.map((b) => b.nextStep));
+    expect(dests.has(HE2_BRANCH_TARGETS.knowsMarkdown)).toBe(true);
+    expect(dests.has(HE2_BRANCH_TARGETS.wantsOverview)).toBe(true);
+    expect(dests.has(HE2_BRANCH_TARGETS.skipOverview)).toBe(true);
   });
 
-  it("clicking 'Yes' jumps directly to hybrid-editor-mechanic (skips overview)", () => {
-    branchToMock.mockReset();
-    const speechNode =
-      typeof hybridMarkdownFamiliarityStep.speech === "function"
-        ? hybridMarkdownFamiliarityStep.speech()
-        : hybridMarkdownFamiliarityStep.speech;
-    const { getByText } = render(<>{speechNode}</>);
-    fireEvent.click(getByText("Yes, I know markdown"));
-    expect(branchToMock).toHaveBeenCalledWith(HE2_BRANCH_TARGETS.knowsMarkdown);
+  it("knowsMarkdown + skipOverview both route to hybrid-editor-mechanic (HE-4)", () => {
     expect(HE2_BRANCH_TARGETS.knowsMarkdown).toBe("hybrid-editor-mechanic");
-  });
-
-  it("clicking 'No' shows the follow-up question with sure/skip buttons", () => {
-    branchToMock.mockReset();
-    const speechNode =
-      typeof hybridMarkdownFamiliarityStep.speech === "function"
-        ? hybridMarkdownFamiliarityStep.speech()
-        : hybridMarkdownFamiliarityStep.speech;
-    const { getByText } = render(<>{speechNode}</>);
-    fireEvent.click(getByText("No, never used it"));
-    // Follow-up beat: the two terminal buttons should now be on screen.
-    expect(getByText("Sure, show me")).toBeTruthy();
-    expect(getByText(/Skip,/)).toBeTruthy();
-    // branchTo NOT called yet (the no click is internal-only).
-    expect(branchToMock).not.toHaveBeenCalled();
-  });
-
-  it("'Sure, show me' jumps to the overview step (HE-3)", () => {
-    branchToMock.mockReset();
-    const speechNode =
-      typeof hybridMarkdownFamiliarityStep.speech === "function"
-        ? hybridMarkdownFamiliarityStep.speech()
-        : hybridMarkdownFamiliarityStep.speech;
-    const { getByText } = render(<>{speechNode}</>);
-    fireEvent.click(getByText("No, never used it"));
-    fireEvent.click(getByText("Sure, show me"));
-    expect(branchToMock).toHaveBeenCalledWith(HE2_BRANCH_TARGETS.wantsOverview);
+    expect(HE2_BRANCH_TARGETS.skipOverview).toBe("hybrid-editor-mechanic");
     expect(HE2_BRANCH_TARGETS.wantsOverview).toBe("hybrid-markdown-overview");
   });
 
-  it("'Skip, I'll learn as I go' jumps past the overview to HE-4", () => {
-    branchToMock.mockReset();
+  it("speech is pure narration — no inline button elements", () => {
     const speechNode =
       typeof hybridMarkdownFamiliarityStep.speech === "function"
         ? hybridMarkdownFamiliarityStep.speech()
         : hybridMarkdownFamiliarityStep.speech;
-    const { getByText } = render(<>{speechNode}</>);
-    fireEvent.click(getByText("No, never used it"));
-    fireEvent.click(getByText(/Skip,/));
-    expect(branchToMock).toHaveBeenCalledWith(HE2_BRANCH_TARGETS.skipOverview);
-    expect(HE2_BRANCH_TARGETS.skipOverview).toBe("hybrid-editor-mechanic");
+    const { container, queryByText } = render(<>{speechNode}</>);
+    // The speech bubble's narration should mention markdown but the
+    // branch buttons themselves are NOT rendered by the speech (they
+    // come from the controller's branch-rendering path).
+    expect(container.querySelector("button")).toBeNull();
+    // The narration should ask the familiarity question.
+    expect(queryByText(/used markdown before/i)).toBeTruthy();
   });
 });

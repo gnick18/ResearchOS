@@ -8,6 +8,13 @@ import { buildHybridTypingStep } from "./lib/hybrid-editor-helpers";
 
 export const hybridUnderlineStep = buildHybridTypingStep({
   id: "hybrid-underline",
-  speech: <p>Underline uses single underscores.</p>,
+  speech: (
+    <>
+      <p className="mb-2">Underline uses single underscores.</p>
+      <p className="text-xs text-gray-500">
+        The underscores disappear on render, just like the stars did.
+      </p>
+    </>
+  ),
   markdownText: "_Re-order before then._",
 });

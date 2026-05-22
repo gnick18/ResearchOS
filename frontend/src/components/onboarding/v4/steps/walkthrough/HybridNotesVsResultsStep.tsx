@@ -43,17 +43,21 @@ export const hybridNotesVsResultsStep = buildWalkthroughStep({
         conclusions you&apos;d defend in a meeting.
       </p>
       <p>
-        Same editor, separate stores. What you write on Notes stays on
-        Notes; same for Results. Most people write daily in Notes and
-        promote to Results when they&apos;re done.
+        Same editor, two separate stores. Notes content never leaks
+        into Results. Workflow most people use: write daily in Notes,
+        then copy the keepers into Results when the experiment is done.
       </p>
     </>
   ),
   pose: "pointing",
-  // Spotlight the whole tab container so both Notes + Results read as
-  // the subject of the speech. The cursor glides between the two
-  // specific tabs underneath.
-  targetSelector: targetSelector(TOUR_TARGETS.experimentTabContainer),
+  // R1 fix-pass P1 #9: tighten the spotlight to the Notes tab
+  // specifically instead of the whole tab container (which wraps
+  // Details / Method / Items / Notes / Results — too wide for a step
+  // whose speech specifically calls out the Notes-vs-Results pair).
+  // The cursor's glide between Notes and Results in the cursor script
+  // provides the visual pairing, so a single tight anchor on Notes is
+  // sufficient.
+  targetSelector: targetSelector(TOUR_TARGETS.experimentNotesTab),
   cursorScript: cursorScript(async () => {
     const clickNotes = await safeClickAction(
       targetSelector(TOUR_TARGETS.experimentNotesTab),

@@ -16,6 +16,7 @@
  */
 import type { FeaturePicks } from "@/lib/onboarding/sidecar";
 import type { TourStepId } from "./step-types";
+import { lastBranchChoice } from "./steps/walkthrough/lib/branch-choices";
 
 /**
  * Canonical forward order for the v4 tour. The machine walks this list
@@ -358,6 +359,30 @@ export function isStepGatedOut(
   // deps-beakerbot, deps-user, deps-cascade) fire for everyone — they
   // teach core Gantt mechanics, not the goals overlay feature.
   if (step === "gantt-goals-overview") return picks?.goals !== "yes";
+
+  // §6.7 HE-3 (`hybrid-markdown-overview`): only show when the user
+  // explicitly picked the "Sure, show me an overview" branch on HE-2
+  // (`hybrid-markdown-familiarity`). Otherwise — including the
+  // initial state before HE-2 fires, since the user hasn't decided
+  // yet — gate out. The branch choice is module-level (see
+  // `lib/branch-choices.ts`) and is NOT persisted to the sidecar per
+  // Grant's design.
+  //
+  // R1 fix-pass (Hybrid fix manager R1, 2026-05-22): without this
+  // gate, back-stepping from HE-4 lands the user on HE-3 — the
+  // overview step they JUST declined.
+  //
+  // Edge case: the FORWARD path from HE-2 uses `controller.branchTo`
+  // which bypasses `getNextStep`, so this gate doesn't fire on the
+  // forward Yes / Sure / Skip path (the branch destination is honored
+  // directly). The gate only matters for back-step traversal AND for
+  // a defensive fast-forward if the cache is empty at the moment
+  // `getNextStep("hybrid-markdown-familiarity", ...)` would otherwise
+  // walk into HE-3 (won't happen in practice, but a safer default).
+  if (step === "hybrid-markdown-overview") {
+    const choice = lastBranchChoice("hybrid-markdown-familiarity");
+    return choice !== "hybrid-markdown-overview";
+  }
 
   // §6.8 lab-only share cluster (Gantt redesign 2026-05-22): solo
   // accounts skip the entire 7-step share cluster. The teaching

@@ -12,12 +12,13 @@ export const hybridMarkdownIntroStep = buildWalkthroughStep({
   id: "hybrid-markdown-intro",
   speech: (
     <>
+      <p className="mb-2">Now, the editor itself.</p>
       <p className="mb-2">
-        Heads up: every text editor on this site uses{" "}
-        <strong>markdown</strong> format.
+        One thing to know: every text editor on this site uses{" "}
+        <strong>markdown</strong>, a lightweight formatting standard.
       </p>
       <p>
-        Markdown is a way to format text using simple symbols, like
+        Markdown formats text using simple symbols, like
         <code className="font-mono mx-1 px-1 bg-gray-100 rounded">**bold**</code>
         and
         <code className="font-mono mx-1 px-1 bg-gray-100 rounded"># header</code>.

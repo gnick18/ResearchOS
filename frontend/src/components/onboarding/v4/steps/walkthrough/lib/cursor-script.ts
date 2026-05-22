@@ -393,6 +393,73 @@ export function callbackAction(
 }
 
 /**
+ * Build an HTML5 drag action between two selectors with a typed
+ * dataTransfer payload (Hybrid editor manager R1 fix-pass, §6.7 HE-9).
+ *
+ * The hybrid editor's inline-image drop handler reads
+ * `e.dataTransfer.getData("application/x-research-os-image")` on the
+ * native `DragEvent`. The plain `safeDragAction` path only dispatches
+ * `mousedown` / `mouseup` (no DataTransfer), so the handler sees
+ * nothing and the image-drag-in demo lands no markdown snippet. This
+ * helper resolves the source + dest selectors, then queues a
+ * `dragFile` cursor action that mirrors the visual glide-and-press
+ * choreography of `drag` while populating a real DataTransfer with
+ * the requested MIME-typed payload.
+ *
+ * Returns `null` if either selector misses — caller filters with
+ * `compactScript`, same contract as `safeDragAction`.
+ */
+export async function safeDragFileAction(
+  sourceSelector: string,
+  destSelector: string,
+  payload: { mimeType: string; data: string },
+  timeoutMs?: number,
+): Promise<CursorAction | null> {
+  const src = await waitForElement(sourceSelector, timeoutMs);
+  const dst = src ? await waitForElement(destSelector, timeoutMs) : null;
+  if (!src || !dst) return null;
+  await ensureInViewport(src);
+  return { type: "dragFile", source: src, dest: dst, payload };
+}
+
+/**
+ * Build a synthetic "click out" action — fires a `mousedown` event on
+ * `document.body` (well outside any hybrid-editor wrapper) so the
+ * editor's `mousedown` click-outside listener commits the currently
+ * open edit block and the rendered markdown lands. Used by the §6.7
+ * HE-5 / HE-6 typing beats after the cursor types its sample sentence
+ * (see HybridMarkdownEditor.tsx's click-outside handler that calls
+ * `handleEditBlur`).
+ *
+ * Returns a `callback` action rather than a `click` action because the
+ * editor's listener is `mousedown`-based at the document level — a
+ * real `el.click()` on body doesn't fire `mousedown` at the right time
+ * and the cursor's visual ripple is misleading here anyway (there's no
+ * meaningful target to ripple on).
+ */
+export function clickOutsideEditorAction(): CursorAction {
+  return callbackAction(() => {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+    try {
+      // Fire mousedown on document.body — the editor's click-outside
+      // handler triggers off mousedown at the document level (not click),
+      // so this is what actually commits the block.
+      document.body.dispatchEvent(
+        new MouseEvent("mousedown", {
+          bubbles: true,
+          cancelable: true,
+          clientX: 0,
+          clientY: 0,
+          button: 0,
+        }),
+      );
+    } catch {
+      // No-op.
+    }
+  });
+}
+
+/**
  * Filter helper that drops null entries from a script-builder pipeline.
  * Generic so it preserves the discriminated union of `CursorAction`.
  */

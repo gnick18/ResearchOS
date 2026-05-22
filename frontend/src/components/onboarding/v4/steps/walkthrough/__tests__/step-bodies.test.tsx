@@ -277,8 +277,12 @@ describe("P5 step bodies — universal contract", () => {
   });
 
   it("every step body declares a completion contract", () => {
+    // R1 fix-pass P1 #6: `branch` is the 4th legal completion type, used
+    // by §6.7 HE-2's markdown familiarity gate.
     for (const step of ALL_STEPS) {
-      expect(["event", "manual", "auto"]).toContain(step.completion.type);
+      expect(["event", "manual", "auto", "branch"]).toContain(
+        step.completion.type,
+      );
     }
   });
 
@@ -999,9 +1003,13 @@ describe("Hybrid editor steps (§6.7 redesign, Hybrid editor manager 2026-05-22)
     expect(text).toMatch(/Results/);
     expect(text).toMatch(/separate stores/);
   });
-  it("HE-0 targets the tab container for the spotlight", () => {
+  it("HE-0 spotlights the Notes tab specifically (R1 fix-pass P1 #9)", () => {
+    // Tightened from `experiment-tab-container` (which wraps Details /
+    // Method / Items / Notes / Results) to `experiment-notes-tab`.
+    // The cursor's glide between Notes and Results in the step's
+    // cursorScript provides the visual pairing.
     expect(hybridNotesVsResultsStep.targetSelector).toBe(
-      '[data-tour-target="experiment-tab-container"]',
+      '[data-tour-target="experiment-notes-tab"]',
     );
   });
   it("HE-1 markdown intro is narration-only (no cursor, no spotlight)", () => {
@@ -1009,8 +1017,10 @@ describe("Hybrid editor steps (§6.7 redesign, Hybrid editor manager 2026-05-22)
     expect(hybridMarkdownIntroStep.targetSelector).toBeUndefined();
     expect(renderSpeech(hybridMarkdownIntroStep)).toMatch(/markdown/);
   });
-  it("HE-2 markdown-familiarity declares manual completion (branch buttons live inside the speech)", () => {
-    expect(hybridMarkdownFamiliarityStep.completion.type).toBe("manual");
+  it("HE-2 markdown-familiarity uses branchOn completion (R1 fix-pass P1 #6)", () => {
+    // Was `manual` with hand-rolled picker UI; now uses the declarative
+    // `branchOn` primitive so the controller renders the buttons.
+    expect(hybridMarkdownFamiliarityStep.completion.type).toBe("branch");
     expect(hybridMarkdownFamiliarityStep.pose).toBe("thinking");
   });
   it("HE-3 markdown-overview spotlights the shortcut bar", () => {
@@ -1066,8 +1076,11 @@ describe("Hybrid editor steps (§6.7 redesign, Hybrid editor manager 2026-05-22)
   });
   it("HE-11 hybrid-file-attach narrates the file-vs-image difference", () => {
     const text = renderSpeech(hybridFileAttachStep);
-    expect(text).toMatch(/files attach the same way/i);
-    expect(text).toMatch(/PDFs and text files/);
+    // R1 fix-pass P2 #10: speech rewritten per verifier-C copy. The
+    // load-bearing teaching beats remain (non-image files become a
+    // download chip; the chip preserves the writeup).
+    expect(text).toMatch(/non-image files/i);
+    expect(text).toMatch(/download chip/i);
   });
 });
 

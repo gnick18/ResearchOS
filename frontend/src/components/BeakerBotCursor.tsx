@@ -81,6 +81,27 @@ export type CursorAction =
   | { type: "type"; target: HTMLElement; text: string; cadenceMs?: number }
   | { type: "drag"; source: HTMLElement; dest: HTMLElement }
   /**
+   * HTML5-drag variant of `drag`. The visual glide-and-press animation
+   * is identical to `drag`, but on drop the cursor synthesises a real
+   * `DragEvent` carrying a `DataTransfer` payload — required by
+   * receivers that listen for `application/x-research-os-image` (the
+   * hybrid editor's inline image drop handler) or other dataTransfer
+   * MIME types. The `mousedown` → `mouseup` sequence that `drag`
+   * dispatches does not populate `e.dataTransfer.getData`, which is why
+   * the HE-9 image-drag-in demo was previously visually fake.
+   *
+   * `payload` is `{ mimeType, data }` — the cursor sets that pair on a
+   * fresh `DataTransfer` instance, then fires `dragstart` / `dragover` /
+   * `drop` events at the source + dest. Receivers wired to standard
+   * HTML5 DnD see a valid drop and process the data.
+   */
+  | {
+      type: "dragFile";
+      source: HTMLElement;
+      dest: HTMLElement;
+      payload: { mimeType: string; data: string };
+    }
+  /**
    * Run an arbitrary side effect at this position in the action queue.
    * Awaited by `runScript`, so a Promise-returning fn blocks the cursor
    * until it resolves. Used by demos that need to coordinate narration
@@ -105,6 +126,18 @@ export interface BeakerBotCursorRef {
   /** Glide to source → press → glide to dest → release; dispatches
    *  matching mouse events on each end so the app's handlers see it. */
   dragFromTo(source: HTMLElement, dest: HTMLElement): Promise<void>;
+  /** Same visual choreography as `dragFromTo`, but on arrival the
+   *  cursor dispatches a real HTML5 `DragEvent` (with a populated
+   *  `DataTransfer`) at the destination. Required for receivers that
+   *  listen for `e.dataTransfer.getData(...)` (the hybrid editor's
+   *  inline image drop handler does this for the
+   *  `application/x-research-os-image` MIME type). Falls back to the
+   *  `mousedown`/`mouseup` path if `DataTransfer` construction fails. */
+  dragFile(
+    source: HTMLElement,
+    dest: HTMLElement,
+    payload: { mimeType: string; data: string },
+  ): Promise<void>;
   /** Hide the cursor (display: none). */
   hide(): void;
   /** Show the cursor (default visibility). */
@@ -453,17 +486,69 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
             // The brief allows this — "could be sped up; out of scope."
             await sleep(cadence);
           }
-        } else {
-          // Generic fallback: append text to `textContent` char-by-char.
-          // Suitable for contenteditable or any neutral container that
-          // wants to show the typing as a visual progression. Real
-          // contenteditable RTE integrations can subscribe to a
-          // different bus; this is the safe default for the primitive.
-          const startingText = el.textContent ?? "";
+          return;
+        }
+
+        // Wrapper-with-input fallback. Some targets (e.g. the §6.7 hybrid
+        // editor's `[data-tour-target="hybrid-editor-textarea"]` wrapper
+        // div) host a real native <textarea> or <input> as a descendant.
+        // The wrapper may need a click to MOUNT that descendant (the
+        // hybrid editor lazily renders its textarea only when an edit
+        // block is active). Try to find / mount it; if successful, type
+        // through the React-safe setter so the app's onChange handlers
+        // fire and the value actually lands. Without this, the prior
+        // `el.textContent = ...` fallback was just visual — React's
+        // next render clobbered the mutation and the demo's bold /
+        // italic / underline / heading typing never committed to the
+        // editor's model.
+        const findInnerInput = (): HTMLInputElement | HTMLTextAreaElement | null => {
+          const inner = el.querySelector("textarea, input[type='text'], input:not([type])");
+          if (inner instanceof HTMLTextAreaElement || inner instanceof HTMLInputElement) {
+            return inner;
+          }
+          return null;
+        };
+        let innerInput = findInnerInput();
+        if (!innerInput) {
+          // Click to mount the descendant input. The hybrid editor's
+          // wrapper click handler creates a new edit block on click,
+          // which renders the inline textarea on the next React commit.
+          try {
+            el.click();
+          } catch {
+            // No-op.
+          }
+          // Wait a microtask + a small RAF-equivalent for React to
+          // commit the new textarea. 60ms is conservative — long enough
+          // for a typical commit, short enough that the user sees the
+          // cursor click and type-start as one continuous beat.
+          await sleep(60);
+          innerInput = findInnerInput();
+        }
+
+        if (innerInput) {
+          try {
+            innerInput.focus();
+          } catch {
+            // No-op.
+          }
+          const startingValue = innerInput.value;
           for (let i = 0; i < text.length; i++) {
-            el.textContent = startingText + text.slice(0, i + 1);
+            setNativeInputValue(innerInput, startingValue + text.slice(0, i + 1));
             await sleep(cadence);
           }
+          return;
+        }
+
+        // Generic fallback: append text to `textContent` char-by-char.
+        // Suitable for contenteditable or any neutral container that
+        // wants to show the typing as a visual progression. Real
+        // contenteditable RTE integrations can subscribe to a
+        // different bus; this is the safe default for the primitive.
+        const startingText = el.textContent ?? "";
+        for (let i = 0; i < text.length; i++) {
+          el.textContent = startingText + text.slice(0, i + 1);
+          await sleep(cadence);
         }
       },
       [glideTo],
@@ -547,6 +632,119 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
     );
 
     // ---------------------------------------------------------------------
+    // Primitive: DragFile (HTML5 drag with DataTransfer payload)
+    //
+    // Hybrid editor manager R1 fix-pass (Onboarding v4 §6.7 HE-9). The
+    // hybrid editor's inline-image drop handler listens for
+    // `application/x-research-os-image` data on the native `DragEvent`
+    // — the plain `dragFromTo` path above fires `mousedown` /
+    // `mousemove` / `mouseup` but never populates `e.dataTransfer`, so
+    // the receiver gets nothing and the cursor demo lands no markdown
+    // snippet. `dragFile` mirrors the glide/press choreography, then on
+    // arrival dispatches `dragstart` → `dragenter` → `dragover` → `drop`
+    // events with a synthesised `DataTransfer` carrying the requested
+    // MIME-typed payload. Receivers wired to standard HTML5 DnD see a
+    // valid drop and process the data.
+    //
+    // Fallback: when `DataTransfer` can't be constructed (rare; some
+    // older test runtimes), the cursor still completes the visual glide
+    // and dispatches the `mousedown`/`mouseup` pair so any receivers
+    // listening on raw mouse events still see the drop visually.
+    // ---------------------------------------------------------------------
+    const dragFile = useCallback(
+      async (
+        source: HTMLElement,
+        dest: HTMLElement,
+        payload: { mimeType: string; data: string },
+      ): Promise<void> => {
+        const src = elementCenter(source);
+        const dst = elementCenter(dest);
+
+        // 1. Glide to source.
+        await glideTo(src.x, src.y);
+
+        // 2. Pressed visual on.
+        setState((prev) => ({ ...prev, pressed: true }));
+
+        // 3. Build a DataTransfer carrying the payload. Reused across
+        // every drag-stage event so handlers reading `getData` on
+        // dragover OR drop both see it.
+        let dt: DataTransfer | null = null;
+        try {
+          dt = new DataTransfer();
+          dt.setData(payload.mimeType, payload.data);
+        } catch {
+          dt = null;
+        }
+
+        const dispatchDrag = (
+          target: EventTarget,
+          eventName: string,
+          x: number,
+          y: number,
+        ): void => {
+          try {
+            // DragEvent is the spec'd type; jsdom supports the constructor
+            // when DataTransfer is also available. Falls back to a generic
+            // Event with the dataTransfer property bolted on if the
+            // DragEvent constructor isn't available.
+            let evt: Event;
+            try {
+              evt = new DragEvent(eventName, {
+                bubbles: true,
+                cancelable: true,
+                clientX: x,
+                clientY: y,
+                dataTransfer: dt,
+              });
+            } catch {
+              evt = new Event(eventName, { bubbles: true, cancelable: true });
+              try {
+                Object.defineProperty(evt, "dataTransfer", { value: dt });
+                Object.defineProperty(evt, "clientX", { value: x });
+                Object.defineProperty(evt, "clientY", { value: y });
+              } catch {
+                // No-op.
+              }
+            }
+            target.dispatchEvent(evt);
+          } catch {
+            // No-op.
+          }
+        };
+
+        // 4. Fire dragstart at source, dragenter+dragover at dest as the
+        // cursor approaches, then drop at dest on arrival.
+        dispatchDrag(source, "dragstart", src.x, src.y);
+        if (!reducedRef.current) {
+          // Mid-drag interaction so libraries that gate on dragover see motion.
+          dispatchDrag(
+            dest,
+            "dragenter",
+            (src.x + dst.x) / 2,
+            (src.y + dst.y) / 2,
+          );
+          dispatchDrag(
+            dest,
+            "dragover",
+            (src.x + dst.x) / 2,
+            (src.y + dst.y) / 2,
+          );
+        }
+        await glideTo(dst.x, dst.y);
+
+        // 5. Final dragover + drop at the destination.
+        dispatchDrag(dest, "dragover", dst.x, dst.y);
+        dispatchDrag(dest, "drop", dst.x, dst.y);
+        // 6. Release: dragend at source.
+        dispatchDrag(source, "dragend", dst.x, dst.y);
+
+        setState((prev) => ({ ...prev, pressed: false }));
+      },
+      [glideTo],
+    );
+
+    // ---------------------------------------------------------------------
     // Primitive: hide/show
     // ---------------------------------------------------------------------
     const hide = useCallback(() => {
@@ -575,6 +773,9 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
             case "drag":
               await dragFromTo(action.source, action.dest);
               break;
+            case "dragFile":
+              await dragFile(action.source, action.dest, action.payload);
+              break;
             case "callback":
               // Side-effect step (narration beat, DOM probe, etc).
               // Awaited so the next cursor action runs AFTER the
@@ -601,7 +802,7 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
           }
         }
       },
-      [glideTo, clickAt, typeInto, dragFromTo],
+      [glideTo, clickAt, typeInto, dragFromTo, dragFile],
     );
 
     // Expose the imperative API.
@@ -612,12 +813,13 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
         clickAt,
         typeInto,
         dragFromTo,
+        dragFile,
         hide,
         show,
         runScript,
         snapTo,
       }),
-      [glideTo, clickAt, typeInto, dragFromTo, hide, show, runScript, snapTo],
+      [glideTo, clickAt, typeInto, dragFromTo, dragFile, hide, show, runScript, snapTo],
     );
 
     // ---------------------------------------------------------------------

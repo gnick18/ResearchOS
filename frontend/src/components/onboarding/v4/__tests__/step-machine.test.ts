@@ -562,14 +562,29 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     // (lab-prompt + lab-spawn-beakerbot + lab-permission-practice
     // retired, only lab-cleanup survives in LAB_STEP_IDS) but the §6.8
     // Gantt share cluster added 7 new lab-only steps gated on
-    // account_type === "lab". Purchases manager 2026-05-22: the single
-    // `purchases` id grew into an 8-step cluster, so solo+minimal now
-    // skips: 5 conditionals other than purchases (telegram, calendar,
-    // links, gantt-goals-overview, ai-helper-deep-explain) + 8
-    // purchases cluster + 1 lab step (lab-cleanup) + 7 Gantt share
-    // cluster steps = 21 gated out for solo.
-    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 21);
-    expect(labCount).toBe(TOUR_STEP_ORDER.length);
+    // account_type === "lab".
+    //
+    // Purchases manager 2026-05-22: the single `purchases` id grew
+    // into an 8-step cluster, so solo+minimal now skips an extra 7
+    // purchases cluster steps relative to the pre-Purchases-redesign
+    // count.
+    //
+    // Hybrid fix manager R1 2026-05-22 (P1 #7): HE-3
+    // (`hybrid-markdown-overview`) is now gated by the in-tour
+    // branchOn choice at HE-2. The choice cache is empty at module
+    // load (no branch click has fired), so the gate evaluates to
+    // "gated out" until the cache is populated — applies to both
+    // solo and lab paths.
+    //
+    // Solo+minimal skips: 5 non-purchases conditionals (telegram,
+    // calendar, links, gantt-goals-overview, ai-helper-deep-explain)
+    // + 8 purchases cluster + 1 lab step (lab-cleanup) + 7 Gantt
+    // share cluster steps + 1 HE-3 (branch-gated) = 22 gated out
+    // for solo.
+    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 22);
+    // Lab+max: HE-3 still branch-gated (user hasn't picked the
+    // overview branch yet at static evaluation time).
+    expect(labCount).toBe(TOUR_STEP_ORDER.length - 1);
   });
 
   it("applicableStepIndex is 1-based and skips gated steps", () => {

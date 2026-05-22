@@ -35,21 +35,15 @@ export const hybridMarkdownOverviewStep = buildWalkthroughStep({
         symbols into formatting.
       </p>
       <p className="mb-2">
-        Wrap text in <code className="font-mono mx-0.5 px-1 bg-gray-100 rounded">**double stars**</code>
-        for <strong>bold</strong>. Single
-        <code className="font-mono mx-0.5 px-1 bg-gray-100 rounded">*stars*</code>
-        for <em>italic</em>. Single
-        <code className="font-mono mx-0.5 px-1 bg-gray-100 rounded">_underscores_</code>
-        for underline.
+        The basics:
+        <code className="font-mono mx-0.5 px-1 bg-gray-100 rounded">**bold**</code>,
+        <code className="font-mono mx-0.5 px-1 bg-gray-100 rounded">*italic*</code>,
+        <code className="font-mono mx-0.5 px-1 bg-gray-100 rounded">_underline_</code>,
+        and
         <code className="font-mono mx-0.5 px-1 bg-gray-100 rounded"># Heading</code>
-        for big text,
-        <code className="font-mono mx-0.5 px-1 bg-gray-100 rounded">## Heading</code>
-        for slightly smaller, etc.
-      </p>
-      <p>
-        You don&apos;t have to memorize anything. Every editor here has
-        a shortcut bar at the top. But if you want to type the symbols
-        directly, they work too.
+        (more hashes = smaller). Lists work too, a hyphen at the start
+        of a line makes a bullet. You&apos;ll see all of these in
+        action in a moment.
       </p>
     </>
   ),

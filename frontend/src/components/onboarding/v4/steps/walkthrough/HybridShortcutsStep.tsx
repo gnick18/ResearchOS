@@ -23,13 +23,10 @@ export const hybridShortcutsStep = buildWalkthroughStep({
   id: "hybrid-shortcuts",
   speech: (
     <>
-      <p className="mb-2">
-        Most Word shortcuts work here too. Try this: click into a new
-        paragraph, then press <strong>Cmd+B</strong> (or Ctrl+B on
-        Windows), and type some bold text.
-      </p>
+      <p className="mb-2">Your turn.</p>
       <p>
-        When you&apos;re done, hit <strong>Got it, next</strong>.
+        Cmd+I gives italic, Cmd+U gives underline. Try one, or skip if
+        shortcuts aren&apos;t your thing, both fine.
       </p>
     </>
   ),
@@ -48,6 +45,7 @@ export const hybridShortcutsStep = buildWalkthroughStep({
       targetSelector(TOUR_TARGETS.hybridEditorTextarea),
       targetSelector(TOUR_TARGETS.hybridEditorShortcutBar),
     ],
-    pillLabel: "Try a shortcut, then click Got it, next.",
+    pillLabel:
+      "Try a shortcut. The Got it, next button is in the chat bubble when you're done.",
   },
 });

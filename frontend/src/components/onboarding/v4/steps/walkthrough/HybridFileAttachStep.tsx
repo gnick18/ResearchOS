@@ -42,8 +42,18 @@ export const PROTOCOL_FILENAME = "protocol.txt";
 
 /**
  * Best-effort spawn: fetch the canned protocol.txt file, write it to
- * the active experiment's Notes-tab attachments folder, and capture a
+ * the active experiment's Notes-tab attachments folder, AND append a
+ * file-chip markdown link to the experiment's notes.md so the user
+ * sees a download chip rendered in the editor body. Captures a
  * matching artifact so Phase 4 cleanup wipes it on tour exit.
+ *
+ * R1 fix-pass (Hybrid fix manager R1, 2026-05-22): the previous
+ * version wrote the file to the attachments folder but never mutated
+ * the markdown, so HE-11's "non-image files render as download chips"
+ * teaching beat had no visible chip in the document body. Now the
+ * helper appends `[protocol.txt](Files/protocol.txt)` to notes.md
+ * (idempotent — skips when the snippet is already present), so the
+ * chip renders inline the next time the editor re-reads.
  *
  * Mirrors `onEnterHybridEditorImageDrop` for shape: skip silently when
  * no project / experiment exists, swallow + log on fetch / write
@@ -70,24 +80,57 @@ async function attachProtocolFile(): Promise<boolean> {
     if (!owner) return false;
 
     const notesBase = taskNotesBase({ id: experiment.id, owner });
-    const targetPath = `${notesBase}/${PROTOCOL_FILENAME}`;
+    // Files live under `Files/` inside the notes-tab base; that's the
+    // path the editor's file-chip link resolver looks up.
+    const targetPath = `${notesBase}/Files/${PROTOCOL_FILENAME}`;
+    let needsWrite = true;
     try {
       const exists = await fileService.fileExists(targetPath);
-      if (exists) return false;
+      if (exists) needsWrite = false;
     } catch {
       // probe miss is non-fatal; fall through.
     }
 
-    const res = await fetch(PROTOCOL_TXT_URL);
-    if (!res.ok) {
-      console.warn(
-        "[onboarding-v4] hybrid-file-attach: protocol fetch %d",
-        res.status,
-      );
-      return false;
+    if (needsWrite) {
+      const res = await fetch(PROTOCOL_TXT_URL);
+      if (!res.ok) {
+        console.warn(
+          "[onboarding-v4] hybrid-file-attach: protocol fetch %d",
+          res.status,
+        );
+        return false;
+      }
+      const text = await res.text();
+      await fileService.writeText(targetPath, text);
     }
-    const text = await res.text();
-    await fileService.writeText(targetPath, text);
+
+    // Append the file-chip markdown snippet to notes.md so the user
+    // sees the chip render in the editor body. Idempotent: skip when
+    // the snippet is already present.
+    const notesPath = `${notesBase}/notes.md`;
+    let current = "";
+    try {
+      const f = await fileService.readFileAsBlob(notesPath);
+      if (f) current = await f.text();
+    } catch {
+      current = "";
+    }
+    const snippet = `[${PROTOCOL_FILENAME}](Files/${PROTOCOL_FILENAME})`;
+    if (!current.includes(snippet)) {
+      const next =
+        current.length === 0
+          ? `${snippet}\n`
+          : current.endsWith("\n\n")
+            ? `${current}${snippet}\n`
+            : current.endsWith("\n")
+              ? `${current}\n${snippet}\n`
+              : `${current}\n\n${snippet}\n`;
+      try {
+        await fileService.writeText(notesPath, next);
+      } catch {
+        // best-effort.
+      }
+    }
 
     // Stash the artifact for the step's onExit flush.
     pendingArtifactStore.add(STEP_ID, {
@@ -106,16 +149,11 @@ export const hybridFileAttachStep = buildWalkthroughStep({
   id: STEP_ID,
   speech: (
     <>
-      <p className="mb-2">
-        Files attach the same way as images, drag them in.
-      </p>
-      <p className="mb-2">
-        But files don&apos;t get rendered inline. Instead they show up
-        as a download link, so the next person can grab them.
-      </p>
       <p>
-        ResearchOS can open <strong>PDFs and text files</strong>{" "}
-        directly. Other formats just download to your computer.
+        Non-image files (CSVs, PDFs, protocol docs) also drag in. The
+        editor renders images inline, but everything else becomes a
+        download chip, so the next person can grab the file without
+        losing the writeup around it.
       </p>
     </>
   ),
