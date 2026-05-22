@@ -162,12 +162,20 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
   // Local-tz YYYY-MM-DD (mirrors the off-by-one fix on /experiments).
   const today = new Date().toLocaleDateString("en-CA");
 
-  // All experiment tasks, filtered by the global project selector.
-  // Composite-key match (alex:1 vs morgan:1 disambiguated by owner).
+  // All experiment tasks, with the project-pill filter scoped to the
+  // current user's OWN experiments. Tasks shared INTO the current user
+  // (`is_shared_with_me`) live in a different namespace — they belong to
+  // the sharer's project, which the recipient never has in their own
+  // `selectedProjectIds` set, so blindly applying the filter would hide
+  // every shared card (Onboarding v4 §6.16 cursor-demo regression, HR
+  // 2026-05-22). Shared cards always render; owned cards stay subject to
+  // the project pill selector.
   const experiments = useMemo(() => {
-    let xs = allTasks.filter((t) => t.task_type === "experiment");
-    xs = xs.filter((t) => matchesAnyProjectFilter(t, selectedProjectIds));
-    return xs;
+    const all = allTasks.filter((t) => t.task_type === "experiment");
+    return all.filter((t) => {
+      if (t.is_shared_with_me) return true;
+      return matchesAnyProjectFilter(t, selectedProjectIds);
+    });
   }, [allTasks, selectedProjectIds]);
 
   const blockingMap = useMemo(
