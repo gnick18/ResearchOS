@@ -1,15 +1,14 @@
 /**
- * Onboarding v4 P11 V4MountForUser tests. Exercises the sidecar
- * persistence callbacks the wrapper hands to TourControllerProvider:
- * onComplete (normal cleanup-finish path) writes wizard_completed_at +
- * clears resume_state; onSkip (came via "Skip walkthrough") writes
- * wizard_skipped_at + clears resume_state.
+ * Onboarding v4 P11 V4MountForUser tests.
  *
- * Both code paths are reached by spinning a TourController + driving
- * it to phase4-cleanup, then dispatching Finish on the cleanup grid.
- * The cleanup grid's domain-delete calls are mocked at the helper
- * layer (Phase4CleanupStep tests cover the cleanup execution itself;
- * here we only care about the sidecar writes).
+ * Cleanup retirement 2026-05-22 (Cleanup manager R2): the prior
+ * cleanup-grid Finish path was retired. The new terminal flow is
+ * `tour-goodbye` (manualAdvance "Let's go") + a sibling
+ * `TourGoodbyeOverlay` host that runs `runEndOfTourAutoCleanup` —
+ * which itself patches the sidecar (`wizard_completed_at` set,
+ * `wizard_resume_state` cleared). These tests exercise that the
+ * overlay host is mounted by V4MountForUser and that clicking
+ * "Let's go" on tour-goodbye drives the sidecar finalize.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, waitFor } from "@testing-library/react";
@@ -46,24 +45,37 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
-// Mock the cleanup-execution helper so onComplete/onSkip resolve
-// instantly without touching domain APIs (those are covered in the
-// Phase4CleanupStep test file).
+// Mock the auto-cleanup helper so the overlay's cleanup kick resolves
+// instantly without touching domain APIs. The helper itself is covered
+// by auto-cleanup.test.ts; here we only care that V4MountForUser drives
+// the sidecar finalize end-to-end.
 vi.mock(
-  "@/components/onboarding/v4/steps/cleanup/cleanup-execution",
+  "@/components/onboarding/v4/steps/cleanup/auto-cleanup",
   async () => {
-    const actual = await vi.importActual<
-      typeof import(
-        "@/components/onboarding/v4/steps/cleanup/cleanup-execution"
-      )
-    >("@/components/onboarding/v4/steps/cleanup/cleanup-execution");
+    // Import the real `patchOnboarding` so the mock's stub can still
+    // write `wizard_completed_at` to the in-memory fs, which is what
+    // the assertions below check.
+    const sidecarMod = await vi.importActual<
+      typeof import("@/lib/onboarding/sidecar")
+    >("@/lib/onboarding/sidecar");
     return {
-      ...actual,
-      cleanupArtifacts: vi.fn(async (decisions: Record<string, string>) => ({
-        succeeded: [],
-        failed: [],
-        decisions,
-      })),
+      runEndOfTourAutoCleanup: vi.fn(
+        async (opts: { username: string; firstProjectId: string | null }) => {
+          await sidecarMod.patchOnboarding(opts.username, (cur) => ({
+            ...cur,
+            wizard_completed_at: new Date().toISOString(),
+            wizard_skipped_at: null,
+            wizard_force_show: false,
+            wizard_resume_state: null,
+          }));
+          return {
+            attempted: 0,
+            succeeded: 0,
+            preserved: 0,
+            failed: [],
+          };
+        },
+      ),
     };
   },
 );
@@ -109,27 +121,22 @@ describe("V4MountForUser:children render", () => {
   });
 });
 
-describe("V4MountForUser:onComplete callback", () => {
-  it("patches sidecar with wizard_completed_at + clears resume_state", async () => {
-    // Seed a sidecar with a resume_state at phase4-cleanup so the
-    // bootstrap surfaces the P12 Resume modal; click Resume to land
-    // on the cleanup grid. Finish there routes to onComplete since
-    // enteredCleanupViaSkip stays false on a direct Resume.
+describe("V4MountForUser — tour-goodbye finalize (Cleanup retirement 2026-05-22)", () => {
+  it("Let's go on tour-goodbye triggers auto-cleanup + writes wizard_completed_at", async () => {
+    // Seed mid-walkthrough so the P12 Resume modal appears; pick a
+    // saved step that's NOT tour-goodbye (because the controller's
+    // own resume routes through TOUR_STEP_ORDER traversal; landing on
+    // tour-goodbye directly via resume hits the terminal beat).
     memFs.set(
       PATH,
       fullSidecar({
         wizard_resume_state: {
-          current_step: "phase4-cleanup",
+          current_step: "tour-goodbye",
           skipped_steps: [],
           artifacts_created: [],
         },
       }),
     );
-    // Wrap in a data-app-shell-mounted marker so the v4 Resume handler
-    // takes the controller.start happy path rather than the stuck-404
-    // hard-reload mitigation (P12 follow-up). In production this marker
-    // lives on the AppShell wrapper, which V4MountForUser is mounted
-    // beneath; in this isolated unit test we simulate that ancestor.
     render(
       <div data-app-shell-mounted>
         <V4MountForUser username={USER}>
@@ -137,8 +144,7 @@ describe("V4MountForUser:onComplete callback", () => {
         </V4MountForUser>
       </div>,
     );
-    // P12: the Resume modal appears first; click Resume to advance
-    // into the cleanup grid.
+    // P12 resume modal → click Resume to land on tour-goodbye.
     const resumeBtn = await waitFor(() => {
       const btn = document.body.querySelector(
         "[data-testid='v4-resume-resume']",
@@ -147,18 +153,20 @@ describe("V4MountForUser:onComplete callback", () => {
       return btn as HTMLButtonElement;
     });
     await userEvent.click(resumeBtn);
-    // Wait for the cleanup grid to mount: assert via the Finish
-    // button's data-cleanup-action="finish" attribute.
-    await waitFor(() => {
-      expect(
-        document.body.querySelector("[data-cleanup-action='finish']"),
-      ).toBeTruthy();
+    // Wait for the BeakerBot speech bubble; the "Let's go" button is
+    // the manualAdvance affordance on the tour-goodbye step.
+    const letsGoBtn = await waitFor(() => {
+      const btn = document.body.querySelector(
+        "[aria-label=\"Let's go\"]",
+      ) as HTMLButtonElement | null;
+      expect(btn).toBeTruthy();
+      return btn as HTMLButtonElement;
     });
-    const finishBtn = document.body.querySelector(
-      "[data-cleanup-action='finish']",
-    ) as HTMLButtonElement;
-    await userEvent.click(finishBtn);
+    await userEvent.click(letsGoBtn);
 
+    // The step's onExit dispatches `tour-goodbye:play-outro`; the
+    // overlay catches it and runs runEndOfTourAutoCleanup, which the
+    // mock patches `wizard_completed_at` through.
     await waitFor(() => {
       const persisted = memFs.get(PATH) as OnboardingSidecar;
       expect(persisted.wizard_completed_at).toBeTruthy();
@@ -167,13 +175,12 @@ describe("V4MountForUser:onComplete callback", () => {
       expect(persisted.wizard_force_show).toBe(false);
     });
   });
-});
 
-describe("V4MountForUser:onSkip callback via exitTour", () => {
-  it("patches sidecar with wizard_skipped_at when user exited the tour", async () => {
+  it("Skip walkthrough mid-tour routes to tour-goodbye and finalizes via Let's go", async () => {
     // Seed mid-walkthrough so the P12 Resume modal appears, click
     // Resume to land on the overlay, then click "Skip walkthrough"
-    // to route Finish through onSkip.
+    // to route to tour-goodbye (Cleanup retirement 2026-05-22: the
+    // exitTour path lands on tour-goodbye instead of phase4-cleanup).
     memFs.set(
       PATH,
       fullSidecar({
@@ -184,9 +191,6 @@ describe("V4MountForUser:onSkip callback via exitTour", () => {
         },
       }),
     );
-    // Wrap in a data-app-shell-mounted marker so the v4 Resume handler
-    // takes the controller.start happy path rather than the stuck-404
-    // hard-reload mitigation (P12 follow-up).
     render(
       <div data-app-shell-mounted>
         <V4MountForUser username={USER}>
@@ -195,7 +199,6 @@ describe("V4MountForUser:onSkip callback via exitTour", () => {
       </div>,
     );
 
-    // P12: click Resume on the modal to land on the saved step.
     const resumeBtn = await waitFor(() => {
       const btn = document.body.querySelector(
         "[data-testid='v4-resume-resume']",
@@ -205,7 +208,6 @@ describe("V4MountForUser:onSkip callback via exitTour", () => {
     });
     await userEvent.click(resumeBtn);
 
-    // Wait for the BeakerBot overlay (in-product walkthrough mode).
     await waitFor(() => {
       expect(
         document.body.querySelector(
@@ -213,31 +215,30 @@ describe("V4MountForUser:onSkip callback via exitTour", () => {
         ),
       ).toBeTruthy();
     });
-    // Click the "Skip walkthrough" exit link in the speech bubble.
-    // The aria-label is set on that button (renamed from "Exit tour:
-    // I've got it from here" in the v4 polish pass per Grant's
-    // feedback that the original copy wasn't intuitive enough).
     const exitBtn = document.body.querySelector(
       "[aria-label=\"Skip walkthrough\"]",
     ) as HTMLButtonElement;
     expect(exitBtn).toBeTruthy();
     await userEvent.click(exitBtn);
-    // Cleanup grid should mount once the controller advances to
-    // phase4-cleanup with enteredCleanupViaSkip=true.
-    await waitFor(() => {
-      expect(
-        document.body.querySelector("[data-cleanup-action='finish']"),
-      ).toBeTruthy();
+
+    // Controller is now on tour-goodbye; "Let's go" appears in the
+    // speech bubble.
+    const letsGoBtn = await waitFor(() => {
+      const btn = document.body.querySelector(
+        "[aria-label=\"Let's go\"]",
+      ) as HTMLButtonElement | null;
+      expect(btn).toBeTruthy();
+      return btn as HTMLButtonElement;
     });
-    const finishBtn = document.body.querySelector(
-      "[data-cleanup-action='finish']",
-    ) as HTMLButtonElement;
-    await userEvent.click(finishBtn);
+    await userEvent.click(letsGoBtn);
 
     await waitFor(() => {
       const persisted = memFs.get(PATH) as OnboardingSidecar;
-      expect(persisted.wizard_skipped_at).toBeTruthy();
-      expect(persisted.wizard_completed_at).toBeNull();
+      // Cleanup retirement 2026-05-22 (Cleanup manager R2): every path
+      // through tour-goodbye writes wizard_completed_at; the prior
+      // skipped-vs-completed branch is folded away.
+      expect(persisted.wizard_completed_at).toBeTruthy();
+      expect(persisted.wizard_skipped_at).toBeNull();
       expect(persisted.wizard_resume_state).toBeNull();
     });
   });

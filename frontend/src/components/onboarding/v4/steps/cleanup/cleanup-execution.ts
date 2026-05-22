@@ -1,4 +1,15 @@
 /**
+ * @deprecated Cleanup retirement 2026-05-22 (Cleanup manager R2).
+ *
+ * The interactive Phase 4 cleanup grid has been retired; the
+ * per-artifact delete routing table is now expressed in
+ * `steps/cleanup/auto-cleanup.ts` (`runEndOfTourAutoCleanup`). This
+ * file is no longer imported by the tour-goodbye flow and is kept in
+ * the repo for git-history reference only.
+ *
+ * ---
+ * Historical doc kept below for context:
+ *
  * Onboarding v4 Phase 4 cleanup-execution helper.
  *
  * Sister of v3's `steps/cleanup/cleanup-execution.ts` (kept verbatim

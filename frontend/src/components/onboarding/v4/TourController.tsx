@@ -35,8 +35,12 @@ import {
   getSetupDescriptor,
   type SetupStepDescriptor,
 } from "./steps/setup";
-import Phase4CleanupStep from "./steps/cleanup/Phase4CleanupStep";
-import type { CleanupSummary } from "./steps/cleanup/cleanup-execution";
+// Cleanup retirement 2026-05-22 (Cleanup manager R2): Phase4CleanupStep
+// and CleanupSummary were retired with the cleanup-grid removal. The
+// terminal step is now `tour-goodbye` (steps/cleanup/TourGoodbyeStep.tsx)
+// + an outro overlay mounted by V4MountForUser. Both Phase4CleanupStep
+// and cleanup-execution.ts are kept in the repo with @deprecated JSDoc
+// for git-history reference.
 import type { TourStep, TourStepId } from "./step-types";
 import { ensureViewportAnchor } from "./steps/walkthrough/lib/cursor-script";
 import InputLockOverlay from "./InputLockOverlay";
@@ -312,15 +316,16 @@ const initialState: ReducerState = {
 };
 
 /** Compute the tour mode that the given step belongs to. Setup steps →
- *  "modal-setup". Lab steps → "lab". Cleanup grid step → "cleanup".
- *  Everything else (universal + conditional walkthrough) →
+ *  "modal-setup". Lab steps → "lab". Everything else (universal +
+ *  conditional walkthrough + the `tour-goodbye` terminal step) →
  *  "in-product-walkthrough" — the mode that triggers AppShell's
- *  top-nav gate per L23. */
+ *  top-nav gate per L23. Cleanup retirement 2026-05-22: the prior
+ *  `phase4-cleanup` step + "cleanup" mode were retired in favor of
+ *  the `tour-goodbye` walkthrough step + auto-cleanup overlay. */
 function modeForStep(step: TourStepId | null): TourMode {
   if (step === null) return null;
   if (isSetupPhaseStep(step)) return "modal-setup";
   if (isLabPhaseStep(step)) return "lab";
-  if (step === "phase4-cleanup") return "cleanup";
   return "in-product-walkthrough";
 }
 
@@ -424,18 +429,20 @@ export interface TourControllerProviderProps {
    *  the controller is used in tests without an end-to-end user
    *  identity. */
   username?: string;
-  /** Called when the user clicks Finish on the Phase 4 cleanup grid on
-   *  the normal completion path. The parent (typically a v4 wizard
-   *  shell, lands in P11) writes `wizard_completed_at` and clears
-   *  `wizard_resume_state` here. P8 plumbs the prop; P11 wires the
-   *  persistence end. */
-  onComplete?: (summary: CleanupSummary) => void | Promise<void>;
-  /** Called when the user clicks Finish on the Phase 4 cleanup grid
-   *  AND `enteredCleanupViaSkip` is true (user came from the "I've
-   *  got it from here" path). The parent writes `wizard_skipped_at`
-   *  instead of `wizard_completed_at`. P8 plumbs the prop; P11 wires
-   *  the persistence end. */
-  onSkip?: (summary: CleanupSummary) => void | Promise<void>;
+  /** @deprecated Cleanup retirement 2026-05-22 (Cleanup manager R2).
+   *  The Phase 4 cleanup grid was retired in favor of the
+   *  `tour-goodbye` terminal step + auto-cleanup overlay. The auto-
+   *  cleanup itself patches the sidecar (`wizard_completed_at`,
+   *  cleared `wizard_resume_state`), so callers no longer need to
+   *  provide this callback. Kept on the prop surface for back-compat
+   *  with existing call sites; no longer invoked by the controller. */
+  onComplete?: (summary: unknown) => void | Promise<void>;
+  /** @deprecated Cleanup retirement 2026-05-22 (Cleanup manager R2).
+   *  See `onComplete` JSDoc — the auto-cleanup writes a single
+   *  `wizard_completed_at` regardless of how the user reached the
+   *  terminal step, so the skipped-vs-completed branch is folded
+   *  away. Kept on the prop surface for back-compat. */
+  onSkip?: (summary: unknown) => void | Promise<void>;
 }
 
 export function TourControllerProvider({
@@ -445,8 +452,10 @@ export function TourControllerProvider({
   sidecar = null,
   patchSidecar,
   username,
-  onComplete,
-  onSkip,
+  // onComplete / onSkip remain on TourControllerProviderProps for back-
+  // compat (see prop JSDoc — @deprecated, Cleanup retirement 2026-05-22)
+  // but the provider no longer wires them to anything. The auto-cleanup
+  // overlay owns the sidecar finalize patch end-to-end.
 }: TourControllerProviderProps) {
   const router = useRouter();
   const [state, dispatch] = useReducer(reducer, {
@@ -563,18 +572,20 @@ export function TourControllerProvider({
   }, []);
 
   const exitTour = useCallback(() => {
-    // "I've got it from here" (L10) — jump straight to the cleanup
-    // grid so the user can decide which artifacts the partial tour
-    // created should be kept vs discarded. Mark the entered-via-skip
-    // flag BEFORE the SET_STEP so the cleanup grid (which reads the
-    // flag on render) renders the skip-flavored intro copy on the
-    // very first paint, and so Finish routes through onSkip even on
-    // a fast double-click that bypasses a re-render.
+    // "I've got it from here" (L10) — Cleanup retirement 2026-05-22:
+    // jump straight to the new terminal `tour-goodbye` step instead of
+    // the retired Phase 4 cleanup grid. The user clicks "Let's go" on
+    // the goodbye speech, the outro overlay runs auto-cleanup in the
+    // background, and the route lands on `/`. We still mark
+    // `enteredCleanupViaSkip` for back-compat with any consumer that
+    // reads the flag, though it has no effect on the new flow (the
+    // auto-cleanup is identical whether the user reached tour-goodbye
+    // via natural completion or via "I've got it from here").
     dispatch({ type: "MARK_CLEANUP_ENTERED_VIA_SKIP" });
     dispatch({
       type: "SET_STEP",
-      nextStep: "phase4-cleanup",
-      nextMode: modeForStep("phase4-cleanup"),
+      nextStep: "tour-goodbye",
+      nextMode: modeForStep("tour-goodbye"),
     });
   }, []);
 
@@ -994,8 +1005,6 @@ export function TourControllerProvider({
         sidecar={sidecar}
         patchSidecar={patchSidecar}
         username={username}
-        onComplete={onComplete}
-        onSkip={onSkip}
       />
     </TourControllerContext.Provider>
   );
@@ -1011,8 +1020,10 @@ interface TourOverlayProps {
     patch: (cur: OnboardingSidecar) => OnboardingSidecar,
   ) => Promise<void>;
   username?: string;
-  onComplete?: (summary: CleanupSummary) => void | Promise<void>;
-  onSkip?: (summary: CleanupSummary) => void | Promise<void>;
+  // Cleanup retirement 2026-05-22 (Cleanup manager R2): onComplete /
+  // onSkip props removed from TourOverlay — the auto-cleanup overlay
+  // (TourGoodbyeOverlay, mounted by V4MountForUser) owns the sidecar
+  // finalize patch.
 }
 
 /**
@@ -1030,20 +1041,8 @@ interface TourOverlayProps {
 function TourOverlay({
   sidecar,
   patchSidecar,
-  username,
-  onComplete,
-  onSkip,
 }: TourOverlayProps) {
   const controller = useTourController();
-
-  // Lifted decision state for the Phase 4 cleanup grid. Externalized
-  // here (vs co-located inside Phase4CleanupStep) so a back-step into
-  // the cleanup grid restores the user's toggles. P12's resume contract
-  // will fold this into `wizard_resume_state` so a mid-cleanup tab close
-  // can be resumed without losing per-row decisions.
-  const [cleanupDecisions, setCleanupDecisions] = useState<
-    Record<string, "keep" | "discard">
-  >({});
 
   if (!controller.currentStep || controller.paused) return null;
 
@@ -1070,53 +1069,13 @@ function TourOverlay({
     );
   }
 
-  // Phase 4 cleanup-grid surface (P8). Per §6.17 + L24 + the P8 brief
-  // this is a full-screen review surface, NOT the bottom-right BeakerBot
-  // overlay. The grid owns its own modal-style backdrop + a tiny
-  // BeakerBot in the corner; the bottom-right BeakerBot suppresses
-  // during cleanup so the two don't visually compete. Finish dispatches
-  // `cleanupArtifacts` and calls onComplete (or onSkip if reached via
-  // "I've got it from here"). The host (P11 wizard shell) wires
-  // onComplete + onSkip to the sidecar persistence.
-  //
-  // Idempotency guard (live-test R4 fix 2026-05-22): once the host has
-  // persisted `wizard_completed_at` or `wizard_skipped_at`, never
-  // re-render the cleanup modal. The host writes those timestamps from
-  // inside the onComplete / onSkip callbacks below; the sidecar prop
-  // refresh that follows can race a stale `currentStep === "phase4-cleanup"`
-  // in the controller (the EXIT dispatch only flips currentStep on the
-  // NEXT React commit). Without this guard the cleanup modal flashes
-  // back with empty-state copy ("No artifacts were created during this
-  // run") because resume_state.artifacts_created has been cleared in the
-  // same patch.
-  if (controller.tourMode === "cleanup") {
-    if (sidecar?.wizard_completed_at || sidecar?.wizard_skipped_at) {
-      return null;
-    }
-    return (
-      <Phase4CleanupStep
-        sidecar={sidecar}
-        enteredViaSkip={controller.enteredCleanupViaSkip}
-        username={username ?? ""}
-        decisions={cleanupDecisions}
-        setDecisions={setCleanupDecisions}
-        onComplete={async (summary) => {
-          await onComplete?.(summary);
-          // Tear the tour down so the cleanup modal unmounts. Without
-          // this, currentStep stays "phase4-cleanup" + the cleared
-          // resume_state makes the grid render empty-state copy
-          // indefinitely. The idempotency guard above is a second line of
-          // defense for the brief render window before this dispatch
-          // commits.
-          controller.endTour();
-        }}
-        onSkip={async (summary) => {
-          await onSkip?.(summary);
-          controller.endTour();
-        }}
-      />
-    );
-  }
+  // Phase 4 cleanup-grid retirement 2026-05-22 (Cleanup manager R2):
+  // the prior `tourMode === "cleanup"` branch that rendered the full-
+  // screen Phase4CleanupStep grid has been removed. The terminal step
+  // is now `tour-goodbye` (a standard walkthrough step); the auto-
+  // cleanup + animation outro lives in a sibling overlay component
+  // (`TourGoodbyeOverlay` mounted by `V4MountForUser`) that survives
+  // the tour state going null. No special-case rendering needed here.
 
   // In-product walkthrough surface — extracted into its own component
   // so the cursorRef + cursor-script effect get a stable hook order

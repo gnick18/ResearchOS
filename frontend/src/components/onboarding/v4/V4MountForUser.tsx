@@ -6,7 +6,6 @@ import {
   readOnboarding,
   type OnboardingSidecar,
 } from "@/lib/onboarding/sidecar";
-import type { CleanupSummary } from "./steps/cleanup/cleanup-execution";
 import TourBootstrap from "./TourBootstrap";
 import { TourControllerProvider } from "./TourController";
 // Lab Mode redesign 2026-05-22 — append-only mount for the Phase 2c
@@ -15,25 +14,31 @@ import { TourControllerProvider } from "./TourController";
 // multiple lab-mode-* tour sub-steps. No-op when no step has dispatched
 // `lab-mode-tour:open`.
 import DemoLabModeMount from "./DemoLabModeMount";
+// Cleanup retirement 2026-05-22 (Cleanup manager R2) — sibling overlay
+// host for the new `tour-goodbye` terminal step. Window-event-driven;
+// renders nothing until the step body dispatches
+// `tour-goodbye:play-outro` on its onExit hook. The overlay survives
+// the controller's currentStep going null (the tour ends as soon as
+// the user clicks "Let's go"), runs auto-cleanup + animations, then
+// routes to `/`.
+import { TourGoodbyeOverlay } from "./steps/cleanup/TourGoodbyeStep";
 
 /**
  * Onboarding v4 P11 mount wrapper. Holds the active user's sidecar in
  * state, threads it through `<TourControllerProvider>` (which the
- * ModalSetupShell + Phase4CleanupStep read for `feature_picks` +
- * `artifacts_created`), and exposes the canonical `patchSidecar`
- * callback the setup step bodies use to persist Q1-Q6 answers.
+ * ModalSetupShell reads for `feature_picks` + `artifacts_created`),
+ * and exposes the canonical `patchSidecar` callback the setup step
+ * bodies use to persist Q1-Q6 answers.
  *
- * Lifts the sidecar load + patch wiring out of `lib/providers.tsx` so
- * the providers file stays focused on the high-level mount tree and
- * the v4-specific I/O stays adjacent to v4's other source files.
- *
- * onComplete + onSkip both patch the sidecar with the appropriate
- * completion timestamp + clear `wizard_resume_state` so a subsequent
- * page open does not re-fire the tour. The TourController's exit-tour
- * path lands on `phase4-cleanup` and Finish there dispatches onSkip
- * (when `enteredCleanupViaSkip` is set) or onComplete; both end the
- * same way as far as the sidecar is concerned (one of the two
- * timestamps is set; resume state cleared; force_show cleared).
+ * Cleanup retirement 2026-05-22 (Cleanup manager R2): the old
+ * onComplete / onSkip callbacks that patched `wizard_completed_at` /
+ * `wizard_skipped_at` from inside the cleanup grid Finish handler are
+ * gone. The new `tour-goodbye` terminal step + auto-cleanup overlay
+ * owns the sidecar finalize patch (writes `wizard_completed_at` +
+ * clears `wizard_resume_state`) so V4MountForUser no longer needs to
+ * thread completion callbacks. The mount tree gains a
+ * `<TourGoodbyeOverlay>` sibling that catches the `tour-goodbye:
+ * play-outro` window event from the step body.
  */
 interface V4MountForUserProps {
   username: string;
@@ -76,44 +81,12 @@ export default function V4MountForUser({
     [username],
   );
 
-  const onComplete = useCallback(
-    async (_summary: CleanupSummary) => {
-      // Normal completion path. Wizard ran end-to-end; mark completed,
-      // clear resume state + force-show flag.
-      await patchSidecar((cur) => ({
-        ...cur,
-        wizard_completed_at: new Date().toISOString(),
-        wizard_skipped_at: null,
-        wizard_force_show: false,
-        wizard_resume_state: null,
-      }));
-    },
-    [patchSidecar],
-  );
-
-  const onSkip = useCallback(
-    async (_summary: CleanupSummary) => {
-      // "I've got it from here" path. Wizard reached cleanup grid via
-      // the exit-tour shortcut; mark skipped instead of completed.
-      await patchSidecar((cur) => ({
-        ...cur,
-        wizard_skipped_at: new Date().toISOString(),
-        wizard_completed_at: null,
-        wizard_force_show: false,
-        wizard_resume_state: null,
-      }));
-    },
-    [patchSidecar],
-  );
-
   return (
     <TourControllerProvider
       sidecar={sidecar}
       patchSidecar={patchSidecar}
       username={username}
       initialFeaturePicks={sidecar?.feature_picks ?? null}
-      onComplete={onComplete}
-      onSkip={onSkip}
     >
       <TourBootstrap username={username} />
       {children}
@@ -121,6 +94,13 @@ export default function V4MountForUser({
           Window-event-driven; renders nothing until the
           `lab-mode-warp-to-demo` step dispatches the open event. */}
       <DemoLabModeMount />
+      {/* Cleanup retirement 2026-05-22 (Cleanup manager R2) — terminal
+          step goodbye animation + auto-cleanup host. Window-event-driven;
+          renders nothing until the `tour-goodbye` step body dispatches
+          `tour-goodbye:play-outro`. Sits as a sibling of the
+          TourControllerProvider's overlay tree so it survives the
+          tour state going null on advance. */}
+      <TourGoodbyeOverlay username={username} />
     </TourControllerProvider>
   );
 }

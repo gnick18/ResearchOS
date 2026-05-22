@@ -23,6 +23,25 @@ import CleanupSection from "./CleanupSection";
 import { cleanupArtifacts, isCleanupExcluded } from "./cleanup-execution";
 
 /**
+ * @deprecated Cleanup retirement 2026-05-22 (Cleanup manager R2).
+ *
+ * The Phase 4 cleanup grid has been retired in favor of an automatic
+ * end-of-tour sweep + animated outro. See:
+ *   - `steps/cleanup/TourGoodbyeStep.tsx` — the new terminal step body
+ *     (BeakerBot says goodbye, user clicks "Let's go", the outro
+ *     animation runs over the auto-cleanup in the background).
+ *   - `steps/cleanup/auto-cleanup.ts` — the per-artifact delete sweep
+ *     that replaces this file's interactive keep/discard grid.
+ *
+ * This component is no longer mounted by `TourController.tsx`; the
+ * `tourMode === "cleanup"` branch was removed alongside the
+ * `phase4-cleanup` step id (now `tour-goodbye`). The file remains in
+ * the repo for git-history reference and to keep import-graph history
+ * resolvable; it should not be referenced by new code.
+ *
+ * ---
+ * Historical doc kept below for context:
+ *
  * Onboarding v4 Phase 4 cleanup grid — see ONBOARDING_V4_PROPOSAL.md
  * §6.17 + L24 lock.
  *
@@ -36,7 +55,7 @@ import { cleanupArtifacts, isCleanupExcluded } from "./cleanup-execution";
  *   - Settings changes
  *   - Conditional add-ons
  *
- * Each row has a keep/discard toggle pre-set from the artifact's
+ * Each row had a keep/discard toggle pre-set from the artifact's
  * `cleanup_default`. Collapsible sections per L24. Master "Start fresh"
  * toggle at the top discards everything (via confirm modal). Finish at
  * the bottom-right executes the cleanup sweep + writes

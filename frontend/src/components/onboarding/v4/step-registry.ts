@@ -24,9 +24,12 @@
  * controller — used to confirm the machine wires up correctly before
  * P4-P7 fill in bodies.
  *
- * Phase-2 cleanup grid step (`phase4-cleanup`) lives here too even
- * though it doesn't render BeakerBot — the controller special-cases
- * its rendering, but the registry entry keeps the step-machine happy.
+ * Terminal step (`tour-goodbye`) lives here as a normal walkthrough
+ * registry entry. Cleanup retirement 2026-05-22: the prior
+ * `phase4-cleanup` grid was retired; the new terminal step is a
+ * standard BeakerBot speech + manualAdvance("Let's go") that triggers
+ * the auto-cleanup + animation outro via a sibling overlay host (no
+ * special-case controller rendering required).
  */
 import type { FeaturePicks } from "@/lib/onboarding/sidecar";
 import type { TourStep, TourStepId } from "./step-types";
@@ -232,6 +235,12 @@ import { settingsAiHelperUseCasePasteStep } from "./steps/walkthrough/SettingsAi
 import { settingsAiHelperUseCaseAgenticStep } from "./steps/walkthrough/SettingsAiHelperUseCaseAgenticStep";
 import { searchStep } from "./steps/walkthrough/SearchStep";
 import { wikiPointerStep } from "./steps/walkthrough/WikiPointerStep";
+// Cleanup retirement 2026-05-22: `phase4-cleanup` is gone from
+// TOUR_STEP_ORDER; the terminal step is now `tour-goodbye` (auto-
+// cleanup + animation outro). The body is a standard walkthrough step
+// (manualAdvance with "Let's go") so the registry maps it the same
+// way as the universal walkthrough steps below.
+import { tourGoodbyeStep } from "./steps/cleanup/TourGoodbyeStep";
 
 /** P5 step body map. Keys must match `TOUR_STEP_ORDER` entries (the
  *  step-machine drives ordering, this map drives body lookup). Adding
@@ -328,6 +337,10 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [settingsAiHelperUseCaseAgenticStep.id]: settingsAiHelperUseCaseAgenticStep,
   [searchStep.id]: searchStep,
   [wikiPointerStep.id]: wikiPointerStep,
+  // Cleanup retirement 2026-05-22: tour-goodbye is the new terminal
+  // step; the body lives in steps/cleanup/TourGoodbyeStep.tsx alongside
+  // the retired Phase 4 cleanup-grid sources (marked @deprecated).
+  [tourGoodbyeStep.id]: tourGoodbyeStep,
   // §6.16 Phase 2c Lab Mode tour cluster (Lab Mode redesign 2026-05-22).
   // Order matches TOUR_STEP_ORDER: prompt → intro → warp → 8 tab beats
   // → exit. Each step's conditionalOn gates on account_type === "lab".

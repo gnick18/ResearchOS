@@ -201,21 +201,26 @@ describe("TourController — start() / advance() / goBack() / exitTour()", () =>
     expect(result.current.currentStep).toBe("welcome");
   });
 
-  it("exitTour() jumps to phase4-cleanup", () => {
+  it("exitTour() jumps to tour-goodbye (Cleanup retirement 2026-05-22)", () => {
+    // Was "exitTour() jumps to phase4-cleanup". The retirement of the
+    // Phase 4 grid replaced it with the `tour-goodbye` terminal step;
+    // the "I've got it from here" path lands there now, and the auto-
+    // cleanup overlay (mounted by V4MountForUser) handles the sweep.
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(picks()),
     });
     act(() => result.current.start("home-create-project"));
     act(() => result.current.exitTour());
-    expect(result.current.currentStep).toBe("phase4-cleanup");
-    expect(result.current.tourMode).toBe("cleanup");
+    expect(result.current.currentStep).toBe("tour-goodbye");
+    // tour-goodbye is a regular walkthrough step (not a dedicated mode).
+    expect(result.current.tourMode).toBe("in-product-walkthrough");
   });
 
-  it("advance() at phase4-cleanup is a no-op", () => {
+  it("advance() at tour-goodbye is a no-op (Cleanup retirement 2026-05-22)", () => {
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(picks()),
     });
-    act(() => result.current.start("phase4-cleanup"));
+    act(() => result.current.start("tour-goodbye"));
     act(() => result.current.advance());
     expect(result.current.currentStep).toBeNull();
   });
@@ -304,8 +309,9 @@ describe("TourController — setFeaturePicks", () => {
     act(() => result.current.start("wiki-pointer"));
     act(() => result.current.advance());
     // Solo → all conditionals + lab cluster gated → land on
-    // phase4-cleanup.
-    expect(result.current.currentStep).toBe("phase4-cleanup");
+    // tour-goodbye (Cleanup retirement 2026-05-22 swap from
+    // phase4-cleanup).
+    expect(result.current.currentStep).toBe("tour-goodbye");
     // Flip to lab and re-enter wiki-pointer; advance now lands on the
     // first applicable post-wiki step. After the Lab Mode redesign
     // 2026-05-22, the new §6.16 Phase 2c lab-mode cluster sits between
@@ -385,12 +391,16 @@ describe("TourController — mode transitions", () => {
     expect(result.current.tourMode).toBe("lab");
   });
 
-  it("cleanup step produces tourMode=cleanup", () => {
+  it("tour-goodbye step produces tourMode=in-product-walkthrough (Cleanup retirement 2026-05-22)", () => {
+    // The retired Phase 4 cleanup grid used its own `cleanup` mode for
+    // a full-screen modal surface. The new terminal step is a regular
+    // BeakerBot speech + manualAdvance("Let's go"), so it inherits the
+    // in-product-walkthrough mode.
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(),
     });
-    act(() => result.current.start("phase4-cleanup"));
-    expect(result.current.tourMode).toBe("cleanup");
+    act(() => result.current.start("tour-goodbye"));
+    expect(result.current.tourMode).toBe("in-product-walkthrough");
   });
 });
 
@@ -507,7 +517,7 @@ describe("TourController — P12 wizard_resume_state persistence", () => {
     expect(lastWithSkip?.skipped_steps).toContain("home-create-project");
   });
 
-  it("persists current_step on exitTour() (advances to phase4-cleanup)", async () => {
+  it("persists current_step on exitTour() (advances to tour-goodbye, Cleanup retirement 2026-05-22)", async () => {
     const { calls, patch } = recordingPatchSidecar();
     const { result } = renderHook(() => useTourController(), {
       wrapper: withPatch(patch, picks()),
@@ -518,7 +528,7 @@ describe("TourController — P12 wizard_resume_state persistence", () => {
       await Promise.resolve();
       await Promise.resolve();
     });
-    expect(calls.some((c) => c.current_step === "phase4-cleanup")).toBe(true);
+    expect(calls.some((c) => c.current_step === "tour-goodbye")).toBe(true);
   });
 
   it("does NOT persist when currentStep transitions to null (tour ended)", async () => {
@@ -526,8 +536,8 @@ describe("TourController — P12 wizard_resume_state persistence", () => {
     const { result } = renderHook(() => useTourController(), {
       wrapper: withPatch(patch, picks()),
     });
-    act(() => result.current.start("phase4-cleanup"));
-    // advance() from phase4-cleanup transitions currentStep to null.
+    act(() => result.current.start("tour-goodbye"));
+    // advance() from tour-goodbye transitions currentStep to null.
     await act(async () => {
       await Promise.resolve();
     });

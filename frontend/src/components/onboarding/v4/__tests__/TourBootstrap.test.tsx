@@ -603,7 +603,13 @@ describe("isV4StepId helper", () => {
     const { isV4StepId } = await import("../TourBootstrap");
     expect(isV4StepId("welcome")).toBe(true);
     expect(isV4StepId("home-create-project")).toBe(true);
-    expect(isV4StepId("phase4-cleanup")).toBe(true);
+    // Cleanup retirement 2026-05-22 (Cleanup manager R2): the terminal
+    // step id changed from `phase4-cleanup` to `tour-goodbye`. The old
+    // id is no longer in TOUR_STEP_ORDER, so isV4StepId returns false
+    // for it (a stale resume_state row carrying the old id will route
+    // through the "not a v4 step" branch).
+    expect(isV4StepId("tour-goodbye")).toBe(true);
+    expect(isV4StepId("phase4-cleanup")).toBe(false);
   });
 
   it("rejects v3 step ids and unknown ids", async () => {

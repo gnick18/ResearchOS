@@ -34,7 +34,10 @@ import { lastBranchChoice } from "./steps/walkthrough/lib/branch-choices";
  *   Phase 2b — conditional    : telegram / purchases / calendar
  *   Phase 2c — lab tour       : prompt → spawn fake user → permission
  *                               practice
- *   Phase 4 — cleanup grid    : "phase4-cleanup"
+ *   Terminal — goodbye outro  : "tour-goodbye" (auto-cleanup + animation;
+ *                               replaces the retired "phase4-cleanup"
+ *                               grid per the Cleanup retirement
+ *                               2026-05-22).
  *
  * Order matches the proposal §6 sub-sections (6.1 → 6.17). The
  * personalization steps (color + animation + ai-helper) cluster onto
@@ -309,8 +312,12 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // but TOUR_STEP_ORDER no longer lists them.
   "lab-cleanup",
 
-  // ----- Phase 4: cleanup grid (§6.17)
-  "phase4-cleanup",
+  // ----- Terminal step: tour-goodbye (Cleanup retirement 2026-05-22)
+  // Replaces the prior `phase4-cleanup` grid. BeakerBot says goodbye,
+  // user clicks "Let's go", a brief outro animation plays (~3.8 s),
+  // auto-cleanup runs in the background, and the route lands on `/`.
+  // See TourGoodbyeStep.tsx + auto-cleanup.ts for the body + sweep.
+  "tour-goodbye",
 ];
 
 const STEP_INDEX: ReadonlyMap<TourStepId, number> = new Map(
@@ -550,10 +557,16 @@ export function isStepGatedOut(
 }
 
 /**
- * Next applicable step. Returns `"phase4-cleanup"` once every gated
- * step has been consumed. Returns `null` when `current` is already
- * `"phase4-cleanup"` (the controller's exit handler fires when the
- * cleanup step finishes, not when the machine hits a sentinel).
+ * Next applicable step. Returns `"tour-goodbye"` once every gated step
+ * has been consumed. Returns `null` when `current` is already
+ * `"tour-goodbye"` (the controller's advance off the terminal step
+ * lands on null; the outro animation owns its own teardown via a
+ * sibling overlay that survives the tour state going null).
+ *
+ * Cleanup retirement 2026-05-22: prior to this sweep, the sentinel was
+ * `"phase4-cleanup"`. The new terminal step replaces the cleanup grid
+ * with an auto-cleanup + animation outro; the sentinel ids change
+ * accordingly.
  *
  * Unknown / off-graph `current` ids fall back to the first applicable
  * step — same defensive behavior as v3.
@@ -562,20 +575,20 @@ export function getNextStep(
   current: TourStepId,
   picks: FeaturePicks | null,
 ): TourStepId | null {
-  if (current === "phase4-cleanup") return null;
+  if (current === "tour-goodbye") return null;
   const start = STEP_INDEX.get(current);
   if (start === undefined) {
     // Unknown id → bootstrap from the first applicable step.
     for (const candidate of TOUR_STEP_ORDER) {
       if (!isStepGatedOut(candidate, picks)) return candidate;
     }
-    return "phase4-cleanup";
+    return "tour-goodbye";
   }
   for (let i = start + 1; i < TOUR_STEP_ORDER.length; i++) {
     const candidate = TOUR_STEP_ORDER[i];
     if (!isStepGatedOut(candidate, picks)) return candidate;
   }
-  return "phase4-cleanup";
+  return "tour-goodbye";
 }
 
 /**
@@ -631,9 +644,11 @@ export function applicableStepIndex(
 /**
  * The first applicable step under the given picks — used at tour start
  * when no explicit `initialStep` is provided. Falls back to
- * `"phase4-cleanup"` if every preceding step is gated out (impossible
+ * `"tour-goodbye"` if every preceding step is gated out (impossible
  * under any real `FeaturePicks` shape, but a deterministic terminus
- * matters for tests + dev tools).
+ * matters for tests + dev tools). Cleanup retirement 2026-05-22: the
+ * fallback sentinel changed from `"phase4-cleanup"` to `"tour-goodbye"`
+ * when the cleanup grid was retired.
  */
 export function firstApplicableStep(
   picks: FeaturePicks | null,
@@ -641,5 +656,5 @@ export function firstApplicableStep(
   for (const candidate of TOUR_STEP_ORDER) {
     if (!isStepGatedOut(candidate, picks)) return candidate;
   }
-  return "phase4-cleanup";
+  return "tour-goodbye";
 }

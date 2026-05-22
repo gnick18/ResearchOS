@@ -94,19 +94,31 @@ export interface FeaturePicks {
   links?: "yes" | "no" | "maybe";
 }
 
-/** One artifact the v3 wizard created on the user's real account. The
- *  Phase 4 cleanup selector iterates these to render the keep/discard
- *  grid. `cleanup_default` matches L24: all items pre-checked as keep. */
+/** One artifact the v3 wizard created on the user's real account.
+ *  Cleanup retirement 2026-05-22 (Cleanup manager R2): the artifact
+ *  list is now consumed by the automatic end-of-tour sweep
+ *  (`runEndOfTourAutoCleanup` in `steps/cleanup/auto-cleanup.ts`)
+ *  instead of the interactive Phase 4 grid; `cleanup_default` is
+ *  marked deprecated below but kept on the type for back-compat with
+ *  persisted sidecars + step bodies that still append it. */
 export interface WizardArtifact {
   /** Domain category: "project", "method", "experiment", "purchase",
    *  "goal", "calendar_feed", "telegram_link", "lab_user", "lab_task",
    *  "settings_change", "hybrid_edit", etc. Free-form string so the
-   *  Phase 4 UI can group/sort without coupling to a fixed enum. */
+   *  auto-cleanup sweep can dispatch without coupling to a fixed enum. */
   type: string;
   /** Domain-specific identifier (project id, task id, feed id, etc.).
-   *  The Phase 4 cleanup code uses this to delete / restore the
-   *  artifact via the matching domain's API. */
+   *  The auto-cleanup code uses this to delete the artifact via the
+   *  matching domain's API. */
   id: string;
+  /** @deprecated Cleanup retirement 2026-05-22 (Cleanup manager R2).
+   *  Was used by the retired Phase 4 cleanup grid to pre-seed each
+   *  row's keep/discard toggle. The new auto-cleanup sweep does not
+   *  read this field — preservation is keyed off artifact `type` +
+   *  the `firstProjectId` parameter (see auto-cleanup.ts). The field
+   *  remains required on the type for back-compat with existing step
+   *  bodies that still write it; new step bodies may pass any value
+   *  (the auto-cleanup ignores it). */
   cleanup_default: "keep" | "discard";
 }
 

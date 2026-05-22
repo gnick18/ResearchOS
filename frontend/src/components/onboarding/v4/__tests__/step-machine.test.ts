@@ -132,7 +132,13 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER).toContain("workbench-list-create-shell");
     expect(TOUR_STEP_ORDER).toContain("workbench-list-add-items");
     expect(TOUR_STEP_ORDER).toContain("workbench-list-mark-done");
-    expect(TOUR_STEP_ORDER).toContain("phase4-cleanup");
+    // Cleanup retirement 2026-05-22 (Cleanup manager R2): the prior
+    // `phase4-cleanup` interactive grid is gone; the terminal step is
+    // now `tour-goodbye` (auto-cleanup + animation outro). The old id
+    // must NOT be present so a stale resume_state record can't pin the
+    // controller to a step that no longer exists.
+    expect(TOUR_STEP_ORDER).toContain("tour-goodbye");
+    expect(TOUR_STEP_ORDER).not.toContain("phase4-cleanup");
   });
 
   it("inserts the §6.7b Workbench Notes + Lists cluster between hybrid-file-attach and gantt-intro", () => {
@@ -222,8 +228,11 @@ describe("TOUR_STEP_ORDER", () => {
     expect(deleteIdx).toBe(silenceIdx + 1);
   });
 
-  it("ends with phase4-cleanup", () => {
-    expect(TOUR_STEP_ORDER[TOUR_STEP_ORDER.length - 1]).toBe("phase4-cleanup");
+  it("ends with tour-goodbye (Cleanup retirement 2026-05-22)", () => {
+    // The retired `phase4-cleanup` sentinel was replaced by `tour-goodbye`
+    // when the interactive cleanup grid was retired in favor of an
+    // automatic end-of-tour sweep + animation outro.
+    expect(TOUR_STEP_ORDER[TOUR_STEP_ORDER.length - 1]).toBe("tour-goodbye");
   });
 
   it("starts with welcome", () => {
@@ -614,8 +623,8 @@ describe("getNextStep — forward traversal", () => {
     expect(visited).toContain("hybrid-shortcuts");
     expect(visited).toContain("hybrid-file-attach");
     expect(visited).toContain("gantt-drag-drop");
-    // Terminates at phase4-cleanup
-    expect(visited[visited.length - 1]).toBe("phase4-cleanup");
+    // Terminates at tour-goodbye (Cleanup retirement 2026-05-22).
+    expect(visited[visited.length - 1]).toBe("tour-goodbye");
   });
 
   it("lab + all conditionals walks the maximal path", () => {
@@ -691,12 +700,14 @@ describe("getNextStep — forward traversal", () => {
     expect(visited).toContain("gantt-deps-beakerbot");
     expect(visited).toContain("gantt-deps-user");
     expect(visited).toContain("gantt-deps-cascade");
-    expect(visited[visited.length - 1]).toBe("phase4-cleanup");
+    // Cleanup retirement 2026-05-22 (Cleanup manager R2): terminus is
+    // tour-goodbye, not the retired phase4-cleanup grid.
+    expect(visited[visited.length - 1]).toBe("tour-goodbye");
   });
 
-  it("returns null when current is already phase4-cleanup", () => {
-    expect(getNextStep("phase4-cleanup", picks())).toBeNull();
-    expect(getNextStep("phase4-cleanup", null)).toBeNull();
+  it("returns null when current is already tour-goodbye (Cleanup retirement 2026-05-22)", () => {
+    expect(getNextStep("tour-goodbye", picks())).toBeNull();
+    expect(getNextStep("tour-goodbye", null)).toBeNull();
   });
 
   it("returns the first applicable step from an unknown id", () => {
