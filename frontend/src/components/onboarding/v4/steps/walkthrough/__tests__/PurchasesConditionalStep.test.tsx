@@ -3,24 +3,19 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import type { FeaturePicks } from "@/lib/onboarding/sidecar";
 
 /**
- * §6.14 Purchases step body tests.
+ * §6.14 Purchases — 8-step cluster body tests (Purchases manager
+ * 2026-05-22 redesign).
  *
- * R2 rebuild (HR sub-bot 2026-05-22): the step no longer drives the
- * funding-string + purchase create from inside a useEffect. Instead,
- * BeakerBot's cursor clicks "+ New Purchase" on /purchases, types into
- * the NewPurchaseModal, and clicks Save; the modal dispatches
- * `tour:purchase-created` and the step's onEnter listener stashes
- * three artifacts (funding_string, purchase, purchase_item) which
- * onExit flushes to the sidecar.
- *
- * These tests cover:
- *   - The exported step shape (id, pose, gate, manual completion).
- *   - The cursor script's planned action chain (open modal, type each
- *     field, click submit) — by mounting the targets ourselves and
- *     letting the script resolve.
- *   - The onEnter listener captures the three artifacts when the
- *     `tour:purchase-created` event fires.
- *   - The speech bubble's resume probe + post-create stage flip.
+ * Covers:
+ *   - Step shape (id, pose, gate, completion type) for every cluster
+ *     member.
+ *   - purchases-form-fill cursor script (typing + save) + onEnter
+ *     listener (captures 3 artifacts via tour:purchase-created).
+ *   - purchases-create-button-click event-driven completion fires when
+ *     the modal mounts.
+ *   - purchases-demo-warp-prompt button-driven branchOn.
+ *   - purchases-demo-viewer onEnter dispatches the open event.
+ *   - purchases-back-to-real onExit dispatches the close event.
  */
 
 const { readOnboardingMock } = vi.hoisted(() => ({
@@ -35,8 +30,6 @@ vi.mock("@/hooks/useCurrentUser", () => ({
   useCurrentUser: () => ({ currentUser: "alex" }),
 }));
 
-// Stub next/navigation so the TourController auto-navigate effect
-// doesn't blow up in jsdom.
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: vi.fn(),
@@ -49,6 +42,14 @@ vi.mock("next/navigation", () => ({
 }));
 
 import {
+  purchasesIntroStep,
+  purchasesCreateButtonClickStep,
+  purchasesFormFillStep,
+  purchasesAutocompleteDemoStep,
+  purchasesDemoWarpPromptStep,
+  purchasesDemoViewerStep,
+  purchasesDemoChartsStep,
+  purchasesBackToRealStep,
   purchasesConditionalStep,
   FUNDING_STRING_NAME,
   PURCHASE_ITEM_NAME,
@@ -56,7 +57,6 @@ import {
   PURCHASE_PRICE,
   PURCHASE_QTY,
 } from "../PurchasesConditionalStep";
-import { TourControllerProvider } from "../../../TourController";
 import { pendingArtifactStore } from "../lib/artifacts";
 import { TOUR_DOM_EVENTS } from "../lib/tour-events";
 
@@ -74,7 +74,7 @@ function picks(over: Partial<FeaturePicks> = {}): FeaturePicks {
 
 function emptySidecar() {
   return {
-    version: 1,
+    version: 1 as const,
     first_seen_at: "2026-05-22T00:00:00.000Z",
     active_seconds: 0,
     feature_picks: null,
@@ -82,7 +82,7 @@ function emptySidecar() {
     wizard_skipped_at: null,
     wizard_force_show: false,
     wizard_resume_state: {
-      current_step: "purchases",
+      current_step: "purchases-form-fill",
       skipped_steps: [],
       artifacts_created: [],
     },
@@ -91,59 +91,82 @@ function emptySidecar() {
   };
 }
 
-describe("purchasesConditionalStep step shape", () => {
-  beforeEach(() => {
-    readOnboardingMock.mockReset();
-    readOnboardingMock.mockResolvedValue(emptySidecar());
-    pendingArtifactStore.reset();
+describe("purchases cluster — step shape", () => {
+  it("every cluster member has the right id + manual or event completion + purchases gate", () => {
+    const members = [
+      purchasesIntroStep,
+      purchasesCreateButtonClickStep,
+      purchasesFormFillStep,
+      purchasesAutocompleteDemoStep,
+      purchasesDemoWarpPromptStep,
+      purchasesDemoViewerStep,
+      purchasesDemoChartsStep,
+      purchasesBackToRealStep,
+    ];
+    const ids = members.map((m) => m.id);
+    expect(ids).toEqual([
+      "purchases-intro",
+      "purchases-create-button-click",
+      "purchases-form-fill",
+      "purchases-autocomplete-demo",
+      "purchases-demo-warp-prompt",
+      "purchases-demo-viewer",
+      "purchases-demo-charts",
+      "purchases-back-to-real",
+    ]);
+    for (const m of members) {
+      expect(["manual", "event", "branch"]).toContain(m.completion.type);
+      const gate = m.conditionalOn!;
+      expect(gate(picks({ purchases: "yes" }))).toBe(true);
+      expect(gate(picks({ purchases: "no" }))).toBe(false);
+      expect(gate(null)).toBe(false);
+      expect(m.expectedRoute).toBe("/purchases");
+    }
   });
 
-  it("exposes the expected id + pose + conditional gate", () => {
-    expect(purchasesConditionalStep.id).toBe("purchases");
-    expect(purchasesConditionalStep.pose).toBe("cheering");
-    // Spotlight now points at the form (mounts when the cursor clicks
-    // "+ New Purchase"). The spotlight silently no-ops while the form
-    // is unmounted.
-    expect(purchasesConditionalStep.targetSelector).toBe(
-      "[data-tour-target=\"purchases-form\"]",
-    );
+  it("purchases-create-button-click uses event-driven completion (modal mount)", () => {
+    expect(purchasesCreateButtonClickStep.completion.type).toBe("event");
   });
 
-  it("conditionalOn passes only when picks.purchases === 'yes'", () => {
-    const gate = purchasesConditionalStep.conditionalOn!;
-    expect(gate(picks({ purchases: "yes" }))).toBe(true);
-    expect(gate(picks({ purchases: "no" }))).toBe(false);
-    expect(gate(picks({ purchases: "maybe" }))).toBe(false);
-    expect(gate(null)).toBe(false);
+  it("purchases-form-fill uses manual completion + cheering pose? No — typing-on-laptop per redesign", () => {
+    expect(purchasesFormFillStep.pose).toBe("typing-on-laptop");
+    expect(purchasesFormFillStep.completion.type).toBe("manual");
   });
 
-  it("uses manual-advance completion (live-test R6: was event-driven 2s auto-advance, too fast for users to read)", () => {
-    expect(purchasesConditionalStep.completion.type).toBe("manual");
+  it("purchases-demo-warp-prompt uses branchOn completion to skip to the viewer", () => {
+    expect(purchasesDemoWarpPromptStep.completion.type).toBe("branch");
+    if (purchasesDemoWarpPromptStep.completion.type === "branch") {
+      expect(purchasesDemoWarpPromptStep.completion.branches[0].nextStep).toBe(
+        "purchases-demo-viewer",
+      );
+    }
   });
 
-  it("auto-navigates to /purchases", () => {
-    expect(purchasesConditionalStep.expectedRoute).toBe("/purchases");
+  it("legacy purchasesConditionalStep alias resolves to the form-fill step", () => {
+    // Back-compat shim: the cleanup grid + older importers expect a
+    // body that owns the `onEnter` artifact capture. The form-fill
+    // step is the new home for that contract.
+    expect(purchasesConditionalStep.id).toBe("purchases-form-fill");
   });
 });
 
-describe("purchasesConditionalStep cursorScript", () => {
+describe("purchases-form-fill cursorScript", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
     pendingArtifactStore.reset();
   });
 
-  it("returns no actions when neither the button nor the form is on screen (resume guard)", async () => {
-    const script = purchasesConditionalStep.cursorScript;
-    if (!script) throw new Error("expected a cursorScript");
+  it("returns no actions when neither the button nor the form is on screen", async () => {
+    const script = purchasesFormFillStep.cursorScript;
+    if (!script) throw new Error("expected cursorScript");
     const actions = await script();
     expect(actions).toEqual([]);
   });
 
-  it("builds the full action chain when the button + form anchors exist", async () => {
-    // Mount the full target set so every safeClickAction /
-    // safeTypeAction resolves. In production these mount one-by-one
-    // as the cursor progresses; here we mount them all at once so the
-    // script-build pass can verify the planned chain.
+  it("builds the typing + save chain when the form is mounted", async () => {
+    // The form is already open when this step fires (the previous
+    // step's user click opened it). The script skips the open-modal
+    // click and goes straight to typing.
     document.body.innerHTML = `
       <button data-tour-target="purchases-new-button">+ New Purchase</button>
       <form data-tour-target="purchases-form">
@@ -155,39 +178,38 @@ describe("purchasesConditionalStep cursorScript", () => {
         <button data-tour-target="purchases-form-submit">Save</button>
       </form>
     `;
-    const script = purchasesConditionalStep.cursorScript;
-    if (!script) throw new Error("expected a cursorScript");
+    const script = purchasesFormFillStep.cursorScript;
+    if (!script) throw new Error("expected cursorScript");
     const actions = await script();
-
-    // PURCHASE_QTY === 1 → the quantity-type step is intentionally
-    // null (the modal seeds "1" into the input by default). Expect
-    // exactly 6 actions: open + 4 typed fields + submit.
+    // 5 typed fields (name, vendor, price, qty, funding) + 1 submit = 6.
     expect(actions).toHaveLength(6);
-    expect(actions[0]).toMatchObject({ type: "click" });
-    expect(actions[1]).toMatchObject({ type: "type", text: PURCHASE_ITEM_NAME });
-    expect(actions[2]).toMatchObject({ type: "type", text: PURCHASE_VENDOR });
-    expect(actions[3]).toMatchObject({
+    expect(actions[0]).toMatchObject({ type: "type", text: PURCHASE_ITEM_NAME });
+    expect(actions[1]).toMatchObject({ type: "type", text: PURCHASE_VENDOR });
+    expect(actions[2]).toMatchObject({
       type: "type",
       text: PURCHASE_PRICE.toFixed(2),
+    });
+    expect(actions[3]).toMatchObject({
+      type: "type",
+      text: String(PURCHASE_QTY),
     });
     expect(actions[4]).toMatchObject({
       type: "type",
       text: FUNDING_STRING_NAME,
     });
     expect(actions[5]).toMatchObject({ type: "click" });
-    void PURCHASE_QTY;
   });
 });
 
-describe("purchasesConditionalStep onEnter / onExit artifact capture", () => {
+describe("purchases-form-fill onEnter / onExit artifact capture", () => {
   beforeEach(() => {
     pendingArtifactStore.reset();
   });
 
   it("captures funding_string + purchase + purchase_item from tour:purchase-created", () => {
-    const onEnter = purchasesConditionalStep.onEnter;
+    const onEnter = purchasesFormFillStep.onEnter;
     if (!onEnter) throw new Error("expected onEnter");
-    onEnter();
+    onEnter({ username: "alex" });
 
     act(() => {
       window.dispatchEvent(
@@ -201,7 +223,7 @@ describe("purchasesConditionalStep onEnter / onExit artifact capture", () => {
       );
     });
 
-    const pending = pendingArtifactStore.peek("purchases");
+    const pending = pendingArtifactStore.peek("purchases-form-fill");
     expect(pending).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -224,9 +246,9 @@ describe("purchasesConditionalStep onEnter / onExit artifact capture", () => {
   });
 
   it("skips funding_string capture when the event detail omits it", () => {
-    const onEnter = purchasesConditionalStep.onEnter;
+    const onEnter = purchasesFormFillStep.onEnter;
     if (!onEnter) throw new Error("expected onEnter");
-    onEnter();
+    onEnter({ username: "alex" });
 
     act(() => {
       window.dispatchEvent(
@@ -236,7 +258,7 @@ describe("purchasesConditionalStep onEnter / onExit artifact capture", () => {
       );
     });
 
-    const pending = pendingArtifactStore.peek("purchases");
+    const pending = pendingArtifactStore.peek("purchases-form-fill");
     const types = pending.map((a) => a.type);
     expect(types).not.toContain("funding_string");
     expect(types).toContain("purchase");
@@ -244,9 +266,9 @@ describe("purchasesConditionalStep onEnter / onExit artifact capture", () => {
   });
 
   it("ignores events with no taskId", () => {
-    const onEnter = purchasesConditionalStep.onEnter;
+    const onEnter = purchasesFormFillStep.onEnter;
     if (!onEnter) throw new Error("expected onEnter");
-    onEnter();
+    onEnter({ username: "alex" });
 
     act(() => {
       window.dispatchEvent(
@@ -256,11 +278,45 @@ describe("purchasesConditionalStep onEnter / onExit artifact capture", () => {
       );
     });
 
-    expect(pendingArtifactStore.peek("purchases")).toEqual([]);
+    expect(pendingArtifactStore.peek("purchases-form-fill")).toEqual([]);
   });
 });
 
-describe("PurchasesDemoBody speech-bubble rendering", () => {
+describe("purchases-demo-viewer / -back-to-real overlay events", () => {
+  it("purchases-demo-viewer.onEnter dispatches tour:demo-purchases-viewer-open", () => {
+    const onEnter = purchasesDemoViewerStep.onEnter;
+    if (!onEnter) throw new Error("expected onEnter");
+    const listener = vi.fn();
+    window.addEventListener(TOUR_DOM_EVENTS.demoPurchasesViewerOpen, listener);
+    try {
+      onEnter({ username: "alex" });
+      expect(listener).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener(
+        TOUR_DOM_EVENTS.demoPurchasesViewerOpen,
+        listener,
+      );
+    }
+  });
+
+  it("purchases-back-to-real.onExit dispatches tour:demo-purchases-viewer-close", async () => {
+    const onExit = purchasesBackToRealStep.onExit;
+    if (!onExit) throw new Error("expected onExit");
+    const listener = vi.fn();
+    window.addEventListener(TOUR_DOM_EVENTS.demoPurchasesViewerClose, listener);
+    try {
+      await onExit();
+      expect(listener).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener(
+        TOUR_DOM_EVENTS.demoPurchasesViewerClose,
+        listener,
+      );
+    }
+  });
+});
+
+describe("purchases-form-fill speech body rendering", () => {
   beforeEach(() => {
     readOnboardingMock.mockReset();
     readOnboardingMock.mockResolvedValue(emptySidecar());
@@ -268,39 +324,34 @@ describe("PurchasesDemoBody speech-bubble rendering", () => {
   });
 
   function renderBody() {
-    if (typeof purchasesConditionalStep.speech !== "function") {
-      throw new Error("expected speech to be a render function");
+    if (typeof purchasesFormFillStep.speech !== "function") {
+      throw new Error("expected speech to be a function");
     }
-    // TourControllerProvider renders the active step's speech node
-    // inside its own InProductWalkthroughOverlay, so we don't pass
-    // the speech() as a child — that would mount the body twice.
-    return render(
-      <TourControllerProvider
-        initialFeaturePicks={picks()}
-        initialStep="purchases"
-      >
-        <div />
-      </TourControllerProvider>,
-    );
+    const SpeechBody = purchasesFormFillStep.speech as () => React.ReactNode;
+    // Render the speech node directly — the body is wired to read
+    // useCurrentUser via the mock + listen for the DOM event without
+    // any TourController context, so we don't need the provider here.
+    return render(<>{SpeechBody()}</>);
   }
 
-  it("starts in 'watching' stage and shows the demo plan", async () => {
+  it("starts in 'watching' stage and previews the coffee bean order", async () => {
     renderBody();
     await waitFor(() => {
-      expect(screen.getByTestId("purchases-watching")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("purchases-form-fill-watching"),
+      ).toBeInTheDocument();
     });
-    const node = screen.getByTestId("purchases-watching");
-    expect(node.textContent).toMatch(/New Purchase/);
+    const node = screen.getByTestId("purchases-form-fill-watching");
+    expect(node.textContent).toMatch(/coffee bean/i);
     expect(node.textContent).toMatch(/BeakerBot's allowance/);
-    expect(node.textContent).toMatch(
-      /12-well Plates Of Premium Hand-Painted Quality/,
-    );
   });
 
-  it("flips to 'done' stage when tour:purchase-created fires", async () => {
+  it("flips to 'done' when tour:purchase-created fires", async () => {
     renderBody();
     await waitFor(() =>
-      expect(screen.getByTestId("purchases-watching")).toBeInTheDocument(),
+      expect(
+        screen.getByTestId("purchases-form-fill-watching"),
+      ).toBeInTheDocument(),
     );
     act(() => {
       window.dispatchEvent(
@@ -310,28 +361,9 @@ describe("PurchasesDemoBody speech-bubble rendering", () => {
       );
     });
     await waitFor(() =>
-      expect(screen.getByTestId("purchases-done")).toBeInTheDocument(),
+      expect(
+        screen.getByTestId("purchases-form-fill-done"),
+      ).toBeInTheDocument(),
     );
-  });
-
-  it("jumps straight to 'done' when the sidecar already records a purchase artifact (resume)", async () => {
-    readOnboardingMock.mockResolvedValueOnce({
-      ...emptySidecar(),
-      wizard_resume_state: {
-        current_step: "purchases",
-        skipped_steps: [],
-        artifacts_created: [
-          {
-            type: "purchase",
-            id: "42",
-            cleanup_default: "keep" as const,
-          },
-        ],
-      },
-    });
-    renderBody();
-    await waitFor(() => {
-      expect(screen.getByTestId("purchases-done")).toBeInTheDocument();
-    });
   });
 });

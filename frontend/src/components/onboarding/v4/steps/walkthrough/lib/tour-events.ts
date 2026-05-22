@@ -150,6 +150,22 @@ export const TOUR_DOM_EVENTS = {
    * idempotently via `appendArtifact`.
    */
   purchaseCreated: "tour:purchase-created",
+  /**
+   * Onboarding v4 §6.14 Purchases redesign 2026-05-22 (Purchases
+   * manager). Dispatched by the `purchases-demo-warp-prompt` step body
+   * when the user clicks "Take me to the demo page". The /purchases
+   * page listens and toggles its `DemoPurchasesViewer` overlay on top of
+   * the user's real surface — no route change, so the tour controller's
+   * step state survives.
+   */
+  demoPurchasesViewerOpen: "tour:demo-purchases-viewer-open",
+  /**
+   * Companion to `demoPurchasesViewerOpen`. Dispatched by the
+   * `purchases-back-to-real` step body when the user clicks "Back to my
+   * page". The /purchases page closes the overlay; the tour advances to
+   * the next phase via the same click handler that dispatches the event.
+   */
+  demoPurchasesViewerClose: "tour:demo-purchases-viewer-close",
 } as const;
 
 /**

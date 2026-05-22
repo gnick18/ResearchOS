@@ -72,7 +72,19 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER).toContain("gantt-drag-drop");
     expect(TOUR_STEP_ORDER).toContain("ai-helper-deep-explain");
     expect(TOUR_STEP_ORDER).toContain("telegram");
-    expect(TOUR_STEP_ORDER).toContain("purchases");
+    // Purchases manager 2026-05-22: the legacy single `purchases` id is
+    // replaced by the 8-step cluster. The list intentionally retires
+    // the old id, sub-bots that look it up under that name resolve via
+    // the legacy `purchasesConditionalStep` export instead.
+    expect(TOUR_STEP_ORDER).not.toContain("purchases");
+    expect(TOUR_STEP_ORDER).toContain("purchases-intro");
+    expect(TOUR_STEP_ORDER).toContain("purchases-create-button-click");
+    expect(TOUR_STEP_ORDER).toContain("purchases-form-fill");
+    expect(TOUR_STEP_ORDER).toContain("purchases-autocomplete-demo");
+    expect(TOUR_STEP_ORDER).toContain("purchases-demo-warp-prompt");
+    expect(TOUR_STEP_ORDER).toContain("purchases-demo-viewer");
+    expect(TOUR_STEP_ORDER).toContain("purchases-demo-charts");
+    expect(TOUR_STEP_ORDER).toContain("purchases-back-to-real");
     expect(TOUR_STEP_ORDER).toContain("calendar");
     // Gantt manager 2026-05-22: lab-prompt / lab-spawn-beakerbot /
     // lab-permission-practice were retired by the §6.8 Gantt redesign.
@@ -239,10 +251,25 @@ describe("isStepGatedOut — Phase 2 conditional walkthroughs (§6.13-6.15)", ()
     expect(isStepGatedOut("telegram", picks({ telegram: "maybe" }))).toBe(true);
   });
 
-  it("gates purchases on picks.purchases === 'yes'", () => {
-    expect(isStepGatedOut("purchases", picks({ purchases: "yes" }))).toBe(false);
-    expect(isStepGatedOut("purchases", picks({ purchases: "no" }))).toBe(true);
-    expect(isStepGatedOut("purchases", picks({ purchases: "maybe" }))).toBe(true);
+  it("gates the entire purchases cluster on picks.purchases === 'yes'", () => {
+    // Purchases manager 2026-05-22: 8-step cluster, all members share
+    // the same gate. Each id checked here is what the redesigned
+    // cluster surfaces in TOUR_STEP_ORDER.
+    const clusterIds = [
+      "purchases-intro",
+      "purchases-create-button-click",
+      "purchases-form-fill",
+      "purchases-autocomplete-demo",
+      "purchases-demo-warp-prompt",
+      "purchases-demo-viewer",
+      "purchases-demo-charts",
+      "purchases-back-to-real",
+    ] as const;
+    for (const id of clusterIds) {
+      expect(isStepGatedOut(id, picks({ purchases: "yes" }))).toBe(false);
+      expect(isStepGatedOut(id, picks({ purchases: "no" }))).toBe(true);
+      expect(isStepGatedOut(id, picks({ purchases: "maybe" }))).toBe(true);
+    }
   });
 
   it("gates calendar on picks.calendar === 'yes'", () => {
@@ -360,7 +387,11 @@ describe("getNextStep — forward traversal", () => {
     expect(visited).not.toContain("lab-cleanup");
     // All-no skips conditionals
     expect(visited).not.toContain("telegram");
-    expect(visited).not.toContain("purchases");
+    // Purchases manager 2026-05-22: 8-step cluster gated as a whole on
+    // picks.purchases === "yes"; under all-no none of these ids appear.
+    expect(visited).not.toContain("purchases-intro");
+    expect(visited).not.toContain("purchases-form-fill");
+    expect(visited).not.toContain("purchases-demo-viewer");
     expect(visited).not.toContain("calendar");
     expect(visited).not.toContain("gantt-goals-overview");
     expect(visited).not.toContain("ai-helper-deep-explain");
@@ -400,7 +431,16 @@ describe("getNextStep — forward traversal", () => {
     expect(visited).toContain("setup-q7");
     expect(visited).toContain("links");
     expect(visited).toContain("telegram");
-    expect(visited).toContain("purchases");
+    // Purchases manager 2026-05-22: all 8 cluster ids fire in the
+    // maximal lab walk.
+    expect(visited).toContain("purchases-intro");
+    expect(visited).toContain("purchases-create-button-click");
+    expect(visited).toContain("purchases-form-fill");
+    expect(visited).toContain("purchases-autocomplete-demo");
+    expect(visited).toContain("purchases-demo-warp-prompt");
+    expect(visited).toContain("purchases-demo-viewer");
+    expect(visited).toContain("purchases-demo-charts");
+    expect(visited).toContain("purchases-back-to-real");
     expect(visited).toContain("calendar");
     expect(visited).toContain("gantt-goals-overview");
     expect(visited).toContain("ai-helper-deep-explain");
@@ -483,10 +523,10 @@ describe("getPreviousStep — backward traversal", () => {
     // skip purchases too (gated out under all-no).
     const allNo = picks({ purchases: "no", calendar: "no", telegram: "no" });
     expect(getPreviousStep("calendar", allNo)).toBe("wiki-pointer");
-    // With purchases=yes, backstep from "calendar" (still gated out for
-    // a calendar=no caller, but the function accepts current as opaque)
-    // lands on "purchases".
-    expect(getPreviousStep("calendar", p)).toBe("purchases");
+    // With purchases=yes, backstep from "calendar" lands on the LAST
+    // applicable purchases cluster step (purchases-back-to-real per
+    // the redesign 2026-05-22). Per the cluster order in TOUR_STEP_ORDER.
+    expect(getPreviousStep("calendar", p)).toBe("purchases-back-to-real");
   });
 
   it("returns null for unknown current id", () => {
@@ -522,11 +562,13 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     // (lab-prompt + lab-spawn-beakerbot + lab-permission-practice
     // retired, only lab-cleanup survives in LAB_STEP_IDS) but the §6.8
     // Gantt share cluster added 7 new lab-only steps gated on
-    // account_type === "lab". Solo+minimal still skips: 6 conditionals
-    // (telegram, purchases, calendar, links, gantt-goals-overview,
-    // ai-helper-deep-explain) + 1 lab step (lab-cleanup) + 7 Gantt
-    // share cluster steps = 14 gated out for solo.
-    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 14);
+    // account_type === "lab". Purchases manager 2026-05-22: the single
+    // `purchases` id grew into an 8-step cluster, so solo+minimal now
+    // skips: 5 conditionals other than purchases (telegram, calendar,
+    // links, gantt-goals-overview, ai-helper-deep-explain) + 8
+    // purchases cluster + 1 lab step (lab-cleanup) + 7 Gantt share
+    // cluster steps = 21 gated out for solo.
+    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 21);
     expect(labCount).toBe(TOUR_STEP_ORDER.length);
   });
 

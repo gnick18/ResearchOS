@@ -33,7 +33,24 @@ import type { TourStep, TourStepId } from "./step-types";
 import { TOUR_STEP_ORDER, isStepGatedOut } from "./step-machine";
 import { SETUP_STEP_DESCRIPTORS } from "./steps/setup";
 import { telegramConditionalStep } from "./steps/walkthrough/TelegramConditionalStep";
-import { purchasesConditionalStep } from "./steps/walkthrough/PurchasesConditionalStep";
+// Onboarding v4 §6.14 Purchases redesign 2026-05-22 (Purchases manager).
+// The single `purchasesConditionalStep` body is replaced by an 8-step
+// cluster: 4 Phase-1 steps that teach on the user's empty page, then 4
+// Phase-2 steps that warp into a read-only DemoPurchasesViewer over
+// Alex's account to teach the analytics surface. Legacy
+// `purchasesConditionalStep` export is retained (as an alias to
+// `purchasesFormFillStep`) for back-compat with importers expecting
+// the artifact-spawning body.
+import {
+  purchasesIntroStep,
+  purchasesCreateButtonClickStep,
+  purchasesFormFillStep,
+  purchasesAutocompleteDemoStep,
+  purchasesDemoWarpPromptStep,
+  purchasesDemoViewerStep,
+  purchasesDemoChartsStep,
+  purchasesBackToRealStep,
+} from "./steps/walkthrough/PurchasesConditionalStep";
 import { calendarConditionalStep } from "./steps/walkthrough/CalendarConditionalStep";
 import { linksConditionalStep } from "./steps/walkthrough/LinksConditionalStep";
 // §6.8 Gantt redesign + lab tour retirement (Gantt manager 2026-05-22):
@@ -305,7 +322,18 @@ export const TOUR_STEPS: Record<TourStepId, TourStep> = Object.fromEntries(
 // predicate the placeholder used, so step-machine.ts's gating contract
 // continues to apply.
 TOUR_STEPS["telegram"] = telegramConditionalStep;
-TOUR_STEPS["purchases"] = purchasesConditionalStep;
+// §6.14 Purchases redesign 2026-05-22 (Purchases manager): the legacy
+// single-id "purchases" body is replaced by the 8-step cluster.
+// `step-machine.ts` drives ordering via the explicit ids in
+// `TOUR_STEP_ORDER`; the registry just maps each id to its body.
+TOUR_STEPS["purchases-intro"] = purchasesIntroStep;
+TOUR_STEPS["purchases-create-button-click"] = purchasesCreateButtonClickStep;
+TOUR_STEPS["purchases-form-fill"] = purchasesFormFillStep;
+TOUR_STEPS["purchases-autocomplete-demo"] = purchasesAutocompleteDemoStep;
+TOUR_STEPS["purchases-demo-warp-prompt"] = purchasesDemoWarpPromptStep;
+TOUR_STEPS["purchases-demo-viewer"] = purchasesDemoViewerStep;
+TOUR_STEPS["purchases-demo-charts"] = purchasesDemoChartsStep;
+TOUR_STEPS["purchases-back-to-real"] = purchasesBackToRealStep;
 TOUR_STEPS["calendar"] = calendarConditionalStep;
 // Lab Links manager 2026-05-22: links conditional walkthrough added
 // alongside the existing telegram / purchases / calendar conditionals.

@@ -242,6 +242,16 @@ export const TOUR_TARGETS = {
   purchasesFormQuantity: "purchases-form-quantity",
   purchasesFormFunding: "purchases-form-funding",
   purchasesFormSubmit: "purchases-form-submit",
+  // §6.14 Purchases redesign 2026-05-22 (Purchases manager): the
+  // DemoPurchasesViewer fullscreen overlay + its spending-dashboard
+  // anchor + the dismiss button. The cursor demo inside the viewer
+  // scrolls to the dashboard anchor, then hovers each chart center.
+  // The dismiss button anchor is allow-listed in the
+  // `purchases-back-to-real` page-lock so the user's Back click lands
+  // even with the lock active.
+  demoPurchasesViewer: "demo-purchases-viewer",
+  demoSpendingDashboard: "demo-spending-dashboard",
+  demoPurchasesBackButton: "demo-purchases-back-button",
 
   // §6.16 lab-permission-practice real-Workbench cursor demo (HR sub-bot
   // 2026-05-22). The cursor drives a real interaction against the

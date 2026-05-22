@@ -214,7 +214,22 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // calendar / purchases, so the cluster keeps related-surface beats
   // together).
   "telegram",
-  "purchases",
+  // Purchases redesign 2026-05-22 (Purchases manager): the single
+  // `purchases` id is replaced by an 8-step cluster split into two
+  // phases. Phase 1 teaches on the user's empty page (intro → create
+  // button → form fill → autocomplete demo). Phase 2 warps into a
+  // read-only viewer over Alex's demo account to teach the analytics
+  // surface (warp prompt → viewer mount → charts demo → back to real).
+  // All eight steps share the `picks.purchases === "yes"` gate. See
+  // ONBOARDING_V4_PURCHASES_REDESIGN.md for the per-step contracts.
+  "purchases-intro",
+  "purchases-create-button-click",
+  "purchases-form-fill",
+  "purchases-autocomplete-demo",
+  "purchases-demo-warp-prompt",
+  "purchases-demo-viewer",
+  "purchases-demo-charts",
+  "purchases-back-to-real",
   "calendar",
   "links",
 
@@ -256,6 +271,22 @@ const SETUP_STEP_IDS: ReadonlySet<TourStepId> = new Set<TourStepId>([
 const LAB_STEP_IDS: ReadonlySet<TourStepId> = new Set<TourStepId>([
   "lab-cleanup",
 ]);
+
+/** Purchases sub-step ids (Purchases redesign 2026-05-22). Every entry
+ *  gates on `picks.purchases === "yes"` — declining the Q2.purchases
+ *  pick skips the whole cluster. Exported for the dev tools that walk
+ *  the cluster + for step-machine.test assertions. */
+export const PURCHASES_CLUSTER_STEP_IDS: ReadonlySet<TourStepId> =
+  new Set<TourStepId>([
+    "purchases-intro",
+    "purchases-create-button-click",
+    "purchases-form-fill",
+    "purchases-autocomplete-demo",
+    "purchases-demo-warp-prompt",
+    "purchases-demo-viewer",
+    "purchases-demo-charts",
+    "purchases-back-to-real",
+  ]);
 
 /** Lab-only Gantt share cluster step ids (Gantt redesign 2026-05-22).
  *  Gated on `picks.account_type === "lab"` so solo accounts skip the
@@ -311,7 +342,11 @@ export function isStepGatedOut(
 
   // Phase 2 conditional walkthroughs (§6.13 - §6.15).
   if (step === "telegram") return picks?.telegram !== "yes";
-  if (step === "purchases") return picks?.purchases !== "yes";
+  // Purchases redesign 2026-05-22 (Purchases manager): the legacy
+  // single-id `purchases` gate fans out to the 8-step cluster. Every
+  // member shares the same `picks.purchases === "yes"` gate, so a
+  // declined Q2.purchases pick still skips the whole cluster.
+  if (PURCHASES_CLUSTER_STEP_IDS.has(step)) return picks?.purchases !== "yes";
   if (step === "calendar") return picks?.calendar !== "yes";
   // Links conditional (Lab Links manager 2026-05-22): same yes-only
   // shape as the other conditional walkthroughs. Tab visibility +

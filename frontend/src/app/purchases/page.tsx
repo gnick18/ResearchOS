@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { tasksApi, purchasesApi, fetchAllProjectsIncludingShared, fetchAllTasksIncludingShared } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -9,6 +9,7 @@ import AppShell from "@/components/AppShell";
 import NewPurchaseModal from "@/components/NewPurchaseModal";
 import PurchaseEditor from "@/components/PurchaseEditor";
 import SpendingDashboard from "@/components/SpendingDashboard";
+import DemoPurchasesViewer from "@/components/DemoPurchasesViewer";
 import Tooltip from "@/components/Tooltip";
 import {
   MISC_CATEGORY_LABEL,
@@ -40,6 +41,25 @@ export default function PurchasesPage() {
   // PurchaseEditor inline-row affordance remains for adding more items
   // to an existing purchase order.
   const [showNewPurchase, setShowNewPurchase] = useState(false);
+  // Onboarding v4 §6.14 Purchases redesign 2026-05-22 (Purchases
+  // manager): the tour's `purchases-demo-warp-prompt` step dispatches
+  // `tour:demo-purchases-viewer-open` to mount Alex's fixture data as a
+  // read-only overlay on top of this page. No route change — the user
+  // never leaves /purchases, so the tour controller's step state stays
+  // intact. The `purchases-back-to-real` step dispatches the matching
+  // close event to dismiss the overlay before advancing.
+  const [showDemoViewer, setShowDemoViewer] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const openHandler = () => setShowDemoViewer(true);
+    const closeHandler = () => setShowDemoViewer(false);
+    window.addEventListener("tour:demo-purchases-viewer-open", openHandler);
+    window.addEventListener("tour:demo-purchases-viewer-close", closeHandler);
+    return () => {
+      window.removeEventListener("tour:demo-purchases-viewer-open", openHandler);
+      window.removeEventListener("tour:demo-purchases-viewer-close", closeHandler);
+    };
+  }, []);
   const [categoryFilter, setCategoryFilter] = useState<PurchaseCategoryFilter>("all");
   const queryClient = useQueryClient();
   const selectedProjectIds = useAppStore((s) => s.selectedProjectIds);
@@ -216,6 +236,16 @@ export default function PurchasesPage() {
         <NewPurchaseModal
           open={showNewPurchase}
           onClose={() => setShowNewPurchase(false)}
+        />
+
+        {/* Onboarding v4 §6.14 Purchases redesign 2026-05-22: read-only
+            overlay rendering Alex's demo data. Closing the viewer just
+            dismisses the overlay — the tour's `purchases-back-to-real`
+            step is what dispatches the close event AND advances the
+            tour forward. */}
+        <DemoPurchasesViewer
+          open={showDemoViewer}
+          onClose={() => setShowDemoViewer(false)}
         />
 
         {/* Category filter chips. Single source of truth for the

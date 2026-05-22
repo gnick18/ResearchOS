@@ -48,6 +48,31 @@ interface NewPurchaseModalProps {
   initial?: Partial<NewPurchaseFormState>;
 }
 
+/**
+ * F1 (Onboarding v4 §6.14 Purchases redesign 2026-05-22, Purchases
+ * manager): item-name autocomplete with prior-item recall.
+ *
+ * Build the de-duped per-user prior-item list from `purchasesApi.listAll`.
+ * The list keeps ONE entry per item-name (case-insensitive), pinning
+ * the most-recent record so vendor + price reflect the latest order. The
+ * autocomplete fires off the Item Name `change` event when the typed
+ * value matches a remembered name exactly: vendor + price auto-fill,
+ * quantity stays at the user default 1, funding-string stays unset.
+ *
+ * The list ships into a native `<datalist>` so the browser surfaces it
+ * with no custom dropdown UI: matches the Funding String autocomplete
+ * shape already in this modal. Onboarding's BeakerBot cursor types
+ * "coff" and the datalist filters; the `purchases-autocomplete-demo`
+ * step waits for the exact-match `change` event before advancing.
+ */
+interface PriorItemEntry {
+  itemName: string;
+  vendor: string | null;
+  pricePerUnit: number;
+  /** Most-recent purchase item id for this name (for stable React keys). */
+  sourceId: number;
+}
+
 interface NewPurchaseFormState {
   name: string;
   vendor: string;
@@ -76,6 +101,54 @@ const EMPTY_STATE: NewPurchaseFormState = {
 };
 
 const FUNDING_DATALIST_ID = "new-purchase-funding-options";
+const ITEM_NAME_DATALIST_ID = "new-purchase-item-name-options";
+
+/**
+ * De-dupe prior PurchaseItems into one entry per (case-insensitive)
+ * item_name. Within a name group, the entry with the LARGEST id wins
+ * (proxy for "most recent" — PurchaseItem ids are monotonically
+ * incrementing per user). The vendor + price on that entry are the
+ * values surfaced to the user when the autocomplete fires.
+ *
+ * Names that are empty or whitespace-only are dropped: a blank
+ * suggestion would clutter the datalist and never match anything
+ * usefully.
+ *
+ * Exported so the NewPurchaseModal autocomplete test can pin the
+ * dedupe contract directly without re-rendering the whole modal.
+ */
+export function buildPriorItemEntries(
+  items: ReadonlyArray<{
+    id: number;
+    item_name: string;
+    vendor: string | null;
+    price_per_unit: number | null;
+  }>,
+): PriorItemEntry[] {
+  // Group by lower-cased name, keep the entry whose id is the highest.
+  const byKey = new Map<string, PriorItemEntry>();
+  for (const item of items) {
+    const trimmed = item.item_name?.trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    const candidate: PriorItemEntry = {
+      itemName: trimmed,
+      vendor: item.vendor ?? null,
+      pricePerUnit: item.price_per_unit ?? 0,
+      sourceId: item.id,
+    };
+    const existing = byKey.get(key);
+    if (!existing || existing.sourceId < candidate.sourceId) {
+      byKey.set(key, candidate);
+    }
+  }
+  // Return in alphabetical order so the datalist surface is stable
+  // (browsers don't guarantee ordering preservation; alphabetical
+  // matches how funding strings render below).
+  return Array.from(byKey.values()).sort((a, b) =>
+    a.itemName.localeCompare(b.itemName),
+  );
+}
 
 function todayLocal(): string {
   const d = new Date();
@@ -162,6 +235,20 @@ export default function NewPurchaseModal({
     queryFn: () => purchasesApi.listFundingAccounts(),
     enabled: open,
   });
+
+  // F1 (§6.14 Purchases redesign 2026-05-22): prior PurchaseItems owned
+  // by the current user, de-duped + sorted, used to seed the Item Name
+  // datalist. Re-fires every time the modal opens so a save in the
+  // previous open landing in the list is picked up on the next open.
+  const { data: priorItemsRaw = [] } = useQuery({
+    queryKey: ["purchases-all", currentUser, "prior-items"],
+    queryFn: () => purchasesApi.listAll(),
+    enabled: open,
+  });
+  const priorItems = useMemo(
+    () => buildPriorItemEntries(priorItemsRaw),
+    [priorItemsRaw],
+  );
 
   const handleField = useCallback(
     <K extends keyof NewPurchaseFormState>(
@@ -337,13 +424,63 @@ export default function NewPurchaseModal({
             </label>
             <input
               type="text"
+              list={ITEM_NAME_DATALIST_ID}
               value={form.name}
-              onChange={(e) => handleField("name", e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value;
+                // F1: if the typed value matches a prior item exactly
+                // (case-insensitive), auto-fill vendor + price. Quantity
+                // stays at the user default 1; funding string stays
+                // untouched (recurring purchases often re-bill against a
+                // different grant). The save flow's `parseFloat(form.price)
+                // || 0` keeps the pulled number well-typed regardless of
+                // locale.
+                const exact = priorItems.find(
+                  (entry) =>
+                    entry.itemName.toLowerCase() === next.trim().toLowerCase(),
+                );
+                if (exact) {
+                  setForm((prev) => ({
+                    ...prev,
+                    name: exact.itemName,
+                    vendor: exact.vendor ?? prev.vendor,
+                    price: exact.pricePerUnit
+                      ? exact.pricePerUnit.toFixed(2)
+                      : prev.price,
+                  }));
+                } else {
+                  handleField("name", next);
+                }
+              }}
               placeholder="e.g. 12-well plates"
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
               autoFocus
               data-tour-target="purchases-form-name"
             />
+            <datalist id={ITEM_NAME_DATALIST_ID}>
+              {priorItems.map((entry) => (
+                <option
+                  key={entry.sourceId}
+                  value={entry.itemName}
+                  label={
+                    [
+                      entry.vendor ? `from ${entry.vendor}` : null,
+                      entry.pricePerUnit
+                        ? `$${entry.pricePerUnit.toFixed(2)}`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || undefined
+                  }
+                />
+              ))}
+            </datalist>
+            {priorItems.length > 0 && (
+              <p className="text-xs text-gray-400 mt-1">
+                Picks an item you&apos;ve ordered before, vendor and price
+                fill in automatically.
+              </p>
+            )}
           </div>
 
           <div>
