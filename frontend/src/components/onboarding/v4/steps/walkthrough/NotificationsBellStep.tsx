@@ -60,24 +60,21 @@ function toLocalDateString(d: Date): string {
  */
 export async function fireNotificationsStepTestNotification(): Promise<void> {
   try {
+    // Nuke + recreate (Grant 2026-05-22): the prior "find one and mark
+    // unread" path only re-lit the first match, leaving leftover
+    // duplicates from before this idempotency check shipped. Now we
+    // dismiss EVERY existing "Welcome to ResearchOS" row first, then
+    // mint a single fresh one. Guarantees exactly one such notification
+    // exists in the inbox no matter how many tour re-entries the user
+    // has done before this fix landed.
     const existing = await sharingApi.getNotifications();
-    const matching = existing.notifications.find((n) => {
-      // Event-reminder rows are the only shape this spawn creates, so
-      // narrow before reading event_title.
-      return (
+    const duplicates = existing.notifications.filter(
+      (n) =>
         n.type === "event_reminder" &&
-        n.event_title === NOTIFICATIONS_STEP_TEST_TITLE
-      );
-    });
-    if (matching) {
-      // Re-light the existing row instead of stacking a duplicate.
-      if (matching.read) {
-        await sharingApi.markNotificationUnread(matching.id);
-      }
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("ros-notifications-changed"));
-      }
-      return;
+        n.event_title === NOTIFICATIONS_STEP_TEST_TITLE,
+    );
+    for (const dup of duplicates) {
+      await sharingApi.dismissNotification(dup.id);
     }
     const now = new Date();
     const eventStart = new Date(now.getTime() + 15 * 60 * 1000);
