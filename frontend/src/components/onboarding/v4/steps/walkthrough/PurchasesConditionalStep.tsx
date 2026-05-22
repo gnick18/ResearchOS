@@ -1,35 +1,48 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { purchasesApi, tasksApi } from "@/lib/local-api";
-import { patchOnboarding } from "@/lib/onboarding/sidecar";
+import { useEffect, useState } from "react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useTourController } from "../../TourController";
-import type { TourStep } from "../../step-types";
-import { appendArtifact, findArtifact } from "./lib/artifacts";
 import { readOnboarding } from "@/lib/onboarding/sidecar";
+import type { TourStep } from "../../step-types";
+import { findArtifact, flushPendingArtifacts, pendingArtifactStore } from "./lib/artifacts";
+import {
+  cursorScript,
+  compactScript,
+  safeClickAction,
+  safeTypeAction,
+} from "./lib/cursor-script";
+import { buildWalkthroughStep } from "./lib/step-helpers";
+import { TOUR_TARGETS, targetSelector } from "./lib/targets";
+import { TOUR_DOM_EVENTS } from "./lib/tour-events";
 
 /**
  * §6.14 Purchases (conditional Q2 = yes).
  *
- * Per the proposal: BeakerBot creates a funding source name + a funny
- * sample purchase via cursor. ResearchOS has no standalone funding
- * "source" model: `funding_string` is a per-item string column on
- * `PurchaseItem` (see `lib/types.ts:1231`). So the v4 demo writes the
- * funding string directly into the sample purchase and tracks both
- * artifacts (the parent task + the line item) on the sidecar so Phase
- * 4 (P8) renders both rows in the cleanup grid.
+ * Live-test R2 rebuild (HR sub-bot 2026-05-22): the previous version
+ * called `tasksApi.create` + `purchasesApi.create` directly inside a
+ * `useEffect` in the speech-bubble body, so the user saw only the
+ * narration copy land, nothing actually moved on the page. Per Grant,
+ * BeakerBot's cursor must visibly drive the demo. This version:
  *
- * **Important artifact handling:** purchase has cleanup_default: "keep"
- * through main tour. If Q1 === "lab", the purchase reappears in the
- * Lab Mode tour's lab-purchases view per §6.14 final-fate-at-cleanup
- * shape. P7 will need to consume the same artifact when wiring the lab
- * tour scope. P7 may not currently reuse it; the artifact tag stays
- * stable so a future P7 patch can opt in without coordination.
+ *   1. Clicks "+ New Purchase" on /purchases (opens NewPurchaseModal).
+ *   2. Types the item name, vendor, price, quantity, and funding
+ *      string into the modal's inputs.
+ *   3. Clicks Save. The modal's submit handler (handleSave in
+ *      NewPurchaseModal.tsx) drives the real API path:
+ *      `tasksApi.create` for the parent task,
+ *      `purchasesApi.createFundingAccount` for the funding string row
+ *      if missing, and `purchasesApi.create` for the line item. It
+ *      then dispatches `tour:purchase-created`.
+ *   4. The step's `onEnter` listener catches the event detail and
+ *      stashes three artifacts (funding_string + purchase +
+ *      purchase_item). `onExit` flushes the pending list into
+ *      `wizard_resume_state.artifacts_created`.
  *
- * Funding string name: "BeakerBot's allowance" (placeholder per spec
- * §6.14 sample). Amount: $1000 (carried implicitly via the purchase's
- * total_price field rather than a separate funding-source record).
+ * Funding string name: "BeakerBot's allowance" (placeholder per §6.14
+ * sample). Cleanup defaults: `discard` for the funding string (the
+ * mascot-named line shouldn't survive into the user's real funding
+ * dashboard, R6 fix preserved), `keep` for the purchase + line item
+ * (the user gets to choose at the Phase 4 grid).
  *
  * Sample purchase:
  *   item_name      = "12-well Plates Of Premium Hand-Painted Quality"
@@ -38,18 +51,22 @@ import { readOnboarding } from "@/lib/onboarding/sidecar";
  *   quantity       = 1
  *   funding_string = "BeakerBot's allowance"
  *
- * Both strings match the spec's "funny placeholder" tone.
- *
  * **Speech copy rule (Grant standing):** NO EM-DASHES. The speech uses
  * commas, colons, period splits.
  *
- * Classification (per Grant's design correction 2026-05-21): BEAKERBOT
- * DEMO. Speech is "Let me show you how it works. I'll make us a
- * funding source and a sample purchase", an explicit BeakerBot-led
- * promise. The inner React component drives the API spawn directly;
- * no cursorScript is wired into this step body (the cursor primitives
- * aren't expressive enough for this flow), so there's no click/type
- * action to strip. Classification documented for future maintainers.
+ * Classification: BEAKERBOT DEMO. Speech is "Watch me set up a sample
+ * purchase," an explicit BeakerBot-led promise. The cursor script
+ * performs every click + type the speech promises.
+ *
+ * Resume contract: if the sidecar already records a `purchase`
+ * artifact (refresh mid-step or back-step into a completed §6.14), the
+ * body renders the post-create copy and the cursor script skips the
+ * fill-form chain. The artifact probe lives in `PurchasesDemoBody`
+ * (for the speech bubble) and in `cursorScript()` (for the action
+ * planner).
+ *
+ * Completion stays MANUAL ("Got it, next") per the live-test R6 fix:
+ * users need a beat to absorb the create before the spotlight moves.
  */
 
 // ---------------------------------------------------------------------------
@@ -64,208 +81,85 @@ const PURCHASE_PRICE = 42;
 const PURCHASE_QTY = 1;
 const PURCHASE_TASK_NAME = "Sample purchase (tour demo)";
 
-function todayLocal(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+const STEP_ID = "purchases";
 
 // ---------------------------------------------------------------------------
 // Inner speech-bubble component
 // ---------------------------------------------------------------------------
 
 /**
- * Renders the Purchases demo flow. On mount, BeakerBot kicks off the
- * funding-string + purchase creation. The speech bubble narrates each
- * stage. Auto-advances ~2s after the purchase saves so the user sees
- * the confirmation before the spotlight moves.
+ * Renders the speech-bubble copy for the cursor demo. The bubble is
+ * narration only, the cursor script does the actual work. Two stages
+ * are visible to the user:
  *
- * Idempotent across re-mounts: reads the sidecar's existing artifacts
- * and short-circuits creation if a purchase tagged for this tour is
- * already on disk (the resume-state contract per §8.1).
+ *   1. "watching" — the cursor is mid-flight; the bubble explains the
+ *      goal.
+ *   2. "done" — `tour:purchase-created` fired; the bubble switches to
+ *      the post-create wrap-up copy.
+ *
+ * Idempotent across re-mounts: on mount, reads the sidecar for an
+ * existing `purchase` artifact and jumps straight to the "done" stage.
+ * The cursor script itself runs a sibling DOM check at script-build
+ * time so re-running the step doesn't re-fire the create.
  */
 function PurchasesDemoBody() {
   const { currentUser } = useCurrentUser();
-  const { advance, noteEventFired } = useTourController();
   const username = currentUser ?? "";
 
-  const [stage, setStage] = useState<
-    "idle" | "creating-funding" | "creating-purchase" | "done" | "error"
-  >("idle");
-  const [error, setError] = useState<string | null>(null);
-  const [created, setCreated] = useState<{
-    taskId: number;
-    itemId: number;
-  } | null>(null);
-  const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const startedRef = useRef(false);
+  const [stage, setStage] = useState<"watching" | "done">("watching");
 
+  // Resume probe: if a `purchase` artifact already lives in the
+  // sidecar, this step ran before. Skip straight to the post-create
+  // narration so the user isn't told to "watch" a thing that already
+  // happened.
   useEffect(() => {
-    return () => {
-      if (advanceTimerRef.current) {
-        clearTimeout(advanceTimerRef.current);
-        advanceTimerRef.current = null;
+    if (!username) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const cur = await readOnboarding(username);
+        const existing = findArtifact(cur, "purchase");
+        if (existing && !cancelled) {
+          setStage("done");
+        }
+      } catch {
+        // Best-effort probe; on read failure assume fresh entry.
       }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [username]);
+
+  // Flip to the "done" view as soon as the tour event fires. The
+  // cursor's safeClickAction on the submit button resolves while the
+  // form is still mid-save; the event fires after the API resolves.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = () => setStage("done");
+    window.addEventListener(TOUR_DOM_EVENTS.purchaseCreated, handler);
+    return () => {
+      window.removeEventListener(TOUR_DOM_EVENTS.purchaseCreated, handler);
     };
   }, []);
 
-  const persistArtifacts = useCallback(
-    async (taskId: number, itemId: number) => {
-      if (!username) return;
-      try {
-        await patchOnboarding(username, (cur) => {
-          let next = appendArtifact(cur, {
-            type: "funding_string",
-            id: FUNDING_STRING_NAME,
-            // §6.14 (live-test R6 follow-up 2026-05-22): the tour's
-            // funding string is named "BeakerBot's allowance" which
-            // is obviously throwaway — keeping it post-tour leaves a
-            // mascot-named line in the real user's purchase
-            // dashboard. Flipped to "discard" so the cleanup grid
-            // pre-checks it for removal; a user who actually wants a
-            // BeakerBot-themed funding line can uncheck the row.
-            cleanup_default: "discard",
-          });
-          next = appendArtifact(next, {
-            type: "purchase",
-            id: String(taskId),
-            // §6.14: purchase is cleanup_default: "keep" through main
-            // tour; the lab-mode tour (Q1=lab path, §6.16) reuses the
-            // same purchase artifact for its lab-purchases view. Final
-            // fate is the user's call at the Phase 4 cleanup grid.
-            cleanup_default: "keep",
-          });
-          // Also record the line item id so cleanup can scope its
-          // delete to this specific row (the parent task may carry
-          // other line items if the user keeps adding to it during
-          // the tour).
-          next = appendArtifact(next, {
-            type: "purchase_item",
-            id: String(itemId),
-            cleanup_default: "keep",
-          });
-          return next;
-        });
-      } catch (err) {
-        console.error(
-          "[onboarding-v4] Purchases artifact persist failed:",
-          err,
-        );
-      }
-    },
-    [username],
-  );
-
-  // Auto-run the creation flow once on mount. The startedRef + sidecar
-  // probe guards against double-create on a re-mount (the controller
-  // can re-render the speech bubble component without losing the
-  // step). Re-entries pick up the existing artifact and skip straight
-  // to the "done" stage.
-  useEffect(() => {
-    if (startedRef.current || !username) return;
-    startedRef.current = true;
-
-    void (async () => {
-      try {
-        // Probe an existing v4 purchase artifact. If present, skip
-        // creation and jump to done so the resume contract holds.
-        const cur = await readOnboarding(username);
-        const existingPurchase = findArtifact(cur, "purchase");
-        if (existingPurchase) {
-          const taskId = Number(existingPurchase.id);
-          if (Number.isFinite(taskId)) {
-            setCreated({ taskId, itemId: -1 });
-            setStage("done");
-            // Resume path: existing artifact found, jump straight to
-            // the done view. Manual advance via the Got it, next
-            // button below — no timer.
-            return;
-          }
-        }
-
-        // Stage 1: announce the funding-string create. ResearchOS
-        // doesn't have a separate funding-source record; we narrate
-        // it then carry it into the purchase line item below.
-        setStage("creating-funding");
-        // Tiny pause so the narration lands.
-        await new Promise((res) => setTimeout(res, 700));
-
-        // Stage 2: create the parent task + purchase line item with
-        // the funding string baked in.
-        setStage("creating-purchase");
-        const purchaseTask = await tasksApi.create({
-          name: PURCHASE_TASK_NAME,
-          start_date: todayLocal(),
-          duration_days: 1,
-          task_type: "purchase",
-        });
-        const item = await purchasesApi.create({
-          task_id: purchaseTask.id,
-          item_name: PURCHASE_ITEM_NAME,
-          quantity: PURCHASE_QTY,
-          price_per_unit: PURCHASE_PRICE,
-          vendor: PURCHASE_VENDOR,
-          funding_string: FUNDING_STRING_NAME,
-        });
-
-        setCreated({ taskId: purchaseTask.id, itemId: item.id });
-        await persistArtifacts(purchaseTask.id, item.id);
-        setStage("done");
-        // Live-test R6 (2026-05-22): the auto-advance after 2s was
-        // too fast for the user to read the demo's confirmation copy
-        // (purchase task, line item, funding string narration). The
-        // step now waits for the manual "Got it, next" button surfaced
-        // by `completion: { type: "manual" }` below. No timer.
-      } catch (err) {
-        console.error(
-          "[onboarding-v4] Purchases demo create failed:",
-          err,
-        );
-        setError(
-          "Couldn't create the sample purchase. The Purchases tab still works, this is just the tour demo. You can move on.",
-        );
-        setStage("error");
-        // Even the error path waits for manual advance so the user
-        // sees the inline failure copy.
-      }
-    })();
-  }, [username, advance, noteEventFired, persistArtifacts]);
-
-  if (stage === "idle" || stage === "creating-funding") {
+  if (stage === "watching") {
     return (
-      <div className="space-y-2" data-testid="purchases-creating-funding">
+      <div className="space-y-2" data-testid="purchases-watching">
         <p>
-          You wanted the Purchases tab. Let me show you how it works.
-          I&apos;ll make us a funding source and a sample purchase.
+          You wanted the Purchases tab. Watch me set up a sample
+          purchase. I&apos;ll click New Purchase, fill in the form, and
+          save.
         </p>
         <p className="text-xs text-gray-500">
-          Setting up &ldquo;{FUNDING_STRING_NAME}&rdquo; ($
-          {FUNDING_STRING_AMOUNT})...
+          Funding string: &ldquo;{FUNDING_STRING_NAME}&rdquo; ($
+          {FUNDING_STRING_AMOUNT} placeholder budget). Item:
+          &ldquo;{PURCHASE_ITEM_NAME}&rdquo; from {PURCHASE_VENDOR},
+          ${PURCHASE_PRICE}.00, quantity {PURCHASE_QTY}.
         </p>
       </div>
     );
   }
-  if (stage === "creating-purchase") {
-    return (
-      <div className="space-y-2" data-testid="purchases-creating-purchase">
-        <p>
-          Funding string ready. Now a sample purchase order:
-          &ldquo;{PURCHASE_ITEM_NAME},&rdquo; vendor {PURCHASE_VENDOR},
-          ${PURCHASE_PRICE}.00, quantity {PURCHASE_QTY}. Charging it
-          against {FUNDING_STRING_NAME}.
-        </p>
-      </div>
-    );
-  }
-  if (stage === "error") {
-    return (
-      <div className="space-y-2" data-testid="purchases-error">
-        <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded px-2 py-1.5">
-          {error}
-        </p>
-      </div>
-    );
-  }
-  // done
   return (
     <div className="space-y-2" data-testid="purchases-done">
       <p>
@@ -275,12 +169,6 @@ function PurchasesDemoBody() {
         to its task. Real labs use this for reagent orders, equipment
         quotes, anything you spend money on.
       </p>
-      {created ? (
-        <p className="text-xs text-gray-500">
-          Task #{created.taskId}
-          {created.itemId > 0 ? ` (line item #${created.itemId})` : ""}
-        </p>
-      ) : null}
     </div>
   );
 }
@@ -289,42 +177,160 @@ function PurchasesDemoBody() {
 // Step body export
 // ---------------------------------------------------------------------------
 
-/**
- * §6.14 conditional walkthrough step. The inner component creates the
- * funding string + sample purchase then auto-advances ~2s after the
- * purchase saves (per spec). Completion is event-driven so the bubble
- * doesn't render a redundant "Got it, next" button.
- *
- * Conditional gate (purchases === "yes") is enforced by
- * `step-machine.ts isStepGatedOut`. `conditionalOn` here mirrors that
- * predicate for self-description.
- *
- * `onEnter` navigates to /purchases via `router.push` once P7 wires up
- * the router on the TourController context. Until then the spotlight
- * silently no-ops on missing target selectors (per TourSpotlight's
- * unresolved-selector behavior) and the demo runs purely via the API.
- */
-export const purchasesConditionalStep: TourStep = {
-  id: "purchases",
+export const purchasesConditionalStep: TourStep = buildWalkthroughStep({
+  id: STEP_ID,
   pose: "cheering",
   speech: () => <PurchasesDemoBody />,
-  // Live-test R6 (2026-05-22): the prior event-driven completion fired
-  // 2s after the purchase save, which was too fast for the user to
-  // read the demo's confirmation copy. Switched to manual so the user
-  // paces themselves through the funding-string + line-item demo.
+  targetSelector: targetSelector(TOUR_TARGETS.purchasesForm),
+  // Cursor script — see top-of-file comment. The script is idempotent
+  // on resume: at build time, peek at the DOM. If neither the
+  // "+ New Purchase" button nor the modal is on screen (the user
+  // navigated away), return an empty action list.
+  cursorScript: cursorScript(async () => {
+    if (typeof document !== "undefined") {
+      const modalOpen = document.querySelector(
+        `[data-tour-target="${TOUR_TARGETS.purchasesForm}"]`,
+      );
+      const buttonPresent = document.querySelector(
+        `[data-tour-target="${TOUR_TARGETS.purchasesNewButton}"]`,
+      );
+      if (!modalOpen && !buttonPresent) return [];
+    }
+
+    // 1. Click the "+ New Purchase" button. NewPurchaseModal mounts.
+    //    safeClickAction returns null when the button isn't on
+    //    screen, which covers the "modal already open" resume case.
+    const openModal = await safeClickAction(
+      targetSelector(TOUR_TARGETS.purchasesNewButton),
+    );
+
+    // 2. Type the item name. 25ms cadence keeps the per-input typing
+    //    visible without dragging the demo out, the same cadence the
+    //    §6.4d methods-create demo uses.
+    const typeName = await safeTypeAction(
+      targetSelector(TOUR_TARGETS.purchasesFormName),
+      PURCHASE_ITEM_NAME,
+      25,
+    );
+
+    // 3. Type the vendor.
+    const typeVendor = await safeTypeAction(
+      targetSelector(TOUR_TARGETS.purchasesFormVendor),
+      PURCHASE_VENDOR,
+      25,
+    );
+
+    // 4. Type the price (text input with inputMode=decimal, the
+    //    modal parses to float on submit).
+    const typePrice = await safeTypeAction(
+      targetSelector(TOUR_TARGETS.purchasesFormPrice),
+      PURCHASE_PRICE.toFixed(2),
+      40,
+    );
+
+    // 5. Type the quantity. NewPurchaseModal seeds "1" into the input
+    //    by default, so when PURCHASE_QTY === 1 the typed value would
+    //    visibly append a second "1" (cursor.typeInto appends to the
+    //    existing value). Skip the type step in that case; the
+    //    spotlight still moves past the field via the next safeType
+    //    action's glide.
+    const typeQty = PURCHASE_QTY === 1
+      ? null
+      : await safeTypeAction(
+          targetSelector(TOUR_TARGETS.purchasesFormQuantity),
+          String(PURCHASE_QTY),
+          40,
+        );
+
+    // 6. Type the funding-string name. NewPurchaseModal's submit
+    //    handler creates the FundingAccount row if no existing
+    //    account matches.
+    const typeFunding = await safeTypeAction(
+      targetSelector(TOUR_TARGETS.purchasesFormFunding),
+      FUNDING_STRING_NAME,
+      25,
+    );
+
+    // 7. Click Save. NewPurchaseModal.handleSave runs the real API
+    //    chain + dispatches `tour:purchase-created`. The step's
+    //    onEnter listener captures the artifact ids out of the event
+    //    detail; this step's manual-advance completion waits for the
+    //    user to acknowledge with "Got it, next".
+    const submit = await safeClickAction(
+      targetSelector(TOUR_TARGETS.purchasesFormSubmit),
+    );
+
+    return compactScript([
+      openModal,
+      typeName,
+      typeVendor,
+      typePrice,
+      typeQty,
+      typeFunding,
+      submit,
+    ]);
+  }),
+  // Live-test R6 (preserved): manual "Got it, next" completion so the
+  // user paces themselves through the funding-string + line-item demo.
   completion: {
     type: "manual",
     buttonLabel: "Got it, next",
   },
-  // Spotlight target: the Purchases tab nav button. Selector is the
-  // same shape AppShell sidebar uses; TourSpotlight silently no-ops
-  // when the user is on a non-Purchases route.
-  targetSelector: "[data-tour-target='purchases-tab']",
   conditionalOn: (picks) => picks?.purchases === "yes",
-  // Auto-navigate to /purchases on refresh so the demo's tab + cards
-  // are visible (per Grant's refresh-mid-tour bug).
+  // Capture the artifact ids out of the `tour:purchase-created` DOM
+  // event detail (dispatched by NewPurchaseModal on save success). The
+  // funding string lands as `cleanup_default: "discard"` (R6 fix) so
+  // "BeakerBot's allowance" doesn't survive into the user's real
+  // funding dashboard; the purchase + purchase_item land as "keep" so
+  // the user can decide at the Phase 4 grid. `onExit` flushes via the
+  // shared pendingArtifactStore (same pattern as §6.4d methods-create
+  // and §6.1 home-create-project-fill).
+  onEnter: () => {
+    if (typeof window === "undefined") return;
+    const handler = (evt: Event) => {
+      const detail = (
+        evt as CustomEvent<{
+          taskId?: number;
+          itemId?: number;
+          fundingString?: string | null;
+        }>
+      ).detail;
+      const taskId = detail?.taskId;
+      const itemId = detail?.itemId;
+      const fundingString = detail?.fundingString;
+      if (taskId === undefined || taskId === null) return;
+      if (fundingString) {
+        pendingArtifactStore.add(STEP_ID, {
+          type: "funding_string",
+          id: fundingString,
+          // R6 follow-up: discard so the mascot-named line is
+          // pre-checked for removal at the Phase 4 grid.
+          cleanup_default: "discard",
+        });
+      }
+      pendingArtifactStore.add(STEP_ID, {
+        type: "purchase",
+        id: String(taskId),
+        cleanup_default: "keep",
+      });
+      if (itemId !== undefined && itemId !== null) {
+        pendingArtifactStore.add(STEP_ID, {
+          type: "purchase_item",
+          id: String(itemId),
+          cleanup_default: "keep",
+        });
+      }
+      window.removeEventListener(TOUR_DOM_EVENTS.purchaseCreated, handler);
+    };
+    window.addEventListener(TOUR_DOM_EVENTS.purchaseCreated, handler);
+  },
+  onExit: async () => {
+    await flushPendingArtifacts(STEP_ID);
+  },
+  // Auto-navigate to /purchases on refresh so the modal anchor + the
+  // "+ New Purchase" button resolve when the user reloads mid-step.
   expectedRoute: "/purchases",
-};
+});
 
 // Re-exports for tests + P8 cleanup-grid matching.
 export {

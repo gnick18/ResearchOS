@@ -1,39 +1,33 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
-import type {
-  FeaturePicks,
-  OnboardingSidecar,
-} from "@/lib/onboarding/sidecar";
-import type { PurchaseItem } from "@/lib/types";
+import { act, render, screen, waitFor } from "@testing-library/react";
+import type { FeaturePicks } from "@/lib/onboarding/sidecar";
 
 /**
  * §6.14 Purchases step body tests.
  *
- * Mocks the purchases/tasks APIs + the sidecar patch helper to verify
- * the step body runs the canonical create flow with the spec's funny
- * placeholder values, persists three artifacts (funding_string,
- * purchase, purchase_item), and auto-advances after the purchase saves.
+ * R2 rebuild (HR sub-bot 2026-05-22): the step no longer drives the
+ * funding-string + purchase create from inside a useEffect. Instead,
+ * BeakerBot's cursor clicks "+ New Purchase" on /purchases, types into
+ * the NewPurchaseModal, and clicks Save; the modal dispatches
+ * `tour:purchase-created` and the step's onEnter listener stashes
+ * three artifacts (funding_string, purchase, purchase_item) which
+ * onExit flushes to the sidecar.
+ *
+ * These tests cover:
+ *   - The exported step shape (id, pose, gate, manual completion).
+ *   - The cursor script's planned action chain (open modal, type each
+ *     field, click submit) — by mounting the targets ourselves and
+ *     letting the script resolve.
+ *   - The onEnter listener captures the three artifacts when the
+ *     `tour:purchase-created` event fires.
+ *   - The speech bubble's resume probe + post-create stage flip.
  */
 
-const {
-  tasksApiCreate,
-  purchasesApiCreate,
-  patchOnboardingMock,
-  readOnboardingMock,
-} = vi.hoisted(() => ({
-  tasksApiCreate: vi.fn(),
-  purchasesApiCreate: vi.fn(),
-  patchOnboardingMock: vi.fn(),
+const { readOnboardingMock } = vi.hoisted(() => ({
   readOnboardingMock: vi.fn(),
 }));
 
-vi.mock("@/lib/local-api", () => ({
-  tasksApi: { create: tasksApiCreate },
-  purchasesApi: { create: purchasesApiCreate },
-}));
-
 vi.mock("@/lib/onboarding/sidecar", () => ({
-  patchOnboarding: patchOnboardingMock,
   readOnboarding: readOnboardingMock,
 }));
 
@@ -41,8 +35,8 @@ vi.mock("@/hooks/useCurrentUser", () => ({
   useCurrentUser: () => ({ currentUser: "alex" }),
 }));
 
-// Stub next/navigation's useRouter for the TourController auto-
-// navigate effect (Onboarding v4 route-nav fix). push() is a no-op.
+// Stub next/navigation so the TourController auto-navigate effect
+// doesn't blow up in jsdom.
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: vi.fn(),
@@ -61,9 +55,10 @@ import {
   PURCHASE_VENDOR,
   PURCHASE_PRICE,
   PURCHASE_QTY,
-  PURCHASE_TASK_NAME,
 } from "../PurchasesConditionalStep";
 import { TourControllerProvider } from "../../../TourController";
+import { pendingArtifactStore } from "../lib/artifacts";
+import { TOUR_DOM_EVENTS } from "../lib/tour-events";
 
 function picks(over: Partial<FeaturePicks> = {}): FeaturePicks {
   return {
@@ -77,12 +72,40 @@ function picks(over: Partial<FeaturePicks> = {}): FeaturePicks {
   };
 }
 
+function emptySidecar() {
+  return {
+    version: 1,
+    first_seen_at: "2026-05-22T00:00:00.000Z",
+    active_seconds: 0,
+    feature_picks: null,
+    wizard_completed_at: null,
+    wizard_skipped_at: null,
+    wizard_force_show: false,
+    wizard_resume_state: {
+      current_step: "purchases",
+      skipped_steps: [],
+      artifacts_created: [],
+    },
+    lab_tour_pending: false,
+    lab_tour_dismissed_at: null,
+  };
+}
+
 describe("purchasesConditionalStep step shape", () => {
+  beforeEach(() => {
+    readOnboardingMock.mockReset();
+    readOnboardingMock.mockResolvedValue(emptySidecar());
+    pendingArtifactStore.reset();
+  });
+
   it("exposes the expected id + pose + conditional gate", () => {
     expect(purchasesConditionalStep.id).toBe("purchases");
     expect(purchasesConditionalStep.pose).toBe("cheering");
+    // Spotlight now points at the form (mounts when the cursor clicks
+    // "+ New Purchase"). The spotlight silently no-ops while the form
+    // is unmounted.
     expect(purchasesConditionalStep.targetSelector).toBe(
-      "[data-tour-target='purchases-tab']",
+      "[data-tour-target=\"purchases-form\"]",
     );
   });
 
@@ -97,155 +120,93 @@ describe("purchasesConditionalStep step shape", () => {
   it("uses manual-advance completion (live-test R6: was event-driven 2s auto-advance, too fast for users to read)", () => {
     expect(purchasesConditionalStep.completion.type).toBe("manual");
   });
+
+  it("auto-navigates to /purchases", () => {
+    expect(purchasesConditionalStep.expectedRoute).toBe("/purchases");
+  });
 });
 
-describe("PurchasesDemoBody create flow", () => {
+describe("purchasesConditionalStep cursorScript", () => {
   beforeEach(() => {
-    tasksApiCreate.mockReset();
-    purchasesApiCreate.mockReset();
-    patchOnboardingMock.mockReset();
-    readOnboardingMock.mockReset();
-
-    readOnboardingMock.mockResolvedValue({
-      version: 1,
-      first_seen_at: "2026-05-21T00:00:00.000Z",
-      active_seconds: 0,
-      feature_picks: null,
-      wizard_completed_at: null,
-      wizard_skipped_at: null,
-      wizard_force_show: false,
-      wizard_resume_state: {
-        current_step: "purchases",
-        skipped_steps: [],
-        artifacts_created: [],
-      },
-      lab_tour_pending: false,
-      lab_tour_dismissed_at: null,
-    });
-    tasksApiCreate.mockResolvedValue({
-      id: 42,
-      project_id: null,
-      name: PURCHASE_TASK_NAME,
-      start_date: "2026-05-21",
-      duration_days: 1,
-      end_date: "2026-05-21",
-      is_high_level: false,
-      is_complete: false,
-      task_type: "purchase",
-      weekend_override: null,
-      method_ids: [],
-      deviation_log: null,
-      tags: null,
-      sort_order: 0,
-      experiment_color: null,
-      sub_tasks: null,
-      method_attachments: [],
-      owner: "alex",
-    });
-    purchasesApiCreate.mockResolvedValue({
-      id: 99,
-      task_id: 42,
-      item_name: PURCHASE_ITEM_NAME,
-      quantity: PURCHASE_QTY,
-      link: null,
-      cas: null,
-      price_per_unit: PURCHASE_PRICE,
-      shipping_fees: 0,
-      total_price: PURCHASE_PRICE,
-      notes: null,
-      funding_string: FUNDING_STRING_NAME,
-      vendor: PURCHASE_VENDOR,
-      category: null,
-    });
-    patchOnboardingMock.mockImplementation(
-      async (
-        _user: string,
-        patch: (cur: OnboardingSidecar) => OnboardingSidecar,
-      ) => {
-        const cur = await readOnboardingMock(_user);
-        return patch(cur);
-      },
-    );
+    document.body.innerHTML = "";
+    pendingArtifactStore.reset();
   });
 
-  function renderBody() {
-    if (typeof purchasesConditionalStep.speech !== "function") {
-      throw new Error("expected speech to be a render function");
-    }
-    return render(
-      <TourControllerProvider
-        initialFeaturePicks={picks()}
-        initialStep="purchases"
-      >
-        {purchasesConditionalStep.speech()}
-      </TourControllerProvider>,
-    );
-  }
-
-  it("creates the funding string + purchase with §6.14 sample values", async () => {
-    renderBody();
-
-    await waitFor(() => expect(tasksApiCreate).toHaveBeenCalled());
-
-    expect(tasksApiCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: PURCHASE_TASK_NAME,
-        task_type: "purchase",
-        duration_days: 1,
-      }),
-    );
-
-    await waitFor(() => expect(purchasesApiCreate).toHaveBeenCalled());
-
-    expect(purchasesApiCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        task_id: 42,
-        item_name: PURCHASE_ITEM_NAME,
-        vendor: PURCHASE_VENDOR,
-        price_per_unit: PURCHASE_PRICE,
-        quantity: PURCHASE_QTY,
-        funding_string: FUNDING_STRING_NAME,
-      }),
-    );
+  it("returns no actions when neither the button nor the form is on screen (resume guard)", async () => {
+    const script = purchasesConditionalStep.cursorScript;
+    if (!script) throw new Error("expected a cursorScript");
+    const actions = await script();
+    expect(actions).toEqual([]);
   });
 
-  it("persists funding_string + purchase + purchase_item artifacts via sidecar", async () => {
-    renderBody();
+  it("builds the full action chain when the button + form anchors exist", async () => {
+    // Mount the full target set so every safeClickAction /
+    // safeTypeAction resolves. In production these mount one-by-one
+    // as the cursor progresses; here we mount them all at once so the
+    // script-build pass can verify the planned chain.
+    document.body.innerHTML = `
+      <button data-tour-target="purchases-new-button">+ New Purchase</button>
+      <form data-tour-target="purchases-form">
+        <input data-tour-target="purchases-form-name" />
+        <input data-tour-target="purchases-form-vendor" />
+        <input data-tour-target="purchases-form-price" />
+        <input data-tour-target="purchases-form-quantity" />
+        <input data-tour-target="purchases-form-funding" />
+        <button data-tour-target="purchases-form-submit">Save</button>
+      </form>
+    `;
+    const script = purchasesConditionalStep.cursorScript;
+    if (!script) throw new Error("expected a cursorScript");
+    const actions = await script();
 
-    await waitFor(() =>
-      expect(patchOnboardingMock).toHaveBeenCalledWith(
-        "alex",
-        expect.any(Function),
-      ),
-    );
-
-    // Run the patch fn against an empty sidecar to inspect the
-    // composed shape.
-    const [, patchFn] = patchOnboardingMock.mock.calls[0];
-    const out = patchFn({
-      version: 1,
-      first_seen_at: "2026-05-21T00:00:00.000Z",
-      active_seconds: 0,
-      feature_picks: null,
-      wizard_completed_at: null,
-      wizard_skipped_at: null,
-      wizard_force_show: false,
-      wizard_resume_state: {
-        current_step: "purchases",
-        skipped_steps: [],
-        artifacts_created: [],
-      },
-      lab_tour_pending: false,
-      lab_tour_dismissed_at: null,
+    // PURCHASE_QTY === 1 → the quantity-type step is intentionally
+    // null (the modal seeds "1" into the input by default). Expect
+    // exactly 6 actions: open + 4 typed fields + submit.
+    expect(actions).toHaveLength(6);
+    expect(actions[0]).toMatchObject({ type: "click" });
+    expect(actions[1]).toMatchObject({ type: "type", text: PURCHASE_ITEM_NAME });
+    expect(actions[2]).toMatchObject({ type: "type", text: PURCHASE_VENDOR });
+    expect(actions[3]).toMatchObject({
+      type: "type",
+      text: PURCHASE_PRICE.toFixed(2),
     });
-    const artifacts = out.wizard_resume_state?.artifacts_created ?? [];
-    expect(artifacts).toEqual(
+    expect(actions[4]).toMatchObject({
+      type: "type",
+      text: FUNDING_STRING_NAME,
+    });
+    expect(actions[5]).toMatchObject({ type: "click" });
+    void PURCHASE_QTY;
+  });
+});
+
+describe("purchasesConditionalStep onEnter / onExit artifact capture", () => {
+  beforeEach(() => {
+    pendingArtifactStore.reset();
+  });
+
+  it("captures funding_string + purchase + purchase_item from tour:purchase-created", () => {
+    const onEnter = purchasesConditionalStep.onEnter;
+    if (!onEnter) throw new Error("expected onEnter");
+    onEnter();
+
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(TOUR_DOM_EVENTS.purchaseCreated, {
+          detail: {
+            taskId: 42,
+            itemId: 99,
+            fundingString: FUNDING_STRING_NAME,
+          },
+        }),
+      );
+    });
+
+    const pending = pendingArtifactStore.peek("purchases");
+    expect(pending).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           type: "funding_string",
           id: FUNDING_STRING_NAME,
-          // R6 follow-up: flipped to discard so "BeakerBot's allowance"
-          // doesn't survive the tour into the real funding-string list.
           cleanup_default: "discard",
         }),
         expect.objectContaining({
@@ -262,56 +223,115 @@ describe("PurchasesDemoBody create flow", () => {
     );
   });
 
-  it("renders the §6.14 sample copy somewhere in the flow", async () => {
-    // Hold the purchase API in a manual-resolve pending state so we
-    // can observe the "creating-purchase" narration phase. Otherwise
-    // the body races past it to the "done" stage and we can't assert
-    // the intermediate copy. The done-stage copy also carries the
-    // funding string name, so we assert against either reachable
-    // stage.
-    let resolvePurchase: ((value: PurchaseItem) => void) | undefined;
-    purchasesApiCreate.mockImplementationOnce(
-      () => new Promise<PurchaseItem>((resolve) => { resolvePurchase = resolve; }),
-    );
+  it("skips funding_string capture when the event detail omits it", () => {
+    const onEnter = purchasesConditionalStep.onEnter;
+    if (!onEnter) throw new Error("expected onEnter");
+    onEnter();
 
-    renderBody();
-
-    // Wait for the creating-purchase phase to render.
-    await waitFor(() => {
-      expect(
-        screen.getByTestId("purchases-creating-purchase"),
-      ).toBeInTheDocument();
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(TOUR_DOM_EVENTS.purchaseCreated, {
+          detail: { taskId: 7, itemId: 8, fundingString: null },
+        }),
+      );
     });
 
-    const creating = screen.getByTestId("purchases-creating-purchase");
-    expect(creating.textContent).toMatch(/12-well Plates Of Premium Hand-Painted Quality/);
-    expect(creating.textContent).toMatch(/BeakerBot's Boutique/);
-    expect(creating.textContent).toMatch(/BeakerBot's allowance/);
-
-    // Resolve the purchase create so the test cleans up without
-    // leaving an unresolved promise dangling.
-    resolvePurchase?.({
-      id: 99,
-      task_id: 42,
-      item_name: PURCHASE_ITEM_NAME,
-      quantity: PURCHASE_QTY,
-      link: null,
-      cas: null,
-      price_per_unit: PURCHASE_PRICE,
-      shipping_fees: 0,
-      total_price: PURCHASE_PRICE,
-      notes: null,
-      funding_string: FUNDING_STRING_NAME,
-      vendor: PURCHASE_VENDOR,
-      category: null,
-    });
+    const pending = pendingArtifactStore.peek("purchases");
+    const types = pending.map((a) => a.type);
+    expect(types).not.toContain("funding_string");
+    expect(types).toContain("purchase");
+    expect(types).toContain("purchase_item");
   });
 
-  it("falls through to an error narration if the API throws (no advance block)", async () => {
-    tasksApiCreate.mockRejectedValueOnce(new Error("boom"));
+  it("ignores events with no taskId", () => {
+    const onEnter = purchasesConditionalStep.onEnter;
+    if (!onEnter) throw new Error("expected onEnter");
+    onEnter();
+
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(TOUR_DOM_EVENTS.purchaseCreated, {
+          detail: { fundingString: FUNDING_STRING_NAME },
+        }),
+      );
+    });
+
+    expect(pendingArtifactStore.peek("purchases")).toEqual([]);
+  });
+});
+
+describe("PurchasesDemoBody speech-bubble rendering", () => {
+  beforeEach(() => {
+    readOnboardingMock.mockReset();
+    readOnboardingMock.mockResolvedValue(emptySidecar());
+    pendingArtifactStore.reset();
+  });
+
+  function renderBody() {
+    if (typeof purchasesConditionalStep.speech !== "function") {
+      throw new Error("expected speech to be a render function");
+    }
+    // TourControllerProvider renders the active step's speech node
+    // inside its own InProductWalkthroughOverlay, so we don't pass
+    // the speech() as a child — that would mount the body twice.
+    return render(
+      <TourControllerProvider
+        initialFeaturePicks={picks()}
+        initialStep="purchases"
+      >
+        <div />
+      </TourControllerProvider>,
+    );
+  }
+
+  it("starts in 'watching' stage and shows the demo plan", async () => {
     renderBody();
     await waitFor(() => {
-      expect(screen.getByTestId("purchases-error")).toBeInTheDocument();
+      expect(screen.getByTestId("purchases-watching")).toBeInTheDocument();
+    });
+    const node = screen.getByTestId("purchases-watching");
+    expect(node.textContent).toMatch(/New Purchase/);
+    expect(node.textContent).toMatch(/BeakerBot's allowance/);
+    expect(node.textContent).toMatch(
+      /12-well Plates Of Premium Hand-Painted Quality/,
+    );
+  });
+
+  it("flips to 'done' stage when tour:purchase-created fires", async () => {
+    renderBody();
+    await waitFor(() =>
+      expect(screen.getByTestId("purchases-watching")).toBeInTheDocument(),
+    );
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(TOUR_DOM_EVENTS.purchaseCreated, {
+          detail: { taskId: 1, itemId: 2, fundingString: FUNDING_STRING_NAME },
+        }),
+      );
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId("purchases-done")).toBeInTheDocument(),
+    );
+  });
+
+  it("jumps straight to 'done' when the sidecar already records a purchase artifact (resume)", async () => {
+    readOnboardingMock.mockResolvedValueOnce({
+      ...emptySidecar(),
+      wizard_resume_state: {
+        current_step: "purchases",
+        skipped_steps: [],
+        artifacts_created: [
+          {
+            type: "purchase",
+            id: "42",
+            cleanup_default: "keep" as const,
+          },
+        ],
+      },
+    });
+    renderBody();
+    await waitFor(() => {
+      expect(screen.getByTestId("purchases-done")).toBeInTheDocument();
     });
   });
 });

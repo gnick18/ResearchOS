@@ -139,6 +139,17 @@ export const TOUR_DOM_EVENTS = {
    * sub-step's cursor script can resolve the Attach button selector.
    */
   experimentMethodsTabActive: "tour:experiment-methods-tab-active",
+  /**
+   * Dispatched by `NewPurchaseModal.tsx` after the parent task + line
+   * item save succeeds. The §6.14 `purchases` cursor-driven demo step
+   * captures the task id, line item id, and the typed funding string
+   * out of `detail` so the three artifacts (purchase, purchase_item,
+   * funding_string) land in `wizard_resume_state.artifacts_created`
+   * for Phase 4 cleanup. Re-dispatched on every save so a refresh
+   * mid-tour that re-opens the modal can re-flush the artifact list
+   * idempotently via `appendArtifact`.
+   */
+  purchaseCreated: "tour:purchase-created",
 } as const;
 
 /**

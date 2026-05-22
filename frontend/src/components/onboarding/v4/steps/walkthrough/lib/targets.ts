@@ -177,6 +177,22 @@ export const TOUR_TARGETS = {
   // §6.3 notifications fires from the home surface, not from inside the
   // project page. Visible "exiting the project" beat per Grant.
   homeNavTab: "home-nav-tab",
+
+  // §6.14 Purchases — anchors for the BeakerBot cursor-driven demo on
+  // /purchases (HR sub-bot 2026-05-22 R2 rebuild). The demo clicks
+  // "+ New Purchase" to open NewPurchaseModal, types the item name +
+  // vendor + price + quantity + funding string into the form, and
+  // clicks Save. The form's submit handler drives the real API path
+  // and dispatches `tour:purchase-created` so the step's onEnter
+  // listener captures the task + line item + funding-string artifacts.
+  purchasesNewButton: "purchases-new-button",
+  purchasesForm: "purchases-form",
+  purchasesFormName: "purchases-form-name",
+  purchasesFormVendor: "purchases-form-vendor",
+  purchasesFormPrice: "purchases-form-price",
+  purchasesFormQuantity: "purchases-form-quantity",
+  purchasesFormFunding: "purchases-form-funding",
+  purchasesFormSubmit: "purchases-form-submit",
 } as const;
 
 export type TourTargetName = (typeof TOUR_TARGETS)[keyof typeof TOUR_TARGETS];

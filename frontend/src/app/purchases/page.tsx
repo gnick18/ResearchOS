@@ -6,6 +6,7 @@ import { tasksApi, purchasesApi, fetchAllProjectsIncludingShared, fetchAllTasksI
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
+import NewPurchaseModal from "@/components/NewPurchaseModal";
 import PurchaseEditor from "@/components/PurchaseEditor";
 import SpendingDashboard from "@/components/SpendingDashboard";
 import Tooltip from "@/components/Tooltip";
@@ -15,6 +16,12 @@ export default function PurchasesPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [deletingTaskId, setDeletingTaskId] = useState<number | null>(null);
   const [showFundingManager, setShowFundingManager] = useState(false);
+  // Quick "+ New Purchase" modal — drives the Onboarding v4 §6.14 demo
+  // and gives /purchases a self-contained "create a one-off purchase"
+  // surface (parent task + first line item in one form). The deeper
+  // PurchaseEditor inline-row affordance remains for adding more items
+  // to an existing purchase order.
+  const [showNewPurchase, setShowNewPurchase] = useState(false);
   const queryClient = useQueryClient();
   const selectedProjectIds = useAppStore((s) => s.selectedProjectIds);
 
@@ -129,13 +136,27 @@ export default function PurchasesPage() {
               total
             </p>
           </div>
-          <button
-            onClick={() => setShowFundingManager(!showFundingManager)}
-            className="px-3 py-1.5 text-sm bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
-          >
-            {showFundingManager ? "Hide Funding Manager" : "Manage Funding Accounts"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowNewPurchase(true)}
+              className="px-3 py-1.5 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+              data-tour-target="purchases-new-button"
+            >
+              + New Purchase
+            </button>
+            <button
+              onClick={() => setShowFundingManager(!showFundingManager)}
+              className="px-3 py-1.5 text-sm bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
+            >
+              {showFundingManager ? "Hide Funding Manager" : "Manage Funding Accounts"}
+            </button>
+          </div>
         </div>
+
+        <NewPurchaseModal
+          open={showNewPurchase}
+          onClose={() => setShowNewPurchase(false)}
+        />
 
         {/* Funding Accounts Manager */}
         {showFundingManager && (
