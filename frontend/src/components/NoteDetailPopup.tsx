@@ -640,6 +640,7 @@ export default function NoteDetailPopup({
               <Tooltip label="Close" placement="bottom">
                 <button
                   onClick={handleClose}
+                  data-tour-target="lab-mode-note-popup-close"
                   className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

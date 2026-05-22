@@ -502,3 +502,49 @@ export function compactScript(
 ): CursorAction[] {
   return actions.filter((a): a is CursorAction => a !== null);
 }
+
+/**
+ * Build a deferred click action: waits for the selector to mount AT
+ * PLAYBACK time (inside the callback's promise), then dispatches a
+ * native `.click()` on the resolved element. Returns a `callback`
+ * action so the wait + click happens between adjacent cursor
+ * primitives instead of at script-build time.
+ *
+ * Lab Mode fix manager R1 (2026-05-22): the lab-mode-* tab demos
+ * chain "click row → popup mounts → click close". `safeClickAction`
+ * resolves DOM refs at BUILD time, so the popup's close button
+ * doesn't yet exist when the build pipeline asks for it (the row
+ * click hasn't been played). `deferredClickAction` defers the
+ * resolve+click to playback so the chain works.
+ *
+ * `timeoutMs` mirrors `waitForElement`'s default (5s). If the
+ * element never mounts, the callback logs a warn and resolves
+ * (the rest of the action list still plays).
+ *
+ * No visual cursor glide — the click fires programmatically. For
+ * popup dismisses that should look intentional (cursor moves to the
+ * close button before clicking), use `safeClickAction` instead and
+ * pre-condition on the popup being open when the step starts.
+ */
+export function deferredClickAction(
+  selector: string,
+  timeoutMs = 5000,
+): CursorAction {
+  return callbackAction(async () => {
+    const el = await waitForElement(selector, timeoutMs);
+    if (!el) {
+      console.warn(
+        `[onboarding-v4] deferredClickAction: selector "${selector}" never mounted`,
+      );
+      return;
+    }
+    try {
+      el.click();
+    } catch (err) {
+      console.warn(
+        `[onboarding-v4] deferredClickAction: click on "${selector}" threw:`,
+        err,
+      );
+    }
+  });
+}

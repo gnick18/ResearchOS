@@ -183,7 +183,12 @@ export default function DemoLabModeViewer({
       aria-modal="true"
       aria-label="Demo Lab Mode viewer"
       data-testid="demo-lab-mode-viewer"
-      className="fixed inset-0 z-[60] bg-gray-50 overflow-y-auto"
+      // Lab Mode fix manager R1 (2026-05-22): bumped from z-[60] to
+      // z-[200] so future modal additions inside the lab UI can't
+      // peek through the demo overlay. Still sits below the tour
+      // BeakerBot speech bubble (z-[450]) so BeakerBot remains
+      // clickable on top of the viewer.
+      className="fixed inset-0 z-[200] bg-gray-50 overflow-y-auto"
     >
       {/* Header — mirrors the live /lab chrome, plus a DEMO pill so
           the user knows this isn't their own account. The Exit button

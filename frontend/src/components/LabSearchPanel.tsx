@@ -363,6 +363,7 @@ export default function LabSearchPanel({
               value={filters.keywords}
               onChange={(e) => updateFilter("keywords", e.target.value)}
               placeholder="Search by name, tags, method..."
+              data-tour-target="lab-mode-search-keyword-input"
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             />

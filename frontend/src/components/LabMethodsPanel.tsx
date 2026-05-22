@@ -216,7 +216,7 @@ export default function LabMethodsPanel({
         {used.length === 0 ? (
           <EmptyRow>No matching methods used recently.</EmptyRow>
         ) : (
-          used.map((row) => {
+          used.map((row, idx) => {
             const key = methodRowKey(row.method);
             return (
               <MethodRowView
@@ -228,6 +228,11 @@ export default function LabMethodsPanel({
                 projectNameFor={projectNameFor}
                 onTaskClick={onTaskClick}
                 onUserClick={onUserClick}
+                // Lab Mode fix manager R1 (2026-05-22): stamp the
+                // top-ranked methods row so the lab-mode-methods
+                // tour can drive a three-click chain (top row →
+                // linked experiments → popup).
+                topRowTourTarget={idx === 0}
               />
             );
           })
@@ -303,6 +308,7 @@ function MethodRowView({
   onTaskClick,
   onUserClick,
   dimmed = false,
+  topRowTourTarget = false,
 }: {
   row: MethodRow;
   expanded: boolean;
@@ -312,6 +318,13 @@ function MethodRowView({
   onTaskClick: (task: LabTask) => void;
   onUserClick?: (username: string) => void;
   dimmed?: boolean;
+  /** Lab Mode fix manager R1 (2026-05-22): when true, stamps
+   *  `lab-mode-methods-top-row` on the row container + tags the
+   *  first linked-experiment button (rendered inside the expanded
+   *  body) with `lab-mode-methods-first-experiment`. The tour
+   *  cursor uses the row anchor to open the row, then the inner
+   *  anchor to click into a linked experiment. */
+  topRowTourTarget?: boolean;
 }) {
   const { method, taskCount, users, lastUsed, tasks } = row;
   const sortedUsers = Array.from(users).sort();
@@ -332,6 +345,7 @@ function MethodRowView({
             onToggle();
           }
         }}
+        data-tour-target={topRowTourTarget ? "lab-mode-methods-top-row" : undefined}
         className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors flex items-center gap-3 cursor-pointer"
       >
         <div className="flex-1 min-w-0">
@@ -403,7 +417,7 @@ function MethodRowView({
             <div className="rounded-lg border border-gray-100 divide-y divide-gray-100">
               {[...tasks]
                 .sort((a, b) => b.start_date.localeCompare(a.start_date))
-                .map((task) => (
+                .map((task, taskIdx) => (
                   <button
                     key={`${task.username}-${task.id}`}
                     type="button"
@@ -411,6 +425,11 @@ function MethodRowView({
                       e.stopPropagation();
                       onTaskClick(task);
                     }}
+                    data-tour-target={
+                      topRowTourTarget && taskIdx === 0
+                        ? "lab-mode-methods-first-experiment"
+                        : undefined
+                    }
                     className="w-full text-left flex items-center gap-3 px-3 py-2 hover:bg-gray-50 transition-colors"
                   >
                     <div

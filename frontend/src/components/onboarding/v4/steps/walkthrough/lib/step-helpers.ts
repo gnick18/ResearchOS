@@ -110,6 +110,20 @@ export function branchOn(
     buttonLabel: string;
     nextStep: import("@/components/onboarding/v4/step-types").TourStepId;
   }>,
+  options?: {
+    /** Lab Mode fix manager R1 (2026-05-22): persistence hook for
+     *  steps that need to write the chosen branch to the sidecar
+     *  (e.g. `lab-mode-prompt`). Fires synchronously on button click,
+     *  awaited before the controller's `branchTo` dispatch. Default
+     *  branchOn (HE-2) omits this — the choice stays in-tour-only. */
+    onChoose?: (chosen: {
+      label: string;
+      buttonLabel: string;
+      nextStep: import("@/components/onboarding/v4/step-types").TourStepId;
+    }) => void | Promise<void>;
+  },
 ): TourStepCompletion {
-  return { type: "branch", branches };
+  return options?.onChoose
+    ? { type: "branch", branches, onChoose: options.onChoose }
+    : { type: "branch", branches };
 }

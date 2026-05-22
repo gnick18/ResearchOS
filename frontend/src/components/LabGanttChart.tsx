@@ -296,6 +296,18 @@ export default function LabGanttChart({
     [filteredTasks],
   );
 
+  // Lab Mode fix manager R1 (2026-05-22): the earliest-by-start-date
+  // task's key. The render loop stamps `data-tour-target` on the
+  // very first bar rendered for this task so the lab-mode-gantt
+  // cursor demo can deterministically click a single bar. We anchor
+  // by `labTaskKey` (not array index) because a task can render
+  // multiple bars across week boundaries; we only want the first
+  // week's bar to receive the stamp.
+  const firstBarTourKey = useMemo<string | null>(() => {
+    if (sortedTasks.length === 0) return null;
+    return labTaskKey(sortedTasks[0]);
+  }, [sortedTasks]);
+
   // Find the earliest and latest task dates to determine if we need to adjust the view
   const taskDateRange = useMemo(() => {
     if (filteredTasks.length === 0) return null;
@@ -349,6 +361,13 @@ export default function LabGanttChart({
       </div>
     );
   }
+
+  // Lab Mode fix manager R1: render-scoped flag tracking whether the
+  // first bar has been stamped yet. The bar map below sets this
+  // true after the first matching tile emits a `data-tour-target`,
+  // so weeks-after-the-first don't re-stamp the same task. Declared
+  // outside JSX to keep the render-loop callback closures small.
+  let firstBarStamped = false;
 
   return (
     <div className="flex-1 overflow-auto bg-white rounded-xl p-4 relative border border-gray-200">
@@ -495,6 +514,18 @@ export default function LabGanttChart({
                             1,
                           );
 
+                          // Lab Mode fix manager R1: stamp the first
+                          // bar rendered for the earliest-start task
+                          // so the lab-mode-gantt demo can click it
+                          // deterministically. Cross-week bars only
+                          // collect the stamp on their FIRST tile.
+                          const stampFirstBar =
+                            !firstBarStamped &&
+                            firstBarTourKey !== null &&
+                            labTaskKey(task) === firstBarTourKey;
+                          if (stampFirstBar) {
+                            firstBarStamped = true;
+                          }
                           return (
                             <div
                               key={`${labTaskKey(task)}-w${weekIdx}-r${rowNum}`}
@@ -506,6 +537,11 @@ export default function LabGanttChart({
                             >
                               <div
                                 onClick={() => onTaskClick(task)}
+                                data-tour-target={
+                                  stampFirstBar
+                                    ? "lab-mode-gantt-first-bar"
+                                    : undefined
+                                }
                                 className="absolute inset-x-0 top-1 bottom-1 rounded-lg cursor-pointer flex items-center px-2 text-white text-xs font-medium truncate shadow-sm hover:shadow-md transition-all overflow-hidden group"
                                 style={{
                                   background: barBackground,

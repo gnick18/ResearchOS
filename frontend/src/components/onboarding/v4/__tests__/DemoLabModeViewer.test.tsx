@@ -131,6 +131,18 @@ describe("DemoLabModeViewer", () => {
     fireEvent.keyDown(window, { key: "Escape" });
     expect(onExit).toHaveBeenCalledTimes(1);
   });
+
+  it("sits at z-[200] so future modal additions don't peek through (Lab Mode fix manager R1)", () => {
+    const { getByTestId } = render(
+      <DemoLabModeViewer onExit={() => {}} />,
+    );
+    const dialog = getByTestId("demo-lab-mode-viewer");
+    // The class list carries the Tailwind utility; we check the
+    // string directly because jsdom doesn't compute applied styles.
+    expect(dialog.className).toMatch(/z-\[200\]/);
+    // Belt-and-suspenders: must NOT carry the legacy z-[60] string.
+    expect(dialog.className).not.toMatch(/z-\[60\]/);
+  });
 });
 
 describe("DemoLabModeMount host", () => {

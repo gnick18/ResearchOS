@@ -140,6 +140,12 @@ export default function LabRoadmapsPanel({
     );
   }
 
+  // Lab Mode fix manager R1 (2026-05-22): track the FIRST tracker
+  // button rendered across every (user, goal) tuple so the
+  // lab-mode-roadmaps cursor demo can click it deterministically.
+  // Render-scoped flag, reset on every render.
+  let firstTrackerStamped = false;
+
   return (
     <div className="space-y-6">
       {usersWithGoals.map((username) => {
@@ -181,11 +187,18 @@ export default function LabRoadmapsPanel({
                 const isOpen = expanded.has(key);
                 const progress = smartGoalProgress(goal);
                 const status = timelineStatus(goal, today);
+                const stampFirstTracker = !firstTrackerStamped;
+                if (stampFirstTracker) firstTrackerStamped = true;
                 return (
                   <div key={key}>
                     <button
                       type="button"
                       onClick={() => toggleExpand(key)}
+                      data-tour-target={
+                        stampFirstTracker
+                          ? "lab-mode-roadmaps-first-tracker"
+                          : undefined
+                      }
                       className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors"
                     >
                       <div className="flex items-start gap-3">

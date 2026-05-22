@@ -88,12 +88,17 @@ interface RowProps {
   dateLabel: string;
   onClick?: () => void;
   onUserClick?: () => void;
+  /** Lab Mode fix manager R1 (2026-05-22): the first row in the
+   *  Activity panel carries a `data-tour-target` so the lab-mode
+   *  Activity cursor demo can click it deterministically. */
+  tourTarget?: string;
 }
 
-function ActivityRow({ username, title, type, context, dateLabel, onClick, onUserClick }: RowProps) {
+function ActivityRow({ username, title, type, context, dateLabel, onClick, onUserClick, tourTarget }: RowProps) {
   return (
     <div
       onClick={onClick}
+      data-tour-target={tourTarget}
       className={`flex items-center gap-3 px-4 py-3 transition-colors ${
         onClick ? "hover:bg-gray-50 cursor-pointer" : ""
       }`}
@@ -242,7 +247,7 @@ export default function LabActivityPanel({
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {runningNow.map((task) => (
+            {runningNow.map((task, idx) => (
               <ActivityRow
                 key={`run-${task.username}-${task.id}`}
                 username={task.username}
@@ -252,6 +257,7 @@ export default function LabActivityPanel({
                 dateLabel={`ends ${formatRelativeDay(task.end_date)}`}
                 onClick={() => onTaskClick(task)}
                 onUserClick={onUserClick ? () => onUserClick(task.username) : undefined}
+                tourTarget={idx === 0 ? "lab-mode-activity-first-row" : undefined}
               />
             ))}
           </div>

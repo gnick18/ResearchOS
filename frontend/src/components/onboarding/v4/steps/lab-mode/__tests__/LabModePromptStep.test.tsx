@@ -1,29 +1,25 @@
 /**
  * §6.16 Phase 2c Lab Mode tour — lab-mode-prompt step tests.
  *
- * Covers:
- *   - Step shape: id, pose (thinking), manual fallback completion,
- *     conditionalOn gate.
- *   - The three buttons render with the right labels.
- *   - Picking Now: persists `lab_mode_tour_choice = "now"` + calls
- *     branchTo("lab-mode-intro").
- *   - Picking Later: persists `lab_mode_tour_choice = "later"` and
- *     mirrors `lab_tour_pending = true`; branches to `lab-cleanup`.
- *   - Picking Dismiss: persists `lab_mode_tour_choice = "dismiss"`
- *     and mirrors `lab_tour_dismissed_at` to a timestamp; branches
- *     to `lab-cleanup`.
- *   - `LAB_MODE_PROMPT_BRANCHES` shape.
+ * Lab Mode fix manager R1 (2026-05-22) updated the step to use the
+ * declarative `branchOn` completion primitive + `onChoose` sidecar
+ * persistence hook. Tests now assert:
+ *
+ *   - Step shape: id, pose (thinking), `branch` completion with the
+ *     three branches, conditionalOn gate on account_type === "lab".
+ *   - LAB_MODE_PROMPT_BRANCHES routes Now → lab-mode-intro,
+ *     Later → lab-cleanup, Dismiss → lab-cleanup.
+ *   - `persistLabModePromptChoice` writes lab_mode_tour_choice plus
+ *     the back-compat mirrors (lab_tour_pending, lab_tour_dismissed_at).
+ *   - The branchOn's onChoose hook dispatches the persistence function
+ *     for each branch label.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, render, waitFor } from "@testing-library/react";
 
-const { patchOnboardingMock, getCurrentUserCachedMock, branchToMock } = vi.hoisted(
-  () => ({
-    patchOnboardingMock: vi.fn(),
-    getCurrentUserCachedMock: vi.fn(),
-    branchToMock: vi.fn(),
-  }),
-);
+const { patchOnboardingMock, getCurrentUserCachedMock } = vi.hoisted(() => ({
+  patchOnboardingMock: vi.fn(),
+  getCurrentUserCachedMock: vi.fn(),
+}));
 
 vi.mock("@/lib/onboarding/sidecar", () => ({
   patchOnboarding: patchOnboardingMock,
@@ -38,32 +34,34 @@ vi.mock("@/lib/storage/json-store", async (importOriginal) => {
   };
 });
 
-vi.mock("../../../TourController", () => ({
-  useTourController: () => ({
-    branchTo: branchToMock,
-    noteManualAdvance: () => {},
-    exitTour: () => {},
-  }),
-}));
-
 import {
   labModePromptStep,
   LAB_MODE_PROMPT_BRANCHES,
+  LAB_MODE_PROMPT_LABEL_TO_PICK,
+  persistLabModePromptChoice,
 } from "../LabModePromptStep";
 
-function renderSpeech() {
-  const speechNode =
-    typeof labModePromptStep.speech === "function"
-      ? labModePromptStep.speech()
-      : labModePromptStep.speech;
-  return render(<>{speechNode}</>);
+function baselineSidecar() {
+  return {
+    version: 4,
+    first_seen_at: "",
+    active_seconds: 0,
+    feature_picks: null,
+    wizard_completed_at: null,
+    wizard_skipped_at: null,
+    wizard_force_show: false,
+    wizard_resume_state: null,
+    lab_tour_pending: false,
+    lab_tour_dismissed_at: null,
+    lab_mode_tour_choice: null,
+  };
 }
 
 describe("labModePromptStep shape", () => {
-  it("exposes the expected id + pose + manual fallback completion", () => {
+  it("exposes id + pose + branchOn completion", () => {
     expect(labModePromptStep.id).toBe("lab-mode-prompt");
     expect(labModePromptStep.pose).toBe("thinking");
-    expect(labModePromptStep.completion.type).toBe("manual");
+    expect(labModePromptStep.completion.type).toBe("branch");
   });
 
   it("gates on picks.account_type === 'lab'", () => {
@@ -78,74 +76,109 @@ describe("labModePromptStep shape", () => {
     expect(LAB_MODE_PROMPT_BRANCHES.later).toBe("lab-cleanup");
     expect(LAB_MODE_PROMPT_BRANCHES.dismiss).toBe("lab-cleanup");
   });
+
+  it("declares three branches matching LAB_MODE_PROMPT_BRANCHES", () => {
+    if (labModePromptStep.completion.type !== "branch") {
+      throw new Error("expected branchOn completion");
+    }
+    const branches = labModePromptStep.completion.branches;
+    expect(branches).toHaveLength(3);
+    const byLabel = Object.fromEntries(branches.map((b) => [b.label, b]));
+    expect(byLabel.now?.nextStep).toBe("lab-mode-intro");
+    expect(byLabel.later?.nextStep).toBe("lab-cleanup");
+    expect(byLabel.dismiss?.nextStep).toBe("lab-cleanup");
+    expect(byLabel.now?.buttonLabel).toMatch(/now/i);
+    expect(byLabel.later?.buttonLabel).toMatch(/later/i);
+    expect(byLabel.dismiss?.buttonLabel).toMatch(/dismiss/i);
+  });
+
+  it("provides an onChoose hook (per Lab Mode fix manager R1)", () => {
+    if (labModePromptStep.completion.type !== "branch") {
+      throw new Error("expected branchOn completion");
+    }
+    expect(typeof labModePromptStep.completion.onChoose).toBe("function");
+  });
 });
 
-describe("labModePromptStep button behavior", () => {
+describe("persistLabModePromptChoice", () => {
   beforeEach(() => {
     patchOnboardingMock.mockReset();
     getCurrentUserCachedMock.mockReset();
-    branchToMock.mockReset();
     getCurrentUserCachedMock.mockResolvedValue("alex");
     patchOnboardingMock.mockImplementation(async (_username, patch) =>
-      patch({
-        version: 4,
-        first_seen_at: "",
-        active_seconds: 0,
-        feature_picks: null,
-        wizard_completed_at: null,
-        wizard_skipped_at: null,
-        wizard_force_show: false,
-        wizard_resume_state: null,
-        lab_tour_pending: false,
-        lab_tour_dismissed_at: null,
-        lab_mode_tour_choice: null,
-      }),
+      patch(baselineSidecar()),
     );
   });
 
-  it("renders Now / Later / Dismiss buttons with their labels", () => {
-    const { getByText } = renderSpeech();
-    expect(getByText(/Now \(/)).toBeTruthy();
-    expect(getByText(/Later/)).toBeTruthy();
-    expect(getByText(/Dismiss/)).toBeTruthy();
+  it("writes lab_mode_tour_choice='now' with no back-compat side effects", async () => {
+    await persistLabModePromptChoice("now");
+    const result = await patchOnboardingMock.mock.results[0]!.value;
+    expect(result.lab_mode_tour_choice).toBe("now");
+    expect(result.lab_tour_pending).toBe(false);
+    expect(result.lab_tour_dismissed_at).toBeNull();
   });
 
-  it("clicking Now persists lab_mode_tour_choice='now' and branches to lab-mode-intro", async () => {
-    const { getByText } = renderSpeech();
-    fireEvent.click(getByText(/Now \(/));
-    await waitFor(() => {
-      expect(patchOnboardingMock).toHaveBeenCalledTimes(1);
-    });
-    const patchedRecord = await patchOnboardingMock.mock.results[0]!.value;
-    expect(patchedRecord.lab_mode_tour_choice).toBe("now");
-    expect(patchedRecord.lab_tour_pending).toBe(false);
-    expect(patchedRecord.lab_tour_dismissed_at).toBeNull();
-    expect(branchToMock).toHaveBeenCalledWith("lab-mode-intro");
+  it("writes lab_mode_tour_choice='later' + lab_tour_pending=true", async () => {
+    await persistLabModePromptChoice("later");
+    const result = await patchOnboardingMock.mock.results[0]!.value;
+    expect(result.lab_mode_tour_choice).toBe("later");
+    expect(result.lab_tour_pending).toBe(true);
+    expect(result.lab_tour_dismissed_at).toBeNull();
   });
 
-  it("clicking Later persists 'later' and branches to lab-cleanup", async () => {
-    const { getByText } = renderSpeech();
-    fireEvent.click(getByText(/Later/));
-    await waitFor(() => {
-      expect(patchOnboardingMock).toHaveBeenCalledTimes(1);
-    });
-    const patchedRecord = await patchOnboardingMock.mock.results[0]!.value;
-    expect(patchedRecord.lab_mode_tour_choice).toBe("later");
-    // Back-compat mirror: lab_tour_pending stays in sync with the
-    // new field for the brief back-compat window.
-    expect(patchedRecord.lab_tour_pending).toBe(true);
-    expect(branchToMock).toHaveBeenCalledWith("lab-cleanup");
+  it("writes lab_mode_tour_choice='dismiss' + ISO lab_tour_dismissed_at", async () => {
+    await persistLabModePromptChoice("dismiss");
+    const result = await patchOnboardingMock.mock.results[0]!.value;
+    expect(result.lab_mode_tour_choice).toBe("dismiss");
+    expect(result.lab_tour_pending).toBe(false);
+    expect(typeof result.lab_tour_dismissed_at).toBe("string");
+    // Loose ISO-shape check — must include a T separator and at least
+    // a year-month-day prefix.
+    expect(result.lab_tour_dismissed_at).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/,
+    );
   });
 
-  it("clicking Dismiss persists 'dismiss' and an ISO timestamp into lab_tour_dismissed_at, then branches to lab-cleanup", async () => {
-    const { getByText } = renderSpeech();
-    fireEvent.click(getByText(/Dismiss/));
-    await waitFor(() => {
-      expect(patchOnboardingMock).toHaveBeenCalledTimes(1);
+  it("no-ops when no username is resolvable", async () => {
+    await persistLabModePromptChoice("now", {
+      getUsername: async () => null,
+      patchSidecar: patchOnboardingMock,
     });
-    const patchedRecord = await patchOnboardingMock.mock.results[0]!.value;
-    expect(patchedRecord.lab_mode_tour_choice).toBe("dismiss");
-    expect(typeof patchedRecord.lab_tour_dismissed_at).toBe("string");
-    expect(branchToMock).toHaveBeenCalledWith("lab-cleanup");
+    expect(patchOnboardingMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("branchOn.onChoose dispatch", () => {
+  beforeEach(() => {
+    patchOnboardingMock.mockReset();
+    getCurrentUserCachedMock.mockReset();
+    getCurrentUserCachedMock.mockResolvedValue("alex");
+    patchOnboardingMock.mockImplementation(async (_username, patch) =>
+      patch(baselineSidecar()),
+    );
+  });
+
+  it("dispatches persistence with the chosen branch's label → pick mapping", async () => {
+    if (labModePromptStep.completion.type !== "branch") {
+      throw new Error("expected branchOn completion");
+    }
+    const onChoose = labModePromptStep.completion.onChoose!;
+    await onChoose({
+      label: "now",
+      buttonLabel: "Now (~5 min)",
+      nextStep: "lab-mode-intro",
+    });
+    expect(patchOnboardingMock).toHaveBeenCalledTimes(1);
+    const result = await patchOnboardingMock.mock.results[0]!.value;
+    expect(result.lab_mode_tour_choice).toBe("now");
+  });
+
+  it("LAB_MODE_PROMPT_LABEL_TO_PICK covers every branch label", () => {
+    if (labModePromptStep.completion.type !== "branch") {
+      throw new Error("expected branchOn completion");
+    }
+    for (const b of labModePromptStep.completion.branches) {
+      expect(LAB_MODE_PROMPT_LABEL_TO_PICK[b.label]).toBeTruthy();
+    }
   });
 });

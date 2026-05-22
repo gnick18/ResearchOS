@@ -84,6 +84,23 @@ export type TourStepCompletion =
         buttonLabel: string;
         nextStep: TourStepId;
       }>;
+      /** Optional callback invoked synchronously with the chosen
+       *  branch's `{ label, nextStep }` BEFORE the controller dispatches
+       *  `branchTo`. Lab Mode fix manager R1 (2026-05-22): added so the
+       *  `lab-mode-prompt` step can persist `lab_mode_tour_choice` to
+       *  the sidecar inline with the branch click. The callback may be
+       *  async — its returned promise is awaited before the SET_STEP
+       *  dispatch so a write failure can short-circuit the branch
+       *  (returning a rejected promise keeps the user on the current
+       *  step; the controller logs + advances anyway to avoid a wedged
+       *  tour, see TourController's branchTo). The branchOn contract
+       *  for the HE-2 case is unchanged: no `onChoose`, no sidecar
+       *  write, the choice scope stays in-tour-only.
+       */
+      onChoose?: (chosen: {
+        label: string;
+        nextStep: TourStepId;
+      }) => void | Promise<void>;
     };
 
 /**

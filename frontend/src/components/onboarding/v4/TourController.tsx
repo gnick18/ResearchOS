@@ -1702,6 +1702,17 @@ function TourBeakerBotOverlay({
   // `nextStep` via `onBranchTo`.
   const branches =
     step.completion.type === "branch" ? step.completion.branches : null;
+  // Lab Mode fix manager R1 (2026-05-22): optional `onChoose` hook so
+  // `lab-mode-prompt` can persist the chosen branch to the sidecar
+  // BEFORE the controller advances. Runs sequentially before
+  // `onBranchTo` so the persisted state matches the step the user
+  // ends up on. Errors are caught + logged but never block the
+  // advance — a wedged tour is worse than a missed sidecar write
+  // (the resume-guard re-prompts on next launch anyway).
+  const branchOnChoose =
+    step.completion.type === "branch"
+      ? step.completion.onChoose
+      : undefined;
 
   // Anchor position: bottom-right, but clear of AppShell's FAB cluster.
   // AppShell mounts a horizontal row of ~7 round 48px buttons at
@@ -1765,7 +1776,23 @@ function TourBeakerBotOverlay({
                 <button
                   key={b.label}
                   type="button"
-                  onClick={() => onBranchTo(b.nextStep)}
+                  onClick={async () => {
+                    if (branchOnChoose) {
+                      try {
+                        await branchOnChoose({
+                          label: b.label,
+                          buttonLabel: b.buttonLabel,
+                          nextStep: b.nextStep,
+                        });
+                      } catch (err) {
+                        console.error(
+                          `[TourController] branchOn.onChoose for step "${step.id}" threw:`,
+                          err,
+                        );
+                      }
+                    }
+                    onBranchTo(b.nextStep);
+                  }}
                   data-branch-label={b.label}
                   className="text-xs font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-full px-3 py-1.5"
                   aria-label={b.buttonLabel}

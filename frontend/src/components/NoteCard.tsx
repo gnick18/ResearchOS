@@ -9,9 +9,14 @@ interface NoteCardProps {
   note: Note | LabNote;
   onClick: () => void;
   isLabMode?: boolean;
+  /** Lab Mode fix manager R1 (2026-05-22): optional
+   *  `data-tour-target` value. NotesPanel passes
+   *  `lab-mode-notes-first-card` on the first rendered card so the
+   *  lab-mode-notes tour can click it deterministically. */
+  tourTarget?: string;
 }
 
-export default function NoteCard({ note, onClick, isLabMode = false }: NoteCardProps) {
+export default function NoteCard({ note, onClick, isLabMode = false, tourTarget }: NoteCardProps) {
   const queryClient = useQueryClient();
   const toggleShareMutation = useMutation({
     mutationFn: (next: boolean) => notesApi.update(note.id, { is_shared: next }),
@@ -55,6 +60,7 @@ export default function NoteCard({ note, onClick, isLabMode = false }: NoteCardP
   return (
     <div
       onClick={onClick}
+      data-tour-target={tourTarget}
       className="bg-white rounded-xl border border-gray-200 p-4 cursor-pointer hover:shadow-md hover:border-emerald-200 transition-all duration-200 group"
     >
       {/* Header with icon and type indicator */}

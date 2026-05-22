@@ -309,12 +309,21 @@ export default function NotesPanel({
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {sortedNotes.map((note) => (
+          {sortedNotes.map((note, idx) => (
             <NoteCard
               key={`${note.username}:${note.id}`}
               note={note}
               onClick={() => setSelectedNote(note)}
               isLabMode={isLabMode}
+              tourTarget={
+                // Lab Mode fix manager R1 (2026-05-22): the
+                // lab-mode-notes cursor demo clicks the first card.
+                // Only stamp in lab mode so the tour target doesn't
+                // leak into the per-user /notes page.
+                isLabMode && idx === 0
+                  ? "lab-mode-notes-first-card"
+                  : undefined
+              }
             />
           ))}
         </div>

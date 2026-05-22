@@ -342,6 +342,39 @@ export const TOUR_TARGETS = {
   // inside the `<DemoLabModeViewer>` overlay so the lab-mode-exit step
   // can target the same selector regardless of which surface mounts it.
   labModeExitButton: "lab-mode-exit-button",
+
+  // Lab Mode fix manager R1 (2026-05-22) — per-tab inner-content
+  // anchors. Each lab-mode-* step now drives a richer cursor demo
+  // than just clicking the tab; these constants name the first
+  // clickable item the cursor hits inside the corresponding panel.
+  // Stamped on BOTH the live /lab page and the DemoLabModeViewer's
+  // inner panels (the panels are the same components, so a stamp on
+  // the panel itself covers both surfaces).
+  labModeActivityFirstRow: "lab-mode-activity-first-row",
+  labModeGanttFirstBar: "lab-mode-gantt-first-bar",
+  labModeExperimentsFirstCard: "lab-mode-experiments-first-card",
+  /** First funding-account "balance card" on the Purchases tab (the
+   *  per-funding-string rollups at the top of the panel). */
+  labModePurchasesFirstFundingCard: "lab-mode-purchases-first-funding-card",
+  /** First per-user roadmap tracker button (toggles the SMART goals
+   *  list open / closed). */
+  labModeRoadmapsFirstTracker: "lab-mode-roadmaps-first-tracker",
+  /** Top-ranked methods row in the "Methods in use" section (sorted
+   *  by usage by default). Clicking expands the linked-experiments
+   *  list. */
+  labModeMethodsTopRow: "lab-mode-methods-top-row",
+  /** First linked experiment inside the expanded top methods row.
+   *  Stamped on the experiment button that opens TaskDetailPopup. */
+  labModeMethodsFirstExperiment: "lab-mode-methods-first-experiment",
+  /** First note card in the lab-mode Notes panel (shared notes
+   *  only). */
+  labModeNotesFirstCard: "lab-mode-notes-first-card",
+  /** NoteDetailPopup close button. Mirrors `taskPopupClose` so the
+   *  note-cursor demo can close the popup deterministically. */
+  labModeNotePopupClose: "lab-mode-note-popup-close",
+  /** The Keywords input on LabSearchPanel — cursor types a query
+   *  into it during the lab-mode-search demo. */
+  labModeSearchKeywordInput: "lab-mode-search-keyword-input",
 } as const;
 
 export type TourTargetName = (typeof TOUR_TARGETS)[keyof typeof TOUR_TARGETS];

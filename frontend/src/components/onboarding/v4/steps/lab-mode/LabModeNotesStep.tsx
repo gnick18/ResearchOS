@@ -3,16 +3,22 @@
 /**
  * §6.16 Phase 2c Lab Mode tour — Notes tab walkthrough.
  *
- * Lab Mode manager 2026-05-22. Inside the DemoLabModeViewer. Cursor
- * clicks the Notes tab; the lab-wide shared-notes panel mounts.
+ * Lab Mode manager 2026-05-22, enriched in Lab Mode fix manager R1
+ * (2026-05-22). Beats:
  *
- * CRITICAL DATA PREREQ: the demo bundle's shared-notes seed is a
- * separate parallel sub-bot. Until that lands, the Notes panel
- * inside this walk will be empty. Speech still narrates the feature
- * concept; the visual demo improves once the seed merges.
+ *   1. Click the Notes tab so the lab-wide shared-notes grid mounts.
+ *   2. (Deferred) click the first note card → NoteDetailPopup mounts.
+ *   3. (Deferred) click the popup close button → popup dismisses.
+ *
+ * The shared-notes seed (separate sub-bot, 13 demo notes) populates
+ * the grid; without it, the first-card anchor never mounts and the
+ * deferred chain no-ops gracefully.
  */
 import { TOUR_TARGETS } from "../walkthrough/lib/targets";
 import { buildLabModeTabStep } from "./lib/lab-mode-tab-step";
+
+const FIRST_CARD = `[data-tour-target="${TOUR_TARGETS.labModeNotesFirstCard}"]`;
+const POPUP_CLOSE = `[data-tour-target="${TOUR_TARGETS.labModeNotePopupClose}"]`;
 
 export const labModeNotesStep = buildLabModeTabStep({
   id: "lab-mode-notes",
@@ -29,4 +35,10 @@ export const labModeNotesStep = buildLabModeTabStep({
       </p>
     </>
   ),
+  additionalActions: async ({ deferredClickAction }) => {
+    return [
+      deferredClickAction(FIRST_CARD),
+      deferredClickAction(POPUP_CLOSE),
+    ];
+  },
 });

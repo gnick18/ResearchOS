@@ -282,7 +282,7 @@ export default function LabPurchasesPanel({
           </div>
           <div className="p-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {fundingAccounts.map((acc) => {
+              {fundingAccounts.map((acc, idx) => {
                 const visibleSpent = spentByFunding.get(acc.name) ?? 0;
                 const isSelected = selectedFundingString === acc.name;
                 // Derive these locally — FundingAccount.spent/remaining on disk
@@ -295,6 +295,16 @@ export default function LabPurchasesPanel({
                 return (
                   <div
                     key={acc.id}
+                    data-tour-target={
+                      // Lab Mode fix manager R1 (2026-05-22): the
+                      // lab-mode-purchases tour scrolls to the first
+                      // funding-balance card. Stamping the first
+                      // rendered card lets the cursor demo find it
+                      // without depending on a specific account id.
+                      idx === 0
+                        ? "lab-mode-purchases-first-funding-card"
+                        : undefined
+                    }
                     className={`p-4 rounded-lg border-2 transition-colors cursor-pointer ${
                       isSelected
                         ? "border-emerald-500 bg-emerald-50"

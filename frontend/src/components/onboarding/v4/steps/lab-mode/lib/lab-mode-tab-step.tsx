@@ -15,12 +15,25 @@
  *
  * Centralizing the boilerplate keeps each step file focused on its
  * speech copy + tab-target name.
+ *
+ * Lab Mode fix manager R1 (2026-05-22): added optional
+ * `additionalActions` so per-step files can extend the cursor demo
+ * beyond the tab click (e.g. lab-mode-activity opens + closes a
+ * popup, lab-mode-methods walks a three-click chain). The base
+ * builder still owns the tab-click + the safety short-circuit when
+ * the overlay isn't mounted; the additional actions array is
+ * concatenated after the tab click and runs only if the tab anchor
+ * resolved (otherwise the script's already empty).
  */
 import type { ReactNode } from "react";
 import { useLabModeResumeGuard } from "../LabModeIntroStep";
 import {
+  callbackAction,
   cursorScript,
+  deferredClickAction,
   safeClickAction,
+  safeGlideToElementAction,
+  safeTypeAction,
   compactScript,
 } from "../../walkthrough/lib/cursor-script";
 import {
@@ -28,7 +41,11 @@ import {
   manualAdvance,
 } from "../../walkthrough/lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "../../walkthrough/lib/targets";
-import type { TourStep, TourStepId } from "../../../step-types";
+import type {
+  CursorAction,
+  TourStep,
+  TourStepId,
+} from "../../../step-types";
 
 interface LabModeTabStepInput {
   /** Step id matching the entry in TOUR_STEP_ORDER. */
@@ -42,6 +59,31 @@ interface LabModeTabStepInput {
   speech: ReactNode;
   /** Optional testid override. Defaults to the step id. */
   testid?: string;
+  /** Lab Mode fix manager R1 (2026-05-22): optional builder for
+   *  additional cursor actions to play AFTER the tab click. Receives
+   *  the helpers it needs so per-step files don't have to re-import
+   *  cursor-script primitives.
+   *
+   *  Returning a null entry is OK (compactScript drops nulls). The
+   *  builder runs only when the tab anchor existed; if the overlay
+   *  isn't mounted, the per-tab script short-circuits to [] and the
+   *  builder is skipped.
+   *
+   *  Helper notes:
+   *   - `safeClickAction` resolves at BUILD time; only use it for
+   *     anchors that already exist (the tab content as soon as the
+   *     tab click plays, OR pre-mounted UI).
+   *   - `deferredClickAction` resolves at PLAYBACK time — use this
+   *     for follow-up clicks on UI that mounts in response to an
+   *     earlier action in the same script (e.g. clicking a popup
+   *     close button after opening the popup). */
+  additionalActions?: (helpers: {
+    safeClickAction: typeof safeClickAction;
+    safeTypeAction: typeof safeTypeAction;
+    safeGlideToElementAction: typeof safeGlideToElementAction;
+    deferredClickAction: typeof deferredClickAction;
+    callbackAction: typeof callbackAction;
+  }) => Promise<ReadonlyArray<CursorAction | null>>;
 }
 
 interface LabModeTabSpeechProps {
@@ -89,8 +131,17 @@ export function buildLabModeTabStep(input: LabModeTabStepInput): TourStep {
           return [];
         }
       }
-      const click = await safeClickAction(targetSelector(input.tabTarget));
-      return compactScript([click]);
+      const tabClick = await safeClickAction(targetSelector(input.tabTarget));
+      const extras = input.additionalActions
+        ? await input.additionalActions({
+            safeClickAction,
+            safeTypeAction,
+            safeGlideToElementAction,
+            deferredClickAction,
+            callbackAction,
+          })
+        : [];
+      return compactScript([tabClick, ...extras]);
     }),
     completion: manualAdvance("Got it, next"),
     conditionalOn: (picks) => picks?.account_type === "lab",

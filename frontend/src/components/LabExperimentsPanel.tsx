@@ -189,6 +189,13 @@ export default function LabExperimentsPanel({
     );
   }
 
+  // Lab Mode fix manager R1 (2026-05-22): wrap the first card
+  // rendered across every section/group in a div carrying
+  // `data-tour-target="lab-mode-experiments-first-card"` so the
+  // lab-mode-experiments cursor demo can deterministically spot it.
+  // Render-scoped, reset on every render.
+  let firstCardWrapped = false;
+
   const cardFor = (entry: SectionEntry) => {
     const t = entry.task;
     const cardMethods: ExperimentCardMethod[] = (t.method_ids ?? [])
@@ -227,7 +234,9 @@ export default function LabExperimentsPanel({
         entry.daysFromEnd !== null ? `${entry.daysFromEnd}d ago` : "Earlier";
     }
 
-    return (
+    const shouldWrap = !firstCardWrapped;
+    if (shouldWrap) firstCardWrapped = true;
+    const card = (
       <ExperimentResultCard
         key={`${t.username}-${t.id}`}
         task={{
@@ -244,6 +253,15 @@ export default function LabExperimentsPanel({
         freshnessLabel={freshnessLabel}
         onClick={() => onExperimentClick(t)}
       />
+    );
+    if (!shouldWrap) return card;
+    return (
+      <div
+        key={`first-card-wrapper-${t.username}-${t.id}`}
+        data-tour-target="lab-mode-experiments-first-card"
+      >
+        {card}
+      </div>
     );
   };
 

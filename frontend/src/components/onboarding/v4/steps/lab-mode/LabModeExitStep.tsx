@@ -48,7 +48,7 @@ function LabModeExitInner() {
         experiments for a few weeks, your own Lab Mode will look like
         this.
       </p>
-      <p>Click below to head back.</p>
+      <p>Watch me head back to your account.</p>
     </div>
   );
 }
