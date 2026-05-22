@@ -166,14 +166,16 @@ describe("purchases-form-fill cursorScript", () => {
   it("builds the typing + save chain when the form is mounted", async () => {
     // The form is already open when this step fires (the previous
     // step's user click opened it). The script skips the open-modal
-    // click and goes straight to typing.
+    // click and goes straight to typing. Quantity gets a clear-value
+    // callback before its type action (R1 fix-pass P1-4: prevents the
+    // seeded "1" from concatenating with typed "2" to land "12").
     document.body.innerHTML = `
       <button data-tour-target="purchases-new-button">+ New Purchase</button>
       <form data-tour-target="purchases-form">
         <input data-tour-target="purchases-form-name" />
         <input data-tour-target="purchases-form-vendor" />
         <input data-tour-target="purchases-form-price" />
-        <input data-tour-target="purchases-form-quantity" />
+        <input data-tour-target="purchases-form-quantity" value="1" />
         <input data-tour-target="purchases-form-funding" />
         <button data-tour-target="purchases-form-submit">Save</button>
       </form>
@@ -181,23 +183,59 @@ describe("purchases-form-fill cursorScript", () => {
     const script = purchasesFormFillStep.cursorScript;
     if (!script) throw new Error("expected cursorScript");
     const actions = await script();
-    // 5 typed fields (name, vendor, price, qty, funding) + 1 submit = 6.
-    expect(actions).toHaveLength(6);
+    // 5 typed fields (name, vendor, price, qty, funding) + 1 clearQty
+    // callback + 1 submit = 7.
+    expect(actions).toHaveLength(7);
     expect(actions[0]).toMatchObject({ type: "type", text: PURCHASE_ITEM_NAME });
     expect(actions[1]).toMatchObject({ type: "type", text: PURCHASE_VENDOR });
     expect(actions[2]).toMatchObject({
       type: "type",
       text: PURCHASE_PRICE.toFixed(2),
     });
-    expect(actions[3]).toMatchObject({
+    expect(actions[3]).toMatchObject({ type: "callback" });
+    expect(actions[4]).toMatchObject({
       type: "type",
       text: String(PURCHASE_QTY),
     });
-    expect(actions[4]).toMatchObject({
+    expect(actions[5]).toMatchObject({
       type: "type",
       text: FUNDING_STRING_NAME,
     });
-    expect(actions[5]).toMatchObject({ type: "click" });
+    expect(actions[6]).toMatchObject({ type: "click" });
+  });
+
+  it("clear-quantity callback resets the seeded value to empty before typing", async () => {
+    // R1 fix-pass P1-4: the quantity field seeds with "1" in
+    // NewPurchaseModal.EMPTY_STATE. Without a clear, BeakerBotCursor's
+    // typeInto would append the typed "2" to produce "12". The
+    // clear-callback uses the React-safe HTMLInputElement.value setter
+    // + an "input" event to flush React onChange to "" before the
+    // type loop appends.
+    document.body.innerHTML = `
+      <form data-tour-target="purchases-form">
+        <input data-tour-target="purchases-form-name" />
+        <input data-tour-target="purchases-form-vendor" />
+        <input data-tour-target="purchases-form-price" />
+        <input data-tour-target="purchases-form-quantity" value="1" />
+        <input data-tour-target="purchases-form-funding" />
+        <button data-tour-target="purchases-form-submit">Save</button>
+      </form>
+    `;
+    const qtyEl = document.querySelector(
+      '[data-tour-target="purchases-form-quantity"]',
+    ) as HTMLInputElement;
+    expect(qtyEl.value).toBe("1");
+    const script = purchasesFormFillStep.cursorScript;
+    if (!script) throw new Error("expected cursorScript");
+    const actions = await script();
+    const callback = actions.find((a) => a.type === "callback");
+    expect(callback).toBeDefined();
+    // Manually invoke the callback (cursor playback would do this) and
+    // assert the field is cleared.
+    if (callback && callback.type === "callback") {
+      await callback.fn();
+    }
+    expect(qtyEl.value).toBe("");
   });
 });
 
@@ -279,6 +317,91 @@ describe("purchases-form-fill onEnter / onExit artifact capture", () => {
     });
 
     expect(pendingArtifactStore.peek("purchases-form-fill")).toEqual([]);
+  });
+});
+
+describe("purchases-demo-charts cursorScript", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("glides to the dashboard then clicks Category and Project lens toggles", async () => {
+    // R1 fix-pass P0-3: the prior single-glide demo left the speech
+    // beats stranded on a stale lens. The cursor now visibly switches
+    // lenses between beats so the chart matches the narration.
+    document.body.innerHTML = `
+      <section data-tour-target="demo-spending-dashboard">
+        <div data-tour-target="spending-breakdown-lens-toggle">
+          <button data-tour-target="spending-breakdown-lens-project">Project</button>
+          <button data-tour-target="spending-breakdown-lens-vendor">Vendor</button>
+          <button data-tour-target="spending-breakdown-lens-category">Category</button>
+        </div>
+      </section>
+    `;
+    const script = purchasesDemoChartsStep.cursorScript;
+    if (!script) throw new Error("expected cursorScript");
+    const actions = await script();
+    // glide + callback + click(Category) + callback + click(Project) = 5
+    expect(actions).toHaveLength(5);
+    expect(actions[0]).toMatchObject({ type: "glide" });
+    expect(actions[1]).toMatchObject({ type: "callback" });
+    expect(actions[2]).toMatchObject({ type: "click" });
+    expect(actions[3]).toMatchObject({ type: "callback" });
+    expect(actions[4]).toMatchObject({ type: "click" });
+    // Verify the two clicks land on the right lens buttons.
+    const categoryBtn = document.querySelector(
+      '[data-tour-target="spending-breakdown-lens-category"]',
+    );
+    const projectBtn = document.querySelector(
+      '[data-tour-target="spending-breakdown-lens-project"]',
+    );
+    expect(actions[2]).toMatchObject({ target: categoryBtn });
+    expect(actions[4]).toMatchObject({ target: projectBtn });
+  });
+});
+
+describe("purchases-demo-warp-prompt body", () => {
+  it("renders exactly zero CTA buttons in the body (branchOn owns the click)", () => {
+    // R1 fix-pass P1-5: the body previously rendered its own "Take me
+    // to the demo page" button in addition to the branchOn-rendered
+    // button at the bubble's action row, producing duplicates.
+    if (typeof purchasesDemoWarpPromptStep.speech !== "function") {
+      throw new Error("expected speech to be a function");
+    }
+    const SpeechBody = purchasesDemoWarpPromptStep.speech as () => React.ReactNode;
+    const { container } = render(<>{SpeechBody()}</>);
+    const buttons = container.querySelectorAll("button");
+    expect(buttons).toHaveLength(0);
+  });
+
+  it("onExit dispatches the viewer-open event", async () => {
+    const onExit = purchasesDemoWarpPromptStep.onExit;
+    if (!onExit) throw new Error("expected onExit");
+    const listener = vi.fn();
+    window.addEventListener(TOUR_DOM_EVENTS.demoPurchasesViewerOpen, listener);
+    try {
+      await onExit();
+      expect(listener).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener(
+        TOUR_DOM_EVENTS.demoPurchasesViewerOpen,
+        listener,
+      );
+    }
+  });
+});
+
+describe("purchases-back-to-real body", () => {
+  it("renders exactly zero CTA buttons in the body (manualAdvance owns the click)", () => {
+    // R1 fix-pass P1-6: the body previously rendered its own "Back to
+    // my page" button alongside the manualAdvance-rendered button.
+    if (typeof purchasesBackToRealStep.speech !== "function") {
+      throw new Error("expected speech to be a function");
+    }
+    const SpeechBody = purchasesBackToRealStep.speech as () => React.ReactNode;
+    const { container } = render(<>{SpeechBody()}</>);
+    const buttons = container.querySelectorAll("button");
+    expect(buttons).toHaveLength(0);
   });
 });
 

@@ -277,6 +277,16 @@ export const TOUR_TARGETS = {
   demoPurchasesViewer: "demo-purchases-viewer",
   demoSpendingDashboard: "demo-spending-dashboard",
   demoPurchasesBackButton: "demo-purchases-back-button",
+  // §6.14 Purchases fix manager R1: the SpendingDashboard breakdown
+  // lens toggle (Project / Vendor / Category). The `-toggle` anchor is
+  // the wrapper for cursor glide; each `-lens-<key>` button drives a
+  // visible lens switch so demo-charts speech beats land on the right
+  // chart. Lives on SpendingDashboard.tsx, so it shows up in both the
+  // real /purchases page and the DemoPurchasesViewer overlay.
+  spendingBreakdownLensToggle: "spending-breakdown-lens-toggle",
+  spendingBreakdownLensProject: "spending-breakdown-lens-project",
+  spendingBreakdownLensVendor: "spending-breakdown-lens-vendor",
+  spendingBreakdownLensCategory: "spending-breakdown-lens-category",
 
   // §6.16 lab-permission-practice real-Workbench cursor demo (HR sub-bot
   // 2026-05-22). The cursor drives a real interaction against the

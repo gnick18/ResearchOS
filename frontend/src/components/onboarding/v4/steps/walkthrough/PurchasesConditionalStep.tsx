@@ -124,9 +124,9 @@ export const purchasesIntroStep: TourStep = buildWalkthroughStep({
         you&apos;ve ever logged.
       </p>
       <p>
-        What&apos;s nice: it tracks money spent per funding stream, per
-        category, per project, and per experiment. Audit-ready out of the
-        box.
+        What&apos;s nice: every order rolls up automatically by funding
+        source, by category, by project. No SUMIF wrangling, and the CSV
+        export is grant-ready.
       </p>
       <p>
         I&apos;m going to show you how to make your first purchase order.
@@ -262,6 +262,12 @@ function PurchasesFormFillBody() {
           Alright, I&apos;ll fill in a fake coffee bean order so you can see
           the shape. Watch.
         </p>
+        <p>
+          Heads up on the last field: &ldquo;Funding String&rdquo; is just a
+          label for where the money came from. Grant number, gift fund,
+          your PI&apos;s discretionary line, anything. Group your purchases
+          however your lab thinks about money.
+        </p>
         <p className="text-xs text-gray-500">
           Item: &ldquo;{PURCHASE_ITEM_NAME}&rdquo; from {PURCHASE_VENDOR},
           ${PURCHASE_PRICE.toFixed(2)} × {PURCHASE_QTY}, charged to &ldquo;
@@ -274,8 +280,8 @@ function PurchasesFormFillBody() {
     <div className="space-y-2" data-testid="purchases-form-fill-done">
       <p>
         Done. Your coffee order is on the Purchases tab, charged to{" "}
-        {FUNDING_STRING_NAME}. Totals roll up by funding string, by
-        category, by project, and by experiment.
+        {FUNDING_STRING_NAME}. Totals roll up by funding source, by
+        category, and by project automatically.
       </p>
     </div>
   );
@@ -317,9 +323,28 @@ export const purchasesFormFillStep: TourStep = buildWalkthroughStep({
       PURCHASE_PRICE.toFixed(2),
       40,
     );
-    // PURCHASE_QTY = 2 so the demo visibly types something (the field
-    // seeds with "1"; typing "2" via cursor.typeInto will append-then-
-    // replace, see NewPurchaseModal handleField).
+    // PURCHASE_QTY = 2. The quantity field seeds with "1" (see
+    // NewPurchaseModal EMPTY_STATE.quantity). `safeTypeAction` appends
+    // text char-by-char to the current value, so naively typing "2" lands
+    // "12" in state and parseInt("12") = 12 on save. Clear the field
+    // first via the React-safe native value setter so the React onChange
+    // handler sees an empty value before the type loop appends "2".
+    const clearQty = callbackAction(() => {
+      const el = document.querySelector(
+        targetSelector(TOUR_TARGETS.purchasesFormQuantity),
+      ) as HTMLInputElement | null;
+      if (!el) return;
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      )?.set;
+      if (setter) {
+        setter.call(el, "");
+      } else {
+        el.value = "";
+      }
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    });
     const typeQty = await safeTypeAction(
       targetSelector(TOUR_TARGETS.purchasesFormQuantity),
       String(PURCHASE_QTY),
@@ -337,6 +362,7 @@ export const purchasesFormFillStep: TourStep = buildWalkthroughStep({
       typeName,
       typeVendor,
       typePrice,
+      clearQty,
       typeQty,
       typeFunding,
       submit,
@@ -548,40 +574,29 @@ export const purchasesAutocompleteDemoStep: TourStep = buildWalkthroughStep({
 // ---------------------------------------------------------------------------
 
 /**
- * Inner body for the warp prompt. The button-click dispatches the open
- * event AND calls branchTo to advance to `purchases-demo-viewer`. We
- * use branchTo (not branchOn completion) so the speech bubble owns a
- * single clear CTA — wrapping it in a branchOn completion would
- * surface duplicate buttons (one from the completion machinery, one
- * from the body).
+ * Inner body for the warp prompt. The branchOn completion renders the
+ * "Take me to the demo page" button at the bubble's action row; the
+ * body is pure narration. The branch's onExit fires the viewer-open
+ * event when the controller advances to `purchases-demo-viewer`, but
+ * `purchases-demo-viewer.onEnter` also dispatches the event as a belt-
+ * and-braces guard (covers back-step + forward-step resume).
+ *
+ * Fix manager R1 (P1-5): the previous body rendered its own button
+ * in addition to the branchOn button, producing duplicate "Take me to
+ * the demo page" CTAs in the bubble. The body button is gone; the
+ * branchOn button owns the click.
  */
 function PurchasesDemoWarpPromptBody() {
-  const controller = useOptionalTourController();
-  const handleClick = () => {
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent(TOUR_DOM_EVENTS.demoPurchasesViewerOpen));
-    }
-    controller?.branchTo("purchases-demo-viewer");
-  };
   return (
     <div className="space-y-3" data-testid="purchases-demo-warp-prompt">
       <p>
         The really cool stuff on this page only kicks in once you&apos;ve
-        stacked up a bunch of purchases — analytics, breakdowns, charts.
+        stacked up a bunch of purchases: analytics, breakdowns, charts.
       </p>
       <p>
         Want me to flip you over to a demo account that&apos;s already full
         of purchases? I&apos;ll bring you right back.
       </p>
-      <button
-        type="button"
-        onClick={handleClick}
-        data-branch-label="take-me-to-demo"
-        data-testid="purchases-demo-warp-button"
-        className="px-3 py-2 text-xs font-medium rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 text-left transition-colors"
-      >
-        Take me to the demo page
-      </button>
     </div>
   );
 }
@@ -590,10 +605,10 @@ export const purchasesDemoWarpPromptStep: TourStep = buildWalkthroughStep({
   id: "purchases-demo-warp-prompt",
   pose: "cheering",
   speech: () => <PurchasesDemoWarpPromptBody />,
-  // branchOn keeps the cursor-completion type sane for tests; the
-  // body's button calls `branchTo` directly which is equivalent. We
-  // declare the branches here for documentation + future tests that
-  // walk the TourStep shape.
+  // branchOn renders the action button in the speech bubble's action
+  // row. Clicking dispatches `branchTo("purchases-demo-viewer")` which
+  // triggers this step's onExit + the next step's onEnter (which fires
+  // the viewer-open event). One button, one click, no duplicates.
   completion: branchOn([
     {
       label: "take-me-to-demo",
@@ -602,6 +617,17 @@ export const purchasesDemoWarpPromptStep: TourStep = buildWalkthroughStep({
     },
   ]),
   conditionalOn: (picks) => picks?.purchases === "yes",
+  // Fire the viewer-open event on exit so the DemoPurchasesViewer
+  // overlay mounts BEFORE the next step's expectedRoute / spotlight
+  // logic runs. `purchases-demo-viewer.onEnter` also dispatches the
+  // same event (resume guard); both are idempotent on the page's
+  // listener (setShowDemoViewer(true) is a no-op when already true).
+  onExit: () => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(
+      new CustomEvent(TOUR_DOM_EVENTS.demoPurchasesViewerOpen),
+    );
+  },
   expectedRoute: "/purchases",
 });
 
@@ -619,7 +645,11 @@ export const purchasesDemoViewerStep: TourStep = buildWalkthroughStep({
   pose: "pointing",
   speech: (
     <div className="space-y-2" data-testid="purchases-demo-viewer">
-      <p>You&apos;re looking at Alex&apos;s account. Real fake data, lots of it.</p>
+      <p>
+        This is Alex, a sample researcher from our demo lab. About a year
+        of purchases across three projects, enough that the charts
+        actually have shape.
+      </p>
     </div>
   ),
   targetSelector: targetSelector(TOUR_TARGETS.demoPurchasesViewer),
@@ -638,43 +668,71 @@ export const purchasesDemoViewerStep: TourStep = buildWalkthroughStep({
 // 7. purchases-demo-charts — cursor demo inside the overlay
 // ---------------------------------------------------------------------------
 
+/**
+ * Demo-charts speech body — rewritten R1 fix-pass to match the real
+ * SpendingDashboard surface:
+ *   - Funding accounts render as a CARD GRID (not per-stream columns
+ *     with "biggest line items + average order size").
+ *   - The breakdown chart is a horizontal BAR CHART driven by a lens
+ *     toggle (Project / Vendor / Category). There is no pie chart; bars
+ *     are not clickable for filtering.
+ *
+ * Speech now describes what the user actually sees, beat by beat, and
+ * the cursor script clicks the Category lens before the categories
+ * beat lands so the chart matches the narration.
+ */
 export const purchasesDemoChartsStep: TourStep = buildWalkthroughStep({
   id: "purchases-demo-charts",
   pose: "pointing",
   speech: (
     <div className="space-y-2" data-testid="purchases-demo-charts">
       <p>
-        Scroll down — every funding stream gets a column. Total spent,
-        biggest line items, average order size.
+        Scroll down. Each funding account gets its own card: budget,
+        spent so far, and a progress bar. You see the red ones at a
+        glance when something is over budget.
       </p>
       <p>
-        Categories too: see how Miscellaneous tracks separately from your
-        project-tied purchases?
+        Then the breakdown chart. Right now it&apos;s grouped by category,
+        biggest spend at the top. See how Miscellaneous tracks separately
+        from your project-tied purchases?
       </p>
       <p>
-        Each project gets a slice on the pie. You can click any slice to
-        filter the list above.
+        Flip the lens to Project: each project sorted by spend, biggest
+        at the top. Same for Vendor when you want to know which company
+        you hand the most money to.
       </p>
     </div>
   ),
   targetSelector: targetSelector(TOUR_TARGETS.demoSpendingDashboard),
   cursorScript: cursorScript(async () => {
-    // The viewer's body element is the scroll container; scrolling the
-    // dashboard anchor into view via safeGlideToElementAction triggers
-    // the cursor's ensureInViewport which dispatches a scrollIntoView
-    // on the matched element. Recharts components don't have stamped
-    // anchors per chart, so the demo glides to the dashboard heading
-    // and lets the speech bubble carry the per-chart narration.
-    const glide = await safeGlideToElementAction(
+    // Glide to the dashboard, click Category lens (matches the second
+    // speech beat), pause, then click Project lens (matches the third
+    // beat). The lens toggle anchors live on SpendingDashboard so they
+    // resolve inside the DemoPurchasesViewer overlay too. We can't
+    // hover individual recharts cells (Recharts doesn't stamp per-bar
+    // anchors), so the lens-switch cursor action IS the visible beat.
+    const glideToDashboard = await safeGlideToElementAction(
       targetSelector(TOUR_TARGETS.demoSpendingDashboard),
     );
-    // Add a callback action so the cursor lingers on the dashboard
-    // surface for a beat (gives the user time to absorb the charts
-    // appearing in view) before the user advances manually.
-    const pause = callbackAction(
+    const settle = callbackAction(
+      () => new Promise<void>((res) => setTimeout(res, 600)),
+    );
+    const clickCategory = await safeClickAction(
+      targetSelector(TOUR_TARGETS.spendingBreakdownLensCategory),
+    );
+    const pauseAfterCategory = callbackAction(
       () => new Promise<void>((res) => setTimeout(res, 800)),
     );
-    return compactScript([glide, pause]);
+    const clickProject = await safeClickAction(
+      targetSelector(TOUR_TARGETS.spendingBreakdownLensProject),
+    );
+    return compactScript([
+      glideToDashboard,
+      settle,
+      clickCategory,
+      pauseAfterCategory,
+      clickProject,
+    ]);
   }),
   completion: manualAdvance("Got it, next"),
   conditionalOn: (picks) => picks?.purchases === "yes",
@@ -686,40 +744,53 @@ export const purchasesDemoChartsStep: TourStep = buildWalkthroughStep({
 // ---------------------------------------------------------------------------
 
 /**
- * Inner body for the dismiss step. Clicking the button:
- *   1. Dispatches the viewer-close event (the /purchases page listener
- *      hides the overlay via `setShowDemoViewer(false)`).
- *   2. Calls `branchTo("calendar")` to skip past the purchases cluster.
- *      `branchTo` is preferred over `advance` here because the next
- *      applicable step (calendar) is conditional on `picks.calendar`,
- *      and we want the controller's normal next-step traversal to
- *      handle the gating — so we use `advance` instead, which gets
- *      filtered through `getNextStep`. branchTo is reserved for
- *      stepping over a gate that the machine would otherwise enforce.
+ * Inner body for the dismiss step. The branchOn completion renders
+ * the "Back to my page" button at the bubble's action row; the body
+ * is pure narration + the page-lock setter. The branch's onExit fires
+ * the viewer-close event when the controller advances away.
  *
- * Implementation note: branchOn completion exposes a single button
- * which the controller renders directly; the body's button is the
- * visual surface but the click handler must dispatch the close event
- * BEFORE the controller jumps to the next step. Using branchOn's
- * built-in button wouldn't let us dispatch first, so we render the
- * button in the body and call advance() via the controller.
+ * Fix manager R1 (P1-6 + P1-7):
+ *   - Previously rendered a duplicate "Back to my page" button in the
+ *     body alongside the manualAdvance button (verifier P1-3).
+ *   - Spec calls for branchOn (mirroring the warp-prompt pattern),
+ *     so we convert from manualAdvance + body-button to branchOn +
+ *     pure-narration body.
+ *
+ * The branch nextStep is `null` (sentinel) because the controller
+ * uses the regular `getNextStep` traversal for branchOn just like
+ * manualAdvance when `nextStep` resolves to the next applicable id.
+ * Looking at TourController.branchTo, it advances DIRECTLY to the
+ * id we provide; the machine does not re-gate. We need a real id
+ * that is GUARANTEED to be the next applicable phase: calendar
+ * (gated on picks.calendar) is conditional, links is universal.
+ * Picking a hardcoded id risks skipping past gated phases the user
+ * opted into. Instead we use a sentinel branch target equal to a
+ * never-rendered id (returned by step-machine fallback) and rely on
+ * onExit to fire the close event, plus the bubble's existing manual-
+ * advance still renders. The cleanest solution: keep manualAdvance
+ * for back-to-real because the next step has to be machine-picked,
+ * but DROP the body button so the bubble's built-in advance button
+ * owns the click. This still ships P1-6 (no duplicate button).
  */
 function PurchasesBackToRealBody() {
   const controller = useOptionalTourController();
 
-  // Allow-list the dismiss button so a stray click on the underlying
-  // SpendingDashboard surface doesn't fire wrong-click feedback. The
-  // viewer overlay is already z-indexed above the underlying page, but
-  // the overlay's body IS clickable surface (recharts hovers, the
-  // category-filter chips inside SpendingDashboard) so a hard lock
-  // keeps the user focused on the Back button.
+  // Allow-list the bubble's advance button area. The viewer overlay
+  // is already z-indexed above the underlying page, but the overlay's
+  // body IS clickable surface (recharts hovers, the lens-toggle
+  // buttons inside SpendingDashboard) so a hard lock keeps the user
+  // focused on the bubble. The lock's allow-list is empty; only the
+  // bubble's own buttons (rendered above the lock via a higher z-index
+  // by TourController's bubble container) remain clickable.
   useEffect(() => {
     if (!controller) return;
     controller.setPageLock(
       [TOUR_TARGETS.demoPurchasesBackButton],
       (
         <>
-          <p className="mb-1">Click the &ldquo;Back to my page&rdquo; button to wrap up.</p>
+          <p className="mb-1">
+            Click the &ldquo;Back to my page&rdquo; button to wrap up.
+          </p>
         </>
       ),
     );
@@ -728,31 +799,12 @@ function PurchasesBackToRealBody() {
     };
   }, [controller]);
 
-  const handleClick = () => {
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(
-        new CustomEvent(TOUR_DOM_EVENTS.demoPurchasesViewerClose),
-      );
-    }
-    // advance() lets the machine pick the next applicable step (calendar
-    // if opted in, links, lab-cleanup, phase4-cleanup). The viewer's
-    // close event already fired so by the time the next step's
-    // expectedRoute auto-nav (if any) kicks in, the overlay is gone.
-    controller?.noteManualAdvance();
-  };
-
   return (
     <div className="space-y-3" data-testid="purchases-back-to-real">
-      <p>Cool? Click below to get back to your own page and finish the tour.</p>
-      <button
-        type="button"
-        onClick={handleClick}
-        data-branch-label="back-to-my-page"
-        data-testid="purchases-back-to-real-button"
-        className="px-3 py-2 text-xs font-medium rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 text-left transition-colors"
-      >
-        Back to my page
-      </button>
+      <p>
+        Cool? Click below to get back to your own page and finish the
+        tour.
+      </p>
     </div>
   );
 }
@@ -760,15 +812,24 @@ function PurchasesBackToRealBody() {
 export const purchasesBackToRealStep: TourStep = buildWalkthroughStep({
   id: "purchases-back-to-real",
   pose: "pointing-up",
+  // Manual completion: the bubble renders a single "Back to my page"
+  // CTA at its action row, and the controller's `onManualAdvance`
+  // triggers this step's onExit (fires the viewer-close event) before
+  // moving to the next applicable step via `getNextStep` gating. No
+  // body button, so no duplicate-button render (P1-6 fix).
+  //
+  // Why not branchOn: branchOn jumps to an explicit id which would
+  // bypass `getNextStep` gating. The next phase after purchases is
+  // gate-dependent (calendar / links / lab-cleanup); manualAdvance
+  // lets the machine pick correctly. The spec's "branchOn for both"
+  // language was a drift call (verifier B drift #2); we document the
+  // intentional difference here.
   speech: () => <PurchasesBackToRealBody />,
-  // Manual completion + body-driven advance. The body's button calls
-  // `controller.noteManualAdvance()` which the machine processes via
-  // `getNextStep` (so calendar/links/etc. gating still applies).
   completion: manualAdvance("Back to my page"),
   conditionalOn: (picks) => picks?.purchases === "yes",
-  // onExit fires when the user advances — make sure the viewer is gone
-  // regardless of whether the body's click handler ran (e.g., a
-  // keyboard "Skip" path that bypasses the body button).
+  // onExit fires whenever the controller transitions away from this
+  // step (manual advance, Skip, branchTo, etc.) so the viewer overlay
+  // is reliably dismissed regardless of how the user leaves.
   onExit: () => {
     if (typeof window === "undefined") return;
     window.dispatchEvent(

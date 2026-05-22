@@ -612,12 +612,16 @@ export default function SpendingDashboard({
               <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
                 Breakdown by {breakdownLensLabel[breakdownLens]}
               </h4>
-              <div className="inline-flex bg-gray-100 rounded-lg p-0.5 text-xs">
+              <div
+                className="inline-flex bg-gray-100 rounded-lg p-0.5 text-xs"
+                data-tour-target="spending-breakdown-lens-toggle"
+              >
                 {(Object.keys(breakdownLensLabel) as BreakdownLens[]).map(
                   (lens) => (
                     <button
                       key={lens}
                       onClick={() => setBreakdownLens(lens)}
+                      data-tour-target={`spending-breakdown-lens-${lens}`}
                       className={`px-3 py-1 rounded transition-colors ${
                         breakdownLens === lens
                           ? "bg-white text-gray-900 shadow-sm"
