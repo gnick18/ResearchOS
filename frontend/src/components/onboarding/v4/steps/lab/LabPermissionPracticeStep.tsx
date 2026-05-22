@@ -184,6 +184,13 @@ export function buildLabPermissionPracticeStep(): TourStep {
       type: "manual",
       buttonLabel: "Got it, next",
     },
+    // Live-test R4 (2026-05-22): the spotlight target lives on
+    // /workbench (in WorkbenchExperimentsPanel.tsx). If the user
+    // lands on this step from any other route, the spotlight selector
+    // doesn't resolve and the visual anchor is missing. Auto-nav to
+    // /workbench so the speech bubble's "shared experiments" copy
+    // actually points at something.
+    expectedRoute: "/workbench",
   };
 }
 

@@ -147,6 +147,12 @@ export function buildLabSpawnStep(
       type: "manual",
       buttonLabel: "Got it, next",
     },
+    // Live-test R4 (2026-05-22): the speech promises "two experiments
+    // are now in your Workbench" but if the previous step left the
+    // user on /wiki or /search the destination tab isn't visible.
+    // Auto-nav to /workbench so the user can actually see what
+    // BeakerBot just shared.
+    expectedRoute: "/workbench",
   };
 }
 
