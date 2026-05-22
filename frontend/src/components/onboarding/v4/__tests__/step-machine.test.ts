@@ -70,7 +70,23 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER).not.toContain("hybrid-editor-image-drop");
     expect(TOUR_STEP_ORDER).not.toContain("hybrid-editor-resize");
     expect(TOUR_STEP_ORDER).toContain("gantt-drag-drop");
-    expect(TOUR_STEP_ORDER).toContain("ai-helper-deep-explain");
+    // §6.10 Settings phase redesign 2026-05-22 (Settings manager): the
+    // legacy `ai-helper-deep-explain` + `settings-more` ids are NOT in
+    // TOUR_STEP_ORDER any more. New shape: 11 steps. Three of the
+    // settings-tour-* beats gate conditionally; the AI Helper trio
+    // shares the prior ai_helper ∈ {full,medium,minimal} gate.
+    expect(TOUR_STEP_ORDER).not.toContain("settings-more");
+    expect(TOUR_STEP_ORDER).not.toContain("ai-helper-deep-explain");
+    expect(TOUR_STEP_ORDER).toContain("settings-tour-folder");
+    expect(TOUR_STEP_ORDER).toContain("settings-tour-calendar");
+    expect(TOUR_STEP_ORDER).toContain("settings-tour-telegram");
+    expect(TOUR_STEP_ORDER).toContain("settings-tour-lab-mode-toggle");
+    expect(TOUR_STEP_ORDER).toContain("settings-tour-visible-tabs");
+    expect(TOUR_STEP_ORDER).toContain("settings-tour-streak");
+    expect(TOUR_STEP_ORDER).toContain("settings-tour-rerun");
+    expect(TOUR_STEP_ORDER).toContain("ai-helper-size-diff");
+    expect(TOUR_STEP_ORDER).toContain("ai-helper-use-case-paste");
+    expect(TOUR_STEP_ORDER).toContain("ai-helper-use-case-agentic");
     expect(TOUR_STEP_ORDER).toContain("telegram");
     // Purchases manager 2026-05-22: the legacy single `purchases` id is
     // replaced by the 8-step cluster. The list intentionally retires
@@ -311,6 +327,10 @@ describe("isStepGatedOut — Phase 2 conditional walkthroughs (§6.13-6.15)", ()
   });
 
   it("gates ai-helper-deep-explain on full/medium/minimal", () => {
+    // §6.10 Settings phase redesign 2026-05-22 (Settings manager): the
+    // legacy `ai-helper-deep-explain` id is retired from TOUR_STEP_ORDER
+    // but the gating predicate is preserved so stale resume_state +
+    // dev tools that reference the id still gate correctly.
     expect(
       isStepGatedOut("ai-helper-deep-explain", picks({ ai_helper: "full" })),
     ).toBe(false);
@@ -327,6 +347,112 @@ describe("isStepGatedOut — Phase 2 conditional walkthroughs (§6.13-6.15)", ()
       isStepGatedOut("ai-helper-deep-explain", picks({ ai_helper: "maybe" })),
     ).toBe(true);
     expect(isStepGatedOut("ai-helper-deep-explain", null)).toBe(true);
+  });
+
+  it("gates the three new ai-helper-* beats on the same ai_helper picks", () => {
+    // §6.10 Settings phase redesign 2026-05-22 (Settings manager): the
+    // ai-helper trio shares the prior single-step gate so opt-out users
+    // (no / maybe) skip the entire arc just as before.
+    const trio = [
+      "ai-helper-size-diff",
+      "ai-helper-use-case-paste",
+      "ai-helper-use-case-agentic",
+    ] as const;
+    for (const id of trio) {
+      expect(isStepGatedOut(id, picks({ ai_helper: "full" }))).toBe(false);
+      expect(isStepGatedOut(id, picks({ ai_helper: "medium" }))).toBe(false);
+      expect(isStepGatedOut(id, picks({ ai_helper: "minimal" }))).toBe(false);
+      expect(isStepGatedOut(id, picks({ ai_helper: "no" }))).toBe(true);
+      expect(isStepGatedOut(id, picks({ ai_helper: "maybe" }))).toBe(true);
+      expect(isStepGatedOut(id, null)).toBe(true);
+    }
+  });
+
+  it("gates settings-tour-calendar on picks.calendar === 'yes'", () => {
+    expect(
+      isStepGatedOut("settings-tour-calendar", picks({ calendar: "yes" })),
+    ).toBe(false);
+    expect(
+      isStepGatedOut("settings-tour-calendar", picks({ calendar: "no" })),
+    ).toBe(true);
+    expect(
+      isStepGatedOut("settings-tour-calendar", picks({ calendar: "maybe" })),
+    ).toBe(true);
+    expect(isStepGatedOut("settings-tour-calendar", null)).toBe(true);
+  });
+
+  it("gates settings-tour-telegram on picks.telegram === 'yes'", () => {
+    expect(
+      isStepGatedOut("settings-tour-telegram", picks({ telegram: "yes" })),
+    ).toBe(false);
+    expect(
+      isStepGatedOut("settings-tour-telegram", picks({ telegram: "no" })),
+    ).toBe(true);
+    expect(
+      isStepGatedOut("settings-tour-telegram", picks({ telegram: "maybe" })),
+    ).toBe(true);
+    expect(isStepGatedOut("settings-tour-telegram", null)).toBe(true);
+  });
+
+  it("gates settings-tour-lab-mode-toggle on solo accounts only", () => {
+    // Lab users are already in lab mode, so they skip this beat. Solo
+    // users see it so they know how to flip over later.
+    expect(
+      isStepGatedOut(
+        "settings-tour-lab-mode-toggle",
+        picks({ account_type: "solo" }),
+      ),
+    ).toBe(false);
+    expect(
+      isStepGatedOut(
+        "settings-tour-lab-mode-toggle",
+        picks({ account_type: "lab" }),
+      ),
+    ).toBe(true);
+    // null picks → no account_type → gate-out (defensive).
+    expect(isStepGatedOut("settings-tour-lab-mode-toggle", null)).toBe(true);
+  });
+
+  it("fires settings-tour-folder + visible-tabs + streak + rerun for everyone", () => {
+    // These four beats are universal — gate predicate must return false
+    // for both solo and lab + null picks.
+    const universal = [
+      "settings-tour-folder",
+      "settings-tour-visible-tabs",
+      "settings-tour-streak",
+      "settings-tour-rerun",
+    ] as const;
+    for (const id of universal) {
+      expect(isStepGatedOut(id, picks({ account_type: "solo" }))).toBe(false);
+      expect(isStepGatedOut(id, picks({ account_type: "lab" }))).toBe(false);
+      expect(isStepGatedOut(id, null)).toBe(false);
+    }
+  });
+
+  it("orders the §6.10 Settings cluster: color → 7 tour beats → 3 ai-helper beats", () => {
+    const order = [
+      "personalization-color",
+      "settings-tour-folder",
+      "settings-tour-calendar",
+      "settings-tour-telegram",
+      "settings-tour-lab-mode-toggle",
+      "settings-tour-visible-tabs",
+      "settings-tour-streak",
+      "settings-tour-rerun",
+      "ai-helper-size-diff",
+      "ai-helper-use-case-paste",
+      "ai-helper-use-case-agentic",
+    ];
+    const indices = order.map((id) => TOUR_STEP_ORDER.indexOf(id));
+    indices.forEach((idx, i) => {
+      expect(idx, `${order[i]} missing from TOUR_STEP_ORDER`).toBeGreaterThanOrEqual(0);
+      if (i > 0) {
+        expect(
+          idx,
+          `${order[i]} must follow ${order[i - 1]}`,
+        ).toBe(indices[i - 1] + 1);
+      }
+    });
   });
 });
 
@@ -394,7 +520,22 @@ describe("getNextStep — forward traversal", () => {
     expect(visited).not.toContain("purchases-demo-viewer");
     expect(visited).not.toContain("calendar");
     expect(visited).not.toContain("gantt-goals-overview");
+    // §6.10 Settings phase redesign 2026-05-22 (Settings manager): the
+    // ai-helper trio + the 3 conditional settings-tour-* beats all gate
+    // out under all-no picks. Universal beats (folder, visible-tabs,
+    // streak, rerun) still fire.
     expect(visited).not.toContain("ai-helper-deep-explain");
+    expect(visited).not.toContain("ai-helper-size-diff");
+    expect(visited).not.toContain("ai-helper-use-case-paste");
+    expect(visited).not.toContain("ai-helper-use-case-agentic");
+    expect(visited).not.toContain("settings-tour-calendar");
+    expect(visited).not.toContain("settings-tour-telegram");
+    // solo account_type === "solo", so lab-mode-toggle DOES fire.
+    expect(visited).toContain("settings-tour-lab-mode-toggle");
+    expect(visited).toContain("settings-tour-folder");
+    expect(visited).toContain("settings-tour-visible-tabs");
+    expect(visited).toContain("settings-tour-streak");
+    expect(visited).toContain("settings-tour-rerun");
     // Always includes core walkthrough
     expect(visited).toContain("home-create-project");
     expect(visited).toContain("methods-open-picker");
@@ -443,7 +584,22 @@ describe("getNextStep — forward traversal", () => {
     expect(visited).toContain("purchases-back-to-real");
     expect(visited).toContain("calendar");
     expect(visited).toContain("gantt-goals-overview");
-    expect(visited).toContain("ai-helper-deep-explain");
+    // §6.10 Settings phase redesign 2026-05-22 (Settings manager): the
+    // maximal lab walk includes the 3 ai-helper-* beats + the 6
+    // settings-tour-* beats that apply to lab accounts (folder,
+    // calendar, telegram, visible-tabs, streak, rerun). Lab users skip
+    // lab-mode-toggle because they're already in lab mode.
+    expect(visited).not.toContain("ai-helper-deep-explain");
+    expect(visited).toContain("ai-helper-size-diff");
+    expect(visited).toContain("ai-helper-use-case-paste");
+    expect(visited).toContain("ai-helper-use-case-agentic");
+    expect(visited).toContain("settings-tour-folder");
+    expect(visited).toContain("settings-tour-calendar");
+    expect(visited).toContain("settings-tour-telegram");
+    expect(visited).not.toContain("settings-tour-lab-mode-toggle");
+    expect(visited).toContain("settings-tour-visible-tabs");
+    expect(visited).toContain("settings-tour-streak");
+    expect(visited).toContain("settings-tour-rerun");
     // Gantt manager 2026-05-22: lab-prompt / lab-spawn-beakerbot /
     // lab-permission-practice were retired in favor of the §6.8 Gantt
     // share cluster. Only lab-cleanup survives in the lab phase.
@@ -576,16 +732,27 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     // Lab Mode manager: §6.16 Phase 2c Lab Mode tour cluster adds 12
     // more lab-only steps (lab-mode-prompt through lab-mode-exit).
     //
-    // Solo+minimal skips: 5 non-purchases conditionals (telegram,
-    // calendar, links, gantt-goals-overview, ai-helper-deep-explain)
-    // + 8 purchases cluster + 1 legacy lab step (lab-cleanup)
-    // + 7 Gantt share cluster + 12 Lab Mode cluster
-    // + 1 HE-3 (branch-gated) = 34 gated out for solo.
-    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 34);
+    // §6.10 Settings phase redesign 2026-05-22 (Settings manager):
+    // ai-helper-deep-explain split into 3 beats (size-diff, paste,
+    // agentic) sharing the prior ai_helper ∈ {full,medium,minimal}
+    // gate. 7 settings-tour-* beats added; calendar gates on
+    // calendar=yes, telegram gates on telegram=yes, lab-mode-toggle
+    // gates on account_type=solo.
+    //
+    // §6.16 Lab Mode tour: 12 lab-only steps still in the order.
+    //
+    // Solo+minimal skips: 4 prior conditionals (telegram, calendar,
+    // links, gantt-goals-overview) + 3 ai-helper-* (was 1
+    // ai-helper-deep-explain; now 3 split beats sharing the same gate)
+    // + 8 purchases cluster + 1 lab-cleanup + 7 Gantt share cluster
+    // + 12 Lab Mode cluster + 1 HE-3 (branch-gated) + 2
+    // settings-tour-* conditional (calendar, telegram; lab-mode-toggle
+    // FIRES for solo) = 38 gated out for solo.
+    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 38);
     // Lab+max: HE-3 still branch-gated (user hasn't picked the
-    // overview branch yet at static evaluation time). All other
-    // gates open.
-    expect(labCount).toBe(TOUR_STEP_ORDER.length - 1);
+    // overview branch yet at static evaluation time) + settings-tour-
+    // lab-mode-toggle gates out for lab = 2 gated out.
+    expect(labCount).toBe(TOUR_STEP_ORDER.length - 2);
   });
 
   it("applicableStepIndex is 1-based and skips gated steps", () => {

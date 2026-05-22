@@ -111,6 +111,7 @@ export default function StreaksSection() {
       id="streaks"
       className="bg-white rounded-xl border border-gray-200 p-6 scroll-mt-4"
       data-testid="streaks-section"
+      data-tour-target="settings-streak-section"
     >
       <div className="mb-4">
         <h2 className="text-base font-semibold text-gray-900 flex items-center gap-1.5">

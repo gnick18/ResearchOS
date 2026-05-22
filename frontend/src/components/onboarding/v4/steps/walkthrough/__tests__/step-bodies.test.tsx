@@ -114,8 +114,25 @@ import {
 } from "../GanttDependenciesStep";
 import { ganttGoalsStep } from "../GanttGoalsStep";
 import { animationPickerStep } from "../AnimationPickerStep";
-import { settingsColorStep, settingsMoreStep } from "../SettingsColorStep";
-import { settingsAiHelperStep } from "../SettingsAiHelperStep";
+// §6.10 Settings phase redesign 2026-05-22 (Settings manager):
+// `settingsMoreStep` + `settingsAiHelperStep` survive in their files
+// with @deprecated tags but are no longer in TOUR_STEP_ORDER. The
+// imports below cover the new 11-step Settings cluster; legacy bodies
+// are NOT included in ALL_STEPS to keep the universal-contract sweep
+// from re-evaluating retired step bodies.
+import { settingsColorStep } from "../SettingsColorStep";
+import {
+  settingsTourFolderStep,
+  settingsTourCalendarStep,
+  settingsTourTelegramStep,
+  settingsTourLabModeToggleStep,
+  settingsTourVisibleTabsStep,
+  settingsTourStreakStep,
+  settingsTourRerunStep,
+} from "../SettingsTourBeats";
+import { settingsAiHelperSizeDiffStep } from "../SettingsAiHelperSizeDiffStep";
+import { settingsAiHelperUseCasePasteStep } from "../SettingsAiHelperUseCasePasteStep";
+import { settingsAiHelperUseCaseAgenticStep } from "../SettingsAiHelperUseCaseAgenticStep";
 import { searchStep } from "../SearchStep";
 import { wikiPointerStep } from "../WikiPointerStep";
 import type { TourStep } from "../../../step-types";
@@ -190,9 +207,22 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   ganttShareUserSeesEditStep,
   ganttGoalsStep,
   animationPickerStep,
+  // §6.10 Settings phase redesign 2026-05-22 (Settings manager): the
+  // 11-step Settings cluster replaces the prior triplet. Legacy
+  // `settingsMoreStep` + `settingsAiHelperStep` survive in their
+  // files with @deprecated tags but are intentionally absent from
+  // ALL_STEPS so the contract sweep doesn't re-evaluate retired bodies.
   settingsColorStep,
-  settingsMoreStep,
-  settingsAiHelperStep,
+  settingsTourFolderStep,
+  settingsTourCalendarStep,
+  settingsTourTelegramStep,
+  settingsTourLabModeToggleStep,
+  settingsTourVisibleTabsStep,
+  settingsTourStreakStep,
+  settingsTourRerunStep,
+  settingsAiHelperSizeDiffStep,
+  settingsAiHelperUseCasePasteStep,
+  settingsAiHelperUseCaseAgenticStep,
   searchStep,
   wikiPointerStep,
 ];
@@ -260,9 +290,18 @@ describe("P5 step bodies — universal contract", () => {
       "gantt-share-user-sees-edit",
       "gantt-goals-overview",
       "personalization-animations",
+      // §6.10 Settings phase redesign 2026-05-22 (Settings manager).
       "personalization-color",
-      "settings-more",
-      "ai-helper-deep-explain",
+      "settings-tour-folder",
+      "settings-tour-calendar",
+      "settings-tour-telegram",
+      "settings-tour-lab-mode-toggle",
+      "settings-tour-visible-tabs",
+      "settings-tour-streak",
+      "settings-tour-rerun",
+      "ai-helper-size-diff",
+      "ai-helper-use-case-paste",
+      "ai-helper-use-case-agentic",
       "search-demo",
       "wiki-pointer",
     ]);
@@ -358,8 +397,14 @@ describe("P5 step bodies — universal contract", () => {
       ganttShareBeakerBotSharesStep,
       ganttGoalsStep,
       animationPickerStep,
+      // §6.10 Settings phase redesign 2026-05-22: BeakerBot-led demo
+      // steps that retain cursor scripts. The agentic use-case step
+      // is intentionally EXCLUDED (it's narration-only); the seven
+      // settings-tour-* beats are also excluded because they only
+      // narrate + spotlight (no cursor click).
       settingsColorStep,
-      settingsAiHelperStep,
+      settingsAiHelperSizeDiffStep,
+      settingsAiHelperUseCasePasteStep,
       searchStep,
       wikiPointerStep,
     ];
@@ -1163,10 +1208,12 @@ describe("Settings steps (§6.10)", () => {
       "[data-tour-target=\"settings-color-picker\"]",
     );
   });
-  it("settings-more pointer has no spotlight target", () => {
-    expect(settingsMoreStep.targetSelector).toBeUndefined();
-  });
-  it("AI Helper deep-explain is gated on full/medium/minimal", () => {
+  // §6.10 Settings phase redesign 2026-05-22 (Settings manager): the
+  // legacy `settings-more` pointer is retired in favor of the 7
+  // settings-tour-* narration beats. Direct assertions on
+  // `settingsMoreStep.targetSelector` are gone; the new beats are
+  // covered by SettingsTourBeats.test.tsx.
+  it("AI Helper size-diff is gated on full/medium/minimal", () => {
     const enable = (v: FeaturePicks["ai_helper"]): FeaturePicks => ({
       account_type: "solo",
       purchases: "no",
@@ -1175,14 +1222,24 @@ describe("Settings steps (§6.10)", () => {
       telegram: "no",
       ai_helper: v,
     });
-    expect(settingsAiHelperStep.conditionalOn?.(enable("full"))).toBe(true);
-    expect(settingsAiHelperStep.conditionalOn?.(enable("medium"))).toBe(true);
-    expect(settingsAiHelperStep.conditionalOn?.(enable("minimal"))).toBe(true);
-    expect(settingsAiHelperStep.conditionalOn?.(enable("no"))).toBe(false);
-    expect(settingsAiHelperStep.conditionalOn?.(enable("maybe"))).toBe(false);
+    expect(
+      settingsAiHelperSizeDiffStep.conditionalOn?.(enable("full")),
+    ).toBe(true);
+    expect(
+      settingsAiHelperSizeDiffStep.conditionalOn?.(enable("medium")),
+    ).toBe(true);
+    expect(
+      settingsAiHelperSizeDiffStep.conditionalOn?.(enable("minimal")),
+    ).toBe(true);
+    expect(
+      settingsAiHelperSizeDiffStep.conditionalOn?.(enable("no")),
+    ).toBe(false);
+    expect(
+      settingsAiHelperSizeDiffStep.conditionalOn?.(enable("maybe")),
+    ).toBe(false);
   });
-  it("AI Helper speech mentions the three sizes", () => {
-    const text = renderSpeech(settingsAiHelperStep);
+  it("AI Helper size-diff speech mentions the three sizes", () => {
+    const text = renderSpeech(settingsAiHelperSizeDiffStep);
     expect(text).toMatch(/Full/);
     expect(text).toMatch(/Medium/);
     expect(text).toMatch(/Minimal/);

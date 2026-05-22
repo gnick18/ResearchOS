@@ -266,7 +266,21 @@ function SettingsBody() {
   return (
     <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
       <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
-        <header className="flex items-center justify-between">
+        {/* Onboarding v4 §6.10 Settings phase redesign 2026-05-22
+            (Settings manager): the page header doubles as the
+            spotlight anchor for the `settings-tour-folder` narration
+            beat. The `users/<user>/settings.json` line is the closest
+            in-product surface that references the user's connected
+            lab folder, so BeakerBot anchors there when narrating
+            "this is where your lab folder lives." The dedicated
+            folder-switching UI lives on the entry screen
+            (ResearchFolderSetupNew); a FOLLOW-UP could surface a
+            "Change folder" button right here for parity with the
+            narration. */}
+        <header
+          data-tour-target="settings-folder-section"
+          className="flex items-center justify-between"
+        >
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
             <p className="text-sm text-gray-500 mt-1">
@@ -654,6 +668,7 @@ function TabsSection({ settings, update }: SectionProps) {
   return (
     <SectionShell
       title="Tabs"
+      tourTarget="settings-tabs-section"
       description="Pick which tabs show up in the header. Home is always shown so you have a guaranteed landing spot. Settings (this page) is always reachable via the gear icon."
     >
       <div className="grid grid-cols-2 gap-2">
@@ -865,6 +880,7 @@ function BehaviorSection({ settings, update }: SectionProps) {
   return (
     <SectionShell
       id="telegram"
+      tourTarget="settings-telegram-section"
       title="Notifications & behavior"
       description="Master switches for messaging and safety prompts."
     >
@@ -2597,6 +2613,7 @@ function TipsSection() {
   return (
     <SectionShell
       title="Onboarding"
+      tourTarget="settings-rerun-section"
       description="Re-run the welcome tour to revisit setup picks and the BeakerBot walkthrough on your real account."
     >
       <div className="flex items-start justify-between gap-4">

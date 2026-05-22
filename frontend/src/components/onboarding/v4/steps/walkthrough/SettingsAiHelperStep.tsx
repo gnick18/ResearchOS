@@ -1,6 +1,23 @@
 /**
  * §6.10 Settings — AI Helper deep-explain.
  *
+ * @deprecated 2026-05-22 (Settings manager, §6.10 phase redesign).
+ *
+ * Replaced by three manual-advance beats in `SettingsAiHelperSizeDiffStep.tsx`,
+ * `SettingsAiHelperUseCasePasteStep.tsx`, and `SettingsAiHelperUseCaseAgenticStep.tsx`.
+ * The split addresses two issues with the prior single-step body:
+ *
+ *   1. The 5-paragraph speech wall was too dense for one beat.
+ *   2. The cursor flew through Full → Medium → Minimal → Copy back-
+ *      to-back without giving the user time to read the size-diff
+ *      preview pane between clicks.
+ *
+ * New shape: size-diff (with paused cursor between size clicks),
+ * paste use case (with the Copy click), then agentic use case
+ * (pure narration). The deep-explain step body survives in the repo
+ * for git-history reference + back-compat imports; it is NOT in
+ * TOUR_STEP_ORDER and the machine never lands on it.
+ *
  * Conditional on Q6 = yes (`feature_picks.ai_helper` ∈ {full,
  * medium, minimal}). The step-machine already gates the id via
  * `isStepGatedOut` in P1; the registry just provides the body.

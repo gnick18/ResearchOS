@@ -197,10 +197,42 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "gantt-goals-overview",
   // Personalization on the Gantt toolbar (§6.9)
   "personalization-animations",
-  // Settings deep-dive (§6.10)
+  // Settings deep-dive (§6.10) — phase redesign 2026-05-22 (Settings
+  // manager). The prior 3-step cluster (`personalization-color`,
+  // `settings-more`, `ai-helper-deep-explain`) is replaced by 11
+  // steps:
+  //
+  //   - `personalization-color` REFINED to demo primary + invite
+  //     optional secondary user-action pick.
+  //   - 7 new `settings-tour-*` narration beats explaining the
+  //     folder / calendar / telegram / lab-mode toggle / visible
+  //     tabs / streak / re-run surfaces.
+  //   - 3 new `ai-helper-*` beats splitting the prior wall of
+  //     speech into manual-advance size-diff + paste use case +
+  //     agentic use case.
+  //
+  // Three of the new settings-tour-* beats are conditional:
+  //   - `settings-tour-calendar`         gates on picks.calendar === "yes"
+  //   - `settings-tour-telegram`         gates on picks.telegram === "yes"
+  //   - `settings-tour-lab-mode-toggle`  gates on picks.account_type === "solo"
+  //
+  // The 3 ai-helper-* beats inherit the prior single-id gate
+  // (picks.ai_helper ∈ {full, medium, minimal}); see
+  // `isStepGatedOut` below for the predicate. Legacy ids
+  // (`settings-more`, `ai-helper-deep-explain`) survive in the
+  // step body files with @deprecated JSDoc tags but are NOT in
+  // TOUR_STEP_ORDER, so the machine never lands on them.
   "personalization-color",
-  "settings-more",
-  "ai-helper-deep-explain",
+  "settings-tour-folder",
+  "settings-tour-calendar",
+  "settings-tour-telegram",
+  "settings-tour-lab-mode-toggle",
+  "settings-tour-visible-tabs",
+  "settings-tour-streak",
+  "settings-tour-rerun",
+  "ai-helper-size-diff",
+  "ai-helper-use-case-paste",
+  "ai-helper-use-case-agentic",
   // Search (§6.11)
   "search-demo",
   // Wiki pointer outro (§6.12)
@@ -441,10 +473,45 @@ export function isStepGatedOut(
   // §6.10 AI Helper deep-explain: only fire when AI Helper is opted in
   // (full / medium / minimal). "no" and "maybe" route around the
   // deep-explain monologue.
-  if (step === "ai-helper-deep-explain") {
+  //
+  // Settings manager 2026-05-22 (§6.10 phase redesign): the prior
+  // single `ai-helper-deep-explain` id is replaced by three beats
+  // (size-diff + paste use case + agentic use case). All three share
+  // the same gate; the legacy id is retained for back-compat so any
+  // stale `wizard_resume_state.current_step` referencing it still
+  // gates correctly (the machine skips it because it's not in
+  // TOUR_STEP_ORDER, but the gate predicate stays in lockstep with
+  // the new ids in case dev tools / debug consoles ask).
+  if (
+    step === "ai-helper-deep-explain" ||
+    step === "ai-helper-size-diff" ||
+    step === "ai-helper-use-case-paste" ||
+    step === "ai-helper-use-case-agentic"
+  ) {
     const v = picks?.ai_helper;
     if (!v) return true;
     return v === "no" || v === "maybe";
+  }
+
+  // §6.10 Settings tour narration beats (Settings manager 2026-05-22).
+  // Three of the seven new beats are conditional; the other four
+  // (folder, visible-tabs, streak, rerun) fire for everyone.
+  //
+  //   - settings-tour-calendar         → picks.calendar === "yes"
+  //   - settings-tour-telegram         → picks.telegram === "yes"
+  //   - settings-tour-lab-mode-toggle  → picks.account_type === "solo"
+  //
+  // Lab users skip the lab-mode-toggle beat because they're already
+  // in lab mode (the toggle's flavor changes for them); solo users
+  // see it so they know how to flip over later.
+  if (step === "settings-tour-calendar") {
+    return picks?.calendar !== "yes";
+  }
+  if (step === "settings-tour-telegram") {
+    return picks?.telegram !== "yes";
+  }
+  if (step === "settings-tour-lab-mode-toggle") {
+    return picks?.account_type !== "solo";
   }
 
   // Lab tour cluster — entire cluster gates on account_type === "lab".

@@ -214,6 +214,31 @@ export const TOUR_TARGETS = {
   settingsAiHelperTabMedium: "settings-ai-helper-tab-medium",
   settingsAiHelperTabMinimal: "settings-ai-helper-tab-minimal",
   settingsAiHelperCopy: "settings-ai-helper-copy",
+  // §6.10 Settings phase redesign 2026-05-22 (Settings manager).
+  // New spotlight anchors for the 7 settings-tour-* narration beats that
+  // expand §6.10 from 3 steps to 11. Each beat scrolls + narrates a
+  // single Settings surface so the user learns where each capability
+  // lives without clicking through. Anchors stamp the SectionShell (or
+  // its inner row) so the spotlight wraps the whole card.
+  //
+  // Calendar feeds + lab-mode-toggle don't have a dedicated Settings
+  // section yet; their tour beats fall back to narration-only (no
+  // targetSelector) until the surfaces ship. FOLLOW-UP comments in the
+  // step bodies tag the wire-up site.
+  settingsFolderSection: "settings-folder-section",
+  settingsTelegramSection: "settings-telegram-section",
+  settingsTabsSection: "settings-tabs-section",
+  settingsStreakSection: "settings-streak-section",
+  settingsRerunSection: "settings-rerun-section",
+  // Optional secondary-color swatch (gradient feature, in flight at
+  // a621daf4). The primary palette swatch already carries
+  // `data-color-swatch="<hex>"` which the cursor demo targets first;
+  // the secondary palette will reuse the same attribute under a
+  // dedicated wrapper. Until the gradient sub-bot lands, this anchor
+  // resolves to nothing and the page-lock allow-list falls back to the
+  // existing primary palette.
+  settingsColorPickerSecondary: "settings-color-picker-secondary",
+  settingsColorPickerClearSecondary: "settings-color-picker-clear-secondary",
 
   // §6.11 Search
   searchInput: "search-input",

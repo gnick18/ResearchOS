@@ -188,9 +188,36 @@ import { ganttGoalsStep } from "./steps/walkthrough/GanttGoalsStep";
 import { animationPickerStep } from "./steps/walkthrough/AnimationPickerStep";
 import {
   settingsColorStep,
-  settingsMoreStep,
+  // settingsMoreStep is retained in the SettingsColorStep.tsx export
+  // surface with @deprecated JSDoc (Settings manager 2026-05-22 §6.10
+  // phase redesign) but NOT wired into the registry — the seven new
+  // settings-tour-* beats replace its single pointer beat with per-
+  // surface narration.
 } from "./steps/walkthrough/SettingsColorStep";
-import { settingsAiHelperStep } from "./steps/walkthrough/SettingsAiHelperStep";
+// §6.10 Settings phase redesign 2026-05-22 (Settings manager). Seven
+// new narration beats spotlight each Settings surface (folder /
+// calendar / telegram / lab-mode toggle / visible tabs / streak /
+// re-run welcome tour). Three are conditional; the others are
+// universal. See SettingsTourBeats.tsx for the per-step bodies.
+import {
+  settingsTourFolderStep,
+  settingsTourCalendarStep,
+  settingsTourTelegramStep,
+  settingsTourLabModeToggleStep,
+  settingsTourVisibleTabsStep,
+  settingsTourStreakStep,
+  settingsTourRerunStep,
+} from "./steps/walkthrough/SettingsTourBeats";
+// §6.10 AI Helper split (Settings manager 2026-05-22). The prior
+// single `ai-helper-deep-explain` body splits into three manual-
+// advance beats: size-diff (with paused cursor between Full → Medium
+// → Minimal clicks), paste use case (with the Copy click), and the
+// agentic use case (pure narration). `settingsAiHelperStep` survives
+// in its file with @deprecated JSDoc but no longer wires through the
+// registry.
+import { settingsAiHelperSizeDiffStep } from "./steps/walkthrough/SettingsAiHelperSizeDiffStep";
+import { settingsAiHelperUseCasePasteStep } from "./steps/walkthrough/SettingsAiHelperUseCasePasteStep";
+import { settingsAiHelperUseCaseAgenticStep } from "./steps/walkthrough/SettingsAiHelperUseCaseAgenticStep";
 import { searchStep } from "./steps/walkthrough/SearchStep";
 import { wikiPointerStep } from "./steps/walkthrough/WikiPointerStep";
 
@@ -262,9 +289,22 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   // on picks.goals === "yes" (step-machine.ts gating unchanged).
   [ganttGoalsStep.id]: ganttGoalsStep,
   [animationPickerStep.id]: animationPickerStep,
+  // §6.10 Settings phase redesign 2026-05-22 (Settings manager): the
+  // prior single `settings-more` + `ai-helper-deep-explain` cluster is
+  // replaced by 7 settings-tour-* narration beats + 3 ai-helper-* beats.
+  // The legacy bodies survive with @deprecated tags in their files but
+  // are NOT mapped here.
   [settingsColorStep.id]: settingsColorStep,
-  [settingsMoreStep.id]: settingsMoreStep,
-  [settingsAiHelperStep.id]: settingsAiHelperStep,
+  [settingsTourFolderStep.id]: settingsTourFolderStep,
+  [settingsTourCalendarStep.id]: settingsTourCalendarStep,
+  [settingsTourTelegramStep.id]: settingsTourTelegramStep,
+  [settingsTourLabModeToggleStep.id]: settingsTourLabModeToggleStep,
+  [settingsTourVisibleTabsStep.id]: settingsTourVisibleTabsStep,
+  [settingsTourStreakStep.id]: settingsTourStreakStep,
+  [settingsTourRerunStep.id]: settingsTourRerunStep,
+  [settingsAiHelperSizeDiffStep.id]: settingsAiHelperSizeDiffStep,
+  [settingsAiHelperUseCasePasteStep.id]: settingsAiHelperUseCasePasteStep,
+  [settingsAiHelperUseCaseAgenticStep.id]: settingsAiHelperUseCaseAgenticStep,
   [searchStep.id]: searchStep,
   [wikiPointerStep.id]: wikiPointerStep,
   // §6.16 Phase 2c Lab Mode tour cluster (Lab Mode redesign 2026-05-22).

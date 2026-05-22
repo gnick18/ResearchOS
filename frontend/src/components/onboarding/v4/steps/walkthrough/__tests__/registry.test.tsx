@@ -67,9 +67,22 @@ const P5_STEP_IDS = [
   "gantt-share-user-sees-edit",
   "gantt-goals-overview",
   "personalization-animations",
+  // §6.10 Settings phase redesign 2026-05-22 (Settings manager). The
+  // prior triplet (personalization-color, settings-more,
+  // ai-helper-deep-explain) is replaced by 11 steps. The legacy
+  // settings-more + ai-helper-deep-explain ids are NOT in
+  // TOUR_STEP_ORDER any more, so they're absent from this list.
   "personalization-color",
-  "settings-more",
-  "ai-helper-deep-explain",
+  "settings-tour-folder",
+  "settings-tour-calendar",
+  "settings-tour-telegram",
+  "settings-tour-lab-mode-toggle",
+  "settings-tour-visible-tabs",
+  "settings-tour-streak",
+  "settings-tour-rerun",
+  "ai-helper-size-diff",
+  "ai-helper-use-case-paste",
+  "ai-helper-use-case-agentic",
   "search-demo",
   "wiki-pointer",
 ] as const;
