@@ -1,0 +1,45 @@
+{
+  "id": 6,
+  "title": "BioTek H1 calibration log",
+  "description": "Demo running log. Weekly calibration check on the BioTek H1 plate reader (demo unit). I run a 6-well standard curve every Monday before any GFP screen.",
+  "is_running_log": true,
+  "is_shared": true,
+  "entries": [
+    {
+      "id": "rl-morgan-6-e1",
+      "title": "2026-04-21: first weekly check",
+      "date": "2026-04-21",
+      "content": "Standard curve (fluorescein, 0 to 500 nM). R² = 0.997, slope within 5% of last month's. PASS.",
+      "created_at": "2026-04-21T08:30:00Z",
+      "updated_at": "2026-04-21T08:30:00Z"
+    },
+    {
+      "id": "rl-morgan-6-e2",
+      "title": "2026-04-28: weekly check",
+      "date": "2026-04-28",
+      "content": "R² = 0.995, slope drift +2.1%. PASS. Noted slight bubble in well A1, repeated the row to be safe (within tolerance the second time).",
+      "created_at": "2026-04-28T08:45:00Z",
+      "updated_at": "2026-04-28T08:45:00Z"
+    },
+    {
+      "id": "rl-morgan-6-e3",
+      "title": "2026-05-05: weekly check",
+      "date": "2026-05-05",
+      "content": "R² = 0.998. PASS. Cleaned the lamp housing per the docs link, run-to-run noise dropped from 1.4% CV to 0.9% CV.",
+      "created_at": "2026-05-05T08:30:00Z",
+      "updated_at": "2026-05-05T08:30:00Z"
+    },
+    {
+      "id": "rl-morgan-6-e4",
+      "title": "2026-05-12: weekly check",
+      "date": "2026-05-12",
+      "content": "R² = 0.996. PASS. Ready for the full 96-well screen on Thursday.",
+      "created_at": "2026-05-12T08:30:00Z",
+      "updated_at": "2026-05-12T08:30:00Z"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-04-21T08:30:00Z",
+  "updated_at": "2026-05-12T08:30:00Z",
+  "username": "morgan"
+}

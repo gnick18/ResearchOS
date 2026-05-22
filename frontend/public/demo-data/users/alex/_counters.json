@@ -3,7 +3,7 @@
   "tasks": 30,
   "methods": 12,
   "events": 4,
-  "goals": 2,
+  "goals": 3,
   "pcr_protocols": 1,
   "lc_gradients": 1,
   "plate_layouts": 1,
@@ -13,6 +13,6 @@
   "qpcr_analyses": 1,
   "purchase_items": 20,
   "lab_links": 6,
-  "notes": 2,
+  "notes": 7,
   "dependencies": 8
 }

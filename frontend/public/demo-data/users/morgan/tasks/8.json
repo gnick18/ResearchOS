@@ -9,6 +9,7 @@
   "is_complete": true,
   "task_type": "list",
   "weekend_override": null,
+  "method_id": null,
   "method_ids": [],
   "deviation_log": null,
   "tags": null,
@@ -26,6 +27,8 @@
       "is_complete": true
     }
   ],
+  "pcr_gradient": null,
+  "pcr_ingredients": null,
   "method_attachments": [],
   "owner": "morgan",
   "shared_with": [],

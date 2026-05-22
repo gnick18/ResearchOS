@@ -3,10 +3,10 @@
   "tasks": 13,
   "methods": 2,
   "events": 0,
-  "goals": 0,
+  "goals": 2,
   "pcr_protocols": 0,
   "purchase_items": 20,
   "lab_links": 4,
-  "notes": 1,
+  "notes": 6,
   "dependencies": 2
 }

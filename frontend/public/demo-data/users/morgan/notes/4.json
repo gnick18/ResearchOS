@@ -1,0 +1,12 @@
+{
+  "id": 4,
+  "title": "Group brainstorm: GFP heat-stress assay",
+  "description": "Demo meeting note. Whiteboard session 2026-05-07. Goal: design an assay that lets us screen the FY-Δgal80 library for heat-stress survival without losing the fakeGFP reporter signal.\n\nWhat we agreed on:\n- Pre-grow at 30 °C, then shift to 37 °C for 0, 30, 60, 120 min\n- Read fakeGFP at every timepoint plus a recovery read at 4 h post-shift\n- Use the 384-well plates we already ordered for the stress project (purchase item 13) so we don't have to wait\n\nOpen questions:\n- Does fakeGFP itself misfold above 35 °C? Need a quick mScarlet control to separate \"reporter killed\" from \"cell dead\".\n- Reader cycles long enough on 384-well? Morgan to check the reader docs link.\n\nAction items:\n- alex: order 2 plates of mScarlet+ positive control (demo)\n- morgan: schedule a calibration run on 384-well format this week\n- both: convert this brainstorm into a real experiment design by 2026-05-21.",
+  "is_running_log": false,
+  "is_shared": true,
+  "entries": [],
+  "comments": [],
+  "created_at": "2026-05-07T14:00:00Z",
+  "updated_at": "2026-05-07T15:30:00Z",
+  "username": "morgan"
+}

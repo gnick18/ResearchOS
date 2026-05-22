@@ -95,6 +95,12 @@
     }
   ],
   "notes": "Demo protocol — verifies integration of the `pYES-GAL1::flbA` cassette at the URA3 locus. Expected band: ~1.4 kb.",
+  "tags": [
+    "demo",
+    "screen"
+  ],
   "is_public": true,
-  "created_by": "alex"
+  "created_by": "alex",
+  "owner": "public",
+  "shared_with": []
 }

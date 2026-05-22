@@ -1,0 +1,32 @@
+{
+  "id": 2,
+  "project_id": 1,
+  "name": "DEMO: Validate fakeGFP screening pipeline",
+  "start_date": "2026-04-01",
+  "end_date": "2026-06-15",
+  "color": "#10b981",
+  "smart_goals": [
+    {
+      "id": "sg1",
+      "text": "Plate reader calibration log (4 weekly checks)",
+      "is_complete": true
+    },
+    {
+      "id": "sg2",
+      "text": "Run 3 control plates with known positives",
+      "is_complete": true
+    },
+    {
+      "id": "sg3",
+      "text": "Variance under 5% across biological triplicates",
+      "is_complete": false
+    },
+    {
+      "id": "sg4",
+      "text": "Present pipeline at lab meeting",
+      "is_complete": false
+    }
+  ],
+  "is_complete": false,
+  "created_at": "2026-04-01T00:00:00Z"
+}

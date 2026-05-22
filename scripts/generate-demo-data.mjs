@@ -348,7 +348,10 @@ function buildEntries() {
       // analysis — see proposal §6.2 pre-assigned id ranges).
       methods: 12,
       events: 4,
-      goals: 2,
+      // 3rd goal added below so the lab-mode-roadmaps tour step (Phase 2c)
+      // shows a personal-goal example (project_id: null) alongside the two
+      // project-bound ones.
+      goals: 3,
       pcr_protocols: 1,
       lc_gradients: 1,
       plate_layouts: 1,
@@ -367,7 +370,11 @@ function buildEntries() {
       qpcr_analyses: 1,
       purchase_items: 20,
       lab_links: 6,
-      notes: 2,
+      // Notes bumped to 7 for the Lab Mode notes-tab fixture (Onboarding v4
+      // Phase 2c). 5 new shared notes added below so the lab-mode-notes tour
+      // step has realistic content to walk through. Mix: meeting notes,
+      // running logs, and lab-recipe-style single-shot notes.
+      notes: 7,
       dependencies: 8,
     },
   ]);
@@ -1182,6 +1189,15 @@ function buildEntries() {
       { id: "sg1", text: "10 candidate plasmids assembled", is_complete: false },
       { id: "sg2", text: "All sequenced + validated", is_complete: false },
     ], is_complete: false, created_at: "2026-04-01T00:00:00Z" }]);
+  // Personal (project_id: null) goal so the lab-mode-roadmaps tour can
+  // demo the "Personal" bucket alongside project-bound goals.
+  out.push(["users/alex/goals/3.json", { id: 3, project_id: null, name: "DEMO: Submit DOE renewal abstract", start_date: "2026-05-01", end_date: "2026-05-29", color: "#ef4444",
+    smart_goals: [
+      { id: "sg1", text: "Outline + specific aims drafted", is_complete: true },
+      { id: "sg2", text: "Preliminary data figures finalized", is_complete: true },
+      { id: "sg3", text: "Internal review with co-PIs", is_complete: false },
+      { id: "sg4", text: "Submit through demo portal", is_complete: false },
+    ], is_complete: false, created_at: "2026-05-01T00:00:00Z" }]);
 
   // alex purchases (20 — Chip B fixture expansion).
   //
@@ -1236,13 +1252,49 @@ function buildEntries() {
   out.push(["users/alex/lab_links/5.json", { id: 5, title: "Sigma-Aldrich (demo)", url: "https://example.org/demo-sigma", description: "Reagents.", category: "Ordering portals", color: "#10b981", preview_image_url: null, sort_order: 1, created_at: "2026-02-01T00:00:00Z" }]);
   out.push(["users/alex/lab_links/6.json", { id: 6, title: "Nature Biotechnology", url: "https://example.org/demo-natbiotech", description: "Target journal for the FakeYeast biofuel paper.", category: "Journals", color: "#f59e0b", preview_image_url: null, sort_order: 0, created_at: "2026-02-01T00:00:00Z" }]);
 
-  // alex notes
+  // alex notes — all `is_shared: true` so the Lab Mode notes tab (which
+  // filters on shared_only) has realistic content. Mix of single-shot
+  // observations, lab-recipe-style protocol notes, meeting notes, and
+  // multi-entry running logs.
   out.push(["users/alex/notes/1.json", { id: 1, title: "Run 2026-05-08: pYES-GAL1::flbA transformation", description:
-      "Demo experiment note. Transformed FakeYeast-001 with pYES-GAL1::flbA using the LiAc protocol. Heat shock ran short (38 min, see deviation_log). Plated on SD-Ura. 40 colonies after 48 h — eight patched for downstream work.",
-    is_running_log: false, is_shared: false, entries: [], comments: [], created_at: "2026-05-08T14:00:00Z", updated_at: "2026-05-11T09:00:00Z", username: "alex" }]);
+      "Demo experiment note. Transformed FakeYeast-001 with pYES-GAL1::flbA using the LiAc protocol. Heat shock ran short (38 min, see deviation_log). Plated on SD-Ura. 40 colonies after 48 h, eight patched for downstream work.",
+    is_running_log: false, is_shared: true, entries: [], comments: [], created_at: "2026-05-08T14:00:00Z", updated_at: "2026-05-11T09:00:00Z", username: "alex" }]);
   out.push(["users/alex/notes/2.json", { id: 2, title: "Lab observations (running log)", description:
-      "Demo running log. Tracking weekly bench notes.\n\n2026-05-13: PCR screen of 16 transformants today. Expect ~50% positive based on the patch results. Will update the gel image once it's run.\n\n2026-05-10: Patched plates look clean — no contamination.",
-    is_running_log: true, is_shared: false, entries: [], comments: [], created_at: "2026-05-01T00:00:00Z", updated_at: "2026-05-13T09:00:00Z", username: "alex" }]);
+      "Demo running log. Tracking weekly bench notes.\n\n2026-05-13: PCR screen of 16 transformants today. Expect ~50% positive based on the patch results. Will update the gel image once it's run.\n\n2026-05-10: Patched plates look clean, no contamination.",
+    is_running_log: true, is_shared: true, entries: [
+      { id: "rl-alex-2-e1", title: "2026-05-01: running log opened", date: "2026-05-01", content: "Starting a weekly bench log for the FakeYeast biofuel project. Goal: capture transformation efficiencies, gel reads, and any deviations that don't fit in a task's deviation_log field.", created_at: "2026-05-01T09:00:00Z", updated_at: "2026-05-01T09:00:00Z" },
+      { id: "rl-alex-2-e2", title: "2026-05-10: patch plates", date: "2026-05-10", content: "Patched 8 colonies onto fresh SD-Ura. All grew clean, no satellite colonies. Picking the top 4 (rows A1 to A4) for sequencing on Monday.", created_at: "2026-05-10T11:30:00Z", updated_at: "2026-05-10T11:30:00Z" },
+      { id: "rl-alex-2-e3", title: "2026-05-13: PCR screen", date: "2026-05-13", content: "Ran DemoCheck PCR on 16 transformants. Expecting ~50% positive based on the patch results. Gel image goes into the task-3 results folder once it's run this afternoon.", created_at: "2026-05-13T09:00:00Z", updated_at: "2026-05-13T09:00:00Z" },
+    ], comments: [], created_at: "2026-05-01T00:00:00Z", updated_at: "2026-05-13T09:00:00Z", username: "alex" }]);
+
+  // Note 3: lab-recipe-style. Pure reagent table + steps, no prose.
+  out.push(["users/alex/notes/3.json", { id: 3, title: "Plasmid mini-prep recipe v3 (column-based)", description:
+      "Demo recipe note. Bench card for the column mini-prep.\n\nReagents per 5 mL overnight:\n- P1 resuspension: 250 µL (4 °C, w/ RNase A)\n- P2 lysis: 250 µL (RT, fresh)\n- N3 neutralization: 350 µL (RT)\n- PB wash: 500 µL\n- PE wash: 750 µL (with ethanol)\n- EB elution: 30 µL (pre-warm to 50 °C)\n\nSteps:\n1. Pellet 5 mL overnight @ 3000 g, 5 min, RT. Decant.\n2. Resuspend in P1, transfer to 1.5 mL tube.\n3. Add P2, invert 4 to 6×, incubate 3 min.\n4. Add N3, invert 4 to 6×, spin 13k rpm, 10 min.\n5. Load supernatant onto column, spin 60 sec.\n6. Wash PB (60 sec), wash PE (60 sec), dry-spin 60 sec.\n7. Elute in 30 µL EB, sit 1 min, spin 60 sec.\n\nExpected yield: 80 to 150 ng/µL for FakeYeast-001 strains.\nLowercase ID: alex_mp_v3.",
+    is_running_log: false, is_shared: true, entries: [], comments: [], created_at: "2026-03-15T10:00:00Z", updated_at: "2026-04-02T14:00:00Z", username: "alex" }]);
+
+  // Note 4: meeting note, prose-style.
+  out.push(["users/alex/notes/4.json", { id: 4, title: "Lab meeting 2026-05-11: strain design review", description:
+      "Demo meeting note. Attendees: alex, morgan.\n\nAgenda:\n1. Walk through pYES-GAL1::flbA integration data\n2. Plan for the 96-well fluorescence screen (morgan's project 1)\n3. Review purchase pipeline for the stress-tolerance project\n\nNotes:\nMorgan presented the patch-plate photos from 2026-05-09. Eight clean colonies, no satellites. Plan is to send the top 4 for Sanger sequencing on Monday. Decision: pick rows A1, A2, A3, A4 (per the running log). If 3 of 4 come back clean we move to the qPCR expression check on the same colonies.\n\nFor the 96-well screen, morgan will use the public DemoCheck PCR protocol but with the fakeGFP primer pair (alex protocol 1). Plate map already drafted (morgan note 1). Reader booked for Thursday.\n\nAction items:\n- alex: place IDT order for the fakeGFP primers by Wednesday\n- morgan: finalize plate map and share via the lab notes panel\n- both: review the gel image from PCR screen 2026-05-13 once it's posted",
+    is_running_log: false, is_shared: true, entries: [], comments: [], created_at: "2026-05-11T13:00:00Z", updated_at: "2026-05-11T15:30:00Z", username: "alex" }]);
+
+  // Note 5: qPCR optimization, running log with measurement tables.
+  out.push(["users/alex/notes/5.json", { id: 5, title: "qPCR optimization log (fakeGFP vs ACT1)", description:
+      "Demo running log. Optimizing the SYBR-based qPCR for fakeGFP expression. Reference: alex pcr_protocol 1.\n\nDoc tracks Cq values per primer-anneal sweep so we lock in conditions before the full triplicate run.",
+    is_running_log: true, is_shared: true, entries: [
+      { id: "rl-alex-5-e1", title: "2026-04-22: anneal temp sweep 56, 58, 60, 62 °C", date: "2026-04-22", content: "fakeGFP-fwd/rev at 200 nM, cDNA 1:5. Cq means (n=2):\n- 56 °C: 22.9\n- 58 °C: 22.4\n- 60 °C: 21.7 (sharp melt peak)\n- 62 °C: 22.1\n\nLocking in 60 °C anneal. Melt curve confirms single product.", created_at: "2026-04-22T16:00:00Z", updated_at: "2026-04-22T16:00:00Z" },
+      { id: "rl-alex-5-e2", title: "2026-04-29: primer concentration check (100 vs 200 nM)", date: "2026-04-29", content: "100 nM: Cq 22.1, lower fluorescence plateau. 200 nM: Cq 21.7, plateau ~2× higher. Sticking with 200 nM for the demo runs.", created_at: "2026-04-29T11:00:00Z", updated_at: "2026-04-29T11:00:00Z" },
+      { id: "rl-alex-5-e3", title: "2026-05-06: reference gene comparison ACT1 vs PDA1", date: "2026-05-06", content: "ACT1 Cq spread across 8 wells: 21.6 to 21.9 (SD 0.10). PDA1 Cq spread: 24.1 to 24.7 (SD 0.22). ACT1 is the tighter reference, using it as the housekeeping baseline.", created_at: "2026-05-06T10:30:00Z", updated_at: "2026-05-06T10:30:00Z" },
+    ], comments: [], created_at: "2026-04-22T16:00:00Z", updated_at: "2026-05-06T10:30:00Z", username: "alex" }]);
+
+  // Note 6: terse list-style single-shot, freezer cleanout.
+  out.push(["users/alex/notes/6.json", { id: 6, title: "Freezer 3 cleanout 2026-05-05", description:
+      "Demo single-shot note. Reorganizing -80 freezer 3 (shelf 2).\n\nKept:\n- pYES-GAL1::flbA glycerols (8 tubes, FakeYeast-001 background)\n- pDEMO-fluo stocks (4 tubes)\n- Backup gDNA from the 2026-03 transformation batch\n\nDiscarded (logged in the chemical waste book):\n- 12 unlabeled tubes, gray caps, no date (assumed >2 years old)\n- Half a box of FakeYeast WT glycerols from 2024 (have fresher stock)\n- Two leaking SOC aliquots\n\nAction: morgan to back up the pYES glycerols into freezer 5 before any future cleanout.",
+    is_running_log: false, is_shared: true, entries: [], comments: [], created_at: "2026-05-05T15:00:00Z", updated_at: "2026-05-05T15:00:00Z", username: "alex" }]);
+
+  // Note 7: 1:1 meeting note, prose.
+  out.push(["users/alex/notes/7.json", { id: 7, title: "PI 1:1 with morgan: 2026-05-14 prep", description:
+      "Demo meeting note (prep card for the 1:1 calendar event).\n\nTopics to cover:\n1. Dissertation timeline check, especially chapter 2 figure plan\n2. 96-well screen prep status (project 1 shared task)\n3. Conference travel: Demo Synthetic Biology Conference 2026 in June\n4. Anything blocking the qPCR run?\n\nNotes I want to give:\n- Patch-plate photos looked clean, good documentation.\n- Plate-map note (morgan #1) is exactly the format I want going forward; can we make that the template for future screens?\n- Encourage morgan to flip more of her notes to shared so the lab-mode feed reflects her actual output.\n\nFollow-up tasks (to convert into actual tasks afterward):\n- Draft chapter 2 outline by 2026-05-30\n- Book the plate reader for the full screen replicate, 2026-05-22",
+    is_running_log: false, is_shared: true, entries: [], comments: [], created_at: "2026-05-13T17:00:00Z", updated_at: "2026-05-13T17:30:00Z", username: "alex" }]);
 
   // alex dependencies (chain: 1→2→3→4→5→6, plus 7→2, 8→9, and 10→11)
   out.push(["users/alex/dependencies/1.json", { id: 1, parent_id: 1, child_id: 2, dep_type: "FS" }]);
@@ -1319,11 +1371,17 @@ function buildEntries() {
       tasks: 13,
       methods: 2,
       events: 0,
-      goals: 0,
+      // 2 personal/project SMART goals added below so the lab-mode-roadmaps
+      // tour step (Phase 2c) shows progress trackers across both demo users
+      // instead of only alex.
+      goals: 2,
       pcr_protocols: 0,
       purchase_items: 20,
       lab_links: 4,
-      notes: 1,
+      // Notes bumped to 6 for the Lab Mode notes-tab fixture (Onboarding v4
+      // Phase 2c). 5 new shared notes added below — mix of plate-prep
+      // recipes, meeting notes, and a calibration running log.
+      notes: 6,
       dependencies: 2,
     },
   ]);
@@ -1461,10 +1519,61 @@ function buildEntries() {
   out.push(["users/morgan/lab_links/3.json", { id: 3, title: "Demo lab GitHub fake repo", url: "https://example.org/demo-github", description: "Analysis scripts for the screen.", category: "Bioinformatics tools", color: "#10b981", preview_image_url: null, sort_order: 1, created_at: "2026-02-01T00:00:00Z" }]);
   out.push(["users/morgan/lab_links/4.json", { id: 4, title: "Sigma-Aldrich (demo)", url: "https://example.org/demo-sigma", description: null, category: "Ordering portals", color: "#10b981", preview_image_url: null, sort_order: 2, created_at: "2026-02-01T00:00:00Z" }]);
 
-  // morgan notes
+  // morgan goals — added for the lab-mode-roadmaps tour step (Phase 2c) so
+  // the roadmaps panel shows progress trackers for both demo users instead
+  // of only alex. Goal 1 is the dissertation milestone (long-running, sub-
+  // goals partially complete). Goal 2 is the immediate 96-well screen.
+  out.push(["users/morgan/goals/1.json", { id: 1, project_id: 2, name: "DEMO: Complete dissertation chapter 2 (heat-stress screen)", start_date: "2026-03-01", end_date: "2026-10-31", color: "#06b6d4",
+    smart_goals: [
+      { id: "sg1", text: "96-well screen data collection complete", is_complete: false },
+      { id: "sg2", text: "Statistical analysis (R script, dose-response)", is_complete: false },
+      { id: "sg3", text: "Figures rendered (viridis colorblind-safe)", is_complete: false },
+      { id: "sg4", text: "Chapter draft v1 to committee", is_complete: false },
+    ], is_complete: false, created_at: "2026-03-01T00:00:00Z" }]);
+  out.push(["users/morgan/goals/2.json", { id: 2, project_id: 1, name: "DEMO: Validate fakeGFP screening pipeline", start_date: "2026-04-01", end_date: "2026-06-15", color: "#10b981",
+    smart_goals: [
+      { id: "sg1", text: "Plate reader calibration log (4 weekly checks)", is_complete: true },
+      { id: "sg2", text: "Run 3 control plates with known positives", is_complete: true },
+      { id: "sg3", text: "Variance under 5% across biological triplicates", is_complete: false },
+      { id: "sg4", text: "Present pipeline at lab meeting", is_complete: false },
+    ], is_complete: false, created_at: "2026-04-01T00:00:00Z" }]);
+
+  // morgan notes — all `is_shared: true` so the Lab Mode notes tab has
+  // grad-student output too. Mix of recipe-style plate cards, meeting
+  // notes, and a calibration running log.
   out.push(["users/morgan/notes/1.json", { id: 1, title: "96-well plate layout notes", description:
     "Demo note. Column 1 = WT negative, column 12 = pDEMO-fluo+ positive. Columns 2–11 are candidate FY-Δgal80 transformants from alex's library.",
-    is_running_log: false, is_shared: false, entries: [], comments: [], created_at: "2026-05-12T00:00:00Z", updated_at: "2026-05-13T08:00:00Z", username: "morgan" }]);
+    is_running_log: false, is_shared: true, entries: [], comments: [], created_at: "2026-05-12T00:00:00Z", updated_at: "2026-05-13T08:00:00Z", username: "morgan" }]);
+
+  // Note 2: plate-prep checklist, lab-recipe style.
+  out.push(["users/morgan/notes/2.json", { id: 2, title: "96-well screen prep checklist", description:
+      "Demo recipe note. Bench card for setting up the 96-well fluorescence screen.\n\nThe night before:\n- Pick 80 candidate colonies into 200 µL SD-Ura in deep-well plate\n- Pick 8 WT colonies into the same plate (column 1)\n- Pick 8 pDEMO-fluo+ positive control colonies (column 12)\n- 30 °C, shaking 200 rpm, 16 to 18 h\n\nMorning of:\n1. Pre-warm SD-Ura + 2% galactose (induction media) to 30 °C\n2. Spin deep-well plate 3000 g, 5 min\n3. Wash pellets 1× with sterile water\n4. Resuspend in 200 µL induction media\n5. Transfer 50 µL to clear-bottom 96-well reader plate\n6. Reader settings: 485/528 nm, every 15 min, 6 h, 30 °C\n\nDouble-check before starting the reader:\n- [ ] Plate lid clean (no condensation = no scatter)\n- [ ] Empty wells have water (corner evaporation correction)\n- [ ] BioTek H1 calibrated this week (see note 6)",
+    is_running_log: false, is_shared: true, entries: [], comments: [], created_at: "2026-04-18T11:00:00Z", updated_at: "2026-05-12T17:00:00Z", username: "morgan" }]);
+
+  // Note 3: meeting note, prose.
+  out.push(["users/morgan/notes/3.json", { id: 3, title: "Lab meeting 2026-04-15: my notes", description:
+      "Demo meeting note. Lab meeting recap, taken from my seat.\n\nWalk-throughs:\n- alex: transformation efficiency update. Heat-shock time matters more than I thought (38 vs 40 min produced a 2-fold colony drop in the 2026-04 batch).\n- Me: chapter 2 figure brainstorm. Got useful pushback on the heatmap color scale (use viridis, not the default red/green which is colorblind-unfriendly).\n\nGroup decisions:\n- Standardize on the public DemoCheck PCR protocol for all integration checks (was previously split between two slightly different copies)\n- New lab convention: every PCR has a no-template control on the same plate, no exceptions\n- The PI will write a 1-page bench-safety refresher and post it in the lab links section\n\nWhat I want to remember for me:\nThe colorblind point also applies to my pYES-vs-pDEMO figure. Re-render with viridis before the next dissertation committee check-in.",
+    is_running_log: false, is_shared: true, entries: [], comments: [], created_at: "2026-04-15T13:00:00Z", updated_at: "2026-04-15T16:00:00Z", username: "morgan" }]);
+
+  // Note 4: group brainstorm meeting, prose.
+  out.push(["users/morgan/notes/4.json", { id: 4, title: "Group brainstorm: GFP heat-stress assay", description:
+      "Demo meeting note. Whiteboard session 2026-05-07. Goal: design an assay that lets us screen the FY-Δgal80 library for heat-stress survival without losing the fakeGFP reporter signal.\n\nWhat we agreed on:\n- Pre-grow at 30 °C, then shift to 37 °C for 0, 30, 60, 120 min\n- Read fakeGFP at every timepoint plus a recovery read at 4 h post-shift\n- Use the 384-well plates we already ordered for the stress project (purchase item 13) so we don't have to wait\n\nOpen questions:\n- Does fakeGFP itself misfold above 35 °C? Need a quick mScarlet control to separate \"reporter killed\" from \"cell dead\".\n- Reader cycles long enough on 384-well? Morgan to check the reader docs link.\n\nAction items:\n- alex: order 2 plates of mScarlet+ positive control (demo)\n- morgan: schedule a calibration run on 384-well format this week\n- both: convert this brainstorm into a real experiment design by 2026-05-21.",
+    is_running_log: false, is_shared: true, entries: [], comments: [], created_at: "2026-05-07T14:00:00Z", updated_at: "2026-05-07T15:30:00Z", username: "morgan" }]);
+
+  // Note 5: terse tracker, lab-recipe-adjacent style.
+  out.push(["users/morgan/notes/5.json", { id: 5, title: "Reagent A expiration tracker", description:
+      "Demo single-shot note. Tracking the reagents I'm responsible for on shelf 2.\n\n- SYBR Master Mix (lot DEMO-2025-04): opened 2026-04-12, expires 2026-07-12\n- fakeGFP-fwd primer (10 µM aliquot): opened 2026-03-22, use by 2026-09-22\n- fakeGFP-rev primer (10 µM aliquot): opened 2026-03-22, use by 2026-09-22\n- ACT1-fwd / ACT1-rev (10 µM aliquots): made fresh 2026-05-01, use by 2026-11-01\n- 50% PEG-3350 (autoclaved stock): made 2026-04-30, replace by 2026-07-30\n- 1 M LiAc stock: made 2026-05-01, replace by 2026-08-01\n- DEMO mScarlet plasmid prep: 2026-05-04, stored in freezer 5, OK indefinitely\n\nReminder: re-aliquot the SYBR master mix on 2026-06-12 before opening a fresh tube.",
+    is_running_log: false, is_shared: true, entries: [], comments: [], created_at: "2026-05-04T16:00:00Z", updated_at: "2026-05-12T09:00:00Z", username: "morgan" }]);
+
+  // Note 6: reader calibration running log.
+  out.push(["users/morgan/notes/6.json", { id: 6, title: "BioTek H1 calibration log", description:
+      "Demo running log. Weekly calibration check on the BioTek H1 plate reader (demo unit). I run a 6-well standard curve every Monday before any GFP screen.",
+    is_running_log: true, is_shared: true, entries: [
+      { id: "rl-morgan-6-e1", title: "2026-04-21: first weekly check", date: "2026-04-21", content: "Standard curve (fluorescein, 0 to 500 nM). R² = 0.997, slope within 5% of last month's. PASS.", created_at: "2026-04-21T08:30:00Z", updated_at: "2026-04-21T08:30:00Z" },
+      { id: "rl-morgan-6-e2", title: "2026-04-28: weekly check", date: "2026-04-28", content: "R² = 0.995, slope drift +2.1%. PASS. Noted slight bubble in well A1, repeated the row to be safe (within tolerance the second time).", created_at: "2026-04-28T08:45:00Z", updated_at: "2026-04-28T08:45:00Z" },
+      { id: "rl-morgan-6-e3", title: "2026-05-05: weekly check", date: "2026-05-05", content: "R² = 0.998. PASS. Cleaned the lamp housing per the docs link, run-to-run noise dropped from 1.4% CV to 0.9% CV.", created_at: "2026-05-05T08:30:00Z", updated_at: "2026-05-05T08:30:00Z" },
+      { id: "rl-morgan-6-e4", title: "2026-05-12: weekly check", date: "2026-05-12", content: "R² = 0.996. PASS. Ready for the full 96-well screen on Thursday.", created_at: "2026-05-12T08:30:00Z", updated_at: "2026-05-12T08:30:00Z" },
+    ], comments: [], created_at: "2026-04-21T08:30:00Z", updated_at: "2026-05-12T08:30:00Z", username: "morgan" }]);
 
   // morgan dependencies
   out.push(["users/morgan/dependencies/1.json", { id: 1, parent_id: 1, child_id: 2, dep_type: "FS" }]);

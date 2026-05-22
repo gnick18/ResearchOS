@@ -1,0 +1,32 @@
+{
+  "id": 3,
+  "project_id": null,
+  "name": "DEMO: Submit DOE renewal abstract",
+  "start_date": "2026-05-01",
+  "end_date": "2026-05-29",
+  "color": "#ef4444",
+  "smart_goals": [
+    {
+      "id": "sg1",
+      "text": "Outline + specific aims drafted",
+      "is_complete": true
+    },
+    {
+      "id": "sg2",
+      "text": "Preliminary data figures finalized",
+      "is_complete": true
+    },
+    {
+      "id": "sg3",
+      "text": "Internal review with co-PIs",
+      "is_complete": false
+    },
+    {
+      "id": "sg4",
+      "text": "Submit through demo portal",
+      "is_complete": false
+    }
+  ],
+  "is_complete": false,
+  "created_at": "2026-05-01T00:00:00Z"
+}

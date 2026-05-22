@@ -10,5 +10,7 @@
   "created_at": "2026-04-29T00:00:00Z",
   "updated_at": "2026-04-29T00:00:00Z",
   "is_public": false,
-  "created_by": "alex"
+  "created_by": "alex",
+  "owner": "alex",
+  "shared_with": []
 }

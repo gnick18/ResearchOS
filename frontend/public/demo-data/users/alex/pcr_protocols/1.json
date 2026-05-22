@@ -68,6 +68,13 @@
     }
   ],
   "notes": "Demo qPCR — use ACT1 as housekeeping reference. Public version available at users/public.",
+  "tags": [
+    "demo",
+    "qPCR",
+    "fakeGFP"
+  ],
   "is_public": false,
-  "created_by": "alex"
+  "created_by": "alex",
+  "owner": "alex",
+  "shared_with": []
 }

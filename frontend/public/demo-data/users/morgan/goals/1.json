@@ -1,0 +1,32 @@
+{
+  "id": 1,
+  "project_id": 2,
+  "name": "DEMO: Complete dissertation chapter 2 (heat-stress screen)",
+  "start_date": "2026-03-01",
+  "end_date": "2026-10-31",
+  "color": "#06b6d4",
+  "smart_goals": [
+    {
+      "id": "sg1",
+      "text": "96-well screen data collection complete",
+      "is_complete": false
+    },
+    {
+      "id": "sg2",
+      "text": "Statistical analysis (R script, dose-response)",
+      "is_complete": false
+    },
+    {
+      "id": "sg3",
+      "text": "Figures rendered (viridis colorblind-safe)",
+      "is_complete": false
+    },
+    {
+      "id": "sg4",
+      "text": "Chapter draft v1 to committee",
+      "is_complete": false
+    }
+  ],
+  "is_complete": false,
+  "created_at": "2026-03-01T00:00:00Z"
+}

@@ -9,6 +9,7 @@
   "is_complete": false,
   "task_type": "experiment",
   "weekend_override": null,
+  "method_id": null,
   "method_ids": [
     2
   ],
@@ -17,19 +18,13 @@
   "sort_order": 3,
   "experiment_color": "#10b981",
   "sub_tasks": null,
+  "pcr_gradient": null,
+  "pcr_ingredients": null,
   "method_attachments": [
     {
       "method_id": 2,
       "owner": "morgan",
-      "pcr_gradient": null,
-      "pcr_ingredients": null,
-      "lc_gradient": null,
-      "body_override": null,
-      "plate_annotation": null,
-      "cell_culture_schedule": null,
-      "variation_notes": null,
-      "compound_snapshots": null,
-      "qpcr_analysis": null
+      "snapshot_at": "2026-05-13T08:00:00Z"
     }
   ],
   "owner": "morgan",

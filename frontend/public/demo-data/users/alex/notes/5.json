@@ -1,0 +1,37 @@
+{
+  "id": 5,
+  "title": "qPCR optimization log (fakeGFP vs ACT1)",
+  "description": "Demo running log. Optimizing the SYBR-based qPCR for fakeGFP expression. Reference: alex pcr_protocol 1.\n\nDoc tracks Cq values per primer-anneal sweep so we lock in conditions before the full triplicate run.",
+  "is_running_log": true,
+  "is_shared": true,
+  "entries": [
+    {
+      "id": "rl-alex-5-e1",
+      "title": "2026-04-22: anneal temp sweep 56, 58, 60, 62 °C",
+      "date": "2026-04-22",
+      "content": "fakeGFP-fwd/rev at 200 nM, cDNA 1:5. Cq means (n=2):\n- 56 °C: 22.9\n- 58 °C: 22.4\n- 60 °C: 21.7 (sharp melt peak)\n- 62 °C: 22.1\n\nLocking in 60 °C anneal. Melt curve confirms single product.",
+      "created_at": "2026-04-22T16:00:00Z",
+      "updated_at": "2026-04-22T16:00:00Z"
+    },
+    {
+      "id": "rl-alex-5-e2",
+      "title": "2026-04-29: primer concentration check (100 vs 200 nM)",
+      "date": "2026-04-29",
+      "content": "100 nM: Cq 22.1, lower fluorescence plateau. 200 nM: Cq 21.7, plateau ~2× higher. Sticking with 200 nM for the demo runs.",
+      "created_at": "2026-04-29T11:00:00Z",
+      "updated_at": "2026-04-29T11:00:00Z"
+    },
+    {
+      "id": "rl-alex-5-e3",
+      "title": "2026-05-06: reference gene comparison ACT1 vs PDA1",
+      "date": "2026-05-06",
+      "content": "ACT1 Cq spread across 8 wells: 21.6 to 21.9 (SD 0.10). PDA1 Cq spread: 24.1 to 24.7 (SD 0.22). ACT1 is the tighter reference, using it as the housekeeping baseline.",
+      "created_at": "2026-05-06T10:30:00Z",
+      "updated_at": "2026-05-06T10:30:00Z"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-04-22T16:00:00Z",
+  "updated_at": "2026-05-06T10:30:00Z",
+  "username": "alex"
+}
