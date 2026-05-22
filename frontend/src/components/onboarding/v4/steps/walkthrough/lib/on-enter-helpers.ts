@@ -29,15 +29,17 @@
  *
  * HR-dispatched: v4 onEnter wiring sub-bot 2026-05-21.
  */
-import { projectsApi, tasksApi } from "@/lib/local-api";
+import { goalsApi, projectsApi, tasksApi } from "@/lib/local-api";
 import { attachImageToTask } from "@/lib/attachments/attach-image";
 import { fileService } from "@/lib/file-system/file-service";
 import { taskNotesBase } from "@/lib/tasks/results-paths";
+import { patchOnboarding } from "@/lib/onboarding/sidecar";
 import type { Project, Task } from "@/lib/types";
 import {
   DEP_CHAIN_NAMES,
   spawnDemoDependencyTasks,
 } from "../GanttDependenciesStep";
+import { appendArtifact } from "./artifacts";
 
 /** Selfie filename written into the experiment's `Images/` folder. The
  *  asset itself lives in `frontend/public/onboarding/beakerbot-selfie.png`
@@ -237,4 +239,148 @@ export async function onEnterHybridEditorImageDrop(ctx: {
     );
     return false;
   }
+}
+
+/**
+ * §6.8 `gantt-goals-overview` placeholder-goal name. Exported for the
+ * sub-bot test seam (and so the audit can grep one canonical constant
+ * rather than a string scattered across step + cleanup code).
+ *
+ * The Phase 4 cleanup grid resolves the goal by id (from the artifact
+ * entry), not by name; the name is only used here for idempotency
+ * (don't double-spawn on a refresh between steps) and for the actual
+ * goal label the user sees in the Gantt overlay.
+ */
+export const GANTT_DEMO_GOAL_NAME = "BeakerBot demo goal";
+
+/**
+ * §6.8 `gantt-goals-overview` onEnter.
+ *
+ * The step's speech promises "Goals visualize over the Gantt" and the
+ * cursor clicks the goals affordance. Without a seeded goal, the
+ * overlay opens empty and the speech reads as a broken promise. This
+ * helper spawns a placeholder personal goal (project-scoped to the
+ * active project, NOT lab-wide — keeps the demo scoped to the user's
+ * own data) spanning today through ~3 days from today so the goal's
+ * Gantt bar overlaps the timeline window the user is looking at.
+ *
+ * Why project-scoped instead of personal (`project_id: null`):
+ *   - Phase 4 cleanup defaults to "discard" for this artifact (the
+ *     demo goal isn't useful beyond the tour), and a project-scoped
+ *     goal disappears alongside the demo project if the user discards
+ *     the whole project tree.
+ *   - The Gantt's goal overlay shows project-scoped goals when the
+ *     active project filter matches; a `null`-project personal goal
+ *     would only show on the "All" filter, which the §6.8 cursor
+ *     script doesn't switch to. Project-scope keeps the overlay
+ *     visible no matter where the user is in the project filter.
+ *
+ * Idempotency: skip the spawn if a goal named `GANTT_DEMO_GOAL_NAME`
+ * already exists for the active project. A refresh mid-tour re-fires
+ * onEnter, so without this guard the user would end up with two,
+ * three, N identical placeholder goals.
+ *
+ * Artifact: appended to the wizard sidecar's `artifacts_created`
+ * under `{ type: "goal", id: <goalId>, cleanup_default: "discard" }`
+ * so Phase 4 cleanup's existing `case "goal"` branch (see
+ * cleanup-execution.ts ~line 200) can delete it on tour exit. The
+ * artifact write is guarded by `ctx.username` — without a username
+ * we can't address the sidecar, so we skip the artifact write (the
+ * goal still spawns; worst-case it sticks around as orphaned demo
+ * data, which the user can delete manually).
+ *
+ * Returns the created goal id (or `null` when skipped / failed).
+ * Caller ignores; exposed for the test seam + a future audit pass
+ * that wants to confirm the spawn ran.
+ */
+export async function onEnterGanttGoalsOverview(ctx: {
+  username: string | null;
+}): Promise<number | null> {
+  const project = await getActiveProject();
+  if (!project) {
+    console.warn(
+      "[onboarding-v4] gantt-goals-overview: no active project; skip spawn",
+    );
+    return null;
+  }
+  // Idempotency probe: a refresh between steps re-fires onEnter, so
+  // we look for an existing demo goal scoped to this project before
+  // creating another one.
+  try {
+    const existing = await goalsApi.list();
+    const alreadyPresent = existing.find(
+      (g) => g.project_id === project.id && g.name === GANTT_DEMO_GOAL_NAME,
+    );
+    if (alreadyPresent) return alreadyPresent.id;
+  } catch (err) {
+    // List failures are not fatal; fall through to create. Worst-
+    // case: a duplicate goal lands; cleanup will still wipe whichever
+    // id we record in the artifact below.
+    console.warn(
+      "[onboarding-v4] gantt-goals-overview: goals list probe failed",
+      err,
+    );
+  }
+
+  // Date range: today through today+3 days. Three days is short
+  // enough to fit comfortably in the user's current Gantt viewport
+  // (most users see a one- to two-week window) but long enough that
+  // the goal bar reads as a meaningful range rather than a single-day
+  // tick. ISO `YYYY-MM-DD` matches HighLevelGoal.start_date / end_date
+  // shape used elsewhere in the app.
+  const today = new Date();
+  const endDate = new Date(today);
+  endDate.setDate(endDate.getDate() + 3);
+  const toIsoDate = (d: Date): string => d.toISOString().slice(0, 10);
+
+  let createdId: number | null = null;
+  try {
+    const goal = await goalsApi.create({
+      project_id: project.id,
+      name: GANTT_DEMO_GOAL_NAME,
+      start_date: toIsoDate(today),
+      end_date: toIsoDate(endDate),
+      // Sky-blue palette nod to BeakerBot. Color is optional; passing
+      // an explicit value keeps the demo goal visually consistent
+      // across runs instead of inheriting whatever the goal overlay
+      // assigns by default.
+      color: "#38bdf8",
+    });
+    createdId = goal.id;
+  } catch (err) {
+    console.warn(
+      "[onboarding-v4] gantt-goals-overview: goal create failed",
+      err,
+    );
+    return null;
+  }
+
+  // Record the artifact so Phase 4 cleanup can wipe it on tour exit.
+  // Guarded by username because the sidecar I/O is per-user; without
+  // a username we have no address to write to. Skipping the artifact
+  // write doesn't roll back the spawn — the goal stays in the user's
+  // store and they can delete it manually if cleanup doesn't reach
+  // it — which matches the brief's "best-effort" contract for
+  // onEnter helpers.
+  if (ctx.username) {
+    try {
+      await patchOnboarding(ctx.username, (cur) =>
+        appendArtifact(cur, {
+          type: "goal",
+          id: String(createdId),
+          // §6.8: demo goal is throwaway; default to discard so the
+          // Phase 4 cleanup grid pre-checks it for removal. The user
+          // can still flip it to keep at the grid if they want.
+          cleanup_default: "discard",
+        }),
+      );
+    } catch (err) {
+      console.warn(
+        "[onboarding-v4] gantt-goals-overview: artifact persist failed",
+        err,
+      );
+    }
+  }
+
+  return createdId;
 }

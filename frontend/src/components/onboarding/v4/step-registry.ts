@@ -39,6 +39,7 @@ import { buildLabPermissionPracticeStep } from "./steps/lab/LabPermissionPractic
 import { buildLabCleanupStep } from "./steps/lab/LabAutoCleanupStep";
 import {
   onEnterGanttChainedDeps,
+  onEnterGanttGoalsOverview,
   onEnterHybridEditorImageDrop,
 } from "./steps/walkthrough/lib/on-enter-helpers";
 
@@ -277,6 +278,18 @@ TOUR_STEPS["hybrid-editor-image-drop"] = {
   ...TOUR_STEPS["hybrid-editor-image-drop"],
   onEnter: async (ctx) => {
     await onEnterHybridEditorImageDrop(ctx);
+  },
+};
+
+// §6.8 `gantt-goals-overview` onEnter — spawns a placeholder personal
+// goal so the cursor's click on the goals affordance reveals a real
+// goal overlay instead of an empty one. HR-dispatched: v4 §6.8 Gantt
+// modal+goal sub-bot 2026-05-21. The goal is artifact-tracked
+// (cleanup_default: "discard") so Phase 4 cleanup wipes it.
+TOUR_STEPS["gantt-goals-overview"] = {
+  ...TOUR_STEPS["gantt-goals-overview"],
+  onEnter: async (ctx) => {
+    await onEnterGanttGoalsOverview(ctx);
   },
 };
 
