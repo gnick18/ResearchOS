@@ -505,7 +505,7 @@ export default function BeakerBotLadderScene({
             // moment the scene mounts.
             opacity: stage === "ladder-rise" ? 0 : 1,
             transition: "opacity 200ms",
-          } as React.CSSProperties
+          } as unknown as React.CSSProperties
         }
       >
         {/* Pose-by-stage:
