@@ -138,9 +138,11 @@ function ShareExploreSpeech() {
   const controller = useOptionalTourController();
   useEffect(() => {
     if (!controller) return;
-    // Allow-list scope: anything inside the task popup. The popup root
-    // carries the popup-close attribute among its descendants; we use
-    // a generic popup-scope attribute to capture the whole surface.
+    // Allow-list scope: anything inside the task popup. Both Notes +
+    // Results tabs are read-only-safe to poke. Gantt fix manager R2:
+    // the prior list omitted the Results tab even though the speech
+    // bubble invited the user to click it, which tripped the Oops
+    // flash on a legitimate path.
     controller.setPageLock(
       [
         TOUR_TARGETS.taskPopupNotesTab,
@@ -149,6 +151,7 @@ function ShareExploreSpeech() {
         TOUR_TARGETS.taskPopupEditButton,
         TOUR_TARGETS.taskPopupNameInput,
         TOUR_TARGETS.taskPopupSaveButton,
+        TOUR_TARGETS.experimentResultsTab,
       ],
       "Oops, please poke around inside the popup. The rest of the page is locked for now.",
     );
@@ -173,6 +176,19 @@ export const ganttShareUserExploresStep = buildWalkthroughStep({
   speech: () => <ShareExploreSpeech />,
   pose: "thinking",
   completion: manualAdvance("Got it, next"),
+  // Gantt fix manager R2 (option 1): close BeakerBot's coffee-experiment
+  // popup before transitioning. The NEXT step (share-back) is about Fake
+  // A, not this shared-to-me experiment — leaving the popup mounted
+  // would trip share-back's stage detector (it polls for
+  // task-popup-close and flips 1→2 on presence) and the user would be
+  // stuck because shared-to-me popups don't render the share button.
+  onExit: async () => {
+    if (typeof document === "undefined") return;
+    const closeBtn = document.querySelector<HTMLElement>(
+      '[data-tour-target="task-popup-close"]',
+    );
+    closeBtn?.click();
+  },
   expectedRoute: "/gantt",
 });
 
@@ -343,12 +359,18 @@ function ShareSeesEditSpeech() {
   const controller = useOptionalTourController();
   useEffect(() => {
     if (!controller) return;
+    // Gantt fix manager R2 (P0): the note BeakerBot writes during the
+    // profile-switch step lands on FAKE A in the user's chain (see
+    // appendBeakerBotNote in gantt-share-helpers.ts → resolves
+    // fakeAId → appendNoteToTaskNotes(fakeAId, ...)). The previous
+    // allow-list pointed at the shared-coffee experiment, so the user
+    // couldn't even open the right bar to see the note.
     controller.setPageLock(
       [
         TOUR_TARGETS.taskPopupNotesTab,
         TOUR_TARGETS.taskPopupNotesTextarea,
         TOUR_TARGETS.taskPopupClose,
-        TOUR_TARGETS.ganttBarSharedExperiment,
+        TOUR_TARGETS.ganttBarFakeA,
       ],
       "Oops, open the popup and check the notes tab. The rest of the page is locked for now.",
     );
@@ -357,7 +379,8 @@ function ShareSeesEditSpeech() {
   return (
     <>
       <p className="mb-2">
-        Open the notes tab. You should see BeakerBot's edit.
+        Open Fake A on the timeline, then click the notes tab. You
+        should see BeakerBot's edit.
       </p>
       <p className="text-xs text-gray-500">
         Take a look around when you're ready, then click "Got it, next".
