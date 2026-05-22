@@ -2,9 +2,10 @@
 
 /**
  * §6.7b Workbench Notes + Lists expansion (Workbench expansion manager
+ * 2026-05-22; collapsed to 5 beats by Workbench fix manager R1
  * 2026-05-22).
  *
- * Six new tour steps that sit between §6.7 hybrid editor (last step
+ * Five new tour steps that sit between §6.7 hybrid editor (last step
  * `hybrid-file-attach`) and §6.8 Gantt (first step `gantt-intro`).
  * Teaches the standalone Notes panel + the Lists panel on the
  * Workbench page. All steps are universal (no `conditionalOn`); all are
@@ -13,15 +14,22 @@
  * Step order (matches TOUR_STEP_ORDER insertion):
  *   1. workbench-notes-intro       — cursor clicks Notes tab, narrate
  *   2. workbench-notes-create      — cursor demo creates a standalone
- *                                    note via notesApi (lab-recipe body)
+ *                                    note via notesApi (lab-recipe body).
+ *                                    Visible click on +New Note for the
+ *                                    BeakerBot-caused beat (R1 fix).
  *   3. workbench-lists-intro       — cursor clicks Lists tab, narrate
- *   4. workbench-list-create-shell — cursor opens TaskModal, types
- *                                    "Coffee restock - grocery run",
- *                                    saves the empty list shell
- *   5. workbench-list-add-items    — cursor clicks first list card to
- *                                    open the popup, types 3 items,
- *                                    Enter-key dispatch between each
- *   6. workbench-list-mark-done    — cursor checks one sub-task, then
+ *   4. workbench-list-create-shell — combined beat: cursor ensures the
+ *                                    Lists tab is active (R1 defensive
+ *                                    re-click), clicks +New List Task,
+ *                                    spawns the shell via tasksApi,
+ *                                    clicks the just-created card to
+ *                                    expand it, then types 3 items into
+ *                                    the inline Add-item input. The
+ *                                    prior `workbench-list-add-items`
+ *                                    beat was folded into this one (R1
+ *                                    pacing fix) to drop a no-teaching
+ *                                    "Got it, next" click.
+ *   5. workbench-list-mark-done    — cursor checks one sub-task, then
  *                                    clicks the parent task's mark-
  *                                    complete button
  *
@@ -33,9 +41,9 @@
  * Phase 4 grid; the in-flight auto-cleanup sub-bot (aae25600) ignores
  * the flag and wipes everything except the user's first project.
  *
- * Why a single file: the six steps share helpers (today date format,
+ * Why a single file: the five steps share helpers (today date format,
  * default item names, the "find latest note / list" probe used by
- * onExit). Splitting them across six files would scatter the same
+ * onExit). Splitting them across five files would scatter the same
  * skeleton.
  *
  * Coordination:
@@ -53,10 +61,9 @@ import {
   cursorScript,
   callbackAction,
   compactScript,
-  deferredClickAction,
   safeClickAction,
   safeGlideToElementAction,
-  safeTypeAction,
+  deferredClickAction,
   waitForElement,
 } from "./lib/cursor-script";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
@@ -77,7 +84,7 @@ function todayIso(): string {
 /** Single-note demo content (Grant 2026-05-22 R2 spec). Conference-talk
  *  notes in lab-recipe markdown style: key claim, takeaways with
  *  reagent / time-point specifics, follow-ups. NOT prose paragraphs. */
-export const NOTE_TITLE = "Notes from ASBMB 2026 — Smith lab heat-shock talk";
+export const NOTE_TITLE = "Notes from ASBMB 2026, Smith lab heat-shock talk";
 /** Retained title prefix for back-compat with the idempotent-spawn probe
  *  (`findPriorNotesCreateNoteId`). The probe looks for ANY note whose
  *  title startsWith this string; the full demo title above does. */
@@ -107,7 +114,6 @@ export const NOTES_INTRO_STEP_ID = "workbench-notes-intro";
 export const NOTES_CREATE_STEP_ID = "workbench-notes-create";
 export const LISTS_INTRO_STEP_ID = "workbench-lists-intro";
 export const LIST_CREATE_SHELL_STEP_ID = "workbench-list-create-shell";
-export const LIST_ADD_ITEMS_STEP_ID = "workbench-list-add-items";
 export const LIST_MARK_DONE_STEP_ID = "workbench-list-mark-done";
 
 // ---------------------------------------------------------------------------
@@ -118,17 +124,26 @@ export const workbenchNotesIntroStep = buildWalkthroughStep({
   id: NOTES_INTRO_STEP_ID,
   speech: (
     <>
+      {/* Workbench fix manager R1 2026-05-22 (Verify-C G1 + G2 + T1):
+          Beat 1 now bridges from §6.7 ("Those notes lived inside one
+          experiment...") and lifts the running-log "one thing to find,
+          not 15" payoff to the front. */}
       <p className="mb-2">
-        The Workbench has three tabs. We&apos;ve covered Experiments.
-        This middle one is <strong>Notes</strong>: general scratch notes
-        that don&apos;t belong to any single experiment or project.
+        Those notes lived inside one experiment. There&apos;s also a
+        place for notes that DON&apos;T belong to any one experiment.
+      </p>
+      <p className="mb-2">
+        The Workbench has three tabs across the top. We just spent time
+        on the Experiments tab. This middle one is{" "}
+        <strong>Notes</strong>, for general scratch that isn&apos;t tied
+        to one experiment.
       </p>
       <p>
-        Two flavors: single notes for one-off thoughts (like a quick
-        note after a conference talk), and running logs that grow over
-        time (think a recurring 1-on-1 with your PI: title it
-        &quot;Student / PI 1-on-1, Fall 2026&quot;, then add an entry
-        each week. One thing to find, not 15).
+        Two flavors. Single notes are one-off, like a quick takeaway
+        from a conference talk. Running logs grow over time, one entry
+        per session. A weekly PI 1-on-1 is a perfect fit: one note
+        titled &quot;Student / PI 1-on-1, Fall 2026&quot;, a new entry
+        each week. One file to find later, not fifteen.
       </p>
     </>
   ),
@@ -211,23 +226,33 @@ async function spawnDemoNote(): Promise<number | null> {
 export const workbenchNotesCreateStep = buildWalkthroughStep({
   id: NOTES_CREATE_STEP_ID,
   speech: (
+    // Workbench fix manager R1 2026-05-22 (Verify-C G3): tighten to a
+    // single sentence + call out the markdown rendering as a single
+    // note materializes. Drops the prior two-sentence framing that
+    // restated information from Beat 1.
     <p>
-      I&apos;ll make a single note as an example. Same editor as your
-      experiment notes, full markdown support.
+      Single note example, conference takeaways. Same editor you just
+      used, watch the headings, bold, and bullets render as the note
+      saves.
     </p>
   ),
   pose: "typing-on-laptop",
   targetSelector: targetSelector(TOUR_TARGETS.workbenchNewNoteButton),
   cursorScript: cursorScript(async () => {
-    // The "+ New Note" button opens a dropdown (Single Note / Running
-    // Log). For the demo we glide to the button, then run the spawn
-    // programmatically — typing into NoteDetailPopup's title +
-    // description inputs would require multi-step popup typing that
-    // adds little to the teaching ("standalone notes have title +
-    // body"). Glide alone reads as the cursor "creating" the note.
+    // Workbench fix manager R1 2026-05-22 (Verify-A P1-4): the previous
+    // script glided to the +New Note button and then spawned the note
+    // via API. The user saw the cursor park on the button without
+    // clicking. Add a visible click between the glide and the spawn so
+    // BeakerBot's "I'll make a single note" reads as a caused action.
+    // The underlying note creation is still the programmatic spawn
+    // (faster + more reliable than driving NoteDetailPopup's form).
     const glide = await safeGlideToElementAction(
       targetSelector(TOUR_TARGETS.workbenchNewNoteButton),
       3000,
+    );
+    const fakeClick = await safeClickAction(
+      targetSelector(TOUR_TARGETS.workbenchNewNoteButton),
+      1500,
     );
     const spawn = callbackAction(async () => {
       const id = await spawnDemoNote();
@@ -239,7 +264,7 @@ export const workbenchNotesCreateStep = buildWalkthroughStep({
         });
       }
     });
-    return compactScript([glide, spawn]);
+    return compactScript([glide, fakeClick, spawn]);
   }),
   completion: manualAdvance("Got it, next"),
   onExit: async () => {
@@ -259,10 +284,13 @@ export const workbenchListsIntroStep = buildWalkthroughStep({
       <p className="mb-2">
         Last tab on the Workbench: <strong>Lists</strong>.
       </p>
+      {/* Workbench fix manager R1 2026-05-22 (Verify-C G4): tighten the
+          lists-vs-experiments comparison. "Lighter cousin of an
+          experiment" replaces the prior bulkier "Lists are like
+          experiments, but for everyday stuff..." framing. */}
       <p className="mb-2">
-        Lists are like experiments, but for everyday stuff. A daily
-        checklist of things to do. Different from a full experiment,
-        where you&apos;ve got methods plus notes plus results.
+        A list is a checklist task. No method, no results section, just
+        items to tick off. The lighter cousin of an experiment.
       </p>
       <p>Think: grocery runs, reagent restocks, daily to-dos.</p>
     </>
@@ -281,7 +309,10 @@ export const workbenchListsIntroStep = buildWalkthroughStep({
 });
 
 // ---------------------------------------------------------------------------
-// 4. workbench-list-create-shell — BeakerBot demo: create the list shell
+// 4. workbench-list-create-shell — combined BeakerBot demo: create the
+//    list shell AND populate its three items in one continuous cursor
+//    script (folded from the prior workbench-list-add-items beat;
+//    Workbench fix manager R1 2026-05-22 pacing fix).
 // ---------------------------------------------------------------------------
 
 /**
@@ -325,57 +356,11 @@ async function spawnDemoListShell(): Promise<number | null> {
   }
 }
 
-export const workbenchListCreateShellStep = buildWalkthroughStep({
-  id: LIST_CREATE_SHELL_STEP_ID,
-  speech: (
-    <>
-      <p className="mb-2">
-        Sticking with our coffee theme. I&apos;ll make a grocery list
-        for the lab&apos;s coffee restock.
-      </p>
-      <p>
-        Same shape as an experiment: a name, a date. The items live
-        inside, you add those next.
-      </p>
-    </>
-  ),
-  pose: "typing-on-laptop",
-  targetSelector: targetSelector(TOUR_TARGETS.workbenchNewListButton),
-  cursorScript: cursorScript(async () => {
-    const glide = await safeGlideToElementAction(
-      targetSelector(TOUR_TARGETS.workbenchNewListButton),
-      3000,
-    );
-    const spawn = callbackAction(async () => {
-      const id = await spawnDemoListShell();
-      if (id !== null) {
-        pendingArtifactStore.add(LIST_CREATE_SHELL_STEP_ID, {
-          type: "task",
-          id: String(id),
-          cleanup_default: "discard",
-        });
-      }
-    });
-    return compactScript([glide, spawn]);
-  }),
-  completion: manualAdvance("Got it, next"),
-  onExit: async () => {
-    await flushPendingArtifacts(LIST_CREATE_SHELL_STEP_ID);
-  },
-  expectedRoute: "/workbench",
-});
-
-// ---------------------------------------------------------------------------
-// 5. workbench-list-add-items — BeakerBot demo: add 3 items
-// ---------------------------------------------------------------------------
-
-/**
- * Look up the demo list task (created in the prior step) so we can
- * append items via API. Cursor types the item names into the popup's
- * "Add item..." input for the visual beat; the actual sub-task append
- * happens via tasksApi.update inside a callbackAction so the items
- * persist regardless of whether the keydown synthesis lands.
- */
+/** Look up the demo list task (by name) so we can append items via
+ *  API. The cursor types the item names into the inline Add-item input
+ *  for the visual beat; the actual sub-task append happens via
+ *  tasksApi.update inside a callbackAction so the items persist
+ *  regardless of whether the keydown synthesis lands. */
 async function findDemoListTaskId(): Promise<number | null> {
   try {
     const tasks = await tasksApi.listByProject(0);
@@ -409,109 +394,145 @@ async function appendDemoListItem(text: string): Promise<void> {
     await tasksApi.update(id, { sub_tasks: next });
   } catch (err) {
     console.warn(
-      "[onboarding-v4] workbench-list-add-items append failed",
+      "[onboarding-v4] workbench-list-create-shell append failed",
       err,
     );
   }
 }
 
-export const workbenchListAddItemsStep = buildWalkthroughStep({
-  id: LIST_ADD_ITEMS_STEP_ID,
+/** Type a string into the (just-mounted) Add-item input via the
+ *  React-safe setter so the controlled state lands the keystroke. */
+function typeIntoAddItemInput(text: string): void {
+  const input = document.querySelector(
+    targetSelector(TOUR_TARGETS.workbenchListAddItemInput),
+  );
+  if (!(input instanceof HTMLInputElement)) return;
+  input.focus();
+  const setter = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    "value",
+  )?.set;
+  if (setter) setter.call(input, text);
+  else input.value = text;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+export const workbenchListCreateShellStep = buildWalkthroughStep({
+  id: LIST_CREATE_SHELL_STEP_ID,
   speech: (
     <>
       <p className="mb-2">
-        Now the items. Click the list to expand it, then add line items
-        one at a time.
+        Sticking with our coffee theme. I&apos;ll make a grocery list
+        for the lab&apos;s coffee restock, then drop the items in.
       </p>
       <p>
-        Beans, filters, and a better grinder, because the current one
-        sounds like a fax machine.
+        Same shape as an experiment: a name, a date. Items live inside,
+        check them off as you grab each one.
       </p>
     </>
   ),
   pose: "typing-on-laptop",
-  targetSelector: targetSelector(TOUR_TARGETS.workbenchListCardFirst),
+  targetSelector: targetSelector(TOUR_TARGETS.workbenchNewListButton),
   cursorScript: cursorScript(async () => {
-    // 1. Click the first list card to open TaskDetailPopup.
-    const openCard = await safeClickAction(
+    // Workbench fix manager R1 2026-05-22 (Verify-A P1-3): defensively
+    // activate the Lists tab before gliding to the + New List button.
+    // Clicking an already-active tab is a no-op, so this is safe in the
+    // happy path AND covers back-step / resume scenarios where the
+    // Lists tab somehow isn't active.
+    const ensureListsTab = await safeClickAction(
+      targetSelector(TOUR_TARGETS.workbenchListsTab),
+      2000,
+    );
+
+    // Glide to the +New List button + visible click (matches the
+    // "BeakerBot caused this" beat we apply on the Notes side).
+    const glideNew = await safeGlideToElementAction(
+      targetSelector(TOUR_TARGETS.workbenchNewListButton),
+      3000,
+    );
+    const clickNew = await safeClickAction(
+      targetSelector(TOUR_TARGETS.workbenchNewListButton),
+      1500,
+    );
+
+    // Spawn the shell programmatically (TaskModal is too heavy to drive
+    // via cursor for the teaching value it adds). The list card appears
+    // in the Lists panel under the +New List Task button.
+    const spawn = callbackAction(async () => {
+      const id = await spawnDemoListShell();
+      if (id !== null) {
+        pendingArtifactStore.add(LIST_CREATE_SHELL_STEP_ID, {
+          type: "task",
+          id: String(id),
+          cleanup_default: "discard",
+        });
+      }
+    });
+
+    // Wait for the new list card to mount + glide-click it to expand
+    // the inline ExpandableListCard panel (where the Add-item input
+    // lives). `deferredClickAction` resolves the selector at playback
+    // time, which is what we want here because the card is created by
+    // the prior callback.
+    const glideCard = await safeGlideToElementAction(
+      targetSelector(TOUR_TARGETS.workbenchListCardFirst),
+      4000,
+    );
+    const clickCard = deferredClickAction(
       targetSelector(TOUR_TARGETS.workbenchListCardFirst),
       4000,
     );
 
-    // 2-4. For each item: type into the Add-item input, then dispatch a
-    //      callbackAction that fires the matching tasksApi.update.
-    //      The input element resolves at PLAYBACK time (deferred to
-    //      after the popup mount), so we use the safe* helpers from
-    //      inside callbackActions for items 2 + 3 — by then the popup
-    //      is mounted and `waitForElement` finds the input.
-    //
-    // The Enter keypress that the input expects (onKeyDown) isn't
-    // synthesized here because the callback fallback handles the
-    // real persistence. Cursor types the visible text; the
-    // callback writes the data.
+    // For each of the 3 items: wait for the Add-item input to mount
+    // (only present once the card is expanded), type the visible value
+    // into it, then dispatch the matching tasksApi.update so the
+    // sub-task persists regardless of keydown synthesis.
     const typeBeans = callbackAction(async () => {
-      const input = await waitForElement(
+      await waitForElement(
         targetSelector(TOUR_TARGETS.workbenchListAddItemInput),
         4000,
       );
-      if (input instanceof HTMLInputElement) {
-        input.focus();
-        // Set the value via the React-safe setter so the dispatched
-        // input event lands in the controlled state. Mirrors
-        // setNativeInputValue in BeakerBotCursor.
-        const setter = Object.getOwnPropertyDescriptor(
-          HTMLInputElement.prototype,
-          "value",
-        )?.set;
-        if (setter) setter.call(input, LIST_ITEM_BEANS);
-        else input.value = LIST_ITEM_BEANS;
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-      }
+      typeIntoAddItemInput(LIST_ITEM_BEANS);
       await appendDemoListItem(LIST_ITEM_BEANS);
     });
     const typeFilters = callbackAction(async () => {
-      const input = await waitForElement(
+      await waitForElement(
         targetSelector(TOUR_TARGETS.workbenchListAddItemInput),
         2000,
       );
-      if (input instanceof HTMLInputElement) {
-        input.focus();
-        const setter = Object.getOwnPropertyDescriptor(
-          HTMLInputElement.prototype,
-          "value",
-        )?.set;
-        if (setter) setter.call(input, LIST_ITEM_FILTERS);
-        else input.value = LIST_ITEM_FILTERS;
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-      }
+      typeIntoAddItemInput(LIST_ITEM_FILTERS);
       await appendDemoListItem(LIST_ITEM_FILTERS);
     });
     const typeGrinder = callbackAction(async () => {
-      const input = await waitForElement(
+      await waitForElement(
         targetSelector(TOUR_TARGETS.workbenchListAddItemInput),
         2000,
       );
-      if (input instanceof HTMLInputElement) {
-        input.focus();
-        const setter = Object.getOwnPropertyDescriptor(
-          HTMLInputElement.prototype,
-          "value",
-        )?.set;
-        if (setter) setter.call(input, LIST_ITEM_GRINDER);
-        else input.value = LIST_ITEM_GRINDER;
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-      }
+      typeIntoAddItemInput(LIST_ITEM_GRINDER);
       await appendDemoListItem(LIST_ITEM_GRINDER);
     });
 
-    return compactScript([openCard, typeBeans, typeFilters, typeGrinder]);
+    return compactScript([
+      ensureListsTab,
+      glideNew,
+      clickNew,
+      spawn,
+      glideCard,
+      clickCard,
+      typeBeans,
+      typeFilters,
+      typeGrinder,
+    ]);
   }),
   completion: manualAdvance("Got it, next"),
+  onExit: async () => {
+    await flushPendingArtifacts(LIST_CREATE_SHELL_STEP_ID);
+  },
   expectedRoute: "/workbench",
 });
 
 // ---------------------------------------------------------------------------
-// 6. workbench-list-mark-done — BeakerBot demo: check one + mark whole done
+// 5. workbench-list-mark-done — BeakerBot demo: check one + mark whole done
 // ---------------------------------------------------------------------------
 
 export const workbenchListMarkDoneStep = buildWalkthroughStep({
@@ -522,10 +543,15 @@ export const workbenchListMarkDoneStep = buildWalkthroughStep({
         Two moves worth knowing. You can check off individual items as
         you do them, useful mid-run.
       </p>
+      {/* Workbench fix manager R1 2026-05-22 (Verify-C G5): explain the
+          WHY of marking the whole list done — it drops out of the
+          active Overdue/Doing/Upcoming buckets so it stops competing
+          for attention. Replaces the prior "keeps your view clean"
+          framing which under-sold the value. */}
       <p>
-        And when the whole list is wrapped, mark the LIST itself as
-        done. Keeps your view clean, the list moves to your completed
-        section.
+        And when every item is wrapped, mark the LIST itself complete.
+        That drops it out of your active Overdue/Doing/Upcoming buckets
+        so it stops competing for your attention with real work.
       </p>
     </>
   ),
@@ -533,19 +559,17 @@ export const workbenchListMarkDoneStep = buildWalkthroughStep({
   targetSelector: targetSelector(TOUR_TARGETS.workbenchListItemCheckbox),
   cursorScript: cursorScript(async () => {
     // 1. Click the first sub-task checkbox. Wait up to 4s for the
-    //    popup to be mounted (it was opened in the previous step).
+    //    ExpandableListCard panel to be mounted (the prior combined
+    //    beat expanded the card and added the items).
     const checkItem = await safeClickAction(
       targetSelector(TOUR_TARGETS.workbenchListItemCheckbox),
       4000,
     );
 
-    // 2. Pause ~800ms for the read-then-watch beat — the cursor's
-    //    glide to the mark-complete button gives the user time to
-    //    register the checkbox flip. Built via the glide that
-    //    resolves the button + a deferredClick to bias toward late
-    //    DOM resolution (the SimpleTaskChecklist re-renders on the
-    //    sub-task update; the header button is stable but a deferred
-    //    click is the safer choice).
+    // 2. Glide to the mark-complete button, then deferred-click it.
+    //    The header button is stable but ExpandableListCard re-renders
+    //    on the sub-task update, so deferred resolution is the safer
+    //    choice.
     const glideToMark = await safeGlideToElementAction(
       targetSelector(TOUR_TARGETS.workbenchListMarkCompleteButton),
       4000,

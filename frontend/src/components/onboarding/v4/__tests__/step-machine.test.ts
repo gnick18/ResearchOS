@@ -124,14 +124,17 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER).not.toContain("gantt-task-types");
     expect(TOUR_STEP_ORDER).not.toContain("gantt-chained-deps");
     // §6.7b Workbench Notes + Lists expansion (Workbench expansion
-    // manager 2026-05-22). 6 universal steps inserted between
-    // hybrid-file-attach and gantt-intro.
+    // manager 2026-05-22, collapsed to 5 beats by Workbench fix
+    // manager R1 2026-05-22). Universal steps inserted between
+    // hybrid-file-attach and gantt-intro. The prior
+    // `workbench-list-add-items` beat was folded into
+    // `workbench-list-create-shell` (one continuous cursor script).
     expect(TOUR_STEP_ORDER).toContain("workbench-notes-intro");
     expect(TOUR_STEP_ORDER).toContain("workbench-notes-create");
     expect(TOUR_STEP_ORDER).toContain("workbench-lists-intro");
     expect(TOUR_STEP_ORDER).toContain("workbench-list-create-shell");
-    expect(TOUR_STEP_ORDER).toContain("workbench-list-add-items");
     expect(TOUR_STEP_ORDER).toContain("workbench-list-mark-done");
+    expect(TOUR_STEP_ORDER).not.toContain("workbench-list-add-items");
     // Cleanup retirement 2026-05-22 (Cleanup manager R2): the prior
     // `phase4-cleanup` interactive grid is gone; the terminal step is
     // now `tour-goodbye` (auto-cleanup + animation outro). The old id
@@ -142,17 +145,19 @@ describe("TOUR_STEP_ORDER", () => {
   });
 
   it("inserts the §6.7b Workbench Notes + Lists cluster between hybrid-file-attach and gantt-intro", () => {
-    // Workbench expansion manager 2026-05-22: 6 universal steps sit
-    // BETWEEN the §6.7 terminal beat (hybrid-file-attach) and the §6.8
-    // first beat (gantt-intro). Order matters because each step
-    // builds on the prior one's DOM state (popup mount, sub-task add).
+    // Workbench expansion manager 2026-05-22, collapsed to 5 beats by
+    // Workbench fix manager R1 2026-05-22: universal steps sit BETWEEN
+    // the §6.7 terminal beat (hybrid-file-attach) and the §6.8 first
+    // beat (gantt-intro). Order matters because each step builds on
+    // the prior one's DOM state. R1 folded `workbench-list-add-items`
+    // into `workbench-list-create-shell` so add-items is no longer a
+    // separate beat.
     const order = [
       "hybrid-file-attach",
       "workbench-notes-intro",
       "workbench-notes-create",
       "workbench-lists-intro",
       "workbench-list-create-shell",
-      "workbench-list-add-items",
       "workbench-list-mark-done",
       "gantt-intro",
     ];
@@ -177,7 +182,6 @@ describe("TOUR_STEP_ORDER", () => {
       "workbench-notes-create",
       "workbench-lists-intro",
       "workbench-list-create-shell",
-      "workbench-list-add-items",
       "workbench-list-mark-done",
     ];
     const allYes = picks({

@@ -1,9 +1,12 @@
 /**
  * §6.7b Workbench Notes + Lists expansion — per-step body contract
- * tests (Workbench expansion manager 2026-05-22).
+ * tests (Workbench expansion manager 2026-05-22; speech rewrites +
+ * combined beats by Workbench fix manager R1 2026-05-22).
  *
  * Mirrors the SettingsTourBeats / PurchasesConditionalStep test shapes.
- * For each of the 6 new step bodies, verifies:
+ * For each of the 5 step bodies (the original 6 collapsed to 5: the
+ * prior `workbench-list-add-items` beat was folded into
+ * `workbench-list-create-shell`), verifies:
  *
  *   - The step exports a TourStep with the right id, pose, and manual
  *     completion contract.
@@ -23,7 +26,6 @@ import {
   workbenchNotesCreateStep,
   workbenchListsIntroStep,
   workbenchListCreateShellStep,
-  workbenchListAddItemsStep,
   workbenchListMarkDoneStep,
   NOTE_TITLE,
   NOTE_TITLE_PREFIX,
@@ -62,13 +64,20 @@ describe("workbench-notes-intro", () => {
   it("has a cursorScript (BeakerBot demo)", () => {
     expect(typeof workbenchNotesIntroStep.cursorScript).toBe("function");
   });
-  it("speech mentions Notes + the scratch-notes / two-flavors framing", () => {
+  it("speech mentions Notes + the scratch / two-flavors framing", () => {
     const text = renderSpeech(workbenchNotesIntroStep);
     expect(text).toMatch(/Notes/);
-    // R2 spec: two-paragraph speech introduces the Notes tab as
-    // general scratch notes + the single-vs-running-log split.
-    expect(text).toMatch(/scratch notes/i);
+    // R1 spec: rewritten intro bridges from §6.7 + uses the general-
+    // scratch + running-log split. "general scratch" replaces the
+    // prior "scratch notes" phrasing.
+    expect(text).toMatch(/scratch/i);
     expect(text).toMatch(/running logs/i);
+  });
+  it("speech bridges from §6.7 (Verify-C T1)", () => {
+    // R1 bridge: opening sentence should reference the prior chapter's
+    // experiment-scoped notes ("Those notes lived inside one experiment").
+    const text = renderSpeech(workbenchNotesIntroStep);
+    expect(text).toMatch(/one experiment/i);
   });
   it("speech is em-dash free", () => {
     expect(renderSpeech(workbenchNotesIntroStep)).not.toContain("—");
@@ -94,12 +103,15 @@ describe("workbench-notes-create", () => {
     expect(typeof workbenchNotesCreateStep.cursorScript).toBe("function");
     expect(typeof workbenchNotesCreateStep.onExit).toBe("function");
   });
-  it("speech mentions the single-note + markdown framing", () => {
+  it("speech mentions the single-note + markdown-rendering framing", () => {
     const text = renderSpeech(workbenchNotesCreateStep);
-    // R2 spec: short one-paragraph speech reframes around "single
-    // note" + markdown editor parity with experiment notes.
+    // R1 spec: rewritten one-sentence speech now calls out the
+    // headings + bold + bullets that the markdown editor renders as
+    // the note saves. "markdown" verbatim is dropped in favor of the
+    // rendered-syntax cues.
     expect(text).toMatch(/single note/i);
-    expect(text).toMatch(/markdown/i);
+    expect(text).toMatch(/headings/i);
+    expect(text).toMatch(/bullets/i);
   });
   it("note body constant is lab-recipe style markdown, not prose", () => {
     // Per memory note_style_lab_recipe.md: short, measurement +
@@ -142,10 +154,14 @@ describe("workbench-lists-intro", () => {
   it("has a cursorScript (BeakerBot demo)", () => {
     expect(typeof workbenchListsIntroStep.cursorScript).toBe("function");
   });
-  it("speech mentions Lists + everyday or daily framing", () => {
+  it("speech mentions Lists + lighter-cousin framing (Verify-C G4)", () => {
     const text = renderSpeech(workbenchListsIntroStep);
     expect(text).toMatch(/Lists/);
-    expect(text).toMatch(/everyday|daily/i);
+    // R1 spec: tightened framing is "checklist task ... lighter
+    // cousin of an experiment" + "grocery runs, reagent restocks,
+    // daily to-dos".
+    expect(text).toMatch(/checklist/i);
+    expect(text).toMatch(/daily/i);
   });
   it("speech is em-dash free", () => {
     expect(renderSpeech(workbenchListsIntroStep)).not.toContain("—");
@@ -179,37 +195,11 @@ describe("workbench-list-create-shell", () => {
   it("list name constant carries the coffee restock framing", () => {
     expect(LIST_NAME).toMatch(/Coffee restock/);
   });
-  it("speech is em-dash free", () => {
-    expect(renderSpeech(workbenchListCreateShellStep)).not.toContain("—");
-  });
-});
-
-describe("workbench-list-add-items", () => {
-  it("has the right id + pose + completion + expectedRoute", () => {
-    expect(workbenchListAddItemsStep.id).toBe("workbench-list-add-items");
-    expect(workbenchListAddItemsStep.pose).toBe("typing-on-laptop");
-    expect(workbenchListAddItemsStep.completion.type).toBe("manual");
-    expect(workbenchListAddItemsStep.expectedRoute).toBe("/workbench");
-  });
-  it("anchors on the first list card (render-scoped latch)", () => {
-    expect(workbenchListAddItemsStep.targetSelector).toBe(
-      '[data-tour-target="workbench-list-card-first"]',
-    );
-  });
-  it("has no conditionalOn predicate (universal)", () => {
-    expect(workbenchListAddItemsStep.conditionalOn).toBeUndefined();
-  });
-  it("has a cursorScript (multi-action chain)", () => {
-    expect(typeof workbenchListAddItemsStep.cursorScript).toBe("function");
-  });
-  it("speech mentions adding items + the 3 specific items", () => {
-    const text = renderSpeech(workbenchListAddItemsStep);
-    expect(text).toMatch(/items/i);
-    // Item names should appear in the cursor script's run, not
-    // necessarily in the speech. Speech mentions the theme.
-    expect(text).toMatch(/beans|filter|grinder/i);
-  });
-  it("item constants are well-formed and distinct", () => {
+  it("item constants are well-formed and distinct (R1 fold)", () => {
+    // R1 pacing fix: the prior `workbench-list-add-items` beat was
+    // folded into `workbench-list-create-shell`. The 3 item constants
+    // are still exported (the combined cursor script types them into
+    // the inline ExpandableListCard's Add-item input).
     const items = [LIST_ITEM_BEANS, LIST_ITEM_FILTERS, LIST_ITEM_GRINDER];
     expect(new Set(items).size).toBe(3);
     expect(LIST_ITEM_BEANS).toMatch(/coffee beans/i);
@@ -217,7 +207,7 @@ describe("workbench-list-add-items", () => {
     expect(LIST_ITEM_GRINDER).toMatch(/grinder/i);
   });
   it("speech is em-dash free", () => {
-    expect(renderSpeech(workbenchListAddItemsStep)).not.toContain("—");
+    expect(renderSpeech(workbenchListCreateShellStep)).not.toContain("—");
   });
 });
 
@@ -243,6 +233,14 @@ describe("workbench-list-mark-done", () => {
     const text = renderSpeech(workbenchListMarkDoneStep);
     expect(text).toMatch(/check off/i);
     expect(text).toMatch(/mark the LIST itself/);
+  });
+  it("speech explains WHY mark-list-done matters (Verify-C G5)", () => {
+    // R1 spec: second paragraph now spells out the active-bucket
+    // payoff so the user knows why marking the parent matters.
+    const text = renderSpeech(workbenchListMarkDoneStep);
+    expect(text).toMatch(/Overdue/);
+    expect(text).toMatch(/Doing/);
+    expect(text).toMatch(/Upcoming/);
   });
   it("speech is em-dash free", () => {
     expect(renderSpeech(workbenchListMarkDoneStep)).not.toContain("—");

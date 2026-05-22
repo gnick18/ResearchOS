@@ -485,7 +485,7 @@ export default function ExpandableListCard({
                 No items yet.
               </li>
             )}
-            {subTasks.map((st) => {
+            {subTasks.map((st, idx) => {
               const isEditing = editingItemId === st.id;
               return (
                 <li
@@ -513,6 +513,17 @@ export default function ExpandableListCard({
                           : () => handleToggleSubTask(st.id)
                       }
                       disabled={saving || readOnly}
+                      // Workbench fix manager R1 2026-05-22 (Verify-A P0-1):
+                      // ExpandableListCard is the active rendering path on
+                      // /workbench Lists tab (TaskDetailPopup no longer
+                      // mounts here). Stamp the first sub-task checkbox
+                      // with the render-scoped tour anchor so the
+                      // workbench-list-mark-done cursor demo lands on the
+                      // same item every time. Re-stamped on every render
+                      // so back-step + forward-step gets a fresh latch.
+                      data-tour-target={
+                        idx === 0 ? "workbench-list-item-checkbox" : undefined
+                      }
                       className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all flex-shrink-0 ${
                         st.is_complete
                           ? "bg-violet-500 border-violet-500"
@@ -623,6 +634,12 @@ export default function ExpandableListCard({
                 }}
                 placeholder="Add item..."
                 aria-label="Add item"
+                // Workbench fix manager R1 2026-05-22 (Verify-A P0-1):
+                // ExpandableListCard's Add-item input is the active
+                // target on /workbench (replaces TaskDetailPopup's
+                // input). Stamped so the workbench-list-create-shell
+                // cursor demo can type the 3 demo items.
+                data-tour-target="workbench-list-add-item-input"
                 className="flex-1 px-3 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-300 focus:border-transparent bg-white"
               />
               <button
@@ -643,6 +660,12 @@ export default function ExpandableListCard({
                 type="button"
                 onClick={handleMarkListComplete}
                 disabled={saving}
+                // Workbench fix manager R1 2026-05-22 (Verify-A P0-1):
+                // ExpandableListCard's Mark-list-complete button is the
+                // active target on /workbench (replaces TaskDetailPopup
+                // header button). Stamped so the workbench-list-mark-
+                // done cursor demo can click it.
+                data-tour-target="workbench-list-mark-complete"
                 className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${
                   task.is_complete
                     ? "bg-gray-100 text-gray-600 hover:bg-gray-200"
