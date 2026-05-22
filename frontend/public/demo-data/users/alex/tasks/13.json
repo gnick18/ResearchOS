@@ -15,7 +15,33 @@
   "tags": null,
   "sort_order": 13,
   "experiment_color": null,
-  "sub_tasks": null,
+  "sub_tasks": [
+    {
+      "id": "st1",
+      "text": "Refresh the autoclave SOP - new run-time defaults",
+      "is_complete": true
+    },
+    {
+      "id": "st2",
+      "text": "Add waste stream diagram for the \u221280 freezer area",
+      "is_complete": true
+    },
+    {
+      "id": "st3",
+      "text": "Rewrite the pipette calibration section",
+      "is_complete": false
+    },
+    {
+      "id": "st4",
+      "text": "Add ResearchOS quick-start screenshots",
+      "is_complete": false
+    },
+    {
+      "id": "st5",
+      "text": "Ask morgan to proof the imaging room walkthrough",
+      "is_complete": false
+    }
+  ],
   "pcr_gradient": null,
   "pcr_ingredients": null,
   "method_attachments": [],

@@ -28,6 +28,11 @@
     },
     {
       "id": "st3",
+      "text": "Add blank + positive control well annotations",
+      "is_complete": true
+    },
+    {
+      "id": "st4",
       "text": "Push template to the lab notebook",
       "is_complete": true
     }

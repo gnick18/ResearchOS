@@ -1,7 +1,7 @@
 {
   "id": 21,
   "project_id": 4,
-  "name": "Send compliance paperwork — quarterly renewal",
+  "name": "Send compliance paperwork \u2014 quarterly renewal",
   "start_date": "2026-05-06",
   "duration_days": 4,
   "end_date": "2026-05-11",
@@ -23,11 +23,21 @@
     },
     {
       "id": "st2",
+      "text": "Update reagent list (added pYES2 + Gibson kit since last quarter)",
+      "is_complete": true
+    },
+    {
+      "id": "st3",
       "text": "Get PI signature",
       "is_complete": false
     },
     {
-      "id": "st3",
+      "id": "st4",
+      "text": "Scan + upload signed PDF to compliance portal",
+      "is_complete": false
+    },
+    {
+      "id": "st5",
       "text": "Submit to compliance office + log confirmation",
       "is_complete": false
     }

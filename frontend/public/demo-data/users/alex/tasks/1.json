@@ -30,6 +30,11 @@
       "id": "st3",
       "text": "Order gBlocks",
       "is_complete": true
+    },
+    {
+      "id": "st4",
+      "text": "Run IDT codon optimizer on flbA ORF",
+      "is_complete": true
     }
   ],
   "pcr_gradient": null,

@@ -1,7 +1,7 @@
 {
   "id": 23,
   "project_id": 4,
-  "name": "Lab orientation — onboard rotation student",
+  "name": "Lab orientation \u2014 onboard rotation student",
   "start_date": "2026-04-01",
   "duration_days": 1,
   "end_date": "2026-04-01",
@@ -24,6 +24,16 @@
     {
       "id": "st2",
       "text": "Set up server account + lab notebook template",
+      "is_complete": true
+    },
+    {
+      "id": "st3",
+      "text": "Demo Gibson assembly on a throwaway construct",
+      "is_complete": true
+    },
+    {
+      "id": "st4",
+      "text": "Pair them with morgan for first imaging session",
       "is_complete": true
     }
   ],

@@ -28,6 +28,11 @@
     },
     {
       "id": "st3",
+      "text": "Snapshot \u221280 freezer map (Dec 31 layout)",
+      "is_complete": true
+    },
+    {
+      "id": "st4",
       "text": "Reset running tally for 2026",
       "is_complete": true
     }

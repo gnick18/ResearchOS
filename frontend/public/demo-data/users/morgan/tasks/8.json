@@ -18,12 +18,22 @@
   "sub_tasks": [
     {
       "id": "st1",
-      "text": "Tally remaining stocks in the −80 freezer",
+      "text": "Tally remaining stocks in the \u221280 freezer",
       "is_complete": true
     },
     {
       "id": "st2",
       "text": "Flag low items for the next purchase round",
+      "is_complete": true
+    },
+    {
+      "id": "st3",
+      "text": "Check antibody fridge - note expiry dates",
+      "is_complete": true
+    },
+    {
+      "id": "st4",
+      "text": "Update shared inventory sheet + ping alex",
       "is_complete": true
     }
   ],

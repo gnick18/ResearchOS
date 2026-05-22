@@ -25,6 +25,16 @@
       "id": "st2",
       "text": "Draft initial outline",
       "is_complete": true
+    },
+    {
+      "id": "st3",
+      "text": "Stub out sections - bench, safety, IT, software",
+      "is_complete": true
+    },
+    {
+      "id": "st4",
+      "text": "Share read-only link with PI for sign-off",
+      "is_complete": true
     }
   ],
   "pcr_gradient": null,

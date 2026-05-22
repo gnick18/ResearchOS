@@ -28,6 +28,11 @@
     },
     {
       "id": "st3",
+      "text": "Replace expired EtBr waste container",
+      "is_complete": true
+    },
+    {
+      "id": "st4",
       "text": "Email summary to PI + safety office",
       "is_complete": true
     }

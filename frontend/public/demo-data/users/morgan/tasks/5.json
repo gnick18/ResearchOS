@@ -15,7 +15,28 @@
   "tags": null,
   "sort_order": 5,
   "experiment_color": null,
-  "sub_tasks": null,
+  "sub_tasks": [
+    {
+      "id": "st1",
+      "text": "Re-render Fig 1 at 300dpi in Illustrator",
+      "is_complete": true
+    },
+    {
+      "id": "st2",
+      "text": "Pull updated fluorescence heatmap from notebook",
+      "is_complete": true
+    },
+    {
+      "id": "st3",
+      "text": "Combine into a single annotated PDF",
+      "is_complete": false
+    },
+    {
+      "id": "st4",
+      "text": "Email PDF to alex with comment thread on Fig 3",
+      "is_complete": false
+    }
+  ],
   "pcr_gradient": null,
   "pcr_ingredients": null,
   "method_attachments": [],

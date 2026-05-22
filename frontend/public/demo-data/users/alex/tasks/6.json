@@ -1,7 +1,7 @@
 {
   "id": 6,
   "project_id": 1,
-  "name": "Send sequencing — top 4",
+  "name": "Send sequencing \u2014 top 4",
   "start_date": "2026-05-14",
   "duration_days": 1,
   "end_date": "2026-05-14",
@@ -15,7 +15,33 @@
   "tags": null,
   "sort_order": 6,
   "experiment_color": null,
-  "sub_tasks": null,
+  "sub_tasks": [
+    {
+      "id": "st1",
+      "text": "Mini-prep top 4 candidate colonies",
+      "is_complete": true
+    },
+    {
+      "id": "st2",
+      "text": "NanoDrop concentrations, log >100 ng/uL",
+      "is_complete": true
+    },
+    {
+      "id": "st3",
+      "text": "Fill out Genewiz sample sheet - primer pYES-F + pYES-R",
+      "is_complete": true
+    },
+    {
+      "id": "st4",
+      "text": "Drop off samples at sequencing dropbox before 4pm",
+      "is_complete": false
+    },
+    {
+      "id": "st5",
+      "text": "Pull chromatograms + run SnapGene alignment",
+      "is_complete": false
+    }
+  ],
   "pcr_gradient": null,
   "pcr_ingredients": null,
   "method_attachments": [],

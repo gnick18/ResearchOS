@@ -15,7 +15,28 @@
   "tags": null,
   "sort_order": 12,
   "experiment_color": null,
-  "sub_tasks": null,
+  "sub_tasks": [
+    {
+      "id": "st1",
+      "text": "Export plate reader CSVs from Tuesday + Thursday runs",
+      "is_complete": false
+    },
+    {
+      "id": "st2",
+      "text": "Subtract YPD blank wells in pandas",
+      "is_complete": false
+    },
+    {
+      "id": "st3",
+      "text": "Fit logistic growth + extract doubling times",
+      "is_complete": false
+    },
+    {
+      "id": "st4",
+      "text": "Send rough OD600 plot to morgan for sanity check",
+      "is_complete": false
+    }
+  ],
   "pcr_gradient": null,
   "pcr_ingredients": null,
   "method_attachments": [],

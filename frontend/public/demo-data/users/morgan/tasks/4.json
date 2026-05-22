@@ -15,7 +15,33 @@
   "tags": null,
   "sort_order": 4,
   "experiment_color": null,
-  "sub_tasks": null,
+  "sub_tasks": [
+    {
+      "id": "st1",
+      "text": "Pull figures + key results from the 96-well screen project",
+      "is_complete": false
+    },
+    {
+      "id": "st2",
+      "text": "Sketch section headers - intro, methods, results, discussion",
+      "is_complete": false
+    },
+    {
+      "id": "st3",
+      "text": "List open questions to bring up with advisor",
+      "is_complete": false
+    },
+    {
+      "id": "st4",
+      "text": "Draft figure list with target panels (Fig 2.1 - 2.6)",
+      "is_complete": false
+    },
+    {
+      "id": "st5",
+      "text": "Block 2 mornings on calendar for first writing pass",
+      "is_complete": false
+    }
+  ],
   "pcr_gradient": null,
   "pcr_ingredients": null,
   "method_attachments": [],

@@ -18,12 +18,22 @@
   "sub_tasks": [
     {
       "id": "st1",
-      "text": "Sketch aims 1–3",
+      "text": "Sketch aims 1\u20133",
       "is_complete": false
     },
     {
       "id": "st2",
       "text": "Draft preliminary-data list",
+      "is_complete": false
+    },
+    {
+      "id": "st3",
+      "text": "Pull figures from FakeYeast biofuel project (Fig 2 + 4)",
+      "is_complete": false
+    },
+    {
+      "id": "st4",
+      "text": "Book 1hr with PI to align on timeline",
       "is_complete": false
     }
   ],
