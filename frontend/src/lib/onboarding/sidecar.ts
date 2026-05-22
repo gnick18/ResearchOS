@@ -229,39 +229,40 @@ const AI_HELPER_VALUES: ReadonlySet<string> = new Set([
 function parseFeaturePicks(raw: unknown): FeaturePicks | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
+  // account_type is the only required field — without it we can't gate
+  // any step. Q2-Q6 keys are optional (sidecar.ts FeaturePicks marks them
+  // `?`) so a sidecar persisted between Q1 and Q2 has a valid picks
+  // object with only `account_type` set. Live-test R5 (2026-05-22)
+  // found this parser was rejecting that partial shape, returning null,
+  // which the Q1a/Q1b/Q2-Q6 handlers' `if (!cur.feature_picks) return cur`
+  // short-circuit then no-op'd. Cascade: every conditional walkthrough
+  // and the entire lab cluster gated out because picks stayed null
+  // across the whole tour.
   if (typeof o.account_type !== "string" || !ACCOUNT_TYPES.has(o.account_type)) {
-    return null;
-  }
-  if (typeof o.purchases !== "string" || !YES_NO_MAYBE.has(o.purchases)) {
-    return null;
-  }
-  if (typeof o.calendar !== "string" || !YES_NO_MAYBE.has(o.calendar)) {
-    return null;
-  }
-  if (typeof o.goals !== "string" || !YES_NO_MAYBE.has(o.goals)) {
-    return null;
-  }
-  if (typeof o.telegram !== "string" || !YES_NO_MAYBE.has(o.telegram)) {
-    return null;
-  }
-  if (
-    typeof o.ai_helper !== "string" ||
-    !AI_HELPER_VALUES.has(o.ai_helper)
-  ) {
     return null;
   }
   const picks: FeaturePicks = {
     account_type: o.account_type as FeaturePicks["account_type"],
-    purchases: o.purchases as FeaturePicks["purchases"],
-    calendar: o.calendar as FeaturePicks["calendar"],
-    goals: o.goals as FeaturePicks["goals"],
-    telegram: o.telegram as FeaturePicks["telegram"],
-    ai_helper: o.ai_helper as FeaturePicks["ai_helper"],
   };
-  if (
-    typeof o.lab_storage === "string" &&
-    LAB_STORAGES.has(o.lab_storage)
-  ) {
+  // Validate-if-present pattern for every Q2-Q6 field. Unknown values
+  // (legacy sidecars with stale strings) get dropped silently rather
+  // than nuking the whole record.
+  if (typeof o.purchases === "string" && YES_NO_MAYBE.has(o.purchases)) {
+    picks.purchases = o.purchases as FeaturePicks["purchases"];
+  }
+  if (typeof o.calendar === "string" && YES_NO_MAYBE.has(o.calendar)) {
+    picks.calendar = o.calendar as FeaturePicks["calendar"];
+  }
+  if (typeof o.goals === "string" && YES_NO_MAYBE.has(o.goals)) {
+    picks.goals = o.goals as FeaturePicks["goals"];
+  }
+  if (typeof o.telegram === "string" && YES_NO_MAYBE.has(o.telegram)) {
+    picks.telegram = o.telegram as FeaturePicks["telegram"];
+  }
+  if (typeof o.ai_helper === "string" && AI_HELPER_VALUES.has(o.ai_helper)) {
+    picks.ai_helper = o.ai_helper as FeaturePicks["ai_helper"];
+  }
+  if (typeof o.lab_storage === "string" && LAB_STORAGES.has(o.lab_storage)) {
     picks.lab_storage = o.lab_storage as FeaturePicks["lab_storage"];
   }
   return picks;

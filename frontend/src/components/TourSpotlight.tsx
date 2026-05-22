@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 /**
@@ -131,11 +131,49 @@ export default function TourSpotlight({
     typeof document === "undefined" ? null : document.body
   );
 
-  // Resolve the current target on every render. When the prop is a selector
-  // and the page has finished routing, this picks up the matching element.
-  // Re-rendering naturally re-resolves; we also re-poll on a MutationObserver
-  // tick further below to handle late-mounting anchors.
-  const resolved = useMemo(() => resolveTarget(target), [target]);
+  // Resolve the current target. Live-test R5 (2026-05-22) found that
+  // useMemo-with-[target]-dep silently captured null at first render
+  // for late-mounting anchors (eg. workbench-shared-experiments lands
+  // after the step navigates to /workbench). Once null, useMemo never
+  // re-ran because target string didn't change → spotlight stayed
+  // dark forever. Switched to useState + a polling-MutationObserver
+  // effect that re-resolves on every DOM mutation until the anchor
+  // appears, then drops back to the tracked-rect effect below.
+  const [resolved, setResolved] = useState<HTMLElement | null>(() =>
+    resolveTarget(target),
+  );
+  useEffect(() => {
+    // Reset on target change.
+    setResolved(resolveTarget(target));
+    if (typeof target !== "string") return;
+    if (typeof document === "undefined") return;
+    // Observe document mutations. As soon as a node matching the
+    // selector lands in the DOM, re-resolve and update state. The
+    // tracked-rect effect below picks it up via its [resolved] dep.
+    let stopped = false;
+    const reresolve = () => {
+      if (stopped) return;
+      const next = resolveTarget(target);
+      if (next) {
+        setResolved((prev) => (prev === next ? prev : next));
+      }
+    };
+    const mo = new MutationObserver(reresolve);
+    mo.observe(document.body, { childList: true, subtree: true });
+    // Safety net: also poll for ~3s in case MutationObserver doesn't
+    // catch the mount (eg. portals to nodes outside body.subtree).
+    const poll = window.setInterval(reresolve, 100);
+    const stopAt = window.setTimeout(() => {
+      stopped = true;
+      window.clearInterval(poll);
+    }, 3000);
+    return () => {
+      stopped = true;
+      mo.disconnect();
+      window.clearInterval(poll);
+      window.clearTimeout(stopAt);
+    };
+  }, [target]);
 
   // Tracked bounding rect of the target. `null` while we haven't measured
   // anything yet, or after the target detached from the DOM.
