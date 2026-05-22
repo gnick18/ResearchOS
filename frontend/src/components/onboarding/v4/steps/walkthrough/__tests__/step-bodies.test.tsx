@@ -399,8 +399,8 @@ describe("ProjectOverviewStep (§6.2 prose)", () => {
       /Watch, I'll type a hypothesis sentence into the Overview/,
     );
   });
-  it("expectedRoute is the project route prefix (handles dynamic id)", () => {
-    expect(projectOverviewStep.expectedRoute).toBe("/workbench/projects");
+  it("expectedRoute is undefined (live-test R2: bare /workbench/projects 404'd; nav handled by previous step)", () => {
+    expect(projectOverviewStep.expectedRoute).toBeUndefined();
   });
   it("placeholder hypothesis text is the BeakerBot affirmation sentence", () => {
     // The brief specified this exact placeholder so the cursor demo is

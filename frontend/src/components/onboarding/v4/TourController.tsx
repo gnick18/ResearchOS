@@ -468,6 +468,18 @@ export function TourControllerProvider({
     dispatch({ type: "SET_FEATURE_PICKS", picks });
   }, []);
 
+  // Live-test sub-bot R2 (2026-05-21): V4MountForUser loads the sidecar
+  // asynchronously, so on first render `initialFeaturePicks` is null
+  // even when the user has real Q1-Q6 answers persisted. Without this
+  // sync effect, the reducer captures null forever and every gated step
+  // (lab cluster, Q1a/Q1b, conditionals) gates OUT because
+  // `picks?.account_type` is undefined. Mirror prop → state on every
+  // change so the controller picks up the loaded feature_picks the
+  // moment the sidecar resolves.
+  useEffect(() => {
+    dispatch({ type: "SET_FEATURE_PICKS", picks: initialFeaturePicks ?? null });
+  }, [initialFeaturePicks]);
+
   const noteInteraction = useCallback(
     () => dispatch({ type: "MARK_INTERACTION" }),
     [],
@@ -692,7 +704,15 @@ export function TourControllerProvider({
       expected === "/" ? current === "/" : current.startsWith(expected);
     if (alreadyOnRoute) return;
 
-    router.push(expected);
+    // Preserve query params on the auto-nav push (live-test R2 fix
+    // 2026-05-21). Without this, navigating to expectedRoute strips
+    // ?wikiCapture=1 / ?wizard-preview=1 / ?wizardSeedStep, which makes
+    // the fixture-mode mount path lose previewMode on the next page —
+    // the v4 bootstrap then sees a resume_state and surfaces the
+    // V4ResumePrompt mid-tour. Carry every existing search param
+    // through so the fixture URL contract stays intact.
+    const search = window.location.search;
+    router.push(`${expected}${search}`);
   }, [state.currentStep, state.paused, router]);
 
   // Expose the current step id on document.body so global CSS rules can

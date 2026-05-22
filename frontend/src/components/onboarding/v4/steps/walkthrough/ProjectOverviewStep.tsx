@@ -71,7 +71,12 @@ export const projectOverviewStep = buildWalkthroughStep({
   completion: autoAdvanceAfter(
     1000 + Math.ceil(PLACEHOLDER_HYPOTHESIS.length * 48) + 3000,
   ),
-  // Prefix match handles the dynamic `/workbench/projects/<id>` route.
-  // The TourController auto-nav skips when `current.startsWith(expected)`.
-  expectedRoute: "/workbench/projects",
+  // No expectedRoute (live-test R2 follow-up 2026-05-21): the bare
+  // `/workbench/projects` push the previous version did navigates to a
+  // 404 (the real route is `/workbench/projects/[id]` — we don't have
+  // the id at controller-effect time). The previous step
+  // `project-overview-nav` is responsible for driving the user onto
+  // the right route via its cursor click; if a refresh strands the
+  // user mid-step, the P12 Resume modal + Resume-404 mitigation handle
+  // recovery, not this defensive push.
 });
