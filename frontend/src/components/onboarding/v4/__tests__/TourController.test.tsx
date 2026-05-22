@@ -306,19 +306,28 @@ describe("TourController — setFeaturePicks", () => {
     // Under solo, lab-prompt is gated out → forward from
     // lab-permission-practice would skip past the whole lab cluster.
     // Confirm the controller follows the gate.
-    act(() => result.current.start("wiki-pointer"));
+    //
+    // §6.12 Wiki pointer multi-beat redesign 2026-05-22 (Wiki pointer
+    // manager): the legacy `wiki-pointer` id is gone; the cluster's
+    // terminal beat is now `wiki-pointer-back-demo`. Starting on that
+    // beat exercises the exact same gating decision (next-step from
+    // the end of the cluster lands on the first applicable post-wiki
+    // step, which is `tour-goodbye` under solo and `lab-mode-prompt`
+    // under lab).
+    act(() => result.current.start("wiki-pointer-back-demo"));
     act(() => result.current.advance());
     // Solo → all conditionals + lab cluster gated → land on
     // tour-goodbye (Cleanup retirement 2026-05-22 swap from
     // phase4-cleanup).
     expect(result.current.currentStep).toBe("tour-goodbye");
-    // Flip to lab and re-enter wiki-pointer; advance now lands on the
-    // first applicable post-wiki step. After the Lab Mode redesign
-    // 2026-05-22, the new §6.16 Phase 2c lab-mode cluster sits between
-    // the conditional walkthroughs and lab-cleanup, so the first
-    // applicable lab-only step is now `lab-mode-prompt`.
+    // Flip to lab and re-enter the terminal wiki-pointer beat; advance
+    // now lands on the first applicable post-wiki step. After the
+    // Lab Mode redesign 2026-05-22, the new §6.16 Phase 2c lab-mode
+    // cluster sits between the conditional walkthroughs and
+    // lab-cleanup, so the first applicable lab-only step is now
+    // `lab-mode-prompt`.
     act(() => result.current.setFeaturePicks(picks({ account_type: "lab" })));
-    act(() => result.current.start("wiki-pointer"));
+    act(() => result.current.start("wiki-pointer-back-demo"));
     act(() => result.current.advance());
     expect(result.current.currentStep).toBe("lab-mode-prompt");
   });

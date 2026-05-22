@@ -94,7 +94,14 @@ const P5_STEP_IDS = [
   "ai-helper-use-case-paste",
   "ai-helper-use-case-agentic",
   "search-demo",
-  "wiki-pointer",
+  // §6.12 Wiki pointer multi-beat redesign 2026-05-22 (Wiki pointer
+  // manager). Legacy single `wiki-pointer` id retired; the 4-beat
+  // cluster replaces it. Each beat must resolve to a non-placeholder
+  // body in the registry.
+  "wiki-pointer-intro",
+  "wiki-pointer-icon-spotlight",
+  "wiki-pointer-click-demo",
+  "wiki-pointer-back-demo",
 ] as const;
 
 describe("P5 step registry wiring", () => {

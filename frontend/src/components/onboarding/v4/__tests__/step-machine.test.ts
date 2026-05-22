@@ -761,7 +761,11 @@ describe("getPreviousStep — backward traversal", () => {
     // Easier check: from "calendar" with all-no, getPreviousStep should
     // skip purchases too (gated out under all-no).
     const allNo = picks({ purchases: "no", calendar: "no", telegram: "no" });
-    expect(getPreviousStep("calendar", allNo)).toBe("wiki-pointer");
+    // §6.12 Wiki pointer multi-beat redesign 2026-05-22: the cluster's
+    // terminal beat is `wiki-pointer-back-demo`, so backstep from
+    // `calendar` under all-no picks lands there (skipping the gated-out
+    // purchases / telegram / links cluster between).
+    expect(getPreviousStep("calendar", allNo)).toBe("wiki-pointer-back-demo");
     // With purchases=yes, backstep from "calendar" lands on the LAST
     // applicable purchases cluster step (purchases-back-to-real per
     // the redesign 2026-05-22). Per the cluster order in TOUR_STEP_ORDER.

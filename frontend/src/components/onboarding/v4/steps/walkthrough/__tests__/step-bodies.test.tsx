@@ -134,7 +134,18 @@ import { settingsAiHelperSizeDiffStep } from "../SettingsAiHelperSizeDiffStep";
 import { settingsAiHelperUseCasePasteStep } from "../SettingsAiHelperUseCasePasteStep";
 import { settingsAiHelperUseCaseAgenticStep } from "../SettingsAiHelperUseCaseAgenticStep";
 import { searchStep } from "../SearchStep";
-import { wikiPointerStep } from "../WikiPointerStep";
+// §6.12 Wiki pointer multi-beat redesign 2026-05-22 (Wiki pointer manager).
+// Legacy `wikiPointerStep` retired from ALL_STEPS / expected-ids - the
+// body remains exported with @deprecated JSDoc but is no longer wired
+// through the registry, so the contract sweep would otherwise fail on
+// it (it has no cursorScript but isn't classified as user-action). The
+// 4-beat cluster replaces it.
+import {
+  wikiPointerIntroStep,
+  wikiPointerIconSpotlightStep,
+  wikiPointerClickDemoStep,
+  wikiPointerBackDemoStep,
+} from "../WikiPointerStep";
 import type { TourStep } from "../../../step-types";
 import type { FeaturePicks } from "@/lib/onboarding/sidecar";
 
@@ -224,7 +235,10 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   settingsAiHelperUseCasePasteStep,
   settingsAiHelperUseCaseAgenticStep,
   searchStep,
-  wikiPointerStep,
+  wikiPointerIntroStep,
+  wikiPointerIconSpotlightStep,
+  wikiPointerClickDemoStep,
+  wikiPointerBackDemoStep,
 ];
 
 describe("P5 step bodies — universal contract", () => {
@@ -303,7 +317,13 @@ describe("P5 step bodies — universal contract", () => {
       "ai-helper-use-case-paste",
       "ai-helper-use-case-agentic",
       "search-demo",
-      "wiki-pointer",
+      // §6.12 Wiki pointer multi-beat redesign 2026-05-22 (Wiki pointer
+      // manager). Legacy `wiki-pointer` id retired; 4-beat cluster
+      // replaces it.
+      "wiki-pointer-intro",
+      "wiki-pointer-icon-spotlight",
+      "wiki-pointer-click-demo",
+      "wiki-pointer-back-demo",
     ]);
     for (const step of ALL_STEPS) {
       expect(expectedIds.has(step.id), `unexpected id ${step.id}`).toBe(true);
@@ -406,7 +426,13 @@ describe("P5 step bodies — universal contract", () => {
       settingsAiHelperSizeDiffStep,
       settingsAiHelperUseCasePasteStep,
       searchStep,
-      wikiPointerStep,
+      // §6.12 Wiki pointer cluster - the two cursor-driven beats.
+      // `wiki-pointer-intro` is speech-only and
+      // `wiki-pointer-icon-spotlight` is spotlight-only (no click yet),
+      // so neither carries a cursorScript; the click-demo + back-demo
+      // beats do.
+      wikiPointerClickDemoStep,
+      wikiPointerBackDemoStep,
     ];
     for (const step of DEMO_STEPS_WITH_CURSOR_SCRIPT) {
       expect(
@@ -1253,17 +1279,61 @@ describe("SearchStep (§6.11)", () => {
   });
 });
 
-describe("WikiPointerStep (§6.12)", () => {
-  it("targets the wiki nav tab", () => {
-    expect(wikiPointerStep.targetSelector).toBe(
+describe("WikiPointerCluster (§6.12) — multi-beat redesign 2026-05-22", () => {
+  it("intro beat is speech-only (no target, no cursor)", () => {
+    expect(wikiPointerIntroStep.id).toBe("wiki-pointer-intro");
+    expect(wikiPointerIntroStep.targetSelector).toBeUndefined();
+    expect(wikiPointerIntroStep.cursorScript).toBeUndefined();
+    const text = renderSpeech(wikiPointerIntroStep);
+    expect(text).toMatch(/wiki/i);
+    expect(text).toMatch(/documentation/i);
+  });
+
+  it("icon-spotlight beat spotlights the `?` icon without clicking it", () => {
+    expect(wikiPointerIconSpotlightStep.id).toBe("wiki-pointer-icon-spotlight");
+    expect(wikiPointerIconSpotlightStep.targetSelector).toBe(
       "[data-tour-target=\"wiki-nav-tab\"]",
     );
+    // Spotlight only; the click happens on the next beat. Keeps the
+    // beat split honest (no double-action per beat).
+    expect(wikiPointerIconSpotlightStep.cursorScript).toBeUndefined();
+    const text = renderSpeech(wikiPointerIconSpotlightStep);
+    expect(text).toMatch(/question.?mark/i);
+    expect(text).toMatch(/top right/i);
   });
-  it("speech mentions the Wiki tab (live-test R4 reworked to glide-only, no nav promise)", () => {
-    const text = renderSpeech(wikiPointerStep);
-    expect(text).toMatch(/Wiki tab/);
-    // R4: dropped "back to your work" and "I'll show you" because the
-    // step no longer navigates anywhere — pure glide-and-pause.
-    expect(text).toMatch(/Come back to it anytime/);
+
+  it("click-demo beat targets the `?` icon and carries a cursor script", () => {
+    expect(wikiPointerClickDemoStep.id).toBe("wiki-pointer-click-demo");
+    expect(wikiPointerClickDemoStep.targetSelector).toBe(
+      "[data-tour-target=\"wiki-nav-tab\"]",
+    );
+    expect(wikiPointerClickDemoStep.cursorScript).toBeDefined();
+    // No expectedRoute on the click-demo beat - the cursor click itself
+    // is the navigation. Setting expectedRoute would race the
+    // controller's router.push against the cursor click.
+    expect(wikiPointerClickDemoStep.expectedRoute).toBeUndefined();
+  });
+
+  it("back-demo beat targets the WikiTopBar back button and expects /wiki", () => {
+    expect(wikiPointerBackDemoStep.id).toBe("wiki-pointer-back-demo");
+    expect(wikiPointerBackDemoStep.targetSelector).toBe(
+      "[data-tour-target=\"wiki-back-to-app\"]",
+    );
+    expect(wikiPointerBackDemoStep.cursorScript).toBeDefined();
+    // Coarse /wiki prefix handles the refresh-mid-step case (drops the
+    // user on the wiki landing, where the "Back to app" button still
+    // mounts).
+    expect(wikiPointerBackDemoStep.expectedRoute).toBe("/wiki");
+  });
+
+  it("every cluster beat uses manualAdvance (universal pacing rule)", () => {
+    for (const step of [
+      wikiPointerIntroStep,
+      wikiPointerIconSpotlightStep,
+      wikiPointerClickDemoStep,
+      wikiPointerBackDemoStep,
+    ]) {
+      expect(step.completion.type).toBe("manual");
+    }
   });
 });

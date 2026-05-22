@@ -252,8 +252,19 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "ai-helper-use-case-agentic",
   // Search (§6.11)
   "search-demo",
-  // Wiki pointer outro (§6.12)
-  "wiki-pointer",
+  // Wiki pointer outro (§6.12) - Wiki pointer multi-beat redesign
+  // 2026-05-22 (Wiki pointer manager): the prior single `wiki-pointer`
+  // beat is replaced by a 4-beat cluster that intros the wiki,
+  // spotlights the `?` icon in the topbar, demos the cursor click
+  // through to the matching wiki page, and demos the "Back to app"
+  // click to return. The legacy `wiki-pointer` id is retired from this
+  // list; the body survives in WikiPointerStep.tsx with @deprecated
+  // JSDoc for git-history reference. See ONBOARDING_V4_PROPOSAL.md
+  // §6.12 + WikiPointerStep.tsx for the per-beat contracts.
+  "wiki-pointer-intro",
+  "wiki-pointer-icon-spotlight",
+  "wiki-pointer-click-demo",
+  "wiki-pointer-back-demo",
 
   // ----- Phase 2b: conditional walkthroughs (§6.13 - §6.15, plus
   // links from Lab Links manager 2026-05-22)

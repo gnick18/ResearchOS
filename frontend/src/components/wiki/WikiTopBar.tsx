@@ -95,6 +95,7 @@ export default function WikiTopBar() {
         <button
           type="button"
           onClick={handleBack}
+          data-tour-target="wiki-back-to-app"
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
           title="Return to the app (Back)"
         >

@@ -277,6 +277,12 @@ export const TOUR_TARGETS = {
 
   // §6.12 Wiki
   wikiNavTab: "wiki-nav-tab",
+  // §6.12 Wiki — "Back to app" button on the slim WikiTopBar that sits
+  // above every /wiki/* page. Wiki pointer multi-beat redesign 2026-05-22
+  // (Wiki pointer manager): the §6.12 click-demo navigates the cursor to
+  // a wiki page; the follow-up back-demo cursor-clicks this button to
+  // route the user back to wherever they started.
+  wikiBackToApp: "wiki-back-to-app",
 
   // §6.2→6.3 transition (Grant 2026-05-21): BeakerBot glides to the Home
   // tab and the controller programmatically navigates back to "/" so

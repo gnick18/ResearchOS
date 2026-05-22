@@ -132,6 +132,31 @@ function AppContent({ children }: { children: ReactNode }) {
   }, [currentUser, queryClient]);
 
   if (isWikiRoute) {
+    // Wiki-pointer multi-beat redesign 2026-05-22 (Wiki pointer manager).
+    // When a signed-in real user is mid-tour and the §6.12 wiki-pointer
+    // cluster navigates them to a /wiki/* page, the wiki layout's
+    // dedicated provider tree would normally drop V4MountForUser and
+    // kill the tour mid-walk (see WikiPointerStep R4 2026-05-22 for the
+    // bug we hit before the cluster redesign). Re-mounting V4MountForUser
+    // inside the wiki early-return keeps the tour controller alive
+    // across the wiki visit. Gating on `isConnected && currentUser`
+    // means brand-new visitors (the wiki's original target audience)
+    // still get the slim wiki-only tree. Lab Mode users skip the v4
+    // tour entirely (matches AppContent's signed-in branch); guard the
+    // same way here so the lab pseudo-user doesn't pull in V4 either.
+    const wikiUserHasTour =
+      isConnected &&
+      !!currentUser &&
+      currentUser.toLowerCase() !== "lab";
+    if (wikiUserHasTour) {
+      return (
+        <QueryClientProvider client={queryClient}>
+          <OnboardingProvider currentUser={currentUser}>
+            <V4MountForUser username={currentUser}>{children}</V4MountForUser>
+          </OnboardingProvider>
+        </QueryClientProvider>
+      );
+    }
     return (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );

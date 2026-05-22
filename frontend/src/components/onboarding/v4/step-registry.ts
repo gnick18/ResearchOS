@@ -10,7 +10,8 @@
  *        v4 tour controller modal surface). 2026-05-22 drop: setup-q1a
  *        (lab storage) + setup-q1b (lab connect info) removed; lab
  *        storage decision moved to pre-onboarding §6.4.
- *   P5 → home-create-project through wiki-pointer (universal §6.1-6.12)
+ *   P5 → home-create-project through the wiki-pointer cluster's
+ *        terminal beat wiki-pointer-back-demo (universal §6.1-6.12)
  *   P6 → telegram + purchases + calendar (conditional §6.13-6.15)
  *   P7 → lab-prompt + lab-spawn-beakerbot + lab-permission-practice
  *      + lab-cleanup (§6.16, minimal lab tour per L19; lab-cleanup
@@ -112,8 +113,9 @@ function placeholderStep(id: TourStepId): TourStep {
 // ---------------------------------------------------------------------
 // P5 universal-walkthrough step body imports (§6.1 - §6.12)
 //
-// Each id in TOUR_STEP_ORDER between "home-create-project" and
-// "wiki-pointer" maps to a real body here. Setup steps (P4), conditional
+// Each id in TOUR_STEP_ORDER between "home-create-project" and the
+// wiki-pointer cluster's terminal beat ("wiki-pointer-back-demo") maps
+// to a real body here. Setup steps (P4), conditional
 // walkthroughs (P6), lab tour (P7), and the cleanup grid (P8) still
 // render placeholders until their dispatching phase lands.
 // ---------------------------------------------------------------------
@@ -236,7 +238,19 @@ import { settingsAiHelperSizeDiffStep } from "./steps/walkthrough/SettingsAiHelp
 import { settingsAiHelperUseCasePasteStep } from "./steps/walkthrough/SettingsAiHelperUseCasePasteStep";
 import { settingsAiHelperUseCaseAgenticStep } from "./steps/walkthrough/SettingsAiHelperUseCaseAgenticStep";
 import { searchStep } from "./steps/walkthrough/SearchStep";
-import { wikiPointerStep } from "./steps/walkthrough/WikiPointerStep";
+// §6.12 Wiki pointer multi-beat redesign 2026-05-22 (Wiki pointer manager).
+// The legacy single `wikiPointerStep` body is replaced by a 4-beat cluster:
+// intro (speech) -> icon spotlight -> click-demo (cursor click on `?` icon
+// navigates into the wiki) -> back-demo (cursor click on "Back to app"
+// returns the user to where they started). The retired `wikiPointerStep`
+// export survives in WikiPointerStep.tsx with @deprecated JSDoc; it is
+// NOT mapped through the registry.
+import {
+  wikiPointerIntroStep,
+  wikiPointerIconSpotlightStep,
+  wikiPointerClickDemoStep,
+  wikiPointerBackDemoStep,
+} from "./steps/walkthrough/WikiPointerStep";
 // Cleanup retirement 2026-05-22: `phase4-cleanup` is gone from
 // TOUR_STEP_ORDER; the terminal step is now `tour-goodbye` (auto-
 // cleanup + animation outro). The body is a standard walkthrough step
@@ -338,7 +352,13 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [settingsAiHelperUseCasePasteStep.id]: settingsAiHelperUseCasePasteStep,
   [settingsAiHelperUseCaseAgenticStep.id]: settingsAiHelperUseCaseAgenticStep,
   [searchStep.id]: searchStep,
-  [wikiPointerStep.id]: wikiPointerStep,
+  // §6.12 Wiki pointer multi-beat redesign 2026-05-22 (Wiki pointer
+  // manager). 4-beat cluster wired in TOUR_STEP_ORDER order; legacy
+  // single `wiki-pointer` id retired (see WikiPointerStep.tsx).
+  [wikiPointerIntroStep.id]: wikiPointerIntroStep,
+  [wikiPointerIconSpotlightStep.id]: wikiPointerIconSpotlightStep,
+  [wikiPointerClickDemoStep.id]: wikiPointerClickDemoStep,
+  [wikiPointerBackDemoStep.id]: wikiPointerBackDemoStep,
   // Cleanup retirement 2026-05-22: tour-goodbye is the new terminal
   // step; the body lives in steps/cleanup/TourGoodbyeStep.tsx alongside
   // the retired Phase 4 cleanup-grid sources (marked @deprecated).
