@@ -234,6 +234,26 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "calendar",
   "links",
 
+  // ----- Phase 2c: Lab Mode tour cluster (§6.16, Lab Mode redesign
+  // 2026-05-22, Lab Mode manager). 12 sub-steps that sit BEFORE
+  // lab-cleanup: prompt + intro + warp + 8 per-tab beats + exit.
+  // Every entry gates on `picks.account_type === "lab"`. The prompt
+  // step's branchOn redirects Later / Dismiss past the cluster
+  // straight to lab-cleanup so the user can opt out without
+  // walking each beat.
+  "lab-mode-prompt",
+  "lab-mode-intro",
+  "lab-mode-warp-to-demo",
+  "lab-mode-activity",
+  "lab-mode-gantt",
+  "lab-mode-experiments",
+  "lab-mode-purchases",
+  "lab-mode-roadmaps",
+  "lab-mode-methods",
+  "lab-mode-notes",
+  "lab-mode-search",
+  "lab-mode-exit",
+
   // ----- Phase 2c: lab cleanup terminal step (§6.16c, conditional on Q1=lab)
   // Gantt redesign 2026-05-22 (Gantt manager): the prior lab tour cluster
   // (`lab-prompt`, `lab-spawn-beakerbot`, `lab-permission-practice`) is
@@ -304,6 +324,27 @@ const GANTT_SHARE_LAB_ONLY_STEP_IDS: ReadonlySet<TourStepId> =
     "gantt-share-user-sees-edit",
   ]);
 
+/** Lab Mode tour cluster step ids (§6.16, Lab Mode redesign 2026-05-22).
+ *  All 12 entries gate on `picks.account_type === "lab"`. The prompt
+ *  step's `branchOn` Later / Dismiss branches jump past the rest of
+ *  the cluster directly to `lab-cleanup`. The cluster's per-step
+ *  resume-guards probe the sidecar's `lab_mode_tour_choice` field to
+ *  catch a stale resume into a step the user actually skipped. */
+const LAB_MODE_STEP_IDS: ReadonlySet<TourStepId> = new Set<TourStepId>([
+  "lab-mode-prompt",
+  "lab-mode-intro",
+  "lab-mode-warp-to-demo",
+  "lab-mode-activity",
+  "lab-mode-gantt",
+  "lab-mode-experiments",
+  "lab-mode-purchases",
+  "lab-mode-roadmaps",
+  "lab-mode-methods",
+  "lab-mode-notes",
+  "lab-mode-search",
+  "lab-mode-exit",
+]);
+
 /** True when this step is one of the Phase 1 modal setup questions. */
 export function isSetupPhaseStep(step: TourStepId): boolean {
   return SETUP_STEP_IDS.has(step);
@@ -319,6 +360,12 @@ export function isLabPhaseStep(step: TourStepId): boolean {
  *  but is gated by `picks.account_type === "lab"`. */
 export function isGanttShareLabStep(step: TourStepId): boolean {
   return GANTT_SHARE_LAB_ONLY_STEP_IDS.has(step);
+}
+
+/** True when this step belongs to the §6.16 Phase 2c Lab Mode cluster
+ *  (Lab Mode redesign 2026-05-22). Gated by `picks.account_type === "lab"`. */
+export function isLabModeTourStep(step: TourStepId): boolean {
+  return LAB_MODE_STEP_IDS.has(step);
 }
 
 /**
@@ -408,6 +455,16 @@ export function isStepGatedOut(
   // to the step body, same shape as v3 P3a did via
   // `getLabTourDecision`.
   if (LAB_STEP_IDS.has(step)) {
+    return picks?.account_type !== "lab";
+  }
+
+  // §6.16 Lab Mode tour cluster (Lab Mode redesign 2026-05-22). Same
+  // shape as the legacy LAB_STEP_IDS: machine-level gate is solely
+  // `account_type === "lab"`. The prompt step's branchOn handles the
+  // Later / Dismiss skip path by jumping straight to lab-cleanup;
+  // each per-step body's resume-guard catches stale resumes via the
+  // sidecar `lab_mode_tour_choice` field.
+  if (LAB_MODE_STEP_IDS.has(step)) {
     return picks?.account_type !== "lab";
   }
 

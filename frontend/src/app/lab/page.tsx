@@ -242,6 +242,7 @@ export default function LabModePage() {
             </div>
             <button
               onClick={handleLogout}
+              data-tour-target="lab-mode-exit-button"
               className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
             >
               Exit Lab Mode
@@ -252,6 +253,7 @@ export default function LabModePage() {
           <div className="flex gap-1 flex-wrap">
             <button
               onClick={() => setActiveTab("activity")}
+              data-tour-target="lab-mode-activity-tab"
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
                 activeTab === "activity"
                   ? "bg-emerald-100 text-emerald-700"
@@ -265,6 +267,7 @@ export default function LabModePage() {
             </button>
             <button
               onClick={() => setActiveTab("gantt")}
+              data-tour-target="lab-mode-gantt-tab"
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
                 activeTab === "gantt"
                   ? "bg-emerald-100 text-emerald-700"
@@ -278,6 +281,7 @@ export default function LabModePage() {
             </button>
             <button
               onClick={() => setActiveTab("experiments")}
+              data-tour-target="lab-mode-experiments-tab"
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
                 activeTab === "experiments"
                   ? "bg-emerald-100 text-emerald-700"
@@ -291,6 +295,7 @@ export default function LabModePage() {
             </button>
             <button
               onClick={() => setActiveTab("purchases")}
+              data-tour-target="lab-mode-purchases-tab"
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
                 activeTab === "purchases"
                   ? "bg-emerald-100 text-emerald-700"
@@ -304,6 +309,7 @@ export default function LabModePage() {
             </button>
             <button
               onClick={() => setActiveTab("roadmaps")}
+              data-tour-target="lab-mode-roadmaps-tab"
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
                 activeTab === "roadmaps"
                   ? "bg-emerald-100 text-emerald-700"
@@ -317,6 +323,7 @@ export default function LabModePage() {
             </button>
             <button
               onClick={() => setActiveTab("methods")}
+              data-tour-target="lab-mode-methods-tab"
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
                 activeTab === "methods"
                   ? "bg-emerald-100 text-emerald-700"
@@ -330,6 +337,7 @@ export default function LabModePage() {
             </button>
             <button
               onClick={() => setActiveTab("notes")}
+              data-tour-target="lab-mode-notes-tab"
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
                 activeTab === "notes"
                   ? "bg-emerald-100 text-emerald-700"
@@ -343,6 +351,7 @@ export default function LabModePage() {
             </button>
             <button
               onClick={() => setActiveTab("search")}
+              data-tour-target="lab-mode-search-tab"
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
                 activeTab === "search"
                   ? "bg-emerald-100 text-emerald-700"

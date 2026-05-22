@@ -155,6 +155,22 @@ export interface OnboardingSidecar {
   /** ISO timestamp set when the user picked Dismiss on the natural-
    *  entry Lab Mode tour offer. Permanent — no further auto-firing. */
   lab_tour_dismissed_at: string | null;
+  /** Lab Mode tour opt-in outcome (Lab Mode redesign 2026-05-22, Phase
+   *  2c). Set by the `lab-mode-prompt` step body when the user picks
+   *  Now / Later / Dismiss. `null` (or absent) means the user has not
+   *  yet been asked (solo accounts never see the prompt). Mirrors the
+   *  lab_tour_pending / lab_tour_dismissed_at shape but consolidates
+   *  the three-state into a single field so the new walk-through
+   *  doesn't depend on two implicitly-coupled flags. The old fields
+   *  remain populated for back-compat with surfaces that read them
+   *  directly; a follow-up sub-bot will retire them.
+   *
+   *  Marked optional (vs required) so the long list of existing test
+   *  fixtures that hand-build OnboardingSidecar records type-check
+   *  without each fixture needing a forced new key. The runtime
+   *  normalizer always coerces to `null` when absent, so readers
+   *  can safely treat `undefined` as `null`. */
+  lab_mode_tour_choice?: "now" | "later" | "dismiss" | null;
 }
 
 function sidecarPath(username: string): string {
@@ -173,6 +189,7 @@ function makeDefault(): OnboardingSidecar {
     wizard_resume_state: null,
     lab_tour_pending: false,
     lab_tour_dismissed_at: null,
+    lab_mode_tour_choice: null,
   };
 }
 
@@ -230,6 +247,13 @@ function normalize(raw: Partial<OnboardingSidecar> | null): OnboardingSidecar {
     typeof r.lab_tour_dismissed_at === "string"
       ? (r.lab_tour_dismissed_at as string)
       : null;
+  const labChoiceRaw = r.lab_mode_tour_choice;
+  const lab_mode_tour_choice =
+    labChoiceRaw === "now" ||
+    labChoiceRaw === "later" ||
+    labChoiceRaw === "dismiss"
+      ? (labChoiceRaw as "now" | "later" | "dismiss")
+      : null;
 
   return {
     version: SCHEMA_VERSION,
@@ -242,6 +266,7 @@ function normalize(raw: Partial<OnboardingSidecar> | null): OnboardingSidecar {
     wizard_resume_state,
     lab_tour_pending,
     lab_tour_dismissed_at,
+    lab_mode_tour_choice,
   };
 }
 
@@ -425,6 +450,11 @@ export async function clearWizardCompletion(
     wizard_force_show: true,
     lab_tour_pending: false,
     lab_tour_dismissed_at: null,
+    // Lab Mode redesign 2026-05-22: re-run clears the new
+    // lab_mode_tour_choice field so the lab-mode-prompt step
+    // re-prompts on the next run, same semantics as the legacy
+    // lab_tour_pending / lab_tour_dismissed_at fields above.
+    lab_mode_tour_choice: null,
   }));
 }
 

@@ -558,32 +558,33 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     const soloCount = totalApplicableSteps(soloMin);
     const labCount = totalApplicableSteps(labMax);
     expect(labCount).toBeGreaterThan(soloCount);
-    // Gantt manager 2026-05-22 (Gantt redesign): the lab cluster shrank
-    // (lab-prompt + lab-spawn-beakerbot + lab-permission-practice
-    // retired, only lab-cleanup survives in LAB_STEP_IDS) but the §6.8
-    // Gantt share cluster added 7 new lab-only steps gated on
-    // account_type === "lab".
+    // Gantt + Purchases + Hybrid + Lab Mode combined math (2026-05-22):
     //
-    // Purchases manager 2026-05-22: the single `purchases` id grew
-    // into an 8-step cluster, so solo+minimal now skips an extra 7
-    // purchases cluster steps relative to the pre-Purchases-redesign
-    // count.
+    // Gantt manager: lab tour Phase 3 retired (lab-prompt /
+    // lab-spawn-beakerbot / lab-permission-practice gone), only
+    // lab-cleanup survives. §6.8 Gantt share cluster adds 7 lab-only
+    // steps gated on account_type === "lab".
     //
-    // Hybrid fix manager R1 2026-05-22 (P1 #7): HE-3
-    // (`hybrid-markdown-overview`) is now gated by the in-tour
-    // branchOn choice at HE-2. The choice cache is empty at module
-    // load (no branch click has fired), so the gate evaluates to
-    // "gated out" until the cache is populated — applies to both
-    // solo and lab paths.
+    // Purchases manager: single `purchases` id grew into an 8-step
+    // cluster (purchases-intro through purchases-back-to-real).
+    //
+    // Hybrid fix R1 (P1 #7): HE-3 (`hybrid-markdown-overview`) is
+    // gated by the in-tour branchOn choice at HE-2. The choice cache
+    // is empty at module load (no branch click fired), so the gate
+    // evaluates to "gated out" — applies to both solo and lab paths.
+    //
+    // Lab Mode manager: §6.16 Phase 2c Lab Mode tour cluster adds 12
+    // more lab-only steps (lab-mode-prompt through lab-mode-exit).
     //
     // Solo+minimal skips: 5 non-purchases conditionals (telegram,
     // calendar, links, gantt-goals-overview, ai-helper-deep-explain)
-    // + 8 purchases cluster + 1 lab step (lab-cleanup) + 7 Gantt
-    // share cluster steps + 1 HE-3 (branch-gated) = 22 gated out
-    // for solo.
-    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 22);
+    // + 8 purchases cluster + 1 legacy lab step (lab-cleanup)
+    // + 7 Gantt share cluster + 12 Lab Mode cluster
+    // + 1 HE-3 (branch-gated) = 34 gated out for solo.
+    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 34);
     // Lab+max: HE-3 still branch-gated (user hasn't picked the
-    // overview branch yet at static evaluation time).
+    // overview branch yet at static evaluation time). All other
+    // gates open.
     expect(labCount).toBe(TOUR_STEP_ORDER.length - 1);
   });
 
@@ -603,3 +604,92 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     expect(applicableStepIndex("gantt-share-intro", p)).toBe(0);
   });
 });
+
+// =============================================================================
+// §6.16 Phase 2c Lab Mode tour cluster (Lab Mode redesign 2026-05-22).
+// 12 new step ids inserted between the conditional walkthrough cluster
+// (telegram / purchases / calendar / links) and `lab-cleanup`. All gate
+// on `picks.account_type === "lab"`. The prompt step's branchOn handles
+// the Later / Dismiss skip path by jumping straight to lab-cleanup.
+// =============================================================================
+const LAB_MODE_CLUSTER = [
+  "lab-mode-prompt",
+  "lab-mode-intro",
+  "lab-mode-warp-to-demo",
+  "lab-mode-activity",
+  "lab-mode-gantt",
+  "lab-mode-experiments",
+  "lab-mode-purchases",
+  "lab-mode-roadmaps",
+  "lab-mode-methods",
+  "lab-mode-notes",
+  "lab-mode-search",
+  "lab-mode-exit",
+] as const;
+
+describe("TOUR_STEP_ORDER — §6.16 lab-mode cluster (Lab Mode manager 2026-05-22)", () => {
+  it("includes every lab-mode-* step id in cluster order", () => {
+    const indices = LAB_MODE_CLUSTER.map((id) => TOUR_STEP_ORDER.indexOf(id));
+    indices.forEach((idx, i) => {
+      expect(idx, `${LAB_MODE_CLUSTER[i]} missing`).toBeGreaterThanOrEqual(0);
+      if (i > 0) {
+        expect(
+          idx,
+          `${LAB_MODE_CLUSTER[i]} must follow ${LAB_MODE_CLUSTER[i - 1]}`,
+        ).toBe(indices[i - 1] + 1);
+      }
+    });
+  });
+
+  it("sits before lab-cleanup in TOUR_STEP_ORDER", () => {
+    const exitIdx = TOUR_STEP_ORDER.indexOf("lab-mode-exit");
+    const cleanupIdx = TOUR_STEP_ORDER.indexOf("lab-cleanup");
+    expect(exitIdx).toBeGreaterThanOrEqual(0);
+    expect(cleanupIdx).toBeGreaterThan(exitIdx);
+  });
+
+  it("gates every step on picks.account_type === 'lab'", () => {
+    const lab = picks({ account_type: "lab" });
+    const solo = picks({ account_type: "solo" });
+    for (const id of LAB_MODE_CLUSTER) {
+      expect(isStepGatedOut(id, solo), `${id} should hide for solo`).toBe(true);
+      expect(isStepGatedOut(id, lab), `${id} should show for lab`).toBe(false);
+    }
+    // null picks → all hide.
+    for (const id of LAB_MODE_CLUSTER) {
+      expect(isStepGatedOut(id, null), `${id} should hide for null picks`).toBe(
+        true,
+      );
+    }
+  });
+
+  it("solo walk skips the entire lab-mode cluster", () => {
+    const visited = walkForward("welcome", picks({ account_type: "solo" }));
+    for (const id of LAB_MODE_CLUSTER) {
+      expect(visited).not.toContain(id);
+    }
+  });
+
+  it("lab walk includes every lab-mode cluster step", () => {
+    const visited = walkForward("welcome", picks({ account_type: "lab" }));
+    for (const id of LAB_MODE_CLUSTER) {
+      expect(visited).toContain(id);
+    }
+  });
+
+  it("getNextStep on lab-mode-prompt with lab picks lands on lab-mode-intro", () => {
+    // The branchOn affordances inside the prompt body override this
+    // linear traversal — but getNextStep itself must keep walking the
+    // order so a back-step from lab-mode-intro returns here.
+    expect(
+      getNextStep("lab-mode-prompt", picks({ account_type: "lab" })),
+    ).toBe("lab-mode-intro");
+  });
+
+  it("getNextStep on lab-mode-exit with lab picks lands on lab-cleanup", () => {
+    expect(
+      getNextStep("lab-mode-exit", picks({ account_type: "lab" })),
+    ).toBe("lab-cleanup");
+  });
+});
+

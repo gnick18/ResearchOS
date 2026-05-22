@@ -288,6 +288,25 @@ export const TOUR_TARGETS = {
   // left of the editor body; rendered by HybridMarkdownEditor.tsx in
   // both the empty-state and the populated-state branches.
   hybridEditorShortcutBar: "hybrid-editor-shortcut-bar",
+
+  // ----- Phase 2c Lab Mode tour (Lab Mode manager 2026-05-22).
+  // Anchors live on the real Lab Mode UI (frontend/src/app/lab/page.tsx)
+  // so the DemoLabModeViewer overlay -- which embeds the same real
+  // panels wired to demo data -- gets the spotlight targets for free.
+  // Each tab button + the exit button is stamped; the cursor scripts in
+  // LabMode*Step.tsx anchor to these names.
+  labModeActivityTab: "lab-mode-activity-tab",
+  labModeGanttTab: "lab-mode-gantt-tab",
+  labModeExperimentsTab: "lab-mode-experiments-tab",
+  labModePurchasesTab: "lab-mode-purchases-tab",
+  labModeRoadmapsTab: "lab-mode-roadmaps-tab",
+  labModeMethodsTab: "lab-mode-methods-tab",
+  labModeNotesTab: "lab-mode-notes-tab",
+  labModeSearchTab: "lab-mode-search-tab",
+  // The "Exit Lab Mode" button stamped here also doubles as the anchor
+  // inside the `<DemoLabModeViewer>` overlay so the lab-mode-exit step
+  // can target the same selector regardless of which surface mounts it.
+  labModeExitButton: "lab-mode-exit-button",
 } as const;
 
 export type TourTargetName = (typeof TOUR_TARGETS)[keyof typeof TOUR_TARGETS];

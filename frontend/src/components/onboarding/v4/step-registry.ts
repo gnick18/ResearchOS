@@ -59,6 +59,21 @@ import { linksConditionalStep } from "./steps/walkthrough/LinksConditionalStep";
 // `steps/lab/` with @deprecated JSDoc for git-history reference; the
 // imports are dropped here so unused-export warnings don't accumulate.
 import { buildLabCleanupStep } from "./steps/lab/LabAutoCleanupStep";
+// §6.16 Phase 2c Lab Mode tour cluster (Lab Mode redesign 2026-05-22).
+// 12 new step bodies that mount the DemoLabModeViewer overlay and walk
+// each lab-mode tab. All gate on `picks.account_type === "lab"`.
+import { labModePromptStep } from "./steps/lab-mode/LabModePromptStep";
+import { labModeIntroStep } from "./steps/lab-mode/LabModeIntroStep";
+import { labModeWarpToDemoStep } from "./steps/lab-mode/LabModeWarpToDemoStep";
+import { labModeActivityStep } from "./steps/lab-mode/LabModeActivityStep";
+import { labModeGanttStep } from "./steps/lab-mode/LabModeGanttStep";
+import { labModeExperimentsStep } from "./steps/lab-mode/LabModeExperimentsStep";
+import { labModePurchasesStep } from "./steps/lab-mode/LabModePurchasesStep";
+import { labModeRoadmapsStep } from "./steps/lab-mode/LabModeRoadmapsStep";
+import { labModeMethodsStep } from "./steps/lab-mode/LabModeMethodsStep";
+import { labModeNotesStep } from "./steps/lab-mode/LabModeNotesStep";
+import { labModeSearchStep } from "./steps/lab-mode/LabModeSearchStep";
+import { labModeExitStep } from "./steps/lab-mode/LabModeExitStep";
 import {
   onEnterGanttGoalsOverview,
   onEnterHybridEditorImageDrop,
@@ -252,6 +267,21 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [settingsAiHelperStep.id]: settingsAiHelperStep,
   [searchStep.id]: searchStep,
   [wikiPointerStep.id]: wikiPointerStep,
+  // §6.16 Phase 2c Lab Mode tour cluster (Lab Mode redesign 2026-05-22).
+  // Order matches TOUR_STEP_ORDER: prompt → intro → warp → 8 tab beats
+  // → exit. Each step's conditionalOn gates on account_type === "lab".
+  [labModePromptStep.id]: labModePromptStep,
+  [labModeIntroStep.id]: labModeIntroStep,
+  [labModeWarpToDemoStep.id]: labModeWarpToDemoStep,
+  [labModeActivityStep.id]: labModeActivityStep,
+  [labModeGanttStep.id]: labModeGanttStep,
+  [labModeExperimentsStep.id]: labModeExperimentsStep,
+  [labModePurchasesStep.id]: labModePurchasesStep,
+  [labModeRoadmapsStep.id]: labModeRoadmapsStep,
+  [labModeMethodsStep.id]: labModeMethodsStep,
+  [labModeNotesStep.id]: labModeNotesStep,
+  [labModeSearchStep.id]: labModeSearchStep,
+  [labModeExitStep.id]: labModeExitStep,
 };
 
 /**

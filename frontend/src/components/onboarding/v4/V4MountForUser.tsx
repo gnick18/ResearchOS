@@ -9,6 +9,12 @@ import {
 import type { CleanupSummary } from "./steps/cleanup/cleanup-execution";
 import TourBootstrap from "./TourBootstrap";
 import { TourControllerProvider } from "./TourController";
+// Lab Mode redesign 2026-05-22 — append-only mount for the Phase 2c
+// DemoLabModeViewer overlay. The host is window-event-driven and sits
+// alongside TourControllerProvider so the overlay survives across
+// multiple lab-mode-* tour sub-steps. No-op when no step has dispatched
+// `lab-mode-tour:open`.
+import DemoLabModeMount from "./DemoLabModeMount";
 
 /**
  * Onboarding v4 P11 mount wrapper. Holds the active user's sidecar in
@@ -111,6 +117,10 @@ export default function V4MountForUser({
     >
       <TourBootstrap username={username} />
       {children}
+      {/* Lab Mode redesign 2026-05-22 — Phase 2c demo viewer host.
+          Window-event-driven; renders nothing until the
+          `lab-mode-warp-to-demo` step dispatches the open event. */}
+      <DemoLabModeMount />
     </TourControllerProvider>
   );
 }

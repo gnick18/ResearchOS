@@ -203,6 +203,10 @@ describe("sidecar v4 round-trip", () => {
       wizard_resume_state: sampleResume,
       lab_tour_pending: true,
       lab_tour_dismissed_at: null,
+      // Lab Mode redesign 2026-05-22: lab_mode_tour_choice always
+      // round-trips. Field defaults to null on a fresh sidecar; the
+      // normalizer coerces undefined / unknown values back to null.
+      lab_mode_tour_choice: null,
     };
     await writeOnboarding(USER, initial);
     const sc = await readOnboarding(USER);
