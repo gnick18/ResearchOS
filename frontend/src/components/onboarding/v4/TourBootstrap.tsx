@@ -163,7 +163,23 @@ export default function TourBootstrap({ username }: TourBootstrapProps) {
               // browsers; swallow and continue.
             }
           }
-          controller.start();
+          // Live-test R7 (2026-05-22 HR): honor `?wizardSeedStep=<id>`
+          // when set under preview mode. wiki-capture-mock.ts seeds an
+          // `_onboarding.json` with `wizard_resume_state.current_step =
+          // seedStep` so screenshot scripts can land directly on a
+          // mid-tour step. Previously this branch dropped the seed on
+          // the floor (called `controller.start()` with no argument,
+          // bootstrapping every preview URL from `welcome`). Now we
+          // read `?wizardSeedStep` from the URL, validate it is a real
+          // v4 step id via the registry-backed isV4StepId helper, and
+          // pass it through to `controller.start(seedStep)`. Invalid /
+          // missing seeds fall through to the existing welcome start.
+          const seedStep = searchParams?.get("wizardSeedStep") ?? null;
+          if (seedStep && isV4StepId(seedStep)) {
+            controller.start(seedStep);
+          } else {
+            controller.start();
+          }
           setState({ kind: "resolved" });
           return;
         }

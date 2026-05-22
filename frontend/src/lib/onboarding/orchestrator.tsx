@@ -8,7 +8,10 @@ import {
   clearWizardCompletion,
   patchOnboarding,
 } from "@/lib/onboarding/sidecar";
-import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
+import {
+  isDemoOrWikiCapture,
+  isV4PreviewMode,
+} from "@/lib/file-system/wiki-capture-mock";
 
 /**
  * Onboarding v3 orchestrator + provider.
@@ -136,7 +139,25 @@ export function OnboardingProvider({
   children: ReactNode;
 }) {
   const searchParams = useSearchParams();
-  const wizardPreviewMode = searchParams?.get("wizard-preview") === "1";
+  // Live-test R7 (2026-05-22 HR): wizardPreviewMode previously read
+  // the URL alone (`searchParams.get("wizard-preview")`). Cursor-driven
+  // navigation that strips the query string (eg. home project card
+  // click -> /workbench/projects/<id>) flipped this to false on the
+  // next render, the LOCKED short-circuit fell through to the
+  // children-only branch, and the OnboardingOrchestrator subtree --
+  // which hosts V4MountForUser via providers.tsx -- was unmounted /
+  // remounted. The fresh V4MountForUser tree rebooted the tour from
+  // welcome (TourBootstrap's previewMode branch calls
+  // `controller.start()` on a clean mount). Reading the sticky-aware
+  // `isV4PreviewMode()` instead of the bare URL params keeps the
+  // gate's truth-value stable across in-tab navigation, so the
+  // orchestrator subtree stays mounted and the tour stays where it
+  // was. The LOCKED precedence semantic is preserved: when both
+  // `?wikiCapture=1` and the v4 preview opt-in are observed (URL or
+  // sticky), this short-circuit still passes the user through to
+  // OnboardingOrchestrator below.
+  const wizardPreviewMode =
+    searchParams?.get("wizard-preview") === "1" || isV4PreviewMode();
 
   if (!currentUser) return <>{children}</>;
   // Lab Mode is a read-only cross-user view, not a real account. The

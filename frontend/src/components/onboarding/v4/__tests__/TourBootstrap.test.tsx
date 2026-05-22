@@ -35,11 +35,15 @@ vi.mock("@/lib/file-system/file-service", () => ({
 }));
 
 // Stub next/navigation's useSearchParams so the bootstrap's
-// previewMode probe reads as null (the default in tests).
+// previewMode probe reads as null (the default in tests). Tests that
+// need a specific URL combo (eg. the wizardSeedStep + wizard-preview
+// path) reassign `mockSearchParamsValue` in the test body before
+// rendering -- the mock factory reads it lazily.
 // Also stub useRouter for TourController's auto-navigate effect
 // (Onboarding v4 route-nav fix); push() is a no-op stub here.
+let mockSearchParamsValue = new URLSearchParams();
 vi.mock("next/navigation", () => ({
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => mockSearchParamsValue,
   useRouter: () => ({
     push: vi.fn(),
     replace: vi.fn(),
@@ -97,6 +101,9 @@ beforeEach(() => {
   if (typeof sessionStorage !== "undefined") {
     sessionStorage.clear();
   }
+  // Reset the parameterizable searchParams stub so tests that opt into
+  // ?wizard-preview=1 / ?wizardSeedStep=... don't leak into the next test.
+  mockSearchParamsValue = new URLSearchParams();
 });
 
 describe("TourBootstrap:fresh user", () => {
@@ -529,6 +536,65 @@ describe("TourBootstrap:v3 in-flight", () => {
     expect(
       document.body.querySelector("[data-tour-modal='v4-setup']"),
     ).toBeNull();
+  });
+});
+
+describe("TourBootstrap:preview mode wizardSeedStep", () => {
+  // Live-test R7 (2026-05-22 HR): the previewMode branch previously
+  // ignored ?wizardSeedStep entirely and called controller.start() with
+  // no argument, so every preview URL bootstrapped from `welcome`. The
+  // wiki-capture fixture's careful sidecar seed at
+  // wiki-capture-mock.ts:763-787 (current_step = seedStep) was dead
+  // code under preview mode. These tests pin the new behavior: the
+  // seed step is honored when valid, ignored when missing / invalid.
+
+  it("honors ?wizardSeedStep when combined with ?wizard-preview=1", async () => {
+    mockSearchParamsValue = new URLSearchParams({
+      "wizard-preview": "1",
+      wizardSeedStep: "home-create-project",
+    });
+    // No sidecar -- preview mode short-circuits the sidecar-driven
+    // paths and acts on the URL alone.
+    renderWithProvider(<TourBootstrap username={USER} />);
+    // The seeded step (home-create-project) is an in-product
+    // walkthrough step. Confirm the controller lands on it by
+    // checking document.body.dataset.tourStep (mirrors what
+    // TourController exposes on every advance).
+    await waitFor(() => {
+      expect(document.body.dataset.tourStep).toBe("home-create-project");
+    });
+  });
+
+  it("falls back to welcome when ?wizardSeedStep is missing", async () => {
+    mockSearchParamsValue = new URLSearchParams({
+      "wizard-preview": "1",
+    });
+    renderWithProvider(<TourBootstrap username={USER} />);
+    await waitFor(() => {
+      const modal = document.body.querySelector(
+        "[data-tour-modal='v4-setup']",
+      );
+      expect(modal).toBeTruthy();
+      expect(modal?.getAttribute("data-tour-step")).toBe("welcome");
+    });
+  });
+
+  it("falls back to welcome when ?wizardSeedStep is not a v4 step id", async () => {
+    // Stale / typo'd seed (eg. a renamed step) must not blow up the
+    // tour. Validate against TOUR_STEP_ORDER via isV4StepId and fall
+    // through to the default welcome start.
+    mockSearchParamsValue = new URLSearchParams({
+      "wizard-preview": "1",
+      wizardSeedStep: "not-a-real-step",
+    });
+    renderWithProvider(<TourBootstrap username={USER} />);
+    await waitFor(() => {
+      const modal = document.body.querySelector(
+        "[data-tour-modal='v4-setup']",
+      );
+      expect(modal).toBeTruthy();
+      expect(modal?.getAttribute("data-tour-step")).toBe("welcome");
+    });
   });
 });
 
