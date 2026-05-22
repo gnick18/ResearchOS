@@ -101,6 +101,7 @@ export default function WorkbenchPage() {
         <div className="flex items-center gap-1 mb-6 border-b border-gray-200 pb-3">
           <button
             onClick={() => setActiveTab("experiments")}
+            data-tour-target="workbench-experiments-tab"
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
               activeTab === "experiments"
                 ? "bg-blue-100 text-blue-700"
@@ -114,6 +115,7 @@ export default function WorkbenchPage() {
           </button>
           <button
             onClick={() => setActiveTab("notes")}
+            data-tour-target="workbench-notes-tab"
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
               activeTab === "notes"
                 ? "bg-emerald-100 text-emerald-700"
@@ -127,6 +129,7 @@ export default function WorkbenchPage() {
           </button>
           <button
             onClick={() => setActiveTab("lists")}
+            data-tour-target="workbench-lists-tab"
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
               activeTab === "lists"
                 ? "bg-violet-100 text-violet-700"

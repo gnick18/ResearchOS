@@ -240,6 +240,7 @@ export default function NotesPanel({
           <div className="relative new-note-dropdown">
             <button
               onClick={() => setShowNewNoteDropdown(!showNewNoteDropdown)}
+              data-tour-target="workbench-new-note-button"
               className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2 text-sm"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

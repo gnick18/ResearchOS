@@ -173,6 +173,17 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "hybrid-image-drag-in",          // HE-9
   "hybrid-image-resize",           // HE-10
   "hybrid-file-attach",            // HE-11 (terminal)
+  // §6.7b Workbench Notes + Lists expansion (Workbench expansion
+  // manager 2026-05-22). 6 universal steps inserted between §6.7
+  // (hybrid editor terminal beat) and §6.8 (gantt-intro). Teaches the
+  // standalone Notes panel + the Lists panel on /workbench. See
+  // ONBOARDING_V4_WORKBENCH_NOTES_LISTS.md.
+  "workbench-notes-intro",
+  "workbench-notes-create",
+  "workbench-lists-intro",
+  "workbench-list-create-shell",
+  "workbench-list-add-items",
+  "workbench-list-mark-done",
   // Gantt page deep-dive (§6.8) — redesigned 2026-05-22 (Gantt manager).
   // Old order replaced with 14 sub-steps: a 6-step universal dependency-
   // teaching arc, a 7-step lab-only share-feature cluster, and the

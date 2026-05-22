@@ -39,7 +39,11 @@ function walkForward(
 ): TourStepId[] {
   const visited: TourStepId[] = [start];
   let cur: TourStepId | null = start;
-  for (let i = 0; i < 100; i++) {
+  // §6.7b Workbench Notes + Lists expansion (Workbench expansion
+  // manager 2026-05-22): the prior 100-iteration cap was just past
+  // the maximal lab walk; adding 6 universal steps tipped it over.
+  // Bump to 200 to leave headroom for future arc additions.
+  for (let i = 0; i < 200; i++) {
     const next = getNextStep(cur, p);
     if (next === null) break;
     visited.push(next);
@@ -119,7 +123,71 @@ describe("TOUR_STEP_ORDER", () => {
     // Legacy gantt step ids dropped 2026-05-22 (Gantt manager).
     expect(TOUR_STEP_ORDER).not.toContain("gantt-task-types");
     expect(TOUR_STEP_ORDER).not.toContain("gantt-chained-deps");
+    // §6.7b Workbench Notes + Lists expansion (Workbench expansion
+    // manager 2026-05-22). 6 universal steps inserted between
+    // hybrid-file-attach and gantt-intro.
+    expect(TOUR_STEP_ORDER).toContain("workbench-notes-intro");
+    expect(TOUR_STEP_ORDER).toContain("workbench-notes-create");
+    expect(TOUR_STEP_ORDER).toContain("workbench-lists-intro");
+    expect(TOUR_STEP_ORDER).toContain("workbench-list-create-shell");
+    expect(TOUR_STEP_ORDER).toContain("workbench-list-add-items");
+    expect(TOUR_STEP_ORDER).toContain("workbench-list-mark-done");
     expect(TOUR_STEP_ORDER).toContain("phase4-cleanup");
+  });
+
+  it("inserts the §6.7b Workbench Notes + Lists cluster between hybrid-file-attach and gantt-intro", () => {
+    // Workbench expansion manager 2026-05-22: 6 universal steps sit
+    // BETWEEN the §6.7 terminal beat (hybrid-file-attach) and the §6.8
+    // first beat (gantt-intro). Order matters because each step
+    // builds on the prior one's DOM state (popup mount, sub-task add).
+    const order = [
+      "hybrid-file-attach",
+      "workbench-notes-intro",
+      "workbench-notes-create",
+      "workbench-lists-intro",
+      "workbench-list-create-shell",
+      "workbench-list-add-items",
+      "workbench-list-mark-done",
+      "gantt-intro",
+    ];
+    const indices = order.map((id) => TOUR_STEP_ORDER.indexOf(id));
+    indices.forEach((idx, i) => {
+      expect(idx, `${order[i]} missing from TOUR_STEP_ORDER`).toBeGreaterThanOrEqual(0);
+      if (i > 0) {
+        expect(
+          idx,
+          `${order[i]} must follow ${order[i - 1]}`,
+        ).toBe(indices[i - 1] + 1);
+      }
+    });
+  });
+
+  it("the §6.7b Workbench cluster is universal (no feature_picks gating)", () => {
+    // All six steps fire for every user — the Workbench tabs (Notes,
+    // Lists) exist regardless of account_type / purchases / calendar /
+    // any other pick. Verify with two contrasting pick configs.
+    const universal = [
+      "workbench-notes-intro",
+      "workbench-notes-create",
+      "workbench-lists-intro",
+      "workbench-list-create-shell",
+      "workbench-list-add-items",
+      "workbench-list-mark-done",
+    ];
+    const allYes = picks({
+      account_type: "lab",
+      purchases: "yes",
+      calendar: "yes",
+      goals: "yes",
+      telegram: "yes",
+      ai_helper: "full",
+    });
+    const allNo = picks();
+    for (const id of universal) {
+      expect(isStepGatedOut(id, allYes)).toBe(false);
+      expect(isStepGatedOut(id, allNo)).toBe(false);
+      expect(isStepGatedOut(id, null)).toBe(false);
+    }
   });
 
   it("does NOT contain setup-q1a / setup-q1b (dropped 2026-05-22)", () => {

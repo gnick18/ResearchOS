@@ -51,6 +51,15 @@ const P5_STEP_IDS = [
   "hybrid-image-drag-in",
   "hybrid-image-resize",
   "hybrid-file-attach",
+  // §6.7b Workbench Notes + Lists expansion (Workbench expansion
+  // manager 2026-05-22). Six universal steps between hybrid-file-attach
+  // and gantt-intro.
+  "workbench-notes-intro",
+  "workbench-notes-create",
+  "workbench-lists-intro",
+  "workbench-list-create-shell",
+  "workbench-list-add-items",
+  "workbench-list-mark-done",
   // §6.8 Gantt redesign 2026-05-22 (Gantt manager): 14-step arc.
   "gantt-intro",
   "gantt-existing-experiment",

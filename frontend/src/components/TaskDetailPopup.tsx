@@ -466,6 +466,7 @@ export default function TaskDetailPopup({
                       alert("Failed to update task");
                     }
                   }}
+                  data-tour-target="workbench-list-mark-complete"
                   className={`p-1 rounded-full transition-all flex-shrink-0 ${
                     task.is_complete
                       ? "bg-green-500 text-white hover:bg-green-600"
@@ -1007,7 +1008,7 @@ function SimpleTaskChecklist({
     <div className="p-3">
       {/* Sub-tasks list */}
       <div className="space-y-1 mb-2.5">
-        {subTasks.map((st) => (
+        {subTasks.map((st, idx) => (
           <div
             key={st.id}
             className={`flex items-center gap-2.5 group py-1.5 px-2.5 rounded-md hover:bg-gray-50 transition-colors ${
@@ -1019,6 +1020,13 @@ function SimpleTaskChecklist({
                 ref={(el) => { if (el) checkboxRefs.current.set(st.id, el); }}
                 onClick={readOnly ? undefined : (e) => handleToggleSubTask(st.id, e)}
                 disabled={saving || readOnly}
+                // Workbench expansion manager 2026-05-22 (§6.7b): the
+                // first sub-task checkbox gets a render-scoped tour
+                // anchor so the workbench-list-mark-done cursor demo
+                // checks the same item every time. Re-stamped on
+                // every render so a back-step lands on whatever item
+                // is first now.
+                data-tour-target={idx === 0 ? "workbench-list-item-checkbox" : undefined}
                 className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all flex-shrink-0 ${
                   st.is_complete
                     ? "bg-blue-500 border-blue-500"
@@ -1060,6 +1068,7 @@ function SimpleTaskChecklist({
             onChange={(e) => setNewSubTaskText(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAddSubTask()}
             placeholder="Add item..."
+            data-tour-target="workbench-list-add-item-input"
             className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
           />
           <Tooltip label="Add item" placement="bottom">
@@ -1965,9 +1974,9 @@ function DetailsTab({
           
           {/* Sub-tasks list */}
           <div className="space-y-1.5 mb-3">
-            {subTasks.map((st) => (
-              <div 
-                key={st.id} 
+            {subTasks.map((st, idx) => (
+              <div
+                key={st.id}
                 className={`flex items-center gap-2 group py-1.5 px-2 rounded-lg hover:bg-white transition-colors ${
                   st.is_complete ? "opacity-60" : ""
                 }`}
@@ -1977,6 +1986,12 @@ function DetailsTab({
                     ref={(el) => { if (el) checkboxRefs.current.set(st.id, el); }}
                     onClick={(e) => handleToggleSubTask(st.id, e)}
                     disabled={saving}
+                    // Workbench expansion manager 2026-05-22 (§6.7b):
+                    // render-scoped first-item anchor — same shape as
+                    // the SubTasksTab variant above so whichever tab the
+                    // list task opens on, the first checkbox is
+                    // reachable by the workbench-list-mark-done cursor.
+                    data-tour-target={idx === 0 ? "workbench-list-item-checkbox" : undefined}
                     className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
                       st.is_complete
                         ? "bg-gradient-to-br from-orange-500 to-yellow-400 border-orange-400"
@@ -2004,7 +2019,7 @@ function DetailsTab({
               </div>
             ))}
           </div>
-          
+
           {/* Add new sub-task */}
           <div className="flex gap-2">
             <input
@@ -2013,6 +2028,7 @@ function DetailsTab({
               onChange={(e) => setNewSubTaskText(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAddSubTask()}
               placeholder="Add a sub-task..."
+              data-tour-target="workbench-list-add-item-input"
               className="flex-1 px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent"
             />
             <button

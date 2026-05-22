@@ -117,6 +117,38 @@ export const TOUR_TARGETS = {
   workbenchExperimentNameInput: "workbench-experiment-name-input",
   workbenchExperimentSubmit: "workbench-experiment-submit",
 
+  // §6.7b Workbench Notes + Lists expansion (Workbench expansion manager
+  // 2026-05-22). 6 new steps sit between §6.7 hybrid editor and §6.8
+  // Gantt, teaching the standalone Notes panel + Lists panel. Targets
+  // below stamp the page-level tab buttons, the per-panel create
+  // affordances, and a render-scoped first-card / first-item latch
+  // pattern (same shape as `labModeExperimentsFirstCard`) so the cursor
+  // can deterministically reach the BeakerBot-just-created list and its
+  // first item without colliding with whatever else the user has.
+  workbenchExperimentsTab: "workbench-experiments-tab",
+  workbenchNotesTab: "workbench-notes-tab",
+  workbenchListsTab: "workbench-lists-tab",
+  workbenchNewNoteButton: "workbench-new-note-button",
+  workbenchNewListButton: "workbench-new-list-button",
+  /** First list card rendered on the Workbench Lists panel. Render-
+   *  scoped latch wrapper stamps this attribute on the first card across
+   *  every section so the workbench-list-add-items cursor can target
+   *  the just-created list deterministically. */
+  workbenchListCardFirst: "workbench-list-card-first",
+  /** Add-item input inside TaskDetailPopup's Sub-tasks tab. Stamped on
+   *  the existing "Add item..." input so the workbench-list-add-items
+   *  cursor can type into it. */
+  workbenchListAddItemInput: "workbench-list-add-item-input",
+  /** First sub-task checkbox inside TaskDetailPopup's Sub-tasks list.
+   *  Render-scoped latch (first item only) so the workbench-list-mark-
+   *  done cursor checks the right box. */
+  workbenchListItemCheckbox: "workbench-list-item-checkbox",
+  /** "Mark as complete" button on TaskDetailPopup's parent-task header.
+   *  Same button the user clicks to mark a list (parent task) done.
+   *  The workbench-list-mark-done cursor clicks this after toggling one
+   *  sub-task to demonstrate both moves. */
+  workbenchListMarkCompleteButton: "workbench-list-mark-complete",
+
   // §6.6 Method attachment
   experimentMethodsTab: "experiment-methods-tab",
   experimentAttachMethod: "experiment-attach-method",

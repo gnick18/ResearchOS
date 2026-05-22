@@ -199,7 +199,7 @@ export default function WorkbenchListsPanel({ projects }: Props) {
   );
 
   const renderRow = useCallback(
-    (task: Task) => {
+    (task: Task, isFirstCardOverall: boolean) => {
       const pk = `${task.owner}:${task.project_id}`;
       const color = projectColors[pk] ?? "#9ca3af";
       const signal = dateSignalFor(task, today);
@@ -209,7 +209,7 @@ export default function WorkbenchListsPanel({ projects }: Props) {
       const canToggle = !task.is_shared_with_me || task.shared_permission === "edit";
       const tk = taskKey(task);
       const isExpanded = expandedTaskKey === tk;
-      return (
+      const row = (
         <ExpandableListCard
           key={tk}
           task={task}
@@ -226,6 +226,25 @@ export default function WorkbenchListsPanel({ projects }: Props) {
           canToggleComplete={canToggle}
           onOpenFullView={() => setSelectedTask(task)}
         />
+      );
+      if (!isFirstCardOverall) return row;
+      // Workbench expansion manager 2026-05-22 (§6.7b): wrap the first
+      // list card rendered across every section in a div carrying
+      // `data-tour-target="workbench-list-card-first"`, so the
+      // workbench-list-add-items cursor demo can deterministically
+      // resolve the just-created list. Render-scoped — the flag is
+      // recomputed below on every render, so a back-step into the same
+      // step gets a fresh latch. The wrapper sits above the new
+      // ExpandableListCard (which replaced ListTaskRow in the parallel
+      // inline-expand UX chip d3991231), so the data-tour-target
+      // resolves the entire card including its expanded panel.
+      return (
+        <div
+          key={`first-card-wrapper-${tk}`}
+          data-tour-target="workbench-list-card-first"
+        >
+          {row}
+        </div>
       );
     },
     [projectColors, projectNameFor, today, handleToggleComplete, expandedTaskKey],
@@ -249,11 +268,24 @@ export default function WorkbenchListsPanel({ projects }: Props) {
     earlier: buckets.earlier,
   };
 
+  // Workbench expansion manager 2026-05-22 (§6.7b): track whether the
+  // first card across all rendered sections has been stamped with the
+  // `workbench-list-card-first` latch. Reset on every render so a
+  // back-step into the same step gets a fresh latch on whatever the
+  // current first card is. Mirrors the LabExperimentsPanel pattern.
+  let firstCardWrapped = false;
+  const renderFirstAwareRow = (task: Task) => {
+    const isFirst = !firstCardWrapped;
+    if (isFirst) firstCardWrapped = true;
+    return renderRow(task, isFirst);
+  };
+
   return (
     <div data-current-tab="lists">
       <div className="flex justify-end mb-4">
         <button
           onClick={handleCreateListTask}
+          data-tour-target="workbench-new-list-button"
           className="px-3 py-1.5 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700"
         >
           + New List Task
@@ -268,6 +300,7 @@ export default function WorkbenchListsPanel({ projects }: Props) {
           </p>
           <button
             onClick={handleCreateListTask}
+            data-tour-target="workbench-new-list-button"
             className="px-6 py-3 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700"
           >
             + New List Task
@@ -295,7 +328,7 @@ export default function WorkbenchListsPanel({ projects }: Props) {
                     {SECTION_HELP[key]}
                   </span>
                 </div>
-                <div className="space-y-2">{items.map(renderRow)}</div>
+                <div className="space-y-2">{items.map(renderFirstAwareRow)}</div>
                 {key === "upcoming" && upcomingLater.length > 0 && (
                   <p className="mt-2 text-xs text-gray-400 pl-1">
                     + {upcomingLater.length} scheduled later than{" "}
@@ -339,7 +372,7 @@ export default function WorkbenchListsPanel({ projects }: Props) {
               </button>
               {earlierOpen && (
                 <div className="mt-3 space-y-2">
-                  {buckets.earlier.map(renderRow)}
+                  {buckets.earlier.map(renderFirstAwareRow)}
                 </div>
               )}
             </section>

@@ -164,6 +164,18 @@ import { hybridImageAttachStep } from "./steps/walkthrough/HybridImageAttachStep
 import { hybridImageDragInStep } from "./steps/walkthrough/HybridImageDragInStep";
 import { hybridImageResizeStep } from "./steps/walkthrough/HybridImageResizeStep";
 import { hybridFileAttachStep } from "./steps/walkthrough/HybridFileAttachStep";
+// §6.7b Workbench Notes + Lists expansion (Workbench expansion manager
+// 2026-05-22). Six universal steps that sit between §6.7 hybrid editor
+// (terminal beat `hybrid-file-attach`) and §6.8 Gantt (`gantt-intro`).
+// Teaches the standalone Notes panel + the Lists panel on /workbench.
+import {
+  workbenchNotesIntroStep,
+  workbenchNotesCreateStep,
+  workbenchListsIntroStep,
+  workbenchListCreateShellStep,
+  workbenchListAddItemsStep,
+  workbenchListMarkDoneStep,
+} from "./steps/walkthrough/WorkbenchNotesListsSteps";
 // §6.8 Gantt redesign (Gantt manager 2026-05-22): the legacy
 // `ganttIntroStep` (`gantt-task-types`) and `ganttDependenciesStep`
 // (`gantt-chained-deps`) were retired. The new arc splits Gantt
@@ -267,6 +279,15 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [hybridImageDragInStep.id]: hybridImageDragInStep,
   [hybridImageResizeStep.id]: hybridImageResizeStep,
   [hybridFileAttachStep.id]: hybridFileAttachStep,
+  // §6.7b Workbench Notes + Lists expansion (Workbench expansion
+  // manager 2026-05-22). 6 universal steps wired in TOUR_STEP_ORDER
+  // between hybrid-file-attach and gantt-intro.
+  [workbenchNotesIntroStep.id]: workbenchNotesIntroStep,
+  [workbenchNotesCreateStep.id]: workbenchNotesCreateStep,
+  [workbenchListsIntroStep.id]: workbenchListsIntroStep,
+  [workbenchListCreateShellStep.id]: workbenchListCreateShellStep,
+  [workbenchListAddItemsStep.id]: workbenchListAddItemsStep,
+  [workbenchListMarkDoneStep.id]: workbenchListMarkDoneStep,
   // §6.8 Gantt redesign (Gantt manager 2026-05-22). The 4-step legacy
   // arc (gantt-task-types / gantt-drag-drop / gantt-chained-deps /
   // gantt-goals-overview) is replaced by 14 sub-steps.
