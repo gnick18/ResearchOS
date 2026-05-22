@@ -80,6 +80,31 @@ import InputLockOverlay from "./InputLockOverlay";
  */
 
 // ---------------------------------------------------------------------------
+// Last-transition tracker (Grant 2026-05-22 back-step grace period)
+// ---------------------------------------------------------------------------
+//
+// Module-level because the in-product walkthrough cursor-script effect
+// (inside `InProductWalkthroughOverlay`, a separate component from the
+// provider) needs to read the most recent action *type* — start /
+// advance / goBack / skipStep — to decide whether to insert a 5 s pause
+// before the script runs. Storing it on the reducer state would force
+// the effect to re-fire on the read; a module-level let with a
+// getter/setter pair keeps the effect's existing dep list intact.
+// One global is safe because only one tour is active per browser tab.
+
+export type TourTransitionType = "start" | "advance" | "goBack" | "skip";
+
+let lastTransitionType: TourTransitionType = "start";
+
+export function getLastTourTransition(): TourTransitionType {
+  return lastTransitionType;
+}
+
+export function setLastTourTransition(t: TourTransitionType): void {
+  lastTransitionType = t;
+}
+
+// ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
 
@@ -423,6 +448,7 @@ export function TourControllerProvider({
   // -------------------------------------------------------------------
 
   const start = useCallback((initial?: TourStepId) => {
+    setLastTourTransition("start");
     dispatch({ type: "START", initialStep: initial ?? null });
   }, []);
 
@@ -430,6 +456,7 @@ export function TourControllerProvider({
     const cur = stateRef.current;
     if (!cur.currentStep) return;
     const next = getNextStep(cur.currentStep, cur.featurePicks);
+    setLastTourTransition("advance");
     dispatch({ type: "SET_STEP", nextStep: next, nextMode: modeForStep(next) });
   }, []);
 
@@ -438,6 +465,7 @@ export function TourControllerProvider({
     if (!cur.currentStep) return;
     const prev = getPreviousStep(cur.currentStep, cur.featurePicks);
     if (prev === null) return;
+    setLastTourTransition("goBack");
     dispatch({ type: "SET_STEP", nextStep: prev, nextMode: modeForStep(prev) });
   }, []);
 
@@ -452,6 +480,7 @@ export function TourControllerProvider({
       prev.includes(skippedId) ? prev : [...prev, skippedId],
     );
     const next = getNextStep(cur.currentStep, cur.featurePicks);
+    setLastTourTransition("skip");
     dispatch({ type: "SET_STEP", nextStep: next, nextMode: modeForStep(next) });
   }, []);
 
@@ -1045,6 +1074,20 @@ function InProductWalkthroughOverlay({
           await ensureViewportAnchor(stepBody.viewportAnchor);
           if (cancelled) return;
         }
+
+        // Back-step grace period (Grant 2026-05-22): if the user just
+        // clicked Back, pause 5s before running this step's cursor
+        // script. Gives them time to click Back again to keep
+        // back-tracking without fighting BeakerBot's cursor. Any
+        // further step transition during the wait cancels via the
+        // existing `cancelled` flag set by the effect's cleanup.
+        if (getLastTourTransition() === "goBack") {
+          await new Promise<void>((resolve) => setTimeout(resolve, 5000));
+          if (cancelled) return;
+        }
+        // Reset the marker so a subsequent in-place re-render of this
+        // same step doesn't pause again.
+        setLastTourTransition("advance");
 
         const liveRef = cursorRef.current;
         if (!liveRef) return;
