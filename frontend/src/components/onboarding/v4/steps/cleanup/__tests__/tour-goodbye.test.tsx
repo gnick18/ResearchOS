@@ -126,7 +126,7 @@ describe("tourGoodbyeStep record", () => {
     render(<>{speechNode}</>);
     // Check across multiple text nodes; "You're set!" + wiki guidance.
     expect(screen.getByText(/You're set!/)).toBeTruthy();
-    expect(screen.getByText(/Have fun building\./)).toBeTruthy();
+    expect(screen.getByText(/Here's to many great experiments ahead\./)).toBeTruthy();
     expect(screen.getByText(/every page has its own guide/)).toBeTruthy();
   });
 });

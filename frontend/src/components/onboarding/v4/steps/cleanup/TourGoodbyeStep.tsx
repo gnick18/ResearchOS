@@ -5,7 +5,7 @@
  * retired Phase 4 cleanup grid 2026-05-22).
  *
  * Flow:
- *   1. BeakerBot says "You're set! Have fun building..." with a single
+ *   1. BeakerBot says "You're set! Here's to many great experiments ahead..." with a single
  *      "Let's go" button.
  *   2. User clicks "Let's go". The step's `onExit` hook dispatches a
  *      `tour-goodbye:play-outro` window event carrying the active
@@ -76,7 +76,7 @@ function TourGoodbyeSpeech() {
   return (
     <div data-step-id="tour-goodbye" className="space-y-2">
       <p className="leading-relaxed">
-        You&apos;re set! Have fun building.
+        You&apos;re set! Here&apos;s to many great experiments ahead.
       </p>
       <p className="leading-relaxed">
         If you ever get stuck on a page, click the{" "}
@@ -244,7 +244,7 @@ export function TourGoodbyeOverlay({
           ariaLabel="BeakerBot waving goodbye"
         />
         <p className="text-base font-medium text-gray-900">
-          {phase === "cheering" ? "Have fun building!" : "See you around!"}
+          {phase === "cheering" ? "Here's to many great experiments ahead!" : "See you around!"}
         </p>
       </div>
     </div>
