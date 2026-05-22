@@ -21,6 +21,10 @@ import type {
 import Tooltip from "@/components/Tooltip";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import { matchesAnyProjectFilter } from "@/lib/search/filterKey";
+import {
+  MISC_CATEGORY_LABEL,
+  isMiscProject,
+} from "@/lib/purchases/misc-project";
 
 // SAFEGUARD: aggregations scope to PurchaseItem by identity, not field name.
 // LabLink also has a `category` field (~10 instances in wiki-capture fixture);
@@ -278,7 +282,14 @@ export default function SpendingDashboard({
         const projectKey = `${task.owner}:${task.project_id}`;
         const project = projectByKey.get(projectKey);
         key = projectKey;
-        label = project?.name ?? UNCATEGORIZED;
+        // Friendly label override: the hidden `_misc_purchases` project
+        // surfaces as "Miscellaneous" on /purchases, so the breakdown
+        // chart matches. Real projects render their on-disk name.
+        if (project && isMiscProject(project)) {
+          label = MISC_CATEGORY_LABEL;
+        } else {
+          label = project?.name ?? UNCATEGORIZED;
+        }
       } else if (breakdownLens === "vendor") {
         label = item.vendor ?? UNCATEGORIZED;
         key = `vendor:${label}`;
@@ -313,13 +324,20 @@ export default function SpendingDashboard({
       const project = task
         ? projectByKey.get(`${task.owner}:${task.project_id}`) ?? null
         : null;
+      // Friendly export label for the misc bucket — the raw
+      // `_misc_purchases` reserved name should never leak into a
+      // user-visible CSV export.
+      const projectName =
+        project && isMiscProject(project)
+          ? MISC_CATEGORY_LABEL
+          : project?.name ?? "";
       return [
         item.id,
         item.item_name,
         item.vendor ?? "",
         item.category ?? "",
         item.funding_string ?? "",
-        project?.name ?? "",
+        projectName,
         task?.name ?? "",
         task?.start_date ?? "",
         item.total_price ?? "",

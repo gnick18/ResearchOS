@@ -10,7 +10,25 @@ import NewPurchaseModal from "@/components/NewPurchaseModal";
 import PurchaseEditor from "@/components/PurchaseEditor";
 import SpendingDashboard from "@/components/SpendingDashboard";
 import Tooltip from "@/components/Tooltip";
+import {
+  MISC_CATEGORY_LABEL,
+  isMiscProject,
+} from "@/lib/purchases/misc-project";
 import { taskKey, type Task, type PurchaseItem, type FundingAccount } from "@/lib/types";
+
+/**
+ * Segmented filter on /purchases: gates which purchase tasks render.
+ *   - "all": every purchase task (project + misc)
+ *   - "project": purchase tasks attached to real projects (misc bucket
+ *     hidden)
+ *   - "misc": purchase tasks attached to the hidden `_misc_purchases`
+ *     project (everything else hidden)
+ *
+ * The default landing chip is "all" so newcomers see everything; users
+ * can switch to "misc" to triage their conference-travel pile without
+ * the rest of the list in the way.
+ */
+type PurchaseCategoryFilter = "all" | "project" | "misc";
 
 export default function PurchasesPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -22,15 +40,22 @@ export default function PurchasesPage() {
   // PurchaseEditor inline-row affordance remains for adding more items
   // to an existing purchase order.
   const [showNewPurchase, setShowNewPurchase] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<PurchaseCategoryFilter>("all");
   const queryClient = useQueryClient();
   const selectedProjectIds = useAppStore((s) => s.selectedProjectIds);
 
   const { currentUser: providerCurrentUser } = useCurrentUser();
   const currentUser = providerCurrentUser ?? "";
 
+  // /purchases is the ONLY surface that needs the hidden
+  // `_misc_purchases` project to render — pass `includeHidden: true` so
+  // the misc bucket can be grouped + filtered on screen. Every other
+  // caller of `fetchAllProjectsIncludingShared` uses the default
+  // (hidden filtered out) so the misc project never leaks into Home,
+  // Workbench, Gantt, search, the project picker, etc.
   const { data: projects = [] } = useQuery({
-    queryKey: ["projects", currentUser],
-    queryFn: fetchAllProjectsIncludingShared,
+    queryKey: ["projects", currentUser, { includeHidden: true }],
+    queryFn: () => fetchAllProjectsIncludingShared({ includeHidden: true }),
   });
 
   // Use the canonical merged-view loader instead of
@@ -73,6 +98,41 @@ export default function PurchasesPage() {
     [allTasks]
   );
 
+  // Apply the category filter chip. Resolves each purchase task to its
+  // project (composite-key match on `(id, owner)` because per-user id
+  // spaces can collide) and checks the project's `is_hidden` +
+  // `_misc_purchases` name pair via `isMiscProject`. Tasks whose project
+  // can't be resolved (e.g. orphaned project_id=0) are treated as
+  // non-misc — they show under "All" and "Project purchases", never
+  // under "Miscellaneous".
+  const categorizedTasks = useMemo(() => {
+    return purchaseTasks.filter((task) => {
+      const project = projects.find(
+        (p) => p.id === task.project_id && p.owner === task.owner,
+      );
+      const taskIsMisc = !!project && isMiscProject(project);
+      if (categoryFilter === "misc") return taskIsMisc;
+      if (categoryFilter === "project") return !taskIsMisc;
+      return true;
+    });
+  }, [purchaseTasks, projects, categoryFilter]);
+
+  // Counts for the segmented control labels. Computed off the full
+  // purchase-task list so the chip badges stay stable as the user
+  // switches between filters.
+  const { miscTaskCount, projectTaskCount } = useMemo(() => {
+    let misc = 0;
+    let proj = 0;
+    for (const task of purchaseTasks) {
+      const project = projects.find(
+        (p) => p.id === task.project_id && p.owner === task.owner,
+      );
+      if (project && isMiscProject(project)) misc += 1;
+      else proj += 1;
+    }
+    return { miscTaskCount: misc, projectTaskCount: proj };
+  }, [purchaseTasks, projects]);
+
   // Unified scroll — pure reverse chronology, no active/earlier split.
   // The active-before-complete partition was Chip-2's temporary mirror of
   // the Workbench arc; purchases don't have an in-flight phase, so a single
@@ -81,10 +141,10 @@ export default function PurchasesPage() {
   // and `· Complete` suffix in renderPurchaseTaskCard below.
   const sortedTasks = useMemo(
     () =>
-      [...purchaseTasks].sort((a, b) =>
+      [...categorizedTasks].sort((a, b) =>
         b.start_date.localeCompare(a.start_date)
       ),
-    [purchaseTasks]
+    [categorizedTasks]
   );
 
   // Group purchases by task. Items now carry `owner` (decorated by
@@ -158,6 +218,57 @@ export default function PurchasesPage() {
           onClose={() => setShowNewPurchase(false)}
         />
 
+        {/* Category filter chips. Single source of truth for the
+            project-vs-miscellaneous segmentation: drives `categorizedTasks`
+            above and hides the segmented control's middle pill if there
+            are no misc purchases yet (avoids a confusing empty bucket
+            on first-run / freshly-onboarded accounts). The "All" chip
+            stays visible at all times so a user can always reset. */}
+        <div
+          className="flex items-center gap-2 mb-4"
+          role="tablist"
+          aria-label="Filter purchases by category"
+        >
+          {([
+            { key: "all", label: "All", count: purchaseTasks.length },
+            {
+              key: "project",
+              label: "Project purchases",
+              count: projectTaskCount,
+            },
+            {
+              key: "misc",
+              label: MISC_CATEGORY_LABEL,
+              count: miscTaskCount,
+            },
+          ] as const).map((chip) => {
+            const isActive = categoryFilter === chip.key;
+            return (
+              <button
+                key={chip.key}
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setCategoryFilter(chip.key)}
+                data-tour-target={`purchases-filter-${chip.key}`}
+                className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                  isActive
+                    ? "bg-amber-600 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {chip.label}
+                <span
+                  className={`ml-2 ${
+                    isActive ? "text-amber-100" : "text-gray-400"
+                  }`}
+                >
+                  {chip.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* Funding Accounts Manager */}
         {showFundingManager && (
           <FundingAccountsManager
@@ -189,6 +300,14 @@ export default function PurchasesPage() {
             const project = projects.find(
               (p) => p.id === task.project_id && p.owner === task.owner
             );
+            // Display-only override: the misc-purchases project is
+            // stored on disk as `_misc_purchases` (reserved name) but
+            // user-facing UI must always show "Miscellaneous". Real
+            // projects render their on-disk name unchanged.
+            const projectDisplayName =
+              project && isMiscProject(project)
+                ? MISC_CATEGORY_LABEL
+                : project?.name;
             const tkey = taskKey(task);
             const isOpen = selectedTask !== null && taskKey(selectedTask) === tkey;
             // Destructive + write actions are gated on `!task.is_shared_with_me`.
@@ -227,7 +346,7 @@ export default function PurchasesPage() {
                         {task.name}
                       </h3>
                       <p className="text-xs text-gray-400">
-                        {project?.name} · {task.start_date} ·{" "}
+                        {projectDisplayName} · {task.start_date} ·{" "}
                         {items.length} item{items.length !== 1 ? "s" : ""}{task.is_complete && " · Complete"}
                       </p>
                     </div>
@@ -337,6 +456,23 @@ export default function PurchasesPage() {
                 <p className="text-sm text-gray-300">
                   Create a task with type &ldquo;Purchase&rdquo; to start
                   tracking orders
+                </p>
+              </div>
+            );
+          }
+
+          // Filter-specific empty state: when the user is on "misc" or
+          // "project" and that bucket happens to be empty, surface a
+          // softer message so it doesn't look like /purchases lost data.
+          if (sortedTasks.length === 0) {
+            const filterLabel =
+              categoryFilter === "misc"
+                ? MISC_CATEGORY_LABEL
+                : "project-attached";
+            return (
+              <div className="text-center py-12">
+                <p className="text-sm text-gray-400">
+                  No {filterLabel} purchases yet
                 </p>
               </div>
             );

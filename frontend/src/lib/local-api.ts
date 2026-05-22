@@ -180,11 +180,14 @@ export const projectsApi = {
       tags: data.tags ?? null,
       color: data.color ?? null,
       created_at: now,
-      sort_order: 0,
+      sort_order: data.sort_order ?? 0,
       is_archived: false,
       archived_at: null,
       owner: currentUser,
       shared_with: [],
+      // is_hidden is only set by the misc-purchases bootstrap; ordinary
+      // projects leave it undefined (treated as false on read).
+      ...(data.is_hidden ? { is_hidden: true } : {}),
     });
     // Onboarding v4 §6.1: notify the home-create-project walkthrough
     // step that a new project landed, so BeakerBot can advance without
@@ -5098,7 +5101,43 @@ export const fetchAllMethodsIncludingShared = async (): Promise<Method[]> => {
 };
 
 // Mirror of `fetchAllTasksIncludingShared` for projects.
-export const fetchAllProjectsIncludingShared = async (): Promise<Project[]> => {
+/**
+ * Options for `fetchAllProjectsIncludingShared`.
+ *
+ * `includeHidden` controls whether hidden projects (currently only the
+ * per-user `_misc_purchases` project backing the Miscellaneous purchases
+ * category) are returned. Default `false` so every surface — Home grid,
+ * Workbench, Gantt, project pickers, search, settings, daily sidebar — sees
+ * a clean list. Only `/purchases` opts in. See lib/purchases/misc-project.ts
+ * for the canonical predicate and bootstrap.
+ *
+ * The argument is typed `unknown` so direct use as a React Query
+ * `queryFn` keeps working — RQ passes a context object as the first
+ * argument, which we narrow at runtime and treat as "no options" if it
+ * isn't shaped like FetchAllProjectsOptions. Surfaces that want the
+ * misc bucket call `fetchAllProjectsIncludingShared({ includeHidden: true })`
+ * explicitly (e.g. /purchases) instead of binding the bare function.
+ */
+export interface FetchAllProjectsOptions {
+  includeHidden?: boolean;
+}
+
+function pickHiddenOption(arg: unknown): boolean {
+  if (
+    arg &&
+    typeof arg === "object" &&
+    "includeHidden" in arg &&
+    typeof (arg as { includeHidden?: unknown }).includeHidden === "boolean"
+  ) {
+    return (arg as { includeHidden: boolean }).includeHidden;
+  }
+  return false;
+}
+
+export const fetchAllProjectsIncludingShared = async (
+  options?: FetchAllProjectsOptions | unknown,
+): Promise<Project[]> => {
+  const includeHidden = pickHiddenOption(options);
   const currentUser = await getCurrentUserCached();
   const ownProjects = await projectsStore.listAll();
   // Older projects on disk predate the `owner` field — they shipped without
@@ -5154,7 +5193,18 @@ export const fetchAllProjectsIncludingShared = async (): Promise<Project[]> => {
     console.warn("[fetchAllProjectsIncludingShared] failed to load shared projects:", err);
   }
 
-  return [...ownProjectsWithOwner, ...sharedProjects];
+  const combined = [...ownProjectsWithOwner, ...sharedProjects];
+  // Default: filter out hidden projects (e.g. the per-user `_misc_purchases`
+  // bootstrap that backs the Miscellaneous purchases category). Every surface
+  // EXCEPT /purchases relies on this default; /purchases passes
+  // `{ includeHidden: true }` so the misc bucket can be grouped on screen.
+  // Shared projects with `is_hidden` are also filtered: the field travels on
+  // disk, so a recipient of a misshared hidden project would otherwise see a
+  // ghost card on Home.
+  if (!includeHidden) {
+    return combined.filter((p) => !p.is_hidden);
+  }
+  return combined;
 };
 
 export type {

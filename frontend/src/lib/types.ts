@@ -143,6 +143,15 @@ export interface Project {
   archived_at: string | null;
   owner: string;
   shared_with: SharedUser[];
+  // Hidden flag: when true, the project is filtered out of every surface
+  // by default (Home grid, Workbench, Gantt, project pickers). Currently
+  // only set for the per-user auto-created `_misc_purchases` project that
+  // backs the "Miscellaneous" purchases category — that project surfaces
+  // ONLY on /purchases, which opts in via `fetchAllProjectsIncludingShared
+  // ({ includeHidden: true })`. Mirrors the `is_archived` shape: persisted
+  // through projectsStore writes, optional on read for backwards-compat
+  // with older project files that predate this flag.
+  is_hidden?: boolean;
   // Read-time overlay fields — set by fetchAllProjectsIncludingShared when
   // the receiver of a shared project loads it. Never persisted to disk.
   is_shared_with_me?: boolean;
@@ -154,6 +163,10 @@ export interface ProjectCreate {
   weekend_active?: boolean;
   tags?: string[];
   color?: string;
+  // Only used by the misc-purchases bootstrap (lib/purchases/misc-project.ts);
+  // ordinary user-created projects leave this off.
+  is_hidden?: boolean;
+  sort_order?: number;
 }
 
 export interface ProjectUpdate {
@@ -164,6 +177,7 @@ export interface ProjectUpdate {
   sort_order?: number;
   is_archived?: boolean;
   archived_at?: string | null;
+  is_hidden?: boolean;
 }
 
 // ── Sub-Tasks ─────────────────────────────────────────────────────────────────
