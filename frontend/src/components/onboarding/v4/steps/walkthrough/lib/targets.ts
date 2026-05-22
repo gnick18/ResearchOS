@@ -126,6 +126,11 @@ export const TOUR_TARGETS = {
   hybridEditorTextarea: "hybrid-editor-textarea",
   hybridEditorImageStrip: "hybrid-editor-image-strip",
   hybridEditorResizeHandle: "hybrid-editor-resize-handle",
+  // §6.7 resize redesign (Grant 2026-05-21): the popover is click-to-
+  // pick-percentage, not a drag-corner handle. Cursor clicks the embedded
+  // image to open the popover, then clicks the 50% radio.
+  hybridEditorEmbeddedImage: "hybrid-editor-embedded-image",
+  hybridEditorResizePercent50: "hybrid-editor-resize-percent-50",
 
   // §6.8 Gantt
   ganttTimeline: "gantt-timeline",

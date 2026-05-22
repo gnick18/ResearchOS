@@ -59,13 +59,13 @@ export const hybridEditorShortcutsStep = buildWalkthroughStep({
     <>
       <p className="mb-2">
         Quick fact: ResearchOS runs on markdown. Notes, methods,
-        results, task descriptions, the whole shebang. These keyboard
-        shortcuts work in every markdown editor on the site.
+        results, task descriptions, the whole shebang.
       </p>
       <p>
-        Bold (Cmd+B), italic (Cmd+I), triple-backtick code block,
-        block-quote with `&gt;`, heading two with `##`. I&apos;ll type a
-        chunk to show the preview.
+        Many of the same keyboard shortcuts you use in Word will work
+        here: Cmd+B for bold, Cmd+I for italic, and so on. I&apos;ll
+        type a chunk so you can see what the markdown syntax looks
+        like in the preview.
       </p>
     </>
   ),

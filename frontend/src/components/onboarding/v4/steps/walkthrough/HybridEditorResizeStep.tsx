@@ -31,7 +31,7 @@
 import { projectsApi, tasksApi } from "@/lib/local-api";
 import {
   cursorScript,
-  safeDragAction,
+  safeClickAction,
   compactScript,
   waitForElement,
 } from "./lib/cursor-script";
@@ -46,7 +46,8 @@ export const hybridEditorResizeStep = buildWalkthroughStep({
   speech: (
     <>
       <p className="mb-2">
-        You can resize images inline, useful when a gel image is huge.
+        You can resize embedded images. I&apos;ll click the selfie and
+        pick 50% from the popover.
       </p>
       <p>
         One more thing: notes-tab images and results-tab images are
@@ -57,23 +58,25 @@ export const hybridEditorResizeStep = buildWalkthroughStep({
     </>
   ),
   pose: "pointing",
-  targetSelector: targetSelector(TOUR_TARGETS.hybridEditorResizeHandle),
+  targetSelector: targetSelector(TOUR_TARGETS.hybridEditorEmbeddedImage),
   cursorScript: cursorScript(async () => {
-    const handle = await waitForElement(
-      targetSelector(TOUR_TARGETS.hybridEditorResizeHandle),
+    // Grant 2026-05-21: the popover is click-to-pick-percentage, not a
+    // drag-corner handle. Cursor clicks the embedded image to open the
+    // popover, then clicks 50%. No drag primitive needed.
+    const image = await waitForElement(
+      targetSelector(TOUR_TARGETS.hybridEditorEmbeddedImage),
+      3000,
     );
-    if (!handle) return [];
-    // Drag handle ~80px right + down to resize. We pick the handle
-    // itself as both source and dest for the drag; the destination
-    // delta is applied via the synthetic mousemove sequence in
-    // BeakerBotCursor. A future polish (P13) can let the drag
-    // primitive take explicit (dx, dy) offsets rather than two
-    // elements.
-    const drag = await safeDragAction(
-      targetSelector(TOUR_TARGETS.hybridEditorResizeHandle),
-      targetSelector(TOUR_TARGETS.hybridEditorResizeHandle),
+    if (!image) return [];
+    const clickImage = await safeClickAction(
+      targetSelector(TOUR_TARGETS.hybridEditorEmbeddedImage),
+      2000,
     );
-    return compactScript([drag]);
+    const clickFifty = await safeClickAction(
+      targetSelector(TOUR_TARGETS.hybridEditorResizePercent50),
+      3000,
+    );
+    return compactScript([clickImage, clickFifty]);
   }),
   completion: manualAdvance("Got it, next"),
   // Track the experiment whose notes BeakerBot edited during the §6.7

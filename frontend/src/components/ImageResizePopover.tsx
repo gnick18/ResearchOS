@@ -125,6 +125,7 @@ export default function ImageResizePopover({
               key={pct}
               type="button"
               onClick={() => onSelect(pct)}
+              data-tour-target={`hybrid-editor-resize-percent-${pct}`}
               className={`flex items-center gap-2 px-2 py-1 rounded text-left text-xs transition-colors ${
                 isCurrent
                   ? "bg-blue-50 text-blue-700 font-medium"

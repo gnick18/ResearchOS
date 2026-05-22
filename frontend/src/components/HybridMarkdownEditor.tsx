@@ -1852,6 +1852,7 @@ export default function HybridMarkdownEditor({
                         src={resolvedSrc}
                         alt={originalAlt}
                         width={width}
+                        data-tour-target="hybrid-editor-embedded-image"
                         className="max-w-full rounded-lg cursor-pointer"
                         // Chrome's "drop on <img>" default behavior
                         // intercepts native file drops before they bubble
