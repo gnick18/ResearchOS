@@ -17,10 +17,25 @@
  *     under a different chrome so we get demo content for free as long
  *     as the bundle has multiple seeded users.
  *
- * The overlay re-uses every Lab* panel from the live page. Because
- * those panels are already read-only (the live `/lab` route is
- * "View-only access to all researchers' work" per the header), we
- * don't have to disable writes — they're not present to begin with.
+ * Lab Mode demo-data manager (2026-05-22): the viewer used to read
+ * directly through `labApi` / `useLabData`, which talks to the user's
+ * REAL on-disk lab folder. A brand-new user has nothing in their lab,
+ * so the warped Lab Mode demo showed empty panels — exactly the
+ * opposite of what the warp is meant to demonstrate.
+ *
+ * Fix: at mount time, fetch the demo bundle from
+ * `frontend/public/demo-data/users/{alex,morgan}/...`, aggregate it
+ * across both demo users, and pre-seed a SCOPED React Query cache with
+ * the result. The viewer body is wrapped in a nested
+ * `<QueryClientProvider>` so every panel that calls `useLabData()` or
+ * `useQuery({ queryKey: ["lab", ...] })` reads from the demo bundle
+ * instead of the real folder — without any per-panel changes (panel
+ * rendering, tour-target stamps, popup wiring all stay identical).
+ *
+ * The nested provider is React-tree scoped, so the seeded demo data
+ * cannot leak to other surfaces. The instant the user dismisses the
+ * viewer (Exit Lab Mode / Escape), the inner provider unmounts and
+ * the demo cache is garbage-collected.
  *
  * Tour-target stamps live on the SAME `data-tour-target` names as the
  * live page so the lab-mode-* step cursor scripts can resolve their
@@ -28,18 +43,13 @@
  * overlay. The exit button uses `lab-mode-exit-button` so the
  * `lab-mode-exit` step can drive it.
  *
- * Demo-data caveats (recorded for the parent caller):
- *   - The demo notes seed is a separate parallel sub-bot; until it
- *     lands, the Notes tab inside this viewer will be empty.
- *   - SMART goals coverage in the demo bundle drives the Roadmaps tab.
- *     If absent, the Roadmaps tab renders empty.
- *
  * Dismissal: parent passes `onExit` which the bottom-right exit
  * button calls. The viewer also calls `onExit` when the user presses
  * Escape, mirroring how the rest of the v4 modals dismiss.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useLabData } from "@/hooks/useLabData";
 import LabUserFilterButton from "@/components/LabUserFilterButton";
 import LabSearchPanel from "@/components/LabSearchPanel";
@@ -54,6 +64,11 @@ import LabUserDetailPanel from "@/components/LabUserDetailPanel";
 import NotesPanel from "@/components/NotesPanel";
 import type { LabTask } from "@/lib/local-api";
 import type { Task } from "@/lib/types";
+import {
+  aggregateDemoLabData,
+  emptyDemoLabBundle,
+  type DemoLabBundle,
+} from "@/lib/demo/lab-demo-data";
 
 type TabType =
   | "activity"
@@ -110,38 +125,155 @@ export interface DemoLabModeViewerProps {
   /** Optional initial tab. Defaults to "activity" — the same landing
    *  page the real /lab route opens on. */
   initialTab?: TabType;
+  /** Optional fixture-base override for tests. Production: `/demo-data`
+   *  (served statically from `frontend/public/demo-data`). Tests pass
+   *  a stubbed-fetch-compatible base. */
+  fixtureBase?: string;
+}
+
+/**
+ * Build a fresh QueryClient that's pre-seeded with the aggregated demo
+ * bundle. The keys MUST match the queryKey strings each Lab panel uses
+ * — drift between this list and the panels' useQuery calls would mean
+ * the panel triggers a real `labApi.*` fetch against the user's folder
+ * and the demo data is invisible.
+ *
+ * Sources (one row per key):
+ *   - `["lab", "users"]`           — useLabData
+ *   - `["lab", "tasks"]`           — useLabData
+ *   - `["lab", "projects"]`        — useLabData + LabSearchPanel
+ *   - `["lab", "methods"]`         — LabExperimentsPanel / LabMethodsPanel / LabSearchPanel
+ *   - `["lab", "goals"]`           — LabRoadmapsPanel
+ *   - `["lab", "notes-shared"]`    — LabActivityPanel
+ *   - `["lab", "purchase-items"]`  — LabPurchasesPanel
+ *   - `["lab", "method-folders"]`  — LabSearchPanel
+ *   - `["funding-accounts"]`       — LabPurchasesPanel (purchasesApi.listFundingAccounts)
+ *   - `["lab-notes", selectedUsernames]` — NotesPanel in lab mode
+ *     (parametrized by the Set of selected usernames; we seed the
+ *      Set-with-both-users key the viewer always opens with so the
+ *      first paint is populated, and let subsequent toggles fall
+ *      through — the user filter is interactive anyway).
+ */
+function buildDemoQueryClient(
+  bundle: DemoLabBundle,
+  initialUsernames: Set<string>,
+): QueryClient {
+  const client = new QueryClient({
+    defaultOptions: {
+      queries: {
+        // Long staleTime so the panels never trigger a re-fetch
+        // against the (now-meaningless) labApi. The viewer's lifetime
+        // is bounded by the user's tour step; if they want fresh data
+        // they exit and re-enter.
+        staleTime: 5 * 60_000,
+        // We're inside a fullscreen overlay; window-focus refetches
+        // would hammer fake URLs needlessly.
+        refetchOnWindowFocus: false,
+        // No automatic retries — every queryFn we seed is a no-op
+        // because the cache is already populated, and any unseeded
+        // key would 404 against the demo bundle anyway.
+        retry: false,
+      },
+    },
+  });
+
+  reseedDemoQueryClient(client, bundle, initialUsernames);
+  return client;
+}
+
+/**
+ * Re-seed an existing QueryClient with a newly-fetched bundle. Keeps
+ * the same client instance so the inner panels stay mounted and just
+ * re-render with the new cache. The key list must stay in lockstep
+ * with the panels' useQuery calls.
+ */
+function reseedDemoQueryClient(
+  client: QueryClient,
+  bundle: DemoLabBundle,
+  initialUsernames: Set<string>,
+): void {
+  client.setQueryData(["lab", "users"], bundle.users);
+  client.setQueryData(["lab", "tasks"], bundle.tasks);
+  client.setQueryData(["lab", "projects"], bundle.projects);
+  client.setQueryData(["lab", "methods"], bundle.methods);
+  client.setQueryData(["lab", "goals"], bundle.goals);
+  client.setQueryData(["lab", "notes-shared"], bundle.notesShared);
+  client.setQueryData(["lab", "purchase-items"], bundle.purchaseItems);
+  client.setQueryData(["lab", "method-folders"], bundle.methodFolders);
+  client.setQueryData(["funding-accounts"], bundle.fundingAccounts);
+  client.setQueryData(["lab-notes", initialUsernames], bundle.notesShared);
 }
 
 /**
  * DemoLabModeViewer — fullscreen read-only embed of the lab page,
  * mounted as an overlay by the lab-mode-warp-to-demo step.
+ *
+ * Outer shell: builds a scoped QueryClient up-front (pre-seeded with
+ * an empty bundle so the first paint has tour anchors + DEMO pill +
+ * Exit button), kicks off the demo bundle fetch in an effect, and
+ * re-seeds the same client when the bundle resolves. The inner body
+ * runs inside a nested `<QueryClientProvider>` and is identical to
+ * the previous (pre-demo-data-fix) viewer apart from the data-source
+ * swap.
+ *
+ * Why pre-seed empty and re-seed on resolve (vs. swap clients): if we
+ * swapped QueryClient instances on bundle-resolve, the panels' local
+ * UI state (selected tab, dialog popups, expanded rows, etc.) would
+ * reset on every fetch because the React subtree would remount. By
+ * keeping one client instance and re-seeding its data, the panels
+ * stay mounted and just re-render with the new cache contents.
  */
 export default function DemoLabModeViewer({
   onExit,
   initialTab = "activity",
+  fixtureBase = "/demo-data",
 }: DemoLabModeViewerProps) {
-  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
-  const [selectedTask, setSelectedTask] = useState<LabTask | null>(null);
-  const [viewingUser, setViewingUser] = useState<string | null>(null);
-  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
-  const [seededSelection, setSeededSelection] = useState(false);
+  // The initial user-filter selection seeds the inner viewer body AND
+  // pre-determines which `["lab-notes", set]` cache slot we populate.
+  // Hard-coding both demo users keeps the first paint populated; the
+  // user can untoggle interactively from the filter sidebar.
+  const initialUsernames = useMemo(
+    () => new Set(["alex", "morgan"]),
+    [],
+  );
 
-  const { users, tasks, projects, isLoading, errorMessage, retry } =
-    useLabData();
+  // One QueryClient instance for this viewer's lifetime. Initialized
+  // with an empty demo bundle so the panels' useQuery calls have
+  // SOMETHING to read against on first paint instead of triggering a
+  // real labApi fetch against the user's folder.
+  const demoQueryClient = useMemo<QueryClient>(
+    () => buildDemoQueryClient(emptyDemoLabBundle(), initialUsernames),
+    [initialUsernames],
+  );
 
-  // Seed the user-filter selection once users load. Same shape as the
-  // live LabModePage so the cross-user lists / Gantt / etc. all see
-  // everyone by default.
+  const [bundleError, setBundleError] = useState<string | null>(null);
+
+  // Fetch + aggregate the demo bundle once per mount, then re-seed the
+  // same client. Re-running the viewer (e.g. user exited and the
+  // parent re-opened) gives a fresh QueryClient via the outer useMemo,
+  // so any in-flight demo content sub-bots that landed newer JSON
+  // files between mounts will be picked up.
   useEffect(() => {
-    if (seededSelection) return;
-    if (isLoading) return;
-    if (users.length === 0) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot seed on async-loaded users
-    setSelectedUsers(new Set(users.map((u) => u.username)));
-    setSeededSelection(true);
-  }, [seededSelection, isLoading, users]);
+    let cancelled = false;
+    setBundleError(null);
+    void (async () => {
+      try {
+        const data = await aggregateDemoLabData(fixtureBase);
+        if (cancelled) return;
+        reseedDemoQueryClient(demoQueryClient, data, initialUsernames);
+      } catch (err) {
+        console.error("[DemoLabModeViewer] demo bundle fetch failed:", err);
+        if (!cancelled) setBundleError("Could not load demo data");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [fixtureBase, demoQueryClient, initialUsernames]);
 
-  // Escape-to-dismiss mirrors the rest of the v4 modal surface.
+  // Escape-to-dismiss mirrors the rest of the v4 modal surface. Wired
+  // at the outer shell so the listener exists even while the bundle
+  // is still loading — Escape always exits, never wedges.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onExit();
@@ -149,6 +281,47 @@ export default function DemoLabModeViewer({
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [onExit]);
+
+  return (
+    <QueryClientProvider client={demoQueryClient}>
+      <DemoLabModeViewerBody
+        onExit={onExit}
+        initialTab={initialTab}
+        initialUsernames={initialUsernames}
+        bundleError={bundleError}
+      />
+    </QueryClientProvider>
+  );
+}
+
+interface DemoLabModeViewerBodyProps {
+  onExit: () => void;
+  initialTab: TabType;
+  initialUsernames: Set<string>;
+  bundleError: string | null;
+}
+
+/**
+ * Inner viewer body — runs INSIDE the nested QueryClientProvider so
+ * every `useLabData()` + `useQuery({ queryKey: ["lab", ...] })` call
+ * inside the panels reads from the demo-bundle-seeded cache. Apart
+ * from the bundleError banner, this is the same JSX the viewer
+ * shipped with before the demo-data fix.
+ */
+function DemoLabModeViewerBody({
+  onExit,
+  initialTab,
+  initialUsernames,
+  bundleError,
+}: DemoLabModeViewerBodyProps) {
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
+  const [selectedTask, setSelectedTask] = useState<LabTask | null>(null);
+  const [viewingUser, setViewingUser] = useState<string | null>(null);
+  const [selectedUsers, setSelectedUsers] =
+    useState<Set<string>>(initialUsernames);
+
+  const { users, tasks, projects, isLoading, errorMessage, retry } =
+    useLabData();
 
   const filteredProjects = projects.filter((p) =>
     selectedUsers.has(p.username),
@@ -297,6 +470,12 @@ export default function DemoLabModeViewer({
       </header>
 
       <div className="max-w-7xl mx-auto px-4 py-6">
+        {bundleError && (
+          <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg px-4 py-3">
+            {bundleError}. Panels below show empty state.
+          </div>
+        )}
+
         {isLoading && (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
