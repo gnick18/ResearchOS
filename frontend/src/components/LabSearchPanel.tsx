@@ -102,12 +102,26 @@ export default function LabSearchPanel({
     refetchOnWindowFocus: false,
   });
 
-  // Perform search
-  const performSearch = useCallback(async () => {
+  // Perform search. Filters the already-cached lab queries (tasks /
+  // projects / methods) client-side instead of round-tripping through
+  // `labApi.search`. The cache IS the data source: on the real `/lab`
+  // page it's labApi-fetched user data; inside DemoLabModeViewer it's
+  // the demo bundle the viewer pre-seeded. The previous direct
+  // `labApi.search()` call always re-read the on-disk lab folder and
+  // bypassed the demo viewer's scoped React Query cache — typing
+  // "qPCR" in the demo returned 0 results even though the seeded
+  // bundle had matches. See `narrowLabSearchByCompositeKeys` for the
+  // composite-key project/method narrowing rule, mirrored here.
+  const performSearch = useCallback(() => {
     setLoading(true);
     setHasSearched(true);
 
     try {
+      const q = filters.keywords.trim().toLowerCase();
+      const dateFrom = filters.dateFrom || null;
+      const dateTo = filters.dateTo || null;
+      const completion = filters.completionStatus;
+
       // The baseline username scope is "specific user filter beats global
       // user-multi-select"; the composite-key narrowing below may override
       // both when a project/method is picked, because the owner half of
@@ -116,38 +130,134 @@ export default function LabSearchPanel({
         ? [filters.username]
         : Array.from(selectedUsernames);
 
-      // Project / method composite keys carry their owner — narrow the API
-      // call to that owner so e.g. picking alex's project 1 doesn't merge
-      // with morgan's project 1. See narrowLabSearchByCompositeKeys for
-      // the cross-key precedence rule (project wins) and the public-method
-      // carve-out.
-      const { usernames: usernamesParam, projectId, methodId } =
+      const { usernames: usernamesCsv, projectId, methodId } =
         narrowLabSearchByCompositeKeys({
           baselineUsernames,
           projectKey: filters.projectKey,
           methodKey: filters.methodKey,
         });
+      const targetUsernames = usernamesCsv
+        ? new Set(usernamesCsv.split(",").map((s) => s.trim()).filter(Boolean))
+        : null;
 
-      // Build task types parameter
-      let taskTypesParam: string | undefined;
-      if (filters.taskType !== "all") {
-        taskTypesParam = filters.taskType;
+      const taskTypeFilter = filters.taskType === "all" ? null : filters.taskType;
+
+      const previewFrom = (text: string): string => {
+        if (!q) return text.slice(0, 160);
+        const idx = text.toLowerCase().indexOf(q);
+        if (idx === -1) return text.slice(0, 160);
+        const start = Math.max(0, idx - 40);
+        const end = Math.min(text.length, idx + q.length + 80);
+        return (
+          (start > 0 ? "…" : "") +
+          text.slice(start, end) +
+          (end < text.length ? "…" : "")
+        );
+      };
+
+      const next: LabSearchResult[] = [];
+
+      // Tasks. useLabData already excludes goals (is_high_level), so the
+      // legacy `if (raw.is_high_level) continue` branch is implicit.
+      for (const task of tasks) {
+        if (targetUsernames && !targetUsernames.has(task.username)) continue;
+        if (taskTypeFilter && task.task_type !== taskTypeFilter) continue;
+        if (projectId !== null && task.project_id !== projectId) continue;
+        if (methodId !== null && !(task.method_ids || []).includes(methodId)) continue;
+        if (completion === "complete" && !task.is_complete) continue;
+        if (completion === "incomplete" && task.is_complete) continue;
+        if (dateFrom && task.end_date < dateFrom) continue;
+        if (dateTo && task.start_date > dateTo) continue;
+
+        let matchField: string = "filter";
+        let matchPreview = "";
+
+        if (q) {
+          // The cached LabTask shape exposes `name` and `notes`
+          // (deviation_log). Tags aren't carried on LabTask — the
+          // labTaskFrom transform in local-api.ts and the demo
+          // aggregator both drop them — so the tag-substring branch of
+          // the original labApi.search semantics is unreachable here
+          // and we degrade to name + deviation_log only.
+          const name = task.name?.toLowerCase() ?? "";
+          const deviation = (task.notes ?? "").toLowerCase();
+          if (name.includes(q)) {
+            matchField = "name";
+          } else if (deviation.includes(q)) {
+            matchField = "deviation_log";
+            matchPreview = previewFrom(task.notes ?? "");
+          } else {
+            continue; // no text match
+          }
+        }
+
+        next.push({
+          type: "task",
+          id: task.id,
+          name: task.name,
+          username: task.username,
+          user_color: task.user_color,
+          user_color_secondary: task.user_color_secondary,
+          match_field: matchField,
+          match_preview: matchPreview,
+        });
       }
 
-      const response = await labApi.search({
-        q: filters.keywords || undefined,
-        usernames: usernamesParam,
-        task_types: taskTypesParam,
-        date_from: filters.dateFrom || undefined,
-        date_to: filters.dateTo || undefined,
-        project_id: projectId ?? undefined,
-        method_id: methodId ?? undefined,
-        method_folder: filters.methodFolder || undefined,
-        completion_status: filters.completionStatus !== "all" ? filters.completionStatus : undefined,
-      });
+      // Projects & methods only surface when not filtering to a specific
+      // task type — same rule as the original labApi.search.
+      if (!taskTypeFilter) {
+        for (const project of projects) {
+          if (targetUsernames && !targetUsernames.has(project.username)) continue;
+          if (projectId !== null && project.id !== projectId) continue;
+          if (q && !project.name.toLowerCase().includes(q)) continue;
+          next.push({
+            type: "project",
+            id: project.id,
+            name: project.name,
+            username: project.username,
+            user_color: project.user_color,
+            // LabProject doesn't carry a secondary color today; mirror
+            // labApi.search which read it off the user metadata. We
+            // pull the per-user secondary from the LabUser list.
+            user_color_secondary:
+              users.find((u) => u.username === project.username)
+                ?.color_secondary ?? null,
+            match_field: q ? "name" : "filter",
+            match_preview: "",
+          });
+        }
 
-      setResults(response.results);
-      setTotalCount(response.total_count);
+        // Methods are only listed when no project filter is set — same
+        // carve-out as labApi.search.
+        if (projectId === null) {
+          for (const method of methods) {
+            if (
+              targetUsernames &&
+              method.username !== "public" &&
+              !targetUsernames.has(method.username)
+            ) {
+              continue;
+            }
+            if (methodId !== null && method.id !== methodId) continue;
+            if (q && !method.name.toLowerCase().includes(q)) continue;
+            next.push({
+              type: "method",
+              id: method.id,
+              name: method.name,
+              username: method.username,
+              user_color: method.user_color,
+              user_color_secondary:
+                users.find((u) => u.username === method.username)
+                  ?.color_secondary ?? null,
+              match_field: q ? "name" : "filter",
+              match_preview: "",
+            });
+          }
+        }
+      }
+
+      setResults(next);
+      setTotalCount(next.length);
     } catch (err) {
       console.error("Search failed:", err);
       setResults([]);
@@ -155,7 +265,7 @@ export default function LabSearchPanel({
     } finally {
       setLoading(false);
     }
-  }, [filters, selectedUsernames]);
+  }, [filters, selectedUsernames, tasks, projects, methods, users]);
 
   const handleSearch = useCallback(() => {
     performSearch();
