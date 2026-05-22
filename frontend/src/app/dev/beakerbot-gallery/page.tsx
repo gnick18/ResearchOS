@@ -298,7 +298,7 @@ const SCENES: SceneEntry[] = [
     Component: BeakerBotLadderScene as unknown as SceneComponent,
     description:
       "Ladder rises, BeakerBot climbs, cleans the screen, then slips or gets bumped by a bird and falls off.",
-    timingNote: "~9900ms total",
+    timingNote: "~12300ms total",
   },
   {
     kind: "scene",

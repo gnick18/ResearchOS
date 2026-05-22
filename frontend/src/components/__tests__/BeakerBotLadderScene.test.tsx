@@ -14,8 +14,13 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import BeakerBotLadderScene from "../BeakerBotLadderScene";
 
-const FULL_DURATION_MS = 9900; // ladder-rise 800 + climb 2000 + top 300 +
-//                                clean 5000 + disruption 300 + fall 1500
+const FULL_DURATION_MS = 12300; // ladder-rise 800 + climb 2800 + top 300 +
+//                                 clean 5000 + disruption 1900 + fall 1500
+//
+// Updated by the ladder-scene-polish pass: climb stretched 2000→2800ms
+// so BeakerBot covers the *full* ladder height (was visibly jumping at
+// the top), and disruption stretched 300→1900ms so the bird actually
+// has time to fly across the screen and visibly bump him.
 
 describe("BeakerBotLadderScene", () => {
   beforeEach(() => {
@@ -137,9 +142,9 @@ describe("BeakerBotLadderScene", () => {
     });
     expect(scene()?.getAttribute("data-stage")).toBe("climb");
 
-    // After climb (2000ms more): top.
+    // After climb (2800ms more): top.
     act(() => {
-      vi.advanceTimersByTime(2000);
+      vi.advanceTimersByTime(2800);
     });
     expect(scene()?.getAttribute("data-stage")).toBe("top");
 
@@ -155,9 +160,9 @@ describe("BeakerBotLadderScene", () => {
     });
     expect(scene()?.getAttribute("data-stage")).toBe("disruption");
 
-    // After disruption (300ms more): fall.
+    // After disruption (1900ms more): fall.
     act(() => {
-      vi.advanceTimersByTime(300);
+      vi.advanceTimersByTime(1900);
     });
     expect(scene()?.getAttribute("data-stage")).toBe("fall");
   });
@@ -171,9 +176,9 @@ describe("BeakerBotLadderScene", () => {
     act(() => {
       vi.advanceTimersByTime(0);
     });
-    // Skip to clean stage: 800 + 2000 + 300 = 3100ms.
+    // Skip to clean stage: 800 + 2800 + 300 = 3900ms.
     act(() => {
-      vi.advanceTimersByTime(3100);
+      vi.advanceTimersByTime(3900);
     });
     expect(
       document.querySelector('[data-testid="beakerbot-ladder-scene-wipe"]'),
@@ -198,9 +203,9 @@ describe("BeakerBotLadderScene", () => {
     act(() => {
       vi.advanceTimersByTime(0);
     });
-    // Advance to disruption: 800 + 2000 + 300 + 5000 = 8100ms.
+    // Advance to disruption: 800 + 2800 + 300 + 5000 = 8900ms.
     act(() => {
-      vi.advanceTimersByTime(8100);
+      vi.advanceTimersByTime(8900);
     });
     expect(
       document.querySelector('[data-testid="beakerbot-ladder-scene-bird"]'),
@@ -220,9 +225,9 @@ describe("BeakerBotLadderScene", () => {
     act(() => {
       vi.advanceTimersByTime(0);
     });
-    // Advance to disruption.
+    // Advance to disruption: 800 + 2800 + 300 + 5000 = 8900ms.
     act(() => {
-      vi.advanceTimersByTime(8100);
+      vi.advanceTimersByTime(8900);
     });
     expect(
       document.querySelector('[data-testid="beakerbot-ladder-scene-bird"]'),
