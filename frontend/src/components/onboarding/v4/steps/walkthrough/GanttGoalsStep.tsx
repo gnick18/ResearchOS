@@ -38,6 +38,9 @@ export const ganttGoalsStep = buildWalkthroughStep({
   speech: (
     <>
       <p className="mb-2">
+        One more thing about this page before we move on: goals.
+      </p>
+      <p className="mb-2">
         Goals visualize over the Gantt. You can keep them personal
         (just you) or share with the lab (everyone sees them).
       </p>

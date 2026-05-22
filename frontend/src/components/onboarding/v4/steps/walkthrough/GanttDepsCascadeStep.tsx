@@ -26,9 +26,10 @@ import { moveFakeAForward } from "./lib/gantt-redesign-helpers";
 
 /** Delay (ms) between the cursor script kicking off and the programmatic
  *  `tasksApi.move` fire that actually moves Fake A in the data layer.
- *  The visual drag takes ~2100ms; +900ms dwell so the cursor's drop
- *  animation visibly lands BEFORE the cascade renders. */
-const CASCADE_FIRE_DELAY_MS = 3000;
+ *  The visual drag takes ~2100ms; the dwell needs to be generous enough
+ *  that the cursor's drop animation visibly lands BEFORE the cascade
+ *  renders, even on slow machines (Gantt fix manager R1, P2 #13). */
+const CASCADE_FIRE_DELAY_MS = 3500;
 
 /** How many days forward to push Fake A. Two days is enough to be a
  *  clearly visible shift on the timeline; not so far that the user
@@ -39,10 +40,13 @@ export const ganttDepsCascadeStep = buildWalkthroughStep({
   id: "gantt-deps-cascade",
   speech: (
     <>
-      <p className="mb-2">Watch what happens when I move the head of the chain.</p>
+      <p className="mb-2">
+        Watch the whole chain follow: your experiment AND Fake B both
+        slide right because A is upstream of them.
+      </p>
       <p>
-        Both linked tasks shift with it. That's the dependency cascade.
-        Earlier task moves, everything downstream moves too.
+        Move any task earlier in a chain, everything downstream
+        reschedules with it.
       </p>
     </>
   ),

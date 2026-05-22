@@ -169,8 +169,17 @@ export const TOUR_TARGETS = {
   // and the share-back affordances inside the task popup.
   ganttBarSharedExperiment: "gantt-bar-shared-experiment",
   taskPopupShareButton: "task-popup-share-button",
-  taskPopupNotesTab: "task-popup-notes-tab",
-  taskPopupNotesTextarea: "task-popup-notes-textarea",
+  // Gantt fix manager R1 (P0 #2): the notes-tab + textarea targets here
+  // re-use the existing §6.7 hybrid-editor attribute values so the
+  // share-cluster allow-list passes through on the SAME elements that
+  // already get stamped. The previous values ("task-popup-notes-tab"
+  // and "task-popup-notes-textarea") never appeared on any product
+  // surface, so every click on the popup tripped the page-lock's
+  // wrong-click handler. Mapping these constants to
+  // "experiment-notes-tab" + "hybrid-editor-textarea" fixes that
+  // without needing to stamp duplicate attributes on the popup chrome.
+  taskPopupNotesTab: "experiment-notes-tab",
+  taskPopupNotesTextarea: "hybrid-editor-textarea",
   // Share-dialog affordances. The dialog is the standard ShareDialog
   // shared across the app; we stamp the user-row + permission radios
   // for the cursor's allow-list.
@@ -178,6 +187,14 @@ export const TOUR_TARGETS = {
   shareDialogUserRow: "share-dialog-user-row",
   shareDialogPermissionEdit: "share-dialog-permission-edit",
   shareDialogConfirm: "share-dialog-confirm",
+  // Dependency-type picker (GanttChart). Stamped on the "Start after" /
+  // "Start before" buttons of the modal that opens after a bar→bar drag.
+  // Used by `gantt-deps-user`'s page-lock allow-list so the user can
+  // actually click through to FS-mode after dropping Fake B on the
+  // user's experiment. Gantt fix manager R1 (P0 #3).
+  ganttDepPickerStartAfter: "gantt-dep-picker-start-after",
+  ganttDepPickerStartBefore: "gantt-dep-picker-start-before",
+  ganttDepPickerStartSame: "gantt-dep-picker-start-same",
   // User picker (top-right floating cluster) — used by the real
   // profile-switch step. AppShell renders the user-switch button via
   // <Tooltip>; we stamp the inner <button> for the cursor's click.

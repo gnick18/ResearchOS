@@ -1325,6 +1325,7 @@ export default function GanttChart({
             <div className="space-y-2">
               <button
                 onClick={() => handleCreateDependency("SS")}
+                data-tour-target="gantt-dep-picker-start-same"
                 className="w-full text-left px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
               >
                 <p className="text-sm font-medium text-blue-900">Start at same time</p>
@@ -1332,6 +1333,7 @@ export default function GanttChart({
               </button>
               <button
                 onClick={() => handleCreateDependency("FS")}
+                data-tour-target="gantt-dep-picker-start-after"
                 className="w-full text-left px-4 py-3 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors"
               >
                 <p className="text-sm font-medium text-green-900">Start after</p>
@@ -1339,6 +1341,7 @@ export default function GanttChart({
               </button>
               <button
                 onClick={() => handleCreateDependency("SF")}
+                data-tour-target="gantt-dep-picker-start-before"
                 className="w-full text-left px-4 py-3 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors"
               >
                 <p className="text-sm font-medium text-purple-900">Finish before</p>

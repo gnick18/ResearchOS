@@ -246,31 +246,91 @@ export async function spawnGanttRedesignFakeTasks(
  * `gantt-deps-beakerbot` step's onEnter so the cursor's visual drag
  * lands on top of a real dep that was already created in-data.
  * Idempotent: if the edge exists, no-op.
+ *
+ * Gantt fix manager R1 (P1 #9): also records a
+ * `cleanup_default: "discard"` artifact for the dep edge so Phase 4
+ * cleanup picks it up. Spec lines 238-239 require this.
  */
 export async function createFakeAToUserDep(
   ctx: { username: string | null },
 ): Promise<void> {
-  void ctx;
   try {
     const { fakeAId, projectId } = await resolveFakeTaskIds();
     const userExp = await resolveUserExperiment();
     if (!fakeAId || !userExp || !projectId) return;
     const existing = await dependenciesApi.list(projectId);
-    const already = existing.some(
+    const already = existing.find(
       (d) => d.parent_id === fakeAId && d.child_id === userExp.id,
     );
-    if (already) return;
-    await dependenciesApi.create({
-      parent_id: fakeAId,
-      child_id: userExp.id,
-      dep_type: "FS",
-    });
-    await Promise.all([
-      appQueryClient.refetchQueries({ queryKey: ["tasks"] }),
-      appQueryClient.refetchQueries({ queryKey: ["dependencies"] }),
-    ]);
+    let edgeId: number | string;
+    if (already) {
+      edgeId = already.id;
+    } else {
+      const created = await dependenciesApi.create({
+        parent_id: fakeAId,
+        child_id: userExp.id,
+        dep_type: "FS",
+      });
+      edgeId = created.id;
+      await Promise.all([
+        appQueryClient.refetchQueries({ queryKey: ["tasks"] }),
+        appQueryClient.refetchQueries({ queryKey: ["dependencies"] }),
+      ]);
+    }
+    if (ctx.username) {
+      try {
+        await patchOnboarding(ctx.username, (cur) =>
+          appendArtifact(cur, {
+            type: "dep_edge",
+            id: String(edgeId),
+            cleanup_default: "discard",
+          }),
+        );
+      } catch (err) {
+        console.warn(
+          "[gantt-redesign] fake-A→user dep-edge artifact persist failed",
+          err,
+        );
+      }
+    }
   } catch (err) {
     console.warn("[gantt-redesign] createFakeAToUserDep failed", err);
+  }
+}
+
+/**
+ * Record the user→fake_b dep edge artifact for Phase 4 cleanup. Called
+ * by the `gantt-deps-user` step's onExit so the user-created edge gets
+ * the same discard-default treatment as the BeakerBot-created edge.
+ * Best-effort + idempotent (appendArtifact dedupes on type:id).
+ *
+ * Gantt fix manager R1 (P1 #9).
+ */
+export async function recordUserToFakeBDepArtifact(
+  ctx: { username: string | null },
+): Promise<void> {
+  if (!ctx.username) return;
+  try {
+    const { fakeBId, projectId } = await resolveFakeTaskIds();
+    const userExp = await resolveUserExperiment();
+    if (!fakeBId || !userExp || !projectId) return;
+    const deps = await dependenciesApi.list(projectId);
+    const edge = deps.find(
+      (d) => d.parent_id === userExp.id && d.child_id === fakeBId,
+    );
+    if (!edge) return;
+    await patchOnboarding(ctx.username, (cur) =>
+      appendArtifact(cur, {
+        type: "dep_edge",
+        id: String(edge.id),
+        cleanup_default: "discard",
+      }),
+    );
+  } catch (err) {
+    console.warn(
+      "[gantt-redesign] recordUserToFakeBDepArtifact failed",
+      err,
+    );
   }
 }
 

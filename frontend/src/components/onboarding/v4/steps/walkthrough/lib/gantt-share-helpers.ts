@@ -25,9 +25,10 @@ import {
   getUserMetadata,
 } from "@/lib/file-system/user-metadata";
 import { JsonStore } from "@/lib/storage/json-store";
-import { sharingApi } from "@/lib/local-api";
+import { sharingApi, filesApi } from "@/lib/local-api";
 import { appQueryClient } from "@/lib/query-client";
-import type { Project, Task } from "@/lib/types";
+import { taskResultsBase } from "@/lib/tasks/results-paths";
+import type { Method, Project, Task, TaskMethodAttachment } from "@/lib/types";
 import {
   BEAKERBOT_LAB_USERNAME,
   BEAKERBOT_LAB_COLOR,
@@ -42,6 +43,17 @@ export const SHARE_DEMO_EXPERIMENT_NAME = "Make some coffee together";
  *  the legacy "BeakerBot's lab notebook" used by the retired lab
  *  cluster). Keeps the two flows from stepping on each other's data. */
 export const SHARE_DEMO_PROJECT_NAME = "Coffee morning project";
+
+/** Name of the funny markdown method the user (with BeakerBot's help)
+ *  creates during §6.4. We look the method up by name when BeakerBot
+ *  spawns the coffee experiment so the popup's Method tab has something
+ *  to render. If the method is missing (user skipped §6.4, or the demo
+ *  is being re-run on a partial sidecar), we fall back to ANY method
+ *  the user owns — the goal is "popup's Methods tab shows attached
+ *  method", not "exact coffee match". Mirrors `FUNNY_METHOD_NAME` in
+ *  MethodsCreateStep.tsx; duplicated here to avoid an import cycle. */
+export const COFFEE_METHOD_NAME =
+  "BeakerBot's Patent-Pending Coffee Brewing Protocol";
 
 /** Today as YYYY-MM-DD. */
 function todayLocalDate(): string {
@@ -75,10 +87,54 @@ export function getCachedShareDemoHandle(): ShareDemoHandle | null {
 }
 
 /**
+ * Resolve the coffee method (or any reasonable fallback) for the
+ * recipient user. Looks up the method by name first; if missing, falls
+ * back to ANY method the recipient owns so the Methods tab on the
+ * shared experiment popup has something to render. Returns null only
+ * when the recipient has no methods at all.
+ *
+ * Lab-only flow: the method LIVES in the recipient's namespace, but the
+ * coffee experiment lives in BEAKERBOT's namespace. The
+ * TaskMethodAttachment.owner field disambiguates the cross-user
+ * reference (set to the recipient's username so attachment resolution
+ * picks the right method file off disk).
+ */
+async function resolveCoffeeMethodForAttachment(
+  recipient: string,
+): Promise<{ methodId: number; owner: string } | null> {
+  try {
+    const methodsStore = new JsonStore<Method>("methods");
+    const recipientMethods = await methodsStore.listAllForUser(recipient);
+    if (!recipientMethods.length) return null;
+    const coffeeHit = recipientMethods.find((m) => m.name === COFFEE_METHOD_NAME);
+    if (coffeeHit) {
+      return { methodId: coffeeHit.id, owner: recipient };
+    }
+    // Fallback: most-recent method by id (per-user ids are monotonic).
+    const sorted = [...recipientMethods].sort((a, b) => b.id - a.id);
+    const fallback = sorted[0];
+    if (!fallback) return null;
+    console.info(
+      "[gantt-share] coffee method not found by name; falling back to method #%d",
+      fallback.id,
+    );
+    return { methodId: fallback.id, owner: recipient };
+  } catch (err) {
+    console.warn("[gantt-share] resolveCoffeeMethodForAttachment failed", err);
+    return null;
+  }
+}
+
+/**
  * Idempotent BeakerBot-spawn-for-share-teaching. Ensures the BeakerBot
  * lab user exists, ensures a "Coffee morning project" with a "Make
  * some coffee together" experiment exists in their namespace, and
  * returns the project + experiment ids.
+ *
+ * Attaches the coffee method (or any fallback method the recipient
+ * owns) to the experiment so the popup's Methods tab renders something
+ * real. Pre-existing tasks with no `method_attachments` get rewritten
+ * on resolve so idempotent re-runs heal the attachment too.
  *
  * Does NOT share the experiment — that's a separate beat
  * (`shareCoffeeExperimentWithUser`) so the cursor narration can be
@@ -148,13 +204,54 @@ export async function spawnGanttShareBeakerBot(
     return null;
   }
 
-  // 3) Experiment task. Same idempotent pattern.
+  // 3) Resolve the method to attach (coffee by name, fallback to any
+  //    method the recipient owns). Best-effort: a missing method just
+  //    means the popup's Methods tab will be empty — not fatal.
+  const methodRef = await resolveCoffeeMethodForAttachment(recipient);
+  const methodAttachments: TaskMethodAttachment[] = methodRef
+    ? [
+        {
+          method_id: methodRef.methodId,
+          owner: methodRef.owner,
+          pcr_gradient: null,
+          pcr_ingredients: null,
+          lc_gradient: null,
+          body_override: null,
+          plate_annotation: null,
+          cell_culture_schedule: null,
+          variation_notes: null,
+          compound_snapshots: null,
+          qpcr_analysis: null,
+        },
+      ]
+    : [];
+  const methodIds = methodRef ? [methodRef.methodId] : [];
+
+  // 4) Experiment task. Same idempotent pattern. If a pre-existing task
+  //    has no method attachment but we found a method this run, patch
+  //    the attachment in (heals tasks created by an earlier version of
+  //    this helper that pre-dated the method-attachment fix).
   let experimentId: number;
   try {
     const existing = await tasksStore.listAllForUser(BEAKERBOT_LAB_USERNAME);
     const found = existing.find((t) => t.name === SHARE_DEMO_EXPERIMENT_NAME);
     if (found) {
       experimentId = found.id;
+      const needsMethodPatch =
+        methodRef &&
+        (!found.method_attachments || found.method_attachments.length === 0);
+      if (needsMethodPatch) {
+        const patched: Task = {
+          ...found,
+          method_ids: methodIds,
+          method_attachments: methodAttachments,
+        };
+        await tasksStore.saveForUser(
+          experimentId,
+          patched,
+          BEAKERBOT_LAB_USERNAME,
+        );
+      }
     } else {
       experimentId = Math.max(0, ...existing.map((t) => t.id)) + 1;
       const today = todayLocalDate();
@@ -169,13 +266,13 @@ export async function spawnGanttShareBeakerBot(
         is_complete: false,
         task_type: "experiment",
         weekend_override: null,
-        method_ids: [],
+        method_ids: methodIds,
         deviation_log: null,
         tags: null,
         sort_order: 0,
         experiment_color: BEAKERBOT_LAB_COLOR,
         sub_tasks: null,
-        method_attachments: [],
+        method_attachments: methodAttachments,
         owner: BEAKERBOT_LAB_USERNAME,
         shared_with: [],
         comments: [],
@@ -202,11 +299,55 @@ export async function spawnGanttShareBeakerBot(
 }
 
 /**
+ * Resolve a share-demo handle from disk when the module-level cache is
+ * empty (e.g. after a mid-tour page refresh that wiped the JS heap but
+ * left the JsonStore on disk). Same idempotent shape as
+ * `spawnGanttShareBeakerBot` so the helpers stay in lockstep: look up
+ * the project + experiment by name in BeakerBot's namespace. Returns
+ * null when either is missing (meaning the spawn step hasn't run yet
+ * and the caller should advance via the spawn helper, not via a stale
+ * disk read).
+ *
+ * Gantt fix manager R1 (P1 #4): the previous `shareCoffeeExperimentWithUser`
+ * silently no-op-ed when `cachedHandle === null`, which is exactly the
+ * state after a refresh. This helper bridges the gap so the share step
+ * recovers on its own.
+ */
+async function resolveShareDemoHandleFromDisk(
+  recipient: string,
+): Promise<ShareDemoHandle | null> {
+  try {
+    const projectsStore = new JsonStore<Project>("projects");
+    const tasksStore = new JsonStore<Task>("tasks");
+    const projects = await projectsStore.listAllForUser(BEAKERBOT_LAB_USERNAME);
+    const project = projects.find((p) => p.name === SHARE_DEMO_PROJECT_NAME);
+    if (!project) return null;
+    const tasks = await tasksStore.listAllForUser(BEAKERBOT_LAB_USERNAME);
+    const experiment = tasks.find((t) => t.name === SHARE_DEMO_EXPERIMENT_NAME);
+    if (!experiment) return null;
+    return {
+      recipient,
+      actor: BEAKERBOT_LAB_USERNAME,
+      projectId: project.id,
+      experimentId: experiment.id,
+    };
+  } catch (err) {
+    console.warn("[gantt-share] disk handle resolve failed", err);
+    return null;
+  }
+}
+
+/**
  * Share the coffee experiment from BeakerBot to the active user, edit
  * permission. Explicitly invalidates the tasks query post-share to
  * force the user's Gantt to refetch (auto-refresh follow-up: a real
  * file-system-watcher integration is the proper fix; for the tour's
  * purpose this manual invalidate is sufficient).
+ *
+ * Falls back to a disk resolve when the in-memory cache is empty (a
+ * mid-tour refresh wipes the cache but the JsonStore on disk still
+ * has the entities). Refreshes the cache from the resolved handle so
+ * subsequent calls (appendBeakerBotNote, etc.) don't re-resolve.
  *
  * Returns true on success, false on best-effort skip (no handle, no
  * recipient, etc.).
@@ -214,15 +355,21 @@ export async function spawnGanttShareBeakerBot(
 export async function shareCoffeeExperimentWithUser(
   recipient: string,
 ): Promise<boolean> {
-  const handle = cachedHandle;
-  if (!handle) {
-    console.warn(
-      "[gantt-share] no cached handle for share; spawn must run first",
-    );
-    return false;
-  }
   if (!recipient) {
     console.warn("[gantt-share] no recipient on share; skip");
+    return false;
+  }
+  let handle = cachedHandle;
+  if (!handle) {
+    handle = await resolveShareDemoHandleFromDisk(recipient);
+    if (handle) {
+      cachedHandle = handle;
+    }
+  }
+  if (!handle) {
+    console.warn(
+      "[gantt-share] no handle resolvable for share; spawn must run first",
+    );
     return false;
   }
   try {
@@ -247,44 +394,107 @@ export async function shareCoffeeExperimentWithUser(
 }
 
 /**
- * Idempotent helper: write a tour-stamped note onto the shared coffee
- * experiment from BEAKERBOT's side of the world. Used during the
- * profile-switch demo to leave a visible artifact the user can see
- * when they switch back.
+ * Idempotent helper: append a tour-stamped note onto the target task's
+ * Notes tab markdown file. Used during the profile-switch demo to
+ * leave a visible artifact the user can see when they switch back.
  *
- * Reads + writes the task in BeakerBot's namespace via JsonStore
- * directly so the call doesn't depend on `getCurrentUserCached()`
- * (which during a tour might still point at the recipient).
+ * Gantt fix manager R1 (P1 #7): the previous version wrote to
+ * `task.comments`, which the Notes tab does NOT read — the Notes tab
+ * mounts `LiveMarkdownEditor` against `${taskResultsBase}/notes.md`.
+ * Comments are surfaced on a separate thread. Switching to a real
+ * markdown append makes the next step's "see the note I just added"
+ * affordance genuine.
+ *
+ * The note is appended as a labeled markdown section so the user can
+ * tell BeakerBot's edit apart from their own potential edits. The
+ * append is idempotent on the note text — if the exact note already
+ * exists at the end of the file, we no-op (matches the rest of the
+ * idempotency contract in this module).
+ *
+ * @param taskId — task id to attach the note to (in the same
+ *   namespace as `taskOwner`).
+ * @param taskOwner — username of the task owner. The notes.md file
+ *   lives under `users/${owner}/results/task-${id}/notes.md`.
+ * @param noteText — plain-text body. Wrapped with a "BeakerBot:" prefix
+ *   in the appended section so the source is clear in the rendered view.
+ */
+export async function appendNoteToTaskNotes(
+  taskId: number,
+  taskOwner: string,
+  noteText: string,
+): Promise<boolean> {
+  if (!taskId || !taskOwner) return false;
+  try {
+    const notesPath = `${taskResultsBase({ id: taskId, owner: taskOwner })}/notes.md`;
+    let existing = "";
+    try {
+      const file = await filesApi.readFile(notesPath);
+      existing = file.content ?? "";
+    } catch {
+      // Notes file may not exist yet; treat as empty and write fresh.
+      existing = "";
+    }
+    // Idempotency: skip when the note is already present.
+    if (existing.includes(noteText)) {
+      return true;
+    }
+    const stamp = new Date().toISOString();
+    const block = `\n\n## Note from ${BEAKERBOT_LAB_USERNAME} (${stamp})\n\n${noteText}\n`;
+    const next = existing ? `${existing}${block}` : block.replace(/^\n\n/, "");
+    await filesApi.writeFile(
+      notesPath,
+      next,
+      `BeakerBot tour note on task ${taskId}`,
+    );
+    // Force the user's Gantt + popup to repaint after the write.
+    await appQueryClient.invalidateQueries({ queryKey: ["tasks"] });
+    return true;
+  } catch (err) {
+    console.warn("[gantt-share] appendNoteToTaskNotes failed", err);
+    return false;
+  }
+}
+
+/**
+ * Profile-switch convenience: append BeakerBot's tour note to Fake
+ * experiment A's notes.md. Fake A lives in the user's namespace (the
+ * user owns it; BeakerBot received edit permission via the previous
+ * share-back step). This is the note the user sees in
+ * `gantt-share-user-sees-edit`.
+ *
+ * Returns false when Fake A or the recipient username can't be
+ * resolved, true on a successful (or idempotent) write.
  */
 export async function appendBeakerBotNote(
   noteText: string,
 ): Promise<boolean> {
-  const handle = cachedHandle;
-  if (!handle) return false;
+  // Resolve Fake A's id in the recipient's namespace. The handle's
+  // recipient field carries the username; spawnGanttShareBeakerBot or
+  // the disk-resolve fallback populates it.
+  let handle = cachedHandle;
+  if (!handle) {
+    // Best-effort cache restore (mid-tour refresh path). We don't know
+    // the recipient here; in practice the share step has already run
+    // and populated the cache. If the cache is still empty, log + bail.
+    console.warn(
+      "[gantt-share] appendBeakerBotNote: no cached handle; skip",
+    );
+    return false;
+  }
+  // We append to Fake experiment A (in the user's namespace, shared
+  // back to BeakerBot in the previous step). Late-resolve Fake A's id
+  // via the redesign helpers so this function stays decoupled from the
+  // GanttShareProfileSwitchStep's onEnter resolution timing.
   try {
-    const tasksStore = new JsonStore<Task>("tasks");
-    const task = await tasksStore.getForUser(
-      handle.experimentId,
-      BEAKERBOT_LAB_USERNAME,
-    );
-    if (!task) return false;
-    const newComment = {
-      id: `tour-note-${Date.now()}`,
-      author: BEAKERBOT_LAB_USERNAME,
-      text: noteText,
-      created_at: new Date().toISOString(),
-    };
-    const updated: Task = {
-      ...task,
-      comments: [...(task.comments ?? []), newComment],
-    };
-    await tasksStore.saveForUser(
-      handle.experimentId,
-      updated,
-      BEAKERBOT_LAB_USERNAME,
-    );
-    await appQueryClient.invalidateQueries({ queryKey: ["tasks"] });
-    return true;
+    const { resolveFakeTaskIds } = await import("./gantt-redesign-helpers");
+    const { fakeAId } = await resolveFakeTaskIds();
+    if (!fakeAId) {
+      console.warn(
+        "[gantt-share] appendBeakerBotNote: Fake A id not resolved; skip",
+      );
+      return false;
+    }
+    return await appendNoteToTaskNotes(fakeAId, handle.recipient, noteText);
   } catch (err) {
     console.warn("[gantt-share] appendBeakerBotNote failed", err);
     return false;

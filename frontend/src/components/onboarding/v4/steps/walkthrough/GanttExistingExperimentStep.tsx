@@ -29,8 +29,33 @@ import { TOUR_TARGETS, targetSelector } from "./lib/targets";
  *  controller-scheduled Escape keydown that closes the popup before the
  *  next step transition. The cursor's single click primitive takes
  *  ~1180ms; +1500ms dwell so the user sees the popup mount AND read the
- *  speech bubble's continuation before it auto-closes. */
+ *  speech bubble's continuation before it auto-closes.
+ *
+ *  Gantt fix manager R1 (P2 #12): the escape is also fired via the
+ *  step's onExit handler so a manual "Got it, next" click before the
+ *  timer fires still closes the popup. Otherwise the popup leaks into
+ *  the next step. Both paths are safe (Escape on an already-closed
+ *  popup is a no-op). */
 const POPUP_DISMISS_DELAY_MS = 2800;
+
+/** Dispatch an Escape keydown so the experiment popup closes. Used by
+ *  both the post-click timer and the step's onExit handler. */
+function dispatchEscape(): void {
+  if (typeof document === "undefined") return;
+  try {
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Escape",
+        code: "Escape",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  } catch {
+    // No-op in environments where KeyboardEvent construction is
+    // unavailable. User can dismiss the popup themselves.
+  }
+}
 
 export const ganttExistingExperimentStep = buildWalkthroughStep({
   id: "gantt-existing-experiment",
@@ -56,26 +81,20 @@ export const ganttExistingExperimentStep = buildWalkthroughStep({
     // Schedule a deterministic Escape keydown so the popup closes
     // before the next step's cursor (or the user) starts driving the
     // timeline. Same fire-and-forget pattern as the legacy
-    // GanttIntroStep's modal-dismiss timeout.
-    if (typeof document !== "undefined" && typeof window !== "undefined") {
-      window.setTimeout(() => {
-        try {
-          document.dispatchEvent(
-            new KeyboardEvent("keydown", {
-              key: "Escape",
-              code: "Escape",
-              bubbles: true,
-              cancelable: true,
-            }),
-          );
-        } catch {
-          // No-op in environments where KeyboardEvent construction is
-          // unavailable. User can dismiss the popup themselves.
-        }
-      }, POPUP_DISMISS_DELAY_MS);
+    // GanttIntroStep's modal-dismiss timeout. The step's onExit also
+    // fires Escape as a belt-and-braces for the manual-advance race
+    // (Gantt fix manager R1, P2 #12).
+    if (typeof window !== "undefined") {
+      window.setTimeout(dispatchEscape, POPUP_DISMISS_DELAY_MS);
     }
     return compactScript([openPopup]);
   }),
   completion: manualAdvance("Got it, next"),
+  onExit: async () => {
+    // Belt-and-braces popup dismiss: if the user clicks "Got it, next"
+    // before the post-click timer fires, the popup would otherwise leak
+    // into the next step.
+    dispatchEscape();
+  },
   expectedRoute: "/gantt",
 });

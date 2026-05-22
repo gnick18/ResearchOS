@@ -16,7 +16,7 @@
  *   6. gantt-share-profile-switch   — REAL profile switch (or faked fallback)
  *   7. gantt-share-user-sees-edit   — user-action, see BeakerBot's note
  */
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { buildWalkthroughStep, manualAdvance, advanceOnEvent } from "./lib/step-helpers";
 import {
   cursorScript,
@@ -71,8 +71,9 @@ export const ganttShareBeakerBotSpawnStep = buildWalkthroughStep({
   speech: (
     <>
       <p className="mb-2">
-        I just created my own account in your lab so I can show you how
-        this works.
+        For this demo I added a second account to your lab (me,
+        BeakerBot), so I have someone to share with. I'll clean up at
+        the end.
       </p>
       <p>
         Watch the timeline. My "Make some coffee together" experiment
@@ -156,10 +157,12 @@ function ShareExploreSpeech() {
   return (
     <>
       <p className="mb-2">
-        Poke around. Try adding a note or expanding any tab.
+        This is YOUR view of BeakerBot's experiment. You have edit
+        permission, so try adding a note or opening the results tab.
       </p>
       <p className="text-xs text-gray-500">
-        When you're ready, click "Got it, next" and I'll take over.
+        It's the same popup as your own experiments. When you're ready,
+        click "Got it, next" and I'll take over.
       </p>
     </>
   );
@@ -177,39 +180,97 @@ export const ganttShareUserExploresStep = buildWalkthroughStep({
 // 5. gantt-share-user-shares-back — user shares own chain back to BeakerBot
 // =============================================================================
 
+/** DOM selector for the TaskDetailPopup chrome. Used by `ShareBackSpeech`
+ *  to detect when the popup has mounted (the user just clicked Fake A)
+ *  vs when the share dialog has mounted (the user just clicked the
+ *  share button). Both are distinct surfaces so a presence-check on
+ *  each drives the allow-list state machine. */
+const TASK_POPUP_DETECT_SELECTOR = '[data-tour-target="task-popup-close"]';
+const SHARE_DIALOG_DETECT_SELECTOR = '[data-tour-target="share-dialog"]';
+
 function ShareBackSpeech() {
   const controller = useOptionalTourController();
+  // Stage drives the allow-list:
+  //   1: timeline — only Fake A's bar is clickable
+  //   2: popup    — only the share button (+ close + the bar to re-click)
+  //   3: dialog   — share dialog affordances open
+  const [stage, setStage] = useState<1 | 2 | 3>(1);
+
+  // Stage transitions: poll the DOM every 350ms for the presence of the
+  // popup / share dialog. Cheap and beats wiring a global mount-watcher
+  // through the popup component. Once we see the share dialog, we lock
+  // into stage 3 (the step's completion poll handles the final advance).
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const id = window.setInterval(() => {
+      const dialog = document.querySelector(SHARE_DIALOG_DETECT_SELECTOR);
+      if (dialog) {
+        setStage(3);
+        return;
+      }
+      const popup = document.querySelector(TASK_POPUP_DETECT_SELECTOR);
+      if (popup) {
+        setStage((cur) => (cur === 1 ? 2 : cur));
+      } else {
+        // Popup was dismissed — drop back to stage 1 so the user can
+        // re-open Fake A if they bailed out by accident.
+        setStage((cur) => (cur === 3 ? cur : 1));
+      }
+    }, 350);
+    return () => window.clearInterval(id);
+  }, []);
+
+  // Allow-list shifts as the stage progresses. Gantt fix manager R1
+  // (P1 #11): the previous static list let the user click ANYTHING in
+  // the chain without the lock surfacing "do this next" guidance, and
+  // mis-clicks on inactive stages fell through silently. The shifting
+  // allow-list also keeps the speech bubble synchronized with the
+  // actual current affordance.
   useEffect(() => {
     if (!controller) return;
-    // The page-lock allow-list shifts as the user progresses through
-    // the multi-click sequence. First click: Fake A's bar to open the
-    // popup. Second: the share button inside the popup. Third: the
-    // share dialog's user-row + permission-edit radio + confirm.
-    // We start with the broadest set so the user can advance through
-    // the natural flow without us micro-managing each click.
-    controller.setPageLock(
-      [
+    const allowByStage: Record<1 | 2 | 3, string[]> = {
+      1: [TOUR_TARGETS.ganttBarFakeA],
+      2: [
         TOUR_TARGETS.ganttBarFakeA,
         TOUR_TARGETS.taskPopupShareButton,
+        TOUR_TARGETS.taskPopupClose,
+      ],
+      3: [
         TOUR_TARGETS.shareDialog,
         TOUR_TARGETS.shareDialogUserRow,
         TOUR_TARGETS.shareDialogPermissionEdit,
         TOUR_TARGETS.shareDialogConfirm,
         TOUR_TARGETS.taskPopupClose,
       ],
-      "Oops, click the first task in your chain, then the share button, then pick beakerbot.",
-    );
+    };
+    const flashByStage: Record<1 | 2 | 3, string> = {
+      1: "Click the first task in your chain on the timeline.",
+      2: "Click the share button on the popup.",
+      3: "Pick me (beakerbot) and give me edit permission.",
+    };
+    controller.setPageLock(allowByStage[stage], flashByStage[stage]);
     return () => controller.clearPageLock();
-  }, [controller]);
+  }, [controller, stage]);
+
   return (
     <>
-      <p className="mb-2">
-        Now share YOUR chain back with me. Click the first task in your
-        chain on the timeline.
-      </p>
+      {stage === 1 ? (
+        <p className="mb-2">
+          Now share YOUR chain back with me. Click the first task in
+          your chain on the timeline.
+        </p>
+      ) : null}
+      {stage === 2 ? (
+        <p className="mb-2">Click the share button on the popup.</p>
+      ) : null}
+      {stage === 3 ? (
+        <p className="mb-2">
+          Pick me (beakerbot) and give me edit permission.
+        </p>
+      ) : null}
       <p className="text-xs text-gray-500">
-        Then click the share button on the popup, pick beakerbot, and
-        give me edit permission.
+        (I'll keep you on rails. Clicks outside the right affordance
+        will be ignored.)
       </p>
     </>
   );

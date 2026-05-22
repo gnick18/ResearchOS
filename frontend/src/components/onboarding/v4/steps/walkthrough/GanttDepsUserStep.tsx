@@ -28,9 +28,11 @@
  */
 import { useEffect } from "react";
 import { dependenciesApi } from "@/lib/local-api";
+import { getCurrentUserCached } from "@/lib/storage/json-store";
 import { buildWalkthroughStep, advanceOnEvent } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 import {
+  recordUserToFakeBDepArtifact,
   resolveFakeTaskIds,
   resolveUserExperiment,
 } from "./lib/gantt-redesign-helpers";
@@ -48,30 +50,24 @@ function GanttDepsUserSpeech() {
     // TourControllerProvider (in step-bodies.test rendering the speech
     // in isolation), skip the page-lock wiring entirely.
     if (!controller) return;
+    // Gantt fix manager R1 (P0 #3): the dep-type picker's "start after"
+    // / "start before" buttons MUST be on the allow-list so the user
+    // can complete the chain after the drag lands. The picker now
+    // carries `data-tour-target` attributes (see GanttChart.tsx).
     controller.setPageLock(
       [
         TOUR_TARGETS.ganttBarFakeB,
         TOUR_TARGETS.ganttBarUserExperiment,
-        // The dep-type picker's affordances aren't reliably tagged with
-        // data-tour-target attributes yet; we allow the dialog wrapper
-        // via a future-friendly addition. The Gantt's dependency popup
-        // surfaces "start before" / "start after" picker options inside
-        // a contained <div> that we'd ideally stamp. For now the lock
-        // is a hard guard against ALL other UI; once the user drops B
-        // onto the user experiment, the picker pops over the lock layer
-        // (z-index above 419) and the user can click through. (See
-        // ONBOARDING_V4_GANTT_REDESIGN.md: this is a known
-        // FOLLOW-UP — the picker's allow-list isn't stamped on the
-        // existing GanttChart dep popup; first cut accepts that the
-        // user might trip the lock with a slightly off click on the
-        // popup edge.)
+        TOUR_TARGETS.ganttDepPickerStartAfter,
+        TOUR_TARGETS.ganttDepPickerStartBefore,
+        TOUR_TARGETS.ganttDepPickerStartSame,
       ],
       (
         <>
           <p className="mb-1">Oops, that's not the right thing.</p>
           <p>
             Drag Fake experiment B onto your experiment, then pick "start
-            after".
+            after", so B starts after your experiment finishes.
           </p>
         </>
       ),
@@ -83,8 +79,9 @@ function GanttDepsUserSpeech() {
   return (
     <>
       <p className="mb-2">
-        Your turn. Drag Fake experiment B onto your experiment, then
-        pick "start after".
+        Now you wire the other side: drop Fake B onto your experiment,
+        then pick "start after", so B starts after your experiment
+        finishes.
       </p>
       <p className="text-xs text-gray-500">
         (I'll keep you on rails. Clicks outside the right affordance
@@ -113,8 +110,17 @@ export const ganttDepsUserStep = buildWalkthroughStep({
         const { fakeBId, projectId } = await resolveFakeTaskIds();
         if (!userExp || !fakeBId || !projectId) return;
         const deps = await dependenciesApi.list(projectId);
+        // Gantt fix manager R1 (P1 #5): dep_type matters here. The
+        // step's brief instructs the user to pick "start after" (= FS
+        // semantics). If they pick a different type the poll should
+        // NOT advance — the wrong-click flash will surface the right
+        // copy via the page-lock's oops handler instead. Look for an
+        // exact FS hit.
         const hit = deps.find(
-          (d) => d.parent_id === userExp.id && d.child_id === fakeBId,
+          (d) =>
+            d.parent_id === userExp.id &&
+            d.child_id === fakeBId &&
+            d.dep_type === "FS",
         );
         if (hit) {
           cancelled = true;
@@ -141,5 +147,20 @@ export const ganttDepsUserStep = buildWalkthroughStep({
       if (timer) clearInterval(timer);
     };
   }),
+  // Gantt fix manager R1 (P1 #9): record the user→fake_b dep edge as a
+  // discard artifact for Phase 4 cleanup. Best-effort; failures don't
+  // block the step transition.
+  onExit: async () => {
+    try {
+      const username = await getCurrentUserCached();
+      const resolved = username && username !== "_no_user_" ? username : null;
+      await recordUserToFakeBDepArtifact({ username: resolved });
+    } catch (err) {
+      console.warn(
+        "[gantt-deps-user] onExit artifact persist failed",
+        err,
+      );
+    }
+  },
   expectedRoute: "/gantt",
 });

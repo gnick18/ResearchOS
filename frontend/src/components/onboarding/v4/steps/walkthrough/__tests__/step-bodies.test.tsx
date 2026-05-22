@@ -343,13 +343,15 @@ describe("P5 step bodies — universal contract", () => {
       hybridImageDragInStep,
       hybridImageResizeStep,
       hybridFileAttachStep,
-      // §6.8 Gantt redesign 2026-05-22.
+      // §6.8 Gantt redesign 2026-05-22. `ganttShareProfileSwitchStep` is
+      // intentionally EXCLUDED: per Gantt fix manager R1 (P1 #6) it now
+      // drives the demo entirely via the speech body's faked-switch
+      // modal (no cursor sequence), so a cursorScript is not required.
       ganttExistingExperimentStep,
       ganttDragDropStep,
       ganttDepsBeakerBotStep,
       ganttDepsCascadeStep,
       ganttShareBeakerBotSharesStep,
-      ganttShareProfileSwitchStep,
       ganttGoalsStep,
       animationPickerStep,
       settingsColorStep,

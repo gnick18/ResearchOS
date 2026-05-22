@@ -51,11 +51,6 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import BeakerBot from "@/components/BeakerBot";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
-import {
-  cursorScript,
-  safeClickAction,
-  compactScript,
-} from "./lib/cursor-script";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 import { appendBeakerBotNote } from "./lib/gantt-share-helpers";
 import { resolveFakeTaskIds } from "./lib/gantt-redesign-helpers";
@@ -288,8 +283,10 @@ function ProfileSwitchSpeech() {
       <ProfileSwitchModal phase={phase} />
       {beat === 1 ? (
         <p>
-          Watch me switch to my account so I can show you what editing
-          from the other side looks like.
+          In your lab you can switch between accounts from the user
+          picker up top. I'll jump to BeakerBot's account, add a note
+          from over there, then come back so you can see it appear on
+          your side.
         </p>
       ) : null}
       {beat === 2 ? (
@@ -316,15 +313,15 @@ export const ganttShareProfileSwitchStep = buildWalkthroughStep({
   id: "gantt-share-profile-switch",
   speech: () => <ProfileSwitchSpeech />,
   pose: "typing-on-laptop",
-  // Cursor sequence: click the user-picker button. The visual switch is
-  // owned by the speech body's modal so the cursor sequence stays short.
+  // Gantt fix manager R1 (P1 #6): the previous cursor click opened the
+  // real UserLoginScreen dropdown then layered a faked modal on top.
+  // The dropdown stayed mounted when the modal closed at T+6800ms,
+  // leaving the user staring at the real user-picker. Option (a) from
+  // the brief: drop the real-dropdown click entirely. The visual
+  // narration lives in the modal — it's honest about being a faked
+  // BeakerBot-view overlay, no need to dress it up with a half-real
+  // user-picker.
   targetSelector: targetSelector(TOUR_TARGETS.userPickerButton),
-  cursorScript: cursorScript(async () => {
-    const clickPicker = await safeClickAction(
-      targetSelector(TOUR_TARGETS.userPickerButton),
-    );
-    return compactScript([clickPicker]);
-  }),
   // onEnter is best-effort idempotent: ensures the fake-task-ids
   // resolution still passes downstream consumers.
   onEnter: async () => {

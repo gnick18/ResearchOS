@@ -40,12 +40,11 @@ export const ganttDepsBeakerBotStep = buildWalkthroughStep({
   speech: (
     <>
       <p className="mb-2">
-        Dependencies mean Task B can't start until Task A finishes.
+        Dependencies mean one task can't start until another one
+        finishes. I'm linking "Fake A" so it has to finish before your
+        experiment can start.
       </p>
-      <p>
-        I created two fake experiments: A and B. Watch me wire A as a
-        dependency of YOUR experiment.
-      </p>
+      <p>The arrow you'll see goes A → your experiment.</p>
     </>
   ),
   pose: "thinking",

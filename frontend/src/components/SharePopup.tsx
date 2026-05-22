@@ -169,8 +169,9 @@ export default function SharePopup({
   if (!isOpen) return null;
 
   return (
-    <div 
+    <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]"
+      data-tour-target="share-dialog"
       onClick={(e) => e.stopPropagation()}
     >
       <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
@@ -239,6 +240,7 @@ export default function SharePopup({
               <label className="block text-sm text-gray-600 mb-1">User</label>
               <select
                 value={shareWithAll ? "__all_lab_users__" : selectedUser}
+                data-tour-target="share-dialog-user-row"
                 onChange={(e) => {
                   if (e.target.value === "__all_lab_users__") {
                     setShareWithAll(true);
@@ -280,6 +282,7 @@ export default function SharePopup({
                   </button>
                   <button
                     onClick={() => setPermission("edit")}
+                    data-tour-target="share-dialog-permission-edit"
                     className={`flex-1 px-4 py-2 rounded-lg border transition-colors ${
                       permission === "edit"
                         ? "bg-blue-50 border-blue-500 text-blue-700"
@@ -357,6 +360,7 @@ export default function SharePopup({
           <button
             onClick={handleShare}
             disabled={loading || (!selectedUser && !shareWithAll)}
+            data-tour-target="share-dialog-confirm"
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Applying..." : shareWithAll ? "Apply" : "Share"}
