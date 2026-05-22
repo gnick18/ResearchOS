@@ -118,7 +118,21 @@ type BootstrapState =
 
 export default function TourBootstrap({ username }: TourBootstrapProps) {
   const searchParams = useSearchParams();
-  const previewMode = searchParams?.get("wizard-preview") === "1";
+  // Live-test R6 (2026-05-22): previewMode previously read the URL
+  // alone (`searchParams.get("wizard-preview")`). After any in-app
+  // navigation that strips the query string (eg. home page project
+  // card → /workbench/projects/<id>), previewMode flipped false on
+  // remount, the bootstrap fell through the previewMode short-circuit,
+  // and surfaced the V4ResumePrompt mid-tour. Now the check ALSO
+  // reads the sticky sessionStorage flag set by isV4PreviewMode, so a
+  // tour started under ?wizard-preview=1 stays in preview mode across
+  // navigations until the tab closes.
+  const urlPreview = searchParams?.get("wizard-preview") === "1";
+  const stickyPreview =
+    typeof window !== "undefined" &&
+    typeof sessionStorage !== "undefined" &&
+    sessionStorage.getItem("researchos:v4-preview-active") === "1";
+  const previewMode = urlPreview || stickyPreview;
   const controller = useTourController();
   const [state, setState] = useState<BootstrapState>({ kind: "probing" });
 

@@ -94,8 +94,8 @@ describe("purchasesConditionalStep step shape", () => {
     expect(gate(null)).toBe(false);
   });
 
-  it("uses event-driven completion", () => {
-    expect(purchasesConditionalStep.completion.type).toBe("event");
+  it("uses manual-advance completion (live-test R6: was event-driven 2s auto-advance, too fast for users to read)", () => {
+    expect(purchasesConditionalStep.completion.type).toBe("manual");
   });
 });
 
@@ -244,7 +244,9 @@ describe("PurchasesDemoBody create flow", () => {
         expect.objectContaining({
           type: "funding_string",
           id: FUNDING_STRING_NAME,
-          cleanup_default: "keep",
+          // R6 follow-up: flipped to discard so "BeakerBot's allowance"
+          // doesn't survive the tour into the real funding-string list.
+          cleanup_default: "discard",
         }),
         expect.objectContaining({
           type: "purchase",

@@ -116,10 +116,14 @@ function PurchasesDemoBody() {
           let next = appendArtifact(cur, {
             type: "funding_string",
             id: FUNDING_STRING_NAME,
-            // §6.14: funding_string is cleanup_default: "keep". Useful
-            // beyond the tour: a real lab will likely keep their
-            // funding labels rather than re-create them.
-            cleanup_default: "keep",
+            // §6.14 (live-test R6 follow-up 2026-05-22): the tour's
+            // funding string is named "BeakerBot's allowance" which
+            // is obviously throwaway — keeping it post-tour leaves a
+            // mascot-named line in the real user's purchase
+            // dashboard. Flipped to "discard" so the cleanup grid
+            // pre-checks it for removal; a user who actually wants a
+            // BeakerBot-themed funding line can uncheck the row.
+            cleanup_default: "discard",
           });
           next = appendArtifact(next, {
             type: "purchase",
@@ -171,10 +175,9 @@ function PurchasesDemoBody() {
           if (Number.isFinite(taskId)) {
             setCreated({ taskId, itemId: -1 });
             setStage("done");
-            advanceTimerRef.current = setTimeout(() => {
-              noteEventFired();
-              advance();
-            }, 2000);
+            // Resume path: existing artifact found, jump straight to
+            // the done view. Manual advance via the Got it, next
+            // button below — no timer.
             return;
           }
         }
@@ -207,14 +210,11 @@ function PurchasesDemoBody() {
         setCreated({ taskId: purchaseTask.id, itemId: item.id });
         await persistArtifacts(purchaseTask.id, item.id);
         setStage("done");
-
-        // Stage 3: 2s grace so the user sees the confirmation then
-        // advance. The auto-advance per §6.14 "Auto-advance after
-        // purchase saves" lock.
-        advanceTimerRef.current = setTimeout(() => {
-          noteEventFired();
-          advance();
-        }, 2000);
+        // Live-test R6 (2026-05-22): the auto-advance after 2s was
+        // too fast for the user to read the demo's confirmation copy
+        // (purchase task, line item, funding string narration). The
+        // step now waits for the manual "Got it, next" button surfaced
+        // by `completion: { type: "manual" }` below. No timer.
       } catch (err) {
         console.error(
           "[onboarding-v4] Purchases demo create failed:",
@@ -224,12 +224,8 @@ function PurchasesDemoBody() {
           "Couldn't create the sample purchase. The Purchases tab still works, this is just the tour demo. You can move on.",
         );
         setStage("error");
-        // Still advance after a beat so a broken demo doesn't block
-        // the rest of the tour.
-        advanceTimerRef.current = setTimeout(() => {
-          noteEventFired();
-          advance();
-        }, 4000);
+        // Even the error path waits for manual advance so the user
+        // sees the inline failure copy.
       }
     })();
   }, [username, advance, noteEventFired, persistArtifacts]);
@@ -312,9 +308,13 @@ export const purchasesConditionalStep: TourStep = {
   id: "purchases",
   pose: "cheering",
   speech: () => <PurchasesDemoBody />,
+  // Live-test R6 (2026-05-22): the prior event-driven completion fired
+  // 2s after the purchase save, which was too fast for the user to
+  // read the demo's confirmation copy. Switched to manual so the user
+  // paces themselves through the funding-string + line-item demo.
   completion: {
-    type: "event",
-    eventListener: () => () => {},
+    type: "manual",
+    buttonLabel: "Got it, next",
   },
   // Spotlight target: the Purchases tab nav button. Selector is the
   // same shape AppShell sidebar uses; TourSpotlight silently no-ops
