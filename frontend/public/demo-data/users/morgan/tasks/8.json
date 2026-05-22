@@ -18,7 +18,7 @@
   "sub_tasks": [
     {
       "id": "st1",
-      "text": "Tally remaining stocks in the \u221280 freezer",
+      "text": "Tally remaining stocks in the −80 freezer",
       "is_complete": true
     },
     {

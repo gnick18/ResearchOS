@@ -439,6 +439,7 @@ function buildEntries() {
         { id: "st1", text: "Pull flbA CDS from FakeYeast genome", is_complete: true },
         { id: "st2", text: "Design Gibson overlaps for pYES2", is_complete: true },
         { id: "st3", text: "Order gBlocks", is_complete: true },
+        { id: "st4", text: "Run IDT codon optimizer on flbA ORF", is_complete: true },
       ] },
     { id: 2, project_id: 1, name: "Yeast transformation: pYES-GAL1::flbA", start_date: "2026-05-08", duration_days: 1, end_date: "2026-05-08", task_type: "experiment", is_complete: true, experiment_color: "#3b82f6",
       sub_tasks: [
@@ -473,7 +474,14 @@ function buildEntries() {
         { id: "st3", text: "Photograph + annotate gel", is_complete: true },
       ],
       method_attachments: [{ method_id: 2, owner: "public", snapshot_at: "2026-05-13T07:00:00Z" }] },
-    { id: 6, project_id: 1, name: "Send sequencing — top 4", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "list", is_complete: false },
+    { id: 6, project_id: 1, name: "Send sequencing — top 4", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "list", is_complete: false,
+      sub_tasks: [
+        { id: "st1", text: "Mini-prep top 4 candidate colonies", is_complete: true },
+        { id: "st2", text: "NanoDrop concentrations, log >100 ng/uL", is_complete: true },
+        { id: "st3", text: "Fill out Genewiz sample sheet - primer pYES-F + pYES-R", is_complete: true },
+        { id: "st4", text: "Drop off samples at sequencing dropbox before 4pm", is_complete: false },
+        { id: "st5", text: "Pull chromatograms + run SnapGene alignment", is_complete: false },
+      ] },
     { id: 7, project_id: 2, name: "Order DemoStrain ΔADE2 reagents", start_date: LAST_WEEK, duration_days: 1, end_date: LAST_WEEK, task_type: "purchase", is_complete: true },
     // Completed 4 days ago but no results.md write-up and no images on
     // disk yet — populates the "Awaiting results" fixture for the outcome
@@ -554,11 +562,24 @@ function buildEntries() {
         { id: "st5", text: "Count colonies + compute survival %", is_complete: false },
       ],
       method_attachments: [{ method_id: 4, owner: "alex", snapshot_at: "2026-05-13T08:00:00Z" }] },
-    { id: 12, project_id: 3, name: "Compile growth-curve results", start_date: "2026-05-19", duration_days: 1, end_date: "2026-05-19", task_type: "list", is_complete: false },
+    { id: 12, project_id: 3, name: "Compile growth-curve results", start_date: "2026-05-19", duration_days: 1, end_date: "2026-05-19", task_type: "list", is_complete: false,
+      sub_tasks: [
+        { id: "st1", text: "Export plate reader CSVs from Tuesday + Thursday runs", is_complete: false },
+        { id: "st2", text: "Subtract YPD blank wells in pandas", is_complete: false },
+        { id: "st3", text: "Fit logistic growth + extract doubling times", is_complete: false },
+        { id: "st4", text: "Send rough OD600 plot to morgan for sanity check", is_complete: false },
+      ] },
     // Strategically-overdue: started a week ago, kept slipping. Stays
     // 6 days overdue regardless of when the demo is opened (see
     // OVERDUE_* anchors). Demonstrates the overdue UI state to users.
-    { id: 13, project_id: 4, name: "Update lab onboarding doc", start_date: OVERDUE_START, duration_days: 2, end_date: OVERDUE_END_6D, task_type: "list", is_complete: false },
+    { id: 13, project_id: 4, name: "Update lab onboarding doc", start_date: OVERDUE_START, duration_days: 2, end_date: OVERDUE_END_6D, task_type: "list", is_complete: false,
+      sub_tasks: [
+        { id: "st1", text: "Refresh the autoclave SOP - new run-time defaults", is_complete: true },
+        { id: "st2", text: "Add waste stream diagram for the −80 freezer area", is_complete: true },
+        { id: "st3", text: "Rewrite the pipette calibration section", is_complete: false },
+        { id: "st4", text: "Add ResearchOS quick-start screenshots", is_complete: false },
+        { id: "st5", text: "Ask morgan to proof the imaging room walkthrough", is_complete: false },
+      ] },
     // alex's task 14 is HOSTED into morgan's dissertation project (Option
     // C / cross-owner sharing). Both sides — `external_project` here and
     // `users/morgan/projects/2-hosted.json` below — must agree or the
@@ -572,7 +593,9 @@ function buildEntries() {
       sub_tasks: [
         { id: "st1", text: "Read intro + methods sections", is_complete: true },
         { id: "st2", text: "Annotate figures 1–3 with margin comments", is_complete: false },
-        { id: "st3", text: "Send consolidated feedback to morgan", is_complete: false },
+        { id: "st3", text: "Cross-check stats - n values + error bar definitions", is_complete: true },
+        { id: "st4", text: "Flag any panels that need re-rendering at 300dpi", is_complete: false },
+        { id: "st5", text: "Send consolidated feedback to morgan", is_complete: false },
       ] },
     { id: 15, project_id: 4, name: "Order LC-MS solvents", start_date: TODAY, duration_days: 1, end_date: TODAY, task_type: "purchase", is_complete: false },
     // Workbench "Ready" fixture: an experiment that kept slipping while the
@@ -592,6 +615,8 @@ function buildEntries() {
       sub_tasks: [
         { id: "st1", text: "Choose hosting (Notion vs internal wiki)", is_complete: true },
         { id: "st2", text: "Draft initial outline", is_complete: true },
+        { id: "st3", text: "Stub out sections - bench, safety, IT, software", is_complete: true },
+        { id: "st4", text: "Share read-only link with PI for sign-off", is_complete: true },
       ] },
     // Workbench Lists-tab fixtures (chip: Lists-tab landing). Each one
     // populates a specific section of the new tab. Anchored at BASE_DATE
@@ -601,8 +626,10 @@ function buildEntries() {
     { id: 21, project_id: 4, name: "Send compliance paperwork — quarterly renewal", start_date: OVERDUE_START, duration_days: 4, end_date: OVERDUE_END_2D, task_type: "list", is_complete: false,
       sub_tasks: [
         { id: "st1", text: "Pull approval form template from compliance portal", is_complete: true },
-        { id: "st2", text: "Get PI signature", is_complete: false },
-        { id: "st3", text: "Submit to compliance office + log confirmation", is_complete: false },
+        { id: "st2", text: "Update reagent list (added pYES2 + Gibson kit since last quarter)", is_complete: true },
+        { id: "st3", text: "Get PI signature", is_complete: false },
+        { id: "st4", text: "Scan + upload signed PDF to compliance portal", is_complete: false },
+        { id: "st5", text: "Submit to compliance office + log confirmation", is_complete: false },
       ] },
     // ── Scheduled later (alex/22): a list task that lives past the 14d
     //    Upcoming horizon, demonstrating the "+ N scheduled later" footer.
@@ -610,6 +637,8 @@ function buildEntries() {
       sub_tasks: [
         { id: "st1", text: "Sketch aims 1–3", is_complete: false },
         { id: "st2", text: "Draft preliminary-data list", is_complete: false },
+        { id: "st3", text: "Pull figures from FakeYeast biofuel project (Fig 2 + 4)", is_complete: false },
+        { id: "st4", text: "Book 1hr with PI to align on timeline", is_complete: false },
       ] },
     // ── Earlier (alex/23): completed > 30 days ago, lands in the
     //    collapsed-by-default Earlier accordion at the bottom of the panel.
@@ -617,6 +646,8 @@ function buildEntries() {
       sub_tasks: [
         { id: "st1", text: "Walk through bench safety + waste protocol", is_complete: true },
         { id: "st2", text: "Set up server account + lab notebook template", is_complete: true },
+        { id: "st3", text: "Demo Gibson assembly on a throwaway construct", is_complete: true },
+        { id: "st4", text: "Pair them with morgan for first imaging session", is_complete: true },
       ] },
     // ── /purchases dashboard fixtures (Chip B). Four historical purchase
     //    tasks span Nov 2025 → Apr 2026 so the new analytics dashboard
@@ -637,7 +668,8 @@ function buildEntries() {
       sub_tasks: [
         { id: "st1", text: "Walk benches with safety officer", is_complete: true },
         { id: "st2", text: "File quarterly chemical inventory report", is_complete: true },
-        { id: "st3", text: "Email summary to PI + safety office", is_complete: true },
+        { id: "st3", text: "Replace expired EtBr waste container", is_complete: true },
+        { id: "st4", text: "Email summary to PI + safety office", is_complete: true },
       ] },
     // ── Earlier (alex/29): completed > 30 days before BASE_DATE — gives the
     //    Earlier accordion a second alex row beside alex/20 + alex/23.
@@ -645,7 +677,8 @@ function buildEntries() {
       sub_tasks: [
         { id: "st1", text: "Export 2025 reagent ledger from shared sheet", is_complete: true },
         { id: "st2", text: "Move CSV into lab archive folder", is_complete: true },
-        { id: "st3", text: "Reset running tally for 2026", is_complete: true },
+        { id: "st3", text: "Snapshot −80 freezer map (Dec 31 layout)", is_complete: true },
+        { id: "st4", text: "Reset running tally for 2026", is_complete: true },
       ] },
     // PCR diff-display retrofit (Phase 2A) live-smoke fixture: alex-owned
     // PCR method attached to an alex task in project 1. Mirrors the LC
@@ -1813,10 +1846,23 @@ function buildEntries() {
       method_attachments: [{ method_id: 2, owner: "morgan", snapshot_at: "2026-05-13T08:00:00Z" }], shared_with: [{ username: "alex", permission: "edit" }] },
     // Strategically-overdue: writing tasks slip. Stays 4 days overdue
     // regardless of when the demo is opened (see OVERDUE_* anchors).
-    { id: 4, project_id: 2, name: "Draft Chapter 2 outline", start_date: OVERDUE_START, duration_days: 3, end_date: OVERDUE_END_4D, task_type: "list", is_complete: false },
+    { id: 4, project_id: 2, name: "Draft Chapter 2 outline", start_date: OVERDUE_START, duration_days: 3, end_date: OVERDUE_END_4D, task_type: "list", is_complete: false,
+      sub_tasks: [
+        { id: "st1", text: "Pull figures + key results from the 96-well screen project", is_complete: false },
+        { id: "st2", text: "Sketch section headers - intro, methods, results, discussion", is_complete: false },
+        { id: "st3", text: "List open questions to bring up with advisor", is_complete: false },
+        { id: "st4", text: "Draft figure list with target panels (Fig 2.1 - 2.6)", is_complete: false },
+        { id: "st5", text: "Block 2 mornings on calendar for first writing pass", is_complete: false },
+      ] },
     // Task 5 is shared with alex (view) independently of any shared project,
     // so the fixture covers the individually-shared task path too.
-    { id: 5, project_id: 2, name: "Send draft figures to alex", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "list", is_complete: false },
+    { id: 5, project_id: 2, name: "Send draft figures to alex", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "list", is_complete: false,
+      sub_tasks: [
+        { id: "st1", text: "Re-render Fig 1 at 300dpi in Illustrator", is_complete: true },
+        { id: "st2", text: "Pull updated fluorescence heatmap from notebook", is_complete: true },
+        { id: "st3", text: "Combine into a single annotated PDF", is_complete: false },
+        { id: "st4", text: "Email PDF to alex with comment thread on Fig 3", is_complete: false },
+      ] },
     // Task 6 is a PURCHASE task in morgan's shared project 1. Surfaces on
     // alex's /purchases page via the shared-project surface in
     // `fetchAllTasksIncludingShared`, and its items are visible to alex via
@@ -1834,6 +1880,8 @@ function buildEntries() {
       sub_tasks: [
         { id: "st1", text: "Tally remaining stocks in the −80 freezer", is_complete: true },
         { id: "st2", text: "Flag low items for the next purchase round", is_complete: true },
+        { id: "st3", text: "Check antibody fridge - note expiry dates", is_complete: true },
+        { id: "st4", text: "Update shared inventory sheet + ping alex", is_complete: true },
       ] },
     // ── Recent-done + shared (morgan/9): completed in the last 30 days,
     //    shared into alex via _shared_with_me.json above. On alex's Lists
@@ -1843,7 +1891,8 @@ function buildEntries() {
       sub_tasks: [
         { id: "st1", text: "Draft 96-well plate map for the joint screen", is_complete: true },
         { id: "st2", text: "Wire fixture column for alex's pYES library positives", is_complete: true },
-        { id: "st3", text: "Push template to the lab notebook", is_complete: true },
+        { id: "st3", text: "Add blank + positive control well annotations", is_complete: true },
+        { id: "st4", text: "Push template to the lab notebook", is_complete: true },
       ] },
     // ── /purchases dashboard fixtures (Chip B). Four historical purchase
     //    tasks on morgan's side, spanning Nov 2025 → Apr 2026 so the
