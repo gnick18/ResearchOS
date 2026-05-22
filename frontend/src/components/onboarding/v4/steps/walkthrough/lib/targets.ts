@@ -193,6 +193,26 @@ export const TOUR_TARGETS = {
   purchasesFormQuantity: "purchases-form-quantity",
   purchasesFormFunding: "purchases-form-funding",
   purchasesFormSubmit: "purchases-form-submit",
+
+  // §6.16 lab-permission-practice real-Workbench cursor demo (HR sub-bot
+  // 2026-05-22). The cursor drives a real interaction against the
+  // BeakerBot-shared experiment cards on /workbench instead of a paper-
+  // doll inline card. Each target only fires for cards whose owner ===
+  // BEAKERBOT_LAB_USERNAME (the spawn step's fake teammate) so the
+  // attribute can't accidentally collide with a real share from another
+  // teammate.
+  workbenchSharedEditExperiment: "workbench-shared-edit-experiment",
+  workbenchSharedViewExperiment: "workbench-shared-view-experiment",
+  // §6.16 cursor demo: the experiment popup's affordances the cursor
+  // drives during the real-Workbench permission demo. The popup is the
+  // ordinary `TaskDetailPopup`; these attributes only render once per
+  // popup mount so a single shared selector resolves the active popup
+  // regardless of which task was clicked.
+  taskPopupEditButton: "task-popup-edit-button",
+  taskPopupNameInput: "task-popup-name-input",
+  taskPopupSaveButton: "task-popup-save-button",
+  taskPopupDeleteButton: "task-popup-delete-button",
+  taskPopupClose: "task-popup-close",
 } as const;
 
 export type TourTargetName = (typeof TOUR_TARGETS)[keyof typeof TOUR_TARGETS];

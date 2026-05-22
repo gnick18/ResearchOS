@@ -29,6 +29,7 @@ import {
   findNextInChain,
   type WorkbenchSection,
 } from "@/lib/workbench/sectionAssignment";
+import { BEAKERBOT_LAB_USERNAME } from "@/components/onboarding/v4/steps/lab/lib/lab-fake-user";
 
 const DEFAULT_COLORS = [
   "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
@@ -366,8 +367,26 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
       <SharedFromPill owner={t.owner} />
     ) : undefined;
 
+    // Onboarding v4 §6.16 (HR 2026-05-22): stamp the BeakerBot-shared
+    // experiment cards so the lab-permission-practice step's cursor demo
+    // can target the EDIT card vs the VIEW card distinctly. Only fires
+    // for `BEAKERBOT_LAB_USERNAME` shares so an unrelated teammate's
+    // shares with matching `shared_permission` never collide.
+    const labTourTarget =
+      t.is_shared_with_me && t.owner === BEAKERBOT_LAB_USERNAME
+        ? t.shared_permission === "edit"
+          ? "workbench-shared-edit-experiment"
+          : t.shared_permission === "view"
+            ? "workbench-shared-view-experiment"
+            : undefined
+        : undefined;
+
     return (
-      <div key={taskKey(t)} className="flex flex-col gap-2">
+      <div
+        key={taskKey(t)}
+        className="flex flex-col gap-2"
+        data-tour-target={labTourTarget}
+      >
         <ExperimentResultCard
           task={{
             id: t.id,

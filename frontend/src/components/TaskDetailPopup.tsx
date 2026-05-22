@@ -769,6 +769,7 @@ export default function TaskDetailPopup({
             <Tooltip label="Close" placement="bottom">
             <button
               onClick={onClose}
+              data-tour-target="task-popup-close"
               className="text-gray-400 hover:text-gray-600 text-lg"
             >
               ✕
@@ -1826,6 +1827,7 @@ function DetailsTab({
         <div className="flex items-center gap-3">
           <button
             onClick={() => (editing ? handleCancelEdit() : handleEnterEdit())}
+            data-tour-target="task-popup-edit-button"
             className={`px-4 py-2 text-sm rounded-lg transition-colors ${
               editing
                 ? "bg-blue-100 text-blue-700 ring-1 ring-blue-300 hover:bg-blue-200"
@@ -1846,6 +1848,7 @@ function DetailsTab({
           <button
             disabled={task.is_shared_with_me}
             onClick={handleDelete}
+            data-tour-target="task-popup-delete-button"
             className={`px-4 py-2 text-sm rounded-lg ${
               task.is_shared_with_me
                 ? "text-gray-300 cursor-not-allowed"
@@ -2173,6 +2176,7 @@ function DetailsTab({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              data-tour-target="task-popup-name-input"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
@@ -2443,6 +2447,7 @@ function DetailsTab({
             <button
               onClick={handleSave}
               disabled={saving || !hasUnsavedChanges}
+              data-tour-target="task-popup-save-button"
               className={`px-4 py-2 text-sm rounded-lg transition-colors ${
                 hasUnsavedChanges
                   ? "text-white bg-blue-600 hover:bg-blue-700"
