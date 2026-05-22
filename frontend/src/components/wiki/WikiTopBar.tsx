@@ -52,6 +52,10 @@ export default function WikiTopBar() {
     let cached: string | null = null;
     try {
       cached = sessionStorage.getItem(RETURN_PATH_KEY);
+      // Clear immediately so the next round-trip starts fresh — otherwise a
+      // later deep-link visit (no `?return=` param) would still find this
+      // stale value and route back to the wrong origin.
+      sessionStorage.removeItem(RETURN_PATH_KEY);
     } catch {
       // ignore
     }
