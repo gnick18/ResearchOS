@@ -137,6 +137,15 @@ export const TOUR_TARGETS = {
   ganttNewTaskButton: "gantt-new-task-button",
   ganttFirstTaskBar: "gantt-first-task-bar",
   ganttGoalsButton: "gantt-goals-button",
+  // §6.8 chained-deps cascade marker (v4 §6.8 cascade polish sub-bot
+  // 2026-05-21): the cursor needs a SPECIFIC day cell ~5-7 days in the
+  // future so the cascade-reschedule drag drops at a clearly later date
+  // (instead of the timeline's center, which produces only a tiny shift).
+  // GanttChart stamps this on the day-HEADER element whose date matches
+  // today + 7 days, so the marker is unique (headers render once per
+  // visible date; row cells render once per row). The cursor script in
+  // GanttDependenciesStep targets it as the third drag's destination.
+  ganttLaterDateMarker: "gantt-later-date-marker",
 
   // §6.9 Animation picker (Gantt toolbar)
   ganttAnimationPicker: "gantt-animation-picker",

@@ -1,7 +1,8 @@
 "use client";
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { useState, useEffect, useRef, type ReactNode } from "react";
+import { appQueryClient } from "@/lib/query-client";
 import { usePathname } from "next/navigation";
 import { FileSystemProvider, useFileSystem, isFileSystemAccessSupported } from "@/lib/file-system/file-system-context";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
@@ -81,17 +82,14 @@ function AppContent({ children }: { children: ReactNode }) {
   // any future client-rendered queries inside the wiki work.
   const isWikiRoute = pathname?.startsWith("/wiki");
 
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 0,
-            refetchOnWindowFocus: false,
-          },
-        },
-      })
-  );
+  // QueryClient is a module-level singleton (see `appQueryClient` below)
+  // so non-React-tree consumers (e.g. the onboarding-v4 cursor scripts
+  // that fire programmatic API calls outside the component tree) can
+  // call `appQueryClient.refetchQueries(...)` without needing to thread
+  // a ref through the orchestrator. Inside the tree this is identical
+  // to the previous `useState(() => new QueryClient(...))` pattern: the
+  // singleton is created once on first import and reused forever.
+  const queryClient = appQueryClient;
 
   const { isConnected, isLoading, currentUser, loadingStage } = useFileSystem();
   const [showSetup, setShowSetup] = useState(false);
@@ -142,10 +140,32 @@ function AppContent({ children }: { children: ReactNode }) {
     // ?wikiCapture=1 screenshots), OnboardingProvider's own logic
     // pass-throughs the children unchanged — no behavior change in
     // those modes.
+    //
+    // V4 mount carve-out (live-test sub-bot 2026-05-21): when
+    // ?wizard-preview=1 OR ?wizardSeedStep=… is on the URL, we ALSO
+    // wrap children in V4MountForUser so automated tests + wiki
+    // captures can drive the v4 onboarding tour against the fixture
+    // store. Without this carve-out, the v4 tour controller never
+    // mounts in wikiCapture mode and the seed plumbing in
+    // wiki-capture-mock.ts has no consumer. Plain /demo and bare
+    // ?wikiCapture=1 stay unchanged — v4 only activates when the URL
+    // explicitly opts in.
+    const wantsV4Mount =
+      typeof window !== "undefined" &&
+      (() => {
+        const qs = new URLSearchParams(window.location.search);
+        return (
+          qs.get("wizard-preview") === "1" || qs.has("wizardSeedStep")
+        );
+      })();
     return (
       <QueryClientProvider client={queryClient}>
         <OnboardingProvider currentUser={currentUser}>
-          {children}
+          {wantsV4Mount ? (
+            <V4MountForUser username={currentUser}>{children}</V4MountForUser>
+          ) : (
+            children
+          )}
         </OnboardingProvider>
       </QueryClientProvider>
     );

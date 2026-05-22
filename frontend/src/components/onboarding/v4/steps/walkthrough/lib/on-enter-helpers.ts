@@ -29,11 +29,12 @@
  *
  * HR-dispatched: v4 onEnter wiring sub-bot 2026-05-21.
  */
-import { goalsApi, projectsApi, tasksApi } from "@/lib/local-api";
+import { dependenciesApi, goalsApi, projectsApi, tasksApi } from "@/lib/local-api";
 import { attachImageToTask } from "@/lib/attachments/attach-image";
 import { fileService } from "@/lib/file-system/file-service";
 import { taskNotesBase } from "@/lib/tasks/results-paths";
 import { patchOnboarding } from "@/lib/onboarding/sidecar";
+import { appQueryClient } from "@/lib/query-client";
 import type { Project, Task } from "@/lib/types";
 import { encodeTelegramImageId } from "../../../../v3/steps/walkthrough/lib/wizard-artifacts";
 import {
@@ -124,6 +125,54 @@ export async function onEnterGanttChainedDeps(ctx: {
     const alreadyPresent = existing.some((t) => demoNameSet.has(t.name));
     if (alreadyPresent) return [];
     const spawned = await spawnDemoDependencyTasks(project.id);
+    // v4 §6.8 cascade polish sub-bot 2026-05-21: create the A→B and
+    // B→C dependency edges here, NOT via cursor drags. BeakerBotCursor's
+    // `dragFromTo` primitive dispatches mouse events; the Gantt's
+    // bar-onto-bar drop handler (`handleDropOnTask`) listens for HTML5
+    // DragEvents, so the cursor's visual drag would not actually create
+    // the dep records. Without real edges, the third cursor drag (A
+    // onto a later date) would move A in isolation and B + C would
+    // stay put — defeating the cascade demo. Creating the edges here
+    // means the cursor's first two drags read as "watch me wire these
+    // up" while the data is already in place.
+    //
+    // `dep_type: "FS"` (Finish-to-Start) matches the default branch the
+    // user would pick from the dependency-creation popup if they were
+    // doing it by hand — see GanttChart's depPopup branches; "FS" is
+    // labelled "Start after" which is the most intuitive default for
+    // the demo's narrative ("chains move as a unit when you reschedule").
+    if (spawned.length === 3) {
+      const [aId, bId, cId] = spawned;
+      try {
+        await dependenciesApi.create({
+          parent_id: aId,
+          child_id: bId,
+          dep_type: "FS",
+        });
+        await dependenciesApi.create({
+          parent_id: bId,
+          child_id: cId,
+          dep_type: "FS",
+        });
+        // Refresh the Gantt's task + dependency queries so the bars
+        // and chain accents mount BEFORE the cursor's first visual
+        // drag fires. Without this refetch, the user would briefly
+        // see three unlinked bars (then a delayed chain render) which
+        // breaks the "I wired them up" narrative.
+        await Promise.all([
+          appQueryClient.refetchQueries({ queryKey: ["tasks"] }),
+          appQueryClient.refetchQueries({ queryKey: ["dependencies"] }),
+        ]);
+      } catch (err) {
+        // Dependency creation failure is non-fatal: the demo still
+        // shows three bars, just without the cascade. Surface in the
+        // console so authors can spot it during dev.
+        console.warn(
+          "[onboarding-v4] gantt-chained-deps: dep create failed",
+          err,
+        );
+      }
+    }
     // Record one `task` artifact per spawned demo so the Phase 4
     // cleanup grid shows three rows under "Tasks" with
     // cleanup_default "discard". Type stays `task` (the brief reconciled

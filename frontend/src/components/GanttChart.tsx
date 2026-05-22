@@ -1435,6 +1435,16 @@ export default function GanttChart({
                 const isWeekend = d.getDay() === 0 || d.getDay() === 6;
                 const isPto = ptoSet.has(ds);
                 const isDropTarget = !isLabMode && draggedTask && dragOverDate === ds;
+                // §6.8 onboarding-v4 cascade marker (v4 §6.8 cascade
+                // polish sub-bot 2026-05-21): exactly ONE header
+                // (today + 7 days) gets the tour-target attr so the
+                // chained-deps cursor has a stable, clearly-later
+                // destination. Headers render once per visible date,
+                // so this attr is unique across the chart. Guarded by
+                // `!isLabMode` because the cascade demo only runs in
+                // the user's own Gantt (the lab Gantt disables drag).
+                const isLaterMarker =
+                  !isLabMode && ds === ganttLaterMarkerDate;
                 const headerEl = (
                   <div
                     onDragOver={isLabMode ? undefined : (e) => handleDragOver(e, ds)}
@@ -1447,6 +1457,9 @@ export default function GanttChart({
                     // that only care about PTO-marked headers.
                     data-testid={`day-header-${ds}`}
                     data-pto-header={isPto ? "true" : undefined}
+                    data-tour-target={
+                      isLaterMarker ? "gantt-later-date-marker" : undefined
+                    }
                     className={`relative px-2 py-1.5 text-center text-xs font-medium transition-colors ${
                       isDropTarget
                         ? "bg-blue-200 text-blue-800"
