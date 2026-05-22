@@ -950,9 +950,11 @@ describe("WikiPointerStep (§6.12)", () => {
       "[data-tour-target=\"wiki-nav-tab\"]",
     );
   });
-  it("speech mentions the Wiki tab + back to work outro", () => {
+  it("speech mentions the Wiki tab (live-test R4 reworked to glide-only, no nav promise)", () => {
     const text = renderSpeech(wikiPointerStep);
     expect(text).toMatch(/Wiki tab/);
-    expect(text).toMatch(/back to your work/);
+    // R4: dropped "back to your work" and "I'll show you" because the
+    // step no longer navigates anywhere — pure glide-and-pause.
+    expect(text).toMatch(/Come back to it anytime/);
   });
 });
