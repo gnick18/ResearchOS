@@ -482,7 +482,15 @@ Each step has a `targetSelector` declaring its expected interaction target. The 
 - **"I've got it from here"** persistent link in speech bubble corner. Always visible during tour. Click → confirm modal → jumps to Phase 4 cleanup grid.
 - **"Skip this step"** per-step link. If skipped step's artifact is needed downstream, tour controller programmatically creates a placeholder per the v3 auto-prerequisite pattern.
 
-### 8.4 Wrong-action examples
+### 8.4 Universal pacing rule (2026-05-22)
+
+BeakerBot-led steps with a `cursorScript` wait for manual user advance ("Got it, next"). Auto-advance is reserved for narration-only steps without cursor work. Event-driven advance is reserved for user-action steps where the user clicks the product surface themselves.
+
+The rule catches the systemic "BeakerBot moves on too fast" complaint that drove the §6.4b deep-demo rework + the §6.14 purchases manual-advance fix. A regression-guard test in `step-bodies.test.tsx` walks every step body and fails if a cursor-script step uses auto or event completion.
+
+Side-effect DOM events (e.g. `tour:method-created`, `tour:experiment-popup-opened`) still fire from the product surface — step bodies that need them for artifact capture wire them in their `onEnter` listener. Only the advance contract is universally manual.
+
+### 8.5 Wrong-action examples
 
 | Step | Right action | Wrong action handling |
 |---|---|---|

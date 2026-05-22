@@ -23,7 +23,7 @@ import {
   safeTypeAction,
   compactScript,
 } from "./lib/cursor-script";
-import { autoAdvanceAfter, buildWalkthroughStep } from "./lib/step-helpers";
+import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 
 // "\n\n" — start a new paragraph chunk. Then a short sentence in the
@@ -45,7 +45,6 @@ export const hybridEditorParagraphsStep = buildWalkthroughStep({
     );
     return compactScript([typeParagraph]);
   }),
-  completion: autoAdvanceAfter(
-    Math.ceil(PARAGRAPH_DEMO.length * 25) + 1500,
-  ),
+  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
+  completion: manualAdvance("Got it, next"),
 });

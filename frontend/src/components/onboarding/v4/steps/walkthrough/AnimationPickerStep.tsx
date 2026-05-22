@@ -35,7 +35,7 @@ import {
   safeClickAction,
   compactScript,
 } from "./lib/cursor-script";
-import { autoAdvanceAfter, buildWalkthroughStep } from "./lib/step-helpers";
+import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 import { flushPendingArtifacts, pendingArtifactStore } from "./lib/artifacts";
 
@@ -63,7 +63,8 @@ export const animationPickerStep = buildWalkthroughStep({
     );
     return compactScript([openPicker, pickCelebration]);
   }),
-  completion: autoAdvanceAfter(2500),
+  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
+  completion: manualAdvance("Got it, next"),
   // Capture the pre-change animationType so the artifact encodes the
   // original value for cleanup-execution.ts's settings_change revert
   // path. Done in onEnter, BEFORE the cursor picks "celebration".

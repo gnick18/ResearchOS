@@ -25,7 +25,7 @@ import {
   safeClickAction,
   compactScript,
 } from "./lib/cursor-script";
-import { autoAdvanceAfter, buildWalkthroughStep } from "./lib/step-helpers";
+import { autoAdvanceAfter, manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 import { flushPendingArtifacts, pendingArtifactStore } from "./lib/artifacts";
 
@@ -53,7 +53,8 @@ export const settingsColorStep = buildWalkthroughStep({
     );
     return compactScript([swatch]);
   }),
-  completion: autoAdvanceAfter(2000),
+  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
+  completion: manualAdvance("Got it, next"),
   // Capture the pre-change color so the artifact encodes the original
   // value for the cleanup-execution.ts settings_change revert path.
   // Done in onEnter (BEFORE the cursor clicks the swatch) so the

@@ -38,9 +38,8 @@ import {
   safeDragAction,
   compactScript,
 } from "./lib/cursor-script";
-import { advanceOnEvent, buildWalkthroughStep } from "./lib/step-helpers";
+import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
-import { watchImageAttached } from "./lib/tour-events";
 
 export const SELFIE_ASSET_PATH = "/onboarding/beakerbot-selfie.png";
 
@@ -61,5 +60,6 @@ export const hybridEditorImageDropStep = buildWalkthroughStep({
     );
     return compactScript([drag]);
   }),
-  completion: advanceOnEvent(watchImageAttached),
+  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
+  completion: manualAdvance("Got it, next"),
 });

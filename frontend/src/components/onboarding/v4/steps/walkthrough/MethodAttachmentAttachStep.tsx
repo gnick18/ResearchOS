@@ -23,7 +23,7 @@ import {
   safeClickAction,
   compactScript,
 } from "./lib/cursor-script";
-import { autoAdvanceAfter, buildWalkthroughStep } from "./lib/step-helpers";
+import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 
 export const methodAttachmentAttachStep = buildWalkthroughStep({
@@ -50,10 +50,7 @@ export const methodAttachmentAttachStep = buildWalkthroughStep({
     );
     return compactScript([attachClick, firstMethodClick]);
   }),
-  // Cursor budget: ~1.5s glide+click for the attach button, ~0.5s for
-  // the picker to mount, ~1.5s glide+click for the first method tile,
-  // ~1s breath. Tight enough to feel responsive, loose enough to let
-  // the picker mount animation finish.
-  completion: autoAdvanceAfter(4500),
+  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
+  completion: manualAdvance("Got it, next"),
   expectedRoute: "/workbench",
 });

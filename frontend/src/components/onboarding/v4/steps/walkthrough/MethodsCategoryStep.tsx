@@ -47,14 +47,11 @@ import {
   compactScript,
 } from "./lib/cursor-script";
 import {
-  advanceOnEvent,
+  manualAdvance,
   buildWalkthroughStep,
 } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
-import {
-  watchMethodsCategoryCreated,
-  TOUR_DOM_EVENTS,
-} from "./lib/tour-events";
+import { TOUR_DOM_EVENTS } from "./lib/tour-events";
 import {
   clearMethodsCategoryPick,
   readMethodsCategoryPick,
@@ -99,10 +96,11 @@ export const methodsCategoryDemoStep = buildWalkthroughStep({
     );
     return compactScript([typeName, submit]);
   }),
-  // Event-driven: methods page dispatches
-  // `tour:methods-category-created` from its category-create success
-  // handler. The watcher fires once and the controller advances.
-  completion: advanceOnEvent(watchMethodsCategoryCreated),
+  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
+  // The `tour:methods-category-created` event still fires as a
+  // side-effect signal — onEnter listens to capture the artifact
+  // label — but the step advances on the user's manual click.
+  completion: manualAdvance("Got it, next"),
   // Capture the new category label out of the `tour:methods-category-created`
   // event detail so Phase 4 cleanup grid renders the right row. The
   // category is local-state only (no backend id), so the label itself

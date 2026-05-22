@@ -37,7 +37,7 @@ import {
   safeTypeAction,
   compactScript,
 } from "./lib/cursor-script";
-import { autoAdvanceAfter, buildWalkthroughStep } from "./lib/step-helpers";
+import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 
 const SHORTCUTS_DEMO = [
@@ -85,7 +85,6 @@ export const hybridEditorShortcutsStep = buildWalkthroughStep({
     );
     return compactScript([openNotes, typeShortcuts]);
   }),
-  completion: autoAdvanceAfter(
-    Math.ceil(SHORTCUTS_DEMO.length * 25) + 1500,
-  ),
+  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
+  completion: manualAdvance("Got it, next"),
 });

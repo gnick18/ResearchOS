@@ -198,6 +198,28 @@ describe("P5 step bodies — universal contract", () => {
     }
   });
 
+  // Universal pacing rule (Grant 2026-05-22): any step where BeakerBot's
+  // cursor performs an action must wait for the user to click manually
+  // before advancing. Auto-advance is reserved for narration-only steps
+  // without cursor work; event-driven advance is reserved for
+  // user-action steps where the user clicks the product surface
+  // themselves. A BeakerBot demo that auto-advanced would leave the
+  // user reading speech while the next step kicked in.
+  it("every step with a cursorScript has manual completion (universal pacing rule, Grant 2026-05-22)", () => {
+    const violations: Array<{ id: string; type: string }> = [];
+    for (const step of ALL_STEPS) {
+      if (step.cursorScript === undefined) continue;
+      if (step.completion.type !== "manual") {
+        violations.push({ id: step.id, type: step.completion.type });
+      }
+    }
+    expect(
+      violations,
+      `universal pacing rule violated: BeakerBot demo steps must use manualAdvance. ` +
+        `Offending steps: ${JSON.stringify(violations)}`,
+    ).toHaveLength(0);
+  });
+
   it("BeakerBot-demo steps retain a cursorScript (Grant 2026-05-21 audit)", () => {
     // Cursor responsibility audit: every step classified as demo
     // (BeakerBot-led) must still expose a cursorScript so the demo
@@ -330,8 +352,12 @@ describe("HomeCreateProjectFillStep (§6.1 fill)", () => {
 });
 
 describe("ProjectOverviewNavStep (§6.2 nav)", () => {
-  it("declares event-driven completion (project-route-entered DOM event)", () => {
-    expect(projectOverviewNavStep.completion.type).toBe("event");
+  it("declares manual completion (universal pacing rule, Grant 2026-05-22)", () => {
+    // Universal pacing: BeakerBot's cursor clicks the project card to
+    // drive the route change; the user clicks "Got it, next" when they
+    // see the project route land. Previously event-driven on
+    // `tour:project-route-entered`.
+    expect(projectOverviewNavStep.completion.type).toBe("manual");
   });
   it("has no targetSelector (the cursor click on the card is the cue)", () => {
     // A spotlight would dim the rest of home and steal focus from the
@@ -349,21 +375,11 @@ describe("ProjectOverviewNavStep (§6.2 nav)", () => {
   it("expectedRoute is `/` so refresh lands the user back on home", () => {
     expect(projectOverviewNavStep.expectedRoute).toBe("/");
   });
-  it("advances when the tour:project-route-entered DOM event fires", async () => {
-    if (projectOverviewNavStep.completion.type !== "event") {
+  it("uses the 'Got it, next' button label (universal pacing rule)", () => {
+    if (projectOverviewNavStep.completion.type !== "manual") {
       throw new Error("completion contract changed shape; update test");
     }
-    let advanced = false;
-    const stop = projectOverviewNavStep.completion.eventListener(() => {
-      advanced = true;
-    });
-    try {
-      window.dispatchEvent(new CustomEvent("tour:project-route-entered"));
-      await Promise.resolve();
-      expect(advanced).toBe(true);
-    } finally {
-      stop();
-    }
+    expect(projectOverviewNavStep.completion.buttonLabel).toBe("Got it, next");
   });
   it("cursor script issues a click against the project card", async () => {
     // Mount a fixture project card matching the cursor script's selector.
@@ -529,13 +545,13 @@ describe("Notifications sub-steps (§6.3 bell / silence / delete)", () => {
 });
 
 describe("Methods steps (§6.4)", () => {
-  it("category demo step advances on the methods-category-created event (v4 sec 6.4 redesign)", () => {
-    // The pre-redesign step manually advanced; the redesign wires
-    // the methods page to dispatch `tour:methods-category-created`
-    // from its category-create handler so the demo's
-    // cursor-then-modal sequence advances the moment the modal
-    // saves.
-    expect(methodsCategoryStep.completion.type).toBe("event");
+  it("category demo step uses manual completion (universal pacing rule, Grant 2026-05-22)", () => {
+    // The category-created event still fires (the onEnter listener
+    // captures the picked label for the cleanup artifact), but the step
+    // advances on the user's manual click rather than the event. This
+    // matches the universal pacing rule: BeakerBot-led demo steps wait
+    // for the user.
+    expect(methodsCategoryStep.completion.type).toBe("manual");
   });
   it("breadth step renders the type-tour speech", () => {
     const speech = renderSpeech(methodsBreadthStep);
@@ -605,7 +621,11 @@ describe("Methods steps (§6.4)", () => {
   });
   it("methods-create step uses the funny coffee protocol name", () => {
     expect(FUNNY_METHOD_NAME).toMatch(/Coffee Brewing/);
-    expect(methodsCreateStep.completion.type).toBe("event");
+    // Universal pacing rule (Grant 2026-05-22): the BeakerBot demo
+    // types + clicks save; the user clicks Next when ready. The
+    // method-created DOM event still fires for the onEnter artifact
+    // capture but no longer drives advance.
+    expect(methodsCreateStep.completion.type).toBe("manual");
   });
 });
 
@@ -644,8 +664,10 @@ describe("MethodsLcDemoStep (§6.4b LC Gradient invite-to-explore beat)", () => 
 });
 
 describe("MethodsOpenPickerStep (§6.4 open-picker beat)", () => {
-  it("declares event-driven completion (methods-picker-opened DOM event)", () => {
-    expect(methodsOpenPickerStep.completion.type).toBe("event");
+  it("declares manual completion (universal pacing rule, Grant 2026-05-22)", () => {
+    // Was event-driven on `tour:methods-picker-opened`. Universal pacing
+    // converts BeakerBot-led demo steps to manual advance.
+    expect(methodsOpenPickerStep.completion.type).toBe("manual");
   });
   it("uses pose: pointing per the brief", () => {
     expect(methodsOpenPickerStep.pose).toBe("pointing");
@@ -676,21 +698,11 @@ describe("MethodsOpenPickerStep (§6.4 open-picker beat)", () => {
       button.remove();
     }
   });
-  it("advances when the tour:methods-picker-opened DOM event fires", async () => {
-    if (methodsOpenPickerStep.completion.type !== "event") {
+  it("uses the 'Got it, next' button label (universal pacing rule)", () => {
+    if (methodsOpenPickerStep.completion.type !== "manual") {
       throw new Error("completion contract changed shape; update test");
     }
-    let advanced = false;
-    const stop = methodsOpenPickerStep.completion.eventListener(() => {
-      advanced = true;
-    });
-    try {
-      window.dispatchEvent(new CustomEvent("tour:methods-picker-opened"));
-      await Promise.resolve();
-      expect(advanced).toBe(true);
-    } finally {
-      stop();
-    }
+    expect(methodsOpenPickerStep.completion.buttonLabel).toBe("Got it, next");
   });
   it("expectedRoute is /methods so refresh lands the user back on the page", () => {
     expect(methodsOpenPickerStep.expectedRoute).toBe("/methods");
@@ -746,8 +758,10 @@ describe("WorkbenchCreateExperimentStep (§6.5a-demo, Grant 2026-05-21 split)", 
   it("exports placeholder experiment name for re-use by §6.11 search", () => {
     expect(PLACEHOLDER_EXPERIMENT_NAME).toBe("Demo Experiment One");
   });
-  it("declares event-driven completion (tasksApi.create poll)", () => {
-    expect(workbenchCreateExperimentStep.completion.type).toBe("event");
+  it("declares manual completion (universal pacing rule, Grant 2026-05-22)", () => {
+    // Was event-driven on the tasksApi.create poll. Universal pacing
+    // converts BeakerBot-led demo steps to manual advance.
+    expect(workbenchCreateExperimentStep.completion.type).toBe("manual");
   });
   it("retains a cursorScript (demo step types the name + clicks Save)", () => {
     // Post-split classification: BeakerBot now types the placeholder
@@ -799,8 +813,10 @@ describe("MethodAttachmentStep (§6.6)", () => {
 });
 
 describe("MethodAttachment split sub-steps (§6.6 popup-mount split, 2026-05-21)", () => {
-  it("open sub-step declares event-driven completion (experiment-popup-opened)", () => {
-    expect(methodAttachmentOpenStep.completion.type).toBe("event");
+  it("open sub-step declares manual completion (universal pacing rule, Grant 2026-05-22)", () => {
+    // Was event-driven on `tour:experiment-popup-opened`. Universal
+    // pacing rule converts BeakerBot-led demo steps to manual advance.
+    expect(methodAttachmentOpenStep.completion.type).toBe("manual");
   });
   it("open sub-step has id `experiment-attach-method-open`", () => {
     expect(methodAttachmentOpenStep.id).toBe("experiment-attach-method-open");
@@ -813,55 +829,30 @@ describe("MethodAttachment split sub-steps (§6.6 popup-mount split, 2026-05-21)
       /Now let me open the experiment we just made/,
     );
   });
-  it("open sub-step advances when tour:experiment-popup-opened fires", async () => {
-    if (methodAttachmentOpenStep.completion.type !== "event") {
+  it("open sub-step uses the 'Got it, next' button label (universal pacing)", () => {
+    if (methodAttachmentOpenStep.completion.type !== "manual") {
       throw new Error("completion contract changed shape; update test");
     }
-    let advanced = false;
-    const stop = methodAttachmentOpenStep.completion.eventListener(() => {
-      advanced = true;
-    });
-    try {
-      window.dispatchEvent(
-        new CustomEvent("tour:experiment-popup-opened", {
-          detail: { experimentId: 7 },
-        }),
-      );
-      await Promise.resolve();
-      expect(advanced).toBe(true);
-    } finally {
-      stop();
-    }
+    expect(methodAttachmentOpenStep.completion.buttonLabel).toBe("Got it, next");
   });
 
   it("tab sub-step has id `experiment-attach-method-tab`", () => {
     expect(methodAttachmentTabStep.id).toBe("experiment-attach-method-tab");
   });
-  it("tab sub-step declares event-driven completion (methods-tab-active)", () => {
-    expect(methodAttachmentTabStep.completion.type).toBe("event");
+  it("tab sub-step declares manual completion (universal pacing rule, Grant 2026-05-22)", () => {
+    // Was event-driven on `tour:experiment-methods-tab-active`.
+    expect(methodAttachmentTabStep.completion.type).toBe("manual");
   });
   it("tab sub-step targets experiment-methods-tab anchor", () => {
     expect(methodAttachmentTabStep.targetSelector).toBe(
       "[data-tour-target=\"experiment-methods-tab\"]",
     );
   });
-  it("tab sub-step advances when tour:experiment-methods-tab-active fires", async () => {
-    if (methodAttachmentTabStep.completion.type !== "event") {
+  it("tab sub-step uses the 'Got it, next' button label (universal pacing)", () => {
+    if (methodAttachmentTabStep.completion.type !== "manual") {
       throw new Error("completion contract changed shape; update test");
     }
-    let advanced = false;
-    const stop = methodAttachmentTabStep.completion.eventListener(() => {
-      advanced = true;
-    });
-    try {
-      window.dispatchEvent(
-        new CustomEvent("tour:experiment-methods-tab-active"),
-      );
-      await Promise.resolve();
-      expect(advanced).toBe(true);
-    } finally {
-      stop();
-    }
+    expect(methodAttachmentTabStep.completion.buttonLabel).toBe("Got it, next");
   });
 
   it("attach sub-step has id `experiment-attach-method-attach`", () => {
@@ -869,8 +860,8 @@ describe("MethodAttachment split sub-steps (§6.6 popup-mount split, 2026-05-21)
       "experiment-attach-method-attach",
     );
   });
-  it("attach sub-step declares auto-advance completion", () => {
-    expect(methodAttachmentAttachStep.completion.type).toBe("auto");
+  it("attach sub-step declares manual completion (universal pacing rule, Grant 2026-05-22)", () => {
+    expect(methodAttachmentAttachStep.completion.type).toBe("manual");
   });
   it("attach sub-step targets experiment-attach-method anchor", () => {
     expect(methodAttachmentAttachStep.targetSelector).toBe(
@@ -883,8 +874,8 @@ describe("MethodAttachment split sub-steps (§6.6 popup-mount split, 2026-05-21)
       "experiment-attach-method-notes",
     );
   });
-  it("notes sub-step declares auto-advance completion", () => {
-    expect(methodAttachmentNotesStep.completion.type).toBe("auto");
+  it("notes sub-step declares manual completion (universal pacing rule, Grant 2026-05-22)", () => {
+    expect(methodAttachmentNotesStep.completion.type).toBe("manual");
   });
   it("notes sub-step uses pose typing-on-laptop", () => {
     expect(methodAttachmentNotesStep.pose).toBe("typing-on-laptop");
@@ -899,16 +890,14 @@ describe("MethodAttachment split sub-steps (§6.6 popup-mount split, 2026-05-21)
 });
 
 describe("Hybrid editor steps (§6.7)", () => {
-  it("shortcuts step declares auto completion (typing + buffer)", () => {
-    expect(hybridEditorShortcutsStep.completion.type).toBe("auto");
-  });
-  it("paragraphs step declares auto completion", () => {
-    expect(hybridEditorParagraphsStep.completion.type).toBe("auto");
-  });
-  it("image-drop step declares event-driven completion (imageEvents)", () => {
-    expect(hybridEditorImageDropStep.completion.type).toBe("event");
-  });
-  it("resize step declares manual completion (no clean event)", () => {
+  it("all four sub-steps declare manual completion (universal pacing rule, Grant 2026-05-22)", () => {
+    // Was: shortcuts auto, paragraphs auto, image-drop event, resize
+    // manual. Universal pacing converts the three BeakerBot-led demo
+    // steps (shortcuts/paragraphs/image-drop) to manual; resize was
+    // already manual.
+    expect(hybridEditorShortcutsStep.completion.type).toBe("manual");
+    expect(hybridEditorParagraphsStep.completion.type).toBe("manual");
+    expect(hybridEditorImageDropStep.completion.type).toBe("manual");
     expect(hybridEditorResizeStep.completion.type).toBe("manual");
   });
 });

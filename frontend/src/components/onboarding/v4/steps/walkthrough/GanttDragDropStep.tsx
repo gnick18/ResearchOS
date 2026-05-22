@@ -33,7 +33,7 @@ import {
   compactScript,
   waitForElement,
 } from "./lib/cursor-script";
-import { autoAdvanceAfter, buildWalkthroughStep } from "./lib/step-helpers";
+import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 
 export const ganttDragDropStep = buildWalkthroughStep({
@@ -57,6 +57,7 @@ export const ganttDragDropStep = buildWalkthroughStep({
     );
     return compactScript([drag]);
   }),
-  completion: autoAdvanceAfter(3000),
+  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
+  completion: manualAdvance("Got it, next"),
   expectedRoute: "/gantt",
 });

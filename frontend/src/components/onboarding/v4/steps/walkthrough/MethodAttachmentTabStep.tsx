@@ -21,9 +21,8 @@ import {
   safeClickAction,
   compactScript,
 } from "./lib/cursor-script";
-import { advanceOnEvent, buildWalkthroughStep } from "./lib/step-helpers";
+import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
-import { watchExperimentMethodsTabActive } from "./lib/tour-events";
 
 export const methodAttachmentTabStep = buildWalkthroughStep({
   id: "experiment-attach-method-tab",
@@ -38,6 +37,7 @@ export const methodAttachmentTabStep = buildWalkthroughStep({
     );
     return compactScript([tabClick]);
   }),
-  completion: advanceOnEvent(watchExperimentMethodsTabActive),
+  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
+  completion: manualAdvance("Got it, next"),
   expectedRoute: "/workbench",
 });

@@ -26,7 +26,7 @@ import {
   safeClickAction,
   compactScript,
 } from "./lib/cursor-script";
-import { autoAdvanceAfter, buildWalkthroughStep } from "./lib/step-helpers";
+import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 
 /** One click action (~1180ms) + 500ms for the new cycle block render. */
@@ -45,7 +45,8 @@ export const methodsPcrConfirmCycleStep = buildWalkthroughStep({
     );
     return compactScript([confirm]);
   }),
-  completion: autoAdvanceAfter(PCR_CONFIRM_CYCLE_BUDGET_MS),
+  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
+  completion: manualAdvance("Got it, next"),
   expectedRoute: "/methods",
   // §6.4b viewport anchor (input-lock + viewport-anchor sub-bot 2026-05-21):
   // anchor the whole PCR builder card so when the new cycle drops into

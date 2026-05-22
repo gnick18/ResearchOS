@@ -47,7 +47,7 @@ import {
   safeDragAction,
   compactScript,
 } from "./lib/cursor-script";
-import { autoAdvanceAfter, buildWalkthroughStep } from "./lib/step-helpers";
+import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 
 export const DEP_CHAIN_NAMES = [
@@ -253,10 +253,10 @@ export const ganttDependenciesStep = buildWalkthroughStep({
 
     return compactScript([linkAB, linkBC, reschedA]);
   }),
-  // Bumped from 4500ms to 9000ms so the cascade reschedule (fired at
-  // ~6500ms post-script-start) has time to land + render before the
-  // auto-advance moves on. Without the bump, the next step would
-  // mount while B and C are still settling into their cascaded dates.
-  completion: autoAdvanceAfter(9000),
+  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
+  // The cascade reschedule (fired at ~6500ms post-script-start) still
+  // lands while the user reads the speech bubble; clicking "Got it,
+  // next" advances after the user has seen B and C cascade.
+  completion: manualAdvance("Got it, next"),
   expectedRoute: "/gantt",
 });

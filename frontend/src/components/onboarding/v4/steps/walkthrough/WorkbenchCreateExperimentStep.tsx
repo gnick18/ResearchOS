@@ -35,9 +35,8 @@ import {
   safeTypeAction,
   compactScript,
 } from "./lib/cursor-script";
-import { advanceOnEvent, buildWalkthroughStep } from "./lib/step-helpers";
+import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
-import { watchTaskCreated } from "./lib/tour-events";
 import { flushPendingArtifacts, pendingArtifactStore } from "./lib/artifacts";
 
 const STEP_ID = "workbench-create-experiment";
@@ -75,7 +74,8 @@ export const workbenchCreateExperimentStep = buildWalkthroughStep({
     );
     return compactScript([typeName, submit]);
   }),
-  completion: advanceOnEvent(watchTaskCreated),
+  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
+  completion: manualAdvance("Got it, next"),
   // Snapshot the no-project task ids on enter; the diff on exit
   // identifies the experiment BeakerBot created. No DOM event exists
   // for tasksApi.create (the watcher polls listByProject), so we

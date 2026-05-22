@@ -216,25 +216,15 @@ describe("MethodsCategoryDemoStep (v4 sec 6.4 redesign)", () => {
     }
   });
 
-  it("demo step advances on the methods-category-created DOM event", async () => {
-    if (methodsCategoryDemoStep.completion.type !== "event") {
+  it("demo step uses manual completion (universal pacing rule, Grant 2026-05-22)", () => {
+    // Was event-driven on `tour:methods-category-created`. The
+    // category-created event still fires; the demo step's onEnter
+    // listener captures the user-picked label out of the event detail
+    // for the cleanup artifact, but advance is now manual.
+    if (methodsCategoryDemoStep.completion.type !== "manual") {
       throw new Error("completion contract changed shape; update test");
     }
-    let advanced = false;
-    const stop = methodsCategoryDemoStep.completion.eventListener(() => {
-      advanced = true;
-    });
-    try {
-      window.dispatchEvent(
-        new CustomEvent("tour:methods-category-created", {
-          detail: { categoryName: "Chemistry" },
-        }),
-      );
-      await Promise.resolve();
-      expect(advanced).toBe(true);
-    } finally {
-      stop();
-    }
+    expect(methodsCategoryDemoStep.completion.buttonLabel).toBe("Got it, next");
   });
 
   it("onExit clears the picker hand-off so a re-run starts fresh", async () => {

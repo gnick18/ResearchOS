@@ -33,8 +33,7 @@ import {
   safeClickAction,
   compactScript,
 } from "./lib/cursor-script";
-import { advanceOnEvent, buildWalkthroughStep } from "./lib/step-helpers";
-import { watchProjectRouteEntered } from "./lib/tour-events";
+import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 
 export const projectOverviewNavStep = buildWalkthroughStep({
   id: "project-overview-nav",
@@ -58,7 +57,10 @@ export const projectOverviewNavStep = buildWalkthroughStep({
     );
     return compactScript([cardClick]);
   }),
-  completion: advanceOnEvent(watchProjectRouteEntered),
+  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
+  // The cursor's project-card click drives the actual route change;
+  // the user sees the navigation land and then clicks Next.
+  completion: manualAdvance("Got it, next"),
   // Auto-navigate to home so the project card anchor resolves on
   // refresh. The cursor click then pushes us into the project route.
   expectedRoute: "/",

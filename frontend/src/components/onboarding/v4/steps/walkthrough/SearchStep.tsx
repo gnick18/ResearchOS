@@ -24,7 +24,7 @@ import {
   safeTypeAction,
   compactScript,
 } from "./lib/cursor-script";
-import { autoAdvanceAfter, buildWalkthroughStep } from "./lib/step-helpers";
+import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { PLACEHOLDER_EXPERIMENT_NAME } from "./WorkbenchCreateExperimentStep";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 
@@ -58,6 +58,7 @@ export const searchStep = buildWalkthroughStep({
     );
     return compactScript([type]);
   }),
-  completion: autoAdvanceAfter(1000 + Math.ceil(SEARCH_QUERY.length * 48) + 2000),
+  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
+  completion: manualAdvance("Got it, next"),
   expectedRoute: "/search",
 });

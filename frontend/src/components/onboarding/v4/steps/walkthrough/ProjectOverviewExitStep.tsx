@@ -28,7 +28,7 @@ import {
   safeGlideToElementAction,
 } from "./lib/cursor-script";
 import {
-  autoAdvanceAfter,
+  manualAdvance,
   buildWalkthroughStep,
 } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
@@ -44,11 +44,9 @@ export const projectOverviewExitStep = buildWalkthroughStep({
     );
     return compactScript([glide]);
   }),
-  // expectedRoute drives the actual navigation. The cursor's job is to
-  // give the user a visual anchor for "this is where I went"; the
-  // router.push effect in TourController handles the browser nav. We
-  // pad ~1500ms after the glide so the user sees the cursor land on
-  // the Home tab before the page transition kicks in.
-  completion: autoAdvanceAfter(1500),
+  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
+  // expectedRoute still drives the actual navigation; the cursor glides
+  // to the Home tab and the router.push fires while the user reads.
+  completion: manualAdvance("Got it, next"),
   expectedRoute: "/",
 });

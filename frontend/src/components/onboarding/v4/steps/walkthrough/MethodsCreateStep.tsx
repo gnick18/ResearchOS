@@ -50,9 +50,9 @@ import {
   safeTypeAction,
   compactScript,
 } from "./lib/cursor-script";
-import { advanceOnEvent, buildWalkthroughStep } from "./lib/step-helpers";
+import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
-import { watchMethodCreated, TOUR_DOM_EVENTS } from "./lib/tour-events";
+import { TOUR_DOM_EVENTS } from "./lib/tour-events";
 import { readMethodsCategoryPick } from "./MethodsCategoryPromptStep";
 import { flushPendingArtifacts, pendingArtifactStore } from "./lib/artifacts";
 
@@ -157,7 +157,11 @@ export const methodsCreateStep = buildWalkthroughStep({
       submit,
     ]);
   }),
-  completion: advanceOnEvent(watchMethodCreated),
+  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
+  // The `tour:method-created` event still fires when the save resolves;
+  // onEnter listens to capture the new method id, then the user clicks
+  // to advance.
+  completion: manualAdvance("Got it, next"),
   // Capture the created method id out of the `tour:method-created` DOM
   // event detail (dispatched by CreateMethodModal on save success). The
   // id is encoded with the `:placeholder` source tag so the Phase 4

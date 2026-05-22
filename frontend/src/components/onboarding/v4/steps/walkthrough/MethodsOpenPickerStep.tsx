@@ -31,11 +31,10 @@ import {
   compactScript,
 } from "./lib/cursor-script";
 import {
-  advanceOnEvent,
+  manualAdvance,
   buildWalkthroughStep,
 } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
-import { watchMethodsPickerOpened } from "./lib/tour-events";
 
 export const methodsOpenPickerStep = buildWalkthroughStep({
   id: "methods-open-picker",
@@ -49,6 +48,7 @@ export const methodsOpenPickerStep = buildWalkthroughStep({
     );
     return compactScript([openPicker]);
   }),
-  completion: advanceOnEvent(watchMethodsPickerOpened),
+  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
+  completion: manualAdvance("Got it, next"),
   expectedRoute: "/methods",
 });

@@ -41,7 +41,7 @@ import {
   safeGlideToElementAction,
   compactScript,
 } from "./lib/cursor-script";
-import { autoAdvanceAfter, buildWalkthroughStep } from "./lib/step-helpers";
+import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 
 // Live-test R4 (2026-05-22): the prior cursor-click variant navigated
@@ -64,5 +64,6 @@ export const wikiPointerStep = buildWalkthroughStep({
     );
     return compactScript([glide]);
   }),
-  completion: autoAdvanceAfter(3000),
+  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
+  completion: manualAdvance("Got it, next"),
 });

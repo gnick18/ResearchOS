@@ -35,7 +35,7 @@ import {
   safeTypeAction,
   compactScript,
 } from "./lib/cursor-script";
-import { autoAdvanceAfter, buildWalkthroughStep } from "./lib/step-helpers";
+import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 
 export const VARIATION_NOTE = "This experiment uses 30 C instead of 25 C.";
@@ -68,9 +68,7 @@ export const methodAttachmentNotesStep = buildWalkthroughStep({
     );
     return compactScript([focusClick, typeNote]);
   }),
-  // BeakerBotCursor types at 48ms (commit 95de59e2); +1s lead + 1.5s tail.
-  completion: autoAdvanceAfter(
-    1000 + Math.ceil(VARIATION_NOTE.length * 48) + 1500,
-  ),
+  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
+  completion: manualAdvance("Got it, next"),
   expectedRoute: "/workbench",
 });

@@ -31,7 +31,7 @@ import {
   compactScript,
   waitForElement,
 } from "./lib/cursor-script";
-import { autoAdvanceAfter, buildWalkthroughStep } from "./lib/step-helpers";
+import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 
 /** ~1180ms click + 320ms buffer for the toolbar to render new buttons. */
@@ -54,7 +54,8 @@ export const methodsPcrEditStep = buildWalkthroughStep({
     );
     return compactScript([editBtn]);
   }),
-  completion: autoAdvanceAfter(PCR_EDIT_TOGGLE_BUDGET_MS),
+  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
+  completion: manualAdvance("Got it, next"),
   expectedRoute: "/methods",
   // §6.4b viewport anchor (input-lock + viewport-anchor sub-bot 2026-05-21):
   // the whole PCR builder card (description + Thermal Gradient heading +

@@ -29,8 +29,7 @@ import {
   safeClickAction,
   compactScript,
 } from "./lib/cursor-script";
-import { advanceOnEvent, buildWalkthroughStep } from "./lib/step-helpers";
-import { watchExperimentPopupOpened } from "./lib/tour-events";
+import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 
 export const methodAttachmentOpenStep = buildWalkthroughStep({
   id: "experiment-attach-method-open",
@@ -54,6 +53,7 @@ export const methodAttachmentOpenStep = buildWalkthroughStep({
     );
     return compactScript([cardClick]);
   }),
-  completion: advanceOnEvent(watchExperimentPopupOpened),
+  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
+  completion: manualAdvance("Got it, next"),
   expectedRoute: "/workbench",
 });
