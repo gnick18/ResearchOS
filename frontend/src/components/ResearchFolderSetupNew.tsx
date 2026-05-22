@@ -118,7 +118,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
 
   if (showUserSelection) {
     return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="fixed inset-0 z-[100] overflow-y-auto flex items-start sm:items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-8">
         <div className="absolute inset-0 opacity-5">
           <div
             className="absolute inset-0"
