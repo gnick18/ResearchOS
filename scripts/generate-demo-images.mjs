@@ -598,22 +598,27 @@ function drawBenchPhoto({ title = "Bench photo (demo)", seed = 5 } = {}) {
 
 const generated = [];
 
-// Gels (3)
+// Gels (4)
 generated.push(save(drawGel({ lanes: 12, hits: [2, 3, 6, 7, 9, 10], title: "PCR screen — DemoCheck primers", seed: 42 }), "users/alex/results/task-5/Images/gel-pcr-screen.png"));
 generated.push(save(drawGel({ lanes: 10, hits: [1, 2, 3, 4, 5, 6, 7, 8, 9], title: "gDNA quality check — 8 transformants", seed: 17 }), "users/alex/results/task-4/Images/gel-gdna-quality.png"));
 generated.push(save(drawGel({ lanes: 12, hits: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], title: "qPCR products on agarose (demo)", seed: 91 }), "users/morgan/results/task-3/Images/gel-qpcr-products.png"));
+// Pilot Gibson backbone test: 4 mock backbones, lanes 1-3 hit, lane 4 fails
+generated.push(save(drawGel({ lanes: 6, hits: [1, 2, 3], title: "Pilot Gibson — backbone linearization check", seed: 13, ladder: true }), "users/alex/results/task-18/Images/gel-gibson-pilot.png"));
 
-// Growth curves (2)
+// Growth curves (3)
 generated.push(save(drawGrowthCurve({ title: "Growth in YPD (FakeYeast vs FY-Δgal80)", seed: 33, curves: 5 }), "users/alex/results/task-10/Images/growth-curve-YPD.png"));
+generated.push(save(drawGrowthCurve({ title: "Baseline growth — FakeYeast-001 in YPD/2% glucose", seed: 87, curves: 3 }), "users/alex/results/task-19/Images/growth-curve-baseline.png"));
 generated.push(save(drawHeatshockSurvival({ title: "Heat-shock survival (demo)", seed: 55 }), "users/alex/results/task-11/Images/heatshock-survival.png"));
 
 // 96-well fluorescence plates (2)
 generated.push(save(draw96Plate({ title: "96-well fluorescence (plate A, demo)", seed: 11 }), "users/morgan/results/task-1/Images/plate-96-fluo.png"));
 generated.push(save(draw96Plate({ title: "Fluorescence reader heat-map (demo)", seed: 71 }), "users/morgan/results/task-2/Images/fluo-scan-results.png"));
 
-// Colony / patch plates (2)
+// Colony / patch plates (3)
 generated.push(save(drawColonyPlate({ title: "Transformation plate (SD-Ura)", seed: 99, colonies: 42 }), "users/alex/results/task-2/Images/transformation-plate.png"));
 generated.push(save(drawColonyPlate({ title: "Patch plate (8 candidate transformants)", seed: 23, colonies: 8 }), "users/alex/results/task-3/Images/patch-plate.png"));
+// Pilot transformation plate: a strain-choice pilot, more colonies than usual
+generated.push(save(drawColonyPlate({ title: "Pilot transformation — strain choice (SD-Ura)", seed: 7, colonies: 75 }), "users/alex/results/task-17/Images/pilot-transformation-plate.png"));
 
 // Telegram inbox bench photo (1)
 const benchPath = save(drawBenchPhoto({ seed: 5 }), "users/alex/inbox/Images/photo-2026-05-12.png");

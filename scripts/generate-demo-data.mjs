@@ -1310,13 +1310,114 @@ function buildEntries() {
   // the future.
   out.push(["users/alex/dependencies/8.json", { id: 8, parent_id: 10, child_id: 11, dep_type: "FS" }]);
 
-  // alex result task notes/results markdown stubs (selected tasks)
+  // alex result task notes/results markdown bodies.
+  //
+  // Narrative: alex is engineering FakeYeast-001 to express the fungal
+  // developmental regulator flbA under a GAL1-inducible promoter, with a
+  // fakeGFP reporter tracking expression and downstream stress-tolerance
+  // assays measuring phenotypic impact for biofuel fermentation. Content
+  // mixes lab-recipe style (reagent lists, cycle conditions, sample IDs)
+  // with running-log dated entries and the occasional human aside.
   //
   // task-2 notes.md is intentionally prepended with a stamp header (the
   // canonical HTML-comment format from `lib/stamp-utils.ts`) so the export
   // pipeline's `extractUserContent` → `parseContent` strip path has a
   // realistic fixture to exercise. Other tasks' notes/results stay
   // stamp-free to mirror older legacy content.
+
+  // ── task-17 (2026-02-10, complete): pilot transformation, strain choice ──
+  out.push(["users/alex/results/task-17/notes.md",
+    DEMO_BANNER_MD +
+    "## Pilot transformation — strain choice\n\n" +
+    "Goal: pick between FakeYeast-001 and DemoStrain-ΔADE2 as the chassis for the GAL1::flbA work. Need >100 transformants/µg with the empty pYES2 backbone before committing.\n\n" +
+    "### Reagents (per rxn, ×8)\n\n" +
+    "- 50% PEG-3350 (sterile): 240 µL\n" +
+    "- 1 M LiAc: 36 µL\n" +
+    "- ssDNA carrier (boiled 5 min, snap-chilled): 25 µL\n" +
+    "- pYES2 backbone (linearized, EcoRI/XhoI): ~100 ng\n" +
+    "- Yeast pellet from 5 mL OD600 0.6 culture\n\n" +
+    "### Conditions\n\n" +
+    "- Heat shock: 42 °C × 40 min\n" +
+    "- Recovery: 1 h in YPD at 30 °C, no shaking\n" +
+    "- Plate 200 µL on SD-Ura\n\n" +
+    "### Notes\n\n" +
+    "Ran 4 reactions per strain. DemoStrain-ΔADE2 pellet was much pinker than expected (ade2 phenotype), color held overnight.\n\n" +
+    "Backbone was a fresh prep from morgan (concentration 142 ng/µL via Nanodrop on 2026-02-09).\n\n" +
+    "![Pilot transformation plate — SD-Ura selection](Images/pilot-transformation-plate.png)\n"]);
+  out.push(["users/alex/results/task-17/results.md",
+    DEMO_BANNER_MD +
+    "## Pilot transformation — results\n\n" +
+    "**Conclusion: locking in FakeYeast-001 as the chassis strain.**\n\n" +
+    "| Strain | Colonies / plate (mean ± SD, n=4) | Est. transformants/µg |\n" +
+    "|---|---|---|\n" +
+    "| FakeYeast-001 | 78 ± 11 | ~390 |\n" +
+    "| DemoStrain-ΔADE2 | 19 ± 6 | ~95 |\n\n" +
+    "FakeYeast-001 cleared the >100 transformants/µg bar comfortably; the ΔADE2 strain dropped efficiency ~4× under the same conditions. Cassette QC: 6 / 6 picked colonies grew on SD-Ura replica and confirmed `URA3` marker.\n\n" +
+    "![Pilot plate — FakeYeast-001 lawn](Images/pilot-transformation-plate.png)\n\n" +
+    "Next step: pilot Gibson assembly to validate the cloning workflow on the backbone (task-18).\n"]);
+
+  // ── task-18 (2026-02-18, complete): pilot Gibson backbone test ──
+  out.push(["users/alex/results/task-18/notes.md",
+    DEMO_BANNER_MD +
+    "## Pilot Gibson — backbone test\n\n" +
+    "Testing the Gibson workflow before committing to the full pDEMO-fluo library build (task-9). 4 mock backbones, single insert (200 bp filler with 25 bp overlaps).\n\n" +
+    "### Linearization\n\n" +
+    "- pYES2 (5.86 kb) digested with EcoRI + XhoI, 37 °C, 60 min\n" +
+    "- Gel-purified the 5.86 kb band (QIAquick column)\n" +
+    "- Eluted in 30 µL EB → 48 ng/µL\n\n" +
+    "### Gibson assembly mix (per rxn, 10 µL final)\n\n" +
+    "| Reagent | Amount |\n" +
+    "|---|---|\n" +
+    "| 2× Gibson master mix | 5.0 µL |\n" +
+    "| Linearized backbone (50 fmol) | 1.5 µL |\n" +
+    "| Insert (100 fmol filler) | 0.8 µL |\n" +
+    "| Nuclease-free H2O | 2.7 µL |\n\n" +
+    "Incubate 50 °C × 60 min, then transform 2 µL into NEB 5-alpha competent cells.\n\n" +
+    "### Notes\n\n" +
+    "Backbone 4 looked smeary on the post-digest gel, kept it anyway as a negative control. Ran out of fresh Gibson mix mid-run — borrowed two aliquots from morgan's -20 box (label `GIB-2026-02-15`).\n\n" +
+    "![Gibson backbone gel — linearization check](Images/gel-gibson-pilot.png)\n"]);
+  out.push(["users/alex/results/task-18/results.md",
+    DEMO_BANNER_MD +
+    "## Gibson backbone test — results\n\n" +
+    "**Conclusion: locking in pYES2 (backbone 1) for the pDEMO-fluo library work.**\n\n" +
+    "3 / 4 backbones gave the expected 5.86 kb linearized band with clean stoichiometry; backbone 4 (smeary, see notes) failed assembly QC as expected. Transformation efficiency for backbones 1-3: 12, 8, 14 colonies per 50 µL plated (avg ~220 cfu/µg DNA after correction).\n\n" +
+    "![Gibson pilot gel — lanes 1-3 hit, lane 4 fails](Images/gel-gibson-pilot.png)\n\n" +
+    "Sequenced 2 colonies per backbone, junctions clean. Locking in backbone 1 (pYES2 fresh-digest stock) for downstream library work.\n"]);
+
+  // ── task-19 (2026-03-05, complete): baseline growth profile ──
+  out.push(["users/alex/results/task-19/notes.md",
+    DEMO_BANNER_MD +
+    "## Baseline growth profile — FakeYeast-001 in YPD\n\n" +
+    "No-stress reference for the stress-tolerance project. Need a clean doubling-time number before we layer on heat / glucose perturbations.\n\n" +
+    "### Setup\n\n" +
+    "- Strain: `FakeYeast-001` (fresh streak from -80 glycerol, 2 days old)\n" +
+    "- Media: YPD + 2% glucose, filter-sterilized\n" +
+    "- Reader: BioTek Synergy H1, 30 °C, double-orbital shake 425 cpm\n" +
+    "- Plate: Corning 96-well, flat-bottom, lid-on\n" +
+    "- Sample IDs: `FY-BG-001` through `FY-BG-003` (biological triplicates from 3 independent overnight cultures)\n" +
+    "- 200 µL volume per well, seeded at OD600 = 0.05\n" +
+    "- Read interval: 15 min for 18 h\n\n" +
+    "### Observations during run\n\n" +
+    "- t=0 h: OD600 0.05 ± 0.01 across all wells (good seeding consistency)\n" +
+    "- t=4 h: OD600 = 0.42 (mid-log, end of lag phase)\n" +
+    "- t=8 h: OD600 = 1.18 (entering early stationary)\n" +
+    "- t=14 h: plateau at OD600 ≈ 1.45\n\n" +
+    "### Deviations\n\n" +
+    "Reader gave a single spurious read at t=6.25 h (one well, edge of plate, OD600 = 0.001). Probably condensation under the lid. Excluded from the fit.\n\n" +
+    "![Baseline growth curves — 3 biological reps](Images/growth-curve-baseline.png)\n"]);
+  out.push(["users/alex/results/task-19/results.md",
+    DEMO_BANNER_MD +
+    "## Baseline growth — results\n\n" +
+    "**Doubling time = 95 ± 4 min** for FakeYeast-001 in YPD/2% glucose at 30 °C (mean ± SD across 3 biological replicates).\n\n" +
+    "Logistic fit parameters:\n\n" +
+    "- µmax = 0.44 h⁻¹\n" +
+    "- Lag = 2.1 h\n" +
+    "- Plateau OD600 = 1.45\n\n" +
+    "![Baseline growth curves — 3 biological reps in YPD/glucose](Images/growth-curve-baseline.png)\n\n" +
+    "Locked in as the no-stress reference for the stress-tolerance project. Heat-shock (task-11) and high-glucose curves (task-10) will be normalized to this baseline.\n"]);
+
+  // ── task-2 (2026-05-08, complete): pYES-GAL1::flbA transformation ──
+  // (Kept stamp header so the export-strip fixture still exercises that path.)
   out.push(["users/alex/results/task-2/notes.md",
     "<!-- stamp:start -->\n" +
     "2026-05-08  \n" +
@@ -1328,40 +1429,324 @@ function buildEntries() {
     "[last-access]: # (2026-05-08T14:30:00Z)\n\n" +
     DEMO_BANNER_MD +
     "## Transformation notes — 2026-05-08\n\n" +
-    "- Strain: `FakeYeast-001`\n" +
-    "- Plasmid: `pYES-GAL1::flbA`, ~120 ng/rxn\n" +
-    "- 10 rxns; heat shock 38 min (interrupted)\n" +
-    "- Plated on SD-Ura; counted 40 colonies after 48 h.\n"]);
+    "Integrating `pYES-GAL1::flbA` into FakeYeast-001 at the URA3 locus.\n\n" +
+    "### Reagents (per rxn, ×10)\n\n" +
+    "- 50% PEG-3350: 240 µL\n" +
+    "- 1 M LiAc: 36 µL\n" +
+    "- ssDNA carrier (10 mg/mL, boiled fresh): 25 µL\n" +
+    "- `pYES-GAL1::flbA` linearized w/ AatII: ~120 ng/rxn\n" +
+    "- Yeast pellet from 5 mL OD600 = 0.6 mid-log culture\n\n" +
+    "### Conditions\n\n" +
+    "| Step | Temp | Time |\n" +
+    "|---|---|---|\n" +
+    "| Mix + 30 min ramp | 30 °C | 30 min |\n" +
+    "| Heat shock | 42 °C | **38 min** (interrupted, see deviation log) |\n" +
+    "| Recovery in YPD | 30 °C | 1 h |\n" +
+    "| Plate on SD-Ura | 30 °C | 48 h |\n\n" +
+    "### Sample IDs\n\n" +
+    "- `FY-pYESflbA-T1` through `FY-pYESflbA-T10`\n" +
+    "- WT control (no DNA): `FY-NEG-1`\n" +
+    "- Backbone-only (pYES2 empty): `FY-EV-1`\n\n" +
+    "### Observations\n\n" +
+    "Timer reset at minute 38 of heat shock (someone bumped the heat block). Restarted immediately but only managed 38 min total. Logged in the task deviation log.\n\n" +
+    "Plated 200 µL out of the 1 mL recovery; saving the rest at 4 °C in case efficiency tanks.\n\n" +
+    "After 48 h: counted **40 colonies** on the experimental plate. WT control: 0 colonies (good). EV control: 38 colonies (expected).\n\n" +
+    "![Transformation plate — SD-Ura selection, 48 h](Images/transformation-plate.png)\n"]);
   out.push(["users/alex/results/task-2/results.md",
     DEMO_BANNER_MD +
-    "## Results — yeast transformation\n\n" +
-    "- See `transformation-plate.png` for the colony plate.\n" +
-    "- 40 / 200 µL plated → est. 200 transformants/µg DNA (demo numbers).\n"]);
-  out.push(["users/alex/results/task-3/notes.md", DEMO_BANNER_MD + "## Patch plate notes\n\nPatched 8 colonies onto a fresh SD-Ura plate (see `patch-plate.png`).\n"]);
-  out.push(["users/alex/results/task-3/results.md", DEMO_BANNER_MD + "## Patch results\n\nAll 8 patched colonies grew on SD-Ura — pick top 4 for sequencing (demo data).\n"]);
-  out.push(["users/alex/results/task-5/notes.md", DEMO_BANNER_MD + "## PCR screen — DemoCheck\n\nExpected band ~1.4 kb. See `gel-pcr-screen.png` for the demo gel.\n"]);
-  out.push(["users/alex/results/task-5/results.md", DEMO_BANNER_MD + "## PCR-screen results\n\n6 / 16 transformants show the ~1.4 kb integration band (demo data).\n"]);
-  out.push(["users/alex/results/task-4/notes.md", DEMO_BANNER_MD + "## gDNA quality check\n\nNanodrop A260/280: ~1.85. See `gel-gdna-quality.png`.\n"]);
-  out.push(["users/alex/results/task-4/results.md", DEMO_BANNER_MD + "## gDNA prep results\n\nAll 8 preps came back A260/280 ≥ 1.80, A260/230 ≥ 2.0 — ready for PCR screen (demo data).\n"]);
-  out.push(["users/alex/results/task-10/notes.md", DEMO_BANNER_MD + "## Growth curves\n\nTwo strains × 4 glucose levels (demo). See `growth-curve-YPD.png`.\n"]);
-  out.push(["users/alex/results/task-11/notes.md", DEMO_BANNER_MD + "## Heat-shock\n\nSee `heatshock-survival.png` for the survival fractions (demo).\n"]);
+    "## Yeast transformation — results\n\n" +
+    "**40 colonies / 200 µL plated → ~200 transformants/µg DNA** (demo numbers). Heat-shock interruption did not visibly tank efficiency vs the pilot (task-17).\n\n" +
+    "- Negative control (no DNA): 0 colonies\n" +
+    "- Empty-vector control (pYES2): 38 colonies — efficiency ~matches experimental, consistent with URA3 marker working as expected\n" +
+    "- Experimental (`pYES-GAL1::flbA`): 40 colonies\n\n" +
+    "![SD-Ura selection plate, 48 h](Images/transformation-plate.png)\n\n" +
+    "Picking 8 colonies for patch-plating + downstream screen (task-3). Glycerol stocks for all 40 banked in freezer 3, box `pYES-flbA-2026-05`.\n"]);
 
-  // task-8: empty results.md (explicitly created as a 0-byte file, not
-  // missing). Powers the gallery's "Awaiting results" section — completed
-  // tasks with no on-disk writeup or images. Different from a *missing*
-  // results.md (which would be the pre-touch state); this fixture mirrors
-  // the realistic "I made the file but forgot to fill it in" pattern.
-  // Per master 4.0's v3 ruling, notes.md content does NOT bail this task
-  // out of "Awaiting results," so we don't seed notes.md here either.
+  // ── task-8 (2026-05-09, complete): mini-prep candidate plasmids ──
+  // notes.md is rich (recipe-style); results.md stays EMPTY so the gallery's
+  // "Awaiting results" section keeps its fixture (forgot-to-write-up state).
+  out.push(["users/alex/results/task-8/notes.md",
+    DEMO_BANNER_MD +
+    "## Mini-prep notes — 2026-05-09\n\n" +
+    "Mini-prepping 8 candidate plasmid colonies pulled from the Gibson assembly plate (post task-18 follow-up batch). Want clean DNA for restriction-digest QC before sequencing.\n\n" +
+    "### Reagents (per 5 mL overnight)\n\n" +
+    "- P1 resuspension (4 °C, w/ RNase A): 250 µL\n" +
+    "- P2 lysis (RT, fresh): 250 µL\n" +
+    "- N3 neutralization (RT): 350 µL\n" +
+    "- PB wash: 500 µL\n" +
+    "- PE wash (with ethanol): 750 µL\n" +
+    "- EB elution (pre-warm 50 °C): 30 µL\n\n" +
+    "### Steps\n\n" +
+    "1. Pellet 5 mL overnight @ 3000 × g, 5 min, RT. Decant.\n" +
+    "2. Resuspend in P1, transfer to 1.5 mL tube.\n" +
+    "3. Add P2, invert 4-6×, incubate 3 min RT.\n" +
+    "4. Add N3, invert 4-6×, spin 13k rpm × 10 min.\n" +
+    "5. Load supernatant onto column, spin 60 s.\n" +
+    "6. Wash PB (60 s), wash PE (60 s), dry-spin 60 s.\n" +
+    "7. Elute in 30 µL EB, sit 1 min RT, spin 60 s.\n\n" +
+    "### Samples\n\n" +
+    "- `pDEMO-cand-01` through `pDEMO-cand-08`\n\n" +
+    "### Nanodrop readouts\n\n" +
+    "| Sample | ng/µL | A260/280 | A260/230 |\n" +
+    "|---|---|---|---|\n" +
+    "| cand-01 | 142 | 1.88 | 2.12 |\n" +
+    "| cand-02 | 118 | 1.85 | 2.05 |\n" +
+    "| cand-03 | 96  | 1.84 | 1.95 |\n" +
+    "| cand-04 | 134 | 1.89 | 2.18 |\n" +
+    "| cand-05 | 88  | 1.79 | 1.62 (a bit low) |\n" +
+    "| cand-06 | 121 | 1.86 | 2.08 |\n" +
+    "| cand-07 | 107 | 1.83 | 2.00 |\n" +
+    "| cand-08 | 145 | 1.90 | 2.21 |\n\n" +
+    "All within the expected 80-150 ng/µL range. Cand-05 has a slightly low A260/230 — probably residual PE, re-elute if it gives a weird digest pattern.\n\n" +
+    "TODO: write up the restriction-digest QC results in the results tab (still need to run the digest gel).\n"]);
   out.push(["users/alex/results/task-8/results.md", ""]);
 
-  // task-17/18/19: short results.md write-ups so the older completed
-  // experiments register as having result content (probeTaskResults checks
-  // results.md non-empty / Images/) — needed for them to land in the
-  // Workbench "Earlier results" archive instead of "Awaiting writeup."
-  out.push(["users/alex/results/task-17/results.md", DEMO_BANNER_MD + "## Pilot transformation\n\nFakeYeast-001 transformed cleanly with the test cassette — confirmed strain choice (demo data).\n"]);
-  out.push(["users/alex/results/task-18/results.md", DEMO_BANNER_MD + "## Gibson backbone test\n\n3 / 4 mock backbones gave the expected band; locked in pYES2 for the library work (demo data).\n"]);
-  out.push(["users/alex/results/task-19/results.md", DEMO_BANNER_MD + "## Baseline growth\n\nDoubling time ~95 min in YPD/glucose for FakeYeast-001 — used as the no-stress reference (demo data).\n"]);
+  // ── task-3 (2026-05-11, complete): patch positives on SD-Ura ──
+  out.push(["users/alex/results/task-3/notes.md",
+    DEMO_BANNER_MD +
+    "## Patch plate — 2026-05-11\n\n" +
+    "Patching 8 colonies picked off the transformation plate (task-2) onto a fresh SD-Ura plate. Want clean single-colony-derived material for the PCR screen on Monday.\n\n" +
+    "### Protocol\n\n" +
+    "- Pre-warm SD-Ura plate to 30 °C, 30 min\n" +
+    "- 8 patches in a 2×4 grid, ~5 mm spacing\n" +
+    "- Streak from single isolated colony per pick using sterile toothpicks\n" +
+    "- Incubate 30 °C, 48 h\n\n" +
+    "### Layout\n\n" +
+    "```\n" +
+    "A1  A2  A3  A4\n" +
+    "B1  B2  B3  B4\n" +
+    "```\n\n" +
+    "Sample IDs `FY-pYESflbA-T1` through `T8` map row-major to grid positions A1-B4.\n\n" +
+    "### Observations\n\n" +
+    "All 8 patches grew cleanly. No satellite colonies on or around any patch — confirms URA3 selection is holding.\n\n" +
+    "Patch B3 is slightly smaller than the others (maybe 70% area) but still uniform growth. Picking top 4 by visual eye: A1, A2, A3, A4 — sending for Sanger sequencing tomorrow.\n\n" +
+    "![Patch plate — 8 candidate transformants, 48 h SD-Ura](Images/patch-plate.png)\n"]);
+  out.push(["users/alex/results/task-3/results.md",
+    DEMO_BANNER_MD +
+    "## Patch plate — results\n\n" +
+    "**8 / 8 patches grew on SD-Ura.** All transformants retain the URA3 selection marker; ready for genotyping.\n\n" +
+    "![Clean patch plate — top 4 picked for sequencing](Images/patch-plate.png)\n\n" +
+    "Next: top 4 (A1-A4) → Sanger sequencing of the GAL1::flbA junction (turnaround ~2 days). All 8 → gDNA prep + DemoCheck PCR screen (task-4, task-5).\n"]);
+
+  // ── task-16 (2026-05-11, NOT complete): re-streak top 4 transformants ──
+  // notes only, no results yet (re-streak hasn't been picked up after the
+  // patch plate succeeded — it's the next step but alex went straight to
+  // gDNA prep on the patches instead). Intentionally a small "in-flight"
+  // experiment to make the gallery feel real.
+  out.push(["users/alex/results/task-16/notes.md",
+    DEMO_BANNER_MD +
+    "## Re-streak plan — top 4 transformants\n\n" +
+    "Re-streaking T1, T2, T3, T4 (the four sequenced positives from task-3) onto fresh SD-Ura to get well-isolated single colonies. Need this before we bank long-term glycerols.\n\n" +
+    "### Plan\n\n" +
+    "- 4 plates, one strain per plate\n" +
+    "- Three-zone streak (loop-flame between zones)\n" +
+    "- Label with strain ID + date + initials on the bottom\n" +
+    "- 48 h @ 30 °C\n\n" +
+    "Plates pre-poured 2026-05-10, stored at 4 °C overnight, dried 30 min in the hood before streaking.\n\n" +
+    "### Status\n\n" +
+    "Not done yet — bumped this when the gDNA prep results (task-4) came back clean and we went straight to the PCR screen. Will come back to this once I have the final sequence confirmation in hand. Low risk because the patch plate (task-3) already gave us isolated material.\n"]);
+
+  // ── task-4 (2026-05-12, complete): gDNA prep — top 8 ──
+  out.push(["users/alex/results/task-4/notes.md",
+    DEMO_BANNER_MD +
+    "## gDNA prep — 8 transformants — 2026-05-12\n\n" +
+    "Pulling genomic DNA from all 8 patched transformants for the DemoCheck PCR screen tomorrow.\n\n" +
+    "### Reagents (per sample)\n\n" +
+    "- Breaking buffer (2% Triton X-100, 1% SDS, 100 mM NaCl, 10 mM Tris pH 8, 1 mM EDTA): 200 µL\n" +
+    "- Acid-washed glass beads (0.5 mm): ~200 µL bed volume\n" +
+    "- Phenol:chloroform:IAA (25:24:1): 200 µL\n" +
+    "- Ethanol (100%, ice-cold): 1 mL\n" +
+    "- TE buffer: 50 µL\n\n" +
+    "### Steps (Hoffman-Winston, condensed)\n\n" +
+    "1. Pellet 1.5 mL overnight, decant.\n" +
+    "2. Resuspend in 200 µL breaking buffer + beads + 200 µL phenol mix.\n" +
+    "3. Vortex 3 min, top speed.\n" +
+    "4. Spin 13k rpm × 5 min. Take ~150 µL upper phase.\n" +
+    "5. Add 1 mL EtOH, mix, spin 13k rpm × 2 min.\n" +
+    "6. Wash pellet with 500 µL 70% EtOH, spin 2 min, decant, air-dry.\n" +
+    "7. Resuspend in 50 µL TE.\n\n" +
+    "### Sample IDs + Nanodrop\n\n" +
+    "| Sample | ng/µL | A260/280 | A260/230 |\n" +
+    "|---|---|---|---|\n" +
+    "| T1 | 245 | 1.86 | 2.05 |\n" +
+    "| T2 | 198 | 1.84 | 2.02 |\n" +
+    "| T3 | 312 | 1.88 | 2.11 |\n" +
+    "| T4 | 224 | 1.85 | 2.04 |\n" +
+    "| T5 | 178 | 1.82 | 1.98 |\n" +
+    "| T6 | 261 | 1.87 | 2.08 |\n" +
+    "| T7 | 295 | 1.86 | 2.07 |\n" +
+    "| T8 | 209 | 1.83 | 2.01 |\n\n" +
+    "### Quality gel\n\n" +
+    "Ran 5 µL of each on a 0.8% agarose gel, ethidium-stained. All 8 lanes show a tight high-MW band (>20 kb) with minimal RNA shadow at the bottom — good prep quality.\n\n" +
+    "![gDNA quality check — 8 transformants on 0.8% agarose](Images/gel-gdna-quality.png)\n"]);
+  out.push(["users/alex/results/task-4/results.md",
+    DEMO_BANNER_MD +
+    "## gDNA prep — results\n\n" +
+    "**All 8 preps passed quality gate** (A260/280 ≥ 1.80, A260/230 ≥ 1.95). Ready for PCR screen.\n\n" +
+    "| Pass criterion | Threshold | Result |\n" +
+    "|---|---|---|\n" +
+    "| A260/280 | ≥ 1.80 | 8 / 8 |\n" +
+    "| A260/230 | ≥ 1.95 | 8 / 8 |\n" +
+    "| High-MW band on gel | clean ≥ 20 kb | 8 / 8 |\n" +
+    "| Concentration | ≥ 100 ng/µL | 8 / 8 (range 178-312) |\n\n" +
+    "![Quality gel — all 8 lanes show tight HMW bands](Images/gel-gdna-quality.png)\n\n" +
+    "Diluting all to 50 ng/µL working stocks for the DemoCheck PCR (task-5).\n"]);
+
+  // ── task-10 (2026-05-12 → 14, NOT complete, running): growth curves YPD/glucose ──
+  // Running-log style — three dated entries spanning the multi-day run, no
+  // results yet (still mid-experiment). Heat-shock (task-11) is blocked on
+  // this completing.
+  out.push(["users/alex/results/task-10/notes.md",
+    DEMO_BANNER_MD +
+    "## Growth curves — running log\n\n" +
+    "Two strains (`FakeYeast-001` WT vs `FY-pYESflbA-T1` with flbA cassette) × 4 glucose levels (0.5%, 1%, 2%, 4%). Want to see if flbA expression alters the dose-response in YPD before we layer on heat stress.\n\n" +
+    "### 2026-05-12 — plate setup + reader booking\n\n" +
+    "Seeded the 96-well plate this morning. Layout: rows A-D = WT, rows E-H = T1. Columns 1-3 = 0.5%, 4-6 = 1%, 7-9 = 2%, 10-12 = 4%. 200 µL per well, OD600 seed = 0.05 from fresh overnights.\n\n" +
+    "Reader (Synergy H1) booked for 48 h continuous starting 11:00. 30 °C, 425 cpm double-orbital, 15 min reads.\n\n" +
+    "Sample IDs: `GR-WT-{0.5,1,2,4}` and `GR-T1-{0.5,1,2,4}`, biological triplicates each (n=24 conditions total, 96 wells with 4 wells/condition).\n\n" +
+    "### 2026-05-13 — mid-run check\n\n" +
+    "Mid-log readings look as expected. WT vs T1 traces are visually overlapping at 2% glucose (no penalty from the cassette under uninduced conditions — good news). 4% glucose plateau a hair lower for both strains, probably osmotic pressure starting to bite.\n\n" +
+    "OD600 at t=14h, T1 + 4% glucose: 1.31 (vs WT same condition: 1.36).\n\n" +
+    "Caught condensation forming on the lid at hour ~30, breath-fogged the lid edge and reseated. No data dropout but worth noting.\n\n" +
+    "### 2026-05-14 — run complete, exporting\n\n" +
+    "Run finished overnight. Exporting the .xlsx now, will pull the OD600 traces into a Gompertz fit in python. Plotting all 24 conditions per strain × glucose.\n\n" +
+    "Note: well H12 (T1 + 4% glucose, biological rep 3) flatlined at OD600 ≈ 0.08 the whole run — never came out of lag. Looks like a seeding failure (forgot to mix the overnight before pipetting?). Excluding it from the final analysis, will mention in the writeup.\n\n" +
+    "![Growth curves — preview from the reader export](Images/growth-curve-YPD.png)\n\n" +
+    "Results writeup pending — should land in the results tab once the Gompertz fits are done.\n"]);
+
+  // ── task-5 (2026-05-13, complete): PCR-screen integrants ──
+  out.push(["users/alex/results/task-5/notes.md",
+    DEMO_BANNER_MD +
+    "## DemoCheck PCR screen — 2026-05-13\n\n" +
+    "Screening all 8 transformants (T1-T8) + WT + empty-vector + water for the GAL1::flbA integration cassette. Expected band: **~1.4 kb** (URA3 5'UTR primer + flbA-internal primer).\n\n" +
+    "### Reagents (per 25 µL rxn, ×16 incl. controls)\n\n" +
+    "| Reagent | Stock | Per rxn |\n" +
+    "|---|---|---|\n" +
+    "| 5× HF Buffer | 5× | 5.0 µL |\n" +
+    "| dNTPs | 10 mM | 0.5 µL |\n" +
+    "| DemoCheck-fwd (URA3 5'UTR) | 10 µM | 1.25 µL |\n" +
+    "| DemoCheck-rev (flbA-internal) | 10 µM | 1.25 µL |\n" +
+    "| Phusion polymerase | 2 U/µL | 0.25 µL |\n" +
+    "| gDNA template (50 ng/µL) | — | 1.0 µL |\n" +
+    "| Nuclease-free H2O | — | 15.75 µL |\n" +
+    "| **Total** |   | **25.0 µL** |\n\n" +
+    "### Cycle conditions\n\n" +
+    "| Step | Temp | Time | Cycles |\n" +
+    "|---|---|---|---|\n" +
+    "| Initial denaturation | 98 °C | 30 s | 1 |\n" +
+    "| Denaturation | 98 °C | 10 s | 30 |\n" +
+    "| Annealing | 58 °C | 20 s | 30 |\n" +
+    "| Extension | 72 °C | 45 s | 30 |\n" +
+    "| Final extension | 72 °C | 5 min | 1 |\n" +
+    "| Hold | 12 °C | ∞ | — |\n\n" +
+    "### Gel\n\n" +
+    "1.5% agarose, 1× TAE, 100 V × 35 min. Loaded 10 µL/lane + 2 µL 6× loading dye. Ladder: NEB 1 kb plus.\n\n" +
+    "Lane order: L | T1 | T2 | T3 | T4 | T5 | T6 | T7 | T8 | WT | EV | H2O.\n\n" +
+    "![DemoCheck PCR screen — 1.5% agarose, expected band at ~1.4 kb](Images/gel-pcr-screen.png)\n"]);
+  out.push(["users/alex/results/task-5/results.md",
+    DEMO_BANNER_MD +
+    "## PCR-screen results\n\n" +
+    "**6 / 8 transformants positive for the GAL1::flbA cassette** (~75% integration rate, in line with the LiAc + linearized-plasmid expectation).\n\n" +
+    "| Lane | Sample | ~1.4 kb band | Verdict |\n" +
+    "|---|---|---|---|\n" +
+    "| 2 | T1 | clean, strong | **positive** |\n" +
+    "| 3 | T2 | clean, strong | **positive** |\n" +
+    "| 4 | T3 | faint | negative (likely background) |\n" +
+    "| 5 | T4 | clean, strong | **positive** |\n" +
+    "| 6 | T5 | none | negative |\n" +
+    "| 7 | T6 | clean, strong | **positive** |\n" +
+    "| 8 | T7 | clean, strong | **positive** |\n" +
+    "| 9 | T8 | clean, strong | **positive** |\n" +
+    "| 10 | WT | none | (control as expected) |\n" +
+    "| 11 | EV | none | (control as expected) |\n" +
+    "| 12 | H2O | none | (control as expected) |\n\n" +
+    "![PCR screen gel — 6 of 8 transformants show the expected band](Images/gel-pcr-screen.png)\n\n" +
+    "**Conclusion:** moving T1, T2, T4, T6, T7, T8 forward to the qPCR expression check (task-30). T3 and T5 archived but flagged as suspect.\n"]);
+
+  // ── task-30 (2026-05-13, NOT complete): qPCR fakeGFP expression vs control ──
+  // notes only, in-progress — running-log style with prep + planning.
+  out.push(["users/alex/results/task-30/notes.md",
+    DEMO_BANNER_MD +
+    "## qPCR — fakeGFP expression vs control (in-progress)\n\n" +
+    "Measuring `flbA` transcript abundance in the 6 positive transformants (T1, T2, T4, T6, T7, T8 from task-5) ± galactose induction, vs WT and empty-vector controls. Reference gene: `ACT1`.\n\n" +
+    "Primer pair locked in from earlier qPCR optimization (lab notes #5, run 2026-04-22): 60 °C anneal, 200 nM primers, melt curve clean.\n\n" +
+    "### 2026-05-13 — RNA extraction kickoff\n\n" +
+    "Pulling 6 colonies × 2 conditions (uninduced 2% glucose vs induced 2% galactose, 4 h post-shift) + 2 controls (WT, EV) = 16 samples.\n\n" +
+    "Reagents per sample:\n\n" +
+    "- TRIzol: 1 mL\n" +
+    "- Chloroform: 200 µL\n" +
+    "- Isopropanol: 500 µL\n" +
+    "- 75% EtOH wash: 1 mL × 2\n" +
+    "- DEPC-H2O: 30 µL final\n\n" +
+    "Cultures harvested at OD600 = 0.6 (mid-log), pellet snap-frozen in LN2 before TRIzol step. DNase treatment with DNase I (Thermo, 2 U) for 30 min @ 37 °C, then cleanup column.\n\n" +
+    "Nanodrop check:\n\n" +
+    "- All 16 samples between 480-820 ng/µL, A260/280 = 1.94-2.05 (RNA-clean), A260/230 ≥ 2.0\n" +
+    "- Spike-in dilution: 1 µg total RNA → 20 µL cDNA via SuperScript IV, random hexamers\n\n" +
+    "### 2026-05-14 — RT done, qPCR plate prep tomorrow\n\n" +
+    "All 16 cDNAs synthesized cleanly. Diluting 1:5 for the qPCR template tomorrow.\n\n" +
+    "**Plate layout** (96-well, 384-well reader booked for Friday backup):\n\n" +
+    "- Each cDNA × 2 genes (flbA + ACT1) × 3 technical reps = 6 wells per sample\n" +
+    "- 16 samples × 6 = 96 wells — fits exactly on one plate, no minus-RT control space. Adding -RT controls only for samples T1, T6, WT (3 representative).\n\n" +
+    "### TODO\n\n" +
+    "- [ ] Pour qPCR plate Friday AM\n" +
+    "- [ ] Run on QuantStudio 5, 40 cycles, melt curve enabled\n" +
+    "- [ ] ΔΔCt vs ACT1, normalize to WT-uninduced\n" +
+    "- [ ] Plot fold-change with biological triplicate error bars\n\n" +
+    "Results writeup will land in the results tab post-run.\n"]);
+
+  // ── task-11 (2026-05-18, NOT complete, blocked on task-10): heat-shock ──
+  // notes only — not run yet, blocked on growth curves (task-10) completing.
+  // The existing heat-shock image is referenced but lives in Images/ for
+  // when the experiment actually runs.
+  out.push(["users/alex/results/task-11/notes.md",
+    DEMO_BANNER_MD +
+    "## Heat-shock survival assay — protocol prep\n\n" +
+    "Pending: blocked on the growth-curve baseline (task-10) finishing so we can normalize survival to per-strain doubling rate.\n\n" +
+    "### Plan\n\n" +
+    "Three strains × three heat-shock temperatures (37 °C, 42 °C, 50 °C × 30 min):\n\n" +
+    "1. `FakeYeast-001` (WT, baseline reference from task-19)\n" +
+    "2. `FY-Δgal80` (constitutive GAL1 — used as positive expression control)\n" +
+    "3. `DemoStrain-ΔADE2` (stress-sensitive reference)\n\n" +
+    "Plus the 4 confirmed integrants (T1, T2, T6, T7) once task-30 says they're actually expressing flbA — currently they're just genotypically positive, we need transcript-level confirmation before they make sense in this assay.\n\n" +
+    "### Reagents\n\n" +
+    "- YPD pre-warmed to each shock temp (water bath, NOT incubator — needs to hit temp fast)\n" +
+    "- SD-Ura plates × 24 (3 strains × 3 temps × biological triplicate × 1 spot dilution series each)\n" +
+    "- 10-fold serial dilution series: 10⁰ to 10⁻⁵ in sterile water\n\n" +
+    "### Steps\n\n" +
+    "1. Grow each strain to mid-log (OD600 ≈ 0.6) in YPD.\n" +
+    "2. Aliquot 100 µL into pre-warmed tubes at each temp.\n" +
+    "3. Shock 30 min, then immediately ice 2 min.\n" +
+    "4. Serial-dilute, spot 5 µL of each dilution on SD-Ura.\n" +
+    "5. Incubate 30 °C, count CFUs at 48 h.\n\n" +
+    "Expected demo readout for the bar plot (% survival vs 30 °C control):\n\n" +
+    "- FakeYeast-001 baseline: ~78%\n" +
+    "- FY-Δgal80 (constitutive cassette stress): ~64%\n" +
+    "- DemoStrain-ΔADE2: ~41% (known sensitive)\n\n" +
+    "![Expected output style — heat-shock survival bar plot](Images/heatshock-survival.png)\n\n" +
+    "*Image above is a placeholder showing the expected output format from a previous demo run — the actual data is not yet collected. Will be replaced once the assay runs.*\n"]);
+
+  // ── task-9 (2026-05-20 → 23, NOT complete): build pDEMO-fluo library ──
+  // notes only, in-progress, no results yet. Library construction protocol.
+  out.push(["users/alex/results/task-9/notes.md",
+    DEMO_BANNER_MD +
+    "## pDEMO-fluo plasmid library build (in-progress)\n\n" +
+    "Building a fluorescent-reporter library: pYES2 backbone + GAL1 promoter + 12 candidate insertion sites (5'UTR variants) + fakeGFP. Library size target: ~12 variants × 3 codon-usage variants = 36 plasmids.\n\n" +
+    "### 2026-05-20 — backbone prep\n\n" +
+    "Re-digesting pYES2 stock (from task-18 lock-in) with EcoRI + XhoI. Gel-purifying the 5.86 kb linearized band. Yield 52 ng/µL × 30 µL = 1.56 µg total.\n\n" +
+    "Fresh aliquot to morgan for her parallel screening prep — she has been short on backbone since the freezer cleanout (lab note #6).\n\n" +
+    "### 2026-05-21 — insert PCRs\n\n" +
+    "PCR-amplifying the 36 fakeGFP+5'UTR variant inserts from the IDT-ordered gene fragments. All 36 reactions use the same conditions (annealing 60 °C, extension 30 s for 750 bp inserts).\n\n" +
+    "**Insert IDs:** `pDF-ins-001` through `pDF-ins-036`.\n\n" +
+    "Ran a QC gel on 12 / 36 (every 3rd). All 12 show the expected 750 bp band, clean, no primer-dimer above background. Cleaning up all 36 with PCR purification columns tomorrow.\n\n" +
+    "### TODO (rest of week)\n\n" +
+    "- [ ] Wed: PCR cleanup all 36 inserts\n" +
+    "- [ ] Wed: Gibson assembly, 36 reactions in 96-well format\n" +
+    "- [ ] Thu: Transform into NEB 5-alpha, plate on LB + Amp\n" +
+    "- [ ] Fri: Pick 4 colonies per variant (144 total), grow overnights in 96-well, glycerol bank\n" +
+    "- [ ] Following week: mini-prep + Sanger sequencing all 144 — keep 2 sequence-perfect per variant for the final library\n\n" +
+    "### Notes / human asides\n\n" +
+    "Ran out of T4 ligase mid-cleanup — borrowed two aliquots from morgan's bench (label `T4-2026-05-09`). Need to add to next purchase order.\n\n" +
+    "Will write up the full library QC + sequence-verification results once we hit the end-of-week milestone. For now this is just the bench-side build log.\n"]);
 
   // ── User: morgan ──────────────────────────────────────────────────────────
   out.push([
