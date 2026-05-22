@@ -123,10 +123,20 @@ async function loadLabUsers(): Promise<{
 }
 
 function colorFor(
-  metadata: Record<string, { color: string; created_at: string }>,
+  metadata: Record<string, UserMetadataEntry>,
   username: string,
 ): string {
   return metadata[username]?.color ?? fallbackUserColor(username);
+}
+
+/** Returns the optional gradient stop 2. `null` when the user only has a
+ *  solid primary color (the default). Auto-assigned users never get a
+ *  secondary — gradients are opt-in via Settings. */
+function colorSecondaryFor(
+  metadata: Record<string, UserMetadataEntry>,
+  username: string,
+): string | null {
+  return metadata[username]?.color_secondary ?? null;
 }
 
 export const projectsApi = {
@@ -4106,6 +4116,7 @@ function labTaskFrom(
   t: Task,
   username: string,
   userColor: string,
+  userColorSecondary: string | null = null,
 ): LabTask {
   const task = computeTaskEndDate(t);
   return {
@@ -4119,6 +4130,7 @@ function labTaskFrom(
     task_type: task.task_type,
     username: task.owner || username,
     user_color: userColor,
+    user_color_secondary: userColorSecondary,
     experiment_color: task.experiment_color,
     method_ids: task.method_ids || [],
     notes: task.deviation_log,
@@ -4131,6 +4143,7 @@ export const labApi = {
     const users: LabUser[] = usernames.map((username) => ({
       username,
       color: colorFor(metadata, username),
+      color_secondary: colorSecondaryFor(metadata, username),
       created_at: metadata[username]?.created_at ?? null,
     }));
     return { users };
@@ -4143,8 +4156,9 @@ export const labApi = {
     for (const username of usernames) {
       const userTasks = await tasksStore.listAllForUser(username);
       const userColor = colorFor(metadata, username);
+      const userColorSecondary = colorSecondaryFor(metadata, username);
       for (const t of userTasks) {
-        tasks.push(labTaskFrom(t, username, userColor));
+        tasks.push(labTaskFrom(t, username, userColor, userColorSecondary));
       }
     }
 
@@ -4249,9 +4263,10 @@ export const labApi = {
     for (const username of usernames) {
       const userTasks = await tasksStore.listAllForUser(username);
       const userColor = colorFor(metadata, username);
+      const userColorSecondary = colorSecondaryFor(metadata, username);
       for (const t of userTasks) {
         if (t.task_type !== "experiment") continue;
-        tasks.push(labTaskFrom(t, username, userColor));
+        tasks.push(labTaskFrom(t, username, userColor, userColorSecondary));
       }
     }
 
@@ -4265,9 +4280,10 @@ export const labApi = {
     for (const username of usernames) {
       const userTasks = await tasksStore.listAllForUser(username);
       const userColor = colorFor(metadata, username);
+      const userColorSecondary = colorSecondaryFor(metadata, username);
       for (const t of userTasks) {
         if (t.task_type !== "purchase") continue;
-        tasks.push(labTaskFrom(t, username, userColor));
+        tasks.push(labTaskFrom(t, username, userColor, userColorSecondary));
       }
     }
 
@@ -4317,6 +4333,7 @@ export const labApi = {
     // Tasks
     for (const username of targetUsernames) {
       const userColor = colorFor(metadata, username);
+      const userColorSecondary = colorSecondaryFor(metadata, username);
       const userTasks = await tasksStore.listAllForUser(username);
       for (const raw of userTasks) {
         if (raw.is_high_level) continue; // lab mode never surfaces goals
@@ -4356,6 +4373,7 @@ export const labApi = {
           name: task.name,
           username: task.owner || username,
           user_color: userColor,
+          user_color_secondary: userColorSecondary,
           match_field: matchField,
           match_preview: matchPreview,
         });
@@ -4366,6 +4384,7 @@ export const labApi = {
     if (!taskTypes) {
       for (const username of targetUsernames) {
         const userColor = colorFor(metadata, username);
+        const userColorSecondary = colorSecondaryFor(metadata, username);
 
         const userProjects = await projectsStore.listAllForUser(username);
         for (const p of userProjects) {
@@ -4377,6 +4396,7 @@ export const labApi = {
             name: p.name,
             username: p.owner || username,
             user_color: userColor,
+            user_color_secondary: userColorSecondary,
             match_field: q ? "name" : "filter",
             match_preview: "",
           });
@@ -4393,6 +4413,7 @@ export const labApi = {
               name: m.name,
               username: m.owner || username,
               user_color: userColor,
+              user_color_secondary: userColorSecondary,
               match_field: q ? "name" : "filter",
               match_preview: "",
             });
@@ -4407,8 +4428,9 @@ export const labApi = {
   getUserTasks: async (username: string): Promise<LabTask[]> => {
     const metadata = await ensureLabUserMetadata([username]);
     const userColor = colorFor(metadata, username);
+    const userColorSecondary = colorSecondaryFor(metadata, username);
     const tasks = await tasksStore.listAllForUser(username);
-    return tasks.map((t) => labTaskFrom(t, username, userColor));
+    return tasks.map((t) => labTaskFrom(t, username, userColor, userColorSecondary));
   },
 
   getUserProjects: async (username: string): Promise<LabProject[]> => {
@@ -5301,6 +5323,11 @@ export type {
 export interface LabUser {
   username: string;
   color: string;
+  /** Optional gradient stop 2. `null` when the user has only picked a solid
+   *  primary color. Lab Mode surfaces should render
+   *  `linear-gradient(135deg, color, color_secondary)` when present and fall
+   *  back to a solid `color` otherwise. */
+  color_secondary: string | null;
   created_at: string | null;
 }
 
@@ -5315,6 +5342,9 @@ export interface LabTask {
   task_type: string;
   username: string;
   user_color: string;
+  /** Mirrors LabUser.color_secondary — denormalized onto each task so the
+   *  Lab Gantt can render a gradient bar without a separate user lookup. */
+  user_color_secondary: string | null;
   experiment_color: string | null;
   method_ids: number[];
   notes: string | null;
@@ -5356,6 +5386,9 @@ export interface LabSearchResult {
   name: string;
   username: string;
   user_color: string;
+  /** Optional gradient stop 2 mirrored from the user's metadata. `null` for
+   *  users who only have a solid primary color. */
+  user_color_secondary: string | null;
   match_field: string;
   match_preview: string;
 }

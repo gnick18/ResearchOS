@@ -188,15 +188,24 @@ export default function LabUserFilterButton({
               })
               .map((user) => {
                 const isSelected = selectedUsernames.has(user.username);
+                // Selected: full-saturation gradient (or solid). Unselected:
+                // dim the primary color via the legacy `${hex}33` (20%
+                // alpha) — applying alpha to a gradient is messier, so the
+                // dimmed state stays a flat translucent swatch.
+                const selectedBackground = user.color_secondary
+                  ? `linear-gradient(135deg, ${user.color} 0%, ${user.color_secondary} 100%)`
+                  : user.color;
                 return (
                   <div
                     key={user.username}
                     className={`flex items-center rounded-lg transition-all overflow-hidden ${
                       isSelected ? "ring-2 ring-gray-300" : "ring-1 ring-gray-200 opacity-60"
                     }`}
-                    style={{
-                      backgroundColor: isSelected ? user.color : `${user.color}33`,
-                    }}
+                    style={
+                      isSelected
+                        ? { background: selectedBackground }
+                        : { backgroundColor: `${user.color}33` }
+                    }
                   >
                     <button
                       onClick={(e) => {

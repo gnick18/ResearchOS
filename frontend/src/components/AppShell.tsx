@@ -33,7 +33,7 @@ import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { HELP_HREF, appRouteToWikiRoute } from "@/lib/wiki/nav";
 import { useAppStore } from "@/lib/store";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
-import { useUserColor } from "@/hooks/useUserColor";
+import { useUserColors } from "@/hooks/useUserColor";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
 import { useFeaturePicks } from "@/hooks/useFeaturePicks";
 import { deriveVisibleTabs } from "@/lib/onboarding/feature-picks-tabs";
@@ -49,7 +49,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const visibleTabs = useAppStore((s) => s.visibleTabs);
   const coloredHeader = useAppStore((s) => s.coloredHeader);
   const { currentUser } = useFileSystem();
-  const baseColor = useUserColor(currentUser ?? "");
+  const userColors = useUserColors(currentUser ?? "");
+  const baseColor = userColors.primary;
   // Onboarding v3 §10: feature_picks is the primary tab-visibility
   // source. `deriveVisibleTabs` returns settings.visibleTabs as-is when
   // picks are null (existing-user invariant L1/L22) and otherwise lets
@@ -129,7 +130,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // the classic white header. On the tinted variant, every interactive
   // element lives inside a floating white pill so text never sits
   // directly on the gradient.
-  const [stop1, stop2] = headerGradient(baseColor);
+  //
+  // Stop selection: when the user has opted into a 2-color gradient
+  // (`color_secondary` set) we render those two stops directly so the
+  // header matches the avatar exactly. Otherwise we derive a darker,
+  // deeper gradient from the single primary color via `headerGradient()`
+  // — the same behavior pre-gradient users get today.
+  const [stop1, stop2] = userColors.secondary
+    ? [baseColor, userColors.secondary]
+    : headerGradient(baseColor);
   const tinted = !!currentUser && coloredHeader;
   const headerStyle = tinted
     ? { background: `linear-gradient(to right, ${stop1}, ${stop2})` }

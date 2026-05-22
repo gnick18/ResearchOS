@@ -31,6 +31,11 @@ const USER_COLOR_PALETTE = [
 
 export interface UserMetadataEntry {
   color: string;
+  /** Optional second color for a 2-stop linear gradient. When null/undefined
+   *  the user renders as a single solid color (the default). Users opt into
+   *  gradients via Settings → Profile so labs with more than 10 members
+   *  can stay visually distinct in Lab Mode. */
+  color_secondary?: string | null;
   created_at: string;
   // Per-user opt-out from lab-mode goals visibility (#14). When true,
   // labApi.getGoals() skips this user. Default = false (visible).
@@ -176,4 +181,45 @@ export async function getUserMetadata(
 ): Promise<UserMetadataEntry | null> {
   const file = await readMetadataFile();
   return file.users[username] ?? null;
+}
+
+/**
+ * Atomically sets both `color` and `color_secondary` on a user's metadata
+ * entry in a single read-modify-write cycle. Without this, two sequential
+ * `setUserMetadataField` calls would race the read so the second one could
+ * clobber the first when the underlying file backend interleaves them.
+ *
+ * Pass `null` for `secondary` to clear an existing gradient back to solid.
+ *
+ * The user is auto-created (palette color + now()) if missing — same shape
+ * as `setUserMetadataField` — but the explicit `color` argument always wins.
+ */
+export async function setUserMetadataColors(
+  username: string,
+  primary: string,
+  secondary: string | null,
+): Promise<UserMetadataEntry | null> {
+  if (!fileService.isConnected()) return null;
+  const file = await readMetadataFile();
+  const existing = file.users[username];
+  if (existing) {
+    file.users[username] = {
+      ...existing,
+      color: primary,
+      color_secondary: secondary,
+    };
+  } else {
+    file.users[username] = {
+      color: primary,
+      color_secondary: secondary,
+      created_at: new Date().toISOString(),
+    };
+  }
+  try {
+    await fileService.writeJson(METADATA_PATH, file);
+  } catch (err) {
+    console.error("setUserMetadataColors: failed to persist", err);
+    return null;
+  }
+  return file.users[username];
 }

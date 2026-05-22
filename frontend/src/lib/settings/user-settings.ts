@@ -1,5 +1,9 @@
 import { fileService } from "../file-system/file-service";
-import { setUserMetadataField, getUserMetadata } from "../file-system/user-metadata";
+import {
+  setUserMetadataField,
+  setUserMetadataColors,
+  getUserMetadata,
+} from "../file-system/user-metadata";
 import type { ViewMode } from "../types";
 import type { AnimationType } from "../store";
 import { ALL_TAB_HREFS, HOME_HREF, isValidTabHref } from "../nav";
@@ -23,6 +27,9 @@ export interface UserSettings {
   // Personalization
   displayName: string | null;     // null → use folder name
   color: string;                  // hex; mirrored to _user_metadata.json
+  /** Optional second hex for a 2-stop user gradient. `null` → solid (the
+   *  default). Mirrored to `_user_metadata.json:color_secondary`. */
+  colorSecondary: string | null;
   coloredHeader: boolean;         // false → keep header white instead of tinting with `color`
   animationType: AnimationType;
 
@@ -67,6 +74,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   showSharedByDefault: true,
   displayName: null,
   color: "#3b82f6",
+  colorSecondary: null,
   coloredHeader: true,
   animationType: "rock",
   dateFormat: "MDY",
@@ -149,13 +157,17 @@ export async function readUserSettings(username: string): Promise<UserSettings> 
   // different user's settings. See the user-switch regression where a
   // user's red color flipped to blue on first login.
   const needsColorFallback = !raw || raw.color === undefined;
+  const needsSecondaryFallback = !raw || raw.colorSecondary === undefined;
   const needsHideFallback = !raw || raw.hideGoalsFromLab === undefined;
   let metaSeed: Partial<UserSettings> = {};
-  if (needsColorFallback || needsHideFallback) {
+  if (needsColorFallback || needsSecondaryFallback || needsHideFallback) {
     const meta = await getUserMetadata(username);
     if (meta) {
       metaSeed = {
         ...(needsColorFallback && meta.color ? { color: meta.color } : {}),
+        ...(needsSecondaryFallback
+          ? { colorSecondary: meta.color_secondary ?? null }
+          : {}),
         ...(needsHideFallback
           ? { hideGoalsFromLab: meta.hide_goals_from_lab ?? false }
           : {}),
@@ -177,8 +189,17 @@ export async function writeUserSettings(username: string, settings: UserSettings
   await fileService.writeJson(settingsPath(username), normalized);
 
   // Mirror the few fields that legacy readers still look up in _user_metadata.json.
+  // The two color fields go through `setUserMetadataColors` so they land in
+  // ONE read-modify-write cycle — without that, two sequential field writes
+  // could let the primary land on disk while the secondary is dropped by a
+  // concurrent reader (the Settings save handler relies on this atomicity
+  // when the user picks a new gradient).
   try {
-    await setUserMetadataField(username, "color", normalized.color);
+    await setUserMetadataColors(
+      username,
+      normalized.color,
+      normalized.colorSecondary,
+    );
     await setUserMetadataField(username, "hide_goals_from_lab", normalized.hideGoalsFromLab);
   } catch (err) {
     console.warn("[user-settings] Failed to mirror to _user_metadata.json", err);

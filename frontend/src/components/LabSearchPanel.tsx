@@ -660,9 +660,17 @@ export default function LabSearchPanel({
                         )}
                       </div>
                     )}
-                  {/* Color bar */}
-                  <div className="h-1" style={{ backgroundColor: result.user_color }} />
-                  
+                  {/* Color bar — gradient when the user has opted into a
+                      2-stop combination, solid otherwise. */}
+                  <div
+                    className="h-1"
+                    style={{
+                      background: result.user_color_secondary
+                        ? `linear-gradient(90deg, ${result.user_color} 0%, ${result.user_color_secondary} 100%)`
+                        : result.user_color,
+                    }}
+                  />
+
                   <div className="p-4">
                     {/* Header */}
                     <div className="flex items-start justify-between mb-2">
@@ -675,7 +683,11 @@ export default function LabSearchPanel({
                     <div className="flex items-center gap-2 mb-2">
                       <span
                         className="text-[10px] px-2 py-0.5 rounded-full text-white"
-                        style={{ backgroundColor: result.user_color }}
+                        style={{
+                          background: result.user_color_secondary
+                            ? `linear-gradient(135deg, ${result.user_color} 0%, ${result.user_color_secondary} 100%)`
+                            : result.user_color,
+                        }}
                       >
                         {result.username}
                       </span>

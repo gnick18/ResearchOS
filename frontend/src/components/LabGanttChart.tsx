@@ -252,6 +252,33 @@ export default function LabGanttChart({
     return user?.color || "#6b7280";
   }, [users]);
 
+  // Look up the user's optional gradient stop 2 — `null` for solid users.
+  const getUserColorSecondary = useCallback((username: string) => {
+    const user = users.find(u => u.username === username);
+    return user?.color_secondary ?? null;
+  }, [users]);
+
+  /** Build the CSS `background` value for a Lab Gantt bar. Single color when
+   *  the user is solid; a 135° linear gradient between the two stops when
+   *  they've opted into a 2-color combination. The Lab Gantt rests on a
+   *  white card so the gradient remains legible without an overlay. */
+  const buildBarBackground = useCallback((
+    primary: string,
+    secondary: string | null,
+    opacity: number,
+  ): string => {
+    if (!secondary) {
+      // Solid: keep the legacy behavior so single-color users render
+      // identically to pre-gradient lab Gantt views.
+      return primary;
+    }
+    return `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)`;
+    // Note: opacity is applied via the `opacity` CSS property on the
+    // wrapping div for completed tasks, not baked into the gradient stops.
+    // This keeps the bar's hover/transition behavior unchanged.
+    void opacity;
+  }, []);
+
   // Get project name by ID
   const getProjectName = useCallback((projectId: number, username: string) => {
     const project = projects.find(p => p.id === projectId && p.username === username);
@@ -448,13 +475,25 @@ export default function LabGanttChart({
                           // Use the task's user_color directly from the stored task
                           // This ensures consistent coloring based on user assignment
                           const userColor = task.user_color || getUserColor(task.username);
+                          const userColorSecondary =
+                            task.user_color_secondary ?? getUserColorSecondary(task.username);
                           const completedStyle = task.is_complete
                             ? getCompletedTaskColor(userColor)
                             : null;
                           const taskColor = task.is_complete
                             ? completedStyle!.color
                             : userColor;
+                          // For completed tasks we keep the desaturated single
+                          // tone (the existing legibility path); only active
+                          // tasks honor the user's gradient choice.
+                          const taskSecondary =
+                            task.is_complete ? null : userColorSecondary;
                           const completedOpacity = task.is_complete ? completedStyle!.opacity : 1;
+                          const barBackground = buildBarBackground(
+                            taskColor,
+                            taskSecondary,
+                            1,
+                          );
 
                           return (
                             <div
@@ -469,7 +508,7 @@ export default function LabGanttChart({
                                 onClick={() => onTaskClick(task)}
                                 className="absolute inset-x-0 top-1 bottom-1 rounded-lg cursor-pointer flex items-center px-2 text-white text-xs font-medium truncate shadow-sm hover:shadow-md transition-all overflow-hidden group"
                                 style={{
-                                  backgroundColor: taskColor,
+                                  background: barBackground,
                                   opacity: task.is_complete ? completedOpacity : 1,
                                 }}
                                 title={`${task.name} (${task.username})\n${task.start_date} → ${task.end_date}`}
@@ -584,11 +623,14 @@ export default function LabGanttChart({
         {Array.from(selectedUsernames).map(username => {
           const user = users.find(u => u.username === username);
           if (!user) return null;
+          const legendBackground = user.color_secondary
+            ? `linear-gradient(135deg, ${user.color} 0%, ${user.color_secondary} 100%)`
+            : user.color;
           return (
             <div key={username} className="flex items-center gap-1">
               <div
                 className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: user.color }}
+                style={{ background: legendBackground }}
               />
               <span>{username}</span>
             </div>

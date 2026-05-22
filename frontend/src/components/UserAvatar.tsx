@@ -1,7 +1,7 @@
 "use client";
 
 import { avatarGradient } from "@/lib/colors";
-import { useUserColor } from "@/hooks/useUserColor";
+import { useUserColors } from "@/hooks/useUserColor";
 
 export type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
 
@@ -11,8 +11,12 @@ interface UserAvatarProps {
   size?: AvatarSize;
   /** Override the rendered initial letter (e.g. live-preview a rename). */
   letter?: string;
-  /** Override the resolved color (e.g. Settings preview shows the in-flight pick). */
+  /** Override the resolved primary color (e.g. Settings preview shows the in-flight pick). */
   colorOverride?: string;
+  /** Override the resolved secondary color. `null` explicitly forces solid
+   *  rendering (used by the Settings "clear secondary" preview); leave
+   *  undefined to fall back to the persisted value. */
+  secondaryOverride?: string | null;
   /** Tiny gold star in the top-right corner — used for the lab "owner" user. */
   showOwnerBadge?: boolean;
   /** Extra classes appended to the avatar div (positioning, ring, etc.). */
@@ -30,8 +34,15 @@ const SIZE_CLASS: Record<AvatarSize, string> = {
 
 /**
  * Per-user identity bubble — the first letter of the username on a 2-stop
- * gradient anchored on the user's chosen color. Replaces ~12 inline
- * `from-blue-400 to-purple-500` and flat-background bubbles around the app.
+ * gradient.
+ *
+ * Two rendering modes:
+ *   1. User has only a primary color (the default): derive a pleasing second
+ *      stop via `avatarGradient(primary)`. Same hue family, lightened by
+ *      ~16% with a -40° hue shift. Matches the old behavior exactly.
+ *   2. User has opted into a 2-color gradient via Settings: render the two
+ *      user-picked swatches directly. No hue-shifting — what the user picked
+ *      is what they see, so collision-avoidance maps 1:1 to visual output.
  *
  * The gradient direction (135deg, top-left → bottom-right) intentionally
  * matches the old `bg-gradient-to-br` so the visual rhythm of existing
@@ -42,13 +53,21 @@ export default function UserAvatar({
   size = "md",
   letter,
   colorOverride,
+  secondaryOverride,
   showOwnerBadge,
   className = "",
   title,
 }: UserAvatarProps) {
-  const resolved = useUserColor(username);
-  const base = colorOverride ?? resolved;
-  const [stop1, stop2] = avatarGradient(base);
+  const resolved = useUserColors(username);
+  const primary = colorOverride ?? resolved.primary;
+  // `undefined` → fall through to persisted; explicit `null` → force solid.
+  const secondary =
+    secondaryOverride === undefined ? resolved.secondary : secondaryOverride;
+
+  const [stop1, stop2] = secondary
+    ? [primary, secondary]
+    : avatarGradient(primary);
+
   const display = (letter ?? username.charAt(0) ?? "?").toUpperCase();
 
   return (
