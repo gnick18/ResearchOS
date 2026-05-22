@@ -32,7 +32,7 @@
 import { projectsApi, tasksApi } from "@/lib/local-api";
 import { attachImageToTask } from "@/lib/attachments/attach-image";
 import { fileService } from "@/lib/file-system/file-service";
-import { taskResultsBase } from "@/lib/tasks/results-paths";
+import { taskNotesBase } from "@/lib/tasks/results-paths";
 import type { Project, Task } from "@/lib/types";
 import {
   DEP_CHAIN_NAMES,
@@ -131,21 +131,33 @@ export async function onEnterGanttChainedDeps(): Promise<number[]> {
 /**
  * §6.10 `hybrid-editor-image-drop` onEnter.
  *
- * Seeds the active experiment's `Images/` folder with BeakerBot's
- * selfie PNG so the image strip below the hybrid editor has something
- * to drag from. Without this, the strip is empty and the cursor
- * script's `${strip} > *:first-child` selector resolves to nothing.
+ * Seeds the active experiment's Notes-tab `Images/` folder with
+ * BeakerBot's selfie PNG so the image strip below the hybrid editor
+ * has something to drag from. Without this, the strip is empty and
+ * the cursor script's `${strip} > *:first-child` selector resolves
+ * to nothing.
+ *
+ * Storage location: writes to `taskNotesBase(...)/Images` — i.e.
+ * `users/{owner}/results/task-{id}/notes/Images/` — NOT the outer
+ * `taskResultsBase/Images`. The Notes tab's `ImageStrip` reads from
+ * `attachBase` (= `taskNotesBase` per `TaskDetailPopup.tsx`), so the
+ * selfie must live there for the strip to surface it. An earlier
+ * revision wrote to `taskResultsBase/Images` (the per-tab split
+ * happened after this helper was first authored); the file landed on
+ * disk but in the wrong sub-folder, the strip stayed empty, and the
+ * cursor's `safeDragAction` had no source to drag from.
  *
  * Idempotency: skip when `Images/beakerbot-selfie.png` already exists
- * under the experiment's results base. The check uses
+ * under the experiment's NOTES base. The check uses
  * `fileService.fileExists` because `attachImageToTask` auto-suffixes
  * the filename on collision (we'd otherwise end up with
  * `beakerbot-selfie-1.png` on a second visit).
  *
  * The asset is fetched from `/onboarding/beakerbot-selfie.png` (a
- * committed public asset) and piped into `attachImageToTask`, which
- * writes the blob into `Images/` and fires
- * `imageEvents.emitAttached` so the strip refreshes immediately.
+ * committed public asset) and piped into `attachImageToTask` with an
+ * explicit `basePath` override so the blob lands in
+ * `taskNotesBase/Images`. The helper fires `imageEvents.emitAttached`
+ * with that same base, so the Notes-tab strip refreshes immediately.
  *
  * Returns `true` when the spawn ran, `false` when it short-circuited
  * (no experiment, already present, fetch failed). Caller ignores;
@@ -169,7 +181,7 @@ export async function onEnterHybridEditorImageDrop(ctx: {
     return false;
   }
   // Use the task's `owner` if set, else the active username from the
-  // controller ctx. taskResultsBase requires `{id, owner}` so we
+  // controller ctx. taskNotesBase requires `{id, owner}` so we
   // synthesize the minimal shape from whichever value is non-empty.
   const owner = experiment.owner || ctx.username || "";
   if (!owner) {
@@ -178,10 +190,13 @@ export async function onEnterHybridEditorImageDrop(ctx: {
     );
     return false;
   }
-  const base = taskResultsBase({ id: experiment.id, owner });
+  // Per-tab notes base. The Notes-tab ImageStrip resolves attachments
+  // off this path, so it's where the selfie must land. NOT the outer
+  // `taskResultsBase` (which is what the legacy shared layout used).
+  const notesBase = taskNotesBase({ id: experiment.id, owner });
   try {
     const alreadyThere = await fileService.fileExists(
-      `${base}/Images/${SELFIE_FILENAME}`,
+      `${notesBase}/Images/${SELFIE_FILENAME}`,
     );
     if (alreadyThere) return false;
   } catch (err) {
@@ -205,6 +220,11 @@ export async function onEnterHybridEditorImageDrop(ctx: {
     await attachImageToTask({
       ownerUsername: owner,
       taskId: experiment.id,
+      // Explicit override: route to the Notes-tab scoped folder so
+      // the ImageStrip (which reads `${taskNotesBase}/Images`) sees
+      // the file. Default `basePath` resolution would send this to
+      // `taskResultsBase/Images`, which the Notes strip ignores.
+      basePath: notesBase,
       blob,
       suggestedFilename: SELFIE_FILENAME,
       altText: "BeakerBot selfie",
