@@ -74,17 +74,25 @@ function todayIso(): string {
   return new Date().toLocaleDateString("en-CA");
 }
 
-/** Human-friendly "week of YYYY-MM-DD" label embedded in the standalone
- *  note's title (per spec). Re-resolved per step entry. */
-function weekOfLabel(): string {
-  return `week of ${todayIso()}`;
-}
+/** Single-note demo content (Grant 2026-05-22 R2 spec). Conference-talk
+ *  notes in lab-recipe markdown style: key claim, takeaways with
+ *  reagent / time-point specifics, follow-ups. NOT prose paragraphs. */
+export const NOTE_TITLE = "Notes from ASBMB 2026 — Smith lab heat-shock talk";
+/** Retained title prefix for back-compat with the idempotent-spawn probe
+ *  (`findPriorNotesCreateNoteId`). The probe looks for ANY note whose
+ *  title startsWith this string; the full demo title above does. */
+export const NOTE_TITLE_PREFIX = "Notes from ASBMB 2026";
+export const NOTE_BODY_LAB_RECIPE = `# Key claim
+Heat-shock factor binding cooperatively drives the bistability we see in our GAL1 reporter.
 
-/** Lab-recipe note body — short, measurement-flavored, NOT prose
- *  (Grant standing rule: note_style_lab_recipe.md). */
-export const NOTE_TITLE_PREFIX = "Reagent shelf check, ";
-export const NOTE_BODY_LAB_RECIPE =
-  "T4 ligase: low, order new tube. dNTP mix: ok. Restriction enzymes: ok. Need to thaw new SOC media tomorrow.";
+## Takeaways
+- **HSF1** is the limiting factor, not the chromatin context
+- ChIP-seq at 1, 5, 30 min post-induction
+- Use *short* induction windows for kinetic measurements
+
+## Follow-ups
+- Email Smith about their HSF1-tagged strain
+- Check if our GAL1::flbA strain shows the same bistability signature`;
 
 /** List task name + 3 items (per spec). Coffee theme continued from
  *  §6.14 Purchases demo so the user reads the two clusters as part of
@@ -111,13 +119,16 @@ export const workbenchNotesIntroStep = buildWalkthroughStep({
   speech: (
     <>
       <p className="mb-2">
-        Quick detour. The Workbench has three tabs: Experiments,{" "}
-        <strong>Notes</strong>, and Lists.
+        The Workbench has three tabs. We&apos;ve covered Experiments.
+        This middle one is <strong>Notes</strong>: general scratch notes
+        that don&apos;t belong to any single experiment or project.
       </p>
       <p>
-        Notes are standalone, not tied to any experiment. Think meeting
-        notes, hand-off docs, daily logs, sticky reminders, anything
-        that doesn&apos;t fit inside an experiment writeup.
+        Two flavors: single notes for one-off thoughts (like a quick
+        note after a conference talk), and running logs that grow over
+        time (think a recurring 1-on-1 with your PI: title it
+        &quot;Student / PI 1-on-1, Fall 2026&quot;, then add an entry
+        each week. One thing to find, not 15).
       </p>
     </>
   ),
@@ -167,7 +178,7 @@ async function findPriorNotesCreateNoteId(): Promise<number | null> {
  */
 async function spawnDemoNote(): Promise<number | null> {
   const today = todayIso();
-  const title = `${NOTE_TITLE_PREFIX}${weekOfLabel()}`;
+  const title = NOTE_TITLE;
   const existingId = await findPriorNotesCreateNoteId();
   try {
     if (existingId !== null) {
@@ -200,17 +211,10 @@ async function spawnDemoNote(): Promise<number | null> {
 export const workbenchNotesCreateStep = buildWalkthroughStep({
   id: NOTES_CREATE_STEP_ID,
   speech: (
-    <>
-      <p className="mb-2">
-        Let me make one. Standard format: title plus a body. Both
-        shareable to the lab if you want.
-      </p>
-      <p>
-        I&apos;ll do a quick reagent-shelf check, the kind of thing you
-        jot down on a Friday so the next person knows what&apos;s
-        running low.
-      </p>
-    </>
+    <p>
+      I&apos;ll make a single note as an example. Same editor as your
+      experiment notes, full markdown support.
+    </p>
   ),
   pose: "typing-on-laptop",
   targetSelector: targetSelector(TOUR_TARGETS.workbenchNewNoteButton),

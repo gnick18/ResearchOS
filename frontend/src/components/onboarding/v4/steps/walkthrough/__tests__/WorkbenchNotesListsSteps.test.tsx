@@ -25,6 +25,7 @@ import {
   workbenchListCreateShellStep,
   workbenchListAddItemsStep,
   workbenchListMarkDoneStep,
+  NOTE_TITLE,
   NOTE_TITLE_PREFIX,
   NOTE_BODY_LAB_RECIPE,
   LIST_NAME,
@@ -61,10 +62,13 @@ describe("workbench-notes-intro", () => {
   it("has a cursorScript (BeakerBot demo)", () => {
     expect(typeof workbenchNotesIntroStep.cursorScript).toBe("function");
   });
-  it("speech mentions Notes + standalone", () => {
+  it("speech mentions Notes + the scratch-notes / two-flavors framing", () => {
     const text = renderSpeech(workbenchNotesIntroStep);
     expect(text).toMatch(/Notes/);
-    expect(text).toMatch(/standalone/i);
+    // R2 spec: two-paragraph speech introduces the Notes tab as
+    // general scratch notes + the single-vs-running-log split.
+    expect(text).toMatch(/scratch notes/i);
+    expect(text).toMatch(/running logs/i);
   });
   it("speech is em-dash free", () => {
     expect(renderSpeech(workbenchNotesIntroStep)).not.toContain("—");
@@ -90,21 +94,30 @@ describe("workbench-notes-create", () => {
     expect(typeof workbenchNotesCreateStep.cursorScript).toBe("function");
     expect(typeof workbenchNotesCreateStep.onExit).toBe("function");
   });
-  it("speech mentions title + body", () => {
+  it("speech mentions the single-note + markdown framing", () => {
     const text = renderSpeech(workbenchNotesCreateStep);
-    expect(text).toMatch(/title/i);
-    expect(text).toMatch(/body/i);
+    // R2 spec: short one-paragraph speech reframes around "single
+    // note" + markdown editor parity with experiment notes.
+    expect(text).toMatch(/single note/i);
+    expect(text).toMatch(/markdown/i);
   });
-  it("note body constant is lab-recipe style, not prose", () => {
-    // Per memory feedback_lab_recipe_not_prose.md: short, measurement
-    // flavored, NOT paragraphs. The constant should mention reagents
-    // (T4 ligase) + a measurement-like assessment (low / ok), not
-    // long-form sentences.
-    expect(NOTE_BODY_LAB_RECIPE).toMatch(/T4 ligase/);
-    expect(NOTE_BODY_LAB_RECIPE).toMatch(/ok\./);
+  it("note body constant is lab-recipe style markdown, not prose", () => {
+    // Per memory note_style_lab_recipe.md: short, measurement +
+    // reagent flavored, NOT paragraphs. The R2 demo body is
+    // conference-talk takeaways with HSF1 / ChIP-seq time points +
+    // markdown structure (headings, bullets).
+    expect(NOTE_BODY_LAB_RECIPE).toMatch(/HSF1/);
+    expect(NOTE_BODY_LAB_RECIPE).toMatch(/ChIP-seq/);
+    // Markdown structure: at least one heading + one bullet list item.
+    expect(NOTE_BODY_LAB_RECIPE).toMatch(/^#/m);
+    expect(NOTE_BODY_LAB_RECIPE).toMatch(/^- /m);
   });
-  it("note title prefix points at the reagent-shelf framing", () => {
-    expect(NOTE_TITLE_PREFIX).toMatch(/Reagent shelf check/);
+  it("note title points at the ASBMB conference-talk framing", () => {
+    expect(NOTE_TITLE).toMatch(/ASBMB 2026/);
+    expect(NOTE_TITLE).toMatch(/Smith lab/);
+    // Prefix is the back-compat probe key; it must be a prefix of
+    // the full title so `findPriorNotesCreateNoteId` still matches.
+    expect(NOTE_TITLE.startsWith(NOTE_TITLE_PREFIX)).toBe(true);
   });
   it("speech is em-dash free", () => {
     expect(renderSpeech(workbenchNotesCreateStep)).not.toContain("—");
