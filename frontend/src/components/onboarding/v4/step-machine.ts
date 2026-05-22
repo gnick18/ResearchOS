@@ -80,6 +80,13 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // ProjectOverviewNavStep.tsx for the split rationale.
   "project-overview-nav",
   "project-overview-prose",
+  // Context narration (Grant 2026-05-22, v4 §6.2 overview teach sub-bot):
+  // BeakerBot points at the sticky project topbar and narrates the
+  // metadata strip (name, tags, action icons) so the user knows where
+  // a project's shape lives at a glance. Pure narration — no cursor
+  // demo, manual advance. See ProjectOverviewContextStep.tsx for the
+  // rationale.
+  "project-overview-context",
   // Transition beat (Grant 2026-05-21): cursor glides to the Home nav
   // tab and the controller pushes the browser back to "/" so §6.3
   // notifications fires from the home surface, not from inside the

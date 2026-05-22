@@ -187,6 +187,12 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
       <div
         className="sticky top-0 z-10 bg-white border-b border-gray-200"
         data-testid="project-route-topbar"
+        // Onboarding v4 §6.2 context sub-step anchor. The
+        // `project-overview-context` step spotlights this topbar so
+        // BeakerBot can narrate the metadata strip (name, tags, action
+        // icons) without dimming the Overview textarea below. Selector
+        // wired via `targets.ts` → projectOverviewTopbar.
+        data-tour-target="project-overview-topbar"
       >
         <div className="px-6 pt-4 pb-3 flex flex-col gap-3">
           <div className="flex items-center justify-between gap-4">

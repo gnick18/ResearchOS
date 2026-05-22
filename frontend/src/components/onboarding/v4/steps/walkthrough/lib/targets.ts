@@ -30,6 +30,14 @@ export const TOUR_TARGETS = {
 
   // §6.2 Project route Overview prose
   projectOverviewTextarea: "project-overview-textarea",
+  // §6.2c project route topbar — sticky header containing the project
+  // name, tags, and action buttons (edit, share, archive, delete). The
+  // §6.2 context sub-step (`project-overview-context`) spotlights this
+  // so BeakerBot can call out "your project's tags, name, and shape live
+  // here" alongside the Overview textarea below. Anchor lives in
+  // `ProjectRoute.tsx` on the sticky topbar div that already has
+  // `data-testid="project-route-topbar"`.
+  projectOverviewTopbar: "project-overview-topbar",
 
   // §6.3 Notifications. Split into three sub-steps (bell → silence →
   // delete) so the user actually exercises each affordance on the test

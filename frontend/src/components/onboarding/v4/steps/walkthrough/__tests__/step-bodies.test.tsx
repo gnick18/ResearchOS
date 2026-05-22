@@ -36,6 +36,7 @@ import { homeCreateProjectStep } from "../HomeCreateProjectStep";
 import { homeCreateProjectFillStep } from "../HomeCreateProjectFillStep";
 import { projectOverviewNavStep } from "../ProjectOverviewNavStep";
 import { projectOverviewStep, PLACEHOLDER_HYPOTHESIS } from "../ProjectOverviewStep";
+import { projectOverviewContextStep } from "../ProjectOverviewContextStep";
 import { notificationsBellStep } from "../NotificationsBellStep";
 import { notificationsSilenceStep } from "../NotificationsSilenceStep";
 import { notificationsDeleteStep } from "../NotificationsDeleteStep";
@@ -104,6 +105,7 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   homeCreateProjectFillStep,
   projectOverviewNavStep,
   projectOverviewStep,
+  projectOverviewContextStep,
   notificationsBellStep,
   notificationsSilenceStep,
   notificationsDeleteStep,
@@ -149,6 +151,7 @@ describe("P5 step bodies — universal contract", () => {
       "home-create-project-fill",
       "project-overview-nav",
       "project-overview-prose",
+      "project-overview-context",
       "notifications-bell",
       "notifications-silence",
       "notifications-delete",
@@ -379,8 +382,12 @@ describe("ProjectOverviewNavStep (§6.2 nav)", () => {
 });
 
 describe("ProjectOverviewStep (§6.2 prose)", () => {
-  it("declares auto-advance completion", () => {
-    expect(projectOverviewStep.completion.type).toBe("auto");
+  it("declares manual-advance completion (universal pacing, Grant 2026-05-22)", () => {
+    // Updated 2026-05-22 (v4 §6.2 overview teach sub-bot): the prose
+    // step used to auto-advance after the cursor finished typing the
+    // affirmation. New shape is manual ("Got it, next") so the user
+    // reads the typed hypothesis at their own pace.
+    expect(projectOverviewStep.completion.type).toBe("manual");
   });
   it("targets the project overview textarea", () => {
     expect(projectOverviewStep.targetSelector).toBe(
@@ -394,22 +401,30 @@ describe("ProjectOverviewStep (§6.2 prose)", () => {
     // the vague single-hand pulse of the bare `typing` pose.
     expect(projectOverviewStep.pose).toBe("typing-on-laptop");
   });
-  it("speech promises BeakerBot will type a hypothesis", () => {
-    expect(renderSpeech(projectOverviewStep)).toMatch(
-      /Watch, I'll type a hypothesis sentence into the Overview/,
-    );
+  it("speech teaches the overview's purpose (north-star framing, Grant 2026-05-22)", () => {
+    // Updated 2026-05-22 (v4 §6.2 overview teach sub-bot): the speech
+    // used to be a one-liner "Watch, I'll type a hypothesis sentence
+    // into the Overview". New speech actually teaches WHY the page
+    // exists (north star, re-anchor on the goal) before announcing the
+    // typing demo.
+    const text = renderSpeech(projectOverviewStep);
+    expect(text).toMatch(/overview page/);
+    expect(text).toMatch(/north star/);
+    expect(text).toMatch(/come back here/);
+    expect(text).toMatch(/I'll type a placeholder hypothesis/);
   });
   it("expectedRoute is undefined (live-test R2: bare /workbench/projects 404'd; nav handled by previous step)", () => {
     expect(projectOverviewStep.expectedRoute).toBeUndefined();
   });
-  it("placeholder hypothesis text is the BeakerBot affirmation sentence", () => {
-    // The brief specified this exact placeholder so the cursor demo is
-    // cute, on-brand, and obviously throwaway prose. Locking the text
-    // here so a future copy edit gets surfaced via test fail rather
-    // than silent drift. Updated 2026-05-21 to match commit 96158042
-    // (affirmation copy swap).
+  it("placeholder hypothesis is a concrete research-shaped goal + hypothesis (Grant 2026-05-22)", () => {
+    // Updated 2026-05-22 (v4 §6.2 overview teach sub-bot): the prior
+    // affirmation easter-egg ("You are smart, confident...") was cute
+    // but didn't teach what the Overview is FOR. New placeholder shows
+    // a real-shaped research goal + hypothesis so the user pattern-
+    // matches. Locking the exact string here so a future copy edit
+    // surfaces via test failure rather than silent drift.
     expect(PLACEHOLDER_HYPOTHESIS).toBe(
-      "You are smart, confident, and capable of anything you put your mind to. - BeakerBot",
+      "Goal: figure out the optimal annealing temperature for our PCR primer set. Hypothesis: 58°C will outperform the 56°C default.",
     );
   });
   it("cursor script issues a click + a type action against the textarea", async () => {
@@ -458,6 +473,41 @@ describe("ProjectOverviewStep (§6.2 prose)", () => {
       card.remove();
       textarea.remove();
     }
+  });
+});
+
+describe("ProjectOverviewContextStep (§6.2 context narration)", () => {
+  // Added 2026-05-22 (HR-dispatched: v4 §6.2 overview teach sub-bot).
+  // The context sub-step is pure narration: spotlight the project's
+  // topbar (name + tags + action icons) so the user knows where the
+  // project's shape lives at a glance, then manual-advance into the
+  // EXIT step.
+  it("declares manual-advance completion", () => {
+    expect(projectOverviewContextStep.completion.type).toBe("manual");
+  });
+  it("targets the project topbar selector", () => {
+    expect(projectOverviewContextStep.targetSelector).toBe(
+      "[data-tour-target=\"project-overview-topbar\"]",
+    );
+  });
+  it("uses pose: pointing (narration, no cursor demo)", () => {
+    expect(projectOverviewContextStep.pose).toBe("pointing");
+  });
+  it("has no cursorScript (pure narration)", () => {
+    // Cursor responsibility audit: the speech doesn't promise any
+    // BeakerBot action ("tags, dates, and status live here"). The
+    // spotlight on the topbar is the visual cue; no cursor glide.
+    expect(projectOverviewContextStep.cursorScript).toBeUndefined();
+  });
+  it("speech narrates the metadata strip (tags / dates / status)", () => {
+    const text = renderSpeech(projectOverviewContextStep);
+    expect(text).toMatch(/Tags/);
+    expect(text).toMatch(/dates/);
+    expect(text).toMatch(/status/);
+    expect(text).toMatch(/alongside the overview/);
+  });
+  it("expectedRoute is undefined (user already on the project route)", () => {
+    expect(projectOverviewContextStep.expectedRoute).toBeUndefined();
   });
 });
 

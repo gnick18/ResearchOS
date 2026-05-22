@@ -12,6 +12,7 @@ const P5_STEP_IDS = [
   "home-create-project-fill",
   "project-overview-nav",
   "project-overview-prose",
+  "project-overview-context",
   "project-overview-exit",
   "notifications-bell",
   "notifications-silence",
