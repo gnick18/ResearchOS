@@ -33,13 +33,25 @@ const P5_STEP_IDS = [
   "experiment-attach-method-tab",
   "experiment-attach-method-attach",
   "experiment-attach-method-notes",
-  "hybrid-editor",
-  "hybrid-editor-paragraphs",
-  "hybrid-editor-image-drop",
-  "hybrid-editor-resize",
-  // §6.8 Gantt redesign 2026-05-22 (Gantt manager): the 4-step legacy
-  // arc (`gantt-task-types`, `gantt-drag-drop`, `gantt-chained-deps`,
-  // `gantt-goals-overview`) is replaced with the new 14-step arc.
+  // §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22):
+  // the old 4 ids retired, 12 new sub-steps HE-0 through HE-11.
+  "hybrid-notes-vs-results",
+  "hybrid-markdown-intro",
+  "hybrid-markdown-familiarity",
+  "hybrid-markdown-overview",
+  "hybrid-editor-mechanic",
+  "hybrid-bold",
+  "hybrid-italic",
+  "hybrid-underline",
+  "hybrid-h1",
+  "hybrid-h2",
+  "hybrid-h3",
+  "hybrid-shortcuts",
+  "hybrid-image-attach",
+  "hybrid-image-drag-in",
+  "hybrid-image-resize",
+  "hybrid-file-attach",
+  // §6.8 Gantt redesign 2026-05-22 (Gantt manager): 14-step arc.
   "gantt-intro",
   "gantt-existing-experiment",
   "gantt-drag-drop",

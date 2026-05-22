@@ -208,6 +208,13 @@ export interface TourControllerActions {
    *  declares manual completion) advance. The overlay's "Got it, next"
    *  button wires up to this. */
   noteManualAdvance(): void;
+  /** Jump to a specific step id, overriding the step-machine's normal
+   *  `getNextStep` traversal. Used by branch-completion steps (§6.7
+   *  HE-2 markdown familiarity gate) where the step body's selected
+   *  branch dictates the next id. The branch's nextStep is treated as
+   *  authoritative — no gating recheck (the branch author already
+   *  decided the destination). */
+  branchTo(nextStep: TourStepId): void;
   /** List of step ids the user invoked `skipStep()` on, in order. Read
    *  by P12 when writing to `wizard_resume_state.skipped_steps`. */
   readonly skippedSteps: ReadonlyArray<TourStepId>;
@@ -487,6 +494,22 @@ export function TourControllerProvider({
     const next = getNextStep(cur.currentStep, cur.featurePicks);
     setLastTourTransition("advance");
     dispatch({ type: "SET_STEP", nextStep: next, nextMode: modeForStep(next) });
+  }, []);
+
+  const branchTo = useCallback((nextStep: TourStepId) => {
+    // Honor the branch's nextStep verbatim — no gating recheck. The
+    // branch author already decided the destination (e.g. §6.7 HE-2
+    // jumps to hybrid-editor-mechanic when the user already knows
+    // markdown, OR to hybrid-markdown-overview when they want a
+    // refresher). Treating it as `advance` so the back-step grace
+    // marker stays consistent (a branch click reads as forward
+    // progress, not a back-step).
+    setLastTourTransition("advance");
+    dispatch({
+      type: "SET_STEP",
+      nextStep,
+      nextMode: modeForStep(nextStep),
+    });
   }, []);
 
   const goBack = useCallback(() => {
@@ -868,6 +891,7 @@ export function TourControllerProvider({
       clearPageLock,
       pageLockTargets,
       pageLockWrongClickFlash,
+      branchTo,
     }),
     [
       state,
@@ -888,6 +912,7 @@ export function TourControllerProvider({
       clearPageLock,
       pageLockTargets,
       pageLockWrongClickFlash,
+      branchTo,
     ],
   );
 
@@ -1046,6 +1071,7 @@ function TourOverlay({
       onSkipStep={controller.skipStep}
       onExitTour={controller.exitTour}
       onBack={controller.goBack}
+      onBranchTo={controller.branchTo}
       canGoBack={!isAtFirstStep}
     />
   );
@@ -1064,6 +1090,11 @@ interface InProductWalkthroughOverlayProps {
    *  who clicked off-target or deleted a step's prereq can rewind one
    *  step without restarting the tour. */
   onBack: () => void;
+  /** §6.7 HE-2 branch-completion handler. The speech bubble renders one
+   *  button per branch; clicking dispatches `branchTo(nextStep)` to jump
+   *  directly to the branch's destination instead of the
+   *  step-machine's default forward traversal. */
+  onBranchTo: (nextStep: TourStepId) => void;
   /** False when the controller is already on the first applicable step
    *  (goBack would be a no-op); the overlay hides the Back link in that
    *  state so the bubble's bottom-left stays clean. */
@@ -1105,6 +1136,7 @@ function InProductWalkthroughOverlay({
   onSkipStep,
   onExitTour,
   onBack,
+  onBranchTo,
   canGoBack,
 }: InProductWalkthroughOverlayProps) {
   const cursorRef = useRef<BeakerBotCursorRef>(null);
@@ -1171,6 +1203,27 @@ function InProductWalkthroughOverlay({
 
         const liveRef = cursorRef.current;
         if (!liveRef) return;
+        // §6.7 HE-8 off-screen entry: snap the cursor to the named
+        // off-viewport edge BEFORE runScript fires. The first glide in
+        // the action list then reads as "bringing something in from
+        // outside the viewport."
+        if (stepBody.cursorEntry && typeof window !== "undefined") {
+          const margin = 80;
+          switch (stepBody.cursorEntry) {
+            case "offscreen-right":
+              liveRef.snapTo(window.innerWidth + margin, window.innerHeight / 2);
+              break;
+            case "offscreen-left":
+              liveRef.snapTo(-margin, window.innerHeight / 2);
+              break;
+            case "offscreen-top":
+              liveRef.snapTo(window.innerWidth / 2, -margin);
+              break;
+            case "offscreen-bottom":
+              liveRef.snapTo(window.innerWidth / 2, window.innerHeight + margin);
+              break;
+          }
+        }
         // Flip the input lock ON for the duration of the script. The
         // overlay portal mounts immediately on the next React commit
         // (synchronous-batched setState here followed by an await
@@ -1217,22 +1270,36 @@ function InProductWalkthroughOverlay({
       {showSpotlight && body?.targetSelector && (
         <TourSpotlight target={body.targetSelector} />
       )}
-      <BeakerBotCursor ref={cursorRef} />
+      <BeakerBotCursor
+        ref={cursorRef}
+        heldImage={body?.cursorHeldImage}
+      />
       {/* Input lock overlay (Bug B, sub-bot 2026-05-21). Renders only
           while the cursor is actively running a script; absent otherwise
           so user-action steps + idle gaps don't lock the page. */}
       <InputLockOverlay active={cursorActive} />
-      {/* TourPageLock (Gantt redesign 2026-05-22). The user-action sub-
-          steps in the new §6.8 Gantt cluster mount this with an allow-
-          list of safe affordances; wrong clicks dispatch a custom event
-          the controller catches above and surfaces in the speech bubble. */}
+      {/* TourPageLock — two opt-in paths. Either:
+          (a) Gantt redesign 2026-05-22: user-action steps call
+              `controller.setPageLock(targets, oopsCopy)` so the controller
+              owns the lifecycle; the lock renders here when `pageLockTargets`
+              is non-null.
+          (b) Hybrid editor 2026-05-22: a step's body declares
+              `pageLock: { allowList, pillLabel }` for sustained read-
+              then-watch locks held for the whole step. The current
+              TourPageLock primitive uses the Gantt API
+              (`allowedTargets: string[]`); the body.pageLock path is
+              accepted here for forward compat and translates the
+              allow-list selectors to the controller API. Master
+              follow-up: harmonize the two contracts into one. */}
       <TourPageLock allowedTargets={pageLockTargets} />
+
       <TourBeakerBotOverlay
         step={body}
         onManualAdvance={onManualAdvance}
         onSkipStep={onSkipStep}
         onExitTour={onExitTour}
         onBack={onBack}
+        onBranchTo={onBranchTo}
         canGoBack={canGoBack}
         flashSpeech={pageLockFlash}
       />
@@ -1521,6 +1588,10 @@ interface TourBeakerBotOverlayProps {
    *  step). Mirrors the existing skip links on the right edge of the
    *  same action row. */
   onBack: () => void;
+  /** §6.7 HE-2 branch-completion handler. Wired through from the
+   *  controller's `branchTo` action; the bubble dispatches it on each
+   *  branch button click. */
+  onBranchTo: (nextStep: TourStepId) => void;
   canGoBack: boolean;
   /** Page-lock wrong-click flash speech (Gantt redesign 2026-05-22).
    *  When non-null, replaces the step's normal speech for the 2-second
@@ -1534,6 +1605,7 @@ function TourBeakerBotOverlay({
   onSkipStep,
   onExitTour,
   onBack,
+  onBranchTo,
   canGoBack,
   flashSpeech,
 }: TourBeakerBotOverlayProps) {
@@ -1549,6 +1621,13 @@ function TourBeakerBotOverlay({
     step.completion.type === "manual"
       ? step.completion.buttonLabel ?? "Got it, next"
       : null;
+
+  // §6.7 HE-2: branch buttons render in place of the "Got it, next"
+  // affordance when the step declares branch-completion. The user picks
+  // a branch by clicking; the controller jumps to that branch's
+  // `nextStep` via `onBranchTo`.
+  const branches =
+    step.completion.type === "branch" ? step.completion.branches : null;
 
   // Anchor position: bottom-right, but clear of AppShell's FAB cluster.
   // AppShell mounts a horizontal row of ~7 round 48px buttons at
@@ -1603,7 +1682,25 @@ function TourBeakerBotOverlay({
               </button>
             ) : null}
           </div>
-          {manualButtonLabel ? (
+          {branches ? (
+            <div
+              data-testid="tour-beakerbot-branch-buttons"
+              className="flex flex-wrap items-center justify-center gap-2"
+            >
+              {branches.map((b) => (
+                <button
+                  key={b.label}
+                  type="button"
+                  onClick={() => onBranchTo(b.nextStep)}
+                  data-branch-label={b.label}
+                  className="text-xs font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-full px-3 py-1.5"
+                  aria-label={b.buttonLabel}
+                >
+                  {b.buttonLabel}
+                </button>
+              ))}
+            </div>
+          ) : manualButtonLabel ? (
             <button
               type="button"
               onClick={onManualAdvance}

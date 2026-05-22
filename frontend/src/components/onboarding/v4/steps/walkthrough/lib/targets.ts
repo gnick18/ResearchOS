@@ -245,6 +245,22 @@ export const TOUR_TARGETS = {
   taskPopupSaveButton: "task-popup-save-button",
   taskPopupDeleteButton: "task-popup-delete-button",
   taskPopupClose: "task-popup-close",
+
+  // §6.7 hybrid-editor redesign (HE-0 notes-vs-results + new sub-steps).
+  // Hybrid editor manager 2026-05-22: appended NEW anchors only; existing
+  // §6.7 entries above (experimentNotesTab, hybridEditorTextarea, image
+  // strip, embedded image, resize percent) keep their values.
+  // HE-0 spotlight: the tab container with both Notes + Results tabs
+  // visible so BeakerBot can call out the two-store mental model. The
+  // results tab itself is also addressable for the glide-between-tabs
+  // demo cursor script.
+  experimentTabContainer: "experiment-tab-container",
+  experimentResultsTab: "experiment-results-tab",
+  // HE-3 markdown overview spotlight: the helper panel inside the
+  // hybrid editor that lists shortcuts + the style guide. Lives on the
+  // left of the editor body; rendered by HybridMarkdownEditor.tsx in
+  // both the empty-state and the populated-state branches.
+  hybridEditorShortcutBar: "hybrid-editor-shortcut-bar",
 } as const;
 
 export type TourTargetName = (typeof TOUR_TARGETS)[keyof typeof TOUR_TARGETS];

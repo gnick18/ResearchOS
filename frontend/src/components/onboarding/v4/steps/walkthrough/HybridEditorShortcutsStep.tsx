@@ -1,4 +1,10 @@
 /**
+ * @deprecated 2026-05-22 (Hybrid editor manager): retired by §6.7
+ * redesign. Replaced by HE-7 (`hybrid-shortcuts`), which flipped the
+ * step to user-action and added page-lock with an editor allow-list.
+ * Kept in tree for git-history reference; removed from
+ * `step-registry.ts` so it never mounts.
+ *
  * §6.7 Hybrid editor — keyboard shortcuts sub-step.
  *
  * First of four hybrid-editor sub-steps. BeakerBot demonstrates the

@@ -1954,7 +1954,10 @@ export default function HybridMarkdownEditor({
       <div className="flex h-full">
         {/* Helper panel */}
         {showShortcutsHelper && (
-          <div className={`${helperCollapsed ? "w-8" : "w-52"} flex-shrink-0 border-r border-gray-100 bg-gray-50/30 flex flex-col transition-all duration-200`}>
+          <div
+            data-tour-target="hybrid-editor-shortcut-bar"
+            className={`${helperCollapsed ? "w-8" : "w-52"} flex-shrink-0 border-r border-gray-100 bg-gray-50/30 flex flex-col transition-all duration-200`}
+          >
             <Tooltip
               label={helperCollapsed ? "Expand helper panel" : "Collapse helper panel"}
               placement="right"
@@ -2151,7 +2154,10 @@ export default function HybridMarkdownEditor({
     <div className="flex h-full">
       {/* Helper panel */}
       {showShortcutsHelper && (
-        <div className={`${helperCollapsed ? "w-8" : "w-52"} flex-shrink-0 border-r border-gray-100 bg-gray-50/30 flex flex-col transition-all duration-200`}>
+        <div
+          data-tour-target="hybrid-editor-shortcut-bar"
+          className={`${helperCollapsed ? "w-8" : "w-52"} flex-shrink-0 border-r border-gray-100 bg-gray-50/30 flex flex-col transition-all duration-200`}
+        >
           <Tooltip
             label={helperCollapsed ? "Expand helper panel" : "Collapse helper panel"}
             placement="right"

@@ -151,35 +151,46 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "experiment-attach-method-tab",     // §6.6b click Methods tab inside popup
   "experiment-attach-method-attach",  // §6.6c click Attach + pick funny method
   "experiment-attach-method-notes",   // §6.6d type variation note + mental model
-  // Hybrid editor — shortcuts + paragraph chunks + image drops + resize (§6.7)
-  // P5 split the original single `hybrid-editor` id into four sub-steps
-  // matching the proposal's four cursor scripts (FLAG to master: this
-  // adds three new ids; the machine treats each as part of the
-  // walkthrough phase so no gate update is needed).
-  "hybrid-editor",
-  "hybrid-editor-paragraphs",
-  "hybrid-editor-image-drop",
-  "hybrid-editor-resize",
+  // Hybrid editor — §6.7 redesign (Hybrid editor manager 2026-05-22).
+  // 12 sub-steps replacing the prior 4. Order matches HE-0 → HE-11 in
+  // ONBOARDING_V4_HYBRID_EDITOR_REDESIGN.md §6.7. The HE-2 branching
+  // gate (hybrid-markdown-familiarity) directs the user either through
+  // HE-3 (overview) or directly to HE-4 (mechanic).
+  "hybrid-notes-vs-results",       // HE-0
+  "hybrid-markdown-intro",         // HE-1
+  "hybrid-markdown-familiarity",   // HE-2 (in-tour branch gate)
+  "hybrid-markdown-overview",      // HE-3 (reached only via HE-2 "yes overview" branch)
+  "hybrid-editor-mechanic",        // HE-4
+  "hybrid-bold",                   // HE-5a
+  "hybrid-italic",                 // HE-5b
+  "hybrid-underline",              // HE-5c
+  "hybrid-h1",                     // HE-6a
+  "hybrid-h2",                     // HE-6b
+  "hybrid-h3",                     // HE-6c
+  "hybrid-shortcuts",              // HE-7 (user-action, allow-listed lock)
+  "hybrid-image-attach",           // HE-8 (off-screen cursor entry)
+  "hybrid-image-drag-in",          // HE-9
+  "hybrid-image-resize",           // HE-10
+  "hybrid-file-attach",            // HE-11 (terminal)
   // Gantt page deep-dive (§6.8) — redesigned 2026-05-22 (Gantt manager).
-  // Old order (`gantt-task-types`, `gantt-drag-drop`, `gantt-chained-deps`,
-  // `gantt-goals-overview`) replaced with 14 sub-steps: a 6-step universal
-  // dependency-teaching arc, a 7-step lab-only share-feature cluster, and
-  // the relocated goals overview. See ONBOARDING_V4_GANTT_REDESIGN.md.
+  // Old order replaced with 14 sub-steps: a 6-step universal dependency-
+  // teaching arc, a 7-step lab-only share-feature cluster, and the
+  // relocated goals overview. See ONBOARDING_V4_GANTT_REDESIGN.md.
   "gantt-intro",                  // universal: explain what a Gantt is
   "gantt-existing-experiment",    // universal: spotlight user's experiment
-  "gantt-drag-drop",              // universal: BeakerBot drags + reschedules (refined)
-  "gantt-deps-beakerbot",         // universal: BeakerBot wires fake A → user (split from old chained-deps)
+  "gantt-drag-drop",              // universal: BeakerBot drags + reschedules
+  "gantt-deps-beakerbot",         // universal: BeakerBot wires fake A → user
   "gantt-deps-user",              // universal: USER wires fake B → user (page-lock)
-  "gantt-deps-cascade",           // universal: BeakerBot moves head, cascade fires (split from old chained-deps)
+  "gantt-deps-cascade",           // universal: BeakerBot moves head, cascade fires
   // Lab-only share-feature cluster (7 beats). Conditional on
   // picks.account_type === "lab"; solo accounts skip the whole cluster.
   "gantt-share-intro",            // lab: explain task sharing
-  "gantt-share-beakerbot-spawn",  // lab: BeakerBot spawns a new fake teammate experiment
+  "gantt-share-beakerbot-spawn",  // lab: BeakerBot spawns coffee experiment
   "gantt-share-beakerbot-shares", // lab: BeakerBot shares the experiment with user
-  "gantt-share-user-explores",    // lab: user-action, explore the shared experiment popup
-  "gantt-share-user-shares-back", // lab: user-action, share user's chain back to BeakerBot
-  "gantt-share-profile-switch",   // lab: REAL user-context switch to BeakerBot + back
-  "gantt-share-user-sees-edit",   // lab: user-action, open the popup to see BeakerBot's note
+  "gantt-share-user-explores",    // lab: user-action, explore the shared experiment
+  "gantt-share-user-shares-back", // lab: user-action, share user's chain back
+  "gantt-share-profile-switch",   // lab: REAL user-context switch (faked-flagged)
+  "gantt-share-user-sees-edit",   // lab: user-action, open popup to see BeakerBot's note
   // Goals overview — RELOCATED to after the share cluster per
   // ONBOARDING_V4_GANTT_REDESIGN.md. Conditional on picks.goals === "yes".
   "gantt-goals-overview",

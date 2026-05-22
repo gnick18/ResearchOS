@@ -29,6 +29,13 @@ export interface StepBuilderInput {
   /** Optional larger surface to scroll into view before the cursor
    *  script runs. See `TourStep.viewportAnchor` for behavior. */
   viewportAnchor?: string;
+  /** Optional page-lock config. See `TourStep.pageLock`. */
+  pageLock?: TourStep["pageLock"];
+  /** Optional off-screen cursor entry edge. See `TourStep.cursorEntry`. */
+  cursorEntry?: TourStep["cursorEntry"];
+  /** Optional image preview that tracks the cursor for the step's
+   *  lifetime. See `TourStep.cursorHeldImage`. */
+  cursorHeldImage?: TourStep["cursorHeldImage"];
 }
 
 /**
@@ -52,6 +59,9 @@ export function buildWalkthroughStep(input: StepBuilderInput): TourStep {
     conditionalOn: input.conditionalOn,
     expectedRoute: input.expectedRoute,
     viewportAnchor: input.viewportAnchor,
+    pageLock: input.pageLock,
+    cursorEntry: input.cursorEntry,
+    cursorHeldImage: input.cursorHeldImage,
   };
 }
 
@@ -82,4 +92,24 @@ export function advanceOnEvent(
   eventListener: (advance: () => void) => () => void,
 ): TourStepCompletion {
   return { type: "event", eventListener };
+}
+
+/**
+ * In-tour user-choice gate. The speech bubble renders one button per
+ * branch; the controller jumps to the branch's `nextStep` on click,
+ * overriding the step-machine's normal forward traversal.
+ *
+ * Used by §6.7 HE-2 (hybrid-markdown-familiarity) so users who already
+ * know markdown can skip the overview step, and users who don't can
+ * elect into a short explainer. No sidecar write — the choice is
+ * scoped to the current run.
+ */
+export function branchOn(
+  branches: ReadonlyArray<{
+    label: string;
+    buttonLabel: string;
+    nextStep: import("@/components/onboarding/v4/step-types").TourStepId;
+  }>,
+): TourStepCompletion {
+  return { type: "branch", branches };
 }

@@ -111,10 +111,27 @@ import { methodAttachmentOpenStep } from "./steps/walkthrough/MethodAttachmentOp
 import { methodAttachmentTabStep } from "./steps/walkthrough/MethodAttachmentTabStep";
 import { methodAttachmentAttachStep } from "./steps/walkthrough/MethodAttachmentAttachStep";
 import { methodAttachmentNotesStep } from "./steps/walkthrough/MethodAttachmentNotesStep";
-import { hybridEditorShortcutsStep } from "./steps/walkthrough/HybridEditorShortcutsStep";
-import { hybridEditorParagraphsStep } from "./steps/walkthrough/HybridEditorParagraphsStep";
-import { hybridEditorImageDropStep } from "./steps/walkthrough/HybridEditorImageDropStep";
-import { hybridEditorResizeStep } from "./steps/walkthrough/HybridEditorResizeStep";
+// §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22): the
+// prior 4 sub-steps (shortcuts / paragraphs / image-drop / resize) are
+// retired. Their .tsx files stay in tree with @deprecated JSDoc tags
+// and no longer mount via the registry. New shape: 12 sub-steps from
+// HE-0 through HE-11, plus an in-tour branch gate at HE-2.
+import { hybridNotesVsResultsStep } from "./steps/walkthrough/HybridNotesVsResultsStep";
+import { hybridMarkdownIntroStep } from "./steps/walkthrough/HybridMarkdownIntroStep";
+import { hybridMarkdownFamiliarityStep } from "./steps/walkthrough/HybridMarkdownFamiliarityStep";
+import { hybridMarkdownOverviewStep } from "./steps/walkthrough/HybridMarkdownOverviewStep";
+import { hybridEditorMechanicStep } from "./steps/walkthrough/HybridEditorMechanicStep";
+import { hybridBoldStep } from "./steps/walkthrough/HybridBoldStep";
+import { hybridItalicStep } from "./steps/walkthrough/HybridItalicStep";
+import { hybridUnderlineStep } from "./steps/walkthrough/HybridUnderlineStep";
+import { hybridH1Step } from "./steps/walkthrough/HybridH1Step";
+import { hybridH2Step } from "./steps/walkthrough/HybridH2Step";
+import { hybridH3Step } from "./steps/walkthrough/HybridH3Step";
+import { hybridShortcutsStep } from "./steps/walkthrough/HybridShortcutsStep";
+import { hybridImageAttachStep } from "./steps/walkthrough/HybridImageAttachStep";
+import { hybridImageDragInStep } from "./steps/walkthrough/HybridImageDragInStep";
+import { hybridImageResizeStep } from "./steps/walkthrough/HybridImageResizeStep";
+import { hybridFileAttachStep } from "./steps/walkthrough/HybridFileAttachStep";
 // §6.8 Gantt redesign (Gantt manager 2026-05-22): the legacy
 // `ganttIntroStep` (`gantt-task-types`) and `ganttDependenciesStep`
 // (`gantt-chained-deps`) were retired. The new arc splits Gantt
@@ -173,10 +190,24 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [methodAttachmentTabStep.id]: methodAttachmentTabStep,
   [methodAttachmentAttachStep.id]: methodAttachmentAttachStep,
   [methodAttachmentNotesStep.id]: methodAttachmentNotesStep,
-  [hybridEditorShortcutsStep.id]: hybridEditorShortcutsStep,
-  [hybridEditorParagraphsStep.id]: hybridEditorParagraphsStep,
-  [hybridEditorImageDropStep.id]: hybridEditorImageDropStep,
-  [hybridEditorResizeStep.id]: hybridEditorResizeStep,
+  // §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22).
+  // 12 sub-steps wired in TOUR_STEP_ORDER order. Legacy bodies retired.
+  [hybridNotesVsResultsStep.id]: hybridNotesVsResultsStep,
+  [hybridMarkdownIntroStep.id]: hybridMarkdownIntroStep,
+  [hybridMarkdownFamiliarityStep.id]: hybridMarkdownFamiliarityStep,
+  [hybridMarkdownOverviewStep.id]: hybridMarkdownOverviewStep,
+  [hybridEditorMechanicStep.id]: hybridEditorMechanicStep,
+  [hybridBoldStep.id]: hybridBoldStep,
+  [hybridItalicStep.id]: hybridItalicStep,
+  [hybridUnderlineStep.id]: hybridUnderlineStep,
+  [hybridH1Step.id]: hybridH1Step,
+  [hybridH2Step.id]: hybridH2Step,
+  [hybridH3Step.id]: hybridH3Step,
+  [hybridShortcutsStep.id]: hybridShortcutsStep,
+  [hybridImageAttachStep.id]: hybridImageAttachStep,
+  [hybridImageDragInStep.id]: hybridImageDragInStep,
+  [hybridImageResizeStep.id]: hybridImageResizeStep,
+  [hybridFileAttachStep.id]: hybridFileAttachStep,
   // §6.8 Gantt redesign (Gantt manager 2026-05-22). The 4-step legacy
   // arc (gantt-task-types / gantt-drag-drop / gantt-chained-deps /
   // gantt-goals-overview) is replaced by 14 sub-steps.
@@ -319,8 +350,12 @@ patchLabStep("lab-cleanup", buildLabCleanupStep());
 // `gantt-chained-deps` onEnter hook is retired. Its replacement
 // (`gantt-deps-beakerbot`) owns its own onEnter directly via the
 // `buildWalkthroughStep` slot, so no patch is needed here.
-TOUR_STEPS["hybrid-editor-image-drop"] = {
-  ...TOUR_STEPS["hybrid-editor-image-drop"],
+// §6.7 redesign 2026-05-22 (Hybrid editor manager): the onEnter that
+// seeds the BeakerBot selfie blob now hangs off `hybrid-image-attach`
+// (HE-8) instead of the retired `hybrid-editor-image-drop` id. Same
+// helper, new owner step.
+TOUR_STEPS["hybrid-image-attach"] = {
+  ...TOUR_STEPS["hybrid-image-attach"],
   onEnter: async (ctx) => {
     await onEnterHybridEditorImageDrop(ctx);
   },

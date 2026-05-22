@@ -779,7 +779,10 @@ export default function TaskDetailPopup({
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-100 px-6 bg-gray-50">
+        <div
+          className="flex border-b border-gray-100 px-6 bg-gray-50"
+          data-tour-target="experiment-tab-container"
+        >
           {tabs.map((tab) => (
             <button
               key={tab}
@@ -789,7 +792,9 @@ export default function TaskDetailPopup({
                   ? "experiment-methods-tab"
                   : tab === "notes"
                     ? "experiment-notes-tab"
-                    : undefined
+                    : tab === "results"
+                      ? "experiment-results-tab"
+                      : undefined
               }
               className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === tab

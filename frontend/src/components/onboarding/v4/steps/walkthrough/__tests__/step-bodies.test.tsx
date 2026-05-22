@@ -70,10 +70,24 @@ import { methodAttachmentTabStep } from "../MethodAttachmentTabStep";
 import { methodAttachmentAttachStep } from "../MethodAttachmentAttachStep";
 import { methodAttachmentNotesStep } from "../MethodAttachmentNotesStep";
 import { methodAttachmentStep } from "../MethodAttachmentStep";
-import { hybridEditorShortcutsStep } from "../HybridEditorShortcutsStep";
-import { hybridEditorParagraphsStep } from "../HybridEditorParagraphsStep";
-import { hybridEditorImageDropStep } from "../HybridEditorImageDropStep";
-import { hybridEditorResizeStep } from "../HybridEditorResizeStep";
+// §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22): the
+// prior 4 step bodies are retired; new shape is 12 sub-steps.
+import { hybridNotesVsResultsStep } from "../HybridNotesVsResultsStep";
+import { hybridMarkdownIntroStep } from "../HybridMarkdownIntroStep";
+import { hybridMarkdownFamiliarityStep } from "../HybridMarkdownFamiliarityStep";
+import { hybridMarkdownOverviewStep } from "../HybridMarkdownOverviewStep";
+import { hybridEditorMechanicStep } from "../HybridEditorMechanicStep";
+import { hybridBoldStep } from "../HybridBoldStep";
+import { hybridItalicStep } from "../HybridItalicStep";
+import { hybridUnderlineStep } from "../HybridUnderlineStep";
+import { hybridH1Step } from "../HybridH1Step";
+import { hybridH2Step } from "../HybridH2Step";
+import { hybridH3Step } from "../HybridH3Step";
+import { hybridShortcutsStep } from "../HybridShortcutsStep";
+import { hybridImageAttachStep } from "../HybridImageAttachStep";
+import { hybridImageDragInStep } from "../HybridImageDragInStep";
+import { hybridImageResizeStep } from "../HybridImageResizeStep";
+import { hybridFileAttachStep } from "../HybridFileAttachStep";
 import { ganttIntroStep } from "../GanttIntroStep";
 import { ganttExistingExperimentStep } from "../GanttExistingExperimentStep";
 import { ganttDragDropStep } from "../GanttDragDropStep";
@@ -145,10 +159,22 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   methodAttachmentTabStep,
   methodAttachmentAttachStep,
   methodAttachmentNotesStep,
-  hybridEditorShortcutsStep,
-  hybridEditorParagraphsStep,
-  hybridEditorImageDropStep,
-  hybridEditorResizeStep,
+  hybridNotesVsResultsStep,
+  hybridMarkdownIntroStep,
+  hybridMarkdownFamiliarityStep,
+  hybridMarkdownOverviewStep,
+  hybridEditorMechanicStep,
+  hybridBoldStep,
+  hybridItalicStep,
+  hybridUnderlineStep,
+  hybridH1Step,
+  hybridH2Step,
+  hybridH3Step,
+  hybridShortcutsStep,
+  hybridImageAttachStep,
+  hybridImageDragInStep,
+  hybridImageResizeStep,
+  hybridFileAttachStep,
   ganttIntroStep,
   ganttExistingExperimentStep,
   ganttDragDropStep,
@@ -201,10 +227,23 @@ describe("P5 step bodies — universal contract", () => {
       "experiment-attach-method-tab",
       "experiment-attach-method-attach",
       "experiment-attach-method-notes",
-      "hybrid-editor",
-      "hybrid-editor-paragraphs",
-      "hybrid-editor-image-drop",
-      "hybrid-editor-resize",
+      // §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22)
+      "hybrid-notes-vs-results",
+      "hybrid-markdown-intro",
+      "hybrid-markdown-familiarity",
+      "hybrid-markdown-overview",
+      "hybrid-editor-mechanic",
+      "hybrid-bold",
+      "hybrid-italic",
+      "hybrid-underline",
+      "hybrid-h1",
+      "hybrid-h2",
+      "hybrid-h3",
+      "hybrid-shortcuts",
+      "hybrid-image-attach",
+      "hybrid-image-drag-in",
+      "hybrid-image-resize",
+      "hybrid-file-attach",
       // §6.8 Gantt redesign 2026-05-22 (Gantt manager).
       "gantt-intro",
       "gantt-existing-experiment",
@@ -288,14 +327,23 @@ describe("P5 step bodies — universal contract", () => {
       methodAttachmentTabStep,
       methodAttachmentAttachStep,
       methodAttachmentNotesStep,
-      hybridEditorShortcutsStep,
-      hybridEditorParagraphsStep,
-      hybridEditorImageDropStep,
-      hybridEditorResizeStep,
-      // §6.8 Gantt redesign 2026-05-22: ganttIntroStep is narration-only
-      // (no cursor); the active demo steps are below. ganttExistingExperiment
-      // (open/close popup), ganttDragDrop, ganttDepsBeakerBot, ganttDepsCascade,
-      // and ganttShareBeakerBotShares all have cursorScripts.
+      // §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22):
+      // every BeakerBot-led demo sub-step retains a cursorScript. HE-7
+      // (`hybridShortcutsStep`) is user-action and is intentionally
+      // EXCLUDED from this list. HE-1 / HE-2 / HE-3 / HE-4 are
+      // narration-only and also excluded.
+      hybridNotesVsResultsStep,
+      hybridBoldStep,
+      hybridItalicStep,
+      hybridUnderlineStep,
+      hybridH1Step,
+      hybridH2Step,
+      hybridH3Step,
+      hybridImageAttachStep,
+      hybridImageDragInStep,
+      hybridImageResizeStep,
+      hybridFileAttachStep,
+      // §6.8 Gantt redesign 2026-05-22.
       ganttExistingExperimentStep,
       ganttDragDropStep,
       ganttDepsBeakerBotStep,
@@ -941,16 +989,83 @@ describe("MethodAttachment split sub-steps (§6.6 popup-mount split, 2026-05-21)
   });
 });
 
-describe("Hybrid editor steps (§6.7)", () => {
-  it("all four sub-steps declare manual completion (universal pacing rule, Grant 2026-05-22)", () => {
-    // Was: shortcuts auto, paragraphs auto, image-drop event, resize
-    // manual. Universal pacing converts the three BeakerBot-led demo
-    // steps (shortcuts/paragraphs/image-drop) to manual; resize was
-    // already manual.
-    expect(hybridEditorShortcutsStep.completion.type).toBe("manual");
-    expect(hybridEditorParagraphsStep.completion.type).toBe("manual");
-    expect(hybridEditorImageDropStep.completion.type).toBe("manual");
-    expect(hybridEditorResizeStep.completion.type).toBe("manual");
+describe("Hybrid editor steps (§6.7 redesign, Hybrid editor manager 2026-05-22)", () => {
+  it("HE-0 hybrid-notes-vs-results explains the two-store mental model", () => {
+    const text = renderSpeech(hybridNotesVsResultsStep);
+    expect(text).toMatch(/two places to write/);
+    expect(text).toMatch(/Notes/);
+    expect(text).toMatch(/Results/);
+    expect(text).toMatch(/separate stores/);
+  });
+  it("HE-0 targets the tab container for the spotlight", () => {
+    expect(hybridNotesVsResultsStep.targetSelector).toBe(
+      '[data-tour-target="experiment-tab-container"]',
+    );
+  });
+  it("HE-1 markdown intro is narration-only (no cursor, no spotlight)", () => {
+    expect(hybridMarkdownIntroStep.cursorScript).toBeUndefined();
+    expect(hybridMarkdownIntroStep.targetSelector).toBeUndefined();
+    expect(renderSpeech(hybridMarkdownIntroStep)).toMatch(/markdown/);
+  });
+  it("HE-2 markdown-familiarity declares manual completion (branch buttons live inside the speech)", () => {
+    expect(hybridMarkdownFamiliarityStep.completion.type).toBe("manual");
+    expect(hybridMarkdownFamiliarityStep.pose).toBe("thinking");
+  });
+  it("HE-3 markdown-overview spotlights the shortcut bar", () => {
+    expect(hybridMarkdownOverviewStep.targetSelector).toBe(
+      '[data-tour-target="hybrid-editor-shortcut-bar"]',
+    );
+  });
+  it("HE-4 hybrid-editor-mechanic narrates the click-out-to-render mechanic", () => {
+    const text = renderSpeech(hybridEditorMechanicStep);
+    expect(text).toMatch(/click out/i);
+    expect(text).toMatch(/renders/);
+  });
+  it("HE-5 + HE-6 typing beats all declare manual completion + page lock", () => {
+    const steps = [
+      hybridBoldStep,
+      hybridItalicStep,
+      hybridUnderlineStep,
+      hybridH1Step,
+      hybridH2Step,
+      hybridH3Step,
+    ];
+    for (const s of steps) {
+      expect(s.completion.type).toBe("manual");
+      expect(s.pageLock, `${s.id} needs a pageLock`).toBeDefined();
+    }
+  });
+  it("HE-5 + HE-6 typing beats have ids matching the brief", () => {
+    expect(hybridBoldStep.id).toBe("hybrid-bold");
+    expect(hybridItalicStep.id).toBe("hybrid-italic");
+    expect(hybridUnderlineStep.id).toBe("hybrid-underline");
+    expect(hybridH1Step.id).toBe("hybrid-h1");
+    expect(hybridH2Step.id).toBe("hybrid-h2");
+    expect(hybridH3Step.id).toBe("hybrid-h3");
+  });
+  it("HE-7 hybrid-shortcuts is user-action (no cursor) with an allow-listed page lock", () => {
+    expect(hybridShortcutsStep.cursorScript).toBeUndefined();
+    expect(hybridShortcutsStep.completion.type).toBe("manual");
+    expect(hybridShortcutsStep.pageLock?.allowList?.length).toBeGreaterThan(0);
+  });
+  it("HE-8 hybrid-image-attach uses off-screen cursor entry + held image", () => {
+    expect(hybridImageAttachStep.cursorEntry).toBe("offscreen-right");
+    expect(hybridImageAttachStep.cursorHeldImage?.src).toMatch(/beakerbot-selfie/);
+  });
+  it("HE-9 hybrid-image-drag-in retains a cursor script (BeakerBot demo)", () => {
+    expect(hybridImageDragInStep.cursorScript).toBeDefined();
+    expect(hybridImageDragInStep.completion.type).toBe("manual");
+  });
+  it("HE-10 hybrid-image-resize speech NO LONGER carries the notes/results coda (moved to HE-0)", () => {
+    const text = renderSpeech(hybridImageResizeStep);
+    // The coda used to live on the resize step; HE-0 owns it now.
+    expect(text).not.toMatch(/notes-tab images and results-tab images/);
+    expect(text).toMatch(/resize/i);
+  });
+  it("HE-11 hybrid-file-attach narrates the file-vs-image difference", () => {
+    const text = renderSpeech(hybridFileAttachStep);
+    expect(text).toMatch(/files attach the same way/i);
+    expect(text).toMatch(/PDFs and text files/);
   });
 });
 

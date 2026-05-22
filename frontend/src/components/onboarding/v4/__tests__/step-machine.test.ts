@@ -59,7 +59,16 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER).toContain("home-create-project");
     expect(TOUR_STEP_ORDER).toContain("methods-open-picker");
     expect(TOUR_STEP_ORDER).toContain("methods-create");
-    expect(TOUR_STEP_ORDER).toContain("hybrid-editor");
+    // §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22):
+    // the old "hybrid-editor" id is gone; the new shape uses HE-0 → HE-11
+    // ids starting with hybrid-notes-vs-results.
+    expect(TOUR_STEP_ORDER).toContain("hybrid-notes-vs-results");
+    expect(TOUR_STEP_ORDER).toContain("hybrid-markdown-familiarity");
+    expect(TOUR_STEP_ORDER).toContain("hybrid-file-attach");
+    expect(TOUR_STEP_ORDER).not.toContain("hybrid-editor");
+    expect(TOUR_STEP_ORDER).not.toContain("hybrid-editor-paragraphs");
+    expect(TOUR_STEP_ORDER).not.toContain("hybrid-editor-image-drop");
+    expect(TOUR_STEP_ORDER).not.toContain("hybrid-editor-resize");
     expect(TOUR_STEP_ORDER).toContain("gantt-drag-drop");
     expect(TOUR_STEP_ORDER).toContain("ai-helper-deep-explain");
     expect(TOUR_STEP_ORDER).toContain("telegram");
@@ -148,6 +157,37 @@ describe("TOUR_STEP_ORDER", () => {
       "methods-type-tour",
       "methods-lc-demo",
       "methods-create",
+    ];
+    const indices = order.map((id) => TOUR_STEP_ORDER.indexOf(id));
+    indices.forEach((idx, i) => {
+      expect(idx, `${order[i]} missing from TOUR_STEP_ORDER`).toBeGreaterThanOrEqual(0);
+      if (i > 0) {
+        expect(
+          idx,
+          `${order[i]} must follow ${order[i - 1]}`,
+        ).toBe(indices[i - 1] + 1);
+      }
+    });
+  });
+
+  it("orders the §6.7 hybrid-editor redesign cluster HE-0 through HE-11 (Hybrid editor manager 2026-05-22)", () => {
+    const order = [
+      "hybrid-notes-vs-results",
+      "hybrid-markdown-intro",
+      "hybrid-markdown-familiarity",
+      "hybrid-markdown-overview",
+      "hybrid-editor-mechanic",
+      "hybrid-bold",
+      "hybrid-italic",
+      "hybrid-underline",
+      "hybrid-h1",
+      "hybrid-h2",
+      "hybrid-h3",
+      "hybrid-shortcuts",
+      "hybrid-image-attach",
+      "hybrid-image-drag-in",
+      "hybrid-image-resize",
+      "hybrid-file-attach",
     ];
     const indices = order.map((id) => TOUR_STEP_ORDER.indexOf(id));
     indices.forEach((idx, i) => {
@@ -328,7 +368,11 @@ describe("getNextStep — forward traversal", () => {
     expect(visited).toContain("home-create-project");
     expect(visited).toContain("methods-open-picker");
     expect(visited).toContain("methods-create");
-    expect(visited).toContain("hybrid-editor");
+    // §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22):
+    // first id of the new cluster is hybrid-notes-vs-results (HE-0).
+    expect(visited).toContain("hybrid-notes-vs-results");
+    expect(visited).toContain("hybrid-shortcuts");
+    expect(visited).toContain("hybrid-file-attach");
     expect(visited).toContain("gantt-drag-drop");
     // Terminates at phase4-cleanup
     expect(visited[visited.length - 1]).toBe("phase4-cleanup");

@@ -1,4 +1,11 @@
 /**
+ * @deprecated 2026-05-22 (Hybrid editor manager): retired by §6.7
+ * redesign. Replaced by HE-10 (`hybrid-image-resize`); the
+ * notes-vs-results coda this step used to carry was promoted to HE-0
+ * (`hybrid-notes-vs-results`) at the top of the §6.7 cluster. Kept in
+ * tree for git-history reference; removed from `step-registry.ts` so
+ * it never mounts.
+ *
  * §6.7 Hybrid editor — resize demo + notes/results storage mental
  * model. Final of four hybrid-editor sub-steps.
  *

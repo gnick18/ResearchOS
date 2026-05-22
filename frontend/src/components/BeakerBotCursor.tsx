@@ -111,6 +111,11 @@ export interface BeakerBotCursorRef {
   show(): void;
   /** Run a queue of primitives sequentially. Resolves after the last. */
   runScript(actions: readonly CursorAction[]): Promise<void>;
+  /** Snap the cursor to the given coords WITHOUT animation. Used by the
+   *  §6.7 HE-8 off-screen entry: the controller calls `snapTo` to place
+   *  the cursor outside the viewport before runScript fires, so the
+   *  first glide reads as "bringing something in from off screen." */
+  snapTo(x: number, y: number): void;
 }
 
 export interface BeakerBotCursorProps {
@@ -129,6 +134,17 @@ export interface BeakerBotCursorProps {
   /** Optional className passthrough on the outer wrapper. Useful for
    *  tests to query the cursor without depending on data-testid. */
   className?: string;
+  /** §6.7 HE-8 / HE-9 — optional image preview that tracks the cursor
+   *  while the step is active. The image renders as a child of the
+   *  cursor's wrapper, so the existing translate3d transform carries it
+   *  alongside the cursor for free. Pointer-events: none so it doesn't
+   *  intercept clicks. */
+  heldImage?: {
+    src: string;
+    width?: number;
+    height?: number;
+    alt?: string;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -238,6 +254,12 @@ interface CursorState {
   visible: boolean;
   pressed: boolean;
   ripples: number[]; // ripple ids; rendered as <span>s that auto-fade
+  /** When true, the next render disables the CSS transition so the
+   *  position change is instant. Used by `snapTo` for the §6.7 HE-8
+   *  off-screen entry (cursor materialises off-viewport without an
+   *  animated "trail" from wherever it was). The flag auto-resets on
+   *  the next state change. */
+  snap: boolean;
 }
 
 const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
@@ -249,6 +271,7 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
       rippleMs = DEFAULT_RIPPLE_MS,
       typeCadenceMs = DEFAULT_TYPE_CADENCE_MS,
       className,
+      heldImage,
     },
     ref,
   ) {
@@ -268,6 +291,7 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
       visible: true,
       pressed: false,
       ripples: [],
+      snap: false,
     });
     // Stable refs for tuning props + state so the imperative callbacks
     // read the latest values without resubscribing. Mirrored in an
@@ -314,6 +338,25 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
     // ---------------------------------------------------------------------
     // Primitive: Glide
     // ---------------------------------------------------------------------
+    // ---------------------------------------------------------------------
+    // Primitive: SnapTo (no animation) — §6.7 HE-8 off-screen entry
+    // ---------------------------------------------------------------------
+    const snapTo = useCallback((x: number, y: number): void => {
+      // Flip the `snap` flag so the next render's `transition` resolves
+      // to `none`. We schedule a microtask to flip it back so subsequent
+      // `glideTo` calls regain the smooth animation.
+      setState((prev) => ({ ...prev, x, y, snap: true }));
+      // Re-enable transitions on the next frame. A simple
+      // `requestAnimationFrame` is cheaper than another setState round
+      // trip; the next animated change will land with the transition
+      // back in place.
+      if (typeof window !== "undefined") {
+        window.requestAnimationFrame(() => {
+          setState((prev) => (prev.snap ? { ...prev, snap: false } : prev));
+        });
+      }
+    }, []);
+
     const glideTo = useCallback(async (x: number, y: number): Promise<void> => {
       setState((prev) => ({ ...prev, x, y }));
       // For reduced motion the transition is disabled (see render), so
@@ -572,8 +615,9 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
         hide,
         show,
         runScript,
+        snapTo,
       }),
-      [glideTo, clickAt, typeInto, dragFromTo, hide, show, runScript],
+      [glideTo, clickAt, typeInto, dragFromTo, hide, show, runScript, snapTo],
     );
 
     // ---------------------------------------------------------------------
@@ -581,8 +625,10 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
     // ---------------------------------------------------------------------
     const transitionStyle = useMemo<React.CSSProperties>(() => {
       // The transform is the only animated property; reduced motion
-      // turns it off entirely so position updates are instant.
-      const transition = reduced
+      // turns it off entirely so position updates are instant. The
+      // `snap` flag (set by snapTo for HE-8 off-screen entry) also
+      // disables the transition for a single render.
+      const transition = reduced || state.snap
         ? "none"
         : `transform ${glideMs}ms ${GLIDE_EASING}`;
       return {
@@ -609,7 +655,7 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
         height: 28,
         willChange: "transform",
       };
-    }, [reduced, glideMs, state.x, state.y, state.visible]);
+    }, [reduced, glideMs, state.x, state.y, state.visible, state.snap]);
 
     if (!mounted) return null;
 
@@ -668,6 +714,37 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
             fill="white"
           />
         </svg>
+
+        {/* §6.7 HE-8 / HE-9 — held-image preview. The cursor "holds" a
+            thumbnail while gliding so the user reads it as drag-from-
+            off-screen / drag-into-editor. Positioned slightly above
+            and to the right of the cursor tip; pointer-events none. */}
+        {heldImage ? (
+          // eslint-disable-next-line @next/next/no-img-element -- demo asset is sized as a small thumb; next/image would over-engineer.
+          <img
+            data-beakerbot-cursor-held-image
+            src={heldImage.src}
+            alt={heldImage.alt ?? "BeakerBot demo image"}
+            width={heldImage.width ?? 48}
+            height={heldImage.height ?? 48}
+            style={{
+              position: "absolute",
+              // Offset above-right of the cursor tip so it reads as
+              // something the cursor is "carrying" rather than something
+              // it's about to click.
+              left: 14,
+              top: -10,
+              width: heldImage.width ?? 48,
+              height: heldImage.height ?? 48,
+              objectFit: "cover",
+              borderRadius: 6,
+              boxShadow: "0 2px 6px rgba(0, 0, 0, 0.25)",
+              border: "2px solid white",
+              pointerEvents: "none",
+              userSelect: "none",
+            }}
+          />
+        ) : null}
 
         {/* Click ripples — concentric expanding circles. Positioned at
             the cursor TIP (2, 2 in SVG coords), centered via

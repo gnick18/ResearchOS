@@ -1,4 +1,9 @@
 /**
+ * @deprecated 2026-05-22 (Hybrid editor manager): retired by §6.7
+ * redesign. Split into HE-8 (`hybrid-image-attach`) and HE-9
+ * (`hybrid-image-drag-in`). Kept in tree for git-history reference;
+ * removed from `step-registry.ts` so it never mounts.
+ *
  * §6.7 Hybrid editor — selfie image drag-drop demo.
  *
  * Third of four hybrid-editor sub-steps. BeakerBot's selfie image

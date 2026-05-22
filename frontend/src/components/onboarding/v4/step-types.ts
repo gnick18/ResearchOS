@@ -60,6 +60,30 @@ export type TourStepCompletion =
       type: "auto";
       /** Required for auto: how many ms after step entry to advance. */
       autoAdvanceAfterMs: number;
+    }
+  | {
+      /** In-tour user-choice branching (§6.7 HE-2 markdown familiarity
+       *  gate). The speech bubble renders one button per branch; the
+       *  user's pick determines the next step (overriding the
+       *  step-machine's normal `getNextStep` traversal).
+       *
+       *  Persistence contract per Grant 2026-05-22: branchOn choices
+       *  are NEVER written to the sidecar. Re-running the tour re-asks
+       *  the question. This is by design — the gate scopes one
+       *  downstream step (the markdown overview), not a persistent
+       *  feature pick.
+       */
+      type: "branch";
+      /** One per affordance rendered in the speech bubble. Each entry's
+       *  `buttonLabel` is the button text; `nextStep` is the controller's
+       *  jump target when that button is clicked. `label` is an
+       *  internal-only identifier (logged on click, used by tests) and
+       *  doesn't render. */
+      branches: ReadonlyArray<{
+        label: string;
+        buttonLabel: string;
+        nextStep: TourStepId;
+      }>;
     };
 
 /**
@@ -129,6 +153,46 @@ export interface TourStep {
    *  cursor's target is a small toolbar button but the user's actual
    *  attention should be on the whole builder card. */
   viewportAnchor?: string;
+  /** §6.7 HE-8 — off-screen cursor entry. When set, the BeakerBotCursor
+   *  is repositioned off-screen on the named edge BEFORE the cursor
+   *  script's first glide. The cursor's first glide therefore reads as
+   *  "bringing something in from outside the viewport" — useful when
+   *  the step's narrative is "watch me drag an image in from off
+   *  screen" (HE-8: attaching BeakerBot's image to an experiment).
+   *
+   *  When unset, the cursor's mount position is whatever the previous
+   *  step left it at (or the BeakerBotCursor's initialX/initialY
+   *  defaults if no previous step). */
+  cursorEntry?: "offscreen-right" | "offscreen-left" | "offscreen-top" | "offscreen-bottom";
+  /** §6.7 HE-8 / HE-9 — optional image preview that tracks the cursor
+   *  during a step. Renders a small `<img>` absolutely positioned at
+   *  the cursor's coordinates so the cursor reads as "holding" the
+   *  image while it glides. The preview unmounts when the step exits.
+   *
+   *  `src` is the public URL of the image; `width` / `height` default
+   *  to 48x48 (thumb-sized). The preview is non-interactive
+   *  (pointer-events: none). */
+  cursorHeldImage?: {
+    src: string;
+    width?: number;
+    height?: number;
+    alt?: string;
+  };
+  /** §6.7 page lock — when set, mounts `TourPageLock` for the duration
+   *  of this step. Lets the step body lock the page during read-then-
+   *  watch sequences (HE-5 / HE-6) or restrict input to a single
+   *  surface (HE-7's editor-only allow-list).
+   *
+   *  When `allowList` is empty / undefined, the lock is total (only the
+   *  speech bubble is interactive). When `allowList` is set, clicks on
+   *  elements matching ANY selector pass through.
+   *
+   *  Different from `InputLockOverlay` (which mounts only while the
+   *  cursor is mid-animation). This lock survives the whole step. */
+  pageLock?: {
+    allowList?: ReadonlyArray<string>;
+    pillLabel?: string;
+  };
   /** Pathname (or pathname prefix) the step expects to render against.
    *  When set, the TourController auto-navigates here on step enter if
    *  `window.location.pathname` doesn't already match.

@@ -1,4 +1,10 @@
 /**
+ * @deprecated 2026-05-22 (Hybrid editor manager): retired by §6.7
+ * redesign. Replaced by the multi-beat `hybrid-bold` / `hybrid-italic`
+ * / `hybrid-underline` + `hybrid-h1` / `hybrid-h2` / `hybrid-h3`
+ * sub-steps (HE-5 + HE-6). Kept in tree for git-history reference;
+ * removed from `step-registry.ts` so it never mounts.
+ *
  * §6.7 Hybrid editor — paragraph chunks demo.
  *
  * Second of four hybrid-editor sub-steps. Per Grant's voice-to-text:

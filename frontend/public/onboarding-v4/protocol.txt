@@ -1,0 +1,10 @@
+BeakerBot Demo Protocol — Coffee Brewing v0.1
+
+Step 1: Heat 250 mL of filtered water to 96 C.
+Step 2: Grind 15 g of medium-roast beans to medium-coarse.
+Step 3: Bloom with 30 mL of water for 30 seconds.
+Step 4: Pour the remaining water in two even pulses.
+Step 5: Total brew time should be 3 to 4 minutes.
+
+Notes: this is a placeholder protocol file used by the v4 onboarding tour
+to demonstrate file attachments. Discard during cleanup.
