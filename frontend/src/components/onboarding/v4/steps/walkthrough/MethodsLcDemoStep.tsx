@@ -88,4 +88,15 @@ export const methodsLcDemoStep = buildWalkthroughStep({
   // mounts the LcGradientEditor, then the anchor scrolls the whole card
   // (description + chart + table) into view before the cursor demo runs.
   viewportAnchor: targetSelector(TOUR_TARGETS.lcEditorWrapper),
+  // Methods fix manager 2026-05-22: allow-list lock so the user can
+  // poke around the LC Gradient editor (per the speech bubble's "play
+  // around to get a feel for it") but can't accidentally click
+  // outside the CreateMethodModal and soft-walk themselves out of the
+  // tour. The methodsCreateForm anchor covers the whole modal subtree,
+  // including the picker tiles + the just-mounted LcGradientEditor +
+  // its recharts line chart + the gradient step table.
+  pageLock: {
+    allowList: [TOUR_TARGETS.methodsCreateForm],
+    pillLabel: "Play with LC Gradient. Got it, next is in the chat bubble.",
+  },
 });

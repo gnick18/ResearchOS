@@ -49,6 +49,7 @@ import {
   safeClickAction,
   safeTypeAction,
   compactScript,
+  callbackAction,
 } from "./lib/cursor-script";
 import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
@@ -89,6 +90,30 @@ This protocol does NOT replace actual lab methods. Real PCRs are upstairs.
  *  `methods-category-prompt` beat. Matches the same fallback the
  *  category demo step uses so a stale pick degrades consistently. */
 const FALLBACK_CATEGORY = "Methods";
+
+/** Read-then-watch pause between cursor beats inside the methods-create
+ *  demo (Methods fix manager 2026-05-22). 800ms is the same cadence the
+ *  §6.10 `ai-helper-size-diff` demo uses between Full → Medium →
+ *  Minimal clicks; the cycle gives the user a beat to register each
+ *  visible action (markdown tile click → name typing → category typing
+ *  → body typing → submit) before the next one fires. Without these
+ *  pauses, the cursor blew through the 5-action script faster than the
+ *  user could follow per Grant's 2026-05-22 testing feedback. Exported
+ *  so the pacing test can pin the exact duration. */
+export const METHODS_CREATE_PAUSE_MS = 800;
+
+/** Sleep helper for the callbackAction pause. setTimeout returns a
+ *  cleanup handle we don't need; the wrapper just resolves on tick.
+ *  Same shape as SettingsAiHelperSizeDiffStep's pause helper. */
+async function pause(ms: number): Promise<void> {
+  await new Promise<void>((resolve) => {
+    if (typeof window !== "undefined") {
+      window.setTimeout(resolve, ms);
+    } else {
+      setTimeout(resolve, ms);
+    }
+  });
+}
 
 export const methodsCreateStep = buildWalkthroughStep({
   id: STEP_ID,
@@ -149,14 +174,39 @@ export const methodsCreateStep = buildWalkthroughStep({
       targetSelector(TOUR_TARGETS.methodsCreateSubmit),
     );
 
+    // Methods fix manager 2026-05-22: interleave 800ms read-then-watch
+    // pauses between each visible action so the user can register one
+    // beat (markdown tile picked → name typed → category typed → body
+    // typed → submit) before the next one fires. Pattern matches
+    // §6.10 SettingsAiHelperSizeDiffStep's Full → pause → Medium →
+    // pause → Minimal cycle. The pauses run at PLAYBACK time via
+    // callbackAction (not build time) so each pause resolves AFTER the
+    // preceding click / type has visibly landed.
     return compactScript([
       pickMarkdown,
+      callbackAction(() => pause(METHODS_CREATE_PAUSE_MS)),
       typeName,
+      callbackAction(() => pause(METHODS_CREATE_PAUSE_MS)),
       typeCategory,
+      callbackAction(() => pause(METHODS_CREATE_PAUSE_MS)),
       typeBody,
+      callbackAction(() => pause(METHODS_CREATE_PAUSE_MS)),
       submit,
     ]);
   }),
+  // Methods fix manager 2026-05-22: full page-lock during the BeakerBot
+  // demo. The cursor's clicks pass through via the
+  // `__beakerBotCursorClicking` flag in TourPageLock; only stray USER
+  // clicks (outside the speech bubble) are blocked. Prevents the user
+  // from accidentally clicking outside the CreateMethodModal /
+  // category-builder and soft-walking themselves out of the tour.
+  // Empty allowList = total lock (only the speech bubble's Got-it /
+  // Skip / Back are interactive). The pill label tells the user
+  // BeakerBot is driving so the lock doesn't read as a freeze.
+  pageLock: {
+    allowList: [],
+    pillLabel: "BeakerBot is typing, back in a sec.",
+  },
   // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
   // The `tour:method-created` event still fires when the save resolves;
   // onEnter listens to capture the new method id, then the user clicks

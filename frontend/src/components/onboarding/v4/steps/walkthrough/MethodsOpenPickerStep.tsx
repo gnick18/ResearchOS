@@ -51,4 +51,13 @@ export const methodsOpenPickerStep = buildWalkthroughStep({
   // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
   completion: manualAdvance("Got it, next"),
   expectedRoute: "/methods",
+  // Methods fix manager 2026-05-22: full page-lock during the
+  // BeakerBot demo. Cursor click passes through via the
+  // `__beakerBotCursorClicking` flag; user clicks outside the speech
+  // bubble are blocked so they can't accidentally walk off the tour
+  // while the picker is mounting.
+  pageLock: {
+    allowList: [],
+    pillLabel: "BeakerBot is opening the picker, back in a sec.",
+  },
 });

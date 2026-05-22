@@ -45,6 +45,7 @@ import {
   safeClickAction,
   safeTypeAction,
   compactScript,
+  callbackAction,
 } from "./lib/cursor-script";
 import {
   manualAdvance,
@@ -64,6 +65,24 @@ const STEP_ID = "methods-category";
  *  pre-redesign placeholder so existing screenshots / fixture data
  *  don't drift on a missing pick. */
 export const METHODS_CATEGORY_FALLBACK = "My First Methods";
+
+/** Read-then-watch pause between the cursor's type + submit beats
+ *  (Methods fix manager 2026-05-22). 800ms is the same cadence the
+ *  §6.10 `ai-helper-size-diff` demo uses. Gives the user time to
+ *  register the typed label in the input before the cursor jumps to
+ *  Create Empty. Exported so the pacing test can pin the duration. */
+export const METHODS_CATEGORY_PAUSE_MS = 800;
+
+/** Sleep helper for the callbackAction pause. */
+async function pause(ms: number): Promise<void> {
+  await new Promise<void>((resolve) => {
+    if (typeof window !== "undefined") {
+      window.setTimeout(resolve, ms);
+    } else {
+      setTimeout(resolve, ms);
+    }
+  });
+}
 
 /** Resolve the picked label out of localStorage with the fallback
  *  applied. Exported for tests so they can assert the fallback path
@@ -94,13 +113,32 @@ export const methodsCategoryDemoStep = buildWalkthroughStep({
     const submit = await safeClickAction(
       targetSelector(TOUR_TARGETS.methodsCategoryCreateEmpty),
     );
-    return compactScript([typeName, submit]);
+    // Methods fix manager 2026-05-22: 800ms read-then-watch pause
+    // between typing the category label and clicking Create Empty.
+    // Without it the cursor blew through too fast for the user to see
+    // the typed label before the modal closed.
+    return compactScript([
+      typeName,
+      callbackAction(() => pause(METHODS_CATEGORY_PAUSE_MS)),
+      submit,
+    ]);
   }),
   // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
   // The `tour:methods-category-created` event still fires as a
   // side-effect signal — onEnter listens to capture the artifact
   // label — but the step advances on the user's manual click.
   completion: manualAdvance("Got it, next"),
+  // Methods fix manager 2026-05-22: full page-lock during the
+  // BeakerBot demo. Cursor clicks pass through via the
+  // `__beakerBotCursorClicking` flag; only stray user clicks are
+  // blocked, preventing the user from accidentally clicking outside
+  // the New Category modal and soft-walking themselves out of the
+  // tour. Empty allowList = total lock (only the speech bubble's
+  // Got-it / Skip / Back are interactive).
+  pageLock: {
+    allowList: [],
+    pillLabel: "BeakerBot is filling in the category, back in a sec.",
+  },
   // Capture the new category label out of the `tour:methods-category-created`
   // event detail so Phase 4 cleanup grid renders the right row. The
   // category is local-state only (no backend id), so the label itself

@@ -112,6 +112,17 @@ export const methodsBreadthStep = buildWalkthroughStep({
   // 4-sub-step click-around drama moved too fast to follow.
   completion: manualAdvance("Got it, next"),
   expectedRoute: "/methods",
+  // Methods fix manager 2026-05-22: allow-list lock so the user can
+  // poke around the PCR builder (per the speech bubble's "click
+  // around to get a feel for it") but can't accidentally click outside
+  // the CreateMethodModal / category builder and soft-walk themselves
+  // out of the tour. The methodsCreateForm anchor covers the whole
+  // modal subtree, including the picker tiles + the just-mounted
+  // InteractiveGradientEditor.
+  pageLock: {
+    allowList: [TOUR_TARGETS.methodsCreateForm],
+    pillLabel: "Play with PCR. Got it, next is in the chat bubble.",
+  },
   // §6.4b viewport anchor (input-lock + viewport-anchor sub-bot 2026-05-21):
   // the cursor only clicks the small PCR tile, but the user should see
   // the whole CreateMethodModal surface so the tile click context is

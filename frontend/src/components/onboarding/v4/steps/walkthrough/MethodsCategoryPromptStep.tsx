@@ -213,6 +213,18 @@ export const methodsCategoryPromptStep = buildWalkthroughStep({
   // No cursorScript: BeakerBot is asking, not demoing.
   completion: manualAdvance("Skip"),
   expectedRoute: "/methods",
+  // Methods fix manager 2026-05-22: full page-lock during the picker.
+  // The picker buttons live INSIDE the speech bubble (which always
+  // passes clicks through, regardless of the allow-list), so an empty
+  // allowList here is correct: it blocks every page click outside the
+  // bubble. Grant called this picker "perfect" interaction-wise; the
+  // lock just prevents the user from accidentally clicking the
+  // methods-page underneath and soft-walking themselves out of the
+  // picker before making a choice.
+  pageLock: {
+    allowList: [],
+    pillLabel: "Pick a category above to continue.",
+  },
 });
 
 export default MethodsCategoryPromptInner;

@@ -187,11 +187,16 @@ describe("MethodsCategoryDemoStep (v4 sec 6.4 redesign)", () => {
     unmount();
   });
 
-  it("cursor script types the picked label and clicks Create Empty (no open-click)", async () => {
+  it("cursor script types the picked label, pauses, and clicks Create Empty (no open-click)", async () => {
     window.localStorage.setItem(V4_METHODS_CATEGORY_PICK_KEY, "Cell Biology");
     // Grant 2026-05-21 rethink: the new methods-category-open user-action
     // step opens the modal; the demo step is ONLY responsible for type +
     // submit. No open-click in the script.
+    //
+    // Methods fix manager 2026-05-22 update: an 800ms read-then-watch
+    // pause now sits between the type and submit actions so the cursor
+    // doesn't blow through faster than the user can read the typed
+    // label.
     const nameInput = document.createElement("input");
     nameInput.setAttribute("data-tour-target", "methods-category-name-input");
     const submitBtn = document.createElement("button");
@@ -200,13 +205,14 @@ describe("MethodsCategoryDemoStep (v4 sec 6.4 redesign)", () => {
     document.body.appendChild(submitBtn);
     try {
       const actions = await methodsCategoryDemoStep.cursorScript!();
-      expect(actions).toHaveLength(2);
+      expect(actions).toHaveLength(3);
       expect(actions[0]).toMatchObject({
         type: "type",
         target: nameInput,
         text: "Cell Biology",
       });
-      expect(actions[1]).toMatchObject({
+      expect(actions[1]).toMatchObject({ type: "callback" });
+      expect(actions[2]).toMatchObject({
         type: "click",
         target: submitBtn,
       });
