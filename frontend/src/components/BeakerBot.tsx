@@ -58,14 +58,17 @@ import styles from "./BeakerBot.module.css";
  *                       of 95ms x 2 ticks). W5 + W7 live-typing
  *                       demos. The cadence-match is the integration
  *                       hook; `use-typewriter.ts` itself is unchanged.
- *  - `typing-on-laptop` - clearer "typing" variant: a small laptop
- *                       SVG (base + screen) sits in front of BeakerBot
- *                       and two arms extend forward to the keyboard.
- *                       Each hand alternates hammering down on a 240ms
- *                       cycle (left at 0%, right at 50% phase), so the
- *                       motion reads as keyboard hammering rather than
- *                       a single hand pulse. Used by the v4 walkthrough
- *                       project-overview-prose step.
+ *  - `typing-on-laptop` - ONE-HAND variant of `typing`: reuses the
+ *                       regular typing pose's arm + hand verbatim
+ *                       (same 190ms pulse cadence on .typeHand), with
+ *                       a small side-profile laptop tucked under the
+ *                       hand. The other arm rests against the body
+ *                       silhouette (not drawn, same convention as the
+ *                       regular `typing` pose). Used by the v4
+ *                       walkthrough project-overview-prose step.
+ *                       Redesigned 2026-05-22 from a two-arm hammer
+ *                       layout (Grant: the two-hand version read as
+ *                       awkward / disconcerting).
  *  - `bow-wink`       - combo pose: right eye winks first, then the
  *                       whole body bows forward. Used on the final
  *                       wizard exit screen after Phase 4 Finish.
@@ -176,7 +179,12 @@ function rootAnimationClass(
     case "thinking":
       return `${styles.thinking} ${styles.animated}`;
     case "typing-on-laptop":
-      return `${styles.typingLaptop} ${styles.animated}`;
+      // No root animation: matches the regular `typing` pose (which
+      // also has no body lean). The hand pulse is on the inner <g> via
+      // .typeHand, same as `typing`. Per Grant 2026-05-22 redesign: the
+      // pose should read as "regular typing + a small laptop," nothing
+      // more on the body.
+      return undefined;
     case "cheering":
       return `${styles.celebrating} ${styles.animated}`;
     case "bow-wink":
@@ -633,89 +641,72 @@ export default function BeakerBot({
         </>
       )}
 
-      {/* Typing-on-laptop: simple side-profile L pose. We are looking at
-       *  the laptop FROM THE SIDE, so the laptop reduces to an L: a
-       *  short vertical bar (the screen panel seen edge-on) plus a
-       *  horizontal slab (the keyboard surface seen edge-on). No screen
-       *  content, no keyboard detail. BeakerBot stands behind the L,
-       *  leaning slightly forward, and his two arms reach DOWN onto the
-       *  horizontal portion of the L so each hand can hammer up and
-       *  down on the keyboard surface in alternation.
+      {/* Typing-on-laptop: one-hand variant that reuses the REGULAR
+       *  `typing` pose's arm + hand verbatim, with a small side-profile
+       *  laptop tucked under that single hand. The other arm is at rest
+       *  (not drawn, matching the regular typing pose convention).
        *
-       *  Redesigned 2026-05-21 (Grant feedback on the v1 front-view
-       *  laptop): the front-view rectangle made BeakerBot read as
-       *  "reaching across a wall" rather than typing on a horizontal
-       *  surface, and the small -1.5% percent translates didn't move
-       *  the hands visibly at the v4 tour's 120px display size.
+       *  Redesigned 2026-05-22 (Grant feedback on the v2 two-hand pose):
+       *  the two-arm hammer layout read as disconcerting / awkward; the
+       *  regular `typing` arm + hand is the silhouette he likes, so this
+       *  pose is now "regular typing pose + a small laptop in front of
+       *  the hand." Same arm geometry, same hand circle, same 190ms hand
+       *  pulse cadence as `typing` (.typeHand on the wrapper <g>).
        *
        *  Geometry (SVG viewBox 0..40):
-       *    L vertical bar (screen edge): x=23..24.5, y=22..30
-       *                                  (1.5 x 8 units, dark gray #374151).
-       *    L horizontal slab (keyboard edge): x=23..36.5, y=30..31.5
-       *                                  (13.5 x 1.5 units, dark gray #374151).
-       *    Left arm: shoulder (28, 22) down to hand at (28, 30).
-       *    Right arm: shoulder (28, 22) down to hand at (33, 30).
+       *    Right arm (reused from `typing`): M28 20 L33 20.
+       *    Right hand (reused from `typing`): circle cx=33, cy=20, r=1.1.
+       *    Laptop keyboard slab: x=29..37, y=21..22
+       *                          (8 x 1 units, dark gray #374151).
+       *                          Sits just under the hand so the pulse
+       *                          reads as "hand tapping the keyboard."
+       *    Laptop screen edge: x=36..37, y=15..21
+       *                        (1 x 6 units, dark gray #374151).
+       *                        Far-right edge of the keyboard, so the
+       *                        screen faces AWAY from BeakerBot (matches
+       *                        the physical posture of using a laptop).
        *
-       *  Hand hammer animation uses ABSOLUTE SVG units (px on the
-       *  transform), not percentages. At BeakerBot's 120px display size
-       *  each SVG unit is 3px, so 2px of translate -> 6px visible
-       *  vertical hand travel, clearly readable as a "hammer." See
-       *  BeakerBot.module.css beakerBotTypeHandLaptopLeft for the
-       *  keyframe + the rationale for staying off percent translates
-       *  (the transform-box: view-box trap, commit 272dd3da). */}
+       *  Hand pulse animation is the same `.typeHand` class used by the
+       *  regular typing pose: 190ms cadence, transform-origin (33, 18).
+       *  No body lean / no extra root animation, because the regular
+       *  typing pose doesn't have one either. */}
       {effectivePose === "typing-on-laptop" && (
         <>
-          {/* Laptop side profile, horizontal slab (keyboard surface
-              seen edge-on). Hands hammer ONTO this slab at y=30. */}
+          {/* Laptop keyboard slab (seen from the side, edge-on). Sits
+              directly under the hand at y=20 so the hand pulse reads
+              as "tapping keys." */}
           <rect
-            x="23"
-            y="30"
-            width="13.5"
-            height="1.5"
+            x="29"
+            y="21"
+            width="8"
+            height="1"
             fill="#374151"
             stroke="none"
           />
-          {/* Laptop side profile, vertical bar (back of the screen
-              seen edge-on). Positioned at the FAR-RIGHT end of the
-              keyboard so the screen sits AWAY from BeakerBot, matching
-              the physical posture of typing on a laptop. */}
+          {/* Laptop screen panel (seen from the side, edge-on). Placed
+              at the far-right end of the keyboard so the screen faces
+              AWAY from BeakerBot, matching how someone actually sits at
+              a laptop. */}
           <rect
-            x="35"
-            y="22"
-            width="1.5"
-            height="8"
+            x="36"
+            y="15"
+            width="1"
+            height="6"
             fill="#374151"
             stroke="none"
           />
-          {/* Left arm: from body shoulder (28, 22) down-and-right to
-              hand position (30, 30). Pushed further from the body than
-              the prior layout so the hands sit on the keyboard, not
-              under his torso. */}
-          <path d="M28 22 L30 30" />
-          {/* Right arm: from body shoulder (28, 22) down-and-right to
-              hand position (34, 30). */}
-          <path d="M28 22 L34 30" />
-          {/* Left hand: hammers in sync with the right hand (both up
-              and down together) per Grant's revision. */}
+          {/* Arm extended right toward the keyboard (REUSED verbatim
+              from the regular `typing` pose). */}
+          <path d="M28 20 L33 20" />
+          {/* Hand dot at the tip + 190ms pulse wrapper (REUSED verbatim
+              from the regular `typing` pose). The pulse echoes the
+              typewriter cadence used elsewhere in the v4 tour. */}
           <g
             className={
-              animated
-                ? `${styles.typeHandLeft} ${styles.animated}`
-                : undefined
+              animated ? `${styles.typeHand} ${styles.animated}` : undefined
             }
           >
-            <circle cx="30" cy="30" r="0.9" fill="currentColor" stroke="none" />
-          </g>
-          {/* Right hand: shares the same keyframe phase as left (sync,
-              not alternate). */}
-          <g
-            className={
-              animated
-                ? `${styles.typeHandRight} ${styles.animated}`
-                : undefined
-            }
-          >
-            <circle cx="34" cy="30" r="0.9" fill="currentColor" stroke="none" />
+            <circle cx="33" cy="20" r="1.1" fill="currentColor" stroke="none" />
           </g>
         </>
       )}
