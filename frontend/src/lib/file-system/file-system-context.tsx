@@ -52,6 +52,14 @@ interface FileSystemState {
 interface FileSystemContextValue extends FileSystemState {
   connect: () => Promise<boolean>;
   /**
+   * Attach to a `FileSystemDirectoryHandle` we already obtained (e.g. from
+   * `DataTransferItem.getAsFileSystemHandle()` on a folder drop). Routes
+   * through the exact same post-handle pipeline as `connect()` — verify
+   * permission, validate folder, discover users, populate state. Must be
+   * called from a user gesture (the drop event itself qualifies).
+   */
+  connectWithHandle: (handle: FileSystemDirectoryHandle) => Promise<boolean>;
+  /**
    * Re-attach to the previously connected folder using the handle persisted
    * in IndexedDB. If the browser still remembers the permission grant, this
    * resolves silently; otherwise it triggers a tiny `requestPermission`
@@ -486,6 +494,29 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     return finishConnect(handle);
   }, [finishConnect]);
 
+  /**
+   * Drag-and-drop entry point. The caller has already extracted a
+   * `FileSystemDirectoryHandle` from a drop event (via
+   * `DataTransferItem.getAsFileSystemHandle()`), so we skip the OS picker
+   * and route straight into the same `finishConnect` pipeline. Permission
+   * is still verified there — the drop hands us a handle but Chrome can
+   * still gate readwrite access behind a one-time prompt.
+   */
+  const connectWithHandle = useCallback(async (handle: FileSystemDirectoryHandle): Promise<boolean> => {
+    setState((prev) => ({
+      ...prev,
+      isLoading: true,
+      loadingStage: "connecting",
+      error: null,
+    }));
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    );
+
+    fileService.resetReadCount();
+    return finishConnect(handle);
+  }, [finishConnect]);
+
   const reconnectWithStoredHandle = useCallback(async (): Promise<boolean> => {
     setState((prev) => ({ ...prev, isLoading: true, loadingStage: "verifying-permission", error: null }));
     await new Promise<void>((resolve) =>
@@ -758,6 +789,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
   const value: FileSystemContextValue = {
     ...state,
     connect,
+    connectWithHandle,
     reconnectWithStoredHandle,
     disconnect,
     setCurrentUser,

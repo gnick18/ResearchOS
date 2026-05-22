@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useFileSystem, isFileSystemAccessSupported } from "@/lib/file-system/file-system-context";
 import BetaDonationButton from "@/components/BetaDonationButton";
@@ -10,6 +10,11 @@ import Tooltip from "@/components/Tooltip";
 import UserAvatar from "@/components/UserAvatar";
 import BeakerBot from "@/components/BeakerBot";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
+import {
+  extractDirectoryHandleFromDrop,
+  describeDropExtractionError,
+  type DropExtractionResult,
+} from "@/lib/file-system/drop-folder";
 
 interface ResearchFolderSetupProps {
   onComplete: () => void;
@@ -18,6 +23,7 @@ interface ResearchFolderSetupProps {
 export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupProps) {
   const {
     connect,
+    connectWithHandle,
     reconnectWithStoredHandle,
     isLoading,
     error,
@@ -40,6 +46,16 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
   const [newFolderName, setNewFolderName] = useState("");
   const [elnImportOpen, setElnImportOpen] = useState(false);
   const { showBugReport, currentError, openBugReport, closeBugReport } = useErrorReporting();
+
+  // Drag-and-drop state for the "Link Existing Folder" card. `isDragOver` is
+  // a ref-counted boolean (incremented on dragenter, decremented on
+  // dragleave) so nested children don't flicker the visual treatment off
+  // when the pointer crosses an internal element boundary. `dropError`
+  // surfaces file-not-folder / multi-item validation errors next to the
+  // existing folder-system error.
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [dropError, setDropError] = useState<string | null>(null);
+  const dragCounterRef = useRef(0);
 
   console.log("ResearchFolderSetupNew render:", { 
     isConnected, 
@@ -65,6 +81,55 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
 
   const handleConnect = async () => {
     await connect();
+  };
+
+  // Drag-and-drop handlers for the "Link Existing Folder" card. Browser
+  // support note: `DataTransferItem.getAsFileSystemHandle()` and
+  // `showDirectoryPicker()` ship together in Chromium (Chrome / Edge /
+  // Brave) and are absent in Safari + Firefox alike. We already gate the
+  // entire setup screen on `isFileSystemAccessSupported()` above, so if
+  // the click-the-button path works in this browser the drop path works
+  // too. `webkitGetAsEntry()` is kept as a defensive fallback.
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!e.dataTransfer?.types?.includes("Files")) return;
+    dragCounterRef.current += 1;
+    setIsDragOver(true);
+    setDropError(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    // Must preventDefault on dragover for the browser to treat the element
+    // as a valid drop target. Without this, the drop event never fires.
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+    if (dragCounterRef.current === 0) setIsDragOver(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDragOver(false);
+
+    const items = e.dataTransfer?.items;
+    if (!items || items.length === 0) return;
+
+    const result: DropExtractionResult = await extractDirectoryHandleFromDrop(items);
+    if (result.kind === "ok") {
+      setDropError(null);
+      await connectWithHandle(result.handle);
+      return;
+    }
+    setDropError(describeDropExtractionError(result.kind));
   };
 
   const handleSelectUser = async (username: string) => {
@@ -480,7 +545,18 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
         </div>
 
         <div className="grid md:grid-cols-2 gap-4">
-          <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
+          <div
+            data-testid="link-folder-drop-zone"
+            onDragEnter={handleDragEnter}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`relative bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden transition-all ${
+              isDragOver
+                ? "border-2 border-dashed border-blue-400 bg-blue-500/15 ring-4 ring-blue-400/30"
+                : "border-2 border-dashed border-white/25 hover:border-white/40"
+            }`}
+          >
             <div className="p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
@@ -500,8 +576,17 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                 </div>
                 <h2 className="text-lg font-bold text-white">Link Existing Folder</h2>
               </div>
-              <p className="text-slate-400 text-sm mb-6">
+              <p className="text-slate-400 text-sm mb-4">
                 Connect to an existing ResearchOS folder with your projects and data. Perfect if you&apos;ve synced your folder via OneDrive or iCloud.
+              </p>
+              <p
+                className={`text-xs mb-4 transition-colors ${
+                  isDragOver ? "text-blue-200 font-medium" : "text-slate-500"
+                }`}
+              >
+                {isDragOver
+                  ? "Release to link this folder"
+                  : "Drop your lab folder here, or click below to pick"}
               </p>
               <button
                 onClick={handleConnect}
@@ -519,6 +604,15 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                   </>
                 )}
               </button>
+              {dropError && (
+                <p
+                  role="alert"
+                  data-testid="link-folder-drop-error"
+                  className="mt-3 text-xs text-red-300"
+                >
+                  {dropError}
+                </p>
+              )}
             </div>
           </div>
 

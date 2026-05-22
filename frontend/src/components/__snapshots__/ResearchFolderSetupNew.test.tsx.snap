@@ -1,0 +1,67 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`ResearchFolderSetupNew drop zone > renders the drop-zone with default hint copy and dashed border (snapshot) 1`] = `
+<div
+  class="relative bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden transition-all border-2 border-dashed border-white/25 hover:border-white/40"
+  data-testid="link-folder-drop-zone"
+>
+  <div
+    class="p-6"
+  >
+    <div
+      class="flex items-center gap-3 mb-4"
+    >
+      <div
+        class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center"
+      >
+        <svg
+          class="w-5 h-5 text-blue-400"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+          />
+        </svg>
+      </div>
+      <h2
+        class="text-lg font-bold text-white"
+      >
+        Link Existing Folder
+      </h2>
+    </div>
+    <p
+      class="text-slate-400 text-sm mb-4"
+    >
+      Connect to an existing ResearchOS folder with your projects and data. Perfect if you've synced your folder via OneDrive or iCloud.
+    </p>
+    <p
+      class="text-xs mb-4 transition-colors text-slate-500"
+    >
+      Drop your lab folder here, or click below to pick
+    </p>
+    <button
+      class="w-full py-2.5 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+    >
+      <svg
+        class="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+        />
+      </svg>
+      Link Folder
+    </button>
+  </div>
+</div>
+`;
