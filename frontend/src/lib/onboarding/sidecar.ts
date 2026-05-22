@@ -1,5 +1,33 @@
 import { fileService } from "@/lib/file-system/file-service";
 
+// Per-user write queue serializes read-modify-write operations on each
+// `_onboarding.json` so concurrent callers don't race the underlying
+// atomic-write pattern (.tmp create + write + move). The race surfaced
+// as "Failed to move _onboarding.json.tmp. A FileSystemHandle cannot be
+// moved while it is locked" when Grant switched users mid-walkthrough
+// and the tour's pending step-transition write overlapped a teardown
+// write on the same path. Mirrors the queue in
+// frontend/src/lib/file-system/user-metadata.ts, which addressed the
+// identical symptom on `_user_metadata.json`. Keyed by username so
+// distinct users don't serialize against each other. Tab-scoped (does
+// NOT protect against cross-tab or cross-process writes).
+const onboardingWriteQueues = new Map<string, Promise<unknown>>();
+function enqueueOnboardingWrite<T>(
+  username: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const prev = onboardingWriteQueues.get(username) ?? Promise.resolve();
+  const next = prev.then(fn, fn);
+  // Swallow errors on the queue chain so a single failed write doesn't
+  // poison every subsequent write. Caller still receives the original
+  // rejection via the returned promise.
+  onboardingWriteQueues.set(
+    username,
+    next.catch(() => {}),
+  );
+  return next;
+}
+
 /**
  * Per-user onboarding sidecar at `users/<u>/_onboarding.json`.
  *
@@ -315,28 +343,41 @@ export async function readOnboarding(
 }
 
 /** Persist the full sidecar. Callers should pass the complete object;
- *  partial updates happen via `patchOnboarding()`. */
+ *  partial updates happen via `patchOnboarding()`. Routed through the
+ *  per-user write queue so a writeOnboarding cannot overlap a pending
+ *  patchOnboarding on the same path. */
 export async function writeOnboarding(
   username: string,
   data: OnboardingSidecar,
 ): Promise<void> {
-  await fileService.writeJson(sidecarPath(username), {
-    ...data,
-    version: SCHEMA_VERSION,
+  await enqueueOnboardingWrite(username, async () => {
+    await fileService.writeJson(sidecarPath(username), {
+      ...data,
+      version: SCHEMA_VERSION,
+    });
   });
 }
 
 /** Read-modify-write helper. The `patch` callback receives the current
  *  sidecar (or a default) and returns the next one. Single I/O cycle
- *  per call. */
+ *  per call. The read AND write share the same queue slot so two
+ *  concurrent patches against the same user serialize cleanly (without
+ *  the queue, two patches that read in parallel would each compute a
+ *  next-state against the same stale current and the later writer
+ *  would clobber the earlier one — plus the .tmp move would race). */
 export async function patchOnboarding(
   username: string,
   patch: (current: OnboardingSidecar) => OnboardingSidecar,
 ): Promise<OnboardingSidecar> {
-  const current = await readOnboarding(username);
-  const next = patch(current);
-  await writeOnboarding(username, next);
-  return next;
+  return enqueueOnboardingWrite(username, async () => {
+    const current = await readOnboarding(username);
+    const next = patch(current);
+    await fileService.writeJson(sidecarPath(username), {
+      ...next,
+      version: SCHEMA_VERSION,
+    });
+    return next;
+  });
 }
 
 /** Reset the wizard's "user has been through it" state so the v3
