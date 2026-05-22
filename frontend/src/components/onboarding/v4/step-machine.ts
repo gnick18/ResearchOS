@@ -26,7 +26,7 @@ import type { TourStepId } from "./step-types";
  * Grouped (for readability — readers shouldn't depend on the boundaries,
  * use `isSetupPhaseStep` / `isWalkthroughPhaseStep` etc. instead):
  *
- *   Phase 1 — modal setup     : "welcome" + Q1-Q6 (+ Q1a/Q1b for lab)
+ *   Phase 1 — modal setup     : "welcome" + Q1 + Q2-Q6
  *   Phase 2 — in-product tour : home → project → notifications →
  *                               methods → workbench → hybrid editor →
  *                               gantt → settings → search → wiki
@@ -44,10 +44,19 @@ import type { TourStepId } from "./step-types";
  */
 export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // ----- Phase 1: modal setup (per §4.1, §6 intro, L9 "stays modal-contained")
+  // 2026-05-22 (HR-dispatched: v4 drop-Q1a-Q1b sub-bot): setup-q1a (lab
+  // storage picker) and setup-q1b (lab connect info) were removed from
+  // the v4 setup phase. By the time the user reaches v4 setup, they've
+  // already picked + linked their folder via DataSetupScreen, so asking
+  // "where will lab data live?" was asking them to self-report what
+  // they had just done. The cloud-provider guidance + install
+  // instructions move into pre-onboarding §6.4 (cloud-provider screen),
+  // which is the natural home — that's where the user makes the actual
+  // storage decision. `feature_picks.lab_storage` remains in the
+  // FeaturePicks type as optional (parser keeps the field; v4 just
+  // stops writing it; pre-onboarding P3-P4 will populate it later).
   "welcome",
   "setup-q1",
-  "setup-q1a",
-  "setup-q1b",
   "setup-q2",
   "setup-q3",
   "setup-q4",
@@ -183,8 +192,6 @@ const STEP_INDEX: ReadonlyMap<TourStepId, number> = new Map(
 const SETUP_STEP_IDS: ReadonlySet<TourStepId> = new Set<TourStepId>([
   "welcome",
   "setup-q1",
-  "setup-q1a",
-  "setup-q1b",
   "setup-q2",
   "setup-q3",
   "setup-q4",
@@ -224,12 +231,11 @@ export function isStepGatedOut(
   step: TourStepId,
   picks: FeaturePicks | null,
 ): boolean {
-  // Phase 1 lab sub-questions: only fire when account_type=lab. While
-  // picks is null (welcome → setup-q1) we err toward hiding them so an
-  // unfinished Q1 doesn't pull in unwanted lab-specific prompts.
-  if (step === "setup-q1a" || step === "setup-q1b") {
-    return picks?.account_type !== "lab";
-  }
+  // Phase 1 lab sub-questions (setup-q1a / setup-q1b) used to live here;
+  // they were dropped 2026-05-22 (HR-dispatched: v4 drop-Q1a-Q1b
+  // sub-bot). Lab storage decision moved to pre-onboarding §6.4
+  // (cloud-provider screen), so the v4 modal setup no longer asks the
+  // user where lab data lives.
 
   // Phase 2 conditional walkthroughs (§6.13 - §6.15).
   if (step === "telegram") return picks?.telegram !== "yes";

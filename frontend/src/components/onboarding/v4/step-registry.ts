@@ -6,8 +6,10 @@
  * step-machine.ts can drive the order). Real `speech`, `cursorScript`,
  * `targetSelector`, and `completion` contracts land in:
  *
- *   P4 → setup-q1 / setup-q1a / setup-q1b / setup-q2..q6 (port v3
- *        setup step bodies onto the v4 tour controller modal surface)
+ *   P4 → setup-q1 / setup-q2..q6 (port v3 setup step bodies onto the
+ *        v4 tour controller modal surface). 2026-05-22 drop: setup-q1a
+ *        (lab storage) + setup-q1b (lab connect info) removed; lab
+ *        storage decision moved to pre-onboarding §6.4.
  *   P5 → home-create-project through wiki-pointer (universal §6.1-6.12)
  *   P6 → telegram + purchases + calendar (conditional §6.13-6.15)
  *   P7 → lab-prompt + lab-spawn-beakerbot + lab-permission-practice
@@ -169,8 +171,8 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
 /**
  * Build a real Phase 1 modal-setup step body from the setup descriptor
  * map. P4 populates every Phase 1 step id (welcome + setup-q1 +
- * setup-q1a + setup-q1b + setup-q2..q6) here so the modal-setup surface
- * sees full speech + pose + a manual completion contract.
+ * setup-q2..q6) here so the modal-setup surface sees full speech +
+ * pose + a manual completion contract.
  *
  * The body component itself is mounted by the modal-setup shell via the
  * `SETUP_STEP_DESCRIPTORS` lookup, not by this TourStep record. The

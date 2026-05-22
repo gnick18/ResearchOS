@@ -3,18 +3,24 @@
  *
  * The TourController's modal-setup shell looks up the active step's body
  * component here and renders it inside the modal chrome (header + Next /
- * Back / Skip footer). Phase 1 step ids (welcome + setup-q1 + setup-q1a
- * + setup-q1b + setup-q2..q6) all resolve to a body via this map; any
- * step id outside the map falls back to the controller's generic
- * placeholder render (currently no other modal-setup step exists, but
- * the shape is open so a future phase can add one without rewiring the
- * controller).
+ * Back / Skip footer). Phase 1 step ids (welcome + setup-q1 +
+ * setup-q2..q6) all resolve to a body via this map; any step id outside
+ * the map falls back to the controller's generic placeholder render
+ * (currently no other modal-setup step exists, but the shape is open so
+ * a future phase can add one without rewiring the controller).
  *
  * Title lookups for the modal header (e.g. "Solo or lab?") and pose
  * defaults are ALSO declared here so the modal shell + the step-registry
  * see one source of truth.
  *
  * v4 keeps Phase 1 modal-contained per ONBOARDING_V4_PROPOSAL.md L9.
+ *
+ * 2026-05-22 (HR-dispatched: v4 drop-Q1a-Q1b sub-bot): setup-q1a (lab
+ * storage picker) + setup-q1b (lab connect info) were removed. Lab
+ * storage decision lives in pre-onboarding §6.4 (cloud-provider screen)
+ * now — that's where the user actually picks + links their folder. By
+ * the time the user reaches v4 setup, the storage decision is already
+ * made via DataSetupScreen, so the modal asking again was redundant.
  */
 import type { ComponentType } from "react";
 import type { BeakerBotPose } from "@/components/BeakerBot";
@@ -22,8 +28,6 @@ import type { TourStepId } from "../../step-types";
 import type { SetupStepProps } from "./types";
 import WelcomeStep from "./WelcomeStep";
 import Q1AccountTypeStep from "./Q1AccountTypeStep";
-import Q1aLabStorageStep from "./Q1aLabStorageStep";
-import Q1bLabConnectInfoStep from "./Q1bLabConnectInfoStep";
 import Q2PurchasesStep from "./Q2PurchasesStep";
 import Q3CalendarStep from "./Q3CalendarStep";
 import Q4GoalsStep from "./Q4GoalsStep";
@@ -36,8 +40,7 @@ export interface SetupStepDescriptor {
   /** BeakerBot pose displayed in the modal header for this step.
    *  Welcome uses `waving`; the Q1-Q6 picks use `thinking` so the mascot
    *  reads as "considering options with the user" (matches v3's setup
-   *  pose). Q1b is informational (no pick), so `reading` matches the
-   *  "look at this paragraph" flow. */
+   *  pose). */
   pose: BeakerBotPose;
   /** Short prose the BeakerBot speech bubble can show alongside the modal
    *  body. The shell can choose to render this (or not); the registry
@@ -69,20 +72,6 @@ export const SETUP_STEP_DESCRIPTORS: Partial<
     speech:
       "Quick first call: are you flying solo, or is this for a whole lab?",
     Component: Q1AccountTypeStep,
-  },
-  "setup-q1a": {
-    title: "Where will lab data live?",
-    pose: "thinking",
-    speech:
-      "Every lab member needs to point at the same folder. Pick where it lives.",
-    Component: Q1aLabStorageStep,
-  },
-  "setup-q1b": {
-    title: "How lab members connect",
-    pose: "pointing",
-    speech:
-      "Heads-up on how the provider you picked plugs into ResearchOS. No input here, just a read.",
-    Component: Q1bLabConnectInfoStep,
   },
   "setup-q2": {
     title: "Track lab purchases?",
@@ -134,8 +123,6 @@ export function getSetupDescriptor(
 export {
   WelcomeStep,
   Q1AccountTypeStep,
-  Q1aLabStorageStep,
-  Q1bLabConnectInfoStep,
   Q2PurchasesStep,
   Q3CalendarStep,
   Q4GoalsStep,

@@ -52,8 +52,6 @@ describe("TOUR_STEP_ORDER", () => {
   it("contains all P1-scaffolded step ids", () => {
     expect(TOUR_STEP_ORDER).toContain("welcome");
     expect(TOUR_STEP_ORDER).toContain("setup-q1");
-    expect(TOUR_STEP_ORDER).toContain("setup-q1a");
-    expect(TOUR_STEP_ORDER).toContain("setup-q1b");
     expect(TOUR_STEP_ORDER).toContain("setup-q6");
     expect(TOUR_STEP_ORDER).toContain("home-create-project");
     expect(TOUR_STEP_ORDER).toContain("methods-open-picker");
@@ -69,6 +67,18 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER).toContain("lab-permission-practice");
     expect(TOUR_STEP_ORDER).toContain("lab-cleanup");
     expect(TOUR_STEP_ORDER).toContain("phase4-cleanup");
+  });
+
+  it("does NOT contain setup-q1a / setup-q1b (dropped 2026-05-22)", () => {
+    // Lab storage decision moved to pre-onboarding §6.4 (cloud-provider
+    // screen). The v4 setup phase no longer asks "where will lab data
+    // live?" because by the time the user reaches it, they've already
+    // picked + linked the folder via DataSetupScreen. Regression guard
+    // matching the §6.3 notifications.not.toContain shape so a stale
+    // resume_state record can't pin the controller to a step that no
+    // longer exists.
+    expect(TOUR_STEP_ORDER).not.toContain("setup-q1a");
+    expect(TOUR_STEP_ORDER).not.toContain("setup-q1b");
   });
 
   it("contains the three §6.3 notification sub-step ids", () => {
@@ -140,11 +150,12 @@ describe("isSetupPhaseStep / isLabPhaseStep", () => {
   it("classifies the Phase 1 setup steps", () => {
     expect(isSetupPhaseStep("welcome")).toBe(true);
     expect(isSetupPhaseStep("setup-q1")).toBe(true);
-    expect(isSetupPhaseStep("setup-q1a")).toBe(true);
-    expect(isSetupPhaseStep("setup-q1b")).toBe(true);
     expect(isSetupPhaseStep("setup-q6")).toBe(true);
     expect(isSetupPhaseStep("home-create-project")).toBe(false);
     expect(isSetupPhaseStep("phase4-cleanup")).toBe(false);
+    // setup-q1a / setup-q1b removed 2026-05-22 — no longer setup steps.
+    expect(isSetupPhaseStep("setup-q1a")).toBe(false);
+    expect(isSetupPhaseStep("setup-q1b")).toBe(false);
   });
 
   it("classifies the Phase 2c lab steps", () => {
@@ -158,24 +169,9 @@ describe("isSetupPhaseStep / isLabPhaseStep", () => {
   });
 });
 
-describe("isStepGatedOut — Phase 1 sub-questions (L9, Q1=lab gating)", () => {
-  it("hides setup-q1a/q1b for solo accounts", () => {
-    const p = picks({ account_type: "solo" });
-    expect(isStepGatedOut("setup-q1a", p)).toBe(true);
-    expect(isStepGatedOut("setup-q1b", p)).toBe(true);
-  });
-
-  it("shows setup-q1a/q1b for lab accounts", () => {
-    const p = picks({ account_type: "lab" });
-    expect(isStepGatedOut("setup-q1a", p)).toBe(false);
-    expect(isStepGatedOut("setup-q1b", p)).toBe(false);
-  });
-
-  it("hides setup-q1a/q1b when picks is null (pre-Q1)", () => {
-    expect(isStepGatedOut("setup-q1a", null)).toBe(true);
-    expect(isStepGatedOut("setup-q1b", null)).toBe(true);
-  });
-});
+// 2026-05-22: setup-q1a / setup-q1b dropped from the v4 setup phase.
+// The gating tests they used to live in were removed; lab storage is
+// now decided in pre-onboarding §6.4 (cloud-provider screen) instead.
 
 describe("isStepGatedOut — Phase 2 conditional walkthroughs (§6.13-6.15)", () => {
   it("gates telegram on picks.telegram === 'yes'", () => {
@@ -257,7 +253,8 @@ describe("getNextStep — forward traversal", () => {
   it("solo + minimal picks walks the universal path only", () => {
     const p = picks({ account_type: "solo" });
     const visited = walkForward("welcome", p);
-    // Solo skips setup-q1a/q1b
+    // setup-q1a / setup-q1b are no longer in the order (dropped
+    // 2026-05-22 — lab storage decision moved to pre-onboarding §6.4).
     expect(visited).not.toContain("setup-q1a");
     expect(visited).not.toContain("setup-q1b");
     // Solo skips all lab steps
@@ -291,8 +288,10 @@ describe("getNextStep — forward traversal", () => {
       ai_helper: "full",
     });
     const visited = walkForward("welcome", p);
-    expect(visited).toContain("setup-q1a");
-    expect(visited).toContain("setup-q1b");
+    // setup-q1a / setup-q1b were dropped 2026-05-22 — lab storage now
+    // lives in pre-onboarding §6.4 (cloud-provider screen).
+    expect(visited).not.toContain("setup-q1a");
+    expect(visited).not.toContain("setup-q1b");
     expect(visited).toContain("telegram");
     expect(visited).toContain("purchases");
     expect(visited).toContain("calendar");
@@ -315,18 +314,19 @@ describe("getNextStep — forward traversal", () => {
     expect(getNextStep("not-a-real-step", p)).toBe("welcome");
   });
 
-  it("solo-from-welcome step 2 lands on setup-q1, not setup-q1a", () => {
+  it("solo-from-welcome step 2 lands on setup-q1, then setup-q2", () => {
     const p = picks({ account_type: "solo" });
     expect(getNextStep("welcome", p)).toBe("setup-q1");
-    // After q1 with solo, q1a + q1b are skipped → q2
     expect(getNextStep("setup-q1", p)).toBe("setup-q2");
   });
 
-  it("lab-from-q1 lands on q1a (not q2)", () => {
+  it("lab-from-q1 lands on setup-q2 (q1a/q1b removed 2026-05-22)", () => {
+    // setup-q1a (lab storage picker) + setup-q1b (lab connect info)
+    // were dropped from the v4 setup phase. Lab storage is decided in
+    // pre-onboarding §6.4 (cloud-provider screen) now. So setup-q1
+    // advances straight to setup-q2 for lab users, same as solo.
     const p = picks({ account_type: "lab" });
-    expect(getNextStep("setup-q1", p)).toBe("setup-q1a");
-    expect(getNextStep("setup-q1a", p)).toBe("setup-q1b");
-    expect(getNextStep("setup-q1b", p)).toBe("setup-q2");
+    expect(getNextStep("setup-q1", p)).toBe("setup-q2");
   });
 });
 
@@ -336,14 +336,17 @@ describe("getPreviousStep — backward traversal", () => {
     expect(getPreviousStep("welcome", null)).toBeNull();
   });
 
-  it("solo backstep from setup-q2 skips q1a/q1b → q1", () => {
+  it("solo backstep from setup-q2 lands on setup-q1", () => {
     const p = picks({ account_type: "solo" });
     expect(getPreviousStep("setup-q2", p)).toBe("setup-q1");
   });
 
-  it("lab backstep from setup-q2 lands on q1b", () => {
+  it("lab backstep from setup-q2 also lands on setup-q1 (q1a/q1b removed 2026-05-22)", () => {
+    // setup-q1a / setup-q1b dropped from the v4 setup phase; lab
+    // storage decision moved to pre-onboarding §6.4. Backstep behavior
+    // for lab is now identical to solo.
     const p = picks({ account_type: "lab" });
-    expect(getPreviousStep("setup-q2", p)).toBe("setup-q1b");
+    expect(getPreviousStep("setup-q2", p)).toBe("setup-q1");
   });
 
   it("conditional-on backstep traverses the conditional step", () => {
@@ -385,24 +388,25 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     const soloCount = totalApplicableSteps(soloMin);
     const labCount = totalApplicableSteps(labMax);
     expect(labCount).toBeGreaterThan(soloCount);
-    // Solo+minimal: q1a/q1b skipped (-2), 5 conditionals skipped (-5),
-    // 4 lab steps skipped (-4) = TOUR_STEP_ORDER.length - 11
-    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 11);
+    // 2026-05-22: setup-q1a / setup-q1b removed from TOUR_STEP_ORDER.
+    // Solo+minimal: 5 conditionals skipped (-5; telegram, purchases,
+    // calendar, gantt-goals-overview, ai-helper-deep-explain), 4 lab
+    // steps skipped (-4) = TOUR_STEP_ORDER.length - 9
+    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 9);
     expect(labCount).toBe(TOUR_STEP_ORDER.length);
   });
 
   it("applicableStepIndex is 1-based and skips gated steps", () => {
     const p = picks({ account_type: "solo" });
     expect(applicableStepIndex("welcome", p)).toBe(1);
-    // setup-q1 is the 2nd applicable step for solo
+    // setup-q1 is the 2nd applicable step
     expect(applicableStepIndex("setup-q1", p)).toBe(2);
-    // setup-q2 is the 3rd (q1a/q1b skipped)
+    // setup-q2 is the 3rd applicable step (q1a/q1b removed 2026-05-22)
     expect(applicableStepIndex("setup-q2", p)).toBe(3);
   });
 
   it("applicableStepIndex returns 0 for a gated-out current", () => {
     const p = picks({ account_type: "solo" });
-    expect(applicableStepIndex("setup-q1a", p)).toBe(0);
     expect(applicableStepIndex("lab-prompt", p)).toBe(0);
   });
 });

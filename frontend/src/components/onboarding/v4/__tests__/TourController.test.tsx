@@ -173,7 +173,9 @@ describe("TourController — start() / advance() / goBack() / exitTour()", () =>
     expect(result.current.currentStep).toBe("welcome");
     act(() => result.current.advance());
     expect(result.current.currentStep).toBe("setup-q1");
-    // Solo skips q1a/q1b
+    // 2026-05-22: setup-q1a / setup-q1b were dropped from the v4 setup
+    // phase (moved to pre-onboarding §6.4 cloud-provider screen), so
+    // setup-q1 advances straight to setup-q2 for every account type.
     act(() => result.current.advance());
     expect(result.current.currentStep).toBe("setup-q2");
   });
@@ -184,8 +186,9 @@ describe("TourController — start() / advance() / goBack() / exitTour()", () =>
     });
     act(() => result.current.start("setup-q2"));
     act(() => result.current.goBack());
-    // Lab → q1b is applicable
-    expect(result.current.currentStep).toBe("setup-q1b");
+    // 2026-05-22: setup-q1a / setup-q1b dropped — lab backstep from
+    // setup-q2 lands directly on setup-q1, same as solo.
+    expect(result.current.currentStep).toBe("setup-q1");
   });
 
   it("goBack() at the head is a no-op", () => {
@@ -287,18 +290,29 @@ describe("TourController — setFeaturePicks", () => {
   });
 
   it("changes the gating decision for subsequent advance()s", () => {
+    // 2026-05-22: setup-q1a / setup-q1b were dropped from the v4
+    // setup phase, so account_type no longer changes which steps the
+    // setup-q1 → next advance lands on. The remaining account-type
+    // gates (lab tour cluster) live well after the setup phase, so we
+    // exercise the gating flip via the lab-prompt step instead.
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(picks({ account_type: "solo" })),
     });
-    act(() => result.current.start("setup-q1"));
-    // First advance under solo: skips q1a + q1b → setup-q2
+    // Under solo, lab-prompt is gated out → forward from
+    // lab-permission-practice would skip past the whole lab cluster.
+    // Confirm the controller follows the gate.
+    act(() => result.current.start("wiki-pointer"));
     act(() => result.current.advance());
-    expect(result.current.currentStep).toBe("setup-q2");
-    // Flip to lab + back to q1, advance: now q1a is reachable
+    // Solo → all conditionals + lab cluster gated → land on
+    // phase4-cleanup.
+    expect(result.current.currentStep).toBe("phase4-cleanup");
+    // Flip to lab and re-enter wiki-pointer; advance now lands on the
+    // first applicable post-wiki step (lab-prompt, since conditionals
+    // are still "no").
     act(() => result.current.setFeaturePicks(picks({ account_type: "lab" })));
-    act(() => result.current.start("setup-q1"));
+    act(() => result.current.start("wiki-pointer"));
     act(() => result.current.advance());
-    expect(result.current.currentStep).toBe("setup-q1a");
+    expect(result.current.currentStep).toBe("lab-prompt");
   });
 });
 
@@ -466,7 +480,7 @@ describe("TourController — P12 wizard_resume_state persistence", () => {
       await Promise.resolve();
       await Promise.resolve();
     });
-    // Solo: goBack from setup-q2 lands on setup-q1 (q1a/q1b gated).
+    // goBack from setup-q2 lands on setup-q1 (q1a/q1b dropped 2026-05-22).
     expect(calls.some((c) => c.current_step === "setup-q1")).toBe(true);
   });
 
