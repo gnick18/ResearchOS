@@ -364,17 +364,30 @@ describe("isCleanupExcluded", () => {
 
   it("returns true when the artifact carries cleanup_excluded: true", () => {
     const flagged = {
-      ...art("lab_task", "edit-demo:1"),
+      ...art("note_entry", "n1"),
       cleanup_excluded: true,
     } as WizardArtifact;
     expect(isCleanupExcluded(flagged)).toBe(true);
   });
 
-  it("returns false when cleanup_excluded is set to a non-true value", () => {
+  it("returns false on a non-lab artifact when cleanup_excluded is set to a non-true value", () => {
     const half = {
-      ...art("lab_task", "edit-demo:1"),
+      ...art("note_entry", "n1"),
       cleanup_excluded: "yes",
     } as unknown as WizardArtifact;
     expect(isCleanupExcluded(half)).toBe(false);
+  });
+
+  it("returns true for lab_user even when cleanup_excluded is absent (L21 defense, live-test R4)", () => {
+    expect(isCleanupExcluded(art("lab_user", "beakerbot"))).toBe(true);
+  });
+
+  it("returns true for lab_task even when cleanup_excluded is absent (L21 defense, live-test R4)", () => {
+    expect(isCleanupExcluded(art("lab_task", "edit-demo:1"))).toBe(true);
+  });
+
+  it("returns true for any lab_* type by prefix (forward-compat for new lab artifact types)", () => {
+    const future = { type: "lab_share", id: "x", cleanup_default: "discard" } as WizardArtifact;
+    expect(isCleanupExcluded(future)).toBe(true);
   });
 });

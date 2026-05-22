@@ -150,6 +150,16 @@ export interface TourControllerActions {
   /** "I've got it from here" path (L10). Jumps directly to the cleanup
    *  phase grid so the user can decide which artifacts to keep. */
   exitTour(): void;
+  /** End the tour entirely — flips `currentStep` to null + `tourMode` to
+   *  null so every tour-mode overlay (Phase4CleanupStep, setup modal,
+   *  in-product walkthrough) unmounts on the next render. Called by the
+   *  Phase 4 cleanup grid after onComplete / onSkip persist
+   *  `wizard_completed_at` / `wizard_skipped_at`. Without this, the
+   *  cleanup modal stays mounted with currentStep="phase4-cleanup" + an
+   *  empty artifact list (resume_state was cleared by the persist) and
+   *  shows the "No artifacts were created during this run" empty-state
+   *  copy — the R4 "Finish re-summons modal" bug. */
+  endTour(): void;
   /** Pause the tour (per L23). The BeakerBot overlay + spotlight hide
    *  but the step state survives. */
   pause(): void;
@@ -463,6 +473,7 @@ export function TourControllerProvider({
 
   const pause = useCallback(() => dispatch({ type: "PAUSE" }), []);
   const resume = useCallback(() => dispatch({ type: "RESUME" }), []);
+  const endTour = useCallback(() => dispatch({ type: "EXIT" }), []);
 
   const setFeaturePicks = useCallback((picks: FeaturePicks | null) => {
     dispatch({ type: "SET_FEATURE_PICKS", picks });
@@ -745,6 +756,7 @@ export function TourControllerProvider({
       goBack,
       skipStep,
       exitTour,
+      endTour,
       pause,
       resume,
       setFeaturePicks,
@@ -760,6 +772,7 @@ export function TourControllerProvider({
       goBack,
       skipStep,
       exitTour,
+      endTour,
       pause,
       resume,
       setFeaturePicks,
@@ -860,7 +873,21 @@ function TourOverlay({
   // `cleanupArtifacts` and calls onComplete (or onSkip if reached via
   // "I've got it from here"). The host (P11 wizard shell) wires
   // onComplete + onSkip to the sidecar persistence.
+  //
+  // Idempotency guard (live-test R4 fix 2026-05-22): once the host has
+  // persisted `wizard_completed_at` or `wizard_skipped_at`, never
+  // re-render the cleanup modal. The host writes those timestamps from
+  // inside the onComplete / onSkip callbacks below; the sidecar prop
+  // refresh that follows can race a stale `currentStep === "phase4-cleanup"`
+  // in the controller (the EXIT dispatch only flips currentStep on the
+  // NEXT React commit). Without this guard the cleanup modal flashes
+  // back with empty-state copy ("No artifacts were created during this
+  // run") because resume_state.artifacts_created has been cleared in the
+  // same patch.
   if (controller.tourMode === "cleanup") {
+    if (sidecar?.wizard_completed_at || sidecar?.wizard_skipped_at) {
+      return null;
+    }
     return (
       <Phase4CleanupStep
         sidecar={sidecar}
@@ -870,9 +897,17 @@ function TourOverlay({
         setDecisions={setCleanupDecisions}
         onComplete={async (summary) => {
           await onComplete?.(summary);
+          // Tear the tour down so the cleanup modal unmounts. Without
+          // this, currentStep stays "phase4-cleanup" + the cleared
+          // resume_state makes the grid render empty-state copy
+          // indefinitely. The idempotency guard above is a second line of
+          // defense for the brief render window before this dispatch
+          // commits.
+          controller.endTour();
         }}
         onSkip={async (summary) => {
           await onSkip?.(summary);
+          controller.endTour();
         }}
       />
     );

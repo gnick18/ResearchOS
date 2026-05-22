@@ -250,6 +250,49 @@ describe("Phase4CleanupStep render", () => {
     expect(screen.queryByText(/beakerbot/i)).not.toBeInTheDocument();
   });
 
+  it("excludes lab_* artifacts even when cleanup_excluded is missing (L21 defense)", () => {
+    // Live-test R4 (2026-05-22): legacy v3 sidecars wrote lab_user /
+    // lab_task rows without the cleanup_excluded flag (the flag landed
+    // later). The grid still drops them because L21 says lab artifacts
+    // never reach the user-facing cleanup grid — they're owned by the
+    // lab tour's own teardown.
+    const sidecar = withArtifacts([
+      { type: "project", id: "1", cleanup_default: "keep" },
+      { type: "lab_user", id: "beakerbot", cleanup_default: "discard" },
+      { type: "lab_task", id: "edit-demo:1", cleanup_default: "discard" },
+    ]);
+    renderHarness(sidecar);
+    expect(screen.getByText(/First project \(#1\)/)).toBeInTheDocument();
+    expect(screen.queryByText(/beakerbot/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/edit-demo/i)).not.toBeInTheDocument();
+  });
+
+  it("exposes data-artifact-type + data-artifact-cleanup-default on every row (live-test R4)", () => {
+    // Live-test R4 (2026-05-22): rows carry the artifact type + the
+    // default cleanup action as DOM data-attributes so test harnesses
+    // can filter / assert per-type behavior without parsing the row
+    // label.
+    const sidecar = withArtifacts([
+      { type: "project", id: "1", cleanup_default: "keep" },
+      { type: "method", id: "2:placeholder", cleanup_default: "discard" },
+    ]);
+    renderHarness(sidecar);
+    const projectRow = document.querySelector(
+      '[data-artifact-id="project:1"]',
+    );
+    expect(projectRow?.getAttribute("data-artifact-type")).toBe("project");
+    expect(projectRow?.getAttribute("data-artifact-cleanup-default")).toBe(
+      "keep",
+    );
+    const methodRow = document.querySelector(
+      '[data-artifact-id="method:2:placeholder"]',
+    );
+    expect(methodRow?.getAttribute("data-artifact-type")).toBe("method");
+    expect(methodRow?.getAttribute("data-artifact-cleanup-default")).toBe(
+      "discard",
+    );
+  });
+
   it("renders a tiny BeakerBot in the corner of the cleanup grid", () => {
     const sidecar = withArtifacts([
       { type: "project", id: "1", cleanup_default: "keep" },
@@ -338,7 +381,11 @@ describe("Phase4CleanupStep Finish behavior", () => {
     expect(handlers.onComplete).toHaveBeenCalledTimes(1);
   });
 
-  it("Start fresh + Confirm flips every row to discard and deletes all on Finish", async () => {
+  it("Start fresh flips every row to discard and deletes all on Finish", async () => {
+    // Live-test R4 (2026-05-22): Start fresh is now a single-click
+    // direct discard (no nested confirm). The Finish-setup CTA is still
+    // the destructive gate, so a one-click uncheck is safe + matches
+    // the button copy ("I'll uncheck everything for you").
     const sidecar = withArtifacts([
       { type: "project", id: "42", cleanup_default: "keep" },
       { type: "method", id: "17:placeholder", cleanup_default: "keep" },
@@ -351,7 +398,6 @@ describe("Phase4CleanupStep Finish behavior", () => {
     await user.click(
       screen.getByRole("button", { name: /^start fresh$/i }),
     );
-    await user.click(screen.getByRole("button", { name: /^confirm$/i }));
 
     const checkboxes = screen.getAllByRole("checkbox");
     for (const cb of checkboxes) {
@@ -367,22 +413,6 @@ describe("Phase4CleanupStep Finish behavior", () => {
       expect(goalDelete).toHaveBeenCalledWith(9);
     });
     expect(handlers.onComplete).toHaveBeenCalledTimes(1);
-  });
-
-  it("Start fresh + Cancel keeps all checkboxes checked", async () => {
-    const sidecar = withArtifacts([
-      { type: "project", id: "42", cleanup_default: "keep" },
-    ]);
-    renderHarness(sidecar);
-
-    const user = userEvent.setup();
-    await user.click(
-      screen.getByRole("button", { name: /^start fresh$/i }),
-    );
-    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
-
-    const cbs = screen.getAllByRole("checkbox");
-    expect(cbs[0]).toBeChecked();
   });
 
   it("enteredViaSkip routes Finish through onSkip instead of onComplete", async () => {

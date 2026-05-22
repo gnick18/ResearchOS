@@ -414,6 +414,16 @@ async function revertSettingsChange(
  * cleanup grid behaves correctly the moment P7 lands, with no follow-up
  * patch in P8's surface area.
  *
+ * Defense-in-depth (live-test R4 fix 2026-05-22): in addition to the
+ * explicit `cleanup_excluded` flag, ANY artifact whose type starts with
+ * `lab_` is treated as excluded. Legacy v3 sidecars wrote `lab_user` /
+ * `lab_task` rows without the flag (the flag landed later), and any
+ * future lab artifact type (`lab_*`) inherits the L21 contract by
+ * convention. Filtering by prefix here means a missed `cleanup_excluded`
+ * write in a lab step body cannot leak lab artifacts into the cleanup
+ * grid — the grid still drops them. Lab teardown remains owned by the
+ * lab tour itself (see lab-fake-user.ts cleanupLabFakeUser).
+ *
  * Data-shape note (FLAGGED to master): P7 will add `cleanup_excluded?:
  * boolean` to `WizardArtifact` in `frontend/src/lib/onboarding/sidecar.ts`.
  * This filter reads the field defensively via runtime indexing so P8's
@@ -421,6 +431,7 @@ async function revertSettingsChange(
  * P7 lands the field, no change is needed here.
  */
 export function isCleanupExcluded(artifact: WizardArtifact): boolean {
+  if (artifact.type.startsWith("lab_")) return true;
   const raw = artifact as unknown as Record<string, unknown>;
   return raw.cleanup_excluded === true;
 }

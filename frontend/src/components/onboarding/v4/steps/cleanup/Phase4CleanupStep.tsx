@@ -226,7 +226,6 @@ export default function Phase4CleanupStep({
   onComplete,
   onSkip,
 }: Phase4CleanupStepProps) {
-  const [confirmFresh, setConfirmFresh] = useState(false);
   const [uiState, setUiState] = useState<
     "idle" | "persisting" | "error"
   >("idle");
@@ -314,18 +313,17 @@ export default function Phase4CleanupStep({
     [artifacts, setDecisions],
   );
 
+  // Live-test R4 (2026-05-22): Start Fresh now applies discard directly,
+  // no nested confirm modal. The prior implementation rendered an inline
+  // confirm INSIDE the scrollable section list which scrolled off-screen
+  // with many sections, so the user saw "nothing happen" on click.
+  // The button copy ("I'll uncheck everything for you") sets the
+  // expectation of a single-click action; the Finish-setup CTA is still
+  // the destructive gate that actually runs deletes, so a one-click
+  // uncheck is safe to apply directly.
   const handleStartFreshClick = useCallback(() => {
-    setConfirmFresh(true);
-  }, []);
-
-  const handleStartFreshConfirm = useCallback(() => {
     applyAll("discard");
-    setConfirmFresh(false);
   }, [applyAll]);
-
-  const handleStartFreshCancel = useCallback(() => {
-    setConfirmFresh(false);
-  }, []);
 
   const handleFinish = useCallback(async () => {
     if (uiState === "persisting") return;
@@ -451,39 +449,6 @@ export default function Phase4CleanupStep({
               ))}
             </div>
 
-            {/* Start-fresh confirm modal */}
-            {confirmFresh && (
-              <div
-                role="dialog"
-                aria-modal="true"
-                aria-label="Confirm start fresh"
-                data-cleanup-confirm-fresh=""
-                className="rounded-lg border border-rose-200 bg-rose-50 p-3 space-y-2"
-              >
-                <p className="text-sm text-rose-900">
-                  This will discard all artifacts created during the tour.
-                  Continue?
-                </p>
-                <div className="flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={handleStartFreshCancel}
-                    data-cleanup-action="start-fresh-cancel"
-                    className="px-3 py-1.5 text-xs font-medium border border-gray-300 bg-white text-gray-700 rounded-md hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleStartFreshConfirm}
-                    data-cleanup-action="start-fresh-confirm"
-                    className="px-3 py-1.5 text-xs font-medium border border-rose-500 bg-rose-500 text-white rounded-md hover:bg-rose-600"
-                  >
-                    Confirm
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         )}
 

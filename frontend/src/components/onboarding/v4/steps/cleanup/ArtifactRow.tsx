@@ -82,6 +82,8 @@ export default function ArtifactRow({
     <li>
       <label
         data-artifact-id={key}
+        data-artifact-type={artifact.type}
+        data-artifact-cleanup-default={artifact.cleanup_default}
         data-cleanup-state={decision}
         className="flex items-start gap-2 px-2 py-1.5 rounded-md border border-gray-200 bg-white text-sm text-gray-800 cursor-pointer hover:bg-gray-50"
       >
