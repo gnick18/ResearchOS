@@ -102,16 +102,14 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "methods-category-open",   // §6.4a-open (user opens the modal)
   "methods-category",        // §6.4a-demo (cursor types + clicks Create Empty)
   "methods-open-picker",     // §6.4 bridge (click New Method, modal mounts)
-  // §6.4b deep-demo (v4 sec 6.4b upgrade sub-bot 2026-05-21): replaces
-  // the prior 7-tile hover sweep with five sub-steps that click INTO
-  // the PCR and LC Gradient builders and exercise real affordances so
-  // users see these are interactive editors (not text forms). Speech-
-  // first compound paragraph stays on `methods-type-tour`.
-  "methods-type-tour",       // §6.4b-1: intro speech + click PCR tile
-  "methods-pcr-edit",        // §6.4b-2: click Edit Cycle in PCR toolbar
-  "methods-pcr-add-cycle",   // §6.4b-3: click + Add Cycle (modal opens)
-  "methods-pcr-confirm-cycle", // §6.4b-4: confirm Add (new cycle drops in)
-  "methods-lc-demo",         // §6.4b-5: click LC tile, hover chart, Add step
+  // §6.4b (Grant 2026-05-21 rework): the prior 5-sub-step PCR + LC demo
+  // moved too fast to follow — clicking around at machine speed while
+  // the user was trying to read the speech bubble at the same time.
+  // Reduced to two manual-advance beats that just MOUNT each builder
+  // and invite the user to explore at their own pace. The wiki has the
+  // detail; the tour just establishes that these are interactive.
+  "methods-type-tour",       // §6.4b-1: click PCR tile, prompt user to explore
+  "methods-lc-demo",         // §6.4b-2: click LC tile, prompt user to explore
   "methods-create",          // §6.4d (BeakerBot's funny markdown method)
   // Workbench experiment creation (§6.5)
   "workbench-create-experiment",

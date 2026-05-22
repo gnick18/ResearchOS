@@ -90,9 +90,10 @@ import { methodsCategoryOpenStep } from "./steps/walkthrough/MethodsCategoryOpen
 import { methodsCategoryStep } from "./steps/walkthrough/MethodsCategoryStep";
 import { methodsOpenPickerStep } from "./steps/walkthrough/MethodsOpenPickerStep";
 import { methodsBreadthStep } from "./steps/walkthrough/MethodsBreadthStep";
-import { methodsPcrEditStep } from "./steps/walkthrough/MethodsPcrEditStep";
-import { methodsPcrAddCycleStep } from "./steps/walkthrough/MethodsPcrAddCycleStep";
-import { methodsPcrConfirmCycleStep } from "./steps/walkthrough/MethodsPcrConfirmCycleStep";
+// §6.4b Grant 2026-05-21 rework: PCR sub-steps (edit / add-cycle /
+// confirm-cycle) dropped from the active flow. The bodies stay in the
+// repo for now — easy to bring back if Grant changes his mind on the
+// detail level. Removed from TOUR_STEP_ORDER and TOUR_STEPS.
 import { methodsLcDemoStep } from "./steps/walkthrough/MethodsLcDemoStep";
 import { methodsCreateStep } from "./steps/walkthrough/MethodsCreateStep";
 import { workbenchCreateExperimentStep } from "./steps/walkthrough/WorkbenchCreateExperimentStep";
@@ -139,9 +140,6 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [methodsCategoryStep.id]: methodsCategoryStep,
   [methodsOpenPickerStep.id]: methodsOpenPickerStep,
   [methodsBreadthStep.id]: methodsBreadthStep,
-  [methodsPcrEditStep.id]: methodsPcrEditStep,
-  [methodsPcrAddCycleStep.id]: methodsPcrAddCycleStep,
-  [methodsPcrConfirmCycleStep.id]: methodsPcrConfirmCycleStep,
   [methodsLcDemoStep.id]: methodsLcDemoStep,
   [methodsCreateStep.id]: methodsCreateStep,
   [workbenchCreateExperimentStep.id]: workbenchCreateExperimentStep,

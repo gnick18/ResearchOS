@@ -52,7 +52,6 @@
 import {
   cursorScript,
   safeClickAction,
-  safeGlideToElementAction,
   compactScript,
   waitForElement,
 } from "./lib/cursor-script";
@@ -62,48 +61,24 @@ import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 export const methodsLcDemoStep = buildWalkthroughStep({
   id: "methods-lc-demo",
   speech:
-    "Now the LC Gradient editor. Watch the line chart update as I add a new step to the gradient table.",
+    "And here's the LC Gradient editor. The chart updates live as you change steps in the table. Same deal: play around to get a feel for it, then click Got it, next when you're ready to keep going.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.methodsTypeLcGradientTile),
   cursorScript: cursorScript(async () => {
-    // Resolve the LC tile (always present in the picker; picker stays
-    // rendered across all per-type swaps).
+    // Grant 2026-05-21 rework: drop the click-LC-tile + glide-chart +
+    // click-add-step click-around drama (it moved too fast to follow).
+    // The cursor now does a single visible click on the LC tile to
+    // mount the editor, and the user explores at their own pace.
     const lcTile = await waitForElement(
       targetSelector(TOUR_TARGETS.methodsTypeLcGradientTile),
       3000,
     );
     if (!lcTile) return [];
-
-    // Silent-pre-click the LC tile so `LcGradientEditor` mounts and we
-    // can resolve the chart + Add step affordances for the action
-    // list. See file header for trade-off rationale. setUploadType to
-    // the same value is a React no-op so the runtime cursor's click
-    // doesn't double-swap.
-    lcTile.click();
-
-    // Wait for the LC chart to mount, then build the cursor's visible
-    // action list: click LC tile (visible ripple), glide to chart
-    // center (recharts hover indicator), click Add step (new row +
-    // chart point appears).
-    await waitForElement(
-      targetSelector(TOUR_TARGETS.lcGradientChart),
-      3000,
-    );
-
     const clickLcTile = await safeClickAction(
       targetSelector(TOUR_TARGETS.methodsTypeLcGradientTile),
       2000,
     );
-    const glideChart = await safeGlideToElementAction(
-      targetSelector(TOUR_TARGETS.lcGradientChart),
-      2000,
-    );
-    const clickAddStep = await safeClickAction(
-      targetSelector(TOUR_TARGETS.lcAddStep),
-      2000,
-    );
-
-    return compactScript([clickLcTile, glideChart, clickAddStep]);
+    return compactScript([clickLcTile]);
   }),
   completion: manualAdvance("Got it, next"),
   expectedRoute: "/methods",

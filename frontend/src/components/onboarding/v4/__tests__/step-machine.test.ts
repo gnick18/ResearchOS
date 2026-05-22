@@ -111,17 +111,15 @@ describe("TOUR_STEP_ORDER", () => {
     expect(typeTourIdx).toBeGreaterThan(openPickerIdx);
   });
 
-  it("walks the methods-type-tour deep-demo arc in PCR-then-LC order (v4 sec 6.4b upgrade sub-bot 2026-05-21)", () => {
-    // §6.4b deep-demo: methods-type-tour clicks the PCR tile, then
-    // the four PCR/LC sub-steps fire in order, then methods-create
-    // takes over with Standard Markdown. Lock the order so a future
-    // re-shuffle (e.g. re-introducing the old 7-tile hover) breaks
-    // visibly.
+  it("walks the methods-type-tour deep-demo arc in PCR-then-LC order (Grant 2026-05-21 rework)", () => {
+    // §6.4b: methods-type-tour mounts the PCR builder (manual-advance
+    // pause for exploration), then methods-lc-demo mounts the LC
+    // builder (manual-advance pause), then methods-create takes over
+    // with Standard Markdown. The intermediate PCR sub-steps (edit /
+    // add-cycle / confirm-cycle) were removed per Grant's feedback
+    // that the click-around drama moved too fast to follow.
     const order = [
       "methods-type-tour",
-      "methods-pcr-edit",
-      "methods-pcr-add-cycle",
-      "methods-pcr-confirm-cycle",
       "methods-lc-demo",
       "methods-create",
     ];

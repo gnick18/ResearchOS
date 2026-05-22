@@ -57,7 +57,7 @@ import {
   compactScript,
   waitForElement,
 } from "./lib/cursor-script";
-import { autoAdvanceAfter, buildWalkthroughStep } from "./lib/step-helpers";
+import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 
 /**
@@ -75,32 +75,21 @@ export const METHODS_BREADTH_TILE_TARGETS = [
   "method-type-lc-gradient",
 ] as const;
 
-/**
- * Total cursor budget for the PCR-tile click. One safeClickAction =
- * ~1180ms (1000ms glide + 30ms + 150ms ripple). 1500ms gives the ripple
- * a small fade window before the next step's speech bubble lands.
- */
-const PCR_TILE_CLICK_BUDGET_MS = 1500;
-
 export const methodsBreadthStep = buildWalkthroughStep({
   id: "methods-type-tour",
   speech: (
     <>
       <p className="mb-2">
-        Most of ResearchOS&apos;s method types are interactive editors,
-        not text forms. Let me show you two. First, PCR. I&apos;ll click
-        into the builder, enter edit mode, and add a new thermal cycle.
-        Then we&apos;ll do the LC Gradient editor where the graph
-        updates as you change steps. Watch.
+        Most method types are interactive builders, not text forms. PCR
+        is a thermal cycle builder; LC Gradient draws a live chart;
+        Compound bundles multiple methods together so a common combo
+        attaches in one shot.
       </p>
       <p>
-        There&apos;s also a special type called Compound. It bundles
-        multiple methods together so you don&apos;t have to re-attach
-        the same combination every time. For example: if every
-        experiment in your lab starts with the same PCR setup followed
-        by the same gel electrophoresis, make a Compound that includes
-        both. Attach the Compound to an experiment and you get both
-        methods at once, with all their defaults pre-filled.
+        I&apos;ll open the PCR builder now. Click around to get a feel
+        for it, then hit Got it, next when you&apos;re ready to see the
+        LC Gradient one. The wiki has the full reference whenever you
+        want details.
       </p>
     </>
   ),
@@ -109,7 +98,8 @@ export const methodsBreadthStep = buildWalkthroughStep({
   cursorScript: cursorScript(async () => {
     // Wait for the picker (already visible from the open-picker beat
     // immediately preceding this step; in dev / replay it may already
-    // be open).
+    // be open). Single click into the PCR tile mounts the builder; the
+    // user explores at their own pace after that.
     await waitForElement(targetSelector(TOUR_TARGETS.methodsTypePicker), 3000);
     const clickPcr = await safeClickAction(
       targetSelector(TOUR_TARGETS.methodsTypePcrTile),
@@ -117,7 +107,10 @@ export const methodsBreadthStep = buildWalkthroughStep({
     );
     return compactScript([clickPcr]);
   }),
-  completion: autoAdvanceAfter(PCR_TILE_CLICK_BUDGET_MS),
+  // Grant 2026-05-21 rework: manual advance so the user has time to
+  // poke at the PCR builder + read the speech bubble. The prior
+  // 4-sub-step click-around drama moved too fast to follow.
+  completion: manualAdvance("Got it, next"),
   expectedRoute: "/methods",
   // §6.4b viewport anchor (input-lock + viewport-anchor sub-bot 2026-05-21):
   // the cursor only clicks the small PCR tile, but the user should see
