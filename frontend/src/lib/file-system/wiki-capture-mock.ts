@@ -236,17 +236,84 @@ export type WikiCaptureVariant = "signed-in" | "picker";
 export function getWikiCaptureVariant(): WikiCaptureVariant | null {
   if (typeof window === "undefined") return null;
   try {
+    // Sticky session flag, set once the URL match is seen so subsequent
+    // in-app `router.push` calls that strip the query string don't drop
+    // us out of fixture mode (live-test R3 cascade fix 2026-05-21).
+    // The closing tab clears sessionStorage, so this can't bleed across
+    // browser sessions.
     const params = new URLSearchParams(window.location.search);
-    const value = params.get("wikiCapture");
-    if (value === null) return null;
+    const urlValue = params.get("wikiCapture");
+    if (urlValue !== null) {
+      if (process.env.NODE_ENV === "production") {
+        const host = window.location.hostname;
+        const ok =
+          host === "localhost" || host === "127.0.0.1" || host === "[::1]";
+        if (!ok) return null;
+      }
+      const variant: WikiCaptureVariant =
+        urlValue === "picker" ? "picker" : "signed-in";
+      try {
+        sessionStorage.setItem(WIKI_CAPTURE_STICKY_KEY, variant);
+      } catch {
+        // sessionStorage can throw in private-mode browsers; ignore.
+      }
+      return variant;
+    }
+    // No URL flag — fall back to the sticky session value if we set it
+    // on a prior page. Same production-host gate applies on read.
+    let sticky: string | null = null;
+    try {
+      sticky = sessionStorage.getItem(WIKI_CAPTURE_STICKY_KEY);
+    } catch {
+      // Ignore sessionStorage failures.
+    }
+    if (sticky === null) return null;
     if (process.env.NODE_ENV === "production") {
       const host = window.location.hostname;
-      const ok = host === "localhost" || host === "127.0.0.1" || host === "[::1]";
+      const ok =
+        host === "localhost" || host === "127.0.0.1" || host === "[::1]";
       if (!ok) return null;
     }
-    return value === "picker" ? "picker" : "signed-in";
+    return sticky === "picker" ? "picker" : "signed-in";
   } catch {
     return null;
+  }
+}
+
+/** sessionStorage key for the sticky wiki-capture-mode flag. Lifecycle
+ *  mirrors `DEMO_MODE_KEY` above — set once a URL match is observed,
+ *  carried across in-tab navigation, cleared on tab close. */
+const WIKI_CAPTURE_STICKY_KEY = "researchos:wiki-capture-mode";
+
+/** sessionStorage key for the sticky v4-preview / seed-step flag. Set
+ *  once `?wizard-preview=1` or `?wizardSeedStep=…` is observed; read by
+ *  `wantsV4Mount()` in `providers.tsx` so the v4 tour stays mounted
+ *  across in-tab navigations whose hrefs strip the query string. */
+export const V4_PREVIEW_STICKY_KEY = "researchos:v4-preview-active";
+
+/** True when the URL has the v4 preview opt-in flags OR a prior page in
+ *  this tab observed them. Mirrors `getWikiCaptureVariant`'s sticky
+ *  pattern so navigation away (cursor click on a project card,
+ *  router.push from a step body, etc.) doesn't drop V4MountForUser. */
+export function isV4PreviewMode(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("wizard-preview") === "1" || params.has("wizardSeedStep")) {
+      try {
+        sessionStorage.setItem(V4_PREVIEW_STICKY_KEY, "1");
+      } catch {
+        // sessionStorage can throw in private-mode browsers; ignore.
+      }
+      return true;
+    }
+    try {
+      return sessionStorage.getItem(V4_PREVIEW_STICKY_KEY) === "1";
+    } catch {
+      return false;
+    }
+  } catch {
+    return false;
   }
 }
 

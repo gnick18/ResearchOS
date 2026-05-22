@@ -5,7 +5,10 @@ import { useState, useEffect, useRef, type ReactNode } from "react";
 import { appQueryClient } from "@/lib/query-client";
 import { usePathname } from "next/navigation";
 import { FileSystemProvider, useFileSystem, isFileSystemAccessSupported } from "@/lib/file-system/file-system-context";
-import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
+import {
+  isDemoOrWikiCapture,
+  isV4PreviewMode,
+} from "@/lib/file-system/wiki-capture-mock";
 import ResearchFolderSetupNew from "@/components/ResearchFolderSetupNew";
 import UserLoginScreen from "@/components/UserLoginScreen";
 import StagedLoadingScreen from "@/components/StagedLoadingScreen";
@@ -150,14 +153,13 @@ function AppContent({ children }: { children: ReactNode }) {
     // wiki-capture-mock.ts has no consumer. Plain /demo and bare
     // ?wikiCapture=1 stay unchanged — v4 only activates when the URL
     // explicitly opts in.
-    const wantsV4Mount =
-      typeof window !== "undefined" &&
-      (() => {
-        const qs = new URLSearchParams(window.location.search);
-        return (
-          qs.get("wizard-preview") === "1" || qs.has("wizardSeedStep")
-        );
-      })();
+    // Sticky check (live-test R3 cascade fix 2026-05-21): isV4PreviewMode
+    // reads URL params AND sessionStorage so in-tab navigations whose
+    // hrefs strip the query string don't drop V4MountForUser. Without
+    // this, every cursor-driven router.push from a step body (project
+    // card click, wiki nav, methods nav, etc.) unmounted the v4 tour
+    // and re-summoned the V4ResumePrompt mid-walkthrough.
+    const wantsV4Mount = isV4PreviewMode();
     return (
       <QueryClientProvider client={queryClient}>
         <OnboardingProvider currentUser={currentUser}>
