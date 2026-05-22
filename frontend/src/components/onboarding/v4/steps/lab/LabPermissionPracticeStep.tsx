@@ -14,6 +14,13 @@ import { TOUR_TARGETS, targetSelector } from "../walkthrough/lib/targets";
 import { BEAKERBOT_LAB_DISPLAY_NAME } from "./lib/lab-fake-user";
 
 /**
+ * @deprecated 2026-05-22 (Gantt manager): retired by the Gantt redesign.
+ * Permission teaching moved into the §6.8 Gantt share cluster
+ * (gantt-share-user-explores / gantt-share-user-shares-back /
+ * gantt-share-user-sees-edit). File kept for git-history reference.
+ *
+ * Original docstring below.
+ *
  * lab-permission-practice step body. §6.16b (HR sub-bot rebuild
  * 2026-05-22).
  *

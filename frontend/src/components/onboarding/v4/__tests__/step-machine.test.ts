@@ -65,10 +65,23 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER).toContain("telegram");
     expect(TOUR_STEP_ORDER).toContain("purchases");
     expect(TOUR_STEP_ORDER).toContain("calendar");
-    expect(TOUR_STEP_ORDER).toContain("lab-prompt");
-    expect(TOUR_STEP_ORDER).toContain("lab-spawn-beakerbot");
-    expect(TOUR_STEP_ORDER).toContain("lab-permission-practice");
+    // Gantt manager 2026-05-22: lab-prompt / lab-spawn-beakerbot /
+    // lab-permission-practice were retired by the §6.8 Gantt redesign.
+    // Only lab-cleanup survives the share-cluster restructure.
+    expect(TOUR_STEP_ORDER).not.toContain("lab-prompt");
+    expect(TOUR_STEP_ORDER).not.toContain("lab-spawn-beakerbot");
+    expect(TOUR_STEP_ORDER).not.toContain("lab-permission-practice");
     expect(TOUR_STEP_ORDER).toContain("lab-cleanup");
+    // New §6.8 Gantt arc step ids must be in the order.
+    expect(TOUR_STEP_ORDER).toContain("gantt-intro");
+    expect(TOUR_STEP_ORDER).toContain("gantt-existing-experiment");
+    expect(TOUR_STEP_ORDER).toContain("gantt-deps-beakerbot");
+    expect(TOUR_STEP_ORDER).toContain("gantt-deps-user");
+    expect(TOUR_STEP_ORDER).toContain("gantt-deps-cascade");
+    expect(TOUR_STEP_ORDER).toContain("gantt-share-profile-switch");
+    // Legacy gantt step ids dropped 2026-05-22 (Gantt manager).
+    expect(TOUR_STEP_ORDER).not.toContain("gantt-task-types");
+    expect(TOUR_STEP_ORDER).not.toContain("gantt-chained-deps");
     expect(TOUR_STEP_ORDER).toContain("phase4-cleanup");
   });
 
@@ -162,9 +175,12 @@ describe("isSetupPhaseStep / isLabPhaseStep", () => {
   });
 
   it("classifies the Phase 2c lab steps", () => {
-    expect(isLabPhaseStep("lab-prompt")).toBe(true);
-    expect(isLabPhaseStep("lab-spawn-beakerbot")).toBe(true);
-    expect(isLabPhaseStep("lab-permission-practice")).toBe(true);
+    // Gantt manager 2026-05-22: lab-prompt, lab-spawn-beakerbot,
+    // lab-permission-practice retired by the Gantt redesign. Only
+    // lab-cleanup survives in the lab phase.
+    expect(isLabPhaseStep("lab-prompt")).toBe(false);
+    expect(isLabPhaseStep("lab-spawn-beakerbot")).toBe(false);
+    expect(isLabPhaseStep("lab-permission-practice")).toBe(false);
     expect(isLabPhaseStep("lab-cleanup")).toBe(true);
     expect(isLabPhaseStep("welcome")).toBe(false);
     expect(isLabPhaseStep("home-create-project")).toBe(false);
@@ -247,28 +263,45 @@ describe("isStepGatedOut — Phase 2 conditional walkthroughs (§6.13-6.15)", ()
   });
 });
 
-describe("isStepGatedOut — Phase 2c lab tour cluster", () => {
-  it("hides all lab steps for solo accounts", () => {
+describe("isStepGatedOut — Phase 2c lab tour cluster (post Gantt redesign)", () => {
+  it("hides lab-cleanup for solo accounts", () => {
+    // Gantt manager 2026-05-22: lab-prompt / lab-spawn-beakerbot /
+    // lab-permission-practice were retired; only lab-cleanup gates here.
     const p = picks({ account_type: "solo" });
-    expect(isStepGatedOut("lab-prompt", p)).toBe(true);
-    expect(isStepGatedOut("lab-spawn-beakerbot", p)).toBe(true);
-    expect(isStepGatedOut("lab-permission-practice", p)).toBe(true);
     expect(isStepGatedOut("lab-cleanup", p)).toBe(true);
   });
 
-  it("shows all lab steps for lab accounts", () => {
+  it("shows lab-cleanup for lab accounts", () => {
     const p = picks({ account_type: "lab" });
-    expect(isStepGatedOut("lab-prompt", p)).toBe(false);
-    expect(isStepGatedOut("lab-spawn-beakerbot", p)).toBe(false);
-    expect(isStepGatedOut("lab-permission-practice", p)).toBe(false);
     expect(isStepGatedOut("lab-cleanup", p)).toBe(false);
   });
 
-  it("hides lab steps when picks is null", () => {
-    expect(isStepGatedOut("lab-prompt", null)).toBe(true);
-    expect(isStepGatedOut("lab-spawn-beakerbot", null)).toBe(true);
-    expect(isStepGatedOut("lab-permission-practice", null)).toBe(true);
+  it("hides lab-cleanup when picks is null", () => {
     expect(isStepGatedOut("lab-cleanup", null)).toBe(true);
+  });
+});
+
+describe("isStepGatedOut — §6.8 Gantt share cluster (Gantt manager 2026-05-22)", () => {
+  it("hides every Gantt share cluster step for solo accounts", () => {
+    const p = picks({ account_type: "solo" });
+    expect(isStepGatedOut("gantt-share-intro", p)).toBe(true);
+    expect(isStepGatedOut("gantt-share-beakerbot-spawn", p)).toBe(true);
+    expect(isStepGatedOut("gantt-share-beakerbot-shares", p)).toBe(true);
+    expect(isStepGatedOut("gantt-share-user-explores", p)).toBe(true);
+    expect(isStepGatedOut("gantt-share-user-shares-back", p)).toBe(true);
+    expect(isStepGatedOut("gantt-share-profile-switch", p)).toBe(true);
+    expect(isStepGatedOut("gantt-share-user-sees-edit", p)).toBe(true);
+  });
+
+  it("shows every Gantt share cluster step for lab accounts", () => {
+    const p = picks({ account_type: "lab" });
+    expect(isStepGatedOut("gantt-share-intro", p)).toBe(false);
+    expect(isStepGatedOut("gantt-share-beakerbot-spawn", p)).toBe(false);
+    expect(isStepGatedOut("gantt-share-beakerbot-shares", p)).toBe(false);
+    expect(isStepGatedOut("gantt-share-user-explores", p)).toBe(false);
+    expect(isStepGatedOut("gantt-share-user-shares-back", p)).toBe(false);
+    expect(isStepGatedOut("gantt-share-profile-switch", p)).toBe(false);
+    expect(isStepGatedOut("gantt-share-user-sees-edit", p)).toBe(false);
   });
 });
 
@@ -327,10 +360,29 @@ describe("getNextStep — forward traversal", () => {
     expect(visited).toContain("calendar");
     expect(visited).toContain("gantt-goals-overview");
     expect(visited).toContain("ai-helper-deep-explain");
-    expect(visited).toContain("lab-prompt");
-    expect(visited).toContain("lab-spawn-beakerbot");
-    expect(visited).toContain("lab-permission-practice");
+    // Gantt manager 2026-05-22: lab-prompt / lab-spawn-beakerbot /
+    // lab-permission-practice were retired in favor of the §6.8 Gantt
+    // share cluster. Only lab-cleanup survives in the lab phase.
+    expect(visited).not.toContain("lab-prompt");
+    expect(visited).not.toContain("lab-spawn-beakerbot");
+    expect(visited).not.toContain("lab-permission-practice");
     expect(visited).toContain("lab-cleanup");
+    // §6.8 lab share cluster (Gantt redesign 2026-05-22): all 7 beats
+    // fire in the maximal lab walk.
+    expect(visited).toContain("gantt-share-intro");
+    expect(visited).toContain("gantt-share-beakerbot-spawn");
+    expect(visited).toContain("gantt-share-beakerbot-shares");
+    expect(visited).toContain("gantt-share-user-explores");
+    expect(visited).toContain("gantt-share-user-shares-back");
+    expect(visited).toContain("gantt-share-profile-switch");
+    expect(visited).toContain("gantt-share-user-sees-edit");
+    // Universal Gantt arc: 6 beats fire for everyone.
+    expect(visited).toContain("gantt-intro");
+    expect(visited).toContain("gantt-existing-experiment");
+    expect(visited).toContain("gantt-drag-drop");
+    expect(visited).toContain("gantt-deps-beakerbot");
+    expect(visited).toContain("gantt-deps-user");
+    expect(visited).toContain("gantt-deps-cascade");
     expect(visited[visited.length - 1]).toBe("phase4-cleanup");
   });
 
@@ -422,13 +474,15 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     const soloCount = totalApplicableSteps(soloMin);
     const labCount = totalApplicableSteps(labMax);
     expect(labCount).toBeGreaterThan(soloCount);
-    // 2026-05-22: setup-q1a / setup-q1b removed from TOUR_STEP_ORDER.
-    // Lab Links manager 2026-05-22: setup-q7 added; conditional `links`
-    // step added (gated on picks.links === "yes"). Solo+minimal: 6
-    // conditionals skipped (-6; telegram, purchases, calendar, links,
-    // gantt-goals-overview, ai-helper-deep-explain), 4 lab steps skipped
-    // (-4) = TOUR_STEP_ORDER.length - 10.
-    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 10);
+    // Gantt manager 2026-05-22 (Gantt redesign): the lab cluster shrank
+    // (lab-prompt + lab-spawn-beakerbot + lab-permission-practice
+    // retired, only lab-cleanup survives in LAB_STEP_IDS) but the §6.8
+    // Gantt share cluster added 7 new lab-only steps gated on
+    // account_type === "lab". Solo+minimal still skips: 6 conditionals
+    // (telegram, purchases, calendar, links, gantt-goals-overview,
+    // ai-helper-deep-explain) + 1 lab step (lab-cleanup) + 7 Gantt
+    // share cluster steps = 14 gated out for solo.
+    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 14);
     expect(labCount).toBe(TOUR_STEP_ORDER.length);
   });
 
@@ -443,6 +497,8 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
 
   it("applicableStepIndex returns 0 for a gated-out current", () => {
     const p = picks({ account_type: "solo" });
-    expect(applicableStepIndex("lab-prompt", p)).toBe(0);
+    // Gantt manager 2026-05-22: lab-prompt removed from TOUR_STEP_ORDER.
+    // gantt-share-intro is the new gated-on-solo step we can probe.
+    expect(applicableStepIndex("gantt-share-intro", p)).toBe(0);
   });
 });

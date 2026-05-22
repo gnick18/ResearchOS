@@ -39,12 +39,17 @@ import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 export const ganttDragDropStep = buildWalkthroughStep({
   id: "gantt-drag-drop",
   speech:
-    "Watch me drag this task bar to reschedule it. You can drop a bar anywhere on the timeline to change its date.",
+    "Watch me drag this bar to reschedule it. You can drop a bar anywhere on the timeline to change its date.",
   pose: "pointing",
-  targetSelector: targetSelector(TOUR_TARGETS.ganttFirstTaskBar),
+  // Gantt redesign 2026-05-22 (Gantt manager): target the user-experiment
+  // attribute specifically. The legacy `ganttFirstTaskBar` is preserved
+  // on the same element for back-compat; using the new attribute here
+  // documents the intent (the demo is dragging the USER's experiment,
+  // not whatever happens to be the first bar).
+  targetSelector: targetSelector(TOUR_TARGETS.ganttBarUserExperiment),
   cursorScript: cursorScript(async () => {
     const bar = await waitForElement(
-      targetSelector(TOUR_TARGETS.ganttFirstTaskBar),
+      targetSelector(TOUR_TARGETS.ganttBarUserExperiment),
     );
     if (!bar) return [];
     // Target the timeline element as the drop site. Real Gantt
@@ -52,7 +57,7 @@ export const ganttDragDropStep = buildWalkthroughStep({
     // widths; dropping anywhere on the timeline will trigger a date
     // update.
     const drag = await safeDragAction(
-      targetSelector(TOUR_TARGETS.ganttFirstTaskBar),
+      targetSelector(TOUR_TARGETS.ganttBarUserExperiment),
       targetSelector(TOUR_TARGETS.ganttTimeline),
     );
     return compactScript([drag]);

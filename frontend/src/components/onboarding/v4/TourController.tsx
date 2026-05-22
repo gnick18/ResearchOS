@@ -40,6 +40,9 @@ import type { CleanupSummary } from "./steps/cleanup/cleanup-execution";
 import type { TourStep, TourStepId } from "./step-types";
 import { ensureViewportAnchor } from "./steps/walkthrough/lib/cursor-script";
 import InputLockOverlay from "./InputLockOverlay";
+import TourPageLock, {
+  PAGE_LOCK_WRONG_CLICK_EVENT,
+} from "./TourPageLock";
 
 /**
  * Onboarding v4 tour controller — see ONBOARDING_V4_PROPOSAL.md §4.1.
@@ -208,6 +211,21 @@ export interface TourControllerActions {
   /** List of step ids the user invoked `skipStep()` on, in order. Read
    *  by P12 when writing to `wizard_resume_state.skipped_steps`. */
   readonly skippedSteps: ReadonlyArray<TourStepId>;
+  /** Configure the page-lock allow-list for user-action steps (Gantt
+   *  redesign 2026-05-22). When `targets` is null, the lock disables.
+   *  `wrongClickSpeech` is the "Oops, try X" copy flashed in the speech
+   *  bubble when the user clicks something outside the allow-list. */
+  setPageLock(
+    targets: readonly string[] | null,
+    wrongClickSpeech?: ReactNode,
+  ): void;
+  /** Convenience: same as `setPageLock(null)`. */
+  clearPageLock(): void;
+  /** Active page-lock allow-list. `null` when no lock is set. */
+  readonly pageLockTargets: readonly string[] | null;
+  /** Active wrong-click speech copy. Surfaced by the bubble when the
+   *  user trips the lock. `null` when no flash is pending. */
+  readonly pageLockWrongClickFlash: ReactNode | null;
 }
 
 export type TourControllerValue = TourControllerState & TourControllerActions;
@@ -428,6 +446,17 @@ export function TourControllerProvider({
   // consumers via `value.skippedSteps` without copying.
   const [skipList, setSkipList] = useState<TourStepId[]>([]);
 
+  // Page-lock state for user-action steps (Gantt redesign 2026-05-22).
+  // The lock is a controller-level concern (not per-step) so a step's
+  // body can mount/unmount the lock from its onEnter/onExit. The
+  // wrong-click flash speech is a ReactNode so step bodies can interpolate.
+  const [pageLockTargets, setPageLockTargetsState] = useState<
+    readonly string[] | null
+  >(null);
+  const [pageLockSpeech, setPageLockSpeech] = useState<ReactNode | null>(null);
+  const [pageLockWrongClickFlash, setPageLockWrongClickFlash] =
+    useState<ReactNode | null>(null);
+
   // Stable refs for the latest feature picks + current step so the
   // action callbacks below can read the freshest values without
   // recreating themselves on every render (which would invalidate
@@ -524,6 +553,49 @@ export function TourControllerProvider({
     () => dispatch({ type: "MARK_INTERACTION" }),
     [],
   );
+
+  const setPageLock = useCallback(
+    (targets: readonly string[] | null, wrongClickSpeech?: ReactNode) => {
+      setPageLockTargetsState(targets);
+      setPageLockSpeech(wrongClickSpeech ?? null);
+      // Clear any pending flash on every reset; a new lock starts fresh.
+      setPageLockWrongClickFlash(null);
+    },
+    [],
+  );
+
+  const clearPageLock = useCallback(() => {
+    setPageLockTargetsState(null);
+    setPageLockSpeech(null);
+    setPageLockWrongClickFlash(null);
+  }, []);
+
+  // Clear the page-lock whenever the active step changes. Step bodies
+  // own their lock via onEnter/onExit, but a step that forgets to call
+  // `clearPageLock` shouldn't leak a lock into the next step. Belt + braces.
+  useEffect(() => {
+    setPageLockTargetsState(null);
+    setPageLockSpeech(null);
+    setPageLockWrongClickFlash(null);
+  }, [state.currentStep]);
+
+  // Listen for wrong-click events from the TourPageLock and flash the
+  // configured speech in the bubble for 2 seconds. The flash auto-clears
+  // so the bubble returns to the step's normal speech.
+  useEffect(() => {
+    if (!pageLockTargets) return;
+    if (typeof window === "undefined") return;
+    const onWrongClick = () => {
+      if (!pageLockSpeech) return;
+      setPageLockWrongClickFlash(pageLockSpeech);
+      // Auto-clear after 2s so the user can re-read the step's actual speech.
+      window.setTimeout(() => setPageLockWrongClickFlash(null), 2000);
+    };
+    window.addEventListener(PAGE_LOCK_WRONG_CLICK_EVENT, onWrongClick);
+    return () => {
+      window.removeEventListener(PAGE_LOCK_WRONG_CLICK_EVENT, onWrongClick);
+    };
+  }, [pageLockTargets, pageLockSpeech]);
 
   // Auto-advance behavior — when the current step's completion contract
   // is satisfied (event-driven step + event fired, manual step + button
@@ -792,6 +864,10 @@ export function TourControllerProvider({
       noteInteraction,
       noteEventFired,
       noteManualAdvance,
+      setPageLock,
+      clearPageLock,
+      pageLockTargets,
+      pageLockWrongClickFlash,
     }),
     [
       state,
@@ -808,6 +884,10 @@ export function TourControllerProvider({
       noteInteraction,
       noteEventFired,
       noteManualAdvance,
+      setPageLock,
+      clearPageLock,
+      pageLockTargets,
+      pageLockWrongClickFlash,
     ],
   );
 
@@ -1124,6 +1204,14 @@ function InProductWalkthroughOverlay({
 
   const showSpotlight = !!body?.targetSelector;
 
+  // Read the page-lock state for the user-action steps (Gantt redesign
+  // 2026-05-22). The lock + the flash speech are both surfaced via the
+  // controller context so step bodies can mount/unmount them from their
+  // onEnter/onExit slots.
+  const controller = useTourController();
+  const pageLockTargets = controller.pageLockTargets;
+  const pageLockFlash = controller.pageLockWrongClickFlash;
+
   return (
     <>
       {showSpotlight && body?.targetSelector && (
@@ -1134,6 +1222,11 @@ function InProductWalkthroughOverlay({
           while the cursor is actively running a script; absent otherwise
           so user-action steps + idle gaps don't lock the page. */}
       <InputLockOverlay active={cursorActive} />
+      {/* TourPageLock (Gantt redesign 2026-05-22). The user-action sub-
+          steps in the new §6.8 Gantt cluster mount this with an allow-
+          list of safe affordances; wrong clicks dispatch a custom event
+          the controller catches above and surfaces in the speech bubble. */}
+      <TourPageLock allowedTargets={pageLockTargets} />
       <TourBeakerBotOverlay
         step={body}
         onManualAdvance={onManualAdvance}
@@ -1141,6 +1234,7 @@ function InProductWalkthroughOverlay({
         onExitTour={onExitTour}
         onBack={onBack}
         canGoBack={canGoBack}
+        flashSpeech={pageLockFlash}
       />
     </>
   );
@@ -1428,6 +1522,10 @@ interface TourBeakerBotOverlayProps {
    *  same action row. */
   onBack: () => void;
   canGoBack: boolean;
+  /** Page-lock wrong-click flash speech (Gantt redesign 2026-05-22).
+   *  When non-null, replaces the step's normal speech for the 2-second
+   *  flash window. Cleared by the controller after the timeout. */
+  flashSpeech?: ReactNode | null;
 }
 
 function TourBeakerBotOverlay({
@@ -1437,10 +1535,15 @@ function TourBeakerBotOverlay({
   onExitTour,
   onBack,
   canGoBack,
+  flashSpeech,
 }: TourBeakerBotOverlayProps) {
   if (!step) return null;
 
-  const speechNode = typeof step.speech === "function" ? step.speech() : step.speech;
+  const speechNode = flashSpeech
+    ? flashSpeech
+    : typeof step.speech === "function"
+    ? step.speech()
+    : step.speech;
 
   const manualButtonLabel =
     step.completion.type === "manual"

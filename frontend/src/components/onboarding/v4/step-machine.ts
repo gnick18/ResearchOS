@@ -160,10 +160,28 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "hybrid-editor-paragraphs",
   "hybrid-editor-image-drop",
   "hybrid-editor-resize",
-  // Gantt page deep-dive (§6.8)
-  "gantt-task-types",
-  "gantt-drag-drop",
-  "gantt-chained-deps",
+  // Gantt page deep-dive (§6.8) — redesigned 2026-05-22 (Gantt manager).
+  // Old order (`gantt-task-types`, `gantt-drag-drop`, `gantt-chained-deps`,
+  // `gantt-goals-overview`) replaced with 14 sub-steps: a 6-step universal
+  // dependency-teaching arc, a 7-step lab-only share-feature cluster, and
+  // the relocated goals overview. See ONBOARDING_V4_GANTT_REDESIGN.md.
+  "gantt-intro",                  // universal: explain what a Gantt is
+  "gantt-existing-experiment",    // universal: spotlight user's experiment
+  "gantt-drag-drop",              // universal: BeakerBot drags + reschedules (refined)
+  "gantt-deps-beakerbot",         // universal: BeakerBot wires fake A → user (split from old chained-deps)
+  "gantt-deps-user",              // universal: USER wires fake B → user (page-lock)
+  "gantt-deps-cascade",           // universal: BeakerBot moves head, cascade fires (split from old chained-deps)
+  // Lab-only share-feature cluster (7 beats). Conditional on
+  // picks.account_type === "lab"; solo accounts skip the whole cluster.
+  "gantt-share-intro",            // lab: explain task sharing
+  "gantt-share-beakerbot-spawn",  // lab: BeakerBot spawns a new fake teammate experiment
+  "gantt-share-beakerbot-shares", // lab: BeakerBot shares the experiment with user
+  "gantt-share-user-explores",    // lab: user-action, explore the shared experiment popup
+  "gantt-share-user-shares-back", // lab: user-action, share user's chain back to BeakerBot
+  "gantt-share-profile-switch",   // lab: REAL user-context switch to BeakerBot + back
+  "gantt-share-user-sees-edit",   // lab: user-action, open the popup to see BeakerBot's note
+  // Goals overview — RELOCATED to after the share cluster per
+  // ONBOARDING_V4_GANTT_REDESIGN.md. Conditional on picks.goals === "yes".
   "gantt-goals-overview",
   // Personalization on the Gantt toolbar (§6.9)
   "personalization-animations",
@@ -189,14 +207,16 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "calendar",
   "links",
 
-  // ----- Phase 2c: lab tour (§6.16, conditional on Q1=lab)
-  "lab-prompt",
-  "lab-spawn-beakerbot",
-  "lab-permission-practice",
-  // §6.16c auto-cleanup (L21): tombstones the fake BeakerBot user +
-  // shared tasks. Runs as a dedicated terminal lab step so back-
-  // stepping inside the cluster (permission-practice → spawn) does
-  // not prematurely tear down the fake teammate.
+  // ----- Phase 2c: lab cleanup terminal step (§6.16c, conditional on Q1=lab)
+  // Gantt redesign 2026-05-22 (Gantt manager): the prior lab tour cluster
+  // (`lab-prompt`, `lab-spawn-beakerbot`, `lab-permission-practice`) is
+  // RETIRED. Share-feature teaching moved into the §6.8 Gantt share
+  // cluster where it belongs (lab-share-intro through gantt-share-user-
+  // sees-edit). The lab-cleanup step survives because BeakerBot may have
+  // been spawned mid-Gantt-tour (see gantt-share-beakerbot-spawn) and
+  // still needs wiping at end-of-tour. Step bodies for the retired ids
+  // remain in the repo with @deprecated JSDoc for git-history reference,
+  // but TOUR_STEP_ORDER no longer lists them.
   "lab-cleanup",
 
   // ----- Phase 4: cleanup grid (§6.17)
@@ -219,13 +239,27 @@ const SETUP_STEP_IDS: ReadonlySet<TourStepId> = new Set<TourStepId>([
   "setup-q7",
 ]);
 
-/** Lab tour step ids (gated on Q1=lab + lab-prompt decision). */
+/** Lab tour step ids (gated on Q1=lab). Gantt redesign 2026-05-22:
+ *  pruned to just `lab-cleanup` after the prior lab tour cluster was
+ *  retired in favor of the §6.8 Gantt share cluster. */
 const LAB_STEP_IDS: ReadonlySet<TourStepId> = new Set<TourStepId>([
-  "lab-prompt",
-  "lab-spawn-beakerbot",
-  "lab-permission-practice",
   "lab-cleanup",
 ]);
+
+/** Lab-only Gantt share cluster step ids (Gantt redesign 2026-05-22).
+ *  Gated on `picks.account_type === "lab"` so solo accounts skip the
+ *  entire cluster. Tracked separately from LAB_STEP_IDS because these
+ *  steps live in the §6.8 Gantt phase, not the §6.16 lab cleanup phase. */
+const GANTT_SHARE_LAB_ONLY_STEP_IDS: ReadonlySet<TourStepId> =
+  new Set<TourStepId>([
+    "gantt-share-intro",
+    "gantt-share-beakerbot-spawn",
+    "gantt-share-beakerbot-shares",
+    "gantt-share-user-explores",
+    "gantt-share-user-shares-back",
+    "gantt-share-profile-switch",
+    "gantt-share-user-sees-edit",
+  ]);
 
 /** True when this step is one of the Phase 1 modal setup questions. */
 export function isSetupPhaseStep(step: TourStepId): boolean {
@@ -235,6 +269,13 @@ export function isSetupPhaseStep(step: TourStepId): boolean {
 /** True when this step belongs to the conditional lab tour cluster. */
 export function isLabPhaseStep(step: TourStepId): boolean {
   return LAB_STEP_IDS.has(step);
+}
+
+/** True when this step belongs to the lab-only §6.8 Gantt share cluster
+ *  (Gantt redesign 2026-05-22). The cluster sits inside the Gantt phase
+ *  but is gated by `picks.account_type === "lab"`. */
+export function isGanttShareLabStep(step: TourStepId): boolean {
+  return GANTT_SHARE_LAB_ONLY_STEP_IDS.has(step);
 }
 
 /**
@@ -267,10 +308,17 @@ export function isStepGatedOut(
   if (step === "links") return picks?.links !== "yes";
 
   // §6.8 goals overview sub-step: only show when picks.goals === "yes".
-  // The other Gantt sub-steps (task types intro, drag-drop, chained
-  // deps) fire for everyone — they teach core Gantt mechanics, not the
-  // goals overlay feature.
+  // The other Gantt sub-steps (intro, existing-experiment, drag-drop,
+  // deps-beakerbot, deps-user, deps-cascade) fire for everyone — they
+  // teach core Gantt mechanics, not the goals overlay feature.
   if (step === "gantt-goals-overview") return picks?.goals !== "yes";
+
+  // §6.8 lab-only share cluster (Gantt redesign 2026-05-22): solo
+  // accounts skip the entire 7-step share cluster. The teaching
+  // surface (cross-user sharing) doesn't exist for solo users.
+  if (GANTT_SHARE_LAB_ONLY_STEP_IDS.has(step)) {
+    return picks?.account_type !== "lab";
+  }
 
   // §6.10 AI Helper deep-explain: only fire when AI Helper is opted in
   // (full / medium / minimal). "no" and "maybe" route around the

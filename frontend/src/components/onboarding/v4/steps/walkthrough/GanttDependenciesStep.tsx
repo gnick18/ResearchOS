@@ -1,4 +1,14 @@
 /**
+ * @deprecated 2026-05-22 (Gantt manager): the legacy `gantt-chained-deps`
+ * step was retired by the §6.8 Gantt redesign and replaced with the
+ * three-step arc (gantt-deps-beakerbot + gantt-deps-user + gantt-deps-
+ * cascade). The file remains for git-history reference + so test files
+ * that imported `DEP_CHAIN_NAMES` / `spawnDemoDependencyTasks` keep
+ * resolving. Do not register `ganttDependenciesStep` in the registry
+ * map. See ONBOARDING_V4_GANTT_REDESIGN.md.
+ *
+ * Original docstring below.
+ *
  * §6.8 Gantt — chained dependencies demo sub-step.
  *
  * BeakerBot programmatically creates 3 placeholder tasks that appear

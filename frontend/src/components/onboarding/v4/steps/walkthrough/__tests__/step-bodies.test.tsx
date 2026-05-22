@@ -30,7 +30,13 @@ vi.mock("../../../TourController", () => ({
   useTourController: () => ({
     noteManualAdvance: () => {},
     exitTour: () => {},
+    setPageLock: () => {},
+    clearPageLock: () => {},
   }),
+  // Gantt manager 2026-05-22: optional variant for the page-lock-aware
+  // user-action step bodies. Returning null mirrors the production
+  // behavior outside a provider (the body short-circuits the lock).
+  useOptionalTourController: () => null,
 }));
 import { homeCreateProjectStep } from "../HomeCreateProjectStep";
 import { homeCreateProjectFillStep } from "../HomeCreateProjectFillStep";
@@ -69,7 +75,25 @@ import { hybridEditorParagraphsStep } from "../HybridEditorParagraphsStep";
 import { hybridEditorImageDropStep } from "../HybridEditorImageDropStep";
 import { hybridEditorResizeStep } from "../HybridEditorResizeStep";
 import { ganttIntroStep } from "../GanttIntroStep";
+import { ganttExistingExperimentStep } from "../GanttExistingExperimentStep";
 import { ganttDragDropStep } from "../GanttDragDropStep";
+import { ganttDepsBeakerBotStep } from "../GanttDepsBeakerBotStep";
+import { ganttDepsUserStep } from "../GanttDepsUserStep";
+import { ganttDepsCascadeStep } from "../GanttDepsCascadeStep";
+import {
+  ganttShareIntroStep,
+  ganttShareBeakerBotSpawnStep,
+  ganttShareBeakerBotSharesStep,
+  ganttShareUserExploresStep,
+  ganttShareUserSharesBackStep,
+  ganttShareProfileSwitchStep,
+  ganttShareUserSeesEditStep,
+} from "../GanttShareClusterSteps";
+// §6.8 Gantt redesign 2026-05-22 (Gantt manager): the legacy
+// `ganttDependenciesStep` + `DEP_CHAIN_NAMES` exports remain in
+// `GanttDependenciesStep.tsx` for git-history reference but the step
+// no longer participates in the active flow. Import only the
+// constants test (last assertion in this file uses them).
 import {
   ganttDependenciesStep,
   DEP_CHAIN_NAMES,
@@ -126,8 +150,18 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   hybridEditorImageDropStep,
   hybridEditorResizeStep,
   ganttIntroStep,
+  ganttExistingExperimentStep,
   ganttDragDropStep,
-  ganttDependenciesStep,
+  ganttDepsBeakerBotStep,
+  ganttDepsUserStep,
+  ganttDepsCascadeStep,
+  ganttShareIntroStep,
+  ganttShareBeakerBotSpawnStep,
+  ganttShareBeakerBotSharesStep,
+  ganttShareUserExploresStep,
+  ganttShareUserSharesBackStep,
+  ganttShareProfileSwitchStep,
+  ganttShareUserSeesEditStep,
   ganttGoalsStep,
   animationPickerStep,
   settingsColorStep,
@@ -171,9 +205,20 @@ describe("P5 step bodies — universal contract", () => {
       "hybrid-editor-paragraphs",
       "hybrid-editor-image-drop",
       "hybrid-editor-resize",
-      "gantt-task-types",
+      // §6.8 Gantt redesign 2026-05-22 (Gantt manager).
+      "gantt-intro",
+      "gantt-existing-experiment",
       "gantt-drag-drop",
-      "gantt-chained-deps",
+      "gantt-deps-beakerbot",
+      "gantt-deps-user",
+      "gantt-deps-cascade",
+      "gantt-share-intro",
+      "gantt-share-beakerbot-spawn",
+      "gantt-share-beakerbot-shares",
+      "gantt-share-user-explores",
+      "gantt-share-user-shares-back",
+      "gantt-share-profile-switch",
+      "gantt-share-user-sees-edit",
       "gantt-goals-overview",
       "personalization-animations",
       "personalization-color",
@@ -247,9 +292,16 @@ describe("P5 step bodies — universal contract", () => {
       hybridEditorParagraphsStep,
       hybridEditorImageDropStep,
       hybridEditorResizeStep,
-      ganttIntroStep,
+      // §6.8 Gantt redesign 2026-05-22: ganttIntroStep is narration-only
+      // (no cursor); the active demo steps are below. ganttExistingExperiment
+      // (open/close popup), ganttDragDrop, ganttDepsBeakerBot, ganttDepsCascade,
+      // and ganttShareBeakerBotShares all have cursorScripts.
+      ganttExistingExperimentStep,
       ganttDragDropStep,
-      ganttDependenciesStep,
+      ganttDepsBeakerBotStep,
+      ganttDepsCascadeStep,
+      ganttShareBeakerBotSharesStep,
+      ganttShareProfileSwitchStep,
       ganttGoalsStep,
       animationPickerStep,
       settingsColorStep,
@@ -902,24 +954,51 @@ describe("Hybrid editor steps (§6.7)", () => {
   });
 });
 
-describe("Gantt steps (§6.8)", () => {
-  it("intro step covers task types + alt-creation in one body", () => {
+describe("Gantt steps (§6.8) — Gantt manager redesign 2026-05-22", () => {
+  it("intro step explains what a Gantt chart is", () => {
     const speech = renderSpeech(ganttIntroStep);
-    expect(speech).toMatch(/experiments/i);
-    expect(speech).toMatch(/lists/i);
-    expect(speech).toMatch(/double-click a day|\+ Task button/);
+    expect(speech).toMatch(/Gantt chart/);
+    expect(speech).toMatch(/timeline view/);
   });
-  it("drag-drop step targets the first task bar", () => {
-    expect(ganttDragDropStep.targetSelector).toBe(
-      "[data-tour-target=\"gantt-first-task-bar\"]",
+  it("existing-experiment step targets the user's experiment bar", () => {
+    expect(ganttExistingExperimentStep.targetSelector).toBe(
+      "[data-tour-target=\"gantt-bar-user-experiment\"]",
     );
   });
-  it("dependencies step uses BeakerBot-themed task names", () => {
+  it("drag-drop step targets the user's experiment bar (new attribute)", () => {
+    // Redesign 2026-05-22: now points at the dedicated
+    // gantt-bar-user-experiment attribute instead of the legacy
+    // gantt-first-task-bar. The product surface stamps both for
+    // back-compat with other consumers.
+    expect(ganttDragDropStep.targetSelector).toBe(
+      "[data-tour-target=\"gantt-bar-user-experiment\"]",
+    );
+  });
+  it("deps-beakerbot step targets Fake A's bar", () => {
+    expect(ganttDepsBeakerBotStep.targetSelector).toBe(
+      "[data-tour-target=\"gantt-bar-fake-a\"]",
+    );
+  });
+  it("deps-user step targets Fake B's bar and uses event completion", () => {
+    expect(ganttDepsUserStep.targetSelector).toBe(
+      "[data-tour-target=\"gantt-bar-fake-b\"]",
+    );
+    expect(ganttDepsUserStep.completion.type).toBe("event");
+  });
+  it("deps-cascade step uses manual completion", () => {
+    expect(ganttDepsCascadeStep.completion.type).toBe("manual");
+  });
+  it("legacy DEP_CHAIN_NAMES export is preserved for git-history reference", () => {
+    // Regression guard: the legacy chain-names constant lives in the
+    // deprecated GanttDependenciesStep.tsx for the back-compat test
+    // imports. New code should never reference these strings.
     expect(DEP_CHAIN_NAMES).toEqual([
       "BeakerBot Boil",
       "BeakerBot Brew",
       "BeakerBot Sip",
     ]);
+    // Legacy step body still exists but is not in the registry.
+    expect(ganttDependenciesStep.id).toBe("gantt-chained-deps");
   });
   it("goals step is gated on picks.goals === 'yes'", () => {
     const yes: FeaturePicks = {

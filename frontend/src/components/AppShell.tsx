@@ -404,6 +404,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <button
             onClick={() => setShowUserSwitch(true)}
             aria-label="Switch user"
+            data-tour-target="user-picker-button"
             className="w-12 h-12 rounded-full bg-white border border-gray-200 shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center"
           >
             {currentUser ? (

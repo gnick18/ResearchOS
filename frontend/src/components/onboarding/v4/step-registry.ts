@@ -36,12 +36,13 @@ import { telegramConditionalStep } from "./steps/walkthrough/TelegramConditional
 import { purchasesConditionalStep } from "./steps/walkthrough/PurchasesConditionalStep";
 import { calendarConditionalStep } from "./steps/walkthrough/CalendarConditionalStep";
 import { linksConditionalStep } from "./steps/walkthrough/LinksConditionalStep";
-import { buildLabPromptStep } from "./steps/lab/LabPromptStep";
-import { buildLabSpawnStep } from "./steps/lab/LabSpawnBeakerBotStep";
-import { buildLabPermissionPracticeStep } from "./steps/lab/LabPermissionPracticeStep";
+// §6.8 Gantt redesign + lab tour retirement (Gantt manager 2026-05-22):
+// `buildLabPromptStep`, `buildLabSpawnStep`, `buildLabPermissionPracticeStep`
+// no longer participate in the tour graph. Their .tsx files remain in
+// `steps/lab/` with @deprecated JSDoc for git-history reference; the
+// imports are dropped here so unused-export warnings don't accumulate.
 import { buildLabCleanupStep } from "./steps/lab/LabAutoCleanupStep";
 import {
-  onEnterGanttChainedDeps,
   onEnterGanttGoalsOverview,
   onEnterHybridEditorImageDrop,
 } from "./steps/walkthrough/lib/on-enter-helpers";
@@ -114,9 +115,26 @@ import { hybridEditorShortcutsStep } from "./steps/walkthrough/HybridEditorShort
 import { hybridEditorParagraphsStep } from "./steps/walkthrough/HybridEditorParagraphsStep";
 import { hybridEditorImageDropStep } from "./steps/walkthrough/HybridEditorImageDropStep";
 import { hybridEditorResizeStep } from "./steps/walkthrough/HybridEditorResizeStep";
+// §6.8 Gantt redesign (Gantt manager 2026-05-22): the legacy
+// `ganttIntroStep` (`gantt-task-types`) and `ganttDependenciesStep`
+// (`gantt-chained-deps`) were retired. The new arc splits Gantt
+// teaching into 6 universal sub-steps + a 7-step lab-only share
+// cluster + relocated goals overview. See ONBOARDING_V4_GANTT_REDESIGN.md.
 import { ganttIntroStep } from "./steps/walkthrough/GanttIntroStep";
+import { ganttExistingExperimentStep } from "./steps/walkthrough/GanttExistingExperimentStep";
 import { ganttDragDropStep } from "./steps/walkthrough/GanttDragDropStep";
-import { ganttDependenciesStep } from "./steps/walkthrough/GanttDependenciesStep";
+import { ganttDepsBeakerBotStep } from "./steps/walkthrough/GanttDepsBeakerBotStep";
+import { ganttDepsUserStep } from "./steps/walkthrough/GanttDepsUserStep";
+import { ganttDepsCascadeStep } from "./steps/walkthrough/GanttDepsCascadeStep";
+import {
+  ganttShareIntroStep,
+  ganttShareBeakerBotSpawnStep,
+  ganttShareBeakerBotSharesStep,
+  ganttShareUserExploresStep,
+  ganttShareUserSharesBackStep,
+  ganttShareProfileSwitchStep,
+  ganttShareUserSeesEditStep,
+} from "./steps/walkthrough/GanttShareClusterSteps";
 import { ganttGoalsStep } from "./steps/walkthrough/GanttGoalsStep";
 import { animationPickerStep } from "./steps/walkthrough/AnimationPickerStep";
 import {
@@ -159,9 +177,26 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [hybridEditorParagraphsStep.id]: hybridEditorParagraphsStep,
   [hybridEditorImageDropStep.id]: hybridEditorImageDropStep,
   [hybridEditorResizeStep.id]: hybridEditorResizeStep,
+  // §6.8 Gantt redesign (Gantt manager 2026-05-22). The 4-step legacy
+  // arc (gantt-task-types / gantt-drag-drop / gantt-chained-deps /
+  // gantt-goals-overview) is replaced by 14 sub-steps.
   [ganttIntroStep.id]: ganttIntroStep,
+  [ganttExistingExperimentStep.id]: ganttExistingExperimentStep,
   [ganttDragDropStep.id]: ganttDragDropStep,
-  [ganttDependenciesStep.id]: ganttDependenciesStep,
+  [ganttDepsBeakerBotStep.id]: ganttDepsBeakerBotStep,
+  [ganttDepsUserStep.id]: ganttDepsUserStep,
+  [ganttDepsCascadeStep.id]: ganttDepsCascadeStep,
+  // Lab-only share cluster — gated by isStepGatedOut on
+  // picks.account_type === "lab".
+  [ganttShareIntroStep.id]: ganttShareIntroStep,
+  [ganttShareBeakerBotSpawnStep.id]: ganttShareBeakerBotSpawnStep,
+  [ganttShareBeakerBotSharesStep.id]: ganttShareBeakerBotSharesStep,
+  [ganttShareUserExploresStep.id]: ganttShareUserExploresStep,
+  [ganttShareUserSharesBackStep.id]: ganttShareUserSharesBackStep,
+  [ganttShareProfileSwitchStep.id]: ganttShareProfileSwitchStep,
+  [ganttShareUserSeesEditStep.id]: ganttShareUserSeesEditStep,
+  // Goals overview — RELOCATED to after the share cluster. Conditional
+  // on picks.goals === "yes" (step-machine.ts gating unchanged).
   [ganttGoalsStep.id]: ganttGoalsStep,
   [animationPickerStep.id]: animationPickerStep,
   [settingsColorStep.id]: settingsColorStep,
@@ -262,9 +297,10 @@ function patchLabStep(id: TourStepId, body: TourStep): void {
   };
 }
 
-patchLabStep("lab-prompt", buildLabPromptStep());
-patchLabStep("lab-spawn-beakerbot", buildLabSpawnStep());
-patchLabStep("lab-permission-practice", buildLabPermissionPracticeStep());
+// Gantt redesign 2026-05-22 (Gantt manager): only `lab-cleanup` survives
+// from the prior lab tour cluster. `lab-prompt`, `lab-spawn-beakerbot`,
+// and `lab-permission-practice` have been retired from `TOUR_STEP_ORDER`;
+// patching their entries here would be a dead write.
 patchLabStep("lab-cleanup", buildLabCleanupStep());
 
 // §6.10 onEnter side-effects. The step body files in
@@ -279,12 +315,10 @@ patchLabStep("lab-cleanup", buildLabCleanupStep());
 // `lib/on-enter-helpers.ts` for the exact contracts. TourController
 // catches throws + logs, but the hooks themselves also swallow so a
 // partial failure produces a no-op step instead of a tour-wedge.
-TOUR_STEPS["gantt-chained-deps"] = {
-  ...TOUR_STEPS["gantt-chained-deps"],
-  onEnter: async (ctx) => {
-    await onEnterGanttChainedDeps(ctx);
-  },
-};
+// §6.8 Gantt redesign 2026-05-22 (Gantt manager): the old
+// `gantt-chained-deps` onEnter hook is retired. Its replacement
+// (`gantt-deps-beakerbot`) owns its own onEnter directly via the
+// `buildWalkthroughStep` slot, so no patch is needed here.
 TOUR_STEPS["hybrid-editor-image-drop"] = {
   ...TOUR_STEPS["hybrid-editor-image-drop"],
   onEnter: async (ctx) => {

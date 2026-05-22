@@ -11,6 +11,14 @@ import {
 } from "./lib/lab-fake-user";
 
 /**
+ * @deprecated 2026-05-22 (Gantt manager): retired by the Gantt redesign.
+ * The `spawnBeakerBotLabUser` helper survives in `lib/lab-fake-user.ts`
+ * because the share-cluster spawn helper builds on the same primitives,
+ * and the `cleanupBeakerBotLabUser` helper still wipes BeakerBot at
+ * end-of-tour. The step body itself is no longer in `TOUR_STEP_ORDER`.
+ *
+ * Original docstring below.
+ *
  * lab-spawn-beakerbot step body. §6.16a.
  *
  * Side effect on entry: creates the BeakerBot fake user, two

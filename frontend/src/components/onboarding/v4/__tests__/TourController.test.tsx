@@ -307,12 +307,14 @@ describe("TourController — setFeaturePicks", () => {
     // phase4-cleanup.
     expect(result.current.currentStep).toBe("phase4-cleanup");
     // Flip to lab and re-enter wiki-pointer; advance now lands on the
-    // first applicable post-wiki step (lab-prompt, since conditionals
-    // are still "no").
+    // first applicable post-wiki step. After the Gantt redesign 2026-05-22,
+    // lab-prompt is retired; the conditionals are still "no" so the first
+    // applicable lab-only step is `lab-cleanup` (the surviving terminal
+    // lab step).
     act(() => result.current.setFeaturePicks(picks({ account_type: "lab" })));
     act(() => result.current.start("wiki-pointer"));
     act(() => result.current.advance());
-    expect(result.current.currentStep).toBe("lab-prompt");
+    expect(result.current.currentStep).toBe("lab-cleanup");
   });
 });
 
@@ -374,10 +376,12 @@ describe("TourController — mode transitions", () => {
   });
 
   it("lab steps produce tourMode=lab", () => {
+    // Gantt manager 2026-05-22: lab-prompt retired; lab-cleanup is the
+    // only surviving lab-phase step.
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(picks({ account_type: "lab" })),
     });
-    act(() => result.current.start("lab-prompt"));
+    act(() => result.current.start("lab-cleanup"));
     expect(result.current.tourMode).toBe("lab");
   });
 

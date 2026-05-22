@@ -154,6 +154,38 @@ export const TOUR_TARGETS = {
   // visible date; row cells render once per row). The cursor script in
   // GanttDependenciesStep targets it as the third drag's destination.
   ganttLaterDateMarker: "gantt-later-date-marker",
+  // §6.8 Gantt redesign (Gantt manager 2026-05-22): two throwaway demo
+  // experiment bars used in the dependency-teaching sub-cluster. Replace
+  // the legacy three-bar BeakerBot-Boil/Brew/Sip chain with a two-bar
+  // chain (A + B) plus the user's own existing experiment.
+  ganttBarFakeA: "gantt-bar-fake-a",
+  ganttBarFakeB: "gantt-bar-fake-b",
+  // The user's own existing experiment bar — re-using ganttFirstTaskBar
+  // would conflict on existing tests that rely on the legacy meaning.
+  // We stamp this dedicated attribute on the experiment created in §6.5
+  // so the new Gantt cluster can target it explicitly.
+  ganttBarUserExperiment: "gantt-bar-user-experiment",
+  // §6.8 share-cluster (lab only): the shared experiment from BeakerBot
+  // and the share-back affordances inside the task popup.
+  ganttBarSharedExperiment: "gantt-bar-shared-experiment",
+  taskPopupShareButton: "task-popup-share-button",
+  taskPopupNotesTab: "task-popup-notes-tab",
+  taskPopupNotesTextarea: "task-popup-notes-textarea",
+  // Share-dialog affordances. The dialog is the standard ShareDialog
+  // shared across the app; we stamp the user-row + permission radios
+  // for the cursor's allow-list.
+  shareDialog: "share-dialog",
+  shareDialogUserRow: "share-dialog-user-row",
+  shareDialogPermissionEdit: "share-dialog-permission-edit",
+  shareDialogConfirm: "share-dialog-confirm",
+  // User picker (top-right floating cluster) — used by the real
+  // profile-switch step. AppShell renders the user-switch button via
+  // <Tooltip>; we stamp the inner <button> for the cursor's click.
+  userPickerButton: "user-picker-button",
+  // The user-login-screen modal renders a row per available user; we
+  // stamp the row for the BeakerBot lab user so the cursor can click
+  // it to perform the real switch.
+  userPickerOption: "user-picker-option",
 
   // §6.9 Animation picker (Gantt toolbar)
   ganttAnimationPicker: "gantt-animation-picker",

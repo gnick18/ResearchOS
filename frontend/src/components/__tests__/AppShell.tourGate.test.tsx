@@ -193,9 +193,11 @@ describe("AppShell — top-nav gate", () => {
   });
 
   it("renders nav-items as anchors during lab tour mode (gate not triggered)", () => {
+    // Gantt manager 2026-05-22: lab-prompt retired. lab-cleanup is the
+    // only surviving lab-phase step (modeForStep maps it to "lab").
     const { container } = renderShell({
       withProvider: true,
-      initialStep: "lab-prompt",
+      initialStep: "lab-cleanup",
     });
     const homeNav = container.querySelector("nav");
     // Lab steps mode-tag as "lab", not "in-product-walkthrough" — so

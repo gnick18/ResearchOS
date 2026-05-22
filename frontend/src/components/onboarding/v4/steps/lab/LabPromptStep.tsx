@@ -8,6 +8,14 @@ import type { TourStep } from "../../step-types";
 import { cleanupBeakerBotLabUser } from "./lib/lab-fake-user";
 
 /**
+ * @deprecated 2026-05-22 (Gantt manager): retired by the Gantt redesign.
+ * Share-feature teaching moved into the §6.8 Gantt share cluster
+ * (`gantt-share-intro` etc.). This file remains for git-history
+ * reference. Not registered in `TOUR_STEP_ORDER`. See
+ * ONBOARDING_V4_GANTT_REDESIGN.md.
+ *
+ * Original docstring below.
+ *
  * lab-prompt step body. §6.16 entry, L20 lock.
  *
  * Fires at the end of the main walkthrough when Q1 = "lab". Asks the

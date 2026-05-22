@@ -678,14 +678,24 @@ export default function GanttChart({
     });
   }, [filteredTasks]);
 
-  // §6.8 onboarding-v4 walkthrough anchors. The chained-deps demo step
-  // spawns three tasks named per `DEP_CHAIN_NAMES` ("BeakerBot Boil",
-  // "BeakerBot Brew", "BeakerBot Sip") and the cursor script targets
-  // them via `[data-tour-target='gantt-demo-bar-{0,1,2}']`. Match by
-  // task name so the attrs only land on the demo bars (not arbitrary
-  // user tasks). `gantt-first-task-bar` lands on the very first sorted
-  // bar so the early Gantt step always has an anchor regardless of
-  // whether the demo tasks exist yet.
+  // §6.8 onboarding-v4 walkthrough anchors. The legacy chained-deps
+  // demo step (now retired by the Gantt redesign 2026-05-22) spawned
+  // three tasks named per `DEP_CHAIN_NAMES`; the attrs land for back-
+  // compat with tests that still reference them.
+  //
+  // Gantt redesign 2026-05-22 (Gantt manager) anchors:
+  //   - gantt-bar-fake-a / gantt-bar-fake-b: stamped on tasks named
+  //     "Fake experiment A" / "Fake experiment B" — the new two-bar
+  //     demo chain.
+  //   - gantt-bar-user-experiment: stamped on the user's most-recent
+  //     experiment task (the one created in §6.5). Distinct from the
+  //     legacy gantt-first-task-bar (which could be ANY first sorted
+  //     bar, including a non-experiment list-task).
+  //   - gantt-bar-shared-experiment: stamped on tasks whose name is
+  //     "Make some coffee together" (the lab-share-cluster spawn).
+  //
+  // Match by name so the attrs only land on the demo bars + the user's
+  // own experiment, not arbitrary tasks.
   const DEMO_BAR_NAMES = ["BeakerBot Boil", "BeakerBot Brew", "BeakerBot Sip"];
   const demoBarIndexByKey = useMemo(() => {
     const map = new Map<string, number>();
@@ -698,6 +708,37 @@ export default function GanttChart({
     return map;
   }, [sortedTasks]);
   const firstTaskKey = sortedTasks.length > 0 ? taskKey(sortedTasks[0]) : null;
+
+  // Gantt redesign 2026-05-22 (Gantt manager): per-task name lookups for
+  // the new attributes. The user-experiment lookup picks the most-recent
+  // experiment task (largest id among `task_type === "experiment"` that
+  // doesn't match the fake / shared demo names).
+  const fakeAKey = useMemo(() => {
+    const t = sortedTasks.find((x) => x.name === "Fake experiment A");
+    return t ? taskKey(t) : null;
+  }, [sortedTasks]);
+  const fakeBKey = useMemo(() => {
+    const t = sortedTasks.find((x) => x.name === "Fake experiment B");
+    return t ? taskKey(t) : null;
+  }, [sortedTasks]);
+  const sharedExperimentKey = useMemo(() => {
+    const t = sortedTasks.find((x) => x.name === "Make some coffee together");
+    return t ? taskKey(t) : null;
+  }, [sortedTasks]);
+  const userExperimentKey = useMemo(() => {
+    // Pick the highest-id experiment whose name isn't a known fake/share
+    // demo. Ids are monotonic per user, so highest = most recent.
+    const candidates = sortedTasks.filter(
+      (x) =>
+        x.task_type === "experiment" &&
+        x.name !== "Fake experiment A" &&
+        x.name !== "Fake experiment B" &&
+        x.name !== "Make some coffee together",
+    );
+    if (!candidates.length) return null;
+    const winner = candidates.reduce((acc, cur) => (cur.id > acc.id ? cur : acc));
+    return taskKey(winner);
+  }, [sortedTasks]);
 
   // Check if a task has dependents (children). Dependencies are loaded only
   // from the viewer's own directory, so a shared task never has dependents
@@ -1647,12 +1688,45 @@ export default function GanttChart({
                           const demoBarIdx =
                             weekIdx === 0 ? demoBarIndexByKey.get(tk) : undefined;
                           const isFirstTaskBar = firstTaskKey === tk && weekIdx === 0;
-                          const tourTarget =
-                            demoBarIdx !== undefined
-                              ? `gantt-demo-bar-${demoBarIdx}`
-                              : isFirstTaskBar
-                                ? "gantt-first-task-bar"
-                                : undefined;
+                          // Gantt redesign 2026-05-22 (Gantt manager):
+                          // priority-ordered tour-target attribute. Each
+                          // tk only gets ONE attribute — the most
+                          // specific one wins. We render the others as
+                          // sibling data attributes below so step bodies
+                          // that target a specific role can find their
+                          // anchor regardless of which one bubbled to
+                          // `data-tour-target` here.
+                          const isFakeA = weekIdx === 0 && fakeAKey === tk;
+                          const isFakeB = weekIdx === 0 && fakeBKey === tk;
+                          const isSharedExperiment =
+                            weekIdx === 0 && sharedExperimentKey === tk;
+                          const isUserExperiment =
+                            weekIdx === 0 && userExperimentKey === tk;
+                          const tourTarget = isFakeA
+                            ? "gantt-bar-fake-a"
+                            : isFakeB
+                              ? "gantt-bar-fake-b"
+                              : isSharedExperiment
+                                ? "gantt-bar-shared-experiment"
+                                : isUserExperiment
+                                  ? "gantt-bar-user-experiment"
+                                  : demoBarIdx !== undefined
+                                    ? `gantt-demo-bar-${demoBarIdx}`
+                                    : isFirstTaskBar
+                                      ? "gantt-first-task-bar"
+                                      : undefined;
+                          // Secondary back-compat attribute: the legacy
+                          // `gantt-first-task-bar` consumer (GanttDragDrop
+                          // test) still expects this selector to land
+                          // somewhere on the user's experiment row. Same
+                          // applies to multi-role bars — the user's
+                          // experiment AND the first sorted bar can be
+                          // the same row, so we stamp the legacy attr
+                          // via a sibling data attribute when the
+                          // primary tour-target prefers the new name.
+                          const tourTargetLegacy = isUserExperiment && firstTaskKey === tk
+                            ? "gantt-first-task-bar"
+                            : undefined;
 
                           return (
                             <div
@@ -1667,6 +1741,7 @@ export default function GanttChart({
                               <div
                                 ref={(el) => registerTaskElement(tk, el, weekIdx, rowNum, spanInfo)}
                                 data-tour-target={tourTarget}
+                                data-tour-target-legacy={tourTargetLegacy}
                                 draggable={!isLabMode}
                                 onDragStart={isLabMode ? undefined : (e) => handleDragStart(e, task)}
                                 onDragEnd={isLabMode ? undefined : handleDragEnd}
