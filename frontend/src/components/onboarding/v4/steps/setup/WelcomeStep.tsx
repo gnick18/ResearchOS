@@ -28,8 +28,8 @@ export default function WelcomeStep({ setNextDisabled }: SetupStepProps) {
         Hit <span className="font-medium text-gray-700">Let&apos;s go</span>{" "}
         when you&apos;re ready, or use{" "}
         <span className="font-medium text-gray-700">Skip walkthrough</span>{" "}
-        to jump straight to the cleanup grid. Anything we make together
-        appears there so you can keep it or toss it.
+        to wrap up. Anything we made together that doesn&apos;t belong on
+        your real account auto-cleans up; only your first project stays.
       </p>
     </div>
   );

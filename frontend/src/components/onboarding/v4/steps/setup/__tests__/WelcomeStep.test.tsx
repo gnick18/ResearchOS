@@ -20,6 +20,22 @@ describe("v4 WelcomeStep", () => {
     ).toBeInTheDocument();
   });
 
+  it("describes Skip walkthrough as wrap-up with auto-cleanup (not the retired cleanup grid)", () => {
+    render(
+      <WelcomeStep
+        sidecar={null}
+        setNextDisabled={vi.fn()}
+        patchSidecar={vi.fn()}
+      />,
+    );
+
+    // The retired cleanup-grid phrasing must NOT appear.
+    expect(screen.queryByText(/cleanup grid/i)).toBeNull();
+    // The wrap-up + auto-cleanup framing must appear.
+    expect(screen.getByText(/auto-cleans up/i)).toBeInTheDocument();
+    expect(screen.getByText(/first project stays/i)).toBeInTheDocument();
+  });
+
   it("leaves Next enabled (no required pick on welcome)", () => {
     const setNextDisabled = vi.fn();
     render(

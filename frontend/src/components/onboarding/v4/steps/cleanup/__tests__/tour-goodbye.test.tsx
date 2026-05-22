@@ -83,10 +83,13 @@ import { setLastTourTransition } from "../../../TourController";
 
 // Animation timing constants mirror the implementation. If
 // TourGoodbyeStep.tsx changes its phase durations, update these to
-// keep the timer-stepping tests in sync.
-const CHEER_MS = 1500;
-const WAVE_MS = 1500;
+// keep the timer-stepping tests in sync. Cleanup fix manager R1
+// bumped cheer + wave from 1500ms to 1800ms each.
+const CHEER_MS = 1800;
+const WAVE_MS = 1800;
 const FADE_MS = 800;
+const TOAST_MS = 4000;
+const CONFETTI_WAVE_2_DELAY_MS = 500;
 
 beforeEach(() => {
   routerPush.mockReset();
@@ -118,16 +121,24 @@ describe("tourGoodbyeStep record", () => {
     }
   });
 
-  it("speech renders the goodbye copy + wiki pointer", () => {
+  it("speech renders the goodbye copy + tidy-up framing + wiki pointer", () => {
     const speechNode =
       typeof tourGoodbyeStep.speech === "function"
         ? tourGoodbyeStep.speech()
         : tourGoodbyeStep.speech;
     render(<>{speechNode}</>);
-    // Check across multiple text nodes; "You're set!" + wiki guidance.
+    // Check across multiple text nodes; "You're set!" + tidy-up
+    // framing + landmark-anchored wiki guidance.
     expect(screen.getByText(/You're set!/)).toBeTruthy();
-    expect(screen.getByText(/Here's to many great experiments ahead\./)).toBeTruthy();
-    expect(screen.getByText(/every page has its own guide/)).toBeTruthy();
+    expect(
+      screen.getByText(/Here's to many great experiments ahead\./),
+    ).toBeTruthy();
+    expect(screen.getByText(/I'll tidy up the demo stuff/)).toBeTruthy();
+    expect(screen.getByText(/every page has its own wiki guide/)).toBeTruthy();
+    expect(screen.getByText(/next to your avatar up top/)).toBeTruthy();
+    // The retired ❓ emoji + absolute-position pointer must NOT appear.
+    expect(screen.queryByText(/❓/)).toBeNull();
+    expect(screen.queryByText(/icon in the top right/)).toBeNull();
   });
 });
 
@@ -205,33 +216,47 @@ describe("TourGoodbyeOverlay", () => {
       firstProjectId: "42",
     });
 
-    // Advance through cheering (1500ms) → waving phase.
+    // Advance through cheering (1800ms) → waving phase.
     await act(async () => {
-      vi.advanceTimersByTime(1600);
+      vi.advanceTimersByTime(CHEER_MS + 100);
     });
     expect(
       screen.getByTestId("tour-goodbye-overlay").getAttribute(
         "data-tour-goodbye-phase",
       ),
     ).toBe("waving");
+    // Router push must NOT have fired yet — happens at START of fade.
+    expect(routerPush).not.toHaveBeenCalled();
 
-    // Advance through waving (1500ms) → fading phase.
+    // Advance through waving (1800ms) → fading phase + route push.
     await act(async () => {
-      vi.advanceTimersByTime(1600);
+      vi.advanceTimersByTime(WAVE_MS + 100);
     });
     expect(
       screen.getByTestId("tour-goodbye-overlay").getAttribute(
         "data-tour-goodbye-phase",
       ),
     ).toBe("fading");
-
-    // Advance through fade (800ms) → router.push("/") + unmount.
-    await act(async () => {
-      vi.advanceTimersByTime(900);
-    });
+    // Route push fires at the START of the fade, NOT the end — so the
+    // route swap happens behind the fully-opaque overlay.
     expect(routerPush).toHaveBeenCalledWith("/");
+
+    // Advance through fade (800ms) → toast phase.
+    await act(async () => {
+      vi.advanceTimersByTime(FADE_MS + 100);
+    });
+    expect(screen.queryByTestId("tour-goodbye-overlay")).toBeNull();
+    expect(screen.getByTestId("tour-goodbye-toast")).toBeTruthy();
+    expect(
+      screen.getByText(/Tour complete\. Find BeakerBot again in Settings/),
+    ).toBeTruthy();
+
+    // Advance through toast (4000ms) → unmount.
+    await act(async () => {
+      vi.advanceTimersByTime(TOAST_MS + 100);
+    });
     await waitFor(() => {
-      expect(screen.queryByTestId("tour-goodbye-overlay")).toBeNull();
+      expect(screen.queryByTestId("tour-goodbye-toast")).toBeNull();
     });
   });
 
@@ -259,12 +284,48 @@ describe("TourGoodbyeOverlay", () => {
       await act(async () => {
         vi.advanceTimersByTime(WAVE_MS + 100);
       });
+      // Route push lands at start of fade (after wave timer fires),
+      // not at fade completion.
+      expect(routerPush).toHaveBeenCalledWith("/");
       await act(async () => {
         vi.advanceTimersByTime(FADE_MS + 100);
       });
-      expect(routerPush).toHaveBeenCalledWith("/");
+      await act(async () => {
+        vi.advanceTimersByTime(TOAST_MS + 100);
+      });
     } finally {
       console.warn = originalWarn;
     }
+  });
+
+  it("emits the 2-wave confetti (wave 2 spawns at +500ms)", async () => {
+    // Light-touch assertion: verify the confetti canvas is mounted
+    // during cheering and that the deferred wave-2 timer fires inside
+    // the cheering phase budget. We can't directly inspect particle
+    // counts on the canvas, but we can confirm the canvas survives
+    // past the wave-2 delay without being unmounted prematurely.
+    render(
+      <TourGoodbyeOverlay username="alex" runCleanupFn={runCleanup} />,
+    );
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(TOUR_GOODBYE_PLAY_OUTRO_EVENT),
+      );
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("tour-goodbye-confetti")).toBeTruthy();
+    });
+    // Advance past the wave-2 delay but stay inside the cheering phase.
+    expect(CONFETTI_WAVE_2_DELAY_MS).toBeLessThan(CHEER_MS);
+    await act(async () => {
+      vi.advanceTimersByTime(CONFETTI_WAVE_2_DELAY_MS + 50);
+    });
+    // Canvas + cheering phase still mounted (wave 2 fired inline).
+    expect(screen.getByTestId("tour-goodbye-confetti")).toBeTruthy();
+    expect(
+      screen.getByTestId("tour-goodbye-overlay").getAttribute(
+        "data-tour-goodbye-phase",
+      ),
+    ).toBe("cheering");
   });
 });

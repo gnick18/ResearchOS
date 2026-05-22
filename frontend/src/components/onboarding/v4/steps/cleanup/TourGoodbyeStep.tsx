@@ -62,11 +62,18 @@ export interface TourGoodbyeOutroDetail {
   firstProjectId: string | null;
 }
 
-// Animation timing constants. Total ~3.8 s budget per the spec
-// (1.5 s cheering + 1.5 s waving + 0.8 s fade).
-const CHEER_MS = 1500;
-const WAVE_MS = 1500;
+// Animation timing constants. Total ~4.4 s budget
+// (1.8 s cheering + 1.8 s waving + 0.8 s fade).
+// Cleanup fix manager R1 bumped cheer + wave from 1500 ms each so the
+// confetti has time to land and the wave caption sits long enough to
+// register as a deliberate goodbye instead of an instant evaporation.
+const CHEER_MS = 1800;
+const WAVE_MS = 1800;
 const FADE_MS = 800;
+
+// Toast lifespan after the route lands on `/`. 4 s matches the brief
+// and gives the user enough time to read + find the Settings pointer.
+const TOAST_MS = 4000;
 
 // ---------------------------------------------------------------------------
 // Step body — the speech rendered inside the BeakerBot bubble.
@@ -79,9 +86,12 @@ function TourGoodbyeSpeech() {
         You&apos;re set! Here&apos;s to many great experiments ahead.
       </p>
       <p className="leading-relaxed">
-        If you ever get stuck on a page, click the{" "}
-        <span aria-label="help" role="img">❓</span> icon in the top right to
-        jump to the wiki — every page has its own guide.
+        I&apos;ll tidy up the demo stuff we built together and leave you
+        with your first project.
+      </p>
+      <p className="leading-relaxed">
+        If you ever need a refresher, every page has its own wiki guide.
+        Look for the help icon next to your avatar up top.
       </p>
       <p className="leading-relaxed">Good luck.</p>
     </div>
@@ -139,7 +149,7 @@ interface TourGoodbyeOverlayProps {
   runCleanupFn?: typeof runEndOfTourAutoCleanup;
 }
 
-type OverlayPhase = "idle" | "cheering" | "waving" | "fading";
+type OverlayPhase = "idle" | "cheering" | "waving" | "fading" | "toast";
 
 /**
  * Outro animation overlay. Listens for `tour-goodbye:play-outro` and
@@ -192,27 +202,36 @@ export function TourGoodbyeOverlay({
     })();
   }, [phase, username, runCleanupFn]);
 
-  // Sequence the animation phases: cheering → waving → fading → idle (unmounted).
+  // Sequence the animation phases: cheering → waving → fading → toast →
+  // idle (unmounted). Cleanup fix manager R1: route push moved to the
+  // START of fade (was end) so the route swap happens INSIDE the fade
+  // overlay; otherwise the user briefly sees the underlying page bleed
+  // through the fading translucent backdrop.
   useEffect(() => {
     if (phase === "cheering") {
       const t = setTimeout(() => setPhase("waving"), CHEER_MS);
       return () => clearTimeout(t);
     }
     if (phase === "waving") {
-      const t = setTimeout(() => setPhase("fading"), WAVE_MS);
-      return () => clearTimeout(t);
-    }
-    if (phase === "fading") {
       const t = setTimeout(() => {
-        // Route to home AFTER the fade finishes so the user's first
-        // post-tour surface is the home page.
+        // Push BEFORE flipping to "fading" so the route swap is hidden
+        // behind the fully-opaque overlay; the fade then reveals "/"
+        // already in place.
         try {
           router.push("/");
         } catch (err) {
           console.warn("[tour-goodbye] router.push failed", err);
         }
-        setPhase("idle");
-      }, FADE_MS);
+        setPhase("fading");
+      }, WAVE_MS);
+      return () => clearTimeout(t);
+    }
+    if (phase === "fading") {
+      const t = setTimeout(() => setPhase("toast"), FADE_MS);
+      return () => clearTimeout(t);
+    }
+    if (phase === "toast") {
+      const t = setTimeout(() => setPhase("idle"), TOAST_MS);
       return () => clearTimeout(t);
     }
     return;
@@ -220,8 +239,33 @@ export function TourGoodbyeOverlay({
 
   if (phase === "idle") return null;
 
+  // The "toast" phase renders ONLY a small bottom-right toast, no
+  // backdrop, so the user can interact with the home page while it sits.
+  if (phase === "toast") {
+    return (
+      <div
+        data-testid="tour-goodbye-toast"
+        role="status"
+        aria-live="polite"
+        className="fixed bottom-6 right-6 z-[600] max-w-sm rounded-lg bg-gray-900 text-white shadow-lg px-4 py-3 text-sm pointer-events-auto"
+      >
+        Tour complete. Find BeakerBot again in Settings → Onboarding.
+      </div>
+    );
+  }
+
   const isFading = phase === "fading";
+  const isWaving = phase === "waving";
   const pose = phase === "cheering" ? "cheering" : "waving";
+
+  // During the wave phase, animate BeakerBot translating slightly RIGHT
+  // + scaling down. Combined with the fade, this reads as "BeakerBot
+  // walked off-screen" instead of "BeakerBot evaporated." The transform
+  // and fade both ride the same CSS transition.
+  const beakerTransform = isWaving || isFading
+    ? "translateX(80px) scale(0.8)"
+    : "translateX(0) scale(1)";
+  const beakerOpacity = isFading ? 0 : 1;
 
   return (
     <div
@@ -238,11 +282,19 @@ export function TourGoodbyeOverlay({
     >
       {phase === "cheering" ? <ConfettiBurst /> : null}
       <div className="flex flex-col items-center gap-4">
-        <BeakerBot
-          pose={pose}
-          className="w-40 h-40 text-sky-500"
-          ariaLabel="BeakerBot waving goodbye"
-        />
+        <div
+          style={{
+            transform: beakerTransform,
+            opacity: beakerOpacity,
+            transition: `transform ${WAVE_MS}ms ease-in, opacity ${FADE_MS}ms ease-out`,
+          }}
+        >
+          <BeakerBot
+            pose={pose}
+            className="w-40 h-40 text-sky-500"
+            ariaLabel="BeakerBot waving goodbye"
+          />
+        </div>
         <p className="text-base font-medium text-gray-900">
           {phase === "cheering" ? "Here's to many great experiments ahead!" : "See you around!"}
         </p>
@@ -276,6 +328,26 @@ const CONFETTI_COLORS = [
   "#a78bfa", // violet-400
 ];
 
+// Confetti emission constants. Cleanup fix manager R1: emit two waves
+// (80 at mount, 60 at +500ms) so the confetti fills the now-1.8s
+// cheering phase visually instead of going stale by ~700ms.
+const CONFETTI_WAVE_1_COUNT = 80;
+const CONFETTI_WAVE_2_COUNT = 60;
+const CONFETTI_WAVE_2_DELAY_MS = 500;
+
+function spawnParticles(count: number, w: number, h: number): Particle[] {
+  return Array.from({ length: count }, () => ({
+    x: w / 2 + (Math.random() - 0.5) * 200,
+    y: h / 3,
+    vx: (Math.random() - 0.5) * 8,
+    vy: Math.random() * -8 - 2,
+    size: 6 + Math.random() * 4,
+    rotation: Math.random() * Math.PI * 2,
+    vr: (Math.random() - 0.5) * 0.3,
+    color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+  }));
+}
+
 function ConfettiBurst() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -293,17 +365,14 @@ function ConfettiBurst() {
     canvas.style.height = `${h}px`;
     ctx.scale(dpr, dpr);
 
-    // Spawn ~80 particles from the top-center of the screen.
-    const particles: Particle[] = Array.from({ length: 80 }, () => ({
-      x: w / 2 + (Math.random() - 0.5) * 200,
-      y: h / 3,
-      vx: (Math.random() - 0.5) * 8,
-      vy: Math.random() * -8 - 2,
-      size: 6 + Math.random() * 4,
-      rotation: Math.random() * Math.PI * 2,
-      vr: (Math.random() - 0.5) * 0.3,
-      color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
-    }));
+    // Wave 1: spawn immediately on mount.
+    const particles: Particle[] = spawnParticles(CONFETTI_WAVE_1_COUNT, w, h);
+
+    // Wave 2: spawn at +500ms so the cheering phase looks visually full
+    // for its entire 1.8s duration, not just the first ~700ms.
+    const wave2Timer = window.setTimeout(() => {
+      particles.push(...spawnParticles(CONFETTI_WAVE_2_COUNT, w, h));
+    }, CONFETTI_WAVE_2_DELAY_MS);
 
     let raf = 0;
     let alive = true;
@@ -328,6 +397,7 @@ function ConfettiBurst() {
     return () => {
       alive = false;
       cancelAnimationFrame(raf);
+      window.clearTimeout(wave2Timer);
     };
   }, []);
 

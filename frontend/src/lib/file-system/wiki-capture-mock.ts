@@ -699,16 +699,19 @@ export async function installWikiCaptureFixture(
       "wizardSeedStep",
     );
     if (seedStep && signIn) {
-      // The Phase 4 cleanup grid only renders rows when
-      // `artifacts_created` is non-empty. Seed a representative spread
-      // (project / method / experiment / purchase / goal / calendar /
-      // lab teammate + lab task) so the grid screenshot shows the
-      // category structure the wiki copy describes. One method row is
-      // marked auto-created to demonstrate L9's discard-by-default
-      // contract. Earlier seeded steps just get an empty list so the
-      // resume modal's "no artifacts" copy reads honestly.
+      // The Phase 4 cleanup grid (retired 2026-05-22) used to render
+      // rows only when `artifacts_created` was non-empty. The same
+      // artifact spread is now consumed by the `tour-goodbye` outro's
+      // auto-cleanup pass, so the gate accepts both step ids. We seed
+      // a representative spread (project / method / experiment /
+      // purchase / goal / calendar / lab teammate + lab task) so the
+      // captured screenshot reflects the category structure the wiki
+      // copy describes. One method row is marked auto-created to
+      // demonstrate the discard-by-default contract. Earlier seeded
+      // steps just get an empty list so the resume modal's "no
+      // artifacts" copy reads honestly.
       const seedArtifacts =
-        seedStep === "phase4-cleanup"
+        seedStep === "phase4-cleanup" || seedStep === "tour-goodbye"
           ? [
               { type: "project", id: "proj-1", cleanup_default: "keep" },
               {
