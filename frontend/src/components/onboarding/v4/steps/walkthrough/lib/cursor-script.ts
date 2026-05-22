@@ -353,6 +353,46 @@ export async function safeDragAction(
 }
 
 /**
+ * Build a side-effect "callback" action that runs at PLAYBACK time
+ * (not BUILD time). The fn fires AFTER the preceding cursor action's
+ * promise resolves, so authors can synchronise narration beats with
+ * the actual cursor playback rather than the script-builder
+ * accumulation order.
+ *
+ * Why this exists (HR 2026-05-22, lab-permission-practice narration
+ * honesty bug R7-B P0-2):
+ *
+ *   Before this helper, lab-permission-practice fired
+ *   `emitBeat("edit-done")` inline during the script build with a
+ *   `setTimeout(400)` spacer between it and the prior
+ *   `safeClickAction`. But `safeClickAction` resolves at BUILD time
+ *   the moment the anchor exists; the actual click doesn't happen
+ *   until runScript replays the action array. So the speech bubble
+ *   would narrate "the rename just landed" even when the cursor was
+ *   still gliding toward the Save button, or when the shared cards
+ *   weren't in the DOM at all.
+ *
+ *   With `callbackAction`, the build function returns a single action
+ *   array, and the narration emit sits BETWEEN the cursor actions in
+ *   that array. runScript awaits each callback the same way it
+ *   awaits a click, so the emit runs after the preceding click has
+ *   visibly landed.
+ *
+ * The fn is fire-and-forget (return value ignored). Sync or async OK.
+ * Errors are caught + logged inside runScript so a buggy callback
+ * doesn't deadlock the demo.
+ *
+ * Returns the action directly (no null branch) since callbacks have
+ * no DOM anchor to fail on. Authors that want a conditional callback
+ * can just gate it on their own condition before pushing it.
+ */
+export function callbackAction(
+  fn: () => void | Promise<void>,
+): CursorAction {
+  return { type: "callback", fn };
+}
+
+/**
  * Filter helper that drops null entries from a script-builder pipeline.
  * Generic so it preserves the discriminated union of `CursorAction`.
  */

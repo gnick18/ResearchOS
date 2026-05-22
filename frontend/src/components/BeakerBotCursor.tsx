@@ -79,7 +79,21 @@ export type CursorAction =
   | { type: "glide"; x: number; y: number }
   | { type: "click"; target: HTMLElement }
   | { type: "type"; target: HTMLElement; text: string; cadenceMs?: number }
-  | { type: "drag"; source: HTMLElement; dest: HTMLElement };
+  | { type: "drag"; source: HTMLElement; dest: HTMLElement }
+  /**
+   * Run an arbitrary side effect at this position in the action queue.
+   * Awaited by `runScript`, so a Promise-returning fn blocks the cursor
+   * until it resolves. Used by demos that need to coordinate narration
+   * beats with PLAYBACK ordering rather than BUILD ordering (emitting a
+   * speech-bubble beat BEFORE the prior click has resolved would
+   * narrate a step that hasn't visibly happened yet). The callback
+   * fires in script order, AFTER the preceding action's promise has
+   * settled, so authors can interleave "did the previous step succeed?
+   * emit beat A : emit fallback beat B" decisions. Errors thrown
+   * inside fn are caught and logged inside runScript (a buggy callback
+   * must not stall the rest of the demo).
+   */
+  | { type: "callback"; fn: () => void | Promise<void> };
 
 export interface BeakerBotCursorRef {
   /** Glide to absolute viewport coords (x, y). Resolves on arrival. */
@@ -517,6 +531,23 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
               break;
             case "drag":
               await dragFromTo(action.source, action.dest);
+              break;
+            case "callback":
+              // Side-effect step (narration beat, DOM probe, etc).
+              // Awaited so the next cursor action runs AFTER the
+              // callback's promise resolves. Wrapped in try/catch so a
+              // buggy callback can't kill the rest of the demo,
+              // matching the script-runner's overall "errors are
+              // swallowed + logged" posture (TourController already
+              // wraps runScript in another try/catch one level up).
+              try {
+                await action.fn();
+              } catch (err) {
+                console.warn(
+                  "[BeakerBotCursor] callback action threw:",
+                  err,
+                );
+              }
               break;
             default: {
               // Exhaustiveness check — TS will yell if a new action

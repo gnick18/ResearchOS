@@ -3415,13 +3415,37 @@ async function addReceiverShare(
   else list.push(entry);
   await writeSharedWithMe(receiver, manifest);
 
+  // Notification write: idempotent on (type, item_type, item_id,
+  // from_user). Without dedup, re-running the same share (e.g. the
+  // user back-steps out of `lab-spawn-beakerbot` then re-enters the
+  // step, or any other re-spawn flow) appends a SECOND notification
+  // for the same task share, inflating the bell badge. The shared-
+  // with-me manifest already dedupes (upsert by id+owner), so the
+  // notification file is the only stale-data source here.
+  //
+  // Strategy (HR P0-3 fix 2026-05-22): find a pre-existing matching
+  // notification and REPLACE it in place (refresh permission +
+  // created_at + reset read=false). Preserves the existing "permission
+  // flip refreshes the notification" idempotence flavor while
+  // preventing badge-count drift. The `idx` lookup keeps the
+  // notification's position stable so the bell ordering is preserved.
   const notifs = await readNotificationsFile(receiver);
-  notifs.notifications.push({
+  const matchType = notificationTypeFor(itemType);
+  const existingIdx = notifs.notifications.findIndex(
+    (n) =>
+      n.type === matchType &&
+      "item_type" in n &&
+      n.item_type === itemType &&
+      n.item_id === entry.id &&
+      "from_user" in n &&
+      n.from_user === entry.owner,
+  );
+  const fresh: SharedItemNotification = {
     id:
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    type: notificationTypeFor(itemType),
+    type: matchType,
     from_user: entry.owner,
     item_type: itemType,
     item_id: entry.id,
@@ -3429,7 +3453,15 @@ async function addReceiverShare(
     permission: entry.permission,
     created_at: entry.shared_at,
     read: false,
-  });
+  };
+  if (existingIdx >= 0) {
+    // Reuse the prior notification's id so any UI that bound to it
+    // (e.g. an open inbox row) doesn't blow away its hover state.
+    const prior = notifs.notifications[existingIdx];
+    notifs.notifications[existingIdx] = { ...fresh, id: prior.id };
+  } else {
+    notifs.notifications.push(fresh);
+  }
   await writeNotificationsFile(receiver, notifs);
 }
 

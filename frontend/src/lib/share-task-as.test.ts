@@ -22,11 +22,13 @@
 //   5. Error: empty actorId / empty recipient / actorId === recipient.
 //   6. Idempotence: re-share with same permission is a no-op-update (the
 //      `shared_with` list dedups by username; `addReceiverShare` upserts
-//      the same entry; a SECOND notification IS pushed — matching the
-//      existing `shareTask` behavior, since `addReceiverShare` always
-//      appends a notification).
+//      the same entry; the notification is REPLACED in place rather than
+//      appended a second time, so the bell badge no longer drifts on
+//      back-step + re-entry of a share-spawn step — HR P0-3 fix
+//      2026-05-22 R7-B).
 //   7. Idempotence-with-flip: re-share with DIFFERENT permission flips the
-//      stored permission on both sides.
+//      stored permission on both sides (notification permission updates
+//      in place, count stays at 1).
 //   8. `unshareTaskAs`: removes recipient from actor's task.shared_with AND
 //      removes the matching entry from recipient's _shared_with_me.json.
 //   9. `unshareTaskAs` is a no-op when task is absent (matches unshareTask).
@@ -251,6 +253,75 @@ describe("sharingApi.shareTaskAs — admin-mode share", () => {
     ) as { tasks: Array<{ id: number; permission: string }> };
     expect(recipientManifest.tasks).toHaveLength(1);
     expect(recipientManifest.tasks[0].permission).toBe("edit");
+
+    // Notification dedup (HR P0-3 fix 2026-05-22): re-sharing must
+    // REPLACE the existing notification rather than append a second
+    // one. The permission update is reflected on the single row.
+    const recipientNotifs = memFs.get(
+      "users/real_user/_notifications.json"
+    ) as { notifications: Notification[] };
+    expect(recipientNotifs.notifications).toHaveLength(1);
+    const notif = recipientNotifs.notifications[0];
+    expect(notif.type).toBe("task_shared");
+    if (notif.type === "task_shared") {
+      expect(notif.permission).toBe("edit");
+      expect(notif.item_id).toBe(7);
+      expect(notif.from_user).toBe("beakerbot");
+    }
+  });
+
+  it("dedupes the recipient notification across repeated identical shares (HR P0-3, lab-spawn re-entry)", async () => {
+    // Reproduces the R7-B P0-3 reproducer: walking into the lab-spawn
+    // BeakerBot step, back-stepping out, then walking in again. Each
+    // entry calls `shareTaskAs` twice (once for the edit task, once
+    // for the view task). The bell badge must increment by exactly
+    // 2 in total (one per shared task) regardless of how many times
+    // the spawn step fires.
+    seedTask("beakerbot", { id: 7, name: "edit demo task" });
+    seedTask("beakerbot", { id: 8, name: "view demo task" });
+
+    // First entry: edit + view share.
+    await sharingApi.shareTaskAs("beakerbot", 7, "real_user", "edit");
+    await sharingApi.shareTaskAs("beakerbot", 8, "real_user", "view");
+    // Second entry (re-entry after back-step).
+    await sharingApi.shareTaskAs("beakerbot", 7, "real_user", "edit");
+    await sharingApi.shareTaskAs("beakerbot", 8, "real_user", "view");
+    // Third entry for good measure.
+    await sharingApi.shareTaskAs("beakerbot", 7, "real_user", "edit");
+    await sharingApi.shareTaskAs("beakerbot", 8, "real_user", "view");
+
+    const recipientNotifs = memFs.get(
+      "users/real_user/_notifications.json"
+    ) as { notifications: Notification[] };
+    // Exactly 2 notifications: one per shared task, dedupe carried
+    // the count across the 3 re-entry rounds.
+    expect(recipientNotifs.notifications).toHaveLength(2);
+    const ids = recipientNotifs.notifications
+      .map((n) => ("item_id" in n ? n.item_id : null))
+      .sort();
+    expect(ids).toEqual([7, 8]);
+  });
+
+  it("notification dedup preserves the original notification id across re-shares", async () => {
+    // The notification id is a stable handle: any open UI surface
+    // (inbox row, hover popover) that bound to the notification id
+    // before the re-share must continue to see the same row, just
+    // with refreshed fields. Replace-in-place reuses the id.
+    seedTask("beakerbot", { id: 7 });
+
+    await sharingApi.shareTaskAs("beakerbot", 7, "real_user", "view");
+    const after1 = memFs.get(
+      "users/real_user/_notifications.json"
+    ) as { notifications: Notification[] };
+    const firstId = after1.notifications[0]?.id;
+    expect(typeof firstId).toBe("string");
+
+    await sharingApi.shareTaskAs("beakerbot", 7, "real_user", "edit");
+    const after2 = memFs.get(
+      "users/real_user/_notifications.json"
+    ) as { notifications: Notification[] };
+    expect(after2.notifications).toHaveLength(1);
+    expect(after2.notifications[0].id).toBe(firstId);
   });
 
   it("works when the actor IS the current user (admin call from own session)", async () => {
