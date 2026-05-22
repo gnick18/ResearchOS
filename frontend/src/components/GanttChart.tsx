@@ -643,6 +643,22 @@ export default function GanttChart({
 
   const today = formatDate(new Date());
 
+  // §6.8 onboarding-v4 cascade marker (v4 §6.8 cascade polish sub-bot
+  // 2026-05-21): the chained-deps demo's third drag drops Demo A onto
+  // this specific day so B + C visibly cascade. Stamp the date as
+  // today + 7 days; at the default ~6-week zoom, this lands well past
+  // the demo bars' start (today). Computed here (not at each cell)
+  // so the marker resolves to ONE date across all renders, and the
+  // selector inside the cursor script gets a unique element. Match by
+  // date string equality below in the day-header render — header cells
+  // render once per visible day, unlike row cells which render once
+  // per row × day.
+  const ganttLaterMarkerDate = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return formatDate(d);
+  })();
+
   // Build dependency chains for grouping and coloring
   const chainInfo = useMemo(() => {
     return buildDependencyChains(filteredTasks, dependencies);

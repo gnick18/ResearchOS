@@ -22,7 +22,11 @@ import {
 import { TOUR_TARGETS, targetSelector } from "../lib/targets";
 import { homeCreateProjectStep } from "../HomeCreateProjectStep";
 import { searchStep } from "../SearchStep";
-import { workbenchCreateExperimentStep } from "../WorkbenchCreateExperimentStep";
+import { workbenchCreateExperimentOpenStep } from "../WorkbenchCreateExperimentOpenStep";
+import {
+  workbenchCreateExperimentStep,
+  PLACEHOLDER_EXPERIMENT_NAME,
+} from "../WorkbenchCreateExperimentStep";
 
 /** Mount a fixture element with `data-tour-target` set, plus optional
  *  child elements. Returns a cleanup function. */
@@ -556,19 +560,53 @@ describe("step bodies — cursor scripts produce expected actions", () => {
     }
   });
 
-  it("WorkbenchCreateExperimentStep: no cursorScript (user-action step, Grant 2026-05-21)", () => {
-    // Per the cursor-responsibility audit: experiment creation is a
-    // simple-enough user action that BeakerBot should NOT auto-click
-    // the New Experiment button, type the name, or submit. Spotlight
-    // points to the button; user fills the modal themselves.
-    expect(workbenchCreateExperimentStep.cursorScript).toBeUndefined();
+  it("WorkbenchCreateExperimentOpenStep: no cursorScript (user-action open step, Grant 2026-05-21 split)", () => {
+    // Per the §6.5 split: the open beat is user-action — the user clicks
+    // "+ New Experiment" themselves so BeakerBot's spotlight is the
+    // visual cue and nothing else. The follow-up demo step
+    // (workbenchCreateExperimentStep) is the BeakerBot-led half that
+    // types + submits.
+    expect(workbenchCreateExperimentOpenStep.cursorScript).toBeUndefined();
+  });
+
+  it("WorkbenchCreateExperimentStep: cursor types the placeholder name + clicks submit (demo half of the §6.5 split)", async () => {
+    const nameInput = document.createElement("input");
+    nameInput.setAttribute("type", "text");
+    nameInput.setAttribute(
+      "data-tour-target",
+      "workbench-experiment-name-input",
+    );
+    const submit = document.createElement("button");
+    submit.setAttribute("data-tour-target", "workbench-experiment-submit");
+    document.body.appendChild(nameInput);
+    document.body.appendChild(submit);
+    try {
+      const script = await workbenchCreateExperimentStep.cursorScript?.();
+      expect(script).toBeDefined();
+      expect(script).toHaveLength(2);
+      expect(script?.[0].type).toBe("type");
+      if (script?.[0].type === "type") {
+        expect(script[0].text).toBe(PLACEHOLDER_EXPERIMENT_NAME);
+        expect(script[0].target).toBe(nameInput);
+      }
+      expect(script?.[1].type).toBe("click");
+      if (script?.[1].type === "click") {
+        expect(script[1].target).toBe(submit);
+      }
+    } finally {
+      nameInput.remove();
+      submit.remove();
+    }
   });
 
   it("user-action steps with no cursorScript don't expose any glide/click actions", async () => {
     // Defense in depth: even if a future maintainer wires a cursorScript
     // back onto these user-action steps by accident, the test will
     // catch any click/type/drag actions and flag the regression.
-    const userActionSteps = [homeCreateProjectStep, workbenchCreateExperimentStep];
+    const userActionSteps = [
+      homeCreateProjectStep,
+      workbenchCreateExperimentOpenStep,
+    ];
     for (const step of userActionSteps) {
       const script = await step.cursorScript?.();
       if (!script) continue;
