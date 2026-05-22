@@ -344,17 +344,34 @@
   }
 }
 
-/* Test tube choreography: slide in from off-screen-right, hover
- * upright over BeakerBot's head, tilt 90deg forward at the pour stage,
- * fly off-screen at the erupt stage. The transform-origin sits on the
- * test tube's mouth (its open end, ~36, 10) so the tilt reads as a
- * pivot at the lip rather than a center-spin. */
+/* Test tube choreography: fade in upright at its anchor on the LEFT
+ * of BeakerBot's head, hover briefly, tilt CLOCKWISE at the pour stage
+ * so the mouth (bottom of the tube) swings down-and-right into
+ * BeakerBot's beaker top at (20, 12), then fade out at the erupt stage.
+ *
+ * Geometry recap (paths in BeakerBot.tsx volcano block):
+ *   - Tube body: x=4..8, y=0..8 (skinny, 4w x 8h)
+ *   - Sealed top at y=0, rounded mouth at y=8
+ *   - Centroid: (6, 4) — used as transform-origin so the tilt is a
+ *     clean center-pivot, NOT a corner-pivot. A corner-pivot at the
+ *     mouth (which the old keyframes used) caused the tube to swing
+ *     past the viewBox edge and clip to a visible rectangle.
+ *
+ * Pour math: rotating +75deg clockwise around (6, 4) sends the mouth
+ * from (6, 8) to about (10, 5) (mouth tilts toward upper-right of
+ * tube). Combined with a translate of (+10px, +6px) at the pour stage,
+ * the mouth lands near (20, 11) — directly above BeakerBot's beaker
+ * lip at y=12. Reads as "tilt and pour into the beaker."
+ *
+ * The fade-in (opacity 0 -> 1 between 0% and 8%) without a long
+ * off-screen slide avoids the rectangular viewBox-clip artifact that
+ * appeared when the old animation slid the tube in from x=60. */
 @keyframes beakerBotVolcanoTestTube {
   0% {
-    transform: translate(28px, -6px) rotate(0deg);
+    transform: translate(0, -2px) rotate(0deg);
     opacity: 0;
   }
-  10% {
+  8% {
     transform: translate(0, 0) rotate(0deg);
     opacity: 1;
   }
@@ -363,19 +380,19 @@
     opacity: 1;
   }
   31% {
-    transform: translate(-3px, 2px) rotate(95deg);
+    transform: translate(10px, 6px) rotate(75deg);
     opacity: 1;
   }
   40% {
-    transform: translate(-3px, 2px) rotate(95deg);
+    transform: translate(10px, 6px) rotate(75deg);
     opacity: 1;
   }
   55% {
-    transform: translate(18px, -10px) rotate(180deg);
+    transform: translate(10px, 6px) rotate(75deg);
     opacity: 0;
   }
   100% {
-    transform: translate(18px, -10px) rotate(180deg);
+    transform: translate(10px, 6px) rotate(75deg);
     opacity: 0;
   }
 }
@@ -510,7 +527,11 @@
  * 3200ms total so the test tube's per-stage positions stay in sync
  * with the root body keyframes above. */
 .volcanoTestTube {
-  transform-origin: 36px 4px;
+  /* Centroid of the new tube paths (x=4..8, y=0..8). Pivoting at the
+   * center, not a corner, keeps the tilt visually balanced AND avoids
+   * the tube swinging past the viewBox edge mid-rotation (which was
+   * the source of the visible square-boundary clip artifact). */
+  transform-origin: 6px 4px;
   transform-box: view-box;
 }
 

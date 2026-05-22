@@ -259,6 +259,34 @@ describe("BeakerBot volcano-eruption pose", () => {
     expect(cls).toMatch(/\S/);
   });
 
+  it("test tube path geometry stays small + skinny (4w x 8h, left-side anchor)", () => {
+    // Regression guard for the volcano fix pass: Grant called out that
+    // the original tube (8w x 12h, right-side anchor x=32..40) was too
+    // big, too square, and pouring in the wrong direction. The fix
+    // shrinks it to ~4 units wide x ~8 units tall and anchors it on
+    // the LEFT of BeakerBot (x=4..8). Re-inflating the tube would put
+    // us right back where we started, so we lock the path bounds here.
+    const { container } = render(<BeakerBot pose="volcano-eruption" />);
+    const paths = container.querySelectorAll("path");
+    const purpleLiquid = Array.from(paths).find(
+      (p) => p.getAttribute("fill") === VOLCANO_TEST_TUBE_FILL,
+    );
+    expect(purpleLiquid).toBeDefined();
+    const d = purpleLiquid?.getAttribute("d") ?? "";
+    // Extract every numeric coordinate from the path and assert the
+    // bounding box is small + on the LEFT of the viewBox (not the
+    // right where the old tube lived).
+    const nums = (d.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
+    expect(nums.length).toBeGreaterThan(0);
+    const max = Math.max(...nums);
+    const min = Math.min(...nums);
+    // All coords sit in the [0, 10] range — the tube is small AND on
+    // the left half of the viewBox (x < 10). If anyone bumps the tube
+    // back to x=32..40 or doubles its size, this test fails fast.
+    expect(min).toBeGreaterThanOrEqual(0);
+    expect(max).toBeLessThanOrEqual(10);
+  });
+
   it("reduced-motion path: pose=volcano-eruption with animated=false renders the static silhouette", () => {
     // The component's `animated=false` prop is the call-site way to
     // opt OUT of the animation loop (decorative chips, tip thumbs).
