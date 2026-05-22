@@ -33,18 +33,15 @@ import { rebaseDemoDates, isDemoLab } from "../demo/rebase";
  *  (`fileService.readFileAsBlob("users/.../Images/foo.png")`). Without this
  *  step, fixture-mode screenshots of the Results gallery, the experiment
  *  image strip, and the Telegram inbox come out empty even though the
- *  Demo Lab puts real watermarked images on disk. */
+ *  Demo Lab puts real watermarked images on disk.
+ *
+ *  Experiment-attached PNGs under `users/<user>/results/task-<n>/Images/`
+ *  are NOT listed here — they're discovered dynamically by scanning the
+ *  fetched notes.md / results.md bodies for `![alt](Images/<file>.png)`
+ *  refs (see the `DEMO_RESULTS_USERS` loop below). Only entries here are
+ *  PNGs that aren't markdown-referenced (e.g. the Telegram inbox photo). */
 const DEMO_PNG_PATHS = [
   "users/alex/inbox/Images/photo-2026-05-12.png",
-  "users/alex/results/task-2/Images/transformation-plate.png",
-  "users/alex/results/task-3/Images/patch-plate.png",
-  "users/alex/results/task-4/Images/gel-gdna-quality.png",
-  "users/alex/results/task-5/Images/gel-pcr-screen.png",
-  "users/alex/results/task-10/Images/growth-curve-YPD.png",
-  "users/alex/results/task-11/Images/heatshock-survival.png",
-  "users/morgan/results/task-1/Images/plate-96-fluo.png",
-  "users/morgan/results/task-2/Images/fluo-scan-results.png",
-  "users/morgan/results/task-3/Images/gel-qpcr-products.png",
 ];
 
 /** Markdown method bodies. The JSON fixtures point at these via `source_path`
@@ -113,113 +110,22 @@ const INBOX_ALIAS_ROWS: Array<{ name: string; sidecar: Record<string, unknown> }
   },
 ];
 
-/** Synthetic notes.md / results.md bodies seeded as text blobs so the
- *  markdown editor renders a non-empty body (and inline images) when a
- *  capture script opens a task popup. Without this, every task's Lab Notes
- *  and Results tabs render the "new file" template — fine for screenshots
- *  of the chrome, but no body content means no Hybrid-mode block to click
- *  and no inline image to bring up the resize popover. Keyed identically
- *  to the way `LabNotesTab` / `ResultsTab` resolve their on-disk paths
- *  (`{taskResultsBase}/notes.md` etc). */
-const DEMO_MD_SEEDS: Array<{ path: string; content: string }> = [
-  {
-    path: "users/alex/results/task-2/notes.md",
-    content: `## Transformation notes — 2026-05-08
-
-- Strain: \`FakeYeast-001\`
-- Plasmid: \`pYES-GAL1::flbA\`, ~120 ng/rxn
-- 10 rxns; heat shock 38 min (interrupted)
-- Plated on SD-Ura; counted 40 colonies after 48 h.
-
-![Transformation plate](Images/transformation-plate.png)
-`,
-  },
-  {
-    path: "users/alex/results/task-2/results.md",
-    content: `## Results — yeast transformation
-
-- 40 / 200 µL plated → est. 200 transformants/µg DNA (demo numbers).
-- Eight clones patched onto fresh SD-Ura for downstream work.
-
-![Transformation plate](Images/transformation-plate.png)
-`,
-  },
-  {
-    path: "users/alex/results/task-3/notes.md",
-    content: `## Patch plate notes
-
-Patched 8 colonies onto a fresh SD-Ura plate. All eight took.
-
-![Patch plate](Images/patch-plate.png)
-`,
-  },
-  {
-    path: "users/alex/results/task-3/results.md",
-    content: `## Patch results
-
-All 8 patched colonies grew on SD-Ura — pick top 4 for sequencing (demo data).
-`,
-  },
-  {
-    path: "users/alex/results/task-4/results.md",
-    content: `## gDNA prep results
-
-All 8 preps came back A260/280 ≥ 1.80, A260/230 ≥ 2.0 — ready for PCR screen (demo data).
-`,
-  },
-  {
-    path: "users/alex/results/task-5/results.md",
-    content: `## PCR-screen results
-
-6 / 16 transformants show the ~1.4 kb integration band (demo data).
-`,
-  },
-  // Empty file (created, not missing). Powers the gallery's "Awaiting
-  // results" fixture in capture mode the same way the on-disk demo does.
-  {
-    path: "users/alex/results/task-8/results.md",
-    content: "",
-  },
-  {
-    path: "users/morgan/results/task-1/results.md",
-    content: `## Plate prep results
-
-80 / 80 wells inoculated cleanly — no cross-well contamination visible at 4× (demo data).
-`,
-  },
-  // Workbench "Earlier results" seeds — completed > 30 days ago across
-  // multiple projects. probeTaskResults walks results.md non-empty / Images/
-  // to decide if a task has result content; without these, the older
-  // experiments would land in "Awaiting writeup" instead.
-  {
-    path: "users/alex/results/task-17/results.md",
-    content: `## Pilot transformation
-
-FakeYeast-001 transformed cleanly with the test cassette — confirmed strain choice (demo data).
-`,
-  },
-  {
-    path: "users/alex/results/task-18/results.md",
-    content: `## Gibson backbone test
-
-3 / 4 mock backbones gave the expected band; locked in pYES2 for the library work (demo data).
-`,
-  },
-  {
-    path: "users/alex/results/task-19/results.md",
-    content: `## Baseline growth
-
-Doubling time ~95 min in YPD/glucose for FakeYeast-001 — used as the no-stress reference (demo data).
-`,
-  },
-  {
-    path: "users/morgan/results/task-7/results.md",
-    content: `## Reader baseline
-
-Fluorescence reader passed the calibration check — variance under 3% across replicates (demo data).
-`,
-  },
-];
+/** Demo users whose `users/<user>/results/task-<n>/notes.md` +
+ *  `results.md` + `Images/*.png` get pulled from `frontend/public/demo-data/`
+ *  at fixture install time. The task count comes from each user's
+ *  `_counters.json` (already in the static fixture via `wiki-capture-fixture.ts`),
+ *  so this only needs the usernames. Adding a new demo user with experiment
+ *  writeups means appending here, not maintaining a path table.
+ *
+ *  Why dynamic fetch: `scripts/generate-demo-data.mjs` writes lab-recipe
+ *  notes + figures under `public/demo-data/...`, but those files were
+ *  previously invisible to the wiki-capture mock — it only saw the
+ *  hardcoded stub bodies in `DEMO_MD_SEEDS`, which shadowed the real
+ *  content. The fetch loop below mirrors the existing PNG / method-md
+ *  pattern so a single source of truth (the on-disk demo bundle) drives
+ *  every channel: the connected Lab Mode viewer, the `/demo` route, and
+ *  the wiki-capture screenshots. */
+const DEMO_RESULTS_USERS = ["alex", "morgan"];
 
 /** Capture-mode variants. The default `"signed-in"` corresponds to
  *  `?wikiCapture=1` (the most common case) and gives you a fully signed-in
@@ -693,13 +599,91 @@ export async function installWikiCaptureFixture(
     }
   }
 
-  // Seed synthetic markdown bodies so editor screenshots have a non-empty
-  // canvas (Hybrid block to click, body image to resize-popover).
-  for (const { path: mdPath, content } of DEMO_MD_SEEDS) {
-    const norm = normalizePath(mdPath);
-    blobs.set(norm, new Blob([content], { type: "text/markdown" }));
-    addParentDirs(norm, dirs);
-  }
+  // Pull the on-disk experiment writeups + their inline images for each
+  // demo user. Two-phase per user:
+  //
+  //   1. For every task id `1..N` (N = the user's `_counters.json` task
+  //      count, already seeded by the static fixture above), try to fetch
+  //      `notes.md` and `results.md`. 404s are normal — many tasks have
+  //      no writeup yet.
+  //   2. For each fetched markdown body, parse `![alt](Images/<name>.png)`
+  //      refs and fetch each referenced PNG into the sibling `Images/`
+  //      folder. `/demo-data/` isn't directory-listable from the browser,
+  //      so the markdown body is the index — anything not referenced
+  //      stays unfetched (acceptable: those PNGs aren't rendered anywhere
+  //      either).
+  //
+  // Replaces the previous `DEMO_MD_SEEDS` + experiment-PNG entries in
+  // `DEMO_PNG_PATHS`, which were hardcoded and silently shadowed the
+  // real on-disk content whenever the demo bundle grew.
+  const IMG_REF_RE = /!\[[^\]]*\]\(Images\/([^)]+)\)/g;
+  await Promise.all(
+    DEMO_RESULTS_USERS.flatMap((user) => {
+      const counters = files.get(normalizePath(`users/${user}/_counters.json`)) as
+        | { tasks?: number }
+        | undefined;
+      const taskCount = counters?.tasks ?? 0;
+      const taskIds = Array.from({ length: taskCount }, (_, i) => i + 1);
+      return taskIds.map(async (taskId) => {
+        const taskBase = `users/${user}/results/task-${taskId}`;
+        const mdNames = ["notes.md", "results.md"];
+        const fetchedTexts: string[] = [];
+        await Promise.all(
+          mdNames.map(async (name) => {
+            const relPath = `${taskBase}/${name}`;
+            try {
+              const res = await fetch(`/demo-data/${relPath}`);
+              if (!res.ok) return; // 404 is normal for tasks without writeup
+              const text = await res.text();
+              blobs.set(
+                normalizePath(relPath),
+                new Blob([text], { type: "text/markdown" }),
+              );
+              addParentDirs(normalizePath(relPath), dirs);
+              fetchedTexts.push(text);
+            } catch (err) {
+              console.warn(
+                `[wiki-capture-mock] results md fetch failed for ${relPath}:`,
+                err,
+              );
+            }
+          }),
+        );
+        // Parse all the markdown we just pulled for inline image refs and
+        // fetch each referenced PNG into the sibling Images/ folder.
+        const imageNames = new Set<string>();
+        for (const text of fetchedTexts) {
+          IMG_REF_RE.lastIndex = 0;
+          let m: RegExpExecArray | null;
+          while ((m = IMG_REF_RE.exec(text)) !== null) {
+            imageNames.add(m[1]);
+          }
+        }
+        await Promise.all(
+          Array.from(imageNames).map(async (imgName) => {
+            const relPath = `${taskBase}/Images/${imgName}`;
+            try {
+              const res = await fetch(`/demo-data/${relPath}`);
+              if (!res.ok) {
+                console.warn(
+                  `[wiki-capture-mock] results img fetch ${res.status}: ${relPath}`,
+                );
+                return;
+              }
+              const blob = await res.blob();
+              blobs.set(normalizePath(relPath), blob);
+              addParentDirs(normalizePath(relPath), dirs);
+            } catch (err) {
+              console.warn(
+                `[wiki-capture-mock] results img fetch failed for ${relPath}:`,
+                err,
+              );
+            }
+          }),
+        );
+      });
+    }),
+  );
 
   // Optional URL-driven sidecar seed for the wizard-screenshot capture
   // path. `?wizardSeedStep=<step>` (combined with `?wikiCapture=1` and
