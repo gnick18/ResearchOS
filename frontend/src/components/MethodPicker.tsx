@@ -376,7 +376,18 @@ export default function MethodPicker({
               clear the input.
             </div>
           ) : (
-            flatRows.map((row, index) => {
+            (() => {
+              // Track the running index of method (non-header) rows so the
+              // first method tile in the rendered list gets the canonical
+              // `experiment-attach-method-picker-first-method` anchor. The
+              // §6.6 cursor demo (MethodAttachmentAttachStep) clicks this
+              // anchor to attach the funny markdown method authored in
+              // §6.4d; without it the demo silently no-ops and every
+              // downstream §6.6 + §6.7 step wedges. Each subsequent tile
+              // also gets `experiment-attach-method-picker-method-{idx}`
+              // so future steps can target a specific method by index.
+              let methodIdx = -1;
+              return flatRows.map((row, index) => {
               if (row.kind === "header") {
                 const isPinned = row.sectionKey.startsWith("pinned-");
                 const headerCls = isPinned
@@ -398,6 +409,11 @@ export default function MethodPicker({
               const m = row.method;
               const isCurrent = m.id === currentMethodId;
               const isHighlighted = index === highlightedIndex;
+              methodIdx += 1;
+              const tourTarget =
+                methodIdx === 0
+                  ? "experiment-attach-method-picker-first-method"
+                  : `experiment-attach-method-picker-method-${methodIdx}`;
               return (
                 <button
                   key={`${row.sectionKey}:${methodKey(m)}`}
@@ -405,6 +421,7 @@ export default function MethodPicker({
                     if (el) rowRefs.current.set(index, el);
                     else rowRefs.current.delete(index);
                   }}
+                  data-tour-target={tourTarget}
                   onMouseEnter={() => setHighlightedIndex(index)}
                   onClick={() => void onSelect(m.id, m.owner)}
                   className={`w-full text-left px-4 py-2.5 border-b border-gray-50 transition-colors ${
@@ -445,7 +462,8 @@ export default function MethodPicker({
                   )}
                 </button>
               );
-            })
+            });
+            })()
           )}
         </div>
         <div className="hidden md:flex md:flex-1 flex-col bg-gray-50/40 overflow-hidden">

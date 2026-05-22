@@ -112,6 +112,13 @@ export const TOUR_TARGETS = {
   // §6.6 Method attachment
   experimentMethodsTab: "experiment-methods-tab",
   experimentAttachMethod: "experiment-attach-method",
+  // §6.6 (v4 missing-anchors sub-bot 2026-05-21): the first method tile
+  // inside the MethodPicker that opens when the user clicks "Attach
+  // Method". MethodPicker also stamps
+  // `experiment-attach-method-picker-method-{idx}` on every subsequent
+  // tile so future steps can target a specific method by index.
+  experimentAttachMethodPickerFirstMethod:
+    "experiment-attach-method-picker-first-method",
   experimentVariationNotes: "experiment-variation-notes",
 
   // §6.7 Hybrid editor

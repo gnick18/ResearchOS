@@ -407,6 +407,7 @@ function ProfileSection({ settings, update }: SectionProps) {
                 type="button"
                 aria-label={`Color ${c}`}
                 onClick={() => void update({ color: c })}
+                data-color-swatch={c}
                 className={`w-8 h-8 rounded-full border-2 transition-transform ${
                   selected ? "border-gray-900 scale-110" : "border-transparent hover:scale-105"
                 }`}

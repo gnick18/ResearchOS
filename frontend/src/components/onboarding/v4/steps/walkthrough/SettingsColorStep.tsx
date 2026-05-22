@@ -32,11 +32,13 @@ export const settingsColorStep = buildWalkthroughStep({
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.settingsColorPicker),
   cursorScript: cursorScript(async () => {
-    // Click the first swatch inside the color picker. Real Settings
-    // surfaces each swatch as a child element with `data-color-swatch`
-    // or similar; we pick the first via a child selector.
+    // Click the first swatch inside the color picker. Each swatch carries
+    // `data-color-swatch="<hex>"` (stamped on the swatch grid in
+    // `app/settings/page.tsx`). Targeting by attribute rather than
+    // layout position (`button:first-child`) keeps the cursor stable
+    // when the palette reorders or gets sibling controls.
     const swatch = await safeClickAction(
-      `${targetSelector(TOUR_TARGETS.settingsColorPicker)} button:first-child`,
+      `${targetSelector(TOUR_TARGETS.settingsColorPicker)} [data-color-swatch]:first-child`,
     );
     return compactScript([swatch]);
   }),
