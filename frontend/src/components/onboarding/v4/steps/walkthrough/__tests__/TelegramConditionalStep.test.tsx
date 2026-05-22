@@ -328,10 +328,15 @@ describe("TelegramBranchPicker Branch C (synthetic)", () => {
       lab_tour_dismissed_at: null,
     });
     const artifacts = out.wizard_resume_state?.artifacts_created ?? [];
+    // v4 Phase 4 cleanup-completeness sweep 2026-05-21 renamed
+    // telegram_synthetic_image → telegram_image so the writer + the
+    // Phase 4 grid + cleanup-execution.ts all agree. The encoded id
+    // is `<on-disk-filename>:inbox` so decodeTelegramImageLocation
+    // routes to the inbox base on cleanup.
     expect(artifacts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          type: "telegram_synthetic_image",
+          type: "telegram_image",
           cleanup_default: "discard",
         }),
       ]),

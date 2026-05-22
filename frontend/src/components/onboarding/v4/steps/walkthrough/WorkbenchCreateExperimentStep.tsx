@@ -20,9 +20,19 @@
  * Artifact:
  *   { type: "experiment", id: "<taskId>", cleanup_default: "keep" }
  */
+import { tasksApi } from "@/lib/local-api";
 import { advanceOnEvent, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 import { watchTaskCreated } from "./lib/tour-events";
+import { flushPendingArtifacts, pendingArtifactStore } from "./lib/artifacts";
+
+const STEP_ID = "workbench-create-experiment";
+
+/** Snapshot of task ids known at step entry. Diffed on exit against
+ *  the current task list to identify the experiment the user just
+ *  created. Module-level so onEnter + onExit share scope without
+ *  re-plumbing TourController context. */
+const baselineTaskIds = new Set<number>();
 
 /** Placeholder experiment name. Re-used by the §6.11 search step's
  *  cursor-typed query. Kept exported so the search step still has a
@@ -34,7 +44,7 @@ import { watchTaskCreated } from "./lib/tour-events";
 export const PLACEHOLDER_EXPERIMENT_NAME = "Demo Experiment One";
 
 export const workbenchCreateExperimentStep = buildWalkthroughStep({
-  id: "workbench-create-experiment",
+  id: STEP_ID,
   speech: "Now let's make an experiment that uses that method.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.workbenchNewExperiment),
@@ -43,5 +53,45 @@ export const workbenchCreateExperimentStep = buildWalkthroughStep({
   // types their own name, saves. The tasksApi.create event still
   // fires the completion.
   completion: advanceOnEvent(watchTaskCreated),
+  // Snapshot the no-project task ids on enter; the diff on exit
+  // identifies the experiment the user created. No DOM event exists
+  // for tasksApi.create (the watcher polls listByProject), so we
+  // mirror the same polling shape ourselves to find the new id.
+  // Project bucket 0 matches `watchTaskCreated`'s `projectId ?? 0`
+  // default since the workbench surface creates tasks without a
+  // project when none is selected.
+  onEnter: async () => {
+    baselineTaskIds.clear();
+    try {
+      const tasks = await tasksApi.listByProject(0);
+      for (const task of tasks) baselineTaskIds.add(task.id);
+    } catch (err) {
+      console.warn(
+        "[onboarding-v4] workbench-create-experiment baseline read failed:",
+        err,
+      );
+    }
+  },
+  onExit: async () => {
+    try {
+      const tasks = await tasksApi.listByProject(0);
+      for (const task of tasks) {
+        if (!baselineTaskIds.has(task.id)) {
+          pendingArtifactStore.add(STEP_ID, {
+            type: "experiment",
+            id: String(task.id),
+            cleanup_default: "keep",
+          });
+        }
+      }
+    } catch (err) {
+      console.warn(
+        "[onboarding-v4] workbench-create-experiment diff read failed:",
+        err,
+      );
+    }
+    baselineTaskIds.clear();
+    await flushPendingArtifacts(STEP_ID);
+  },
   expectedRoute: "/workbench",
 });

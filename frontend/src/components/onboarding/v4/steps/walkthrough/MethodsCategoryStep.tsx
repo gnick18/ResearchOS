@@ -51,11 +51,17 @@ import {
   buildWalkthroughStep,
 } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
-import { watchMethodsCategoryCreated } from "./lib/tour-events";
+import {
+  watchMethodsCategoryCreated,
+  TOUR_DOM_EVENTS,
+} from "./lib/tour-events";
 import {
   clearMethodsCategoryPick,
   readMethodsCategoryPick,
 } from "./MethodsCategoryPromptStep";
+import { flushPendingArtifacts, pendingArtifactStore } from "./lib/artifacts";
+
+const STEP_ID = "methods-category";
 
 /** Hardcoded fallback if the picker hand-off was dropped. Matches the
  *  pre-redesign placeholder so existing screenshots / fixture data
@@ -72,7 +78,7 @@ export function resolvePickedCategoryLabel(): string {
 }
 
 export const methodsCategoryDemoStep = buildWalkthroughStep({
-  id: "methods-category",
+  id: STEP_ID,
   speech: () => {
     const label = resolvePickedCategoryLabel();
     return `Great, let's set up ${label} as your first category. Watch.`;
@@ -97,7 +103,39 @@ export const methodsCategoryDemoStep = buildWalkthroughStep({
   // `tour:methods-category-created` from its category-create success
   // handler. The watcher fires once and the controller advances.
   completion: advanceOnEvent(watchMethodsCategoryCreated),
-  onExit: () => {
+  // Capture the new category label out of the `tour:methods-category-created`
+  // event detail so Phase 4 cleanup grid renders the right row. The
+  // category is local-state only (no backend id), so the label itself
+  // doubles as the artifact id — `Phase4CleanupStep.describeArtifact`
+  // renders "Method folder: <label>" from this. cleanup_default "keep"
+  // because the user picked the label themselves (per the methods-
+  // category-prompt beat).
+  onEnter: () => {
+    if (typeof window === "undefined") return;
+    const handler = (evt: Event) => {
+      const detail = (evt as CustomEvent<{ categoryName?: string }>).detail;
+      const label = detail?.categoryName?.trim();
+      const id = label && label.length > 0 ? label : resolvePickedCategoryLabel();
+      pendingArtifactStore.add(STEP_ID, {
+        type: "category",
+        id,
+        cleanup_default: "keep",
+      });
+      window.removeEventListener(
+        TOUR_DOM_EVENTS.methodsCategoryCreated,
+        handler,
+      );
+    };
+    window.addEventListener(
+      TOUR_DOM_EVENTS.methodsCategoryCreated,
+      handler,
+    );
+  },
+  onExit: async () => {
+    // Persist the captured category artifact to the sidecar so the
+    // Phase 4 cleanup grid (P8) lists it under "Methods" with the
+    // user-picked label.
+    await flushPendingArtifacts(STEP_ID);
     // Clear the pick after the demo consumes it so a re-run of the
     // tour starts fresh. Idempotent: safe to call when no pick was
     // ever written.

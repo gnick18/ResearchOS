@@ -42,10 +42,13 @@ import {
   advanceOnEvent,
 } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
-import { watchProjectCreated } from "./lib/tour-events";
+import { watchProjectCreated, TOUR_DOM_EVENTS } from "./lib/tour-events";
+import { flushPendingArtifacts, pendingArtifactStore } from "./lib/artifacts";
+
+const STEP_ID = "home-create-project-fill";
 
 export const homeCreateProjectFillStep = buildWalkthroughStep({
-  id: "home-create-project-fill",
+  id: STEP_ID,
   speech: (
     <>
       <p className="mb-2">
@@ -66,6 +69,33 @@ export const homeCreateProjectFillStep = buildWalkthroughStep({
   // A typed-name cursor demo would be wrong here because the user is
   // picking their own real project name. Spotlight + speech is enough.
   completion: advanceOnEvent(watchProjectCreated),
+  // Capture the created project id from the `tour:project-created`
+  // DOM event detail. The watcher itself doesn't expose the id (it's
+  // a generic "fire on advance" callback), so we attach a sibling
+  // listener on enter + tear it down on exit. The captured artifact
+  // lands in the sidecar via `onExit`'s `flushPendingArtifacts` call.
+  // Phase 4 cleanup grid (§6.17 + L24) picks it up via the
+  // wizard_resume_state.artifacts_created list.
+  onEnter: () => {
+    if (typeof window === "undefined") return;
+    const handler = (evt: Event) => {
+      const id = (evt as CustomEvent<{ id?: number }>).detail?.id;
+      if (id === undefined || id === null) return;
+      pendingArtifactStore.add(STEP_ID, {
+        type: "project",
+        id: String(id),
+        cleanup_default: "keep",
+      });
+      window.removeEventListener(TOUR_DOM_EVENTS.projectCreated, handler);
+    };
+    window.addEventListener(TOUR_DOM_EVENTS.projectCreated, handler);
+  },
+  onExit: async () => {
+    // Resolve username via getCurrentUserCached inside flushPendingArtifacts.
+    // Best-effort: a missing user clears the pending list without
+    // persisting (test fixtures + the _no_user_ sentinel both no-op).
+    await flushPendingArtifacts(STEP_ID);
+  },
   // Auto-navigate to home so the form anchor resolves on refresh.
   expectedRoute: "/",
 });

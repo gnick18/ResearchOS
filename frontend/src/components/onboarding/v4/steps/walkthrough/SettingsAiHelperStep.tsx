@@ -49,9 +49,19 @@ import {
 } from "./lib/cursor-script";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
+import { flushPendingArtifacts, pendingArtifactStore } from "./lib/artifacts";
+
+const STEP_ID = "ai-helper-deep-explain";
+
+/** Which prompt-size tab the cursor leaves selected at the end of its
+ *  script (Full → Medium → Minimal). "minimal" is the last clicked
+ *  tab in the cursor sequence so the Copy click writes the minimal
+ *  prompt to the clipboard. The artifact records this so the Phase 4
+ *  grid can render "AI prompt copied: minimal" verbatim. */
+const COPIED_PROMPT_SIZE = "minimal";
 
 export const settingsAiHelperStep = buildWalkthroughStep({
-  id: "ai-helper-deep-explain",
+  id: STEP_ID,
   speech: (
     <>
       <p className="mb-2">
@@ -102,6 +112,24 @@ export const settingsAiHelperStep = buildWalkthroughStep({
     return compactScript([full, medium, minimal, copy]);
   }),
   completion: manualAdvance("Got it, next"),
+  // Record an `ai_helper_prompt_copied` artifact on entry. Per the
+  // brief: the cursor's Copy click always fires (the audit confirmed
+  // this), so the artifact unconditionally lands. cleanup_default
+  // "keep" because the "artifact" is a clipboard write that's already
+  // happened. Phase 4 grid offers a UX-honest "you copied this prompt
+  // during the tour" record rather than a destructive cleanup;
+  // cleanup-execution.ts treats this as an unknown type → falls to
+  // the default warn-and-return branch (no-op cleanup).
+  onEnter: () => {
+    pendingArtifactStore.add(STEP_ID, {
+      type: "ai_helper_prompt_copied",
+      id: COPIED_PROMPT_SIZE,
+      cleanup_default: "keep",
+    });
+  },
+  onExit: async () => {
+    await flushPendingArtifacts(STEP_ID);
+  },
   // Gate: matches step-machine.ts `isStepGatedOut` —
   //   ai-helper-deep-explain → picks?.ai_helper is full/medium/minimal
   conditionalOn: (picks) => {

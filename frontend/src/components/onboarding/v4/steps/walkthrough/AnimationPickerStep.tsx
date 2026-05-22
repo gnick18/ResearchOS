@@ -28,6 +28,8 @@
  * later lets the user revert if they prefer a quieter theme.
  * Cursor keeps the open + pick.
  */
+import { readUserSettings } from "@/lib/settings/user-settings";
+import { getCurrentUserCached } from "@/lib/storage/json-store";
 import {
   cursorScript,
   safeClickAction,
@@ -35,9 +37,17 @@ import {
 } from "./lib/cursor-script";
 import { autoAdvanceAfter, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
+import { flushPendingArtifacts, pendingArtifactStore } from "./lib/artifacts";
+
+const STEP_ID = "personalization-animations";
+
+/** Pre-change animation snapshot. Captured in onEnter so the artifact
+ *  encodes the original animationType — used by cleanup-execution.ts
+ *  to revert via patchUserSettings. */
+let preChangeAnimation: string | null = null;
 
 export const animationPickerStep = buildWalkthroughStep({
-  id: "personalization-animations",
+  id: STEP_ID,
   speech:
     "Quick personal touch, pick an animation theme that fires when you complete experiments.",
   pose: "bouncing",
@@ -54,6 +64,54 @@ export const animationPickerStep = buildWalkthroughStep({
     return compactScript([openPicker, pickCelebration]);
   }),
   completion: autoAdvanceAfter(2500),
+  // Capture the pre-change animationType so the artifact encodes the
+  // original value for cleanup-execution.ts's settings_change revert
+  // path. Done in onEnter, BEFORE the cursor picks "celebration".
+  onEnter: async () => {
+    preChangeAnimation = null;
+    try {
+      const username = await getCurrentUserCached();
+      if (!username || username === "_no_user_") return;
+      const settings = await readUserSettings(username);
+      preChangeAnimation = settings.animationType;
+    } catch (err) {
+      console.warn(
+        "[onboarding-v4] personalization-animations baseline read failed",
+        err,
+      );
+    }
+  },
+  onExit: async () => {
+    try {
+      const username = await getCurrentUserCached();
+      if (
+        username &&
+        username !== "_no_user_" &&
+        preChangeAnimation !== null
+      ) {
+        const settings = await readUserSettings(username);
+        const toAnim = settings.animationType;
+        if (toAnim !== preChangeAnimation) {
+          // Encoded `<field>:<from>→<to>` matches the v3
+          // encodeSettingsChangeId scheme. cleanup_default "keep" per
+          // L24 default-keep + the brief — Phase 4 grid lets user
+          // flip back to discard if they want to revert.
+          pendingArtifactStore.add(STEP_ID, {
+            type: "settings_change",
+            id: `animationType:${preChangeAnimation}→${toAnim}`,
+            cleanup_default: "keep",
+          });
+        }
+      }
+    } catch (err) {
+      console.warn(
+        "[onboarding-v4] personalization-animations exit-read failed",
+        err,
+      );
+    }
+    preChangeAnimation = null;
+    await flushPendingArtifacts(STEP_ID);
+  },
   // Animation picker lives on the Gantt toolbar.
   expectedRoute: "/gantt",
 });

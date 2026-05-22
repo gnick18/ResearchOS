@@ -18,6 +18,8 @@
  * their final color (Phase 4 cleanup lets the user revert / re-pick).
  * Cursor keeps the swatch click.
  */
+import { readUserSettings } from "@/lib/settings/user-settings";
+import { getCurrentUserCached } from "@/lib/storage/json-store";
 import {
   cursorScript,
   safeClickAction,
@@ -25,9 +27,18 @@ import {
 } from "./lib/cursor-script";
 import { autoAdvanceAfter, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
+import { flushPendingArtifacts, pendingArtifactStore } from "./lib/artifacts";
+
+const STEP_ID = "personalization-color";
+
+/** Pre-change settings snapshot captured in onEnter. The `to` half of
+ *  the artifact is resolved at exit by reading the settings again, so
+ *  the from→to pair encodes the actual change that landed (even when
+ *  the user toggled the cursor's pick before exit). */
+let preChangeColor: string | null = null;
 
 export const settingsColorStep = buildWalkthroughStep({
-  id: "personalization-color",
+  id: STEP_ID,
   speech: "Now let's pick your color. Watch the chrome shift live.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.settingsColorPicker),
@@ -43,6 +54,56 @@ export const settingsColorStep = buildWalkthroughStep({
     return compactScript([swatch]);
   }),
   completion: autoAdvanceAfter(2000),
+  // Capture the pre-change color so the artifact encodes the original
+  // value for the cleanup-execution.ts settings_change revert path.
+  // Done in onEnter (BEFORE the cursor clicks the swatch) so the
+  // snapshot reflects what the user had, not what BeakerBot picked.
+  onEnter: async () => {
+    preChangeColor = null;
+    try {
+      const username = await getCurrentUserCached();
+      if (!username || username === "_no_user_") return;
+      const settings = await readUserSettings(username);
+      preChangeColor = settings.color;
+    } catch (err) {
+      console.warn(
+        "[onboarding-v4] personalization-color baseline read failed",
+        err,
+      );
+    }
+  },
+  onExit: async () => {
+    try {
+      const username = await getCurrentUserCached();
+      if (
+        username &&
+        username !== "_no_user_" &&
+        preChangeColor !== null
+      ) {
+        const settings = await readUserSettings(username);
+        const toColor = settings.color;
+        if (toColor !== preChangeColor) {
+          // Encoded `<field>:<from>→<to>` (U+2192) matches v3's
+          // encodeSettingsChangeId; cleanup-execution.ts splits on the
+          // arrow to revert. cleanup_default "keep" per L24 default-keep
+          // and the brief — user might keep the new color but the
+          // cleanup grid lets them flip it back.
+          pendingArtifactStore.add(STEP_ID, {
+            type: "settings_change",
+            id: `color:${preChangeColor}→${toColor}`,
+            cleanup_default: "keep",
+          });
+        }
+      }
+    } catch (err) {
+      console.warn(
+        "[onboarding-v4] personalization-color exit-read failed",
+        err,
+      );
+    }
+    preChangeColor = null;
+    await flushPendingArtifacts(STEP_ID);
+  },
   expectedRoute: "/settings",
 });
 

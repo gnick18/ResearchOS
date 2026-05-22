@@ -52,8 +52,11 @@ import {
 } from "./lib/cursor-script";
 import { advanceOnEvent, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
-import { watchMethodCreated } from "./lib/tour-events";
+import { watchMethodCreated, TOUR_DOM_EVENTS } from "./lib/tour-events";
 import { readMethodsCategoryPick } from "./MethodsCategoryPromptStep";
+import { flushPendingArtifacts, pendingArtifactStore } from "./lib/artifacts";
+
+const STEP_ID = "methods-create";
 
 export const FUNNY_METHOD_NAME =
   "BeakerBot's Patent-Pending Coffee Brewing Protocol";
@@ -88,7 +91,7 @@ This protocol does NOT replace actual lab methods. Real PCRs are upstairs.
 const FALLBACK_CATEGORY = "Methods";
 
 export const methodsCreateStep = buildWalkthroughStep({
-  id: "methods-create",
+  id: STEP_ID,
   speech:
     "Time to make a method. I'm picking Standard Markdown and typing in something obviously-not-real lab work, so you can see how the editor flows.",
   pose: "typing-on-laptop",
@@ -155,5 +158,29 @@ export const methodsCreateStep = buildWalkthroughStep({
     ]);
   }),
   completion: advanceOnEvent(watchMethodCreated),
+  // Capture the created method id out of the `tour:method-created` DOM
+  // event detail (dispatched by CreateMethodModal on save success). The
+  // id is encoded with the `:placeholder` source tag so the Phase 4
+  // cleanup grid renders "Method #N (placeholder body)" via
+  // decodeMethodSource — keeps the v3 + v4 grid display consistent.
+  // cleanup_default "discard" because BeakerBot wrote a funny coffee
+  // method, not real lab content (per the brief).
+  onEnter: () => {
+    if (typeof window === "undefined") return;
+    const handler = (evt: Event) => {
+      const id = (evt as CustomEvent<{ id?: number }>).detail?.id;
+      if (id === undefined || id === null) return;
+      pendingArtifactStore.add(STEP_ID, {
+        type: "method",
+        id: `${id}:placeholder`,
+        cleanup_default: "discard",
+      });
+      window.removeEventListener(TOUR_DOM_EVENTS.methodCreated, handler);
+    };
+    window.addEventListener(TOUR_DOM_EVENTS.methodCreated, handler);
+  },
+  onExit: async () => {
+    await flushPendingArtifacts(STEP_ID);
+  },
   expectedRoute: "/methods",
 });

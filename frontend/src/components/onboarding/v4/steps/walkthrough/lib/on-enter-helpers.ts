@@ -35,6 +35,7 @@ import { fileService } from "@/lib/file-system/file-service";
 import { taskNotesBase } from "@/lib/tasks/results-paths";
 import { patchOnboarding } from "@/lib/onboarding/sidecar";
 import type { Project, Task } from "@/lib/types";
+import { encodeTelegramImageId } from "../../../../v3/steps/walkthrough/lib/wizard-artifacts";
 import {
   DEP_CHAIN_NAMES,
   spawnDemoDependencyTasks,
@@ -107,7 +108,9 @@ async function getActiveExperiment(projectId: number): Promise<Task | null> {
  * registry binding ignores the return; the value is exposed so a
  * future P12 patch can record artifact ids into the sidecar.
  */
-export async function onEnterGanttChainedDeps(): Promise<number[]> {
+export async function onEnterGanttChainedDeps(ctx: {
+  username: string | null;
+}): Promise<number[]> {
   const project = await getActiveProject();
   if (!project) {
     console.warn(
@@ -120,7 +123,35 @@ export async function onEnterGanttChainedDeps(): Promise<number[]> {
     const demoNameSet = new Set<string>(DEP_CHAIN_NAMES);
     const alreadyPresent = existing.some((t) => demoNameSet.has(t.name));
     if (alreadyPresent) return [];
-    return await spawnDemoDependencyTasks(project.id);
+    const spawned = await spawnDemoDependencyTasks(project.id);
+    // Record one `task` artifact per spawned demo so the Phase 4
+    // cleanup grid shows three rows under "Tasks" with
+    // cleanup_default "discard". Type stays `task` (the brief reconciled
+    // the docstring's hypothetical `demo_dep_task` to the canonical
+    // `task` type — Phase4CleanupStep groups by type and a one-off
+    // `demo_dep_task` would land in the tail "Other" section).
+    // Username-gated: a missing user is best-effort, the spawn still
+    // ran. cleanup-execution.ts `case "task"` already routes to
+    // tasksApi.delete.
+    if (ctx.username) {
+      for (const taskId of spawned) {
+        try {
+          await patchOnboarding(ctx.username, (cur) =>
+            appendArtifact(cur, {
+              type: "task",
+              id: String(taskId),
+              cleanup_default: "discard",
+            }),
+          );
+        } catch (err) {
+          console.warn(
+            "[onboarding-v4] gantt-chained-deps artifact persist failed",
+            err,
+          );
+        }
+      }
+    }
+    return spawned;
   } catch (err) {
     console.warn(
       "[onboarding-v4] gantt-chained-deps onEnter spawn failed",
@@ -231,6 +262,31 @@ export async function onEnterHybridEditorImageDrop(ctx: {
       suggestedFilename: SELFIE_FILENAME,
       altText: "BeakerBot selfie",
     });
+    // Record the artifact so Phase 4 cleanup can wipe the selfie on
+    // tour exit. The id encodes filename + task location via the v3
+    // `encodeTelegramImageId` helper — keeps the same `<filename>:task-<id>`
+    // shape Phase 4 + cleanup-execution.ts already know how to decode.
+    // cleanup_default "discard" because the selfie is a demo asset,
+    // not user content (per the brief). Username-gated; sidecar is
+    // per-user.
+    if (ctx.username) {
+      try {
+        await patchOnboarding(ctx.username, (cur) =>
+          appendArtifact(cur, {
+            type: "notes_image",
+            id: encodeTelegramImageId(SELFIE_FILENAME, {
+              taskId: experiment.id,
+            }),
+            cleanup_default: "discard",
+          }),
+        );
+      } catch (err) {
+        console.warn(
+          "[onboarding-v4] hybrid-editor-image-drop artifact persist failed",
+          err,
+        );
+      }
+    }
     return true;
   } catch (err) {
     console.warn(

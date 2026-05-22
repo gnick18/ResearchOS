@@ -28,6 +28,7 @@
  * the user ("Drag the handle to resize"): it explains a capability,
  * and the cursor demonstrates. Cursor keeps the drag.
  */
+import { projectsApi, tasksApi } from "@/lib/local-api";
 import {
   cursorScript,
   safeDragAction,
@@ -36,9 +37,12 @@ import {
 } from "./lib/cursor-script";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
+import { flushPendingArtifacts, pendingArtifactStore } from "./lib/artifacts";
+
+const STEP_ID = "hybrid-editor-resize";
 
 export const hybridEditorResizeStep = buildWalkthroughStep({
-  id: "hybrid-editor-resize",
+  id: STEP_ID,
   speech: (
     <>
       <p className="mb-2">
@@ -72,4 +76,45 @@ export const hybridEditorResizeStep = buildWalkthroughStep({
     return compactScript([drag]);
   }),
   completion: manualAdvance("Got it, next"),
+  // Track the experiment whose notes BeakerBot edited during the §6.7
+  // arc. Active experiment = most-recently-created experiment in the
+  // most-recently-created project (mirrors `getActiveExperiment` in
+  // on-enter-helpers.ts). Records a `notes_content` artifact with
+  // cleanup_default "keep" per L24 default-keep + the brief — the
+  // cleanup-execution.ts notes-content case is a no-op (reverting
+  // per-keystroke edits is out of scope) so this row exists in the
+  // Phase 4 grid as a UX-honest record of what happened rather than a
+  // destructive cleanup.
+  onEnter: async () => {
+    try {
+      const projects = await projectsApi.list();
+      if (!projects.length) return;
+      const sorted = [...projects].sort((a, b) => {
+        const cmp = (b.created_at ?? "").localeCompare(a.created_at ?? "");
+        if (cmp !== 0) return cmp;
+        return b.id - a.id;
+      });
+      const project = sorted[0];
+      if (!project) return;
+      const tasks = await tasksApi.listByProject(project.id);
+      const experiments = tasks
+        .filter((t) => t.task_type === "experiment")
+        .sort((a, b) => b.id - a.id);
+      const experiment = experiments[0];
+      if (!experiment) return;
+      pendingArtifactStore.add(STEP_ID, {
+        type: "notes_content",
+        id: String(experiment.id),
+        cleanup_default: "keep",
+      });
+    } catch (err) {
+      console.warn(
+        "[onboarding-v4] hybrid-editor-resize artifact capture failed",
+        err,
+      );
+    }
+  },
+  onExit: async () => {
+    await flushPendingArtifacts(STEP_ID);
+  },
 });

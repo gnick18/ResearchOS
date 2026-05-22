@@ -67,6 +67,15 @@ const SECTIONS: ReadonlyArray<{
   { label: "Methods", types: ["category", "method"] },
   { label: "Experiments", types: ["experiment"] },
   { label: "Tasks", types: ["task"] },
+  // v4 Phase 4 cleanup-completeness sweep 2026-05-21: split notes
+  // entries off into their own section so the §6.7 selfie image +
+  // notes_content edits are visible to the user as a coherent group
+  // rather than getting buried under "Conditional add-ons" (which
+  // already has 10+ rows).
+  {
+    label: "Notes",
+    types: ["notes_image", "notes_content"],
+  },
   {
     label: "Settings changes",
     types: ["settings_change"],
@@ -84,6 +93,7 @@ const SECTIONS: ReadonlyArray<{
       "purchase",
       "purchase_item",
       "funding_string",
+      "ai_helper_prompt_copied",
     ],
   },
 ];
@@ -155,6 +165,18 @@ function describeArtifact(artifact: WizardArtifact): string {
       return `Hybrid editor note: ${artifact.id}`;
     case "hybrid_edit":
       return `Note edits (${artifact.id})`;
+    case "notes_image": {
+      const decoded = decodeTelegramImageLocation(artifact.id);
+      if (!decoded) return `Notes image: ${artifact.id}`;
+      if (decoded.location === "inbox") {
+        return `Notes image: ${decoded.filename} (in image inbox)`;
+      }
+      return `Notes image: ${decoded.filename} (on experiment #${decoded.location.taskId})`;
+    }
+    case "notes_content":
+      return `Notes content on experiment #${artifact.id}`;
+    case "ai_helper_prompt_copied":
+      return `AI helper prompt copied (${artifact.id})`;
     default:
       return `${artifact.type} ${artifact.id}`;
   }

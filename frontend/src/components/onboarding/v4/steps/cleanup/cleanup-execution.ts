@@ -46,6 +46,22 @@
  *                          on explicit discard we still leave the note
  *                          body alone (reverting per-keystroke is out
  *                          of scope).
+ *   - `notes_image`      — selfie / hybrid-editor image dropped into
+ *                          the experiment's Notes-tab folder during
+ *                          §6.7. Routes to `taskNotesBase/Images`
+ *                          (NOT the outer taskResultsBase) because
+ *                          the §6.7 onEnter helper writes there. Id
+ *                          encodes `<filename>:<location>` via the
+ *                          v3 encodeTelegramImageId scheme.
+ *   - `notes_content`    — record-keeping row for the notes the
+ *                          §6.7 cursor typed. No-op cleanup (per
+ *                          L24); reverting per-keystroke edits is out
+ *                          of scope.
+ *   - `ai_helper_prompt_copied` — record-keeping row for the AI
+ *                          Helper prompt the §6.10 cursor copied to
+ *                          the clipboard. No-op cleanup (the
+ *                          clipboard write already happened; nothing
+ *                          to undo on disk).
  *
  * The brief flags that v4's lab tour writes its own artifacts (BeakerBot
  * user + shared tasks) which P7 marks `cleanup_excluded: true`. Those
@@ -61,6 +77,7 @@ import {
   methodsApi,
   projectsApi,
   purchasesApi,
+  sharingApi,
   tasksApi,
   usersApi,
 } from "@/lib/local-api";
@@ -71,7 +88,9 @@ import {
   patchUserSettings,
   type UserSettings,
 } from "@/lib/settings/user-settings";
+import { taskNotesBase } from "@/lib/tasks/results-paths";
 import type { WizardArtifact } from "@/lib/onboarding/sidecar";
+import { NOTIFICATIONS_STEP_TEST_TITLE } from "../walkthrough/NotificationsBellStep";
 import {
   decodeCalendarFeedId,
   decodeMethodSource,
@@ -97,11 +116,24 @@ export interface CleanupSummary {
 /**
  * Best-effort cleanup sweep. Returns a summary the cleanup-grid component
  * can render as a toast on partial failure. Never throws.
+ *
+ * Side-effect: BEFORE the artifact loop runs, sweeps any §6.3 demo
+ * notification ("Welcome to ResearchOS") out of the user's inbox. The
+ * notification isn't artifact-tracked (it predates the
+ * artifact-completeness sweep + carrying it via the sidecar would
+ * require a new artifact write in NotificationsBellStep that the v4
+ * Phase 4 cleanup-completeness sweep deemed out of scope). Without
+ * this sweep, a user who skipped §6.3-delete or who got the
+ * "re-light" code path on a tour re-run would carry an unread
+ * "Welcome to ResearchOS" notification past the tour. Defensive: runs
+ * regardless of cleanup decisions; failure to dismiss is logged but
+ * never blocks the actual cleanup.
  */
 export async function cleanupArtifacts(
   artifacts: ReadonlyArray<WizardArtifact>,
   username: string,
 ): Promise<CleanupSummary> {
+  await dismissWelcomeNotifications();
   const summary: CleanupSummary = {
     attempted: artifacts.length,
     succeeded: 0,
@@ -127,6 +159,42 @@ export async function cleanupArtifacts(
     }
   }
   return summary;
+}
+
+/**
+ * Sweep any §6.3 demo notifications ("Welcome to ResearchOS") out of
+ * the user's inbox. See the cleanupArtifacts JSDoc for the rationale.
+ * Best-effort: a failure to list or dismiss is logged + swallowed.
+ */
+async function dismissWelcomeNotifications(): Promise<void> {
+  try {
+    const { notifications } = await sharingApi.getNotifications();
+    const targets = notifications.filter(
+      (n) =>
+        n.type === "event_reminder" &&
+        n.event_title === NOTIFICATIONS_STEP_TEST_TITLE,
+    );
+    if (targets.length === 0) return;
+    for (const n of targets) {
+      try {
+        await sharingApi.dismissNotification(n.id);
+      } catch (err) {
+        console.warn(
+          "[onboarding-v4] cleanup welcome-notif dismiss failed:",
+          err,
+        );
+      }
+    }
+    console.warn(
+      "[onboarding-v4] cleanup dismissed %d Welcome-to-ResearchOS notif(s)",
+      targets.length,
+    );
+  } catch (err) {
+    console.warn(
+      "[onboarding-v4] cleanup welcome-notif sweep failed (list step):",
+      err,
+    );
+  }
 }
 
 async function cleanupOne(
@@ -251,12 +319,52 @@ async function cleanupOne(
     }
     case "variation_note":
     case "note_entry":
-    case "hybrid_edit": {
+    case "hybrid_edit":
+    case "notes_content": {
       // L24 default-keep contract for editor content. Even on explicit
       // discard we leave the note body alone; reverting per-keystroke
       // edits is out of scope for the cleanup grid. Variation notes
       // travel with the experiment they're attached to, so a discarded
-      // experiment removes them automatically.
+      // experiment removes them automatically. `notes_content` (the
+      // §6.7 hybrid editor notes the user / BeakerBot typed) lands in
+      // the same bucket — the row exists as a UX-honest record, not a
+      // cleanup target.
+      return;
+    }
+    case "notes_image": {
+      // v4 Phase 4 cleanup-completeness sweep 2026-05-21: the §6.7
+      // selfie image lives in the experiment's Notes-tab folder
+      // (taskNotesBase). The id encodes filename + location via the
+      // v3 encodeTelegramImageId scheme (`<filename>:task-<id>` or
+      // `<filename>:inbox`), so we decode and route to the right
+      // base before calling deleteImageFromBase (which itself is
+      // idempotent on missing files).
+      const decoded = decodeTelegramImageLocation(artifact.id);
+      if (!decoded) return;
+      if (decoded.location === "inbox") {
+        await deleteImageFromBase(
+          `users/${username}/inbox`,
+          decoded.filename,
+        );
+        return;
+      }
+      const taskId = decoded.location.taskId;
+      const task = await tasksApi.get(taskId);
+      if (!task) return;
+      const owner = task.owner || username;
+      // Notes images live under taskNotesBase, NOT the outer
+      // taskResultsBase. The §6.7 onEnter helper writes there
+      // explicitly so the Notes-tab ImageStrip surfaces them; the
+      // cleanup mirror routes to the same path.
+      const base = taskNotesBase({ id: taskId, owner });
+      await deleteImageFromBase(base, decoded.filename);
+      return;
+    }
+    case "ai_helper_prompt_copied": {
+      // The "artifact" is a clipboard write that's already happened;
+      // there's nothing on disk to revert. The row exists in the
+      // Phase 4 grid as a UX-honest "you copied this prompt during
+      // the tour" record. Cleanup is a no-op.
       return;
     }
     default: {

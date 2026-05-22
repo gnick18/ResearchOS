@@ -270,8 +270,8 @@ patchLabStep("lab-cleanup", buildLabCleanupStep());
 // partial failure produces a no-op step instead of a tour-wedge.
 TOUR_STEPS["gantt-chained-deps"] = {
   ...TOUR_STEPS["gantt-chained-deps"],
-  onEnter: async () => {
-    await onEnterGanttChainedDeps();
+  onEnter: async (ctx) => {
+    await onEnterGanttChainedDeps(ctx);
   },
 };
 TOUR_STEPS["hybrid-editor-image-drop"] = {

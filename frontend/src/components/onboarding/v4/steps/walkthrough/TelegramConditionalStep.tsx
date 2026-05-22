@@ -37,8 +37,11 @@ import { appendArtifact } from "./lib/artifacts";
  *       synthetic image is the parallel-asset PNG referenced in §7
  *       (`public/onboarding/beakerbot-telegram-silly.png`, ~100-200px;
  *       a different funny BeakerBot pose than the §6.7 selfie). Phase
- *       4 cleanup gets a `telegram_synthetic_image` artifact with
- *       cleanup_default: "discard" per §6.13.
+ *       4 cleanup gets a `telegram_image` artifact with
+ *       cleanup_default: "discard" per §6.13. (Type renamed from
+ *       `telegram_synthetic_image` to `telegram_image` per the v4
+ *       Phase 4 cleanup-completeness sweep 2026-05-21 so it matches
+ *       the Phase 4 grid + cleanup-execution.ts routing.)
  *
  * **Asset gap (FLAGGED):** `public/onboarding/beakerbot-telegram-silly.png`
  * doesn't exist yet. P6 wires the step to expect it at that path; the
@@ -240,9 +243,11 @@ function TelegramBranchPicker() {
           appendArtifact(cur, {
             type: artifactType,
             id: artifactId,
-            // §6.13 fate: both telegram_pair + telegram_synthetic_image
-            // are cleanup_default: "discard" per spec. The Branch B
-            // path has no artifact at all.
+            // §6.13 fate: both telegram_link + telegram_image are
+            // cleanup_default: "discard" per spec. The Branch B path
+            // has no artifact at all. (Type strings reconciled with
+            // Phase4CleanupStep + cleanup-execution.ts per the v4
+            // Phase 4 cleanup-completeness sweep 2026-05-21.)
             cleanup_default: isLater ? "keep" : "discard",
           }),
         );
@@ -273,9 +278,21 @@ function TelegramBranchPicker() {
           try {
             const { landed } = await injectSyntheticImage(username);
             setSyntheticLanded(landed);
+            // Encode as `<filename>:inbox` so cleanup-execution.ts's
+            // `telegram_image` case (which decodes via
+            // decodeTelegramImageLocation) finds the file in
+            // `users/<u>/inbox/Images/<filename>`. The PNG-vs-SVG
+            // distinction is captured by writing the SVG with a `.svg`
+            // suffix above; the id stores the on-disk filename so the
+            // cleanup delete hits the right file regardless of which
+            // fallback ran.
+            const onDiskFilename =
+              landed === "svg-fallback"
+                ? SYNTHETIC_FILENAME.replace(/\.png$/, ".svg")
+                : SYNTHETIC_FILENAME;
             await persistArtifact(
-              "telegram_synthetic_image",
-              `${SYNTHETIC_FILENAME}:${landed}`,
+              "telegram_image",
+              `${onDiskFilename}:inbox`,
               false,
             );
             advanceTimerRef.current = setTimeout(() => {
@@ -301,7 +318,7 @@ function TelegramBranchPicker() {
     (updated: TelegramPairing | null | undefined) => {
       if (updated) {
         setPaired(true);
-        void persistArtifact("telegram_pair", "paired", false);
+        void persistArtifact("telegram_link", "paired", false);
       }
     },
     [persistArtifact],
