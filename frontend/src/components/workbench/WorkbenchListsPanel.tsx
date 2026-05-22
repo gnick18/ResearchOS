@@ -16,9 +16,8 @@ import {
   bucketListTasks,
   type ListSection,
 } from "@/lib/workbench/listSectionAssignment";
-import ListTaskRow, {
-  type DateSignalKind,
-} from "@/components/workbench/ListTaskRow";
+import { type DateSignalKind } from "@/components/workbench/ListTaskRow";
+import ExpandableListCard from "@/components/workbench/ExpandableListCard";
 import SharedFromPill from "@/components/workbench/SharedFromPill";
 
 const DEFAULT_COLORS = [
@@ -95,7 +94,13 @@ interface Props {
 
 export default function WorkbenchListsPanel({ projects }: Props) {
   const queryClient = useQueryClient();
+  // The popup mount path stays alive ONLY as the "Open full view" escape
+  // hatch from inside the inline-expanded panel. Card clicks themselves
+  // toggle the inline accordion instead of opening the popup (single-
+  // expanded contract: opening one collapses the previous). The Gantt
+  // page keeps its own popup wiring and is unaffected.
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [expandedTaskKey, setExpandedTaskKey] = useState<string | null>(null);
   const [earlierOpen, setEarlierOpen] = useState(false);
   const selectedProjectIds = useAppStore((s) => s.selectedProjectIds);
   const setIsCreatingTask = useAppStore((s) => s.setIsCreatingTask);
@@ -202,22 +207,28 @@ export default function WorkbenchListsPanel({ projects }: Props) {
         <SharedFromPill owner={task.owner} />
       ) : undefined;
       const canToggle = !task.is_shared_with_me || task.shared_permission === "edit";
+      const tk = taskKey(task);
+      const isExpanded = expandedTaskKey === tk;
       return (
-        <ListTaskRow
-          key={taskKey(task)}
+        <ExpandableListCard
+          key={tk}
           task={task}
           projectName={projectNameFor(task)}
           projectColor={color}
           dateSignal={signal.text}
           dateKind={signal.kind}
           sharedIndicator={sharedIndicator}
-          onOpen={() => setSelectedTask(task)}
+          isExpanded={isExpanded}
+          onToggleExpand={() =>
+            setExpandedTaskKey((prev) => (prev === tk ? null : tk))
+          }
           onToggleComplete={() => handleToggleComplete(task)}
           canToggleComplete={canToggle}
+          onOpenFullView={() => setSelectedTask(task)}
         />
       );
     },
-    [projectColors, projectNameFor, today, handleToggleComplete],
+    [projectColors, projectNameFor, today, handleToggleComplete, expandedTaskKey],
   );
 
   const totalActive =

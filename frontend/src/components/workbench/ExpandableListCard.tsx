@@ -1,0 +1,679 @@
+"use client";
+
+// Workbench Lists tab inline-expand card.
+//
+// Replaces the popup behavior previously used on /workbench → Lists tab.
+// Clicking the card toggles an accordion-style panel below that mirrors
+// the popup's interactions (rename, items checklist, add item, mark
+// list complete) but renders inline. The popup mount path stays intact
+// for the Gantt page and every other surface — only the Lists panel
+// is rerouted to this component.
+//
+// Single-expanded contract: parent owns `isExpanded`, so opening one
+// card collapses the previously-open one. This avoids deep page
+// scroll-jank when several lists carry long item arrays.
+
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import type { SubTask, Task } from "@/lib/types";
+import { taskKey } from "@/lib/types";
+import { ownerScopedTasksApi } from "@/lib/tasks/owner-scoped-api";
+import Tooltip from "@/components/Tooltip";
+import SubTaskProgressDots from "@/components/workbench/SubTaskProgressDots";
+import type { DateSignalKind } from "@/components/workbench/ListTaskRow";
+
+const DATE_CHIP_CLASSES: Record<DateSignalKind, string> = {
+  overdue: "text-red-700 bg-red-50 border border-red-200",
+  doing: "text-blue-700 bg-blue-50 border border-blue-200",
+  upcoming: "text-gray-600 bg-gray-50 border border-gray-200",
+  done: "text-gray-500 bg-gray-50 border border-gray-200",
+};
+
+export interface ExpandableListCardProps {
+  task: Task;
+  projectName: string;
+  projectColor: string;
+  dateSignal: string;
+  dateKind: DateSignalKind;
+  sharedIndicator?: ReactNode;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  onToggleComplete: () => void;
+  canToggleComplete?: boolean;
+  /** Optional escape hatch: open the full popup view from inside the
+   *  expanded panel (parent supplies this so the popup mount stays
+   *  centralized in the panel). */
+  onOpenFullView?: () => void;
+}
+
+export default function ExpandableListCard({
+  task,
+  projectName,
+  projectColor,
+  dateSignal,
+  dateKind,
+  sharedIndicator,
+  isExpanded,
+  onToggleExpand,
+  onToggleComplete,
+  canToggleComplete = true,
+  onOpenFullView,
+}: ExpandableListCardProps) {
+  const queryClient = useQueryClient();
+  const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
+
+  const readOnly = task.is_shared_with_me && task.shared_permission !== "edit";
+
+  // ── Items state ─────────────────────────────────────────────────────────
+  const [subTasks, setSubTasks] = useState<SubTask[]>(task.sub_tasks ?? []);
+  const [newItemText, setNewItemText] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  // Keep local state in sync when the task prop changes (parent refetched).
+  useEffect(() => {
+    setSubTasks(task.sub_tasks ?? []);
+  }, [task.sub_tasks]);
+
+  // ── Name editing ────────────────────────────────────────────────────────
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState(task.name);
+  useEffect(() => {
+    setNameDraft(task.name);
+  }, [task.name]);
+
+  // ── Item-text editing (per-row) ─────────────────────────────────────────
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [itemDraft, setItemDraft] = useState("");
+
+  // ── Animation: expand height via max-height with measured content ──────
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const [maxHeight, setMaxHeight] = useState<number | undefined>(
+    isExpanded ? undefined : 0,
+  );
+
+  // Recompute max-height whenever the expanded state or content changes.
+  useEffect(() => {
+    const content = contentRef.current;
+    if (!content) return;
+    if (isExpanded) {
+      // First lock to measured pixel height for the animation, then drop
+      // the cap on transitionend so adds/edits inside the panel can grow
+      // freely without re-measuring on every keystroke.
+      const measured = content.scrollHeight;
+      setMaxHeight(measured);
+    } else {
+      // If currently uncapped (undefined), set to current rendered height
+      // first so the transition has a starting value, then collapse to 0.
+      if (panelRef.current && maxHeight === undefined) {
+        const h = panelRef.current.scrollHeight;
+        setMaxHeight(h);
+        // Yield to let the browser commit the starting value before we
+        // animate to 0.
+        requestAnimationFrame(() => setMaxHeight(0));
+      } else {
+        setMaxHeight(0);
+      }
+    }
+    // We intentionally exclude maxHeight from deps — including it
+    // creates a feedback loop with the collapse two-step.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExpanded, subTasks.length]);
+
+  const handleTransitionEnd = useCallback(() => {
+    if (isExpanded) {
+      // Drop the height cap so dynamic content (added items, growing
+      // textareas) can size naturally.
+      setMaxHeight(undefined);
+    }
+  }, [isExpanded]);
+
+  // ── Mutations ───────────────────────────────────────────────────────────
+
+  const refetch = useCallback(async () => {
+    await Promise.all([
+      queryClient.refetchQueries({ queryKey: ["tasks"] }),
+      queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] }),
+    ]);
+  }, [queryClient, task]);
+
+  const handleSaveName = useCallback(async () => {
+    const trimmed = nameDraft.trim();
+    if (!trimmed || trimmed === task.name) {
+      setNameDraft(task.name);
+      setEditingName(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      await tasksApi.update(task.id, { name: trimmed });
+      await refetch();
+    } catch {
+      alert("Failed to rename list");
+      setNameDraft(task.name);
+    } finally {
+      setSaving(false);
+      setEditingName(false);
+    }
+  }, [nameDraft, task, tasksApi, refetch]);
+
+  const handleToggleSubTask = useCallback(
+    async (subTaskId: string) => {
+      const next = subTasks.map((st) =>
+        st.id === subTaskId ? { ...st, is_complete: !st.is_complete } : st,
+      );
+      setSubTasks(next);
+      setSaving(true);
+      try {
+        await tasksApi.update(task.id, { sub_tasks: next });
+        await refetch();
+      } catch {
+        alert("Failed to update item");
+        // Roll back local state on failure.
+        setSubTasks(task.sub_tasks ?? []);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [subTasks, task, tasksApi, refetch],
+  );
+
+  const handleAddItem = useCallback(async () => {
+    const text = newItemText.trim();
+    if (!text) return;
+    const next: SubTask[] = [
+      ...subTasks,
+      { id: `st-${Date.now()}`, text, is_complete: false },
+    ];
+    setSubTasks(next);
+    setNewItemText("");
+    setSaving(true);
+    try {
+      await tasksApi.update(task.id, { sub_tasks: next });
+      await refetch();
+    } catch {
+      alert("Failed to add item");
+      setSubTasks(task.sub_tasks ?? []);
+    } finally {
+      setSaving(false);
+    }
+  }, [newItemText, subTasks, task, tasksApi, refetch]);
+
+  const handleDeleteItem = useCallback(
+    async (subTaskId: string) => {
+      const next = subTasks.filter((st) => st.id !== subTaskId);
+      setSubTasks(next);
+      setSaving(true);
+      try {
+        await tasksApi.update(task.id, { sub_tasks: next });
+        await refetch();
+      } catch {
+        alert("Failed to delete item");
+        setSubTasks(task.sub_tasks ?? []);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [subTasks, task, tasksApi, refetch],
+  );
+
+  const handleSaveItemText = useCallback(
+    async (subTaskId: string) => {
+      const trimmed = itemDraft.trim();
+      const original = subTasks.find((st) => st.id === subTaskId);
+      setEditingItemId(null);
+      if (!original) return;
+      if (!trimmed || trimmed === original.text) return;
+      const next = subTasks.map((st) =>
+        st.id === subTaskId ? { ...st, text: trimmed } : st,
+      );
+      setSubTasks(next);
+      setSaving(true);
+      try {
+        await tasksApi.update(task.id, { sub_tasks: next });
+        await refetch();
+      } catch {
+        alert("Failed to update item");
+        setSubTasks(task.sub_tasks ?? []);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [itemDraft, subTasks, task, tasksApi, refetch],
+  );
+
+  const handleMarkListComplete = useCallback(async () => {
+    const nextComplete = !task.is_complete;
+    // Forward-cascade matches WorkbenchListsPanel's existing parent
+    // checkbox behavior.
+    const cascadeSubTasks =
+      nextComplete && subTasks.length > 0
+        ? subTasks.map((st) =>
+            st.is_complete ? st : { ...st, is_complete: true },
+          )
+        : undefined;
+    setSaving(true);
+    try {
+      await tasksApi.update(task.id, {
+        is_complete: nextComplete,
+        ...(cascadeSubTasks ? { sub_tasks: cascadeSubTasks } : {}),
+      });
+      await refetch();
+    } catch {
+      alert("Failed to update list");
+    } finally {
+      setSaving(false);
+    }
+  }, [task, subTasks, tasksApi, refetch]);
+
+  const totalSubTasks = subTasks.length;
+  const completedSubTasks = subTasks.filter((s) => s.is_complete).length;
+
+  const handleCardKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onToggleExpand();
+    }
+  };
+
+  return (
+    <div
+      className={`bg-white border rounded-lg transition-all ${
+        isExpanded
+          ? "border-violet-300 shadow-sm"
+          : "border-gray-200 hover:border-gray-300 hover:shadow-sm"
+      }`}
+      data-testid="expandable-list-card"
+      data-expanded={isExpanded ? "true" : "false"}
+    >
+      {/* ── Card header (clickable to expand/collapse) ───────────────── */}
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={isExpanded}
+        onClick={onToggleExpand}
+        onKeyDown={handleCardKey}
+        className="group flex items-start gap-3 px-3 py-2.5 cursor-pointer text-left"
+      >
+        {/* Parent completion checkbox */}
+        <Tooltip
+          label={task.is_complete ? "Mark as incomplete" : "Mark as complete"}
+          placement="top"
+        >
+          <button
+            type="button"
+            aria-label={
+              task.is_complete ? "Mark as incomplete" : "Mark as complete"
+            }
+            disabled={!canToggleComplete}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (canToggleComplete) onToggleComplete();
+            }}
+            className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors ${
+              task.is_complete
+                ? "bg-emerald-500 border border-emerald-500 text-white hover:bg-emerald-600"
+                : "border border-gray-300 hover:border-emerald-500 hover:bg-emerald-50"
+            } ${canToggleComplete ? "" : "opacity-50 cursor-not-allowed"}`}
+          >
+            {task.is_complete && (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M20 6L9 17l-5-5" />
+              </svg>
+            )}
+          </button>
+        </Tooltip>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start gap-2">
+            <span
+              className={`text-sm flex-1 min-w-0 truncate ${
+                task.is_complete
+                  ? "text-gray-500 line-through"
+                  : "text-gray-900 font-medium"
+              }`}
+            >
+              {task.name}
+            </span>
+
+            {totalSubTasks > 0 && (
+              <SubTaskProgressDots
+                completed={completedSubTasks}
+                total={totalSubTasks}
+              />
+            )}
+          </div>
+
+          <div className="mt-1 flex items-center gap-2 flex-wrap text-xs">
+            <span className="inline-flex items-center gap-1.5 text-gray-500">
+              <span
+                className="w-2 h-2 rounded-full flex-shrink-0"
+                style={{ backgroundColor: projectColor }}
+                aria-hidden
+              />
+              <span className="truncate max-w-[16rem]">{projectName}</span>
+            </span>
+            <span
+              className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] tabular-nums ${DATE_CHIP_CLASSES[dateKind]}`}
+            >
+              {dateKind === "overdue" && (
+                <svg
+                  aria-hidden
+                  className="w-3 h-3 mr-0.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 0 0-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z"
+                  />
+                </svg>
+              )}
+              {dateSignal}
+            </span>
+          </div>
+        </div>
+
+        {sharedIndicator && (
+          <div className="flex-shrink-0 ml-2 self-center">{sharedIndicator}</div>
+        )}
+
+        {/* Chevron — rotates 90° when expanded. */}
+        <svg
+          aria-hidden
+          className={`w-4 h-4 mt-1 text-gray-400 flex-shrink-0 transition-transform duration-200 ${
+            isExpanded ? "rotate-90" : ""
+          }`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          strokeWidth={2.5}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M9 5l7 7-7 7"
+          />
+        </svg>
+      </div>
+
+      {/* ── Expanded inline panel ───────────────────────────────────── */}
+      <div
+        ref={panelRef}
+        onTransitionEnd={handleTransitionEnd}
+        aria-hidden={!isExpanded}
+        style={{
+          maxHeight:
+            maxHeight === undefined ? "none" : `${maxHeight}px`,
+          opacity: isExpanded ? 1 : 0,
+          overflow: maxHeight === undefined ? "visible" : "hidden",
+          transition:
+            "max-height 200ms ease-out, opacity 200ms ease-out",
+        }}
+        data-testid="expandable-list-card-panel"
+      >
+        <div
+          ref={contentRef}
+          className="border-t border-gray-100 px-4 py-3 bg-gray-50/40"
+        >
+          {/* Editable name row */}
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-[11px] uppercase tracking-wide text-gray-400 flex-shrink-0">
+              Name
+            </span>
+            {editingName && !readOnly ? (
+              <input
+                type="text"
+                autoFocus
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                onBlur={handleSaveName}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    (e.target as HTMLInputElement).blur();
+                  } else if (e.key === "Escape") {
+                    setNameDraft(task.name);
+                    setEditingName(false);
+                  }
+                }}
+                className="flex-1 px-2 py-1 text-sm border border-violet-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-300"
+                aria-label="List name"
+              />
+            ) : (
+              <button
+                type="button"
+                disabled={readOnly}
+                onClick={() => !readOnly && setEditingName(true)}
+                className={`flex-1 text-left text-sm px-2 py-1 rounded-md ${
+                  readOnly
+                    ? "text-gray-500 cursor-default"
+                    : "text-gray-800 hover:bg-white hover:ring-1 hover:ring-gray-200"
+                }`}
+                title={readOnly ? undefined : "Click to rename"}
+              >
+                {task.name}
+              </button>
+            )}
+          </div>
+
+          {/* Items checklist */}
+          <ul className="space-y-1 mb-3" data-testid="expandable-list-items">
+            {subTasks.length === 0 && (
+              <li className="text-xs text-gray-400 italic px-1 py-1">
+                No items yet.
+              </li>
+            )}
+            {subTasks.map((st) => {
+              const isEditing = editingItemId === st.id;
+              return (
+                <li
+                  key={st.id}
+                  className={`flex items-center gap-2.5 group py-1.5 px-2 rounded-md hover:bg-white transition-colors ${
+                    st.is_complete ? "opacity-60" : ""
+                  }`}
+                >
+                  <Tooltip
+                    label={
+                      st.is_complete ? "Mark as incomplete" : "Mark as complete"
+                    }
+                    placement="top"
+                  >
+                    <button
+                      type="button"
+                      aria-label={
+                        st.is_complete
+                          ? "Mark item incomplete"
+                          : "Mark item complete"
+                      }
+                      onClick={
+                        readOnly
+                          ? undefined
+                          : () => handleToggleSubTask(st.id)
+                      }
+                      disabled={saving || readOnly}
+                      className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all flex-shrink-0 ${
+                        st.is_complete
+                          ? "bg-violet-500 border-violet-500"
+                          : "border-gray-300 hover:border-violet-400"
+                      } ${readOnly ? "cursor-default" : ""}`}
+                    >
+                      {st.is_complete && (
+                        <svg
+                          className="w-3.5 h-3.5 text-white"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={3}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      )}
+                    </button>
+                  </Tooltip>
+
+                  {isEditing && !readOnly ? (
+                    <input
+                      type="text"
+                      autoFocus
+                      value={itemDraft}
+                      onChange={(e) => setItemDraft(e.target.value)}
+                      onBlur={() => handleSaveItemText(st.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          (e.target as HTMLInputElement).blur();
+                        } else if (e.key === "Escape") {
+                          setEditingItemId(null);
+                        }
+                      }}
+                      className="flex-1 px-2 py-0.5 text-sm border border-violet-300 rounded focus:outline-none focus:ring-2 focus:ring-violet-300"
+                      aria-label="Edit item text"
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={readOnly}
+                      onClick={() => {
+                        if (readOnly) return;
+                        setItemDraft(st.text);
+                        setEditingItemId(st.id);
+                      }}
+                      className={`flex-1 text-left text-sm px-1 py-0.5 rounded ${
+                        st.is_complete
+                          ? "line-through text-gray-400"
+                          : "text-gray-700"
+                      } ${
+                        readOnly
+                          ? "cursor-default"
+                          : "hover:bg-white"
+                      }`}
+                    >
+                      {st.text}
+                    </button>
+                  )}
+
+                  {!readOnly && (
+                    <Tooltip label="Delete item" placement="top">
+                      <button
+                        type="button"
+                        aria-label="Delete item"
+                        onClick={() => handleDeleteItem(st.id)}
+                        className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-opacity"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden
+                        >
+                          <path d="M18 6L6 18M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </Tooltip>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+
+          {/* Add new item */}
+          {!readOnly && (
+            <div className="flex gap-2 mb-3">
+              <input
+                type="text"
+                value={newItemText}
+                onChange={(e) => setNewItemText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddItem();
+                  }
+                }}
+                placeholder="Add item..."
+                aria-label="Add item"
+                className="flex-1 px-3 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-300 focus:border-transparent bg-white"
+              />
+              <button
+                type="button"
+                onClick={handleAddItem}
+                disabled={!newItemText.trim() || saving}
+                className="px-3 py-1.5 text-sm bg-violet-600 text-white rounded-md hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Add
+              </button>
+            </div>
+          )}
+
+          {/* Footer actions */}
+          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+            {!readOnly ? (
+              <button
+                type="button"
+                onClick={handleMarkListComplete}
+                disabled={saving}
+                className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${
+                  task.is_complete
+                    ? "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    : "bg-emerald-600 text-white hover:bg-emerald-700"
+                } disabled:opacity-50`}
+              >
+                {task.is_complete
+                  ? "Mark list incomplete"
+                  : "Mark list complete"}
+              </button>
+            ) : (
+              <span className="text-[11px] text-gray-400 italic">
+                View only (shared)
+              </span>
+            )}
+
+            {onOpenFullView && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenFullView();
+                }}
+                className="text-xs text-gray-500 hover:text-gray-800 underline-offset-2 hover:underline"
+              >
+                Open full view
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
