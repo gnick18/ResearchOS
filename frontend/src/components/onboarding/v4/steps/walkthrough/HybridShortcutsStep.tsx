@@ -23,10 +23,22 @@ export const hybridShortcutsStep = buildWalkthroughStep({
   id: "hybrid-shortcuts",
   speech: (
     <>
-      <p className="mb-2">Your turn.</p>
+      <p className="mb-2">Your turn. Most Word shortcuts work here.</p>
       <p>
-        Cmd+I gives italic, Cmd+U gives underline. Try one, or skip if
-        shortcuts aren&apos;t your thing, both fine.
+        Try{" "}
+        <code className="font-mono mx-0.5 px-1 bg-gray-100 rounded">
+          Cmd+B
+        </code>{" "}
+        (Ctrl+B on Windows) to type some bold text.{" "}
+        <code className="font-mono mx-0.5 px-1 bg-gray-100 rounded">
+          Cmd+I
+        </code>{" "}
+        gives italic,{" "}
+        <code className="font-mono mx-0.5 px-1 bg-gray-100 rounded">
+          Cmd+U
+        </code>{" "}
+        gives underline. Try one, or skip if shortcuts aren&apos;t your
+        thing, both fine.
       </p>
     </>
   ),

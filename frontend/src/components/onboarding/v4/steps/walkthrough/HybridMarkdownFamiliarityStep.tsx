@@ -28,7 +28,6 @@
  * downstream step only.
  */
 import { buildWalkthroughStep, branchOn } from "./lib/step-helpers";
-import { recordBranchChoice } from "./lib/branch-choices";
 
 /** The three terminal branch targets. Kept in one place so the test
  *  suite can assert against them without hard-coding strings. */
@@ -73,22 +72,21 @@ export const hybridMarkdownFamiliarityStep = buildWalkthroughStep({
       nextStep: HE2_BRANCH_TARGETS.skipOverview,
     },
   ]),
-  onExit: async () => {
-    // Branch-choice recording (R1 fix-pass P1 #7). The step-machine
-    // gate for HE-3 reads the most recent recorded choice via
-    // `lastBranchChoice("hybrid-markdown-familiarity")` so back-stepping
-    // from HE-4 to HE-3 lands on HE-4 (the previous applicable step)
-    // when the user declined the overview, instead of re-landing on
-    // HE-3 itself. The choice persists in a module-level cache scoped
-    // to the tour session.
-    //
-    // We can't know which branch was clicked from inside onExit (the
-    // step's completion is opaque here), so we let the branch buttons
-    // record into the same cache via the controller's branchTo path.
-    // This onExit is the cleanup fence: clear any stale recording when
-    // the step exits without a branch click (e.g. step skipped). The
-    // record-on-click path runs from TourController.tsx's branchTo
-    // dispatch and overwrites whatever onExit cleared.
-    recordBranchChoice("hybrid-markdown-familiarity", null);
-  },
+  // R2 fix-pass (Hybrid fix manager R2, 2026-05-22 — P1): no onExit
+  // clear. The previous implementation called
+  // `recordBranchChoice("hybrid-markdown-familiarity", null)` every
+  // time HE-2 exited, including the forward branch-click path. The
+  // branch-click writes via TourController.branchTo's
+  // `recordBranchChoice` happen BEFORE the SET_STEP dispatch, then
+  // this onExit ran AFTER the controller advanced, wiping the just-
+  // recorded choice. Back-stepping from HE-4 to HE-3 then read the
+  // wiped (null) choice and gated HE-3 OUT, so back-step skipped HE-3
+  // even when the user had explicitly picked the overview branch.
+  //
+  // The cache lifecycle is now tour-session-scoped (cleared on
+  // `endTour()` via `resetBranchChoices()` in TourController.tsx),
+  // matching the contract documented in lib/branch-choices.ts. Skip
+  // paths (manualAdvance without a branch click) don't write to the
+  // cache, so leaving any prior recording in place is fine: HE-2 is
+  // a `branchOn` step, the only way to advance is to click a branch.
 });

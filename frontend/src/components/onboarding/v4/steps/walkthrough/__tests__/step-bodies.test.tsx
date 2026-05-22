@@ -1076,11 +1076,15 @@ describe("Hybrid editor steps (§6.7 redesign, Hybrid editor manager 2026-05-22)
   });
   it("HE-11 hybrid-file-attach narrates the file-vs-image difference", () => {
     const text = renderSpeech(hybridFileAttachStep);
-    // R1 fix-pass P2 #10: speech rewritten per verifier-C copy. The
-    // load-bearing teaching beats remain (non-image files become a
-    // download chip; the chip preserves the writeup).
-    expect(text).toMatch(/non-image files/i);
+    // R2 fix-pass P1: speech restored to spec compliance — the
+    // teaching beats are "files attach the same way as images, render
+    // as download chip" + the spec-mandated PDF/text disclosure
+    // (spec line 168-170: "ResearchOS can open PDFs and text files
+    // directly. Other formats just download to your computer.").
+    expect(text).toMatch(/(CSVs|PDFs|protocol docs|files)/i);
     expect(text).toMatch(/download chip/i);
+    expect(text).toMatch(/PDFs/);
+    expect(text).toMatch(/text files/i);
   });
 });
 

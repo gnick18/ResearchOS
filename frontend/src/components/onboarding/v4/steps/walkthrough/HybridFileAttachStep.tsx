@@ -149,11 +149,15 @@ export const hybridFileAttachStep = buildWalkthroughStep({
   id: STEP_ID,
   speech: (
     <>
+      <p className="mb-2">
+        Files (CSVs, PDFs, protocol docs) attach the same way as
+        images. The editor renders images inline, but everything else
+        becomes a download chip, so the next person can grab the file
+        without losing the writeup around it.
+      </p>
       <p>
-        Non-image files (CSVs, PDFs, protocol docs) also drag in. The
-        editor renders images inline, but everything else becomes a
-        download chip, so the next person can grab the file without
-        losing the writeup around it.
+        ResearchOS can open <strong>PDFs and text files</strong>{" "}
+        directly. Other formats just download to your computer.
       </p>
     </>
   ),

@@ -101,6 +101,6 @@ export function buildHybridTypingStep(opts: HybridTypingStepOpts): TourStep {
     // Page lock: total (no allow-list). The bubble is implicitly allowed
     // so Skip/Back/Got-it stay reachable. Copy updated R1 fix-pass per
     // verifier C P2-11: less imperative-sounding pill.
-    pageLock: { pillLabel: "BeakerBot is typing — back in a sec." },
+    pageLock: { pillLabel: "BeakerBot is typing, back in a sec." },
   });
 }

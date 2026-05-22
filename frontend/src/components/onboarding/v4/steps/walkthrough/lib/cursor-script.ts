@@ -436,14 +436,28 @@ export async function safeDragFileAction(
  * real `el.click()` on body doesn't fire `mousedown` at the right time
  * and the cursor's visual ripple is misleading here anyway (there's no
  * meaningful target to ripple on).
+ *
+ * R2 fix-pass (Hybrid fix manager R2, 2026-05-22 — P0): wrap the
+ * dispatch with `window.__beakerBotCursorClicking` so the
+ * `InputLockOverlay`'s capture-phase mousedown blocker short-circuits.
+ * Without the flag, the overlay's window-level capture listener fires
+ * `stopPropagation()` + `preventDefault()` before the editor's
+ * document-level mousedown listener ever sees the event — so the edit
+ * block never commits and the typed markdown stays in textarea form
+ * (no bold/italic/header render lands). This matches the same pattern
+ * `BeakerBotCursor.clickAt` uses to ride past the overlay.
  */
 export function clickOutsideEditorAction(): CursorAction {
   return callbackAction(() => {
     if (typeof window === "undefined" || typeof document === "undefined") return;
+    const w = window as unknown as { __beakerBotCursorClicking?: boolean };
+    w.__beakerBotCursorClicking = true;
     try {
       // Fire mousedown on document.body — the editor's click-outside
       // handler triggers off mousedown at the document level (not click),
-      // so this is what actually commits the block.
+      // so this is what actually commits the block. Also fire mouseup +
+      // click so any other listeners (e.g. selection-tracking) settle
+      // consistently with a real pointer click.
       document.body.dispatchEvent(
         new MouseEvent("mousedown", {
           bubbles: true,
@@ -453,8 +467,28 @@ export function clickOutsideEditorAction(): CursorAction {
           button: 0,
         }),
       );
+      document.body.dispatchEvent(
+        new MouseEvent("mouseup", {
+          bubbles: true,
+          cancelable: true,
+          clientX: 0,
+          clientY: 0,
+          button: 0,
+        }),
+      );
+      document.body.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+          cancelable: true,
+          clientX: 0,
+          clientY: 0,
+          button: 0,
+        }),
+      );
     } catch {
       // No-op.
+    } finally {
+      w.__beakerBotCursorClicking = false;
     }
   });
 }

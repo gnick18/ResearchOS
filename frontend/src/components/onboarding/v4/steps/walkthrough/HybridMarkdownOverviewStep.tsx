@@ -45,6 +45,11 @@ export const hybridMarkdownOverviewStep = buildWalkthroughStep({
         of a line makes a bullet. You&apos;ll see all of these in
         action in a moment.
       </p>
+      <p>
+        You don&apos;t have to memorize anything. Every editor here has
+        a shortcut bar on the left. Or you can type the symbols
+        directly, they work too.
+      </p>
     </>
   ),
   pose: "pointing",
