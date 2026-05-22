@@ -40,12 +40,19 @@ import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { targetSelector, TOUR_TARGETS } from "./lib/targets";
 
 /** §6.10a — Lab Folder narration (universal). Anchors on the Settings
- *  page header (which surfaces `users/<user>/settings.json` — the
- *  closest in-product reference to the connected lab folder). */
+ *  page header (which surfaces `users/<user>/settings.json`, the
+ *  closest in-product reference to the connected lab folder).
+ *
+ *  Speech-honesty fix (Settings fix manager R1, 2026-05-22): the prior
+ *  speech promised a "switch to a different folder" affordance right
+ *  on /settings, but folder switching today lives in
+ *  `ResearchFolderSetupNew` on the entry screen. The reworded line
+ *  acknowledges the affordance is sign-out + re-pick rather than
+ *  pretending to point at a button that doesn't exist. */
 export const settingsTourFolderStep = buildWalkthroughStep({
   id: "settings-tour-folder",
   speech:
-    "This is where your lab folder lives. If you ever need to switch to a different folder, or share a folder across devices, here's where you do it.",
+    "Your lab folder is set up. To switch folders later, sign out and pick a new one from the entry screen.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.settingsFolderSection),
   completion: manualAdvance("Got it, next"),
@@ -54,17 +61,22 @@ export const settingsTourFolderStep = buildWalkthroughStep({
 
 /** §6.10b — Calendar feeds narration (gated on Q3=yes).
  *
- *  FOLLOW-UP (Settings manager 2026-05-22): no dedicated calendar-feeds
- *  section exists on /settings yet — feed management lives on the
- *  /calendar page via CalendarFeedsButton. When the Settings page
- *  grows a "Calendar feeds" section, stamp `data-tour-target=
- *  "settings-calendar-feeds-section"` on the SectionShell and add
- *  `targetSelector: targetSelector(TOUR_TARGETS.settingsCalendarFeeds)`
- *  here. For now the beat is narration-only (no spotlight). */
+ *  Speech-honesty fix (Settings fix manager R1, 2026-05-22): no
+ *  dedicated calendar-feeds section exists on /settings yet, so the
+ *  prior speech ("Calendar feeds live here, paste any .ics URL...")
+ *  narrated UI the user couldn't see. Feed management actually lives
+ *  on the /calendar page via CalendarFeedsButton. Reworked the speech
+ *  to point users at the Calendar tab instead of pretending Settings
+ *  owns the surface.
+ *
+ *  FOLLOW-UP: when the Settings page grows a "Calendar feeds" section,
+ *  stamp `data-tour-target="settings-calendar-feeds-section"` on the
+ *  SectionShell, add `targetSelector: targetSelector(TOUR_TARGETS.settingsCalendarFeeds)`
+ *  here, and restore the "paste any .ics URL" framing. */
 export const settingsTourCalendarStep = buildWalkthroughStep({
   id: "settings-tour-calendar",
   speech:
-    "Calendar feeds live here. Paste any .ics URL, your lab's shared calendar, your university's holidays, your conference schedule, and ResearchOS pulls it into the timeline.",
+    "Calendar feeds aren't managed from Settings yet, go to the Calendar tab to paste an .ics URL.",
   pose: "pointing",
   // FOLLOW-UP: no anchor until Settings grows a calendar-feeds section.
   completion: manualAdvance("Got it, next"),
@@ -88,16 +100,21 @@ export const settingsTourTelegramStep = buildWalkthroughStep({
 
 /** §6.10d — Lab Mode toggle narration (gated on Q1=solo).
  *
- *  FOLLOW-UP (Settings manager 2026-05-22): no "Switch to Lab Mode"
- *  toggle exists on /settings yet. The lab-mode switch happens at the
- *  user-picker level today. When a dedicated toggle ships in Settings,
- *  stamp `data-tour-target="settings-lab-mode-toggle"` on it and add
+ *  Speech-honesty fix (Settings fix manager R1, 2026-05-22): no
+ *  "Switch to Lab Mode" toggle exists on /settings yet. The lab-mode
+ *  switch happens at the user-picker level today, so the prior speech
+ *  ("this flips you over...") narrated a button the user couldn't see.
+ *  Reworked the speech to point users at the user picker instead of
+ *  pretending Settings owns the toggle.
+ *
+ *  FOLLOW-UP: when a dedicated toggle ships in Settings, stamp
+ *  `data-tour-target="settings-lab-mode-toggle"` on it, add
  *  `targetSelector: targetSelector(TOUR_TARGETS.settingsLabModeToggle)`
- *  here. For now the beat is narration-only. */
+ *  here, and restore the "this flips you over" framing. */
 export const settingsTourLabModeToggleStep = buildWalkthroughStep({
   id: "settings-tour-lab-mode-toggle",
   speech:
-    "If you ever pivot from solo to a lab account, this flips you over. Lab Mode adds the cross-user views you've heard about. You can switch back any time.",
+    "If you ever pivot from solo to a lab account, the switch lives in the user picker up top, Settings doesn't carry it yet.",
   pose: "pointing",
   // FOLLOW-UP: no anchor until Settings grows a Lab Mode toggle row.
   completion: manualAdvance("Got it, next"),

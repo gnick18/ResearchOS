@@ -572,6 +572,15 @@ function ColorPickerRows({
                 title={ownerName ? `Used by ${ownerName}` : `Color ${c}`}
                 disabled={disabled}
                 onClick={() => void handlePickPrimary(c)}
+                // Settings fix manager R1 (2026-05-22): stamp the
+                // attribute the onboarding cursor script keys off of.
+                // SettingsColorStep.tsx clicks
+                // `[data-tour-target="settings-color-picker"] [data-color-swatch]:first-child`
+                // and would silently time out without this attribute on
+                // every palette button. The page-lock allow-list also
+                // pivots on `[data-color-swatch]` so the optional
+                // secondary stage stays clickable.
+                data-color-swatch={c}
                 className={`w-8 h-8 rounded-full border-2 transition-transform ${
                   isSelected
                     ? "border-gray-900 scale-110"
@@ -628,6 +637,12 @@ function ColorPickerRows({
                 title={title}
                 disabled={disabled}
                 onClick={() => void handlePickSecondary(c)}
+                // Settings fix manager R1 (2026-05-22): identical
+                // attribute on the secondary palette so the page-lock
+                // allow-list (`[data-color-swatch]`) covers BOTH rows.
+                // Without this stamp the secondary stage stays locked
+                // even though the onboarding step body permits clicks.
+                data-color-swatch={c}
                 className={`w-8 h-8 rounded-full border-2 transition-transform ${
                   isSelected
                     ? "border-gray-900 scale-110"

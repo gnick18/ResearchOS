@@ -68,10 +68,18 @@ describe("settings-tour-folder (universal)", () => {
   it("has no conditionalOn predicate (universal)", () => {
     expect(settingsTourFolderStep.conditionalOn).toBeUndefined();
   });
-  it("speech mentions the folder + switching folders", () => {
+  it("speech mentions the folder + switching folders honestly", () => {
+    // Settings fix manager R1 (2026-05-22): the prior speech promised
+    // an in-Settings "Change folder" button that doesn't exist. The
+    // reworked speech still mentions the lab folder + the act of
+    // switching, but routes the user to sign-out + re-pick on the
+    // entry screen instead of pointing at vapor UI.
     const text = renderSpeech(settingsTourFolderStep);
     expect(text).toMatch(/lab folder/i);
     expect(text).toMatch(/switch/i);
+    // The fix is the honesty signal: speech now mentions the entry
+    // screen as the real switch surface.
+    expect(text).toMatch(/entry screen/i);
   });
   it("speech is em-dash free", () => {
     expect(renderSpeech(settingsTourFolderStep)).not.toContain("—");
@@ -99,10 +107,18 @@ describe("settings-tour-calendar (conditional: calendar === yes)", () => {
     expect(gate(picks({ calendar: "maybe" }))).toBe(false);
     expect(gate(null)).toBe(false);
   });
-  it("speech mentions .ics URLs + 'calendar'", () => {
+  it("speech mentions .ics URLs + 'calendar' + the Calendar tab honestly", () => {
+    // Settings fix manager R1 (2026-05-22): the prior speech narrated
+    // calendar-feeds UI on /settings that doesn't exist (feeds live on
+    // /calendar). The reworked speech is explicit about routing users
+    // to the Calendar tab instead of pretending Settings owns it.
     const text = renderSpeech(settingsTourCalendarStep);
     expect(text).toMatch(/\.ics/);
     expect(text).toMatch(/calendar/i);
+    // The honesty signal: speech now mentions the Calendar tab as the
+    // real surface AND says Settings doesn't own this yet.
+    expect(text).toMatch(/Calendar tab/i);
+    expect(text).toMatch(/aren't managed from Settings/i);
   });
   it("speech is em-dash free", () => {
     expect(renderSpeech(settingsTourCalendarStep)).not.toContain("—");
@@ -159,10 +175,17 @@ describe("settings-tour-lab-mode-toggle (conditional: solo only)", () => {
     expect(gate(picks({ account_type: "lab" }))).toBe(false);
     expect(gate(null)).toBe(false);
   });
-  it("speech mentions Lab Mode + flipping over", () => {
+  it("speech mentions pivoting to lab + routes to the user picker honestly", () => {
+    // Settings fix manager R1 (2026-05-22): the prior speech promised
+    // an in-Settings "Switch to Lab Mode" toggle that doesn't exist
+    // (the switch lives in the user picker today). The reworked
+    // speech routes users to the user picker and says Settings
+    // doesn't carry the toggle yet.
     const text = renderSpeech(settingsTourLabModeToggleStep);
-    expect(text).toMatch(/Lab Mode/);
-    expect(text).toMatch(/flips/i);
+    expect(text).toMatch(/pivot from solo/i);
+    expect(text).toMatch(/user picker/i);
+    // The honesty signal: speech explicitly disclaims Settings here.
+    expect(text).toMatch(/Settings doesn't carry it/i);
   });
   it("speech is em-dash free", () => {
     expect(renderSpeech(settingsTourLabModeToggleStep)).not.toContain("—");
