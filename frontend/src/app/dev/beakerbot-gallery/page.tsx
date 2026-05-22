@@ -203,8 +203,8 @@ const POSES: PoseEntry[] = [
     pose: "typing-on-laptop",
     loopType: "looping",
     description:
-      "Small laptop in front, two arms reach to keyboard, hands alternate hammering keys (240ms cycle, 50% phase offset).",
-    timingNote: "Looping (240ms two-hand hammer)",
+      "One-hand variant of typing: reuses the regular typing arm + hand (190ms pulse) with a small side-profile laptop tucked under the hand. Other arm at rest.",
+    timingNote: "Looping (190ms hand-pulse, same as regular typing)",
   },
   {
     kind: "pose",

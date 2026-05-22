@@ -491,48 +491,69 @@ describe("BeakerBot yawn pose", () => {
 });
 
 /**
- * Typing-on-laptop pose: side-profile L variant redesigned 2026-05-21
- * (Grant feedback: the v1 front-view laptop made BeakerBot look like he
- * was reaching across a wall, and the percent-translate hand pulse was
- * imperceptible at the v4 tour's 120px display size).
+ * Typing-on-laptop pose (v3, redesigned 2026-05-22 per Grant feedback
+ * that the v2 two-arm hammer layout read as disconcerting). The pose
+ * now reuses the regular `typing` arm + hand verbatim and tucks a small
+ * side-profile laptop under that single hand. Structural elements:
+ *   1. Laptop keyboard slab (horizontal rect, fill #374151) just under
+ *      the hand at y=20.
+ *   2. Laptop screen edge (vertical rect, fill #374151) at the far end
+ *      of the keyboard so the screen faces AWAY from BeakerBot.
+ *   3. The regular `typing` arm + hand circle (one arm, one hand at
+ *      cx=33, cy=20, reused verbatim).
  *
- * v2 geometry: the laptop is shown FROM THE SIDE as an L (one vertical
- * rect = back of the screen, one horizontal rect = keyboard slab). No
- * screen content, no keyboard detail. BeakerBot's two arms reach down
- * onto the horizontal portion and the hand dots hammer in alternation
- * with absolute-px keyframes (~2-unit travel, ~6px at 120px).
+ * The hand uses the same .typeHand wrapper + 190ms pulse keyframe as
+ * the regular typing pose. No body-lean root animation (matches the
+ * regular typing pose, which also has no root animation). The v2-era
+ * .typeHandLeft / .typeHandRight CSS classes are retained in the
+ * stylesheet for backward compatibility but no longer referenced by
+ * the JSX.
  */
 describe("BeakerBot typing-on-laptop pose", () => {
-  // Laptop body uses fill="#374151" (dark gray) on both the vertical
-  // and horizontal portions of the L. No other pose uses this fill
-  // color, so it's a clean signal that the laptop is mounted.
+  // Laptop body uses fill="#374151" (dark gray) on both the keyboard
+  // slab and the screen edge. No other pose uses this fill color, so
+  // it's a clean signal that the laptop is mounted.
   const LAPTOP_BODY_FILL = "#374151";
 
-  it("renders the L's vertical + horizontal rects when pose=typing-on-laptop", () => {
+  it("renders the laptop keyboard slab + screen edge rects when pose=typing-on-laptop", () => {
     const { container } = render(<BeakerBot pose="typing-on-laptop" />);
     const rects = container.querySelectorAll("rect");
     const laptopRects = Array.from(rects).filter(
       (r) => r.getAttribute("fill") === LAPTOP_BODY_FILL,
     );
-    // Two laptop body rects forming an L: vertical screen-side bar +
-    // horizontal keyboard slab.
+    // Two laptop body rects: keyboard slab + screen edge.
     expect(laptopRects.length).toBe(2);
   });
 
-  it("renders two hand dots on the keyboard slab (cx=30 and cx=34, cy=30) when pose=typing-on-laptop", () => {
-    // Hands moved further from BeakerBot's body (x=20 area) per Grant's
-    // 2026-05-21 revision so they sit on the keyboard surface rather
-    // than under his torso.
+  it("renders the reused typing arm's hand circle (cx=33, cy=20) when pose=typing-on-laptop", () => {
+    // The v3 pose reuses the regular `typing` arm + hand verbatim, so
+    // the hand sits at the same (33, 20) coordinate as the `typing`
+    // pose. This pins the "one-hand redo reusing the regular typing
+    // arm" contract: if a future redesign moves the hand, this test
+    // fails loud so the regular-typing-parity intent is reconsidered.
     const { container } = render(<BeakerBot pose="typing-on-laptop" />);
     const circles = Array.from(container.querySelectorAll("circle"));
-    const leftHand = circles.filter(
-      (c) => c.getAttribute("cx") === "30" && c.getAttribute("cy") === "30",
+    const hand = circles.filter(
+      (c) => c.getAttribute("cx") === "33" && c.getAttribute("cy") === "20",
     );
-    const rightHand = circles.filter(
-      (c) => c.getAttribute("cx") === "34" && c.getAttribute("cy") === "30",
+    expect(hand.length).toBe(1);
+  });
+
+  it("does NOT render the v2 two-hand layout (no hands at cy=30) for typing-on-laptop", () => {
+    // Grant 2026-05-22: the two-hand keyboard hammer (hands at
+    // cx=30,cy=30 and cx=34,cy=30) was the disconcerting silhouette
+    // that the v3 redesign replaces. The other arm rests against the
+    // body silhouette (not drawn), matching the regular typing pose
+    // convention. If this test fails, the two-arm layout has crept
+    // back in and Grant's feedback has been silently reverted.
+    const { container } = render(<BeakerBot pose="typing-on-laptop" />);
+    const circles = Array.from(container.querySelectorAll("circle"));
+    const v2Hands = circles.filter(
+      (c) =>
+        (c.getAttribute("cx") === "30" || c.getAttribute("cx") === "34") &&
+        c.getAttribute("cy") === "30",
     );
-    expect(leftHand.length).toBe(1);
-    expect(rightHand.length).toBe(1);
+    expect(v2Hands.length).toBe(0);
   });
 
   it("does NOT render the laptop body for pose=idle", () => {
@@ -567,86 +588,71 @@ describe("BeakerBot typing-on-laptop pose", () => {
     expect(svg?.style.transform).toBe("scaleX(-1)");
   });
 
-  it("reduced-motion path: animated=false drops per-hand animation classes", () => {
+  it("reduced-motion path: animated=false drops the hand animation class", () => {
     const { container } = render(
       <BeakerBot pose="typing-on-laptop" animated={false} />,
     );
     const svg = container.querySelector("svg");
     expect(svg?.getAttribute("data-pose")).toBe("typing-on-laptop");
     expect(svg?.getAttribute("data-animated")).toBe("false");
-    // Laptop body + hand dots still render structurally (the static
+    // Laptop body + hand circle still render structurally (the static
     // tableau is the reduced-motion silhouette), but the hand <g>
-    // wrappers carry no class so the keyframe doesn't bind.
+    // wrapper carries no class so the keyframe doesn't bind.
     const rects = container.querySelectorAll("rect");
     const laptopRects = Array.from(rects).filter(
       (r) => r.getAttribute("fill") === LAPTOP_BODY_FILL,
     );
     expect(laptopRects.length).toBe(2);
     const circles = Array.from(container.querySelectorAll("circle"));
-    const hands = circles.filter(
-      (c) =>
-        (c.getAttribute("cx") === "28" || c.getAttribute("cx") === "33") &&
-        c.getAttribute("cy") === "30",
+    const hand = circles.find(
+      (c) => c.getAttribute("cx") === "33" && c.getAttribute("cy") === "20",
     );
-    expect(hands.length).toBe(2);
-    // Each hand circle's parent <g> should have no class attribute set
+    expect(hand).toBeDefined();
+    // The hand circle's parent <g> should have no class attribute set
     // when animated=false (the animation class is the only thing the
     // branch puts on the wrapper).
-    for (const hand of hands) {
-      const parent = hand.parentElement;
-      // Parent should be a <g> wrapper with no class.
-      expect(parent?.tagName.toLowerCase()).toBe("g");
-      expect(parent?.getAttribute("class") ?? "").toBe("");
-    }
+    const parent = hand!.parentElement;
+    expect(parent?.tagName.toLowerCase()).toBe("g");
+    expect(parent?.getAttribute("class") ?? "").toBe("");
   });
 
-  it("typing-on-laptop hand keyframe uses absolute px units, not percent (view-box trap guard)", async () => {
-    // v2 rewrite (Grant: the v1 -1.5% pulse was visually imperceptible
-    // at the 120px tour display size). The keyframe now uses absolute
-    // px translates which the browser interprets in the inner SVG's
-    // user-space, so 2px == 2 view-box units == ~6px of visible hand
-    // travel at 120px. The trap we keep guarding against: percent
-    // translates inside a `transform-box: view-box` rule resolve
-    // against the 40-unit view-box and produce the v4 6.2 scattered-
-    // dots bug (commit 272dd3da). This test pins the keyframe to px
-    // and forbids any percent translate from sneaking back in.
+  it("uses the regular .typeHand 190ms keyframe (not the v2 .typeHandLeft hammer) for the hand pulse", async () => {
+    // The v3 redesign reuses the regular `typing` pose's animation
+    // contract: a small ~190ms pulse on the .typeHand wrapper. The
+    // v2 .typeHandLeft / .typeHandRight 240ms hammer keyframes are
+    // retained in the CSS for backward compatibility but the JSX no
+    // longer references them. We pin this by reading the JSX source
+    // and slicing out the typing-on-laptop branch (between its
+    // `effectivePose === "typing-on-laptop"` predicate and the next
+    // `effectivePose === "..."` predicate that starts a different
+    // pose branch).
     const fs = await import("node:fs/promises");
     const path = await import("node:path");
-    const cssPath = path.resolve(__dirname, "..", "BeakerBot.module.css");
-    const css = await fs.readFile(cssPath, "utf8");
-    const match = css.match(
-      /@keyframes\s+beakerBotTypeHandLaptopLeft\s*\{[\s\S]*?\n\}/,
+    const tsxPath = path.resolve(__dirname, "..", "BeakerBot.tsx");
+    const tsx = await fs.readFile(tsxPath, "utf8");
+    const startIdx = tsx.indexOf('effectivePose === "typing-on-laptop"');
+    expect(startIdx, "typing-on-laptop JSX branch must exist").toBeGreaterThan(
+      -1,
     );
-    expect(
-      match,
-      "beakerBotTypeHandLaptopLeft keyframe should be defined",
-    ).not.toBeNull();
-    const block = match![0];
-    // Forbid percent translates inside the keyframe.
-    const percents = Array.from(
-      block.matchAll(/translate[XY]?\(\s*-?\d+(?:\.\d+)?%/g),
-    );
-    expect(
-      percents.length,
-      "keyframe must not use percent translates (view-box trap)",
-    ).toBe(0);
-    // Require at least one absolute-px translate, and pin its magnitude
-    // to the readable hammer range (1.5..3 units).
-    const pxValues = Array.from(
-      block.matchAll(/translateY\(\s*(-?\d+(?:\.\d+)?)px\s*\)/g),
-    ).map((m) => Math.abs(Number(m[1])));
-    expect(pxValues.length).toBeGreaterThan(0);
-    const maxPx = Math.max(...pxValues);
-    expect(maxPx).toBeGreaterThanOrEqual(1.5);
-    expect(maxPx).toBeLessThanOrEqual(3);
+    // Slice from the branch start to the next effectivePose check (or
+    // the next standalone `{effectivePose === "thinking"` etc.). Using
+    // a forward-scan keeps us inside the typing-on-laptop branch only.
+    const tail = tsx.slice(startIdx);
+    const nextBranchIdx = tail.indexOf("effectivePose ===", 10);
+    const branch = nextBranchIdx > 0 ? tail.slice(0, nextBranchIdx) : tail;
+    expect(branch).toMatch(/styles\.typeHand\b/);
+    expect(branch).not.toMatch(/styles\.typeHandLeft\b/);
+    expect(branch).not.toMatch(/styles\.typeHandRight\b/);
   });
 
-  it("typing-on-laptop hand wrappers do NOT set transform-box: view-box (forces user-space px interpretation)", async () => {
-    // Pair to the keyframe test above. With `transform-box: view-box`
-    // the browser would still resolve px in user-space, but the brief
-    // calls for "straight transform on the hand's <g> element with
-    // absolute SVG values" — i.e. no view-box mapping on the wrapper.
-    // Pin both .typeHandLeft and .typeHandRight to that contract.
+  it("retains the v2 .typeHandLeft / .typeHandRight CSS classes (backward-compat, even though unused by JSX)", async () => {
+    // The v3 redesign (2026-05-22) stopped referencing these classes
+    // from the JSX in favor of the regular .typeHand pulse, but we
+    // keep the CSS rules around so any downstream consumer that still
+    // composes the class names (e.g. snapshot tests in app shells)
+    // doesn't get a CSS module key-miss error at build time. They
+    // must still NOT set transform-box: view-box (the view-box trap
+    // guard from the v2 era still applies if anyone re-wires them).
     const fs = await import("node:fs/promises");
     const path = await import("node:path");
     const cssPath = path.resolve(__dirname, "..", "BeakerBot.module.css");
