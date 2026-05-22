@@ -33,6 +33,7 @@ import Q3CalendarStep from "./Q3CalendarStep";
 import Q4GoalsStep from "./Q4GoalsStep";
 import Q5TelegramStep from "./Q5TelegramStep";
 import Q6AiHelperStep from "./Q6AiHelperStep";
+import Q7LinksStep from "./Q7LinksStep";
 
 export interface SetupStepDescriptor {
   /** Modal-header title shown above the step body. */
@@ -108,6 +109,13 @@ export const SETUP_STEP_DESCRIPTORS: Partial<
       "I can copy you a prompt that turns Claude, ChatGPT, or Gemini into a schema-aware assistant. Pick a size.",
     Component: Q6AiHelperStep,
   },
+  "setup-q7": {
+    title: "Save important links?",
+    pose: "thinking",
+    speech:
+      "Want a page for VPN, calendar, freezer inventory, manuscript drafts? Toggle it on or off.",
+    Component: Q7LinksStep,
+  },
 };
 
 /** Look up the setup descriptor for a step id. Returns `undefined` when
@@ -128,5 +136,6 @@ export {
   Q4GoalsStep,
   Q5TelegramStep,
   Q6AiHelperStep,
+  Q7LinksStep,
 };
 export type { SetupStepProps };

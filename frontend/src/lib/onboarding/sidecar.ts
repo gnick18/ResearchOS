@@ -84,6 +84,14 @@ export interface FeaturePicks {
   goals?: "yes" | "no" | "maybe";
   telegram?: "yes" | "no" | "maybe";
   ai_helper?: "full" | "medium" | "minimal" | "no" | "maybe";
+  /** Q7 Links: do you want a page to store important links to other
+   *  sites? Lab Links manager 2026-05-22 — the surface was previously
+   *  shown unconditionally for lab accounts and never explained, which
+   *  the R7 audit flagged as unexplained surface + solo-irrelevant.
+   *  Q7 gates the tab visibility for everyone (solo + lab); the surface
+   *  name itself is account-type-conditional ("Links" for solo, "Lab
+   *  Links" for lab) so the same pick covers both. */
+  links?: "yes" | "no" | "maybe";
 }
 
 /** One artifact the v3 wizard created on the user's real account. The
@@ -289,6 +297,9 @@ function parseFeaturePicks(raw: unknown): FeaturePicks | null {
   }
   if (typeof o.ai_helper === "string" && AI_HELPER_VALUES.has(o.ai_helper)) {
     picks.ai_helper = o.ai_helper as FeaturePicks["ai_helper"];
+  }
+  if (typeof o.links === "string" && YES_NO_MAYBE.has(o.links)) {
+    picks.links = o.links as FeaturePicks["links"];
   }
   if (typeof o.lab_storage === "string" && LAB_STORAGES.has(o.lab_storage)) {
     picks.lab_storage = o.lab_storage as FeaturePicks["lab_storage"];

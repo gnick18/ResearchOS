@@ -94,7 +94,10 @@ describe("tabsForFeaturePicks() — solo paths", () => {
 });
 
 describe("tabsForFeaturePicks() — lab paths", () => {
-  it("lab with all 'no' adds /links to the minimal set", () => {
+  // Lab Links manager 2026-05-22: /links visibility is now gated on
+  // picks.links === "yes" (Q7), not picks.account_type === "lab".
+  // Both solo and lab users get an explicit opt-in.
+  it("lab with all 'no' + links unset omits /links from the minimal set", () => {
     const result = tabsForFeaturePicks(
       picks({
         account_type: "lab",
@@ -110,11 +113,32 @@ describe("tabsForFeaturePicks() — lab paths", () => {
       "/gantt",
       "/methods",
       "/search",
+    ]);
+    expect(result).not.toContain("/links");
+  });
+
+  it("lab with all 'no' + links='yes' adds /links to the minimal set", () => {
+    const result = tabsForFeaturePicks(
+      picks({
+        account_type: "lab",
+        purchases: "no",
+        calendar: "no",
+        goals: "no",
+        telegram: "no",
+        links: "yes",
+      }),
+    );
+    expect(result).toEqual([
+      "/",
+      "/workbench",
+      "/gantt",
+      "/methods",
+      "/search",
       "/links",
     ]);
   });
 
-  it("lab with all 'yes' returns every nav tab", () => {
+  it("lab with all 'yes' + links='yes' returns every nav tab", () => {
     const result = tabsForFeaturePicks(
       picks({
         account_type: "lab",
@@ -122,6 +146,7 @@ describe("tabsForFeaturePicks() — lab paths", () => {
         calendar: "yes",
         goals: "yes",
         telegram: "yes",
+        links: "yes",
       }),
     );
     expect(result).toEqual([...NAV_ORDER]);
@@ -195,17 +220,53 @@ describe("tabsForFeaturePicks() — every Q2/Q3 binary combination", () => {
   }
 });
 
-describe("tabsForFeaturePicks() — account_type controls /links only", () => {
-  it("account_type=solo never includes /links", () => {
+describe("tabsForFeaturePicks() — picks.links controls /links (Lab Links manager 2026-05-22)", () => {
+  // Previously this section asserted account_type=lab always shows
+  // /links and account_type=solo never does. The Lab Links manager
+  // chip moved the gate to picks.links (Q7) so BOTH solo and lab
+  // users get an explicit opt-in. The displayed label differs by
+  // account_type ("Links" vs "Lab Links") but the visibility rule
+  // is identical.
+  it("solo with links='yes' includes /links", () => {
+    expect(
+      tabsForFeaturePicks(picks({ account_type: "solo", links: "yes" })),
+    ).toContain("/links");
+  });
+
+  it("lab with links='yes' includes /links", () => {
+    expect(
+      tabsForFeaturePicks(picks({ account_type: "lab", links: "yes" })),
+    ).toContain("/links");
+  });
+
+  it("solo without links pick (unset) does NOT include /links", () => {
     expect(
       tabsForFeaturePicks(picks({ account_type: "solo", purchases: "yes" })),
     ).not.toContain("/links");
   });
 
-  it("account_type=lab always includes /links regardless of other picks", () => {
+  it("lab without links pick (unset) does NOT include /links", () => {
     expect(
       tabsForFeaturePicks(picks({ account_type: "lab" })),
-    ).toContain("/links");
+    ).not.toContain("/links");
+  });
+
+  it("links='no' hides /links regardless of account type", () => {
+    expect(
+      tabsForFeaturePicks(picks({ account_type: "solo", links: "no" })),
+    ).not.toContain("/links");
+    expect(
+      tabsForFeaturePicks(picks({ account_type: "lab", links: "no" })),
+    ).not.toContain("/links");
+  });
+
+  it("links='maybe' hides /links (treat unknown/maybe as no)", () => {
+    expect(
+      tabsForFeaturePicks(picks({ account_type: "solo", links: "maybe" })),
+    ).not.toContain("/links");
+    expect(
+      tabsForFeaturePicks(picks({ account_type: "lab", links: "maybe" })),
+    ).not.toContain("/links");
   });
 });
 
@@ -268,11 +329,14 @@ describe("deriveVisibleTabs() — picks present, no manual override", () => {
     expect(result).toContain("/search");
   });
 
-  it("lab user with all-yes picks keeps every default tab visible", () => {
+  it("lab user with all-yes picks (including links=yes) keeps every default tab visible", () => {
+    // Lab Links manager 2026-05-22: links visibility now requires
+    // picks.links === "yes" for both solo and lab users.
     const p = picks({
       account_type: "lab",
       purchases: "yes",
       calendar: "yes",
+      links: "yes",
     });
     expect(deriveVisibleTabs(p, DEFAULT_SETTINGS_VISIBLE_TABS)).toEqual(
       DEFAULT_SETTINGS_VISIBLE_TABS,

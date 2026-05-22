@@ -35,6 +35,7 @@ import { SETUP_STEP_DESCRIPTORS } from "./steps/setup";
 import { telegramConditionalStep } from "./steps/walkthrough/TelegramConditionalStep";
 import { purchasesConditionalStep } from "./steps/walkthrough/PurchasesConditionalStep";
 import { calendarConditionalStep } from "./steps/walkthrough/CalendarConditionalStep";
+import { linksConditionalStep } from "./steps/walkthrough/LinksConditionalStep";
 import { buildLabPromptStep } from "./steps/lab/LabPromptStep";
 import { buildLabSpawnStep } from "./steps/lab/LabSpawnBeakerBotStep";
 import { buildLabPermissionPracticeStep } from "./steps/lab/LabPermissionPracticeStep";
@@ -240,6 +241,10 @@ export const TOUR_STEPS: Record<TourStepId, TourStep> = Object.fromEntries(
 TOUR_STEPS["telegram"] = telegramConditionalStep;
 TOUR_STEPS["purchases"] = purchasesConditionalStep;
 TOUR_STEPS["calendar"] = calendarConditionalStep;
+// Lab Links manager 2026-05-22: links conditional walkthrough added
+// alongside the existing telegram / purchases / calendar conditionals.
+// Gated by picks.links === "yes".
+TOUR_STEPS["links"] = linksConditionalStep;
 
 // P7 — real lab tour bodies (§6.16, minimal scope per L19). The
 // placeholders are overwritten in-place so iteration order +

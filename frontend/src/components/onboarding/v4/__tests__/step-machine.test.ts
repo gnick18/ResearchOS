@@ -53,6 +53,9 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER).toContain("welcome");
     expect(TOUR_STEP_ORDER).toContain("setup-q1");
     expect(TOUR_STEP_ORDER).toContain("setup-q6");
+    // Lab Links manager 2026-05-22: setup-q7 added for the Links pick.
+    expect(TOUR_STEP_ORDER).toContain("setup-q7");
+    expect(TOUR_STEP_ORDER).toContain("links");
     expect(TOUR_STEP_ORDER).toContain("home-create-project");
     expect(TOUR_STEP_ORDER).toContain("methods-open-picker");
     expect(TOUR_STEP_ORDER).toContain("methods-create");
@@ -192,6 +195,26 @@ describe("isStepGatedOut — Phase 2 conditional walkthroughs (§6.13-6.15)", ()
     expect(isStepGatedOut("calendar", picks({ calendar: "maybe" }))).toBe(true);
   });
 
+  // Lab Links manager 2026-05-22: links conditional walkthrough added.
+  // Gated on Q7 answer (links === "yes") rather than account_type, so
+  // both solo and lab users with a yes pick get the explainer beat.
+  it("gates links on picks.links === 'yes'", () => {
+    expect(isStepGatedOut("links", picks({ links: "yes" }))).toBe(false);
+    expect(isStepGatedOut("links", picks({ links: "no" }))).toBe(true);
+    expect(isStepGatedOut("links", picks({ links: "maybe" }))).toBe(true);
+    // null + undefined both gate out (treat unanswered as no).
+    expect(isStepGatedOut("links", null)).toBe(true);
+  });
+
+  it("links conditional is account-type-agnostic (lab + solo both pass when links=yes)", () => {
+    expect(
+      isStepGatedOut("links", picks({ account_type: "solo", links: "yes" })),
+    ).toBe(false);
+    expect(
+      isStepGatedOut("links", picks({ account_type: "lab", links: "yes" })),
+    ).toBe(false);
+  });
+
   it("gates gantt-goals-overview on picks.goals === 'yes'", () => {
     expect(isStepGatedOut("gantt-goals-overview", picks({ goals: "yes" }))).toBe(
       false,
@@ -286,12 +309,19 @@ describe("getNextStep — forward traversal", () => {
       goals: "yes",
       telegram: "yes",
       ai_helper: "full",
+      // Lab Links manager 2026-05-22: maximal lab path now includes
+      // the Q7 links pick + the links conditional walkthrough step.
+      links: "yes",
     });
     const visited = walkForward("welcome", p);
     // setup-q1a / setup-q1b were dropped 2026-05-22 — lab storage now
     // lives in pre-onboarding §6.4 (cloud-provider screen).
     expect(visited).not.toContain("setup-q1a");
     expect(visited).not.toContain("setup-q1b");
+    // Lab Links manager 2026-05-22: setup-q7 + links cluster appear
+    // in the maximal lab walk.
+    expect(visited).toContain("setup-q7");
+    expect(visited).toContain("links");
     expect(visited).toContain("telegram");
     expect(visited).toContain("purchases");
     expect(visited).toContain("calendar");
@@ -384,15 +414,21 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
       goals: "yes",
       telegram: "yes",
       ai_helper: "full",
+      // Lab Links manager 2026-05-22: maximal picks include links=yes
+      // so labCount === TOUR_STEP_ORDER.length (no conditionals gated
+      // out for the maximal lab path).
+      links: "yes",
     });
     const soloCount = totalApplicableSteps(soloMin);
     const labCount = totalApplicableSteps(labMax);
     expect(labCount).toBeGreaterThan(soloCount);
     // 2026-05-22: setup-q1a / setup-q1b removed from TOUR_STEP_ORDER.
-    // Solo+minimal: 5 conditionals skipped (-5; telegram, purchases,
-    // calendar, gantt-goals-overview, ai-helper-deep-explain), 4 lab
-    // steps skipped (-4) = TOUR_STEP_ORDER.length - 9
-    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 9);
+    // Lab Links manager 2026-05-22: setup-q7 added; conditional `links`
+    // step added (gated on picks.links === "yes"). Solo+minimal: 6
+    // conditionals skipped (-6; telegram, purchases, calendar, links,
+    // gantt-goals-overview, ai-helper-deep-explain), 4 lab steps skipped
+    // (-4) = TOUR_STEP_ORDER.length - 10.
+    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 10);
     expect(labCount).toBe(TOUR_STEP_ORDER.length);
   });
 

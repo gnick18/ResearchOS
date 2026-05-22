@@ -6,6 +6,8 @@ import AppShell from "@/components/AppShell";
 import Tooltip from "@/components/Tooltip";
 import { labLinksApi } from "@/lib/local-api";
 import type { LabLink } from "@/lib/types";
+import { useFileSystem } from "@/lib/file-system/file-system-context";
+import { useFeaturePicks } from "@/hooks/useFeaturePicks";
 
 // Predefined colors for link cards
 const CARD_COLORS = [
@@ -37,6 +39,15 @@ export default function LabLinksPage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const queryClient = useQueryClient();
+
+  // Lab Links manager 2026-05-22: page header is account-type-conditional.
+  // Solo accounts see "Links"; lab accounts see "Lab Links". Visibility
+  // gate (picks.links === "yes") is handled upstream by deriveVisibleTabs
+  // — this file only owns the display label.
+  const { currentUser } = useFileSystem();
+  const featurePicks = useFeaturePicks(currentUser);
+  const surfaceLabel =
+    featurePicks?.account_type === "lab" ? "Lab Links" : "Links";
 
   // Form state
   const [title, setTitle] = useState("");
@@ -168,7 +179,7 @@ export default function LabLinksPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Lab Links</h2>
+            <h2 className="text-xl font-semibold text-gray-900">{surfaceLabel}</h2>
             <p className="text-sm text-gray-400 mt-0.5">
               {links.length} link{links.length !== 1 ? "s" : ""} saved
             </p>

@@ -199,7 +199,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   ? "purchases-tab"
                   : item.href === "/calendar"
                     ? "calendar-tab"
-                    : undefined;
+                    : item.href === "/links"
+                      ? "lab-links-nav-tab"
+                      : undefined;
+            // Lab Links manager 2026-05-22: the /links surface is
+            // account-type-conditional. Solo accounts see "Links",
+            // lab accounts see "Lab Links". The visibility gate
+            // (picks.links === "yes") lives in deriveVisibleTabs;
+            // here we just override the displayed label.
+            const displayLabel =
+              item.href === "/links"
+                ? featurePicks?.account_type === "lab"
+                  ? "Lab Links"
+                  : "Links"
+                : item.label;
             // Onboarding v4 L23: when an in-product walkthrough is
             // running, render each nav-item as a non-Link button that
             // visually grays out + suppresses click. Cursor-driven
@@ -238,7 +251,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     e.stopPropagation();
                   }}
                 >
-                  {item.label}
+                  {displayLabel}
                 </button>
               );
             }
@@ -254,7 +267,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       : "bg-white/75 text-gray-700 hover:bg-white"
                   }`}
                 >
-                  {item.label}
+                  {displayLabel}
                 </Link>
               );
             }
@@ -269,7 +282,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
                 }`}
               >
-                {item.label}
+                {displayLabel}
               </Link>
             );
           })}

@@ -62,6 +62,12 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "setup-q4",
   "setup-q5",
   "setup-q6",
+  // Q7 Lab Links (Lab Links manager 2026-05-22): the Lab Links surface
+  // was previously shown unconditionally for lab accounts and never
+  // explained in the tour. Q7 gates tab visibility for everyone (solo
+  // + lab); the surface name itself is account-type-conditional
+  // ("Links" for solo, "Lab Links" for lab).
+  "setup-q7",
 
   // ----- Phase 2: universal walkthrough (§6.1 - §6.12)
   // Home + first project (§6.1). Split into TRIGGER (highlight the
@@ -170,12 +176,18 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // Wiki pointer outro (§6.12)
   "wiki-pointer",
 
-  // ----- Phase 2b: conditional walkthroughs (§6.13 - §6.15)
+  // ----- Phase 2b: conditional walkthroughs (§6.13 - §6.15, plus
+  // links from Lab Links manager 2026-05-22)
   // Order matches Grant's voice-to-text: telegram first (since it can
   // dovetail into hybrid editor image), then purchases, then calendar.
+  // `links` lives after calendar and before the lab phase per the
+  // Lab Links manager brief (the surface is in the top nav alongside
+  // calendar / purchases, so the cluster keeps related-surface beats
+  // together).
   "telegram",
   "purchases",
   "calendar",
+  "links",
 
   // ----- Phase 2c: lab tour (§6.16, conditional on Q1=lab)
   "lab-prompt",
@@ -204,6 +216,7 @@ const SETUP_STEP_IDS: ReadonlySet<TourStepId> = new Set<TourStepId>([
   "setup-q4",
   "setup-q5",
   "setup-q6",
+  "setup-q7",
 ]);
 
 /** Lab tour step ids (gated on Q1=lab + lab-prompt decision). */
@@ -248,6 +261,10 @@ export function isStepGatedOut(
   if (step === "telegram") return picks?.telegram !== "yes";
   if (step === "purchases") return picks?.purchases !== "yes";
   if (step === "calendar") return picks?.calendar !== "yes";
+  // Links conditional (Lab Links manager 2026-05-22): same yes-only
+  // shape as the other conditional walkthroughs. Tab visibility +
+  // step gating both key off picks.links === "yes".
+  if (step === "links") return picks?.links !== "yes";
 
   // §6.8 goals overview sub-step: only show when picks.goals === "yes".
   // The other Gantt sub-steps (task types intro, drag-drop, chained

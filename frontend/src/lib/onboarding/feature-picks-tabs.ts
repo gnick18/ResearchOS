@@ -22,7 +22,13 @@ import type { FeaturePicks } from "@/lib/onboarding/sidecar";
  *     always visible.
  *   - "/purchases":  iff picks.purchases === "yes".
  *   - "/calendar":   iff picks.calendar  === "yes".
- *   - "/links" (Lab Mode / Lab Links): iff picks.account_type === "lab".
+ *   - "/links" (Links / Lab Links): iff picks.links === "yes" (Lab
+ *     Links manager 2026-05-22). Previously gated on
+ *     `picks.account_type === "lab"`; now gated on the Q7 answer so
+ *     both solo and lab users get an explicit opt-in. The DISPLAYED
+ *     label is conditional on account_type ("Links" for solo, "Lab
+ *     Links" for lab) — that's rendered by the nav-label resolver in
+ *     AppShell, not here. This file only owns visibility, not labels.
  *
  * Note on tabs the proposal mentions that don't have nav hrefs yet:
  * the proposal also names "Experiments always visible" and "Goals iff
@@ -46,7 +52,10 @@ export function tabsForFeaturePicks(
   ]);
   if (picks.purchases === "yes") visible.add("/purchases");
   if (picks.calendar === "yes") visible.add("/calendar");
-  if (picks.account_type === "lab") visible.add("/links");
+  // Lab Links manager 2026-05-22: gated on Q7 answer (links === "yes")
+  // for everyone, replacing the previous account_type === "lab" gate.
+  // Solo + lab users both get an explicit opt-in via Q7.
+  if (picks.links === "yes") visible.add("/links");
 
   return NAV_ITEMS.map((item) => item.href).filter((href) =>
     visible.has(href),
