@@ -97,6 +97,7 @@ import { methodsBreadthStep } from "./steps/walkthrough/MethodsBreadthStep";
 // detail level. Removed from TOUR_STEP_ORDER and TOUR_STEPS.
 import { methodsLcDemoStep } from "./steps/walkthrough/MethodsLcDemoStep";
 import { methodsCreateStep } from "./steps/walkthrough/MethodsCreateStep";
+import { workbenchCreateExperimentOpenStep } from "./steps/walkthrough/WorkbenchCreateExperimentOpenStep";
 import { workbenchCreateExperimentStep } from "./steps/walkthrough/WorkbenchCreateExperimentStep";
 // §6.6 method-attachment split (2026-05-21): the original
 // `methodAttachmentStep` was split into 4 popup-mount-safe sub-steps.
@@ -143,6 +144,7 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [methodsBreadthStep.id]: methodsBreadthStep,
   [methodsLcDemoStep.id]: methodsLcDemoStep,
   [methodsCreateStep.id]: methodsCreateStep,
+  [workbenchCreateExperimentOpenStep.id]: workbenchCreateExperimentOpenStep,
   [workbenchCreateExperimentStep.id]: workbenchCreateExperimentStep,
   [methodAttachmentOpenStep.id]: methodAttachmentOpenStep,
   [methodAttachmentTabStep.id]: methodAttachmentTabStep,

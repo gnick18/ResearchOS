@@ -23,6 +23,7 @@ const P5_STEP_IDS = [
   "methods-type-tour",
   "methods-lc-demo",
   "methods-create",
+  "workbench-create-experiment-open",
   "workbench-create-experiment",
   // §6.6 method-attachment split (2026-05-21): the original single
   // `experiment-attach-method` id was split into 4 popup-mount-safe

@@ -566,6 +566,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
               }
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               autoFocus
+              data-tour-target="workbench-experiment-name-input"
             />
           </div>
 
@@ -904,6 +905,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
           <button
             type="submit"
             disabled={isCheckingDuplicate}
+            data-tour-target="workbench-experiment-submit"
             className={`px-4 py-2 text-sm text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
               taskType === "experiment"
                 ? "bg-green-600 hover:bg-green-700"

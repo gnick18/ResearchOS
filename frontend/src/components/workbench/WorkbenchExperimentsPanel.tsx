@@ -330,6 +330,14 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
     setNewTaskStartDate(null);
     setRestrictedTaskType("experiment");
     setIsCreatingTask(true);
+    // Onboarding v4 §6.5: the new workbench-create-experiment-open
+    // sub-step waits for this DOM event to advance. Cheap no-op when no
+    // tour is active (one ignored dispatch).
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("tour:workbench-experiment-modal-opened"),
+      );
+    }
   }, [setIsCreatingTask, setNewTaskStartDate, setRestrictedTaskType]);
 
   // Open a task by id (own-namespace lookup). Used by the "next in chain"

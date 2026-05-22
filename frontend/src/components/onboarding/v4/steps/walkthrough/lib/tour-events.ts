@@ -88,6 +88,14 @@ export const TOUR_DOM_EVENTS = {
    */
   methodsCategoryModalOpened: "tour:methods-category-modal-opened",
   /**
+   * Dispatched by WorkbenchExperimentsPanel.tsx when the user clicks
+   * "+ New Experiment" (the TaskModal mounts via setIsCreatingTask). The
+   * §6.5 workbench-create-experiment-open user-action sub-step (Grant
+   * 2026-05-21 split) listens on this to advance into BeakerBot's
+   * type+submit demo step.
+   */
+  workbenchExperimentModalOpened: "tour:workbench-experiment-modal-opened",
+  /**
    * Dispatched by `CreateMethodModal.tsx` after a successful save (both
    * plain Create and Save-and-extend). The §6.4d `methods-create` demo
    * step listens on this so the cursor's typed-then-Save sequence
@@ -543,6 +551,48 @@ export function watchMethodsCategoryModalOpened(
   return () => {
     window.removeEventListener(
       TOUR_DOM_EVENTS.methodsCategoryModalOpened,
+      handler,
+    );
+  };
+}
+
+/**
+ * Watch for the §6.5 user-action open-step to complete.
+ * WorkbenchExperimentsPanel.tsx dispatches
+ * `tour:workbench-experiment-modal-opened` when the user clicks
+ * "+ New Experiment". DOM-mount fallback so the watcher also trips if
+ * the modal is already on screen when the step mounts (eg. the user
+ * clicked the button during the prior methods-create step before this
+ * step took over). Mirrors `watchMethodsCategoryModalOpened`.
+ */
+export function watchWorkbenchExperimentModalOpened(
+  advance: () => void,
+): () => void {
+  if (typeof window === "undefined") return () => {};
+  let fired = false;
+  const fire = () => {
+    if (fired) return;
+    fired = true;
+    advance();
+  };
+  // Mount fallback: if the name input is already in the DOM, the modal
+  // is already open and we advance immediately.
+  if (
+    document.querySelector(
+      "[data-tour-target=\"workbench-experiment-name-input\"]",
+    )
+  ) {
+    fire();
+    return () => {};
+  }
+  const handler = () => fire();
+  window.addEventListener(
+    TOUR_DOM_EVENTS.workbenchExperimentModalOpened,
+    handler,
+  );
+  return () => {
+    window.removeEventListener(
+      TOUR_DOM_EVENTS.workbenchExperimentModalOpened,
       handler,
     );
   };

@@ -112,7 +112,13 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "methods-lc-demo",         // §6.4b-2: click LC tile, prompt user to explore
   "methods-create",          // §6.4d (BeakerBot's funny markdown method)
   // Workbench experiment creation (§6.5)
-  "workbench-create-experiment",
+  // Grant 2026-05-21 split: separate the user-action open-click from
+  // BeakerBot's type+submit demo. Same shape as §6.4 methods-category
+  // (open + demo) and §6.1 home-create-project (open + fill). The user
+  // clicks "+ New Experiment" themselves; the cursor then takes over to
+  // type the placeholder name and click Create Experiment.
+  "workbench-create-experiment-open",  // §6.5a-open (user opens the modal)
+  "workbench-create-experiment",       // §6.5a-demo (cursor types + clicks Save)
   // Method attachment + variation notes + snapshot teach (§6.6).
   // Split into 4 popup-mount-safe sub-steps (2026-05-21, HR-dispatched):
   // the original single `experiment-attach-method` step's cursor script

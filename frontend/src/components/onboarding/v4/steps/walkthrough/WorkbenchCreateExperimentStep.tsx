@@ -1,26 +1,40 @@
 /**
- * §6.5 Workbench experiment creation — universal walkthrough.
+ * §6.5 Workbench experiment creation — BeakerBot types the placeholder
+ * name and clicks Save (demo sub-step, Grant 2026-05-21 split).
  *
- * After the funny method lands (§6.4d), BeakerBot points to the
- * Workbench's New Experiment affordance. The user clicks it, fills the
- * name + saves. Completes on `tasksApi.create` success (polling watcher).
+ * Second beat of the open-then-demo flow. The open step
+ * (`workbench-create-experiment-open`, in
+ * WorkbenchCreateExperimentOpenStep.tsx) handed off after the user
+ * clicked "+ New Experiment" and the modal mounted. This step's cursor
+ * then types the placeholder experiment name into the Task Name input
+ * and clicks Create Experiment. Completion fires on the polling
+ * `tasksApi.create` watcher.
  *
  * The placeholder experiment name is fixed for §6.11 (Search): the
  * search demo types a query matching this name. Keep the constant
  * exported so the search step body can re-use it.
  *
- * Classification: USER ACTION (per Grant's design correction 2026-05-21).
- * Speech is "let's make an experiment", invitational, not a "watch me"
- * promise. The brief treats experiment creation as a simple-enough
- * action the user should own (alongside project creation). Cursor does
- * NOT click New Experiment, does NOT type the name, does NOT submit.
- * Spotlight on the New Experiment button gives the visual cue; the
- * user does the rest. Completion still fires on the real API event.
+ * Classification: BEAKERBOT DEMO (Grant 2026-05-21 split). Speech is
+ * "watch me type the name and save" (BeakerBot-led); the cursor
+ * performs the type + click. Same shape as §6.4-demo
+ * (`methodsCategoryDemoStep`).
  *
  * Artifact:
  *   { type: "experiment", id: "<taskId>", cleanup_default: "keep" }
+ *
+ * The onEnter / onExit baseline-diff logic preserved from the prior
+ * user-action body: the artifact is captured by snapshotting the task
+ * ids on step entry and diffing on exit to identify the freshly-created
+ * task. Same Phase 4 cleanup behaviour as before — the split changes
+ * who clicks, not what gets tracked.
  */
 import { tasksApi } from "@/lib/local-api";
+import {
+  cursorScript,
+  safeClickAction,
+  safeTypeAction,
+  compactScript,
+} from "./lib/cursor-script";
 import { advanceOnEvent, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 import { watchTaskCreated } from "./lib/tour-events";
@@ -29,32 +43,41 @@ import { flushPendingArtifacts, pendingArtifactStore } from "./lib/artifacts";
 const STEP_ID = "workbench-create-experiment";
 
 /** Snapshot of task ids known at step entry. Diffed on exit against
- *  the current task list to identify the experiment the user just
+ *  the current task list to identify the experiment BeakerBot just
  *  created. Module-level so onEnter + onExit share scope without
  *  re-plumbing TourController context. */
 const baselineTaskIds = new Set<number>();
 
 /** Placeholder experiment name. Re-used by the §6.11 search step's
- *  cursor-typed query. Kept exported so the search step still has a
- *  stable query string even though this step no longer types it
- *  automatically. Most users will name their experiment something
- *  containing "Demo" / "Experiment" / "One" or close enough that the
- *  partial search demo still surfaces results; if not, §6.11's speech
- *  already acknowledges the empty-results case. */
+ *  cursor-typed query. The demo step types this string into the Task
+ *  Name input verbatim, so the search query in §6.11 always finds the
+ *  freshly-created experiment. */
 export const PLACEHOLDER_EXPERIMENT_NAME = "Demo Experiment One";
 
 export const workbenchCreateExperimentStep = buildWalkthroughStep({
   id: STEP_ID,
-  speech: "Now let's make an experiment that uses that method.",
-  pose: "pointing",
-  targetSelector: targetSelector(TOUR_TARGETS.workbenchNewExperiment),
-  // Intentionally no cursorScript: the user creates the experiment.
-  // BeakerBot points; spotlight reads; user clicks New Experiment,
-  // types their own name, saves. The tasksApi.create event still
-  // fires the completion.
+  speech: "Now let me name the experiment. Watch.",
+  pose: "typing-on-laptop",
+  targetSelector: targetSelector(TOUR_TARGETS.workbenchExperimentNameInput),
+  cursorScript: cursorScript(async () => {
+    // Grant 2026-05-21 split: the user opens the modal themselves in
+    // the previous `workbench-create-experiment-open` step. The demo
+    // step's job is JUST to type the placeholder name and click
+    // Create Experiment. 25ms cadence keeps the typing visible without
+    // dragging the sequence out (~0.5 seconds for "Demo Experiment One").
+    const typeName = await safeTypeAction(
+      targetSelector(TOUR_TARGETS.workbenchExperimentNameInput),
+      PLACEHOLDER_EXPERIMENT_NAME,
+      25,
+    );
+    const submit = await safeClickAction(
+      targetSelector(TOUR_TARGETS.workbenchExperimentSubmit),
+    );
+    return compactScript([typeName, submit]);
+  }),
   completion: advanceOnEvent(watchTaskCreated),
   // Snapshot the no-project task ids on enter; the diff on exit
-  // identifies the experiment the user created. No DOM event exists
+  // identifies the experiment BeakerBot created. No DOM event exists
   // for tasksApi.create (the watcher polls listByProject), so we
   // mirror the same polling shape ourselves to find the new id.
   // Project bucket 0 matches `watchTaskCreated`'s `projectId ?? 0`

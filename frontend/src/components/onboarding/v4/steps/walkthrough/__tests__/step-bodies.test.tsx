@@ -48,6 +48,7 @@ import {
 } from "../MethodsBreadthStep";
 import { methodsLcDemoStep } from "../MethodsLcDemoStep";
 import { methodsCreateStep, FUNNY_METHOD_NAME } from "../MethodsCreateStep";
+import { workbenchCreateExperimentOpenStep } from "../WorkbenchCreateExperimentOpenStep";
 import {
   workbenchCreateExperimentStep,
   PLACEHOLDER_EXPERIMENT_NAME,
@@ -112,6 +113,7 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   methodsBreadthStep,
   methodsLcDemoStep,
   methodsCreateStep,
+  workbenchCreateExperimentOpenStep,
   workbenchCreateExperimentStep,
   methodAttachmentOpenStep,
   methodAttachmentTabStep,
@@ -156,6 +158,7 @@ describe("P5 step bodies — universal contract", () => {
       "methods-type-tour",
       "methods-lc-demo",
       "methods-create",
+      "workbench-create-experiment-open",
       "workbench-create-experiment",
       "experiment-attach-method-open",
       "experiment-attach-method-tab",
@@ -208,6 +211,9 @@ describe("P5 step bodies — universal contract", () => {
       methodsBreadthStep,
       methodsLcDemoStep,
       methodsCreateStep,
+      // §6.5 Grant 2026-05-21 split: workbench-create-experiment is
+      // the BeakerBot demo (open is the user-action half).
+      workbenchCreateExperimentStep,
       methodAttachmentOpenStep,
       methodAttachmentTabStep,
       methodAttachmentAttachStep,
@@ -641,18 +647,94 @@ describe("MethodsOpenPickerStep (§6.4 open-picker beat)", () => {
   });
 });
 
-describe("WorkbenchCreateExperimentStep (§6.5)", () => {
+describe("WorkbenchCreateExperimentOpenStep (§6.5a-open, Grant 2026-05-21 split)", () => {
+  it("has id `workbench-create-experiment-open`", () => {
+    expect(workbenchCreateExperimentOpenStep.id).toBe(
+      "workbench-create-experiment-open",
+    );
+  });
+  it("declares event-driven completion (modal-opened DOM event)", () => {
+    expect(workbenchCreateExperimentOpenStep.completion.type).toBe("event");
+  });
+  it("targets the workbench New Experiment button selector", () => {
+    expect(workbenchCreateExperimentOpenStep.targetSelector).toBe(
+      "[data-tour-target=\"workbench-new-experiment\"]",
+    );
+  });
+  it("has no cursorScript (user-action step, mirrors §6.4 methods-category-open)", () => {
+    // Cursor responsibility audit: the user clicks the spotlighted
+    // "+ New Experiment" button themselves; BeakerBot's cursor takes
+    // over in the follow-up demo step to type the name and submit.
+    expect(workbenchCreateExperimentOpenStep.cursorScript).toBeUndefined();
+  });
+  it("expectedRoute is /workbench", () => {
+    expect(workbenchCreateExperimentOpenStep.expectedRoute).toBe("/workbench");
+  });
+  it("advances when the tour:workbench-experiment-modal-opened DOM event fires", async () => {
+    if (workbenchCreateExperimentOpenStep.completion.type !== "event") {
+      throw new Error("completion contract changed shape; update test");
+    }
+    let advanced = false;
+    const stop = workbenchCreateExperimentOpenStep.completion.eventListener(
+      () => {
+        advanced = true;
+      },
+    );
+    try {
+      window.dispatchEvent(
+        new CustomEvent("tour:workbench-experiment-modal-opened"),
+      );
+      await Promise.resolve();
+      expect(advanced).toBe(true);
+    } finally {
+      stop();
+    }
+  });
+});
+
+describe("WorkbenchCreateExperimentStep (§6.5a-demo, Grant 2026-05-21 split)", () => {
   it("exports placeholder experiment name for re-use by §6.11 search", () => {
     expect(PLACEHOLDER_EXPERIMENT_NAME).toBe("Demo Experiment One");
   });
   it("declares event-driven completion (tasksApi.create poll)", () => {
     expect(workbenchCreateExperimentStep.completion.type).toBe("event");
   });
-  it("has no cursorScript (user-action step, Grant 2026-05-21)", () => {
-    // Cursor responsibility audit: experiment creation is the user's
-    // action. BeakerBot points to the New Experiment affordance via
-    // the spotlight; the user clicks, fills, submits on their own.
-    expect(workbenchCreateExperimentStep.cursorScript).toBeUndefined();
+  it("retains a cursorScript (demo step types the name + clicks Save)", () => {
+    // Post-split classification: BeakerBot now types the placeholder
+    // name and clicks Create Experiment. The user-action half lives on
+    // `workbench-create-experiment-open` (cursorScript: undefined).
+    expect(workbenchCreateExperimentStep.cursorScript).toBeDefined();
+  });
+  it("targets the experiment name input (cursor types into it)", () => {
+    expect(workbenchCreateExperimentStep.targetSelector).toBe(
+      "[data-tour-target=\"workbench-experiment-name-input\"]",
+    );
+  });
+  it("cursor script types the placeholder name then clicks the submit button", async () => {
+    const nameInput = document.createElement("input");
+    nameInput.setAttribute("type", "text");
+    nameInput.setAttribute(
+      "data-tour-target",
+      "workbench-experiment-name-input",
+    );
+    const submit = document.createElement("button");
+    submit.setAttribute("data-tour-target", "workbench-experiment-submit");
+    document.body.appendChild(nameInput);
+    document.body.appendChild(submit);
+    try {
+      expect(workbenchCreateExperimentStep.cursorScript).toBeDefined();
+      const actions = await workbenchCreateExperimentStep.cursorScript!();
+      expect(actions).toHaveLength(2);
+      expect(actions[0]).toMatchObject({
+        type: "type",
+        target: nameInput,
+        text: PLACEHOLDER_EXPERIMENT_NAME,
+      });
+      expect(actions[1]).toMatchObject({ type: "click", target: submit });
+    } finally {
+      nameInput.remove();
+      submit.remove();
+    }
   });
 });
 

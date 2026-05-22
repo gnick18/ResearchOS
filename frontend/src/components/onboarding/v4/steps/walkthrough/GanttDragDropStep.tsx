@@ -39,7 +39,7 @@ import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 export const ganttDragDropStep = buildWalkthroughStep({
   id: "gantt-drag-drop",
   speech:
-    "Drag a task bar to reschedule it. Drag the right edge to resize the duration.",
+    "Watch me drag this task bar to reschedule it. You can drop a bar anywhere on the timeline to change its date.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.ganttFirstTaskBar),
   cursorScript: cursorScript(async () => {
