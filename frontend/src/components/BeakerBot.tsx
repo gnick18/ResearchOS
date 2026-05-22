@@ -758,11 +758,16 @@ export default function BeakerBot({
        *  collapse to a static silhouette under prefers-reduced-motion. */}
       {effectivePose === "volcano-eruption" && (
         <>
-          {/* Test tube: small flask above and slightly right of
-           *  BeakerBot's head. Two paths layered: outline (white fill
-           *  for body, currentColor stroke) + purple liquid inside.
-           *  Animation tilts it forward 90deg at the pour stage then
-           *  flings it off-screen on the erupt stage. */}
+          {/* Test tube: small flask above-LEFT of BeakerBot's head.
+           *  Two paths layered: outline (white fill for body,
+           *  currentColor stroke) + purple liquid inside. Dimensions
+           *  are 4 units wide x 8 units tall (skinny + small, so the
+           *  tube reads as a chemistry test tube rather than a flask
+           *  and stays fully inside the viewBox during the slide-in).
+           *  Animation tilts it CLOCKWISE at the pour stage so the
+           *  mouth (bottom) swings down-and-right toward BeakerBot's
+           *  beaker top at (20, 12). Tube body sits at x=4..8,
+           *  y=0..8 in the static state. */}
           <g
             className={
               animated
@@ -770,16 +775,18 @@ export default function BeakerBot({
                 : undefined
             }
           >
-            {/* Test tube body: rectangular flask with rounded bottom. */}
+            {/* Test tube body: skinny vessel with rounded mouth at
+             *  the bottom (sealed flat top at y=0). */}
             <path
-              d="M 32 -2 L 32 8 Q 32 10, 34 10 L 38 10 Q 40 10, 40 8 L 40 -2 Z"
+              d="M 4 0 L 4 6 Q 4 8, 5 8 L 7 8 Q 8 8, 8 6 L 8 0 Z"
               fill="white"
               stroke="currentColor"
               strokeWidth="1.2"
             />
-            {/* Test tube liquid: purple, settled at the bottom half. */}
+            {/* Test tube liquid: purple, settled in the bottom half
+             *  of the smaller tube (y=4..8). */}
             <path
-              d="M 32 4 L 40 4 L 40 8 Q 40 10, 38 10 L 34 10 Q 32 10, 32 8 Z"
+              d="M 4 4 L 8 4 L 8 6 Q 8 8, 7 8 L 5 8 Q 4 8, 4 6 Z"
               fill="#8b5cf6"
               stroke="none"
             />
