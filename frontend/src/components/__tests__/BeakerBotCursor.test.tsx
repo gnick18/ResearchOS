@@ -399,6 +399,30 @@ describe("BeakerBotCursor — edge cases", () => {
     document.body.removeChild(button);
   });
 
+  it("typeInto compounds with mid-typewriter user keystrokes (Wave 2 Fix 4/9)", async () => {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 100, height: 20, right: 100, bottom: 20, x: 0, y: 0, toJSON: () => "" }) as DOMRect;
+    document.body.appendChild(input);
+    const { ref } = renderWithRef({ glideMs: 1, typeCadenceMs: 5 });
+    await act(async () => {});
+    // Pre-seed the input with a user keystroke that lands BEFORE the
+    // typewriter runs. After the prior behavior would have used a
+    // one-shot startingValue snapshot of "" (the value at focus
+    // time), this would overwrite the user's "X" to "ab". With Fix
+    // 4/9, the typewriter reads the input value fresh per tick so
+    // the final value preserves the user keystroke.
+    input.value = "X";
+    await act(async () => {
+      await ref.current?.typeInto(input, "ab");
+    });
+    // Final value MUST include the user's "X" preserved at the start.
+    expect(input.value).toContain("X");
+    expect(input.value.length).toBe(3); // "X" + "ab"
+    document.body.removeChild(input);
+  });
+
   it("runScript short-circuits between actions when the AbortSignal is already aborted (Wave 2 Fix 3/9)", async () => {
     const button1 = document.createElement("button");
     const button2 = document.createElement("button");

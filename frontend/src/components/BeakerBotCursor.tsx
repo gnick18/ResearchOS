@@ -512,11 +512,21 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
           el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
 
         if (isNativeInput) {
-          // Type char-by-char into a native form control via the
-          // React-safe setter.
-          const startingValue = el.value;
+          // Wave 2 Fix 4/9: re-read the input value on every tick so
+          // user keystrokes mid-typewriter compound with BeakerBot's
+          // typing instead of getting overwritten. `prevTypedLength`
+          // tracks how many chars of the demo `text` we've already
+          // committed; the next char appends to whatever value the
+          // input currently holds (user input + prior demo chars).
+          // Previously a one-shot `startingValue = el.value` capture
+          // meant every tick stomped the user's intervening edits
+          // back to the snapshot.
+          let prevTypedLength = 0;
           for (let i = 0; i < text.length; i++) {
-            setNativeInputValue(el, startingValue + text.slice(0, i + 1));
+            const currentValue = el.value;
+            const nextChar = text.charAt(prevTypedLength);
+            setNativeInputValue(el, currentValue + nextChar);
+            prevTypedLength += 1;
             // Reduced motion: still respect cadence so the test's
             // intent (cursor types into the input) is observable.
             // The brief allows this — "could be sped up; out of scope."
@@ -568,9 +578,14 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
           } catch {
             // No-op.
           }
-          const startingValue = innerInput.value;
+          // Wave 2 Fix 4/9: same compound-with-user-keystrokes
+          // contract as the native-input branch above.
+          let prevTypedLength = 0;
           for (let i = 0; i < text.length; i++) {
-            setNativeInputValue(innerInput, startingValue + text.slice(0, i + 1));
+            const currentValue = innerInput.value;
+            const nextChar = text.charAt(prevTypedLength);
+            setNativeInputValue(innerInput, currentValue + nextChar);
+            prevTypedLength += 1;
             await sleep(cadence);
           }
           return;
