@@ -35,6 +35,7 @@ import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useUserColors } from "@/hooks/useUserColor";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
 import { useFeaturePicks } from "@/hooks/useFeaturePicks";
+import { useAccountType } from "@/hooks/useAccountType";
 import { deriveVisibleTabs } from "@/lib/onboarding/feature-picks-tabs";
 import { headerGradient } from "@/lib/colors";
 import { useOptionalTourController } from "@/components/onboarding/v4/TourController";
@@ -109,6 +110,24 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const filtered = NAV_ITEMS.filter(
     (item) =>
       item.href === HOME_HREF || effectiveVisibleTabs.includes(item.href),
+  );
+
+  // Lab Head Phase 1 (lab head Phase 1 manager, 2026-05-23): append a
+  // "Lab Inbox" nav entry when the active user has `settings.account_type
+  // === "lab_head"`. The entry is account-type-gated rather than
+  // feature-picks-gated because being a PI is a per-user role, not a
+  // workspace shape — multiple users in the same lab can hold lab_head
+  // (co-PIs). `useAccountType` returns `undefined` while the settings
+  // read is in flight; we treat that the same as "not lab_head" so the
+  // entry never flickers in for a regular member on first paint.
+  const accountType = useAccountType(currentUser ?? null);
+  const showLabInbox = accountType === "lab_head";
+  const navItemsWithInbox = useMemo(
+    () =>
+      showLabInbox
+        ? [...filtered, { href: "/lab-inbox", label: "Lab Inbox" }]
+        : filtered,
+    [filtered, showLabInbox],
   );
 
   // Onboarding v4 L23: while the in-product walkthrough is active, the
@@ -198,7 +217,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           className="flex items-center gap-1"
           data-tour-nav-disabled={navDisabledByTour ? "true" : undefined}
         >
-          {filtered.map((item) => {
+          {navItemsWithInbox.map((item) => {
             const isActive = pathname === item.href;
             // Onboarding v4 §6.12+ walkthrough anchors. Each top-nav
             // item gets a `data-tour-target` keyed off its route
@@ -214,7 +233,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     ? "calendar-tab"
                     : item.href === "/links"
                       ? "lab-links-nav-tab"
-                      : undefined;
+                      : item.href === "/lab-inbox"
+                        ? "lab-inbox-nav-tab"
+                        : undefined;
             // Lab Links manager 2026-05-22: the /links surface is
             // account-type-conditional. Solo accounts see "Links",
             // lab accounts see "Lab Links". The visibility gate

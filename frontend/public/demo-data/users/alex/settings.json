@@ -17,5 +17,6 @@
   "sidebarShowTasks": true,
   "sidebarShowCalendarEvents": true,
   "sidebarEventsHorizonDays": 7,
-  "coloredHeader": false
+  "coloredHeader": false,
+  "account_type": "member"
 }

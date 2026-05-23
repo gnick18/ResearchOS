@@ -410,6 +410,13 @@ function buildEntries() {
       sidebarShowCalendarEvents: true,
       sidebarEventsHorizonDays: 7,
       coloredHeader: false,
+      // Lab Head Phase 1 (lab head Phase 1 manager, 2026-05-23): alex is a
+      // postdoc, not the PI — explicit `member` so the demo's PI/member
+      // contrast is visible side-by-side with mira's `lab_head`. The
+      // normalize() pass in user-settings.ts defaults missing values to
+      // `member` so this is equivalent to omitting the field, but
+      // emitting it explicitly makes the fixture self-documenting.
+      account_type: "member",
     },
   ]);
   // Alex receives one shared task and one shared project from morgan.
@@ -1840,6 +1847,8 @@ function buildEntries() {
       sidebarShowCalendarEvents: true,
       sidebarEventsHorizonDays: 7,
       coloredHeader: false,
+      // Lab Head Phase 1: morgan is a grad student — explicit `member`.
+      account_type: "member",
     },
   ]);
 
@@ -2289,6 +2298,13 @@ function buildEntries() {
       sidebarShowCalendarEvents: true,
       sidebarEventsHorizonDays: 7,
       coloredHeader: false,
+      // Lab Head Phase 1 (lab head Phase 1 manager, 2026-05-23): mira is
+      // the demo lab's principal investigator. Setting `lab_head` reveals
+      // the Lab Inbox sidebar entry when this fixture is loaded as the
+      // active user, and lights up the "PI" badge on her comments
+      // across alex + morgan's shared content.
+      displayName: "Dr. Mira Castellanos",
+      account_type: "lab_head",
     },
   ]);
 
