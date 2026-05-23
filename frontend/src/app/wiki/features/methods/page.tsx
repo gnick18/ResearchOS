@@ -9,7 +9,7 @@ export default function MethodsFeaturePage() {
   return (
     <WikiPage
       title="Methods Library"
-      intro="Reusable protocols (markdown, PDF, or PCR) organized into categories and attached to experiments as tabs."
+      intro="A method is a reusable protocol you write once and attach to any experiment as a tab. The library ships ten method types, from free-form Markdown to specialized structured editors for PCR, LC gradients, plate layouts, and more, so a method matches the shape of the work instead of forcing everything into prose."
     >
       <Screenshot
         src="/wiki/screenshots/methods-library.png"
@@ -24,10 +24,10 @@ export default function MethodsFeaturePage() {
         The Method Library page lists every protocol you and your lab have
         saved, grouped under category headings (e.g., &quot;Molecular
         Biology&quot;, &quot;Imaging&quot;). Each method is a card with its
-        name, a type pill (Markdown, PDF, or PCR), and any tags you added.
-        Click a card to open the method in a popup with the editor on the
-        left and a sidebar listing every experiment that currently uses it
-        on the right.
+        name, a colored type pill (Markdown, PDF, PCR, LC Gradient, Plate
+        Layout, and so on), and any tags you added. Click a card to open
+        the method in a popup with the editor on the left and a sidebar
+        listing every experiment that currently uses it on the right.
       </p>
       <p>
         Two buttons sit in the top-right of the page:{" "}
@@ -36,46 +36,86 @@ export default function MethodsFeaturePage() {
         the create-method modal.
       </p>
 
-      <h2>Markdown, PDF, and PCR methods</h2>
+      <h2>The ten method types</h2>
       <p>
-        The create-method modal opens with a <strong>Method Format</strong>{" "}
-        toggle at the top. Each format gets its own viewer when the method is
-        opened, and its own icon on experiment tabs.
+        The create-method modal groups types into two sections. Each type
+        gets its own viewer when the method is opened, its own icon on
+        experiment tabs, and its own colored pill on the library card.
+      </p>
+      <p>
+        <strong>Standard methods</strong> are body-only (no structured
+        fields beyond title and tags):
       </p>
       <ul>
         <li>
-          <strong>Markdown</strong> (📄) is the default. You write the
-          protocol in the same markdown editor used for lab notes and
-          results, with toolbars, image drag-drop, and live preview. See{" "}
+          <strong>Markdown</strong> is the default. Free-form protocol text
+          in the same markdown editor used for lab notes and results, with
+          toolbars, image drag-drop, and live preview. See{" "}
           <Link href="/wiki/features/markdown-editor">The Markdown Editor</Link>{" "}
           for the full shortcut set.
         </li>
         <li>
-          <strong>PDF</strong> (📕) lets you upload an existing protocol PDF
-          (a kit insert, a published paper). PDFs render in an iframe and
+          <strong>PDF</strong> lets you upload an existing protocol PDF (a
+          kit insert, a published paper). PDFs render in an iframe and
           can&apos;t be edited inline.
         </li>
+      </ul>
+      <p>
+        <strong>Structured methods</strong> swap the markdown body for a
+        purpose-built editor:
+      </p>
+      <ul>
         <li>
-          <strong>PCR</strong> (🧬) opens a structured thermal-gradient
-          editor and reaction-recipe table instead of a markdown editor.
-          Full details on the dedicated{" "}
+          <strong>PCR</strong> opens a thermal-gradient editor and
+          reaction-recipe table. Full details on the{" "}
           <Link href="/wiki/features/pcr">PCR Reaction Builder</Link> page.
+        </li>
+        <li>
+          <strong>LC Gradient</strong> opens a solvent-gradient chart
+          editor with flow, column, and mobile-phase fields for HPLC and
+          LC-MS protocols.
+        </li>
+        <li>
+          <strong>Plate Layout</strong> renders an interactive well-plate
+          grid with sample, control, and blank annotations.
+        </li>
+        <li>
+          <strong>Cell culture passaging</strong> tracks a passaging
+          schedule, media, and cell line, with per-task passage history.
+        </li>
+        <li>
+          <strong>Mass spec</strong> captures ionization mode, source and
+          scan params, and calibration. Pairs with LC for LC-MS workflows.
+        </li>
+        <li>
+          <strong>qPCR analysis</strong> records Cq readouts, melt-curve
+          Tm, standard-curve efficiency, and ΔΔCq fold-change.
+        </li>
+        <li>
+          <strong>Coding workflow</strong> stores reusable scripts
+          (Python, R, SQL) and Jupyter notebooks alongside protocol text.
+        </li>
+        <li>
+          <strong>Compound method</strong> bundles existing methods into
+          one attachable kit (e.g. plate layout plus assay PDF). Reached
+          by extending an existing method, not as a standalone picker tile.
         </li>
       </ul>
 
       <h2>Create a method</h2>
       <Steps>
         <Step>
-          Click <strong>+ New Method</strong>. Pick the format (Markdown,
-          PDF, or PCR) and give it a name. The <strong>Folder
-          (optional)</strong> field autocompletes against existing
-          categories (the page-level headings) so methods drop into the
-          right bucket.
+          Click <strong>+ New Method</strong>. Pick a type from the
+          Standard or Structured section and give it a name. The{" "}
+          <strong>Folder (optional)</strong> field autocompletes against
+          existing categories (the page-level headings) so methods drop
+          into the right bucket.
         </Step>
         <Step>
-          Fill in the body: write markdown, upload a PDF, or build a PCR
-          gradient and recipe. For markdown methods you can drag images and
-          attachment files directly into the editor.
+          Fill in the body: write markdown, upload a PDF, draw an LC
+          gradient, lay out a plate, or build a PCR program and recipe.
+          For markdown methods you can drag images and attachment files
+          directly into the editor.
         </Step>
         <Step>
           Click <strong>Create Method</strong>. The new card lands in its
