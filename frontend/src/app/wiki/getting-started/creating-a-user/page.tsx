@@ -36,16 +36,23 @@ export default function CreatingAUserPage() {
       <Steps>
         <Step>
           On the user-picker screen, click <strong>+ Create New User</strong>{" "}
-          and type a username in the input field. Lowercase letters, numbers,
-          and hyphens are safest across operating systems (e.g.,{" "}
-          <code>grant</code>, <code>sarah-lab</code>).
+          and type a username in the input field. The app accepts{" "}
+          <strong>letters, numbers, and underscores only</strong> (e.g.,{" "}
+          <code>grant</code>, <code>sarah_lab</code>). Hyphens are not
+          accepted and will trigger a validation error.
         </Step>
         <Step>
-          Click <strong>Create</strong>.
+          Click <strong>Create &amp; Login</strong>.
         </Step>
         <Step>
           A directory at <code>users/&lt;your-name&gt;/</code> is created and
-          you&apos;re signed in.
+          you&apos;re signed in. The app initializes a full subdirectory tree
+          inside it: <code>projects/</code>, <code>tasks/</code>,{" "}
+          <code>dependencies/</code>, <code>methods/</code>,{" "}
+          <code>events/</code>, <code>goals/</code>,{" "}
+          <code>pcr_protocols/</code>, <code>purchase_items/</code>,{" "}
+          <code>lab_links/</code>, <code>notes/</code>, <code>Images/</code>,{" "}
+          <code>Files/</code>, and <code>_counters.json</code>.
         </Step>
       </Steps>
 
@@ -63,9 +70,11 @@ export default function CreatingAUserPage() {
       <p>
         If you share a laptop, or you&apos;re storing the folder in a shared
         cloud, you can set a per-user password. Go to{" "}
-        <strong>Settings → Profile → Set Password</strong>. The password is
+        <strong>Settings → Security → Set Password</strong>. The password is
         PBKDF2-hashed and stored in{" "}
-        <code>users/&lt;your-name&gt;/_auth.json</code>.
+        <code>users/&lt;your-name&gt;/_auth.json</code>. You can also set or
+        change a password directly from the user-picker by hovering a user
+        row and clicking the padlock icon that appears.
       </p>
 
       <Callout variant="warning" title="Password recovery">

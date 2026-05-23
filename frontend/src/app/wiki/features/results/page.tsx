@@ -7,22 +7,24 @@ export default function ResultsFeaturePage() {
   return (
     <WikiPage
       title="Where results live now"
-      intro="ResearchOS used to have a standalone Results page that listed every completed (or deviated) task, grouped by project. That page was retired. Completed work now surfaces in three places, each closer to the context where the work happens."
+      intro="ResearchOS used to have a standalone Results page that listed every completed task, grouped by project. That page was retired. Completed work now surfaces in three places, each closer to the context where the work happens."
     >
       <Callout variant="info" title="Old bookmarks still work">
         Visiting <code>/results</code> now redirects to{" "}
         <Link href="/wiki/features/experiments">Workbench</Link>, where the
         bulk of the old page&apos;s content lives. No data moved on disk:
-        every task&apos;s <code>results.md</code>, <code>notes.md</code>, and
-        per-task <code>Files/</code> + <code>Images/</code> folders stay
-        exactly where they were.
+        every task lives at{" "}
+        <code>users/&lt;owner&gt;/results/task-&lt;id&gt;/</code>. After the
+        hybrid editor, new file attachments land in per-tab subdirectories:
+        notes files go to <code>notes/Files/</code> and results files go to{" "}
+        <code>results/Files/</code>, rather than a flat <code>Files/</code>{" "}
+        folder at the task root.
       </Callout>
 
       <h2>Completed experiments → Workbench &ldquo;Earlier results&rdquo;</h2>
       <p>
-        Experiments that you&apos;ve marked complete (or that carry a
-        deviation log) now collect in the Earlier results section at the
-        bottom of the{" "}
+        Experiments that you&apos;ve marked complete now collect in the
+        Earlier results section at the bottom of the{" "}
         <Link href="/wiki/features/experiments">Workbench</Link> page, with
         the header rendered in uppercase as <strong>EARLIER RESULTS</strong>.
         They keep all the same write-up affordances: clicking a card opens
@@ -44,15 +46,15 @@ export default function ResultsFeaturePage() {
         section.
       </p>
 
-      <h2>Per-project completed work → project popup</h2>
+      <h2>Per-project completed work → Workbench Results tab</h2>
       <p>
-        Open any project from the{" "}
-        <Link href="/wiki/features/home">Home</Link> page and the project
-        detail popup now carries a <strong>Recently completed</strong> line
-        that surfaces the last 30 days of completed work for that project,
-        across every task type. It&apos;s the fastest way to answer
-        &ldquo;what did we finish on this project this month?&rdquo; without
-        leaving the project&apos;s own context.
+        Clicking a project card on the{" "}
+        <Link href="/wiki/features/home">Home</Link> page navigates to the
+        project route at <code>/workbench/projects/&lt;id&gt;</code>. The{" "}
+        <strong>Results</strong> tab there shows a gallery of result images
+        for that project via the <code>ResultsGallery</code> component. This
+        is the fastest way to review all result images for a single project
+        without leaving its context.
       </p>
 
       <Callout variant="tip" title="Why the page was retired">

@@ -16,8 +16,10 @@ export default function SecurityPage() {
         and task data, images, attachments, Telegram inbox, and calendar
         subscriptions all stay in that folder. Nothing about your work is
         uploaded to a database we control, because there is no database
-        we control. Two narrow proxy routes exist for browser CORS reasons
-        and are documented below, but they are streams, not stores.
+        we control. Two narrow proxy routes we wrote exist for browser
+        CORS reasons and are documented below, but they are streams, not
+        stores. Vercel Web Analytics adds one more outbound destination,
+        also documented below.
       </p>
 
       <h2>What stays on your computer</h2>
@@ -112,9 +114,11 @@ export default function SecurityPage() {
           <strong>Calendar feed sync.</strong> When you subscribe to an iCal
           URL (Google, Outlook, iCloud, a university calendar), the browser
           asks <code>/api/calendar-feed</code> to fetch the iCal text from
-          the upstream and stream it back. A 15-minute edge cache keeps
-          repeated polls from hammering the upstream. We do not persist the
-          URL or the contents.
+          the upstream and stream it back. The subscription URL travels in
+          the <code>x-calendar-url</code> request header rather than in the
+          URL query string, so it is never written to Vercel access logs. A
+          15-minute edge cache keeps repeated polls from hammering the
+          upstream. We do not persist the URL or the contents.
         </li>
         <li>
           <strong>Telegram file CDN.</strong> When a photo arrives through
@@ -377,7 +381,18 @@ export default function SecurityPage() {
             <code>va.vercel-scripts.com</code> and{" "}
             <code>vitals.vercel-insights.com</code> for anonymous
             page-view pings (unless <strong>Offline mode</strong> is on,
-            in which case you&apos;ll see none of those). Nothing else.
+            in which case you&apos;ll see none of those). One more
+            destination may appear in a narrow circumstance: if the AI
+            Helper prompts bundled with your running app are older than
+            the latest deploy and you click{" "}
+            <strong>Pull latest from research-os-xi.vercel.app</strong>{" "}
+            in <strong>Settings &rarr; AI Helper</strong>, the browser
+            fetches{" "}
+            <code>https://research-os-xi.vercel.app/ai-helper/manifest.json</code>{" "}
+            and{" "}
+            <code>https://research-os-xi.vercel.app/ai-helper/&#123;size&#125;.md</code>.
+            This is a user-initiated, on-demand pull, not a background call.
+            Nothing else.
           </Step>
           <Step>
             For a second pass, switch from the <strong>Network</strong>{" "}

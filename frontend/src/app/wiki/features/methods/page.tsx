@@ -11,9 +11,10 @@ export default function MethodsFeaturePage() {
       title="Methods Library"
       intro="A method is a reusable protocol you write once and attach to any experiment as a tab. The library ships ten method types, from free-form Markdown to specialized structured editors for PCR, LC gradients, plate layouts, and more, so a method matches the shape of the work instead of forcing everything into prose."
     >
+      {/* methods-library.png needs recapture: predates 10-type rewrite; alt text still lists only 3 types */}
       <Screenshot
         src="/wiki/screenshots/methods-library.png"
-        alt="The Methods page showing categories of method cards, with type pills marking PDF, PCR, and markdown."
+        alt="The Methods page showing categories of method cards, with type pills marking the method type on each card."
         caption="The Method Library: cards grouped under category headings, with type pills on each card."
       />
 
@@ -150,20 +151,34 @@ export default function MethodsFeaturePage() {
         </li>
         <li>
           Open an existing method and click the <strong>🔒 Private</strong>{" "}
-          pill in the header. That opens a share popup with a
-          public-visibility toggle and a green confirmation message when
-          you flip it. The pill itself updates to <strong>🌐 Public</strong>{" "}
-          once saved.
+          pill in the header. The share popup opens. In the{" "}
+          <strong>User</strong> dropdown, select{" "}
+          <strong>🌐 All Lab Users</strong>. A confirmation box appears
+          below. Click <strong>Apply</strong>. The pill updates to{" "}
+          <strong>🌐 Public</strong> and a green message confirms the change.
         </li>
       </ul>
       <p>
         Public methods show a green <strong>Public</strong> badge on their
-        card and appear in every user&apos;s library. Once a markdown method
-        is public the inline Edit button disappears for everyone (including
-        the creator) and the body becomes read-only. To change a published
-        protocol, flip it back to Private from the share popup, edit, then
-        republish. Other users can always attach a public method to their
-        experiments and record their own variations.
+        card and appear in every user&apos;s library.
+      </p>
+      <p>
+        Once a <strong>Markdown</strong> method is public, the inline Edit
+        button disappears for everyone, including the creator, and the body
+        becomes read-only. To change a published Markdown protocol, flip it
+        back to Private via the share popup, edit, then republish.
+      </p>
+      <p>
+        <strong>Structured-method editors</strong> (PCR, LC Gradient, Plate
+        Layout, and others) behave differently. The creator retains edit
+        access even when the method is public, because the editor is gated
+        by <code>canModify</code> (which passes for the original creator
+        regardless of public status). Other lab members can read and attach
+        the method but cannot modify the shared copy.
+      </p>
+      <p>
+        All users can always attach a public method to their own experiments
+        and record per-run variations without touching the shared library copy.
       </p>
 
       <h2>Attach a method to an experiment</h2>
@@ -192,11 +207,12 @@ export default function MethodsFeaturePage() {
       </p>
       <p>
         For <strong>PCR methods</strong>, you can also edit the thermal
-        gradient or recipe table directly inside the experiment tab. The
-        first edit captures a snapshot onto that experiment, so the original
-        protocol in the library stays untouched. A <strong>Reset to
-        Method</strong> button reverts the experiment&apos;s copy back to
-        the library version whenever you want.
+        gradient or recipe table directly inside the experiment tab. Your
+        edits save as an experiment-local copy when you click{" "}
+        <strong>Save Changes</strong>, so the original protocol in the
+        library stays untouched. A <strong>Reset to Method</strong> button
+        reverts the experiment&apos;s copy back to the library version
+        whenever you want.
       </p>
       <p>
         Markdown and PDF methods don&apos;t copy the body onto the

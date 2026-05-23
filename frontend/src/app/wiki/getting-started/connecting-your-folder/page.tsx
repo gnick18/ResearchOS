@@ -9,23 +9,40 @@ export default function ConnectingYourFolderPage() {
     <WikiPage
       intro="Pick a folder on your disk. ResearchOS will read and write JSON files inside it (no cloud, no upload)."
     >
+      <Callout variant="info" title="Chromium browsers only">
+        ResearchOS uses the File System Access API, which is only available in
+        Chromium-based browsers (Chrome, Edge, Brave). Safari and Firefox are
+        not supported. See{" "}
+        <Link href="/wiki/getting-started/browser-requirements">
+          Browser Requirements
+        </Link>{" "}
+        for details.
+      </Callout>
+
       <Screenshot
         src="/wiki/screenshots/folder-connect.png"
-        alt="The folder-connect screen with two cards: Link Existing Folder on the left and Create New Folder on the right."
-        caption="The first screen you see on a fresh install."
+        alt="The folder-connect screen with two cards: Link Existing Folder on the left and Create New Folder on the right, plus a demo button and setup-guide link below."
+        caption="The first screen you see on a fresh install. (Screenshot predates the drag-drop addition — see below.)"
       />
 
       <h2>What you&apos;ll do</h2>
       <Steps>
         <Step>
           Click <strong>Link Folder</strong> if you already have a ResearchOS
-          folder, or <strong>Choose Location</strong> to create a new one.
-          Either button opens your operating system&apos;s folder picker.
+          folder. The button opens your operating system&apos;s folder picker.
+          Alternatively, you can <strong>drag a folder directly onto the
+          &ldquo;Link Existing Folder&rdquo; card</strong> instead of clicking
+          the button. The card highlights with a dashed blue border and shows
+          &ldquo;Drop your lab folder here, or click below to pick&rdquo; as
+          you drag over it. Release to connect.
         </Step>
         <Step>
-          Pick an <strong>empty folder</strong> (or create a new one) on your
-          disk. A name like <code>ResearchOS</code> or <code>lab-data</code> is
-          fine.
+          To create a new folder, type a name in the <strong>Folder Name</strong>{" "}
+          input on the <strong>Create New Folder</strong> card first. The{" "}
+          <strong>Choose Location</strong> button is disabled until the name
+          field is non-empty. Once you type a name, click{" "}
+          <strong>Choose Location</strong> to open the OS folder picker and
+          select where to save it.
         </Step>
         <Step>
           The browser asks for permission to read and write that folder. Click{" "}
@@ -75,11 +92,16 @@ export default function ConnectingYourFolderPage() {
 
       <h2>Reconnecting later</h2>
       <p>
-        After your first connect, ResearchOS remembers the folder via the
-        browser&apos;s storage. On the next visit, it tries to reconnect
-        silently. If the browser has forgotten the permission, you&apos;ll see a
-        small <strong>Allow</strong> dialog. This is much faster than picking
-        the folder again.
+        After your first connect, ResearchOS remembers the folder name via
+        browser storage. On your next visit, instead of the two-card picker
+        you see a dedicated <strong>reconnect screen</strong>: it shows the
+        folder name in a bold heading (<em>Reconnect to [your-folder]</em>)
+        and a prominent <strong>Continue</strong> button that re-attaches
+        without reopening the OS picker. A smaller{" "}
+        <strong>Pick a different folder</strong> link below the button lets
+        you switch to a different location if needed. The browser may show a
+        one-time permission prompt the first time you reconnect after a
+        browser restart.
       </p>
 
       <Callout variant="warning" title="Clearing site data disconnects you">

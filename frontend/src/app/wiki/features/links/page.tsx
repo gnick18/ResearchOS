@@ -6,14 +6,28 @@ import { Steps, Step } from "@/components/wiki/Steps";
 export default function LinksFeaturePage() {
   return (
     <WikiPage
-      title="Lab Links"
+      title="Links / Lab Links"
       intro="Your own bookmark wall: link cards with preview images, grouped into categories, stored under your user."
     >
+      {/* links.png needs recapture: predates Q7-conditional label */}
       <Screenshot
         src="/wiki/screenshots/links.png"
-        alt="The Lab Links page showing link cards grouped into category sections, each card with a preview image and a title underneath."
+        alt="The Links page showing link cards grouped into category sections, each card with a preview image and a title underneath."
         caption="Link cards grouped by category. Each card opens its URL in a new tab when clicked."
       />
+
+      <Callout variant="info" title="Solo vs. lab label">
+        Solo accounts see this surface labeled &quot;Links&quot; in the
+        nav and page header. Lab accounts see &quot;Lab Links&quot;.
+        The feature is identical either way.
+      </Callout>
+
+      <Callout variant="info" title="Q7 opt-in: Links is only visible if you enabled it">
+        The Links tab only appears if you answered &quot;Yes&quot; to the
+        setup wizard question about storing bookmarks (Q7). If you
+        don&apos;t see the tab, open Settings and re-run the setup
+        wizard to enable it.
+      </Callout>
 
       <h2>What the page looks like</h2>
       <p>
@@ -23,18 +37,24 @@ export default function LinksFeaturePage() {
         header is the category name, and links without a category land
         under <em>Other</em>. Clicking a card opens its URL in a new tab.
       </p>
+      <Callout variant="info" title="Color swatch vs. preview image">
+        The color swatch only appears when no preview image is set. If you
+        supply both a color and a preview image URL, the image takes
+        precedence and the color is not shown.
+      </Callout>
 
       <Callout variant="info" title="Per-user, not lab-wide">
-        Lab Links sit in your own folder under{" "}
+        Links sit in your own folder under{" "}
         <code>users/{`<you>`}/lab_links/</code>. Each labmate keeps their own
-        wall. Adding a link doesn&apos;t share it with anyone else.
+        wall. Adding a link doesn&apos;t share it with anyone else. There
+        is no per-link public or shared toggle in the data model.
       </Callout>
 
       <h2>Add a link</h2>
       <Steps>
         <Step>
           Click <strong>Add Link</strong> in the top right of the page. A
-          form panel slides open.
+          form expands inline below the button.
         </Step>
         <Step>
           Paste a URL into the <strong>URL</strong> field. Click the small
@@ -71,9 +91,9 @@ export default function LinksFeaturePage() {
       <p>
         Per the on-disk JSON: a title, a URL, an optional description, an
         optional category, a color, and an optional preview image URL.
-        That&apos;s it. There&apos;s no per-link sharing toggle, no
+        That&apos;s it. There is no per-link sharing toggle, no
         cross-user visibility, no labmate ordering. If a labmate needs the
-        same set of URLs, paste them into their own Lab Links page.
+        same set of URLs, they add them to their own Links page.
       </p>
     </WikiPage>
   );

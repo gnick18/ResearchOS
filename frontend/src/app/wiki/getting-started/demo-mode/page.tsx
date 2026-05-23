@@ -17,9 +17,11 @@ export default function DemoModePage() {
         >
           research-os-xi.vercel.app/demo
         </a>
-        ) and you land straight inside ResearchOS as a researcher named{" "}
-        <strong>alex</strong>, with a populated lab to click around in. Nothing
-        touches your disk and the browser never asks for a folder.
+        {" "}— the canonical public URL as of this writing; check the project
+        site for the current link if it has moved) and you land straight inside
+        ResearchOS as a researcher named <strong>alex</strong>, with a
+        populated lab to click around in. Nothing touches your disk and the
+        browser never asks for a folder.
       </p>
 
       <h2>What you&apos;ll see</h2>
@@ -48,7 +50,7 @@ export default function DemoModePage() {
       <Screenshot
         src="/wiki/screenshots/demo-mode-banner.png"
         alt="The Demo Lab banner sitting across the top of the page, with the Leave Demo button on the right."
-        caption="The amber demo banner sits across the top of every page in /demo."
+        caption="The amber demo banner sits across the top while you are on a /demo URL."
       />
 
       <h2>Edits are temporary</h2>
@@ -61,8 +63,12 @@ export default function DemoModePage() {
       </p>
       <p>
         The amber <strong>You&apos;re viewing the Demo Lab</strong> banner sits
-        across the top of every page as a constant reminder. The actual exit
-        button lives in the bottom-right of the window (described below).
+        across the top while you are on a <code>/demo</code> URL. Navigate
+        deeper (Gantt, Methods, Calendar, etc.) and the banner steps aside
+        because those routes are outside <code>/demo*</code>. The persistent
+        affordance across every route is the floating{" "}
+        <strong>Leave Demo</strong> button in the bottom-right of the window
+        (described below).
       </p>
 
       <h2>Dates always feel current</h2>
@@ -103,9 +109,11 @@ export default function DemoModePage() {
       <h2>Leaving the demo</h2>
       <p>
         A floating amber <strong>Leave Demo</strong> button lives in the
-        bottom-right of every demo page (a second <strong>Leave Demo</strong>{" "}
-        link is also on the banner up top). Either one opens a dialog called{" "}
-        <strong>Leave the demo?</strong> with two buttons:
+        bottom-right and follows you across every route. While you are on a{" "}
+        <code>/demo</code> URL, the amber banner at the top also shows a{" "}
+        <strong>Leave Demo</strong> button as a secondary shortcut. Either one
+        opens a dialog called <strong>Leave the demo?</strong> with two
+        buttons:
       </p>
       <ul>
         <li>

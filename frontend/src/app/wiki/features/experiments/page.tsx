@@ -102,9 +102,9 @@ export default function ExperimentsFeaturePage() {
         Experiments marked complete but with no results body or attached
         images on disk yet. This section is your reminder pile: bench
         work is done, the writeup is still owed. The header stays put
-        even when the section is empty, with a green &quot;All recent
-        experiments have results logged&quot; note in its place, so
-        the absence of a queue is itself useful feedback.
+        even when the section is empty, with a bordered emerald chip
+        reading &quot;All recent experiments have results logged&quot; in
+        its place, so the absence of a queue is itself useful feedback.
       </p>
 
       <h3>5. Recent results</h3>
@@ -119,7 +119,7 @@ export default function ExperimentsFeaturePage() {
       <h3>6. Earlier results</h3>
       <p>
         The archive: completed experiments older than 30 days. The
-        section header carries a <strong>Flat</strong> / <strong>Grouped</strong>{" "}
+        section header carries a <strong>Flat</strong> / <strong>By project</strong>{" "}
         toggle so you can flip between a single time-ordered grid and
         one block per project. There&apos;s no time cap, so the whole
         completion history is reachable from one place.
@@ -205,8 +205,11 @@ export default function ExperimentsFeaturePage() {
           start and end.
         </li>
         <li>
-          <strong>Upcoming</strong>: list tasks scheduled to start
-          later.
+          <strong>Upcoming</strong>: list tasks scheduled to start within
+          the next 14 days. Tasks starting further out are omitted from
+          the main list; a small gray footnote below the section reads
+          &quot;+ N scheduled later than 14d out&quot; so you know they
+          exist without cluttering the view.
         </li>
         <li>
           <strong>Recently done</strong>: completed in the last 30 days.
@@ -217,19 +220,53 @@ export default function ExperimentsFeaturePage() {
         </li>
       </ol>
       <p>
-        Each row carries the task name, project pill, and a date signal
-        phrased relative to today (&quot;3d overdue&quot;,
-        &quot;Started yesterday&quot;, &quot;Starts in 4d&quot;).
-        Clicking a row opens the same list-task popup you&apos;d get
-        from the Gantt or the Home page, with the popup landing on the
-        <strong> Details</strong> tab so you can read what the task is
-        for and check off sub-tasks.
+        Each card carries the task name, a project color dot with the
+        project name, and a date signal phrased relative to today
+        (&quot;3d overdue&quot;, &quot;Started yesterday&quot;,
+        &quot;Starts in 4d&quot;). Clicking a card expands it inline
+        as an accordion panel. Opening one card collapses the
+        previously-open one.
       </p>
+      {/* workbench-lists.png needs recapture: predates inline expand */}
       <Screenshot
         src="/wiki/screenshots/workbench-lists.png"
-        alt="The Lists tab with five stacked sections (Overdue, Doing, Upcoming, Recently done, Earlier), each with rows of list-task entries underneath."
+        alt="The Lists tab with five stacked sections (Overdue, Doing, Upcoming, Recently done, Earlier), each with list-task cards underneath."
         caption="The Lists tab buckets list tasks into five date-relative stages, top to bottom."
       />
+
+      <h3>Expanding a list task inline</h3>
+      <p>
+        Clicking a list card expands it in place. A violet border
+        highlights the open card, and a panel slides down below the
+        header row. Inside the panel:
+      </p>
+      <ul>
+        <li>
+          <strong>Name row</strong>: click the name to rename it
+          inline. Press Enter or click away to save.
+        </li>
+        <li>
+          <strong>Sub-task checklist</strong>: tick individual items to
+          check them off. Click an item&apos;s text to rename it. The
+          delete icon appears on hover to remove an item.
+        </li>
+        <li>
+          <strong>Add item</strong>: type in the input and press Enter
+          (or click <strong>Add</strong>) to append a new item to the
+          checklist.
+        </li>
+        <li>
+          <strong>Mark list complete</strong> button in the footer: marks
+          the whole list done and cascades all un-checked items to
+          complete. Click again to mark it incomplete.
+        </li>
+        <li>
+          <strong>Open full view</strong> link in the footer: opens the
+          legacy full-screen popup for the same task, useful for the
+          Details and date-editing fields not exposed in the inline panel.
+        </li>
+      </ul>
+
       <Callout variant="info" title="Lists holds list tasks, not experiments">
         Experiment tasks always render on the Experiments tab, never on
         Lists, even when their dates would make them overdue or

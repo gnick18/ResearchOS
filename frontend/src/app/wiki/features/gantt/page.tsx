@@ -30,9 +30,11 @@ export default function GanttFeaturePage() {
       </p>
       <ul>
         <li>
-          A short top stripe in a different color marks an experiment. When
-          experiments are chained together by dependencies, every bar in the
-          chain shares the same stripe color.
+          A short top stripe in a different color marks any task that belongs
+          to a dependency chain. Every bar in the chain shares the same stripe
+          color, so you can trace the chain visually across rows. Standalone
+          experiments that aren&apos;t part of a chain also show a dimmer
+          per-experiment stripe.
         </li>
         <li>
           A ☰ icon on the right and a thicker white left edge mark a list-type
@@ -92,12 +94,12 @@ export default function GanttFeaturePage() {
       <p>
         Most cascades apply silently. The orange{" "}
         <strong>&quot;This change will affect N task(s)&quot;</strong> modal
-        only opens when a Start-Finish dependency in the chain would force a
-        downstream task to start on a date that has already passed. The modal
-        lists every affected task with its old → new dates, plus a warning
-        line per past-date conflict. Pick <strong>Apply Changes</strong> to
-        accept the cascade or <strong>Cancel</strong> to leave the chain
-        alone.
+        only opens when an SF (&quot;Finish before&quot;) chain would shift a
+        task to start in the past. FS (&quot;Start after&quot;) and SS
+        cascades always apply without confirmation. The modal lists every
+        affected task with its old &rarr; new dates, plus a warning line per
+        past-date conflict. Pick <strong>Apply Changes</strong> to accept the
+        cascade or <strong>Cancel</strong> to leave the chain alone.
       </p>
 
       <h2>Chain two tasks with a dependency</h2>
@@ -121,9 +123,10 @@ export default function GanttFeaturePage() {
       </ul>
       <p>
         Once you pick a relationship, the dragged task&apos;s start date snaps
-        to whatever the dependency requires. A thin arrow then connects the
-        two bars so you can see the chain at a glance. Drag a bar in the
-        chain and downstream tasks shift with it.
+        to whatever the dependency requires. Tasks in the same chain share
+        the same colored top stripe, so you can trace a chain by following
+        the stripe color across bars. Drag a bar in the chain and downstream
+        tasks shift with it.
       </p>
 
       <h2>Zoom, navigate, and filter</h2>
@@ -138,7 +141,8 @@ export default function GanttFeaturePage() {
           <code>1W</code>, <code>2W</code>, <code>3W</code>, <code>1M</code>,{" "}
           <code>3M</code>, <code>6M</code>, <code>1Y</code>, and{" "}
           <code>All</code>. The shorter zooms keep day-level detail and the
-          longer ones span many weeks at once.
+          longer ones span many weeks at once. (All shows an 8-week window
+          starting from the current Monday, not a full-history view.)
         </li>
         <li>
           <strong>Project pills</strong> on the left of the toolbar toggle
@@ -190,6 +194,16 @@ export default function GanttFeaturePage() {
         draws solid across weekends instead.
       </p>
 
+      <h2>Mark PTO on the timeline</h2>
+      <p>
+        Right-click any day cell in the date grid to open a context menu with
+        a <strong>Mark as PTO</strong> / <strong>Unmark PTO</strong> option
+        (shipped 2026-05-21). Marked days render with sky-blue diagonal
+        stripes and a small dot in the day header so they stand out at a
+        glance. When a cascade computes new dates for chained tasks, PTO days
+        are skipped, so dependent tasks slide past your time off automatically.
+      </p>
+
       <h2>Open a task</h2>
       <p>
         Click a bar to open the task detail popup, where you can edit the
@@ -203,6 +217,12 @@ export default function GanttFeaturePage() {
         alt="A task detail popup opened over the Gantt chart."
         caption="Clicking a bar opens the full task editor over the Gantt."
       />
+      <Callout variant="info" title="Screenshots pending recapture">
+        The three screenshots on this page (<code>gantt-overview.png</code>,{" "}
+        <code>gantt-zoom-controls.png</code>, <code>gantt-task-popup.png</code>)
+        predate the PTO feature and the Gantt layout redesign (section 6.8).
+        They are queued for recapture.
+      </Callout>
     </WikiPage>
   );
 }
