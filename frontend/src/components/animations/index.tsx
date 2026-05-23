@@ -1,6 +1,5 @@
 // Animation library - exports all animation types
 import type { ComponentType } from "react";
-import BeakerBot from "../BeakerBot";
 import CelebrationIcon from "./icons/CelebrationIcon";
 import RockIcon from "./icons/RockIcon";
 import SpaceIcon from "./icons/SpaceIcon";
@@ -22,7 +21,6 @@ export { default as PlantsAnimation } from "./PlantsAnimation";
 export { default as AnimalsAnimation } from "./AnimalsAnimation";
 export { default as FungiAnimation } from "./FungiAnimation";
 export { default as ScaryAnimation } from "./ScaryAnimation";
-export { default as BeakerBotRewardAnimation } from "./BeakerBotRewardAnimation";
 
 // Animation type definitions
 export type AnimationType =
@@ -35,8 +33,7 @@ export type AnimationType =
   | "plants"
   | "animals"
   | "fungi"
-  | "scary"
-  | "beakerbot";
+  | "scary";
 
 /**
  * Icon shape for the animation metadata. Either a plain emoji string
@@ -114,25 +111,22 @@ export const ANIMATION_METADATA: Record<AnimationType, {
     description: "Skulls, ghosts, and monsters",
     color: "#4a0000",
   },
-  beakerbot: {
-    name: "BeakerBot",
-    // BeakerBot mascot SVG. Tints via currentColor — pass a Tailwind
-    // text-color utility (e.g. text-sky-500) in `className` to color it.
-    // Idle pose, non-animated (matches the brand-mark accent at the top
-    // of AppShell.tsx ~L176; this settings-card slot is decorative, the
-    // idle bob is reserved for the onboarding wizard).
-    icon: ({ className }) => (
-      <BeakerBot
-        pose="idle"
-        animated={false}
-        ariaLabel="BeakerBot"
-        className={className}
-      />
-    ),
-    description: "Random BeakerBot scenes — ladders, skateboards, more",
-    color: "#0ea5e9",
-  },
 };
+
+/** Validates that a candidate value is a known AnimationType. Falls back
+ *  to "rock" (the system default) for unknown / stale values — e.g. a
+ *  user who previously selected the now-retired "beakerbot" option in
+ *  their settings.json. Use at every persistence boundary so consumers
+ *  can trust `ANIMATION_METADATA[animationType]` to always resolve. */
+export function coerceAnimationType(
+  candidate: unknown,
+  fallback: AnimationType = "rock",
+): AnimationType {
+  if (typeof candidate !== "string") return fallback;
+  return candidate in ANIMATION_METADATA
+    ? (candidate as AnimationType)
+    : fallback;
+}
 
 /**
  * Render an `AnimationIcon` consistently across consumers. Emojis stay

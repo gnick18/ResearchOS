@@ -12,7 +12,6 @@ import {
   AnimalsAnimation,
   FungiAnimation,
   ScaryAnimation,
-  BeakerBotRewardAnimation,
 } from "./animations";
 
 interface DynamicAnimationProps {
@@ -50,10 +49,9 @@ export default function DynamicAnimation({
       return <FungiAnimation x={x} y={y} onComplete={onComplete} />;
     case "scary":
       return <ScaryAnimation x={x} y={y} onComplete={onComplete} />;
-    case "beakerbot":
-      return <BeakerBotRewardAnimation x={x} y={y} onComplete={onComplete} />;
     default:
-      // Default to celebration if unknown type
+      // Default to celebration if unknown type (covers stale stored
+      // values from removed options like the retired "beakerbot").
       return <CelebrationAnimation x={x} y={y} onComplete={onComplete} />;
   }
 }

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { ViewMode, HighLevelGoal } from "./types";
+import { coerceAnimationType } from "@/components/animations";
 
 export type AnimationType =
   | "celebration"
@@ -11,8 +12,7 @@ export type AnimationType =
   | "plants"
   | "animals"
   | "fungi"
-  | "scary"
-  | "beakerbot";
+  | "scary";
 
 export type CalendarViewMode = "month" | "week" | "day";
 
@@ -258,7 +258,10 @@ export const useAppStore = create<AppState>()((set) => ({
 
   hydrateFromSettings: (s) =>
     set({
-      animationType: s.animationType,
+      // Coerce so a stale stored value (e.g. the retired "beakerbot")
+      // falls back to the default "rock" rather than wedging consumers
+      // that look up ANIMATION_METADATA[animationType].
+      animationType: coerceAnimationType(s.animationType),
       viewMode: s.viewMode,
       calendarViewMode: s.calendarViewMode,
       showShared: s.showShared,
@@ -294,14 +297,17 @@ export const useAppStore = create<AppState>()((set) => ({
 
 /** Read the legacy localStorage settings blob (Zustand persist format) and
  *  return any animation choice from it. Used once during migration when a
- *  user has no settings.json yet. */
+ *  user has no settings.json yet. Coerces stale values (e.g. "beakerbot"
+ *  before it was retired) to the default. */
 export function readLegacyLocalStorageSettings(): { animationType?: AnimationType } | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem("research-os-settings");
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as { state?: { animationType?: AnimationType } };
-    return parsed?.state ?? null;
+    const parsed = JSON.parse(raw) as { state?: { animationType?: unknown } };
+    const state = parsed?.state;
+    if (!state) return null;
+    return { animationType: coerceAnimationType(state.animationType) };
   } catch {
     return null;
   }
