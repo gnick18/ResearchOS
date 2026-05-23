@@ -234,6 +234,18 @@ export function isWikiCaptureMode(): boolean {
  *  mode persists when the user clicks off `/demo` into `/methods`, etc. */
 const DEMO_MODE_KEY = "researchos:demo-mode";
 
+/** All sessionStorage keys whose presence makes the tab behave as if it's
+ *  in some flavor of demo / preview / fixture mode. Today there's only the
+ *  one sticky flag (`DEMO_MODE_KEY`); the list exists so future sticky
+ *  flags (wiki-capture stickiness, v4 onboarding preview, etc.) get added
+ *  in one place and `<LeaveDemoModal>` clears them automatically without
+ *  having to grow a new `sessionStorage.removeItem` line.
+ *
+ *  Anything appended here is wiped by `clearAllStickyDemoFlags()` on the
+ *  leave-demo confirm path, so a confirmed-leave never leaves the user
+ *  stuck in fixture / preview mode until tab close. */
+const STICKY_DEMO_MODE_KEYS: readonly string[] = [DEMO_MODE_KEY] as const;
+
 /** Public in-browser demo mode. True when:
  *  - the sticky `sessionStorage` flag is set (continuation across in-tab
  *    navigation, set by `markDemoMode()` after a successful fixture install), OR
@@ -286,6 +298,26 @@ export function clearDemoMode(): void {
     window.sessionStorage.removeItem(DEMO_MODE_KEY);
   } catch {
     // best-effort
+  }
+}
+
+/** Clear EVERY sticky sessionStorage flag the demo / preview / fixture
+ *  modes use to persist across in-tab navigation. Called from
+ *  `<LeaveDemoModal>` on confirmed leave so a user who said "yes, get me
+ *  out" exits cleanly: no fixture mode, no preview mode, no half-state
+ *  that survives until they close the tab.
+ *
+ *  Today this clears just `DEMO_MODE_KEY`; the indirection (the
+ *  `STICKY_DEMO_MODE_KEYS` list above) lets future flags get cleared
+ *  automatically by being added in one place. */
+export function clearAllStickyDemoFlags(): void {
+  if (typeof window === "undefined") return;
+  for (const key of STICKY_DEMO_MODE_KEYS) {
+    try {
+      window.sessionStorage.removeItem(key);
+    } catch {
+      // best-effort, one bad key shouldn't block the others
+    }
   }
 }
 

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { restorePreDemoStateOrClear } from "@/lib/file-system/indexeddb-store";
 import {
-  clearDemoMode,
+  clearAllStickyDemoFlags,
   isTutorialMode,
 } from "@/lib/file-system/wiki-capture-mock";
 
@@ -56,7 +56,12 @@ export default function LeaveDemoModal({ isOpen, onClose }: Props) {
   const goHome = useCallback(async () => {
     if (isTutorialMode()) {
       // Tutorial: don't touch IndexedDB — the parent tab needs it.
-      clearDemoMode();
+      // Clear EVERY sticky sessionStorage flag (demo-mode plus any
+      // future wiki-capture / preview stickies) so a confirmed exit
+      // can't leave this tab silently locked in fixture or preview
+      // mode after `window.close()` is refused and the fallback
+      // location.replace runs.
+      clearAllStickyDemoFlags();
       try {
         window.close();
       } catch {
@@ -77,7 +82,11 @@ export default function LeaveDemoModal({ isOpen, onClose }: Props) {
       // Best-effort cleanup; even if IndexedDB throws, the reload below
       // gives the user a way out via the folder picker.
     }
-    clearDemoMode();
+    // Public-demo Leave: clear every sticky sessionStorage flag (demo-
+    // mode plus any future preview / fixture stickies) so a user who
+    // confirmed leaving isn't still locked into fixture or preview mode
+    // when the post-reload `/` renders.
+    clearAllStickyDemoFlags();
     window.location.replace("/");
   }, []);
 

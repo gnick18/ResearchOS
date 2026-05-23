@@ -313,10 +313,67 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
       const captureVariant = getWikiCaptureVariant();
       const demoMode = getDemoMode();
       if (captureVariant || demoMode) {
+        // Real-user shadowing guard for `?wikiCapture=…`. The hostname gate
+        // inside `getWikiCaptureVariant()` already hard-blocks non-local
+        // hostnames in production, so true prod is safe. The dev /
+        // wiki-capture host is wide open though: pasting `?wikiCapture=1`
+        // mid-session over a real signed-in user would silently swap their
+        // file-service for the in-memory fixture and mark the tab as
+        // capture mode. Belt-and-suspenders: when wiki-capture is the
+        // trigger AND IndexedDB already holds a real (non-sentinel) handle
+        // + a real current user, refuse the install and let the normal
+        // silent-reconnect path below take over.
+        //
+        // Skipped for `/demo` (public route): demo mode has its own
+        // back-up-and-restore flow (`backupRealHandleForDemo` /
+        // `restorePreDemoStateOrClear`) that already preserves the real
+        // folder grant. We only short-circuit the wiki-capture trigger,
+        // which is the one with the URL-shadowing problem.
+        if (captureVariant && !demoMode) {
+          try {
+            const [existingHandle, existingUser] = await Promise.all([
+              getStoredDirectoryHandle(),
+              getCurrentUser(),
+            ]);
+            const realFolderConnected =
+              !!existingHandle &&
+              existingHandle.name !== "wiki-capture-fixture" &&
+              !!existingUser;
+            if (realFolderConnected) {
+              console.warn(
+                "[FileSystemProvider] Refusing ?wikiCapture install: real user already signed in.",
+              );
+              // Fall through to the normal stored-handle reconnect path
+              // below by NOT entering the fixture branch.
+            } else {
+              return await installFixtureBranch(captureVariant, demoMode);
+            }
+          } catch (err) {
+            // If the IndexedDB read fails, fall back to current behavior
+            // (allow the install). The guard is best-effort; we'd rather
+            // honor the URL flag than block a developer who's trying to
+            // capture screenshots on a fresh browser profile.
+            console.warn(
+              "[FileSystemProvider] real-user guard check failed; falling back to install:",
+              err,
+            );
+            return await installFixtureBranch(captureVariant, demoMode);
+          }
+        } else {
+          return await installFixtureBranch(captureVariant, demoMode);
+        }
+      }
+
+      // Extracted so the real-user-guard branch above can reuse the
+      // exact same install path without duplicating the setState shape.
+      async function installFixtureBranch(
+        variant: ReturnType<typeof getWikiCaptureVariant>,
+        demo: boolean,
+      ): Promise<void> {
         try {
-          const signIn = demoMode || captureVariant === "signed-in";
+          const signIn = demo || variant === "signed-in";
           await installWikiCaptureFixture({ signIn });
-          if (demoMode) {
+          if (demo) {
             // Set the sticky flag now that the fixture is ready, so the
             // banner + floating exit button + future consumers see
             // demo mode across in-tab navigation (e.g., /demo → /methods).
@@ -338,11 +395,9 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
             needsInitialization: false,
             lastConnectedFolder: "wiki-capture-fixture",
           }));
-          return;
         } catch (err) {
           console.error("[FileSystemProvider] fixture init failed:", err);
           setState((prev) => ({ ...prev, isLoading: false }));
-          return;
         }
       }
 
