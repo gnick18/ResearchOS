@@ -97,6 +97,6 @@ export const methodsLcDemoStep = buildWalkthroughStep({
   // its recharts line chart + the gradient step table.
   pageLock: {
     allowList: [TOUR_TARGETS.methodsCreateForm],
-    pillLabel: "Play with LC Gradient. Got it, next is in the chat bubble.",
+    pillLabel: "Play with LC Gradient — hit Got it, next when you're ready.",
   },
 });

@@ -121,7 +121,7 @@ export const methodsBreadthStep = buildWalkthroughStep({
   // InteractiveGradientEditor.
   pageLock: {
     allowList: [TOUR_TARGETS.methodsCreateForm],
-    pillLabel: "Play with PCR. Got it, next is in the chat bubble.",
+    pillLabel: "Play with PCR — hit Got it, next when you're ready.",
   },
   // §6.4b viewport anchor (input-lock + viewport-anchor sub-bot 2026-05-21):
   // the cursor only clicks the small PCR tile, but the user should see

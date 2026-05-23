@@ -65,16 +65,10 @@ function MethodsCategoryOpenSpeech() {
     };
   }, [controller]);
   return (
-    <>
-      <p className="mb-2">
-        First, click <strong>+ New Category</strong> up here to open the
-        form. I&apos;ll take it from there.
-      </p>
-      <p className="text-xs text-gray-500">
-        (I&apos;ll keep you on rails. Clicks outside the button will be
-        ignored.)
-      </p>
-    </>
+    <p className="mb-2">
+      First, click <strong>+ New Category</strong> up here to open the
+      form. I&apos;ll take it from there.
+    </p>
   );
 }
 

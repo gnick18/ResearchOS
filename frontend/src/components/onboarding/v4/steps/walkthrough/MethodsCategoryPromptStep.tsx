@@ -223,7 +223,7 @@ export const methodsCategoryPromptStep = buildWalkthroughStep({
   // picker before making a choice.
   pageLock: {
     allowList: [],
-    pillLabel: "Pick a category above to continue.",
+    pillLabel: "Pick a category in the bubble to continue.",
   },
 });
 

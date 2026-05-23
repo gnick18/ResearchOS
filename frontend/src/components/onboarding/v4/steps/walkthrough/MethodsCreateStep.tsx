@@ -205,7 +205,7 @@ export const methodsCreateStep = buildWalkthroughStep({
   // BeakerBot is driving so the lock doesn't read as a freeze.
   pageLock: {
     allowList: [],
-    pillLabel: "BeakerBot is typing, back in a sec.",
+    pillLabel: "BeakerBot is typing. Click Got it, next when ready.",
   },
   // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
   // The `tour:method-created` event still fires when the save resolves;
