@@ -1,8 +1,8 @@
 // Smoke test for the BeakerBot animation gallery dev page.
 // Asserts:
 //   - the page renders without throwing
-//   - the dropdown lists all 18 poses + 8 scenes + 3 pose-celebration
-//     variants = 29 entries total
+//   - the dropdown lists all 18 poses + 9 scenes + 3 pose-celebration
+//     variants = 30 entries total (PipetteAim added)
 //   - the loop toggle is on by default
 //   - switching the dropdown to a scene mounts that scene component
 //     (verified by its data-testid)
@@ -32,7 +32,7 @@ describe("BeakerBotGalleryPage", () => {
     ).toBeTruthy();
   });
 
-  it("exports a catalog of 29 entries: 18 poses + 8 scenes + 3 pose-celebrations", () => {
+  it("exports a catalog of 30 entries: 18 poses + 9 scenes + 3 pose-celebrations", () => {
     const poses = BEAKERBOT_ANIMATION_CATALOG.filter((e) => e.kind === "pose");
     const scenes = BEAKERBOT_ANIMATION_CATALOG.filter(
       (e) => e.kind === "scene",
@@ -41,18 +41,18 @@ describe("BeakerBotGalleryPage", () => {
       (e) => e.kind === "pose-celebration",
     );
     expect(poses).toHaveLength(18);
-    expect(scenes).toHaveLength(8);
+    expect(scenes).toHaveLength(9);
     expect(poseCelebrations).toHaveLength(3);
-    expect(BEAKERBOT_ANIMATION_CATALOG).toHaveLength(29);
+    expect(BEAKERBOT_ANIMATION_CATALOG).toHaveLength(30);
   });
 
-  it("dropdown lists all 29 catalog entries", () => {
+  it("dropdown lists all 30 catalog entries", () => {
     render(<BeakerBotGalleryPage />);
     const select = screen.getByTestId("gallery-select") as HTMLSelectElement;
     // Each <option> in every <optgroup> counts. The select has no
     // placeholder option, so option count === catalog count.
     const options = select.querySelectorAll("option");
-    expect(options.length).toBe(29);
+    expect(options.length).toBe(30);
   });
 
   it("dropdown groups options under Poses / Scenes / Pose Celebration Scenes optgroups", () => {
@@ -63,7 +63,7 @@ describe("BeakerBotGalleryPage", () => {
     );
     expect(groups).toEqual([
       "Poses (18)",
-      "Scenes (8)",
+      "Scenes (9)",
       "Pose Celebration Scenes (3)",
     ]);
   });

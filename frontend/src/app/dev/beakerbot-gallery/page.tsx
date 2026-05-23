@@ -49,6 +49,7 @@ import BeakerBotTooManyBeakersScene from "@/components/BeakerBotTooManyBeakersSc
 import BeakerBotMouseWaveScene from "@/components/BeakerBotMouseWaveScene";
 import BeakerBotCentrifugeScene from "@/components/BeakerBotCentrifugeScene";
 import BeakerBotEurekaScene from "@/components/BeakerBotEurekaScene";
+import BeakerBotPipetteAimScene from "@/components/BeakerBotPipetteAimScene";
 import BeakerBotPoseCelebrationScene from "@/components/onboarding/BeakerBotPoseCelebrationScene";
 
 // ── Catalog types ──────────────────────────────────────────────────────────
@@ -362,6 +363,15 @@ const SCENES: SceneEntry[] = [
     description:
       "BeakerBot peeks through a microscope, pulls back amazed, a light bulb pops on, rainbow sparkles, cheers, walks off.",
     timingNote: "~5700ms total",
+  },
+  {
+    kind: "scene",
+    id: "scene:pipette-aim",
+    label: "BeakerBotPipetteAimScene",
+    Component: BeakerBotPipetteAimScene as unknown as SceneComponent,
+    description:
+      "BeakerBot carries a pipette to a tiny well plate, aims with a hand-shake, drops a single droplet that lands in the target well with a ripple, then sparkles + walks off.",
+    timingNote: "~4000ms total",
   },
 ];
 
