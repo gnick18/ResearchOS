@@ -306,7 +306,7 @@ const SCENES: SceneEntry[] = [
     label: "BeakerBotBugStompScene",
     Component: BeakerBotBugStompScene as unknown as SceneComponent,
     description:
-      "BeakerBot spots a bug crawling across the screen, charges it, stomps, takes a victory pose.",
+      "A swarm of bugs scatters across the screen. BeakerBot sneaks up with a fly swatter, whacks the target, and the splat residue stays on screen.",
     timingNote: "Multi-stage one-shot",
   },
   {
