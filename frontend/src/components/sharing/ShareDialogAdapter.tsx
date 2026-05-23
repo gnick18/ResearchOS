@@ -22,8 +22,8 @@
 // the same way they did with SharePopup.
 
 import { useCallback } from "react";
-import { sharingApi } from "@/lib/local-api";
-import type { SharedUser } from "@/lib/types";
+import { sharingApi, tasksApi } from "@/lib/local-api";
+import type { SharedUser, Task } from "@/lib/types";
 import ShareDialog, { type ShareDialogRecordType } from "./ShareDialog";
 import { normalizeSharedWith } from "@/lib/sharing/unified";
 
@@ -53,7 +53,10 @@ export default function ShareDialogAdapter({
   onShared,
 }: ShareDialogAdapterProps) {
   const handleSave = useCallback(
-    async (next: SharedUser[]) => {
+    async (
+      next: SharedUser[],
+      options?: { cascadeToTasks?: boolean },
+    ) => {
       const before = normalizeSharedWith(currentSharedWith);
       const after = normalizeSharedWith(next);
 
@@ -145,7 +148,99 @@ export default function ShareDialogAdapter({
       // release of back-compat. The unified `canRead` /
       // `isWholeLabShared` helpers are the source of truth.
 
+      // 4. Project cascade: when sharing a project AND the user opted
+      // into the "Also share all tasks" checkbox, propagate the same
+      // `shared_with` list to every task whose `project_id === recordId`.
+      //
+      // Per-task semantics: compute the diff between each task's own
+      // current `shared_with` and the project's `after` list, then
+      // dispatch shareTask / unshareTask per recipient delta. This
+      // matches the per-recipient API contract (each call updates the
+      // receiver-side `_shared_with_me.json` + bell notification) and
+      // avoids a destructive "replace task.shared_with wholesale" write
+      // which would also wipe per-task individual sharers.
+      //
+      // Failure policy (Mira-Explorer P0 fix manager, 2026-05-23): a
+      // single per-task write failure must NOT abort the cascade. We
+      // collect failures, keep cascading, then throw an aggregated
+      // error at the very end so the dialog's existing error-surface
+      // path (`ShareDialog.handleSave`'s catch block) renders the
+      // partial-failure message. Tasks that succeeded stay shared;
+      // tasks that failed surface to the user for retry.
+      let cascadeError: Error | null = null;
+      if (
+        recordType === "project" &&
+        options?.cascadeToTasks === true
+      ) {
+        const failed: Array<{ taskId: number; taskName: string; reason: string }> = [];
+        let tasks: Task[] = [];
+        try {
+          tasks = await tasksApi.listByProject(recordId);
+        } catch (err) {
+          tasks = [];
+          failed.push({
+            taskId: -1,
+            taskName: "(task list)",
+            reason:
+              (err as { message?: string })?.message ??
+              "Failed to load tasks for cascade.",
+          });
+        }
+        for (const task of tasks) {
+          try {
+            const taskBefore = normalizeSharedWith(task.shared_with ?? []);
+            const taskBeforeMap = new Map(
+              taskBefore.map((s) => [s.username, s.level]),
+            );
+            const taskToAdd: SharedUser[] = [];
+            const taskToRemove: string[] = [];
+            for (const [u, lvl] of afterMap) {
+              if (taskBeforeMap.get(u) !== lvl) {
+                taskToAdd.push({ username: u, level: lvl });
+              }
+            }
+            for (const [u] of taskBeforeMap) {
+              if (!afterMap.has(u)) taskToRemove.push(u);
+            }
+            for (const entry of taskToAdd) {
+              await sharingApi.shareTask(task.id, {
+                username: entry.username,
+                level: entry.level,
+              });
+            }
+            for (const username of taskToRemove) {
+              await sharingApi.unshareTask(task.id, username);
+            }
+          } catch (err) {
+            failed.push({
+              taskId: task.id,
+              taskName: task.name,
+              reason:
+                (err as { message?: string })?.message ??
+                "Unknown error.",
+            });
+          }
+        }
+        if (failed.length > 0) {
+          const summary = failed
+            .map((f) =>
+              f.taskId === -1
+                ? f.reason
+                : `task "${f.taskName}" (#${f.taskId}): ${f.reason}`,
+            )
+            .join("; ");
+          cascadeError = new Error(
+            `Project shared, but cascade to tasks had ${failed.length} failure(s): ${summary}`,
+          );
+        }
+      }
+
       onShared();
+
+      // Throw AFTER onShared() so the caller still refetches (any
+      // tasks that succeeded should appear shared in the UI). The
+      // dialog's catch block then renders the aggregated message.
+      if (cascadeError) throw cascadeError;
     },
     [recordType, recordId, currentSharedWith, onShared],
   );

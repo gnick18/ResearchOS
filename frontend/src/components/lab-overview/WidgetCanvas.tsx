@@ -109,7 +109,17 @@ export default function WidgetCanvas({ username, accountType }: WidgetCanvasProp
   }, [canvas]);
 
   // ── Persist drag / resize commits ──────────────────────────────────────
-  const handleLayoutChange = useCallback(
+  //
+  // Mira-Explorer P0 fix (2026-05-23): swapped from `onLayoutChange` to
+  // `onDragStop` + `onResizeStop`. `onLayoutChange` fires on every
+  // re-render of the grid (including mount, prop changes, breakpoint
+  // reflows) AND on every drag/resize stop — that meant any unrelated
+  // settings update (theme toggle, animation pick) that re-rendered
+  // the canvas would also queue a layout write, racing with the
+  // read-modify-write of `_user_settings.json`. The commit-only
+  // handlers fire exactly once per user action, no extra writes on
+  // mount or breakpoint changes.
+  const persistCanvas = useCallback(
     (currentLayout: Layout[]) => {
       if (!canvas) return;
       // Only persist when the user is in edit mode; otherwise the
@@ -125,13 +135,27 @@ export default function WidgetCanvas({ username, accountType }: WidgetCanvasProp
           h: item.h,
         };
       }
-      // Local optimistic update — the disk write follows. Both run
-      // every drag tick; layout-persistence is read-modify-write so
-      // concurrent drags would still converge.
+      // Local optimistic update — the disk write follows. With
+      // dragStop/resizeStop semantics this fires once per committed
+      // user action, not per-tick.
       setCanvas(nextCanvas);
       void patchCanvasLayout(username, nextCanvas);
     },
     [canvas, isEditing, username],
+  );
+
+  const handleDragStop = useCallback(
+    (currentLayout: Layout[]) => {
+      persistCanvas(currentLayout);
+    },
+    [persistCanvas],
+  );
+
+  const handleResizeStop = useCallback(
+    (currentLayout: Layout[]) => {
+      persistCanvas(currentLayout);
+    },
+    [persistCanvas],
   );
 
   // ── Add / remove from palette ──────────────────────────────────────────
@@ -286,7 +310,8 @@ export default function WidgetCanvas({ username, accountType }: WidgetCanvasProp
         isDraggable={isEditing}
         isResizable={isEditing}
         draggableHandle=".lab-widget-drag-handle"
-        onLayoutChange={handleLayoutChange}
+        onDragStop={handleDragStop}
+        onResizeStop={handleResizeStop}
         margin={[12, 12]}
         // Keep grid items from compacting upward when the user drags
         // one — they expect the dropped position to stick, not jump.
