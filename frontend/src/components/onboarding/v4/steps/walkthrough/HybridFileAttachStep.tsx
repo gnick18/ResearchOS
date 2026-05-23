@@ -30,7 +30,7 @@ import {
 } from "./lib/cursor-script";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
-import { encodeTelegramImageId } from "../../../v3/steps/walkthrough/lib/wizard-artifacts";
+import { encodeTelegramImageId } from "./lib/artifacts";
 import { flushPendingArtifacts, pendingArtifactStore } from "./lib/artifacts";
 
 const STEP_ID = "hybrid-file-attach";

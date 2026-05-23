@@ -149,9 +149,7 @@ function AppContent({ children }: { children: ReactNode }) {
     if (wikiUserHasTour) {
       return (
         <QueryClientProvider client={queryClient}>
-          <OnboardingProvider currentUser={currentUser}>
-            <V4MountForUser username={currentUser}>{children}</V4MountForUser>
-          </OnboardingProvider>
+          <V4MountForUser username={currentUser}>{children}</V4MountForUser>
         </QueryClientProvider>
       );
     }

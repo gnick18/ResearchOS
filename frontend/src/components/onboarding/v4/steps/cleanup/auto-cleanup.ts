@@ -55,7 +55,7 @@ import {
   decodeCalendarFeedId,
   decodeMethodSource,
   decodeTelegramImageLocation,
-} from "../../../v3/steps/walkthrough/lib/wizard-artifacts";
+} from "../walkthrough/lib/artifacts";
 import { cleanupBeakerBotLabUser } from "../lab/lib/lab-fake-user";
 
 /** Optional summary the caller can log. Mirrors the legacy
