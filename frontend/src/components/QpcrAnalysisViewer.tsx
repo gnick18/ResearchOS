@@ -16,6 +16,8 @@ import ShareDialogAdapter from "@/components/sharing/ShareDialogAdapter";
 import Tooltip from "@/components/Tooltip";
 import QpcrAnalysisEditor from "@/components/QpcrAnalysisEditor";
 import { GlobeIcon, LockIcon } from "@/lib/utils/icons";
+import { useMethodPermissions } from "@/hooks/useMethodPermissions";
+import { isWholeLabShared } from "@/lib/sharing/unified";
 
 /**
  * Read-write modal viewer for a qPCR analysis method, shown by /methods.
@@ -56,6 +58,7 @@ export default function QpcrAnalysisViewer({
   onDelete,
 }: QpcrAnalysisViewerProps) {
   const queryClient = useQueryClient();
+  const { canModifyMethod } = useMethodPermissions();
   const [currentMethod, setCurrentMethod] = useState(method);
   const [protocol, setProtocol] = useState<QPCRAnalysisProtocol | null>(null);
   const [loading, setLoading] = useState(true);
@@ -132,7 +135,10 @@ export default function QpcrAnalysisViewer({
     }
   }, [persist, chemistry, chemistryLabel, description, references, standardCurve, meltCurve, useDeltaDeltaCq]);
 
-  const canModify = !currentMethod.is_public || currentMethod.created_by === currentUser;
+  // R1c: unified canWrite gate.
+  const canModify = canModifyMethod(currentMethod);
+  const isWholeLab =
+    currentMethod.is_public || isWholeLabShared(currentMethod.shared_with);
 
   return (
     <>
@@ -148,14 +154,14 @@ export default function QpcrAnalysisViewer({
                 <button
                   onClick={() => setShowSharePopup(true)}
                   className={`px-3 py-1.5 text-xs rounded-lg ${
-                    currentMethod.is_public
+                    isWholeLab
                       ? "bg-green-50 text-green-600 hover:bg-green-100"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
                   <span className="flex items-center gap-1">
-                    {currentMethod.is_public ? <GlobeIcon /> : <LockIcon />}
-                    {currentMethod.is_public ? "Public" : "Private"}
+                    {isWholeLab ? <GlobeIcon /> : <LockIcon />}
+                    {isWholeLab ? "Public" : "Private"}
                   </span>
                 </button>
               </Tooltip>

@@ -55,6 +55,8 @@ import CompoundMethodTabContent from "@/components/methods/CompoundMethodTabCont
 import { WrapAsCompoundAction } from "@/components/methods/WrapAsCompoundAction";
 import { ConvertCompoundToSingleAction } from "@/components/methods/ConvertCompoundToSingleAction";
 import { GlobeIcon, LockIcon, PencilIcon } from "@/lib/utils/icons";
+import { useMethodPermissions } from "@/hooks/useMethodPermissions";
+import { isWholeLabShared } from "@/lib/sharing/unified";
 
 /**
  * When the current viewer is a receiver of a shared method with edit
@@ -704,7 +706,7 @@ export default function MethodsPage() {
                                </span>
                              );
                            })()}
-                           {m.is_public && (
+                           {(m.is_public || isWholeLabShared(m.shared_with)) && (
                              <span className="text-[10px] px-2 py-0.5 bg-green-50 text-green-600 rounded-full">
                                Public
                              </span>
@@ -1134,6 +1136,7 @@ function MarkdownMethodViewer({
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
   const [showSharePopup, setShowSharePopup] = useState(false);
   const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
+  const { canModifyMethod } = useMethodPermissions();
 
   const hasUnsavedChanges = content !== originalContent && !loading;
 
@@ -1208,7 +1211,11 @@ function MarkdownMethodViewer({
         const dir = sourcePath.substring(0, sourcePath.lastIndexOf("/"));
         const slug = dir.split("/").pop() || dir;
         const legacyOwner = method.owner || method.created_by || undefined;
-        const canMigrate = !method.is_public || method.created_by === currentUser;
+        // R1c: migration is a write to the source markdown, so gate it
+        // through the unified `canWrite` (owner / lab_head-unlocked /
+        // shared edit). Wider than the old `is_public || created_by`
+        // guard, but each path still requires write permission.
+        const canMigrate = canModifyMethod(method);
         if (!canMigrate) {
           if (!cancelled) {
             setContent(raw);
@@ -1243,7 +1250,7 @@ function MarkdownMethodViewer({
     return () => {
       cancelled = true;
     };
-  }, [method.source_path, method.owner, method.created_by, method.is_public, method.name, currentUser]);
+  }, [method, method.source_path, method.name, canModifyMethod]);
 
   const handleSave = useCallback(async () => {
     if (!method.source_path) return;
@@ -1274,8 +1281,11 @@ function MarkdownMethodViewer({
     setEditing(false);
   }, [originalContent]);
 
-  // Check if current user can modify this method (owner of private method, or creator of public method)
-  const canModify = !currentMethod.is_public || currentMethod.created_by === currentUser;
+  // R1c: unified write gate (owner / lab_head-unlocked / shared edit).
+  // Replaces the legacy `!is_public || created_by === currentUser` check.
+  const canModify = canModifyMethod(currentMethod);
+  const isWholeLab =
+    currentMethod.is_public || isWholeLabShared(currentMethod.shared_with);
 
   return (
     <>
@@ -1292,16 +1302,16 @@ function MarkdownMethodViewer({
                   <button
                     onClick={() => setShowSharePopup(true)}
                     className={`px-3 py-1.5 text-xs rounded-lg ${
-                      currentMethod.is_public
+                      isWholeLab
                         ? "bg-green-50 text-green-600 hover:bg-green-100"
                         : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                     }`}
-                    title={currentMethod.is_public ? "Unshare method" : "Share method"}
-                    aria-label={currentMethod.is_public ? "Unshare method" : "Share method"}
+                    title={isWholeLab ? "Unshare method" : "Share method"}
+                    aria-label={isWholeLab ? "Unshare method" : "Share method"}
                   >
                     <span className="flex items-center gap-1">
-                      {currentMethod.is_public ? <GlobeIcon /> : <LockIcon />}
-                      {currentMethod.is_public ? "Public" : "Private"}
+                      {isWholeLab ? <GlobeIcon /> : <LockIcon />}
+                      {isWholeLab ? "Public" : "Private"}
                     </span>
                   </button>
                 )}
@@ -1441,12 +1451,15 @@ function PdfViewer({
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showSharePopup, setShowSharePopup] = useState(false);
+  const { canModifyMethod } = useMethodPermissions();
 
   // Owner-aware view: shared-with-edit methods route reads to the owner's dir.
   const scopedMethodsApi = useMemo(() => ownerScopedMethodsApi(currentMethod), [currentMethod]);
 
-  // Check if current user can modify this method (owner of private method, or creator of public method)
-  const canModify = !currentMethod.is_public || currentMethod.created_by === currentUser;
+  // R1c: unified write gate (owner / lab_head-unlocked / shared edit).
+  const canModify = canModifyMethod(currentMethod);
+  const isWholeLab =
+    currentMethod.is_public || isWholeLabShared(currentMethod.shared_with);
 
   useEffect(() => {
     // Read the PDF as base64 from disk, then create a blob URL
@@ -1497,15 +1510,15 @@ function PdfViewer({
               <button
                 onClick={() => setShowSharePopup(true)}
                 className={`px-3 py-1.5 text-xs rounded-lg ${
-                  currentMethod.is_public
+                  isWholeLab
                     ? "bg-green-50 text-green-600 hover:bg-green-100"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}
                 title="Share method"
               >
                 <span className="flex items-center gap-1">
-                  {currentMethod.is_public ? <GlobeIcon /> : <LockIcon />}
-                  {currentMethod.is_public ? "Public" : "Private"}
+                  {isWholeLab ? <GlobeIcon /> : <LockIcon />}
+                  {isWholeLab ? "Public" : "Private"}
                 </span>
               </button>
             )}
@@ -1676,8 +1689,12 @@ function PcrViewer({
     }
   }, [pcrId, protocol, method.name, gradient, ingredients, notes, queryClient, protocolOwnerForUpdate]);
 
-  // Check if current user can modify this method (owner of private method, or creator of public method)
-  const canModify = !currentMethod.is_public || currentMethod.created_by === currentUser;
+  // R1c: unified write gate. The methods page's `useMethodPermissions`
+  // hook handles owner / lab_head-unlocked / shared edit.
+  const { canModifyMethod } = useMethodPermissions();
+  const canModify = canModifyMethod(currentMethod);
+  const isWholeLab =
+    currentMethod.is_public || isWholeLabShared(currentMethod.shared_with);
 
   return (
     <>
@@ -1694,15 +1711,15 @@ function PcrViewer({
               <button
                 onClick={() => setShowSharePopup(true)}
                 className={`px-3 py-1.5 text-xs rounded-lg ${
-                  currentMethod.is_public
+                  isWholeLab
                     ? "bg-green-50 text-green-600 hover:bg-green-100"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}
                 title="Share method"
               >
                 <span className="flex items-center gap-1">
-                  {currentMethod.is_public ? <GlobeIcon /> : <LockIcon />}
-                  {currentMethod.is_public ? "Public" : "Private"}
+                  {isWholeLab ? <GlobeIcon /> : <LockIcon />}
+                  {isWholeLab ? "Public" : "Private"}
                 </span>
               </button>
             )}
@@ -2002,7 +2019,9 @@ function CompoundViewer({
     }),
     [method.id, method.owner, currentUser],
   );
-  const canModify = !method.is_public || method.created_by === currentUser;
+  // R1c: unified write gate (owner / lab_head-unlocked / shared edit).
+  const { canModifyMethod } = useMethodPermissions();
+  const canModify = canModifyMethod(method);
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">

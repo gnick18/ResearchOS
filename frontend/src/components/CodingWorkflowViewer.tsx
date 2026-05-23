@@ -20,6 +20,8 @@ import Tooltip from "@/components/Tooltip";
 import CodingWorkflowEditor, { highlightHintFor } from "@/components/CodingWorkflowEditor";
 import { GlobeIcon, LockIcon } from "@/lib/utils/icons";
 import { parseNotebook, type ParsedNbCell, type ParsedNbOutput } from "@/lib/methods/ipynb-parser";
+import { useMethodPermissions } from "@/hooks/useMethodPermissions";
+import { isWholeLabShared } from "@/lib/sharing/unified";
 
 export interface CodingWorkflowViewerProps {
   method: Method;
@@ -56,6 +58,7 @@ export default function CodingWorkflowViewer({
   onDelete,
 }: CodingWorkflowViewerProps) {
   const queryClient = useQueryClient();
+  const { canModifyMethod } = useMethodPermissions();
   const meta = getMethodTypeMeta("coding_workflow");
   const [currentMethod, setCurrentMethod] = useState(method);
   const [protocol, setProtocol] = useState<CodingWorkflowProtocol | null>(null);
@@ -133,7 +136,10 @@ export default function CodingWorkflowViewer({
     queryClient,
   ]);
 
-  const canModify = !currentMethod.is_public || currentMethod.created_by === currentUser;
+  // R1c: unified canWrite gate.
+  const canModify = canModifyMethod(currentMethod);
+  const isWholeLab =
+    currentMethod.is_public || isWholeLabShared(currentMethod.shared_with);
 
   return (
     <>
@@ -149,14 +155,14 @@ export default function CodingWorkflowViewer({
                 <button
                   onClick={() => setShowSharePopup(true)}
                   className={`px-3 py-1.5 text-xs rounded-lg ${
-                    currentMethod.is_public
+                    isWholeLab
                       ? "bg-green-50 text-green-600 hover:bg-green-100"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
                   <span className="flex items-center gap-1">
-                    {currentMethod.is_public ? <GlobeIcon /> : <LockIcon />}
-                    {currentMethod.is_public ? "Public" : "Private"}
+                    {isWholeLab ? <GlobeIcon /> : <LockIcon />}
+                    {isWholeLab ? "Public" : "Private"}
                   </span>
                 </button>
               </Tooltip>

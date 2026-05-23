@@ -93,13 +93,19 @@ export function CreateMethodModal({
   const [name, setName] = useState("");
   const [folder, setFolder] = useState(prefilledFolder || "");
   const [tags, setTags] = useState("");
-  // Lab Mode retirement R1b: `setIsPublic` is unused after the
-  // "Make this method public" checkbox was retired. The state is
-  // still read into the API payload for one release of backward
-  // compat. The setter is prefixed `_` to satisfy no-unused-vars
-  // until the field is fully dropped.
-  const [isPublic, _setIsPublic] = useState(initialIsPublic);
-  void _setIsPublic;
+  // Lab Mode retirement R1c (R1c methods canRead manager, 2026-05-23):
+  // the dual-write to `is_public` was dropped from new method creation.
+  // `initialIsPublic` is still consumed (the `/methods?createMethod=public`
+  // deep link uses it to route into `publicMethodsStore` at create time,
+  // since `methodsApi.create` still branches on `is_public` for that
+  // routing). Tracked for a follow-up that migrates the public-methods
+  // store to a `shared_with: [{username: "*", level: "read"}]` pattern;
+  // until then the legacy boolean is the only way to write into the
+  // public namespace.
+  // TODO(R1d): rip out `initialIsPublic` once `methodsApi.create` accepts
+  //   a `shared_with: [...]` payload and the public-methods store either
+  //   goes away or starts reading the unified field.
+  const isPublic = initialIsPublic;
   // Discriminated saving state: "save" = plain create, "extend" = create +
   // wrap-as-compound. Drives the per-button spinner labels and disables
   // both buttons (+ Cancel) while either flow is in flight.
