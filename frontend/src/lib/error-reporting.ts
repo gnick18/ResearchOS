@@ -117,13 +117,12 @@ const TYPE_FALLBACK_TITLE: Record<FeedbackType, string> = {
   feedback: "User feedback",
 };
 
-// Feedback and feature both route to feature.yml — `blank_issues_enabled: false`
-// in config.yml means there's no untemplated fallback, and feature is the closer fit
-// for general feedback than the bug form.
+// Each type maps to its own dedicated issue form. `blank_issues_enabled: false`
+// in config.yml means there's no untemplated fallback, so every type needs a form.
 const TEMPLATE_FILE: Record<FeedbackType, string> = {
   bug: "bug.yml",
   feature: "feature.yml",
-  feedback: "feature.yml",
+  feedback: "feedback.yml",
 };
 
 export function generateGitHubIssueUrl(
@@ -163,9 +162,11 @@ export function generateGitHubIssueUrl(
     } else if (typeof navigator !== "undefined") {
       fields.environment = `Browser: ${getBrowserInfo()}`;
     }
-  } else {
-    // feature + feedback both map to feature.yml; description goes in the main field.
+  } else if (type === "feature") {
     if (description) fields.feature = description;
+  } else {
+    // feedback.yml uses `feedback` as its main field id.
+    if (description) fields.feedback = description;
   }
 
   const params = new URLSearchParams({
