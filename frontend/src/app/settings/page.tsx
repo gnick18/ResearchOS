@@ -11,6 +11,7 @@ import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
 import Tooltip from "@/components/Tooltip";
 import UserAvatar from "@/components/UserAvatar";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
+import { discoverUsers } from "@/lib/file-system/user-discovery";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import { useAppStore } from "@/lib/store";
 import {
@@ -173,9 +174,46 @@ function SettingsBody() {
   // (member vs lab_head) is also what gates the Lab Head admin controls
   // inside the tab.
   const isLabWorkspace = featurePicks?.account_type === "lab";
+
+  // Multi-user folder detection (Grant 2026-05-23 follow-up): the prior
+  // gate only surfaced the Lab Mode tab when feature_picks declared a
+  // lab workspace OR the user was already lab_head. That left a
+  // chicken-and-egg gap: a user created in a shared folder without
+  // going through onboarding (or who picked solo) could never reach the
+  // role picker to flip themselves to lab_head, because the role picker
+  // lives inside the gated tab. Detect the multi-user folder shape via
+  // discoverUsers() and OR that signal into the gate so the tab also
+  // surfaces for anyone sharing a folder with at least one other user.
+  // Self gets filtered out; the pseudo-`lab` user is already skipped by
+  // discoverUsers' SKIP_DIRECTORIES list.
+  const [folderHasOtherUsers, setFolderHasOtherUsers] = useState(false);
+  useEffect(() => {
+    if (!currentUser || !isConnected) {
+      setFolderHasOtherUsers(false);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const all = await discoverUsers();
+        if (cancelled) return;
+        const others = all.filter((u) => u !== currentUser);
+        setFolderHasOtherUsers(others.length > 0);
+      } catch {
+        // Discovery can fail on a transient FS read; default to false
+        // (hide tab) rather than risk surfacing a tab on a broken folder.
+        if (!cancelled) setFolderHasOtherUsers(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser, isConnected]);
+
   const isLabMode =
     settings?.account_type === "lab_head" ||
-    (settings?.account_type === "member" && isLabWorkspace);
+    (settings?.account_type === "member" && isLabWorkspace) ||
+    folderHasOtherUsers;
   // Tab state. Read the initial value from the `?tab=...` query so a
   // deep-link or in-session back-nav lands the user on the same tab.
   // Solo users never see the tab strip but we still respect the query
