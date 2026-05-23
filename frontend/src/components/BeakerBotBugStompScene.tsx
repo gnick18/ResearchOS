@@ -171,9 +171,9 @@ export default function BeakerBotBugStompScene({
     return () => window.clearTimeout(handle);
   }, [active, reducedMotion]);
 
-  // Direction memo — drives both the keyframe selection and the
-  // BeakerBot `direction` prop (so his arm/face point toward the
-  // bug, not into the void). Bug enters from the OPPOSITE side.
+  // Direction memo — drives the keyframe x-coords (entry side,
+  // stomp landing, exit side). Bug enters from the OPPOSITE side
+  // from BeakerBot.
   const direction = useMemo(() => {
     const beakerFromLeft = beakerBotEntersFrom === "left";
     return {
@@ -184,12 +184,10 @@ export default function BeakerBotBugStompScene({
       // the bug's side so the two characters meet, not pass each
       // other.
       stompX: beakerFromLeft ? "70vw" : "30vw",
-      // BeakerBot's facing direction during the entry/rush stages.
-      // When he enters from the right, he faces LEFT (toward the
-      // bug on the left). When entering from the left, he faces
-      // RIGHT. The BeakerBot SVG's `direction` prop accepts
-      // "left" / "right" — flips the whole SVG via scaleX(-1).
-      beakerFacing: (beakerFromLeft ? "right" : "left") as "left" | "right",
+      // No `beakerFacing` field anymore — PoseStack uses the
+      // direction-agnostic `idle` + `cheering` poses (Grant
+      // 2026-05-22: the previous `pointing-down` skin needed a
+      // facing prop, the new arm-less skin does not).
     };
   }, [beakerBotEntersFrom]);
 
@@ -225,10 +223,10 @@ export default function BeakerBotBugStompScene({
         >
           <BeakerBot
             pose="cheering"
-            className="w-16 h-16 text-sky-500"
+            className="w-32 h-32 text-sky-500"
             ariaLabel="BeakerBot victorious"
           />
-          <BugGlyph className="w-6 h-6 text-neutral-800" defeated />
+          <BugGlyph className="w-12 h-12 text-neutral-800" defeated />
         </div>
       </div>,
       document.body,
@@ -379,7 +377,7 @@ export default function BeakerBotBugStompScene({
               willChange: "transform, opacity",
             }}
           >
-            <BugGlyph className="w-6 h-6 text-neutral-800 block" />
+            <BugGlyph className="w-12 h-12 text-neutral-800 block" />
           </div>
 
           {/* BeakerBot — chained: enter → (hold) → rush → stomp →
@@ -392,8 +390,8 @@ export default function BeakerBotBugStompScene({
               position: "absolute",
               left: 0,
               // BeakerBot is taller — float him so his "feet" line up
-              // with the bug at the ground line.
-              top: "-40px",
+              // with the bug at the ground line. 2x scale: -80px (was -40px).
+              top: "-80px",
               transform: `translate(${direction.beakerStartX}, 0)`,
               animation: [
                 "bbs-beaker-enter 1100ms ease-out 1000ms both",
@@ -414,8 +412,8 @@ export default function BeakerBotBugStompScene({
                 style={{
                   position: "absolute",
                   left: "50%",
-                  top: "-20px",
-                  fontSize: 24,
+                  top: "-40px",
+                  fontSize: 48,
                   fontWeight: 800,
                   color: "#dc2626", // red-600
                   transform: "translate(-50%, 4px) scale(0.4)",
@@ -437,9 +435,9 @@ export default function BeakerBotBugStompScene({
                 style={{
                   position: "absolute",
                   left: "50%",
-                  top: "62px",
-                  width: 24,
-                  height: 8,
+                  top: "124px",
+                  width: 48,
+                  height: 16,
                   borderRadius: "50%",
                   background: "rgba(120, 113, 108, 0.6)", // stone-500/60
                   transform: "translate(-50%, 0) scale(0.3)",
@@ -453,9 +451,9 @@ export default function BeakerBotBugStompScene({
                 style={{
                   position: "absolute",
                   left: "30%",
-                  top: "64px",
-                  width: 14,
-                  height: 6,
+                  top: "128px",
+                  width: 28,
+                  height: 12,
                   borderRadius: "50%",
                   background: "rgba(168, 162, 158, 0.5)", // stone-400/50
                   transform: "translate(-50%, 0) scale(0.3)",
@@ -469,9 +467,9 @@ export default function BeakerBotBugStompScene({
                 style={{
                   position: "absolute",
                   left: "70%",
-                  top: "64px",
-                  width: 14,
-                  height: 6,
+                  top: "128px",
+                  width: 28,
+                  height: 12,
                   borderRadius: "50%",
                   background: "rgba(168, 162, 158, 0.5)",
                   transform: "translate(-50%, 0) scale(0.3)",
@@ -482,15 +480,17 @@ export default function BeakerBotBugStompScene({
                 aria-hidden="true"
               />
 
-              {/* BeakerBot pose: pointing-down toward the bug during
-                  entry/rush/stomp (his "stomp" gesture), then a
-                  brief swap to cheering during the victory pose.
-                  We render BOTH stacked and toggle opacity via a
-                  third keyframe so the swap doesn't trigger a React
+              {/* BeakerBot pose: arm-less `idle` during
+                  entry/rush/stomp (Grant 2026-05-22: the point-down
+                  arm was distracting, the no-arm skin reads cleaner
+                  while he charges in), then a brief swap to
+                  `cheering` (hands-up victory) during the victory
+                  pose. We render BOTH stacked and toggle opacity via
+                  a third keyframe so the swap doesn't trigger a React
                   re-render mid-animation (which would reset the
                   parent's chained animations). The cheering pose
                   fades in at 3900ms (victory stage start). */}
-              <PoseStack facing={direction.beakerFacing} />
+              <PoseStack />
             </div>
           </div>
         </div>
@@ -506,8 +506,13 @@ export default function BeakerBotBugStompScene({
  * animation pipeline — toggling via React state would unmount/remount
  * the elements and reset every chained transform animation on the
  * parent.
+ *
+ * Poses: arm-less `idle` (entry → stomp) then `cheering` (hands up,
+ * victory → exit). The `idle` pose is direction-agnostic so no
+ * facing prop is needed; the BeakerBot doesn't visually point at
+ * anything, the rush + stomp animation carries the intent.
  */
-function PoseStack({ facing }: { facing: "left" | "right" }) {
+function PoseStack() {
   return (
     <>
       <style>{`
@@ -533,11 +538,10 @@ function PoseStack({ facing }: { facing: "left" | "right" }) {
           33%, 100% { opacity: 0; transform: scale(1); }
         }
       `}</style>
-      <div style={{ position: "relative", width: 64, height: 64 }}>
+      <div style={{ position: "relative", width: 128, height: 128 }}>
         <BeakerBot
-          pose={"pointing-down" as BeakerBotPose}
-          direction={facing}
-          className="w-16 h-16 text-sky-500"
+          pose={"idle" as BeakerBotPose}
+          className="w-32 h-32 text-sky-500"
           ariaLabel="BeakerBot spotting bug"
         />
         <div
@@ -558,14 +562,16 @@ function PoseStack({ facing }: { facing: "left" | "right" }) {
         >
           <BeakerBot
             pose={"cheering" as BeakerBotPose}
-            className="w-16 h-16 text-sky-500"
+            className="w-32 h-32 text-sky-500"
             ariaLabel="BeakerBot victorious"
           />
         </div>
         {/* Eye-widen overlay: a slightly enlarged BeakerBot pinned to
             the "spot" moment. Visible only briefly (~250ms) at
             2100ms into the scene, blended at 50% opacity for a
-            "pop" effect that doesn't disrupt the base pose. */}
+            "pop" effect that doesn't disrupt the base pose. Uses the
+            same arm-less `idle` pose as the base so only the eyes
+            visually "pop". */}
         <div
           style={{
             position: "absolute",
@@ -577,9 +583,8 @@ function PoseStack({ facing }: { facing: "left" | "right" }) {
           }}
         >
           <BeakerBot
-            pose={"pointing-down" as BeakerBotPose}
-            direction={facing}
-            className="w-16 h-16 text-sky-500"
+            pose={"idle" as BeakerBotPose}
+            className="w-32 h-32 text-sky-500"
             ariaLabel=""
           />
         </div>
