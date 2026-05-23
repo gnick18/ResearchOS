@@ -1,16 +1,26 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { usersApi } from "@/lib/local-api";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { hasPassword, verifyPassword } from "@/lib/auth/password";
 import { performUserDelete } from "@/lib/users/perform-delete";
 import { readUserSettings } from "@/lib/settings/user-settings";
 import { readArchivedSet } from "@/lib/lab/user-archive";
+import {
+  createUserMetadataEntry,
+  readAllUserMetadata,
+  suggestInitialColorForNewUser,
+} from "@/lib/file-system/user-metadata";
+import { otherUsersOnly } from "@/lib/file-system/user-color-collisions";
+import { USER_COLOR_QUERY_KEY } from "@/hooks/useUserColor";
+import type { UserMetadataEntry } from "@/lib/file-system/user-metadata";
 import AccountPasswordPopup from "@/components/AccountPasswordPopup";
 import BetaDonationButton from "@/components/BetaDonationButton";
 import FeedbackModal from "@/components/FeedbackModal";
 import UserAvatar from "@/components/UserAvatar";
+import UserColorPickerPopup from "@/components/UserColorPickerPopup";
 import Tooltip from "@/components/Tooltip";
 import BeakerBot from "@/components/BeakerBot";
 import DevForceWalkthroughButton from "@/components/DevForceWalkthroughButton";
@@ -22,6 +32,7 @@ interface UserLoginScreenProps {
 
 export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   const { setCurrentUser, currentUser: contextCurrentUser } = useFileSystem();
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<string[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -29,6 +40,19 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   const [error, setError] = useState<string | null>(null);
   const [loggingIn, setLoggingIn] = useState<string | null>(null);
   const [mainUser, setMainUser] = useState<string | null>(null);
+
+  // Color-picker popup state — opened after the user types a username and
+  // clicks "Create & Login" so they can confirm (or replace) the random
+  // palette color we'd otherwise assign silently. We hold the
+  // pre-computed default + the metadata snapshot so the popup can render
+  // collision-aware swatches without re-reading the file. `pickerOpen`
+  // distinguishes "we're computing the default" (busy spinner on the
+  // Create button) from "popup is mounted" (popup is interactive).
+  const [colorPicker, setColorPicker] = useState<{
+    username: string;
+    defaultColor: string;
+    otherUsers: Record<string, UserMetadataEntry>;
+  } | null>(null);
   
   // Edit mode state
   const [editingUser, setEditingUser] = useState<string | null>(null);
@@ -259,16 +283,92 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       return;
     }
 
+    // Refuse if the name collides with an existing user. Without this
+    // check the color picker would briefly mount for a name that
+    // `usersApi.create` would then silently overwrite/login as. The
+    // picker isn't the right surface to surface the collision message.
+    if (users.includes(username)) {
+      setError(`User '${username}' already exists. Pick a different name.`);
+      return;
+    }
+
+    // Compute the random palette default for the popup. We snapshot the
+    // metadata BEFORE opening so the popup's "Used by <name>" tooltips
+    // reflect what's actually on disk (not a stale cached map). The
+    // snapshot is cheap — _user_metadata.json is a single small JSON
+    // file.
     setLoggingIn("creating");
     setError(null);
     try {
+      const meta = await readAllUserMetadata();
+      // The new user isn't in the map yet — `otherUsersOnly` also strips
+      // tombstoned users so freed-up palette slots become available
+      // again.
+      const others = otherUsersOnly(meta, username);
+      const defaultColor = suggestInitialColorForNewUser(username, others);
+      setColorPicker({ username, defaultColor, otherUsers: others });
+      // Keep the Create button in its busy state while the popup is up
+      // so a re-click doesn't double-mount.
+    } catch (err) {
+      console.error("Failed to prep color picker:", err);
+      // Fall back to the silent create path if the metadata snapshot
+      // fails — the user still gets a usable account; their color just
+      // comes from the deterministic hash. Better than blocking
+      // creation entirely on a metadata read hiccup.
+      try {
+        await usersApi.create(username);
+        await setCurrentUser(username);
+        onLogin();
+      } catch {
+        setError("Failed to create user. Please try again.");
+        setLoggingIn(null);
+      }
+    }
+  };
+
+  // Color picker accepted — persist the chosen color BEFORE
+  // usersApi.create so by the time the new user logs in, every
+  // UserAvatar that resolves them already finds a stored entry (the
+  // render path prefers stored over the username hash). This is the
+  // anchor that survives later renames: the rename helper migrates
+  // _user_metadata.json so the entry travels with the user, and from
+  // there `useUserColors` reads the same persisted swatch the user
+  // accepted at creation time. The original "rename re-rolled my color"
+  // bug was that no entry ever got written at creation, so the avatar
+  // fell back to `fallbackColorForUsername(username)` which IS
+  // username-hashed and DOES change on rename.
+  const handleColorPickerAccept = async (color: string) => {
+    if (!colorPicker) return;
+    const { username } = colorPicker;
+    try {
+      // 1. Persist the chosen color first. If this fails, we abort
+      //    creation rather than ending up with a user-with-no-color.
+      await createUserMetadataEntry(username, color);
+
+      // 2. Bust the user-color cache so any avatar that re-renders
+      //    after login picks up the new entry without a stale read.
+      queryClient.invalidateQueries({ queryKey: USER_COLOR_QUERY_KEY });
+
+      // 3. Finalize user creation (storeCurrentUser).
       await usersApi.create(username);
       await setCurrentUser(username);
+
+      setColorPicker(null);
       onLogin();
-    } catch {
+    } catch (err) {
+      console.error("Failed to finalize user creation:", err);
       setError("Failed to create user. Please try again.");
+      setColorPicker(null);
       setLoggingIn(null);
     }
+  };
+
+  const handleColorPickerCancel = () => {
+    // No bytes were written yet — just dismiss and return the user to
+    // the form so they can either retry or back out entirely. We also
+    // clear the busy state on the Create button.
+    setColorPicker(null);
+    setLoggingIn(null);
   };
 
   const startEdit = (user: string, e: React.MouseEvent) => {
@@ -1026,6 +1126,22 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
             // user set or removed a password. Cheap on a small user list.
             refreshLockStatus(users.filter((u) => u !== "lab"));
           }}
+        />
+      )}
+
+      {/* User color picker — opens after the user types a name + clicks
+          Create. Mounted at the same z-tier as the password popups so it
+          floats above the entry-screen card. Accept persists the chosen
+          color to _user_metadata.json BEFORE usersApi.create runs, so the
+          new user's color is stored from the moment their account
+          exists; Cancel rolls back without writing anything. */}
+      {colorPicker && (
+        <UserColorPickerPopup
+          username={colorPicker.username}
+          defaultColor={colorPicker.defaultColor}
+          otherUsers={colorPicker.otherUsers}
+          onAccept={handleColorPickerAccept}
+          onCancel={handleColorPickerCancel}
         />
       )}
 

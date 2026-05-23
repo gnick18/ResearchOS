@@ -34,6 +34,9 @@ import {
   setUserMetadataColors,
   getUserMetadata,
   readAllUserMetadata,
+  suggestInitialColorForNewUser,
+  createUserMetadataEntry,
+  USER_METADATA_COLOR_PALETTE,
 } from "./user-metadata";
 
 beforeEach(() => {
@@ -139,5 +142,117 @@ describe("setUserMetadataColors", () => {
     expect(all.bob?.color_secondary).toBe("#f59e0b");
     expect(all.alice?.color).toBe("#10b981");
     expect(all.alice?.color_secondary).toBe("#8b5cf6");
+  });
+});
+
+describe("suggestInitialColorForNewUser", () => {
+  it("returns the first palette color when no other users exist", () => {
+    const result = suggestInitialColorForNewUser("alice", {});
+    expect(result).toBe(USER_METADATA_COLOR_PALETTE[0]);
+  });
+
+  it("skips colors taken by other users as their SOLID primary", () => {
+    const result = suggestInitialColorForNewUser("carol", {
+      alice: { color: USER_METADATA_COLOR_PALETTE[0], created_at: "x" },
+      bob: { color: USER_METADATA_COLOR_PALETTE[1], created_at: "x" },
+    });
+    // First two palette slots are taken as solids; the suggestion should be
+    // the third palette entry.
+    expect(result).toBe(USER_METADATA_COLOR_PALETTE[2]);
+  });
+
+  it("does NOT block on colors that are only part of a gradient (gradients don't reserve their primary)", () => {
+    // Bob owns the first palette color but as part of a gradient (has a
+    // secondary). New solid users can still claim the same primary
+    // because the collision rule is solid-vs-solid only.
+    const result = suggestInitialColorForNewUser("carol", {
+      bob: {
+        color: USER_METADATA_COLOR_PALETTE[0],
+        color_secondary: USER_METADATA_COLOR_PALETTE[5],
+        created_at: "x",
+      },
+    });
+    expect(result).toBe(USER_METADATA_COLOR_PALETTE[0]);
+  });
+
+  it("ignores tombstoned users — their slot is free to reclaim", () => {
+    const result = suggestInitialColorForNewUser("carol", {
+      "deleted-user": {
+        color: USER_METADATA_COLOR_PALETTE[0],
+        created_at: "x",
+        deleted_at: "2026-01-01T00:00:00.000Z",
+      },
+    });
+    expect(result).toBe(USER_METADATA_COLOR_PALETTE[0]);
+  });
+
+  it("falls back to the hash when ALL palette slots are taken as solids", () => {
+    // Every palette color taken solid — the helper falls through to
+    // the hash-based pick (a deterministic value, just no
+    // longer guaranteed unique).
+    const allTaken: Record<string, { color: string; created_at: string }> = {};
+    USER_METADATA_COLOR_PALETTE.forEach((c, i) => {
+      allTaken[`user${i}`] = { color: c, created_at: "x" };
+    });
+    const result = suggestInitialColorForNewUser("carol", allTaken);
+    // The result must STILL be from the palette (hash-based fallback
+    // picks from the same palette).
+    expect(USER_METADATA_COLOR_PALETTE).toContain(result);
+  });
+});
+
+describe("createUserMetadataEntry", () => {
+  it("writes a brand-new entry with the chosen color and a now-ish created_at", async () => {
+    const before = Date.now();
+    const result = await createUserMetadataEntry("alice", "#10b981");
+    const after = Date.now();
+
+    expect(result?.color).toBe("#10b981");
+    const createdAt = Date.parse(result?.created_at ?? "");
+    expect(createdAt).toBeGreaterThanOrEqual(before - 5);
+    expect(createdAt).toBeLessThanOrEqual(after + 5);
+
+    // Persisted to disk.
+    const persisted = await getUserMetadata("alice");
+    expect(persisted?.color).toBe("#10b981");
+  });
+
+  it("honors the explicit color over a pre-seeded entry (preserves other fields)", async () => {
+    // Simulate the race: ensureLabUserMetadata seeded an entry first
+    // with a different color (and hide-flag), then the user accepted
+    // the color picker. The pick should win, but hide-flag stays.
+    memFs.set("users/_user_metadata.json", {
+      users: {
+        alice: {
+          color: "#3b82f6",
+          created_at: "2026-01-01T00:00:00.000Z",
+          hide_goals_from_lab: true,
+        },
+      },
+    });
+
+    const result = await createUserMetadataEntry("alice", "#ef4444");
+    expect(result?.color).toBe("#ef4444");
+    expect(result?.hide_goals_from_lab).toBe(true);
+    expect(result?.created_at).toBe("2026-01-01T00:00:00.000Z");
+  });
+
+  it("never touches another user's entry", async () => {
+    memFs.set("users/_user_metadata.json", {
+      users: {
+        bob: {
+          color: "#ef4444",
+          color_secondary: "#f59e0b",
+          created_at: "2026-01-02T00:00:00.000Z",
+        },
+      },
+    });
+
+    await createUserMetadataEntry("alice", "#10b981");
+
+    const all = await readAllUserMetadata();
+    expect(all.bob?.color).toBe("#ef4444");
+    expect(all.bob?.color_secondary).toBe("#f59e0b");
+    expect(all.alice?.color).toBe("#10b981");
   });
 });
