@@ -611,6 +611,12 @@ export function TourControllerProvider({
 
   const start = useCallback((initial?: TourStepId) => {
     setLastTourTransition("start");
+    // Reset the informational skipList alongside the START dispatch so an
+    // in-session re-run (no reload) does not persist stale skips from the
+    // first run into `wizard_resume_state.skipped_steps` via the P12 effect.
+    // The reducer does not own skipList (it is a sibling useState), so we
+    // must reset it here directly.
+    setSkipList([]);
     dispatch({ type: "START", initialStep: initial ?? null });
   }, []);
 

@@ -273,6 +273,21 @@ describe("TourController — skipStep()", () => {
     expect(occurrences).toBe(1);
     expect(result.current.currentStep).toBe(firstAdvanceTo);
   });
+
+  it("start() resets skipList so an in-session re-run does not leak prior skips", () => {
+    // Regression for R2 chip E Fix 1: start() previously dispatched
+    // START without resetting the sibling useState skipList, so a
+    // re-run within the same browser session would persist stale skips
+    // into wizard_resume_state.skipped_steps via the P12 effect.
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: wrapper(picks()),
+    });
+    act(() => result.current.start("home-create-project"));
+    act(() => result.current.skipStep());
+    expect(result.current.skippedSteps).toContain("home-create-project");
+    act(() => result.current.start("home-create-project"));
+    expect(result.current.skippedSteps).toEqual([]);
+  });
 });
 
 describe("TourController — pause() / resume()", () => {
