@@ -15,7 +15,6 @@ export const APP_ROUTE_TO_WIKI: Record<string, string> = {
   "/pcr": "/wiki/features/pcr",
   "/purchases": "/wiki/features/purchases",
   "/calendar": "/wiki/features/calendar",
-  "/lab": "/wiki/features/lab-mode",
   "/search": "/wiki/features/search",
   "/links": "/wiki/features/links",
   "/settings": "/wiki/features/settings",

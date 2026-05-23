@@ -188,8 +188,8 @@ describe("usersApi.getMainUser — per-folder storage + tombstone validation", (
   // The tombstone-aware validation from 3f83e157 carries forward: when
   // a persisted main_user no longer exists in discoverUsers (manually
   // deleted directory, OneDrive resurrection of a tombstoned user,
-  // etc.), the field is cleared on disk so lab-mode exit doesn't try
-  // to log in as a vanished user. See app/lab/page.tsx:164.
+  // etc.), the field is cleared on disk so the picker doesn't try to
+  // log in as a vanished user.
 
   let store: typeof import("./file-system/indexeddb-store");
 

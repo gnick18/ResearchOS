@@ -141,13 +141,13 @@ function AppContent({ children }: { children: ReactNode }) {
     // inside the wiki early-return keeps the tour controller alive
     // across the wiki visit. Gating on `isConnected && currentUser`
     // means brand-new visitors (the wiki's original target audience)
-    // still get the slim wiki-only tree. Lab Mode users skip the v4
-    // tour entirely (matches AppContent's signed-in branch); guard the
-    // same way here so the lab pseudo-user doesn't pull in V4 either.
-    const wikiUserHasTour =
-      isConnected &&
-      !!currentUser &&
-      currentUser.toLowerCase() !== "lab";
+    // still get the slim wiki-only tree.
+    //
+    // Lab Mode retirement R5 (2026-05-23): the legacy `lab` pseudo-user
+    // guard that mirrored AppContent's signed-in branch is gone. After
+    // R5 nobody can sign in as the lab sentinel, so every signed-in
+    // user pulls in V4 here too.
+    const wikiUserHasTour = isConnected && !!currentUser;
     if (wikiUserHasTour) {
       return (
         <QueryClientProvider client={queryClient}>
@@ -313,44 +313,31 @@ function AppContent({ children }: { children: ReactNode }) {
   console.log("AppContent: rendering main app with QueryClientProvider");
   // Onboarding wrapper. After the V3 rip (V3 rip Phase B 2026-05-22),
   // OnboardingProvider / OnboardingOrchestrator / useOnboarding are gone:
-  // v4 is the only walkthrough and it mounts via V4MountForUser. Real
-  // signed-in users get V4MountForUser; the lab pseudo-user skips it.
+  // v4 is the only walkthrough and it mounts via V4MountForUser.
   // CelebrationManager is a peer inside V4MountForUser so
   // useOptionalTourController() resolves to the live controller and the
   // manager defers firing during an active tour.
-  const isLabUser = currentUser.toLowerCase() === "lab";
+  //
+  // Lab Mode retirement R5 (2026-05-23): the "lab" pseudo-user branch
+  // that bypassed V4MountForUser is gone. After R5 nobody can sign in
+  // as the lab sentinel, so every signed-in user is a real account and
+  // gets the standard v4 mount + orphan sweep.
   return (
     <QueryClientProvider client={queryClient}>
       {/* Once-per-session orphan-project sweep. Mounted as a sibling of
           V4MountForUser so it runs whether the user lands on /home,
-          /workbench, or any other route on their first paint. Skipped
-          for the lab pseudo-user since the lab namespace doesn't host
-          per-user projects in the same shape. (orphan v2 sub-bot) */}
-      {!isLabUser && <OrphanProjectSweep currentUser={currentUser} />}
-      {isLabUser ? (
-        <>
-          {children}
-          {/* Lab Mode bypasses the v4 tour entirely, so no
-              TourControllerProvider is in the tree. CelebrationManager
-              still mounts here so streak milestones earned by a lab
-              user (rare but possible, since they can write to their data
-              folder) fire as expected. useOptionalTourController()
-              will return null in this branch, which the manager
-              treats as "no tour active" → fires normally. */}
-          <CelebrationManager username={currentUser} />
-        </>
-      ) : (
-        <V4MountForUser username={currentUser}>
-          {children}
-          {/* CelebrationManager is a peer of TourBootstrap inside
-              the TourControllerProvider tree. Inside the provider so
-              useOptionalTourController() returns the live controller
-              value (the manager defers firing while a tour is
-              active, per proposal §6.7 "don't overlap with the
-              bottom-right tour BeakerBot"). */}
-          <CelebrationManager username={currentUser} />
-        </V4MountForUser>
-      )}
+          /workbench, or any other route on their first paint. */}
+      <OrphanProjectSweep currentUser={currentUser} />
+      <V4MountForUser username={currentUser}>
+        {children}
+        {/* CelebrationManager is a peer of TourBootstrap inside
+            the TourControllerProvider tree. Inside the provider so
+            useOptionalTourController() returns the live controller
+            value (the manager defers firing while a tour is
+            active, per proposal §6.7 "don't overlap with the
+            bottom-right tour BeakerBot"). */}
+        <CelebrationManager username={currentUser} />
+      </V4MountForUser>
     </QueryClientProvider>
   );
 }

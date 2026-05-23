@@ -71,7 +71,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   // Password gate state — populated when a protected user is clicked
   const [passwordGate, setPasswordGate] = useState<{
     username: string;
-    nextAction: "user" | "lab";
+    nextAction: "user";
   } | null>(null);
   const [passwordInput, setPasswordInput] = useState("");
   const [verifyingPassword, setVerifyingPassword] = useState(false);
@@ -157,10 +157,9 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
 
   useEffect(() => {
     if (users.length > 0) {
-      const real = users.filter((u) => u !== "lab");
-      refreshLockStatus(real);
-      refreshLabHeadStatus(real);
-      refreshArchivedStatus(real);
+      refreshLockStatus(users);
+      refreshLabHeadStatus(users);
+      refreshArchivedStatus(users);
     }
   }, [users]);
 
@@ -255,19 +254,6 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     setVerifyingPassword(false);
     setLoggingIn(null);
     setError(null);
-  };
-
-  const handleLabModeLogin = async () => {
-    setLoggingIn("lab");
-    setError(null);
-    try {
-      await usersApi.login("lab");
-      await setCurrentUser("lab");
-      onLogin();
-    } catch {
-      setError("Failed to enter Lab Mode. Please try again.");
-      setLoggingIn(null);
-    }
   };
 
   const handleCreateUser = async () => {
@@ -547,9 +533,6 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     }
   };
 
-  // Check if there are any users (excluding 'lab' user if present)
-  const hasUsers = users.filter(u => u !== 'lab').length > 0;
-
   // Tile sort order (Lab Head Phase 1 polish + Phase 6 archive):
   //   1. Active (non-archived) lab_head users (Main first)
   //   2. Active member users (Main first)
@@ -562,7 +545,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   // is flagged Main. Archived users go to the very bottom regardless of
   // role/main status; the visual "Archived" badge handles distinction.
   const sortedActiveUsers = useMemo(() => {
-    const real = users.filter((u) => u !== "lab" && !archivedUsers.has(u));
+    const real = users.filter((u) => !archivedUsers.has(u));
     const tier = (u: string) => (labHeadUsers.has(u) ? 0 : 1);
     const mainRank = (u: string) => (mainUser === u ? 0 : 1);
     return [...real].sort((a, b) => {
@@ -579,7 +562,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   // archived bucket (archived lab_head is rare and doesn't need the
   // visual elevation that the active tier preserves).
   const sortedArchivedUsers = useMemo(() => {
-    const real = users.filter((u) => u !== "lab" && archivedUsers.has(u));
+    const real = users.filter((u) => archivedUsers.has(u));
     return [...real].sort((a, b) => a.localeCompare(b));
   }, [users, archivedUsers]);
 
@@ -900,7 +883,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   there are archived users to surface — keeps the picker
                   uncluttered for labs with zero archives. The toggle
                   itself is a plain text-link style so it doesn't compete
-                  with the Lab Mode button or Create user CTAs below. */}
+                  with the Create user CTA below. */}
               {sortedArchivedUsers.length > 0 && (
                 <div className="text-center mb-3">
                   <button
@@ -919,7 +902,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
               )}
 
               {/* Divider */}
-              {users.filter(u => u !== 'lab').length > 0 && (
+              {users.length > 0 && (
                 <div className="relative my-4">
                   <div className="absolute inset-0 flex items-center">
                     <div className="w-full border-t border-white/10"></div>
@@ -941,31 +924,6 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                 </svg>
                 Create New User
               </button>
-
-              {/* Lab Mode button */}
-              <div className="mt-4">
-                <button
-                  onClick={handleLabModeLogin}
-                  disabled={loggingIn !== null || !hasUsers}
-                  title={!hasUsers ? "No users exist yet" : ""}
-                  className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-teal-500/30 border border-emerald-500/30 hover:border-emerald-500/50 rounded-xl text-emerald-300 hover:text-emerald-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  {loggingIn === "lab" ? (
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-emerald-300"></div>
-                  ) : (
-                    <span>Lab Mode</span>
-                  )}
-                  {!hasUsers && (
-                    <span className="text-xs text-slate-500">(No users yet)</span>
-                  )}
-                </button>
-                <p className="text-center text-slate-500 text-xs mt-2">
-                  View all researchers&apos; work (read-only)
-                </p>
-              </div>
             </div>
           )}
         </div>
@@ -1129,7 +1087,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
             setManagingPasswordFor(null);
             // Re-read auth files so the lock icon flips immediately if the
             // user set or removed a password. Cheap on a small user list.
-            refreshLockStatus(users.filter((u) => u !== "lab"));
+            refreshLockStatus(users);
           }}
         />
       )}

@@ -230,7 +230,6 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
           await storeCurrentUser(currentUser);
         } else if (
           currentUser &&
-          currentUser.toLowerCase() !== "lab" &&
           users.length > 0 &&
           !users.includes(currentUser)
         ) {
@@ -239,8 +238,12 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
           // later wiped — Grant hit `alex` 2026-05-20). Same bug class as the
           // stale-mainUser fix in usersApi.getMainUser at local-api.ts:4278;
           // both read paths needed to be filtered against discoverUsers.
-          // "lab" is the Lab Mode sentinel and is intentionally not a
-          // discoverable user, so preserve it.
+          //
+          // Lab Mode retirement R5 (2026-05-23): the legacy `lab` sentinel
+          // is now treated as stale just like any other non-discoverable
+          // pointer — `discoverUsers` excludes the `users/lab` shared
+          // funding-account namespace, so a stale `lab` value in IDB falls
+          // into this branch and gets cleared.
           //
           // `users.length > 0` guard: discoverUsers returns [] both for a
           // genuinely fresh folder AND for transient FS errors. Clearing on

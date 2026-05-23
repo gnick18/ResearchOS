@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "@/components/FixtureLink";
 import {
   Bar,
   BarChart,
@@ -18,7 +17,6 @@ import type {
   Project,
   FundingAccount,
 } from "@/lib/types";
-import Tooltip from "@/components/Tooltip";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import { matchesAnyProjectFilter } from "@/lib/search/filterKey";
 import {
@@ -43,7 +41,7 @@ const TIME_RANGE_LABELS: Record<TimeRangeOption, string> = {
 };
 
 const UNCATEGORIZED = "Uncategorized";
-// emerald-400 — match LabPurchasesPanel's bar palette.
+// emerald-400 — matches the funding-rollup bar palette in MetricsWidget.
 const BAR_COLOR = "#34d399";
 
 interface SpendingDashboardProps {
@@ -202,7 +200,7 @@ export default function SpendingDashboard({
   );
 
   // Funding-account spend computed live from items — FundingAccount.spent on
-  // disk is stale (see LabPurchasesPanel.tsx:101-108 for the same workaround).
+  // disk is stale; always sum from line items.
   const spentByFundingString = useMemo(() => {
     const map = new Map<string, number>();
     for (const item of filteredItems) {
@@ -380,14 +378,6 @@ export default function SpendingDashboard({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Tooltip label="Cross-lab spending view">
-            <Link
-              href="/lab?tab=purchases"
-              className="text-xs text-emerald-700 hover:text-emerald-800 hover:underline"
-            >
-              View in Lab Mode →
-            </Link>
-          </Tooltip>
           <button
             onClick={handleExportCsv}
             disabled={exportDisabled}

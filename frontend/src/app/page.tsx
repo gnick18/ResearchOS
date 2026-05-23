@@ -81,21 +81,12 @@ export default function HomePage() {
   const [draggedProjectId, setDraggedProjectId] = useState<number | null>(null);
   const [dragOverProjectId, setDragOverProjectId] = useState<number | null>(null);
 
-  // Redirect to lab page if the current user is "lab".
-  // currentUser comes from FileSystemProvider, which loads it from IndexedDB on startup.
-  useEffect(() => {
-    if (currentUser && currentUser.toLowerCase() === "lab") {
-      router.push("/lab");
-    }
-  }, [currentUser, router]);
-
   // One-shot redirect to the user's chosen default landing tab on first load.
-  // Subsequent manual visits to "/" are respected. Skipped for the "lab"
-  // user (handled by the dedicated redirect above).
+  // Subsequent manual visits to "/" are respected.
   const defaultLandingTab = useAppStore((s) => s.defaultLandingTab);
   useEffect(() => {
     if (didLandingRedirect) return;
-    if (!currentUser || currentUser.toLowerCase() === "lab") return;
+    if (!currentUser) return;
     if (defaultLandingTab && defaultLandingTab !== "/") {
       didLandingRedirect = true;
       router.replace(defaultLandingTab);
@@ -350,10 +341,9 @@ export default function HomePage() {
     });
   };
 
-  // Show login screen if no current user.
-  // UserLoginScreen already calls useFileSystem().setCurrentUser internally, so
-  // by the time onLogin fires the provider has the new user and lab redirect
-  // logic in our useEffect will handle "lab" automatically.
+  // Show login screen if no current user. UserLoginScreen already calls
+  // useFileSystem().setCurrentUser internally, so by the time onLogin fires
+  // the provider has the new user.
   if (!checkingUser && !currentUser) {
     return (
       <UserLoginScreen
@@ -362,15 +352,6 @@ export default function HomePage() {
         }}
       />
     );
-  }
-
-  // Race fix: when currentUser flips to "lab" via UserLoginScreen.handleLabModeLogin,
-  // React re-renders this home page BEFORE the useEffect-scheduled router.push("/lab")
-  // fires — causing a flash of the empty home view for the "lab" sentinel user (visible
-  // to the user as "a blank user page named lab" before /lab loads). Skip paint
-  // entirely on that transition; the useEffect above will navigate within the same tick.
-  if (currentUser && currentUser.toLowerCase() === "lab") {
-    return null;
   }
 
   return (

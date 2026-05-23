@@ -5163,9 +5163,8 @@ export const usersApi = {
     // Tombstone-stale guard: if the persisted main_user no longer
     // exists in the folder (manually deleted directory, OneDrive
     // resurrection, etc.), clear it on disk and return empty. Mirrors
-    // the validation the old IDB impl had — kept here so lab-mode
-    // exit (app/lab/page.tsx) doesn't try to log in as a vanished
-    // user.
+    // the validation the old IDB impl had — kept here so the picker
+    // doesn't surface a vanished user as Main.
     if (main) {
       let validUsers: string[];
       try {
