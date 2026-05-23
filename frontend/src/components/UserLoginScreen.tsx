@@ -597,17 +597,18 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                           <div className="flex-1 text-left flex items-center gap-2">
                             <span className="text-white font-medium">{user}</span>
                             {labHeadUsers.has(user) && (
-                              // PI badge — matches the CommentsThread author
-                              // attribution badge (amber-100/amber-800). Darker
-                              // amber text variant keeps contrast readable on
-                              // the slate login backdrop. The Main badge is
-                              // orthogonal (laptop owner) and shows alongside
-                              // when both apply.
+                              // Lab Head badge — matches the CommentsThread
+                              // author attribution badge (amber-100/amber-800).
+                              // Generic "Lab Head" copy works across academia,
+                              // industry, and government settings (avoided
+                              // "PI" since it's academia-specific). The Main
+                              // badge is orthogonal (laptop owner) and shows
+                              // alongside when both apply.
                               <span
-                                className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide rounded bg-amber-100 text-amber-800"
-                                title="Lab head / principal investigator"
+                                className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-100 text-amber-800"
+                                title="Lab Head"
                               >
-                                PI
+                                Lab Head
                               </span>
                             )}
                             {mainUser === user && (

@@ -378,10 +378,10 @@ function CommentBody({
           <span className={nameClass}>{displayName}</span>
           {isPI && !departed && (
             <span
-              className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide rounded bg-amber-100 text-amber-800"
-              title="Lab head / principal investigator"
+              className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-100 text-amber-800"
+              title="Lab Head"
             >
-              PI
+              Lab Head
             </span>
           )}
           <span>·</span>
