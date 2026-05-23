@@ -13,7 +13,7 @@
 //     reading, panicked, amazed, embarrassed)
 //   - 10 multi-stage scene components (Ladder, BugStomp, Skateboard,
 //     ScreenBump, TooManyBeakers, MouseWave, Centrifuge, Eureka,
-//     CoffeeRefill, MicroscopeBubble)
+//     CoffeeRefill, BlowingBubbles)
 //   - 3 pose-celebration variants (cheering, bouncing, volcano-eruption)
 //   = 34 entries total
 //
@@ -51,7 +51,7 @@ import BeakerBotMouseWaveScene from "@/components/BeakerBotMouseWaveScene";
 import BeakerBotCentrifugeScene from "@/components/BeakerBotCentrifugeScene";
 import BeakerBotEurekaScene from "@/components/BeakerBotEurekaScene";
 import BeakerBotCoffeeRefillScene from "@/components/BeakerBotCoffeeRefillScene";
-import BeakerBotMicroscopeBubbleScene from "@/components/BeakerBotMicroscopeBubbleScene";
+import BeakerBotBlowingBubblesScene from "@/components/BeakerBotBlowingBubblesScene";
 import BeakerBotPipetteAimScene from "@/components/BeakerBotPipetteAimScene";
 import BeakerBotPoseCelebrationScene from "@/components/onboarding/BeakerBotPoseCelebrationScene";
 
@@ -408,12 +408,12 @@ const SCENES: SceneEntry[] = [
   },
   {
     kind: "scene",
-    id: "scene:microscope-bubble",
-    label: "BeakerBotMicroscopeBubbleScene",
-    Component: BeakerBotMicroscopeBubbleScene as unknown as SceneComponent,
+    id: "scene:blowing-bubbles",
+    label: "BeakerBotBlowingBubblesScene",
+    Component: BeakerBotBlowingBubblesScene as unknown as SceneComponent,
     description:
-      "BeakerBot peers through a microscope, the eyepiece glows, a big soap bubble with a tiny BeakerBot inside rises out and pops mid-air with a 'pop!'.",
-    timingNote: "~5000ms total",
+      "BeakerBot blows bubbles that drift across the screen. Click any bubble to pop it, or they auto-pop after a few seconds.",
+    timingNote: "~8000ms total",
   },
   {
     kind: "scene",
