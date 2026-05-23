@@ -138,3 +138,55 @@ export function hexToRgba(hex: string, alpha: number): string {
   const b = parseInt(h.slice(4, 6), 16);
   return `rgba(${r}, ${g}, ${b}, ${clamp(alpha, 0, 1)})`;
 }
+
+/**
+ * Returns the better-contrasting text color for a given background.
+ * Uses the YIQ perceptual-brightness formula (the same heuristic Google
+ * Calendar / Outlook use for filled event chips) — slightly less precise
+ * than WCAG relative luminance but simpler and visually pleasant.
+ *
+ * Light backgrounds get a soft slate (`#1f2937`) rather than pure black,
+ * which prevents the harsh "ink on highlighter" look on pastel fills.
+ * Dark backgrounds get white.
+ *
+ * Accepts `#rgb`, `#rrggbb`, and `rgb(...)` / `rgba(...)` strings. Any
+ * invalid input falls back to white (safest default — assumes a colorful
+ * fill was intended).
+ */
+export function getReadableTextColor(bg: string | null | undefined): string {
+  if (!bg) return "#ffffff";
+  const trimmed = bg.trim();
+
+  let r = NaN;
+  let g = NaN;
+  let b = NaN;
+
+  if (trimmed.startsWith("rgb")) {
+    // rgb(r, g, b) / rgba(r, g, b, a) — strip alpha if present
+    const inside = trimmed.replace(/^rgba?\s*\(/i, "").replace(/\)\s*$/, "");
+    const parts = inside.split(",").map((s) => s.trim());
+    if (parts.length >= 3) {
+      r = parseInt(parts[0], 10);
+      g = parseInt(parts[1], 10);
+      b = parseInt(parts[2], 10);
+    }
+  } else {
+    let h = trimmed.replace(/^#/, "");
+    if (h.length === 3) {
+      h = h.split("").map((c) => c + c).join("");
+    }
+    if (h.length === 6 && /^[0-9a-f]{6}$/i.test(h)) {
+      r = parseInt(h.slice(0, 2), 16);
+      g = parseInt(h.slice(2, 4), 16);
+      b = parseInt(h.slice(4, 6), 16);
+    }
+  }
+
+  if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b)) {
+    return "#ffffff";
+  }
+
+  // YIQ brightness — weights tuned for human perception.
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+  return yiq >= 128 ? "#1f2937" : "#ffffff";
+}

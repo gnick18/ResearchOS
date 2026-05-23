@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Event, ExternalEvent } from "@/lib/types";
 import { hasEnded } from "@/lib/calendar/event-status";
+import { getReadableTextColor } from "@/lib/colors";
 import {
   assignLanes,
   type CalendarItem,
@@ -260,15 +261,19 @@ function AllDayStrip({
           >
             {visible.map((item) => {
               const ended = hasEnded(item.event, now);
+              const itemColor =
+                item.kind === "native"
+                  ? item.event.color || EVENT_TYPE_COLORS[item.event.event_type]
+                  : item.event.color;
+              const textColor = getReadableTextColor(itemColor);
               return item.kind === "native" ? (
                 <button
                   key={`n-${item.event.id}`}
                   onClick={() => onEventClick(item.event)}
                   className={`w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80 ${ended ? ENDED_CLASSES : ""}`}
                   style={{
-                    backgroundColor:
-                      item.event.color || EVENT_TYPE_COLORS[item.event.event_type],
-                    color: "white",
+                    backgroundColor: itemColor,
+                    color: textColor,
                   }}
                 >
                   {item.event.start_time && (
@@ -285,9 +290,9 @@ function AllDayStrip({
                   title="Linked calendar event (read-only)"
                   className={`w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80 flex items-center gap-1 ${ended ? ENDED_CLASSES : ""}`}
                   style={{
-                    backgroundColor: "white",
-                    color: item.event.color,
-                    border: `1px solid ${item.event.color}`,
+                    backgroundColor: itemColor,
+                    color: textColor,
+                    border: `1px solid ${itemColor}`,
                   }}
                 >
                   {item.event.start_time && (
@@ -343,6 +348,7 @@ function TimedEventBlock({
 
   const isShort = height < 32;
   const ended = hasEnded(item.event, now);
+  const textColor = getReadableTextColor(color);
 
   return (
     <button
@@ -356,8 +362,8 @@ function TimedEventBlock({
         height: height - 1,
         left: `calc(${leftPct}% + 2px)`,
         width: `calc(${widthPct}% - 4px)`,
-        backgroundColor: item.kind === "native" ? color : "white",
-        color: item.kind === "native" ? "white" : color,
+        backgroundColor: color,
+        color: textColor,
         border: item.kind === "external" ? `1px solid ${color}` : "none",
       }}
       title={`${item.event.title}${item.event.start_time ? ` · ${formatTime(item.event.start_time)}${item.event.end_time ? ` – ${formatTime(item.event.end_time)}` : ""}` : ""}`}
