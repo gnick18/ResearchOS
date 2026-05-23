@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import LabInboxMetrics from "@/components/lab-inbox/LabInboxMetrics";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { readUserSettings } from "@/lib/settings/user-settings";
 
@@ -80,7 +81,10 @@ function LabInboxBody() {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
+      {/* Phase 4 widened the container to 6xl so the Gantt overlay has room
+       *  to breathe without horizontal-scrolling at typical laptop widths.
+       *  Phase 2's comments panel renders fine inside the wider column. */}
+      <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
         <header>
           <h1 className="text-2xl font-bold text-gray-900">Lab Inbox</h1>
           <p className="text-sm text-gray-500 mt-1">
@@ -104,6 +108,14 @@ function LabInboxBody() {
             Comments and audit notifications will appear here in Phase 2.
           </p>
         </section>
+
+        {/* Lab Head Phase 4 (lab head Phase 4 manager, 2026-05-23): the
+         *  cross-lab metrics dashboard. Tabbed view across the Gantt overlay
+         *  (every member's tasks tinted by owner), funding rollup
+         *  (lab-wide spend aggregated by member / category / account), and
+         *  roadmap aggregation (all high-level goals with progress). All
+         *  three views read existing data — no new sidecars. */}
+        <LabInboxMetrics />
       </div>
     </div>
   );
