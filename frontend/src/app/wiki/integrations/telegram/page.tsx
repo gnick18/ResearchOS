@@ -7,7 +7,7 @@ export default function TelegramIntegrationPage() {
   return (
     <WikiPage
       title="Telegram Bot"
-      intro="Pair your account with a Telegram bot so phone photos from the bench land in the open experiment, or in an inbox you can sort later."
+      intro="Pair your account with a Telegram bot so phone photos from the bench are routed to the right experiment with a single tap."
     >
       <Screenshot
         src="/wiki/screenshots/telegram-pairing.png"
@@ -17,17 +17,16 @@ export default function TelegramIntegrationPage() {
 
       <h2>What it does</h2>
       <p>
-        Once paired, you message a single Telegram bot from your phone. Each
-        photo you send shows up in ResearchOS within a couple seconds. If an
-        experiment popup is open at that moment, the photo is filed into
-        that experiment&apos;s image strip directly. If nothing&apos;s open,
-        it lands in your inbox and a yellow toast slides up from the
-        bottom-right so you can file it from there.
+        Once paired, you send photos to a single Telegram bot from your phone.
+        Every photo (or album) triggers an inline-keyboard prompt in your
+        Telegram chat: the bot asks where the photo should go, you tap a
+        button, and it lands there within a couple of seconds. Nothing routes
+        silently on its own.
       </p>
       <p>
-        After each photo, the bot replies in your Telegram chat asking for a
-        caption. Type one back and it&apos;s stored alongside the image.
-        Send <code>/skip</code> to leave the photo without one.
+        After you confirm the destination, the bot asks for a caption. Type one
+        back and it is stored alongside the image. Send{" "}
+        <code>/skip</code> to leave the photo without one.
       </p>
 
       <h2>The Telegram pill</h2>
@@ -108,9 +107,9 @@ export default function TelegramIntegrationPage() {
           &quot;Paired&quot; confirmation.
         </Step>
         <Step>
-          Send any photo to the bot. It should appear in ResearchOS within
-          a couple seconds, either inside the open experiment or as a
-          bottom-right toast over the inbox.
+          Send any photo to the bot. The bot replies with an inline keyboard
+          asking where to send it. Tap a button and the photo appears in
+          ResearchOS within a couple of seconds.
         </Step>
       </Steps>
 
@@ -126,23 +125,58 @@ export default function TelegramIntegrationPage() {
 
       <h2>Where photos arrive</h2>
       <p>
-        ResearchOS routes each incoming photo based on what&apos;s open in
-        the app:
+        Every inbound photo triggers the same inline-keyboard routing flow,
+        regardless of what is open in ResearchOS at the time. The bot never
+        silently auto-attaches.
+      </p>
+      <p>
+        The bot&apos;s first message reads{" "}
+        <strong>&quot;Got a photo. Where should it go?&quot;</strong> and
+        presents one of two keyboard layouts depending on whether an experiment
+        popup was open in ResearchOS when the photo arrived:
       </p>
       <ul>
         <li>
-          <strong>An experiment popup is open.</strong> The photo is filed
-          into that experiment&apos;s image strip and shows up there
-          immediately.
+          <strong>An experiment is open in ResearchOS.</strong> The keyboard
+          shows two quick-pick options for that experiment:
+          <strong> Lab Notes</strong> (saves into{" "}
+          <code>notes.md</code>&apos;s image folder) or{" "}
+          <strong>Results</strong> (saves into the{" "}
+          <code>results.md</code> image folder), plus a{" "}
+          <strong>Pick another</strong> escape hatch to switch to a different
+          task.
         </li>
         <li>
-          <strong>Nothing&apos;s open.</strong> The photo lands in your
-          inbox at <code>users/&lt;you&gt;/inbox/Images/</code>, a yellow
-          toast slides up in the bottom-right with a &quot;File here&quot;
-          button (active once you open an experiment), and the{" "}
-          <strong>Inbox</strong> badge in the top bar increments.
+          <strong>Nothing is open.</strong> The bot shows the full task picker
+          instead: a lettered list of your active and in-progress experiments,
+          partitioned into &quot;Active&quot; and &quot;No results yet&quot;
+          sections, with a{" "}
+          <strong>📥</strong> Inbox option at the bottom.
         </li>
       </ul>
+
+      <h3>Lab Notes vs Results</h3>
+      <p>
+        When you pick an experiment from the task picker (or tap{" "}
+        <strong>Pick another</strong> from the active-experiment prompt), the
+        bot follows up with a second keyboard asking{" "}
+        <strong>&quot;Lab Notes or Results?&quot;</strong>:
+      </p>
+      <ul>
+        <li>
+          <strong>📝 Lab Notes</strong> routes the photo into the{" "}
+          <code>Images/</code> folder under <code>notes.md</code>.
+        </li>
+        <li>
+          <strong>📊 Results</strong> routes it into the{" "}
+          <code>Images/</code> folder under <code>results.md</code>.
+        </li>
+      </ul>
+      <p>
+        When you use the quick-pick from an open experiment, the Lab Notes /
+        Results choice is collapsed into the first keyboard (buttons A and B),
+        so the whole flow is just one tap.
+      </p>
 
       <Screenshot
         src="/wiki/screenshots/telegram-inbox.png"
@@ -152,11 +186,13 @@ export default function TelegramIntegrationPage() {
 
       <h2>The inbox</h2>
       <p>
-        Click the <strong>Inbox</strong> badge in the top bar to open the
-        inbox modal. Each row shows a thumbnail, the caption you sent, and
-        when it arrived. From here you can move a photo into the open
-        experiment with one click (<strong>Move to active</strong>), click
-        the row to rename or edit the caption, or delete it. A small{" "}
+        If you tap <strong>📥 Inbox</strong> in the bot&apos;s keyboard, the
+        photo lands at <code>users/&lt;you&gt;/inbox/Images/</code> and the{" "}
+        <strong>Inbox</strong> badge in the top bar increments. Click the badge
+        to open the inbox modal. Each row shows a thumbnail, the caption you
+        sent, and when it arrived. From here you can move a photo into the open
+        experiment with one click (<strong>Move to active</strong>), click the
+        row to rename or edit the caption, or delete it. A small{" "}
         <strong>⋯</strong> button fades in on hover and opens the same menu
         as right-click.
       </p>
@@ -209,11 +245,18 @@ export default function TelegramIntegrationPage() {
 
       <h2>The bot&apos;s reply flow</h2>
       <p>
-        After every photo, the bot replies in your Telegram chat with a
-        one-liner like &quot;Saved to Experiment 12 (Crystal growth). What
-        is this? Reply with a description, or send <code>/skip</code>.&quot;
-        Reply with a sentence and it&apos;s stored as the image&apos;s
-        caption. Send <code>/skip</code> to leave the photo without one.
+        Every photo begins with the same opener from the bot:{" "}
+        <strong>&quot;Got a photo. Where should it go?&quot;</strong> followed
+        by the inline keyboard. After you tap a destination (and optionally a
+        sub-tab), the bot saves the file and asks for a caption. Reply with a
+        sentence and it is stored as the image&apos;s caption. Send{" "}
+        <code>/skip</code> to leave the photo without one.
+      </p>
+      <p>
+        Albums (multiple photos sent together) are bundled into a single
+        routing prompt instead of one prompt per photo. After the destination
+        is confirmed you can choose to name the batch in one go or caption each
+        photo individually.
       </p>
       <p>
         Send <code>/help</code> to the bot at any time for a refresher on
@@ -254,8 +297,9 @@ export default function TelegramIntegrationPage() {
         Polling Telegram from two ResearchOS tabs at once would have them
         fight over the same message cursor. The app holds a cross-tab lock
         in <code>localStorage</code>, so only one tab polls at a time. The
-        others show &quot;another tab is polling&quot; on the pill and pick
-        up automatically if the active tab closes.
+        other tabs show an amber pill with the label{" "}
+        <code>ANOTHER TAB IS POLLING</code> and pick up automatically if
+        the active tab closes.
       </p>
     </WikiPage>
   );
