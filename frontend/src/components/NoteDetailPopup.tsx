@@ -14,6 +14,11 @@ import { fileEvents } from "@/lib/attachments/file-events";
 import { checkForDuplicates } from "@/lib/attachments/duplicate-check";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
+import { useLabHeadEditGate } from "@/hooks/useLabHeadEditGate";
+import RequestEditButton from "./RequestEditButton";
+import EditSessionBanner from "./EditSessionBanner";
+import AuditTrailNotice from "./AuditTrailNotice";
+import { appendAuditEntries } from "@/lib/lab/pi-audit";
 
 interface NoteDetailPopupProps {
   note: Note;
@@ -70,8 +75,21 @@ export default function NoteDetailPopup({
   onClose,
   onUpdate,
   onDelete,
-  readOnly = false,
+  readOnly: propReadOnly = false,
 }: NoteDetailPopupProps) {
+  // Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23): wrap the
+  // prop-passed readOnly flag with the PI edit-mode gate. When the active
+  // user is a lab head and has unlocked a session for this note, the
+  // effective readOnly flips false so inputs become editable + saves
+  // emit audit entries. Underlying notesApi.update currently routes to
+  // the active user's folder (not the note owner's) — extending notes
+  // for cross-owner writes is Phase 3+ work; the auth infrastructure
+  // and visible chrome ship in Phase 5.
+  const labHeadGate = useLabHeadEditGate({
+    readOnly: propReadOnly,
+    recordOwner: note.username ?? null,
+  });
+  const readOnly = labHeadGate.effectiveReadOnly;
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingDescription, setEditingDescription] = useState(false);
@@ -228,6 +246,48 @@ export default function NoteDetailPopup({
     return () => window.removeEventListener("keydown", handleEscape);
   }, [isExpanded, handleClose]);
 
+  // Lab Head Phase 5 — write per-field audit entries when the active save
+  // happens during an unlocked PI session on another member's note.
+  const writeLabHeadAuditIfActive = useCallback(
+    async (
+      fieldPath: string,
+      oldValue: unknown,
+      newValue: unknown,
+    ) => {
+      if (
+        !labHeadGate.unlocked ||
+        !labHeadGate.sessionId ||
+        !labHeadGate.activeUser ||
+        !note.username
+      ) {
+        return;
+      }
+      try {
+        await appendAuditEntries(note.username, [
+          {
+            session_id: labHeadGate.sessionId,
+            actor: labHeadGate.activeUser,
+            target_user: note.username,
+            record_type: "note",
+            record_id: note.id,
+            field_path: fieldPath,
+            old_value: oldValue ?? null,
+            new_value: newValue ?? null,
+          },
+        ]);
+      } catch (err) {
+        console.warn("[NoteDetailPopup] appendAuditEntries failed", err);
+      }
+    },
+    [
+      labHeadGate.unlocked,
+      labHeadGate.sessionId,
+      labHeadGate.activeUser,
+      note.username,
+      note.id,
+    ],
+  );
+
   // Save title
   const saveTitle = async () => {
     if (title === note.title) {
@@ -236,8 +296,12 @@ export default function NoteDetailPopup({
     }
     setSaving(true);
     try {
+      const oldTitle = note.title;
       const updated = await notesApi.update(note.id, { title });
-      if (updated) onUpdate(updated);
+      if (updated) {
+        onUpdate(updated);
+        await writeLabHeadAuditIfActive("title", oldTitle, title);
+      }
       setEditingTitle(false);
     } catch (error) {
       console.error("Failed to save title:", error);
@@ -255,8 +319,12 @@ export default function NoteDetailPopup({
     }
     setSaving(true);
     try {
+      const oldDesc = note.description;
       const updated = await notesApi.update(note.id, { description });
-      if (updated) onUpdate(updated);
+      if (updated) {
+        onUpdate(updated);
+        await writeLabHeadAuditIfActive("description", oldDesc, description);
+      }
       setEditingDescription(false);
     } catch (error) {
       console.error("Failed to save description:", error);
@@ -591,6 +659,15 @@ export default function NoteDetailPopup({
         data-drag-ring-target=""
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23):
+            unlocked-session timer banner. Renders only while the PI's
+            session is unlocked AND it's THIS user's session. */}
+        {labHeadGate.unlocked && labHeadGate.activeUser && (
+          <EditSessionBanner
+            contextLabel={`${note.username ?? "lab member"}'s note: ${title}`}
+            scopedToUsername={labHeadGate.activeUser}
+          />
+        )}
         {/* Header */}
         <div className="p-4 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-start justify-between">
@@ -641,10 +718,26 @@ export default function NoteDetailPopup({
                   {description || (!readOnly ? "Add a description..." : "")}
                 </p>
               )}
+              {/* Lab Head Phase 5 — record-level "Edited by PI" notice. */}
+              {propReadOnly && note.username && (
+                <AuditTrailNotice
+                  targetUser={note.username}
+                  recordType="note"
+                  recordId={note.id}
+                />
+              )}
             </div>
 
             {/* Fullscreen and Close buttons */}
             <div className="flex items-center gap-1">
+              {/* Lab Head Phase 5 — Request edit button. Visible only when
+                  PI is viewing another member's note + no session active. */}
+              {labHeadGate.canRequestEdit && !labHeadGate.unlocked && labHeadGate.activeUser && (
+                <RequestEditButton
+                  username={labHeadGate.activeUser}
+                  targetLabel={`${note.username ?? "member"}'s note: ${title}`}
+                />
+              )}
               <Tooltip label={isExpanded ? "Exit fullscreen" : "Fullscreen"} placement="bottom">
                 <button
                   onClick={() => setIsExpanded(!isExpanded)}

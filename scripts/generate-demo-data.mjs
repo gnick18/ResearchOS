@@ -19,6 +19,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -2305,6 +2306,103 @@ function buildEntries() {
       // across alex + morgan's shared content.
       displayName: "Dr. Mira Castellanos",
       account_type: "lab_head",
+    },
+  ]);
+
+  // Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23): demo
+  // `_lab_head_auth.json` for Mira. Mirrors the on-disk PBKDF2 hash that
+  // `setLabHeadPassword` would produce. Demo password is `demo-pi` —
+  // hardcoded for the fixture; this is the demo, not production.
+  //
+  // The PBKDF2 spec (600k iters, SHA-256, 16-byte salt → 32-byte output)
+  // matches `frontend/src/lib/lab/lab-head-auth.ts` exactly so the demo
+  // file actually verifies through the real verifyLabHeadPassword path.
+  const DEMO_PI_PASSWORD = "demo-pi";
+  const PBKDF2_ITERATIONS = 600_000;
+  const miraSalt = Buffer.from([
+    0x4d, 0x69, 0x72, 0x61, 0x44, 0x65, 0x6d, 0x6f,
+    0x53, 0x61, 0x6c, 0x74, 0x21, 0x32, 0x36, 0x21,
+  ]); // deterministic 16-byte salt so the fixture is reproducible
+  const miraHash = crypto.pbkdf2Sync(
+    DEMO_PI_PASSWORD,
+    miraSalt,
+    PBKDF2_ITERATIONS,
+    32,
+    "sha256",
+  );
+  out.push([
+    "users/mira/_lab_head_auth.json",
+    {
+      version: 1,
+      kdf: "PBKDF2-SHA-256",
+      iterations: PBKDF2_ITERATIONS,
+      salt: miraSalt.toString("base64"),
+      hash: miraHash.toString("base64"),
+      created_at: "2026-04-01T09:00:00Z",
+      updated_at: "2026-04-01T09:00:00Z",
+    },
+  ]);
+
+  // Demo PI audit entries — showcase Mira having edited fields on
+  // alex/morgan's records via Phase 5's session edit mode. The entries
+  // live in the TARGET user's folder per the per-user audit-log
+  // convention (proposal section 2c). Three entries split across two
+  // users illustrates both the per-user file and the per-field append
+  // pattern.
+  const DEMO_SESSION_A = "demo-sess-2026-05-15-alex";
+  const DEMO_SESSION_B = "demo-sess-2026-05-17-morgan";
+  out.push([
+    "users/alex/_pi_audit.json",
+    {
+      version: 1,
+      entries: [
+        {
+          id: "audit-mira-alex-1",
+          session_id: DEMO_SESSION_A,
+          actor: "mira",
+          target_user: "alex",
+          record_type: "task",
+          record_id: 5,
+          field_path: "name",
+          old_value: "Yeast transformation screen",
+          new_value: "Yeast transformation screen (LiAc)",
+          timestamp: "2026-05-15T14:32:18Z",
+        },
+        {
+          id: "audit-mira-alex-2",
+          session_id: DEMO_SESSION_A,
+          actor: "mira",
+          target_user: "alex",
+          record_type: "task",
+          record_id: 5,
+          field_path: "duration_days",
+          old_value: 3,
+          new_value: 4,
+          timestamp: "2026-05-15T14:32:45Z",
+        },
+      ],
+    },
+  ]);
+  out.push([
+    "users/morgan/_pi_audit.json",
+    {
+      version: 1,
+      entries: [
+        {
+          id: "audit-mira-morgan-1",
+          session_id: DEMO_SESSION_B,
+          actor: "mira",
+          target_user: "morgan",
+          record_type: "note",
+          record_id: 2,
+          field_path: "description",
+          old_value:
+            "Plate layouts for the 96-well growth-curve screen.",
+          new_value:
+            "Plate layouts for the 96-well growth-curve screen. Includes corner-evaporation controls per PI request.",
+          timestamp: "2026-05-17T10:08:22Z",
+        },
+      ],
     },
   ]);
 

@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "kdf": "PBKDF2-SHA-256",
+  "iterations": 600000,
+  "salt": "TWlyYURlbW9TYWx0ITI2IQ==",
+  "hash": "d8mBzlCxy/kyF070yy1ja8/fmK2/DgAD/piFN7iDGlg=",
+  "created_at": "2026-04-01T09:00:00Z",
+  "updated_at": "2026-04-01T09:00:00Z"
+}

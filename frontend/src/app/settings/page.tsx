@@ -44,6 +44,12 @@ import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { ANIMATION_METADATA, renderAnimationIcon, type AnimationType } from "@/components/animations";
 import { hasPassword, verifyPassword } from "@/lib/auth/password";
 import {
+  setLabHeadPassword,
+  verifyLabHeadPassword,
+} from "@/lib/lab/lab-head-auth";
+import { endEditSession, formatRemaining } from "@/lib/lab/edit-session";
+import { useEditSession } from "@/hooks/useEditSession";
+import {
   clearCachedPassword,
   hasCachedPassword,
   setCachedPassword,
@@ -295,6 +301,9 @@ function SettingsBody() {
             half-typed display-name draft to user B. */}
         <ProfileSection key={`profile-${currentUser}`} settings={settings} update={update} />
         <AccountTypeSection settings={settings} update={update} />
+        {settings.account_type === "lab_head" && (
+          <LabHeadSection username={currentUser} />
+        )}
         <TabsSection settings={settings} update={update} />
         <LabArchivesSection />
         <AIHelperSection />
@@ -519,6 +528,263 @@ function AccountTypeSection({ settings, update }: SectionProps) {
         })}
       </div>
     </SectionShell>
+  );
+}
+
+/**
+ * Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23): "Lab Head"
+ * Settings section. Visible only when `account_type === "lab_head"`.
+ *
+ * Three controls:
+ *   1. "Change lab-head password" — opens `ChangeLabHeadPasswordPopup`,
+ *      verifies the current password, then sets a new one.
+ *   2. "Active session" — live status pill subscribed to the
+ *      module-scoped session via `useEditSession`. Shows
+ *      "Active (M:SS remaining)" / "Locked" / "Not active."
+ *   3. "Lock session now" — manually ends an active session.
+ *
+ * Per Grant 2026-05-23 (decision #3): the lab-head password starts as
+ * the user's account password. First-time unlock bootstraps a hash via
+ * `verifyLabHeadPassword`'s fallback path. After the first change here
+ * the two passwords diverge.
+ */
+function LabHeadSection({ username }: { username: string }) {
+  const session = useEditSession();
+  const [changePwOpen, setChangePwOpen] = useState(false);
+
+  const isActive = session.state === "unlocked" && session.active;
+  const statusLabel = isActive
+    ? `Active — ${formatRemaining(session.remainingMs)} remaining`
+    : session.state === "locked"
+      ? "Session ended"
+      : "Not active";
+  const statusClass = isActive
+    ? "text-emerald-700 bg-emerald-50 border-emerald-200"
+    : "text-gray-600 bg-gray-50 border-gray-200";
+
+  return (
+    <SectionShell
+      id="lab-head"
+      title="Lab Head"
+      description="Manage your edit-mode password and session for the Phase 5 PI workflow. Use Request edit on another member's record to start a session."
+    >
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-gray-200 bg-white">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-gray-800">Lab-head password</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Starts as your account password. You can change it here once
+              you&apos;ve unlocked edit mode at least once.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setChangePwOpen(true)}
+            className="flex-shrink-0 px-3 py-1.5 rounded-md text-xs font-medium text-white bg-amber-600 hover:bg-amber-700"
+          >
+            Change password
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-gray-200 bg-white">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-gray-800">Active session</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Sessions last 5 minutes and survive navigation. Close the tab or
+              click Lock to end early.
+            </p>
+            <span
+              className={`inline-block mt-1.5 px-2 py-0.5 rounded text-[11px] font-medium border ${statusClass}`}
+              data-testid="lab-head-session-status"
+            >
+              {statusLabel}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => endEditSession()}
+            disabled={!isActive}
+            className="flex-shrink-0 px-3 py-1.5 rounded-md text-xs font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Lock session now
+          </button>
+        </div>
+      </div>
+
+      {changePwOpen && (
+        <ChangeLabHeadPasswordPopup
+          username={username}
+          onClose={() => setChangePwOpen(false)}
+        />
+      )}
+    </SectionShell>
+  );
+}
+
+/**
+ * Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23): in-place modal
+ * for changing the lab-head password from the Settings → Lab Head card.
+ *
+ * Verifies the current password against `verifyLabHeadPassword` (which
+ * itself falls back to the account password on first use), then writes
+ * a fresh PBKDF2 hash via `setLabHeadPassword`.
+ */
+function ChangeLabHeadPasswordPopup({
+  username,
+  onClose,
+}: {
+  username: string;
+  onClose: () => void;
+}) {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+
+  async function handleSubmit() {
+    setError(null);
+    if (!current || !next) {
+      setError("Fill out all fields.");
+      return;
+    }
+    if (next.length < 4) {
+      setError("New password must be at least 4 characters.");
+      return;
+    }
+    if (next !== confirm) {
+      setError("New passwords do not match.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const ok = await verifyLabHeadPassword(username, current);
+      if (!ok) {
+        setError("Current password is incorrect.");
+        setBusy(false);
+        return;
+      }
+      await setLabHeadPassword(username, next);
+      setDone(true);
+    } catch {
+      setError("Failed to update password.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6 space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-base font-semibold text-gray-900">
+          Change lab-head password
+        </h2>
+        {done ? (
+          <div className="space-y-3">
+            <p className="text-sm text-emerald-700">
+              Password updated. New unlocks will require the new password.
+            </p>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3 py-1.5 rounded-md text-xs font-medium text-white bg-amber-600 hover:bg-amber-700"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Current password
+              </label>
+              <input
+                type="password"
+                value={current}
+                onChange={(e) => setCurrent(e.target.value)}
+                disabled={busy}
+                autoComplete="current-password"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                New password
+              </label>
+              <input
+                type="password"
+                value={next}
+                onChange={(e) => setNext(e.target.value)}
+                disabled={busy}
+                autoComplete="new-password"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Confirm new password
+              </label>
+              <input
+                type="password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                disabled={busy}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !busy) {
+                    e.preventDefault();
+                    void handleSubmit();
+                  }
+                }}
+                autoComplete="new-password"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+            {error && (
+              <p className="text-xs text-red-600" role="alert">
+                {error}
+              </p>
+            )}
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={busy}
+                className="px-3 py-1.5 rounded-md text-xs text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSubmit()}
+                disabled={busy || !current || !next || !confirm}
+                className="px-3 py-1.5 rounded-md text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {busy ? "Updating…" : "Update password"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 

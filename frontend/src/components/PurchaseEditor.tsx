@@ -4,6 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { purchasesApi, labApi } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useLabHeadEditGate } from "@/hooks/useLabHeadEditGate";
+import RequestEditButton from "@/components/RequestEditButton";
+import EditSessionBanner from "@/components/EditSessionBanner";
+import AuditTrailNotice from "@/components/AuditTrailNotice";
+import { appendAuditEntries } from "@/lib/lab/pi-audit";
 import Tooltip from "@/components/Tooltip";
 import type { CatalogItem, PurchaseItem, Task } from "@/lib/types";
 
@@ -75,13 +80,21 @@ const CATEGORY_DATALIST_ID = "purchase-editor-category-options";
 
 export default function PurchaseEditor({
   taskId,
-  readOnly = false,
+  readOnly: propReadOnly = false,
   username,
   taskType,
   isSharedWithMe = false,
   ownerLabel,
 }: PurchaseEditorProps) {
   const queryClient = useQueryClient();
+  // Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23): gate the
+  // prop-passed readOnly behind the PI edit-mode session. When unlocked,
+  // writes become available + a banner shows in the editor header.
+  const labHeadGate = useLabHeadEditGate({
+    readOnly: propReadOnly,
+    recordOwner: username ?? null,
+  });
+  const readOnly = labHeadGate.effectiveReadOnly;
   // Writes are blocked when the host marks the editor as read-only (lab
   // mode) OR when the task is shared into the current user. Used to gate
   // buttons, hide the new-row input, and skip the autocomplete query.
@@ -257,7 +270,9 @@ export default function PurchaseEditor({
     if (!editingItemId || !editingRow.item_name.trim()) return;
     setSaving(true);
     try {
-      await purchasesApi.update(editingItemId, {
+      // Lab Head Phase 5: capture pre-edit values for audit diff.
+      const before = items.find((it) => it.id === editingItemId) ?? null;
+      const newPayload = {
         item_name: editingRow.item_name.trim(),
         quantity: parseInt(editingRow.quantity) || 1,
         link: editingRow.link.trim() || null,
@@ -268,7 +283,40 @@ export default function PurchaseEditor({
         funding_string: editingRow.funding_string.trim() || null,
         vendor: editingRow.vendor.trim() || null,
         category: editingRow.category.trim() || null,
-      });
+      };
+      await purchasesApi.update(editingItemId, newPayload);
+
+      // Lab Head Phase 5 — write per-field audit entries when this save
+      // happens during an unlocked PI session on another member's items.
+      if (
+        labHeadGate.unlocked &&
+        labHeadGate.sessionId &&
+        labHeadGate.activeUser &&
+        username &&
+        before
+      ) {
+        const beforeRec = before as unknown as Record<string, unknown>;
+        const auditEntries = Object.entries(newPayload)
+          .filter(([k, v]) => JSON.stringify(v) !== JSON.stringify(beforeRec[k]))
+          .map(([k, v]) => ({
+            session_id: labHeadGate.sessionId as string,
+            actor: labHeadGate.activeUser as string,
+            target_user: username,
+            record_type: "purchase_item",
+            record_id: editingItemId,
+            field_path: k,
+            old_value: beforeRec[k] ?? null,
+            new_value: v,
+          }));
+        if (auditEntries.length > 0) {
+          try {
+            await appendAuditEntries(username, auditEntries);
+          } catch (err) {
+            console.warn("[PurchaseEditor] appendAuditEntries failed", err);
+          }
+        }
+      }
+
       setEditingItemId(null);
       setEditingRow({ ...EMPTY_ROW });
       setEditSelectedCatalogItem(null);
@@ -280,7 +328,17 @@ export default function PurchaseEditor({
     } finally {
       setSaving(false);
     }
-  }, [editingItemId, editingRow, refetch, queryClient]);
+  }, [
+    editingItemId,
+    editingRow,
+    refetch,
+    queryClient,
+    items,
+    labHeadGate.unlocked,
+    labHeadGate.sessionId,
+    labHeadGate.activeUser,
+    username,
+  ]);
 
   const handleFieldChange = useCallback(
     (field: keyof EditingRow, value: string) => {
@@ -425,6 +483,46 @@ export default function PurchaseEditor({
 
   return (
     <div className="p-4">
+      {/* Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23):
+          unlocked-session timer banner for the purchase editor. */}
+      {labHeadGate.unlocked && labHeadGate.activeUser && (
+        <div className="-mx-4 -mt-4 mb-3">
+          <EditSessionBanner
+            contextLabel={`${username ?? "lab member"}'s purchases`}
+            scopedToUsername={labHeadGate.activeUser}
+          />
+        </div>
+      )}
+
+      {/* Lab Head Phase 5 — Request edit prompt for the purchase editor.
+          Renders as a row above the table when PI is viewing another
+          member's purchase items but hasn't unlocked yet. */}
+      {labHeadGate.canRequestEdit && !labHeadGate.unlocked && labHeadGate.activeUser && (
+        <div className="mb-3 flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-xs text-gray-700">
+          <span>
+            Read-only view of {username ?? "lab member"}&apos;s purchase items.
+            Unlock edit mode to make changes (attributed to you in the audit log).
+          </span>
+          <RequestEditButton
+            username={labHeadGate.activeUser}
+            targetLabel={`${username ?? "member"}'s purchases`}
+          />
+        </div>
+      )}
+
+      {/* Lab Head Phase 5 — record-level audit trail for the parent task
+          (purchase items are scoped to a task; the task's audit entries
+          cover the editor surface). */}
+      {propReadOnly && username && (
+        <div className="mb-3">
+          <AuditTrailNotice
+            targetUser={username}
+            recordType="task"
+            recordId={taskId}
+          />
+        </div>
+      )}
+
       {/* Non-purchase-task warning — informational only (PURCHASES_PAGE_PROPOSAL.md
           §5 Path 2 / locked decision Q4). Editor still renders normally; the
           dashboard's "Items on non-purchase tasks" line is the formal surface. */}
