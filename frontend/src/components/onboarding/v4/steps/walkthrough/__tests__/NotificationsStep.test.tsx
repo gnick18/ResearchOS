@@ -227,6 +227,20 @@ describe("NotificationsSilenceStep §6.3b (mark-as-read / silence)", () => {
     await Promise.resolve();
     expect(fireCount).toBe(0);
   });
+
+  // R2 chip B Fix 2/3: Esc-on-popup recovery. When the NotificationPopup
+  // closes mid-step (Escape or click-outside), the row-level Mark-read
+  // target detaches from the DOM. The Wave 2 target-detach watcher
+  // reads `recoveryHint.buttonLabel` to swap the speech bubble to
+  // "Looks like that closed. Click <buttonLabel> to re-open and try
+  // again." Without the hint, the watcher falls back to "the button you
+  // clicked before", which is meaningless for this step. The bell icon
+  // is the affordance that re-opens the popup.
+  it("declares a recoveryHint pointing at the bell icon", () => {
+    expect(notificationsSilenceStep.recoveryHint).toEqual({
+      buttonLabel: "the bell icon",
+    });
+  });
 });
 
 describe("NotificationsDeleteStep §6.3c (dismiss / delete)", () => {

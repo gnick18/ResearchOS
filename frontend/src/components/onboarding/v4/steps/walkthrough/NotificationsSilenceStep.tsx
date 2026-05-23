@@ -37,4 +37,15 @@ export const notificationsSilenceStep = buildWalkthroughStep({
   // `tour:notification-silenced` (see NotificationPopup.tsx) so the
   // step advances on whichever the user picks.
   completion: advanceOnEvent(watchNotificationSilenced),
+  // R2 chip B Fix 2/3: Esc-on-popup recovery. When the user presses
+  // Escape or clicks outside the NotificationPopup mid-step, the popup
+  // closes and the row-level Mark-as-read button detaches from the
+  // DOM. Wave 2 Fix 2's target-detach watcher fires and swaps the
+  // speech bubble to "Looks like that closed. Click {buttonLabel} to
+  // re-open and try again." Pointing the user at the bell icon
+  // re-opens the popup; the watcher then auto-restores the original
+  // speech once the row Mark-read button is back on screen.
+  recoveryHint: {
+    buttonLabel: "the bell icon",
+  },
 });

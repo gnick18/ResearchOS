@@ -36,6 +36,12 @@ export interface StepBuilderInput {
   /** Optional image preview that tracks the cursor for the step's
    *  lifetime. See `TourStep.cursorHeldImage`. */
   cursorHeldImage?: TourStep["cursorHeldImage"];
+  /** R2 chip B Fix 2/3 — Wave 2 Fix 2 target-detach watcher recovery
+   *  hint. See `TourStep.recoveryHint`. Pre-fix this was missing from
+   *  the builder so step bodies that wanted to spec a buttonLabel for
+   *  the popup-Esc recovery copy could not, and the watcher always
+   *  fell back to the generic "the button you clicked before". */
+  recoveryHint?: TourStep["recoveryHint"];
 }
 
 /**
@@ -62,6 +68,7 @@ export function buildWalkthroughStep(input: StepBuilderInput): TourStep {
     pageLock: input.pageLock,
     cursorEntry: input.cursorEntry,
     cursorHeldImage: input.cursorHeldImage,
+    recoveryHint: input.recoveryHint,
   };
 }
 
