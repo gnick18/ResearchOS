@@ -2075,6 +2075,172 @@ function buildEntries() {
   // which is shared into alex's view) instead of "Awaiting writeup."
   out.push(["users/morgan/results/task-7/results.md", DEMO_BANNER_MD + "## Reader baseline\n\nFluorescence reader passed the calibration check — variance under 3% across replicates (demo data).\n"]);
 
+  // morgan result task markdown — rich lab-recipe writeups. Three companion
+  // files alongside the stubs above: task-2 + task-3 get full results.md
+  // analyses (figures, tables, conclusions) and task-7 gets a full notes.md
+  // (reagents, dilution series, reader settings). Each references the orphan
+  // PNGs under its Images/ dir, which are tracked in git and restored via
+  // generate-demo-images.mjs (gel-qpcr-products, fluo-scan-results) plus
+  // `git checkout` for the four custom plots not yet covered by the image
+  // generator (gfp-kinetics, od-vs-gfp-scatter, melt-curves,
+  // qpcr-amplification-curves). Keeping these in the SoT prevents the regen
+  // drift that happened during commit 18e32de7 (rich content was wiped and
+  // had to be manually `git checkout`-ed back).
+  out.push(["users/morgan/results/task-2/results.md", DEMO_BANNER_MD +
+    "## Fluorescence scan — Plate M-T7-A-R (2026-05-14)\n" +
+    "\n" +
+    "### Endpoint heat-map (t=360 min)\n" +
+    "\n" +
+    "Reader heat-map at the final timepoint, GFP normalized per well (gain 60).\n" +
+    "\n" +
+    "![96-well fluorescence heat-map at t=360 min, hits cluster in cols 2-6](Images/fluo-scan-results.png)\n" +
+    "\n" +
+    "- Visible spread between candidates, WT (orange), and positive control (bright green)\n" +
+    "- Hit clusters in **cols 3, 5, 7, 9** — consistent with the eye-tinted greens I pre-flagged during the pick\n" +
+    "\n" +
+    "### GFP / OD600 vs final OD600\n" +
+    "\n" +
+    "After normalizing per-well GFP by OD600 and dividing by the column-12 positive-control mean.\n" +
+    "\n" +
+    "![Scatter of GFP/OD600 vs OD600, hit threshold at 0.6× positive ctrl](Images/od-vs-gfp-scatter.png)\n" +
+    "\n" +
+    "- Positive control (col 12, n=6) clusters at GFP/OD = **0.92 to 1.08** of itself — tight, gain choice was correct\n" +
+    "- WT (col 1, n=6): GFP/OD = **0.01 to 0.04** — essentially zero, as expected\n" +
+    "- **Hits: 8 candidates** above the 0.6× threshold (well IDs: B7, C3, D11, E2, F8, G5, H1, A4 → all originally eye-tinted on the SD-Ura plate)\n" +
+    "- 17 more candidates above the WT floor but below the 0.6× cutoff — possible weak expressors, parking for now\n" +
+    "\n" +
+    "### Kinetic curves\n" +
+    "\n" +
+    "How fast each group climbs from 0 to 6 h post-induction.\n" +
+    "\n" +
+    "![Kinetic GFP read, 0-6 h, positive ~9000 a.u., hits ~5500, WT flat](Images/gfp-kinetics.png)\n" +
+    "\n" +
+    "- Positive control plateau ~8800 a.u. by 4 h\n" +
+    "- Hit average climbs slower, reaches ~5500 a.u. by 6 h (still climbing slightly — would need an 8 h read for true plateau)\n" +
+    "- Candidate median plateaus ~1400 a.u. (mostly the weak-expressor pool)\n" +
+    "- WT essentially flat (~350 a.u., baseline autofluorescence)\n" +
+    "\n" +
+    "### Key numbers\n" +
+    "\n" +
+    "| Group              | n  | GFP/OD600 (rel.)  | OD600 final      |\n" +
+    "|--------------------|----|-------------------|------------------|\n" +
+    "| Positive (col 12)  | 6  | 1.00 ± 0.05       | 0.71 ± 0.08      |\n" +
+    "| WT (col 1)         | 6  | 0.02 ± 0.01       | 0.78 ± 0.06      |\n" +
+    "| Hits (≥0.6× pos)   | 8  | 0.77 ± 0.11       | 0.65 ± 0.10      |\n" +
+    "| Candidates (<0.6×) | 52 | 0.11 ± 0.06       | 0.62 ± 0.12      |\n" +
+    "\n" +
+    "### Conclusions\n" +
+    "\n" +
+    "- **8 hits** out of 60 candidates → 13.3% hit rate, in line with what alex predicted for the T7 library (10-15%)\n" +
+    "- All 8 hits were also eye-tinted on the SD-Ura plate. The dissecting-scope tint screen is a real signal at this gain (would not bet on it alone, but it tracks)\n" +
+    "- Mean GFP/OD600 for hits = **3.2× WT** in the kinetic plateau (rough number, want to confirm via qPCR)\n" +
+    "- Reader CV on the positive-control wells stayed under 6% across the whole 6 h run — gain 60 is the right choice for this plasmid\n" +
+    "\n" +
+    "### Next\n" +
+    "\n" +
+    "- Pick the top 3 hits (B7, D11, G5 — highest GFP/OD) for qPCR transcript confirmation (task 3, Sat morning)\n" +
+    "- Glycerol stock all 8 hits today, freezer 7, box \"M-T7-hits\"\n" +
+    "- Send the CSV + figures to alex by EOD so he can rotate the plate for the second-round T7-B picks next week\n"]);
+
+  out.push(["users/morgan/results/task-3/results.md", DEMO_BANNER_MD +
+    "## qPCR results — fakeGFP transcript in 3 top hits\n" +
+    "\n" +
+    "### Amplification curves\n" +
+    "\n" +
+    "![qPCR amplification — hits Ct 22-23, ACT1 Ct 18.5, WT Ct 36.8, NTC clean](Images/qpcr-amplification-curves.png)\n" +
+    "\n" +
+    "- **Hits (B7, D11, G5)**: fakeGFP Ct = **22.1, 22.7, 23.4** (mean 22.7)\n" +
+    "- **WT FY**: fakeGFP Ct = **36.8** — essentially background, late and shallow\n" +
+    "- **NTC**: no amplification before cycle 40 — clean\n" +
+    "- **ACT1 reference**: Ct = 18.5 across all samples (pooled curve shown)\n" +
+    "\n" +
+    "### Melt curves\n" +
+    "\n" +
+    "![qPCR melt curves — fakeGFP Tm 82.4 °C, ACT1 Tm 79.8 °C, single sharp peaks](Images/melt-curves.png)\n" +
+    "\n" +
+    "- fakeGFP: single sharp peak at **Tm 82.4 °C** — matches predicted 82 °C, no primer-dimer or non-specific product\n" +
+    "- ACT1: single sharp peak at **Tm 79.8 °C** — matches\n" +
+    "- NTC: small broad bump at ~70 °C (primer-dimer, well below the amplicon Tm — does not affect quantification)\n" +
+    "- WT signal: same Tm as hits (82.4) but tiny height — real fakeGFP transcript, just baseline-level (probably autofluorescence-paired leaky transcription)\n" +
+    "\n" +
+    "### Gel (sanity check)\n" +
+    "\n" +
+    "![1.5% agarose gel of qPCR products, single bands at expected size](Images/gel-qpcr-products.png)\n" +
+    "\n" +
+    "- 5 µL of each qPCR product on a 1.5% gel after the melt curve completed\n" +
+    "- All hit lanes show a single clean band at ~145 bp (fakeGFP) and ~120 bp (ACT1)\n" +
+    "- WT lane: faint band at 145 bp, consistent with the Ct 36.8 signal\n" +
+    "- No primer-dimer products visible at the size cutoff\n" +
+    "\n" +
+    "### ΔΔCt vs WT (relative fakeGFP transcript)\n" +
+    "\n" +
+    "| Sample   | fakeGFP Ct | ACT1 Ct | ΔCt   | ΔΔCt vs WT | Fold-change |\n" +
+    "|----------|------------|---------|-------|------------|-------------|\n" +
+    "| WT       | 36.8       | 18.5    | 18.3  | 0          | 1.0×        |\n" +
+    "| Hit-B7   | 22.1       | 18.5    | 3.6   | −14.7      | **~26,500×** |\n" +
+    "| Hit-D11  | 22.7       | 18.5    | 4.2   | −14.1      | **~17,500×** |\n" +
+    "| Hit-G5   | 23.4       | 18.5    | 4.9   | −13.4      | **~10,800×** |\n" +
+    "\n" +
+    "### Conclusions\n" +
+    "\n" +
+    "- All 3 top hits show massive fakeGFP transcript over WT — 4 to 5 orders of magnitude — clean confirmation that the fluorescence signal in task 2 is bona fide transcript, not background or autofluorescence.\n" +
+    "- Hit ranking by transcript matches the ranking by GFP/OD600 from task 2 (B7 > D11 > G5).\n" +
+    "- ACT1 reference is stable across samples (Ct 18.4 to 18.6) — normalization is solid.\n" +
+    "- Single sharp melt peaks on the target Tm confirm specificity. No need to re-design primers.\n" +
+    "- Sending the amplification + melt + gel figures to alex tonight so he can green-light the T7-B library construction Monday morning.\n"]);
+
+  out.push(["users/morgan/results/task-7/notes.md", DEMO_BANNER_MD +
+    "# BioTek H1 baseline + standard curve\n" +
+    "\n" +
+    "Pre-flight check before any GFP screening this quarter. Reader has been sitting since the holiday shutdown; running fluorescein standard + empty-plate noise before alex hands over the first transformant batch.\n" +
+    "\n" +
+    "## Reagents\n" +
+    "\n" +
+    "- Fluorescein sodium salt stock — 10 µM in PBS (made 2026-03-10, stored 4 °C, foil-wrapped). Aliquot in freezer 3, rack B, slot 4.\n" +
+    "- PBS (1×, sterile) — shared bench stock\n" +
+    "- Black-wall clear-bottom 96-well plate (Greiner 655096) — box on shelf 1\n" +
+    "\n" +
+    "## Dilution series\n" +
+    "\n" +
+    "Fresh per run. 7 concentrations, 3 reps each:\n" +
+    "\n" +
+    "| nM   | µL 10 µM stock | µL PBS  |\n" +
+    "|------|----------------|---------|\n" +
+    "| 0    | 0              | 200     |\n" +
+    "| 25   | 0.5            | 199.5   |\n" +
+    "| 50   | 1              | 199     |\n" +
+    "| 100  | 2              | 198     |\n" +
+    "| 200  | 4              | 196     |\n" +
+    "| 350  | 7              | 193     |\n" +
+    "| 500  | 10             | 190     |\n" +
+    "\n" +
+    "Pipette in subdued bench light — fluorescein bleaches faster than I keep remembering.\n" +
+    "\n" +
+    "## Reader settings\n" +
+    "\n" +
+    "- BioTek H1 (lab unit, demo serial DEMO-H1-A)\n" +
+    "- Mode: top-read fluorescence\n" +
+    "- Ex 485 / Em 528, bandwidth 20/20\n" +
+    "- Gain: 60 (matches the screen we'll run on the FY-Δgal80 transformants)\n" +
+    "- 4 reads / well, 100 ms each, no shake\n" +
+    "- Plate type: Greiner 655096\n" +
+    "\n" +
+    "## Empty-plate noise\n" +
+    "\n" +
+    "Same plate, all 96 wells filled with 60 nM fluorescein in PBS, 3 reads/well, no other changes. Goal: characterize well-to-well CV before we start interpreting differences in actual samples.\n" +
+    "\n" +
+    "## Quirks\n" +
+    "\n" +
+    "- Lamp on for 20 min before any reads (warmup curve is real, learned the hard way 2025-Q3).\n" +
+    "- Lid OFF for fluorescence (condensation = scatter = bad).\n" +
+    "- Door fully closed even between reads — ambient bench fluorescence bleeds in if it's cracked.\n" +
+    "\n" +
+    "## Notes for me\n" +
+    "\n" +
+    "- Scope booked Tue 9-noon for the dissection scope (transformant pick prep).\n" +
+    "- Cleaned lamp housing per the BioTek docs link before the run, dust film was visible.\n" +
+    "- If R² drops below 0.99 the lamp is on its way out — order replacement now, do not wait.\n"]);
+
   // ── User: mira (Dr. Mira Castellanos, demo PI) ───────────────────────────
   //
   // The principal-investigator archetype. Oversees alex (postdoc) + morgan
