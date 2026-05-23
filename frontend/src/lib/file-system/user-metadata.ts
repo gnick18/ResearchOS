@@ -217,6 +217,7 @@ export function suggestInitialColorForNewUser(
 export async function createUserMetadataEntry(
   username: string,
   color: string,
+  colorSecondary?: string | null,
 ): Promise<UserMetadataEntry | null> {
   if (!fileService.isConnected()) return null;
   return enqueueMetadataWrite(async () => {
@@ -226,14 +227,18 @@ export async function createUserMetadataEntry(
     if (existing) {
       // Honor the explicit pick over any pre-seeded entry, but preserve
       // other fields (hide-flag, tutorial marker, etc.) so we don't clobber
-      // state set by a parallel writer.
+      // state set by a parallel writer. Secondary is only written when
+      // the caller passes a non-undefined value so the legacy single-color
+      // path still works.
       file.users[username] = {
         ...existing,
         color,
+        ...(colorSecondary !== undefined ? { color_secondary: colorSecondary } : {}),
       };
     } else {
       file.users[username] = {
         color,
+        ...(colorSecondary !== undefined ? { color_secondary: colorSecondary } : {}),
         created_at: now,
       };
     }

@@ -337,13 +337,18 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   // bug was that no entry ever got written at creation, so the avatar
   // fell back to `fallbackColorForUsername(username)` which IS
   // username-hashed and DOES change on rename.
-  const handleColorPickerAccept = async (color: string) => {
+  const handleColorPickerAccept = async (
+    color: string,
+    colorSecondary: string | null,
+  ) => {
     if (!colorPicker) return;
     const { username } = colorPicker;
     try {
       // 1. Persist the chosen color first. If this fails, we abort
       //    creation rather than ending up with a user-with-no-color.
-      await createUserMetadataEntry(username, color);
+      //    `colorSecondary` is non-null when the user opted into the
+      //    2-stop gradient via the popup's optional second-color row.
+      await createUserMetadataEntry(username, color, colorSecondary);
 
       // 2. Bust the user-color cache so any avatar that re-renders
       //    after login picks up the new entry without a stale read.

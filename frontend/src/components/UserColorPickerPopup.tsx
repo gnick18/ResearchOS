@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import UserAvatar from "@/components/UserAvatar";
 import { USER_METADATA_COLOR_PALETTE } from "@/lib/file-system/user-metadata";
-import { isCombinationTaken, ownerOfCombination } from "@/lib/file-system/user-color-collisions";
+import {
+  isCombinationTaken,
+  ownerOfCombination,
+} from "@/lib/file-system/user-color-collisions";
 import type { UserMetadataEntry } from "@/lib/file-system/user-metadata";
 
 interface UserColorPickerPopupProps {
@@ -15,12 +18,14 @@ interface UserColorPickerPopupProps {
    *  without forcing a manual choice. */
   defaultColor: string;
   /** Snapshot of other users' metadata, used to disable swatches that
-   *  another user has already claimed as their solid color. Pass the
-   *  `otherUsersOnly`-filtered map (current user is brand-new so they
-   *  don't need filtering, but tombstoned users should be excluded). */
+   *  another user has already claimed as their solid color OR as a
+   *  primary+secondary pair. Pass the `otherUsersOnly`-filtered map
+   *  (current user is brand-new so they don't need filtering, but
+   *  tombstoned users should be excluded). */
   otherUsers: Record<string, UserMetadataEntry>;
-  /** Fired when the user clicks Accept — receives their final pick. */
-  onAccept: (color: string) => void;
+  /** Fired when the user clicks Accept — receives their final picks.
+   *  `colorSecondary` is `null` when the user stayed on a single color. */
+  onAccept: (color: string, colorSecondary: string | null) => void;
   /** Fired when the user closes / cancels. The caller should NOT create
    *  the user in this case (the popup is part of the creation flow, so
    *  cancelling means abandoning the new user before any bytes hit disk). */
@@ -34,20 +39,20 @@ interface UserColorPickerPopupProps {
  * `suggestInitialColorForNewUser` against the existing metadata snapshot)
  * so the happy path is "click Accept once and you're done." If the user
  * wants a different color, they pick from the same 10-swatch palette the
- * Settings page uses — keeping the visual rhythm consistent across the
- * two surfaces where users pick a color.
+ * Settings page uses.
  *
- * The popup intentionally does NOT expose the optional second-color
- * gradient swatch from Settings — that's an advanced opt-in (the
- * Profile section explains why labs >10 users want a gradient). Keeping
- * the creation popup to a single primary swatch matches the
- * keep-it-simple bias of every other on-create form on the entry screen.
+ * The popup now mirrors the Settings two-row pattern: a primary swatch
+ * row plus an optional second-color row that promotes the avatar to a
+ * 2-stop gradient. The gradient is helpful when a lab has more than 10
+ * members and the primary palette runs out of solids. Direction does not
+ * matter (the collision helper treats `{primary: A, secondary: B}` and
+ * `{primary: B, secondary: A}` as the same combo).
  *
  * Solid-vs-solid collisions ARE detected here (mirroring the Settings
  * rule): if another user already owns a swatch as their solid color, we
- * tag it `Used by <name>` and disable the button. The user can still
- * pick a swatch that's only part of someone else's gradient — gradients
- * don't reserve their stops against new solid users.
+ * tag it `Used by <name>` and disable the button on the primary row when
+ * the secondary is empty. Pair-vs-pair collisions are detected on the
+ * secondary row.
  */
 export default function UserColorPickerPopup({
   username,
@@ -57,6 +62,9 @@ export default function UserColorPickerPopup({
   onCancel,
 }: UserColorPickerPopupProps) {
   const [selectedColor, setSelectedColor] = useState<string>(defaultColor);
+  const [selectedSecondary, setSelectedSecondary] = useState<string | null>(
+    null,
+  );
 
   // If the caller swaps in a different default (e.g. they re-read
   // metadata after the popup opened), follow it. The popup is mounted
@@ -66,38 +74,108 @@ export default function UserColorPickerPopup({
     setSelectedColor(defaultColor);
   }, [defaultColor]);
 
-  // Compute "Used by <other>" mapping once per `otherUsers` snapshot so
-  // every swatch can render a tooltip + disabled state without re-walking
-  // the map on each iteration.
-  const lockedSwatches = useMemo(() => {
-    const map: Record<string, string> = {};
+  const selectedLc = selectedColor.toLowerCase();
+  const selectedSecondaryLc = selectedSecondary?.toLowerCase() ?? null;
+
+  // Precompute the "taken as solid" set so the primary row can disable
+  // those swatches when the user hasn't picked a secondary yet. Matches
+  // the Settings page rule (solid-vs-solid only).
+  const takenSolids = useMemo(() => {
+    const set = new Set<string>();
     for (const color of USER_METADATA_COLOR_PALETTE) {
-      const taken = isCombinationTaken(
-        { primary: color, secondary: null },
-        otherUsers,
-      );
-      if (!taken) continue;
-      const owner = ownerOfCombination(
-        { primary: color, secondary: null },
-        otherUsers,
-      );
-      if (owner) map[color.toLowerCase()] = owner;
+      if (
+        isCombinationTaken({ primary: color, secondary: null }, otherUsers)
+      ) {
+        set.add(color.toLowerCase());
+      }
     }
-    return map;
+    return set;
   }, [otherUsers]);
 
-  const selectedLc = selectedColor.toLowerCase();
+  // Precompute the "taken as a pair with current primary" set so the
+  // secondary row can disable the swatches that would land on someone
+  // else's combo.
+  const takenSecondaries = useMemo(() => {
+    const set = new Set<string>();
+    for (const color of USER_METADATA_COLOR_PALETTE) {
+      if (color.toLowerCase() === selectedLc) continue; // skip self-pair
+      if (
+        isCombinationTaken(
+          { primary: selectedColor, secondary: color },
+          otherUsers,
+        )
+      ) {
+        set.add(color.toLowerCase());
+      }
+    }
+    return set;
+  }, [selectedColor, selectedLc, otherUsers]);
 
-  // Escape cancels — matches the AccountPasswordPopup pattern so the entry
-  // screen feels consistent across its modals.
+  // Escape cancels, Enter accepts.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onCancel();
-      if (e.key === "Enter") onAccept(selectedColor);
+      if (e.key === "Enter") onAccept(selectedColor, selectedSecondary);
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [onAccept, onCancel, selectedColor]);
+  }, [onAccept, onCancel, selectedColor, selectedSecondary]);
+
+  const handlePickPrimary = (c: string) => {
+    const cLc = c.toLowerCase();
+    // If picking this primary would make the (primary, currentSecondary)
+    // pair collide with another user, drop the secondary so we don't
+    // silently inherit an invalid combo. Refuse the click if even the
+    // solid form is taken.
+    let nextSecondary = selectedSecondary;
+    if (nextSecondary) {
+      if (
+        cLc === nextSecondary.toLowerCase() ||
+        isCombinationTaken(
+          { primary: c, secondary: nextSecondary },
+          otherUsers,
+        )
+      ) {
+        nextSecondary = null;
+      }
+    }
+    if (
+      !nextSecondary &&
+      isCombinationTaken({ primary: c, secondary: null }, otherUsers)
+    ) {
+      return;
+    }
+    setSelectedColor(c);
+    setSelectedSecondary(nextSecondary);
+  };
+
+  const handlePickSecondary = (c: string) => {
+    if (c.toLowerCase() === selectedLc) return; // can't pair with itself
+    if (
+      isCombinationTaken(
+        { primary: selectedColor, secondary: c },
+        otherUsers,
+      )
+    ) {
+      return;
+    }
+    setSelectedSecondary(c);
+  };
+
+  const handleClearSecondary = () => {
+    // Going gradient → solid. If the solid form is taken by another user,
+    // surface the refusal silently (the swatch tooltips on the primary row
+    // already explain who has it).
+    if (
+      isCombinationTaken(
+        { primary: selectedColor, secondary: null },
+        otherUsers,
+      )
+    ) {
+      return;
+    }
+    setSelectedSecondary(null);
+  };
 
   return (
     <div
@@ -111,9 +189,8 @@ export default function UserColorPickerPopup({
         <div className="px-6 py-4 border-b border-white/10">
           <h3 className="text-lg font-semibold text-white">Pick your color</h3>
           <p className="text-xs text-slate-400 mt-0.5">
-            This is the color your initial bubble uses everywhere — lab
-            views, comments, the login screen. You can change it later in
-            Settings.
+            This is the color your initial bubble uses everywhere (lab views,
+            comments, the login screen). You can change it later in Settings.
           </p>
         </div>
 
@@ -125,7 +202,7 @@ export default function UserColorPickerPopup({
               username={username}
               size="xl"
               colorOverride={selectedColor}
-              secondaryOverride={null}
+              secondaryOverride={selectedSecondary}
             />
             <div className="text-sm text-slate-200">
               <p className="font-medium">{username}</p>
@@ -134,22 +211,86 @@ export default function UserColorPickerPopup({
           </div>
 
           <label className="block text-xs font-medium text-slate-300 mb-2">
-            Color
+            Primary color
           </label>
           <div className="flex flex-wrap gap-2">
             {USER_METADATA_COLOR_PALETTE.map((c) => {
               const cLc = c.toLowerCase();
               const isSelected = cLc === selectedLc;
-              const ownerName = lockedSwatches[cLc];
-              const disabled = !!ownerName && !isSelected;
+              // Match the Settings rule: only block solid-vs-solid. If
+              // the user has a secondary, the primary row tolerates
+              // collisions (the pair is what counts).
+              const wouldGoSolid = !selectedSecondary;
+              const blockedSolid = wouldGoSolid && takenSolids.has(cLc);
+              const ownerName = blockedSolid
+                ? ownerOfCombination(
+                    { primary: c, secondary: null },
+                    otherUsers,
+                  )
+                : null;
+              const disabled = blockedSolid && !isSelected;
               return (
                 <button
                   key={c}
                   type="button"
-                  aria-label={`Color ${c}`}
+                  aria-label={`Primary color ${c}`}
                   title={ownerName ? `Used by ${ownerName}` : `Color ${c}`}
                   disabled={disabled}
-                  onClick={() => setSelectedColor(c)}
+                  onClick={() => handlePickPrimary(c)}
+                  data-color-swatch={c}
+                  className={`w-9 h-9 rounded-full border-2 transition-transform ${
+                    isSelected
+                      ? "border-white scale-110"
+                      : disabled
+                        ? "border-transparent opacity-30 cursor-not-allowed"
+                        : "border-transparent hover:scale-105"
+                  }`}
+                  style={{ backgroundColor: c }}
+                />
+              );
+            })}
+          </div>
+
+          <div className="flex items-center justify-between mt-5 mb-2">
+            <label className="block text-xs font-medium text-slate-300">
+              Optional second color for gradient
+            </label>
+            {selectedSecondary && (
+              <button
+                type="button"
+                onClick={handleClearSecondary}
+                className="text-xs text-slate-400 hover:text-white underline"
+              >
+                Clear secondary
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {USER_METADATA_COLOR_PALETTE.map((c) => {
+              const cLc = c.toLowerCase();
+              const isSelected = selectedSecondaryLc === cLc;
+              const isSamePrimary = cLc === selectedLc;
+              const isTakenPair = takenSecondaries.has(cLc);
+              const ownerName = isTakenPair
+                ? ownerOfCombination(
+                    { primary: selectedColor, secondary: c },
+                    otherUsers,
+                  )
+                : null;
+              const disabled = (isSamePrimary || isTakenPair) && !isSelected;
+              const title = isSamePrimary
+                ? "Same as primary"
+                : ownerName
+                  ? `Used by ${ownerName}`
+                  : `Color ${c}`;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  aria-label={`Secondary color ${c}`}
+                  title={title}
+                  disabled={disabled}
+                  onClick={() => handlePickSecondary(c)}
                   data-color-swatch={c}
                   className={`w-9 h-9 rounded-full border-2 transition-transform ${
                     isSelected
@@ -164,7 +305,10 @@ export default function UserColorPickerPopup({
             })}
           </div>
           <p className="text-xs text-slate-500 mt-2">
-            Click a swatch to switch, or accept the random default below.
+            Pick a second color to make your avatar a 2-stop gradient.
+            Helpful when your lab has more than 10 people. Direction does
+            not matter (blue-to-green and green-to-blue count as the same
+            combo).
           </p>
         </div>
 
@@ -178,7 +322,7 @@ export default function UserColorPickerPopup({
           </button>
           <button
             type="button"
-            onClick={() => onAccept(selectedColor)}
+            onClick={() => onAccept(selectedColor, selectedSecondary)}
             className="flex-1 py-2.5 text-sm bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium rounded-lg transition-all"
           >
             Accept &amp; create
