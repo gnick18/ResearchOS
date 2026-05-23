@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { useAppStore } from "@/lib/store";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { patchUserSettings } from "@/lib/settings/user-settings";
-import { ANIMATION_METADATA, AnimationType } from "./animations";
+import { ANIMATION_METADATA, AnimationType, renderAnimationIcon } from "./animations";
 import DynamicAnimation from "./DynamicAnimation";
 import Tooltip from "./Tooltip";
 
@@ -73,7 +73,12 @@ export default function AnimationSettingsPopup({
 
         {/* Current selection display */}
         <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-3 mb-4 flex items-center gap-3">
-          <span className="text-2xl">{ANIMATION_METADATA[animationType].icon}</span>
+          {renderAnimationIcon(
+            ANIMATION_METADATA[animationType].icon,
+            ANIMATION_METADATA[animationType].color,
+            "text-2xl",
+            "w-8 h-8",
+          )}
           <div>
             <p className="text-sm font-medium text-gray-800">{ANIMATION_METADATA[animationType].name}</p>
             <p className="text-xs text-gray-500">{ANIMATION_METADATA[animationType].description}</p>
@@ -97,7 +102,7 @@ export default function AnimationSettingsPopup({
                     : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                 }`}
               >
-                <span className="text-xl">{meta.icon}</span>
+                {renderAnimationIcon(meta.icon, meta.color, "text-xl", "w-7 h-7")}
                 <div className="text-left">
                   <p className={`text-sm font-medium ${isSelected ? "text-purple-700" : "text-gray-700"}`}>
                     {meta.name}

@@ -40,7 +40,7 @@ import {
   type TimeFormat,
 } from "@/lib/settings/user-settings";
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
-import { ANIMATION_METADATA, type AnimationType } from "@/components/animations";
+import { ANIMATION_METADATA, renderAnimationIcon, type AnimationType } from "@/components/animations";
 import { hasPassword, verifyPassword } from "@/lib/auth/password";
 import {
   clearCachedPassword,
@@ -865,7 +865,7 @@ function AnimationSection({ settings, update }: SectionProps) {
                 selected ? "border-purple-400 bg-purple-50" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
               }`}
             >
-              <span className="text-xl">{meta.icon}</span>
+              {renderAnimationIcon(meta.icon, meta.color, "text-xl", "w-7 h-7")}
               <div className="min-w-0 flex-1">
                 <p className={`text-sm font-medium ${selected ? "text-purple-700" : "text-gray-700"}`}>
                   {meta.name}

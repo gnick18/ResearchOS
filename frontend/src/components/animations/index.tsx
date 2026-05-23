@@ -1,4 +1,7 @@
 // Animation library - exports all animation types
+import type { ComponentType } from "react";
+import BeakerBot from "../BeakerBot";
+
 export { default as CelebrationAnimation } from "../CelebrationAnimation";
 export { default as RockExplosionAnimation } from "../RockExplosionAnimation";
 export { default as SpaceAnimation } from "./SpaceAnimation";
@@ -25,10 +28,19 @@ export type AnimationType =
   | "scary"
   | "beakerbot";
 
+/**
+ * Icon shape for the animation metadata. Either a plain emoji string
+ * (back-compat / fallback while 10 revamp agents are still in flight)
+ * OR a React component that accepts an optional `className`. Components
+ * are the target shape: each revamp agent swaps its entry from an
+ * emoji to a custom SVG component.
+ */
+export type AnimationIcon = string | ComponentType<{ className?: string }>;
+
 // Animation metadata for UI display
 export const ANIMATION_METADATA: Record<AnimationType, {
   name: string;
-  icon: string;
+  icon: AnimationIcon;
   description: string;
   color: string;
 }> = {
@@ -94,8 +106,52 @@ export const ANIMATION_METADATA: Record<AnimationType, {
   },
   beakerbot: {
     name: "BeakerBot",
-    icon: "🧪",
+    // BeakerBot mascot SVG. Tints via currentColor — pass a Tailwind
+    // text-color utility (e.g. text-sky-500) in `className` to color it.
+    // Idle pose, non-animated (matches the brand-mark accent at the top
+    // of AppShell.tsx ~L176; this settings-card slot is decorative, the
+    // idle bob is reserved for the onboarding wizard).
+    icon: ({ className }) => (
+      <BeakerBot
+        pose="idle"
+        animated={false}
+        ariaLabel="BeakerBot"
+        className={className}
+      />
+    ),
     description: "Random BeakerBot scenes — ladders, skateboards, more",
     color: "#0ea5e9",
   },
 };
+
+/**
+ * Render an `AnimationIcon` consistently across consumers. Emojis stay
+ * as inline text spans (sized via the caller-supplied `emojiClassName`),
+ * while component icons get rendered at a matched visual footprint with
+ * the entry's `color` applied via the `color` CSS property so the SVG's
+ * `currentColor` strokes pick it up.
+ *
+ * The two className args let the three current consumers (settings page,
+ * Toolbar, AnimationSettingsPopup) keep their existing emoji sizing
+ * (`text-xl`, `text-base`, `text-2xl`) while still having a sensible
+ * default SVG size that visually matches each slot.
+ */
+export function renderAnimationIcon(
+  icon: AnimationIcon,
+  color: string,
+  emojiClassName = "text-xl",
+  svgClassName = "w-6 h-6",
+) {
+  if (typeof icon === "string") {
+    return <span className={emojiClassName}>{icon}</span>;
+  }
+  const Icon = icon;
+  return (
+    <span
+      className="inline-flex items-center justify-center"
+      style={{ color }}
+    >
+      <Icon className={svgClassName} />
+    </span>
+  );
+}
