@@ -987,6 +987,127 @@ describe("TourController — cursor-script invocation", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Cursor-lock watchdog — §6.2 NAV escape hatch manager 2026-05-23
+// ---------------------------------------------------------------------------
+// If a cursor script hangs (waitForElement that never resolves, a click
+// that doesn't navigate so a follow-up event never fires, an awaited
+// callback that never settles, etc.), the InputLockOverlay would
+// otherwise stay mounted indefinitely and the user is wedged behind a
+// dim layer with `pointer-events: auto` absorbing every subsequent
+// click. The 30s watchdog inside the cursorActive effect force-releases
+// the lock if the in-flight runScript hasn't resolved by then. This
+// test exercises that path by making runScript return a promise that
+// never resolves, advancing fake timers past the 30s threshold, then
+// asserting (a) the lock overlay is no longer mounted and (b) the
+// watchdog logged its warn.
+
+describe("TourController — cursor-lock watchdog (§6.2 escape hatch)", () => {
+  let watchdogTargets: HTMLElement[] = [];
+  beforeEach(() => {
+    cursorRunScriptMock.mockReset();
+    // Make runScript hang forever — simulates a wedged cursor script
+    // (waitForElement parked on a never-mounting selector, etc.).
+    cursorRunScriptMock.mockReturnValue(new Promise<void>(() => {}));
+    watchdogTargets = [];
+    for (const target of [
+      "home-new-project",
+      "project-overview-textarea",
+      "home-project-card-test",
+      "notifications-bell",
+    ]) {
+      const el = document.createElement("button");
+      el.setAttribute("data-tour-target", target);
+      document.body.appendChild(el);
+      watchdogTargets.push(el);
+    }
+  });
+  afterEach(() => {
+    cursorRunScriptMock.mockReset();
+    for (const el of watchdogTargets) el.remove();
+    watchdogTargets = [];
+  });
+
+  it("force-releases the InputLockOverlay when the watchdog fires (runScript hangs)", async () => {
+    // Spy on console.warn so we can assert the watchdog's log line
+    // fired. Other warns may also land (cursor script errors, etc.) —
+    // we just check at least one watchdog-flavoured warn appears.
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    // Patch setTimeout BEFORE rendering so the watchdog (which is
+    // scheduled the moment the cursor effect enters) picks up our
+    // shortened duration. We only rewrite the 30_000ms watchdog
+    // call (identified by exact duration); every other setTimeout
+    // — RAF replacements inside waitForPathnameSettle, the
+    // back-step grace 5_000ms, the per-tick 16ms polls — passes
+    // through unchanged so the effect's other awaited sequencing
+    // still works.
+    const realSetTimeout = global.setTimeout;
+    const setTimeoutSpy = vi
+      .spyOn(global, "setTimeout")
+      .mockImplementation(((
+        fn: (...a: unknown[]) => void,
+        ms?: number,
+        ...rest: unknown[]
+      ) => {
+        const adjusted = ms === 30_000 ? 80 : ms;
+        return realSetTimeout(fn, adjusted, ...(rest as []));
+      }) as typeof setTimeout);
+
+    try {
+      function Probe() {
+        const ctrl = useTourController();
+        return (
+          <div>
+            <button onClick={() => ctrl.start("project-overview-prose")}>
+              start
+            </button>
+          </div>
+        );
+      }
+      const { getByText } = render(
+        <TourControllerProvider initialFeaturePicks={null}>
+          <Probe />
+        </TourControllerProvider>,
+      );
+      act(() => {
+        getByText("start").click();
+      });
+
+      // Wait for the cursor effect to kick off runScript (which will
+      // hang because of our never-resolving mock).
+      await waitFor(() => {
+        expect(cursorRunScriptMock).toHaveBeenCalled();
+      });
+
+      // Lock should be present — runScript is hanging, cursorActive=true.
+      expect(
+        document.querySelector('[data-testid="tour-input-lock-overlay"]'),
+      ).not.toBeNull();
+
+      // The patched watchdog fires after ~80ms of wall time; wait
+      // for the lock to disappear.
+      await waitFor(
+        () => {
+          expect(
+            document.querySelector('[data-testid="tour-input-lock-overlay"]'),
+          ).toBeNull();
+        },
+        { timeout: 2000 },
+      );
+
+      // And the watchdog's warn should have landed at least once.
+      const calls = warnSpy.mock.calls.map((c) => String(c[0] ?? ""));
+      expect(
+        calls.some((m) => m.includes("cursor-lock watchdog fired")),
+      ).toBe(true);
+    } finally {
+      setTimeoutSpy.mockRestore();
+      warnSpy.mockRestore();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // expectedRoute auto-navigation — covers Grant's refresh-mid-tour bug
 // where the browser stayed on a non-home page while BeakerBot ran the
 // home-create-project step.

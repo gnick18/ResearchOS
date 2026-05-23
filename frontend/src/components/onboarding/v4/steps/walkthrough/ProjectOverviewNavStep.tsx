@@ -28,11 +28,7 @@
  * walkthrough's pattern). `pointing-up` would tilt at the wrong angle
  * for an inline project card.
  */
-import {
-  cursorScript,
-  safeClickAction,
-  compactScript,
-} from "./lib/cursor-script";
+import { cursorScript, safeNavClickAction } from "./lib/cursor-script";
 import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 
 export const projectOverviewNavStep = buildWalkthroughStep({
@@ -45,17 +41,28 @@ export const projectOverviewNavStep = buildWalkthroughStep({
   // by its `data-tour-target="home-project-card-<id>"` attribute set in
   // `app/page.tsx`.
   cursorScript: cursorScript(async () => {
-    // Click the most recently created project card. The `^=` attribute
-    // selector matches any home-project-card-* (fine on a fresh tour
-    // because §6.1 has just created the user's first project). If the
-    // card never mounts (e.g. the project create failed), the safe
-    // helper returns null and `compactScript` filters it out so the
-    // step gracefully no-ops.
-    const cardClick = await safeClickAction(
+    // §6.2 NAV root cause (manager 2026-05-23): the home page's
+    // projects useQuery refetches around the time the tour arrives
+    // here (the §6.1 create just landed). The refetch re-renders
+    // the active-projects grid, swapping out the card's DOM node.
+    // `safeClickAction` resolves the el at BUILD time and stores
+    // `target: el` on a `click` action; by the time runScript
+    // replays it, our `el` ref is detached and `el.click()` fires
+    // a click on a node not in the tree (React's delegated
+    // handler at the root never sees it, `router.push` never
+    // runs). The InputLockOverlay then stays mounted for the
+    // remainder of the runScript window and absorbs every
+    // subsequent user click.
+    //
+    // Fix: `safeNavClickAction` glides to the card visually at
+    // build-time coords, but re-resolves the selector at PLAYBACK
+    // time inside a callback action and calls `.click()` on the
+    // FRESH node. Routes through React's delegation at the live
+    // root container, so `router.push` lands as intended.
+    return safeNavClickAction(
       "[data-tour-target^='home-project-card-']",
       2000,
     );
-    return compactScript([cardClick]);
   }),
   // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
   // The cursor's project-card click drives the actual route change;

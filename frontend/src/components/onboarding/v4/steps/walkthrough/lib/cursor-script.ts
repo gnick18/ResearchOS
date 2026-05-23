@@ -565,3 +565,108 @@ export function deferredClickAction(
     }
   });
 }
+
+/**
+ * Navigation-grade click: build-time glide to the target's center
+ * for the visual cue, then a PLAYBACK-time selector re-resolution
+ * + native `el.click()` so a re-render between build and click
+ * (TanStack Query refetch, new project landing in the list, etc.)
+ * does not leave us holding a stale DOM ref.
+ *
+ * Why this exists (§6.2 NAV root cause manager 2026-05-23):
+ * `safeClickAction` resolves the element at script-build time and
+ * stamps `target: el` on the returned `click` action. If the parent
+ * component re-renders between build and runScript playback, the
+ * fiber gets a fresh DOM node for the card and OUR stored `el` ref
+ * points at the now-detached node. `el.click()` on a detached node
+ * fires a click event with no listeners (no React fiber tree to
+ * delegate through), so `router.push` never runs. The cursor's
+ * `__beakerBotCursorClicking` flag stays cleanly set then cleared,
+ * the InputLockOverlay's blockEvent short-circuits cleanly, no
+ * console errors land — the click just silently no-ops and the
+ * user is wedged behind the lock for the rest of the runScript
+ * window.
+ *
+ * Repro in the wild: home page projects query refetches on focus /
+ * mount (TanStack default), which is exactly what happens when the
+ * tour first arrives at §6.2 after the §6.1 create. The fresh
+ * project lands via refetch, the project list re-renders, and the
+ * card DOM node we resolved during the cursor-script build is now
+ * gone.
+ *
+ * Fix shape: keep the visual glide-to-build-time-coords (the user
+ * sees BeakerBot arrive at where the card was) but defer the
+ * actual click to playback inside a callback action that
+ * re-queries the selector via `document.querySelector` and calls
+ * `.click()` on the FRESH node, with `__beakerBotCursorClicking`
+ * set so the InputLockOverlay's capture-phase blocker lets the
+ * click through. We also fire `dispatchEvent(new MouseEvent("click",
+ * ...))` as a belt-and-suspenders fallback for environments where
+ * `el.click()` doesn't route through React (it always should — but
+ * the cost of the extra dispatch is negligible and the cost of a
+ * wedged tour is high).
+ *
+ * No null branch — if the selector misses the timeout, this
+ * returns an empty CursorAction[] (caller's `compactScript` filters
+ * nulls; we return the array shape directly so callers can spread).
+ * Logs a warn so a stale anchor selector shows up in the console.
+ *
+ * Note: this returns CursorAction[] (not a single CursorAction)
+ * because it expands into a glide + callback pair. Callers spread
+ * it into their action list directly.
+ */
+export async function safeNavClickAction(
+  selector: string,
+  timeoutMs?: number,
+): Promise<CursorAction[]> {
+  const el = await waitForElement(selector, timeoutMs);
+  if (!el) {
+    console.warn(
+      `[onboarding-v4] safeNavClickAction: selector "${selector}" never mounted`,
+    );
+    return [];
+  }
+  await ensureInViewport(el);
+  // Re-read the rect after scroll settled so the glide targets where
+  // the card sits NOW, not where it sat pre-scroll.
+  const rect = el.getBoundingClientRect();
+  const x = rect.left + rect.width / 2;
+  const y = rect.top + rect.height / 2;
+  return [
+    { type: "glide", x, y },
+    callbackAction(async () => {
+      // Re-resolve at playback time so a re-render between build
+      // and click (TanStack refetch / new project landing in the
+      // list / etc.) gives us the live DOM node, not the detached
+      // one we resolved during the build phase. The selector is
+      // identical to the build-time query so this stays simple.
+      if (typeof document === "undefined" || typeof window === "undefined") {
+        return;
+      }
+      const fresh = document.querySelector(selector);
+      if (!(fresh instanceof HTMLElement)) {
+        console.warn(
+          `[onboarding-v4] safeNavClickAction: selector "${selector}" did not re-resolve at playback`,
+        );
+        return;
+      }
+      const w = window as unknown as { __beakerBotCursorClicking?: boolean };
+      w.__beakerBotCursorClicking = true;
+      try {
+        // Native `.click()` invokes the element's full activation
+        // behaviour and routes through React's delegated handlers
+        // at the root container. This is the same path the
+        // BeakerBotCursor's `clickAt` uses, just on a freshly-
+        // resolved node.
+        fresh.click();
+      } catch (err) {
+        console.warn(
+          `[onboarding-v4] safeNavClickAction: click on "${selector}" threw:`,
+          err,
+        );
+      } finally {
+        w.__beakerBotCursorClicking = false;
+      }
+    }),
+  ];
+}

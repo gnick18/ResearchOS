@@ -1605,6 +1605,50 @@ function InProductWalkthroughOverlay({
     // on step exit, and the lock-during-build window is invisible if
     // no cursor is currently running.
     setCursorActive(true);
+    // §6.2 NAV escape hatch manager 2026-05-23 — cursor-lock watchdog.
+    // If a cursor script hangs (waitForElement that never resolves on
+    // a stale anchor, a click that doesn't navigate so a follow-on
+    // event never fires, a callback that awaits forever, etc.), the
+    // InputLockOverlay stays mounted indefinitely with
+    // pointer-events: auto and the user is wedged behind a 5%-dim
+    // lock with no way out except clicking Skip walkthrough in the
+    // speech bubble. 30s is the ceiling: every legitimate cursor
+    // demo in the v4 walkthrough today completes well under that
+    // (the longest is the §6.4b PCR demo at ~15s); 30s leaves
+    // ~2x headroom so a slow CI machine or a momentary GC pause
+    // doesn't trip the watchdog spuriously. On fire, we
+    // setCursorActive(false) (releases the lock) AND abort the
+    // controller (wakes any parked abortable-sleep / pause inside
+    // the runScript queue so the for-loop short-circuits at the
+    // next action boundary). Both the success/error finally paths
+    // and the effect cleanup clear the timer so a normally-
+    // resolving script doesn't fire the watchdog late.
+    const CURSOR_LOCK_WATCHDOG_MS = 30_000;
+    let watchdogFired = false;
+    let watchdogTimer: ReturnType<typeof setTimeout> | null = null;
+    if (typeof window !== "undefined") {
+      watchdogTimer = setTimeout(() => {
+        watchdogFired = true;
+        watchdogTimer = null;
+        console.warn(
+          `[TourController] cursor-lock watchdog fired after ${CURSOR_LOCK_WATCHDOG_MS}ms on step "${currentStep}"; force-releasing InputLockOverlay`,
+        );
+        // Abort first so an in-flight runScript collapses any
+        // parked abortable sleeps and exits the for-loop at the
+        // next boundary. Then flip cursorActive off so the
+        // overlay unmounts immediately (the in-flight script's
+        // own finally would do this too, but we don't want to
+        // wait on it — the user is stuck NOW).
+        abortController.abort();
+        if (!cancelled) setCursorActive(false);
+      }, CURSOR_LOCK_WATCHDOG_MS);
+    }
+    const clearWatchdog = () => {
+      if (watchdogTimer !== null) {
+        clearTimeout(watchdogTimer);
+        watchdogTimer = null;
+      }
+    };
     void (async () => {
       try {
         // Wave 2 Fix 6/9: wait for pathname to settle BEFORE the
@@ -1676,14 +1720,20 @@ function InProductWalkthroughOverlay({
         try {
           await liveRef.runScript(actions, abortController.signal);
         } finally {
-          if (!cancelled) setCursorActive(false);
+          // Watchdog cleared regardless of outcome — a normally-
+          // resolving runScript shouldn't fire the watchdog late.
+          clearWatchdog();
+          // If the watchdog already fired we already setCursorActive(false);
+          // don't bounce the state.
+          if (!cancelled && !watchdogFired) setCursorActive(false);
         }
       } catch (err) {
+        clearWatchdog();
         console.warn(
           `[TourController] cursor script for step "${currentStep}" failed:`,
           err,
         );
-        if (!cancelled) setCursorActive(false);
+        if (!cancelled && !watchdogFired) setCursorActive(false);
       }
     })();
 
@@ -1696,6 +1746,10 @@ function InProductWalkthroughOverlay({
       // ran out, which was visible to users when fast-clicking through
       // steps.
       abortController.abort();
+      // Clear the watchdog so a step that exits cleanly (user clicked
+      // Got-it / Skip / Back) doesn't fire the watchdog late from a
+      // dangling timer.
+      clearWatchdog();
       // Release the lock the moment the step exits — even if runScript
       // is still mid-animation, we want the user free to interact with
       // the next step's surface. Skip / Back paths from the speech
@@ -1704,6 +1758,63 @@ function InProductWalkthroughOverlay({
       setCursorActive(false);
     };
   }, [currentStep]);
+
+  // §6.2 NAV escape hatch manager 2026-05-23 — ESC force-exit.
+  // While the walkthrough overlay is mounted, pressing Escape fires
+  // the same `onExitTour` handler the speech bubble's "Skip
+  // walkthrough" link triggers. This is the hard escape hatch for
+  // any case where the cursor lock wedges (the watchdog above is
+  // the soft fix; ESC is the user-controlled backstop). We attach
+  // the listener at the window with capture phase so a focused
+  // popup, modal, or input on the page doesn't swallow the key
+  // before we see it. The InputLockOverlay's keydown blocker
+  // (Wave 2 Fix 7/9) blocks scroll keys but NOT Escape, so
+  // there's no interaction to disable there.
+  //
+  // Scope: only fires while the walkthrough overlay component is
+  // mounted (this component IS only mounted in walkthrough mode
+  // per the controller's render branch), so ESC outside a tour
+  // (closing a modal, blurring an input, etc.) continues to
+  // behave normally. We also skip the binding entirely when the
+  // event target is inside a contenteditable, textarea, or
+  // editable input AND the cursor lock is not active — that keeps
+  // editor ESC affordances (commit a code-mirror multi-cursor,
+  // exit a hybrid editor block) intact during user-action steps.
+  // When the cursor lock IS active, the user is wedged and ESC
+  // should always escape regardless of focus.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      // Modifier-combo ESC is power-user / app-shortcut territory;
+      // pass through.
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      const target = e.target;
+      const isEditableTarget =
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          target.tagName === "TEXTAREA" ||
+          (target.tagName === "INPUT" &&
+            !(target as HTMLInputElement).readOnly));
+      // If the cursor lock is NOT active and the user is typing in
+      // an editor, let ESC do its native thing (blur / commit /
+      // close-popover). Once the lock IS up the user is wedged
+      // and we always escape.
+      if (!cursorActive && isEditableTarget) return;
+      console.info(
+        "[TourController] ESC pressed during walkthrough — invoking onExitTour",
+      );
+      e.preventDefault();
+      e.stopPropagation();
+      onExitTour();
+    };
+    // Capture phase so a focused button / modal can't swallow the
+    // key before we route it to onExitTour.
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () => {
+      window.removeEventListener("keydown", onKey, { capture: true });
+    };
+  }, [cursorActive, onExitTour]);
 
   const showSpotlight = !!body?.targetSelector;
 

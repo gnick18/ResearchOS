@@ -558,16 +558,37 @@ describe("ProjectOverviewNavStep (§6.2 nav)", () => {
     }
     expect(projectOverviewNavStep.completion.buttonLabel).toBe("Got it, next");
   });
-  it("cursor script issues a click against the project card", async () => {
-    // Mount a fixture project card matching the cursor script's selector.
+  it("cursor script issues a glide-then-playback-resolved click against the project card", async () => {
+    // §6.2 NAV root cause manager 2026-05-23: the script was migrated
+    // from `safeClickAction` (build-time el ref → stale on re-render →
+    // wedged tour) to `safeNavClickAction` which expands to a glide
+    // action (visual cue to where the card sits) PLUS a callback
+    // action that re-resolves the selector at PLAYBACK time and
+    // calls `.click()` on the fresh node. So the action list is
+    // now [glide, callback], not [click]. The callback's effect
+    // is exercised by the watchdog-adjacent runtime tests; here we
+    // just confirm the shape so a future refactor doesn't quietly
+    // regress back to the stale-ref form.
     const card = document.createElement("button");
     card.setAttribute("data-tour-target", "home-project-card-42");
     document.body.appendChild(card);
     try {
       expect(projectOverviewNavStep.cursorScript).toBeDefined();
       const actions = await projectOverviewNavStep.cursorScript!();
-      expect(actions).toHaveLength(1);
-      expect(actions[0]).toMatchObject({ type: "click", target: card });
+      expect(actions).toHaveLength(2);
+      expect(actions[0]).toMatchObject({ type: "glide" });
+      expect(actions[1]).toMatchObject({ type: "callback" });
+
+      // Exercise the playback-time callback: clicking it should
+      // route through `.click()` on the re-resolved card. We
+      // attach a click listener on the card to verify.
+      let clicked = false;
+      card.addEventListener("click", () => {
+        clicked = true;
+      });
+      const cbAction = actions[1] as { type: "callback"; fn: () => void | Promise<void> };
+      await cbAction.fn();
+      expect(clicked).toBe(true);
     } finally {
       card.remove();
     }
