@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { assignTask } from "@/lib/lab/pi-actions";
 import { useLabData } from "@/hooks/useLabData";
 import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
+import { useArchivedUsers } from "@/hooks/useArchivedUsers";
 import Tooltip from "@/components/Tooltip";
 import { taskKey } from "@/lib/types";
 import type { Task } from "@/lib/types";
@@ -43,6 +44,12 @@ export default function AssignTaskButton({
   const queryClient = useQueryClient();
   const { users } = useLabData();
   const profileMap = useLabUserProfileMap();
+  // Lab Head Phase 6: filter archived members out of the assignee
+  // dropdown. Existing assignments on archived users stay intact (the
+  // task record carries `assignee: "<username>"` as a string; nothing
+  // here mutates that path). New assignments can only target active
+  // members.
+  const archivedSet = useArchivedUsers();
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<string | null>(task.assignee ?? null);
   const [note, setNote] = useState("");
@@ -142,15 +149,17 @@ export default function AssignTaskButton({
                 data-testid="lab-head-assign-task-select"
               >
                 <option value="">— Pick a lab member —</option>
-                {users.map((u) => {
-                  const label =
-                    profileMap[u.username]?.displayName?.trim() ?? u.username;
-                  return (
-                    <option key={u.username} value={u.username}>
-                      {label} ({u.username})
-                    </option>
-                  );
-                })}
+                {users
+                  .filter((u) => !archivedSet.has(u.username))
+                  .map((u) => {
+                    const label =
+                      profileMap[u.username]?.displayName?.trim() ?? u.username;
+                    return (
+                      <option key={u.username} value={u.username}>
+                        {label} ({u.username})
+                      </option>
+                    );
+                  })}
               </select>
             </div>
 

@@ -5,6 +5,7 @@ import { sharingApi, usersApi, methodsApi } from "@/lib/local-api";
 import Tooltip from "@/components/Tooltip";
 import type { SharedUser, ShareRequest, DependencyChainResponse } from "@/lib/types";
 import { GlobeIcon, LockIcon } from "@/lib/utils/icons";
+import { useArchivedUsers } from "@/hooks/useArchivedUsers";
 
 interface SharePopupProps {
   isOpen: boolean;
@@ -30,6 +31,12 @@ export default function SharePopup({
   onShared,
 }: SharePopupProps) {
   const [users, setUsers] = useState<string[]>([]);
+  // Lab Head Phase 6: archived members are dropped from the share
+  // picker so a PI can't accidentally grant access to a departed user.
+  // Existing share entries on archived users stay intact — the share
+  // list is a separate field on each record and nothing here mutates
+  // historical permissions.
+  const archivedSet = useArchivedUsers();
   const [selectedUser, setSelectedUser] = useState("");
   const [permission, setPermission] = useState<"view" | "edit">("edit");
   const [loading, setLoading] = useState(false);
@@ -257,11 +264,13 @@ export default function SharePopup({
                 {itemType === "method" && (
                   <option value="__all_lab_users__">All Lab Users</option>
                 )}
-                {users.map((user) => (
-                  <option key={user} value={user}>
-                    {user}
-                  </option>
-                ))}
+                {users
+                  .filter((user) => !archivedSet.has(user))
+                  .map((user) => (
+                    <option key={user} value={user}>
+                      {user}
+                    </option>
+                  ))}
               </select>
             </div>
 

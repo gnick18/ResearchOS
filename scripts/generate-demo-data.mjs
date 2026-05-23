@@ -68,6 +68,13 @@ const MORGAN_COLOR = "#10b981"; // emerald
 // pop visually against alex's blue + morgan's emerald. Sits separately from
 // the project palette (which uses its own #f59e0b amber for project 3).
 const MIRA_COLOR = "#f97316";   // orange
+// Lab Head Phase 6 (lab head Phase 6 manager, 2026-05-23): departed
+// postdoc archetype. Sam predates alex and morgan in the lab timeline —
+// he was the original yeast postdoc, left for industry in mid-March
+// 2026, and exists in the fixture purely to showcase the archive
+// feature. Gray slate so he reads as visually "retired" against the
+// rest of the active palette.
+const SAM_COLOR = "#64748b";   // slate
 
 // ─── Markdown bodies (broken out for legibility) ─────────────────────────────
 
@@ -248,6 +255,14 @@ function buildEntries() {
       // notes in the demo fixture; her presence is the LabComment thread
       // showing PI-style oversight across alex + morgan's shared content.
       mira: { color: MIRA_COLOR, created_at: "2026-01-05T00:00:00Z" },
+      // Lab Head Phase 6 (lab head Phase 6 manager, 2026-05-23): departed
+      // postdoc Dr. Sam Whitley — predates alex/morgan, left for industry
+      // mid-March 2026, archived by Mira shortly after. Showcases the
+      // Lab Roster archive feature: hidden from the login picker by
+      // default, surfaced via "Show archived"; absent from the @mention
+      // / share / assignee pickers; his 2 historical comments below
+      // continue to render with gray missing-user fallback.
+      sam: { color: SAM_COLOR, created_at: "2025-09-01T00:00:00Z" },
     },
   ]);
 
@@ -670,8 +685,26 @@ function buildEntries() {
     // 30 days ago across multiple projects, so the Earlier section's flat
     // and By-project layouts both have multi-project content. Anchored at
     // historical dates that stay > 30 days old after rebase.
-    { id: 17, project_id: 1, name: "Pilot transformation — strain choice", start_date: "2026-02-10", duration_days: 1, end_date: "2026-02-10", task_type: "experiment", is_complete: true, experiment_color: "#3b82f6" },
-    { id: 18, project_id: 2, name: "Pilot Gibson assembly — backbone test", start_date: "2026-02-18", duration_days: 1, end_date: "2026-02-18", task_type: "experiment", is_complete: true, experiment_color: "#8b5cf6" },
+    { id: 17, project_id: 1, name: "Pilot transformation — strain choice", start_date: "2026-02-10", duration_days: 1, end_date: "2026-02-10", task_type: "experiment", is_complete: true, experiment_color: "#3b82f6",
+      // Lab Head Phase 6 (lab head Phase 6 manager, 2026-05-23): historical
+      // comment from sam (the departed postdoc archetype) made BEFORE
+      // his archive date. Renders with gray missing-user fallback once
+      // sam is archived — the comment renderer doesn't gate on archive
+      // state, but the missing-user-lookup path catches departed
+      // authors. Demonstrates that existing references stay intact
+      // even after the author is hidden from new pickers.
+      comments: [
+        { id: "cmt-sam-alex-t17-1", author: "sam", text: "FakeYeast-001 vs FakeYeast-002 — pick 001. The mating-type stability is way better in our hands. I have a frozen stock at -80 box 3 row D.", created_at: "2026-02-09T14:20:00Z" },
+        { id: "cmt-alex-reply-t17-1", author: "alex", text: "Thanks @sam — pulled the 001 aliquot this morning, growing the overnight now.", created_at: "2026-02-09T15:05:00Z", parent_id: "cmt-sam-alex-t17-1", mentions: ["sam"] },
+      ] },
+    { id: 18, project_id: 2, name: "Pilot Gibson assembly — backbone test", start_date: "2026-02-18", duration_days: 1, end_date: "2026-02-18", task_type: "experiment", is_complete: true, experiment_color: "#8b5cf6",
+      // Lab Head Phase 6: second historical sam comment, on morgan's
+      // project surface (the brief asked for sam comments on alex AND
+      // morgan content). Placed on an alex-owned task that's shared
+      // into morgan's Gibson workflow so both surfaces see it.
+      comments: [
+        { id: "cmt-sam-alex-t18-1", author: "sam", text: "If you're using NEB Gibson mix, warm it slowly on the bench — straight 50 °C out of -20 kills the polymerase activity. Lost a week to that one when I started.", created_at: "2026-02-17T11:30:00Z" },
+      ] },
     { id: 19, project_id: 3, name: "Baseline growth profile in YPD", start_date: "2026-03-05", duration_days: 1, end_date: "2026-03-05", task_type: "experiment", is_complete: true, experiment_color: "#f59e0b" },
     // Workbench "Completed list tasks" fixture: a second completed list
     // task so the bottom accordion has more than one row to expand.
@@ -2455,6 +2488,110 @@ function buildEntries() {
           new_value:
             "Plate layouts for the 96-well growth-curve screen. Includes corner-evaporation controls per Lab Head request.",
           timestamp: "2026-05-17T10:08:22Z",
+        },
+      ],
+    },
+  ]);
+
+  // ── User: sam (Dr. Sam Whitley, departed postdoc — Lab Head Phase 6) ───
+  //
+  // Showcases the user-archiving feature added in Lab Head Phase 6. Sam
+  // joined the lab earlier than alex/morgan (Sept 2025), left for an
+  // industry role in mid-March 2026, and was archived by Mira shortly
+  // after. He shows up in three places across the demo:
+  //
+  //   1. Hidden by default from the login picker (`archived: true` in
+  //      `_onboarding.json`). Toggling "Show archived" reveals him with
+  //      a gray "Archived" badge.
+  //   2. Filtered out of the @mention picker, share dialog, and
+  //      assignee dropdown.
+  //   3. His historical comments on alex's task 5 (transformation
+  //      screen) still render — the comment renderer doesn't gate on
+  //      archive state, and the missing-user-lookup fallback (gray
+  //      attribution) handles the departed-author case.
+  //
+  // Intentionally minimal: no projects, methods, or notes of his own
+  // — Sam's purpose is to demonstrate archive UX. The departure date
+  // (2026-03-15) is consistent across his settings, onboarding, and
+  // the audit entry below.
+  out.push([
+    "users/sam/_counters.json",
+    {
+      projects: 0,
+      tasks: 0,
+      methods: 0,
+      events: 0,
+      goals: 0,
+      notes: 0,
+      purchase_items: 0,
+      lab_links: 0,
+      dependencies: 0,
+    },
+  ]);
+  out.push([
+    "users/sam/settings.json",
+    {
+      animationType: "celebration",
+      defaultGanttViewMode: "2week",
+      defaultCalendarViewMode: "month",
+      showSharedByDefault: true,
+      visibleTabs: ["/gantt", "/methods", "/results", "/calendar"],
+      defaultLandingTab: "/",
+      sidebarShowTasks: true,
+      sidebarShowCalendarEvents: false,
+      sidebarEventsHorizonDays: 7,
+      coloredHeader: true,
+      displayName: "Dr. Sam Whitley",
+      // Sam was a regular postdoc, not the PI. account_type stays
+      // "member" — archive state is on the onboarding sidecar, not
+      // here.
+      account_type: "member",
+    },
+  ]);
+  // Sam's onboarding sidecar carries the v5 archive flags. archived_at
+  // matches the departure date; archived_by is mira (the lab head who
+  // triggered the action). schemaVersion 5 to match the Phase 6 bump
+  // in lib/onboarding/sidecar.ts.
+  out.push([
+    "users/sam/_onboarding.json",
+    {
+      version: 5,
+      first_seen_at: "2025-09-01T00:00:00.000Z",
+      active_seconds: 0,
+      feature_picks: null,
+      wizard_completed_at: "2025-09-15T12:00:00.000Z",
+      wizard_skipped_at: null,
+      wizard_force_show: false,
+      wizard_resume_state: null,
+      lab_tour_pending: false,
+      lab_tour_dismissed_at: null,
+      lab_mode_tour_choice: null,
+      archived: true,
+      archived_at: "2026-03-15T10:00:00.000Z",
+      archived_by: "mira",
+    },
+  ]);
+  // Audit entry on sam's `_pi_audit.json` showing the archive action.
+  // Per Phase 6 user-archive helper, archive emits one entry per
+  // transition with record_type "user", field_path "archived",
+  // boolean old/new values. Demo session id is a fixture string;
+  // production code passes the live session id from edit-session.
+  out.push([
+    "users/sam/_pi_audit.json",
+    {
+      version: 1,
+      entries: [
+        {
+          id: "audit-mira-sam-archive",
+          session_id: "demo-sess-2026-03-15-sam-archive",
+          actor: "mira",
+          target_user: "sam",
+          record_type: "user",
+          record_id: "sam",
+          field_path: "archived",
+          old_value: false,
+          new_value: true,
+          timestamp: "2026-03-15T10:00:00.000Z",
         },
       ],
     },

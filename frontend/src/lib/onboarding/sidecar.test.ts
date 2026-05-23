@@ -91,7 +91,7 @@ describe("sidecar v3 → v4 migration", () => {
     });
     const sc = await readOnboarding(USER);
 
-    expect(sc.version).toBe(4);
+    expect(sc.version).toBe(5);
     expect(sc.first_seen_at).toBe("2026-05-14T10:00:00.000Z");
     expect(sc.active_seconds).toBe(1200);
     // Retained v3 timestamps preserved.
@@ -140,7 +140,7 @@ describe("sidecar v2 → v4 migration", () => {
     });
     const sc = await readOnboarding(USER);
 
-    expect(sc.version).toBe(4);
+    expect(sc.version).toBe(5);
     expect(sc.first_seen_at).toBe("2026-05-14T10:00:00.000Z");
     expect(sc.active_seconds).toBe(800);
     expect(sc.feature_picks).toBeNull();
@@ -166,7 +166,7 @@ describe("sidecar v1 → v4 migration", () => {
     });
     const sc = await readOnboarding(USER);
 
-    expect(sc.version).toBe(4);
+    expect(sc.version).toBe(5);
     expect(sc.first_seen_at).toBe("2026-05-14T10:00:00.000Z");
     expect(sc.active_seconds).toBe(42);
     expect(sc.feature_picks).toBeNull();
@@ -200,7 +200,7 @@ describe("sidecar v4 round-trip", () => {
 
   it("write + read preserves feature_picks, wizard_resume_state, and the lab-tour fields", async () => {
     const initial: OnboardingSidecar = {
-      version: 4,
+      version: 5,
       first_seen_at: "2026-05-20T08:00:00.000Z",
       active_seconds: 4242,
       feature_picks: samplePicks,
@@ -214,6 +214,15 @@ describe("sidecar v4 round-trip", () => {
       // round-trips. Field defaults to null on a fresh sidecar; the
       // normalizer coerces undefined / unknown values back to null.
       lab_mode_tour_choice: null,
+      // Lab Head Phase 6 (lab head Phase 6 manager, 2026-05-23):
+      // archive fields default to non-archived on a fresh sidecar.
+      // Round-trip writes pass through `normalize()` which always
+      // emits the three fields, so the deep-equal here must include
+      // them. A future test that flips archived to true should set
+      // archived_at + archived_by explicitly.
+      archived: false,
+      archived_at: null,
+      archived_by: null,
     };
     await writeOnboarding(USER, initial);
     const sc = await readOnboarding(USER);
@@ -371,7 +380,7 @@ describe("existing-user invisibility invariant (L1/L22)", () => {
 
   it("missing sidecar reads as a fresh v4 default (new user, no auto-fire)", async () => {
     const sc = await readOnboarding(USER);
-    expect(sc.version).toBe(4);
+    expect(sc.version).toBe(5);
     expect(sc.feature_picks).toBeNull();
     expect(sc.wizard_completed_at).toBeNull();
     expect(sc.wizard_skipped_at).toBeNull();
@@ -478,7 +487,7 @@ describe("clearWizardCompletion (v4 Re-run-tour bypass)", () => {
 describe("readArtifactsCreated", () => {
   function baseSidecar(): OnboardingSidecar {
     return {
-      version: 4,
+      version: 5,
       first_seen_at: "2026-05-22T09:00:00.000Z",
       active_seconds: 0,
       feature_picks: null,
@@ -489,6 +498,10 @@ describe("readArtifactsCreated", () => {
       lab_tour_pending: false,
       lab_tour_dismissed_at: null,
       lab_mode_tour_choice: null,
+      // Lab Head Phase 6 archive defaults.
+      archived: false,
+      archived_at: null,
+      archived_by: null,
     };
   }
 

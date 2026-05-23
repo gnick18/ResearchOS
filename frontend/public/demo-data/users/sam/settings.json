@@ -1,0 +1,19 @@
+{
+  "animationType": "celebration",
+  "defaultGanttViewMode": "2week",
+  "defaultCalendarViewMode": "month",
+  "showSharedByDefault": true,
+  "visibleTabs": [
+    "/gantt",
+    "/methods",
+    "/results",
+    "/calendar"
+  ],
+  "defaultLandingTab": "/",
+  "sidebarShowTasks": true,
+  "sidebarShowCalendarEvents": false,
+  "sidebarEventsHorizonDays": 7,
+  "coloredHeader": true,
+  "displayName": "Dr. Sam Whitley",
+  "account_type": "member"
+}

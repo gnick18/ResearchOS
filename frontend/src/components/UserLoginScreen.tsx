@@ -6,6 +6,7 @@ import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { hasPassword, verifyPassword } from "@/lib/auth/password";
 import { performUserDelete } from "@/lib/users/perform-delete";
 import { readUserSettings } from "@/lib/settings/user-settings";
+import { readArchivedSet } from "@/lib/lab/user-archive";
 import AccountPasswordPopup from "@/components/AccountPasswordPopup";
 import BetaDonationButton from "@/components/BetaDonationButton";
 import FeedbackModal from "@/components/FeedbackModal";
@@ -65,6 +66,19 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   // Mirror of the lockedUsers pattern: fan-out read per user.
   const [labHeadUsers, setLabHeadUsers] = useState<Set<string>>(new Set());
 
+  // Per-user `archived` flag (Lab Head Phase 6). Drives the "hidden by
+  // default" visibility of archived accounts; the Show archived toggle
+  // below the user grid reveals them. Loaded alongside the lab_head
+  // status — fan-out read per user via readArchivedSet. A read failure
+  // leaves the user out of the set (i.e. defaults to non-archived) so
+  // a corrupt sidecar can never accidentally hide an active member.
+  const [archivedUsers, setArchivedUsers] = useState<Set<string>>(new Set());
+  // Toggle state — false by default per design decision #2 (Grant
+  // 2026-05-23): archived users hidden by default, the toggle is the
+  // "temporary returner" escape hatch so they can re-login without
+  // bugging the PI.
+  const [showArchived, setShowArchived] = useState(false);
+
   // Bug report state
   const { showBugReport, currentError, openBugReport, closeBugReport } = useErrorReporting();
 
@@ -102,11 +116,26 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     setLabHeadUsers(next);
   };
 
+  // Lab Head Phase 6: fan-out read of every user's `_onboarding.json` to
+  // find archived accounts. Mirrors the lab_head fan-out — a per-user
+  // read failure drops that user into the non-archived tier so a broken
+  // sidecar can never accidentally hide an active member.
+  const refreshArchivedStatus = async (usernames: string[]) => {
+    try {
+      const set = await readArchivedSet(usernames);
+      setArchivedUsers(set);
+    } catch {
+      // Whole-batch failure — treat as none-archived. Safe default.
+      setArchivedUsers(new Set());
+    }
+  };
+
   useEffect(() => {
     if (users.length > 0) {
       const real = users.filter((u) => u !== "lab");
       refreshLockStatus(real);
       refreshLabHeadStatus(real);
+      refreshArchivedStatus(real);
     }
   }, [users]);
 
@@ -406,15 +435,19 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   // Check if there are any users (excluding 'lab' user if present)
   const hasUsers = users.filter(u => u !== 'lab').length > 0;
 
-  // Tile sort order (Lab Head Phase 1 polish):
-  //   1. lab_head users (Main lab_head first within the tier)
-  //   2. member users (Main member first within the tier)
-  //   3. Alphabetical by username within each tier
-  // PI prominence wins over Main — the lab head's tile is always at the
-  // very top, even if some other account is flagged Main. The Main badge
-  // still appears on whichever tile owns it.
-  const sortedUsers = useMemo(() => {
-    const real = users.filter((u) => u !== "lab");
+  // Tile sort order (Lab Head Phase 1 polish + Phase 6 archive):
+  //   1. Active (non-archived) lab_head users (Main first)
+  //   2. Active member users (Main first)
+  //   3. Archived lab_head users (only shown when showArchived === true)
+  //   4. Archived member users (only shown when showArchived === true)
+  //   5. Alphabetical by username within each tier
+  //
+  // PI prominence wins over Main within the active tier — the live lab
+  // head's tile is always at the very top, even if some other account
+  // is flagged Main. Archived users go to the very bottom regardless of
+  // role/main status; the visual "Archived" badge handles distinction.
+  const sortedActiveUsers = useMemo(() => {
+    const real = users.filter((u) => u !== "lab" && !archivedUsers.has(u));
     const tier = (u: string) => (labHeadUsers.has(u) ? 0 : 1);
     const mainRank = (u: string) => (mainUser === u ? 0 : 1);
     return [...real].sort((a, b) => {
@@ -424,7 +457,25 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       if (mainDiff !== 0) return mainDiff;
       return a.localeCompare(b);
     });
-  }, [users, labHeadUsers, mainUser]);
+  }, [users, labHeadUsers, mainUser, archivedUsers]);
+
+  // Archived users — separate list so the toggle can show/hide them
+  // independently. Sorted alphabetically; no tier preference inside the
+  // archived bucket (archived lab_head is rare and doesn't need the
+  // visual elevation that the active tier preserves).
+  const sortedArchivedUsers = useMemo(() => {
+    const real = users.filter((u) => u !== "lab" && archivedUsers.has(u));
+    return [...real].sort((a, b) => a.localeCompare(b));
+  }, [users, archivedUsers]);
+
+  // Combined render list — active always, archived appended only when
+  // the toggle is on. Existing `sortedUsers` consumers in the JSX
+  // continue to work by reading this single variable.
+  const sortedUsers = useMemo(() => {
+    return showArchived
+      ? [...sortedActiveUsers, ...sortedArchivedUsers]
+      : sortedActiveUsers;
+  }, [sortedActiveUsers, sortedArchivedUsers, showArchived]);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -611,6 +662,21 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                                 Lab Head
                               </span>
                             )}
+                            {archivedUsers.has(user) && (
+                              // Lab Head Phase 6: Archived badge. Gray so it
+                              // visually de-emphasizes the tile compared to
+                              // active members; the Show archived toggle
+                              // below the grid controls visibility entirely.
+                              // Clicking an archived tile still works (a
+                              // returning postdoc can re-login without PI
+                              // help — design decision #2, Grant 2026-05-23).
+                              <span
+                                className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-slate-200 text-slate-600"
+                                title="Archived account — hidden by default"
+                              >
+                                Archived
+                              </span>
+                            )}
                             {mainUser === user && (
                               <span className="text-xs text-amber-400 font-normal">(Main)</span>
                             )}
@@ -714,6 +780,28 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   ))
                 )}
               </div>
+
+              {/* Lab Head Phase 6: Show archived toggle. Only renders when
+                  there are archived users to surface — keeps the picker
+                  uncluttered for labs with zero archives. The toggle
+                  itself is a plain text-link style so it doesn't compete
+                  with the Lab Mode button or Create user CTAs below. */}
+              {sortedArchivedUsers.length > 0 && (
+                <div className="text-center mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowArchived((v) => !v)}
+                    disabled={loggingIn !== null}
+                    className="text-xs text-slate-400 hover:text-slate-200 underline-offset-2 hover:underline transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-pressed={showArchived}
+                    data-testid="login-show-archived-toggle"
+                  >
+                    {showArchived
+                      ? `Hide archived (${sortedArchivedUsers.length})`
+                      : `Show archived (${sortedArchivedUsers.length})`}
+                  </button>
+                </div>
+              )}
 
               {/* Divider */}
               {users.filter(u => u !== 'lab').length > 0 && (

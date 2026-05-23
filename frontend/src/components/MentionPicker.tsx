@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { useLabUserProfileMap, type LabUserProfile } from "@/hooks/useLabUserProfiles";
+import { useArchivedUsers } from "@/hooks/useArchivedUsers";
 import UserAvatar from "@/components/UserAvatar";
 
 interface MentionPickerProps {
@@ -36,13 +37,13 @@ interface MentionPickerProps {
  * typed query (case-insensitive substring match on username + displayName),
  * and lets the user pick with arrow keys + Enter or by clicking a row.
  *
- * Phase 6 (archived users): the membersQuery below intentionally pulls ALL
- * lab users. Once Phase 6 lands, the picker should filter out users with
- * `archived: true` set in `_onboarding.json` — see the brief. The TODO in
- * the `members` memo is the seam to wire that up. Leaving the picker
- * inclusive today means an archived user typed mid-sentence still has a
- * way to be selected (which is fine fallback behavior even after Phase 6,
- * since existing archived references stay intact).
+ * Phase 6 (archived users, lab head Phase 6 manager 2026-05-23): the
+ * member list filters out users with `archived: true` set in their
+ * `_onboarding.json`. Archived members never appear as a new-mention
+ * suggestion; existing references in older comments continue to render
+ * (the comment renderer doesn't gate on archive state, so an old
+ * `@mira` mention in a note where mira is now archived still resolves
+ * with the gray missing-user fallback styling).
  */
 export default function MentionPicker({
   query,
@@ -55,17 +56,19 @@ export default function MentionPicker({
   onFilteredChange,
 }: MentionPickerProps) {
   const profileMap = useLabUserProfileMap();
+  const archivedSet = useArchivedUsers();
   const popupRef = useRef<HTMLDivElement>(null);
 
-  // Phase 6 TODO: when the archived-user filter lands, drop entries here
-  // whose `_onboarding.json` has `archived: true`. The picker should only
-  // surface active members for NEW mentions; existing references in older
-  // comments will continue to render (the comment renderer doesn't gate
-  // on archive state).
+  // Lab Head Phase 6: drop archived users from the new-mention picker.
+  // Existing references in older comments stay intact — the comment
+  // renderer doesn't gate on archive state, so historical mentions
+  // continue to display with their usual styling.
   const members = useMemo(() => {
-    const list = Object.values(profileMap);
+    const list = Object.values(profileMap).filter(
+      (m) => !archivedSet.has(m.username),
+    );
     return list.sort((a, b) => a.username.localeCompare(b.username));
-  }, [profileMap]);
+  }, [profileMap, archivedSet]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
