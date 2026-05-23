@@ -10,7 +10,7 @@ export default function MarkdownEditorPage() {
   return (
     <WikiPage
       title="The Markdown Editor"
-      intro="Wherever you write prose in ResearchOS (experiment notes, task descriptions, results write-ups, methods bodies, free-form notes), you're using the same markdown editor. Learning its three modes and shortcut set pays off fast."
+      intro="Wherever you write prose in ResearchOS (experiment notes, task descriptions, results write-ups, methods bodies, free-form notes), you're using the same markdown editor. Learning its two modes and shortcut set pays off fast."
     >
       <Screenshot
         src="/wiki/screenshots/experiments-editor.png"
@@ -55,19 +55,13 @@ export default function MarkdownEditorPage() {
         same content.
       </p>
 
-      <h2>The three modes</h2>
+      <h2>The two modes</h2>
       <p>
-        The toolbar in the top-right of every editor has a three-way mode
+        The toolbar in the top-right of every editor has a two-way mode
         toggle. The choice of mode is purely a viewing preference, it
         doesn&apos;t change what gets saved.
       </p>
       <ul>
-        <li>
-          <strong>Edit</strong>: raw markdown source in a monospace textarea.
-          All keyboard shortcuts are active here. Best when you want to type
-          or paste markdown directly, work with code blocks, or eyeball the
-          underlying syntax.
-        </li>
         <li>
           <strong>Hybrid</strong> (the default): the rendered view, but every
           block is click-to-edit. Single-click a paragraph or heading to select
@@ -109,8 +103,11 @@ export default function MarkdownEditorPage() {
           textarea pre-filled with its markdown source.
         </Step>
         <Step>
-          Type your edits. <Kbd>Shift</Kbd>+<Kbd>Enter</Kbd> inserts a line
-          break without leaving edit mode.
+          Type your edits. Plain <Kbd>Enter</Kbd> inserts a CommonMark soft
+          line break (<code>{"  \\n"}</code>) and stays in the inline
+          textarea. <Kbd>Shift</Kbd>+<Kbd>Enter</Kbd> performs a hard
+          paragraph split (<code>\n\n</code>), commits the edit, and exits
+          the textarea so the next re-parse produces two separate blocks.
         </Step>
         <Step>
           Press <Kbd>Esc</Kbd> to commit the edit and deselect, or click
@@ -129,26 +126,14 @@ export default function MarkdownEditorPage() {
         </li>
       </ul>
 
-      <h2>Writing in Edit mode</h2>
-      <p>
-        Edit mode is a plain markdown textarea. Type as you would in any
-        markdown editor. The toolbar buttons and keyboard shortcuts all
-        apply, and most have a one-key alternative in the markdown syntax
-        itself.
-      </p>
-      <p>
-        One feature unique to Edit mode: type three backticks (
-        <code>```</code>) at the start of a new line and a <strong>language
-        picker</strong> popup appears. Start typing a language name (e.g.,
-        <code>python</code>, <code>bash</code>, <code>sql</code>) and the
-        list narrows. Hit <Kbd>Enter</Kbd> and ResearchOS completes the code
-        block with the language tag, ready for you to type.
-      </p>
-      <Screenshot
-        src="/wiki/screenshots/editor-language-picker.png"
-        alt="The language picker popup open beneath three backticks in Edit mode, with a search field at the top and a scrollable list of language names."
-        caption="Type three backticks in Edit mode and the language picker drops in. The search field narrows the list as you type. Enter inserts the highlighted language."
-      />
+      <Callout variant="info" title="Code blocks with language picker">
+        Type three backticks (<code>```</code>) at the start of a new line
+        inside any Hybrid inline textarea and a <strong>language picker</strong>{" "}
+        popup appears. Start typing a language name (e.g., <code>python</code>,{" "}
+        <code>bash</code>, <code>sql</code>) and the list narrows. Hit{" "}
+        <Kbd>Enter</Kbd> and ResearchOS completes the code block with the
+        language tag, ready for you to type.
+      </Callout>
 
       <Callout variant="info" title="Languages with syntax highlighting">
         Around 20 popular languages get highlighting on render: JavaScript,
@@ -172,6 +157,8 @@ export default function MarkdownEditorPage() {
             </tr>
           </thead>
           <tbody className="text-gray-800 [&>tr]:border-b [&>tr]:border-gray-100">
+            <tr><td className="px-3 py-1.5">Undo</td><td className="px-3 py-1.5"><Kbd>Cmd</Kbd>+<Kbd>Z</Kbd></td></tr>
+            <tr><td className="px-3 py-1.5">Redo</td><td className="px-3 py-1.5"><Kbd>Cmd</Kbd>+<Kbd>Shift</Kbd>+<Kbd>Z</Kbd> or <Kbd>Ctrl</Kbd>+<Kbd>Y</Kbd></td></tr>
             <tr><td className="px-3 py-1.5">Bold</td><td className="px-3 py-1.5"><Kbd>Cmd</Kbd>+<Kbd>B</Kbd></td></tr>
             <tr><td className="px-3 py-1.5">Italic</td><td className="px-3 py-1.5"><Kbd>Cmd</Kbd>+<Kbd>I</Kbd></td></tr>
             <tr><td className="px-3 py-1.5">Underline</td><td className="px-3 py-1.5"><Kbd>Cmd</Kbd>+<Kbd>U</Kbd></td></tr>
@@ -186,9 +173,9 @@ export default function MarkdownEditorPage() {
         </table>
       </div>
       <Callout variant="info" title="Where shortcuts apply">
-        Bold, italic, headings, and the rest work in <strong>Edit</strong>{" "}
-        mode and inside the inline edit textarea on a selected Hybrid block.
-        They don&apos;t do anything in Preview, which is read-only.
+        Bold, italic, headings, and the rest work inside the inline edit
+        textarea on a selected Hybrid block. They don&apos;t do anything in
+        Preview, which is read-only.
       </Callout>
 
       <h2>Images</h2>
@@ -222,9 +209,9 @@ export default function MarkdownEditorPage() {
         </li>
         <li>
           <strong>Click <em>Browse</em></strong> to pick from images already
-          attached to other documents (the gallery picker). Useful when you
-          want to reference the same gel image from two experiments without
-          duplicating the file.
+          attached to this experiment (the gallery picker). Useful when the
+          image is already on disk and you just want to insert a reference
+          to it without re-uploading.
         </li>
       </ul>
       <p>
@@ -275,23 +262,11 @@ export default function MarkdownEditorPage() {
         caption="Click any rendered image in Hybrid or Preview mode and the size popover opens. The selected percentage is written into the markdown so it sticks."
       />
       <p>
-        Two ways:
+        Click any rendered image in Hybrid or Preview mode and a size popover
+        appears inline with <em>25%</em>, <em>50%</em>, <em>75%</em>, and{" "}
+        <em>100%</em> options. The choice writes a width attribute into the
+        markdown so the size persists.
       </p>
-      <ul>
-        <li>
-          <strong>In Hybrid or Preview mode</strong>: click any rendered
-          image to bring up a size popover with <em>25%</em>, <em>50%</em>,{" "}
-          <em>75%</em>, and <em>100%</em> options. The choice writes a width
-          attribute into the markdown so the size persists.
-        </li>
-        <li>
-          <strong>In Edit mode</strong>: select the markdown image syntax
-          (e.g., <code>![…](Images/file.png)</code>) and click the{" "}
-          <strong>Resize Image</strong> toolbar button. Same percentage
-          options, applied to the selected reference. If nothing valid is
-          selected, the button shows a small reminder of what to highlight.
-        </li>
-      </ul>
 
       <h3>Broken image references</h3>
       <p>
@@ -317,6 +292,14 @@ export default function MarkdownEditorPage() {
         flow: drag from Finder, paste, or pick from the toolbar.
       </p>
       <ul>
+        <li>
+          <strong>Click the toolbar&apos;s <em>Add File</em> button</strong>{" "}
+          to pick one or more non-image files from disk. The button appears
+          in place of <em>Add Image</em> when the editor is configured to
+          accept any file type (experiment Lab Notes, Results, and Notes).
+          The chosen file copies into <code>Files/</code> and a markdown
+          link inserts at the cursor.
+        </li>
         <li>
           <strong>Drag a file from Finder</strong> anywhere over the editor.
           The blue ring lights up while the file is hovering. On release the
@@ -427,13 +410,14 @@ export default function MarkdownEditorPage() {
       </ul>
       <Callout variant="tip" title="Paste tables from Excel or Sheets">
         Copy a range from Excel, Google Sheets, or Numbers and paste it into
-        Edit mode. The editor converts the tab-separated text into a markdown
-        table on the fly, so you don&apos;t have to retype the rows.
+        an inline edit textarea in Hybrid mode. The editor converts the
+        tab-separated text into a markdown table on the fly, so you
+        don&apos;t have to retype the rows.
       </Callout>
 
       <h2>The helper panel</h2>
       <p>
-        Edit mode includes a collapsible helper panel on the{" "}
+        The Hybrid editor includes a collapsible helper panel on the{" "}
         <strong>left</strong> side of the editor with two tabs at the top,{" "}
         <strong>Shortcuts</strong> and <strong>Style Guide</strong>. Click
         the arrow in the panel header to collapse or expand it.
@@ -446,15 +430,11 @@ export default function MarkdownEditorPage() {
         <li>
           <strong>Style Guide</strong> shows example syntax for every
           markdown feature (headings, lists, tables, code blocks, callouts).
-          Click any example to insert it at the cursor. Handy when
-          you&apos;ve forgotten the table syntax or want to see what callout
-          markdown looks like.
+          Click any example to insert it at the cursor inside the active
+          inline textarea. Handy when you&apos;ve forgotten the table syntax
+          or want to see what callout markdown looks like.
         </li>
       </ul>
-      <p>
-        The helper panel only shows in Edit mode, since Hybrid and Preview
-        don&apos;t have a textarea cursor to insert into.
-      </p>
 
       <h2>Saving</h2>
       <p>
@@ -496,28 +476,40 @@ export default function MarkdownEditorPage() {
       <h2>Things people miss</h2>
       <ul>
         <li>
+          <strong>Undo / redo across the whole document</strong>: the editor
+          maintains its own undo stack (not the browser&apos;s textarea
+          native undo). <Kbd>Cmd</Kbd>+<Kbd>Z</Kbd> steps back through
+          edits, including block deletions and image drops.{" "}
+          <Kbd>Cmd</Kbd>+<Kbd>Shift</Kbd>+<Kbd>Z</Kbd> (or{" "}
+          <Kbd>Ctrl</Kbd>+<Kbd>Y</Kbd> on Windows) steps forward.
+        </li>
+        <li>
           <strong>Promote/demote a heading</strong> in place with{" "}
           <Kbd>Cmd</Kbd>+<Kbd>Ctrl</Kbd>+<Kbd>+</Kbd> or{" "}
           <Kbd>Cmd</Kbd>+<Kbd>Ctrl</Kbd>+<Kbd>-</Kbd>. You don&apos;t need to
           retype the <code>#</code> marks.
         </li>
         <li>
-          <strong>The attachments strip toggles off</strong> from the toolbar
-          if it gets in the way. Toggle it back on the same way. The same
-          toggle hides both the Images and Files tabs at once.
+          <strong>Split here</strong>: while editing a paragraph block inline,
+          a <em>Split here</em> button appears at the cursor position. Clicking
+          it is the same as pressing <Kbd>Shift</Kbd>+<Kbd>Enter</Kbd>: it
+          inserts a hard paragraph break at that point, commits, and produces
+          two separate blocks.
+        </li>
+        <li>
+          <strong>+ Add paragraph</strong> button at the bottom of the editor
+          body. Click it to append a fresh empty paragraph block without
+          scrolling or clicking in the body.
+        </li>
+        <li>
+          <strong>The <em>Strip</em> button</strong> in the toolbar toggles the
+          attachments strip (Images and Files tabs) on and off. Click it again
+          to bring the strip back. It hides both tabs at once.
         </li>
         <li>
           <strong>Drag a thumbnail back into the editor</strong> to insert the
           same image a second time. The file isn&apos;t duplicated, only the
           reference is.
-        </li>
-        <li>
-          <strong>There&apos;s no global undo / redo</strong>. The editor
-          relies on the textarea&apos;s native undo (<Kbd>Cmd</Kbd>+<Kbd>Z</Kbd>{" "}
-          inside a textarea) but actions that happen outside the textarea
-          (like dropping an image) don&apos;t go on the undo stack. If you
-          delete a block by accident, paste it back from your last copy or
-          fish the image out of the trash on disk.
         </li>
       </ul>
     </WikiPage>
