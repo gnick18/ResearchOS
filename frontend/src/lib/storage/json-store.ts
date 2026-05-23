@@ -78,6 +78,19 @@ async function nextId(entity: string, publicStore: boolean = false): Promise<num
   return current;
 }
 
+// Like `nextId`, but reads/writes counters from a specific user's directory
+// instead of the current user's. Used by Lab Head Phase 5 R1 owner-routed
+// creates so a PI editing another member's notes/purchases bumps that
+// member's counter (not the PI's). Bypasses the current-user cache entirely.
+async function nextIdForUser(entity: string, username: string): Promise<number> {
+  const path = `users/${username}/_counters.json`;
+  const counters = (await fileService.readJson<Counters>(path)) ?? {};
+  const current = (counters[entity] || 0) + 1;
+  counters[entity] = current;
+  await fileService.writeJson(path, counters);
+  return current;
+}
+
 async function nextGlobalId(entity: string): Promise<number> {
   const counters = await readGlobalCounters();
   const current = (counters[entity] || 0) + 1;
@@ -223,6 +236,33 @@ export class JsonStore<T extends { id: number }> {
   async deleteForUser(id: number, username: string): Promise<boolean> {
     const basePath = `users/${username}`;
     return await fileService.deleteFile(this.getFilePath(id, basePath));
+  }
+
+  // Owner-routed create. Bumps the TARGET user's counter (not the current
+  // viewer's) so the new id doesn't collide with the viewer's own records.
+  // Lab Head Phase 5 R1: PI editing a member's notes/purchases needs the
+  // new file to land in `users/<member>/<entity>/<id>.json` with a member-
+  // scoped id. `public` and `lab` store types reject this call — those use
+  // global/lab counters, and a "create for user" semantic doesn't apply.
+  async createForUser(data: Omit<T, "id">, username: string): Promise<T> {
+    if (this.storeType !== "user") {
+      throw new Error(
+        `createForUser is only valid on user-scoped stores (got ${this.storeType} for ${this.entityName})`,
+      );
+    }
+    if (PUBLIC_ENTITIES.has(this.entityName)) {
+      throw new Error(
+        `createForUser is not valid for entity '${this.entityName}' — it uses global counters`,
+      );
+    }
+    const basePath = `users/${username}`;
+    await fileService.ensureDir(`${basePath}/${this.entityName}`);
+    const newId = await nextIdForUser(this.entityName, username);
+    const record = { ...data, id: newId } as T;
+    const filePath = this.getFilePath(newId, basePath);
+    this.traceProjectWrite("createForUser", filePath, record);
+    await fileService.writeJson(filePath, record);
+    return record;
   }
 
   async create(data: Omit<T, "id">): Promise<T> {

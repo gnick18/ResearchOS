@@ -2827,9 +2827,13 @@ export const purchasesApi = {
     return [...ownDecorated, ...shared];
   },
 
-  create: async (data: PurchaseItemCreate): Promise<PurchaseItem> => {
+  // `owner` routes the write into the target user's purchase_items directory
+  // instead of the current viewer's. Used by Lab Head Phase 5 R1 PI edit
+  // sessions so cross-owner creates land in the target member's folder with
+  // a target-scoped id (bumps the member's _counters.json, not the PI's).
+  create: async (data: PurchaseItemCreate, owner?: string): Promise<PurchaseItem> => {
     const total = (data.price_per_unit ?? 0) * data.quantity + (data.shipping_fees ?? 0);
-    return purchaseItemsStore.create({
+    const payload = {
       ...data,
       link: data.link ?? null,
       cas: data.cas ?? null,
@@ -2840,23 +2844,39 @@ export const purchasesApi = {
       funding_string: data.funding_string ?? null,
       vendor: data.vendor ?? null,
       category: data.category ?? null,
-    });
+    };
+    return owner
+      ? purchaseItemsStore.createForUser(payload, owner)
+      : purchaseItemsStore.create(payload);
   },
-  
-  update: async (id: number, data: PurchaseItemUpdate): Promise<PurchaseItem | null> => {
-    const existing = await purchaseItemsStore.get(id);
+
+  update: async (
+    id: number,
+    data: PurchaseItemUpdate,
+    owner?: string,
+  ): Promise<PurchaseItem | null> => {
+    const existing = owner
+      ? await purchaseItemsStore.getForUser(id, owner)
+      : await purchaseItemsStore.get(id);
     if (!existing) return null;
-    
+
     const pricePerUnit = data.price_per_unit ?? existing.price_per_unit;
     const quantity = data.quantity ?? existing.quantity;
     const shippingFees = data.shipping_fees ?? existing.shipping_fees;
     const total = pricePerUnit * quantity + shippingFees;
-    
-    return purchaseItemsStore.update(id, { ...data, total_price: total });
+
+    const patch = { ...data, total_price: total };
+    return owner
+      ? purchaseItemsStore.updateForUser(id, patch, owner)
+      : purchaseItemsStore.update(id, patch);
   },
-  
-  delete: async (id: number): Promise<void> => {
-    await purchaseItemsStore.delete(id);
+
+  delete: async (id: number, owner?: string): Promise<void> => {
+    if (owner) {
+      await purchaseItemsStore.deleteForUser(id, owner);
+    } else {
+      await purchaseItemsStore.delete(id);
+    }
   },
   
   searchCatalog: async (q: string): Promise<CatalogItem[]> => {
@@ -2970,8 +2990,8 @@ export const notesApi = {
     return notesStore.listAll();
   },
   
-  get: async (id: number): Promise<Note | null> => {
-    return notesStore.get(id);
+  get: async (id: number, owner?: string): Promise<Note | null> => {
+    return owner ? notesStore.getForUser(id, owner) : notesStore.get(id);
   },
   
   create: async (data: { title: string; description?: string; is_running_log?: boolean; is_shared?: boolean; entries?: Array<{ title: string; date: string; content?: string }> }): Promise<Note> => {
@@ -2998,22 +3018,37 @@ export const notesApi = {
     });
   },
   
-  update: async (id: number, data: NoteUpdate): Promise<Note | null> => {
-    const updated = await notesStore.update(id, {
+  // `owner` routes the write into a specific user's notes directory instead
+  // of the current viewer's. Used by Lab Head Phase 5 R1 PI edit sessions so
+  // cross-owner edits land in the target user's folder.
+  update: async (id: number, data: NoteUpdate, owner?: string): Promise<Note | null> => {
+    const patch = {
       ...data,
       updated_at: new Date().toISOString(),
-    });
-    return updated;
+    };
+    return owner
+      ? notesStore.updateForUser(id, patch, owner)
+      : notesStore.update(id, patch);
   },
-  
-  delete: async (id: number): Promise<void> => {
-    await notesStore.delete(id);
+
+  delete: async (id: number, owner?: string): Promise<void> => {
+    if (owner) {
+      await notesStore.deleteForUser(id, owner);
+    } else {
+      await notesStore.delete(id);
+    }
   },
-  
-  addEntry: async (noteId: number, data: { title: string; date: string; content?: string }): Promise<Note | null> => {
-    const note = await notesStore.get(noteId);
+
+  addEntry: async (
+    noteId: number,
+    data: { title: string; date: string; content?: string },
+    owner?: string,
+  ): Promise<Note | null> => {
+    const note = owner
+      ? await notesStore.getForUser(noteId, owner)
+      : await notesStore.get(noteId);
     if (!note) return null;
-    
+
     const now = new Date().toISOString();
     const newEntry: NoteEntry = {
       id: crypto.randomUUID(),
@@ -3023,15 +3058,24 @@ export const notesApi = {
       created_at: now,
       updated_at: now,
     };
-    
+
     const entries = [...(note.entries || []), newEntry];
-    return notesStore.update(noteId, { entries, updated_at: now });
+    return owner
+      ? notesStore.updateForUser(noteId, { entries, updated_at: now }, owner)
+      : notesStore.update(noteId, { entries, updated_at: now });
   },
-  
-  updateEntry: async (noteId: number, entryId: string, data: { title?: string; date?: string; content?: string }): Promise<Note | null> => {
-    const note = await notesStore.get(noteId);
+
+  updateEntry: async (
+    noteId: number,
+    entryId: string,
+    data: { title?: string; date?: string; content?: string },
+    owner?: string,
+  ): Promise<Note | null> => {
+    const note = owner
+      ? await notesStore.getForUser(noteId, owner)
+      : await notesStore.get(noteId);
     if (!note) return null;
-    
+
     const now = new Date().toISOString();
     const entries = (note.entries || []).map((e) => {
       if (e.id === entryId) {
@@ -3039,16 +3083,27 @@ export const notesApi = {
       }
       return e;
     });
-    
-    return notesStore.update(noteId, { entries, updated_at: now });
+
+    return owner
+      ? notesStore.updateForUser(noteId, { entries, updated_at: now }, owner)
+      : notesStore.update(noteId, { entries, updated_at: now });
   },
-  
-  deleteEntry: async (noteId: number, entryId: string): Promise<Note | null> => {
-    const note = await notesStore.get(noteId);
+
+  deleteEntry: async (
+    noteId: number,
+    entryId: string,
+    owner?: string,
+  ): Promise<Note | null> => {
+    const note = owner
+      ? await notesStore.getForUser(noteId, owner)
+      : await notesStore.get(noteId);
     if (!note) return null;
-    
+
     const entries = (note.entries || []).filter((e) => e.id !== entryId);
-    return notesStore.update(noteId, { entries, updated_at: new Date().toISOString() });
+    const patch = { entries, updated_at: new Date().toISOString() };
+    return owner
+      ? notesStore.updateForUser(noteId, patch, owner)
+      : notesStore.update(noteId, patch);
   },
   
   reorderEntries: async (noteId: number, entryIds: string[]): Promise<Note | null> => {

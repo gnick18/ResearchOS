@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { purchasesApi, labApi } from "@/lib/local-api";
+import { labApi } from "@/lib/local-api";
+import { ownerScopedPurchasesApi } from "@/lib/purchases/owner-scoped-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useLabHeadEditGate } from "@/hooks/useLabHeadEditGate";
 import RequestEditButton from "@/components/RequestEditButton";
 import EditSessionBanner from "@/components/EditSessionBanner";
 import AuditTrailNotice from "@/components/AuditTrailNotice";
-import { appendAuditEntries } from "@/lib/lab/pi-audit";
 import Tooltip from "@/components/Tooltip";
 import type { CatalogItem, PurchaseItem, Task } from "@/lib/types";
 
@@ -90,11 +90,36 @@ export default function PurchaseEditor({
   // Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23): gate the
   // prop-passed readOnly behind the PI edit-mode session. When unlocked,
   // writes become available + a banner shows in the editor header.
+  //
+  // Lab Head Phase 5 R1 (lab head Phase 5 R1 manager, 2026-05-23): writes
+  // now route to the OWNER's purchase_items folder via
+  // `ownerScopedPurchasesApi`, not the PI's. Closes the silent-data-
+  // corruption gap Phase 5 deferred. When the session is NOT unlocked
+  // (or any session arg is missing) the wrapper falls through to the raw
+  // purchasesApi — current-user behavior is unchanged for members and
+  // PIs editing their own data.
   const labHeadGate = useLabHeadEditGate({
     readOnly: propReadOnly,
     recordOwner: username ?? null,
   });
   const readOnly = labHeadGate.effectiveReadOnly;
+  const purchasesApi = useMemo(
+    () =>
+      ownerScopedPurchasesApi({
+        targetOwner: labHeadGate.unlocked ? username : undefined,
+        actor: labHeadGate.unlocked ? labHeadGate.activeUser : undefined,
+        sessionId: labHeadGate.unlocked ? labHeadGate.sessionId : undefined,
+      }),
+    [
+      labHeadGate.unlocked,
+      labHeadGate.activeUser,
+      labHeadGate.sessionId,
+      username,
+    ],
+  );
+  // Catalog/funding mutations + autocomplete queries call the raw API
+  // unconditionally — they target the PI's own catalog/funding, never the
+  // owner's. Lab-head purchase edits only touch line items.
   // Writes are blocked when the host marks the editor as read-only (lab
   // mode) OR when the task is shared into the current user. Used to gate
   // buttons, hide the new-row input, and skip the autocomplete query.
@@ -181,7 +206,7 @@ export default function PurchaseEditor({
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [newRow.item_name]);
+  }, [newRow.item_name, purchasesApi]);
 
   // Close suggestions on outside click
   useEffect(() => {
@@ -221,7 +246,7 @@ export default function PurchaseEditor({
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [editingRow.item_name]);
+  }, [editingRow.item_name, purchasesApi]);
 
   const handleSelectSuggestion = useCallback((cat: CatalogItem) => {
     setNewRow((prev) => ({
@@ -270,8 +295,6 @@ export default function PurchaseEditor({
     if (!editingItemId || !editingRow.item_name.trim()) return;
     setSaving(true);
     try {
-      // Lab Head Phase 5: capture pre-edit values for audit diff.
-      const before = items.find((it) => it.id === editingItemId) ?? null;
       const newPayload = {
         item_name: editingRow.item_name.trim(),
         quantity: parseInt(editingRow.quantity) || 1,
@@ -284,38 +307,10 @@ export default function PurchaseEditor({
         vendor: editingRow.vendor.trim() || null,
         category: editingRow.category.trim() || null,
       };
+      // Phase 5 R1: purchasesApi is owner-scoped — write routes to the
+      // owner's purchase_items folder + audit entries emitted automatically
+      // when a PI edit session is unlocked.
       await purchasesApi.update(editingItemId, newPayload);
-
-      // Lab Head Phase 5 — write per-field audit entries when this save
-      // happens during an unlocked PI session on another member's items.
-      if (
-        labHeadGate.unlocked &&
-        labHeadGate.sessionId &&
-        labHeadGate.activeUser &&
-        username &&
-        before
-      ) {
-        const beforeRec = before as unknown as Record<string, unknown>;
-        const auditEntries = Object.entries(newPayload)
-          .filter(([k, v]) => JSON.stringify(v) !== JSON.stringify(beforeRec[k]))
-          .map(([k, v]) => ({
-            session_id: labHeadGate.sessionId as string,
-            actor: labHeadGate.activeUser as string,
-            target_user: username,
-            record_type: "purchase_item",
-            record_id: editingItemId,
-            field_path: k,
-            old_value: beforeRec[k] ?? null,
-            new_value: v,
-          }));
-        if (auditEntries.length > 0) {
-          try {
-            await appendAuditEntries(username, auditEntries);
-          } catch (err) {
-            console.warn("[PurchaseEditor] appendAuditEntries failed", err);
-          }
-        }
-      }
 
       setEditingItemId(null);
       setEditingRow({ ...EMPTY_ROW });
@@ -333,11 +328,7 @@ export default function PurchaseEditor({
     editingRow,
     refetch,
     queryClient,
-    items,
-    labHeadGate.unlocked,
-    labHeadGate.sessionId,
-    labHeadGate.activeUser,
-    username,
+    purchasesApi,
   ]);
 
   const handleFieldChange = useCallback(
@@ -396,7 +387,7 @@ export default function PurchaseEditor({
     } finally {
       setSaving(false);
     }
-  }, [taskId, refetch, queryClient]);
+  }, [taskId, refetch, queryClient, purchasesApi]);
 
   const handleAddRow = useCallback(async () => {
     if (!newRow.item_name.trim() || !newRow.quantity) return;
@@ -463,7 +454,7 @@ export default function PurchaseEditor({
       setOverwriteDialog(null);
       await doAddRow(newRow);
     },
-    [overwriteDialog, newRow, doAddRow]
+    [overwriteDialog, newRow, doAddRow, purchasesApi]
   );
 
   const handleDeleteItem = useCallback(
@@ -476,7 +467,7 @@ export default function PurchaseEditor({
         alert("Failed to delete item");
       }
     },
-    [refetch, queryClient]
+    [refetch, queryClient, purchasesApi]
   );
 
   const taskTotal = items.reduce((sum, i) => sum + (i.total_price ?? 0), 0);
