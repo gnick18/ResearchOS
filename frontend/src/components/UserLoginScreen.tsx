@@ -318,9 +318,18 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       setEditingUser(null);
       setEditValue("");
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { detail?: string } } };
-      const detail = error?.response?.data?.detail;
-      setError(detail || "Failed to rename user. Please try again.");
+      // usersApi.rename throws plain Error objects (collision, validation,
+      // FS-disconnect). Surface `.message` first so the user sees the
+      // friendly "Username 'foo' is already in use" string rather than a
+      // generic "Failed to rename" fallback. The older `response.data.detail`
+      // path is kept as a secondary lookup for the obsolete server-error
+      // shape; harmless when absent.
+      const message =
+        err instanceof Error
+          ? err.message
+          : (err as { response?: { data?: { detail?: string } } })?.response
+              ?.data?.detail;
+      setError(message || "Failed to rename user. Please try again.");
     } finally {
       setRenaming(false);
     }
