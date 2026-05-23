@@ -102,8 +102,14 @@ export default function TaskDetailPopup({
   const isExperiment = initialTask.task_type === "experiment";
   const isPurchase = initialTask.task_type === "purchase";
   const isSimpleTask = initialTask.task_type === "list";
+  // R1 fix-pass (experiments fix-pass R1 manager, 2026-05-23):
+  // Default to "notes" for experiments — users open an experiment to
+  // write lab notes, not to admin metadata. Purchases still default to
+  // the items tab (their primary action), list tasks still default to
+  // details (sub-tasks live in the Details tab). `initialTab` callers
+  // (tours, deep-links) still win.
   const [activeTab, setActiveTab] = useState<Tab>(
-    initialTab ?? (isPurchase ? "purchases" : "details")
+    initialTab ?? (isPurchase ? "purchases" : isExperiment ? "notes" : "details")
   );
   // Tracks which markdown-editor tab the user last viewed. Drops on
   // non-editor surfaces (Details, Methods, the header, anywhere outside the
@@ -133,6 +139,14 @@ export default function TaskDetailPopup({
   const [isExpanded, setIsExpanded] = useState(false);
   const [animationPosition, setAnimationPosition] = useState<{ x: number; y: number } | null>(null);
   const [showSharePopup, setShowSharePopup] = useState(false);
+  // R1 fix-pass: pending-enter-edit handshake between the header Edit
+  // button and DetailsTab. The header click sets this flag (after
+  // selectTab("details") if needed); DetailsTab consumes it on mount /
+  // when it flips true and calls handleEnterEdit, then clears it. Lets
+  // the tour script click Edit immediately on popup open even when the
+  // popup defaults to Notes for experiments — the tab swap happens
+  // first then the pending flag fires the edit-mode transition.
+  const [pendingEnterEdit, setPendingEnterEdit] = useState(false);
   const { currentUser } = useCurrentUser();
 
   // Owner-aware view of tasksApi: when this popup is showing a task that was
@@ -735,20 +749,19 @@ export default function TaskDetailPopup({
         )}
 
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-gray-100">
-          <div className="flex items-start gap-3 min-w-0 flex-1">
-            <div
-              className={`mt-1.5 w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                isExperiment
-                  ? "bg-purple-500 ring-4 ring-purple-100"
-                  : isPurchase
-                  ? "bg-emerald-500 ring-4 ring-emerald-100"
-                  : "bg-blue-500 ring-4 ring-blue-100"
-              }`}
-            />
+        {/* R1 fix-pass (experiments fix-pass R1 manager, 2026-05-23):
+            Removed the ringed-colored-dot type indicator. The dot, the
+            colored type pill, and the underlying color all triggered
+            on `task_type`; three signals saying the same thing read
+            as visual noise. The pill stays (accessible label) and the
+            top accent strip carries the color tone. Added flex-wrap
+            so the action rail wraps below the title at narrow viewports
+            instead of jamming together. */}
+        <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-gray-100 flex-wrap">
+          <div className="flex items-start min-w-0 flex-1">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-lg font-semibold text-gray-900 leading-tight">
+                <h3 className="text-lg font-semibold text-gray-900 leading-tight truncate max-w-[60ch]">
                   {task.name}
                 </h3>
                 <span
@@ -884,7 +897,10 @@ export default function TaskDetailPopup({
               )}
             </div>
           </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
+          {/* R1 fix-pass: drop flex-shrink-0 + add flex-wrap so the rail
+              wraps onto a second line at narrow viewports (≤~600px)
+              instead of jamming against the title block. */}
+          <div className="flex items-center gap-1 flex-wrap justify-end">
             {/* Lab Head Phase 5: Request edit button. Visible only when
                 this is a PI viewing another member's record + no session
                 is currently unlocked. Clicking opens the password modal. */}
@@ -943,15 +959,30 @@ export default function TaskDetailPopup({
                       alert("Failed to update task");
                     }
                   }}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  className={`group/complete inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                     task.is_complete
                       ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 ring-1 ring-emerald-200"
-                      : "text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 ring-1 ring-gray-200 hover:ring-emerald-200"
+                      : "bg-white text-gray-700 hover:text-emerald-700 hover:bg-emerald-50 ring-1 ring-gray-200 hover:ring-emerald-200"
                   }`}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M20 6L9 17l-5-5" />
-                  </svg>
+                  {/* R1 fix-pass: when complete, swap the check icon for a
+                      subtle reset arrow on hover so the toggle nature is
+                      hinted at without shouting. */}
+                  {task.is_complete ? (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="block group-hover/complete:hidden" aria-hidden>
+                        <path d="M20 6L9 17l-5-5" />
+                      </svg>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="hidden group-hover/complete:block" aria-hidden>
+                        <polyline points="1 4 1 10 7 10" />
+                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                      </svg>
+                    </>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M20 6L9 17l-5-5" />
+                    </svg>
+                  )}
                   {task.is_complete ? "Complete" : "Mark complete"}
                 </button>
               </Tooltip>
@@ -966,6 +997,36 @@ export default function TaskDetailPopup({
             {/* Icon-button rail — compact + neutral so the actions don't
                 steal focus from the title. */}
             <div className="ml-1 flex items-center gap-0.5">
+              {/* R1 fix-pass (experiments fix-pass R1 manager, 2026-05-23):
+                  Lifted the Edit affordance from the Properties card header
+                  into the header action rail so editing dates/duration is
+                  one click from popup-open instead of three. Always
+                  visible (not gated on activeTab) so tour scripts that
+                  click this immediately after mounting the popup still
+                  work; clicking it from Notes/Method/Results swaps to
+                  Details first. Uses a parent-state "pending enter edit"
+                  flag (not a CustomEvent) so DetailsTab consumes the
+                  signal once it mounts after the tab swap. Preserves the
+                  `task-popup-edit-button` tour target. */}
+              {!readOnly && (
+                <Tooltip label="Edit properties" placement="bottom">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (activeTab !== "details") selectTab("details");
+                      setPendingEnterEdit(true);
+                    }}
+                    data-tour-target="task-popup-edit-button"
+                    className="text-gray-400 hover:text-blue-600 hover:bg-blue-50 p-1.5 rounded-lg transition-colors"
+                    aria-label="Edit properties"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M12 20h9" />
+                      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                    </svg>
+                  </button>
+                </Tooltip>
+              )}
               {isExperiment && <TaskExportButton task={task} />}
               {!readOnly && !task.is_shared_with_me && (
                 <Tooltip label="Share task" placement="bottom">
@@ -1090,14 +1151,24 @@ export default function TaskDetailPopup({
 
         {/* R1b: sharing chips — read-only visibility hint row right
             below the header so viewers can see at a glance who else is
-            on this task without opening the share dialog. */}
-        <div className="px-6 pt-2">
-          <SharingChips
-            sharedWith={task.shared_with || []}
-            ownerUsername={task.owner}
-            viewerUsername={currentUser ?? undefined}
-          />
-        </div>
+            on this task without opening the share dialog.
+            R1 fix-pass (experiments fix-pass R1 manager, 2026-05-23):
+            Hide the chips row entirely when there's nothing to share
+            (no co-collaborators, not a shared-with-me task). The empty
+            state was "you (owner) private" which added a row of header
+            chrome with zero signal. Tour mount still happens via
+            SharingChips' internal data-tour-target when the row IS
+            visible. */}
+        {((task.shared_with?.length ?? 0) > 0 || task.is_shared_with_me) && (
+          <div className="px-6 pt-2">
+            <SharingChips
+              sharedWith={task.shared_with || []}
+              ownerUsername={task.owner}
+              viewerUsername={currentUser ?? undefined}
+              hideWhenEmpty
+            />
+          </div>
+        )}
 
         {/* Tabs — clean underline pattern with a quiet hover state. The old
             tabs sat on a gray strip with the active tab back on white,
@@ -1135,10 +1206,15 @@ export default function TaskDetailPopup({
                 {tab === "notes" && "Lab Notes"}
                 {tab === "method" && "Method"}
                 {tab === "results" && "Results"}
-                {tab === "purchases" && "Items"}
+                {tab === "purchases" && "Order items"}
+                {/* R1 fix-pass: bumped from h-0.5 to h-1 and switched to
+                    rounded-t-full so the active-tab indicator reads as an
+                    intentional underline cap instead of a thin Material
+                    rule. Stays subtle (no fill, no chrome change) but
+                    visually punchier when scanning tabs. */}
                 <span
                   aria-hidden
-                  className={`absolute left-2 right-2 -bottom-px h-0.5 rounded-full transition-colors ${
+                  className={`absolute left-2 right-2 -bottom-px h-1 rounded-t-full transition-colors ${
                     isActive ? "bg-blue-500" : "bg-transparent"
                   }`}
                 />
@@ -1150,7 +1226,16 @@ export default function TaskDetailPopup({
         {/* Tab content */}
         <div className="flex-1 overflow-y-auto">
           {activeTab === "details" && (
-            <DetailsTab task={task} project={project} onClose={onClose} onAnimationTrigger={(pos) => setAnimationPosition(pos)} onNavigateToTask={onNavigateToTask} readOnly={readOnly} />
+            <DetailsTab
+              task={task}
+              project={project}
+              onClose={onClose}
+              onAnimationTrigger={(pos) => setAnimationPosition(pos)}
+              onNavigateToTask={onNavigateToTask}
+              readOnly={readOnly}
+              pendingEnterEdit={pendingEnterEdit}
+              onConsumePendingEnterEdit={() => setPendingEnterEdit(false)}
+            />
           )}
           {activeTab === "notes" && <LabNotesTab task={task} readOnly={readOnly} ownerUsername={username} />}
           {activeTab === "method" && (
@@ -1474,21 +1559,9 @@ function PropertyGrid({
             {task.duration_days} day{task.duration_days !== 1 ? "s" : ""}
           </dd>
         </div>
-        <div>
-          <dt className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Status</dt>
-          <dd className="text-sm mt-1">
-            <span
-              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium ${
-                task.is_complete
-                  ? "bg-emerald-50 text-emerald-700"
-                  : "bg-blue-50 text-blue-700"
-              }`}
-            >
-              <span aria-hidden className={`w-1.5 h-1.5 rounded-full ${task.is_complete ? "bg-emerald-500" : "bg-blue-500"}`} />
-              {task.is_complete ? "Complete" : "In progress"}
-            </span>
-          </dd>
-        </div>
+        {/* R1 fix-pass: Status pill now lives in the Properties card header
+            row alongside the title — keeping it here as a labeled dl row
+            would be a duplicate signal. */}
       </dl>
       {task.weekend_override && (
         <div className="flex items-start gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
@@ -1541,6 +1614,8 @@ function DetailsTab({
   onAnimationTrigger,
   onNavigateToTask,
   readOnly = false,
+  pendingEnterEdit = false,
+  onConsumePendingEnterEdit,
 }: {
   task: Task;
   project?: Project;
@@ -1548,6 +1623,13 @@ function DetailsTab({
   onAnimationTrigger?: (pos: { x: number; y: number }) => void;
   onNavigateToTask?: (task: Task) => void;
   readOnly?: boolean;
+  /** R1 fix-pass: when the parent header's Edit button is clicked, this
+      flips true. DetailsTab enters edit mode and calls the consumer to
+      clear the flag. Lets the popup header's Edit affordance work even
+      when activeTab !== 'details' at click time (tab swap + edit-mode
+      transition both happen via this handshake). */
+  pendingEnterEdit?: boolean;
+  onConsumePendingEnterEdit?: () => void;
 }) {
   const queryClient = useQueryClient();
   const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
@@ -1664,6 +1746,18 @@ function DetailsTab({
     setWeekendOverride(task.weekend_override);
     setEditing(true);
   }, [task, initialProjectKey]);
+
+  // R1 fix-pass (experiments fix-pass R1 manager, 2026-05-23):
+  // Consume the pending-enter-edit handshake from the popup header's
+  // Edit button. Runs on every render — when the flag is true and
+  // we're not already editing, enter edit mode and clear the flag.
+  // The parent handles the tab swap separately (selectTab("details"))
+  // so by the time DetailsTab mounts this effect fires immediately.
+  useEffect(() => {
+    if (!pendingEnterEdit || editing) return;
+    handleEnterEdit();
+    onConsumePendingEnterEdit?.();
+  }, [pendingEnterEdit, editing, handleEnterEdit, onConsumePendingEnterEdit]);
 
   // Cancel: restore baseline values then leave edit mode. Without resetting
   // the in-memory form state, re-entering edit would resurrect dirty edits.
@@ -2376,8 +2470,11 @@ function DetailsTab({
           {subTasks.length > 0 && (
             <div className="mb-3">
               <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-orange-500 to-yellow-400 transition-all duration-300"
+                {/* R1 fix-pass: orange→yellow gradient leaked the legacy
+                    sub-task palette into the new blue-centric chrome. Flat
+                    blue matches the rest of the popup. */}
+                <div
+                  className="h-full bg-blue-600 transition-all duration-300"
                   style={{ width: `${(subTasks.filter(st => st.is_complete).length / subTasks.length) * 100}%` }}
                 />
               </div>
@@ -2406,8 +2503,8 @@ function DetailsTab({
                     data-tour-target={idx === 0 ? "workbench-list-item-checkbox" : undefined}
                     className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
                       st.is_complete
-                        ? "bg-gradient-to-br from-orange-500 to-yellow-400 border-orange-400"
-                        : "border-gray-300 hover:border-orange-400"
+                        ? "bg-blue-600 border-blue-600"
+                        : "border-gray-300 hover:border-blue-400"
                     }`}
                   >
                     {st.is_complete && (
@@ -2441,12 +2538,12 @@ function DetailsTab({
               onKeyDown={(e) => e.key === "Enter" && handleAddSubTask()}
               placeholder="Add a sub-task..."
               data-tour-target="workbench-list-add-item-input"
-              className="flex-1 px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent"
+              className="flex-1 px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             <button
               onClick={handleAddSubTask}
               disabled={!newSubTaskText.trim() || saving}
-              className="px-3 py-1.5 text-sm bg-gradient-to-r from-orange-500 to-yellow-400 text-white rounded-lg hover:from-orange-600 hover:to-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Add
             </button>
@@ -2554,10 +2651,16 @@ function DetailsTab({
                       return (
                         <div key={chainTask.id} className="relative">
                           {/* Task node */}
+                          {/* R1 fix-pass: softened the current-task node from
+                              solid-fill blue with offset ring to a tinted
+                              callout matching the calmer status-pill pattern
+                              elsewhere in the popup. Loud "you are here"
+                              styling was competing visually with the
+                              actionable nodes around it. */}
                           <div
                             className={`relative px-4 py-2 rounded-lg text-sm transition-all ${
                               isCurrentTask
-                                ? "bg-blue-500 text-white font-medium shadow-md ring-2 ring-blue-300 ring-offset-1"
+                                ? "bg-blue-50 text-blue-700 font-medium ring-1 ring-blue-200"
                                 : "bg-white text-gray-700 border border-gray-200 hover:border-blue-400 hover:shadow-md cursor-pointer hover:bg-blue-50"
                             }`}
                             onClick={() => {
@@ -2568,7 +2671,7 @@ function DetailsTab({
                             title={!isCurrentTask ? `Click to view: ${chainTask.name}` : undefined}
                           >
                             <span className="flex items-center gap-2">
-                              <span className={`w-2 h-2 rounded-full ${isCurrentTask ? "bg-white" : "bg-gray-400"}`} />
+                              <span className={`w-2 h-2 rounded-full ${isCurrentTask ? "bg-blue-500" : "bg-gray-400"}`} />
                               <span className="max-w-[200px] truncate">{chainTask.name}</span>
                               {isCurrentTask && (
                                 <span className="text-xs opacity-75">(this task)</span>
@@ -2619,14 +2722,34 @@ function DetailsTab({
           not a layout swap (the old "Edit / Exit edit mode" pattern flipped
           the whole layout out from under the user). */}
       <section className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        {/* R1 fix-pass (experiments fix-pass R1 manager, 2026-05-23):
+            Dropped the "Name, project, schedule, and other fields" subtitle
+            — "Properties" already says that. Surface the completion-status
+            pill in the same row so the read-only header carries actual
+            signal instead of filler. Edit affordance lifted to the popup
+            header rail (Edit pencil there now); Cancel/Save still live
+            here because they're scoped to the in-card form state. */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-          <div>
+          <div className="flex items-center gap-3">
             <h4 className="text-base font-semibold text-gray-900">Properties</h4>
-            <p className="text-xs text-gray-500 mt-0.5">
-              {editing
-                ? "Editing — Save when done"
-                : "Name, project, schedule, and other fields"}
-            </p>
+            {!editing && (
+              <span
+                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium ${
+                  task.is_complete
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-blue-50 text-blue-700"
+                }`}
+              >
+                <span
+                  aria-hidden
+                  className={`w-1.5 h-1.5 rounded-full ${task.is_complete ? "bg-emerald-500" : "bg-blue-500"}`}
+                />
+                {task.is_complete ? "Complete" : "In progress"}
+              </span>
+            )}
+            {editing && (
+              <span className="text-xs text-gray-500">Editing — Save when done</span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {hasUnsavedChanges && (
@@ -2634,19 +2757,6 @@ function DetailsTab({
                 <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                 Unsaved
               </span>
-            )}
-            {!readOnly && !editing && (
-              <button
-                onClick={handleEnterEdit}
-                data-tour-target="task-popup-edit-button"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 20h9" />
-                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-                </svg>
-                Edit
-              </button>
             )}
             {editing && (
               <>
@@ -2755,7 +2865,7 @@ function DetailsTab({
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
                 {dependentTasks.length > 0 && startDate !== task.start_date && (
-                  <p className="text-xs text-orange-500 mt-1">
+                  <p className="text-xs text-amber-600 mt-1">
                     ⚠️ Will shift {dependentTasks.length} dependent task(s)
                   </p>
                 )}
@@ -2871,22 +2981,27 @@ function DetailsTab({
                       <option value="SF">Finish before (parent starts)</option>
                     </select>
                     
-                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                      <p className="text-xs text-orange-700">
+                    {/* R1 fix-pass: re-skinned to the new tinted-callout
+                        family (matches the weekend-override amber card +
+                        Duplicate/Convert/Shift callouts) instead of the
+                        legacy orange. Same amber semantic = "heads-up,
+                        confirm before applying". */}
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                      <p className="text-xs text-amber-800">
                         <strong>New Start Date:</strong> {suggestedNewStartDate}
                       </p>
-                      <p className="text-xs text-orange-600 mt-1">
+                      <p className="text-xs text-amber-700 mt-1">
                         {newDepType === "FS" && `Will start after "${selectedNewParent?.name}" ends`}
                         {newDepType === "SS" && `Will start at same time as "${selectedNewParent?.name}"`}
                         {newDepType === "SF" && `Will finish when "${selectedNewParent?.name}" starts`}
                       </p>
                     </div>
-                    
+
                     <button
                       type="button"
                       onClick={handleAddDependency}
                       disabled={saving}
-                      className="px-3 py-1.5 text-xs text-white bg-orange-600 hover:bg-orange-700 rounded-lg disabled:opacity-50"
+                      className="px-3 py-1.5 text-xs text-white bg-amber-600 hover:bg-amber-700 rounded-lg disabled:opacity-50"
                     >
                       {saving ? "Adding..." : "Add Dependency"}
                     </button>
@@ -2968,22 +3083,31 @@ function DetailsTab({
             </svg>
             Convert type
           </button>
-          <button
-            disabled={task.is_shared_with_me}
-            onClick={handleDelete}
-            data-tour-target="task-popup-delete-button"
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-              task.is_shared_with_me
-                ? "text-gray-300 cursor-not-allowed"
-                : "text-gray-600 hover:text-rose-700 hover:bg-rose-50"
-            }`}
-            title={task.is_shared_with_me ? `Only the owner (${task.owner}) can delete this task` : undefined}
+          {/* R1 fix-pass: wrap the footer Delete button with the Tooltip
+              component instead of the native `title=` attribute, which is
+              functionally invisible per the project's tooltip rule (see
+              memory: "Use the Tooltip component, not title="). The header
+              Delete (line ~1041) already does this correctly. */}
+          <Tooltip
+            label={task.is_shared_with_me ? `Only the owner (${task.owner}) can delete this task` : "Delete this task"}
+            placement="top"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-            </svg>
-            Delete task
-          </button>
+            <button
+              disabled={task.is_shared_with_me}
+              onClick={handleDelete}
+              data-tour-target="task-popup-delete-button"
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                task.is_shared_with_me
+                  ? "text-gray-300 cursor-not-allowed"
+                  : "text-gray-600 hover:text-rose-700 hover:bg-rose-50"
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              </svg>
+              Delete task
+            </button>
+          </Tooltip>
         </div>
       )}
 
@@ -4364,8 +4488,15 @@ function PdfAttachmentsPanel({
                 </ReactMarkdown>
               </div>
             ) : (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-sm text-gray-400 animate-pulse">Loading...</p>
+              // R1 fix-pass: replaced plain "Loading..." text with the
+              // skeleton-block pattern used elsewhere (matches lab-notes
+              // editor loading state) so all loading surfaces speak the
+              // same visual language.
+              <div className="p-6 space-y-2 animate-pulse" aria-busy="true">
+                <div className="h-3 w-1/3 bg-gray-200 rounded" />
+                <div className="h-3 w-full bg-gray-200 rounded" />
+                <div className="h-3 w-5/6 bg-gray-200 rounded" />
+                <div className="h-3 w-4/5 bg-gray-100 rounded" />
               </div>
             )
           ) : (
@@ -4376,8 +4507,14 @@ function PdfAttachmentsPanel({
                 title={activeFile.name}
               />
             ) : (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-sm text-gray-400 animate-pulse">Loading...</p>
+              // R1 fix-pass: same skeleton swap for the non-markdown file
+              // preview. PDF/image previews use the iframe shell so a few
+              // skeleton bars stand in for the rendered content.
+              <div className="p-6 space-y-2 animate-pulse" aria-busy="true">
+                <div className="h-3 w-1/3 bg-gray-200 rounded" />
+                <div className="h-3 w-full bg-gray-200 rounded" />
+                <div className="h-3 w-5/6 bg-gray-200 rounded" />
+                <div className="h-3 w-4/5 bg-gray-100 rounded" />
               </div>
             )
           )}
