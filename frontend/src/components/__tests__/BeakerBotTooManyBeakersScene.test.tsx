@@ -231,6 +231,37 @@ describe("BeakerBotTooManyBeakersScene", () => {
     expect(rightStyle).toContain("+ 8vw");
   });
 
+  it("renders crying tears during the rollOff (crying walk-off) stage", () => {
+    // The ending was reworked: instead of tumbling off-screen with a
+    // weird elastic bounce, BeakerBot stands up, starts crying, and
+    // slowly walks off to the side. Regressing the tears would silently
+    // bring back the bounce-off (or render an emotion-less walk).
+    const onComplete = vi.fn();
+    render(<BeakerBotTooManyBeakersScene active onComplete={onComplete} />);
+
+    const upToRollOff =
+      STAGE_DURATIONS.entry +
+      STAGE_DURATIONS.firstStumble +
+      STAGE_DURATIONS.catchRebalance +
+      STAGE_DURATIONS.phew +
+      STAGE_DURATIONS.walkingAway +
+      STAGE_DURATIONS.secondStumble +
+      STAGE_DURATIONS.dropFall;
+    act(() => {
+      vi.advanceTimersByTime(upToRollOff);
+    });
+
+    const scene = screen.getByTestId("beakerbot-too-many-beakers-scene");
+    expect(scene.getAttribute("data-stage")).toBe("rollOff");
+    expect(screen.getByTestId("beakerbot-tears")).toBeTruthy();
+
+    // The body wrapper should have the sad-sway class (gentle walking
+    // gait) and target opacity 0 (fade-out toward the exit edge).
+    const body = screen.getByTestId("beakerbot-body");
+    expect(body.className).toContain("beakerbot-sad-sway");
+    expect(body.getAttribute("style") ?? "").toContain("opacity: 0");
+  });
+
   it("cleans up pending timers when unmounted mid-sequence", () => {
     const onComplete = vi.fn();
     const { unmount } = render(

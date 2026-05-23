@@ -10,24 +10,30 @@ import BeakerBot from "./BeakerBot";
  * almost drops them, then catches them at the last second with a "phew!"
  * speech bubble. He walks away looking relieved, then trips a SECOND time
  * — this one's the real failure. All beakers drop and shatter on the
- * floor, and BeakerBot tumbles + rolls off-screen.
+ * floor. BeakerBot stands there, tears welling up, and slowly walks
+ * off-screen looking dejected.
  *
  * The double-trip is the comedy beat: first stumble is a fake-out save,
- * second stumble is the actual punchline. Spec locked from Grant's
- * voice-to-text brief (carries-too-many-beakers chip).
+ * second stumble is the actual punchline. The crying walk-off is the
+ * sad-but-funny tag (Grant's note: bouncing off looked weird, the slow
+ * cry-walk lands better and reads funnier).
  *
  * Stage timeline (defaults total ≈ 7.1s):
- *   1. Entry            — 800ms — walks in from off-screen, stack bobs
- *   2. First stumble    — 200ms — foot catches, stack tilts ~25°
- *   3. Catch + rebalance— 400ms — stack returns vertical, body rebounds
- *   4. Phew speech bub  — 900ms — "phew!" bubble, body still
- *   5. Walking away     — 1200ms — proud strut, slight wobble
- *   6. Second stumble   — 400ms — bigger jolt, stack tilts ~55°
- *   7. Drop + fall      — 700ms — 4 beakers fall on independent
- *                                  trajectories with rotation, then
- *                                  shatter-puff on floor
- *   8. Roll off-screen  — 1500ms — BeakerBot tumbles, continuous 720°
- *                                  rotation + translateX exit
+ *   1. Entry             — 800ms  — walks in from off-screen, stack bobs
+ *   2. First stumble     — 200ms  — foot catches, stack tilts ~25°
+ *   3. Catch + rebalance — 400ms  — stack returns vertical, body rebounds
+ *   4. Phew speech bub   — 900ms  — "phew!" bubble, body still
+ *   5. Walking away      — 1200ms — proud strut, slight wobble
+ *   6. Second stumble    — 400ms  — bigger jolt, stack tilts ~55°
+ *   7. Drop + fall       — 700ms  — 4 beakers fall on independent
+ *                                   trajectories with rotation, then
+ *                                   shatter-puff on floor
+ *   8. Crying walk-off   — 1500ms — tear drops fall from BeakerBot's
+ *                                   eye on a ~800ms loop, body sways
+ *                                   ±3px every ~400ms (walking gait),
+ *                                   translates horizontally toward
+ *                                   the exit edge at ~60px/sec, fades
+ *                                   opacity → 0 over the final 30%
  *
  * Mounted via React portal at `document.body`, position fixed,
  * z-index 800 (above app shell, below modals at 1000+).
@@ -35,8 +41,9 @@ import BeakerBot from "./BeakerBot";
  * Reduced-motion fallback: per `prefers-reduced-motion: reduce`,
  * skips the full slapstick sequence and renders a static aftermath
  * shot (BeakerBot standing dejected with 4 scattered/tipped beakers
- * on the ground) for 2s, then fires onComplete. The joke still lands
- * — viewer sees the outcome without the motion.
+ * on the ground, single static tear on his cheek) for 2s, then fires
+ * onComplete. The joke still lands — viewer sees the outcome without
+ * the motion.
  *
  * Component-only — no trigger logic. Parent decides when to mount
  * (e.g. random easter-egg roll, dev button, achievement unlock).
@@ -266,7 +273,10 @@ export default function BeakerBotTooManyBeakersScene({
   const offscreenStartVw = -25 * sideSign;
   const centerLeftVw = -8 * sideSign; // settled near center-left during phew
   const centerRightVw = 8 * sideSign; // walked past center after recovery
-  const offscreenExitVw = 60 * sideSign; // rolled out the opposite side
+  // Crying walk-off: exits the SAME side he came in from (he's
+  // retreating dejectedly, not pushing onward). Just past the viewport
+  // edge so he fades fully out of view by the end of the stage.
+  const cryingExitVw = -55 * sideSign;
 
   let bodyTranslateXVw: number;
   let bodyRotateDeg = 0;
@@ -276,6 +286,9 @@ export default function BeakerBotTooManyBeakersScene({
   let beakersFalling = false;
   let showPhewBubble = false;
   let bodyTilted = false; // small forward lean during stumble
+  let showTears = false; // crying overlay (tear-drop SVG)
+  let bodyOpacity = 1; // fade during crying walk-off
+  let bodySwayClass: string | null = null; // CSS sway animation during walk-off
 
   switch (stage) {
     case "entry":
@@ -321,17 +334,27 @@ export default function BeakerBotTooManyBeakersScene({
       bodyRotateDeg = 25 * sideSign;
       break;
     case "rollOff":
-      bodyTranslateXVw = offscreenExitVw;
-      // continuous 720° rotation handled by CSS animation below
-      bodyRotateDeg = 720 * sideSign;
-      beakersFalling = true;
+      // Crying walk-off: BeakerBot stands upright (no roll/tumble),
+      // tears stream down, body slowly slides off the side he came in
+      // from with a gentle ±3px sway, and fades out.
+      bodyTranslateXVw = cryingExitVw;
+      bodyRotateDeg = 0;
+      beakersFalling = true; // keep dropped beakers visible on the floor
+      showTears = true;
+      bodyOpacity = 0; // tweened from 1 → 0 over the stage (last 30% does most of the fade via easing)
+      bodySwayClass = "beakerbot-sad-sway";
       break;
     case "done":
     case "idle":
     default:
       // Reduced-motion aftermath: BeakerBot stays at center-right,
-      // looks sad, beakers scattered on floor.
+      // looks sad with a single static tear, beakers scattered on
+      // floor. Non-reduced "done" sits off-screen (animation finished,
+      // about to unmount).
       bodyTranslateXVw = prefersReducedMotion ? centerRightVw : offscreenStartVw;
+      if (prefersReducedMotion && stage === "done") {
+        showTears = true;
+      }
       break;
   }
 
@@ -354,7 +377,12 @@ export default function BeakerBotTooManyBeakersScene({
 
   const transitionStyle =
     stage === "rollOff"
-      ? `transform ${STAGE_DURATIONS.rollOff}ms cubic-bezier(0.4, 0, 0.7, 1)`
+      ? // Crying walk-off: slow linear horizontal slide + opacity
+        // fade weighted to the tail (cubic-bezier 0.7,0,1,1 keeps
+        // BeakerBot near-fully-visible for the first ~70%, then
+        // fades the last 30%, matching the brief). transform tween
+        // is a gentle ease so the slide feels like a walk, not a glide.
+        `transform ${STAGE_DURATIONS.rollOff}ms ease-in, opacity ${STAGE_DURATIONS.rollOff}ms cubic-bezier(0.7, 0, 1, 1)`
       : `transform ${transitionMs}ms ${
           stage === "firstStumble" || stage === "secondStumble"
             ? "cubic-bezier(0.6, 0.2, 0.3, 1.4)"
@@ -380,7 +408,7 @@ export default function BeakerBotTooManyBeakersScene({
           horizontally by stage. transform-origin: center for the
           tumble-roll rotation. */}
       <div
-        className="absolute"
+        className={`absolute ${bodySwayClass ?? ""}`.trim()}
         style={{
           left: "50%",
           bottom: "8vh",
@@ -389,6 +417,7 @@ export default function BeakerBotTooManyBeakersScene({
           transform: `translateX(calc(-50% + ${bodyTranslateXVw}vw)) translateY(${bodyBobPx}px) rotate(${bodyRotateDeg}deg)`,
           transformOrigin: "center center",
           transition: transitionStyle,
+          opacity: bodyOpacity,
         }}
         data-testid="beakerbot-body"
       >
@@ -436,6 +465,53 @@ export default function BeakerBotTooManyBeakersScene({
             className="w-20 h-20 text-sky-500"
             ariaLabel="BeakerBot carrying too many beakers"
           />
+
+          {/* Tears — two staggered drops repeating on an ~800ms loop.
+              Positioned over each eye (BeakerBot's eyes sit roughly at
+              the upper third of the 80x80 wrapper). Only render during
+              the crying walk-off stage. */}
+          {showTears && (
+            <div data-testid="beakerbot-tears" aria-hidden="true">
+              <svg
+                className="absolute"
+                style={{
+                  left: "26px",
+                  top: "30px",
+                  animation: "beakerbot-tear-fall 900ms ease-in 0ms infinite",
+                }}
+                width="6"
+                height="10"
+                viewBox="0 0 6 10"
+                fill="none"
+              >
+                <path
+                  d="M3 0.5 C 3 0.5, 0.6 4.5, 0.6 6.5 A 2.4 2.4 0 0 0 5.4 6.5 C 5.4 4.5, 3 0.5, 3 0.5 Z"
+                  fill="#A6D2F4"
+                  stroke="#6FB5E8"
+                  strokeWidth="0.6"
+                />
+              </svg>
+              <svg
+                className="absolute"
+                style={{
+                  left: "47px",
+                  top: "30px",
+                  animation: "beakerbot-tear-fall 900ms ease-in 350ms infinite",
+                }}
+                width="6"
+                height="10"
+                viewBox="0 0 6 10"
+                fill="none"
+              >
+                <path
+                  d="M3 0.5 C 3 0.5, 0.6 4.5, 0.6 6.5 A 2.4 2.4 0 0 0 5.4 6.5 C 5.4 4.5, 3 0.5, 3 0.5 Z"
+                  fill="#A6D2F4"
+                  stroke="#6FB5E8"
+                  strokeWidth="0.6"
+                />
+              </svg>
+            </div>
+          )}
         </div>
 
         {/* "Phew!" speech bubble — same look-and-feel as the
@@ -579,6 +655,39 @@ export default function BeakerBotTooManyBeakersScene({
               rotate(var(--bb-fall-rot, 360deg)) scale(0.6);
             opacity: 0;
           }
+        }
+        /* Tear drop — wells up at the eye, slides down + slightly out,
+           shrinks + fades at the cheek. Loops with stagger via animation
+           delay on the second drop. */
+        @keyframes beakerbot-tear-fall {
+          0% {
+            transform: translate(0, 0) scale(0.6);
+            opacity: 0;
+          }
+          15% {
+            transform: translate(0, 0) scale(1);
+            opacity: 0.95;
+          }
+          80% {
+            transform: translate(1px, 18px) scale(1);
+            opacity: 0.95;
+          }
+          100% {
+            transform: translate(2px, 28px) scale(0.5);
+            opacity: 0;
+          }
+        }
+        /* Walking-gait sway during the crying walk-off — small ±3px
+           horizontal oscillation layered on top of the wrapper's
+           translateX transition. Period ~400ms. Implemented as a
+           margin-left oscillation so it stacks with the wrapper's
+           transform (which is already driving the long slide). */
+        .beakerbot-sad-sway {
+          animation: beakerbot-sad-sway 420ms ease-in-out infinite;
+        }
+        @keyframes beakerbot-sad-sway {
+          0%,100% { margin-left: -3px; }
+          50%     { margin-left:  3px; }
         }
       `}</style>
     </div>,
