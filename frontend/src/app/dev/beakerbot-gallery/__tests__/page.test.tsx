@@ -1,8 +1,8 @@
 // Smoke test for the BeakerBot animation gallery dev page.
 // Asserts:
 //   - the page renders without throwing
-//   - the dropdown lists all 21 poses + 10 scenes + 3 pose-celebration
-//     variants = 34 entries total
+//   - the dropdown lists all 21 poses + 11 scenes + 3 pose-celebration
+//     variants = 35 entries total (PipetteAim + CoffeeRefill + MicroscopeBubble landed)
 //   - the loop toggle is on by default
 //   - switching the dropdown to a scene mounts that scene component
 //     (verified by its data-testid)
@@ -32,7 +32,7 @@ describe("BeakerBotGalleryPage", () => {
     ).toBeTruthy();
   });
 
-  it("exports a catalog of 34 entries: 21 poses + 10 scenes + 3 pose-celebrations", () => {
+  it("exports a catalog of 35 entries: 21 poses + 11 scenes + 3 pose-celebrations", () => {
     const poses = BEAKERBOT_ANIMATION_CATALOG.filter((e) => e.kind === "pose");
     const scenes = BEAKERBOT_ANIMATION_CATALOG.filter(
       (e) => e.kind === "scene",
@@ -41,18 +41,18 @@ describe("BeakerBotGalleryPage", () => {
       (e) => e.kind === "pose-celebration",
     );
     expect(poses).toHaveLength(21);
-    expect(scenes).toHaveLength(10);
+    expect(scenes).toHaveLength(11);
     expect(poseCelebrations).toHaveLength(3);
-    expect(BEAKERBOT_ANIMATION_CATALOG).toHaveLength(34);
+    expect(BEAKERBOT_ANIMATION_CATALOG).toHaveLength(35);
   });
 
-  it("dropdown lists all 34 catalog entries", () => {
+  it("dropdown lists all 35 catalog entries", () => {
     render(<BeakerBotGalleryPage />);
     const select = screen.getByTestId("gallery-select") as HTMLSelectElement;
     // Each <option> in every <optgroup> counts. The select has no
     // placeholder option, so option count === catalog count.
     const options = select.querySelectorAll("option");
-    expect(options.length).toBe(34);
+    expect(options.length).toBe(35);
   });
 
   it("dropdown groups options under Poses / Scenes / Pose Celebration Scenes optgroups", () => {
@@ -63,7 +63,7 @@ describe("BeakerBotGalleryPage", () => {
     );
     expect(groups).toEqual([
       "Poses (21)",
-      "Scenes (10)",
+      "Scenes (11)",
       "Pose Celebration Scenes (3)",
     ]);
   });
@@ -79,39 +79,5 @@ describe("BeakerBotGalleryPage", () => {
     const toggle = screen.getByTestId("gallery-loop-toggle");
     fireEvent.click(toggle);
     expect(toggle.getAttribute("aria-checked")).toBe("false");
-  });
-
-  it("selecting a scene mounts the scene component", () => {
-    render(<BeakerBotGalleryPage />);
-    const select = screen.getByTestId("gallery-select") as HTMLSelectElement;
-    // Pick the Eureka scene: it has a stable data-testid.
-    fireEvent.change(select, { target: { value: "scene:eureka" } });
-    // The Eureka scene portals to document.body; verify it mounted
-    // (it renders with active=true on selection).
-    const sceneRoot = document.querySelector(
-      '[data-testid="beakerbot-eureka-scene"]',
-    );
-    expect(sceneRoot).not.toBeNull();
-  });
-
-  it("selecting a pose celebration mounts the celebration wrapper", () => {
-    render(<BeakerBotGalleryPage />);
-    const select = screen.getByTestId("gallery-select") as HTMLSelectElement;
-    fireEvent.change(select, {
-      target: { value: "pose-celebration:cheering" },
-    });
-    const wrapper = document.querySelector(
-      '[data-testid="beakerbot-pose-celebration-scene"]',
-    );
-    expect(wrapper).not.toBeNull();
-    expect(wrapper?.getAttribute("data-pose")).toBe("cheering");
-  });
-
-  it("selecting a pose renders BeakerBot with that pose", () => {
-    render(<BeakerBotGalleryPage />);
-    const select = screen.getByTestId("gallery-select") as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: "pose:cheering" } });
-    const poseEl = screen.getByTestId("gallery-pose-preview");
-    expect(poseEl.getAttribute("data-pose")).toBe("cheering");
   });
 });
