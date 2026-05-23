@@ -87,6 +87,48 @@ const COMMON_LANGUAGES = [
   { code: "plaintext", label: "Plain Text", aliases: ["text", ""] },
 ];
 
+// Detect Mac at module level so shortcut labels render correctly on all platforms.
+const IS_MAC =
+  typeof navigator !== "undefined" &&
+  navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+
+/**
+ * Produce a human-readable shortcut label.
+ * Mac:       "⌘B", "⌘⇧X", "⌘⌃C", "⌃Q"
+ * Win/Linux: "Ctrl+B", "Ctrl+Shift+X", "Ctrl+Alt+C", "Ctrl+Q"
+ */
+function formatShortcutLabel(
+  key: string,
+  opts: {
+    cmd?: boolean;
+    ctrl?: boolean;
+    shift?: boolean;
+    alt?: boolean;
+    requireCmdAndCtrl?: boolean;
+    requireCtrlOnly?: boolean;
+  },
+  isMac: boolean
+): string {
+  const k = key.toUpperCase();
+  if (isMac) {
+    const parts: string[] = [];
+    if (opts.requireCmdAndCtrl) return `⌘⌃${k}`;
+    if (opts.requireCtrlOnly) return `⌃${k}`;
+    if (opts.cmd) parts.push("⌘");
+    if (opts.shift) parts.push("⇧");
+    if (opts.alt) parts.push("⌥");
+    return parts.join("") + k;
+  } else {
+    const parts: string[] = [];
+    if (opts.requireCmdAndCtrl) return `Ctrl+Alt+${k}`;
+    if (opts.requireCtrlOnly) return `Ctrl+${k}`;
+    if (opts.cmd) parts.push("Ctrl");
+    if (opts.shift) parts.push("Shift");
+    if (opts.alt) parts.push("Alt");
+    return parts.join("+") + (parts.length > 0 ? "+" : "") + k;
+  }
+}
+
 // Keyboard shortcuts configuration
 interface ShortcutConfig {
   key: string;
@@ -95,6 +137,7 @@ interface ShortcutConfig {
   altKey: boolean;
   requireCmdAndCtrl?: boolean; // For shortcuts that need both Cmd and Ctrl (e.g., Cmd+Ctrl+C)
   requireCtrlOnly?: boolean; // For shortcuts that need only Ctrl (not Cmd) - e.g., Ctrl+Q
+  /** Platform-aware display label; computed from IS_MAC at module init. */
   label: string;
   prefix: string;
   suffix: string;
@@ -109,7 +152,7 @@ const KEYBOARD_SHORTCUTS: ShortcutConfig[] = [
     ctrlKey: true,
     shiftKey: false,
     altKey: false,
-    label: "⌘B",
+    label: formatShortcutLabel("b", { cmd: true }, IS_MAC),
     prefix: "**",
     suffix: "**",
     cursorOffset: 2,
@@ -120,7 +163,7 @@ const KEYBOARD_SHORTCUTS: ShortcutConfig[] = [
     ctrlKey: true,
     shiftKey: false,
     altKey: false,
-    label: "⌘I",
+    label: formatShortcutLabel("i", { cmd: true }, IS_MAC),
     prefix: "*",
     suffix: "*",
     cursorOffset: 1,
@@ -131,7 +174,7 @@ const KEYBOARD_SHORTCUTS: ShortcutConfig[] = [
     ctrlKey: true,
     shiftKey: false,
     altKey: false,
-    label: "⌘U",
+    label: formatShortcutLabel("u", { cmd: true }, IS_MAC),
     prefix: "<u>",
     suffix: "</u>",
     cursorOffset: 3,
@@ -142,7 +185,7 @@ const KEYBOARD_SHORTCUTS: ShortcutConfig[] = [
     ctrlKey: true,
     shiftKey: false,
     altKey: false,
-    label: "⌘K",
+    label: formatShortcutLabel("k", { cmd: true }, IS_MAC),
     prefix: "[",
     suffix: "](url)",
     cursorOffset: 1,
@@ -153,7 +196,7 @@ const KEYBOARD_SHORTCUTS: ShortcutConfig[] = [
     ctrlKey: true,
     shiftKey: true,
     altKey: false,
-    label: "⌘⇧X",
+    label: formatShortcutLabel("x", { cmd: true, shift: true }, IS_MAC),
     prefix: "~~",
     suffix: "~~",
     cursorOffset: 2,
@@ -165,7 +208,7 @@ const KEYBOARD_SHORTCUTS: ShortcutConfig[] = [
     shiftKey: false,
     altKey: false,
     requireCmdAndCtrl: true,
-    label: "⌘⌃C",
+    label: formatShortcutLabel("c", { requireCmdAndCtrl: true }, IS_MAC),
     prefix: "```\n",
     suffix: "\n```",
     cursorOffset: 4,
@@ -177,7 +220,7 @@ const KEYBOARD_SHORTCUTS: ShortcutConfig[] = [
     ctrlKey: true,
     shiftKey: false,
     altKey: false,
-    label: "⌘1",
+    label: formatShortcutLabel("1", { cmd: true }, IS_MAC),
     prefix: "# ",
     suffix: "",
     cursorOffset: 2,
@@ -189,7 +232,7 @@ const KEYBOARD_SHORTCUTS: ShortcutConfig[] = [
     ctrlKey: true,
     shiftKey: false,
     altKey: false,
-    label: "⌘2",
+    label: formatShortcutLabel("2", { cmd: true }, IS_MAC),
     prefix: "## ",
     suffix: "",
     cursorOffset: 3,
@@ -201,7 +244,7 @@ const KEYBOARD_SHORTCUTS: ShortcutConfig[] = [
     ctrlKey: true,
     shiftKey: false,
     altKey: false,
-    label: "⌘3",
+    label: formatShortcutLabel("3", { cmd: true }, IS_MAC),
     prefix: "### ",
     suffix: "",
     cursorOffset: 4,
@@ -213,7 +256,7 @@ const KEYBOARD_SHORTCUTS: ShortcutConfig[] = [
     ctrlKey: true,
     shiftKey: false,
     altKey: false,
-    label: "⌘4",
+    label: formatShortcutLabel("4", { cmd: true }, IS_MAC),
     prefix: "#### ",
     suffix: "",
     cursorOffset: 5,
@@ -225,7 +268,7 @@ const KEYBOARD_SHORTCUTS: ShortcutConfig[] = [
     ctrlKey: true,
     shiftKey: false,
     altKey: false,
-    label: "⌘5",
+    label: formatShortcutLabel("5", { cmd: true }, IS_MAC),
     prefix: "##### ",
     suffix: "",
     cursorOffset: 6,
@@ -237,7 +280,7 @@ const KEYBOARD_SHORTCUTS: ShortcutConfig[] = [
     ctrlKey: true,
     shiftKey: false,
     altKey: false,
-    label: "⌘6",
+    label: formatShortcutLabel("6", { cmd: true }, IS_MAC),
     prefix: "###### ",
     suffix: "",
     cursorOffset: 7,
@@ -250,7 +293,7 @@ const KEYBOARD_SHORTCUTS: ShortcutConfig[] = [
     shiftKey: false,
     altKey: false,
     requireCtrlOnly: true,
-    label: "⌃Q",
+    label: formatShortcutLabel("q", { requireCtrlOnly: true }, IS_MAC),
     prefix: "> ",
     suffix: "",
     cursorOffset: 2,
@@ -2026,7 +2069,7 @@ export default function HybridMarkdownEditor({
                         Headings 1-6
                       </span>
                       <span className="text-xs font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
-                        ⌘1-6
+                        {IS_MAC ? "⌘1-6" : "Ctrl+1-6"}
                       </span>
                     </div>
                     <div className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group">
@@ -2034,7 +2077,7 @@ export default function HybridMarkdownEditor({
                         Heading Up
                       </span>
                       <span className="text-xs font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
-                        ⌘⌃+
+                        {IS_MAC ? "⌘⌃+" : "Ctrl+Alt++"}
                       </span>
                     </div>
                     <div className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group">
@@ -2042,7 +2085,7 @@ export default function HybridMarkdownEditor({
                         Heading Down
                       </span>
                       <span className="text-xs font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
-                        ⌘⌃-
+                        {IS_MAC ? "⌘⌃-" : "Ctrl+Alt+-"}
                       </span>
                     </div>
                   </div>
@@ -2226,7 +2269,7 @@ export default function HybridMarkdownEditor({
                       Headings 1-6
                     </span>
                     <span className="text-xs font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
-                      ⌘1-6
+                      {IS_MAC ? "⌘1-6" : "Ctrl+1-6"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group">
@@ -2234,7 +2277,7 @@ export default function HybridMarkdownEditor({
                       Heading Up
                     </span>
                     <span className="text-xs font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
-                      ⌘⌃+
+                      {IS_MAC ? "⌘⌃+" : "Ctrl+Alt++"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group">
@@ -2242,7 +2285,7 @@ export default function HybridMarkdownEditor({
                       Heading Down
                     </span>
                     <span className="text-xs font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
-                      ⌘⌃-
+                      {IS_MAC ? "⌘⌃-" : "Ctrl+Alt+-"}
                     </span>
                   </div>
                 </div>

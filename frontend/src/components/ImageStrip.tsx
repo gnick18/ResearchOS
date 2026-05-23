@@ -32,6 +32,8 @@ interface ImageStripProps {
    *  popup. Parent (markdown editor) scrolls the preview to the image. */
   onJumpToImage?: (filename: string) => void;
   className?: string;
+  /** Context label used in empty-state copy. Defaults to "experiment". */
+  recordType?: "experiment" | "note" | "method" | "list" | "purchase";
 }
 
 interface StripEntry {
@@ -77,6 +79,7 @@ export default function ImageStrip({
   basePath,
   onJumpToImage,
   className,
+  recordType = "experiment",
 }: ImageStripProps) {
   const [folderEntries, setFolderEntries] = useState<FolderImageEntry[]>([]);
   const [blobUrls, setBlobUrls] = useState<Map<string, string>>(new Map());
@@ -175,7 +178,7 @@ export default function ImageStrip({
     return (
       <div className={wrapperClass} data-tour-target="hybrid-editor-image-strip">
         <p className="text-xs text-gray-400 italic px-3 py-2 bg-gray-50 border-t border-gray-200">
-          No images linked to this experiment yet. Send one via Telegram or drag a file in.
+          No images linked to this {recordType} yet. Send one via Telegram or drag a file in.
         </p>
       </div>
     );

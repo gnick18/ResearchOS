@@ -452,7 +452,7 @@ export default function TaskDetailPopup({
             <div className="flex items-center gap-2 flex-1 mr-2 min-w-0">
               {/* Completion toggle with hint - hidden in readOnly mode */}
               {!readOnly && !task.is_complete && (
-                <span className="text-[11px] text-gray-400 italic flex-shrink-0">Mark complete →</span>
+                <span className="text-[11px] text-gray-400 italic flex-shrink-0">Mark as complete →</span>
               )}
               {!readOnly && (
                 <Tooltip label={task.is_complete ? "Mark as incomplete" : "Mark as complete"} placement="bottom">
@@ -1915,21 +1915,13 @@ function DetailsTab({
             </select>
           </div>
           
-          <div className="bg-white border border-red-200 rounded-lg p-3 mb-3">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3">
             <p className="text-xs text-gray-700 font-medium mb-2">
               Are you sure you want to proceed? This action cannot be undone.
             </p>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={true}
-                readOnly
-                className="w-4 h-4 text-red-500 border-red-300 rounded"
-              />
-              <span className="text-xs text-red-600 font-medium">
-                Yes, I am OK with losing this data
-              </span>
-            </label>
+            <p className="text-xs text-red-600 font-medium">
+              Proceeding will permanently delete the type-specific data listed above.
+            </p>
           </div>
           
           <div className="flex gap-2">

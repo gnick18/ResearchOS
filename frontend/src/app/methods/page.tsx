@@ -1296,7 +1296,8 @@ function MarkdownMethodViewer({
                         ? "bg-green-50 text-green-600 hover:bg-green-100"
                         : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                     }`}
-                    title="Share method"
+                    title={currentMethod.is_public ? "Unshare method" : "Share method"}
+                    aria-label={currentMethod.is_public ? "Unshare method" : "Share method"}
                   >
                     <span className="flex items-center gap-1">
                       {currentMethod.is_public ? <GlobeIcon /> : <LockIcon />}
@@ -1304,7 +1305,7 @@ function MarkdownMethodViewer({
                     </span>
                   </button>
                 )}
-                {!currentMethod.is_public && (
+                {canModify && (
                   <button
                     onClick={() => setEditing(true)}
                     className="px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200"
@@ -1371,6 +1372,7 @@ function MarkdownMethodViewer({
                 allowAnyFileType={true}
                 imageBasePath={methodDir}
                 showToolbar={true}
+                recordType="method"
               />
               {uploadWarning && (
                 <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">

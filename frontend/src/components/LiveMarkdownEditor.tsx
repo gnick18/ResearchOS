@@ -145,6 +145,9 @@ interface LiveMarkdownEditorProps {
    *  existing surfaces (notes, results, task body) keep their
    *  placeholder-first empty state. */
   autoStartEditing?: boolean;
+  /** Context label for Browse tooltip and strip empty-state copy.
+   *  Defaults to "experiment" for backward compatibility. */
+  recordType?: "experiment" | "note" | "method" | "list" | "purchase";
 }
 
 /**
@@ -168,6 +171,7 @@ export default function LiveMarkdownEditor({
   mode = "hybrid",
   onModeChange,
   autoStartEditing = false,
+  recordType = "experiment",
 }: LiveMarkdownEditorProps) {
   // Internal mode state (used if onModeChange is not provided)
   const [internalMode, setInternalMode] = useState<EditorMode>(mode);
@@ -1450,7 +1454,7 @@ export default function LiveMarkdownEditor({
               onClick={onBrowseImages}
               disabled={disabled}
               className="px-2.5 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
-              title="Browse images already attached to this experiment"
+              title={`Browse images already attached to this ${recordType}`}
             >
               Browse
             </button>
@@ -1807,9 +1811,10 @@ export default function LiveMarkdownEditor({
               content={value}
               basePath={imageBasePath}
               onJumpToImage={handleJumpToImage}
+              recordType={recordType}
             />
           ) : (
-            <FileStrip content={value} basePath={imageBasePath} />
+            <FileStrip content={value} basePath={imageBasePath} recordType={recordType} />
           )}
         </div>
       )}

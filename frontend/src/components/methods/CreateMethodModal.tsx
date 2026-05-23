@@ -80,7 +80,7 @@ export function CreateMethodModal({
    *  Wired up to the `/methods?createMethod=public` deep link. */
   initialIsPublic?: boolean;
   onClose: () => void;
-  /** Fires after a successful save. When the user clicks "Save & extend
+  /** Fires after a successful save. When the user clicks "Create & extend
    *  into kit", the just-created method is wrapped into a freshly-created
    *  compound and the compound is passed back so the caller can open the
    *  CompoundMethodBuilder in edit mode. Plain "Create Method" calls back
@@ -354,7 +354,7 @@ export function CreateMethodModal({
   }, []);
 
   // Per-type save dispatch. Returns the freshly-created Method so callers can
-  // chain follow-up actions (e.g. wrapAsCompound for the "Save & extend"
+  // chain follow-up actions (e.g. wrapAsCompound for the "Create & extend"
   // path). Returns null when the active type's required inputs are missing
   // (pdf with no file, etc.) — caller decides whether to bail silently or
   // surface an error.
@@ -1161,7 +1161,7 @@ export function CreateMethodModal({
               from the picker, but defensively gate here too). */}
           {uploadType !== "compound" && (
             <Tooltip
-              label="Save this method, then immediately bundle it into a compound (kit) so you can add additional components alongside it."
+              label="Create this method, then immediately bundle it into a compound (kit) so you can add additional components alongside it."
               placement="top"
             >
               <button
@@ -1174,7 +1174,7 @@ export function CreateMethodModal({
                 }
                 className="px-4 py-2 text-sm text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg disabled:opacity-50"
               >
-                {savingMode === "extend" ? "Saving & bundling…" : "Save & extend into kit"}
+                {savingMode === "extend" ? "Creating & bundling…" : "Create & extend into kit"}
               </button>
             </Tooltip>
           )}

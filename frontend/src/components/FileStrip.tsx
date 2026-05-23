@@ -24,6 +24,8 @@ interface FileStripProps {
    *  We list `${basePath}/Files/`. */
   basePath?: string;
   className?: string;
+  /** Context label used in empty-state copy. Defaults to "experiment". */
+  recordType?: "experiment" | "note" | "method" | "list" | "purchase";
 }
 
 interface StripEntry {
@@ -73,6 +75,7 @@ export default function FileStrip({
   content,
   basePath,
   className,
+  recordType = "experiment",
 }: FileStripProps) {
   const [folderEntries, setFolderEntries] = useState<string[]>([]);
 
@@ -138,7 +141,7 @@ export default function FileStrip({
     return (
       <div className={wrapperClass}>
         <p className="text-xs text-gray-400 italic px-3 py-2 bg-gray-50 border-t border-gray-200">
-          No files attached to this experiment yet. Drag a file in or use the Add File button.
+          No files attached to this {recordType} yet. Drag a file in or use the Add File button.
         </p>
       </div>
     );

@@ -867,6 +867,7 @@ export default function NoteDetailPopup({
                   onImageDrop={handleImageUpload}
                   onFileDrop={handleFileUpload}
                   imageBasePath={basePath}
+                  recordType="note"
                 />
               ) : (
                 <div className="flex items-center justify-center h-full text-gray-400">
@@ -889,6 +890,7 @@ export default function NoteDetailPopup({
                   onImageDrop={handleImageUpload}
                   onFileDrop={handleFileUpload}
                   imageBasePath={basePath}
+                  recordType="note"
                 />
               )
             )}
