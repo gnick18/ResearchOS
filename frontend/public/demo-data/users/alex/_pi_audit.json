@@ -24,6 +24,30 @@
       "old_value": 3,
       "new_value": 4,
       "timestamp": "2026-05-15T14:32:45Z"
+    },
+    {
+      "id": "audit-mira-alex-3",
+      "session_id": "demo-sess-2026-05-19-phase3",
+      "actor": "mira",
+      "target_user": "alex",
+      "record_type": "task",
+      "record_id": 14,
+      "field_path": "assignee",
+      "old_value": null,
+      "new_value": "morgan",
+      "timestamp": "2026-05-19T09:45:01Z"
+    },
+    {
+      "id": "audit-mira-alex-4",
+      "session_id": "demo-sess-2026-05-19-phase3",
+      "actor": "mira",
+      "target_user": "alex",
+      "record_type": "purchase_item",
+      "record_id": 3,
+      "field_path": "approved",
+      "old_value": false,
+      "new_value": true,
+      "timestamp": "2026-05-19T09:42:11Z"
     }
   ]
 }

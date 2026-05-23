@@ -130,11 +130,89 @@ export interface LabCommentNotification {
   read: boolean;
 }
 
+/**
+ * Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23): bell
+ * notification fan-out for the PI soft-write action quartet.
+ *
+ * Four discriminated subtypes (one per action surface):
+ *   - "lab_announcement"        — PI posted a lab-wide announcement
+ *   - "lab_task_assignment"     — PI assigned a task to the receiver
+ *   - "lab_purchase_approval"   — PI approved the receiver's purchase
+ *   - "lab_flag_for_review"     — PI flagged a record for the receiver
+ *
+ * All four carry `from_user` (the PI), `created_at`, `read` like the
+ * existing types. Subject-specific fields differ per kind. The receiver
+ * is implicit (file owner of `_notifications.json`). Storage mirrors
+ * `LabCommentNotification` — written cross-user by the PI's session.
+ */
+export interface LabAnnouncementNotification {
+  id: string;
+  type: "lab_announcement";
+  from_user: string;
+  /** Server-generated announcement id (matches AnnouncementEntry.id). */
+  announcement_id: string;
+  /** Denormalized excerpt (~120 chars) for the bell row. */
+  preview: string;
+  created_at: string;
+  read: boolean;
+}
+
+export interface LabTaskAssignmentNotification {
+  id: string;
+  type: "lab_task_assignment";
+  from_user: string;
+  /** Username of the task's owner — combine with task_id to deep-link. */
+  owner_username: string;
+  task_id: number;
+  /** Denormalized task name for the bell row. */
+  task_name: string;
+  /** Optional note the PI attached when assigning. */
+  note: string | null;
+  created_at: string;
+  read: boolean;
+}
+
+export interface LabPurchaseApprovalNotification {
+  id: string;
+  type: "lab_purchase_approval";
+  from_user: string;
+  /** Username of the purchase-item owner (= the receiver). */
+  owner_username: string;
+  /** Numeric purchase_item id in the owner's namespace. */
+  purchase_item_id: number;
+  /** Denormalized item name for the bell row. */
+  item_name: string;
+  created_at: string;
+  read: boolean;
+}
+
+export interface LabFlagForReviewNotification {
+  id: string;
+  type: "lab_flag_for_review";
+  from_user: string;
+  /** Username of the flagged record's owner (= the receiver). */
+  owner_username: string;
+  /** Which surface the flag landed on. */
+  record_type: "task" | "note" | "purchase_item";
+  /** Numeric id in the owner's namespace. */
+  record_id: number;
+  /** Denormalized record name for the bell row. */
+  record_name: string;
+  /** Optional reason text from the PI. */
+  reason: string | null;
+  created_at: string;
+  read: boolean;
+}
+
 export type Notification =
   | SharedItemNotification
   | EventReminderNotification
   | ShiftAlertNotification
-  | LabCommentNotification;
+  | LabCommentNotification
+  | LabAnnouncementNotification
+  | LabTaskAssignmentNotification
+  | LabPurchaseApprovalNotification
+  | LabFlagForReviewNotification;
 
 /**
  * On-disk sidecar at `users/<owner>/_shifted-alerts.json`. Append-only on
@@ -333,6 +411,29 @@ export interface Task {
   // compat — `normalizeTaskRecord` in local-api.ts defaults missing values to
   // [] on read so callers never see `undefined`.
   comments?: TaskComment[];
+  // Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23): optional PI
+  // assignee. When set + !== owner, lists/popups render a small "assigned
+  // to X" chip alongside the owner badge. Defaults to null = unassigned
+  // (display falls back to owner). Additive — old records normalize fine.
+  assignee?: string | null;
+  // Lab Head Phase 3 — PI flag-for-review. Null/undefined = not flagged.
+  // When set, lists show a red flag icon and the popup surfaces a banner
+  // the owner can clear. See `lib/lab/pi-actions.ts` for the writer.
+  flagged?: PiFlag | null;
+}
+
+/**
+ * Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23): a PI flag on
+ * a Task / Note / PurchaseItem. Optional reason text the PI types when
+ * flagging — surfaced to the owner alongside the flag icon.
+ */
+export interface PiFlag {
+  /** Lab-head username that set the flag. */
+  by: string;
+  /** ISO 8601 timestamp when the flag was set. */
+  at: string;
+  /** Optional free-form reason. Null when the PI flagged without typing. */
+  reason?: string | null;
 }
 
 // Mirror of `NoteComment`. Same shape so the shared `CommentsThread`
@@ -457,6 +558,10 @@ export interface TaskUpdate {
   method_attachments?: TaskMethodAttachment[];
   /** Cross-owner host. `null` clears (unshare); an object sets/replaces. */
   external_project?: ExternalProjectRef | null;
+  /** Lab Head Phase 3 — PI assignee (`null` clears, string sets). */
+  assignee?: string | null;
+  /** Lab Head Phase 3 — PI flag (object sets, `null` clears). */
+  flagged?: PiFlag | null;
 }
 
 export interface TaskMoveRequest {
@@ -1307,6 +1412,14 @@ export interface PurchaseItem {
   funding_string: string | null;  // New field for funding account
   vendor: string | null;
   category: string | null;
+  // Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23): PI approval
+  // (informational only, NOT a blocking gate per the brief). All three
+  // additive — old records without them behave as if unapproved.
+  approved?: boolean;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  // Lab Head Phase 3 — PI flag-for-review; same shape as on Task / Note.
+  flagged?: PiFlag | null;
 }
 
 export interface PurchaseItemCreate {
@@ -1334,6 +1447,13 @@ export interface PurchaseItemUpdate {
   funding_string?: string | null;  // New field for funding account
   vendor?: string | null;
   category?: string | null;
+  /** Lab Head Phase 3 — PI approval. The writer that flips this also
+   *  stamps `approved_by` + `approved_at`. */
+  approved?: boolean;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  /** Lab Head Phase 3 — PI flag (object sets, `null` clears). */
+  flagged?: PiFlag | null;
 }
 
 export interface CatalogItem {
@@ -1618,6 +1738,10 @@ export interface Note {
   is_shared: boolean;
   entries: NoteEntry[];
   comments?: NoteComment[];  // Lab-mode comment thread (#13); optional for backward compat
+  // Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23): PI flag-for-
+  // review. Same shape as on Task / PurchaseItem. Null/undefined = not
+  // flagged. Additive — old records normalize fine without it.
+  flagged?: PiFlag | null;
   created_at: string;
   updated_at: string;
   username: string;
@@ -1635,6 +1759,8 @@ export interface NoteUpdate {
   title?: string;
   description?: string;
   is_shared?: boolean;
+  /** Lab Head Phase 3 — PI flag (object sets, `null` clears). */
+  flagged?: PiFlag | null;
 }
 
 export interface NoteEntriesReorderRequest {

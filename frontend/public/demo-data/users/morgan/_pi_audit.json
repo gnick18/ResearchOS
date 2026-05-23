@@ -12,6 +12,22 @@
       "old_value": "Plate layouts for the 96-well growth-curve screen.",
       "new_value": "Plate layouts for the 96-well growth-curve screen. Includes corner-evaporation controls per PI request.",
       "timestamp": "2026-05-17T10:08:22Z"
+    },
+    {
+      "id": "audit-mira-morgan-2",
+      "session_id": "demo-sess-2026-05-19-phase3",
+      "actor": "mira",
+      "target_user": "morgan",
+      "record_type": "task",
+      "record_id": 4,
+      "field_path": "flagged",
+      "old_value": null,
+      "new_value": {
+        "by": "mira",
+        "at": "2026-05-19T09:48:30Z",
+        "reason": "Let's chat about this in our 1:1 — I want the chapter outline scoped tighter before you start the writing pass."
+      },
+      "timestamp": "2026-05-19T09:48:30Z"
     }
   ]
 }

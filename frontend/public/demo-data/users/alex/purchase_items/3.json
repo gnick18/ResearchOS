@@ -11,5 +11,8 @@
   "notes": "For DemoCheck PCR.",
   "funding_string": "DEMO-NIH-GM999999",
   "vendor": "NEB",
-  "category": "Reagents"
+  "category": "Reagents",
+  "approved": true,
+  "approved_by": "mira",
+  "approved_at": "2026-05-19T09:42:11Z"
 }

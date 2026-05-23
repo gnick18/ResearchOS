@@ -121,8 +121,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // (co-PIs). `useAccountType` returns `undefined` while the settings
   // read is in flight; we treat that the same as "not lab_head" so the
   // entry never flickers in for a regular member on first paint.
+  //
+  // Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23): also show
+  // the tab for ordinary lab members in lab-mode workspaces, so they can
+  // see PI announcements. Solo accounts (feature_picks.account_type ===
+  // "solo") have no lab to belong to and never get the tab. The composer
+  // + metrics gate themselves internally on account_type === "lab_head".
   const accountType = useAccountType(currentUser ?? null);
-  const showLabInbox = accountType === "lab_head";
+  const isLabWorkspace = featurePicks?.account_type === "lab";
+  const showLabInbox =
+    accountType === "lab_head" ||
+    (accountType === "member" && isLabWorkspace);
   const navItemsWithInbox = useMemo(
     () =>
       showLabInbox

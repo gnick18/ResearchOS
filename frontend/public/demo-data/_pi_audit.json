@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "audit-mira-ann-1",
+      "session_id": "demo-sess-2026-05-19-phase3",
+      "actor": "mira",
+      "target_user": "_lab",
+      "record_type": "announcement",
+      "record_id": "ann-mira-lab-meeting",
+      "field_path": "text",
+      "old_value": null,
+      "new_value": "Lab meeting this Friday 2pm in Bio 4203. Bring strain design notes and any qPCR data from this week.",
+      "timestamp": "2026-05-19T09:30:00Z"
+    }
+  ]
+}

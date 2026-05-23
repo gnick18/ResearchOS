@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "notifications": [
+    {
+      "id": "notif-morgan-announcement-1",
+      "type": "lab_announcement",
+      "from_user": "mira",
+      "announcement_id": "ann-mira-lab-meeting",
+      "preview": "Lab meeting this Friday 2pm in Bio 4203. Bring strain design notes and any qPCR data from this week.",
+      "created_at": "2026-05-19T09:30:00Z",
+      "read": false
+    },
+    {
+      "id": "notif-morgan-task-assigned-1",
+      "type": "lab_task_assignment",
+      "from_user": "mira",
+      "owner_username": "alex",
+      "task_id": 14,
+      "task_name": "Review morgan's draft figures",
+      "note": "You've been doing the bulk of the figure rework — taking this off alex's plate.",
+      "created_at": "2026-05-19T09:45:01Z",
+      "read": false
+    },
+    {
+      "id": "notif-morgan-flag-1",
+      "type": "lab_flag_for_review",
+      "from_user": "mira",
+      "owner_username": "morgan",
+      "record_type": "task",
+      "record_id": 4,
+      "record_name": "Draft Chapter 2 outline",
+      "reason": "Let's chat about this in our 1:1 — I want the chapter outline scoped tighter before you start the writing pass.",
+      "created_at": "2026-05-19T09:48:30Z",
+      "read": false
+    }
+  ]
+}

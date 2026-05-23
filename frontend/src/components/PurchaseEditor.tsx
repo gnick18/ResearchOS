@@ -9,6 +9,11 @@ import { useLabHeadEditGate } from "@/hooks/useLabHeadEditGate";
 import RequestEditButton from "@/components/RequestEditButton";
 import EditSessionBanner from "@/components/EditSessionBanner";
 import AuditTrailNotice from "@/components/AuditTrailNotice";
+import {
+  PurchaseApprovalToggle,
+  PurchaseApprovalBadge,
+} from "@/components/lab-head/PurchaseApprovalControls";
+import FlagForReviewButton from "@/components/lab-head/FlagForReviewButton";
 import Tooltip from "@/components/Tooltip";
 import type { CatalogItem, PurchaseItem, Task } from "@/lib/types";
 
@@ -615,6 +620,12 @@ export default function PurchaseEditor({
               <th className="text-left py-2 px-2 text-xs font-semibold text-gray-500 w-32">
                 Notes
               </th>
+              {/* Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23):
+                  approval + flag column. Always rendered so list rows
+                  line up consistently regardless of view. */}
+              <th className="text-left py-2 px-2 text-xs font-semibold text-gray-500 w-28">
+                PI status
+              </th>
               <th className="w-8"></th>
             </tr>
           </thead>
@@ -759,6 +770,10 @@ export default function PurchaseEditor({
                       className="w-full px-2 py-1 border border-amber-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
                     />
                   </td>
+                  {/* Empty PI-status cell to keep columns aligned in
+                      edit mode — approval/flag actions aren't surfaced
+                      mid-edit. */}
+                  <td className="py-2 px-2" />
                   <td className="py-2 px-1 flex items-center gap-1">
                     <Tooltip label="Save changes" placement="bottom">
                       <button
@@ -828,6 +843,64 @@ export default function PurchaseEditor({
                   </td>
                   <td className="py-2 px-2 text-gray-400 text-xs">
                     {item.notes || "—"}
+                  </td>
+                  {/* Lab Head Phase 3 (lab head Phase 3 manager,
+                      2026-05-23): approval toggle (PI in unlocked
+                      session) + flag button on hover for PIs, plus the
+                      "PI Approved" / flag chip badges. Owners see the
+                      badges only; everyone else (Approve toggle) hides
+                      unless the unlock conditions are met. */}
+                  <td
+                    className="py-2 px-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex flex-col items-start gap-1">
+                      {labHeadGate.canRequestEdit && labHeadGate.unlocked && labHeadGate.activeUser && labHeadGate.sessionId && username && (
+                        <PurchaseApprovalToggle
+                          item={item}
+                          actor={labHeadGate.activeUser}
+                          sessionId={labHeadGate.sessionId}
+                          targetOwner={username}
+                          onChanged={() => refetch()}
+                        />
+                      )}
+                      {item.approved && (
+                        <PurchaseApprovalBadge item={item} />
+                      )}
+                      {labHeadGate.canRequestEdit && labHeadGate.unlocked && labHeadGate.activeUser && labHeadGate.sessionId && username && (
+                        <FlagForReviewButton
+                          recordType="purchase_item"
+                          recordId={item.id}
+                          recordName={item.item_name}
+                          targetOwner={username}
+                          actor={labHeadGate.activeUser}
+                          sessionId={labHeadGate.sessionId}
+                          currentFlag={item.flagged ?? null}
+                          onFlagged={() => refetch()}
+                        />
+                      )}
+                      {item.flagged && !(labHeadGate.canRequestEdit && labHeadGate.unlocked) && (
+                        <span
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-red-100 text-red-800 border border-red-300"
+                          title={item.flagged.reason ?? `Flagged by ${item.flagged.by}`}
+                          data-testid="lab-head-purchase-flag-badge"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="10"
+                            height="10"
+                            viewBox="0 0 24 24"
+                            fill="currentColor"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            aria-hidden="true"
+                          >
+                            <path d="M4 22V4a2 2 0 0 1 2-2h8l2 4h4v10h-6l-2-4H6v10" />
+                          </svg>
+                          Flagged
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-2 px-1">
                     {/* Lab-mode (readOnly) hides the affordance entirely
@@ -1008,6 +1081,9 @@ export default function PurchaseEditor({
                     className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
                   />
                 </td>
+                {/* Lab Head Phase 3 — empty PI-status cell for new-row
+                    alignment; approval lives on the persisted record. */}
+                <td className="py-2 px-2" />
                 <td className="py-2 px-1">
                   <Tooltip label="Add item" placement="left">
                     <button
@@ -1031,7 +1107,7 @@ export default function PurchaseEditor({
               <td className="py-2 px-2 text-right font-bold text-gray-900">
                 ${taskTotal.toFixed(2)}
               </td>
-              <td colSpan={5}></td>
+              <td colSpan={6}></td>
             </tr>
           </tfoot>
         </table>

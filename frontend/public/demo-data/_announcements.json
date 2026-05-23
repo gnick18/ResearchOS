@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "announcements": [
+    {
+      "id": "ann-mira-lab-meeting",
+      "author": "mira",
+      "text": "Lab meeting this Friday 2pm in Bio 4203. Bring strain design notes and any qPCR data from this week.",
+      "created_at": "2026-05-19T09:30:00Z",
+      "pinned": true
+    },
+    {
+      "id": "ann-mira-doe-renewal",
+      "author": "mira",
+      "text": "DOE renewal abstract is due May 29. Please flag any preliminary-data figures you want me to include — I'm anchoring on the FakeYeast biofuel results plus morgan's 96-well screen.",
+      "created_at": "2026-05-12T17:30:00Z",
+      "pinned": false
+    },
+    {
+      "id": "ann-mira-freezer-cleanout",
+      "author": "mira",
+      "text": "Reminder: freezer 5 cleanout this Saturday. Label any tubes you want kept by Friday EOD. Unlabeled tubes go into the discard bin per lab SOP.",
+      "created_at": "2026-05-15T11:00:00Z",
+      "pinned": false
+    }
+  ]
+}
