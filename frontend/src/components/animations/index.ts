@@ -9,9 +9,10 @@ export { default as PlantsAnimation } from "./PlantsAnimation";
 export { default as AnimalsAnimation } from "./AnimalsAnimation";
 export { default as FungiAnimation } from "./FungiAnimation";
 export { default as ScaryAnimation } from "./ScaryAnimation";
+export { default as BeakerBotRewardAnimation } from "./BeakerBotRewardAnimation";
 
 // Animation type definitions
-export type AnimationType = 
+export type AnimationType =
   | "celebration"
   | "rock"
   | "space"
@@ -21,7 +22,8 @@ export type AnimationType =
   | "plants"
   | "animals"
   | "fungi"
-  | "scary";
+  | "scary"
+  | "beakerbot";
 
 // Animation metadata for UI display
 export const ANIMATION_METADATA: Record<AnimationType, {
@@ -89,5 +91,11 @@ export const ANIMATION_METADATA: Record<AnimationType, {
     icon: "💀",
     description: "Skulls, ghosts, and monsters",
     color: "#4a0000",
+  },
+  beakerbot: {
+    name: "BeakerBot",
+    icon: "🧪",
+    description: "Random BeakerBot scenes — ladders, skateboards, more",
+    color: "#0ea5e9",
   },
 };

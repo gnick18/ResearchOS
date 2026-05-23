@@ -11,7 +11,8 @@ export type AnimationType =
   | "plants"
   | "animals"
   | "fungi"
-  | "scary";
+  | "scary"
+  | "beakerbot";
 
 export type CalendarViewMode = "month" | "week" | "day";
 
