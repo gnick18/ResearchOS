@@ -24,6 +24,36 @@ import type {
 
 const SCHEMA_VERSION = 3;
 
+// Per-user write queue serializes read-modify-write operations on each
+// `_calendar-feeds.json` so concurrent callers don't race the underlying
+// atomic-write pattern (.tmp create + write + move). The race surfaced
+// as "Failed to move _calendar-feeds.json.tmp. A FileSystemHandle cannot
+// be moved while it is locked" when the `useExternalEvents` poller fired
+// `markFeedSynced` (lastSyncAt write) concurrently with a user toggle or
+// recolor. Both flows do read-modify-write on the same path; without
+// serialization, the second `createWritable` acquires a lock on `.tmp`
+// while the first call's `move()` is still pending. Mirrors the queue
+// pattern in `lib/file-system/user-metadata.ts` and
+// `lib/onboarding/sidecar.ts`. Keyed by username so distinct users don't
+// serialize against each other. Tab-scoped (does NOT protect against
+// cross-tab or cross-process writes).
+const feedsWriteQueues = new Map<string, Promise<unknown>>();
+function enqueueFeedsWrite<T>(
+  username: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const prev = feedsWriteQueues.get(username) ?? Promise.resolve();
+  const next = prev.then(fn, fn);
+  // Swallow errors on the queue chain so a single failed write doesn't
+  // poison every subsequent write. Caller still receives the original
+  // rejection via the returned promise.
+  feedsWriteQueues.set(
+    username,
+    next.catch(() => {}),
+  );
+  return next;
+}
+
 interface FeedsFile {
   version: number;
   feeds: CalendarFeed[];
@@ -115,23 +145,25 @@ export async function createFeed(
   username: string,
   input: CreateIcsFeedInput,
 ): Promise<CalendarFeed> {
-  const file = await readFile(username);
-  const feed: CalendarFeed = {
-    id: file.nextId,
-    provider: input.provider,
-    kind: "ics",
-    label: input.label,
-    icsUrl: input.icsUrl,
-    color: input.color,
-    enabled: input.enabled ?? true,
-    lastSyncAt: null,
-  };
-  await writeFile(username, {
-    version: SCHEMA_VERSION,
-    feeds: [...file.feeds, feed],
-    nextId: file.nextId + 1,
+  return enqueueFeedsWrite(username, async () => {
+    const file = await readFile(username);
+    const feed: CalendarFeed = {
+      id: file.nextId,
+      provider: input.provider,
+      kind: "ics",
+      label: input.label,
+      icsUrl: input.icsUrl,
+      color: input.color,
+      enabled: input.enabled ?? true,
+      lastSyncAt: null,
+    };
+    await writeFile(username, {
+      version: SCHEMA_VERSION,
+      feeds: [...file.feeds, feed],
+      nextId: file.nextId + 1,
+    });
+    return feed;
   });
-  return feed;
 }
 
 export async function updateFeed(
@@ -139,22 +171,26 @@ export async function updateFeed(
   id: number,
   patch: Partial<Omit<CalendarFeed, "id">>,
 ): Promise<CalendarFeed | null> {
-  const file = await readFile(username);
-  const idx = file.feeds.findIndex((f) => f.id === id);
-  if (idx === -1) return null;
-  const next: CalendarFeed = { ...file.feeds[idx], ...patch };
-  const feeds = [...file.feeds];
-  feeds[idx] = next;
-  await writeFile(username, { ...file, feeds });
-  return next;
+  return enqueueFeedsWrite(username, async () => {
+    const file = await readFile(username);
+    const idx = file.feeds.findIndex((f) => f.id === id);
+    if (idx === -1) return null;
+    const next: CalendarFeed = { ...file.feeds[idx], ...patch };
+    const feeds = [...file.feeds];
+    feeds[idx] = next;
+    await writeFile(username, { ...file, feeds });
+    return next;
+  });
 }
 
 export async function deleteFeed(username: string, id: number): Promise<boolean> {
-  const file = await readFile(username);
-  const filtered = file.feeds.filter((f) => f.id !== id);
-  if (filtered.length === file.feeds.length) return false;
-  await writeFile(username, { ...file, feeds: filtered });
-  return true;
+  return enqueueFeedsWrite(username, async () => {
+    const file = await readFile(username);
+    const filtered = file.feeds.filter((f) => f.id !== id);
+    if (filtered.length === file.feeds.length) return false;
+    await writeFile(username, { ...file, feeds: filtered });
+    return true;
+  });
 }
 
 export async function markFeedSynced(username: string, id: number): Promise<void> {
