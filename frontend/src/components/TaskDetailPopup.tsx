@@ -540,10 +540,21 @@ export default function TaskDetailPopup({
           />
         )}
         <div
-          className="bg-white rounded-xl shadow-xl w-full max-w-3xl mx-4 flex flex-col border-l-4"
-          style={{ borderLeftColor: project?.color || "#3b82f6" }}
+          className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 flex flex-col overflow-hidden"
+          style={{
+            boxShadow:
+              "0 1px 3px rgba(0,0,0,0.06), 0 16px 40px -8px rgba(0,0,0,0.22)",
+          }}
           onClick={(e) => e.stopPropagation()}
         >
+          {/* Project accent strip — slim color band along the top so the
+              project color stays a present-but-quiet identifier without
+              the off-balance left-bar feel. */}
+          <div
+            aria-hidden
+            className="h-1 w-full flex-shrink-0"
+            style={{ backgroundColor: project?.color || "#3b82f6" }}
+          />
           {/* Lab Head Phase 5 — simple-task branch banner. */}
           {labHeadGate.unlocked && labHeadGate.activeUser && (
             <EditSessionBanner
@@ -561,102 +572,100 @@ export default function TaskDetailPopup({
                   targetLabel={`${username ?? task.owner ?? "member"}'s list: ${task.name}`}
                 />
               )}
-              {/* Completion toggle with hint - hidden in readOnly mode */}
-              {!readOnly && !task.is_complete && (
-                <span className="text-[11px] text-gray-400 italic flex-shrink-0">Mark as complete →</span>
-              )}
+              {/* Completion checkbox — circular pill mirrors the experiment
+                  popup's "Mark complete" affordance but stays compact for the
+                  list popup's narrower header. */}
               {!readOnly && (
                 <Tooltip label={task.is_complete ? "Mark as incomplete" : "Mark as complete"} placement="bottom">
-                <button
-                  onClick={async () => {
-                    try {
-                      await tasksApi.update(task.id, { is_complete: !task.is_complete });
-                      await Promise.all([
-                        await queryClient.refetchQueries({ queryKey: ["tasks"] }),
-                        await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] }),
-                      ]);
-                    } catch {
-                      alert("Failed to update task");
-                    }
-                  }}
-                  data-tour-target="workbench-list-mark-complete"
-                  className={`p-1 rounded-full transition-all flex-shrink-0 ${
-                    task.is_complete
-                      ? "bg-green-500 text-white hover:bg-green-600"
-                      : "text-gray-300 hover:text-green-500 hover:bg-green-50"
-                  }`}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M20 6L9 17l-5-5"/>
-                  </svg>
-                </button>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await tasksApi.update(task.id, { is_complete: !task.is_complete });
+                        await Promise.all([
+                          await queryClient.refetchQueries({ queryKey: ["tasks"] }),
+                          await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] }),
+                        ]);
+                      } catch {
+                        alert("Failed to update task");
+                      }
+                    }}
+                    data-tour-target="workbench-list-mark-complete"
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
+                      task.is_complete
+                        ? "bg-emerald-500 border-emerald-500 text-white"
+                        : "border-gray-300 hover:border-emerald-400 text-transparent hover:text-emerald-400"
+                    }`}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 6L9 17l-5-5"/>
+                    </svg>
+                  </button>
                 </Tooltip>
               )}
-              {/* Show static status indicator in readOnly mode */}
               {readOnly && (
-                <span className={`p-1 rounded-full flex-shrink-0 ${
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
                   task.is_complete
-                    ? "bg-green-500 text-white"
-                    : "text-gray-300"
+                    ? "bg-emerald-500 text-white"
+                    : "border-2 border-gray-200 text-transparent"
                 }`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M20 6L9 17l-5-5"/>
                   </svg>
                 </span>
               )}
-              <h3 className="text-base font-semibold text-gray-800 truncate min-w-0">{task.name}</h3>
-              <span className={`text-xs flex-shrink-0 ${task.is_complete ? "text-green-600" : "text-gray-400"}`}>
-                {task.is_complete ? "Complete" : "Not complete"}
-              </span>
+              <h3 className={`text-base font-semibold truncate min-w-0 ${task.is_complete ? "text-gray-400 line-through" : "text-gray-900"}`}>
+                {task.name}
+              </h3>
             </div>
-            <div className="flex items-center gap-0.5">
-              {/* Delete button - hidden in readOnly mode, greyed out for shared receivers */}
+            <div className="flex items-center gap-0.5 flex-shrink-0">
               {!readOnly && (
                 <Tooltip label={task.is_shared_with_me ? `Only the owner (${task.owner}) can delete this task` : "Delete task"} placement="bottom">
-                <button
-                  disabled={task.is_shared_with_me}
-                  onClick={async () => {
-                    if (confirm(`Delete task "${task.name}"?`)) {
-                      try {
-                        await tasksApi.delete(task.id);
-                        onClose();
-                        await Promise.all([
-                          await queryClient.refetchQueries({ queryKey: ["tasks"] }),
-                          await queryClient.refetchQueries({ queryKey: ["task"] }),
-                        ]);
-                        queryClient.removeQueries({ queryKey: ["task", taskKey(task)] });
-                      } catch {
-                        alert("Failed to delete task");
+                  <button
+                    disabled={task.is_shared_with_me}
+                    onClick={async () => {
+                      if (confirm(`Delete task "${task.name}"?`)) {
+                        try {
+                          await tasksApi.delete(task.id);
+                          onClose();
+                          await Promise.all([
+                            await queryClient.refetchQueries({ queryKey: ["tasks"] }),
+                            await queryClient.refetchQueries({ queryKey: ["task"] }),
+                          ]);
+                          queryClient.removeQueries({ queryKey: ["task", taskKey(task)] });
+                        } catch {
+                          alert("Failed to delete task");
+                        }
                       }
-                    }
-                  }}
-                  className={`p-1 ${task.is_shared_with_me ? "text-gray-300 cursor-not-allowed" : "text-gray-400 hover:text-red-500"}`}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                  </svg>
-                </button>
+                    }}
+                    className={`p-1.5 rounded-lg transition-colors ${task.is_shared_with_me ? "text-gray-300 cursor-not-allowed" : "text-gray-400 hover:text-red-600 hover:bg-red-50"}`}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                    </svg>
+                  </button>
                 </Tooltip>
               )}
               <Tooltip label="Expand to full view" placement="bottom">
-              <button
-                onClick={() => setIsExpanded(true)}
-                className="text-gray-400 hover:text-gray-600 p-1"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
-                </svg>
-              </button>
+                <button
+                  onClick={() => setIsExpanded(true)}
+                  className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+                  </svg>
+                </button>
               </Tooltip>
-              <Tooltip label="Close" placement="bottom">
-              <button
-                onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 p-1"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M18 6L6 18M6 6l12 12"/>
-                </svg>
-              </button>
+              <Tooltip label="Close (Esc)" placement="bottom">
+                <button
+                  onClick={onClose}
+                  aria-label="Close"
+                  className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
               </Tooltip>
             </div>
           </div>
@@ -674,7 +683,7 @@ export default function TaskDetailPopup({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
       onClick={onClose}
     >
       {animationPosition && (
@@ -686,12 +695,18 @@ export default function TaskDetailPopup({
         />
       )}
       <div
-        className={`bg-white rounded-xl shadow-2xl w-full mx-4 flex flex-col transition-all duration-300 border-l-4 ${
+        className={`bg-white rounded-2xl shadow-2xl w-full mx-4 flex flex-col transition-all duration-300 overflow-hidden ${
           isExpanded
             ? "inset-4 max-w-none max-h-none h-[calc(100vh-2rem)]"
-            : "max-w-5xl h-[90vh]"
+            : "max-w-5xl h-[90vh] max-h-[860px]"
         }`}
-        style={{ borderLeftColor: project?.color || "#3b82f6" }}
+        // Accent bar via inset border-top so the card stays squared off without
+        // the off-balance left-bar feel. The earlier `border-l-4` left a
+        // raw colored stripe down one edge that the new chrome doesn't need.
+        style={{
+          boxShadow:
+            "0 1px 3px rgba(0,0,0,0.06), 0 20px 50px -10px rgba(0,0,0,0.25)",
+        }}
         // LiveMarkdownEditor walks up to this attribute and draws its
         // file-drag ring on the popup card so the ring isn't clipped by
         // the editor's overflow parents.
@@ -700,6 +715,14 @@ export default function TaskDetailPopup({
         onDragOver={handleUniversalDragOver}
         onDrop={handleUniversalDrop}
       >
+        {/* Project accent strip — slim color band along the top so the
+            project color stays a present-but-quiet identifier without the
+            old border-left-4 feeling like a sidebar leak. */}
+        <div
+          aria-hidden
+          className="h-1 w-full flex-shrink-0"
+          style={{ backgroundColor: project?.color || "#3b82f6" }}
+        />
         {/* Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23):
             unlocked-session timer banner. Renders only while the PI's
             session is unlocked AND it's THIS user's session (so a stale
@@ -712,14 +735,33 @@ export default function TaskDetailPopup({
         )}
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${isExperiment ? "bg-purple-500" : "bg-blue-500"}`} />
-            <div>
+        <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-gray-100">
+          <div className="flex items-start gap-3 min-w-0 flex-1">
+            <div
+              className={`mt-1.5 w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                isExperiment
+                  ? "bg-purple-500 ring-4 ring-purple-100"
+                  : isPurchase
+                  ? "bg-emerald-500 ring-4 ring-emerald-100"
+                  : "bg-blue-500 ring-4 ring-blue-100"
+              }`}
+            />
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-base font-semibold text-gray-900">
+                <h3 className="text-lg font-semibold text-gray-900 leading-tight">
                   {task.name}
                 </h3>
+                <span
+                  className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide ${
+                    isExperiment
+                      ? "bg-purple-50 text-purple-700"
+                      : isPurchase
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "bg-blue-50 text-blue-700"
+                  }`}
+                >
+                  {isExperiment ? "Experiment" : isPurchase ? "Purchase" : "Task"}
+                </span>
                 {/* Cross-owner "shared into project" pill. The X removes the
                     share — both the originating task owner AND the
                     destination project owner are allowed to unshare in v1
@@ -775,12 +817,60 @@ export default function TaskDetailPopup({
                   </Tooltip>
                 )}
               </div>
-              <p className="text-xs text-gray-400 mt-0.5">
-                {project?.name && `${project.name} · `}
-                {task.start_date} → {task.end_date} · {task.duration_days} day
-                {task.duration_days !== 1 ? "s" : ""}
-                {task.is_complete && " · Complete"}
-              </p>
+              <div className="mt-1 flex items-center flex-wrap gap-x-1.5 gap-y-1 text-xs text-gray-500">
+                {project?.name && (
+                  <>
+                    <span className="font-medium text-gray-600">{project.name}</span>
+                    <span className="text-gray-300">·</span>
+                  </>
+                )}
+                <span className="inline-flex items-center gap-1 text-gray-500">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
+                  >
+                    <rect x="3" y="4" width="18" height="18" rx="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                  </svg>
+                  {task.start_date} → {task.end_date}
+                </span>
+                <span className="text-gray-300">·</span>
+                <span>
+                  {task.duration_days} day{task.duration_days !== 1 ? "s" : ""}
+                </span>
+                {task.is_complete && (
+                  <>
+                    <span className="text-gray-300">·</span>
+                    <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="11"
+                        height="11"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden
+                      >
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      Complete
+                    </span>
+                  </>
+                )}
+              </div>
               {/* Lab Head Phase 5 — record-level "Edited by PI" notice.
                   Shows any prior PI audit entries for this task; the inline
                   per-field notices below the field inputs are handled
@@ -794,7 +884,7 @@ export default function TaskDetailPopup({
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 flex-shrink-0">
             {/* Lab Head Phase 5: Request edit button. Visible only when
                 this is a PI viewing another member's record + no session
                 is currently unlocked. Clicking opens the password modal. */}
@@ -832,123 +922,136 @@ export default function TaskDetailPopup({
                 />
               </>
             )}
-            {/* Completion toggle with hint - hidden in readOnly mode */}
-            {!readOnly && !task.is_complete && (
-              <span className="text-xs text-gray-400 italic">Mark as complete →</span>
-            )}
-            {!readOnly && (
-              <Tooltip label={task.is_complete ? "Mark as incomplete" : "Mark as complete"} placement="bottom">
-              <button
-                onClick={async () => {
-                  try {
-                    await tasksApi.update(task.id, { is_complete: !task.is_complete });
-                    await Promise.all([
-                      await queryClient.refetchQueries({ queryKey: ["tasks"] }),
-                      await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] }),
-                    ]);
-                  } catch {
-                    alert("Failed to update task");
-                  }
-                }}
-                className={`p-1.5 rounded-full transition-all ${
-                  task.is_complete
-                    ? "bg-green-500 text-white hover:bg-green-600"
-                    : "text-gray-300 hover:text-green-500 hover:bg-green-50"
-                }`}
+            {/* Completion pill — single combined affordance that doubles as
+                status + toggle. Replaces the old "Mark as complete →" hint
+                + raw checkmark icon (chief offender on the "looks janky"
+                complaint). */}
+            {!readOnly ? (
+              <Tooltip
+                label={task.is_complete ? "Mark as incomplete" : "Mark as complete"}
+                placement="bottom"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 6L9 17l-5-5"/>
-                </svg>
-              </button>
-              </Tooltip>
-            )}
-            {/* Show static status indicator in readOnly mode */}
-            {readOnly && (
-              <span className={`p-1.5 rounded-full ${
-                task.is_complete
-                  ? "bg-green-500 text-white"
-                  : "text-gray-300"
-              }`}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 6L9 17l-5-5"/>
-                </svg>
-              </span>
-            )}
-            {isExperiment && (
-              <TaskExportButton task={task} />
-            )}
-            {/* Share button - hidden in readOnly mode or when the task was shared TO us
-                 (receivers can't re-share what isn't theirs to grant access to). */}
-            {!readOnly && !task.is_shared_with_me && (
-              <Tooltip label="Share task" placement="bottom">
-              <button
-                onClick={() => setShowSharePopup(true)}
-                data-tour-target="task-popup-share-button"
-                className="text-gray-400 hover:text-gray-600 p-1"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="18" cy="5" r="3"/>
-                  <circle cx="6" cy="12" r="3"/>
-                  <circle cx="18" cy="19" r="3"/>
-                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-                </svg>
-              </button>
-              </Tooltip>
-            )}
-            <Tooltip label={isExpanded ? "Exit fullscreen" : "Fullscreen"} placement="bottom">
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="text-gray-400 hover:text-gray-600 p-1"
-            >
-              {isExpanded ? (
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
-                </svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
-                </svg>
-              )}
-            </button>
-            </Tooltip>
-            {/* Delete button - hidden in readOnly mode, greyed out for shared receivers */}
-            {!readOnly && (
-              <Tooltip label={task.is_shared_with_me ? `Only the owner (${task.owner}) can delete this task` : "Delete task"} placement="bottom">
-              <button
-                disabled={task.is_shared_with_me}
-                onClick={async () => {
-                  if (confirm(`Delete task "${task.name}"?`)) {
+                <button
+                  onClick={async () => {
                     try {
-                      await tasksApi.delete(task.id);
-                      onClose();
+                      await tasksApi.update(task.id, { is_complete: !task.is_complete });
                       await Promise.all([
-                        queryClient.refetchQueries({ queryKey: ["tasks"] }),
-                        queryClient.refetchQueries({ queryKey: ["task"] }),
+                        await queryClient.refetchQueries({ queryKey: ["tasks"] }),
+                        await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] }),
                       ]);
-                      queryClient.removeQueries({ queryKey: ["task", taskKey(task)] });
                     } catch {
-                      alert("Failed to delete task");
+                      alert("Failed to update task");
                     }
-                  }
-                }}
-                className={`p-1 ${task.is_shared_with_me ? "text-gray-300 cursor-not-allowed" : "text-gray-400 hover:text-red-500"}`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                </svg>
-              </button>
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    task.is_complete
+                      ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 ring-1 ring-emerald-200"
+                      : "text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 ring-1 ring-gray-200 hover:ring-emerald-200"
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 6L9 17l-5-5" />
+                  </svg>
+                  {task.is_complete ? "Complete" : "Mark complete"}
+                </button>
               </Tooltip>
-            )}
-            <Tooltip label="Close" placement="bottom">
-            <button
-              onClick={onClose}
-              data-tour-target="task-popup-close"
-              className="text-gray-400 hover:text-gray-600 text-lg"
-            >
-              ✕
-            </button>
-            </Tooltip>
+            ) : task.is_complete ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 6L9 17l-5-5" />
+                </svg>
+                Complete
+              </span>
+            ) : null}
+            {/* Icon-button rail — compact + neutral so the actions don't
+                steal focus from the title. */}
+            <div className="ml-1 flex items-center gap-0.5">
+              {isExperiment && <TaskExportButton task={task} />}
+              {!readOnly && !task.is_shared_with_me && (
+                <Tooltip label="Share task" placement="bottom">
+                  <button
+                    onClick={() => setShowSharePopup(true)}
+                    data-tour-target="task-popup-share-button"
+                    className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="18" cy="5" r="3" />
+                      <circle cx="6" cy="12" r="3" />
+                      <circle cx="18" cy="19" r="3" />
+                      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                    </svg>
+                  </button>
+                </Tooltip>
+              )}
+              <Tooltip label={isExpanded ? "Exit fullscreen" : "Fullscreen"} placement="bottom">
+                <button
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
+                >
+                  {isExpanded ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+                    </svg>
+                  )}
+                </button>
+              </Tooltip>
+              {!readOnly && (
+                <Tooltip
+                  label={
+                    task.is_shared_with_me
+                      ? `Only the owner (${task.owner}) can delete this task`
+                      : "Delete task"
+                  }
+                  placement="bottom"
+                >
+                  <button
+                    disabled={task.is_shared_with_me}
+                    onClick={async () => {
+                      if (confirm(`Delete task "${task.name}"?`)) {
+                        try {
+                          await tasksApi.delete(task.id);
+                          onClose();
+                          await Promise.all([
+                            queryClient.refetchQueries({ queryKey: ["tasks"] }),
+                            queryClient.refetchQueries({ queryKey: ["task"] }),
+                          ]);
+                          queryClient.removeQueries({ queryKey: ["task", taskKey(task)] });
+                        } catch {
+                          alert("Failed to delete task");
+                        }
+                      }
+                    }}
+                    className={`p-1.5 rounded-lg transition-colors ${
+                      task.is_shared_with_me
+                        ? "text-gray-300 cursor-not-allowed"
+                        : "text-gray-400 hover:text-red-600 hover:bg-red-50"
+                    }`}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    </svg>
+                  </button>
+                </Tooltip>
+              )}
+              <Tooltip label="Close (Esc)" placement="bottom">
+                <button
+                  onClick={onClose}
+                  data-tour-target="task-popup-close"
+                  className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
+                  aria-label="Close"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </Tooltip>
+            </div>
           </div>
         </div>
 
@@ -996,37 +1099,52 @@ export default function TaskDetailPopup({
           />
         </div>
 
-        {/* Tabs */}
+        {/* Tabs — clean underline pattern with a quiet hover state. The old
+            tabs sat on a gray strip with the active tab back on white,
+            which read as a chrome leak from the header. Now they sit on
+            the same surface as the header for a smoother seam. */}
         <div
-          className="flex border-b border-gray-100 px-6 bg-gray-50"
+          className="flex items-stretch gap-1 px-6 border-b border-gray-100"
           data-tour-target="experiment-tab-container"
+          role="tablist"
         >
-          {tabs.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => selectTab(tab)}
-              data-tour-target={
-                tab === "method"
-                  ? "experiment-methods-tab"
-                  : tab === "notes"
-                    ? "experiment-notes-tab"
-                    : tab === "results"
-                      ? "experiment-results-tab"
-                      : undefined
-              }
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab
-                  ? "border-blue-500 text-blue-600 bg-white"
-                  : "border-transparent text-gray-400 hover:text-gray-600"
-              }`}
-            >
-              {tab === "details" && "Details"}
-              {tab === "notes" && "Lab Notes"}
-              {tab === "method" && "Method"}
-              {tab === "results" && "Results"}
-              {tab === "purchases" && "Items"}
-            </button>
-          ))}
+          {tabs.map((tab) => {
+            const isActive = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => selectTab(tab)}
+                data-tour-target={
+                  tab === "method"
+                    ? "experiment-methods-tab"
+                    : tab === "notes"
+                      ? "experiment-notes-tab"
+                      : tab === "results"
+                        ? "experiment-results-tab"
+                        : undefined
+                }
+                className={`relative px-3.5 py-3 text-sm font-medium transition-colors -mb-px ${
+                  isActive
+                    ? "text-blue-600"
+                    : "text-gray-500 hover:text-gray-800"
+                }`}
+              >
+                {tab === "details" && "Details"}
+                {tab === "notes" && "Lab Notes"}
+                {tab === "method" && "Method"}
+                {tab === "results" && "Results"}
+                {tab === "purchases" && "Items"}
+                <span
+                  aria-hidden
+                  className={`absolute left-2 right-2 -bottom-px h-0.5 rounded-full transition-colors ${
+                    isActive ? "bg-blue-500" : "bg-transparent"
+                  }`}
+                />
+              </button>
+            );
+          })}
         </div>
 
         {/* Tab content */}
@@ -1097,13 +1215,17 @@ export default function TaskDetailPopup({
 
         {universalDropToast && (
           <div
-            className="fixed z-50 max-w-sm rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 shadow-lg pointer-events-none"
+            className="fixed z-50 max-w-sm rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm text-emerald-900 shadow-lg pointer-events-none flex items-center gap-2"
             style={{
               left: Math.max(8, Math.min(universalDropToast.x + 12, (typeof window !== "undefined" ? window.innerWidth : 1024) - 400)),
               top: Math.max(8, Math.min(universalDropToast.y + 12, (typeof window !== "undefined" ? window.innerHeight : 768) - 100)),
             }}
           >
-            {universalDropToast.msg}
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 flex-shrink-0" aria-hidden>
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            <span>{universalDropToast.msg}</span>
           </div>
         )}
       </div>
@@ -1296,6 +1418,114 @@ function SimpleTaskChecklist({
               +
             </button>
           </Tooltip>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Property Grid (read-only view of the DetailsTab properties card) ─────────
+
+/**
+ * Read-only render of a task's core properties — name, project, type,
+ * schedule, status, plus weekend-override / tags / deviation-log when
+ * present. Mounted inside the DetailsTab "Properties" card when the user
+ * is NOT in edit mode; the edit-mode branch right next to it uses the
+ * same labels/order so the read↔edit transition reads as field-state
+ * changes, not a layout swap.
+ */
+function PropertyGrid({
+  task,
+  project,
+  hasDependencies,
+}: {
+  task: Task;
+  project?: Project;
+  hasDependencies: boolean;
+}) {
+  return (
+    <div className="space-y-5">
+      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+        <div>
+          <dt className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Project</dt>
+          <dd className="text-sm text-gray-900 mt-1">
+            {project?.name || (task.is_shared_with_me ? `Shared project (by ${task.owner})` : "—")}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Type</dt>
+          <dd className="text-sm text-gray-900 mt-1 capitalize">{task.task_type}</dd>
+        </div>
+        {!hasDependencies && (
+          <>
+            <div>
+              <dt className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Start</dt>
+              <dd className="text-sm text-gray-900 mt-1 font-mono">{task.start_date}</dd>
+            </div>
+            <div>
+              <dt className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">End</dt>
+              <dd className="text-sm text-gray-900 mt-1 font-mono">{task.end_date}</dd>
+            </div>
+          </>
+        )}
+        <div>
+          <dt className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Duration</dt>
+          <dd className="text-sm text-gray-900 mt-1">
+            {task.duration_days} day{task.duration_days !== 1 ? "s" : ""}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Status</dt>
+          <dd className="text-sm mt-1">
+            <span
+              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium ${
+                task.is_complete
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "bg-blue-50 text-blue-700"
+              }`}
+            >
+              <span aria-hidden className={`w-1.5 h-1.5 rounded-full ${task.is_complete ? "bg-emerald-500" : "bg-blue-500"}`} />
+              {task.is_complete ? "Complete" : "In progress"}
+            </span>
+          </dd>
+        </div>
+      </dl>
+      {task.weekend_override && (
+        <div className="flex items-start gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-700 flex-shrink-0 mt-0.5">
+            <rect x="3" y="4" width="18" height="18" rx="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+          Weekend work enabled for this task.
+        </div>
+      )}
+      {task.tags && task.tags.length > 0 && (
+        <div>
+          <dt className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-1.5">Tags</dt>
+          <div className="flex gap-1 flex-wrap">
+            {task.tags.map((tag) => (
+              <span
+                key={tag}
+                className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded"
+              >
+                #{tag}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {task.deviation_log && (
+        <div>
+          <dt className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-1.5">
+            Deviation log
+          </dt>
+          <div className="prose prose-sm prose-gray max-w-none bg-amber-50 border border-amber-100 rounded-lg p-3">
+            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]]}>
+              {task.deviation_log}
+            </ReactMarkdown>
+          </div>
         </div>
       )}
     </div>
@@ -2013,160 +2243,134 @@ function DetailsTab({
   }, [task.task_type]);
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Duplicate Warning Modal */}
+    <div className="p-6 space-y-5">
+      {/* Duplicate Warning Modal — surfaced as a high-priority callout above
+          the form so the user can pick a path before scrolling. Same
+          chrome family as FlagBanner / shift-confirm / convert-type:
+          tinted card with semantic accent. */}
       {duplicateWarning && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-          <h4 className="text-sm font-semibold text-red-600 mb-2">
-            Duplicate Task Name Detected
-          </h4>
-          <p className="text-xs text-gray-600 mb-2">
-            A task with the same name already exists in this project with the same task type:
-          </p>
-          <div className="bg-white border border-red-100 rounded p-2 mb-3">
-            {duplicateWarning.matching_tasks.map((t) => (
-              <div key={t.id} className="text-xs text-red-700 mb-1">
-                <strong>{t.name}</strong>
-                <span className="text-red-500 ml-2">
-                  (Started: {t.start_date}, {t.is_complete ? "Completed" : "In Progress"})
-                </span>
+        <div className="bg-rose-50 border border-rose-200 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex-shrink-0 w-8 h-8 rounded-lg bg-rose-100 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-600">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-sm font-semibold text-rose-900">
+                Duplicate task name
+              </h4>
+              <p className="text-xs text-rose-800 mt-0.5">
+                A task with this name already exists in this project:
+              </p>
+              <ul className="mt-2 space-y-1">
+                {duplicateWarning.matching_tasks.map((t) => (
+                  <li key={t.id} className="text-xs text-rose-800 flex items-center gap-2 bg-white border border-rose-100 rounded-lg px-2 py-1">
+                    <strong className="text-rose-900">{t.name}</strong>
+                    <span className="text-rose-500">
+                      Started {t.start_date} · {t.is_complete ? "Completed" : "In Progress"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={() => setDuplicateWarning(null)}
+                  className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                >
+                  Change name
+                </button>
+                <button
+                  onClick={handleProceedWithDuplicate}
+                  className="px-3 py-1.5 text-xs font-medium text-rose-700 ring-1 ring-rose-300 hover:bg-rose-100 rounded-lg transition-colors"
+                >
+                  Save anyway
+                </button>
               </div>
-            ))}
-          </div>
-          <p className="text-xs text-gray-600 mb-3">
-            Would you like to change the name, or proceed with this name anyway?
-          </p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setDuplicateWarning(null)}
-              className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
-            >
-              Change Name
-            </button>
-            <button
-              onClick={handleProceedWithDuplicate}
-              className="px-3 py-1.5 text-xs text-red-600 border border-red-300 hover:bg-red-50 rounded-lg"
-            >
-              Save Anyway
-            </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Quick actions - hidden in readOnly mode */}
-      {!readOnly && (
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => (editing ? handleCancelEdit() : handleEnterEdit())}
-            data-tour-target="task-popup-edit-button"
-            className={`px-4 py-2 text-sm rounded-lg transition-colors ${
-              editing
-                ? "bg-blue-100 text-blue-700 ring-1 ring-blue-300 hover:bg-blue-200"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
-          >
-            {editing ? "Exit edit mode" : "Edit"}
-          </button>
-          <button
-            onClick={() => {
-              setConvertToType(availableConversionTypes[0]?.value || "list");
-              setShowConvertModal(true);
-            }}
-            className="px-4 py-2 text-sm text-purple-600 rounded-lg hover:bg-purple-50"
-          >
-            Convert Type
-          </button>
-          <button
-            disabled={task.is_shared_with_me}
-            onClick={handleDelete}
-            data-tour-target="task-popup-delete-button"
-            className={`px-4 py-2 text-sm rounded-lg ${
-              task.is_shared_with_me
-                ? "text-gray-300 cursor-not-allowed"
-                : "text-red-500 hover:bg-red-50"
-            }`}
-            title={task.is_shared_with_me ? `Only the owner (${task.owner}) can delete this task` : undefined}
-          >
-            Delete
-          </button>
-        </div>
-      )}
-
-      {/* Task Type Conversion Modal */}
+      {/* Task Type Conversion Modal — destructive action; matches the
+          tinted-callout chrome. */}
       {showConvertModal && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <h4 className="text-sm font-semibold text-red-600 mb-2">
-            ⚠️ Convert Task Type
-          </h4>
-          <p className="text-xs text-gray-600 mb-3">
-            Converting this task from <strong className="capitalize">{task.task_type}</strong> to another type will permanently delete type-specific data:
-          </p>
-          
-          <ul className="text-xs text-red-600 mb-3 space-y-1">
-            {getConversionWarnings(task.task_type).map((warning, i) => (
-              <li key={i}>• {warning}</li>
-            ))}
-          </ul>
-          
-          <p className="text-xs text-gray-600 mb-3">
-            The following shared data will be preserved: name, dates, duration, project, completion status, and tags.
-          </p>
-          
-          <div className="mb-3">
-            <label className="block text-xs font-medium text-gray-500 mb-1">
-              Convert to:
-            </label>
-            <select
-              value={convertToType}
-              onChange={(e) => setConvertToType(e.target.value as "experiment" | "purchase" | "list")}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-            >
-              {availableConversionTypes.map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3">
-            <p className="text-xs text-gray-700 font-medium mb-2">
-              Are you sure you want to proceed? This action cannot be undone.
-            </p>
-            <p className="text-xs text-red-600 font-medium">
-              Proceeding will permanently delete the type-specific data listed above.
-            </p>
-          </div>
-          
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowConvertModal(false)}
-              className="px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded-lg"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleConvertTaskType}
-              disabled={converting}
-              className="px-3 py-1.5 text-xs text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50"
-            >
-              {converting ? "Converting..." : "Convert Task"}
-            </button>
+        <div className="bg-rose-50 border border-rose-200 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex-shrink-0 w-8 h-8 rounded-lg bg-rose-100 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-600">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-sm font-semibold text-rose-900">
+                Convert task type
+              </h4>
+              <p className="text-xs text-rose-800 mt-0.5">
+                Converting from <strong className="capitalize">{task.task_type}</strong> will permanently delete type-specific data:
+              </p>
+              <ul className="mt-2 space-y-1 text-xs text-rose-700">
+                {getConversionWarnings(task.task_type).map((warning, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span aria-hidden className="mt-1 w-1 h-1 rounded-full bg-rose-400 flex-shrink-0" />
+                    <span>{warning}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-rose-800 mt-3">
+                <strong>Kept:</strong> name, dates, duration, project, completion status, and tags.
+              </p>
+              <div className="mt-3">
+                <label className="block text-[11px] font-medium text-rose-700 uppercase tracking-wide mb-1">
+                  Convert to
+                </label>
+                <select
+                  value={convertToType}
+                  onChange={(e) => setConvertToType(e.target.value as "experiment" | "purchase" | "list")}
+                  className="w-full px-3 py-2 bg-white border border-rose-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
+                >
+                  {availableConversionTypes.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={() => setShowConvertModal(false)}
+                  className="px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConvertTaskType}
+                  disabled={converting}
+                  className="px-3 py-1.5 text-xs font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {converting ? "Converting..." : "Convert task"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
       {/* Sub-tasks Section - only for list type tasks */}
       {task.task_type === "list" && (
-        <div className="bg-gray-50 rounded-lg p-4">
-          <h4 className="text-xs font-semibold text-gray-500 mb-3 flex items-center gap-2">
-            <span>Sub-Tasks</span>
+        <section className="bg-white border border-gray-200 rounded-xl p-5">
+          <div className="flex items-baseline justify-between mb-4">
+            <h4 className="text-base font-semibold text-gray-900">Sub-tasks</h4>
             {subTasks.length > 0 && (
-              <span className="text-xs font-normal text-gray-400">
-                ({subTasks.filter(st => st.is_complete).length}/{subTasks.length} complete)
+              <span className="text-xs text-gray-500">
+                {subTasks.filter(st => st.is_complete).length} of {subTasks.length} complete
               </span>
             )}
-          </h4>
+          </div>
           
           {/* Progress bar */}
           {subTasks.length > 0 && (
@@ -2247,62 +2451,75 @@ function DetailsTab({
               Add
             </button>
           </div>
-        </div>
+        </section>
       )}
 
       {/* Shift Confirmation Modal */}
       {showShiftConfirm && shiftResult && (
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-          <h4 className="text-sm font-semibold text-orange-800 mb-2">
-            ⚠️ This change will affect {shiftResult.affected_tasks.length} task(s)
-          </h4>
-          <div className="max-h-40 overflow-y-auto mb-3">
-            <ul className="text-xs text-orange-700 space-y-1">
-              {shiftResult.affected_tasks.map((t) => (
-                <li key={t.task_id}>
-                  <strong>{t.name}</strong>: {t.old_start} → {t.new_start}
-                </li>
-              ))}
-            </ul>
-          </div>
-          {shiftResult.warnings.length > 0 && (
-            <div className="mb-3">
-              <p className="text-xs font-medium text-red-700 mb-1">Warnings:</p>
-              <ul className="text-xs text-red-600 space-y-1">
-                {shiftResult.warnings.map((w, i) => (
-                  <li key={i}>{w.message}</li>
-                ))}
-              </ul>
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex-shrink-0 w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-700">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
             </div>
-          )}
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                setShowShiftConfirm(false);
-                setShiftResult(null);
-                setPendingStartDate(null);
-              }}
-              className="px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded-lg"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleConfirmShift}
-              disabled={saving}
-              className="px-3 py-1.5 text-xs text-white bg-orange-600 hover:bg-orange-700 rounded-lg disabled:opacity-50"
-            >
-              {saving ? "Applying..." : "Apply Changes"}
-            </button>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-sm font-semibold text-amber-900">
+                This change will affect {shiftResult.affected_tasks.length} task{shiftResult.affected_tasks.length !== 1 ? "s" : ""}
+              </h4>
+              <div className="max-h-40 overflow-y-auto mt-2 space-y-1">
+                {shiftResult.affected_tasks.map((t) => (
+                  <div key={t.task_id} className="text-xs text-amber-800 flex items-center gap-2 bg-white border border-amber-100 rounded-lg px-2 py-1">
+                    <strong className="text-amber-900">{t.name}</strong>
+                    <span className="text-amber-600">{t.old_start} → {t.new_start}</span>
+                  </div>
+                ))}
+              </div>
+              {shiftResult.warnings.length > 0 && (
+                <div className="mt-3 border-t border-amber-200 pt-3">
+                  <p className="text-xs font-medium text-rose-700 mb-1">Warnings</p>
+                  <ul className="text-xs text-rose-600 space-y-1">
+                    {shiftResult.warnings.map((w, i) => (
+                      <li key={i}>{w.message}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={() => {
+                    setShowShiftConfirm(false);
+                    setShiftResult(null);
+                    setPendingStartDate(null);
+                  }}
+                  className="px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-white rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmShift}
+                  disabled={saving}
+                  className="px-3 py-1.5 text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {saving ? "Applying..." : "Apply changes"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
       {/* Dependency Tree Section */}
       {hasDependencies && (
-        <div className="bg-gray-50 rounded-lg p-4">
-          <h4 className="text-xs font-semibold text-gray-500 mb-3">
-            Dependency Chain
-          </h4>
+        <section className="bg-white border border-gray-200 rounded-xl p-5">
+          <div className="flex items-baseline justify-between mb-4">
+            <h4 className="text-base font-semibold text-gray-900">Dependency chain</h4>
+            <span className="text-xs text-gray-500">
+              {dependencyChainLevels.flat().length} task{dependencyChainLevels.flat().length !== 1 ? "s" : ""} linked
+            </span>
+          </div>
           
           {/* Levels-based chain - tasks at same level shown horizontally */}
           <div className="flex flex-col items-center">
@@ -2393,13 +2610,74 @@ function DetailsTab({
               );
             })}
           </div>
-        </div>
+        </section>
       )}
 
-      {editing ? (
-        <div className="space-y-4 max-w-lg">
+      {/* Properties card — single section that toggles between read-only
+          rows and inline editable inputs. Same shape in both modes so the
+          read↔edit transition reads as a state change on the same fields,
+          not a layout swap (the old "Edit / Exit edit mode" pattern flipped
+          the whole layout out from under the user). */}
+      <section className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+            <h4 className="text-base font-semibold text-gray-900">Properties</h4>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {editing
+                ? "Editing — Save when done"
+                : "Name, project, schedule, and other fields"}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {hasUnsavedChanges && (
+              <span className="inline-flex items-center gap-1 text-xs text-amber-700 font-medium">
+                <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                Unsaved
+              </span>
+            )}
+            {!readOnly && !editing && (
+              <button
+                onClick={handleEnterEdit}
+                data-tour-target="task-popup-edit-button"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg>
+                Edit
+              </button>
+            )}
+            {editing && (
+              <>
+                <button
+                  onClick={handleCancelEdit}
+                  className="px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving || !hasUnsavedChanges}
+                  data-tour-target="task-popup-save-button"
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                    hasUnsavedChanges && !saving
+                      ? "text-white bg-blue-600 hover:bg-blue-700"
+                      : "text-gray-400 bg-gray-100 cursor-not-allowed"
+                  }`}
+                >
+                  {saving ? "Saving..." : "Save"}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="p-5">
+      {editing ? (
+        <div className="space-y-4">
+          <div>
+            <label className="block text-[11px] font-medium text-gray-600 uppercase tracking-wide mb-1.5">
               Task Name
             </label>
             <input
@@ -2415,7 +2693,7 @@ function DetailsTab({
               projects appear under "Share into…" and trigger a confirmation
               modal on save. */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+            <label className="block text-[11px] font-medium text-gray-600 uppercase tracking-wide mb-1.5">
               Project
             </label>
             <select
@@ -2467,7 +2745,7 @@ function DetailsTab({
             {/* Hide start date field if task has parent dependencies */}
             {parentTasks.length === 0 && (
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className="block text-[11px] font-medium text-gray-600 uppercase tracking-wide mb-1.5">
                   Start Date
                 </label>
                 <input
@@ -2484,7 +2762,7 @@ function DetailsTab({
               </div>
             )}
             <div className={parentTasks.length > 0 ? "col-span-2" : ""}>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
+              <label className="block text-[11px] font-medium text-gray-600 uppercase tracking-wide mb-1.5">
                 Duration (days)
               </label>
               <input
@@ -2546,7 +2824,7 @@ function DetailsTab({
           {/* Add Dependency Section - only for experiment tasks */}
           {canHaveDependencies && (
             <div className="border-t border-gray-100 pt-4">
-              <label className="block text-xs font-medium text-gray-500 mb-2">
+              <label className="block text-[11px] font-medium text-gray-600 uppercase tracking-wide mb-2">
                 Add Dependency (optional)
               </label>
               <div className="space-y-2">
@@ -2658,112 +2936,54 @@ function DetailsTab({
             );
           })()}
 
-          <div className="flex items-center gap-3">
-            {/* "Unsaved changes" cue mirrors the methods-editor pattern
-                (commit e2f3bb39). Without this, the only edit-mode signal
-                is the focus ring on whichever field has focus — easy to
-                miss if focus is on a button or has been lost. */}
-            {hasUnsavedChanges && (
-              <span className="text-xs text-amber-600 font-medium">
-                Unsaved changes
-              </span>
-            )}
-            <button
-              onClick={handleCancelEdit}
-              className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving || !hasUnsavedChanges}
-              data-tour-target="task-popup-save-button"
-              className={`px-4 py-2 text-sm rounded-lg transition-colors ${
-                hasUnsavedChanges
-                  ? "text-white bg-blue-600 hover:bg-blue-700"
-                  : "text-gray-400 bg-gray-200 cursor-not-allowed"
-              } disabled:opacity-50`}
-            >
-              {saving ? "Saving..." : "Save Changes"}
-            </button>
-          </div>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-6 max-w-lg">
-          <div>
-            <p className="text-xs font-medium text-gray-400 mb-1">Project</p>
-            <p className="text-sm text-gray-700">
-              {project?.name || (task.is_shared_with_me ? `Shared Project (by ${task.owner})` : "—")}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs font-medium text-gray-400 mb-1">Type</p>
-            <p className="text-sm text-gray-700">
-              {task.task_type === "experiment" ? "Experiment" : task.task_type === "purchase" ? "Purchase" : "List"}
-            </p>
-          </div>
-          {/* Hide start and end date if task has parent dependencies */}
-          {!hasDependencies && (
-            <>
-              <div>
-                <p className="text-xs font-medium text-gray-400 mb-1">Start</p>
-                <p className="text-sm text-gray-700">{task.start_date}</p>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-gray-400 mb-1">End</p>
-                <p className="text-sm text-gray-700">{task.end_date}</p>
-              </div>
-            </>
-          )}
-          <div>
-            <p className="text-xs font-medium text-gray-400 mb-1">Duration</p>
-            <p className="text-sm text-gray-700">
-              {task.duration_days} day{task.duration_days !== 1 ? "s" : ""}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs font-medium text-gray-400 mb-1">Status</p>
-            <p className="text-sm text-gray-700">
-              {task.is_complete ? "Complete" : "In Progress"}
-            </p>
-          </div>
-          {/* Show weekend override status if set */}
-          {task.weekend_override && (
-            <div className="col-span-2">
-              <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                <p className="text-xs text-amber-700">
-                  Weekend work enabled for this task
-                </p>
-              </div>
-            </div>
-          )}
-          {task.tags && task.tags.length > 0 && (
-            <div className="col-span-2">
-              <p className="text-xs font-medium text-gray-400 mb-1">Tags</p>
-              <div className="flex gap-1 flex-wrap">
-                {task.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="text-xs px-2 py-0.5 bg-gray-100 text-gray-500 rounded"
-                  >
-                    #{tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-          {task.deviation_log && (
-            <div className="col-span-2">
-              <p className="text-xs font-medium text-gray-400 mb-1">
-                Deviation Log
-              </p>
-              <div className="prose prose-sm prose-gray max-w-none bg-amber-50 rounded-lg p-3">
-                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]]}>
-                  {task.deviation_log}
-                </ReactMarkdown>
-              </div>
-            </div>
-          )}
+        <PropertyGrid
+          task={task}
+          project={project}
+          hasDependencies={hasDependencies}
+        />
+      )}
+        </div>
+      </section>
+
+      {/* Footer actions — Convert / Delete moved out of the floating top
+          row so they aren't competing with the primary "Edit" affordance.
+          Mounted on a quiet divider so they read as administrative
+          actions, not part of the field flow. */}
+      {!readOnly && !editing && (
+        <div className="flex items-center justify-end gap-2 pt-1">
+          <button
+            onClick={() => {
+              setConvertToType(availableConversionTypes[0]?.value || "list");
+              setShowConvertModal(true);
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="17 1 21 5 17 9" />
+              <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+              <polyline points="7 23 3 19 7 15" />
+              <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+            </svg>
+            Convert type
+          </button>
+          <button
+            disabled={task.is_shared_with_me}
+            onClick={handleDelete}
+            data-tour-target="task-popup-delete-button"
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+              task.is_shared_with_me
+                ? "text-gray-300 cursor-not-allowed"
+                : "text-gray-600 hover:text-rose-700 hover:bg-rose-50"
+            }`}
+            title={task.is_shared_with_me ? `Only the owner (${task.owner}) can delete this task` : undefined}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            </svg>
+            Delete task
+          </button>
         </div>
       )}
 
@@ -2774,34 +2994,57 @@ function DetailsTab({
           the popup card. */}
       {pendingShareTarget && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm"
           onClick={() => {
             if (!sharingIntoProject) setPendingShareTarget(null);
           }}
         >
           <div
-            className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6"
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-base font-semibold text-gray-900 mb-2">
-              Share this task into {pendingShareTarget.owner}&apos;s project?
-            </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              <strong>{pendingShareTarget.name}</strong> belongs to{" "}
-              <strong>{pendingShareTarget.owner}</strong>. Sharing this task
-              into it means:
-            </p>
-            <ul className="text-sm text-gray-600 list-disc pl-5 space-y-1 mb-4">
-              <li>
-                The task <strong>stays in your library</strong> — you remain
-                its owner and can keep editing.
+            <div className="flex items-start gap-3 mb-3">
+              <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600">
+                  <circle cx="18" cy="5" r="3" />
+                  <circle cx="6" cy="12" r="3" />
+                  <circle cx="18" cy="19" r="3" />
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-semibold text-gray-900">
+                  Share into {pendingShareTarget.owner}&apos;s project?
+                </h3>
+                <p className="text-sm text-gray-600 mt-0.5">
+                  <strong>{pendingShareTarget.name}</strong> belongs to{" "}
+                  <strong>{pendingShareTarget.owner}</strong>.
+                </p>
+              </div>
+            </div>
+            <ul className="text-sm text-gray-700 space-y-2 mb-4 bg-gray-50 rounded-lg p-3 border border-gray-100">
+              <li className="flex items-start gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 mt-0.5 flex-shrink-0" aria-hidden>
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>
+                  The task <strong>stays in your library</strong> — you remain its owner.
+                </span>
               </li>
-              <li>
-                {pendingShareTarget.owner} will see this task on the project
-                Gantt and project view, alongside their own tasks.
+              <li className="flex items-start gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 mt-0.5 flex-shrink-0" aria-hidden>
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>
+                  {pendingShareTarget.owner} sees it on their Gantt next to their own tasks.
+                </span>
               </li>
-              <li>
-                Either of you can remove the share later.
+              <li className="flex items-start gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 mt-0.5 flex-shrink-0" aria-hidden>
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>Either of you can remove the share later.</span>
               </li>
             </ul>
             <div className="flex justify-end gap-2">
@@ -2809,7 +3052,7 @@ function DetailsTab({
                 type="button"
                 disabled={sharingIntoProject}
                 onClick={() => setPendingShareTarget(null)}
-                className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -2817,7 +3060,7 @@ function DetailsTab({
                 type="button"
                 disabled={sharingIntoProject}
                 onClick={handleConfirmShareIntoProject}
-                className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
               >
                 {sharingIntoProject ? "Sharing..." : "Share into project"}
               </button>
@@ -3202,41 +3445,56 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
       <FileRenamePopup />
       <DuplicateDialog />
       <div className="flex flex-col h-full">
-        {/* Sub-tabs for Markdown and PDFs */}
-        <div className="flex items-center gap-1 px-6 py-2 bg-gray-50 border-b border-gray-100">
-          <button
-            onClick={() => setActiveSubTab("markdown")}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-              activeSubTab === "markdown"
-                ? "bg-white text-blue-600 shadow-sm border border-gray-200"
-                : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            Markdown
-          </button>
-          <button
-            onClick={() => setActiveSubTab("pdfs")}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-              activeSubTab === "pdfs"
-                ? "bg-white text-blue-600 shadow-sm border border-gray-200"
-                : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            Files
-          </button>
+        {/* Sub-tabs for Markdown and PDFs — segmented control matches the
+            recent purchases / settings polish bar (compact, contained). */}
+        <div className="flex items-center gap-1 px-6 py-2 border-b border-gray-100">
+          <div className="inline-flex items-center p-0.5 bg-gray-100 rounded-lg">
+            <button
+              onClick={() => setActiveSubTab("markdown")}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                activeSubTab === "markdown"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+              </svg>
+              Markdown
+            </button>
+            <button
+              onClick={() => setActiveSubTab("pdfs")}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                activeSubTab === "pdfs"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+              </svg>
+              Files
+            </button>
+          </div>
         </div>
 
         {activeSubTab === "markdown" ? (
           <>
             {/* Toolbar - hidden in readOnly mode */}
             {!readOnly && (
-              <div className="flex items-center gap-2 px-6 py-3 border-b border-gray-50">
+              <div className="flex items-center gap-2 px-6 py-2.5 border-b border-gray-100">
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
-                  className="px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
                 >
-                  {uploading ? "Uploading..." : "Add File"}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                  </svg>
+                  {uploading ? "Uploading..." : "Add file"}
                 </button>
                 <input
                   ref={fileInputRef}
@@ -3250,18 +3508,21 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                 />
                 <div className="flex-1" />
                 {hasUnsavedChanges && (
-                  <span className="text-xs text-amber-600 font-medium">Unsaved changes</span>
+                  <span className="inline-flex items-center gap-1 text-xs text-amber-700 font-medium">
+                    <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    Unsaved changes
+                  </span>
                 )}
                 <button
                   onClick={handleSave}
                   disabled={saving || !hasUnsavedChanges}
-                  className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
-                    hasUnsavedChanges
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                    hasUnsavedChanges && !saving
                       ? "text-white bg-blue-600 hover:bg-blue-700"
-                      : "text-gray-400 bg-gray-200 cursor-not-allowed"
-                  } disabled:opacity-50`}
+                      : "text-gray-400 bg-gray-100 cursor-not-allowed"
+                  }`}
                 >
-                  {saving ? "Saving..." : "Save Notes"}
+                  {saving ? "Saving..." : "Save notes"}
                 </button>
               </div>
             )}
@@ -3349,7 +3610,12 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                 to scroll as a unit. */}
             <div className="flex-1 min-h-0 flex flex-col">
               {loading ? (
-                <p className="p-6 text-sm text-gray-400 animate-pulse">Loading...</p>
+                <div className="p-6 space-y-2 animate-pulse" aria-busy="true">
+                <div className="h-3 w-1/3 bg-gray-200 rounded" />
+                <div className="h-3 w-full bg-gray-200 rounded" />
+                <div className="h-3 w-5/6 bg-gray-200 rounded" />
+                <div className="h-3 w-4/5 bg-gray-100 rounded" />
+              </div>
               ) : (
                 <LiveMarkdownEditor
                   value={content}
@@ -3709,41 +3975,56 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
       <FileRenamePopup />
       <DuplicateDialog />
       <div className="flex flex-col h-full">
-        {/* Sub-tabs for Markdown and PDFs */}
-        <div className="flex items-center gap-1 px-6 py-2 bg-gray-50 border-b border-gray-100">
-          <button
-            onClick={() => setActiveSubTab("markdown")}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-              activeSubTab === "markdown"
-                ? "bg-white text-blue-600 shadow-sm border border-gray-200"
-                : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            Markdown
-          </button>
-          <button
-            onClick={() => setActiveSubTab("pdfs")}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-              activeSubTab === "pdfs"
-                ? "bg-white text-blue-600 shadow-sm border border-gray-200"
-                : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            Files
-          </button>
+        {/* Sub-tabs for Markdown and PDFs — segmented control matches the
+            recent purchases / settings polish bar (compact, contained). */}
+        <div className="flex items-center gap-1 px-6 py-2 border-b border-gray-100">
+          <div className="inline-flex items-center p-0.5 bg-gray-100 rounded-lg">
+            <button
+              onClick={() => setActiveSubTab("markdown")}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                activeSubTab === "markdown"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+              </svg>
+              Markdown
+            </button>
+            <button
+              onClick={() => setActiveSubTab("pdfs")}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                activeSubTab === "pdfs"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+              </svg>
+              Files
+            </button>
+          </div>
         </div>
 
         {activeSubTab === "markdown" ? (
         <>
           {/* Toolbar - hidden in readOnly mode */}
           {!readOnly && (
-            <div className="flex items-center gap-2 px-6 py-3 border-b border-gray-50">
+            <div className="flex items-center gap-2 px-6 py-2.5 border-b border-gray-100">
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
-                className="px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
               >
-                {uploading ? "Uploading..." : "Add File"}
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                </svg>
+                {uploading ? "Uploading..." : "Add file"}
               </button>
               <input
                 ref={fileInputRef}
@@ -3757,18 +4038,21 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
               />
               <div className="flex-1" />
               {hasUnsavedChanges && (
-                <span className="text-xs text-amber-600 font-medium">Unsaved changes</span>
+                <span className="inline-flex items-center gap-1 text-xs text-amber-700 font-medium">
+                  <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  Unsaved changes
+                </span>
               )}
               <button
                 onClick={handleSave}
                 disabled={saving || !hasUnsavedChanges}
-                className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
-                  hasUnsavedChanges
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                  hasUnsavedChanges && !saving
                     ? "text-white bg-blue-600 hover:bg-blue-700"
-                    : "text-gray-400 bg-gray-200 cursor-not-allowed"
-                } disabled:opacity-50`}
+                    : "text-gray-400 bg-gray-100 cursor-not-allowed"
+                }`}
               >
-                {saving ? "Saving..." : "Save Results"}
+                {saving ? "Saving..." : "Save results"}
               </button>
             </div>
           )}
@@ -3798,7 +4082,12 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
               tab and the fullscreen behavior. */}
           <div className="flex-1 min-h-0 flex flex-col">
             {loading ? (
-              <p className="p-6 text-sm text-gray-400 animate-pulse">Loading...</p>
+              <div className="p-6 space-y-2 animate-pulse" aria-busy="true">
+                <div className="h-3 w-1/3 bg-gray-200 rounded" />
+                <div className="h-3 w-full bg-gray-200 rounded" />
+                <div className="h-3 w-5/6 bg-gray-200 rounded" />
+                <div className="h-3 w-4/5 bg-gray-100 rounded" />
+              </div>
             ) : (
               <LiveMarkdownEditor
                 value={content}
@@ -4100,13 +4389,17 @@ function PdfAttachmentsPanel({
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-6 py-3 border-b border-gray-50">
+      <div className="flex items-center gap-2 px-6 py-2.5 border-b border-gray-100">
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
-          className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
         >
-          {uploading ? "Uploading..." : "Add File"}
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          {uploading ? "Uploading..." : "Add file"}
         </button>
         <input
           ref={fileInputRef}
@@ -4115,11 +4408,11 @@ function PdfAttachmentsPanel({
           className="hidden"
           onChange={(e) => handleUpload(e.target.files)}
         />
-        <span className="text-xs text-gray-400">
-          PDFs & images viewable, other files downloadable
+        <span className="text-xs text-gray-500">
+          PDFs and images view inline, other files download
         </span>
         <div className="flex-1" />
-        <span className="text-xs text-gray-400">
+        <span className="text-xs text-gray-500">
           {files.length} file{files.length !== 1 ? "s" : ""}
         </span>
       </div>
@@ -4127,30 +4420,55 @@ function PdfAttachmentsPanel({
       {/* File List */}
       <div className="flex-1 overflow-y-auto p-6">
         {loading ? (
-          <p className="text-sm text-gray-400 animate-pulse">Loading files...</p>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3" aria-busy="true">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="bg-gray-50 border border-gray-200 rounded-xl p-4 animate-pulse">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-10 rounded bg-gray-200 flex-shrink-0" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-3 w-3/4 bg-gray-200 rounded" />
+                    <div className="h-2 w-1/2 bg-gray-100 rounded" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         ) : files.length === 0 ? (
-          <div className="text-center py-12">
-            <PaperclipIcon className="w-8 h-8 text-gray-300 mb-3 mx-auto" />
-            <p className="text-sm text-gray-400 mb-1">No files attached yet</p>
-            <p className="text-xs text-gray-300">
-              Upload PDFs (viewable), images (viewable), or other files (downloadable)
+          <div className="text-center py-16 max-w-sm mx-auto">
+            <div className="w-12 h-12 rounded-full bg-gray-100 mx-auto mb-3 flex items-center justify-center">
+              <PaperclipIcon className="w-5 h-5 text-gray-400" />
+            </div>
+            <p className="text-sm font-medium text-gray-700 mb-1">No files yet</p>
+            <p className="text-xs text-gray-500 mb-4">
+              Drop files here or click <span className="font-medium text-gray-700">Add file</span> to upload PDFs, images, or any document.
             </p>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Add your first file
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {files.map((file) => (
               <div
                 key={file.path}
-                className="group relative bg-gray-50 border border-gray-200 rounded-lg p-4 hover:bg-gray-100 transition-colors cursor-pointer"
+                className="group relative bg-white border border-gray-200 rounded-xl p-4 hover:border-gray-300 hover:shadow-sm transition-all cursor-pointer"
                 onClick={() => handleViewFile(file)}
               >
                 <div className="flex items-start gap-3">
                   <FileExtBadge filename={file.name} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-700 truncate">
+                    <p className="text-sm font-medium text-gray-900 truncate">
                       {file.name}
                     </p>
-                    <p className="text-xs text-gray-400 mt-0.5">
+                    <p className="text-xs text-gray-500 mt-0.5">
                       {file.isRenderable ? "Click to view" : "Click to download"}
                     </p>
                   </div>
@@ -4161,9 +4479,13 @@ function PdfAttachmentsPanel({
                       e.stopPropagation();
                       handleDeleteFile(file);
                     }}
-                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 transition-all"
+                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all"
+                    aria-label={`Delete ${file.name}`}
                   >
-                    ✕
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
                   </button>
                 </Tooltip>
               </div>
