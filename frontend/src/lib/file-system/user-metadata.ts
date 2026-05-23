@@ -137,6 +137,88 @@ export function fallbackUserColor(username: string): string {
   return hashColor(username);
 }
 
+/** Exported palette so the user-creation color picker can render the same
+ *  swatches the Settings page uses without re-declaring the array. The
+ *  master palette lives here because `_user_metadata.json` is the source
+ *  of truth for stored colors — Settings imports its own copy that stays
+ *  in sync by convention. */
+export const USER_METADATA_COLOR_PALETTE = USER_COLOR_PALETTE;
+
+/**
+ * Returns a random palette color that no other user currently owns as a
+ * solid (preferring unused swatches before falling back to the hash). Used
+ * by the user-creation color picker to seed its "random default" so the
+ * popup opens with a sensible suggestion the user can either accept or
+ * change. Pure read — does NOT mutate the metadata file.
+ *
+ * Pass the read-only metadata snapshot (from `readAllUserMetadata`) so the
+ * picker reflects what colors are already taken. Tombstoned users are
+ * ignored (their slot is free to reclaim).
+ */
+export function suggestInitialColorForNewUser(
+  username: string,
+  byOtherUsers: Record<string, UserMetadataEntry>,
+): string {
+  const takenColors = new Set<string>();
+  for (const entry of Object.values(byOtherUsers)) {
+    if (entry.deleted_at) continue;
+    // Only block on SOLID colors (no secondary) — mirrors the collision
+    // rule the Settings picker enforces. Gradients don't reserve their
+    // primary stop against new solid users.
+    if (entry.color_secondary) continue;
+    takenColors.add(entry.color);
+  }
+  return pickColor(takenColors, username);
+}
+
+/**
+ * Persists a brand-new user's initial color choice to _user_metadata.json.
+ * Idempotent: if an entry already exists for `username` (e.g. the user was
+ * pre-seeded by ensureLabUserMetadata before they finished the color
+ * picker), the explicit `color` argument wins so the user's pick is never
+ * silently dropped. Routes through the serial write queue same as the
+ * other writers so concurrent ensureLabUserMetadata / setUserMetadataField
+ * calls can't race the .tmp create + move.
+ *
+ * Called by the UserLoginScreen create flow after the user accepts the
+ * color picker so the color is persisted BEFORE the new user's folder
+ * structure is built — once stored, every later UserAvatar render hits
+ * the persisted entry and the color never gets re-rolled from the
+ * username hash on rename (the original bug).
+ */
+export async function createUserMetadataEntry(
+  username: string,
+  color: string,
+): Promise<UserMetadataEntry | null> {
+  if (!fileService.isConnected()) return null;
+  return enqueueMetadataWrite(async () => {
+    const file = await readMetadataFile();
+    const existing = file.users[username];
+    const now = new Date().toISOString();
+    if (existing) {
+      // Honor the explicit pick over any pre-seeded entry, but preserve
+      // other fields (hide-flag, tutorial marker, etc.) so we don't clobber
+      // state set by a parallel writer.
+      file.users[username] = {
+        ...existing,
+        color,
+      };
+    } else {
+      file.users[username] = {
+        color,
+        created_at: now,
+      };
+    }
+    try {
+      await fileService.writeJson(METADATA_PATH, file);
+    } catch (err) {
+      console.error("createUserMetadataEntry: failed to persist", err);
+      return null;
+    }
+    return file.users[username];
+  });
+}
+
 /**
  * Sets a single field on a user's metadata entry, preserving all other
  * fields. The user is auto-created with palette color + now() if missing.
