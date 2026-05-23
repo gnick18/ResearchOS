@@ -1098,6 +1098,42 @@ describe("TourController — Wave 2 Fix 1: popstate guard", () => {
   });
 });
 
+// Wave 2 Fix 8/9: ModalSetupShell focus trap.
+describe("TourController — Wave 2 Fix 8: ModalSetupShell focus trap", () => {
+  it("wraps Tab from the last focusable back to the first focusable inside the modal", async () => {
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: wrapper(),
+    });
+    act(() => result.current.start("welcome"));
+    await waitFor(() => {
+      const modal = document.body.querySelector(
+        '[data-tour-modal="v4-setup"]',
+      );
+      expect(modal).toBeTruthy();
+    });
+    const modal = document.body.querySelector(
+      '[data-tour-modal="v4-setup"]',
+    ) as HTMLElement;
+    const focusables = Array.from(
+      modal.querySelectorAll<HTMLElement>(
+        "button:not([disabled]), input, [tabindex]:not([tabindex='-1'])",
+      ),
+    ).filter((el) => !el.hasAttribute("disabled"));
+    expect(focusables.length).toBeGreaterThan(1);
+    const first = focusables[0]!;
+    const last = focusables[focusables.length - 1]!;
+    last.focus();
+    expect(document.activeElement).toBe(last);
+    const ev = new KeyboardEvent("keydown", {
+      key: "Tab",
+      bubbles: true,
+      cancelable: true,
+    });
+    document.dispatchEvent(ev);
+    expect(document.activeElement).toBe(first);
+  });
+});
+
 // Wave 2 Fix 6/9: pathname-settle helper.
 describe("TourController — Wave 2 Fix 6: waitForPathnameSettle", () => {
   it("resolves immediately when expectedPathname is undefined", async () => {

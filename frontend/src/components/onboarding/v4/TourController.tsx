@@ -1774,6 +1774,11 @@ function ModalSetupShell({
   const [nextDisabled, setNextDisabled] = useState(false);
   const [showSkipConfirm, setShowSkipConfirm] = useState(false);
   const titleId = useId();
+  // Wave 2 Fix 8/9: focus trap. Tab at the last focusable wraps to
+  // the first; Shift+Tab at the first wraps to the last. Applies
+  // only while the modal-setup shell is mounted (the walkthrough
+  // phase uses TourPageLock / InputLockOverlay, not a focus trap).
+  const modalRef = useRef<HTMLDivElement | null>(null);
 
   // Stable patchSidecar for the body, falling back to a no-op when the
   // parent didn't pass one (matches the optional-prop contract above).
@@ -1803,6 +1808,52 @@ function ModalSetupShell({
     setNextDisabled(false);
   }, [stepId]);
 
+  // Wave 2 Fix 8/9: focus-trap effect. Listens for Tab/Shift+Tab on
+  // the modal subtree and wraps focus when it would otherwise leave
+  // the modal. The modal also covers the rest of the page visually
+  // (backdrop overlay) so without this, Tab would let keyboard
+  // focus wander into the background page even though it's
+  // pointer-blocked.
+  useEffect(() => {
+    if (!mounted) return;
+    if (typeof document === "undefined") return;
+    const FOCUSABLE_SELECTOR = [
+      "button:not([disabled])",
+      "[href]",
+      "input:not([disabled]):not([type='hidden'])",
+      "select:not([disabled])",
+      "textarea:not([disabled])",
+      "[tabindex]:not([tabindex='-1'])",
+    ].join(", ");
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const root = modalRef.current;
+      if (!root) return;
+      const focusables = Array.from(
+        root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+      ).filter((el) => !el.hasAttribute("disabled"));
+      if (focusables.length === 0) return;
+      const first = focusables[0]!;
+      const last = focusables[focusables.length - 1]!;
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey) {
+        if (active === first || !root.contains(active)) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (active === last || !root.contains(active)) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [mounted, stepId]);
+
   if (!mounted) return null;
 
   const { Component, title, pose } = descriptor;
@@ -1821,6 +1872,7 @@ function ModalSetupShell({
 
   return createPortal(
     <div
+      ref={modalRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
