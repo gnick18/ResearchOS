@@ -64,6 +64,7 @@ import {
   TourControllerProvider,
   useOptionalTourController,
   useTourController,
+  waitForPathnameSettle,
 } from "../TourController";
 import { TOUR_STEPS } from "../step-registry";
 import type { TourStep } from "../step-types";
@@ -1094,6 +1095,19 @@ describe("TourController — Wave 2 Fix 1: popstate guard", () => {
       result.current.dismissPopstateToast();
     });
     expect(result.current.popstateToastVisible).toBe(false);
+  });
+});
+
+// Wave 2 Fix 6/9: pathname-settle helper.
+describe("TourController — Wave 2 Fix 6: waitForPathnameSettle", () => {
+  it("resolves immediately when expectedPathname is undefined", async () => {
+    await expect(waitForPathnameSettle(undefined)).resolves.toBeUndefined();
+  });
+
+  it("resolves when window.location matches the expectedPathname", async () => {
+    window.history.pushState({}, "", "/methods");
+    await expect(waitForPathnameSettle("/methods")).resolves.toBeUndefined();
+    window.history.pushState({}, "", "/");
   });
 });
 

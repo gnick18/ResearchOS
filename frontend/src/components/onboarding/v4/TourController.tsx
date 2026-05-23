@@ -105,6 +105,52 @@ import {
 
 export type TourTransitionType = "start" | "advance" | "goBack" | "skip";
 
+/**
+ * Wave 2 Fix 6/9 — pathname-settle helper.
+ *
+ * Awaits two requestAnimationFrame ticks after a router push so React
+ * has time to commit the new route before the controller fires the
+ * step's onEnter / cursorScript builds. Without this, onEnter and the
+ * cursor-script builder read stale DOM (the old page's selectors)
+ * because the router push schedules navigation asynchronously and the
+ * effect's microtask runs before the next paint.
+ *
+ * Exported for tests that stub it. Pure: a no-op outside a browser.
+ */
+export function waitForPathnameSettle(
+  expectedPathname: string | undefined,
+  timeoutMs = 1500,
+): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  if (!expectedPathname) return Promise.resolve();
+  // Match contract from the expectedRoute effect: "/" is exact, other
+  // values are prefix matches.
+  const matches = () =>
+    expectedPathname === "/"
+      ? window.location.pathname === "/"
+      : window.location.pathname.startsWith(expectedPathname);
+  if (matches()) {
+    // Already on route — still yield two RAF ticks so a freshly-
+    // pushed route has time to commit before downstream effects
+    // sample the DOM.
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+  }
+  return new Promise((resolve) => {
+    let elapsed = 0;
+    const tick = () => {
+      if (matches() || elapsed >= timeoutMs) {
+        resolve();
+        return;
+      }
+      elapsed += 16;
+      setTimeout(tick, 16);
+    };
+    tick();
+  });
+}
+
 let lastTransitionType: TourTransitionType = "start";
 
 export function getLastTourTransition(): TourTransitionType {
@@ -876,6 +922,13 @@ export function TourControllerProvider({
     let cancelled = false;
     void (async () => {
       try {
+        // Wave 2 Fix 6/9: wait for pathname to settle on the step's
+        // expectedRoute before calling onEnter. Without this, onEnter
+        // can read stale page state (the previous step's surface)
+        // because router.push schedules navigation async and effects
+        // fire on currentStep change before the new route commits.
+        await waitForPathnameSettle(body.expectedRoute);
+        if (cancelled) return;
         await body.onEnter?.({ username: username ?? null });
       } catch (err) {
         if (!cancelled) {
@@ -1504,6 +1557,13 @@ function InProductWalkthroughOverlay({
     setCursorActive(true);
     void (async () => {
       try {
+        // Wave 2 Fix 6/9: wait for pathname to settle BEFORE the
+        // cursor-script builder runs. Selector resolutions inside the
+        // builder (waitForElement etc) race the route commit
+        // otherwise. The helper is a no-op when the step has no
+        // expectedRoute or when the pathname already matches.
+        await waitForPathnameSettle(stepBody.expectedRoute);
+        if (cancelled) return;
         // Build the action list FIRST. Some step bodies (e.g. the LC
         // demo) silent-pre-click a tile inside the builder so the
         // anchor wrapper mounts; running the anchor scroll before the
