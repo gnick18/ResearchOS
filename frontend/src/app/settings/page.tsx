@@ -3197,18 +3197,27 @@ function TipsSection() {
       }));
       // Reset the controller's in-memory feature_picks snapshot so the
       // re-run's gating machine sees the cleared picks immediately.
-      // Do NOT call tourController.start() here — that would write
-      // current_step:"welcome" to disk before the user leaves /settings,
-      // causing TourBootstrap on every subsequent /wiki/* visit to
-      // re-probe the sidecar and re-fire start() in an infinite loop.
-      // Instead, navigate to / so the home-route TourBootstrap re-probes
-      // the now-cleared sidecar and fires start() naturally from a
-      // fresh-user state with no route-change race.
       tourController?.setFeaturePicks(null);
       setStatus("Re-running the tour. BeakerBot is on the way.");
       setTimeout(() => {
         setBusy(false);
         router.push("/");
+        // TourBootstrap is one-shot per mount with `[username, previewMode]`
+        // deps. V4MountForUser sits in providers.tsx ABOVE every route, so
+        // TourBootstrap does NOT remount on `router.push("/")`; its sidecar
+        // probe ran once at first login and never re-fires. Calling start()
+        // directly is the only thing that gets the tour out the door after
+        // a re-run. The prior "navigate to / and let TourBootstrap re-probe
+        // naturally" path quietly no-opped (this surfaced as "click re-run,
+        // land on home, nothing happens"). The earlier comment here feared
+        // an infinite re-probe loop on every /wiki/* visit, but the deps
+        // were narrowed to `[username, previewMode]` long ago, so a fresh
+        // start() write to the sidecar can not re-trigger the probe.
+        //
+        // The first applicable step's `expectedRoute` auto-navigate effect
+        // in TourController routes to home if the router.push has not yet
+        // landed by the time start() flips currentStep to "welcome".
+        tourController?.start();
       }, 600);
     } catch (err) {
       console.error("[Settings/Tips] re-run wizard failed", err);
