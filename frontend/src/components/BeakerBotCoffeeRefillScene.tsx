@@ -2,14 +2,14 @@
 
 // frontend/src/components/BeakerBotCoffeeRefillScene.tsx
 //
-// Reward easter-egg scene: BeakerBot walks in carrying his beaker, walks
-// to a small ceramic mug sitting on the bench, pours pastel-brown coffee
-// from his beaker into the mug (mug fills via a rising liquid level),
-// sets the beaker down, picks up the mug, blows on it (three small steam
-// wisps drift sideways), takes a sip, eyes go heart-shaped, a few small
-// hearts drift up from his chest, sighs contentedly, then walks off
-// carrying the mug. ~5s total. Lab-life cameo, no failure, pure joy.
-// "You've earned this" tone for after a long task.
+// Reward easter-egg scene (R2 full redesign): BeakerBot walks in carrying
+// a small bag of coffee beans, dumps them into the top of a classic drip
+// coffee machine, waits while the machine slowly brews a full pot
+// (whistling a tune with ♪ ♫ glyphs drifting up), then picks up the
+// finished pot and carries it off-screen. The long brewing beat IS the
+// joke — "I waited 8 seconds for this coffee, but look how happy I am."
+// The whistle sway plus drifting musical notes sell the wait as
+// intentional, not a glitch.
 //
 // Built on the same skeleton as BeakerBotEurekaScene and
 // BeakerBotTooManyBeakersScene:
@@ -18,25 +18,20 @@
 //   - pointer-events: none (purely decorative)
 //   - z-index 800 (above app chrome, below modals)
 //   - useSyncExternalStore for SSR-safe portal mount
-//   - prefers-reduced-motion gate with static "post-sip" fallback
+//   - prefers-reduced-motion gate with static "pot in hand" fallback
 //
-// Stage timeline (~5000ms total in motion mode):
-//   1. walkIn      0    → 600ms   (enters carrying beaker, walks to mug)
-//   2. pour        600  → 1500ms  (tilts beaker, coffee streams into mug, mug fills)
-//   3. sipPrep     1500 → 1900ms  (sets beaker on bench, picks up mug)
-//   4. blow        1900 → 2400ms  (blows on mug, three steam wisps drift)
-//   5. sip         2400 → 2800ms  (tilts mug to mouth, small backward lean)
-//   6. heartEyes   2800 → 4000ms  (heart-shape eyes, hearts drift up, contented sway)
-//   7. walkOff     4000 → 5000ms  (carries mug off the opposite side, content bob)
+// Stage timeline (~13s total in motion mode):
+//   1. walkIn        0     → 800ms    (enters carrying beans bag)
+//   2. pourBeans     800   → 2000ms   (tilts bag over machine top, beans rattle in)
+//   3. setupComplete 2000  → 2400ms   (sets bag down, machine LED glows on)
+//   4. brewing       2400  → 10400ms  (8s slow drip + pot fills + whistle sway + ♪ notes)
+//   5. ready         10400 → 11000ms  (drip stops, pose=amazed, steam wisp from pot)
+//   6. carryOff      11000 → 13000ms  (picks up pot, walks off opposite side)
 //
-// Reduced-motion fallback: render BeakerBot at center holding the mug
-// with heart-eyes overlay (the "after the sip" tableau) for 2000ms then
-// fire onComplete.
-//
-// Heart-eye override is INLINE to this scene only — it is NOT a new
-// pose on the BeakerBotPose union. The base BeakerBot renders behind a
-// small SVG overlay that masks his normal dot eyes with pink hearts
-// during the heartEyes stage.
+// Reduced-motion fallback: render BeakerBot at the bench position
+// proudly holding the FULL pot next to the machine, with one ♪ note
+// floating mid-air to suggest the whistle. Hold 2000ms then fire
+// onComplete.
 
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
@@ -52,31 +47,30 @@ export interface BeakerBotCoffeeRefillSceneProps {
    *  reduced-motion shortcut has elapsed). The parent is expected to
    *  set `active=false` in response. */
   onComplete?: () => void;
-  /** Side from which BeakerBot enters carrying his beaker. Default
-   *  "left". He exits the opposite side carrying the mug. */
+  /** Side from which BeakerBot enters carrying the beans bag. Default
+   *  "left". He exits the opposite side carrying the full pot. */
   enterFrom?: "left" | "right";
 }
 
 /** Stage durations in ms. Exported so tests can derive the total without
- *  hard-coding the sum. Total: 600+900+400+500+400+1200+1000 = 5000ms. */
+ *  hard-coding the sum. Total: 800+1200+400+8000+600+2000 = 13000ms.
+ *  Brewing intentionally long — the wait IS the gag. */
 export const STAGE_DURATIONS = {
-  walkIn: 600,
-  pour: 900,
-  sipPrep: 400,
-  blow: 500,
-  sip: 400,
-  heartEyes: 1200,
-  walkOff: 1000,
+  walkIn: 800,
+  pourBeans: 1200,
+  setupComplete: 400,
+  brewing: 8000,
+  ready: 600,
+  carryOff: 2000,
 } as const;
 
 export const TOTAL_DURATION_MS =
   STAGE_DURATIONS.walkIn +
-  STAGE_DURATIONS.pour +
-  STAGE_DURATIONS.sipPrep +
-  STAGE_DURATIONS.blow +
-  STAGE_DURATIONS.sip +
-  STAGE_DURATIONS.heartEyes +
-  STAGE_DURATIONS.walkOff;
+  STAGE_DURATIONS.pourBeans +
+  STAGE_DURATIONS.setupComplete +
+  STAGE_DURATIONS.brewing +
+  STAGE_DURATIONS.ready +
+  STAGE_DURATIONS.carryOff;
 
 /** Reduced-motion fallback duration. */
 export const REDUCED_MOTION_DURATION_MS = 2000;
@@ -85,34 +79,49 @@ export const REDUCED_MOTION_DURATION_MS = 2000;
 export type CoffeeRefillStage =
   | "idle"
   | "walkIn"
-  | "pour"
-  | "sipPrep"
-  | "blow"
-  | "sip"
-  | "heartEyes"
-  | "walkOff"
+  | "pourBeans"
+  | "setupComplete"
+  | "brewing"
+  | "ready"
+  | "carryOff"
   | "done";
 
 export const STAGE_ORDER: readonly CoffeeRefillStage[] = [
   "walkIn",
-  "pour",
-  "sipPrep",
-  "blow",
-  "sip",
-  "heartEyes",
-  "walkOff",
+  "pourBeans",
+  "setupComplete",
+  "brewing",
+  "ready",
+  "carryOff",
 ] as const;
 
-/** Coffee fill color — pastel brown. */
-const COFFEE_COLOR = "#A87854";
-/** Coffee rim foam color — small white arc on top of the coffee. */
-const COFFEE_FOAM_COLOR = "#F5E6D3";
-/** Mug body color — soft sky-blue tinted ceramic to keep the pastel palette. */
-const MUG_BODY_COLOR = "#E6F2FB";
-const MUG_OUTLINE_COLOR = "#475569";
-/** Heart eye + drifting heart particle color. */
-const HEART_COLOR = "#F472B6"; // pink-400
-const HEART_STROKE = "#DB2777"; // pink-600
+// ----- Visual constants -----
+
+/** Coffee liquid color — rich brown, slightly warm. */
+const COFFEE_COLOR = "#6B4423";
+/** Coffee liquid highlight (slightly lighter, used at the top of the gradient). */
+const COFFEE_HIGHLIGHT = "#8B5E3C";
+/** Coffee bean fill color. */
+const BEAN_COLOR = "#5C3A1E";
+/** Coffee machine body color — clean off-white. */
+const MACHINE_BODY = "#F1F5F9";
+const MACHINE_ACCENT = "#CBD5E1";
+const MACHINE_OUTLINE = "#475569";
+/** Machine LED — gray when off, cyan when brewing. */
+const LED_OFF = "#94A3B8";
+const LED_ON = "#22D3EE";
+/** Glass carafe outline / handle stroke. */
+const POT_OUTLINE = "#475569";
+const POT_GLASS_FILL = "rgba(241, 245, 249, 0.55)"; // semi-transparent for the "glass" look
+/** Beans bag — cream/tan canvas look. */
+const BAG_BODY = "#E8D9B5";
+const BAG_OUTLINE = "#8B6F47";
+const BAG_LABEL = "#6B4423";
+/** Musical note color — cheerful sky-blue. */
+const NOTE_COLOR = "#38BDF8"; // sky-400
+const NOTE_STROKE = "#0284C7"; // sky-600
+/** Steam wisp color (over the fresh pot). */
+const STEAM_COLOR = "rgba(148, 163, 184, 0.7)";
 
 /** Z-index slot — matches the other reward scenes. */
 const SCENE_Z_INDEX = 800;
@@ -126,115 +135,326 @@ function useIsClient(): boolean {
   );
 }
 
-/** Small ceramic mug glyph. Rounded-rect body + curved handle on the
- *  side facing away from BeakerBot. Inside fills with coffee up to a
- *  caller-controlled `fillRatio` (0..1) so the pour can rise. */
-function MugGlyph({
+// ----- SVG glyphs -----
+
+/** Classic drip coffee machine. Rectangular silhouette with three
+ *  sections: grinder/hopper top (where beans go in), brewing body
+ *  (with the LED), and bottom hot-plate recess (where the pot sits).
+ *  A small downward-pointing nozzle protrudes between the body and
+ *  the hot plate — that's where the drip falls from. */
+function CoffeeMachineGlyph({
+  className,
+  ledOn,
+}: {
+  className?: string;
+  /** When true, the brewing-indicator LED glows cyan. */
+  ledOn: boolean;
+}) {
+  return (
+    <svg
+      viewBox="0 0 28 32"
+      fill="none"
+      role="img"
+      aria-label="Coffee machine"
+      className={className ?? "w-7 h-8"}
+    >
+      {/* Grinder / hopper top — narrow trapezoid feeding the body */}
+      <path
+        d="M 8 1 L 20 1 L 19 5 L 9 5 Z"
+        fill={MACHINE_ACCENT}
+        stroke={MACHINE_OUTLINE}
+        strokeWidth="0.6"
+        strokeLinejoin="round"
+      />
+      {/* Tiny opening at top of hopper (where beans fall in) */}
+      <ellipse cx="14" cy="1.2" rx="4" ry="0.6" fill="#1E293B" />
+      {/* Brewing body — main rectangle */}
+      <rect
+        x="4"
+        y="5"
+        width="20"
+        height="14"
+        rx="1.2"
+        fill={MACHINE_BODY}
+        stroke={MACHINE_OUTLINE}
+        strokeWidth="0.7"
+      />
+      {/* Subtle horizontal panel line — looks like a removable filter cap */}
+      <line x1="4" y1="9" x2="24" y2="9" stroke={MACHINE_ACCENT} strokeWidth="0.5" />
+      {/* LED dot — brewing indicator */}
+      <circle
+        cx="21"
+        cy="7"
+        r="0.9"
+        fill={ledOn ? LED_ON : LED_OFF}
+        stroke={MACHINE_OUTLINE}
+        strokeWidth="0.25"
+      />
+      {/* Drip nozzle — small downward triangle protruding from the body's bottom */}
+      <path
+        d="M 12.5 19 L 15.5 19 L 14 21 Z"
+        fill={MACHINE_OUTLINE}
+      />
+      {/* Hot plate / pot rest — recessed area below the body */}
+      <rect
+        x="3"
+        y="22"
+        width="22"
+        height="9"
+        rx="0.8"
+        fill={MACHINE_ACCENT}
+        stroke={MACHINE_OUTLINE}
+        strokeWidth="0.7"
+      />
+      {/* Hot plate surface — slightly darker inner rect (where the pot sits) */}
+      <rect
+        x="4.5"
+        y="29"
+        width="19"
+        height="1.5"
+        rx="0.4"
+        fill="#94A3B8"
+      />
+    </svg>
+  );
+}
+
+/** Classic round glass carafe with handle. Coffee fills inside up to
+ *  `fillRatio` (0..1). Liquid drawn as a brown rect masked to the
+ *  carafe interior, with a slight gradient top→bottom for depth. */
+function CoffeePotGlyph({
   className,
   fillRatio,
   showHandleOnRight = true,
+  gradientId,
 }: {
   className?: string;
-  /** Coffee fill level inside the mug. 0 = empty, 1 = full to brim. */
+  /** Coffee fill level inside the pot. 0 = empty, 1 = full to the brim. */
   fillRatio: number;
-  /** Side the curved handle hangs off. Defaults to right; the carried
-   *  mug during walkOff flips this so the handle always faces away from
-   *  BeakerBot's body. */
+  /** Side the curved handle hangs off. */
   showHandleOnRight?: boolean;
+  /** Unique id for the liquid gradient — required so multiple pot
+   *  instances (bench + held) don't collide in a single document. */
+  gradientId: string;
 }) {
-  // Coffee fill: the mug's inside spans roughly y=8..y=24 (16 units tall).
-  // fillRatio=1 -> coffee top edge at y=8; fillRatio=0 -> at y=24.
   const fill = Math.max(0, Math.min(1, fillRatio));
-  const coffeeTopY = 24 - fill * 16; // y-coord of the coffee surface
-  const showCoffee = fill > 0.001;
-  // Foam arc sits 0.6 units above the coffee surface for the rim look.
-  const foamY = coffeeTopY - 0.4;
+  // Pot inside spans roughly y=8..y=22 (14 units of vertical liquid).
+  // fillRatio=1 → liquid top at y=8; fillRatio=0 → at y=22.
+  const liquidTopY = 22 - fill * 14;
+  const showLiquid = fill > 0.001;
   return (
     <svg
-      viewBox="0 0 32 30"
+      viewBox="0 0 24 26"
       fill="none"
       role="img"
-      aria-label="Coffee mug"
-      className={className ?? "w-8 h-7"}
+      aria-label="Coffee pot"
+      className={className ?? "w-6 h-7"}
     >
-      {/* Mug body — rounded rect, ceramic blue-tinted */}
-      <rect
-        x="6"
-        y="6"
-        width="18"
-        height="20"
-        rx="2"
-        ry="2"
-        fill={MUG_BODY_COLOR}
-        stroke={MUG_OUTLINE_COLOR}
-        strokeWidth="1.1"
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={COFFEE_HIGHLIGHT} />
+          <stop offset="100%" stopColor={COFFEE_COLOR} />
+        </linearGradient>
+        {/* Clip path masks the liquid rectangle to the carafe interior */}
+        <clipPath id={`${gradientId}-clip`}>
+          <path d="M 7 4 L 7 22 Q 7 24, 9 24 L 15 24 Q 17 24, 17 22 L 17 4 Z" />
+        </clipPath>
+      </defs>
+
+      {/* Glass carafe body — slightly tapered neck + rounded bottom */}
+      <path
+        d="M 6.5 4
+           L 6.5 22
+           Q 6.5 24.5, 9 24.5
+           L 15 24.5
+           Q 17.5 24.5, 17.5 22
+           L 17.5 4 Z"
+        fill={POT_GLASS_FILL}
+        stroke={POT_OUTLINE}
+        strokeWidth="0.9"
+        strokeLinejoin="round"
       />
-      {/* Coffee fill — masked to the mug interior. Inset 0.6 from the
-          mug border so the outline stays visible. */}
-      {showCoffee && (
-        <>
-          <rect
-            x="6.8"
-            y={coffeeTopY}
-            width="16.4"
-            height={26 - coffeeTopY - 0.4}
-            fill={COFFEE_COLOR}
-          />
-          {/* Foam — small white arc on top of the coffee. */}
-          <path
-            d={`M 7.5 ${foamY + 0.2} Q 11 ${foamY - 0.5}, 15 ${foamY + 0.2} T 22.5 ${foamY + 0.2}`}
-            stroke={COFFEE_FOAM_COLOR}
-            strokeWidth="0.8"
-            fill="none"
-            strokeLinecap="round"
-          />
-        </>
+
+      {/* Liquid inside — masked to the carafe interior path */}
+      {showLiquid && (
+        <rect
+          x="7"
+          y={liquidTopY}
+          width="10"
+          height={24 - liquidTopY}
+          fill={`url(#${gradientId})`}
+          clipPath={`url(#${gradientId}-clip)`}
+        />
       )}
-      {/* Mug lip — top rim. */}
-      <ellipse cx="15" cy="6" rx="9" ry="1.5" fill={MUG_BODY_COLOR} stroke={MUG_OUTLINE_COLOR} strokeWidth="0.9" />
-      {/* Handle — curved D-shape on the chosen side. */}
+
+      {/* Spout / mouth — slight neck taper at the top */}
+      <path
+        d="M 6.5 4
+           Q 6.5 2.5, 8 2.2
+           L 16 2.2
+           Q 17.5 2.5, 17.5 4"
+        fill={MACHINE_BODY}
+        stroke={POT_OUTLINE}
+        strokeWidth="0.9"
+        strokeLinejoin="round"
+      />
+      {/* Pot mouth opening — dark ellipse for depth */}
+      <ellipse cx="12" cy="2.4" rx="4" ry="0.5" fill="#1E293B" opacity="0.75" />
+
+      {/* Handle — D-shape on the chosen side */}
       {showHandleOnRight ? (
         <path
-          d="M 24 11 C 28 11, 28 21, 24 21"
-          stroke={MUG_OUTLINE_COLOR}
-          strokeWidth="1.4"
+          d="M 17.5 7 C 22 7, 22 18, 17.5 18"
+          stroke={POT_OUTLINE}
+          strokeWidth="1.2"
           fill="none"
           strokeLinecap="round"
         />
       ) : (
         <path
-          d="M 6 11 C 2 11, 2 21, 6 21"
-          stroke={MUG_OUTLINE_COLOR}
-          strokeWidth="1.4"
+          d="M 6.5 7 C 2 7, 2 18, 6.5 18"
+          stroke={POT_OUTLINE}
+          strokeWidth="1.2"
           fill="none"
           strokeLinecap="round"
         />
       )}
-      {/* Small base shadow line so the mug visually plants on the bench. */}
-      <ellipse cx="15" cy="26.5" rx="8" ry="0.7" fill="rgba(15, 23, 42, 0.18)" />
     </svg>
   );
 }
 
-/** Single heart glyph used for both the heart-eye overlay and the
- *  drifting heart particles. */
-function HeartGlyph({ size, opacity = 1 }: { size: number; opacity?: number }) {
+/** Small canvas-style sack of coffee beans. Cinched top with a coffee
+ *  bean label on the body. Rendered slightly tilted during pour. */
+function BeansBagGlyph({
+  className,
+  tilted = false,
+}: {
+  className?: string;
+  /** When true, the bag tilts forward as if pouring. */
+  tilted?: boolean;
+}) {
   return (
     <svg
-      viewBox="0 0 12 11"
-      width={size}
-      height={size}
+      viewBox="0 0 16 20"
       fill="none"
-      aria-hidden="true"
-      style={{ display: "block", opacity }}
+      role="img"
+      aria-label="Bag of coffee beans"
+      className={className ?? "w-4 h-5"}
+      style={{ transform: tilted ? "rotate(-35deg)" : undefined, transformOrigin: "bottom center" }}
     >
+      {/* Bag body — gathered rounded shape */}
       <path
-        d="M 6 10 C 6 10, 0.6 6.4, 0.6 3.4 A 2.6 2.6 0 0 1 6 2.6 A 2.6 2.6 0 0 1 11.4 3.4 C 11.4 6.4, 6 10, 6 10 Z"
-        fill={HEART_COLOR}
-        stroke={HEART_STROKE}
+        d="M 4 6
+           Q 2 8, 2.5 12
+           Q 3 17, 5 18
+           L 11 18
+           Q 13 17, 13.5 12
+           Q 14 8, 12 6 Z"
+        fill={BAG_BODY}
+        stroke={BAG_OUTLINE}
+        strokeWidth="0.7"
+        strokeLinejoin="round"
+      />
+      {/* Cinched top — narrow neck with a tied band */}
+      <path
+        d="M 5 6 L 4.5 4 Q 4.5 3, 5.5 3 L 10.5 3 Q 11.5 3, 11.5 4 L 11 6 Z"
+        fill={BAG_BODY}
+        stroke={BAG_OUTLINE}
         strokeWidth="0.6"
         strokeLinejoin="round"
       />
+      {/* Tie band */}
+      <rect x="4.7" y="4.6" width="6.6" height="0.8" fill={BAG_OUTLINE} />
+      {/* Coffee bean label — a single bean glyph centered on the body */}
+      <ellipse
+        cx="8"
+        cy="12"
+        rx="2.2"
+        ry="3"
+        fill={BAG_LABEL}
+      />
+      {/* Bean crease line */}
+      <path
+        d="M 8 9.2 Q 8.8 12, 8 14.8"
+        stroke={BAG_BODY}
+        strokeWidth="0.45"
+        strokeLinecap="round"
+        fill="none"
+      />
+    </svg>
+  );
+}
+
+/** Single coffee bean — small oval with a center crease. Used for the
+ *  falling beans during the pour stage. */
+function CoffeeBeanGlyph({
+  size = 6,
+  rotateDeg = 0,
+}: {
+  size?: number;
+  rotateDeg?: number;
+}) {
+  return (
+    <svg
+      viewBox="0 0 8 6"
+      width={size}
+      height={size * 0.75}
+      fill="none"
+      aria-hidden="true"
+      style={{ transform: `rotate(${rotateDeg}deg)` }}
+    >
+      <ellipse cx="4" cy="3" rx="3.6" ry="2.6" fill={BEAN_COLOR} />
+      <path
+        d="M 4 0.6 Q 5 3, 4 5.4"
+        stroke="#1E1107"
+        strokeWidth="0.4"
+        strokeLinecap="round"
+        fill="none"
+      />
+    </svg>
+  );
+}
+
+/** Musical note glyph — used during the whistle/brew beat. Two variants
+ *  (single and paired eighth notes), selectable via `variant`. */
+function MusicalNoteGlyph({
+  size = 14,
+  variant = "single",
+}: {
+  size?: number;
+  variant?: "single" | "paired";
+}) {
+  if (variant === "paired") {
+    return (
+      <svg
+        viewBox="0 0 16 14"
+        width={size * 1.15}
+        height={size}
+        fill="none"
+        aria-hidden="true"
+      >
+        {/* Two stems with a connecting flag (♫) */}
+        <ellipse cx="3" cy="11" rx="2.2" ry="1.6" fill={NOTE_COLOR} stroke={NOTE_STROKE} strokeWidth="0.5" />
+        <ellipse cx="11" cy="11" rx="2.2" ry="1.6" fill={NOTE_COLOR} stroke={NOTE_STROKE} strokeWidth="0.5" />
+        <line x1="5.1" y1="11" x2="5.1" y2="2" stroke={NOTE_STROKE} strokeWidth="1.1" strokeLinecap="round" />
+        <line x1="13.1" y1="11" x2="13.1" y2="2" stroke={NOTE_STROKE} strokeWidth="1.1" strokeLinecap="round" />
+        {/* Connecting flag/beam */}
+        <path d="M 5.1 2 L 13.1 2 L 13.1 4 L 5.1 4 Z" fill={NOTE_STROKE} />
+      </svg>
+    );
+  }
+  return (
+    <svg
+      viewBox="0 0 10 14"
+      width={size * 0.75}
+      height={size}
+      fill="none"
+      aria-hidden="true"
+    >
+      {/* Single eighth note (♪) — stem + flag */}
+      <ellipse cx="3" cy="11" rx="2.2" ry="1.6" fill={NOTE_COLOR} stroke={NOTE_STROKE} strokeWidth="0.5" />
+      <line x1="5.1" y1="11" x2="5.1" y2="2" stroke={NOTE_STROKE} strokeWidth="1.1" strokeLinecap="round" />
+      <path d="M 5.1 2 Q 8.5 4, 8 7" stroke={NOTE_STROKE} strokeWidth="1.1" strokeLinecap="round" fill="none" />
     </svg>
   );
 }
@@ -256,7 +476,7 @@ export default function BeakerBotCoffeeRefillScene({
   }, [onComplete]);
 
   // Detect prefers-reduced-motion. Listen for live changes since the
-  // scene runs for 5s and a mid-play toggle is uncommon but cheap.
+  // scene runs for ~13s and a mid-play toggle is uncommon but cheap.
   useEffect(() => {
     if (!active || typeof window === "undefined" || typeof window.matchMedia !== "function") {
       return;
@@ -310,8 +530,8 @@ export default function BeakerBotCoffeeRefillScene({
     };
   }, [active, reducedMotion]);
 
-  // Per-mount keyframe id suffix so multiple scene instances don't
-  // share animation names. Same pattern as the other scenes.
+  // Per-mount keyframe + gradient id suffix so multiple scene instances
+  // don't share names. Same pattern as the other scenes.
   const rawId = useId();
   const animSuffix = useMemo(
     () => `bbcr-${rawId.replace(/[^a-zA-Z0-9_-]/g, "")}`,
@@ -319,22 +539,22 @@ export default function BeakerBotCoffeeRefillScene({
   );
 
   // Direction-driven offsets: BeakerBot enters from `enterFrom`, walks
-  // to a center bench position, then exits the opposite side carrying
-  // the mug.
+  // to a center bench position next to the coffee machine, then exits
+  // the opposite side carrying the pot.
   const direction = useMemo(() => {
     const fromLeft = enterFrom === "left";
     return {
       botStartX: fromLeft ? "-20vw" : "120vw",
       botBenchX: "50vw",
       botExitX: fromLeft ? "120vw" : "-20vw",
-      // Mug sits on the bench ~28px to the side BeakerBot walks toward
-      // (the exit side). When carried, the handle should face away from
-      // his body — that's the entry side, so it points back the way he
-      // came.
-      mugOffsetPx: fromLeft ? 32 : -32,
+      // Machine sits offset to the side BeakerBot walks toward (the
+      // exit side) so he naturally tilts the bag over it.
+      machineOffsetPx: fromLeft ? 56 : -56,
       facing: (fromLeft ? "right" : "left") as "left" | "right",
       sideSign: fromLeft ? 1 : -1,
-      handleOnRightDuringCarry: fromLeft, // mirror appropriately
+      // Carried pot: handle faces away from BeakerBot's body during
+      // walkOff (entry side, the way he came).
+      handleOnRightDuringCarry: fromLeft,
     };
   }, [enterFrom]);
 
@@ -342,109 +562,113 @@ export default function BeakerBotCoffeeRefillScene({
 
   // ----- Stage-driven visual state -----
 
-  // Mug position. During walkIn/pour/sipPrep it sits on the bench. From
-  // sipPrep onward BeakerBot is holding it. From walkOff onward it
-  // travels with him off-screen.
-  const mugOnBench = stage === "walkIn" || stage === "pour";
-  const mugHeldHigh =
-    stage === "sipPrep" ||
-    stage === "blow" ||
-    stage === "sip" ||
-    stage === "heartEyes" ||
-    stage === "walkOff" ||
+  // Pot is on the hot plate during all stages EXCEPT carryOff (when
+  // BeakerBot lifts it) and done/idle. In reduced-motion "done", the
+  // pot is held in hand for the proud-finished-pot tableau (handled by
+  // the separate `potHeld` flag below — this branch already excludes
+  // "done" via the explicit stage check).
+  const potOnHotPlate =
+    stage === "walkIn" ||
+    stage === "pourBeans" ||
+    stage === "setupComplete" ||
+    stage === "brewing" ||
+    stage === "ready";
+
+  const potHeld =
+    stage === "carryOff" || (reducedMotion && stage === "done");
+
+  // Bag is visible while BeakerBot is holding/pouring it. After
+  // setupComplete he sets it down (we don't bother drawing a discarded
+  // bag — keeps the scene clean).
+  const bagHeld =
+    stage === "walkIn" || stage === "pourBeans" || stage === "setupComplete";
+  const bagTilted = stage === "pourBeans";
+
+  // Falling beans visible during pourBeans only.
+  const beansFalling = stage === "pourBeans";
+
+  // Machine LED on during brewing + ready (and reduced-motion tableau).
+  const ledOn =
+    stage === "brewing" ||
+    stage === "ready" ||
+    stage === "carryOff" ||
     (reducedMotion && stage === "done");
 
-  // Coffee fill ratio in the mug, by stage.
-  //   walkIn:     mostly empty (0.15) — there's a tiny dreg
-  //   pour:       transitions from ~0.15 to ~0.85 (CSS transition)
-  //   sipPrep:    holds at 0.85
-  //   blow:       holds at 0.85
-  //   sip:        dips to 0.7 (took a sip)
-  //   heartEyes:  stays at 0.7
-  //   walkOff:    stays at 0.7
-  //   done (rm):  0.7
-  let mugFillRatio = 0.15;
+  // Drip stream from the machine nozzle into the pot — only during brewing.
+  const dripVisible = stage === "brewing";
+
+  // Pot fill ratio.
+  //   walkIn / pourBeans / setupComplete: 0 (empty)
+  //   brewing: animates from 0 → 0.95 over the 8s CSS transition
+  //   ready / carryOff: 0.95 (full)
+  //   done (rm): 0.95 (full proud-pot tableau)
+  let potFillRatio = 0;
   switch (stage) {
     case "walkIn":
-      mugFillRatio = 0.15;
+    case "pourBeans":
+    case "setupComplete":
+      potFillRatio = 0;
       break;
-    case "pour":
-      mugFillRatio = 0.85;
+    case "brewing":
+      // CSS transition handles the smooth 0 → 0.95 over the 8s window.
+      potFillRatio = 0.95;
       break;
-    case "sipPrep":
-    case "blow":
-      mugFillRatio = 0.85;
-      break;
-    case "sip":
-    case "heartEyes":
-    case "walkOff":
-      mugFillRatio = 0.7;
+    case "ready":
+    case "carryOff":
+      potFillRatio = 0.95;
       break;
     case "done":
-      mugFillRatio = reducedMotion ? 0.7 : 0.15;
+      potFillRatio = reducedMotion ? 0.95 : 0;
       break;
     default:
-      mugFillRatio = 0.15;
+      potFillRatio = 0;
   }
 
-  // Are the steam wisps visible? Always when there's coffee in the mug,
-  // but most pronounced during blow stage (extra wisps + sideways drift).
+  // Steam rises from the pot once it's full + hot (ready / carryOff /
+  // reduced-motion tableau).
   const steamVisible =
-    stage === "pour" ||
-    stage === "sipPrep" ||
-    stage === "blow" ||
-    stage === "sip" ||
-    stage === "heartEyes" ||
-    stage === "walkOff" ||
+    stage === "ready" ||
+    stage === "carryOff" ||
     (reducedMotion && stage === "done");
-  const steamBlowing = stage === "blow";
 
-  // Is the pouring stream visible? Only during pour.
-  const pourStreamVisible = stage === "pour";
+  // Whistling musical notes drift up during brewing only (and in
+  // reduced-motion, a single static note suggests the whistle).
+  const notesAnimating = stage === "brewing";
+  const notesStatic = reducedMotion && stage === "done";
 
-  // Heart-eye overlay + drifting hearts: only during heartEyes (and the
-  // reduced-motion final tableau).
-  const heartEyesActive =
-    stage === "heartEyes" || (reducedMotion && stage === "done");
-  const heartParticlesActive = stage === "heartEyes";
+  // Body sway loop during brewing (whistle while you work).
+  const bodyWhistling = stage === "brewing";
 
   // BeakerBot pose by stage:
-  //   walkIn / walkOff / done: idle (walking)
-  //   pour: pointing-down (he's tilting his beaker over the mug)
-  //   sipPrep: idle (transitional)
-  //   blow: thinking (cloud-thought thinking expression covers "blowing"
-  //         beat reasonably — heads slightly tilted)
-  //   sip: idle (mug to mouth)
-  //   heartEyes: cheering (contented, hands forward holding mug)
+  //   walkIn / carryOff: idle (walking)
+  //   pourBeans: pointing-down (tilted forward, focused on the machine top)
+  //   setupComplete: idle (transitional, brief)
+  //   brewing: idle with sway (waiting + whistling)
+  //   ready: amazed (eyes wide — "finally, it's done!")
   let pose: BeakerBotPose = "idle";
   switch (stage) {
     case "walkIn":
-    case "walkOff":
+    case "carryOff":
       pose = "idle";
       break;
-    case "pour":
+    case "pourBeans":
       pose = "pointing-down";
       break;
-    case "sipPrep":
+    case "setupComplete":
+    case "brewing":
       pose = "idle";
       break;
-    case "blow":
-      pose = "thinking";
-      break;
-    case "sip":
-      pose = "idle";
-      break;
-    case "heartEyes":
-      pose = "cheering";
+    case "ready":
+      pose = "amazed";
       break;
     case "done":
-      pose = "cheering";
+      pose = reducedMotion ? "amazed" : "idle";
       break;
     default:
       pose = "idle";
   }
 
-  // BeakerBot horizontal position + small per-stage body adjustments.
+  // BeakerBot horizontal position + per-stage body adjustments.
   let botTranslateX: string;
   let botBobPx = 0;
   let botLeanDeg = 0;
@@ -453,56 +677,41 @@ export default function BeakerBotCoffeeRefillScene({
     case "walkIn":
       botTranslateX = direction.botStartX;
       break;
-    case "pour":
+    case "pourBeans":
       botTranslateX = direction.botBenchX;
-      // Forward lean over the mug while pouring.
-      botLeanDeg = 8 * direction.sideSign;
-      botLeanTranslateY = 4;
-      break;
-    case "sipPrep":
-      botTranslateX = direction.botBenchX;
-      break;
-    case "blow":
-      botTranslateX = direction.botBenchX;
-      // Slight head-down posture as he blows on the mug.
+      // Forward lean over the machine top.
+      botLeanDeg = 6 * direction.sideSign;
       botLeanTranslateY = 2;
       break;
-    case "sip":
+    case "setupComplete":
+    case "brewing":
+    case "ready":
       botTranslateX = direction.botBenchX;
-      // Backward lean for the sip — tilts mug to mouth.
-      botLeanDeg = -6 * direction.sideSign;
-      botLeanTranslateY = -2;
       break;
-    case "heartEyes":
-      botTranslateX = direction.botBenchX;
-      botBobPx = -2;
-      break;
-    case "walkOff":
+    case "carryOff":
       botTranslateX = direction.botExitX;
       botBobPx = -1;
       break;
     case "done":
-      botTranslateX = reducedMotion ? direction.botBenchX : direction.botExitX;
+      botTranslateX = direction.botBenchX;
       break;
     default:
       botTranslateX = direction.botStartX;
   }
 
-  // Transition timing per stage — slow on walkIn/walkOff, snappier on
-  // the interaction beats.
+  // Transition timing per stage — slow on walkIn/carryOff/brewing,
+  // snappier on the interaction beats.
   let transitionMs = 300;
   if (stage === "walkIn") transitionMs = STAGE_DURATIONS.walkIn;
-  else if (stage === "walkOff") transitionMs = STAGE_DURATIONS.walkOff;
-  else if (stage === "pour") transitionMs = STAGE_DURATIONS.pour;
-  else if (stage === "heartEyes") transitionMs = STAGE_DURATIONS.heartEyes;
+  else if (stage === "carryOff") transitionMs = STAGE_DURATIONS.carryOff;
+  else if (stage === "pourBeans") transitionMs = STAGE_DURATIONS.pourBeans;
 
-  // The mug-on-bench horizontal position. The mug sits at (bench + offset).
-  // Computed as: "50vw + Xpx" via calc. We render the bench mug at
-  // direction.botBenchX, offset by direction.mugOffsetPx.
-  const benchMugTransform = `translate(calc(-50% + ${direction.mugOffsetPx * 2}px), 0)`;
+  // Bench-mounted machine + pot horizontal position.
+  const machineTransform = `translate(calc(-50% + ${direction.machineOffsetPx}px), 0)`;
 
-  // The held-mug attaches to BeakerBot's body via the held-mug wrapper
-  // below; it does not need its own absolute positioning at scene level.
+  // Pot sits centered on the machine's hot plate (same horizontal
+  // origin as the machine).
+  const potBenchTransform = `translate(calc(-50% + ${direction.machineOffsetPx}px), 0)`;
 
   return createPortal(
     <div
@@ -515,96 +724,226 @@ export default function BeakerBotCoffeeRefillScene({
         inset: 0,
         pointerEvents: "none",
         zIndex: SCENE_Z_INDEX,
-        // overflow: visible — scene's own off-screen entry/exit
-        // translations (120vw / -20vw) handle "stays out of view".
         overflow: "visible",
       }}
     >
-      {/* Scoped keyframes for steam wisps, pour stream, heart drift, body sway. */}
+      {/* Scoped keyframes for all per-stage motion. */}
       <style>{`
+        @keyframes ${animSuffix}-pot-fill {
+          0%   { transform: scaleY(0); }
+          100% { transform: scaleY(1); }
+        }
+        @keyframes ${animSuffix}-drip-fall {
+          0%   { opacity: 0; transform: translateY(0) scaleY(0.3); }
+          30%  { opacity: 1; transform: translateY(8px) scaleY(1); }
+          90%  { opacity: 1; transform: translateY(18px) scaleY(1); }
+          100% { opacity: 0; transform: translateY(22px) scaleY(0.5); }
+        }
+        @keyframes ${animSuffix}-bean-fall {
+          0%   { opacity: 0; transform: translate(var(--bbcr-bean-start-x), 0) rotate(0deg); }
+          20%  { opacity: 1; transform: translate(var(--bbcr-bean-mid-x), 14px) rotate(180deg); }
+          100% { opacity: 0; transform: translate(var(--bbcr-bean-end-x), 32px) rotate(360deg); }
+        }
+        @keyframes ${animSuffix}-note-drift {
+          0%   { opacity: 0; transform: translate(0, 0) scale(0.6) rotate(-8deg); }
+          15%  { opacity: 1; transform: translate(var(--bbcr-note-mid-x), -10px) scale(1) rotate(-4deg); }
+          70%  { opacity: 0.9; transform: translate(var(--bbcr-note-end-x), -34px) scale(1.05) rotate(4deg); }
+          100% { opacity: 0; transform: translate(var(--bbcr-note-end-x), -52px) scale(0.85) rotate(10deg); }
+        }
+        @keyframes ${animSuffix}-whistle-sway {
+          0%, 100% { transform: rotate(-3deg); }
+          50%      { transform: rotate(3deg); }
+        }
         @keyframes ${animSuffix}-steam-rise {
           0%   { opacity: 0; transform: translate(0, 0) scale(0.6); }
-          25%  { opacity: 0.7; transform: translate(0, -8px) scale(0.85); }
-          70%  { opacity: 0.5; transform: translate(2px, -20px) scale(1); }
-          100% { opacity: 0; transform: translate(4px, -32px) scale(1.15); }
+          25%  { opacity: 0.75; transform: translate(0, -8px) scale(0.9); }
+          70%  { opacity: 0.5; transform: translate(2px, -20px) scale(1.05); }
+          100% { opacity: 0; transform: translate(4px, -32px) scale(1.2); }
         }
-        @keyframes ${animSuffix}-steam-blow {
-          0%   { opacity: 0; transform: translate(0, 0) scale(0.6); }
-          25%  { opacity: 0.85; transform: translate(8px, -4px) scale(0.9); }
-          70%  { opacity: 0.6; transform: translate(22px, -10px) scale(1.05); }
-          100% { opacity: 0; transform: translate(36px, -14px) scale(1.2); }
-        }
-        @keyframes ${animSuffix}-pour-stream {
-          0%   { opacity: 0; transform: scaleY(0); }
-          15%  { opacity: 1; transform: scaleY(1); }
-          85%  { opacity: 1; transform: scaleY(1); }
-          100% { opacity: 0; transform: scaleY(0.5); }
-        }
-        @keyframes ${animSuffix}-heart-drift {
-          0%   { opacity: 0; transform: translate(0, 0) scale(0.4); }
-          20%  { opacity: 1; transform: translate(0, -8px) scale(1); }
-          70%  { opacity: 0.9; transform: translate(var(--bbcr-heart-x), -32px) scale(1); }
-          100% { opacity: 0; transform: translate(var(--bbcr-heart-x), -54px) scale(0.7); }
-        }
-        @keyframes ${animSuffix}-content-sway {
-          0%,100% { transform: rotate(-1.5deg); }
-          50%     { transform: rotate(1.5deg); }
+        @keyframes ${animSuffix}-led-pulse {
+          0%, 100% { opacity: 1; }
+          50%      { opacity: 0.65; }
         }
       `}</style>
 
-      {/* MUG ON BENCH — only renders while it's sitting on the bench.
-          Once BeakerBot picks it up (sipPrep onward), the mug renders
-          attached to his hand instead. */}
-      {mugOnBench && (
+      {/* COFFEE MACHINE — fixed on the bench. Always rendered (it's the
+          centerpiece). LED state and the optional drip animate per
+          stage; the machine itself stays put. */}
+      <div
+        data-testid="beakerbot-coffee-refill-scene-machine"
+        style={{
+          position: "absolute",
+          left: direction.botBenchX,
+          bottom: SCENE_GROUND_BOTTOM_CSS,
+          transform: machineTransform,
+          // 2.6x scale (28x32 → ~73x83), big enough to read as the
+          // scene's anchor object.
+          width: 72,
+          height: 84,
+        }}
+      >
         <div
-          data-testid="beakerbot-coffee-refill-scene-mug-bench"
           style={{
-            position: "absolute",
-            left: direction.botBenchX,
-            bottom: SCENE_GROUND_BOTTOM_CSS,
-            transform: benchMugTransform,
-            // 2x scale (was 32x30 → 64x60).
-            width: 64,
-            height: 60,
+            position: "relative",
+            width: "100%",
+            height: "100%",
+            // LED-pulse during brewing.
+            animation:
+              stage === "brewing" && !reducedMotion
+                ? `${animSuffix}-led-pulse 1400ms ease-in-out infinite`
+                : undefined,
           }}
         >
-          {/* Steam rising from the mug while it sits. */}
-          {steamVisible && !reducedMotion && (
-            <SteamWisps animSuffix={animSuffix} blowing={false} />
-          )}
-          <MugGlyph
-            className="w-16 h-[60px]"
-            fillRatio={mugFillRatio}
-            showHandleOnRight={direction.sideSign > 0}
+          <CoffeeMachineGlyph
+            className="w-[72px] h-[84px]"
+            ledOn={ledOn}
           />
         </div>
-      )}
 
-      {/* POUR STREAM — a thin vertical pastel-brown rectangle between
-          BeakerBot's tilted beaker and the mug rim. Animates scaleY in
-          + out via the `pour-stream` keyframe so it reads as a falling
-          stream rather than a static rod. Rendered at scene level so
-          its position doesn't inherit BeakerBot's lean rotation. */}
-      {pourStreamVisible && (
+        {/* DRIP STREAM — small brown droplets falling from the machine
+            nozzle into the pot during brewing. Rendered as a single
+            looping animated element sitting just under the nozzle. */}
+        {dripVisible && (
+          <div
+            data-testid="beakerbot-coffee-refill-scene-drip"
+            style={{
+              position: "absolute",
+              // Nozzle is at ~(14, 21) in the 28x32 viewBox → at this
+              // scale, ~50% horizontal, ~55% vertical.
+              left: "50%",
+              top: "55%",
+              transform: "translateX(-50%)",
+              pointerEvents: "none",
+            }}
+          >
+            {[0, 300, 600].map((delay, i) => (
+              <div
+                key={i}
+                style={{
+                  position: "absolute",
+                  left: -1.5,
+                  top: 0,
+                  width: 3,
+                  height: 10,
+                  background: COFFEE_COLOR,
+                  borderRadius: 1.5,
+                  transformOrigin: "top center",
+                  opacity: 0,
+                  animation: `${animSuffix}-drip-fall 900ms ease-in ${delay}ms infinite`,
+                }}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* FALLING BEANS — small bean glyphs cascading from the
+            machine's top (hopper opening) during pourBeans. Each bean
+            has slight horizontal drift via CSS vars so the column
+            doesn't read as a single rigid stripe. */}
+        {beansFalling && (
+          <div
+            data-testid="beakerbot-coffee-refill-scene-beans"
+            style={{
+              position: "absolute",
+              // Hopper opening is at the very top of the machine
+              // (viewBox y ≈ 1) — that's ~1.5% from top.
+              left: "50%",
+              top: "-4px",
+              transform: "translateX(-50%)",
+              pointerEvents: "none",
+            }}
+          >
+            {[
+              { startX: -2, midX: -1, endX: 0, delay: 0 },
+              { startX: 1, midX: 2, endX: 3, delay: 120 },
+              { startX: -3, midX: -2, endX: -1, delay: 280 },
+              { startX: 2, midX: 1, endX: 0, delay: 440 },
+              { startX: -1, midX: 0, endX: 1, delay: 620 },
+              { startX: 0, midX: 1, endX: 2, delay: 820 },
+            ].map((b, i) => (
+              <div
+                key={i}
+                data-testid="beakerbot-coffee-refill-scene-bean"
+                style={
+                  {
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    opacity: 0,
+                    ["--bbcr-bean-start-x" as string]: `${b.startX}px`,
+                    ["--bbcr-bean-mid-x" as string]: `${b.midX}px`,
+                    ["--bbcr-bean-end-x" as string]: `${b.endX}px`,
+                    animation: `${animSuffix}-bean-fall 600ms ease-in ${b.delay}ms forwards`,
+                  } as React.CSSProperties
+                }
+              >
+                <CoffeeBeanGlyph size={7} rotateDeg={i * 30} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* COFFEE POT — on the hot plate while not held. When held, it
+          renders attached to BeakerBot below. */}
+      {potOnHotPlate && (
         <div
-          data-testid="beakerbot-coffee-refill-scene-pour-stream"
+          data-testid="beakerbot-coffee-refill-scene-pot-bench"
           style={{
             position: "absolute",
             left: direction.botBenchX,
-            bottom: `calc(${SCENE_GROUND_BOTTOM_VH}vh + 18px)`,
-            // Stream lands ~at the mug center (which is offset
-            // mugOffsetPx*2 from the bench center). Width is a thin
-            // 4px column.
-            transform: `translate(calc(-50% + ${direction.mugOffsetPx * 2}px), 0)`,
-            width: 4,
-            height: 40,
-            background: COFFEE_COLOR,
-            borderRadius: 2,
-            transformOrigin: "top center",
-            animation: `${animSuffix}-pour-stream ${STAGE_DURATIONS.pour}ms ease-in-out forwards`,
-            opacity: 0,
+            // Pot sits on the hot plate (which is at the very bottom of
+            // the machine, ~3-4px above ground line).
+            bottom: `calc(${SCENE_GROUND_BOTTOM_VH}vh + 2px)`,
+            transform: potBenchTransform,
+            // 2.3x scale (24x26 → ~56x60).
+            width: 56,
+            height: 60,
+            pointerEvents: "none",
           }}
-        />
+        >
+          {/* Steam wisps once the pot is full + hot. */}
+          {steamVisible && !reducedMotion && (
+            <SteamWisps animSuffix={animSuffix} />
+          )}
+          {/* Pot fill — driven by a clip-path overlay during brewing so
+              the liquid visually rises smoothly over the 8s window. */}
+          <div style={{ position: "relative", width: "100%", height: "100%" }}>
+            {/* Empty pot baseline */}
+            <CoffeePotGlyph
+              className="w-14 h-[60px]"
+              fillRatio={0}
+              showHandleOnRight={direction.sideSign > 0}
+              gradientId={`${animSuffix}-pot-bench-grad-empty`}
+            />
+            {/* Liquid overlay — full pot scaled vertically 0→1 during brewing */}
+            {(stage === "brewing" || stage === "ready") && (
+              <div
+                data-testid="beakerbot-coffee-refill-scene-pot-bench-liquid"
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  // Scale from the bottom so it rises like filling liquid.
+                  transformOrigin: "center bottom",
+                  // brewing: smoothly grows 0→1 over the brewing window.
+                  // ready: snaps to 1 (already full).
+                  animation:
+                    stage === "brewing" && !reducedMotion
+                      ? `${animSuffix}-pot-fill ${STAGE_DURATIONS.brewing}ms linear forwards`
+                      : undefined,
+                  transform: stage === "ready" ? "scaleY(1)" : undefined,
+                }}
+              >
+                <CoffeePotGlyph
+                  className="w-14 h-[60px]"
+                  fillRatio={potFillRatio}
+                  showHandleOnRight={direction.sideSign > 0}
+                  gradientId={`${animSuffix}-pot-bench-grad-full`}
+                />
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* BEAKERBOT — fixed-size, translated horizontally per stage. */}
@@ -614,18 +953,17 @@ export default function BeakerBotCoffeeRefillScene({
           position: "absolute",
           left: 0,
           bottom: `calc(${SCENE_GROUND_BOTTOM_VH}vh - 4px)`,
-          // 2x scale (was 64x64 → 128x128).
+          // 2x scale (128x128).
           width: 128,
           height: 128,
           transform: `translate(calc(${botTranslateX} - 64px), ${botBobPx}px)`,
           transition: `transform ${transitionMs}ms ${
-            stage === "walkIn" || stage === "walkOff" ? "ease-in-out" : "ease-out"
+            stage === "walkIn" || stage === "carryOff" ? "ease-in-out" : "ease-out"
           }`,
         }}
       >
-        {/* Body-lean wrapper — pivots from the bottom so the pour tilt /
-            sip back-lean read as "leaning over the bench" rather than
-            "falling forward". */}
+        {/* Body-lean wrapper — pivots from the bottom so the pour tilt
+            reads as "leaning over the machine" rather than "falling". */}
         <div
           style={{
             width: "100%",
@@ -636,130 +974,149 @@ export default function BeakerBotCoffeeRefillScene({
             position: "relative",
           }}
         >
-          {/* Contented body-sway loop during heartEyes. */}
+          {/* Whistle-sway wrapper — gentle side-to-side rotation loop
+              during brewing. Pivots from the bottom so feet stay
+              planted while shoulders sway. */}
           <div
             style={{
               width: "100%",
               height: "100%",
-              animation:
-                stage === "heartEyes"
-                  ? `${animSuffix}-content-sway 600ms ease-in-out 2 alternate`
-                  : undefined,
+              animation: bodyWhistling
+                ? `${animSuffix}-whistle-sway 1000ms ease-in-out infinite`
+                : undefined,
               transformOrigin: "center bottom",
             }}
           >
             <BeakerBot
               pose={pose}
               direction={direction.facing}
-              // 2x scale (was w-16 h-16).
               className="w-32 h-32 text-sky-500"
               ariaLabel="BeakerBot"
             />
           </div>
 
-          {/* HEART-EYE OVERLAY — sits over BeakerBot's normal dot eyes
-              during the heartEyes stage. The base BeakerBot SVG draws
-              its eyes at roughly the upper third of the 128x128 wrapper;
-              the hearts here are positioned to overlap them. INLINE to
-              this scene only (not a new pose on the union). */}
-          {heartEyesActive && (
+          {/* HELD BAG — attached to BeakerBot's hand during walkIn,
+              pourBeans, and setupComplete. Positioned roughly where his
+              arm extends in the idle / pointing-down poses. Tilts
+              during pourBeans. */}
+          {bagHeld && (
             <div
-              data-testid="beakerbot-coffee-refill-scene-heart-eyes"
-              aria-hidden="true"
+              data-testid="beakerbot-coffee-refill-scene-bag-held"
               style={{
                 position: "absolute",
-                // The eyes sit roughly horizontally centered at the
-                // upper-middle of the body silhouette. Offsets tuned
-                // empirically against the existing 128x128 BeakerBot.
+                // Bag held in front of his body, at roughly chest level.
+                bottom: stage === "pourBeans" ? 84 : 56,
                 left: "50%",
-                top: 44,
-                transform: "translateX(-50%)",
-                display: "flex",
-                gap: 14,
+                transform: `translateX(-50%) translateX(${20 * direction.sideSign}px)`,
+                transition: "bottom 250ms ease-out",
+                // 2.2x scale (16x20 → ~36x44).
+                width: 36,
+                height: 44,
                 pointerEvents: "none",
               }}
             >
-              {/* Left eye heart. */}
-              <HeartGlyph size={14} />
-              {/* Right eye heart. */}
-              <HeartGlyph size={14} />
+              <BeansBagGlyph
+                className="w-9 h-11"
+                tilted={bagTilted}
+              />
             </div>
           )}
 
-          {/* HEART PARTICLES — drift upward from BeakerBot's chest during
-              the heartEyes stage. Three hearts on staggered delays + a
-              small left/right fan so they don't pile up in a single
-              vertical column. */}
-          {heartParticlesActive && (
+          {/* HELD POT — attached to BeakerBot's hand during carryOff
+              (and the reduced-motion proud-pot tableau). */}
+          {potHeld && (
             <div
-              data-testid="beakerbot-coffee-refill-scene-heart-drift"
+              data-testid="beakerbot-coffee-refill-scene-pot-held"
+              style={{
+                position: "absolute",
+                bottom: 56,
+                left: "50%",
+                transform: `translateX(-50%) translateX(${
+                  reducedMotion ? 0 : 14 * direction.sideSign
+                }px)`,
+                transition: "transform 300ms ease-out, bottom 300ms ease-out",
+                // 2.3x scale (24x26 → ~56x60).
+                width: 56,
+                height: 60,
+                pointerEvents: "none",
+              }}
+            >
+              {/* Steam from the held hot pot. */}
+              {steamVisible && !reducedMotion && (
+                <SteamWisps animSuffix={animSuffix} />
+              )}
+              <CoffeePotGlyph
+                className="w-14 h-[60px]"
+                fillRatio={potFillRatio}
+                showHandleOnRight={direction.handleOnRightDuringCarry}
+                gradientId={`${animSuffix}-pot-held-grad`}
+              />
+            </div>
+          )}
+
+          {/* MUSICAL NOTES — drift up from BeakerBot's mouth area
+              during brewing (and one static note in reduced-motion).
+              Six notes total, staggered ~1.2s apart, alternating ♪/♫. */}
+          {notesAnimating && (
+            <div
+              data-testid="beakerbot-coffee-refill-scene-notes"
               aria-hidden="true"
               style={{
                 position: "absolute",
+                // Mouth area is roughly upper-middle of the bot.
+                // Notes drift up + to the side opposite his facing.
+                top: 48,
                 left: "50%",
-                top: 60,
-                transform: "translateX(-50%)",
+                transform: `translateX(-50%) translateX(${-14 * direction.sideSign}px)`,
                 pointerEvents: "none",
               }}
             >
               {[
-                { x: -10, delay: 0, size: 10 },
-                { x: 12, delay: 200, size: 12 },
-                { x: -4, delay: 420, size: 9 },
-                { x: 8, delay: 640, size: 11 },
-              ].map((h, i) => (
+                { variant: "single" as const, midX: -6, endX: -14, delay: 200, size: 14 },
+                { variant: "paired" as const, midX: 4, endX: 10, delay: 1400, size: 16 },
+                { variant: "single" as const, midX: -4, endX: -10, delay: 2700, size: 13 },
+                { variant: "paired" as const, midX: 6, endX: 14, delay: 4000, size: 15 },
+                { variant: "single" as const, midX: -5, endX: -12, delay: 5300, size: 14 },
+                { variant: "paired" as const, midX: 3, endX: 9, delay: 6600, size: 16 },
+              ].map((n, i) => (
                 <div
                   key={i}
-                  data-testid="beakerbot-coffee-refill-scene-heart-particle"
+                  data-testid="beakerbot-coffee-refill-scene-note"
                   style={
                     {
                       position: "absolute",
                       left: 0,
                       top: 0,
-                      ["--bbcr-heart-x" as string]: `${h.x}px`,
-                      transform: "translate(0, 0) scale(0)",
                       opacity: 0,
-                      animation: `${animSuffix}-heart-drift 1100ms ease-out ${h.delay}ms forwards`,
+                      transform: "translate(0, 0) scale(0.6)",
+                      ["--bbcr-note-mid-x" as string]: `${n.midX * direction.sideSign}px`,
+                      ["--bbcr-note-end-x" as string]: `${n.endX * direction.sideSign}px`,
+                      animation: `${animSuffix}-note-drift 1500ms ease-out ${n.delay}ms forwards`,
                     } as React.CSSProperties
                   }
                 >
-                  <HeartGlyph size={h.size} />
+                  <MusicalNoteGlyph size={n.size} variant={n.variant} />
                 </div>
               ))}
             </div>
           )}
 
-          {/* HELD MUG — attached to BeakerBot's hand area from sipPrep
-              onward. Positioned roughly where his arm extends in the
-              `cheering` / `idle` poses; offsets are tuned to look like
-              he's holding it. */}
-          {mugHeldHigh && (
+          {/* Static single note for the reduced-motion tableau —
+              suggests the whistle without animating. */}
+          {notesStatic && (
             <div
-              data-testid="beakerbot-coffee-refill-scene-mug-held"
+              data-testid="beakerbot-coffee-refill-scene-notes"
+              aria-hidden="true"
               style={{
                 position: "absolute",
-                // During sip, the mug rises closer to his mouth.
-                bottom: stage === "sip" ? 80 : 56,
+                top: 28,
                 left: "50%",
-                transform: `translateX(-50%) ${
-                  stage === "sip" ? `rotate(${-15 * direction.sideSign}deg)` : ""
-                }`,
-                transition: "transform 250ms ease-out, bottom 300ms ease-out",
-                // 2x scale (was 32x30 → 56x52).
-                width: 56,
-                height: 52,
+                transform: `translateX(-50%) translateX(${-22 * direction.sideSign}px)`,
                 pointerEvents: "none",
+                opacity: 0.85,
               }}
             >
-              {/* Steam rising from the held mug. */}
-              {steamVisible && !reducedMotion && (
-                <SteamWisps animSuffix={animSuffix} blowing={steamBlowing} />
-              )}
-              <MugGlyph
-                className="w-14 h-[52px]"
-                fillRatio={mugFillRatio}
-                showHandleOnRight={direction.handleOnRightDuringCarry}
-              />
+              <MusicalNoteGlyph size={16} variant="single" />
             </div>
           )}
         </div>
@@ -769,30 +1126,23 @@ export default function BeakerBotCoffeeRefillScene({
   );
 }
 
-/** Three small steam wisps drifting up off the top of a mug. When
- *  `blowing` is true, the wisps drift sideways (BeakerBot blowing on
- *  it) instead of straight up. Rendered as thin curved SVG paths with
- *  per-wisp delays so the column reads as continuous wisps, not a
- *  single puff. */
+/** Three small steam wisps drifting straight up off the pot's mouth.
+ *  Rendered as thin curved SVG paths with per-wisp delays so the
+ *  column reads as continuous wisps, not a single puff. */
 function SteamWisps({
   animSuffix,
-  blowing,
 }: {
   animSuffix: string;
-  blowing: boolean;
 }) {
-  const animName = blowing ? `${animSuffix}-steam-blow` : `${animSuffix}-steam-rise`;
   return (
     <div
       data-testid="beakerbot-coffee-refill-scene-steam"
       aria-hidden="true"
       style={{
         position: "absolute",
-        // Wisps emerge from above the mug rim. The mug glyph spans
-        // bottom 60-86% of the wrapper height (depending on which mug,
-        // carried vs bench); -10px puts the wisp origin at the rim.
+        // Wisps emerge from above the pot's mouth.
         left: "50%",
-        top: -10,
+        top: -8,
         transform: "translateX(-50%)",
         width: 24,
         height: 32,
@@ -816,12 +1166,12 @@ function SteamWisps({
             left: w.left + 6,
             top: 0,
             opacity: 0,
-            animation: `${animName} 1200ms ease-out ${w.delay}ms infinite`,
+            animation: `${animSuffix}-steam-rise 1200ms ease-out ${w.delay}ms infinite`,
           }}
         >
           <path
             d="M 5 18 C 3 14, 7 12, 5 8 C 3 4, 7 2, 5 0"
-            stroke="rgba(148, 163, 184, 0.7)"
+            stroke={STEAM_COLOR}
             strokeWidth="1.4"
             strokeLinecap="round"
             fill="none"
