@@ -41,8 +41,8 @@ export default function LabModeActivityPage() {
         </li>
       </ul>
       <p>
-        Each panel has a count badge in the corner and an empty state if there
-        is nothing to show.
+        Each panel has a count badge in the section header (right side) and an
+        empty state if there is nothing to show.
       </p>
 
       <h2>Anatomy of a row</h2>
@@ -83,9 +83,10 @@ export default function LabModeActivityPage() {
         methods and PCR protocols, browse images, and copy whatever you need.
       </p>
       <p>
-        Clicking a note row jumps you over to the{" "}
-        <Link href="/wiki/features/lab-mode">Notes tab</Link> in Lab Mode where
-        you can open the full note inline.
+        Clicking a note row switches you to the{" "}
+        <Link href="/wiki/features/lab-mode">Notes tab</Link> in Lab Mode; you
+        then open the note from there. The click does not pre-select or scroll
+        to the specific note.
       </p>
       <p>
         Clicking an avatar (which is itself a button) opens the{" "}
@@ -112,12 +113,18 @@ export default function LabModeActivityPage() {
         <li>
           &quot;Running now&quot; is derived from start and end dates. A task
           with no dates set never appears, even if it&apos;s actively being
-          worked on.
+          worked on. A task whose end date is exactly today shows up in Running
+          now with the label <em>ends today</em>.
         </li>
         <li>
           Notes that haven&apos;t been marked as shared by their author stay
           private. Activity is a public-facing rollup, so it respects each
           user&apos;s sharing choice.
+        </li>
+        <li>
+          If you deselect every user in the filter, an amber warning banner
+          appears across all sections reminding you that no users are selected,
+          rather than silently showing empty panels.
         </li>
       </ul>
     </WikiPage>

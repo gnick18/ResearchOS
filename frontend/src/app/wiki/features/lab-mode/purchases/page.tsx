@@ -35,6 +35,14 @@ export default function LabModePurchasesPage() {
         </li>
       </ul>
 
+      <Callout variant="info" title="Stats row and conditional sections">
+        A stats row at the top of the page shows Total Purchases, Completed,
+        Pending, and Spent for the current user and funding-account selection
+        at a glance. The funding-accounts section below it only renders when at
+        least one funding account exists in the lab folder; if no accounts have
+        been created yet, you go straight to the purchase order list.
+      </Callout>
+
       <h2>Funding-account cards</h2>
       <p>Each card shows four numbers and a progress bar:</p>
       <ul>
@@ -52,9 +60,8 @@ export default function LabModePurchasesPage() {
           it was created. Edit this from the personal Purchases page.
         </li>
         <li>
-          <strong>Remaining</strong>: budget minus spent. Goes red when
-          you&apos;re over budget, amber when less than 10% is left, emerald
-          otherwise.
+          <strong>Remaining</strong>: budget minus spent. The dollar amount
+          goes red when you&apos;re over budget, emerald otherwise.
         </li>
       </ul>
       <p>
@@ -108,8 +115,8 @@ export default function LabModePurchasesPage() {
       <p>
         The <strong>Export CSV</strong> button in the top-right writes one row
         per line item (not per order) with username, task id, task name,
-        date, project, item name, quantity, unit price, shipping, total,
-        funding account, link, and CAS number. The export respects every
+        task start date, task complete, project, item name, quantity, unit
+        price, shipping, total, funding account, link, and CAS number. The export respects every
         active filter, so a finance request like &quot;all NIH spend Q1&quot;
         is a select-the-filters-then-export workflow.
       </p>

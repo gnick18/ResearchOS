@@ -58,8 +58,8 @@ export default function LabModeFeaturePage() {
       <p>There are two paths into it:</p>
       <ul>
         <li>
-          Click the <strong>Lab</strong> tab in the header from anywhere in the
-          app.
+          Click the user avatar button in the bottom-right corner of any page,
+          then click <strong>Lab Mode</strong> at the bottom of the user picker.
         </li>
         <li>
           On the user-picker, sign in as the special user <code>lab</code>.
@@ -141,7 +141,8 @@ export default function LabModeFeaturePage() {
         a focused read on that person&apos;s work.
       </p>
       <p>
-        The selection sticks per browser, and the chip itself is draggable if
+        The filter button position sticks per browser; the user selection resets
+        to all users each session. The chip itself is draggable if
         it&apos;s in your way. See{" "}
         <Link href="/wiki/features/lab-mode/user-filter">
           The user filter

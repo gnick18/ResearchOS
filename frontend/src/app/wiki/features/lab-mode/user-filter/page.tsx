@@ -9,10 +9,11 @@ export default function LabModeUserFilterPage() {
       title="The user filter"
       intro="A floating chip in the bottom-right corner that decides whose data shows up on every Lab Mode tab. Click it to open the picker; click the arrow on a user to open their dashboard."
     >
+      {/* TODO recapture: lab-mode-user-filter.png predates user-color gradient feature (2026-05-22) */}
       <Screenshot
         src="/wiki/screenshots/lab-mode-user-filter.png"
         alt="The user filter chip expanded into a picker showing each lab member as a colored chip."
-        caption="Click the chip to expand it. Each user shows up as a colored tile: selected ones are filled, deselected ones are washed out."
+        caption="Click the chip to expand it. Each user shows up as a colored tile: selected ones are filled with their color (or a diagonal gradient if they have a two-color profile), deselected ones are washed out."
       />
 
       <h2>What it controls</h2>
@@ -50,8 +51,9 @@ export default function LabModeUserFilterPage() {
           detail panel without leaving the current tab. (More on that below.)
         </li>
         <li>
-          <strong>Select All / Deselect All</strong> sits in the top-right of
-          the picker for quick reset.
+          A single <strong>Select All / Deselect All</strong> toggle sits in
+          the top-right of the picker for quick reset. The label flips based
+          on whether every user is currently selected.
         </li>
         <li>
           A footer line tells you <em>{`{n}`} of {`{total}`} users selected</em>.

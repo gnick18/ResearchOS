@@ -9,6 +9,7 @@ export default function LabModeGanttPage() {
       title="Combined GANTT"
       intro="Every selected user's tasks laid out on a single timeline, colored by who owns each bar."
     >
+      {/* TODO recapture: lab-mode-gantt.png needs at least one gradient-color user visible (2026-05-22) */}
       <Screenshot
         src="/wiki/screenshots/lab-mode-gantt.png"
         alt="The combined GANTT in Lab Mode. Bars from multiple users are stacked on one timeline, each tinted in the owner's color."
@@ -22,7 +23,9 @@ export default function LabModeGanttPage() {
         selected user&apos;s tasks share the same timeline. Where your personal
         GANTT colors bars by project, the combined GANTT colors them by{" "}
         <strong>user</strong> so you can see at a glance whose work is on the
-        chart.
+        chart. Use the{" "}
+        <Link href="/wiki/features/lab-mode/user-filter">user filter</Link> to
+        control which lab members appear on the timeline.
       </p>
       <p>
         List-style tasks are filtered out. Only experiments and purchases
@@ -35,14 +38,17 @@ export default function LabModeGanttPage() {
       <p>Each bar carries a few small markers on it:</p>
       <ul>
         <li>
-          <strong>Fill color</strong>: the owner&apos;s user color. The
-          legend strip at the bottom of the chart spells out which color maps
-          to which person.
+          <strong>Fill color</strong>: the owner&apos;s user color. If the lab
+          member has opted into a two-color profile, the bar renders as a
+          diagonal gradient between their two swatches instead of a flat fill.
+          The legend strip at the bottom of the chart spells out which color
+          maps to which person.
         </li>
         <li>
           <strong>Username badge on the left</strong>: a single uppercase
-          letter (the first letter of the username) inside a dark pill.
-          Disambiguates when two users have similar colors.
+          letter (the first letter of the username) as a dark left-edge cap,
+          flush against the start of the bar. Disambiguates when two users
+          have similar colors.
         </li>
         <li>
           <strong>Type indicator on the right</strong>: a beaker emoji
