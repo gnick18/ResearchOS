@@ -19,8 +19,8 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import BeakerBotLadderScene from "../BeakerBotLadderScene";
 
-const FULL_DURATION_MS = 10800; // ladder-rise 800 + climb 2800 + top 300 +
-//                                 clean 5000 + disruption 400 + fall 1500
+const FULL_DURATION_MS = 8300; // ladder-rise 800 + climb 2800 + top 300 +
+//                                clean 2500 + disruption 400 + fall 1500
 
 describe("BeakerBotLadderScene", () => {
   beforeEach(() => {
@@ -142,9 +142,9 @@ describe("BeakerBotLadderScene", () => {
     });
     expect(scene()?.getAttribute("data-stage")).toBe("clean");
 
-    // After clean (5000ms more): disruption.
+    // After clean (2500ms more): disruption.
     act(() => {
-      vi.advanceTimersByTime(5000);
+      vi.advanceTimersByTime(2500);
     });
     expect(scene()?.getAttribute("data-stage")).toBe("disruption");
 
@@ -183,9 +183,9 @@ describe("BeakerBotLadderScene", () => {
     act(() => {
       vi.advanceTimersByTime(0);
     });
-    // Advance to disruption: 800 + 2800 + 300 + 5000 = 8900ms.
+    // Advance to disruption: 800 + 2800 + 300 + 2500 = 6400ms.
     act(() => {
-      vi.advanceTimersByTime(8900);
+      vi.advanceTimersByTime(6400);
     });
     // No bird element should ever exist in the DOM.
     expect(

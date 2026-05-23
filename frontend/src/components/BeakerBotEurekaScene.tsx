@@ -18,7 +18,7 @@
 //   - useSyncExternalStore for SSR-safe portal mount
 //   - prefers-reduced-motion gate with static "post-eureka" fallback
 //
-// Stage timeline (~6.9s total in motion mode):
+// Stage timeline (~5.7s total in motion mode):
 //   1. walk-in       0    → 600ms   (BeakerBot enters carrying microscope)
 //   2. set-down      600  → 900ms   (microscope drops to bench position)
 //   3. lean-peek     900  → 1400ms  (BeakerBot tilts forward, one eye closes)
@@ -27,8 +27,11 @@
 //   6. bulb-on       3000 → 3300ms  (light bulb fades in above head)
 //   7. sparkles      3300 → 3900ms  (8 rainbow sparkles burst outward)
 //   8. cheering      3900 → 4900ms  (cheering pose, body sway, "Eureka!")
-//   9. scan          4900 → 6100ms  (slow L→R→L head-turn over the bulb)
-//  10. exit          6100 → 6900ms  (walks off opposite side, bulb fades)
+//   9. exit          4900 → 5700ms  (walks off opposite side, bulb fades)
+//
+// The scan stage (slow L→R→L head tilt over the bulb) was removed: the
+// cheering + bulb-pulse beats already show the bulb adequately, and a
+// dedicated scan beat read as redundant at the per-task reward cadence.
 //
 // Reduced-motion fallback: render BeakerBot in cheering pose with light
 // bulb above his head, microscope on the bench, sparkles at their final
@@ -63,7 +66,6 @@ export const STAGE_DURATIONS = {
   bulbOn: 300,
   sparkles: 600,
   cheering: 1000,
-  scan: 1200,
   exit: 800,
 } as const;
 
@@ -76,7 +78,6 @@ export const TOTAL_DURATION_MS =
   STAGE_DURATIONS.bulbOn +
   STAGE_DURATIONS.sparkles +
   STAGE_DURATIONS.cheering +
-  STAGE_DURATIONS.scan +
   STAGE_DURATIONS.exit;
 
 /** Reduced-motion fallback duration. */
@@ -93,7 +94,6 @@ export type EurekaStage =
   | "bulbOn"
   | "sparkles"
   | "cheering"
-  | "scan"
   | "exit"
   | "done";
 
@@ -106,7 +106,6 @@ export const STAGE_ORDER: readonly EurekaStage[] = [
   "bulbOn",
   "sparkles",
   "cheering",
-  "scan",
   "exit",
 ] as const;
 
@@ -381,7 +380,6 @@ export default function BeakerBotEurekaScene({
     stage === "bulbOn" ||
     stage === "sparkles" ||
     stage === "cheering" ||
-    stage === "scan" ||
     stage === "exit" ||
     stage === "done";
 
@@ -394,7 +392,6 @@ export default function BeakerBotEurekaScene({
     stage === "bulbOn" ||
     stage === "sparkles" ||
     stage === "cheering" ||
-    stage === "scan" ||
     stage === "exit" ||
     (reducedMotion && stage === "done");
 
@@ -430,7 +427,6 @@ export default function BeakerBotEurekaScene({
       break;
     case "sparkles":
     case "cheering":
-    case "scan":
     case "exit":
       pose = "cheering";
       break;
@@ -460,7 +456,6 @@ export default function BeakerBotEurekaScene({
     case "bulbOn":
     case "sparkles":
     case "cheering":
-    case "scan":
       beakerTranslateX = direction.beakerBenchX;
       // Forward lean during peek stages: tilt + small downward
       // translate so his face is at the eyepiece.
@@ -492,7 +487,6 @@ export default function BeakerBotEurekaScene({
   else if (stage === "leanPeek") transitionMs = STAGE_DURATIONS.leanPeek;
   else if (stage === "pullBack") transitionMs = STAGE_DURATIONS.pullBack;
   else if (stage === "cheering") transitionMs = STAGE_DURATIONS.cheering;
-  else if (stage === "scan") transitionMs = STAGE_DURATIONS.scan;
 
   return createPortal(
     <div
@@ -549,17 +543,6 @@ export default function BeakerBotEurekaScene({
           40%  { opacity: 1; transform: translate(-50%, -2px) scale(1.1); }
           70%  { opacity: 1; transform: translate(-50%, 0) scale(1); }
           100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
-        }
-        /* Slow L → R → L body tilt so BeakerBot "scans" the bulb above
-           his head; because the bulb is nested inside the lean wrapper
-           it rotates with him, giving the user a moving view of the
-           whole bulb. ±10deg, single 1.2s pass, anchored at body bottom. */
-        @keyframes ${animSuffix}-scan-tilt {
-          0%   { transform: rotate(0deg); }
-          25%  { transform: rotate(-10deg); }
-          50%  { transform: rotate(0deg); }
-          75%  { transform: rotate(10deg); }
-          100% { transform: rotate(0deg); }
         }
       `}</style>
 
@@ -624,9 +607,7 @@ export default function BeakerBotEurekaScene({
             position: "relative",
           }}
         >
-          {/* Cheering pose gets a body-sway loop; scan stage gets a
-              single slow L → R → L head-turn so the user can see the
-              whole bulb above his head from multiple angles. */}
+          {/* Cheering pose gets a body-sway loop. */}
           <div
             style={{
               width: "100%",
@@ -634,9 +615,7 @@ export default function BeakerBotEurekaScene({
               animation:
                 stage === "cheering"
                   ? `${animSuffix}-body-sway 500ms ease-in-out 2 alternate`
-                  : stage === "scan"
-                    ? `${animSuffix}-scan-tilt ${STAGE_DURATIONS.scan}ms ease-in-out forwards`
-                    : undefined,
+                  : undefined,
               transformOrigin: "center bottom",
             }}
           >
