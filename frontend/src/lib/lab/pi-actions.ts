@@ -44,6 +44,7 @@ import { tasksApi as rawTasksApi, notesApi as rawNotesApi, purchasesApi as rawPu
 import { fileService } from "../file-system/file-service";
 import { appendAuditEntries } from "./pi-audit";
 import { getEditSession } from "./edit-session";
+import { readArchivedSet } from "./user-archive";
 import type {
   Notification,
   LabAnnouncementNotification,
@@ -123,23 +124,150 @@ function assertLiveSession(actor: string, sessionId: string): void {
   }
 }
 
+// Mira Batch 1 polish (2026-05-23): per-user serial queue for the
+// notifications file. The previous implementation was a raw
+// read-modify-write on `users/<receiver>/_notifications.json`. If two
+// async writers landed at the same moment (e.g. a PI dispatching an
+// announcement fan-out while a comment-mention notification also lands)
+// the second writer would clobber the first's append. The queue chains
+// concurrent writes to the same user behind one in-flight promise so
+// the file converges. Map identity is keyed by the receiver username so
+// writes against different users still parallelize.
+const notificationWriteQueue = new Map<string, Promise<unknown>>();
+
+function enqueueNotificationWrite<T>(
+  receiver: string,
+  job: () => Promise<T>,
+): Promise<T> {
+  const previous = notificationWriteQueue.get(receiver) ?? Promise.resolve();
+  const next = previous.catch(() => undefined).then(job);
+  // Stash the chained promise so subsequent writers wait on it.
+  notificationWriteQueue.set(receiver, next);
+  // Best-effort cleanup once the chain drains, keeps the map from
+  // growing unboundedly across long-running sessions. Compare identity
+  // so a later-arriving write that already extended the chain doesn't
+  // get evicted.
+  void next.finally(() => {
+    if (notificationWriteQueue.get(receiver) === next) {
+      notificationWriteQueue.delete(receiver);
+    }
+  });
+  return next;
+}
+
 async function appendNotification(
   receiver: string,
   notif: Notification,
 ): Promise<void> {
-  try {
-    const path = notificationsPath(receiver);
-    const existing = await fileService.readJson<Partial<NotificationFile>>(path);
-    const merged: NotificationFile = {
-      version: 1,
-      notifications: [...(existing?.notifications ?? []), notif],
-    };
-    await fileService.writeJson(path, merged);
-  } catch (err) {
-    // One failed notification write must not block the underlying
-    // record write — log + continue. Mirrors `dispatchCommentNotifications`.
-    console.warn("[pi-actions] notification write failed", err);
-  }
+  await enqueueNotificationWrite(receiver, async () => {
+    try {
+      const path = notificationsPath(receiver);
+      const existing = await fileService.readJson<Partial<NotificationFile>>(path);
+      const merged: NotificationFile = {
+        version: 1,
+        notifications: [...(existing?.notifications ?? []), notif],
+      };
+      await fileService.writeJson(path, merged);
+    } catch (err) {
+      // One failed notification write must not block the underlying
+      // record write — log + continue. Mirrors `dispatchCommentNotifications`.
+      console.warn("[pi-actions] notification write failed", err);
+    }
+  });
+}
+
+/**
+ * Mira Batch 1 polish (2026-05-23): mutate every entry in one user's
+ * `_notifications.json` via a single RMW. Used by announcement
+ * delete/edit so the bell rows stay aligned with the source-of-truth
+ * announcements file. Goes through the same per-user serial queue as
+ * `appendNotification` so concurrent appends and edits can't clobber
+ * each other.
+ *
+ * The transform receives the current notifications array and returns
+ * the next one. Returning the same array (===) skips the disk write.
+ */
+async function mutateNotifications(
+  receiver: string,
+  transform: (current: Notification[]) => Notification[],
+): Promise<void> {
+  await enqueueNotificationWrite(receiver, async () => {
+    try {
+      const path = notificationsPath(receiver);
+      const existing = await fileService.readJson<Partial<NotificationFile>>(path);
+      const current = existing?.notifications ?? [];
+      const next = transform(current);
+      if (next === current) return;
+      const merged: NotificationFile = {
+        version: 1,
+        notifications: next,
+      };
+      await fileService.writeJson(path, merged);
+    } catch (err) {
+      console.warn("[pi-actions] notification mutate failed", err);
+    }
+  });
+}
+
+/**
+ * Mira Batch 1 polish (2026-05-23): scrub every receiver's bell rows
+ * that reference a deleted lab-wide announcement. Called from
+ * `deleteAnnouncement` so the bell counter and the announcements list
+ * stay aligned (previously the announcement file row was removed but
+ * the per-user `_notifications.json` entries stuck around — clicking
+ * one led to a dead "Not found" lookup).
+ */
+export async function purgeAnnouncementNotifications(args: {
+  excludeAuthor?: string;
+  announcementId: string;
+}): Promise<void> {
+  const recipients = await listAllMemberUsernames();
+  await Promise.all(
+    recipients
+      .filter((u) => !args.excludeAuthor || u !== args.excludeAuthor)
+      .map((receiver) =>
+        mutateNotifications(receiver, (current) => {
+          const filtered = current.filter((n) => {
+            if (n.type !== "lab_announcement") return true;
+            const lan = n as LabAnnouncementNotification;
+            return lan.announcement_id !== args.announcementId;
+          });
+          return filtered.length === current.length ? current : filtered;
+        }),
+      ),
+  );
+}
+
+/**
+ * Mira Batch 1 polish (2026-05-23): refresh every receiver's bell-row
+ * preview text after an announcement edit so the inline preview matches
+ * the live announcement body.
+ */
+export async function refreshAnnouncementNotifications(args: {
+  excludeAuthor?: string;
+  announcementId: string;
+  text: string;
+}): Promise<void> {
+  const preview = args.text.length > 120 ? args.text.slice(0, 117) + "…" : args.text;
+  const recipients = await listAllMemberUsernames();
+  await Promise.all(
+    recipients
+      .filter((u) => !args.excludeAuthor || u !== args.excludeAuthor)
+      .map((receiver) =>
+        mutateNotifications(receiver, (current) => {
+          let changed = false;
+          const next = current.map((n) => {
+            if (n.type !== "lab_announcement") return n;
+            const lan = n as LabAnnouncementNotification;
+            if (lan.announcement_id !== args.announcementId) return n;
+            if (lan.preview === preview) return n;
+            changed = true;
+            return { ...lan, preview };
+          });
+          return changed ? next : current;
+        }),
+      ),
+  );
 }
 
 // ── Lab-wide announcement fan-out ───────────────────────────────────────
@@ -148,7 +276,7 @@ async function appendNotification(
 // writes. Member discovery walks `users/` via the existing fileService
 // listing.
 
-async function listMemberUsernames(excluding?: string): Promise<string[]> {
+async function listAllMemberUsernames(): Promise<string[]> {
   try {
     // Lab members are subdirectories of `users/`. Skip the lab-scoped
     // namespace (`users/lab`), the public methods folder (`users/public`),
@@ -158,11 +286,31 @@ async function listMemberUsernames(excluding?: string): Promise<string[]> {
       if (!name || name.startsWith("_") || name === "lab" || name === "public") {
         return false;
       }
-      return !excluding || name !== excluding;
+      return true;
     });
   } catch {
     return [];
   }
+}
+
+async function listMemberUsernames(excluding?: string): Promise<string[]> {
+  const dirs = await listAllMemberUsernames();
+  // Mira Batch 1 polish (2026-05-23): drop archived members so the
+  // announcement fan-out doesn't write bell rows nobody can see. The
+  // archive set read is best-effort; on failure we fall through to the
+  // unfiltered list so a transient FS hiccup doesn't silently swallow
+  // notifications for active members.
+  let archived: Set<string>;
+  try {
+    archived = await readArchivedSet(dirs);
+  } catch {
+    archived = new Set<string>();
+  }
+  return dirs.filter((name) => {
+    if (excluding && name === excluding) return false;
+    if (archived.has(name)) return false;
+    return true;
+  });
 }
 
 /**

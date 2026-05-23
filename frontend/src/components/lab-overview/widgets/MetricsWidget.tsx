@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { labApi, LabTask, LabGoal } from "@/lib/local-api";
 import { useLabData } from "@/hooks/useLabData";
+import { useArchivedUsers } from "@/hooks/useArchivedUsers";
 import LabGanttChart from "@/components/LabGanttChart";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import UserAvatar from "@/components/UserAvatar";
@@ -67,6 +68,12 @@ export default function MetricsWidget(_props?: {
   // R2 (R2 widget framework manager, 2026-05-23): outer card chrome
   // moved into the canonical `<Widget>` frame. The "Lab metrics" title
   // / description is now in the widget catalog entry.
+  //
+  // FOLLOW-UP (mira-batch1): the `-m-3` here escapes the standard
+  // Widget content padding so the tab strip's background reaches the
+  // frame edge. If a second widget needs the same escape, add a
+  // `noPad` prop to Widget.tsx instead of layering more negative
+  // margins. As of 2026-05-23 this is the only consumer.
   return (
     <div className="flex flex-col h-full -m-3">
       {/* Tab strip */}
@@ -106,14 +113,22 @@ export default function MetricsWidget(_props?: {
 
 function GanttOverlay() {
   const { users, isLoading, errorMessage } = useLabData();
+  const archivedSet = useArchivedUsers();
   const [selectedTask, setSelectedTask] = useState<LabTask | null>(null);
 
-  // The PI sees every member on the overlay by default. `LabGanttChart`
-  // already filters its `tasks` by this set, tints by owner, and draws the
+  // The PI sees every ACTIVE member on the overlay by default
+  // (Mira Batch 1 polish, 2026-05-23: archived members were
+  // double-counting into the aggregation). `LabGanttChart` already
+  // filters its `tasks` by this set, tints by owner, and draws the
   // legend at the bottom — we just hand it the full membership.
   const allUsernames = useMemo(
-    () => new Set(users.map((u) => u.username)),
-    [users],
+    () =>
+      new Set(
+        users
+          .map((u) => u.username)
+          .filter((username) => !archivedSet.has(username)),
+      ),
+    [users, archivedSet],
   );
 
   if (isLoading) {
@@ -205,13 +220,23 @@ const UNCATEGORIZED_LABEL = "Uncategorized";
 
 function FundingRollup() {
   const { users, tasks } = useLabData();
+  const archivedSet = useArchivedUsers();
 
-  const { data: items = [], isLoading } = useQuery({
+  const { data: rawItems = [], isLoading } = useQuery({
     queryKey: ["lab", "purchase-items"],
     queryFn: () => labApi.getAllPurchaseItems(),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
+
+  // Mira Batch 1 polish (2026-05-23): drop archived members' items from
+  // the rollup so the totals reflect the active lab. Existing data on
+  // an archived member's record stays intact on disk; we just exclude
+  // them from the active aggregation.
+  const items = useMemo(
+    () => rawItems.filter((item) => !archivedSet.has(item.username)),
+    [rawItems, archivedSet],
+  );
 
   // Lookup tables keyed by "<username>:<taskId>" so each item can resolve
   // its parent purchase task (for the recent-purchases panel).
@@ -512,13 +537,21 @@ function formatCurrency(amount: number): string {
 
 function RoadmapAggregation() {
   const { users, projects } = useLabData();
+  const archivedSet = useArchivedUsers();
 
-  const { data: goals = [], isLoading } = useQuery<LabGoal[]>({
+  const { data: rawGoals = [], isLoading } = useQuery<LabGoal[]>({
     queryKey: ["lab", "goals"],
     queryFn: () => labApi.getGoals(),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
+
+  // Mira Batch 1 polish (2026-05-23): drop archived members' goals
+  // from the aggregation so summary counts reflect the active lab.
+  const goals = useMemo(
+    () => rawGoals.filter((g) => !archivedSet.has(g.username)),
+    [rawGoals, archivedSet],
+  );
 
   const userColorFor = useMemo(() => {
     const map = new Map<string, string>();

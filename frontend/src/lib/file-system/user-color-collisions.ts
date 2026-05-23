@@ -13,6 +13,7 @@
 // Self-contained — no React, no imports from local-api.ts.
 
 import type { UserMetadataEntry } from "./user-metadata";
+import { readArchivedSet } from "@/lib/lab/user-archive";
 
 export interface ColorCombination {
   primary: string;
@@ -154,6 +155,11 @@ export function ownerOfCombination(
  * map so the collision helpers work against the "other people" set only.
  * Tombstoned users are filtered because their colors are free for reuse
  * — they're hidden from the picker anyway.
+ *
+ * Mira Batch 1 polish (2026-05-23): synchronous helper kept for callers
+ * that don't have an archived set on hand. New code should prefer
+ * `otherUsersOnlyAsync` so Phase 6 archived members' colors don't
+ * permanently block new users from reusing them.
  */
 export function otherUsersOnly(
   all: Record<string, UserMetadataEntry>,
@@ -166,4 +172,33 @@ export function otherUsersOnly(
     out[username] = entry;
   }
   return out;
+}
+
+/**
+ * Async variant of `otherUsersOnly` that also drops Phase 6 archived
+ * members (Mira Batch 1 polish, 2026-05-23). The original
+ * `otherUsersOnly` only filtered on `deleted_at` (UserMetadataEntry's
+ * tombstone), which left archived members' palette swatches
+ * permanently reserved even though the picker hides them. Reads the
+ * archived set via `readArchivedSet` (the same helper UserLoginScreen
+ * uses) so the picker and the collision check stay aligned.
+ */
+export async function otherUsersOnlyAsync(
+  all: Record<string, UserMetadataEntry>,
+  currentUser: string,
+): Promise<Record<string, UserMetadataEntry>> {
+  const base = otherUsersOnly(all, currentUser);
+  try {
+    const archived = await readArchivedSet(Object.keys(base));
+    const out: Record<string, UserMetadataEntry> = {};
+    for (const [username, entry] of Object.entries(base)) {
+      if (archived.has(username)) continue;
+      out[username] = entry;
+    }
+    return out;
+  } catch {
+    // Fall back to the sync filter if the archive-set read fails so a
+    // transient FS hiccup doesn't paint every swatch as "taken."
+    return base;
+  }
 }

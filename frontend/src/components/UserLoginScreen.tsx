@@ -13,7 +13,7 @@ import {
   readAllUserMetadata,
   suggestInitialColorForNewUser,
 } from "@/lib/file-system/user-metadata";
-import { otherUsersOnly } from "@/lib/file-system/user-color-collisions";
+import { otherUsersOnlyAsync } from "@/lib/file-system/user-color-collisions";
 import { USER_COLOR_QUERY_KEY } from "@/hooks/useUserColor";
 import type { UserMetadataEntry } from "@/lib/file-system/user-metadata";
 import AccountPasswordPopup from "@/components/AccountPasswordPopup";
@@ -287,10 +287,11 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     setError(null);
     try {
       const meta = await readAllUserMetadata();
-      // The new user isn't in the map yet — `otherUsersOnly` also strips
-      // tombstoned users so freed-up palette slots become available
-      // again.
-      const others = otherUsersOnly(meta, username);
+      // The new user isn't in the map yet — `otherUsersOnlyAsync` also
+      // strips tombstoned AND Phase 6 archived users so freed-up
+      // palette slots become available again (Mira Batch 1 polish,
+      // 2026-05-23).
+      const others = await otherUsersOnlyAsync(meta, username);
       const defaultColor = suggestInitialColorForNewUser(username, others);
       setColorPicker({ username, defaultColor, otherUsers: others });
       // Keep the Create button in its busy state while the popup is up

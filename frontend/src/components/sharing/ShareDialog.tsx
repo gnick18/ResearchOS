@@ -11,8 +11,13 @@
 //   2. Per-recipient read/edit toggle — each row has its own dropdown,
 //      not just the new-entry input.
 //   3. Multi-record-type support: "task" | "note" | "project" | "method"
-//      | "link" | "goal" | "mass_spec_protocol". Each gets the same
-//      UX surface.
+//      | "link" | "goal". Each gets the same UX surface.
+//      (Mira Batch 1 polish 2026-05-23: "mass_spec_protocol" was
+//      accepted by the union but had no sharingApi backing — Save
+//      completed silently with no disk write. Removed from the union
+//      until a sharingApi.shareMassSpecProtocol helper lands. See
+//      FOLLOW-UP (mira-batch1) in ShareDialogAdapter for the deferred
+//      persist plumbing.)
 //   4. Project records get an extra checkbox: "Also share all tasks
 //      in this project" — explicit, not auto-cascading (per Grant
 //      2026-05-23 OQ resolution).
@@ -42,8 +47,7 @@ export type ShareDialogRecordType =
   | "project"
   | "method"
   | "link"
-  | "goal"
-  | "mass_spec_protocol";
+  | "goal";
 
 export interface ShareDialogProps {
   isOpen: boolean;
@@ -410,8 +414,6 @@ function labelForType(type: ShareDialogRecordType): string {
       return "link";
     case "goal":
       return "goal";
-    case "mass_spec_protocol":
-      return "mass spec protocol";
     default:
       return "record";
   }

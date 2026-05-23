@@ -69,6 +69,7 @@ import {
   isCombinationTaken,
   ownerOfCombination,
   otherUsersOnly,
+  otherUsersOnlyAsync,
   takenSolidPrimaries,
   takenSecondariesFor,
 } from "@/lib/file-system/user-color-collisions";
@@ -800,7 +801,7 @@ function AccountTypeSection({ settings, update }: SectionProps) {
       value: "lab_head",
       title: "Lab Head",
       description:
-        "Principal investigator. Adds a Lab Overview surface; can leave comments and run audit oversight (coming soon).",
+        "Principal investigator. Adds a Lab Overview surface with widgets, announcements, metrics, and the lab roster.",
     },
   ];
 
@@ -808,7 +809,7 @@ function AccountTypeSection({ settings, update }: SectionProps) {
     <SectionShell
       id="account-type"
       title="Account type"
-      description="What's your role in this lab? Member is the default. Lab Head adds an inbox where comments and audit notifications collect."
+      description="What's your role in this lab? Member is the default. Lab Head adds a Lab Overview surface with customizable widgets, announcements, lab metrics, and the lab roster."
       searchKeywords="member lab head PI principal investigator role"
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1258,8 +1259,14 @@ function ColorPickerRows({
     let cancelled = false;
     (async () => {
       const all = await readAllUserMetadata();
+      // Mira Batch 1 polish (2026-05-23): use the async variant so
+      // Phase 6 archived members' palette swatches are released back
+      // to the picker. The old sync `otherUsersOnly` only filtered on
+      // the UserMetadataEntry `deleted_at` tombstone, leaving archived
+      // members' colors permanently reserved.
+      const others = await otherUsersOnlyAsync(all, currentUser);
       if (cancelled) return;
-      setOtherUsers(otherUsersOnly(all, currentUser));
+      setOtherUsers(others);
     })();
     return () => {
       cancelled = true;

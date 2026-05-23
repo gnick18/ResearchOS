@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useDraftPersistence } from "@/hooks/useDraftPersistence";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import {
   deleteAnnouncement,
   listAnnouncements,
@@ -9,7 +11,11 @@ import {
   updateAnnouncement,
   type AnnouncementEntry,
 } from "@/lib/lab/announcements";
-import { dispatchAnnouncementNotifications } from "@/lib/lab/pi-actions";
+import {
+  dispatchAnnouncementNotifications,
+  purgeAnnouncementNotifications,
+  refreshAnnouncementNotifications,
+} from "@/lib/lab/pi-actions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAccountType } from "@/hooks/useAccountType";
 import { useEditSession } from "@/hooks/useEditSession";
@@ -111,6 +117,9 @@ export default function AnnouncementsWidget(_props?: {
                   profileMap[entry.author]?.displayName?.trim() || entry.author
                 }
                 authorIsKnown={!!profileMap[entry.author]}
+                authorIsLabHead={
+                  profileMap[entry.author]?.account_type === "lab_head"
+                }
                 canEdit={isLabHead && currentUser === entry.author && sessionUnlocked}
                 sessionId={sessionUnlocked ? (session.active?.id ?? null) : null}
                 onMutated={() => {
@@ -143,6 +152,34 @@ function Composer({ username, sessionUnlocked, sessionId, onPosted }: ComposerPr
 
   const canPost = sessionUnlocked && text.trim().length > 0 && !posting;
 
+  // Mira Batch 1 polish (2026-05-23): persist the in-progress draft so
+  // accidental navigation (or a hard refresh while the PI is composing)
+  // doesn't lose the announcement body. Key by username so each PI
+  // keeps their own draft. Mirrors the NewPurchaseModal + TaskModal
+  // integration.
+  const draftKey = `researchos:draft:lab-announcement:${username || "_anon"}`;
+  const draftSnapshot = useMemo(() => ({ text, pinned }), [text, pinned]);
+  const hasDraft = text.trim().length > 0;
+
+  const { clearDraft } = useDraftPersistence<{ text: string; pinned: boolean }>(
+    draftKey,
+    draftSnapshot,
+    hasDraft,
+    {
+      onRestore: (saved) => {
+        // Defensive: handle legacy / partial shapes without throwing
+        // (sessionStorage can outlive a code change).
+        const candidate = saved as Partial<{ text: string; pinned: boolean }>;
+        if (typeof candidate.text === "string") setText(candidate.text);
+        if (typeof candidate.pinned === "boolean") setPinned(candidate.pinned);
+      },
+    },
+  );
+  // Browser-level unsaved-changes prompt — fires on tab close / hard
+  // navigation only when the composer has typed text the user hasn't
+  // posted yet.
+  useUnsavedChangesGuard(hasDraft && sessionUnlocked && !posting);
+
   const handlePost = async () => {
     if (!canPost || !sessionId) return;
     setPosting(true);
@@ -161,6 +198,7 @@ function Composer({ username, sessionUnlocked, sessionId, onPosted }: ComposerPr
       });
       setText("");
       setPinned(false);
+      clearDraft();
       onPosted();
     } catch (err) {
       console.error("[announcement] post failed", err);
@@ -223,6 +261,12 @@ interface AnnouncementCardProps {
   entry: AnnouncementEntry;
   authorDisplayName: string;
   authorIsKnown: boolean;
+  /** Whether the author currently has account_type === "lab_head".
+   *  Mira Batch 1 polish (2026-05-23): the Lab Head badge used to render
+   *  unconditionally; it now only renders when the author actually carries
+   *  the role. Members who post historic announcements (or PIs who later
+   *  demote themselves) no longer get a misleading badge. */
+  authorIsLabHead: boolean;
   canEdit: boolean;
   sessionId: string | null;
   onMutated: () => void;
@@ -232,6 +276,7 @@ function AnnouncementCard({
   entry,
   authorDisplayName,
   authorIsKnown,
+  authorIsLabHead,
   canEdit,
   sessionId,
   onMutated,
@@ -252,12 +297,24 @@ function AnnouncementCard({
     if (!sessionId || draft.trim().length === 0) return;
     setBusy(true);
     try {
+      const nextText = draft.trim();
+      const textChanged = nextText !== entry.text;
       await updateAnnouncement({
         id: entry.id,
         author: entry.author,
-        text: draft.trim(),
+        text: nextText,
         sessionId,
       });
+      // Mira Batch 1 polish (2026-05-23): when the body text changes,
+      // re-emit a refreshed preview into every recipient's bell row so
+      // the inline preview text matches the live announcement.
+      if (textChanged) {
+        await refreshAnnouncementNotifications({
+          excludeAuthor: entry.author,
+          announcementId: entry.id,
+          text: nextText,
+        });
+      }
       setEditing(false);
       onMutated();
     } catch (err) {
@@ -288,10 +345,22 @@ function AnnouncementCard({
 
   const handleDelete = async () => {
     if (!sessionId) return;
-    if (!confirm("Delete this announcement?")) return;
+    // FOLLOW-UP (mira-batch1): the project's only "styled confirm" lives
+    // local to LabRoster.tsx — not yet a shared primitive. Until one
+    // lands, fall back to the native confirm() so the destructive path
+    // still asks twice. Master can spawn the primitive-extraction chip.
+    if (!confirm("Delete this announcement? Everyone in the lab will lose access to it.")) return;
     setBusy(true);
     try {
       await deleteAnnouncement({ id: entry.id, author: entry.author, sessionId });
+      // Mira Batch 1 polish (2026-05-23): purge the orphaned bell rows
+      // that referenced this announcement so the inbox counter and the
+      // announcements list stay aligned. Prior to this, clicking a
+      // bell row for a deleted announcement led to a dead lookup.
+      await purgeAnnouncementNotifications({
+        excludeAuthor: entry.author,
+        announcementId: entry.id,
+      });
       onMutated();
     } catch (err) {
       console.error("[announcement] delete failed", err);
@@ -316,12 +385,14 @@ function AnnouncementCard({
       <div className="flex items-start justify-between gap-2 mb-1">
         <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
           <span className={authorClass}>{authorDisplayName}</span>
-          <span
-            className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-100 text-amber-800"
-            title="Lab Head"
-          >
-            Lab Head
-          </span>
+          {authorIsLabHead && (
+            <span
+              className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-100 text-amber-800"
+              title="Lab Head"
+            >
+              Lab Head
+            </span>
+          )}
           {entry.pinned && (
             <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide rounded bg-amber-200 text-amber-900">
               Pinned
@@ -388,6 +459,19 @@ function AnnouncementCard({
             <button
               type="button"
               onClick={() => {
+                // Mira Batch 1 polish (2026-05-23): if the draft
+                // differs from the saved text, ask before discarding.
+                // Skip the prompt when nothing has changed so a
+                // mistaken Edit click is dismiss-with-one-click.
+                const hasChanges = draft !== entry.text;
+                if (
+                  hasChanges &&
+                  !confirm(
+                    "Discard your edits to this announcement?",
+                  )
+                ) {
+                  return;
+                }
                 setEditing(false);
                 setDraft(entry.text);
               }}

@@ -38,8 +38,12 @@ export default function FlagBanner({
   const [busy, setBusy] = useState(false);
 
   const isOwner = activeUser === owner;
-  const piName =
-    profileMap[flag.by]?.displayName?.trim() || flag.by;
+  const piProfile = profileMap[flag.by];
+  const piName = piProfile?.displayName?.trim() || flag.by;
+  // Mira Batch 1 polish (2026-05-23): badge the PI inline (same pattern
+  // as CommentCell + announcements) so it's visually clear who set
+  // the flag.
+  const showLabHeadBadge = piProfile?.account_type === "lab_head";
 
   // Mira-Skeptic P0 compat migration (Mira-Skeptic P0 fix manager,
   // 2026-05-23): handles the new PiActionResult shape; see
@@ -102,8 +106,17 @@ export default function FlagBanner({
           <path d="M4 22V4a2 2 0 0 1 2-2h8l2 4h4v10h-6l-2-4H6v10" />
         </svg>
         <div className="min-w-0">
-          <p className="font-medium">
-            {piName} flagged this for your review
+          <p className="font-medium flex items-center gap-1.5 flex-wrap">
+            <span>{piName}</span>
+            {showLabHeadBadge && (
+              <span
+                className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-100 text-amber-800"
+                title="Lab Head"
+              >
+                Lab Head
+              </span>
+            )}
+            <span>flagged this for your review</span>
           </p>
           {flag.reason && (
             <p className="mt-0.5 text-red-800 whitespace-pre-wrap break-words">

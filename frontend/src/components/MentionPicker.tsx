@@ -86,15 +86,34 @@ export default function MentionPicker({
     onFilteredChange?.(filtered);
   }, [filtered, onFilteredChange]);
 
-  // Position the popover above the anchor. Computed at render time —
-  // `getBoundingClientRect()` is fast and the anchor's position only
-  // changes when the textarea reflows (which already re-renders us).
-  // Avoids the setState-in-effect lint error per React's recommended
-  // "derive instead of sync" pattern.
+  // Position the popover above (or below, when above clips) the anchor.
+  // Computed at render time — `getBoundingClientRect()` is fast and the
+  // anchor's position only changes when the textarea reflows (which
+  // already re-renders us). Avoids the setState-in-effect lint error
+  // per React's recommended "derive instead of sync" pattern.
+  //
+  // Mira Batch 1 polish (2026-05-23): the original implementation
+  // always rendered above (top - 200). When the anchor sat near the
+  // top of the viewport (e.g. a comment composer inside a popup that
+  // scrolled the page) the picker clipped at the viewport top. Now we
+  // pick top vs bottom based on available room — PICKER_HEIGHT mirrors
+  // the rendered max-height (max-h-48 ≈ 192px) plus a small margin.
   const position = useMemo<{ left: number; top: number } | null>(() => {
     if (!open || !anchor) return null;
     const rect = anchor.getBoundingClientRect();
-    return { left: rect.left, top: Math.max(8, rect.top - 200) };
+    const PICKER_HEIGHT = 220;
+    const MARGIN = 8;
+    const roomAbove = rect.top;
+    const roomBelow =
+      (typeof window !== "undefined" ? window.innerHeight : 1080) - rect.bottom;
+    // Prefer above (the original behavior). Fall back to below only
+    // when above genuinely doesn't fit AND below has more room.
+    const placeBelow =
+      roomAbove < PICKER_HEIGHT && roomBelow > roomAbove;
+    const top = placeBelow
+      ? rect.bottom + MARGIN
+      : Math.max(MARGIN, rect.top - PICKER_HEIGHT + MARGIN);
+    return { left: rect.left, top };
     // `query` is included so the popover repositions when it shrinks the
     // anchor textarea via reflow (rare but real on tall replies). Anchor
     // ref identity is the primary trigger.

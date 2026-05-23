@@ -182,7 +182,7 @@ export default function WidgetCanvas({ username, accountType }: WidgetCanvasProp
   const handleReset = useCallback(async () => {
     if (
       !window.confirm(
-        "Reset Lab Overview layout to default? Your widget positions will be lost.",
+        "Reset Lab Overview layout to default? This resets your widgets to the default layout. You can rebuild your customization at any time.",
       )
     ) {
       return;

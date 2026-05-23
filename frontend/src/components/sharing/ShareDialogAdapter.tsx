@@ -31,7 +31,9 @@ export interface ShareDialogAdapterProps {
   isOpen: boolean;
   onClose: () => void;
   /** Same record types as SharePopup, plus the new ones the unified
-   *  primitive adds: "note" | "link" | "goal" | "mass_spec_protocol". */
+   *  primitive adds: "note" | "link" | "goal".
+   *  FOLLOW-UP (mira-batch1): "mass_spec_protocol" dropped 2026-05-23;
+   *  no sharingApi backing existed and Save was a silent no-op. */
   recordType: ShareDialogRecordType;
   recordId: number;
   recordName: string;
@@ -112,14 +114,18 @@ export default function ShareDialogAdapter({
             await sharingApi.unshareProject(recordId, username);
           }
         }
-      } else if (
-        recordType === "note" ||
-        recordType === "link" ||
-        recordType === "goal"
-      ) {
+      } else {
         // Batched replacement: take the full `after` list as the new
         // truth. The new sharingApi.shareX helpers persist the whole
-        // array in one disk write.
+        // array in one disk write. The record-type union enforces that
+        // we land in one of these three branches here.
+        //
+        // FOLLOW-UP (mira-batch1): mass_spec_protocol was removed from
+        // the union (Mira Batch 1 polish, 2026-05-23) because no
+        // sharingApi.shareMassSpecProtocol helper exists yet — the old
+        // path completed Save silently with no disk write. When the
+        // helper lands, re-add the type to the union + add a branch
+        // here.
         const recipients = after.map((s) => ({
           username: s.username,
           level: s.level,
@@ -131,11 +137,6 @@ export default function ShareDialogAdapter({
         } else {
           await sharingApi.shareGoal(recordId, recipients);
         }
-      } else {
-        console.warn(
-          `[ShareDialogAdapter] record type "${recordType}" not yet wired ` +
-            `into the per-type sharingApi. Pending R1c follow-up.`,
-        );
       }
 
       // Lab Mode retirement R1d (R1d shared_with API manager,

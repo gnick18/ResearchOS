@@ -135,15 +135,13 @@ export default function CommentFeedWidget(_props?: {
 
   // Quick "only my records" toggle — useful for non-PIs who land on the
   // Lab Inbox via the bell row. For PIs the unfiltered view is the
-  // default since they want the whole-lab signal.
+  // default since they want the whole-lab signal. When the toggle is
+  // on we narrow `visibleFeed` to entries whose source record is owned
+  // by the active user (Mira Batch 1 polish, 2026-05-23).
   const visibleFeed = useMemo(() => {
-    if (!filterMine) return fullFeed;
-    // We don't have the current user's username threaded through this
-    // component (the page-level guard already verifies lab_head). Skip
-    // the filter for now — when Phase 5's session-edit-mode lands, the
-    // filter target shifts anyway.
-    return fullFeed;
-  }, [fullFeed, filterMine]);
+    if (!filterMine || !currentUser) return fullFeed;
+    return fullFeed.filter((entry) => entry.recordOwner === currentUser);
+  }, [fullFeed, filterMine, currentUser]);
 
   const isLoading =
     notesQuery.isLoading || taskCommentsQuery.isLoading;

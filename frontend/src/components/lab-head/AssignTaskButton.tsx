@@ -126,12 +126,20 @@ export default function AssignTaskButton({
     }
   };
 
+  // Mira Batch 1 polish (2026-05-23): surface "(archived)" in the
+  // tooltip when the current assignee has been archived since the
+  // assignment, so the PI knows why the bell never landed.
+  const assigneeIsArchived =
+    !!task.assignee && archivedSet.has(task.assignee);
+
   return (
     <>
       <Tooltip
         label={
           task.assignee
-            ? `Currently assigned to ${task.assignee}. Click to reassign.`
+            ? assigneeIsArchived
+              ? `Currently assigned to ${task.assignee} (archived). Click to reassign.`
+              : `Currently assigned to ${task.assignee}. Click to reassign.`
             : "Assign this task to a lab member"
         }
         placement="bottom"
@@ -195,6 +203,12 @@ export default function AssignTaskButton({
                 <option value="">— Pick a lab member —</option>
                 {users
                   .filter((u) => !archivedSet.has(u.username))
+                  // Mira Batch 1 polish (2026-05-23): the PI shouldn't
+                  // be in their own assignee dropdown — a self-assign
+                  // is a no-op that just emits an audit row, and the
+                  // notification fan-out is skipped anyway. Filter the
+                  // actor out so the picker only lists candidates.
+                  .filter((u) => u.username !== actor)
                   .map((u) => {
                     const label =
                       profileMap[u.username]?.displayName?.trim() ?? u.username;

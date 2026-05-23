@@ -116,7 +116,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
   {
     id: "sidebar-pi-actions",
     title: "Pending lab head actions",
-    description: "Purchase approvals + flag queue + audit acks awaiting you.",
+    description: "Purchase approvals + flag queue counts (R3).",
     Component: PiActionsWidget,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
