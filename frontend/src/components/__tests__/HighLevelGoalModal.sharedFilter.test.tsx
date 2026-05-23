@@ -50,7 +50,7 @@ describe("HighLevelGoalModal — shared-project filter on Category dropdown", ()
     const select = container.querySelector("select") as HTMLSelectElement;
     const labels = Array.from(within(select).getAllByRole("option")).map((o) => o.textContent);
 
-    expect(labels).toEqual(["📋 Personal", "My Lab", "Side Quest"]);
+    expect(labels).toEqual(["Personal", "My Lab", "Side Quest"]);
     expect(labels).not.toContain("Morgan's Lab");
     expect(labels).not.toContain("Public Reading");
   });
