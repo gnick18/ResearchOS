@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import BeakerBot from "./BeakerBot";
+import BeakerBotSpeechBubble from "./beakerbot/SpeechBubble";
+import BurstParticles, {
+  type BurstParticlePosition,
+} from "./beakerbot/BurstParticles";
+import { SCENE_GROUND_BOTTOM_CSS } from "./beakerbot/scene-constants";
 
 /**
  * Side easter-egg slapstick scene: BeakerBot walks in carrying a small
@@ -343,12 +348,21 @@ export default function BeakerBotCentrifugeScene({
       break;
   }
 
-  // Reuse existing poses (no new entries in BeakerBotPose union):
-  // walk-in: idle, set-down + start: pointing-down (looking at bench),
-  // outOfControl + explosion + reaction: thinking (closest "uh oh"),
-  // sheepish shrug: pointing-up (arms up like "whoops"),
-  // exit: idle (head down feel via translateY).
-  let pose: "idle" | "pointing-down" | "thinking" | "pointing-up" = "idle";
+  // Pose by stage (Scene polish B swap from the original
+  // "thinking + pointing-up" stand-ins):
+  //   - walk-in: idle (just walking the centrifuge in)
+  //   - set-down + start: pointing-down (looking at the bench)
+  //   - outOfControl + explosion: panicked (wide eyes + Y-shape arms,
+  //     the original "thinking" pose read as calm head-tilt — wrong
+  //     tone for "centrifuge is about to detonate")
+  //   - reaction: embarrassed (post-explosion sheepish "whoops" — the
+  //     pre-polish "thinking" also missed; embarrassed pairs better
+  //     with the persistent alarm-bubble + dented centrifuge)
+  //   - sheepishShrug: embarrassed (the dropped-eyes neck-rub matches
+  //     the "..." beat better than pointing-up did)
+  //   - exit: idle (slinking off; the translateX motion + body sway
+  //     carry the dejected read)
+  let pose: "idle" | "pointing-down" | "panicked" | "embarrassed" = "idle";
   switch (stage) {
     case "setDown":
     case "startSpinning":
@@ -356,11 +370,11 @@ export default function BeakerBotCentrifugeScene({
       break;
     case "outOfControl":
     case "explosion":
-    case "reaction":
-      pose = "thinking";
+      pose = "panicked";
       break;
+    case "reaction":
     case "sheepishShrug":
-      pose = "pointing-up";
+      pose = "embarrassed";
       break;
     default:
       pose = "idle";
@@ -412,7 +426,7 @@ export default function BeakerBotCentrifugeScene({
         className="absolute"
         style={{
           left: "50%",
-          bottom: "8vh",
+          bottom: SCENE_GROUND_BOTTOM_CSS,
           // Zero-size anchor point — children burst out via their own
           // absolute positioning. No bounding box clipping anything.
           width: 0,
@@ -522,89 +536,42 @@ export default function BeakerBotCentrifugeScene({
             </div>
           )}
 
-          {/* Alarm "!" bubble — fires during the reaction stage. */}
+          {/* Alarm "!" bubble — fires during the reaction stage. Now
+              uses the shared SpeechBubble primitive (alarm tone = red
+              border, red text). */}
           {showAlarmBubble && (
-            <div
-              className="absolute left-1/2 text-red-600"
+            <BeakerBotSpeechBubble
+              data-testid="alarm-bubble"
+              tone="alarm"
+              direction="down"
+              position={{ bottom: 95, left: "50%" }}
               style={{
-                bottom: "95px",
                 transform: "translateX(-50%)",
                 animation: "bb-centrifuge-bubble 500ms ease-out",
+                fontSize: 18,
               }}
-              data-testid="alarm-bubble"
             >
-              <div className="relative rounded-2xl bg-white px-3 py-1 shadow-md border border-red-200">
-                <span
-                  className="text-base font-extrabold whitespace-nowrap leading-none"
-                  style={{ color: "currentColor" }}
-                >
-                  !
-                </span>
-                {/* Tail */}
-                <div
-                  className="absolute left-1/2"
-                  style={{
-                    bottom: "-5px",
-                    transform: "translateX(-50%) rotate(45deg)",
-                    width: "8px",
-                    height: "8px",
-                    background: "white",
-                    borderRight: "1px solid rgb(254 202 202)",
-                    borderBottom: "1px solid rgb(254 202 202)",
-                  }}
-                />
-              </div>
-            </div>
+              !
+            </BeakerBotSpeechBubble>
           )}
 
-          {/* Shrug bubble + sweat bead — fires during sheepish shrug. */}
+          {/* Shrug bubble + sweat bead — fires during sheepish shrug.
+              Sweat tone (sky border) + the optional sweat-bead overlay
+              from the SpeechBubble primitive. */}
           {showShrugBubble && (
-            <div
-              className="absolute left-1/2 text-sky-700"
+            <BeakerBotSpeechBubble
+              data-testid="shrug-bubble"
+              tone="sweat"
+              direction="down"
+              withSweatBead
+              position={{ bottom: 95, left: "50%" }}
               style={{
-                bottom: "95px",
                 transform: "translateX(-50%)",
                 animation: "bb-centrifuge-bubble 600ms ease-out",
               }}
-              data-testid="shrug-bubble"
             >
-              <div className="relative rounded-2xl bg-white px-3 py-1 shadow-md border border-sky-200">
-                <span
-                  className="text-xs font-semibold whitespace-nowrap"
-                  style={{ color: "currentColor" }}
-                >
-                  ...
-                </span>
-                <div
-                  className="absolute left-1/2"
-                  style={{
-                    bottom: "-5px",
-                    transform: "translateX(-50%) rotate(45deg)",
-                    width: "8px",
-                    height: "8px",
-                    background: "white",
-                    borderRight: "1px solid rgb(186 230 253)",
-                    borderBottom: "1px solid rgb(186 230 253)",
-                  }}
-                />
-              </div>
-              {/* Sweat bead */}
-              <svg
-                className="absolute"
-                style={{ top: "-2px", right: "-10px" }}
-                width="10"
-                height="14"
-                viewBox="0 0 10 14"
-                fill="none"
-              >
-                <path
-                  d="M5 1 C 5 1, 1 7, 1 10 A 4 4 0 0 0 9 10 C 9 7, 5 1, 5 1 Z"
-                  fill="#A6D2F4"
-                  stroke="#6FB5E8"
-                  strokeWidth="0.8"
-                />
-              </svg>
-            </div>
+              ...
+            </BeakerBotSpeechBubble>
           )}
         </div>
       </div>
@@ -618,9 +585,9 @@ export default function BeakerBotCentrifugeScene({
           className="absolute"
           style={{
             left: "50%",
-            // Anchor near the centrifuge disc: bench bottom (8vh) +
+            // Anchor near the centrifuge disc: bench bottom +
             // body wrapper offset (~125px to reach the disc center).
-            bottom: "calc(8vh + 125px)",
+            bottom: `calc(${SCENE_GROUND_BOTTOM_CSS} + 125px)`,
             width: 0,
             height: 0,
             overflow: "visible",
@@ -653,7 +620,7 @@ export default function BeakerBotCentrifugeScene({
           className="absolute"
           style={{
             left: "50%",
-            bottom: "8vh",
+            bottom: SCENE_GROUND_BOTTOM_CSS,
             transform: `translateX(calc(-50% + ${benchPosVw}vw))`,
             display: "flex",
             gap: "16px",
@@ -743,10 +710,18 @@ export default function BeakerBotCentrifugeScene({
             opacity: 0;
           }
         }
-        @keyframes bb-centrifuge-splatter {
-          0%   { opacity: 0; transform: translate(var(--bb-sp-x, 0), -20px) scale(0.4); }
-          60%  { opacity: 0.9; transform: translate(var(--bb-sp-x, 0), var(--bb-sp-y, 20px)) scale(1); }
-          100% { opacity: 0.7; transform: translate(var(--bb-sp-x, 0), var(--bb-sp-y, 20px)) scale(1); }
+        /* Lid fly-off — pops upward briefly, then accelerates left
+           off-screen with continuous rotation at ~30°/sec (1400ms
+           total → ~42° rotation, but we let the lid keep spinning by
+           giving it 540° across the trajectory so the motion reads as
+           "tumbling away" rather than "tilting"). The y trajectory
+           arcs up then falls back down past the bench as gravity
+           catches up. */
+        @keyframes bb-centrifuge-lid-fly {
+          0%   { transform: translate(0, 0) rotate(0deg); }
+          15%  { transform: translate(-4px, -22px) rotate(-40deg); }
+          50%  { transform: translate(-60px, -32px) rotate(-220deg); }
+          100% { transform: translate(-220px, 60px) rotate(-540deg); }
         }
       `}</style>
     </div>,
@@ -831,14 +806,22 @@ function CentrifugeGlyph({
       {/* Tiny progress slats next to the dots */}
       <rect x="26" y="46" width="20" height="1" fill={panelLit ? "#a7f3d0" : "#475569"} opacity="0.7" />
       <rect x="26" y="48.5" width="14" height="1" fill={panelLit ? "#a7f3d0" : "#475569"} opacity="0.5" />
-      {/* Lid (rounded ellipse on top). Pops upward + tilts when
-          lidPopped. transform: translate so it stays attached visually
-          to the base when closed. */}
+      {/* Lid (rounded ellipse on top). When `lidPopped` flips true, a
+          one-shot keyframe (bb-centrifuge-lid-fly) pops the lid upward,
+          accelerates it leftward off-screen, and spins it at ~30°/sec
+          throughout the trajectory. Before the pop it sits flat on the
+          base via a static no-transform; the keyframe takes over once
+          `lidPopped` is true. */}
       <g
         style={{
           transformOrigin: "30px 20px",
-          transform: lidPopped ? "translateY(-22px) rotate(-25deg)" : "translateY(0) rotate(0deg)",
-          transition: "transform 320ms cubic-bezier(0.4, 0, 0.7, 1.2)",
+          // Reset transform when not popped; the keyframe owns it
+          // once the lid pops so the lid doesn't snap-back when the
+          // CSS transition ends.
+          transform: lidPopped ? undefined : "translateY(0) rotate(0deg)",
+          animation: lidPopped
+            ? "bb-centrifuge-lid-fly 1400ms cubic-bezier(0.3, 0, 0.7, 1) forwards"
+            : undefined,
         }}
         data-testid="centrifuge-lid"
       >
@@ -955,53 +938,49 @@ interface SplatterFieldProps {
  *  where the tubes landed. Pure decoration — fades in after the tubes
  *  arc down so the splatter feels like a consequence of the landing.
  *  Coordinates are viewport-relative so the splatter matches the
- *  viewport-relative tube trajectories. */
+ *  viewport-relative tube trajectories.
+ *
+ *  Scene polish B: pulled the per-droplet rendering into the shared
+ *  BurstParticles primitive. The deterministic per-droplet seed lives
+ *  here (because the position function depends on per-tube data, not
+ *  a uniform ring) and gets handed to BurstParticles via the explicit
+ *  `positions` prop. The visual identity (3 droplets per tube,
+ *  colored to match the tube, sub-second staggered fade-in) is
+ *  unchanged. */
 function SplatterField({ tubes }: SplatterFieldProps) {
-  // Build 3 droplets per tube at random-ish offsets near the landing
-  // point (deterministic so SSR + tests stay stable).
-  const droplets: Array<{
-    color: string;
-    xVw: number;
-    yVh: number;
-    size: number;
-    delayMs: number;
-  }> = [];
-  tubes.forEach((t, i) => {
-    for (let k = 0; k < 3; k++) {
-      const seed = (i * 100 + k * 31 + 7) % 233280;
-      const r1 = seed / 233280;
-      const r2 = ((seed * 13) % 233280) / 233280;
-      droplets.push({
-        color: t.color,
-        xVw: t.horizontalVw + (r1 - 0.5) * 8,
-        yVh: (t.fallYVh + (r2 - 0.5) * 4) * 0.8, // place near landing y
-        size: 3 + r2 * 3,
-        delayMs: t.delayMs + 800 + k * 50,
-      });
-    }
-  });
+  const positions: BurstParticlePosition[] = useMemo(() => {
+    const out: BurstParticlePosition[] = [];
+    tubes.forEach((t, i) => {
+      for (let k = 0; k < 3; k++) {
+        const seed = (i * 100 + k * 31 + 7) % 233280;
+        const r1 = seed / 233280;
+        const r2 = ((seed * 13) % 233280) / 233280;
+        out.push({
+          x: `${t.horizontalVw + (r1 - 0.5) * 8}vw`,
+          y: `${(t.fallYVh + (r2 - 0.5) * 4) * 0.8}vh`,
+          color: t.color,
+          delayMs: t.delayMs + 800 + k * 50,
+          size: 3 + r2 * 3,
+        });
+      }
+    });
+    return out;
+  }, [tubes]);
 
   return (
-    <div className="absolute left-1/2 top-0" style={{ transform: "translateX(-50%)", overflow: "visible" }} data-testid="splatter-field">
-      {droplets.map((d, i) => (
-        <div
-          key={i}
-          className="absolute"
-          style={{
-            top: 0,
-            left: 0,
-            width: `${d.size}px`,
-            height: `${d.size}px`,
-            borderRadius: "50%",
-            background: d.color,
-            opacity: 0,
-            ["--bb-sp-x" as string]: `${d.xVw}vw`,
-            ["--bb-sp-y" as string]: `${d.yVh}vh`,
-            animation: `bb-centrifuge-splatter 800ms ease-out ${d.delayMs}ms forwards`,
-            boxShadow: `0 0 1px rgba(0,0,0,0.15)`,
-          }}
-        />
-      ))}
+    <div
+      className="absolute left-1/2 top-0"
+      style={{ transform: "translateX(-50%)", overflow: "visible" }}
+      data-testid="splatter-field"
+    >
+      <BurstParticles
+        positions={positions}
+        palette={TUBE_COLORS as unknown as ReadonlyArray<string>}
+        particleType="circle"
+        durationMs={800}
+        originX={0}
+        originY={0}
+      />
     </div>
   );
 }
