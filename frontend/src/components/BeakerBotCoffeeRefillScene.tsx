@@ -906,41 +906,32 @@ export default function BeakerBotCoffeeRefillScene({
           {steamVisible && !reducedMotion && (
             <SteamWisps animSuffix={animSuffix} />
           )}
-          {/* Pot fill — driven by a clip-path overlay during brewing so
-              the liquid visually rises smoothly over the 8s window. */}
           <div style={{ position: "relative", width: "100%", height: "100%" }}>
-            {/* Empty pot baseline */}
+            {/* Static pot chrome — lid, handle, body silhouette, spout.
+                Never transforms during brewing; only the liquid layer
+                animates. (Bug fix: previously the entire pot SVG was
+                scaled 0→1 during brewing, which made the lid + handle
+                appear to grow inside the empty pot.) */}
             <CoffeePotGlyph
               className="w-14 h-[60px]"
               fillRatio={0}
               showHandleOnRight={direction.sideSign > 0}
               gradientId={`${animSuffix}-pot-bench-grad-empty`}
             />
-            {/* Liquid overlay — full pot scaled vertically 0→1 during brewing */}
+            {/* Liquid-only overlay — a separate brown rect clipped to
+                the pot's interior cavity. Animates its scaleY from
+                0→1 (pivoting at the cavity bottom) over the brewing
+                window, so only the liquid rises — no phantom lid or
+                handle. */}
             {(stage === "brewing" || stage === "ready") && (
-              <div
-                data-testid="beakerbot-coffee-refill-scene-pot-bench-liquid"
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  // Scale from the bottom so it rises like filling liquid.
-                  transformOrigin: "center bottom",
-                  // brewing: smoothly grows 0→1 over the brewing window.
-                  // ready: snaps to 1 (already full).
-                  animation:
-                    stage === "brewing" && !reducedMotion
-                      ? `${animSuffix}-pot-fill ${STAGE_DURATIONS.brewing}ms linear forwards`
-                      : undefined,
-                  transform: stage === "ready" ? "scaleY(1)" : undefined,
-                }}
-              >
-                <CoffeePotGlyph
-                  className="w-14 h-[60px]"
-                  fillRatio={potFillRatio}
-                  showHandleOnRight={direction.sideSign > 0}
-                  gradientId={`${animSuffix}-pot-bench-grad-full`}
-                />
-              </div>
+              <CoffeePotLiquidOverlay
+                testId="beakerbot-coffee-refill-scene-pot-bench-liquid"
+                animSuffix={animSuffix}
+                gradientId={`${animSuffix}-pot-bench-liquid-grad`}
+                clipId={`${animSuffix}-pot-bench-liquid-clip`}
+                animating={stage === "brewing" && !reducedMotion}
+                fillToFull={stage === "ready" || (stage === "brewing" && reducedMotion)}
+              />
             )}
           </div>
         </div>
@@ -1179,5 +1170,87 @@ function SteamWisps({
         </svg>
       ))}
     </div>
+  );
+}
+
+/** Liquid-only overlay that fills the coffee pot's interior cavity.
+ *
+ *  The parent renders the static pot chrome (lid, handle, body, spout)
+ *  separately. This overlay sits on top at the same SVG coords and
+ *  animates ONLY the brown liquid rect — clipped to the pot's interior
+ *  cavity path — from empty to full via a bottom-anchored scaleY. The
+ *  result: no phantom lid or handle "growing" inside the static pot.
+ *
+ *  Geometry matches `CoffeePotGlyph`'s interior:
+ *    - viewBox: 24 × 26
+ *    - cavity path: M 7 4 L 7 22 Q 7 24, 9 24 L 15 24 Q 17 24, 17 22 L 17 4 Z
+ *    - liquid rect: x=7, y=4, width=10, height=20 (fills the full cavity)
+ *    - transform-origin: 12 24 (bottom-center of the cavity)
+ */
+function CoffeePotLiquidOverlay({
+  testId,
+  animSuffix,
+  gradientId,
+  clipId,
+  animating,
+  fillToFull,
+}: {
+  testId?: string;
+  animSuffix: string;
+  /** Unique id for this overlay's gradient (so multiple instances coexist). */
+  gradientId: string;
+  /** Unique id for this overlay's clip path. */
+  clipId: string;
+  /** When true, run the 0→1 fill animation over the brewing window. */
+  animating: boolean;
+  /** When true, snap to full (no animation) — for the "ready" stage and
+   *  reduced-motion brewing tableau. */
+  fillToFull: boolean;
+}) {
+  return (
+    <svg
+      data-testid={testId}
+      viewBox="0 0 24 26"
+      fill="none"
+      aria-hidden="true"
+      style={{
+        position: "absolute",
+        inset: 0,
+        width: "100%",
+        height: "100%",
+        pointerEvents: "none",
+      }}
+    >
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={COFFEE_HIGHLIGHT} />
+          <stop offset="100%" stopColor={COFFEE_COLOR} />
+        </linearGradient>
+        {/* Pot interior cavity — matches CoffeePotGlyph's clip path. */}
+        <clipPath id={clipId}>
+          <path d="M 7 4 L 7 22 Q 7 24, 9 24 L 15 24 Q 17 24, 17 22 L 17 4 Z" />
+        </clipPath>
+      </defs>
+      {/* Liquid rect at FULL fill, clipped to the cavity. Animated via
+          scaleY pivoting at the cavity bottom — so only the liquid rises;
+          the lid, handle, and spout (all part of the static pot below)
+          are never inside this overlay. */}
+      <rect
+        x="7"
+        y="4"
+        width="10"
+        height="20"
+        fill={`url(#${gradientId})`}
+        clipPath={`url(#${clipId})`}
+        style={{
+          transformBox: "fill-box",
+          transformOrigin: "center bottom",
+          transform: fillToFull ? "scaleY(1)" : "scaleY(0)",
+          animation: animating
+            ? `${animSuffix}-pot-fill ${STAGE_DURATIONS.brewing}ms linear forwards`
+            : undefined,
+        }}
+      />
+    </svg>
   );
 }
