@@ -137,7 +137,7 @@ export const methodsCategoryDemoStep = buildWalkthroughStep({
   // Got-it / Skip / Back are interactive).
   pageLock: {
     allowList: [],
-    pillLabel: "BeakerBot is filling in the category, back in a sec.",
+    pillLabel: "Hold on a moment, BeakerBot is filling in the category.",
   },
   // Capture the new category label out of the `tour:methods-category-created`
   // event detail so Phase 4 cleanup grid renders the right row. The

@@ -58,6 +58,6 @@ export const methodsOpenPickerStep = buildWalkthroughStep({
   // while the picker is mounting.
   pageLock: {
     allowList: [],
-    pillLabel: "BeakerBot is opening the picker, back in a sec.",
+    pillLabel: "BeakerBot is opening the New Method picker.",
   },
 });
