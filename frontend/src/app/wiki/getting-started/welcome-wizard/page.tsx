@@ -8,7 +8,7 @@ import Kbd from "@/components/wiki/Kbd";
 export default function WelcomeWizardPage() {
   return (
     <WikiPage
-      intro="BeakerBot's welcome tour is a short, guided walkthrough on your real account. It mixes a brief setup Q&A with an interactive tour that helps you create your first project, method, and experiment right in the live app. Plan on roughly five to ten minutes, depending on which features you opt into."
+      intro="BeakerBot's welcome tour is a guided walkthrough on your real account. It opens with a short setup Q&A, then drops you into a live tour that helps you create your first project, method, and experiment right in the app. Plan on five to fifteen minutes, depending on which optional surfaces you opt into."
     >
       <Screenshot
         src="/wiki/screenshots/onboarding-welcome-step.png"
@@ -20,10 +20,11 @@ export default function WelcomeWizardPage() {
       <p>
         When you create a brand-new ResearchOS user, BeakerBot pops up to show
         you around. The tour runs on your real account, against your real
-        local-first data folder. Anything BeakerBot helps you make (a sample
-        project, a placeholder method, a first experiment) lands on disk just
-        like a normal piece of work. At the end you get a checkbox grid where
-        you decide what to keep and what to clean up.
+        local-first data folder. Anything BeakerBot creates (a sample project,
+        a placeholder method, a first experiment) lands on disk just like normal
+        work. At the end BeakerBot plays a short goodbye animation and
+        auto-cleans the demo artifacts in the background, leaving you with your
+        first real project.
       </p>
       <p>
         Three things are true about every run:
@@ -34,15 +35,16 @@ export default function WelcomeWizardPage() {
           demo sandbox. There is no fake fixture you discard on close.
         </li>
         <li>
-          BeakerBot drives the pacing with a Next button. You can also click
-          <strong> Skip this step</strong> on any individual step, or the
-          persistent <strong>I&apos;ve got it from here</strong> link at the
-          footer to jump to the final cleanup screen.
+          BeakerBot drives the pacing with a <strong>Got it, next</strong> or{" "}
+          <strong>Next</strong> button on each step. You can also click{" "}
+          <strong>Skip this step</strong> on any individual step, or the
+          persistent <strong>I&apos;ve got it from here</strong> link in the
+          footer to jump straight to the goodbye screen.
         </li>
         <li>
           Closing the tab mid-tour is safe. The next time you open the folder,
-          BeakerBot offers <strong>Resume</strong>, <strong>Restart</strong>,
-          or <strong>I&apos;m good, call it done</strong>.
+          BeakerBot offers <strong>Resume</strong>, <strong>Restart</strong>, or{" "}
+          <strong>Discard</strong>.
         </li>
       </ul>
 
@@ -58,15 +60,16 @@ export default function WelcomeWizardPage() {
         The tour auto-fires only when three conditions all hold:
       </p>
       <ul>
-        <li>The folder has no <code>_user_metadata</code> entry, or the file is empty</li>
+        <li>The folder has no <code>_user_metadata</code> entry, or the file is empty.</li>
         <li>
           There is no <code>_onboarding.json</code> on disk for the active user,
           or the file has no <code>wizard_completed_at</code> and no{" "}
-          <code>wizard_skipped_at</code> field
+          <code>wizard_skipped_at</code> field.
         </li>
         <li>
-          The session is not in demo or wiki-capture mode (the dev flag{" "}
-          <code>?wizard-preview=1</code> overrides this last rule)
+          The session is not in a completed or skipped state. The dev flag{" "}
+          <code>?wizard-preview=1</code> overrides both completed and skipped
+          states so the tour can be driven against fixture data.
         </li>
       </ul>
       <p>
@@ -76,289 +79,497 @@ export default function WelcomeWizardPage() {
       </p>
       <p>
         To run the tour after the fact, go to{" "}
-        <strong>Settings &gt; Tips</strong> and click{" "}
-        <strong>Re-run welcome tour</strong>. The page reloads and BeakerBot
-        starts from the intro screen.
+        <strong>Settings &gt; Onboarding</strong> and click{" "}
+        <strong>Re-run tour</strong>. BeakerBot re-mounts in place immediately
+        (no page reload) starting from the welcome screen.
       </p>
 
       <Screenshot
         src="/wiki/screenshots/onboarding-settings-rerun-button.png"
-        alt="The Tips section of Settings showing the Re-run welcome tour row with a sky-blue button on the right edge."
-        caption="The Re-run welcome tour button on Settings. Clears completion state and reopens BeakerBot at the welcome screen."
+        alt="The Onboarding section of Settings showing the Re-run tour row with a sky-blue Re-run tour button on the right edge."
+        caption="The Re-run tour button in Settings. Clears completion state and re-mounts BeakerBot at the welcome screen without a page reload."
       />
 
       <h2>Phase 1: setup questions</h2>
       <p>
         The first few minutes are a short Q&amp;A that BeakerBot uses to shape
-        the rest of the tour. Every question is a radio pick, and every
-        question has a sensible default if you click <strong>Skip this step</strong>.
+        the rest of the tour and which tabs appear in your sidebar. Every
+        question is a radio pick with a sensible default if you click{" "}
+        <strong>Skip this step</strong>.
       </p>
 
       <h3>Q1: solo or lab?</h3>
       <p>
         The first call is whether you are flying solo (one user, your own
         account) or running a multi-person lab (everyone points their
-        ResearchOS at the same shared folder). The pick determines whether
-        Phase 3 (the Lab Mode tour) ever fires.
+        ResearchOS at the same shared folder). The pick determines whether the
+        Lab Mode walkthrough cluster fires later in the tour and whether the Lab
+        Links surface is called &quot;Links&quot; or &quot;Lab Links&quot;.
       </p>
 
       <Screenshot
         src="/wiki/screenshots/onboarding-q1-account-type.png"
         alt="Q1 in the welcome tour showing two radio cards: Solo (selected) and Lab. BeakerBot stands in the upper-left in thinking pose."
-        caption="Q1 picks your account flavor. You can flip it later in Settings."
+        caption="Q1 picks your account flavor. You can revisit this in Settings."
       />
 
-      <h3>Q1a / Q1b: lab storage details (lab only)</h3>
+      <h3>Q2 through Q6: feature picks</h3>
       <p>
-        If you pick Lab in Q1, BeakerBot adds two short questions. Q1a asks
-        where the lab data lives (local disk, Google Drive, OneDrive, Box, or
-        figure it out later). Q1b is a single informational screen explaining
-        that every lab member points their ResearchOS at the same shared
-        folder and the storage provider handles sync. Q1b has no input,
-        just context and a link to the shared-lab-accounts wiki section.
-      </p>
-
-      <h3>Q2 through Q5: feature picks</h3>
-      <p>
-        Four binary questions about ResearchOS features:
+        Five questions about ResearchOS surfaces and preferences:
       </p>
       <ul>
         <li><strong>Q2:</strong> Will you track lab purchases? (Yes / No / Maybe later)</li>
         <li><strong>Q3:</strong> Want calendar feeds? (Yes / No / Maybe later)</li>
         <li><strong>Q4:</strong> Want a goal-tracking page? (Yes / No / Maybe later)</li>
         <li><strong>Q5:</strong> Want a Telegram bot for image inbox? (Yes / No / Maybe later)</li>
+        <li>
+          <strong>Q6:</strong> AI Helper prompt size. ResearchOS can paste a
+          system prompt into Claude, ChatGPT, or Gemini so the assistant
+          understands ResearchOS terminology. Full is the default. Medium and
+          Minimal trim the prompt for smaller-context models.{" "}
+          <strong>No</strong> or <strong>Maybe later</strong> skips the AI
+          Helper tour cluster entirely.
+        </li>
       </ul>
       <p>
-        These four answers drive both which tabs appear in your sidebar and
-        which Phase 2 conditional steps fire (more on each below).
+        These answers drive both which tabs appear in your sidebar and which
+        conditional walkthrough clusters fire in Phase 2.
       </p>
 
-      <h3>Q6: AI Helper prompt size</h3>
+      <h3>Q7: Links / Lab Links</h3>
       <p>
-        ResearchOS can paste a system prompt into Claude, ChatGPT, or Gemini
-        so the assistant understands ResearchOS terminology. The Full prompt
-        is the default (most users have access to a big-context model and
-        benefit from the full context). Medium and Minimal trim the prompt
-        for smaller-context models. <strong>No</strong> or{" "}
-        <strong>Maybe later</strong> skips the AI Helper tour entirely.
+        The final setup question asks whether you want a tab for saving
+        bookmarks: VPN links, lab calendars, freezer inventory spreadsheets,
+        manuscript drafts, and so on. Each card holds a URL plus a label so
+        you can jump straight to the resource.
+      </p>
+      <p>
+        The surface name is account-type-conditional: solo accounts see{" "}
+        <strong>Links</strong>; lab accounts see <strong>Lab Links</strong>, a
+        shared tab visible to everyone in the lab. Saying yes to Q7 adds the
+        tab and fires the <code>links</code> conditional walkthrough later in
+        Phase 2.
       </p>
 
       <h2>Phase 2: walkthrough on your real account</h2>
       <p>
         This is where the tour starts touching real data. BeakerBot guides you
-        through nine universal steps (W1 to W9) that everyone sees, plus up to
-        five conditional steps (W10 to W14) that only fire when the
-        corresponding Q answer was <strong>yes</strong>. A{" "}
-        <strong>no</strong> or <strong>maybe later</strong> on a Q skips the
-        matching W step.
+        through a universal sequence covering the major surfaces (Home, Project,
+        Workbench, Hybrid Editor, Gantt, Settings, Search, Wiki), followed by
+        four conditional clusters that fire only when the corresponding Q answer
+        was <strong>yes</strong>.
       </p>
 
-      <h3>W1 through W9: the universal sequence</h3>
+      <h3>Universal sequence: major surface tour</h3>
+
+      <h4>Home + first project</h4>
       <Steps>
         <Step>
-          <strong>W1, Create a project.</strong> Pick a project name (default
-          <em> My First Project</em>) and click Create. The project lands in
-          your Workbench.
+          <strong>home-create-project.</strong> BeakerBot highlights the Create
+          Project button. You click to open the form.
         </Step>
         <Step>
-          <strong>W2, Add a method.</strong> Two choices in one step. Drop in
-          BeakerBot&apos;s placeholder method to keep moving, or use the inline
-          file picker / markdown picker to import a real method document you
-          already have.
-        </Step>
-        <Step>
-          <strong>W3, Create an experiment.</strong> A new experiment lands
-          inside the project from W1.
-        </Step>
-        <Step>
-          <strong>W4, Link the method to the experiment.</strong> BeakerBot
-          walks you through the link UI so the experiment from W3 attaches to
-          the method from W2.
-        </Step>
-        <Step>
-          <strong>W5, Hybrid editor tour.</strong> BeakerBot live-types five
-          markdown shortcut demos: bold (<Kbd>Cmd+B</Kbd>), italic (
-          <Kbd>Cmd+I</Kbd>), a Python code block, a block quote, and a Heading
-          2. You watch the keystrokes produce live markdown in a preview pane.
-        </Step>
-        <Step>
-          <strong>W6, Personalize the look.</strong> A quick spin through the
-          accent color picker, the animations toggle, and the theme. BeakerBot
-          demos changing the accent live so you see the chrome shift.
-        </Step>
-        <Step>
-          <strong>W7, Search tour.</strong> Opens the Search tab. BeakerBot
-          live-types a query that matches the experiment from W3. The
-          highlighted result lands in the list.
-        </Step>
-        <Step>
-          <strong>W8, Notifications tour.</strong> BeakerBot fires a test
-          notification. You see the badge land, open the panel, and dismiss
-          the entry.
-        </Step>
-        <Step>
-          <strong>W9, Where to find help.</strong> A pointer at the Wiki tab
-          (the page you are reading right now). No tour of the wiki itself,
-          just a sentence about where the rest of the docs live.
+          <strong>home-create-project-fill.</strong> BeakerBot types a
+          placeholder project name, demos the color and seven-day-week toggles,
+          and clicks Create. The project lands in your Workbench.
         </Step>
       </Steps>
 
-      <Screenshot
-        src="/wiki/screenshots/onboarding-w1-create-project.png"
-        alt="The W1 step in BeakerBot's welcome tour. A speech bubble reads about every great experiment starting with a project, an input field offers the placeholder My First Project, and a sky-blue Create button sits to the right. BeakerBot points at the input in the upper-left."
-        caption="W1 in motion. Type a name (or accept the default), click Create, and BeakerBot persists the project to your Workbench."
-      />
+      <h4>Project overview</h4>
+      <Steps>
+        <Step>
+          <strong>project-overview-nav.</strong> Cursor clicks the new project
+          card on Home and the controller navigates to the project route.
+        </Step>
+        <Step>
+          <strong>project-overview-prose.</strong> Cursor types a placeholder
+          hypothesis into the Overview textarea.
+        </Step>
+        <Step>
+          <strong>project-overview-context.</strong> BeakerBot points at the
+          sticky project top-bar and narrates the metadata strip (name, tags,
+          action icons) so you know where a project&apos;s shape lives at a
+          glance. Pure narration, manual advance.
+        </Step>
+        <Step>
+          <strong>project-overview-exit.</strong> Cursor glides to the Home nav
+          tab and the controller navigates back to <code>/</code> so the next
+          cluster fires from Home, not from inside the project page.
+        </Step>
+      </Steps>
+
+      <h4>Notifications</h4>
+      <Steps>
+        <Step>
+          <strong>notifications-bell.</strong> BeakerBot opens the inbox panel.
+        </Step>
+        <Step>
+          <strong>notifications-silence.</strong> Mark-as-read to mute the bell
+          badge.
+        </Step>
+        <Step>
+          <strong>notifications-delete.</strong> Dismiss the row. The inbox is
+          now empty.
+        </Step>
+      </Steps>
+
+      <h4>Methods deep-dive</h4>
+      <Steps>
+        <Step>
+          <strong>methods-category-prompt.</strong> BeakerBot asks what kind of
+          technique you run (interactive picker, your answer shapes the
+          demo&apos;s framing).
+        </Step>
+        <Step>
+          <strong>methods-category-open.</strong> You click &quot;+ New
+          Category&quot; to open the modal.
+        </Step>
+        <Step>
+          <strong>methods-category.</strong> Cursor types the picked label and
+          clicks Create Empty.
+        </Step>
+        <Step>
+          <strong>methods-open-picker.</strong> Cursor clicks &quot;+ New
+          Method&quot; so the method builder modal mounts before the next beat.
+        </Step>
+        <Step>
+          <strong>methods-type-tour.</strong> Cursor opens the PCR builder tile.
+          BeakerBot invites you to explore at your own pace. Manual advance.
+        </Step>
+        <Step>
+          <strong>methods-lc-demo.</strong> Cursor opens the LC builder tile.
+          Same invite pattern. Manual advance.
+        </Step>
+        <Step>
+          <strong>methods-create.</strong> BeakerBot creates a funny placeholder
+          markdown method of its own as a demo artifact.
+        </Step>
+      </Steps>
+
+      <h4>Workbench experiment creation</h4>
+      <Steps>
+        <Step>
+          <strong>workbench-create-experiment-open.</strong> You click &quot;+
+          New Experiment&quot; to open the form.
+        </Step>
+        <Step>
+          <strong>workbench-create-experiment.</strong> Cursor types the
+          placeholder experiment name and clicks Save. The experiment lands in
+          your Workbench.
+        </Step>
+      </Steps>
+
+      <h4>Method attachment</h4>
+      <Steps>
+        <Step>
+          <strong>experiment-attach-method-open.</strong> Cursor clicks the
+          Workbench row to open the experiment popup.
+        </Step>
+        <Step>
+          <strong>experiment-attach-method-tab.</strong> Cursor clicks the
+          Methods tab inside the popup.
+        </Step>
+        <Step>
+          <strong>experiment-attach-method-attach.</strong> Cursor clicks Attach
+          and picks BeakerBot&apos;s placeholder method.
+        </Step>
+        <Step>
+          <strong>experiment-attach-method-notes.</strong> Cursor types a
+          variation note into the popup. BeakerBot narrates the mental model
+          (methods are the protocol template; notes are the per-run delta).
+        </Step>
+      </Steps>
+
+      <h4>Hybrid editor (12-step cluster)</h4>
+      <p>
+        The hybrid editor cluster walks you through the experiment note editor
+        in twelve beats (HE-0 through HE-11):
+      </p>
+      <Steps>
+        <Step><strong>HE-0 (hybrid-notes-vs-results).</strong> BeakerBot explains the notes/results split in the editor.</Step>
+        <Step><strong>HE-1 (hybrid-markdown-intro).</strong> Introduces markdown support.</Step>
+        <Step>
+          <strong>HE-2 (hybrid-markdown-familiarity).</strong> Branch gate: BeakerBot asks
+          whether you want a markdown overview or want to jump straight to the hands-on
+          mechanic. Your pick routes either to HE-3 (overview) or directly to HE-4
+          (mechanic). This choice is not persisted to your sidecar.
+        </Step>
+        <Step><strong>HE-3 (hybrid-markdown-overview).</strong> Conditional on the overview branch. General markdown primer. Skipped entirely if you picked Jump in.</Step>
+        <Step><strong>HE-4 (hybrid-editor-mechanic).</strong> BeakerBot explains the source/preview split mechanic.</Step>
+        <Step><strong>HE-5a (hybrid-bold).</strong> Cursor demos <Kbd>Cmd+B</Kbd> bold.</Step>
+        <Step><strong>HE-5b (hybrid-italic).</strong> Cursor demos <Kbd>Cmd+I</Kbd> italic.</Step>
+        <Step><strong>HE-5c (hybrid-underline).</strong> Cursor demos underline shortcut.</Step>
+        <Step><strong>HE-6a (hybrid-h1).</strong> Cursor demos Heading 1.</Step>
+        <Step><strong>HE-6b (hybrid-h2).</strong> Cursor demos Heading 2.</Step>
+        <Step><strong>HE-6c (hybrid-h3).</strong> Cursor demos Heading 3.</Step>
+        <Step><strong>HE-7 (hybrid-shortcuts).</strong> User-action: you try a shortcut yourself. Page lock active while the input is waiting.</Step>
+        <Step><strong>HE-8 (hybrid-image-attach).</strong> Cursor enters from off-screen to demo image attachment.</Step>
+        <Step><strong>HE-9 (hybrid-image-drag-in).</strong> Cursor drags an image into the editor.</Step>
+        <Step><strong>HE-10 (hybrid-image-resize).</strong> Cursor demos resizing the inserted image.</Step>
+        <Step><strong>HE-11 (hybrid-file-attach).</strong> Terminal hybrid editor beat: file attachment demo.</Step>
+      </Steps>
 
       <Screenshot
         src="/wiki/screenshots/onboarding-w5-hybrid-editor-typing.png"
-        alt="The W5 step showing the hybrid editor live-typing demo. A preview pane displays markdown source on the left with a rendered approximation on the right. The current demo is the bold shortcut, with BeakerBot's speech bubble narrating from the upper-left."
-        caption="W5 live-types each shortcut at human-readable cadence. Click Next when the demo finishes (or click Skip the demo to jump ahead)."
+        alt="A step in the hybrid editor cluster showing the live-typing demo. A preview pane displays markdown source with rendered output. BeakerBot's speech bubble narrates from the upper-left."
+        caption="The hybrid editor cluster walks all twelve formatting beats. Click Got it, next when each demo finishes."
       />
 
-      <h3>W10 through W14: conditional walkthroughs</h3>
+      <h4>Workbench notes and lists (5 steps)</h4>
       <p>
-        Each conditional step fires only when the matching Q answer was{" "}
-        <strong>yes</strong>:
+        After the hybrid editor cluster, BeakerBot introduces the standalone
+        Notes and Lists panels on the Workbench:
+      </p>
+      <Steps>
+        <Step>
+          <strong>workbench-notes-intro.</strong> BeakerBot distinguishes
+          experiment-scoped notes (what you just used) from general notes that
+          don&apos;t belong to any one experiment. Explains single notes vs.
+          running logs. Cursor clicks the Notes tab.
+        </Step>
+        <Step>
+          <strong>workbench-notes-create.</strong> Cursor glides to &quot;+ New
+          Note,&quot; clicks it, then programmatically spawns a demo conference-
+          takeaway note with lab-recipe markdown (headings, bullets, bold) so
+          you see the editor you just used in a free-standing note context.
+        </Step>
+        <Step>
+          <strong>workbench-lists-intro.</strong> Cursor clicks the Lists tab.
+          BeakerBot explains lists as checklist tasks without method or results
+          sections: the lighter cousin of an experiment. Good for grocery runs,
+          reagent restocks, daily to-dos.
+        </Step>
+        <Step>
+          <strong>workbench-list-create-shell.</strong> Combined beat: cursor
+          ensures the Lists tab is active, clicks &quot;+ New List Task,&quot;
+          spawns the shell, expands the card, and types three items (coffee
+          beans, filter papers, grinder) into the inline Add-item input. One
+          continuous cursor script.
+        </Step>
+        <Step>
+          <strong>workbench-list-mark-done.</strong> Cursor checks one sub-task
+          checkbox, then clicks the parent task&apos;s mark-complete button.
+          BeakerBot explains why marking the whole list complete matters: it
+          drops out of the active Overdue/Doing/Upcoming buckets.
+        </Step>
+      </Steps>
+
+      <h4>Gantt deep-dive</h4>
+      <p>
+        Six universal beats teach core Gantt mechanics. Lab accounts see an
+        additional seven-beat share-feature cluster:
+      </p>
+      <Steps>
+        <Step><strong>gantt-intro.</strong> BeakerBot explains what a Gantt chart is in this context.</Step>
+        <Step><strong>gantt-existing-experiment.</strong> BeakerBot spotlights the experiment you already created on your Gantt timeline.</Step>
+        <Step><strong>gantt-drag-drop.</strong> Cursor drags the experiment bar to reschedule it. BeakerBot narrates the date-shift.</Step>
+        <Step><strong>gantt-deps-beakerbot.</strong> BeakerBot wires a fake experiment A as a dependency of your experiment.</Step>
+        <Step><strong>gantt-deps-user.</strong> User-action: you wire fake experiment B as another dependency. Page lock active.</Step>
+        <Step><strong>gantt-deps-cascade.</strong> BeakerBot moves the head dependency; the cascade shift fires across the downstream chain.</Step>
+      </Steps>
+
+      <p>
+        <strong>Lab accounts only</strong> (gated on Q1 = lab): seven share-feature beats follow the universal arc:
+      </p>
+      <Steps>
+        <Step><strong>gantt-share-intro.</strong> BeakerBot explains cross-lab experiment sharing: both people see the task on Gantt and task lists; only the creator can delete it; permissions are edit or read-only.</Step>
+        <Step><strong>gantt-share-beakerbot-spawn.</strong> BeakerBot spawns a temporary second lab account (itself, tagged <code>is_tutorial: true</code>) and creates a &quot;Make some coffee together&quot; experiment.</Step>
+        <Step><strong>gantt-share-beakerbot-shares.</strong> BeakerBot&apos;s account shares the coffee experiment with you. It appears on your Gantt.</Step>
+        <Step><strong>gantt-share-user-explores.</strong> User-action: you open the shared experiment popup to explore it. Page lock active.</Step>
+        <Step><strong>gantt-share-user-shares-back.</strong> User-action: you share one of your own experiments back with BeakerBot. Page lock active.</Step>
+        <Step><strong>gantt-share-profile-switch.</strong> BeakerBot performs a real (or faked) profile switch to show the BeakerBot-account perspective.</Step>
+        <Step><strong>gantt-share-user-sees-edit.</strong> User-action: open the shared experiment popup to read BeakerBot&apos;s variation note. Page lock active.</Step>
+      </Steps>
+
+      <p>
+        <strong>Goals overview</strong> (gated on Q4 = yes): a single{" "}
+        <code>gantt-goals-overview</code> step fires after the share cluster and
+        explains the Goals overlay on the Gantt toolbar.
+      </p>
+
+      <h4>Settings deep-dive (11 steps)</h4>
+      <p>
+        BeakerBot navigates to <code>/settings</code> and walks seven narration
+        beats across the major Settings sections, then three AI Helper beats:
+      </p>
+      <Steps>
+        <Step><strong>personalization-animations.</strong> Animated on the Gantt toolbar: BeakerBot demos the animations toggle.</Step>
+        <Step><strong>personalization-color.</strong> BeakerBot demos the primary accent color picker and invites you to pick a secondary color at your own pace.</Step>
+        <Step><strong>settings-tour-folder.</strong> Universal: explains that the connected lab folder is set; switching folders means signing out and picking a new one from the entry screen.</Step>
+        <Step><strong>settings-tour-calendar.</strong> Conditional on Q3 = yes: calendar feeds are managed from the Calendar tab, not Settings (yet).</Step>
+        <Step><strong>settings-tour-telegram.</strong> Conditional on Q5 = yes: Telegram wiring lives in this Settings section if you didn&apos;t link it during setup.</Step>
+        <Step><strong>settings-tour-lab-mode-toggle.</strong> Conditional on Q1 = solo: explains how to pivot from solo to a lab account via the user picker (no dedicated Settings toggle yet).</Step>
+        <Step><strong>settings-tour-visible-tabs.</strong> Universal: tabs you said no to are hidden; check the box here to turn one back on, or hide tabs you don&apos;t need.</Step>
+        <Step><strong>settings-tour-streak.</strong> Universal: the streak counter is private and on by default; toggle it off here if you prefer not to be reminded.</Step>
+        <Step><strong>settings-tour-rerun.</strong> Universal: BeakerBot points at the Re-run tour button and tells you the whole walkthrough can be replayed from here.</Step>
+        <Step><strong>ai-helper-size-diff (conditional on Q6).</strong> First of three AI Helper beats: explains the Full vs. Medium vs. Minimal size tradeoff.</Step>
+        <Step><strong>ai-helper-use-case-paste (conditional on Q6).</strong> Paste-and-go use case walkthrough.</Step>
+        <Step><strong>ai-helper-use-case-agentic (conditional on Q6).</strong> Agentic use-case walkthrough.</Step>
+      </Steps>
+
+      <h4>Search</h4>
+      <p>
+        <strong>search-demo.</strong> BeakerBot opens the Search tab and
+        live-types a query that matches the experiment you created earlier.
+        The highlighted result lands in the list.
+      </p>
+
+      <h4>Wiki pointer (4-beat cluster)</h4>
+      <p>
+        The final universal cluster introduces the <code>?</code> help icon in
+        the top-right of the AppShell:
+      </p>
+      <Steps>
+        <Step>
+          <strong>wiki-pointer-intro.</strong> Speech-only. BeakerBot mentions
+          that there is a wiki with detailed documentation of every page in the
+          app. Manual advance.
+        </Step>
+        <Step>
+          <strong>wiki-pointer-icon-spotlight.</strong> Spotlight on the{" "}
+          <code>?</code> icon in the top bar. BeakerBot tells you what it does.
+          Manual advance.
+        </Step>
+        <Step>
+          <strong>wiki-pointer-click-demo.</strong> Cursor clicks the{" "}
+          <code>?</code> icon; the app navigates to the matching wiki page for
+          the current route. Manual advance.
+        </Step>
+        <Step>
+          <strong>wiki-pointer-back-demo.</strong> On the wiki page, cursor
+          clicks the <strong>Back to app</strong> button in the slim wiki top
+          bar to navigate back. Manual advance. The tour controller survives
+          the round trip because the wiki layout re-mounts the tour provider.
+        </Step>
+      </Steps>
+
+      <h3>Conditional walkthroughs (Phase 2b)</h3>
+      <p>
+        Four conditional clusters fire after the wiki-pointer cluster. Each
+        cluster gates on the matching Q answer being <strong>yes</strong>:
       </p>
       <ul>
         <li>
-          <strong>W10, Purchases tour.</strong> Fires when Q2 = yes. BeakerBot
-          drops a sample purchase request into the queue and walks you
-          through approving plus receiving it.
+          <strong>Telegram</strong> (Q5 = yes). The <code>telegram</code> step
+          covers the inline pairing flow and a quick demo of sending an image
+          from Telegram and watching it appear in your image inbox.
         </li>
         <li>
-          <strong>W11, Goals tour.</strong> Fires when Q4 = yes. BeakerBot
-          creates a sample goal and demos linking it to the experiment from W3.
+          <strong>Purchases</strong> (Q2 = yes). An eight-step cluster in two
+          phases. Phase 1 teaches on your empty page: intro, create-button
+          click, form fill, autocomplete demo. Phase 2 warps into a read-only
+          viewer over Alex&apos;s demo account to show the analytics surface,
+          then navigates back.
         </li>
         <li>
-          <strong>W12, Telegram tour.</strong> Fires when Q5 = yes. Inline
-          pairing flow plus a quick demo of sending an image from Telegram and
-          watching it appear in your image inbox.
+          <strong>Calendar</strong> (Q3 = yes). The <code>calendar</code> step
+          covers the inline calendar-feed subscribe flow. The new feed appears
+          in the Calendar tab when you click Next.
         </li>
         <li>
-          <strong>W13, Calendar tour.</strong> Fires when Q3 = yes. Inline
-          calendar-feed subscribe flow. The new feed appears in the Calendar
-          tab when you click Next.
-        </li>
-        <li>
-          <strong>W14, AI Helper tour.</strong> Fires when Q6 picked Full,
-          Medium, or Minimal. BeakerBot grabs the chosen prompt, copies it to
-          your clipboard, and explains where to paste it.
+          <strong>Links / Lab Links</strong> (Q7 = yes). The <code>links</code>{" "}
+          step walks the bookmark tab: adding a card with a URL and label,
+          understanding the difference between personal Links (solo) and shared
+          Lab Links (lab).
         </li>
       </ul>
 
-      <h2>Phase 3: the Lab Mode tour (lab accounts only)</h2>
+      <h2>Lab Mode tour (lab accounts only)</h2>
       <p>
-        If Q1 was Lab, Phase 2 ends with a small prompt: tour Lab Mode now, or
-        later? Picking <strong>later</strong> defers the tour to your first
-        natural Lab Mode entry (next time you click the Lab Mode tab, a small
-        modal asks again: now, snooze, or dismiss). Picking now drops you into
-        an eleven-step lab walkthrough that takes about three minutes.
+        If Q1 was Lab, Phase 2 ends with an opt-in prompt. BeakerBot asks:
+        tour Lab Mode now, later (re-prompt from the Lab Mode tab), or dismiss
+        (Settings re-run is the only path back). Picking <strong>Now</strong>{" "}
+        drops you into a twelve-step walkthrough of the DemoLabModeViewer
+        overlay.
       </p>
       <p>
-        The lab tour spawns a temporary fake user named <strong>BeakerBot</strong>{" "}
-        (sky-blue avatar, tagged <code>is_tutorial: true</code> in the lab&apos;s
-        user metadata). BeakerBot auto-shares two sample experiments with you,
-        one with edit permission (green) and one view-only (red), so you can
-        practice both share flavors.
+        The overlay is a read-only demo environment with realistic fake lab
+        data. BeakerBot opens it via the <code>openDemoLabModeViewer()</code>{" "}
+        event and narrates each surface as a tab-tour. If you accidentally close
+        the overlay (for example, by pressing Escape), pressing{" "}
+        <strong>Back</strong> in the speech bubble re-opens it.
       </p>
       <p>
-        The eleven steps cover:
+        The twelve steps cover:
       </p>
-      <ul>
-        <li><strong>L1:</strong> What Lab Mode is (concept intro).</li>
-        <li><strong>L2:</strong> Spawn the fake BeakerBot user and share a sample experiment.</li>
-        <li><strong>L3:</strong> See BeakerBot&apos;s task appear in your Workbench and Gantt.</li>
-        <li><strong>L4:</strong> Permission practice. Edit the green-permission task. Try (and fail) to delete the red view-only task.</li>
-        <li><strong>L5:</strong> Share something back. You create an experiment and share it with BeakerBot.</li>
-        <li><strong>L6:</strong> Revoke sharing. Walk through removing BeakerBot&apos;s access to the experiment from L5.</li>
-        <li><strong>L7:</strong> Lab Gantt plus activity feed. See both your tasks and BeakerBot&apos;s on one timeline.</li>
-        <li><strong>L8:</strong> Lab purchases (only if Q2 = yes). BeakerBot files a sample request as the fake user.</li>
-        <li><strong>L9:</strong> Lab search. Search across the lab. BeakerBot&apos;s shared task shows up in the results.</li>
-        <li><strong>L10:</strong> Lab Mode wrap.</li>
-        <li><strong>L11:</strong> Decide what to do with the demo lab (clean up now, keep, or defer to Phase 4).</li>
-      </ul>
+      <Steps>
+        <Step><strong>lab-mode-prompt.</strong> BeakerBot asks Now / Later / Dismiss.</Step>
+        <Step><strong>lab-mode-intro.</strong> BeakerBot explains what Lab Mode is conceptually.</Step>
+        <Step><strong>lab-mode-warp-to-demo.</strong> BeakerBot dispatches <code>openDemoLabModeViewer()</code>. The overlay mounts. BeakerBot says &quot;Welcome to the demo. Real fake lab data, lots of it.&quot;</Step>
+        <Step><strong>lab-mode-activity.</strong> Tour of the Activity tab inside the overlay.</Step>
+        <Step><strong>lab-mode-experiments.</strong> Tour of the Experiments tab.</Step>
+        <Step><strong>lab-mode-gantt.</strong> Tour of the Gantt tab.</Step>
+        <Step><strong>lab-mode-methods.</strong> Tour of the Methods tab.</Step>
+        <Step><strong>lab-mode-notes.</strong> Tour of the Notes tab.</Step>
+        <Step><strong>lab-mode-purchases.</strong> Tour of the Purchases tab.</Step>
+        <Step><strong>lab-mode-roadmaps.</strong> Tour of the Roadmaps tab.</Step>
+        <Step><strong>lab-mode-search.</strong> Tour of the Search tab.</Step>
+        <Step><strong>lab-mode-exit.</strong> BeakerBot exits the demo viewer and transitions to cleanup.</Step>
+      </Steps>
 
-      <Screenshot
-        src="/wiki/screenshots/onboarding-l4-permission-practice.png"
-        alt="The L4 step showing two BeakerBot-shared tasks. The first task has a green Edit pill and an Edit name button. The second task has a red View-only lock indicator and a disabled Delete button. BeakerBot points at the red lock from the upper-left."
-        caption="L4 in flight. The green-pill task is editable, the red-pill task is view-only. The disabled Delete button bounces if you try."
-      />
-
-      <h2>Phase 4: the cleanup grid</h2>
       <p>
-        Every BeakerBot-created artifact lands here. The grid groups items by
-        category (Project, Method, Experiment, Note edits, Settings changes,
-        Purchase request, Goal, Telegram link, Telegram images, Calendar feed,
-        Lab Mode teammate, Lab Mode demo tasks). Each row has a checkbox.
-      </p>
-      <p>
-        Defaults follow the L24 rule: every row starts <strong>checked</strong>{" "}
-        (keep), with two exceptions:
-      </p>
-      <ul>
-        <li>
-          Auto-prerequisite artifacts (created because you clicked Skip this
-          step on a step a later step depended on) start unchecked and carry
-          a small <em>(auto-created)</em> tag.
-        </li>
-        <li>
-          Lab Mode artifacts inherit whatever you picked on L11.
-        </li>
-      </ul>
-      <p>
-        The amber strip at the top has a master <strong>Start fresh</strong>{" "}
-        toggle that unchecks every row in one click (with a confirm
-        sub-modal). Click <strong>Finish setup</strong> in the footer to
-        commit your picks. BeakerBot deletes any unchecked items, writes{" "}
-        <code>wizard_completed_at</code>, and drops you on the Workbench.
+        After the Lab Mode cluster (whether you took it now, deferred it, or
+        dismissed it), a single <code>lab-cleanup</code> step runs to wipe the
+        BeakerBot fake user that was spawned during the Gantt share cluster.
       </p>
 
-      <Screenshot
-        src="/wiki/screenshots/onboarding-phase4-cleanup-grid.png"
-        alt="The Phase 4 cleanup grid showing categories with checkboxes per item, the amber Start fresh strip at the top, and a Finish setup button in the footer. BeakerBot cheers from the upper-left."
-        caption="Phase 4 in action. Default is keep, master Start fresh wipes everything."
-      />
+      <h2>Terminal step: tour-goodbye</h2>
+      <p>
+        The final step is <code>tour-goodbye</code>. BeakerBot says{" "}
+        &quot;You&apos;re set! Here&apos;s to many great experiments ahead.&quot;
+        and presents a single <strong>Let&apos;s go</strong> button.
+      </p>
+      <p>
+        Clicking <strong>Let&apos;s go</strong> triggers the outro:
+      </p>
+      <ol>
+        <li>A full-screen overlay mounts. BeakerBot cheers and confetti fires (~1.8 s).</li>
+        <li>BeakerBot shifts to waving pose and translates off-screen (~1.8 s).</li>
+        <li>The overlay fades out (~0.8 s). The route lands on <code>/</code>.</li>
+        <li>Auto-cleanup runs silently in the background, removing demo artifacts and leaving your first real project intact.</li>
+        <li>A small toast in the lower-right reads &quot;Tour complete. Find BeakerBot again in Settings &rarr; Onboarding.&quot; It auto-dismisses after 4 s.</li>
+      </ol>
+      <p>
+        Clicking <strong>I&apos;ve got it from here</strong> at any earlier step
+        skips the intervening steps and jumps directly to{" "}
+        <code>tour-goodbye</code>.
+      </p>
 
       <h2>BeakerBot, the character</h2>
       <p>
         BeakerBot is the canonical ResearchOS mascot: a sky-blue chemistry
-        beaker with pastel-rainbow liquid, dot eyes, and measurement-mark
-        cheek dashes. The voice is funny and playful throughout (W1 opens
-        with &quot;every great experiment starts with a project, or a snack,
-        but mostly a project&quot;). The tour uses seven poses, chosen
-        contextually:
+        beaker with pastel-rainbow liquid, dot eyes, and measurement-mark cheek
+        dashes. The voice is funny and playful throughout. The tour draws from
+        nine or more poses, chosen contextually:
       </p>
       <ul>
         <li><strong>Idle</strong>, the always-on baseline bob.</li>
         <li><strong>Waving</strong>, the welcome screen and the resume modal.</li>
-        <li><strong>Thinking</strong>, head-tilt during Q1 to Q6.</li>
-        <li><strong>Pointing</strong>, the universal W and L steps where BeakerBot directs your attention.</li>
-        <li><strong>Typing</strong>, W5 and W7 where BeakerBot live-types into the UI.</li>
-        <li><strong>Bouncing</strong>, a ~650ms burst on every step transition.</li>
-        <li><strong>Cheering</strong>, Phase 4 cleanup celebrate moment.</li>
-        <li><strong>Bow-wink</strong>, the farewell pose after you click Finish.</li>
+        <li><strong>Thinking</strong>, head-tilt during setup Q1 to Q7 and the Lab Mode prompt.</li>
+        <li><strong>Pointing</strong>, universal walkthrough steps where BeakerBot directs your attention to a UI element at eye level.</li>
+        <li><strong>Pointing-up</strong>, steps where BeakerBot directs attention to the top bar (the <code>?</code> wiki icon cluster).</li>
+        <li><strong>Typing</strong>, steps where BeakerBot live-types into a form or field.</li>
+        <li><strong>Typing-on-laptop</strong>, a one-hand typing variant used on notes and list creation beats.</li>
+        <li><strong>Cheering</strong>, the tour-goodbye outro animation and the lab-mode-warp-to-demo step.</li>
+        <li><strong>Bouncing</strong>, a ~650 ms burst on every step transition.</li>
       </ul>
 
       <h2>Behavior contracts</h2>
 
       <h3>I&apos;ve got it from here</h3>
       <p>
-        A persistent link in the footer of every step. Click it, confirm in
-        the sub-modal, and BeakerBot jumps to the Phase 4 cleanup grid. You
-        still get to keep or discard everything, just without finishing the
-        intervening steps. On Finish the run gets recorded as a skip rather
-        than a completion (so re-running from Settings still works).
+        A persistent link in the footer of every step. Click it, confirm in the
+        sub-modal, and BeakerBot jumps to <code>tour-goodbye</code>. The run
+        gets recorded as a skip rather than a completion, so re-running from
+        Settings still works.
       </p>
 
       <h3>Skip this step (individual)</h3>
       <p>
-        Each step (after the intro) has a <strong>Skip this step</strong>{" "}
-        link. If a later step depends on the artifact this step creates (W3
-        needs W1&apos;s project; W4 and W5 need W2&apos;s method or W3&apos;s
-        experiment), BeakerBot silently creates a placeholder version with
-        <code> cleanup_default: &quot;discard&quot;</code>. The Phase 4 grid
-        tags those rows <em>(auto-created)</em> and starts them unchecked.
+        Each step (after the intro) has a <strong>Skip this step</strong> link.
+        If a later step depends on the artifact this step creates, BeakerBot
+        silently creates a placeholder version with{" "}
+        <code>cleanup_default: &quot;discard&quot;</code>.
       </p>
 
       <h3>Mid-walkthrough close</h3>
@@ -369,86 +580,80 @@ export default function WelcomeWizardPage() {
         open ResearchOS with this folder, a small modal asks:
       </p>
       <ul>
-        <li><strong>Resume</strong>, mount the tour at the saved step with every artifact intact.</li>
-        <li><strong>Restart</strong>, reset to the intro (with a confirm sub-modal if any artifacts exist).</li>
-        <li><strong>I&apos;m good, call it done</strong>, drop the resume state, set <code>wizard_skipped_at</code>, leave artifacts in place. Settings re-run still works.</li>
+        <li><strong>Resume</strong>, mount the tour at the saved step with every artifact and feature-pick intact.</li>
+        <li><strong>Restart</strong>, wipe <code>wizard_resume_state</code> and <code>feature_picks</code> so Q1 through Q7 run fresh, start at welcome.</li>
+        <li><strong>Discard</strong>, set <code>wizard_skipped_at</code>, clear resume state and feature picks. The tour exits. Settings re-run is the only path back.</li>
       </ul>
 
       <Screenshot
         src="/wiki/screenshots/onboarding-resume-modal.png"
-        alt="The Resume modal showing three stacked buttons: a sky-blue Resume button at the top, a Restart button, and an outlined I'm good, call it done button at the bottom. BeakerBot waves from the upper-left."
-        caption="The Resume modal. Fires on next open when wizard_resume_state is non-null."
+        alt="The Resume modal showing three buttons: a sky-blue Resume button on the right, a Restart button, and an outlined Discard button on the left. BeakerBot waves from the upper-left."
+        caption="The Resume modal. Fires on next open when wizard_resume_state is non-null and the saved step is past welcome."
       />
 
       <h3>Re-running from Settings</h3>
       <p>
-        Clicking <strong>Re-run welcome tour</strong> on the Settings page
-        calls <code>clearWizardCompletion()</code>, which clears every
-        completion-tracking field at once:{" "}
+        Clicking <strong>Re-run tour</strong> in{" "}
+        <strong>Settings &gt; Onboarding</strong> performs an inline{" "}
+        <code>patchOnboarding</code> that clears{" "}
         <code>wizard_completed_at</code>, <code>wizard_skipped_at</code>,{" "}
-        <code>wizard_resume_state</code>, <code>lab_tour_pending</code>,
-        and <code>lab_tour_dismissed_at</code>. The next page load brings
-        BeakerBot back at the intro.
+        <code>wizard_resume_state</code>, <code>feature_picks</code>,{" "}
+        <code>wizard_force_show</code>, <code>lab_tour_pending</code>, and{" "}
+        <code>lab_tour_dismissed_at</code> in a single write. The controller
+        then calls <code>tourController.start()</code> to re-mount the tour in
+        place. No page reload.
       </p>
 
       <h2>How feature picks change which tabs you see</h2>
       <p>
-        Your Q1 plus Q2 to Q5 answers determine the visible-tab set through
-        two helpers in{" "}
+        Your Q1 through Q7 answers determine the visible-tab set through two
+        helpers in{" "}
         <code>frontend/src/lib/onboarding/feature-picks-tabs.ts</code>:
       </p>
       <ul>
         <li>
-          <code>tabsForFeaturePicks()</code> maps your picks to a canonical
-          list of tab hrefs.
+          <code>tabsForFeaturePicks()</code> maps your picks to a canonical list
+          of tab hrefs.
         </li>
         <li>
-          <code>deriveVisibleTabs()</code> composes that list with the
-          <code> visibleTabs</code> array in <code>settings.json</code>.
+          <code>deriveVisibleTabs()</code> composes that list with the{" "}
+          <code>visibleTabs</code> array in <code>settings.json</code>.
         </li>
       </ul>
       <p>
         The rules:
       </p>
       <ul>
+        <li><strong>Always visible:</strong> Home, Workbench, Methods, Experiments, Gantt, Search.</li>
+        <li><strong>Lab Mode</strong> appears only when <code>account_type === &quot;lab&quot;</code>.</li>
+        <li><strong>Purchases</strong> appears only when <code>purchases === &quot;yes&quot;</code>.</li>
+        <li><strong>Calendar</strong> appears only when <code>calendar === &quot;yes&quot;</code>.</li>
+        <li><strong>Goals</strong> appears only when <code>goals === &quot;yes&quot;</code>.</li>
+        <li><strong>Telegram</strong> (the notifications inbox surface) appears only when <code>telegram === &quot;yes&quot;</code>.</li>
         <li>
-          <strong>Always visible:</strong> Home, Workbench, Methods,
-          Experiments, Gantt, Search.
-        </li>
-        <li>
-          <strong>Lab Mode</strong> appears only when{" "}
-          <code>account_type === &quot;lab&quot;</code>.
-        </li>
-        <li>
-          <strong>Purchases</strong> appears only when{" "}
-          <code>purchases === &quot;yes&quot;</code>.
-        </li>
-        <li>
-          <strong>Calendar</strong> appears only when{" "}
-          <code>calendar === &quot;yes&quot;</code>.
-        </li>
-        <li>
-          <strong>Goals</strong> appears only when{" "}
-          <code>goals === &quot;yes&quot;</code>.
-        </li>
-        <li>
-          <strong>Telegram</strong> (the notifications / inbox surface)
-          appears only when <code>telegram === &quot;yes&quot;</code>.
+          <strong>Links / Lab Links</strong> appears only when{" "}
+          <code>links === &quot;yes&quot;</code>. Solo accounts see the tab
+          labeled <strong>Links</strong>; lab accounts see{" "}
+          <strong>Lab Links</strong>.
         </li>
       </ul>
       <p>
-        Settings can manually <strong>hide</strong> a tab that the picks
-        would otherwise show. Settings cannot <strong>unhide</strong> a tab
-        that the picks excluded. To get a hidden tab back, re-run the tour
-        and flip the matching Q answer.
+        Settings can manually <strong>hide</strong> a tab that the picks would
+        otherwise show. Settings cannot <strong>unhide</strong> a tab that the
+        picks excluded. To get a hidden tab back, re-run the tour and flip the
+        matching Q answer, or toggle it on directly in{" "}
+        <strong>Settings &gt; Onboarding &gt; Visible tabs</strong>.
       </p>
 
       <Callout variant="tip" title="Power-user shortcut: ?wizard-preview=1">
         Developers and demo-givers can append <code>?wizard-preview=1</code> to
-        any URL to force-mount the tour against the current sidecar state. Use
-        it together with <code>?wikiCapture=1</code> to drive the tour against
-        the wiki fixture (the screenshots on this page are captured that
-        way).
+        any URL to force-mount the tour against the current sidecar state. The
+        session also activates when the sticky sessionStorage key{" "}
+        <code>researchos:v4-preview-active</code> is set to{" "}
+        <code>&quot;1&quot;</code>, which persists the preview mode across
+        in-app navigations that strip the query string. Use either path together
+        with <code>?wikiCapture=1</code> to drive the tour against the wiki
+        fixture for screenshot captures.
       </Callout>
 
       <h2>Dev affordances: the BeakerBot button</h2>
@@ -456,51 +661,52 @@ export default function WelcomeWizardPage() {
         In development builds, a small BeakerBot button sits in the
         bottom-right floating cluster alongside the data-folder and switch-user
         controls. Clicking it opens a dropdown with three escape hatches for
-        driving the tour without walking it from scratch. The whole control
-        is gated on <code>process.env.NODE_ENV === &quot;development&quot;</code>,
-        so production builds drop it as dead code.
+        driving the tour without walking it from scratch. The whole control is
+        gated on{" "}
+        <code>process.env.NODE_ENV === &quot;development&quot;</code>, so
+        production builds drop it as dead code.
       </p>
       <p>
         The three actions are:
       </p>
       <ul>
         <li>
-          <strong>Mount at step.</strong> Pick any step ID from the dropdown
-          (every node in the W1 to W14 graph, the L1 to L11 graph, and the
-          Phase 4 cleanup grid) and click <strong>Mount wizard at this
-          step</strong>. The orchestrator writes a resume_state pointing at
-          your pick, flips the force-show flag on the current user&apos;s
-          sidecar, and reloads. The tour re-mounts at the chosen step with
-          every prior artifact intact. Useful for QA on a specific step body,
-          or for staging a screenshot capture at an arbitrary point in the
-          flow.
+          <strong>Mount at step.</strong> Pick any v4 step ID from the dropdown
+          (every node in <code>TOUR_STEP_ORDER</code> — the full 91-step graph
+          from <code>welcome</code> through <code>tour-goodbye</code>) and click{" "}
+          <strong>Mount wizard at this step</strong>. The orchestrator writes a
+          resume_state pointing at your pick, flips the force-show flag on the
+          current user&apos;s sidecar, and reloads. The tour re-mounts at the
+          chosen step with every prior artifact intact. Useful for QA on a
+          specific step body or for staging a screenshot capture at an arbitrary
+          point in the flow.
         </li>
         <li>
-          <strong>Reset wizard state.</strong> Clears
-          <code> wizard_completed_at</code>,{" "}
-          <code>wizard_skipped_at</code>, <code>wizard_resume_state</code>,
-          <code> wizard_force_show</code>, and <code>feature_picks</code> on
-          the current user&apos;s sidecar, then reloads. The tour fires from
-          the intro on next mount, identical to a brand-new user. Faster than
-          deleting the JSON by hand when iterating on the step bodies.
+          <strong>Reset wizard state.</strong> Clears{" "}
+          <code>wizard_completed_at</code>, <code>wizard_skipped_at</code>,{" "}
+          <code>wizard_resume_state</code>, <code>wizard_force_show</code>, and{" "}
+          <code>feature_picks</code> on the current user&apos;s sidecar, then
+          reloads. The tour fires from the intro on next mount, identical to a
+          brand-new user. Faster than deleting the JSON by hand when iterating
+          on step bodies.
         </li>
         <li>
           <strong>Test-N sandbox.</strong> The third row,{" "}
           <strong>Show welcome wizard (creates Test user)</strong>, spawns a
-          throwaway <code>Test-N</code> user (auto-incrementing N), force-shows
-          the wizard on that user&apos;s sidecar, and swaps the active user.
-          The sandbox user is real (it lives in <code>_user_metadata</code>{" "}
-          and writes to disk), but it never touches the seen-once state on
-          your primary account. Useful for capturing fresh-user screenshots
-          or for stress-testing the wizard without disturbing the account you
-          actually use.
+          throwaway <code>Test-N</code> user (auto-incrementing N),
+          force-shows the wizard on that user&apos;s sidecar, and swaps the
+          active user. The sandbox user is real (it lives in{" "}
+          <code>_user_metadata</code> and writes to disk), but it never touches
+          the seen-once state on your primary account. Useful for capturing
+          fresh-user screenshots or for stress-testing the wizard without
+          disturbing the account you actually use.
         </li>
       </ul>
       <Callout variant="warning" title="Development builds only">
-        The BeakerBot button never renders in production. It is also a no-op
-        in demo and wiki-capture mode because the orchestrator is not mounted
-        there. If you need to drive the tour in fixture mode, use the URL
-        flag combo (<code>?wikiCapture=1&amp;wizard-preview=1</code>) instead.
+        The BeakerBot button never renders in production. It is also a no-op in
+        demo and wiki-capture mode because the orchestrator is not mounted
+        there. If you need to drive the tour in fixture mode, use the URL flag
+        combo (<code>?wikiCapture=1&amp;wizard-preview=1</code>) instead.
       </Callout>
 
       <h2>Where to go next</h2>
@@ -510,12 +716,12 @@ export default function WelcomeWizardPage() {
           <Link href="/wiki/features/settings">Settings</Link>.
         </li>
         <li>
-          For the Lab Mode tour&apos;s share / revoke / view-only mechanics,
-          see <Link href="/wiki/features/lab-mode">Lab Mode</Link>.
+          For the Lab Mode surface that the tour demos, see{" "}
+          <Link href="/wiki/features/lab-mode">Lab Mode</Link>.
         </li>
         <li>
-          For a hands-on tour against seeded data (no real folder needed),
-          see <Link href="/demo">/demo</Link>.
+          For a hands-on tour against seeded data (no real folder needed), see{" "}
+          <Link href="/demo">/demo</Link>.
         </li>
         <li>
           For how projects work after BeakerBot leaves, see{" "}
