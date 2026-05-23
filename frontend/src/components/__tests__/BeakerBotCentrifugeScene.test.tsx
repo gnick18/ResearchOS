@@ -293,4 +293,44 @@ describe("BeakerBotCentrifugeScene", () => {
       vi.advanceTimersByTime(TOTAL_DURATION_MS + 10);
     });
   });
+
+  it("outer wrapper is full-screen and never clips child animations", () => {
+    // Universal scene rule: NO scene animation is ever limit-bound by
+    // a container. The outer portal wrapper must be position: fixed +
+    // inset: 0 + overflow: visible so the beaker burst genuinely uses
+    // the full screen. Regressing this brings back the bounding-square
+    // look Grant explicitly called out.
+    render(<BeakerBotCentrifugeScene active />);
+    const scene = screen.getByTestId("beakerbot-centrifuge-scene");
+    const style = scene.getAttribute("style") ?? "";
+    expect(style).toContain("overflow: visible");
+    // fixed + inset-0 comes from Tailwind classes; verify those too.
+    const className = scene.getAttribute("class") ?? "";
+    expect(className).toContain("fixed");
+    expect(className).toContain("inset-0");
+  });
+
+  it("tube trajectories use viewport-relative units (vh/vw), not pixel-bound", () => {
+    // Burst must use viewport-scale distances so it covers the full
+    // screen, not just a parent box. fall-x = vw, fall-y = vh.
+    render(<BeakerBotCentrifugeScene active />);
+    const upToExplosion =
+      STAGE_DURATIONS.walkIn +
+      STAGE_DURATIONS.setDown +
+      STAGE_DURATIONS.startSpinning +
+      STAGE_DURATIONS.outOfControl;
+    act(() => {
+      vi.advanceTimersByTime(upToExplosion);
+    });
+
+    const tubes = screen.getAllByTestId(/flying-tube-\d/);
+    for (const tube of tubes) {
+      const style = tube.getAttribute("style") ?? "";
+      // fall-x should be expressed in vw, fall-y in vh — not px.
+      const xMatch = style.match(/--bb-fall-x:\s*([^;]+)/);
+      const yMatch = style.match(/--bb-fall-y:\s*([^;]+)/);
+      expect(xMatch?.[1]).toMatch(/vw\s*$/);
+      expect(yMatch?.[1]).toMatch(/vh\s*$/);
+    }
+  });
 });
