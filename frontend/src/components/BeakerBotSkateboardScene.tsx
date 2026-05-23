@@ -52,20 +52,31 @@ export interface BeakerBotSkateboardSceneProps {
 }
 
 /** Visual constants — kept module-scoped so reduced-motion hold can
- *  reuse the same skateboard SVG without prop drilling sizes. */
-const BOT_WIDTH = 40;
-const BOT_HEIGHT = 40;
-const SKATEBOARD_WIDTH = 60;
-const SKATEBOARD_HEIGHT = 12;
+ *  reuse the same skateboard SVG without prop drilling sizes.
+ *
+ *  Sizes bumped ~1.8× from the original 40px bot so BeakerBot reads as
+ *  a clear focal point during the cruise (not a tiny corner sprite).
+ *  All SVG geometry is expressed in viewBox units that we then render
+ *  at SKATEBOARD_WIDTH × SKATEBOARD_HEIGHT, so the deck/trucks/wheels
+ *  all scale proportionally with the bot. */
+const BOT_WIDTH = 72;
+const BOT_HEIGHT = 72;
+const SKATEBOARD_WIDTH = 108;
+const SKATEBOARD_HEIGHT = 22;
 /** Stack offset so the bot sits ON the deck (deck top ~y0 → bot
  *  bottom rests there). Tuned to match BeakerBot's round-bottom
- *  silhouette so feet-on-deck reads correctly. */
-const BOT_DECK_OVERLAP = 2;
+ *  silhouette so feet-on-deck reads correctly. Scaled with the bot. */
+const BOT_DECK_OVERLAP = 4;
 const COMBINED_WIDTH = Math.max(BOT_WIDTH, SKATEBOARD_WIDTH);
 const COMBINED_HEIGHT = BOT_HEIGHT + SKATEBOARD_HEIGHT - BOT_DECK_OVERLAP;
 
 const ENTRY_MS = 300;
 const EXIT_MS = 300;
+/** Extra runway added to the cruise to give the mid-screen loopy-loop
+ *  room to read at human speed. Without this the loop would feel rushed
+ *  on narrow viewports where the base cruise is already near the 600ms
+ *  floor. */
+const LOOP_EXTRA_MS = 700;
 const REDUCED_MOTION_HOLD_MS = 2000;
 
 /** Bobbing oscillation tuning. ~3% of bot height vertical drift, with
@@ -74,6 +85,11 @@ const REDUCED_MOTION_HOLD_MS = 2000;
 const BOB_AMPLITUDE_PX = Math.round(BOT_HEIGHT * 0.03);
 const BOB_CYCLE_MS = 600;
 const WHEEL_SPIN_MS = 500;
+/** Loop arc tuning. translateY peak at the apex of the loop —
+ *  100px reads as a real vertical loop without flying off-screen at
+ *  the default bottomY=85%. Paired with a full 360° rotation so the
+ *  bot + deck flip together. */
+const LOOP_ARC_PX = 100;
 
 export default function BeakerBotSkateboardScene({
   active,
@@ -116,13 +132,15 @@ export default function BeakerBotSkateboardScene({
     setViewportWidth(window.innerWidth);
   }, [active]);
 
-  // Cruise duration in ms — derived from viewport width + speed prop.
-  // Floor at 600ms so a sub-pixel viewport (jsdom default = 1024) or
-  // unrealistically fast speed setting still leaves room for the
-  // entry + bob to register visually.
+  // Cruise duration in ms — derived from viewport width + speed prop,
+  // plus extra runway so the mid-cruise loopy-loop reads at human
+  // speed even on a narrow viewport. Floor at 600ms so a sub-pixel
+  // viewport (jsdom default = 1024) or unrealistically fast speed
+  // setting still leaves room for the entry + bob to register
+  // visually.
   const cruiseMs = useMemo(() => {
-    if (viewportWidth <= 0 || speedPxPerSec <= 0) return 2500;
-    const ms = Math.round((viewportWidth / speedPxPerSec) * 1000);
+    if (viewportWidth <= 0 || speedPxPerSec <= 0) return 2500 + LOOP_EXTRA_MS;
+    const ms = Math.round((viewportWidth / speedPxPerSec) * 1000) + LOOP_EXTRA_MS;
     return Math.max(600, ms);
   }, [viewportWidth, speedPxPerSec]);
 
@@ -187,7 +205,19 @@ export default function BeakerBotSkateboardScene({
   const entryPct = (ENTRY_MS / totalMs) * 100;
   const exitPct = 100 - (EXIT_MS / totalMs) * 100;
 
+  // Loopy-loop windowing — occupies the middle ~35% of the timeline,
+  // centered between entry and exit. translateY arcs up to LOOP_ARC_PX
+  // at the apex, paired 1:1 with a 0deg → 360deg rotation so the bot
+  // and deck flip together (reads as a real vertical loop, not just a
+  // hover-spin). Bookended by 0/0 hold frames at the boundaries so the
+  // cruise wrapper sees a plain on-deck pose during entry and exit.
+  const cruiseSpan = exitPct - entryPct;
+  const loopStartPct = entryPct + cruiseSpan * 0.32;
+  const loopApexPct = entryPct + cruiseSpan * 0.5;
+  const loopEndPct = entryPct + cruiseSpan * 0.68;
+
   const cruiseAnimName = `beakerbot-skate-cruise-${uid}`;
+  const loopAnimName = `beakerbot-skate-loop-${uid}`;
   const bobAnimName = `beakerbot-skate-bob-${uid}`;
   const spinAnimName = `beakerbot-skate-spin-${uid}`;
 
@@ -199,6 +229,17 @@ export default function BeakerBotSkateboardScene({
           ${entryPct.toFixed(2)}% { transform: translate(${cruiseStartX}px, -50%); }
           ${exitPct.toFixed(2)}% { transform: translate(${cruiseEndX}px, -50%); }
           100% { transform: translate(${endX}px, -50%); }
+        }
+        @keyframes ${loopAnimName} {
+          0%, ${loopStartPct.toFixed(2)}% {
+            transform: translateY(0) rotate(0deg);
+          }
+          ${loopApexPct.toFixed(2)}% {
+            transform: translateY(-${LOOP_ARC_PX}px) rotate(180deg);
+          }
+          ${loopEndPct.toFixed(2)}%, 100% {
+            transform: translateY(0) rotate(360deg);
+          }
         }
         @keyframes ${bobAnimName} {
           0%, 100% { transform: translateY(0); }
@@ -221,16 +262,38 @@ export default function BeakerBotSkateboardScene({
           pointerEvents: "none",
           width: COMBINED_WIDTH,
           height: COMBINED_HEIGHT,
+          // Scene wrapper covers the full viewport conceptually — the
+          // X cruise transform handles horizontal travel, so `overflow:
+          // visible` lets the bot leave the wrapper box during the
+          // loopy-loop apex without being clipped.
+          overflow: "visible",
           animation: `${cruiseAnimName} ${totalMs}ms cubic-bezier(0.4, 0, 0.6, 1) both`,
           willChange: "transform",
         }}
       >
-        <SkateboardStack
-          uid={uid}
-          animate={true}
-          bobAnimName={bobAnimName}
-          spinAnimName={spinAnimName}
-        />
+        <div
+          data-testid="beakerbot-skateboard-loop"
+          style={{
+            position: "relative",
+            width: COMBINED_WIDTH,
+            height: COMBINED_HEIGHT,
+            // Loop wrapper rides on top of the cruise wrapper. It owns
+            // the translateY arc + 360° rotation for the mid-cruise
+            // loopy-loop — separated from the cruise transform so X
+            // and Y/rotate keyframes compose cleanly without fighting
+            // for the same `transform` property.
+            animation: `${loopAnimName} ${totalMs}ms linear both`,
+            transformOrigin: "50% 50%",
+            willChange: "transform",
+          }}
+        >
+          <SkateboardStack
+            uid={uid}
+            animate={true}
+            bobAnimName={bobAnimName}
+            spinAnimName={spinAnimName}
+          />
+        </div>
       </div>
     </>,
     document.body,
@@ -287,7 +350,7 @@ function SkateboardStack({
         <BeakerBot
           pose="pointing-up"
           direction="right"
-          className="w-10 h-10 text-sky-500"
+          className="w-[72px] h-[72px] text-sky-500"
           ariaLabel="BeakerBot riding a skateboard"
         />
       </div>
@@ -308,27 +371,30 @@ function SkateboardStack({
         aria-label="Skateboard"
       >
         {/* Deck — flat rounded rectangle, dark wood-tone. Slightly
-            kicked-up nose + tail via the larger rx on the rect. */}
+            kicked-up nose + tail via the larger rx on the rect.
+            Coordinates are in viewBox units (108 × 22) and scale 1:1
+            with the rendered size, so the wheel-spin transform-origin
+            below can stay in matching px coordinates. */}
         <rect
-          x="2"
-          y="2"
-          width={SKATEBOARD_WIDTH - 4}
-          height="4"
-          rx="2"
-          ry="2"
+          x="4"
+          y="4"
+          width={SKATEBOARD_WIDTH - 8}
+          height="8"
+          rx="4"
+          ry="4"
           fill="#5d4037"
         />
         {/* Trucks — vertical bars connecting the deck to each wheel.
             Two of them, one near each end of the deck. */}
-        <rect x="10" y="6" width="2" height="2" fill="#9e9e9e" />
-        <rect x={SKATEBOARD_WIDTH - 12} y="6" width="2" height="2" fill="#9e9e9e" />
+        <rect x="18" y="12" width="4" height="4" fill="#9e9e9e" />
+        <rect x={SKATEBOARD_WIDTH - 22} y="12" width="4" height="4" fill="#9e9e9e" />
         {/* Wheels — two circles, each rotates independently around
             its own center via a wrapping `<g>` with transform-origin
             set to the circle's cx/cy. Continuous spin in real mode;
             static in reduced-motion mode. */}
         <g
           style={{
-            transformOrigin: `11px 9px`,
+            transformOrigin: `20px 16px`,
             transformBox: "fill-box",
             animation:
               animate && spinAnimName
@@ -337,12 +403,12 @@ function SkateboardStack({
           }}
           data-testid={`beakerbot-skateboard-wheel-left-${uid}`}
         >
-          <circle cx="11" cy="9" r="3" fill="#212121" />
-          <circle cx="11" cy="9" r="1" fill="#bdbdbd" />
+          <circle cx="20" cy="16" r="5" fill="#212121" />
+          <circle cx="20" cy="16" r="2" fill="#bdbdbd" />
         </g>
         <g
           style={{
-            transformOrigin: `${SKATEBOARD_WIDTH - 11}px 9px`,
+            transformOrigin: `${SKATEBOARD_WIDTH - 20}px 16px`,
             transformBox: "fill-box",
             animation:
               animate && spinAnimName
@@ -351,8 +417,8 @@ function SkateboardStack({
           }}
           data-testid={`beakerbot-skateboard-wheel-right-${uid}`}
         >
-          <circle cx={SKATEBOARD_WIDTH - 11} cy="9" r="3" fill="#212121" />
-          <circle cx={SKATEBOARD_WIDTH - 11} cy="9" r="1" fill="#bdbdbd" />
+          <circle cx={SKATEBOARD_WIDTH - 20} cy="16" r="5" fill="#212121" />
+          <circle cx={SKATEBOARD_WIDTH - 20} cy="16" r="2" fill="#bdbdbd" />
         </g>
       </svg>
     </div>
