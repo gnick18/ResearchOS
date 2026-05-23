@@ -208,15 +208,11 @@ describe("AppShell — top-nav gate", () => {
     expect(homeNav!.querySelectorAll("a").length).toBeGreaterThan(0);
   });
 
-  it("renders nav-items as anchors during cleanup mode (gate not triggered)", () => {
-    const { container } = renderShell({
-      withProvider: true,
-      initialStep: "phase4-cleanup",
-    });
-    const homeNav = container.querySelector("nav");
-    expect(homeNav!.getAttribute("data-tour-nav-disabled")).toBeNull();
-    expect(homeNav!.querySelectorAll("a").length).toBeGreaterThan(0);
-  });
+  // R2 chip E bonus cleanup (2026-05-22): retired the "cleanup mode"
+  // case. The `cleanup` tour mode and `phase4-cleanup` step were
+  // retired by commits 5a12d0ba (Phase 4 cleanup grid → tour-goodbye)
+  // and 94885cd5. The lab-mode + modal-setup cases above still cover
+  // the "non-walkthrough modes don't gate" half of the L23 invariant.
 
   it("disabled nav-item button does not navigate on click", () => {
     const { container } = renderShell({
