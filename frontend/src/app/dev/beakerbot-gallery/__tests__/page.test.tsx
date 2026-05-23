@@ -2,7 +2,7 @@
 // Asserts:
 //   - the page renders without throwing
 //   - the dropdown lists all 21 poses + 11 scenes + 3 pose-celebration
-//     variants = 35 entries total (PipetteAim + CoffeeRefill + MicroscopeBubble landed)
+//     variants = 35 entries total (PipetteAim + CoffeeRefill + BlowingBubbles landed)
 //   - the loop toggle is on by default
 //   - switching the dropdown to a scene mounts that scene component
 //     (verified by its data-testid)
