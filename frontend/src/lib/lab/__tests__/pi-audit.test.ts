@@ -132,4 +132,41 @@ describe("pi-audit", () => {
     expect(entries).toHaveLength(1);
     expect(entries[0].field_path).toBe("sub_tasks");
   });
+
+  it("concurrent appendAuditEntries calls don't truncate entries (P0 #3 race)", async () => {
+    // Mira-Distracted P0 #3 regression guard (2026-05-23): simulate two
+    // tabs racing to append. Before the per-user write queue, the second
+    // writer would read the old file (pre-first-write), splice its own
+    // entry onto the stale tail, and overwrite — silently dropping the
+    // first writer's entry. With the queue both entries must land.
+    const a = appendAuditEntries("alex", [
+      {
+        session_id: "s1",
+        actor: "mira",
+        target_user: "alex",
+        record_type: "task",
+        record_id: 1,
+        field_path: "name",
+        old_value: "a",
+        new_value: "b",
+      },
+    ]);
+    const b = appendAuditEntries("alex", [
+      {
+        session_id: "s2",
+        actor: "mira",
+        target_user: "alex",
+        record_type: "task",
+        record_id: 2,
+        field_path: "name",
+        old_value: "c",
+        new_value: "d",
+      },
+    ]);
+    await Promise.all([a, b]);
+    const got = await readAuditEntries("alex");
+    expect(got).toHaveLength(2);
+    const ids = got.map((e) => e.record_id).sort();
+    expect(ids).toEqual([1, 2]);
+  });
 });

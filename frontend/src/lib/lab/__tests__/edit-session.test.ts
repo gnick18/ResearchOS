@@ -97,6 +97,31 @@ describe("edit-session", () => {
     expect(b.id).not.toBe(a.id);
   });
 
+  it("resetEditSession clears an UNLOCKED session on user switch (P0 #1 bleed)", () => {
+    // Mira-Distracted P0 #1 regression guard (2026-05-23): without the
+    // hook into setCurrentUser / disconnect in FileSystemProvider, the
+    // module singleton stays state: "unlocked" while the AppShell
+    // re-renders with a new actor. Verify reset drops the session
+    // synchronously so the next read returns locked + no active user.
+    startEditSession("mira");
+    expect(getEditSession().state).toBe("unlocked");
+    expect(isUnlockedFor("mira")).toBe(true);
+
+    // Simulate the user-switch hook calling resetEditSession() before
+    // committing the new user.
+    resetEditSession();
+
+    const snap = getEditSession();
+    expect(snap.state).toBe("idle");
+    expect(snap.active).toBeNull();
+    expect(snap.remainingMs).toBe(0);
+    // Critical: isUnlockedFor MUST return false for the prior user so
+    // popup write-gating closes immediately and audit attribution can't
+    // pin a write on the user who walked away.
+    expect(isUnlockedFor("mira")).toBe(false);
+    expect(isUnlockedFor("alex")).toBe(false);
+  });
+
   it("formats remaining time as M:SS", () => {
     expect(formatRemaining(300_000)).toBe("5:00");
     expect(formatRemaining(65_000)).toBe("1:05");

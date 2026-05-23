@@ -59,8 +59,8 @@ import AssignTaskButton from "./lab-head/AssignTaskButton";
 import FlagForReviewButton from "./lab-head/FlagForReviewButton";
 import FlagBanner from "./lab-head/FlagBanner";
 import {
-  appendAuditEntries,
   buildFieldDiffEntries,
+  writeWithAudit,
 } from "@/lib/lab/pi-audit";
 
 interface TaskDetailPopupProps {
@@ -181,35 +181,57 @@ export default function TaskDetailPopup({
       ) => {
         // Read the pre-edit record so we can build a diff. Owner-routed.
         const before = await rawTasksApi.get(id, owner);
-        const updated = await rawTasksApi.update(id, data, owner);
-        if (before && updated) {
-          const oldRecord = before as unknown as Record<string, unknown>;
-          const newRecord = updated as unknown as Record<string, unknown>;
-          const touchedFields = Object.keys(data).filter(
-            (k) => k in oldRecord || k in newRecord,
-          );
-          const entries = buildFieldDiffEntries({
-            actor,
-            session_id: sessionId,
-            target_user: owner,
-            record_type: "task",
-            record_id: id,
-            oldRecord,
-            newRecord,
-            fieldPaths: touchedFields,
-          });
-          if (entries.length > 0) {
-            try {
-              await appendAuditEntries(owner, entries);
-            } catch (err) {
-              console.warn(
-                "[TaskDetailPopup] appendAuditEntries failed",
-                err,
+        // Mira-Distracted P0 #2 fix (2026-05-23): route the data write +
+        // audit append through `writeWithAudit` so they share the
+        // per-user audit queue chain. Reduces the failure window where
+        // a tab-unload between the two awaits leaves the record changed
+        // with no audit entry. Track which phase succeeded so we can
+        // preserve the prior behavior: data-write errors propagate
+        // (caller treats the save as failed), audit-only errors are
+        // swallowed with a warn (attribution loss is acceptable; the
+        // edit itself succeeded).
+        let updatedRef: Awaited<ReturnType<typeof rawTasksApi.update>> | null = null;
+        try {
+          return await writeWithAudit({
+            targetUser: owner,
+            dataWrite: async () => {
+              const updated = await rawTasksApi.update(id, data, owner);
+              updatedRef = updated;
+              return updated;
+            },
+            buildEntries: (updated) => {
+              if (!before || !updated) return [];
+              const oldRecord = before as unknown as Record<string, unknown>;
+              const newRecord = updated as unknown as Record<string, unknown>;
+              const touchedFields = Object.keys(data).filter(
+                (k) => k in oldRecord || k in newRecord,
               );
-            }
+              return buildFieldDiffEntries({
+                actor,
+                session_id: sessionId,
+                target_user: owner,
+                record_type: "task",
+                record_id: id,
+                oldRecord,
+                newRecord,
+                fieldPaths: touchedFields,
+              });
+            },
+          });
+        } catch (err) {
+          if (updatedRef !== null) {
+            // Data write succeeded, audit append threw. Swallow + warn
+            // (matches the pre-helper behavior) and return the post-write
+            // record so the popup save UX still completes.
+            console.warn(
+              "[TaskDetailPopup] appendAuditEntries failed",
+              err,
+            );
+            return updatedRef;
           }
+          // Data write itself threw — propagate.
+          throw err;
         }
-        return updated;
       },
     };
   }, [

@@ -17,6 +17,7 @@ import {
 import { readMainUser, writeMainUser } from "./user-metadata";
 import { clearCurrentUserCache } from "../storage/json-store";
 import { clearCachedPassword } from "../auth/cached-password";
+import { resetEditSession } from "../lab/edit-session";
 import { discoverUsers, validateResearchFolder, ensureFolderStructure } from "./user-discovery";
 import { readUserSettings, patchUserSettings, userSettingsFileExists, DEFAULT_SETTINGS } from "../settings/user-settings";
 import { useAppStore, readLegacyLocalStorageSettings } from "../store";
@@ -808,6 +809,14 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const disconnect = useCallback(async () => {
+    // Mira-Distracted P0 #1 fix (2026-05-23): clear any active lab-head
+    // edit session BEFORE wiping the handle. Without this, the module-
+    // scope session-state singleton in `lib/lab/edit-session.ts` would
+    // bleed into the next folder/login (banner still rendering, audit
+    // entries still attributing writes to a user who's no longer signed
+    // in). Reset to "idle" — distinct from "locked" so the UI doesn't
+    // pretend the previous session "just ended".
+    resetEditSession();
     fileService.clearDirectoryHandle();
     await clearDirectoryHandle();
     await clearCurrentUser();
@@ -848,6 +857,17 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
 
   const setCurrentUser = useCallback(async (username: string) => {
     console.log("[FileSystemProvider.setCurrentUser] Called with username:", username);
+    // Mira-Distracted P0 #1 fix (2026-05-23): drop any active lab-head
+    // edit session BEFORE committing the new user. The module-scope
+    // singleton in `lib/lab/edit-session.ts` was never being cleared on
+    // user switch, so a session unlocked by Mira would still be reported
+    // as `state: "unlocked", active: { username: "mira" }` after the
+    // user-picker swapped the app to alex. EditSessionBanner kept
+    // rendering, `isUnlockedFor()` kept returning true, and audit entries
+    // could attribute writes to mira while alex was the active user.
+    // Called synchronously before any await so the next AppShell render
+    // sees the cleared session.
+    resetEditSession();
     clearCurrentUserCache();
     // Constraint #2(b): explicit user-switch wipes the cached password.
     // The encrypted backup is keyed per-user and the password gate

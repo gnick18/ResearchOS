@@ -26,6 +26,32 @@
 
 import { fileService } from "../file-system/file-service";
 
+// Per-user write queue serializes read-modify-write operations on each
+// `users/<target_user>/_pi_audit.json` so concurrent callers (e.g. two
+// browser tabs each appending after a PI edit) don't race the underlying
+// atomic-write pattern (.tmp create + write + move) and silently truncate
+// entries. Same template as the calendar feeds fix at commit 4f093714
+// (`lib/calendar/external-feeds-store.ts`) — keyed by target user so
+// distinct users do NOT serialize against each other (multiple PIs in
+// the same folder don't block each other). Tab-scoped only; does not
+// protect against cross-tab / cross-process writes.
+const auditWriteQueues = new Map<string, Promise<unknown>>();
+function enqueueAuditWrite<T>(
+  username: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const prev = auditWriteQueues.get(username) ?? Promise.resolve();
+  const next = prev.then(fn, fn);
+  // Swallow errors on the queue chain so a single failed write doesn't
+  // poison every subsequent write. Caller still receives the original
+  // rejection via the returned promise.
+  auditWriteQueues.set(
+    username,
+    next.catch(() => {}),
+  );
+  return next;
+}
+
 /**
  * One audit log entry. One per field change per save.
  *
@@ -88,11 +114,13 @@ function newEntryId(): string {
  * The file is created if missing. Each input is filled with `id` and
  * `timestamp` if the caller didn't provide them.
  *
- * Concurrent writes: this is a read-modify-write. The shared-folder
- * model already serializes writes through the FS API (no two tabs hit
- * the same file simultaneously in normal usage), but a defensive merge
- * here would still race; lab-mode editing is per-PI and short, so the
- * trade-off matches the rest of the per-user-file pattern.
+ * Concurrent writes: this is a read-modify-write, serialized through the
+ * per-user `auditWriteQueues` chain above so two tabs racing to append
+ * (Mira saves in tab A while a sibling tab B finishes its own save)
+ * don't silently truncate each other's entries. Mira-Distracted P0 fix
+ * 2026-05-23. Previously the comment here noted the race was tolerated
+ * "since lab-mode editing is per-PI and short" — that assumption breaks
+ * in any multi-tab session.
  */
 export async function appendAuditEntries(
   targetUser: string,
@@ -100,26 +128,28 @@ export async function appendAuditEntries(
 ): Promise<void> {
   if (entries.length === 0) return;
 
-  const now = new Date().toISOString();
-  const filled: PiAuditEntry[] = entries.map((e) => ({
-    id: e.id ?? newEntryId(),
-    timestamp: e.timestamp ?? now,
-    session_id: e.session_id,
-    actor: e.actor,
-    target_user: e.target_user,
-    record_type: e.record_type,
-    record_id: e.record_id,
-    field_path: e.field_path,
-    old_value: e.old_value,
-    new_value: e.new_value,
-  }));
+  return enqueueAuditWrite(targetUser, async () => {
+    const now = new Date().toISOString();
+    const filled: PiAuditEntry[] = entries.map((e) => ({
+      id: e.id ?? newEntryId(),
+      timestamp: e.timestamp ?? now,
+      session_id: e.session_id,
+      actor: e.actor,
+      target_user: e.target_user,
+      record_type: e.record_type,
+      record_id: e.record_id,
+      field_path: e.field_path,
+      old_value: e.old_value,
+      new_value: e.new_value,
+    }));
 
-  const existing = await fileService.readJson<PiAuditFile>(auditPath(targetUser));
-  const merged: PiAuditFile = {
-    version: 1,
-    entries: [...(existing?.entries ?? []), ...filled],
-  };
-  await fileService.writeJson(auditPath(targetUser), merged);
+    const existing = await fileService.readJson<PiAuditFile>(auditPath(targetUser));
+    const merged: PiAuditFile = {
+      version: 1,
+      entries: [...(existing?.entries ?? []), ...filled],
+    };
+    await fileService.writeJson(auditPath(targetUser), merged);
+  });
 }
 
 /**
@@ -173,6 +203,88 @@ export async function readAuditEntries(targetUser: string): Promise<PiAuditEntry
   const data = await fileService.readJson<PiAuditFile>(auditPath(targetUser));
   if (!data || !Array.isArray(data.entries)) return [];
   return data.entries;
+}
+
+/**
+ * Mira-Distracted P0 #2 helper (2026-05-23): perform a data write +
+ * audit append as a single serialized chain on the per-user audit
+ * write queue. Reduces the failure window where a tab-unload between
+ * the data write and the audit append leaves the record changed with
+ * no audit trail.
+ *
+ * Sequencing:
+ *   1. Both writes run inside one `enqueueAuditWrite` slot so they
+ *      share the queue's promise chain. A second writer (e.g. a sibling
+ *      tab) racing on the same target user CANNOT interleave its own
+ *      audit append between this caller's data write and audit append.
+ *   2. The data write runs first.
+ *   3. The audit append uses the post-write result to compute entries,
+ *      then writes them via the same queue slot. (Note: the audit
+ *      append is INSIDE the same queue slot, not a re-enqueue, so it's
+ *      guaranteed to be the very next operation on this chain.)
+ *
+ * Atomicity caveats this helper does NOT solve (full atomicity needs a
+ * transaction primitive we don't have):
+ *   - Tab-unload mid-data-write still leaves the file in whatever state
+ *     the FSA `move()` got to. Same as before.
+ *   - Tab-unload AFTER the data write resolves but BEFORE the audit
+ *     append starts: still possible in theory, but the gap is the
+ *     event-loop tick between the two awaits, much shorter than the
+ *     pre-helper gap which included unrelated React state updates,
+ *     queryClient.refetchQueries, etc.
+ *   - If the data write succeeds but the audit append throws, the data
+ *     write has already landed; the helper re-throws the audit error
+ *     so the caller can decide to surface vs swallow. Current callsites
+ *     swallow via try/catch + console.warn (acceptable for now).
+ *
+ * Migration plan: NOT a drop-in for every audit-emitting callsite right
+ * now. This chip migrates only TaskDetailPopup (the highest-traffic
+ * surface) so the pattern is established; sibling callsites in
+ * `lib/notes/owner-scoped-api.ts`, `lib/purchases/owner-scoped-api.ts`,
+ * `lib/lab/user-archive.ts`, `lib/lab/pi-actions.ts` migrate in a
+ * future pass.
+ */
+export async function writeWithAudit<T>(args: {
+  targetUser: string;
+  /** The data write. Must resolve to the value the caller wants to
+   *  return (e.g. the updated record). */
+  dataWrite: () => Promise<T>;
+  /** Compute audit entries from the data-write result. Runs AFTER the
+   *  data write succeeds. Return `[]` to skip the audit append (e.g.
+   *  no fields actually changed). */
+  buildEntries: (result: T) => Array<
+    Omit<PiAuditEntry, "id" | "timestamp"> & { id?: string; timestamp?: string }
+  >;
+}): Promise<T> {
+  return enqueueAuditWrite(args.targetUser, async () => {
+    const result = await args.dataWrite();
+    const entries = args.buildEntries(result);
+    if (entries.length === 0) return result;
+
+    const now = new Date().toISOString();
+    const filled: PiAuditEntry[] = entries.map((e) => ({
+      id: e.id ?? newEntryId(),
+      timestamp: e.timestamp ?? now,
+      session_id: e.session_id,
+      actor: e.actor,
+      target_user: e.target_user,
+      record_type: e.record_type,
+      record_id: e.record_id,
+      field_path: e.field_path,
+      old_value: e.old_value,
+      new_value: e.new_value,
+    }));
+
+    const existing = await fileService.readJson<PiAuditFile>(
+      auditPath(args.targetUser),
+    );
+    const merged: PiAuditFile = {
+      version: 1,
+      entries: [...(existing?.entries ?? []), ...filled],
+    };
+    await fileService.writeJson(auditPath(args.targetUser), merged);
+    return result;
+  });
 }
 
 /**
