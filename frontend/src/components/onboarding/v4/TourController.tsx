@@ -2151,6 +2151,46 @@ function TourBeakerBotOverlay({
   canGoBack,
   flashSpeech,
 }: TourBeakerBotOverlayProps) {
+  // R2 regression followup Fix 1/3 (2026-05-23):
+  // `disabledUntilEvent` gating: if the active step's `manual`
+  // completion declares a `disabledUntilEvent`, the "Got it, next"
+  // button renders disabled until that window-level CustomEvent
+  // fires. Closes the literal-reader catch on §6.8
+  // `gantt-share-profile-switch` where the prior `advanceOnEvent`
+  // auto-advanced silently (no user button) and broke Grant's
+  // "user-gated on note-write" spec.
+  //
+  // The gate state is keyed off `step?.id` so each new step starts
+  // ungated.
+  const stepId = step?.id ?? null;
+  const manualDisabledUntilEvent =
+    step?.completion.type === "manual"
+      ? step.completion.disabledUntilEvent
+      : undefined;
+  const manualDisabledAriaLabel =
+    step?.completion.type === "manual"
+      ? step.completion.disabledAriaLabel
+      : undefined;
+  const [eventFired, setEventFired] = useState(false);
+
+  // Subscribe to the gate event for the active step. Listener is
+  // window-scoped + once-only; cleared on step change so each new
+  // step starts ungated. If `manualDisabledUntilEvent` is unset, the
+  // button is never gated.
+  useEffect(() => {
+    setEventFired(false);
+    if (!manualDisabledUntilEvent || typeof window === "undefined") {
+      return;
+    }
+    const handler = (): void => setEventFired(true);
+    window.addEventListener(manualDisabledUntilEvent, handler, {
+      once: true,
+    });
+    return () => {
+      window.removeEventListener(manualDisabledUntilEvent, handler);
+    };
+  }, [stepId, manualDisabledUntilEvent]);
+
   if (!step) return null;
 
   const speechNode = flashSpeech
@@ -2163,6 +2203,14 @@ function TourBeakerBotOverlay({
     step.completion.type === "manual"
       ? step.completion.buttonLabel ?? "Got it, next"
       : null;
+  // Button is disabled when the step declares `disabledUntilEvent`
+  // and the event hasn't fired yet for this step entry.
+  const manualGateActive = !!manualDisabledUntilEvent && !eventFired;
+  const manualButtonDisabled = manualGateActive;
+  const manualButtonAriaLabel =
+    manualGateActive && manualDisabledAriaLabel
+      ? manualDisabledAriaLabel
+      : manualButtonLabel ?? "";
 
   // §6.7 HE-2: branch buttons render in place of the "Got it, next"
   // affordance when the step declares branch-completion. The user picks
@@ -2272,9 +2320,20 @@ function TourBeakerBotOverlay({
           ) : manualButtonLabel ? (
             <button
               type="button"
-              onClick={onManualAdvance}
-              className="text-xs font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-full px-3 py-1.5"
-              aria-label={manualButtonLabel}
+              onClick={() => {
+                if (manualButtonDisabled) return;
+                onManualAdvance();
+              }}
+              disabled={manualButtonDisabled}
+              data-testid="tour-manual-advance-button"
+              data-disabled-until-event={manualGateActive ? "true" : undefined}
+              className={
+                manualButtonDisabled
+                  ? "text-xs font-medium bg-sky-500 text-white rounded-full px-3 py-1.5 opacity-50 cursor-not-allowed"
+                  : "text-xs font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-full px-3 py-1.5"
+              }
+              aria-label={manualButtonAriaLabel}
+              aria-disabled={manualButtonDisabled || undefined}
             >
               {manualButtonLabel}
             </button>

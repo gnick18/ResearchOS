@@ -85,9 +85,24 @@ export function autoAdvanceAfter(ms: number): TourStepCompletion {
 /**
  * Sugar for the "Got it, next" manual completion. Optional custom
  * label.
+ *
+ * R2 regression followup 2026-05-23: optional `disabledUntilEvent`
+ * gates the button on a window-level CustomEvent. Until the event
+ * fires (after step entry), the button renders disabled with a "hold
+ * on" aria-label. Pattern used by §6.8 gantt-share-profile-switch so
+ * the user cannot advance before the genuine `appendBeakerBotNote`
+ * write + modal sequence completes.
  */
-export function manualAdvance(buttonLabel?: string): TourStepCompletion {
-  return { type: "manual", buttonLabel };
+export function manualAdvance(
+  buttonLabel?: string,
+  opts?: { disabledUntilEvent?: string; disabledAriaLabel?: string },
+): TourStepCompletion {
+  return {
+    type: "manual",
+    buttonLabel,
+    disabledUntilEvent: opts?.disabledUntilEvent,
+    disabledAriaLabel: opts?.disabledAriaLabel,
+  };
 }
 
 /**

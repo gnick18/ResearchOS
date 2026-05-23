@@ -50,7 +50,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import BeakerBot from "@/components/BeakerBot";
-import { advanceOnEvent, buildWalkthroughStep } from "./lib/step-helpers";
+import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 import { appendBeakerBotNote } from "./lib/gantt-share-helpers";
 import { resolveFakeTaskIds } from "./lib/gantt-redesign-helpers";
@@ -58,16 +58,21 @@ import { useOptionalTourController } from "../../TourController";
 
 /**
  * Custom DOM event fired by the speech body once the BeakerBot note
- * write has completed (T+2800ms). The step's `advanceOnEvent`
- * completion listens for this so the "Got it, next" button only
- * appears after the genuine note write has actually landed. Without
- * the gate, fast users could advance to gantt-share-user-sees-edit
- * before the note was written, breaking the next step's "see the note
- * BeakerBot just added" promise.
+ * write has completed and the full switch+write+switch-back sequence
+ * has played out (T+6800ms). The step's `manualAdvance` completion
+ * uses `disabledUntilEvent` to GATE the user-facing "Got it, next"
+ * button on this signal. Without the gate, fast users could click
+ * advance before the note existed, breaking the next step's "see
+ * the note BeakerBot just added" promise.
  *
- * R2 chip C 2026-05-22.
+ * Originally added R2 chip C 2026-05-22 (auto-advance via
+ * `advanceOnEvent`). R2 regression followup 2026-05-23: switched to
+ * a user-acknowledged button GATED on this event, per Grant's
+ * original spec (button visible, gated on signal). Auto-advance hid
+ * the moment from the user; a disabled button signals "wait" while
+ * still requiring user-acknowledgement.
  */
-const NOTE_WRITE_DONE_EVENT = "tour:gantt-share-note-write-done";
+export const NOTE_WRITE_DONE_EVENT = "tour:gantt-share-note-write-done";
 
 /** SessionStorage key used to mark the tour as mid-switch. The current
  *  fallback doesn't use this for state survival (the modal lives in
@@ -347,23 +352,18 @@ export const ganttShareProfileSwitchStep = buildWalkthroughStep({
   onEnter: async () => {
     void (await resolveFakeTaskIds());
   },
-  // R2 chip C 2026-05-22: completion now waits for the
-  // NOTE_WRITE_DONE_EVENT dispatched by the speech body once the
-  // genuine `appendBeakerBotNote` write resolves (~T+2700ms). Listener
-  // is wired manual-style: it sets up a window-level event subscription
-  // but DOES NOT call `advance()` itself, so the "Got it, next" button
-  // still appears (manual-advance UX) once the event fires. The
-  // completion type stays `event` so the bubble shell knows to render a
-  // user-acknowledged button via the manualAdvance fallback.
-  completion: advanceOnEvent((advance) => {
-    if (typeof window === "undefined") {
-      return () => {};
-    }
-    const handler = () => advance();
-    window.addEventListener(NOTE_WRITE_DONE_EVENT, handler, { once: true });
-    return () => {
-      window.removeEventListener(NOTE_WRITE_DONE_EVENT, handler);
-    };
+  // R2 regression followup 2026-05-23: completion is `manualAdvance`
+  // with `disabledUntilEvent`. The user-facing "Got it, next" button
+  // is rendered as DISABLED until the NOTE_WRITE_DONE_EVENT fires at
+  // T+6800ms (after the full switch+write+switch-back sequence has
+  // played out). This matches Grant's original spec: a visible
+  // button that gates on the write completing, NOT a silent
+  // auto-advance. Auto-advance hid the moment from the user; a
+  // disabled button signals "wait" while still requiring
+  // user-acknowledgement.
+  completion: manualAdvance("Got it, next", {
+    disabledUntilEvent: NOTE_WRITE_DONE_EVENT,
+    disabledAriaLabel: "Hold on, BeakerBot is writing the note...",
   }),
   expectedRoute: "/gantt",
 });

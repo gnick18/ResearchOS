@@ -55,6 +55,27 @@ export type TourStepCompletion =
       type: "manual";
       /** Optional override for the "Got it, next" button label. */
       buttonLabel?: string;
+      /** R2 regression followup 2026-05-23: optional event name that
+       *  GATES the manual-advance button. While set + the event has not
+       *  yet fired since step entry, the button renders as disabled
+       *  (visual + functional) with reduced opacity and a "hold on"
+       *  aria-label. Once the event fires (window-level CustomEvent),
+       *  the button becomes clickable.
+       *
+       *  Used by `gantt-share-profile-switch` (§6.8) to ensure the
+       *  user cannot click "Got it, next" before the genuine
+       *  `appendBeakerBotNote` write + visual modal sequence has
+       *  played out (~T+6800ms). The prior implementation used
+       *  `advanceOnEvent` which auto-advanced silently with no user
+       *  button; the user-button-gated-on-event pattern matches
+       *  Grant's original spec (button visible, gated on signal).
+       *
+       *  The listener uses `addEventListener(name, _, { once: true })`
+       *  and is reset on step change so the gate is per-step. */
+      disabledUntilEvent?: string;
+      /** Optional aria-label used while the button is disabled
+       *  (defaults to "BeakerBot is still working, please wait"). */
+      disabledAriaLabel?: string;
     }
   | {
       type: "auto";

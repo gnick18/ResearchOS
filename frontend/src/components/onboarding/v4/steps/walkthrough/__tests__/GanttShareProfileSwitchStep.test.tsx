@@ -101,13 +101,49 @@ describe("GanttShareProfileSwitchStep (Gantt manager 2026-05-22)", () => {
     expect(appendBeakerBotNoteMock).toHaveBeenCalledWith(BEAKERBOT_NOTE_TEXT);
   });
 
-  it("uses event-driven completion gated on the note-write event", () => {
-    // R2 chip C 2026-05-22: completion was switched from manual to
-    // event-driven so fast users can't click "Got it, next" before the
-    // genuine `appendBeakerBotNote` write has resolved. The speech body
-    // dispatches `tour:gantt-share-note-write-done` at T+6800ms (after
-    // the full switch+write+switch-back sequence has played out) and
-    // the step's event listener advances on that signal.
-    expect(ganttShareProfileSwitchStep.completion.type).toBe("event");
+  it("uses manual completion gated on the note-write event", () => {
+    // R2 regression followup 2026-05-23: completion is `manual` with
+    // `disabledUntilEvent` set to the note-write done event. The
+    // overlay renders a visible "Got it, next" button that is
+    // DISABLED until `tour:gantt-share-note-write-done` fires at
+    // T+6800ms. This replaces the prior chip-C `event` completion
+    // that auto-advanced silently (literal-reader catch: Grant's
+    // original spec wanted a button gated on the write, not a silent
+    // auto-advance).
+    expect(ganttShareProfileSwitchStep.completion.type).toBe("manual");
+    if (ganttShareProfileSwitchStep.completion.type === "manual") {
+      expect(ganttShareProfileSwitchStep.completion.buttonLabel).toBe(
+        "Got it, next",
+      );
+      expect(
+        ganttShareProfileSwitchStep.completion.disabledUntilEvent,
+      ).toBe("tour:gantt-share-note-write-done");
+      expect(
+        ganttShareProfileSwitchStep.completion.disabledAriaLabel,
+      ).toBeTruthy();
+    }
+  });
+
+  it("dispatches the note-write done event at T+6800ms", () => {
+    // The disabled-until-event gate above only works if the speech
+    // body actually fires the event at the end of the
+    // switch+write+switch-back sequence. Verifies the dispatch lands
+    // on the window event bus with the matching name.
+    const fired = vi.fn();
+    window.addEventListener("tour:gantt-share-note-write-done", fired);
+    try {
+      renderSpeech();
+      // Step body sets up timers at 1200, 2600, 5400, 6800ms.
+      // The event dispatch is in the 6800ms timer.
+      act(() => {
+        vi.advanceTimersByTime(6800);
+      });
+      expect(fired).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener(
+        "tour:gantt-share-note-write-done",
+        fired,
+      );
+    }
   });
 });
