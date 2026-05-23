@@ -100,7 +100,12 @@ export const methodsCategoryDemoStep = buildWalkthroughStep({
     return `Great, let's set up ${label} as your first category. Watch.`;
   },
   pose: "pointing",
-  targetSelector: targetSelector(TOUR_TARGETS.methodsNewCategoryButton),
+  // R2 chip E Fix 2: spotlight the modal's name input (where the cursor
+  // action happens), not the page-header "+ New Category" button. The
+  // previous-beat `methods-category-open` step already opened the modal
+  // for the user; by the time this demo step runs, the modal is
+  // mounted and the +New button is no longer the locus of action.
+  targetSelector: targetSelector(TOUR_TARGETS.methodsCategoryNameInput),
   cursorScript: cursorScript(async () => {
     // Grant 2026-05-21 rethink: the user opens the modal themselves in
     // the previous `methods-category-open` step. The demo step's job

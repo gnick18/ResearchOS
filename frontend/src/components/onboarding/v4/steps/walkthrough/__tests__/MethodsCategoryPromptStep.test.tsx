@@ -242,6 +242,20 @@ describe("MethodsCategoryDemoStep (v4 sec 6.4 redesign)", () => {
   it("demo step keeps the original `methods-category` id for backward compat", () => {
     expect(methodsCategoryDemoStep.id).toBe("methods-category");
   });
+
+  it("spotlight targets the modal name input, not the +New Category button (R2 chip E Fix 2)", () => {
+    // Regression: the previous beat (`methods-category-open`) already
+    // opened the modal, so by the time this demo step runs the cursor
+    // action happens inside the modal. The spotlight ring should be on
+    // the input where the action is, not the page-header button that
+    // is no longer the locus of activity.
+    expect(methodsCategoryDemoStep.targetSelector).toBe(
+      '[data-tour-target="methods-category-name-input"]',
+    );
+    expect(methodsCategoryDemoStep.targetSelector).not.toBe(
+      '[data-tour-target="methods-add-category"]',
+    );
+  });
 });
 
 describe("Step-machine ordering: prompt before demo", () => {
