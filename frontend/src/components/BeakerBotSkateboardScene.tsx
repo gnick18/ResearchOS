@@ -220,6 +220,15 @@ export default function BeakerBotSkateboardScene({
   const loopAnimName = `beakerbot-skate-loop-${uid}`;
   const bobAnimName = `beakerbot-skate-bob-${uid}`;
   const spinAnimName = `beakerbot-skate-spin-${uid}`;
+  const trailAnimName = `beakerbot-skate-trail-${uid}`;
+
+  // Motion-blur ghost trail. Three faded SkateboardStack silhouettes
+  // sit behind the bot relative to his direction of travel. They fade
+  // in just after the entry stage ends and fade out before the exit
+  // stage begins, so the trail only appears during the actual cruise.
+  // Offset sign flips with direction (left-to-right → trails to the
+  // LEFT; right-to-left → trails to the RIGHT).
+  const trailSign = direction === "left-to-right" ? -1 : 1;
 
   return createPortal(
     <>
@@ -248,6 +257,16 @@ export default function BeakerBotSkateboardScene({
         @keyframes ${spinAnimName} {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+        /* Motion-blur trail — fades in shortly after entry ends and
+           fades out before exit begins, so the trail only reads during
+           the actual cruise. Per-trail opacity peak is set inline so
+           the three copies form a graduated fade (closest = boldest). */
+        @keyframes ${trailAnimName} {
+          0%, ${entryPct.toFixed(2)}% { opacity: 0; }
+          ${(entryPct + 5).toFixed(2)}%,
+          ${(exitPct - 5).toFixed(2)}% { opacity: var(--bbst-peak-opacity, 0.3); }
+          ${exitPct.toFixed(2)}%, 100% { opacity: 0; }
         }
       `}</style>
       <div
@@ -287,6 +306,45 @@ export default function BeakerBotSkateboardScene({
             willChange: "transform",
           }}
         >
+          {/* Motion-blur ghost trail — three faded SkateboardStack
+              silhouettes behind the bot during the cruise. Rendered
+              BEFORE the main stack so the bot paints on top. Each
+              trail copy sits a graduated distance behind the bot (in
+              the direction of travel) with a fixed peak-opacity that
+              tapers with distance. */}
+          {[
+            { offsetPx: 18 * trailSign, peakOpacity: 0.4 },
+            { offsetPx: 36 * trailSign, peakOpacity: 0.25 },
+            { offsetPx: 54 * trailSign, peakOpacity: 0.12 },
+          ].map((t, i) => (
+            <div
+              key={i}
+              data-testid={`beakerbot-skateboard-trail-${i}`}
+              aria-hidden="true"
+              style={
+                {
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: COMBINED_WIDTH,
+                  height: COMBINED_HEIGHT,
+                  transform: `translateX(${t.offsetPx}px)`,
+                  opacity: 0,
+                  filter: "blur(1.5px)",
+                  pointerEvents: "none",
+                  ["--bbst-peak-opacity" as string]: `${t.peakOpacity}`,
+                  animation: `${trailAnimName} ${totalMs}ms linear both`,
+                } as React.CSSProperties
+              }
+            >
+              <SkateboardStack
+                uid={`${uid}-trail-${i}`}
+                animate={false}
+                isTrail
+              />
+            </div>
+          ))}
+
           <SkateboardStack
             uid={uid}
             animate={true}
@@ -314,11 +372,17 @@ function SkateboardStack({
   animate,
   bobAnimName,
   spinAnimName,
+  isTrail = false,
 }: {
   uid: string;
   animate: boolean;
   bobAnimName?: string;
   spinAnimName?: string;
+  /** When true, the rendered subtree carries trail-specific testids
+   *  (`...-trail-bot`, `...-trail-svg`) so tests that query
+   *  `beakerbot-skateboard-bot`/`-svg` still match exactly the main
+   *  stack, not a trail copy. Used by the motion-blur ghost trail. */
+  isTrail?: boolean;
 }) {
   return (
     <div
@@ -333,7 +397,9 @@ function SkateboardStack({
           the middle of the deck even when the skateboard is wider
           than the bot. */}
       <div
-        data-testid="beakerbot-skateboard-bot"
+        data-testid={
+          isTrail ? "beakerbot-skateboard-trail-bot" : "beakerbot-skateboard-bot"
+        }
         style={{
           position: "absolute",
           left: (COMBINED_WIDTH - BOT_WIDTH) / 2,
@@ -358,7 +424,9 @@ function SkateboardStack({
       {/* Skateboard — deck + trucks + 2 spinning wheels. Sits at the
           bottom of the combined box so the bot rests on the deck. */}
       <svg
-        data-testid="beakerbot-skateboard-svg"
+        data-testid={
+          isTrail ? "beakerbot-skateboard-trail-svg" : "beakerbot-skateboard-svg"
+        }
         viewBox={`0 0 ${SKATEBOARD_WIDTH} ${SKATEBOARD_HEIGHT}`}
         width={SKATEBOARD_WIDTH}
         height={SKATEBOARD_HEIGHT}

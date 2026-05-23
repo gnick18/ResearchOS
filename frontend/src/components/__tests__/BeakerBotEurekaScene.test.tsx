@@ -217,7 +217,12 @@ describe("BeakerBotEurekaScene", () => {
     });
     const scene = screen.getByTestId("beakerbot-eureka-scene");
     expect(scene.getAttribute("data-stage")).toBe("sparkles");
-    const sparkles = screen.getAllByTestId("beakerbot-eureka-scene-sparkle");
+    // Scene polish B: the burst is now powered by the shared
+    // BurstParticles primitive, which emits its particles under the
+    // `beakerbot-burst-particle` testid. Reduced-motion still uses the
+    // inline `beakerbot-eureka-scene-sparkle` testid for the static
+    // tableau (covered by other tests in this file).
+    const sparkles = screen.getAllByTestId("beakerbot-burst-particle");
     expect(sparkles).toHaveLength(8);
   });
 

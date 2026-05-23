@@ -40,6 +40,9 @@
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import BeakerBot, { type BeakerBotPose } from "./BeakerBot";
+import BeakerBotSpeechBubble from "./beakerbot/SpeechBubble";
+import BurstParticles from "./beakerbot/BurstParticles";
+import { SCENE_GROUND_BOTTOM_CSS, SCENE_GROUND_BOTTOM_VH } from "./beakerbot/scene-constants";
 
 export interface BeakerBotEurekaSceneProps {
   /** When true, the scene mounts and runs through its sequence.
@@ -407,10 +410,15 @@ export default function BeakerBotEurekaScene({
   // Eye-widen overlay fires during pull-back (snap back amazed).
   const eyeWidenActive = stage === "pullBack";
 
-  // BeakerBot pose by stage. Spec says "existing poses only" — we
-  // use `idle` (walk), `pointing-down` (lean to peek, custom forward
-  // lean via transform), `cheering` (eureka moment). Exit reuses
-  // `cheering` for body sway.
+  // BeakerBot pose by stage:
+  //   - walkIn / setDown / exit / done: idle (just walking)
+  //   - leanPeek / peeking / pullBack: pointing-down (forward lean
+  //     via transform, head looking at the eyepiece)
+  //   - bulbOn: "amazed" (Scene polish B swap — the pre-polish "idle"
+  //     was visually neutral, which undersold the "wow, I figured it
+  //     out!" beat. amazed = wide eyes + clasped hands; pairs with
+  //     the bulb fade-in beat)
+  //   - sparkles / cheering: cheering (eureka moment, hands up)
   let pose: BeakerBotPose = "idle";
   switch (stage) {
     case "walkIn":
@@ -423,7 +431,7 @@ export default function BeakerBotEurekaScene({
       pose = "pointing-down";
       break;
     case "bulbOn":
-      pose = "idle";
+      pose = "amazed";
       break;
     case "sparkles":
     case "cheering":
@@ -546,9 +554,10 @@ export default function BeakerBotEurekaScene({
         }
       `}</style>
 
-      {/* Bench line: characters and the microscope sit on this y-axis.
-          Computed as bottom 20vh so the scene reads as "BeakerBot at
-          a lab bench" rather than "floating on a void". */}
+      {/* Bench line — shared SCENE_GROUND_BOTTOM_VH baseline (matches
+          the other bench-style scenes). Was 20vh pre-Scene-polish-B;
+          standardized so back-to-back scenes plant BeakerBot's feet at
+          the same height. */}
 
       {/* MICROSCOPE on the bench. Only renders from setDown onward.
           Sits slightly to the side of BeakerBot (in the direction he
@@ -559,7 +568,7 @@ export default function BeakerBotEurekaScene({
           style={{
             position: "absolute",
             left: direction.beakerBenchX,
-            bottom: "20vh",
+            bottom: SCENE_GROUND_BOTTOM_CSS,
             transform: `translate(calc(-50% + ${direction.microscopeOffsetPx * 2}px), 0)`,
             // 2x scale (was 36x40).
             width: 72,
@@ -575,15 +584,16 @@ export default function BeakerBotEurekaScene({
       )}
 
       {/* BEAKERBOT — fixed-size, translated horizontally per stage. The
-          bench is at bottom: 20vh; BeakerBot sits with feet on the
-          bench line, his head ~64px above. Forward lean is applied via
-          a nested wrapper so it pivots from the base of the body. */}
+          bench is at SCENE_GROUND_BOTTOM_VH; BeakerBot sits with feet
+          on the bench line, his head ~64px above. Forward lean is
+          applied via a nested wrapper so it pivots from the base of
+          the body. */}
       <div
         data-testid="beakerbot-eureka-scene-bot"
         style={{
           position: "absolute",
           left: 0,
-          bottom: "calc(20vh - 4px)",
+          bottom: `calc(${SCENE_GROUND_BOTTOM_VH}vh - 4px)`,
           // 2x scale (was 64x64).
           width: 128,
           height: 128,
@@ -725,10 +735,27 @@ export default function BeakerBotEurekaScene({
               </div>
 
               {/* SPARKLE BURST — 8 sparkles radiating outward from the
-                  bulb center. Each sparkle is absolutely positioned at
-                  bulb-center; CSS custom properties drive its outward
-                  target so the keyframe is generic. */}
-              {(sparklesBursting || sparklesStatic) && (
+                  bulb center. Scene polish B: powered by the shared
+                  BurstParticles primitive (radial mode, count=8,
+                  radius=SPARKLE_RADIUS_PX, rainbow palette). The
+                  reduced-motion tableau still needs a static final
+                  layout (no keyframe animation), so we render that
+                  branch inline; the burst branch uses BurstParticles. */}
+              {sparklesBursting && (
+                <BurstParticles
+                  data-testid="beakerbot-eureka-scene-sparkle-burst"
+                  count={SPARKLE_COUNT}
+                  radius={SPARKLE_RADIUS_PX}
+                  palette={SPARKLE_COLORS}
+                  particleType="star"
+                  particleSize={16}
+                  durationMs={STAGE_DURATIONS.sparkles}
+                  staggerMs={30}
+                  originX={"50%"}
+                  originY={"50%"}
+                />
+              )}
+              {sparklesStatic && (
                 <div
                   data-testid="beakerbot-eureka-scene-sparkle-burst"
                   style={{
@@ -744,27 +771,13 @@ export default function BeakerBotEurekaScene({
                     <div
                       key={i}
                       data-testid="beakerbot-eureka-scene-sparkle"
-                      style={
-                        {
-                          position: "absolute",
-                          left: 0,
-                          top: 0,
-                          // In reduced-motion tableau, place the
-                          // sparkle at its final outward position
-                          // statically. Otherwise the keyframe handles
-                          // it.
-                          transform: sparklesStatic
-                            ? `translate(${s.rx}px, ${s.ry}px) scale(1)`
-                            : "translate(0, 0) scale(0)",
-                          "--bbes-spark-rx": `${s.rx}px`,
-                          "--bbes-spark-ry": `${s.ry}px`,
-                          animation: sparklesBursting
-                            ? `${animSuffix}-sparkle-burst ${STAGE_DURATIONS.sparkles}ms ease-out ${s.delayMs}ms forwards`
-                            : undefined,
-                        } as React.CSSProperties
-                      }
+                      style={{
+                        position: "absolute",
+                        left: 0,
+                        top: 0,
+                        transform: `translate(${s.rx}px, ${s.ry}px) scale(1)`,
+                      }}
                     >
-                      {/* 2x scale (was size 8). */}
                       <SparkleStar color={s.color} size={16} />
                     </div>
                   ))}
@@ -773,63 +786,28 @@ export default function BeakerBotEurekaScene({
             </div>
           )}
 
-          {/* "Eureka!" speech bubble during cheering stage. Sky-blue
-              border, sky-700 text, downward tail. NO em-dashes in copy. */}
+          {/* "Eureka!" speech bubble during cheering stage. Uses the
+              shared SpeechBubble primitive (default tone = sky border
+              + sky text, downward tail). Lifted to clear the bulb. */}
           {eurekaBubbleVisible && (
-            <div
+            <BeakerBotSpeechBubble
               data-testid="beakerbot-eureka-scene-bubble"
+              tone="default"
+              direction="down"
+              position={{ top: -120, left: "50%" }}
               style={{
-                position: "absolute",
-                left: "50%",
-                // Lifted to clear the now-larger bulb above his head.
-                top: "-120px",
                 transform: "translate(-50%, 0)",
-                background: "white",
-                border: "2px solid #38bdf8", // sky-400
-                borderRadius: 16,
-                padding: "6px 14px",
-                color: "#0369a1", // sky-700
-                fontFamily: "system-ui, sans-serif",
-                fontWeight: 700,
-                // 2x scale (was 13).
+                // 2x scale font for the eureka beat — the standard
+                // primitive size reads too small at this scene's
+                // doubled-up scale.
                 fontSize: 22,
-                lineHeight: 1.2,
-                whiteSpace: "nowrap",
+                padding: "6px 14px",
                 animation: `${animSuffix}-bubble-pop 350ms ease-out forwards`,
                 pointerEvents: "none",
               }}
             >
               Eureka!
-              {/* Downward tail — small triangle below the bubble. */}
-              <span
-                aria-hidden="true"
-                style={{
-                  position: "absolute",
-                  left: "50%",
-                  bottom: -13,
-                  width: 0,
-                  height: 0,
-                  borderLeft: "10px solid transparent",
-                  borderRight: "10px solid transparent",
-                  borderTop: "13px solid #38bdf8",
-                  transform: "translateX(-50%)",
-                }}
-              />
-              <span
-                aria-hidden="true"
-                style={{
-                  position: "absolute",
-                  left: "50%",
-                  bottom: -8,
-                  width: 0,
-                  height: 0,
-                  borderLeft: "8px solid transparent",
-                  borderRight: "8px solid transparent",
-                  borderTop: "11px solid white",
-                  transform: "translateX(-50%)",
-                }}
-              />
-            </div>
+            </BeakerBotSpeechBubble>
           )}
         </div>
       </div>

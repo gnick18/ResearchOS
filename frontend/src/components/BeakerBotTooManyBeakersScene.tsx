@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import BeakerBot from "./BeakerBot";
+import BeakerBotSpeechBubble from "./beakerbot/SpeechBubble";
+import BurstParticles from "./beakerbot/BurstParticles";
+import { SCENE_GROUND_BOTTOM_CSS } from "./beakerbot/scene-constants";
 
 /**
  * Side easter-egg slapstick scene: BeakerBot enters carrying a precarious
@@ -146,6 +149,24 @@ interface CarriedBeakerStyle {
   color: string;
   size: number;
 }
+
+/** Six white triangle shards spread around the impact area. Position
+ *  + rotation + delay are hand-tuned (no random) so the burst is the
+ *  same on every play and SSR-stable. xVw values are CSS strings so
+ *  the inline `left:` can pass them through unchanged. */
+const SHARD_OFFSETS: ReadonlyArray<{
+  xVw: string;
+  yPx: number;
+  rotateDeg: number;
+  delayMs: number;
+}> = [
+  { xVw: "-22px", yPx: -2, rotateDeg: -18, delayMs: 0 },
+  { xVw: "-8px", yPx: -8, rotateDeg: 6, delayMs: 60 },
+  { xVw: "6px", yPx: -4, rotateDeg: -28, delayMs: 30 },
+  { xVw: "20px", yPx: -10, rotateDeg: 14, delayMs: 80 },
+  { xVw: "-14px", yPx: -16, rotateDeg: 22, delayMs: 110 },
+  { xVw: "12px", yPx: -18, rotateDeg: -12, delayMs: 150 },
+];
 
 /** Build the carried-beaker style array. Each beaker gets a distinct
  *  color from the palette and a slight size variation so the stack
@@ -358,11 +379,22 @@ export default function BeakerBotTooManyBeakersScene({
       break;
   }
 
-  // For BeakerBot pose: mostly `idle`, "thinking" not in the pose
-  // enum, so we use `waving` during phew to imply a head-up "made it"
-  // gesture, and `idle` everywhere else. (Spec's "thinking" head-tilt
-  // doesn't exist in BeakerBotPose; closest readable substitution.)
-  const pose = stage === "phew" ? "waving" : "idle";
+  // BeakerBot pose by stage:
+  //   - phew: "amazed" — Scene polish B swap. The pre-polish "waving"
+  //     read as greeting, not relief; "amazed" + the sweat-bead bubble
+  //     conveys the post-near-miss "wow, that was close" beat.
+  //   - rollOff: "embarrassed" — the sheepish post-drop crying walk-off.
+  //     The pose itself sets the dejected emotional read; tears + sway
+  //     keep landing the cry beat.
+  //   - everywhere else: "idle" — the body's tilt + transform sells the
+  //     stumble + drop physics; a custom pose would compete with the
+  //     stack-tilt animation.
+  const pose: "idle" | "amazed" | "embarrassed" =
+    stage === "phew"
+      ? "amazed"
+      : stage === "rollOff"
+        ? "embarrassed"
+        : "idle";
 
   // CSS transition duration per stage, ms — drives smooth tweening
   // between discrete stage transforms.
@@ -411,7 +443,7 @@ export default function BeakerBotTooManyBeakersScene({
         className={`absolute ${bodySwayClass ?? ""}`.trim()}
         style={{
           left: "50%",
-          bottom: "8vh",
+          bottom: SCENE_GROUND_BOTTOM_CSS,
           width: "120px",
           height: "180px",
           transform: `translateX(calc(-50% + ${bodyTranslateXVw}vw)) translateY(${bodyBobPx}px) rotate(${bodyRotateDeg}deg)`,
@@ -514,55 +546,24 @@ export default function BeakerBotTooManyBeakersScene({
           )}
         </div>
 
-        {/* "Phew!" speech bubble — same look-and-feel as the
-            laugh-text bubble on the giggle pose: small white rounded
-            bubble, currentColor text, tiny tail pointing down toward
-            BeakerBot's head. Fade-in via opacity. */}
+        {/* "phew!" speech bubble — sweat-toned (sky border + bead). The
+            wrapper inherits the parent's translateX(-50%) anchor; the
+            primitive does the box / tail / bead so the visual stays
+            consistent with the other BeakerBot scenes. */}
         {showPhewBubble && (
-          <div
-            className="absolute left-1/2 text-sky-700"
+          <BeakerBotSpeechBubble
+            data-testid="phew-bubble"
+            tone="sweat"
+            direction="down"
+            withSweatBead
+            position={{ top: -18, left: "50%" }}
             style={{
-              top: "-18px",
               transform: "translateX(-50%)",
               animation: "beakerbot-phew-bubble 700ms ease-out",
             }}
-            data-testid="phew-bubble"
           >
-            <div className="relative rounded-2xl bg-white px-3 py-1 shadow-md border border-sky-200">
-              <span className="text-xs font-semibold whitespace-nowrap" style={{ color: "currentColor" }}>
-                phew!
-              </span>
-              {/* Tail */}
-              <div
-                className="absolute left-1/2"
-                style={{
-                  bottom: "-5px",
-                  transform: "translateX(-50%) rotate(45deg)",
-                  width: "8px",
-                  height: "8px",
-                  background: "white",
-                  borderRight: "1px solid rgb(186 230 253)",
-                  borderBottom: "1px solid rgb(186 230 253)",
-                }}
-              />
-            </div>
-            {/* Sweat-bead polish — tiny SVG drop next to bubble */}
-            <svg
-              className="absolute"
-              style={{ top: "-2px", right: "-10px" }}
-              width="10"
-              height="14"
-              viewBox="0 0 10 14"
-              fill="none"
-            >
-              <path
-                d="M5 1 C 5 1, 1 7, 1 10 A 4 4 0 0 0 9 10 C 9 7, 5 1, 5 1 Z"
-                fill="#A6D2F4"
-                stroke="#6FB5E8"
-                strokeWidth="0.8"
-              />
-            </svg>
-          </div>
+            phew!
+          </BeakerBotSpeechBubble>
         )}
       </div>
 
@@ -574,7 +575,7 @@ export default function BeakerBotTooManyBeakersScene({
           className="absolute"
           style={{
             left: "50%",
-            bottom: "8vh",
+            bottom: SCENE_GROUND_BOTTOM_CSS,
             transform: `translateX(calc(-50% + ${centerRightVw}vw))`,
           }}
           data-testid="falling-beakers"
@@ -594,6 +595,80 @@ export default function BeakerBotTooManyBeakersScene({
               />
             );
           })}
+          {/* Shards + colored splash droplets — fire at the impact
+              moment (dropFall stage) so the breakage reads as a real
+              consequence of the beakers landing. Shards are small
+              white triangles + the splash is colored pastel droplets
+              via the shared BurstParticles primitive. Only renders
+              during dropFall itself, not during the post-drop crying
+              walk-off (rollOff). */}
+          {stage === "dropFall" && (
+            <div
+              data-testid="too-many-beakers-shatter"
+              style={{
+                position: "absolute",
+                left: 0,
+                // Floor of the dropping trajectory — match the
+                // falling-beaker keyframe's end-Y (60vh below their
+                // top-of-stack origin) so shards land where beakers do.
+                top: 0,
+                width: 0,
+                height: 0,
+                pointerEvents: "none",
+              }}
+            >
+              {/* Six shard triangles, fan-spread around the landing
+                  area. Each shard's animation delay matches the
+                  per-beaker fall delay so the shards arrive
+                  staggered with the beakers, not in lockstep. The
+                  shard's rotation rides in a CSS variable so the
+                  keyframe can preserve it across the bounce. */}
+              {SHARD_OFFSETS.map((shard, i) => (
+                <span
+                  key={i}
+                  data-testid="too-many-beakers-shard"
+                  aria-hidden="true"
+                  style={
+                    {
+                      position: "absolute",
+                      left: shard.xVw,
+                      top: `calc(60vh + ${shard.yPx}px)`,
+                      width: 0,
+                      height: 0,
+                      borderLeft: "6px solid transparent",
+                      borderRight: "6px solid transparent",
+                      borderBottom: "10px solid white",
+                      filter:
+                        "drop-shadow(0 0 1px rgba(15, 23, 42, 0.45))",
+                      ["--tmb-shard-rot" as string]: `${shard.rotateDeg}deg`,
+                      transform: `rotate(${shard.rotateDeg}deg) translate(0, 0)`,
+                      opacity: 0,
+                      animation: `tmb-shard-fly 480ms ease-out ${
+                        400 + shard.delayMs
+                      }ms forwards`,
+                    } as React.CSSProperties
+                  }
+                />
+              ))}
+              {/* Colored splash droplets via shared BurstParticles —
+                  emanate from the landing area outward with the same
+                  pastel-rainbow palette as the carried beakers so the
+                  splash reads as the beakers' liquid escaping. */}
+              <BurstParticles
+                data-testid="too-many-beakers-splash"
+                count={8}
+                radius={70}
+                palette={BEAKER_COLORS}
+                particleType="circle"
+                particleSize={6}
+                durationMs={600}
+                staggerMs={40}
+                originX={0}
+                originY={"60vh"}
+                style={{ position: "absolute" }}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -605,7 +680,7 @@ export default function BeakerBotTooManyBeakersScene({
           className="absolute"
           style={{
             left: "50%",
-            bottom: "8vh",
+            bottom: SCENE_GROUND_BOTTOM_CSS,
             transform: `translateX(calc(-50% + ${centerRightVw}vw))`,
             display: "flex",
             gap: "12px",
@@ -688,6 +763,17 @@ export default function BeakerBotTooManyBeakersScene({
         @keyframes beakerbot-sad-sway {
           0%,100% { margin-left: -3px; }
           50%     { margin-left:  3px; }
+        }
+        /* Shard fly-out — triangles bounce slightly upward then settle
+           on the floor with a final opacity hold so they read as glass
+           pieces sitting in the splash. Each shard's rotation rides in
+           a CSS var (--tmb-shard-rot) so the keyframe preserves it
+           across the bounce. */
+        @keyframes tmb-shard-fly {
+          0%   { opacity: 0; transform: translate(0, 10px) rotate(var(--tmb-shard-rot, 0deg)) scale(0.6); }
+          20%  { opacity: 1; transform: translate(0, -6px) rotate(var(--tmb-shard-rot, 0deg)) scale(1); }
+          60%  { opacity: 1; transform: translate(0, 0) rotate(var(--tmb-shard-rot, 0deg)) scale(1); }
+          100% { opacity: 0.85; transform: translate(0, 0) rotate(var(--tmb-shard-rot, 0deg)) scale(1); }
         }
       `}</style>
     </div>,

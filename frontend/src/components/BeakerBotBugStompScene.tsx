@@ -27,6 +27,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import BeakerBot, { type BeakerBotPose } from "./BeakerBot";
+import { SCENE_GROUND_BOTTOM_CSS } from "./beakerbot/scene-constants";
 
 export interface BeakerBotBugStompSceneProps {
   /** When true, the scene mounts and runs through its sequence.
@@ -214,7 +215,7 @@ export default function BeakerBotBugStompScene({
           style={{
             position: "absolute",
             left: "50%",
-            bottom: "10vh",
+            bottom: SCENE_GROUND_BOTTOM_CSS,
             transform: "translateX(-50%)",
             display: "flex",
             alignItems: "flex-end",
@@ -324,6 +325,29 @@ export default function BeakerBotBugStompScene({
           30%  { opacity: 0.7; transform: translate(-50%, -4px) scale(1); }
           100% { opacity: 0; transform: translate(-50%, -10px) scale(1.6); }
         }
+        /* Motion-blur trail silhouettes — three fading copies that
+           appear behind BeakerBot during the rush (2500–3300ms of a
+           7400ms scene = 33.8%–44.6%). Implemented as keyframes on the
+           trail elements themselves (not on the parent) so the opacity
+           fades in + out within the rush window without leaking into
+           the stomp stage. The transform offset puts each trail copy a
+           fixed distance BEHIND BeakerBot relative to his rush
+           direction (set via inline transform on each element). */
+        @keyframes bbs-trail-1 {
+          0%, 33%    { opacity: 0; }
+          35%, 43%   { opacity: 0.35; }
+          45%, 100%  { opacity: 0; }
+        }
+        @keyframes bbs-trail-2 {
+          0%, 33%    { opacity: 0; }
+          37%, 43%   { opacity: 0.22; }
+          45%, 100%  { opacity: 0; }
+        }
+        @keyframes bbs-trail-3 {
+          0%, 33%    { opacity: 0; }
+          39%, 43%   { opacity: 0.12; }
+          45%, 100%  { opacity: 0; }
+        }
       `}</style>
 
       <div
@@ -348,14 +372,17 @@ export default function BeakerBotBugStompScene({
         }
         aria-hidden="true"
       >
-        {/* Ground line at 80vh — characters sit on this. Absolute
-            positioning here is the anchor point; per-character
-            translate() inside the keyframes handles x + bob. */}
+        {/* Ground line — shared SCENE_GROUND_BOTTOM_VH baseline so the
+            bug + BeakerBot land on the same height as the other
+            bench-style scenes (Ladder, TooManyBeakers, Centrifuge,
+            Eureka). Absolute positioning here is the anchor point;
+            per-character translate() inside the keyframes handles
+            x + bob. */}
         <div
           style={{
             position: "absolute",
             left: 0,
-            top: "calc(80vh - 12px)",
+            bottom: SCENE_GROUND_BOTTOM_CSS,
             width: 0,
             height: 0,
           }}
@@ -480,6 +507,15 @@ export default function BeakerBotBugStompScene({
                 aria-hidden="true"
               />
 
+              {/* Motion-blur trail — 3 ghost silhouettes that fade in
+                  during the rush stage and out before stomp. Offset
+                  BEHIND BeakerBot relative to his direction of travel
+                  (positive sideSign means he's moving leftward → trails
+                  are to the RIGHT; flip for the mirrored entry). The
+                  keyframe spans the full 7400ms scene; opacity only
+                  rises inside the rush window (2500–3300ms). */}
+              <MotionBlurTrail beakerBotEntersFrom={beakerBotEntersFrom} />
+
               {/* BeakerBot pose: arm-less `idle` during
                   entry/rush/stomp (Grant 2026-05-22: the point-down
                   arm was distracting, the no-arm skin reads cleaner
@@ -589,6 +625,62 @@ function PoseStack() {
           />
         </div>
       </div>
+    </>
+  );
+}
+
+/**
+ * Three faint BeakerBot silhouettes that sit BEHIND the main bot
+ * during the rush stage, creating a "speed lines" / motion-blur trail.
+ * Each trail copy is offset further behind the bot relative to his
+ * rush direction, and runs a keyframe that only raises opacity inside
+ * the rush window (33.8%–44.6% of the 7400ms scene). Outside that
+ * window the trails sit at opacity 0 — they don't visually exist
+ * during entry, stomp, or victory.
+ */
+function MotionBlurTrail({
+  beakerBotEntersFrom,
+}: {
+  beakerBotEntersFrom: "left" | "right";
+}) {
+  // Entry-from-right means the rush moves leftward → trails are to the
+  // RIGHT (positive X). Mirror for left-entry.
+  const sign = beakerBotEntersFrom === "right" ? 1 : -1;
+  const trails = [
+    { offsetPx: 18 * sign, keyframe: "bbs-trail-1" },
+    { offsetPx: 34 * sign, keyframe: "bbs-trail-2" },
+    { offsetPx: 50 * sign, keyframe: "bbs-trail-3" },
+  ];
+  return (
+    <>
+      {trails.map((t) => (
+        <div
+          key={t.keyframe}
+          data-testid={`beakerbot-bug-stomp-trail-${t.keyframe}`}
+          style={{
+            position: "absolute",
+            // 128x128 to match the main PoseStack — `inset: 0` would
+            // collapse to 0x0 because the parent `position: relative`
+            // wrapper has no explicit size.
+            top: 0,
+            left: 0,
+            width: 128,
+            height: 128,
+            transform: `translateX(${t.offsetPx}px)`,
+            opacity: 0,
+            animation: `${t.keyframe} 7400ms linear forwards`,
+            pointerEvents: "none",
+            filter: "blur(1.5px)",
+          }}
+          aria-hidden="true"
+        >
+          <BeakerBot
+            pose={"idle" as BeakerBotPose}
+            className="w-32 h-32 text-sky-500"
+            ariaLabel=""
+          />
+        </div>
+      ))}
     </>
   );
 }

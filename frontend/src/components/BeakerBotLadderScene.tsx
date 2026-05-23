@@ -10,6 +10,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import BeakerBot from "./BeakerBot";
+import { SCENE_GROUND_BOTTOM_CSS, SCENE_GROUND_BOTTOM_VH } from "./beakerbot/scene-constants";
 
 /**
  * Side easter-egg scene: BeakerBot climbs a ladder, cleans an invisible
@@ -363,12 +364,15 @@ export default function BeakerBotLadderScene({
           so they exit together. Before fall they're positioned
           independently. */}
 
-      {/* LADDER */}
+      {/* LADDER — base sits on the shared SCENE_GROUND_BOTTOM_VH line
+          so back-to-back scenes have BeakerBot land on the same height
+          regardless of which scene rolled (the bench scenes anchor
+          BeakerBot's feet at the same vh line). */}
       <div
         data-testid="beakerbot-ladder-scene-ladder"
         style={{
           position: "absolute",
-          bottom: 0,
+          bottom: SCENE_GROUND_BOTTOM_CSS,
           ...ladderEdgeStyle,
           width: `${LADDER_WIDTH_PX}px`,
           height: "50vh",
@@ -450,10 +454,14 @@ export default function BeakerBotLadderScene({
             // stage: anchored at the top of the ladder. Feet overlap
             // the top rung by FEET_OVERLAP_PX so the bot reads as
             // standing ON the ladder rather than floating above it.
+            // The base of the ladder sits at SCENE_GROUND_BOTTOM_VH,
+            // so the top of the ladder is at
+            // SCENE_GROUND_BOTTOM_VH + 50vh; subtract FEET_OVERLAP_PX
+            // to plant the bot's feet ON the top rung.
             bottom:
               stage === "ladder-rise"
                 ? `-${BEAKERBOT_SIZE_PX}px`
-                : `calc(50vh - ${FEET_OVERLAP_PX}px)`,
+                : `calc(${SCENE_GROUND_BOTTOM_VH}vh + 50vh - ${FEET_OVERLAP_PX}px)`,
             // Climb distance: from the top-anchored resting position
             // down to the foot of the ladder. Equals (50vh -
             // FEET_OVERLAP_PX) - FEET_OVERLAP_PX so the climb start
@@ -494,8 +502,14 @@ export default function BeakerBotLadderScene({
                               above-and-inward)
               top / clean  → "pointing" (mirrored — arm extended
                               toward the imaginary screen)
-              disruption   → "cheering" (arms-up = startled, "uh-oh")
-              fall         → "cheering" (arms flailing) */}
+              disruption   → "panicked" (wide eyes + arms-out
+                              Y-shape — the slip moment reads as
+                              "oh no, I'm losing my grip"; the
+                              pre-polish "cheering" pose looked
+                              celebratory, which is the opposite
+                              of the intended tone)
+              fall         → "panicked" (same wide-eyed flailing
+                              read through the tumble) */}
         <BeakerBot
           pose={
             stage === "climb"
@@ -503,7 +517,7 @@ export default function BeakerBotLadderScene({
               : stage === "top" || stage === "clean"
                 ? "pointing"
                 : stage === "disruption" || stage === "fall"
-                  ? "cheering"
+                  ? "panicked"
                   : "idle"
           }
           direction={side === "right" ? "left" : "right"}

@@ -53,6 +53,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import BeakerBot from "./BeakerBot";
+import BeakerBotSpeechBubble from "./beakerbot/SpeechBubble";
 
 export interface BeakerBotMouseWaveSceneProps {
   /** When true, the scene mounts and the wave sequence plays. When the
@@ -418,45 +419,40 @@ export default function BeakerBotMouseWaveScene({
         </div>
 
         {/* Optional speech bubble. Lives in the anchor coordinate
-            space so it tracks the bot's corner position. We render it
-            absolute-positioned above (or below) the bot, biased to
-            the side BeakerBot is facing so the bubble points roughly
-            toward the target. */}
+            space so it tracks the bot's corner position. Scene polish
+            B: now uses the shared SpeechBubble primitive (default
+            sky-blue tone), which also gives the bubble a proper SVG
+            tail (the auditor's catch — the pre-polish bubble had no
+            tail). Tail direction points TOWARD BeakerBot: down when
+            the bubble sits above him (bottom anchors), up when it
+            sits below (top anchors). */}
         {showSpeechBubble && (stage === "wave" || stage === "settle") && (
-          <div
+          <BeakerBotSpeechBubble
             data-testid="beakerbot-mouse-wave-scene-bubble"
-            style={{
-              position: "absolute",
-              // Position above for bottom anchors, below for top
-              // anchors. Offset horizontally toward the facing side
-              // so the bubble visually "leads" the wave.
+            tone="default"
+            // Bottom-anchored bot → bubble sits above him → tail
+            // points DOWN at the bot. Top-anchored bot → bubble sits
+            // below → tail points UP.
+            direction={isBottomAnchor ? "down" : "up"}
+            position={{
               ...(isBottomAnchor
                 ? { bottom: BOT_SIZE_PX + 4 }
                 : { top: BOT_SIZE_PX + 4 }),
               ...(bubbleSide === "left"
                 ? { right: BOT_SIZE_PX / 2 - 8 }
                 : { left: BOT_SIZE_PX / 2 - 8 }),
-              padding: "4px 10px",
-              borderRadius: 12,
-              background: "#e0f2fe",
-              border: "1.5px solid #38bdf8",
-              color: "#0c4a6e",
-              fontSize: 13,
-              fontWeight: 600,
-              fontFamily: "system-ui, -apple-system, sans-serif",
-              whiteSpace: "nowrap",
-              boxShadow: "0 2px 6px rgba(56, 189, 248, 0.25)",
+            }}
+            style={{
               animation: reducedMotion
                 ? undefined
                 : stage === "wave"
                   ? "bbmw-bubble-fade-in 240ms ease-out forwards"
                   : "bbmw-bubble-fade-out 240ms ease-in forwards",
-              // Reduced-motion: static opacity 1, no transform.
               opacity: reducedMotion ? 1 : undefined,
             }}
           >
             Hi!
-          </div>
+          </BeakerBotSpeechBubble>
         )}
       </div>
     </div>,
