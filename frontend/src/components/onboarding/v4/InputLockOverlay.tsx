@@ -136,11 +136,42 @@ export default function InputLockOverlay({ active }: InputLockOverlayProps) {
     window.addEventListener("click", blockEvent, opts);
     window.addEventListener("mousedown", blockEvent, opts);
 
+    // Wave 2 Fix 7/9: keyboard scroll lock. Block the keys that would
+    // scroll the page mid-cursor-script (Space, PageUp/Down, Home,
+    // End, Arrow keys) so the cursor's pre-computed coordinates stay
+    // valid. Modifier-combo presses (Cmd+ArrowDown, Ctrl+Home etc.)
+    // pass through for power-user nav; Tab/Shift+Tab/Enter always
+    // pass so the speech bubble's accessibility surface keeps
+    // working. Any key whose target lives inside the speech bubble
+    // also passes so a focused Skip / Back / Got-it button can be
+    // keyboard-activated.
+    const blockKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (isInsideSpeechBubble(e.target)) return;
+      const scrollKeys = new Set([
+        " ",
+        "Spacebar",
+        "PageUp",
+        "PageDown",
+        "Home",
+        "End",
+        "ArrowUp",
+        "ArrowDown",
+        "ArrowLeft",
+        "ArrowRight",
+      ]);
+      if (!scrollKeys.has(e.key)) return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    window.addEventListener("keydown", blockKey, opts);
+
     return () => {
       window.removeEventListener("wheel", blockEvent, opts);
       window.removeEventListener("touchmove", blockEvent, opts);
       window.removeEventListener("click", blockEvent, opts);
       window.removeEventListener("mousedown", blockEvent, opts);
+      window.removeEventListener("keydown", blockKey, opts);
     };
   }, [active]);
 

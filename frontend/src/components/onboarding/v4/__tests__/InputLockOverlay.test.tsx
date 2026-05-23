@@ -221,3 +221,45 @@ describe("isInsideSpeechBubble", () => {
     expect(isInsideSpeechBubble(window)).toBe(false);
   });
 });
+
+describe("InputLockOverlay — Wave 2 Fix 7/9: keyboard scroll lock", () => {
+  it("blocks bare ArrowDown when active=true", async () => {
+    const { findByTestId } = render(<InputLockOverlay active={true} />);
+    await findByTestId("tour-input-lock-overlay");
+    const ev = new KeyboardEvent("keydown", {
+      key: "ArrowDown",
+      bubbles: true,
+      cancelable: true,
+    });
+    const preventSpy = vi.spyOn(ev, "preventDefault");
+    window.dispatchEvent(ev);
+    expect(preventSpy).toHaveBeenCalled();
+  });
+
+  it("does NOT block keys with a modifier (Cmd+ArrowDown passes through)", async () => {
+    const { findByTestId } = render(<InputLockOverlay active={true} />);
+    await findByTestId("tour-input-lock-overlay");
+    const ev = new KeyboardEvent("keydown", {
+      key: "ArrowDown",
+      metaKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    const preventSpy = vi.spyOn(ev, "preventDefault");
+    window.dispatchEvent(ev);
+    expect(preventSpy).not.toHaveBeenCalled();
+  });
+
+  it("does NOT block Tab / Enter (accessibility keys)", async () => {
+    const { findByTestId } = render(<InputLockOverlay active={true} />);
+    await findByTestId("tour-input-lock-overlay");
+    const tab = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
+    const tabSpy = vi.spyOn(tab, "preventDefault");
+    window.dispatchEvent(tab);
+    const enter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+    const enterSpy = vi.spyOn(enter, "preventDefault");
+    window.dispatchEvent(enter);
+    expect(tabSpy).not.toHaveBeenCalled();
+    expect(enterSpy).not.toHaveBeenCalled();
+  });
+});
