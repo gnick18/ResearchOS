@@ -29,6 +29,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import BeakerBot from "./BeakerBot";
+import { BEAKERBOT_SCENE_SIZE_PX } from "./beakerbot/scene-constants";
 
 export interface BeakerBotSkateboardSceneProps {
   /** Mount + run the animation when true. Flipping back to false
@@ -58,9 +59,17 @@ export interface BeakerBotSkateboardSceneProps {
  *  a clear focal point during the cruise (not a tiny corner sprite).
  *  All SVG geometry is expressed in viewBox units that we then render
  *  at SKATEBOARD_WIDTH × SKATEBOARD_HEIGHT, so the deck/trucks/wheels
- *  all scale proportionally with the bot. */
-const BOT_WIDTH = 72;
-const BOT_HEIGHT = 72;
+ *  all scale proportionally with the bot.
+ *
+ *  SCENE-LOCAL OVERRIDE of the canonical BEAKERBOT_SCENE_SIZE_PX
+ *  (128px, see beakerbot/scene-constants.ts). The Skateboard scene's
+ *  bot is geometrically tied to the deck (SKATEBOARD_WIDTH=108,
+ *  BOT_DECK_OVERLAP, COMBINED_WIDTH/HEIGHT math) — a 128px bot on a
+ *  108px deck would visually overshoot the trucks. The deck was sized
+ *  for a 72px bot. Until/unless the deck geometry is rebuilt for a
+ *  128px bot, this scene stays at 72px (~0.56 * canonical). */
+const BOT_WIDTH = Math.round(BEAKERBOT_SCENE_SIZE_PX * 0.5625);
+const BOT_HEIGHT = BOT_WIDTH;
 const SKATEBOARD_WIDTH = 108;
 const SKATEBOARD_HEIGHT = 22;
 /** Stack offset so the bot sits ON the deck (deck top ~y0 → bot
@@ -416,7 +425,9 @@ function SkateboardStack({
         <BeakerBot
           pose="pointing-up"
           direction="right"
-          className="w-[72px] h-[72px] text-sky-500"
+          // Fills the BOT_WIDTH x BOT_HEIGHT wrapper above — driven by
+          // the scene-local size override (see comment on BOT_WIDTH).
+          className="w-full h-full text-sky-500"
           ariaLabel="BeakerBot riding a skateboard"
         />
       </div>

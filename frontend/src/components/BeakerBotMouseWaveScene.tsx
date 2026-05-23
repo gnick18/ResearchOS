@@ -54,6 +54,7 @@ import {
 import { createPortal } from "react-dom";
 import BeakerBot from "./BeakerBot";
 import BeakerBotSpeechBubble from "./beakerbot/SpeechBubble";
+import { BEAKERBOT_SCENE_SIZE_PX } from "./beakerbot/scene-constants";
 
 export interface BeakerBotMouseWaveSceneProps {
   /** When true, the scene mounts and the wave sequence plays. When the
@@ -100,10 +101,11 @@ const TOTAL_MS = TURN_MS + WAVE_MS + SETTLE_MS;
  *  still feels like "BeakerBot waved at me" without any motion. */
 const REDUCED_MOTION_HOLD_MS = 1500;
 
-/** Pixel size of the rendered BeakerBot. 96px matches the other scenes
- *  (ladder, bug-stomp, screen-bump) for visual consistency when several
- *  easter eggs might fire in the same session. */
-const BOT_SIZE_PX = 96;
+/** Pixel size of the rendered BeakerBot. Scene polish C bumped this
+ *  from 96 to the canonical BEAKERBOT_SCENE_SIZE_PX so the corner wave
+ *  reads at the same visual weight as the bench-style scenes (Eureka,
+ *  BugStomp, CoffeeRefill, ...). */
+const BOT_SIZE_PX = BEAKERBOT_SCENE_SIZE_PX;
 
 /** Pixel inset from the chosen viewport corner. 24px keeps BeakerBot
  *  clear of the corner without floating awkwardly far in. */

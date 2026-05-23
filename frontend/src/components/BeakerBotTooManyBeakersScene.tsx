@@ -5,7 +5,19 @@ import { createPortal } from "react-dom";
 import BeakerBot from "./BeakerBot";
 import BeakerBotSpeechBubble from "./beakerbot/SpeechBubble";
 import BurstParticles from "./beakerbot/BurstParticles";
-import { SCENE_GROUND_BOTTOM_CSS } from "./beakerbot/scene-constants";
+import {
+  BEAKERBOT_SCENE_SIZE_PX,
+  SCENE_GROUND_BOTTOM_CSS,
+} from "./beakerbot/scene-constants";
+
+/** SCENE-LOCAL OVERRIDE of the canonical BEAKERBOT_SCENE_SIZE_PX (128px,
+ *  see beakerbot/scene-constants.ts). TooManyBeakers' bot is
+ *  geometrically tied to the carried beaker stack (positioned above the
+ *  head) and the tear-drop SVG coordinates (hard-coded left/top in px
+ *  relative to the 80px bot wrapper). Bumping to 128 would require
+ *  re-tuning the stack offsets AND the tear coordinates. Until that
+ *  retune happens this scene stays at 80px (0.625 * canonical). */
+const BOT_SIZE_PX = Math.round(BEAKERBOT_SCENE_SIZE_PX * 0.625);
 
 /**
  * Side easter-egg slapstick scene: BeakerBot enters carrying a precarious
@@ -481,20 +493,22 @@ export default function BeakerBotTooManyBeakersScene({
         )}
 
         {/* BeakerBot himself — slight forward lean during stumbles via
-            an inner wrapper so the outer transform handles position. */}
+            an inner wrapper so the outer transform handles position.
+            Uses the scene-local BOT_SIZE_PX (see top-of-file comment). */}
         <div
           className="absolute left-1/2"
           style={{
             bottom: 0,
             transform: `translateX(-50%) ${bodyTilted ? `rotate(${8 * sideSign}deg)` : ""}`,
             transition: "transform 250ms ease-out",
-            width: "80px",
-            height: "80px",
+            width: `${BOT_SIZE_PX}px`,
+            height: `${BOT_SIZE_PX}px`,
           }}
         >
           <BeakerBot
             pose={pose}
-            className="w-20 h-20 text-sky-500"
+            // Fills the BOT_SIZE_PX wrapper above.
+            className="w-full h-full text-sky-500"
             ariaLabel="BeakerBot carrying too many beakers"
           />
 

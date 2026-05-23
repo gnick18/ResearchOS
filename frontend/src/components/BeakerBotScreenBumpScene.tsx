@@ -42,6 +42,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import BeakerBot, { type BeakerBotPose } from "./BeakerBot";
+import { BEAKERBOT_SCENE_SIZE_PX } from "./beakerbot/scene-constants";
 
 export interface BeakerBotScreenBumpSceneProps {
   active: boolean;
@@ -58,8 +59,10 @@ export interface BeakerBotScreenBumpSceneProps {
 
 /** Pixel size of the rendered BeakerBot. The bot sits in a square box;
  *  this drives both the rendered size AND the bonk-position math
- *  (distance from edge to "rest" position once bonked). */
-const BOT_SIZE_PX = 96;
+ *  (distance from edge to "rest" position once bonked). Scene polish C
+ *  bumped this from 96 to the canonical BEAKERBOT_SCENE_SIZE_PX so the
+ *  bonk reads at the same visual weight as the bench-style scenes. */
+const BOT_SIZE_PX = BEAKERBOT_SCENE_SIZE_PX;
 
 /** Pixel padding from the configured edge once BeakerBot is in
  *  "bonked" position. Effectively the gap between the bot's leading

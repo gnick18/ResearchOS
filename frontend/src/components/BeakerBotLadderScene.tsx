@@ -10,7 +10,11 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import BeakerBot from "./BeakerBot";
-import { SCENE_GROUND_BOTTOM_CSS, SCENE_GROUND_BOTTOM_VH } from "./beakerbot/scene-constants";
+import {
+  BEAKERBOT_SCENE_SIZE_PX,
+  SCENE_GROUND_BOTTOM_CSS,
+  SCENE_GROUND_BOTTOM_VH,
+} from "./beakerbot/scene-constants";
 
 /**
  * Side easter-egg scene: BeakerBot climbs a ladder, cleans an invisible
@@ -112,10 +116,18 @@ const SCENE_Z_INDEX = 800;
 const LADDER_VIEWBOX_W = 60;
 const LADDER_VIEWBOX_H = 400;
 const LADDER_WIDTH_PX = 60;
-/** BeakerBot render size at climb-top. 96px matches the onboarding
- *  tip card size — feels consistent if the easter-egg fires after a
- *  fresh user has just seen the welcome modal. */
-const BEAKERBOT_SIZE_PX = 96;
+/** BeakerBot render size at climb-top.
+ *
+ *  SCENE-LOCAL OVERRIDE of the canonical BEAKERBOT_SCENE_SIZE_PX (128px,
+ *  see beakerbot/scene-constants.ts). The Ladder scene's bot is
+ *  geometrically tied to the ladder: the ladder is LADDER_WIDTH_PX (60)
+ *  wide, the inner rail sits at bot_center - 20px, the grasping-hand
+ *  reaches to bot_center - 28.8px (hand SVG-x=8 of 40, scaled to the
+ *  bot's frame). Bumping the bot to 128 would push the hand-to-rail
+ *  alignment OUT of frame because the ladder's rail spacing (60px) was
+ *  chosen for a 96px bot. Until/unless the ladder geometry is rebuilt
+ *  for a 128px bot, this scene stays at 96px (0.75 * canonical). */
+const BEAKERBOT_SIZE_PX = Math.round(BEAKERBOT_SCENE_SIZE_PX * 0.75);
 /** Distance the ladder sits inset from the chosen viewport edge. */
 const EDGE_INSET_PX = 24;
 /** How far the ladder is shifted INWARD (toward BeakerBot's grasping

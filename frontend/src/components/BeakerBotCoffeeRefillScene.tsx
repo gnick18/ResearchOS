@@ -36,7 +36,12 @@
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import BeakerBot, { type BeakerBotPose } from "./BeakerBot";
-import { SCENE_GROUND_BOTTOM_CSS, SCENE_GROUND_BOTTOM_VH } from "./beakerbot/scene-constants";
+import {
+  BEAKERBOT_SCENE_SIZE_CLASS,
+  BEAKERBOT_SCENE_SIZE_PX,
+  SCENE_GROUND_BOTTOM_CSS,
+  SCENE_GROUND_BOTTOM_VH,
+} from "./beakerbot/scene-constants";
 
 export interface BeakerBotCoffeeRefillSceneProps {
   /** When true, the scene mounts and runs through its sequence.
@@ -944,10 +949,11 @@ export default function BeakerBotCoffeeRefillScene({
           position: "absolute",
           left: 0,
           bottom: `calc(${SCENE_GROUND_BOTTOM_VH}vh - 4px)`,
-          // 2x scale (128x128).
-          width: 128,
-          height: 128,
-          transform: `translate(calc(${botTranslateX} - 64px), ${botBobPx}px)`,
+          // Canonical scene scale — see BEAKERBOT_SCENE_SIZE_PX in
+          // beakerbot/scene-constants.ts.
+          width: BEAKERBOT_SCENE_SIZE_PX,
+          height: BEAKERBOT_SCENE_SIZE_PX,
+          transform: `translate(calc(${botTranslateX} - ${BEAKERBOT_SCENE_SIZE_PX / 2}px), ${botBobPx}px)`,
           transition: `transform ${transitionMs}ms ${
             stage === "walkIn" || stage === "carryOff" ? "ease-in-out" : "ease-out"
           }`,
@@ -981,7 +987,7 @@ export default function BeakerBotCoffeeRefillScene({
             <BeakerBot
               pose={pose}
               direction={direction.facing}
-              className="w-32 h-32 text-sky-500"
+              className={`${BEAKERBOT_SCENE_SIZE_CLASS} text-sky-500`}
               ariaLabel="BeakerBot"
             />
           </div>

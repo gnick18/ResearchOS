@@ -42,7 +42,12 @@ import { createPortal } from "react-dom";
 import BeakerBot, { type BeakerBotPose } from "./BeakerBot";
 import BeakerBotSpeechBubble from "./beakerbot/SpeechBubble";
 import BurstParticles from "./beakerbot/BurstParticles";
-import { SCENE_GROUND_BOTTOM_CSS, SCENE_GROUND_BOTTOM_VH } from "./beakerbot/scene-constants";
+import {
+  BEAKERBOT_SCENE_SIZE_CLASS,
+  BEAKERBOT_SCENE_SIZE_PX,
+  SCENE_GROUND_BOTTOM_CSS,
+  SCENE_GROUND_BOTTOM_VH,
+} from "./beakerbot/scene-constants";
 
 export interface BeakerBotEurekaSceneProps {
   /** When true, the scene mounts and runs through its sequence.
@@ -594,11 +599,13 @@ export default function BeakerBotEurekaScene({
           position: "absolute",
           left: 0,
           bottom: `calc(${SCENE_GROUND_BOTTOM_VH}vh - 4px)`,
-          // 2x scale (was 64x64).
-          width: 128,
-          height: 128,
+          // Canonical scene scale — see BEAKERBOT_SCENE_SIZE_PX in
+          // beakerbot/scene-constants.ts. Eureka is the reference
+          // scale; all other scenes adopt this same size.
+          width: BEAKERBOT_SCENE_SIZE_PX,
+          height: BEAKERBOT_SCENE_SIZE_PX,
           // Half-width offset bumps with the size to keep him centered.
-          transform: `translate(calc(${beakerTranslateX} - 64px), ${beakerBobPx}px)`,
+          transform: `translate(calc(${beakerTranslateX} - ${BEAKERBOT_SCENE_SIZE_PX / 2}px), ${beakerBobPx}px)`,
           transition: `transform ${transitionMs}ms ${
             stage === "walkIn" || stage === "exit" ? "ease-in-out" : "ease-out"
           }`,
@@ -632,8 +639,9 @@ export default function BeakerBotEurekaScene({
             <BeakerBot
               pose={pose}
               direction={direction.facing}
-              // 2x scale (was w-16 h-16).
-              className="w-32 h-32 text-sky-500"
+              // Canonical scene scale (see BEAKERBOT_SCENE_SIZE_CLASS
+              // in beakerbot/scene-constants.ts). Was inline "w-32 h-32".
+              className={`${BEAKERBOT_SCENE_SIZE_CLASS} text-sky-500`}
               ariaLabel="BeakerBot"
             />
           </div>
@@ -657,8 +665,8 @@ export default function BeakerBotEurekaScene({
             >
               <BeakerBot
                 pose="cheering"
-                // 2x scale (matches main BeakerBot above).
-                className="w-32 h-32 text-sky-500"
+                // Matches main BeakerBot above (canonical scene scale).
+                className={`${BEAKERBOT_SCENE_SIZE_CLASS} text-sky-500`}
                 ariaLabel=""
               />
             </div>

@@ -7,7 +7,20 @@ import BeakerBotSpeechBubble from "./beakerbot/SpeechBubble";
 import BurstParticles, {
   type BurstParticlePosition,
 } from "./beakerbot/BurstParticles";
-import { SCENE_GROUND_BOTTOM_CSS } from "./beakerbot/scene-constants";
+import {
+  BEAKERBOT_SCENE_SIZE_PX,
+  SCENE_GROUND_BOTTOM_CSS,
+} from "./beakerbot/scene-constants";
+
+/** SCENE-LOCAL OVERRIDE of the canonical BEAKERBOT_SCENE_SIZE_PX (128px,
+ *  see beakerbot/scene-constants.ts). The Centrifuge scene's bot is
+ *  geometrically tied to the centrifuge prop (positioned at
+ *  `bottom: 60px` relative to the bot wrapper — calibrated to land on
+ *  the bot's hands at 80px). Bumping to 128 would push the centrifuge
+ *  prop above the head and require re-tuning all bench coordinations.
+ *  Until that retune happens this scene stays at 80px (0.625 *
+ *  canonical). */
+const BOT_SIZE_PX = Math.round(BEAKERBOT_SCENE_SIZE_PX * 0.625);
 
 /**
  * Side easter-egg slapstick scene: BeakerBot walks in carrying a small
@@ -494,22 +507,24 @@ export default function BeakerBotCentrifugeScene({
             </div>
           )}
 
-          {/* BeakerBot himself */}
+          {/* BeakerBot himself — uses the scene-local BOT_SIZE_PX
+              (see top-of-file comment for the override rationale). */}
           {beakerVisible && (
             <div
               className="absolute left-1/2"
               style={{
                 bottom: 0,
                 transform: `translateX(-50%)`,
-                width: "80px",
-                height: "80px",
+                width: `${BOT_SIZE_PX}px`,
+                height: `${BOT_SIZE_PX}px`,
                 overflow: "visible",
                 transition: "transform 220ms ease-out",
               }}
             >
               <BeakerBot
                 pose={pose}
-                className="w-20 h-20 text-sky-500"
+                // Fills the BOT_SIZE_PX wrapper above.
+                className="w-full h-full text-sky-500"
                 ariaLabel="BeakerBot operating a centrifuge"
               />
               {/* Eye-widen overlay — same trick as BugStompScene: a
@@ -528,7 +543,9 @@ export default function BeakerBotCentrifugeScene({
                 >
                   <BeakerBot
                     pose={pose}
-                    className="w-20 h-20 text-sky-500"
+                    // Fills the parent overlay (inset:0), so this
+                    // tracks the BOT_SIZE_PX wrapper above.
+                    className="w-full h-full text-sky-500"
                     ariaLabel=""
                   />
                 </div>
