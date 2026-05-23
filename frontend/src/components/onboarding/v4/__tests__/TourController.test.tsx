@@ -65,6 +65,7 @@ import {
   useOptionalTourController,
   useTourController,
   waitForPathnameSettle,
+  stripPreviewQueryParams,
 } from "../TourController";
 import { TOUR_STEPS } from "../step-registry";
 import type { TourStep } from "../step-types";
@@ -1095,6 +1096,30 @@ describe("TourController — Wave 2 Fix 1: popstate guard", () => {
       result.current.dismissPopstateToast();
     });
     expect(result.current.popstateToastVisible).toBe(false);
+  });
+});
+
+// Wave 2 Fix 9/9: stripPreviewQueryParams helper.
+describe("TourController — Wave 2 Fix 9: stripPreviewQueryParams", () => {
+  it("drops wikiCapture / wizard-preview / wizardSeedStep / tutorial from a search string", () => {
+    expect(
+      stripPreviewQueryParams(
+        "?wikiCapture=1&wizard-preview=1&wizardSeedStep=foo&tutorial=1",
+      ),
+    ).toBe("");
+  });
+
+  it("preserves unrelated query params", () => {
+    expect(stripPreviewQueryParams("?wikiCapture=1&projectId=42")).toBe(
+      "?projectId=42",
+    );
+    expect(stripPreviewQueryParams("?a=1&wizard-preview=1&b=2")).toBe(
+      "?a=1&b=2",
+    );
+  });
+
+  it("returns an empty string when input is empty", () => {
+    expect(stripPreviewQueryParams("")).toBe("");
   });
 });
 

@@ -106,6 +106,38 @@ import {
 export type TourTransitionType = "start" | "advance" | "goBack" | "skip";
 
 /**
+ * Wave 2 Fix 9/9 — strip preview-only query params from a search
+ * string. Used by both the expectedRoute auto-navigate effect and
+ * the popstate guard so a real (non-preview) tour run never
+ * inherits ?wikiCapture=1 / ?wizard-preview=1 / ?wizardSeedStep /
+ * ?tutorial from the user's URL bar. Preview mode no longer
+ * depends on URL params after TourBootstrap's first hit (sticky
+ * sessionStorage flag), so dropping them mid-tour is safe.
+ *
+ * Returns the filtered string in `?key=value&...` form (or empty
+ * string when no params remain). Exported for tests.
+ */
+const PREVIEW_QUERY_PARAM_DENY_LIST = new Set([
+  "wikiCapture",
+  "wizard-preview",
+  "wizardSeedStep",
+  "tutorial",
+]);
+
+export function stripPreviewQueryParams(search: string): string {
+  if (!search) return "";
+  const queryStart = search.startsWith("?") ? 1 : 0;
+  const params = new URLSearchParams(search.slice(queryStart));
+  for (const key of Array.from(params.keys())) {
+    if (PREVIEW_QUERY_PARAM_DENY_LIST.has(key)) {
+      params.delete(key);
+    }
+  }
+  const out = params.toString();
+  return out.length > 0 ? `?${out}` : "";
+}
+
+/**
  * Wave 2 Fix 6/9 — pathname-settle helper.
  *
  * Awaits two requestAnimationFrame ticks after a router push so React
@@ -986,14 +1018,20 @@ export function TourControllerProvider({
     if (alreadyOnRoute) return;
 
     // Preserve query params on the auto-nav push (live-test R2 fix
-    // 2026-05-21). Without this, navigating to expectedRoute strips
-    // ?wikiCapture=1 / ?wizard-preview=1 / ?wizardSeedStep, which makes
-    // the fixture-mode mount path lose previewMode on the next page —
-    // the v4 bootstrap then sees a resume_state and surfaces the
-    // V4ResumePrompt mid-tour. Carry every existing search param
-    // through so the fixture URL contract stays intact.
-    const search = window.location.search;
-    router.push(`${expected}${search}`);
+    // 2026-05-21). Originally we carried ALL existing search params
+    // through so fixture-mode (?wikiCapture=1, ?wizard-preview=1,
+    // ?wizardSeedStep) survived navigation.
+    //
+    // Wave 2 Fix 9/9: drop the preview-only params from the carried
+    // search string. Real (non-preview) tour runs were inheriting
+    // these from a developer URL bar entry, making the production
+    // URL look like ?wikiCapture=1 mid-tour. Preview mode still
+    // works because TourBootstrap sets sticky session flags
+    // (researchos:v4-preview-active) on the first hit; the URL is
+    // no longer the source of truth for the preview gate after the
+    // initial bootstrap.
+    const filteredSearch = stripPreviewQueryParams(window.location.search);
+    router.push(`${expected}${filteredSearch}`);
   }, [state.currentStep, state.paused, router]);
 
   // Wave 2 Fix 1/9: popstate guard.
@@ -1021,9 +1059,10 @@ export function TourControllerProvider({
         expected === "/" ? pathname === "/" : pathname.startsWith(expected);
       if (matched) return;
       // Carry the same query-param contract as the expectedRoute
-      // auto-navigate effect above.
-      const search = window.location.search;
-      router.push(`${expected}${search}`);
+      // auto-navigate effect above — strip preview-only params
+      // (Wave 2 Fix 9/9).
+      const filteredSearch = stripPreviewQueryParams(window.location.search);
+      router.push(`${expected}${filteredSearch}`);
       setPopstateToastVisible(true);
     };
     window.addEventListener("popstate", onPopState);
