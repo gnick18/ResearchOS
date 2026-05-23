@@ -424,10 +424,22 @@ describe("TourBootstrap:v4 mid-tour resume", () => {
     expect(persisted.feature_picks).toBeNull();
   });
 
-  it("Discard click sets wizard_skipped_at + clears resume_state, no tour starts", async () => {
+  it("Discard click sets wizard_skipped_at + clears resume_state + feature_picks, no tour starts", async () => {
+    // R2 chip A Fix 2/3: Discard must wipe partial feature_picks too.
+    // Otherwise stale Q1-Q6 answers from the in-flight run keep
+    // driving tab visibility via deriveVisibleTabs (which falls back
+    // to settings.json only when picks === null).
     memFs.set(
       PATH,
       fullSidecar({
+        feature_picks: {
+          account_type: "solo",
+          purchases: "yes",
+          calendar: "no",
+          goals: "no",
+          telegram: "no",
+          ai_helper: "full",
+        },
         wizard_resume_state: {
           current_step: "home-create-project",
           skipped_steps: [],
@@ -447,6 +459,9 @@ describe("TourBootstrap:v4 mid-tour resume", () => {
     expect(persisted.wizard_skipped_at).toBeTruthy();
     expect(persisted.wizard_resume_state).toBeNull();
     expect(persisted.wizard_force_show).toBe(false);
+    // R2 chip A Fix 2/3 assertion: feature_picks is wiped so tab
+    // visibility falls back to settings.json.
+    expect(persisted.feature_picks).toBeNull();
     // No tour surface mounted post-discard.
     expect(
       document.body.querySelector("[data-tour-modal='v4-setup']"),

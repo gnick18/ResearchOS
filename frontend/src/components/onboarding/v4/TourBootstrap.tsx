@@ -386,11 +386,19 @@ export default function TourBootstrap({ username }: TourBootstrapProps) {
 
   const handleDiscard = useCallback(async () => {
     try {
+      // R2 chip A Fix 2/3: Discard must clear feature_picks too.
+      // Without this, stale partial Q1-Q6 answers from the in-flight
+      // run keep driving tab visibility (deriveVisibleTabs falls back
+      // to settings.json only when picks === null). The user explicitly
+      // chose to discard the tour, so leaving their half-answered
+      // feature_picks in place would silently keep tabs hidden that
+      // their actual settings.json wants visible.
       await patchOnboarding(username, (cur) => ({
         ...cur,
         wizard_skipped_at: new Date().toISOString(),
         wizard_force_show: false,
         wizard_resume_state: null,
+        feature_picks: null,
       }));
     } catch (err) {
       console.error("[onboarding-v4] resume-modal discard patch failed", err);
