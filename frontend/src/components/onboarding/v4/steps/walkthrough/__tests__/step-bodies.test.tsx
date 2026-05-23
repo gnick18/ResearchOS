@@ -421,8 +421,10 @@ describe("P5 step bodies — universal contract", () => {
       // steps that retain cursor scripts. The agentic use-case step
       // is intentionally EXCLUDED (it's narration-only); the seven
       // settings-tour-* beats are also excluded because they only
-      // narrate + spotlight (no cursor click).
-      settingsColorStep,
+      // narrate + spotlight (no cursor click). `settingsColorStep`
+      // dropped its cursorScript at commit 53959586 (re-targeted at
+      // the tint toggle and made user-paced from mount), so it is
+      // also excluded from this list.
       settingsAiHelperSizeDiffStep,
       settingsAiHelperUseCasePasteStep,
       searchStep,
@@ -1253,9 +1255,13 @@ describe("AnimationPickerStep (§6.9)", () => {
 });
 
 describe("Settings steps (§6.10)", () => {
-  it("color step targets the settings color picker", () => {
+  it("color step targets the tint toggle (re-pointed 2026-05-23)", () => {
+    // §6.10 re-target (commit 53959586): users now pick their color in
+    // the new-user creation popup, so the walkthrough beat spotlights
+    // the "Tint header with my color" toggle instead of the picker.
+    // Picker swatches remain reachable via the step's page-lock allow-list.
     expect(settingsColorStep.targetSelector).toBe(
-      "[data-tour-target=\"settings-color-picker\"]",
+      "[data-tour-target=\"settings-color-tint-toggle\"]",
     );
   });
   // §6.10 Settings phase redesign 2026-05-22 (Settings manager): the
