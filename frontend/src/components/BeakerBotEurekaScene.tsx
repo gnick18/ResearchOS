@@ -18,7 +18,7 @@
 //   - useSyncExternalStore for SSR-safe portal mount
 //   - prefers-reduced-motion gate with static "post-eureka" fallback
 //
-// Stage timeline (~5.7s total in motion mode):
+// Stage timeline (~6.9s total in motion mode):
 //   1. walk-in       0    → 600ms   (BeakerBot enters carrying microscope)
 //   2. set-down      600  → 900ms   (microscope drops to bench position)
 //   3. lean-peek     900  → 1400ms  (BeakerBot tilts forward, one eye closes)
@@ -27,7 +27,8 @@
 //   6. bulb-on       3000 → 3300ms  (light bulb fades in above head)
 //   7. sparkles      3300 → 3900ms  (8 rainbow sparkles burst outward)
 //   8. cheering      3900 → 4900ms  (cheering pose, body sway, "Eureka!")
-//   9. exit          4900 → 5700ms  (walks off opposite side, bulb fades)
+//   9. scan          4900 → 6100ms  (slow L→R→L head-turn over the bulb)
+//  10. exit          6100 → 6900ms  (walks off opposite side, bulb fades)
 //
 // Reduced-motion fallback: render BeakerBot in cheering pose with light
 // bulb above his head, microscope on the bench, sparkles at their final
@@ -62,6 +63,7 @@ export const STAGE_DURATIONS = {
   bulbOn: 300,
   sparkles: 600,
   cheering: 1000,
+  scan: 1200,
   exit: 800,
 } as const;
 
@@ -74,6 +76,7 @@ export const TOTAL_DURATION_MS =
   STAGE_DURATIONS.bulbOn +
   STAGE_DURATIONS.sparkles +
   STAGE_DURATIONS.cheering +
+  STAGE_DURATIONS.scan +
   STAGE_DURATIONS.exit;
 
 /** Reduced-motion fallback duration. */
@@ -90,6 +93,7 @@ export type EurekaStage =
   | "bulbOn"
   | "sparkles"
   | "cheering"
+  | "scan"
   | "exit"
   | "done";
 
@@ -102,6 +106,7 @@ export const STAGE_ORDER: readonly EurekaStage[] = [
   "bulbOn",
   "sparkles",
   "cheering",
+  "scan",
   "exit",
 ] as const;
 
@@ -121,8 +126,9 @@ const SPARKLE_COLORS = [
 const SPARKLE_COUNT = 8;
 
 /** Sparkle ring outward radius in pixels. Each sparkle animates from
- *  the bulb center to (cos(theta) * R, sin(theta) * R) at this radius. */
-const SPARKLE_RADIUS_PX = 40;
+ *  the bulb center to (cos(theta) * R, sin(theta) * R) at this radius.
+ *  Scaled 2x with the rest of the scene (BeakerBot + bulb). */
+const SPARKLE_RADIUS_PX = 80;
 
 /** Z-index slot — matches BeakerBotBugStompScene + BeakerBotLadderScene. */
 const SCENE_Z_INDEX = 800;
@@ -375,6 +381,7 @@ export default function BeakerBotEurekaScene({
     stage === "bulbOn" ||
     stage === "sparkles" ||
     stage === "cheering" ||
+    stage === "scan" ||
     stage === "exit" ||
     stage === "done";
 
@@ -387,6 +394,7 @@ export default function BeakerBotEurekaScene({
     stage === "bulbOn" ||
     stage === "sparkles" ||
     stage === "cheering" ||
+    stage === "scan" ||
     stage === "exit" ||
     (reducedMotion && stage === "done");
 
@@ -422,6 +430,7 @@ export default function BeakerBotEurekaScene({
       break;
     case "sparkles":
     case "cheering":
+    case "scan":
     case "exit":
       pose = "cheering";
       break;
@@ -451,6 +460,7 @@ export default function BeakerBotEurekaScene({
     case "bulbOn":
     case "sparkles":
     case "cheering":
+    case "scan":
       beakerTranslateX = direction.beakerBenchX;
       // Forward lean during peek stages: tilt + small downward
       // translate so his face is at the eyepiece.
@@ -482,6 +492,7 @@ export default function BeakerBotEurekaScene({
   else if (stage === "leanPeek") transitionMs = STAGE_DURATIONS.leanPeek;
   else if (stage === "pullBack") transitionMs = STAGE_DURATIONS.pullBack;
   else if (stage === "cheering") transitionMs = STAGE_DURATIONS.cheering;
+  else if (stage === "scan") transitionMs = STAGE_DURATIONS.scan;
 
   return createPortal(
     <div
@@ -494,7 +505,10 @@ export default function BeakerBotEurekaScene({
         inset: 0,
         pointerEvents: "none",
         zIndex: SCENE_Z_INDEX,
-        overflow: "hidden",
+        // overflow: visible — universal scene-wrapper rule. The scene's
+        // own off-screen entry/exit translations (e.g. 120vw) handle
+        // the "stays out of view" requirement; we don't need clipping.
+        overflow: "visible",
       }}
     >
       {/* Scoped keyframes for the bulb glow pulse + sparkle burst + body sway. */}
@@ -536,6 +550,17 @@ export default function BeakerBotEurekaScene({
           70%  { opacity: 1; transform: translate(-50%, 0) scale(1); }
           100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
         }
+        /* Slow L → R → L body tilt so BeakerBot "scans" the bulb above
+           his head; because the bulb is nested inside the lean wrapper
+           it rotates with him, giving the user a moving view of the
+           whole bulb. ±10deg, single 1.2s pass, anchored at body bottom. */
+        @keyframes ${animSuffix}-scan-tilt {
+          0%   { transform: rotate(0deg); }
+          25%  { transform: rotate(-10deg); }
+          50%  { transform: rotate(0deg); }
+          75%  { transform: rotate(10deg); }
+          100% { transform: rotate(0deg); }
+        }
       `}</style>
 
       {/* Bench line: characters and the microscope sit on this y-axis.
@@ -552,13 +577,15 @@ export default function BeakerBotEurekaScene({
             position: "absolute",
             left: direction.beakerBenchX,
             bottom: "20vh",
-            transform: `translate(calc(-50% + ${direction.microscopeOffsetPx}px), 0)`,
-            width: 36,
-            height: 40,
+            transform: `translate(calc(-50% + ${direction.microscopeOffsetPx * 2}px), 0)`,
+            // 2x scale (was 36x40).
+            width: 72,
+            height: 80,
           }}
         >
           <MicroscopeGlyph
-            className="w-9 h-10"
+            // w-18 isn't a stock Tailwind size; use h-20 + w-[72px].
+            className="w-[72px] h-20"
             glint={stage === "peeking"}
           />
         </div>
@@ -574,9 +601,11 @@ export default function BeakerBotEurekaScene({
           position: "absolute",
           left: 0,
           bottom: "calc(20vh - 4px)",
-          width: 64,
-          height: 64,
-          transform: `translate(calc(${beakerTranslateX} - 32px), ${beakerBobPx}px)`,
+          // 2x scale (was 64x64).
+          width: 128,
+          height: 128,
+          // Half-width offset bumps with the size to keep him centered.
+          transform: `translate(calc(${beakerTranslateX} - 64px), ${beakerBobPx}px)`,
           transition: `transform ${transitionMs}ms ${
             stage === "walkIn" || stage === "exit" ? "ease-in-out" : "ease-out"
           }`,
@@ -595,7 +624,9 @@ export default function BeakerBotEurekaScene({
             position: "relative",
           }}
         >
-          {/* Cheering pose during exit also gets a body-sway loop. */}
+          {/* Cheering pose gets a body-sway loop; scan stage gets a
+              single slow L → R → L head-turn so the user can see the
+              whole bulb above his head from multiple angles. */}
           <div
             style={{
               width: "100%",
@@ -603,14 +634,17 @@ export default function BeakerBotEurekaScene({
               animation:
                 stage === "cheering"
                   ? `${animSuffix}-body-sway 500ms ease-in-out 2 alternate`
-                  : undefined,
+                  : stage === "scan"
+                    ? `${animSuffix}-scan-tilt ${STAGE_DURATIONS.scan}ms ease-in-out forwards`
+                    : undefined,
               transformOrigin: "center bottom",
             }}
           >
             <BeakerBot
               pose={pose}
               direction={direction.facing}
-              className="w-16 h-16 text-sky-500"
+              // 2x scale (was w-16 h-16).
+              className="w-32 h-32 text-sky-500"
               ariaLabel="BeakerBot"
             />
           </div>
@@ -634,7 +668,8 @@ export default function BeakerBotEurekaScene({
             >
               <BeakerBot
                 pose="cheering"
-                className="w-16 h-16 text-sky-500"
+                // 2x scale (matches main BeakerBot above).
+                className="w-32 h-32 text-sky-500"
                 ariaLabel=""
               />
             </div>
@@ -646,14 +681,16 @@ export default function BeakerBotEurekaScene({
               data-testid="beakerbot-eureka-scene-microscope-carried"
               style={{
                 position: "absolute",
-                left: direction.sideSign > 0 ? "auto" : "8px",
-                right: direction.sideSign > 0 ? "8px" : "auto",
-                bottom: "16px",
-                width: 18,
-                height: 22,
+                // Offsets bump with the 2x BeakerBot size.
+                left: direction.sideSign > 0 ? "auto" : "16px",
+                right: direction.sideSign > 0 ? "16px" : "auto",
+                bottom: "32px",
+                // 2x scale (was 18x22).
+                width: 36,
+                height: 44,
               }}
             >
-              <MicroscopeGlyph className="w-4 h-5" />
+              <MicroscopeGlyph className="w-8 h-10" />
             </div>
           )}
 
@@ -664,9 +701,11 @@ export default function BeakerBotEurekaScene({
               style={{
                 position: "absolute",
                 left: "50%",
-                top: "-30px",
-                width: 20,
-                height: 24,
+                // 2x offset above head (was -30px).
+                top: "-60px",
+                // 2x scale (was 20x24).
+                width: 40,
+                height: 48,
                 transform: "translateX(-50%)",
                 animation: reducedMotion
                   ? undefined
@@ -686,8 +725,9 @@ export default function BeakerBotEurekaScene({
                   position: "absolute",
                   left: "50%",
                   top: "50%",
-                  width: 40,
-                  height: 40,
+                  // 2x scale (was 40x40).
+                  width: 80,
+                  height: 80,
                   borderRadius: "50%",
                   background:
                     "radial-gradient(circle, rgba(255, 232, 154, 0.85) 0%, rgba(255, 232, 154, 0.5) 35%, rgba(255, 232, 154, 0) 70%)",
@@ -701,7 +741,8 @@ export default function BeakerBotEurekaScene({
               />
               {/* Bulb glyph itself */}
               <div style={{ position: "relative", zIndex: 1 }}>
-                <LightBulbGlyph className="w-5 h-6" />
+                {/* 2x scale (was w-5 h-6). */}
+                <LightBulbGlyph className="w-10 h-12" />
               </div>
 
               {/* SPARKLE BURST — 8 sparkles radiating outward from the
@@ -744,7 +785,8 @@ export default function BeakerBotEurekaScene({
                         } as React.CSSProperties
                       }
                     >
-                      <SparkleStar color={s.color} size={8} />
+                      {/* 2x scale (was size 8). */}
+                      <SparkleStar color={s.color} size={16} />
                     </div>
                   ))}
                 </div>
@@ -760,16 +802,18 @@ export default function BeakerBotEurekaScene({
               style={{
                 position: "absolute",
                 left: "50%",
-                top: "-58px",
+                // Lifted to clear the now-larger bulb above his head.
+                top: "-120px",
                 transform: "translate(-50%, 0)",
                 background: "white",
                 border: "2px solid #38bdf8", // sky-400
-                borderRadius: 12,
-                padding: "4px 10px",
+                borderRadius: 16,
+                padding: "6px 14px",
                 color: "#0369a1", // sky-700
                 fontFamily: "system-ui, sans-serif",
                 fontWeight: 700,
-                fontSize: 13,
+                // 2x scale (was 13).
+                fontSize: 22,
                 lineHeight: 1.2,
                 whiteSpace: "nowrap",
                 animation: `${animSuffix}-bubble-pop 350ms ease-out forwards`,
@@ -783,12 +827,12 @@ export default function BeakerBotEurekaScene({
                 style={{
                   position: "absolute",
                   left: "50%",
-                  bottom: -7,
+                  bottom: -13,
                   width: 0,
                   height: 0,
-                  borderLeft: "6px solid transparent",
-                  borderRight: "6px solid transparent",
-                  borderTop: "7px solid #38bdf8",
+                  borderLeft: "10px solid transparent",
+                  borderRight: "10px solid transparent",
+                  borderTop: "13px solid #38bdf8",
                   transform: "translateX(-50%)",
                 }}
               />
@@ -797,12 +841,12 @@ export default function BeakerBotEurekaScene({
                 style={{
                   position: "absolute",
                   left: "50%",
-                  bottom: -4,
+                  bottom: -8,
                   width: 0,
                   height: 0,
-                  borderLeft: "5px solid transparent",
-                  borderRight: "5px solid transparent",
-                  borderTop: "6px solid white",
+                  borderLeft: "8px solid transparent",
+                  borderRight: "8px solid transparent",
+                  borderTop: "11px solid white",
                   transform: "translateX(-50%)",
                 }}
               />
