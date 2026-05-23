@@ -2151,17 +2151,23 @@ function TourBeakerBotOverlay({
   canGoBack,
   flashSpeech,
 }: TourBeakerBotOverlayProps) {
-  // R2 regression followup Fix 1/3 (2026-05-23):
-  // `disabledUntilEvent` gating: if the active step's `manual`
-  // completion declares a `disabledUntilEvent`, the "Got it, next"
-  // button renders disabled until that window-level CustomEvent
-  // fires. Closes the literal-reader catch on §6.8
-  // `gantt-share-profile-switch` where the prior `advanceOnEvent`
-  // auto-advanced silently (no user button) and broke Grant's
-  // "user-gated on note-write" spec.
+  // R2 regression followup Fix 1/3 + Fix 3/3 (2026-05-23):
+  //  - Fix 1: `disabledUntilEvent` gating: if the active step's
+  //    `manual` completion declares a `disabledUntilEvent`, the
+  //    "Got it, next" button renders disabled until that
+  //    window-level CustomEvent fires. Closes the literal-reader
+  //    catch on §6.8 `gantt-share-profile-switch` where the prior
+  //    `advanceOnEvent` auto-advanced silently (no user button) and
+  //    broke Grant's "user-gated on note-write" spec.
+  //  - Fix 3: post-click debounce. The manual-advance button locks
+  //    itself after the first click so a rapid double-click can't
+  //    advance two steps in the narrow window between React
+  //    rendering the new step and the second click event landing.
+  //    The setup-modal Next button already has its own debounce; the
+  //    walkthrough overlay button didn't. Distracted-persona catch.
   //
-  // The gate state is keyed off `step?.id` so each new step starts
-  // ungated.
+  // Both states are keyed off `step?.id` so they reset per step
+  // (the same useEffect clears them on step change).
   const stepId = step?.id ?? null;
   const manualDisabledUntilEvent =
     step?.completion.type === "manual"
@@ -2172,13 +2178,16 @@ function TourBeakerBotOverlay({
       ? step.completion.disabledAriaLabel
       : undefined;
   const [eventFired, setEventFired] = useState(false);
+  const [advanceClicked, setAdvanceClicked] = useState(false);
 
   // Subscribe to the gate event for the active step. Listener is
   // window-scoped + once-only; cleared on step change so each new
-  // step starts ungated. If `manualDisabledUntilEvent` is unset, the
-  // button is never gated.
+  // step starts ungated. Also resets the advanceClicked debounce so
+  // the per-step lock unwinds the moment the controller moves us to
+  // the next step.
   useEffect(() => {
     setEventFired(false);
+    setAdvanceClicked(false);
     if (!manualDisabledUntilEvent || typeof window === "undefined") {
       return;
     }
@@ -2203,10 +2212,13 @@ function TourBeakerBotOverlay({
     step.completion.type === "manual"
       ? step.completion.buttonLabel ?? "Got it, next"
       : null;
-  // Button is disabled when the step declares `disabledUntilEvent`
-  // and the event hasn't fired yet for this step entry.
+  // Button is disabled if either:
+  //  (a) the step declares `disabledUntilEvent` and the event hasn't
+  //      fired yet for this step entry (Fix 1), OR
+  //  (b) the user has already clicked once this step entry (Fix 3
+  //      double-click debounce).
   const manualGateActive = !!manualDisabledUntilEvent && !eventFired;
-  const manualButtonDisabled = manualGateActive;
+  const manualButtonDisabled = manualGateActive || advanceClicked;
   const manualButtonAriaLabel =
     manualGateActive && manualDisabledAriaLabel
       ? manualDisabledAriaLabel
@@ -2322,11 +2334,13 @@ function TourBeakerBotOverlay({
               type="button"
               onClick={() => {
                 if (manualButtonDisabled) return;
+                setAdvanceClicked(true);
                 onManualAdvance();
               }}
               disabled={manualButtonDisabled}
               data-testid="tour-manual-advance-button"
               data-disabled-until-event={manualGateActive ? "true" : undefined}
+              data-debounce-locked={advanceClicked ? "true" : undefined}
               className={
                 manualButtonDisabled
                   ? "text-xs font-medium bg-sky-500 text-white rounded-full px-3 py-1.5 opacity-50 cursor-not-allowed"
