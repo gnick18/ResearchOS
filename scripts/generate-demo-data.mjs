@@ -3100,6 +3100,16 @@ function methodJson(owner, id, name, folder) {
   // unreadable to the methods page and PDF/HTML exporters (they both read
   // method.source_path). `normalizeMethodRecord` in local-api.ts lazy-heals
   // the legacy shape, but new seeds should write the canonical field.
+  //
+  // Lab Mode retirement R1 (R1 unified sharing manager, 2026-05-23):
+  // - `is_public` is dropped on this record (it's still passed through
+  //   the legacy `is_public` key for now so older callers don't choke);
+  // - new code reads `shared_with` with the unified "*" sentinel
+  //   instead. The migration in lib/sharing/migrate-unified.ts converts
+  //   on-disk records that still carry `is_public: true` into a
+  //   shared_with entry. Demo records all default to private (owner-only)
+  //   here; the few that need lab-wide visibility get an explicit
+  //   shared_with entry below.
   return {
     id,
     name,
