@@ -35,7 +35,14 @@ import Tooltip from "@/components/Tooltip";
  */
 export const LAB_ANNOUNCEMENTS_QUERY_KEY = ["lab-announcements"] as const;
 
-export default function LabInboxAnnouncements() {
+// Accepts WidgetProps but doesn't use them today — the existing
+// composer + list rendering is identical inside the new Widget frame.
+// Future enhancements (e.g. a compact sidebar variant) would key off
+// `surface === "sidebar"`.
+export default function AnnouncementsWidget(_props?: {
+  isEditing?: boolean;
+  surface?: "canvas" | "sidebar";
+}) {
   const { currentUser } = useCurrentUser();
   const accountType = useAccountType(currentUser);
   const session = useEditSession();
@@ -64,21 +71,14 @@ export default function LabInboxAnnouncements() {
     return [...pinned, ...rest];
   }, [announcements]);
 
+  // R2 (R2 widget framework manager, 2026-05-23): the outer card chrome
+  // moved into the canonical `<Widget>` frame (see `Widget.tsx`). The
+  // body below renders inside that frame's content slot, so it's free
+  // of card padding / border / shadow. The page-level header copy that
+  // used to sit here ("Post short updates…") is now in the widget
+  // catalog `description`.
   return (
-    <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-      <header className="flex items-center justify-between">
-        <div>
-          <h2 className="text-base font-semibold text-gray-900">
-            Lab announcements
-          </h2>
-          <p className="text-xs text-gray-500 mt-0.5">
-            {isLabHead
-              ? "Post short updates visible to everyone in the lab. Pinned entries float to the top."
-              : "Updates from your lab head. Pinned entries appear at the top."}
-          </p>
-        </div>
-      </header>
-
+    <div className="space-y-3">
       {isLabHead && (
         <Composer
           username={currentUser ?? ""}
@@ -123,7 +123,7 @@ export default function LabInboxAnnouncements() {
           ))}
         </ul>
       )}
-    </section>
+    </div>
   );
 }
 

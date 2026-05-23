@@ -3,11 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
-import LabInboxAnnouncements from "@/components/lab-inbox/LabInboxAnnouncements";
-import LabInboxComments from "@/components/lab-inbox/LabInboxComments";
-import LabInboxMetrics from "@/components/lab-inbox/LabInboxMetrics";
+import WidgetCanvas from "@/components/lab-overview/WidgetCanvas";
+import SidebarWidgetRail from "@/components/lab-overview/SidebarWidgetRail";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
-import { readUserSettings } from "@/lib/settings/user-settings";
+import { readUserSettings, type AccountType } from "@/lib/settings/user-settings";
 import { readOnboarding } from "@/lib/onboarding/sidecar";
 
 /**
@@ -21,18 +20,25 @@ import { readOnboarding } from "@/lib/onboarding/sidecar";
  * than just an inbox of comments. The legacy `/lab-inbox` URL still
  * redirects here for bookmark / external-link back-compat.
  *
+ * Lab Mode retirement R2 (R2 widget framework manager, 2026-05-23):
+ * the page body is now `<WidgetCanvas />` + a customizable sidebar via
+ * `<SidebarWidgetRail />`. The hard-coded vertical stack of the three
+ * lab-inbox sections is gone — each section became a `WidgetDefinition`
+ * in `frontend/src/components/lab-overview/widgets/registry.ts`. The
+ * default lab_head layout reproduces the previous vertical stack so
+ * existing PIs see no visual change on first run (proposal §3c).
+ *
  * Phase 3 visibility shift: every lab member now lands on this surface
  * to SEE pinned announcements (the brief explicitly calls for "Members
- * CAN see them but cannot post"). Lab-head-only sections (composer
- * controls, cross-lab metrics) gate themselves internally on
- * `account_type === "lab_head"`. The comments feed renders for everyone
- * — its "Only on my records" toggle was added in Phase 2 for non-PIs
- * who land here via a bell-row click.
+ * CAN see them but cannot post"). Lab-head-only widgets (metrics, PI
+ * actions, member workload) are filtered out of the member catalog by
+ * the `visibleCatalog` helper in `widgets/types.ts`, so they never
+ * appear for non-PIs.
  *
  * The previous "bounce non-lab_head to Home" guard was relaxed in
  * Phase 3. Non-lab-mode users (solo accounts with no lab folder) still
  * shouldn't land here — they have no lab to read. We gate on
- * `isConnected` (= a lab folder is opened) instead of account_type.
+ * `isConnected` (= a lab folder is opened) + the in-lab feature pick.
  */
 export default function LabOverviewPage() {
   return (
@@ -47,7 +53,7 @@ function LabOverviewBody() {
   const { currentUser, isConnected } = useFileSystem();
   // `undefined` = still loading, `null` = no lab access, `true` = ok.
   const [allowed, setAllowed] = useState<boolean | null | undefined>(undefined);
-  const [accountType, setAccountType] = useState<string | null>(null);
+  const [accountType, setAccountType] = useState<AccountType | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,35 +98,38 @@ function LabOverviewBody() {
     );
   }
 
-  if (!allowed) {
+  if (!allowed || !currentUser || !accountType) {
     return null;
   }
 
   const isLabHead = accountType === "lab_head";
 
+  // R2: the sidebar widget rail mounts INSIDE the lab-overview body so
+  // it replaces the AppShell-level `DailyTasksSidebar` only on this
+  // route. AppShell already routes the global sidebar by pathname
+  // (`/calendar` → CalendarSidebar, everything else → DailyTasksSidebar);
+  // we let AppShell's DailyTasksSidebar render on the left as before
+  // AND nest our customizable rail on the right of the global sidebar.
+  // The R2 layout therefore is: [global sidebar | rail | canvas]. The
+  // R3-or-later move is to teach AppShell to swap DailyTasksSidebar
+  // for SidebarWidgetRail on /lab-overview — out of R2 scope to avoid
+  // breaking every other page.
   return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
-        <header>
-          <h1 className="text-2xl font-bold text-gray-900">Lab Overview</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {isLabHead
-              ? "Announcements, lab-wide comments, cross-lab metrics, and the lab roster. The composer below posts to everyone in the lab."
-              : "Announcements from your lab head, recent comments across the lab, and the lab roster."}
-          </p>
-        </header>
+    <div className="flex-1 flex overflow-hidden">
+      <SidebarWidgetRail username={currentUser} accountType={accountType} />
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-6xl mx-auto px-6 py-6 space-y-4">
+          <header>
+            <h1 className="text-2xl font-bold text-gray-900">Lab Overview</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              {isLabHead
+                ? "Your customizable canvas of lab-wide widgets. Click Edit layout to drag, resize, and add."
+                : "Announcements, recent comments, and lab activity. Customize your sidebar with the gear."}
+            </p>
+          </header>
 
-        {/* Phase 3: PI-posted announcements visible to everyone; composer
-         *  gated on Phase 5 edit-mode session. */}
-        <LabInboxAnnouncements />
-
-        {/* Phase 2: cross-lab comment feed with source-surface links,
-         *  threaded replies, @mention chips, bell notifications. */}
-        <LabInboxComments />
-
-        {/* Phase 4: cross-lab metrics dashboard — lab-head-only signal.
-         *  Members don't see other members' aggregated workload. */}
-        {isLabHead && <LabInboxMetrics />}
+          <WidgetCanvas username={currentUser} accountType={accountType} />
+        </div>
       </div>
     </div>
   );
