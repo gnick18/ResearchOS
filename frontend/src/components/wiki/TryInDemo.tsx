@@ -22,7 +22,6 @@ export function TryInDemo({ href, children }: Props) {
       href={"/demo" + normalized}
       className="inline-flex items-center gap-2 my-4 px-4 py-2 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-900 hover:bg-amber-500/25 transition no-underline font-medium"
     >
-      <span aria-hidden>🧪</span>
       <span>{children}</span>
       <span aria-hidden>→</span>
     </Link>

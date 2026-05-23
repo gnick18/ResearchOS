@@ -149,27 +149,20 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                 }`}
                 onClick={() => setActiveAttachmentKey(tabKey)}
               >
-                {/* Tab icon based on method type */}
-                {method?.method_type === "pcr" ? (
-                  <span className="text-xs">🧬</span>
-                ) : method?.method_type === "lc_gradient" ? (
-                  <span className="text-xs">📈</span>
-                ) : method?.method_type === "plate" ? (
-                  <span className="text-xs">🧫</span>
-                ) : method?.method_type === "cell_culture" ? (
-                  <span className="text-xs">🧪</span>
-                ) : method?.method_type === "qpcr_analysis" ? (
-                  <span className="text-xs">🔬</span>
-                ) : method?.method_type === "mass_spec" ? (
-                  <span className="text-xs">⚗️</span>
-                ) : method?.method_type === "pdf" ? (
-                  <span className="text-xs">📕</span>
-                ) : method?.method_type === "compound" ? (
-                  <span className="text-xs">📦</span>
-                ) : method?.method_type === "coding_workflow" ? (
-                  <span className="text-xs">💻</span>
-                ) : (
-                  <span className="text-xs">📄</span>
+                {/* Tab type badge — text-only, no emoji */}
+                {method?.method_type && (
+                  <span className="text-[9px] font-mono uppercase tracking-wide bg-gray-200 group-[.active-tab]:bg-gray-100 rounded px-1 py-0.5 text-gray-500 shrink-0">
+                    {method.method_type === "lc_gradient" ? "LC" :
+                     method.method_type === "qpcr_analysis" ? "qPCR" :
+                     method.method_type === "mass_spec" ? "MS" :
+                     method.method_type === "cell_culture" ? "CC" :
+                     method.method_type === "coding_workflow" ? "code" :
+                     method.method_type === "pcr" ? "PCR" :
+                     method.method_type === "pdf" ? "PDF" :
+                     method.method_type === "compound" ? "cmpd" :
+                     method.method_type === "plate" ? "plate" :
+                     "md"}
+                  </span>
                 )}
 
                 {/* Tab title */}

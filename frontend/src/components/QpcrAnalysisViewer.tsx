@@ -15,6 +15,7 @@ import type {
 import SharePopup from "@/components/SharePopup";
 import Tooltip from "@/components/Tooltip";
 import QpcrAnalysisEditor from "@/components/QpcrAnalysisEditor";
+import { GlobeIcon, LockIcon } from "@/lib/utils/icons";
 
 /**
  * Read-write modal viewer for a qPCR analysis method, shown by /methods.
@@ -152,7 +153,10 @@ export default function QpcrAnalysisViewer({
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
-                  {currentMethod.is_public ? "🌐 Public" : "🔒 Private"}
+                  <span className="flex items-center gap-1">
+                    {currentMethod.is_public ? <GlobeIcon /> : <LockIcon />}
+                    {currentMethod.is_public ? "Public" : "Private"}
+                  </span>
                 </button>
               </Tooltip>
             )}

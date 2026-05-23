@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DuplicateInfo } from "@/lib/attachments/duplicate-check";
 import Tooltip from "./Tooltip";
+import { ImageIcon, PaperclipIcon } from "@/lib/utils/icons";
 
 /**
  * User-facing dialog shown when a dropped/picked file collides with an
@@ -157,7 +158,7 @@ export default function DuplicateUploadDialog({
             </p>
             <div className="flex items-center gap-2">
               <Tooltip label={isImage ? "Image" : "File"} placement="top">
-                <span className="text-lg">{isImage ? "🖼️" : "📎"}</span>
+                {isImage ? <ImageIcon className="w-4 h-4 text-gray-400" /> : <PaperclipIcon className="w-4 h-4 text-gray-400" />}
               </Tooltip>
               <span
                 className="text-sm font-mono text-gray-800 truncate"
@@ -175,7 +176,7 @@ export default function DuplicateUploadDialog({
             </p>
             <div className="flex items-center gap-2">
               <Tooltip label={isImage ? "Image" : "File"} placement="top">
-                <span className="text-lg">{isImage ? "🖼️" : "📎"}</span>
+                {isImage ? <ImageIcon className="w-4 h-4 text-gray-400" /> : <PaperclipIcon className="w-4 h-4 text-gray-400" />}
               </Tooltip>
               <span
                 className="text-sm font-mono text-gray-800 truncate"

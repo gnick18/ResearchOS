@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { fileService } from "@/lib/file-system/file-service";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 import Tooltip from "./Tooltip";
+import { ImageIcon } from "@/lib/utils/icons";
 
 interface ImageGalleryPopupProps {
   isOpen: boolean;
@@ -153,7 +154,7 @@ export default function ImageGalleryPopup({
       <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>
-            <h3 className="text-base font-semibold text-gray-900">📷 Image Gallery</h3>
+            <h3 className="text-base font-semibold text-gray-900">Image Gallery</h3>
             <p className="text-xs text-gray-400 mt-0.5">
               {experimentName} · {experimentDate}
             </p>
@@ -185,7 +186,7 @@ export default function ImageGalleryPopup({
               </div>
             ) : images.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 text-center">
-                <span className="text-4xl mb-3">🖼️</span>
+                <ImageIcon className="w-10 h-10 text-gray-300 mb-3" />
                 <p className="text-sm text-gray-500 mb-1">No images attached yet</p>
                 <p className="text-xs text-gray-400">
                   Upload images using the &quot;Add Image&quot; button in the editor
@@ -211,7 +212,7 @@ export default function ImageGalleryPopup({
                           className="max-w-full max-h-full object-contain"
                         />
                       ) : (
-                        <span className="text-4xl">🖼️</span>
+                        <ImageIcon className="w-8 h-8 text-gray-300" />
                       )}
                     </div>
 

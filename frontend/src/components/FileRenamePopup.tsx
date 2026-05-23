@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { ImageIcon, PaperclipIcon } from "@/lib/utils/icons";
 
 interface FileRenamePopupProps {
   file: File;
@@ -69,7 +70,7 @@ export default function FileRenamePopup({
         {/* Header */}
         <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
           <div className="flex items-center gap-3">
-            <span className="text-2xl">{isImage ? "🖼️" : "📎"}</span>
+            {isImage ? <ImageIcon className="w-6 h-6 text-gray-400" /> : <PaperclipIcon className="w-6 h-6 text-gray-400" />}
             <div>
               <h3 className="text-base font-semibold text-gray-900">
                 Rename {isImage ? "Image" : "File"}?

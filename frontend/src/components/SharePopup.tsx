@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { sharingApi, usersApi, methodsApi } from "@/lib/local-api";
 import Tooltip from "@/components/Tooltip";
 import type { SharedUser, ShareRequest, DependencyChainResponse } from "@/lib/types";
+import { GlobeIcon, LockIcon } from "@/lib/utils/icons";
 
 interface SharePopupProps {
   isOpen: boolean;
@@ -254,7 +255,7 @@ export default function SharePopup({
               >
                 <option value="">Select a user...</option>
                 {itemType === "method" && (
-                  <option value="__all_lab_users__">🌐 All Lab Users</option>
+                  <option value="__all_lab_users__">All Lab Users</option>
                 )}
                 {users.map((user) => (
                   <option key={user} value={user}>
@@ -299,10 +300,11 @@ export default function SharePopup({
             {/* All Lab Users info box */}
             {shareWithAll && itemType === "method" && (
               <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <p className="text-sm font-medium text-green-800">
-                  {isPubliclyVisible 
-                    ? "🌐 This method is currently visible to all lab users"
-                    : "🔒 This will make the method visible to all lab users"}
+                <p className="text-sm font-medium text-green-800 flex items-center gap-1.5">
+                  {isPubliclyVisible ? <GlobeIcon className="w-3.5 h-3.5 inline shrink-0" /> : <LockIcon className="w-3.5 h-3.5 inline shrink-0" />}
+                  {isPubliclyVisible
+                    ? "This method is currently visible to all lab users"
+                    : "This will make the method visible to all lab users"}
                 </p>
                 <p className="text-xs text-green-700 mt-1">
                   {isPubliclyVisible 

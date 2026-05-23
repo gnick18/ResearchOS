@@ -54,6 +54,7 @@ import { CompoundMethodBuilder } from "@/components/methods/CompoundMethodBuilde
 import CompoundMethodTabContent from "@/components/methods/CompoundMethodTabContent";
 import { WrapAsCompoundAction } from "@/components/methods/WrapAsCompoundAction";
 import { ConvertCompoundToSingleAction } from "@/components/methods/ConvertCompoundToSingleAction";
+import { GlobeIcon, LockIcon, PencilIcon } from "@/lib/utils/icons";
 
 /**
  * When the current viewer is a receiver of a shared method with edit
@@ -1099,7 +1100,7 @@ function MethodNameEditor({
           onClick={() => setEditingName(true)}
           className="opacity-0 group-hover:opacity-100 px-1.5 py-0.5 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-opacity"
         >
-          ✏️
+          <PencilIcon />
         </button>
       </Tooltip>
     </div>
@@ -1297,7 +1298,10 @@ function MarkdownMethodViewer({
                     }`}
                     title="Share method"
                   >
-                    {currentMethod.is_public ? "🌐 Public" : "🔒 Private"}
+                    <span className="flex items-center gap-1">
+                      {currentMethod.is_public ? <GlobeIcon /> : <LockIcon />}
+                      {currentMethod.is_public ? "Public" : "Private"}
+                    </span>
                   </button>
                 )}
                 {!currentMethod.is_public && (
@@ -1498,7 +1502,10 @@ function PdfViewer({
                 }`}
                 title="Share method"
               >
-                {currentMethod.is_public ? "🌐 Public" : "🔒 Private"}
+                <span className="flex items-center gap-1">
+                  {currentMethod.is_public ? <GlobeIcon /> : <LockIcon />}
+                  {currentMethod.is_public ? "Public" : "Private"}
+                </span>
               </button>
             )}
             {canModify && (
@@ -1693,7 +1700,10 @@ function PcrViewer({
                 }`}
                 title="Share method"
               >
-                {currentMethod.is_public ? "🌐 Public" : "🔒 Private"}
+                <span className="flex items-center gap-1">
+                  {currentMethod.is_public ? <GlobeIcon /> : <LockIcon />}
+                  {currentMethod.is_public ? "Public" : "Private"}
+                </span>
               </button>
             )}
             {canModify && (

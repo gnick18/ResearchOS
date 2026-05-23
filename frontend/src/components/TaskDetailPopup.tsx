@@ -42,6 +42,8 @@ import {
   taskResultsTabBase,
 } from "@/lib/tasks/results-paths";
 import { migrateTaskAttachmentsToFiles, splitTaskAttachments } from "@/lib/tasks/migrate-attachments";
+import { FileExtBadge } from "@/lib/utils/file-icons";
+import { PaperclipIcon } from "@/lib/utils/icons";
 import { attachImageToTask } from "@/lib/attachments/attach-image";
 import { fileEvents } from "@/lib/attachments/file-events";
 import { stripAttachmentReferences } from "@/lib/attachments/strip-references";
@@ -2524,7 +2526,7 @@ function DetailsTab({
             <div className="col-span-2">
               <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                 <p className="text-xs text-amber-700">
-                  📅 Weekend work enabled for this task
+                  Weekend work enabled for this task
                 </p>
               </div>
             </div>
@@ -3004,7 +3006,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                 : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
             }`}
           >
-            📝 Markdown
+            Markdown
           </button>
           <button
             onClick={() => setActiveSubTab("pdfs")}
@@ -3014,7 +3016,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                 : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
             }`}
           >
-            📎 Files
+            Files
           </button>
         </div>
 
@@ -3028,7 +3030,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                   disabled={uploading}
                   className="px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
                 >
-                  {uploading ? "Uploading..." : "📎 Add File"}
+                  {uploading ? "Uploading..." : "Add File"}
                 </button>
                 <input
                   ref={fileInputRef}
@@ -3511,7 +3513,7 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
                 : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
             }`}
           >
-            📝 Markdown
+            Markdown
           </button>
           <button
             onClick={() => setActiveSubTab("pdfs")}
@@ -3521,7 +3523,7 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
                 : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
             }`}
           >
-            📎 Files
+            Files
           </button>
         </div>
 
@@ -3535,7 +3537,7 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
                 disabled={uploading}
                 className="px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
               >
-                {uploading ? "Uploading..." : "📎 Add File"}
+                {uploading ? "Uploading..." : "Add File"}
               </button>
               <input
                 ref={fileInputRef}
@@ -3638,19 +3640,7 @@ const isMarkdownFile = (filename: string): boolean => {
   return ext === 'md';
 };
 
-// Helper to get file icon based on extension
-const getFileIcon = (filename: string): string => {
-  const ext = filename.toLowerCase().split('.').pop() || '';
-  if (ext === 'pdf') return '📕';
-  if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(ext)) return '🖼️';
-  if (ext === 'md') return '📝';
-  if (ext === 'txt') return '📄';
-  if (['doc', 'docx'].includes(ext)) return '📘';
-  if (['xls', 'xlsx'].includes(ext)) return '📗';
-  if (['ppt', 'pptx'].includes(ext)) return '📙';
-  if (['zip', 'tar', 'gz'].includes(ext)) return '📦';
-  return '📎';
-};
+// getFileIcon replaced by shared FileExtBadge component (see lib/utils/file-icons.tsx)
 
 // Helper to get MIME type
 const getMimeType = (filename: string): string => {
@@ -3910,7 +3900,7 @@ function PdfAttachmentsPanel({
           disabled={uploading}
           className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
         >
-          {uploading ? "Uploading..." : "📎 Add File"}
+          {uploading ? "Uploading..." : "Add File"}
         </button>
         <input
           ref={fileInputRef}
@@ -3934,7 +3924,7 @@ function PdfAttachmentsPanel({
           <p className="text-sm text-gray-400 animate-pulse">Loading files...</p>
         ) : files.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-4xl mb-3">📎</p>
+            <PaperclipIcon className="w-8 h-8 text-gray-300 mb-3 mx-auto" />
             <p className="text-sm text-gray-400 mb-1">No files attached yet</p>
             <p className="text-xs text-gray-300">
               Upload PDFs (viewable), images (viewable), or other files (downloadable)
@@ -3949,7 +3939,7 @@ function PdfAttachmentsPanel({
                 onClick={() => handleViewFile(file)}
               >
                 <div className="flex items-start gap-3">
-                  <span className="text-2xl">{getFileIcon(file.name)}</span>
+                  <FileExtBadge filename={file.name} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-700 truncate">
                       {file.name}

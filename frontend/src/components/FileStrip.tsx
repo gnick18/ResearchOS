@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { filesApi } from "@/lib/local-api";
 import { fileEvents } from "@/lib/attachments/file-events";
+import { FileExtBadge } from "@/lib/utils/file-icons";
 
 /** MIME-style key for drag-and-drop. Defined here so the editor can pick it
  *  out without coupling. Mirrors `STRIP_DRAG_MIME` in ImageStrip. */
@@ -56,22 +57,7 @@ function getExtension(filename: string): string {
   return dot >= 0 ? filename.slice(dot + 1).toLowerCase() : "";
 }
 
-/** Emoji icon for a filename's extension. Mirrors the convention used in
- *  TaskDetailPopup's PdfAttachmentsPanel (`getFileIcon`). */
-function fileIcon(filename: string): string {
-  const ext = getExtension(filename);
-  if (ext === "pdf") return "📕";
-  if (ext === "md") return "📝";
-  if (ext === "txt") return "📄";
-  if (["doc", "docx"].includes(ext)) return "📘";
-  if (["xls", "xlsx", "csv"].includes(ext)) return "📗";
-  if (["ppt", "pptx"].includes(ext)) return "📙";
-  if (["zip", "tar", "gz", "rar", "7z"].includes(ext)) return "🗜️";
-  if (["mp3", "wav", "ogg", "m4a", "flac"].includes(ext)) return "🎵";
-  if (["mp4", "mov", "avi", "mkv", "webm"].includes(ext)) return "🎬";
-  if (["json", "xml", "yml", "yaml"].includes(ext)) return "🧾";
-  return "📎";
-}
+// fileIcon replaced by shared FileExtBadge component (see lib/utils/file-icons.tsx)
 
 /**
  * Horizontal scrollable strip of every non-image file in the current task's
@@ -200,9 +186,7 @@ export default function FileStrip({
               className="group relative flex-shrink-0 w-28 h-16 rounded-md border border-gray-200 bg-white overflow-hidden hover:border-blue-400 hover:ring-2 hover:ring-blue-200 transition-all cursor-grab active:cursor-grabbing flex items-center gap-2 px-2"
               title={tooltip}
             >
-              <span className="text-2xl flex-shrink-0" aria-hidden="true">
-                {fileIcon(entry.filename)}
-              </span>
+              <FileExtBadge filename={entry.filename} />
               <span className="text-[10px] text-gray-700 truncate flex-1" title={entry.filename}>
                 {entry.filename}
               </span>

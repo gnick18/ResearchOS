@@ -14,6 +14,7 @@ import type {
 import SharePopup from "@/components/SharePopup";
 import Tooltip from "@/components/Tooltip";
 import CellCultureScheduleEditor from "@/components/CellCultureScheduleEditor";
+import { GlobeIcon, LockIcon } from "@/lib/utils/icons";
 
 /**
  * Read-write viewer for a cell-culture passaging schedule method, shown by
@@ -148,7 +149,10 @@ export default function CellCultureViewer({
                 }`}
                 title="Share method"
               >
-                {currentMethod.is_public ? "🌐 Public" : "🔒 Private"}
+                <span className="flex items-center gap-1">
+                  {currentMethod.is_public ? <GlobeIcon /> : <LockIcon />}
+                  {currentMethod.is_public ? "Public" : "Private"}
+                </span>
               </button>
             )}
             {canModify && (

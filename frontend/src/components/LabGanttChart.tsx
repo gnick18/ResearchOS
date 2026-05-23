@@ -557,12 +557,7 @@ export default function LabGanttChart({
                                   {task.username.charAt(0).toUpperCase()}
                                 </div>
 
-                                {/* Task type indicator */}
-                                {task.task_type === "experiment" && (
-                                  <div className="absolute top-0 right-0 w-4 h-4 flex items-center justify-center text-[8px] bg-black/20 rounded-bl-lg">
-                                    🔬
-                                  </div>
-                                )}
+                                {/* Task type indicator — bar color already differentiates type; badge removed */}
                                 {task.task_type === "purchase" && (
                                   <div className="absolute top-0 right-0 w-4 h-4 flex items-center justify-center text-[8px] bg-black/20 rounded-bl-lg">
                                     $

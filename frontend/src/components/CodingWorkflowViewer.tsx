@@ -18,6 +18,7 @@ import { getMethodTypeMeta } from "@/lib/methods/method-type-registry";
 import SharePopup from "@/components/SharePopup";
 import Tooltip from "@/components/Tooltip";
 import CodingWorkflowEditor, { highlightHintFor } from "@/components/CodingWorkflowEditor";
+import { GlobeIcon, LockIcon } from "@/lib/utils/icons";
 import { parseNotebook, type ParsedNbCell, type ParsedNbOutput } from "@/lib/methods/ipynb-parser";
 
 export interface CodingWorkflowViewerProps {
@@ -153,7 +154,10 @@ export default function CodingWorkflowViewer({
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
-                  {currentMethod.is_public ? "🌐 Public" : "🔒 Private"}
+                  <span className="flex items-center gap-1">
+                    {currentMethod.is_public ? <GlobeIcon /> : <LockIcon />}
+                    {currentMethod.is_public ? "Public" : "Private"}
+                  </span>
                 </button>
               </Tooltip>
             )}

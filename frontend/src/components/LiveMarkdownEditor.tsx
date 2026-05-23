@@ -1452,7 +1452,7 @@ export default function LiveMarkdownEditor({
               className="px-2.5 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
               title="Browse images already attached to this experiment"
             >
-              📷 Browse
+              Browse
             </button>
           )}
 

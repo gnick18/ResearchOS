@@ -369,7 +369,6 @@ export default function VariationNotesPanel({ task, methodId, variationNotes, on
         className="w-full flex items-center justify-between px-4 py-2.5 bg-amber-50 hover:bg-amber-100 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <span className="text-sm">📝</span>
           <span className="text-sm font-medium text-amber-800">Variation Notes</span>
           {noteCount > 0 && (
             <span className="text-xs px-1.5 py-0.5 bg-amber-200 text-amber-700 rounded">

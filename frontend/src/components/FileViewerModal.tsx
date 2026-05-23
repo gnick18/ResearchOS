@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { fileService } from "@/lib/file-system/file-service";
+import { FileIcon } from "@/lib/utils/icons";
 
 export type FileViewerKind = "text" | "pdf";
 
@@ -99,7 +100,7 @@ export default function FileViewerModal({
         >
           <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
-              <span className="text-xl flex-shrink-0" aria-hidden>📄</span>
+              <FileIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
               <h3 className="text-sm font-semibold text-gray-900 truncate" title={filename}>
                 {filename}
               </h3>
@@ -142,9 +143,7 @@ export default function FileViewerModal({
       >
         <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
           <div className="flex items-center gap-3">
-            <span className="text-2xl flex-shrink-0" aria-hidden>
-              {kind === "pdf" ? "📕" : "📄"}
-            </span>
+            <FileIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
             <div className="min-w-0">
               <h3 className="text-base font-semibold text-gray-900 truncate" title={filename}>
                 {filename}

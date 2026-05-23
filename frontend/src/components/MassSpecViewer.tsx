@@ -15,6 +15,7 @@ import type {
 import SharePopup from "@/components/SharePopup";
 import Tooltip from "@/components/Tooltip";
 import MassSpecEditor from "@/components/MassSpecEditor";
+import { GlobeIcon, LockIcon } from "@/lib/utils/icons";
 
 /**
  * Read-write viewer for a mass spec method, shown by the /methods modal.
@@ -157,7 +158,10 @@ export default function MassSpecViewer({
                 }`}
                 title="Share method"
               >
-                {currentMethod.is_public ? "🌐 Public" : "🔒 Private"}
+                <span className="flex items-center gap-1">
+                  {currentMethod.is_public ? <GlobeIcon /> : <LockIcon />}
+                  {currentMethod.is_public ? "Public" : "Private"}
+                </span>
               </button>
             )}
             {canModify && (
