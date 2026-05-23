@@ -25,6 +25,7 @@ import DevBeakerBotGalleryButton from "./DevBeakerBotGalleryButton";
 import DataSetupScreen from "./DataSetupScreen";
 import UserLoginScreen from "./UserLoginScreen";
 import FeedbackModal from "./FeedbackModal";
+import ErrorReportConfirmDialog from "./ErrorReportConfirmDialog";
 import BeakerBot from "./BeakerBot";
 import StreakBadge from "./StreakBadge";
 import { installStreakActivityTracking } from "@/lib/streak/streak-activity-bootstrap";
@@ -91,6 +92,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     closeBugReport,
     reportCurrentError,
     dismissErrorToast,
+    showAutoErrorConfirm,
+    pendingAutoError,
+    sendAutoErrorReport,
+    dismissAutoErrorReport,
   } = useErrorReporting();
 
   // The `?` help button routes to the wiki page that documents whatever
@@ -550,6 +555,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         isOpen={showBugReport}
         onClose={closeBugReport}
         prefilledError={currentError}
+      />
+
+      {/* Auto-error confirm dialog — surfaces after the BugStomp scene
+          plays on an auto-detected error, asks the user whether to file
+          a report. Bug-splat-manager wire (2026-05-23). The SceneTriggerHost
+          itself is mounted globally in lib/providers.tsx so it works on
+          pre-login surfaces (UserLoginScreen also wires up Report Bug). */}
+      <ErrorReportConfirmDialog
+        isOpen={showAutoErrorConfirm}
+        error={pendingAutoError}
+        onSend={sendAutoErrorReport}
+        onDismiss={dismissAutoErrorReport}
       />
 
       {/* Error toast — stacks above the cluster on the right edge so it

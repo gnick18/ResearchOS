@@ -18,6 +18,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import GlobalDropGuard from "@/components/GlobalDropGuard";
 import FloatingLeaveDemoButton from "@/components/FloatingLeaveDemoButton";
 import OpenDocsButton from "@/components/OpenDocsButton";
+import SceneTriggerHost from "@/components/SceneTriggerHost";
 import V4MountForUser from "@/components/onboarding/v4/V4MountForUser";
 import CelebrationManager from "@/components/onboarding/CelebrationManager";
 import { initializeErrorHandlers } from "@/lib/error-reporting";
@@ -367,6 +368,12 @@ export function Providers({ children }: { children: ReactNode }) {
         <GlobalDropGuard />
         <FloatingLeaveDemoButton />
         <OpenDocsButton />
+        {/* Global host for fire-and-forget easter-egg scenes (BugStomp,
+            etc.). Mounted at this level — above AppContent — so the
+            scene can fire from pre-login surfaces (UserLoginScreen has
+            its own Report Bug button) as well as the full AppShell.
+            Bug-splat-manager wire (2026-05-23). */}
+        <SceneTriggerHost />
         <AppContent>{children}</AppContent>
       </FileSystemProvider>
     </ErrorBoundary>
