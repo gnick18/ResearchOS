@@ -38,9 +38,12 @@ export default function OneDrivePage() {
           give them <strong>Edit</strong> permission.
         </Step>
         <Step>
-          Each invited member accepts the share. On Windows the folder appears
-          under <code>This PC → OneDrive → Shared</code>. On macOS it appears in
-          Finder under your OneDrive folder.
+          Each invited member accepts the share. The folder appears under{" "}
+          <strong>OneDrive &rarr; Shared</strong> in the File Explorer left nav
+          (Windows) or under your OneDrive folder in Finder (macOS). Using{" "}
+          <strong>Add shortcut to My files</strong> is the most reliable way to
+          get the shared folder into your normal OneDrive tree, where{" "}
+          <strong>Always keep on this device</strong> works consistently.
         </Step>
       </Steps>
 
@@ -64,6 +67,12 @@ export default function OneDrivePage() {
           shared folder.
         </Step>
       </Steps>
+
+      <Callout variant="tip" title="Folder picker may be slow on Windows">
+        The folder picker can take up to a minute to open on Windows for
+        OneDrive folders. This is normal; OneDrive needs time to enumerate
+        the folder tree. Wait for it rather than clicking again.
+      </Callout>
 
       <Callout variant="warning" title="OneDrive Personal vs. Business / SharePoint">
         Shared folders sometimes show up as <em>SharePoint</em> libraries or in

@@ -14,12 +14,16 @@
 //     pairing sidecar is missing
 //   - deleted when the toggle flips OFF
 //
-// Decryption is by design gated on the user's password — there is no
-// in-memory password cache in this codebase, so the auto-reconnect path
-// MUST prompt the user. This is intentional: the encrypted backup is a
-// "remember the token across browser wipes" feature, not a silent
-// auto-restore. The IDB-scoped token cache (telegram-token-cache.ts)
-// covers the silent same-browser case already.
+// Decryption is by design gated on the user's password. This module does
+// NOT cache the password itself: `encryptToken` / `decryptToken` receive
+// it as a parameter and use it transiently to derive the AES key, then
+// drop it. The in-memory password cache lives in `auth/cached-password.ts`
+// (a single module-scoped variable with strict wipe triggers); callers of
+// this module pull from there or prompt the user, but the cache lifetime
+// is owned by that module, not this one. The IDB-scoped token cache
+// (telegram-token-cache.ts) covers the silent same-browser case so the
+// encrypted backup only has to handle the "remember the token across
+// browser wipes" scenario.
 
 import { fileService } from "@/lib/file-system/file-service";
 
