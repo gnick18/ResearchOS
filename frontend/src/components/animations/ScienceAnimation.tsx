@@ -2,6 +2,18 @@
 
 import { useEffect, useState, useCallback } from "react";
 
+type ParticleType =
+  | "atom"
+  | "dna"
+  | "beaker"
+  | "molecule"
+  | "microscope"
+  | "flask"
+  | "testtube"
+  | "lightbulb"
+  | "gear"
+  | "atomSymbol";
+
 interface ScienceParticle {
   id: number;
   x: number;
@@ -11,7 +23,7 @@ interface ScienceParticle {
   velocityX: number;
   velocityY: number;
   rotationSpeed: number;
-  type: "atom" | "dna" | "beaker" | "molecule" | "microscope" | "flask" | "testtube";
+  type: ParticleType;
   opacity: number;
   color: string;
 }
@@ -23,18 +35,7 @@ interface Bubble {
   size: number;
   velocityY: number;
   opacity: number;
-}
-
-interface EmojiParticle {
-  id: number;
-  emoji: string;
-  x: number;
-  y: number;
-  velocityX: number;
-  velocityY: number;
-  rotation: number;
-  scale: number;
-  opacity: number;
+  hue: string;
 }
 
 interface ScienceAnimationProps {
@@ -43,229 +44,508 @@ interface ScienceAnimationProps {
   onComplete: () => void;
 }
 
-const SCIENCE_EMOJIS = ["🔬", "🧬", "⚗️", "🧪", "🧫", "🔭", "💡", "⚛️", "🦠", "💊"];
-
+// Lab greens + electric blues, with accent purples for DNA/molecule pop.
 const SCIENCE_COLORS = [
-  "#00bcd4", "#4caf50", "#2196f3", "#9c27b0", "#ff5722",
-  "#009688", "#673ab7", "#3f51b5", "#00e676", "#651fff",
+  "#009688", // teal (signature)
+  "#00bcd4", // cyan
+  "#4caf50", // lab green
+  "#2196f3", // electric blue
+  "#00e676", // neon green
+  "#26c6da", // light cyan
+  "#66bb6a", // mid green
+  "#03a9f4", // sky blue
 ];
+
+const ACCENT_COLORS = ["#9c27b0", "#ff5722", "#651fff"];
+
+interface ParticleSpec {
+  count: number;
+  type: ParticleType;
+  spread: number;
+  speedBase: number;
+  speedJitter: number;
+  scaleBase: number;
+  scaleJitter: number;
+  rotationSpeedJitter: number;
+  rotationRange: number;
+  pickColor: () => string;
+}
+
+const PARTICLE_SPECS: ParticleSpec[] = [
+  {
+    count: 6,
+    type: "atom",
+    spread: 60,
+    speedBase: 5,
+    speedJitter: 7,
+    scaleBase: 0.6,
+    scaleJitter: 0.5,
+    rotationSpeedJitter: 10,
+    rotationRange: 360,
+    pickColor: () => SCIENCE_COLORS[Math.floor(Math.random() * SCIENCE_COLORS.length)],
+  },
+  {
+    count: 5,
+    type: "dna",
+    spread: 70,
+    speedBase: 4,
+    speedJitter: 5,
+    scaleBase: 0.5,
+    scaleJitter: 0.5,
+    rotationSpeedJitter: 8,
+    rotationRange: 360,
+    pickColor: () => "#4caf50",
+  },
+  {
+    count: 4,
+    type: "beaker",
+    spread: 50,
+    speedBase: 3,
+    speedJitter: 5,
+    scaleBase: 0.6,
+    scaleJitter: 0.4,
+    rotationSpeedJitter: 5,
+    rotationRange: 30,
+    pickColor: () => "#00bcd4",
+  },
+  {
+    count: 8,
+    type: "molecule",
+    spread: 80,
+    speedBase: 4,
+    speedJitter: 6,
+    scaleBase: 0.4,
+    scaleJitter: 0.4,
+    rotationSpeedJitter: 12,
+    rotationRange: 360,
+    pickColor: () => SCIENCE_COLORS[Math.floor(Math.random() * SCIENCE_COLORS.length)],
+  },
+  {
+    count: 3,
+    type: "microscope",
+    spread: 50,
+    speedBase: 3,
+    speedJitter: 4,
+    scaleBase: 0.6,
+    scaleJitter: 0.4,
+    rotationSpeedJitter: 5,
+    rotationRange: 20,
+    pickColor: () => "#607d8b",
+  },
+  {
+    count: 4,
+    type: "flask",
+    spread: 60,
+    speedBase: 4,
+    speedJitter: 5,
+    scaleBase: 0.5,
+    scaleJitter: 0.4,
+    rotationSpeedJitter: 6,
+    rotationRange: 30,
+    pickColor: () => ACCENT_COLORS[Math.floor(Math.random() * ACCENT_COLORS.length)],
+  },
+  {
+    count: 6,
+    type: "testtube",
+    spread: 70,
+    speedBase: 4,
+    speedJitter: 5,
+    scaleBase: 0.5,
+    scaleJitter: 0.4,
+    rotationSpeedJitter: 8,
+    rotationRange: 40,
+    pickColor: () => SCIENCE_COLORS[Math.floor(Math.random() * SCIENCE_COLORS.length)],
+  },
+  {
+    count: 3,
+    type: "lightbulb",
+    spread: 60,
+    speedBase: 4,
+    speedJitter: 6,
+    scaleBase: 0.6,
+    scaleJitter: 0.4,
+    rotationSpeedJitter: 6,
+    rotationRange: 30,
+    pickColor: () => "#ffeb3b",
+  },
+  {
+    count: 3,
+    type: "gear",
+    spread: 70,
+    speedBase: 3,
+    speedJitter: 5,
+    scaleBase: 0.5,
+    scaleJitter: 0.4,
+    rotationSpeedJitter: 14,
+    rotationRange: 360,
+    pickColor: () => "#26c6da",
+  },
+  {
+    count: 5,
+    type: "atomSymbol",
+    spread: 80,
+    speedBase: 5,
+    speedJitter: 6,
+    scaleBase: 0.5,
+    scaleJitter: 0.4,
+    rotationSpeedJitter: 12,
+    rotationRange: 360,
+    pickColor: () => "#2196f3",
+  },
+];
+
+function ParticleGradients() {
+  return (
+    <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden="true">
+      <defs>
+        <radialGradient id="science-nucleus" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.9" />
+          <stop offset="60%" stopColor="#80cbc4" stopOpacity="0.9" />
+          <stop offset="100%" stopColor="#009688" stopOpacity="1" />
+        </radialGradient>
+        <linearGradient id="science-flask-fill" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#00e676" stopOpacity="0.4" />
+          <stop offset="100%" stopColor="#009688" stopOpacity="0.85" />
+        </linearGradient>
+        <linearGradient id="science-bulb" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#fff59d" />
+          <stop offset="100%" stopColor="#ffc107" />
+        </linearGradient>
+        <radialGradient id="science-glow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#80deea" stopOpacity="0.7" />
+          <stop offset="100%" stopColor="#009688" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+    </svg>
+  );
+}
+
+interface ParticleSvgProps {
+  type: ParticleType;
+  color: string;
+}
+
+function ParticleSvg({ type, color }: ParticleSvgProps) {
+  switch (type) {
+    case "atom":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
+          {/* glow halo */}
+          <circle cx="12" cy="12" r="11" fill="url(#science-glow)" />
+          {/* three orbits */}
+          <ellipse cx="12" cy="12" rx="10" ry="4" stroke={color} strokeWidth="1.5" fill="none" />
+          <ellipse
+            cx="12"
+            cy="12"
+            rx="10"
+            ry="4"
+            stroke={color}
+            strokeWidth="1.5"
+            fill="none"
+            transform="rotate(60 12 12)"
+          />
+          <ellipse
+            cx="12"
+            cy="12"
+            rx="10"
+            ry="4"
+            stroke={color}
+            strokeWidth="1.5"
+            fill="none"
+            transform="rotate(-60 12 12)"
+          />
+          {/* electrons */}
+          <circle cx="22" cy="12" r="1.3" fill={color} />
+          <circle cx="7" cy="3.5" r="1.3" fill={color} />
+          <circle cx="7" cy="20.5" r="1.3" fill={color} />
+          {/* nucleus */}
+          <circle cx="12" cy="12" r="3" fill="url(#science-nucleus)" />
+        </svg>
+      );
+    case "dna":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
+          {/* twisted ladder backbones */}
+          <path d="M7 2Q12 6 17 2" stroke="#4caf50" strokeWidth="2" fill="none" strokeLinecap="round" />
+          <path d="M7 8Q12 4 17 8" stroke="#2196f3" strokeWidth="2" fill="none" strokeLinecap="round" />
+          <path d="M7 14Q12 18 17 14" stroke="#4caf50" strokeWidth="2" fill="none" strokeLinecap="round" />
+          <path d="M7 22Q12 18 17 22" stroke="#2196f3" strokeWidth="2" fill="none" strokeLinecap="round" />
+          {/* rungs */}
+          <line x1="9" y1="4" x2="15" y2="4" stroke="#9c27b0" strokeWidth="1.5" />
+          <line x1="9" y1="10" x2="15" y2="10" stroke="#ff5722" strokeWidth="1.5" />
+          <line x1="9" y1="16" x2="15" y2="16" stroke="#9c27b0" strokeWidth="1.5" />
+          <line x1="9" y1="20" x2="15" y2="20" stroke="#ff5722" strokeWidth="1.5" />
+          {/* base pair dots */}
+          <circle cx="9" cy="4" r="1.2" fill="#4caf50" />
+          <circle cx="15" cy="4" r="1.2" fill="#2196f3" />
+          <circle cx="9" cy="10" r="1.2" fill="#2196f3" />
+          <circle cx="15" cy="10" r="1.2" fill="#4caf50" />
+        </svg>
+      );
+    case "beaker":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
+          {/* glass body */}
+          <path d="M8 2V8L4 20H20L16 8V2H8Z" fill="none" stroke="#cfd8dc" strokeWidth="1.5" strokeLinejoin="round" />
+          <rect x="7" y="1" width="10" height="2" rx="0.5" fill="#90a4ae" />
+          {/* liquid */}
+          <path d="M5.5 16H18.5L16 10H8L5.5 16Z" fill={color} opacity="0.75" />
+          <path d="M5.5 16H18.5L17.5 18H6.5L5.5 16Z" fill={color} opacity="0.55" />
+          {/* bubbles inside */}
+          <circle cx="9.5" cy="13" r="1" fill="#ffffff" opacity="0.75" />
+          <circle cx="13" cy="14" r="0.8" fill="#ffffff" opacity="0.6" />
+          <circle cx="15.5" cy="12" r="0.6" fill="#ffffff" opacity="0.7" />
+          {/* glass highlight */}
+          <path d="M9 4V8" stroke="#ffffff" strokeWidth="0.8" opacity="0.6" />
+        </svg>
+      );
+    case "molecule":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
+          {/* bonds */}
+          <line x1="12" y1="8" x2="6" y2="16" stroke={color} strokeWidth="1.8" />
+          <line x1="12" y1="8" x2="18" y2="16" stroke={color} strokeWidth="1.8" />
+          <line x1="6" y1="16" x2="18" y2="16" stroke={color} strokeWidth="1.8" opacity="0.6" />
+          {/* atoms */}
+          <circle cx="12" cy="8" r="3.5" fill={color} />
+          <circle cx="6" cy="16" r="2.8" fill={color} opacity="0.85" />
+          <circle cx="18" cy="16" r="2.8" fill={color} opacity="0.85" />
+          {/* highlights */}
+          <circle cx="11" cy="7" r="1" fill="#ffffff" opacity="0.7" />
+          <circle cx="5.2" cy="15.2" r="0.8" fill="#ffffff" opacity="0.6" />
+          <circle cx="17.2" cy="15.2" r="0.8" fill="#ffffff" opacity="0.6" />
+        </svg>
+      );
+    case "microscope":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
+          {/* eyepiece */}
+          <rect x="10.5" y="2" width="3" height="3" rx="0.5" fill="#37474f" />
+          {/* arm */}
+          <path d="M9 5L13 5L14 12L10 12Z" fill="#546e7a" />
+          {/* lens */}
+          <circle cx="12" cy="14" r="3.2" fill="#37474f" />
+          <circle cx="12" cy="14" r="2" fill="#00bcd4" opacity="0.75" />
+          <circle cx="11.2" cy="13.2" r="0.7" fill="#ffffff" opacity="0.85" />
+          {/* stage */}
+          <rect x="6" y="18" width="12" height="1.5" fill="#546e7a" />
+          {/* base */}
+          <path d="M5 19.5H19L17.5 22H6.5Z" fill="#37474f" />
+        </svg>
+      );
+    case "flask":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
+          {/* Erlenmeyer outline */}
+          <path
+            d="M10 2V8L5 19Q5 21 7 21H17Q19 21 19 19L14 8V2H10Z"
+            fill="none"
+            stroke="#cfd8dc"
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+          />
+          <rect x="9.5" y="1" width="5" height="2" rx="0.5" fill="#90a4ae" />
+          {/* liquid */}
+          <path d="M6.5 15Q12 14 17.5 15L18.5 19Q18.5 20.5 17 20.5H7Q5.5 20.5 5.5 19Z" fill="url(#science-flask-fill)" />
+          {/* steam wisps */}
+          <path d="M11 -0.5Q12 1 11 2.5" stroke="#b2dfdb" strokeWidth="0.8" fill="none" opacity="0.7" />
+          <path d="M13 -0.5Q12 1 13 2.5" stroke="#b2dfdb" strokeWidth="0.8" fill="none" opacity="0.7" />
+          {/* bubbles */}
+          <circle cx="9" cy="17" r="0.8" fill="#ffffff" opacity="0.6" />
+          <circle cx="13" cy="18" r="0.6" fill="#ffffff" opacity="0.7" />
+          <circle cx="15" cy="16.5" r="0.5" fill="#ffffff" opacity="0.5" />
+        </svg>
+      );
+    case "testtube":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
+          <rect x="9" y="2" width="6" height="19" rx="3" fill="none" stroke="#cfd8dc" strokeWidth="1.5" />
+          <rect x="8" y="1" width="8" height="2" rx="0.5" fill="#90a4ae" />
+          {/* liquid */}
+          <rect x="10" y="10" width="4" height="9" rx="1.8" fill={color} opacity="0.75" />
+          {/* meniscus */}
+          <ellipse cx="12" cy="10" rx="2" ry="0.6" fill={color} />
+          {/* highlight */}
+          <rect x="10" y="11" width="0.7" height="6" rx="0.35" fill="#ffffff" opacity="0.5" />
+          {/* bubble */}
+          <circle cx="12" cy="14" r="0.9" fill="#ffffff" opacity="0.55" />
+          <circle cx="13" cy="17" r="0.5" fill="#ffffff" opacity="0.4" />
+        </svg>
+      );
+    case "lightbulb":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
+          {/* halo */}
+          <circle cx="12" cy="10" r="10" fill="url(#science-glow)" />
+          {/* bulb */}
+          <path
+            d="M12 2Q6 2 6 9Q6 12 9 14V16H15V14Q18 12 18 9Q18 2 12 2Z"
+            fill="url(#science-bulb)"
+            stroke="#f57f17"
+            strokeWidth="0.8"
+          />
+          {/* filament */}
+          <path d="M10 11Q12 8 14 11" stroke="#f57f17" strokeWidth="0.9" fill="none" />
+          {/* base */}
+          <rect x="9.5" y="16" width="5" height="1.5" fill="#90a4ae" />
+          <rect x="10" y="17.5" width="4" height="1.2" fill="#607d8b" />
+          <rect x="10.5" y="18.7" width="3" height="1" fill="#90a4ae" />
+          {/* sparkles */}
+          <circle cx="3" cy="6" r="0.7" fill="#fff59d" />
+          <circle cx="21" cy="7" r="0.6" fill="#fff59d" />
+          <circle cx="4" cy="13" r="0.5" fill="#fff59d" />
+        </svg>
+      );
+    case "gear":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
+          {/* teeth as rectangles around center */}
+          {Array.from({ length: 8 }).map((_, i) => {
+            const angle = (i * 360) / 8;
+            return (
+              <rect
+                key={i}
+                x="11"
+                y="1"
+                width="2"
+                height="4"
+                fill={color}
+                transform={`rotate(${angle} 12 12)`}
+                rx="0.4"
+              />
+            );
+          })}
+          {/* gear body */}
+          <circle cx="12" cy="12" r="6.5" fill={color} />
+          <circle cx="12" cy="12" r="4.8" fill="#ffffff" opacity="0.18" />
+          {/* inner hole */}
+          <circle cx="12" cy="12" r="2.2" fill="#1a1a2e" />
+          <circle cx="12" cy="12" r="1.2" fill={color} opacity="0.5" />
+        </svg>
+      );
+    case "atomSymbol":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
+          {/* atomic symbol — single orbit + nucleus chip */}
+          <circle cx="12" cy="12" r="9" fill="url(#science-glow)" />
+          <ellipse
+            cx="12"
+            cy="12"
+            rx="9"
+            ry="3.5"
+            stroke={color}
+            strokeWidth="1.4"
+            fill="none"
+            transform="rotate(30 12 12)"
+          />
+          <ellipse
+            cx="12"
+            cy="12"
+            rx="9"
+            ry="3.5"
+            stroke={color}
+            strokeWidth="1.4"
+            fill="none"
+            transform="rotate(-30 12 12)"
+          />
+          {/* symbol chip — periodic table style */}
+          <rect x="8" y="8" width="8" height="8" rx="1.2" fill="#0d47a1" />
+          <text
+            x="12"
+            y="14"
+            textAnchor="middle"
+            fontSize="5"
+            fontWeight="700"
+            fill="#80d8ff"
+            fontFamily="ui-sans-serif, system-ui, sans-serif"
+          >
+            R
+          </text>
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
 
 export default function ScienceAnimation({ x, y, onComplete }: ScienceAnimationProps) {
   const [particles, setParticles] = useState<ScienceParticle[]>([]);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
-  const [emojis, setEmojis] = useState<EmojiParticle[]>([]);
-  const [glowPulse, setGlowPulse] = useState(0);
 
   const createParticles = useCallback(() => {
     const newParticles: ScienceParticle[] = [];
-    
-    // Create atoms
-    for (let i = 0; i < 6; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 5 + Math.random() * 7;
-      newParticles.push({
-        id: i,
-        x: x + (Math.random() - 0.5) * 60,
-        y: y + (Math.random() - 0.5) * 60,
-        rotation: Math.random() * 360,
-        scale: 0.6 + Math.random() * 0.5,
-        velocityX: Math.cos(angle) * speed,
-        velocityY: Math.sin(angle) * speed - 4,
-        rotationSpeed: (Math.random() - 0.5) * 10,
-        type: "atom",
-        opacity: 1,
-        color: SCIENCE_COLORS[Math.floor(Math.random() * SCIENCE_COLORS.length)],
-      });
+    let nextId = 0;
+    for (const spec of PARTICLE_SPECS) {
+      for (let i = 0; i < spec.count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = spec.speedBase + Math.random() * spec.speedJitter;
+        newParticles.push({
+          id: nextId++,
+          x: x + (Math.random() - 0.5) * spec.spread,
+          y: y + (Math.random() - 0.5) * spec.spread,
+          rotation: Math.random() * spec.rotationRange - (spec.rotationRange === 360 ? 0 : spec.rotationRange / 2),
+          scale: spec.scaleBase + Math.random() * spec.scaleJitter,
+          velocityX: Math.cos(angle) * speed,
+          velocityY: Math.sin(angle) * speed - 4,
+          rotationSpeed: (Math.random() - 0.5) * spec.rotationSpeedJitter,
+          type: spec.type,
+          opacity: 1,
+          color: spec.pickColor(),
+        });
+      }
     }
-
-    // Create DNA helixes
-    for (let i = 0; i < 5; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 4 + Math.random() * 5;
-      newParticles.push({
-        id: 6 + i,
-        x: x + (Math.random() - 0.5) * 70,
-        y: y + (Math.random() - 0.5) * 70,
-        rotation: Math.random() * 360,
-        scale: 0.5 + Math.random() * 0.5,
-        velocityX: Math.cos(angle) * speed,
-        velocityY: Math.sin(angle) * speed - 3,
-        rotationSpeed: (Math.random() - 0.5) * 8,
-        type: "dna",
-        opacity: 1,
-        color: "#4caf50",
-      });
-    }
-
-    // Create beakers
-    for (let i = 0; i < 4; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 3 + Math.random() * 5;
-      newParticles.push({
-        id: 11 + i,
-        x: x + (Math.random() - 0.5) * 50,
-        y: y + (Math.random() - 0.5) * 50,
-        rotation: Math.random() * 30 - 15,
-        scale: 0.6 + Math.random() * 0.4,
-        velocityX: Math.cos(angle) * speed,
-        velocityY: Math.sin(angle) * speed - 5,
-        rotationSpeed: (Math.random() - 0.5) * 5,
-        type: "beaker",
-        opacity: 1,
-        color: "#00bcd4",
-      });
-    }
-
-    // Create molecules
-    for (let i = 0; i < 8; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 4 + Math.random() * 6;
-      newParticles.push({
-        id: 15 + i,
-        x: x + (Math.random() - 0.5) * 80,
-        y: y + (Math.random() - 0.5) * 80,
-        rotation: Math.random() * 360,
-        scale: 0.4 + Math.random() * 0.4,
-        velocityX: Math.cos(angle) * speed,
-        velocityY: Math.sin(angle) * speed - 3,
-        rotationSpeed: (Math.random() - 0.5) * 12,
-        type: "molecule",
-        opacity: 1,
-        color: SCIENCE_COLORS[Math.floor(Math.random() * SCIENCE_COLORS.length)],
-      });
-    }
-
-    // Create microscopes
-    for (let i = 0; i < 3; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 3 + Math.random() * 4;
-      newParticles.push({
-        id: 23 + i,
-        x: x + (Math.random() - 0.5) * 50,
-        y: y + (Math.random() - 0.5) * 50,
-        rotation: Math.random() * 20 - 10,
-        scale: 0.6 + Math.random() * 0.4,
-        velocityX: Math.cos(angle) * speed,
-        velocityY: Math.sin(angle) * speed - 4,
-        rotationSpeed: (Math.random() - 0.5) * 5,
-        type: "microscope",
-        opacity: 1,
-        color: "#607d8b",
-      });
-    }
-
-    // Create flasks
-    for (let i = 0; i < 4; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 4 + Math.random() * 5;
-      newParticles.push({
-        id: 26 + i,
-        x: x + (Math.random() - 0.5) * 60,
-        y: y + (Math.random() - 0.5) * 60,
-        rotation: Math.random() * 30 - 15,
-        scale: 0.5 + Math.random() * 0.4,
-        velocityX: Math.cos(angle) * speed,
-        velocityY: Math.sin(angle) * speed - 4,
-        rotationSpeed: (Math.random() - 0.5) * 6,
-        type: "flask",
-        opacity: 1,
-        color: "#9c27b0",
-      });
-    }
-
-    // Create test tubes
-    for (let i = 0; i < 6; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 4 + Math.random() * 5;
-      newParticles.push({
-        id: 30 + i,
-        x: x + (Math.random() - 0.5) * 70,
-        y: y + (Math.random() - 0.5) * 70,
-        rotation: Math.random() * 40 - 20,
-        scale: 0.5 + Math.random() * 0.4,
-        velocityX: Math.cos(angle) * speed,
-        velocityY: Math.sin(angle) * speed - 3,
-        rotationSpeed: (Math.random() - 0.5) * 8,
-        type: "testtube",
-        opacity: 1,
-        color: SCIENCE_COLORS[Math.floor(Math.random() * SCIENCE_COLORS.length)],
-      });
-    }
-
     return newParticles;
   }, [x, y]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot init of mount-time random particles, then setInterval drives animation
     setParticles(createParticles());
-    
-    // Create bubbles
+
+    // Bubbles — laboratory effervescence rising from the origin point.
     const newBubbles: Bubble[] = [];
-    for (let i = 0; i < 25; i++) {
+    const bubbleHues = [
+      "rgba(0,188,212,0.25)",
+      "rgba(0,150,136,0.25)",
+      "rgba(76,175,80,0.25)",
+      "rgba(33,150,243,0.25)",
+    ];
+    for (let i = 0; i < 30; i++) {
       newBubbles.push({
         id: i,
-        x: x + (Math.random() - 0.5) * 120,
-        y: y + Math.random() * 40,
-        size: 4 + Math.random() * 12,
+        x: x + (Math.random() - 0.5) * 140,
+        y: y + Math.random() * 50,
+        size: 4 + Math.random() * 14,
         velocityY: -1.5 - Math.random() * 3,
         opacity: 0.5 + Math.random() * 0.5,
+        hue: bubbleHues[Math.floor(Math.random() * bubbleHues.length)],
       });
     }
     setBubbles(newBubbles);
 
-    // Create emoji particles
-    const newEmojis: EmojiParticle[] = [];
-    for (let i = 0; i < 10; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 4 + Math.random() * 6;
-      newEmojis.push({
-        id: i,
-        emoji: SCIENCE_EMOJIS[Math.floor(Math.random() * SCIENCE_EMOJIS.length)],
-        x: x + (Math.random() - 0.5) * 60,
-        y: y + (Math.random() - 0.5) * 60,
-        velocityX: Math.cos(angle) * speed,
-        velocityY: Math.sin(angle) * speed - 4,
-        rotation: Math.random() * 360,
-        scale: 0.8 + Math.random() * 0.6,
-        opacity: 1,
-      });
-    }
-    setEmojis(newEmojis);
-
-    // Animate
     const interval = setInterval(() => {
-      setParticles(prev => 
-        prev.map(p => ({
-          ...p,
-          x: p.x + p.velocityX,
-          y: p.y + p.velocityY + 0.4,
-          velocityY: p.velocityY + 0.15,
-          rotation: p.rotation + p.rotationSpeed,
-          opacity: Math.max(0, p.opacity - 0.01),
-        })).filter(p => p.y < window.innerHeight + 100 && p.opacity > 0)
+      setParticles(prev =>
+        prev
+          .map(p => ({
+            ...p,
+            x: p.x + p.velocityX,
+            y: p.y + p.velocityY + 0.4,
+            velocityY: p.velocityY + 0.15,
+            rotation: p.rotation + p.rotationSpeed,
+            opacity: Math.max(0, p.opacity - 0.01),
+          }))
+          .filter(p => p.y < window.innerHeight + 100 && p.opacity > 0),
       );
 
       setBubbles(prev =>
-        prev.map(b => ({
-          ...b,
-          y: b.y + b.velocityY,
-          opacity: Math.max(0, b.opacity - 0.01),
-        })).filter(b => b.y > -50 && b.opacity > 0)
+        prev
+          .map(b => ({
+            ...b,
+            y: b.y + b.velocityY,
+            x: b.x + Math.sin(b.y * 0.05) * 0.4,
+            opacity: Math.max(0, b.opacity - 0.01),
+          }))
+          .filter(b => b.y > -50 && b.opacity > 0),
       );
-      
-      setEmojis(prev => 
-        prev.map(e => ({
-          ...e,
-          x: e.x + e.velocityX,
-          y: e.y + e.velocityY + 0.4,
-          velocityY: e.velocityY + 0.1,
-          rotation: e.rotation + 3,
-          opacity: Math.max(0, e.opacity - 0.012),
-          scale: e.scale * 1.003,
-        })).filter(e => e.y < window.innerHeight + 50 && e.opacity > 0)
-      );
-
-      setGlowPulse(prev => prev + 0.15);
     }, 30);
 
     // Clean up after animation
@@ -282,6 +562,8 @@ export default function ScienceAnimation({ x, y, onComplete }: ScienceAnimationP
 
   return (
     <div className="fixed inset-0 pointer-events-none z-[100]">
+      <ParticleGradients />
+
       {/* Bubbles */}
       {bubbles.map(b => (
         <div
@@ -292,7 +574,8 @@ export default function ScienceAnimation({ x, y, onComplete }: ScienceAnimationP
             top: b.y,
             width: b.size,
             height: b.size,
-            background: "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.6), rgba(0,188,212,0.2))",
+            background: `radial-gradient(circle at 30% 30%, rgba(255,255,255,0.7), ${b.hue})`,
+            boxShadow: "0 0 6px rgba(0,188,212,0.3)",
             opacity: b.opacity,
           }}
         />
@@ -308,91 +591,17 @@ export default function ScienceAnimation({ x, y, onComplete }: ScienceAnimationP
             top: p.y,
             transform: `rotate(${p.rotation}deg) scale(${p.scale})`,
             opacity: p.opacity,
-            width: 40,
-            height: 40,
+            width: 44,
+            height: 44,
+            filter:
+              p.type === "lightbulb" || p.type === "atom" || p.type === "atomSymbol"
+                ? "drop-shadow(0 0 6px rgba(128, 222, 234, 0.7))"
+                : "drop-shadow(0 1px 2px rgba(0,0,0,0.2))",
           }}
         >
-          {p.type === "atom" && (
-            <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
-              <circle cx="12" cy="12" r="3" fill={p.color}/>
-              <ellipse cx="12" cy="12" rx="10" ry="4" stroke={p.color} strokeWidth="1.5" fill="none"/>
-              <ellipse cx="12" cy="12" rx="10" ry="4" stroke={p.color} strokeWidth="1.5" fill="none" transform="rotate(60 12 12)"/>
-              <ellipse cx="12" cy="12" rx="10" ry="4" stroke={p.color} strokeWidth="1.5" fill="none" transform="rotate(-60 12 12)"/>
-            </svg>
-          )}
-          {p.type === "dna" && (
-            <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
-              <path d="M6 4Q12 8 18 4" stroke="#4caf50" strokeWidth="2" fill="none"/>
-              <path d="M6 10Q12 6 18 10" stroke="#2196f3" strokeWidth="2" fill="none"/>
-              <path d="M6 14Q12 18 18 14" stroke="#4caf50" strokeWidth="2" fill="none"/>
-              <path d="M6 20Q12 16 18 20" stroke="#2196f3" strokeWidth="2" fill="none"/>
-              <line x1="9" y1="6" x2="15" y2="6" stroke="#9c27b0" strokeWidth="1.5"/>
-              <line x1="9" y1="12" x2="15" y2="12" stroke="#9c27b0" strokeWidth="1.5"/>
-              <line x1="9" y1="18" x2="15" y2="18" stroke="#9c27b0" strokeWidth="1.5"/>
-            </svg>
-          )}
-          {p.type === "beaker" && (
-            <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
-              <path d="M8 2V8L4 20H20L16 8V2H8Z" fill="none" stroke="#607d8b" strokeWidth="1.5"/>
-              <rect x="7" y="1" width="10" height="2" rx="0.5" fill="#607d8b"/>
-              <path d="M6 16H18L16 10H8L6 16Z" fill={p.color} opacity="0.6"/>
-              <circle cx="10" cy="13" r="1" fill="#fff" opacity="0.5"/>
-              <circle cx="14" cy="14" r="0.7" fill="#fff" opacity="0.5"/>
-            </svg>
-          )}
-          {p.type === "molecule" && (
-            <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
-              <circle cx="12" cy="8" r="4" fill={p.color}/>
-              <circle cx="6" cy="16" r="3" fill={p.color} opacity="0.8"/>
-              <circle cx="18" cy="16" r="3" fill={p.color} opacity="0.8"/>
-              <line x1="12" y1="12" x2="8" y2="14" stroke={p.color} strokeWidth="2"/>
-              <line x1="12" y1="12" x2="16" y2="14" stroke={p.color} strokeWidth="2"/>
-            </svg>
-          )}
-          {p.type === "microscope" && (
-            <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
-              <rect x="10" y="2" width="4" height="10" rx="1" fill="#607d8b"/>
-              <circle cx="12" cy="14" r="4" fill="#455a64"/>
-              <rect x="8" y="18" width="8" height="2" fill="#607d8b"/>
-              <rect x="6" y="20" width="12" height="2" rx="1" fill="#455a64"/>
-              <circle cx="12" cy="14" r="2" fill="#00bcd4" opacity="0.5"/>
-            </svg>
-          )}
-          {p.type === "flask" && (
-            <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
-              <path d="M9 2V6L5 18H19L15 6V2H9Z" fill="none" stroke="#607d8b" strokeWidth="1.5"/>
-              <rect x="8" y="1" width="8" height="2" rx="0.5" fill="#607d8b"/>
-              <path d="M7 14H17L15 8H9L7 14Z" fill={p.color} opacity="0.5"/>
-              <path d="M10 10Q12 8 14 10" stroke="#fff" strokeWidth="1" opacity="0.5" fill="none"/>
-            </svg>
-          )}
-          {p.type === "testtube" && (
-            <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
-              <rect x="9" y="2" width="6" height="18" rx="3" fill="none" stroke="#607d8b" strokeWidth="1.5"/>
-              <rect x="8" y="1" width="8" height="2" rx="0.5" fill="#607d8b"/>
-              <rect x="10" y="10" width="4" height="8" rx="2" fill={p.color} opacity="0.6"/>
-              <circle cx="12" cy="14" r="1" fill="#fff" opacity="0.4"/>
-            </svg>
-          )}
+          <ParticleSvg type={p.type} color={p.color} />
         </div>
       ))}
-      
-      {/* Emoji particles */}
-      {emojis.map(e => (
-        <div
-          key={`emoji-${e.id}`}
-          className="absolute text-3xl"
-          style={{
-            left: e.x,
-            top: e.y,
-            opacity: e.opacity,
-            transform: `rotate(${e.rotation}deg) scale(${e.scale})`,
-          }}
-        >
-          {e.emoji}
-        </div>
-      ))}
-      
     </div>
   );
 }
