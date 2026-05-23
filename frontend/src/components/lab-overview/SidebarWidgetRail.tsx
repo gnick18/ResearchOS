@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Widget from "./widgets/Widget";
+import SnapshotTilePopup from "./SnapshotTilePopup";
 import { WIDGET_CATALOG, getWidget } from "./widgets/registry";
 import { visibleCatalog } from "./widgets/types";
 import {
-  patchSidebarLayout,
+  patchSidebarOrder,
   readResolvedLayout,
   toggleSidebarWidget,
 } from "@/lib/lab-overview/layout-persistence";
@@ -13,21 +14,18 @@ import type { AccountType } from "@/lib/settings/user-settings";
 import Tooltip from "@/components/Tooltip";
 
 /**
- * Lab Mode retirement R2 (R2 widget framework manager, 2026-05-23):
- * the customizable left sidebar widget rail (proposal §3g). Same
- * widget primitive as the canvas; vertical drag instead of free-grid.
+ * Widget canvas Phase A (Phase A redispatch manager, 2026-05-23):
+ * the customizable left sidebar widget rail — now a single-column
+ * stack of the same snapshot tiles the canvas uses. Click a tile to
+ * open the widget's `ExpandedView` in a popup.
  *
- * Reorder is implemented with native HTML5 drag-and-drop on the
- * widget headers. react-grid-layout isn't a great fit for a single-
- * column vertical sort (it's optimized for the 12-col free grid); a
- * dedicated DnD lib (react-beautiful-dnd / framer-motion-reorder)
- * would be heavier than R2 needs. The HTML5 path is sufficient for
- * the "vertical order in a list" case and ships with the platform.
+ * The visibility-toggle list in edit mode replaces the R2
+ * order+hidden split: a widget is either in the sidebar order or
+ * it's not. Toggle = add / remove.
  *
- * Edit mode is local-state (no separate route or modal). The gear
- * button in the rail header toggles between read mode (compact card
- * stack) and edit mode (drag handles + visibility checkboxes for
- * every catalog entry).
+ * Reorder is native HTML5 drag-and-drop on the widget headers — same
+ * pattern the snapshot canvas + the home page project cards use. One
+ * persistence write per drop.
  */
 export interface SidebarWidgetRailProps {
   username: string;
@@ -40,10 +38,13 @@ export default function SidebarWidgetRail({
 }: SidebarWidgetRailProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [order, setOrder] = useState<string[] | null>(null);
-  const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [dragId, setDragId] = useState<string | null>(null);
+  const [openWidgetId, setOpenWidgetId] = useState<string | null>(null);
 
-  const catalog = useMemo(() => visibleCatalog(WIDGET_CATALOG, accountType), [accountType]);
+  const catalog = useMemo(
+    () => visibleCatalog(WIDGET_CATALOG, accountType),
+    [accountType],
+  );
   const sidebarCatalog = useMemo(
     () => catalog.filter((w) => w.surface === "sidebar" || w.surface === "both"),
     [catalog],
@@ -55,16 +56,10 @@ export default function SidebarWidgetRail({
     (async () => {
       try {
         const resolved = await readResolvedLayout(username, catalog);
-        if (!cancelled) {
-          setOrder(resolved.sidebar.order);
-          setHidden(new Set(resolved.sidebar.hidden));
-        }
+        if (!cancelled) setOrder(resolved.widgetOrder.sidebar);
       } catch (err) {
         console.warn("[SidebarWidgetRail] failed to load layout", err);
-        if (!cancelled) {
-          setOrder([]);
-          setHidden(new Set());
-        }
+        if (!cancelled) setOrder([]);
       }
     })();
     return () => {
@@ -77,7 +72,7 @@ export default function SidebarWidgetRail({
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
   };
-  const handleDrop = (targetId: string) => () => {
+  const handleDrop = (targetId: string) => async () => {
     if (!order || !dragId || dragId === targetId) {
       setDragId(null);
       return;
@@ -93,29 +88,23 @@ export default function SidebarWidgetRail({
     next.splice(to, 0, dragId);
     setOrder(next);
     setDragId(null);
-    void patchSidebarLayout(username, { order: next, hidden: Array.from(hidden) });
+    try {
+      await patchSidebarOrder(username, next);
+    } catch (err) {
+      console.warn("[SidebarWidgetRail] failed to persist sidebar order", err);
+    }
   };
 
   const handleToggle = useCallback(
     async (widgetId: string) => {
-      const next = new Set(hidden);
-      let nextOrder = order ?? [];
-      if (next.has(widgetId)) {
-        next.delete(widgetId);
-      } else {
-        next.add(widgetId);
-      }
-      // If the user toggles ON a widget that's not yet in their order,
-      // append it (toggleSidebarWidget already handles this disk-side;
-      // mirror in local state).
-      if (!nextOrder.includes(widgetId)) {
-        nextOrder = [...nextOrder, widgetId];
-        setOrder(nextOrder);
-      }
-      setHidden(next);
+      const isShown = order?.includes(widgetId) ?? false;
+      const nextOrder = isShown
+        ? (order ?? []).filter((id) => id !== widgetId)
+        : [...(order ?? []), widgetId];
+      setOrder(nextOrder);
       await toggleSidebarWidget(username, widgetId);
     },
-    [hidden, order, username],
+    [order, username],
   );
 
   if (order === null) {
@@ -126,13 +115,13 @@ export default function SidebarWidgetRail({
     );
   }
 
-  // Visible widgets (those in `order` and not in `hidden`).
-  const visibleIds = order.filter((id) => !hidden.has(id) && getWidget(id));
+  // Visible widgets — order minus any ids that aren't in the catalog
+  // (defense-in-depth; readResolvedLayout already filters).
+  const visibleIds = order.filter((id) => getWidget(id));
+  const openWidget = openWidgetId ? getWidget(openWidgetId) : null;
 
   return (
-    <aside
-      className="w-64 shrink-0 border-r border-gray-200 bg-gray-50 overflow-y-auto flex flex-col"
-    >
+    <aside className="w-64 shrink-0 border-r border-gray-200 bg-gray-50 overflow-y-auto flex flex-col">
       <header className="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-white">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
           Sidebar
@@ -160,6 +149,7 @@ export default function SidebarWidgetRail({
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
+              aria-hidden="true"
             >
               <circle cx="12" cy="12" r="3" />
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
@@ -178,7 +168,7 @@ export default function SidebarWidgetRail({
         {visibleIds.map((id) => {
           const def = getWidget(id);
           if (!def) return null;
-          const Body = def.Component;
+          const Tile = def.SnapshotTile;
           return (
             <div
               key={id}
@@ -186,10 +176,24 @@ export default function SidebarWidgetRail({
               onDragStart={handleDragStart(id)}
               onDragOver={handleDragOver}
               onDrop={handleDrop(id)}
-              className={`${isEditing ? "cursor-move" : ""} ${
-                dragId === id ? "opacity-50" : ""
-              }`}
+              className={`${
+                isEditing ? "cursor-move" : "cursor-pointer"
+              } ${dragId === id ? "opacity-50" : ""}`}
               style={{ minHeight: 120 }}
+              onClick={() => {
+                if (isEditing) return;
+                setOpenWidgetId(id);
+              }}
+              role="button"
+              tabIndex={isEditing ? -1 : 0}
+              aria-label={`Open ${def.title}`}
+              onKeyDown={(e) => {
+                if (isEditing) return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setOpenWidgetId(id);
+                }
+              }}
             >
               <Widget
                 id={id}
@@ -198,14 +202,14 @@ export default function SidebarWidgetRail({
                 surface="sidebar"
                 onRemove={() => void handleToggle(id)}
               >
-                <Body surface="sidebar" isEditing={isEditing} />
+                <Tile surface="sidebar" />
               </Widget>
             </div>
           );
         })}
 
         {/* Edit-mode catalog drawer: lists every sidebar-eligible widget
-            with a checkbox so the user can re-show ones they've hidden. */}
+            with a checkbox so the user can add ones they've removed. */}
         {isEditing && (
           <div className="mt-3 pt-3 border-t border-gray-200">
             <p className="text-[10px] uppercase tracking-wide text-gray-400 px-1 mb-1">
@@ -213,7 +217,7 @@ export default function SidebarWidgetRail({
             </p>
             <ul className="space-y-1">
               {sidebarCatalog.map((widget) => {
-                const isShown = !hidden.has(widget.id) && order.includes(widget.id);
+                const isShown = order.includes(widget.id);
                 return (
                   <li key={widget.id}>
                     <button
@@ -230,7 +234,15 @@ export default function SidebarWidgetRail({
                         }`}
                       >
                         {isShown ? (
-                          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                          <svg
+                            width="8"
+                            height="8"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                            aria-hidden="true"
+                          >
                             <polyline points="20 6 9 17 4 12" />
                           </svg>
                         ) : null}
@@ -246,6 +258,16 @@ export default function SidebarWidgetRail({
           </div>
         )}
       </div>
+
+      {/* Popup: opens the clicked tile's ExpandedView */}
+      {openWidget && (
+        <SnapshotTilePopup
+          title={openWidget.title}
+          onClose={() => setOpenWidgetId(null)}
+        >
+          <openWidget.ExpandedView surface="sidebar" isEditing={false} />
+        </SnapshotTilePopup>
+      )}
     </aside>
   );
 }

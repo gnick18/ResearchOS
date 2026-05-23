@@ -117,3 +117,61 @@ function todayIso(): string {
   d.setHours(0, 0, 0, 0);
   return d.toISOString().slice(0, 10);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase A snapshot + expanded contract (Phase A redispatch manager, 2026-05-23)
+// ─────────────────────────────────────────────────────────────────────────────
+// The widget body above is unchanged from R3 + Mira polish (archived
+// users are excluded upstream via `useArchivedUsers` consumers; here
+// the per-member rows preserve that filter). Snapshot summarizes the
+// total open + overdue across the lab.
+import StatTile from "./snapshot/StatTile";
+import type { SnapshotTileProps } from "./types";
+
+export function SnapshotTile(_props: SnapshotTileProps) {
+  const { currentUser } = useCurrentUser();
+  const accountType = useAccountType(currentUser);
+  const { tasks } = useLabData();
+  if (accountType !== "lab_head") return null;
+  const today = todayIso();
+  let open = 0;
+  let overdue = 0;
+  for (const t of tasks) {
+    if (t.is_complete) continue;
+    open++;
+    if (t.end_date && t.end_date < today) overdue++;
+  }
+  return (
+    <StatTile
+      icon={
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      }
+      iconClassName="text-indigo-500"
+      label="Member workload"
+      stat={open}
+      sub={
+        overdue > 0
+          ? `${overdue} overdue lab-wide`
+          : "open tasks lab-wide"
+      }
+    />
+  );
+}
+
+export const ExpandedView = MemberWorkloadWidget;

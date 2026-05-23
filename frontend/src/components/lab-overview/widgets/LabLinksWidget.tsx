@@ -121,3 +121,51 @@ function LinkCard({ link }: { link: LabLink }) {
     </a>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase A snapshot + expanded contract (Phase A redispatch manager, 2026-05-23)
+// ─────────────────────────────────────────────────────────────────────────────
+import StatTile from "./snapshot/StatTile";
+import type { SnapshotTileProps } from "./types";
+
+export function SnapshotTile(_props: SnapshotTileProps) {
+  const { data: links = [], isLoading } = useQuery<LabLink[]>({
+    queryKey: ["lab-links"],
+    queryFn: labLinksApi.list,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+  const categories = new Set<string>();
+  for (const link of links) categories.add(link.category || "Other");
+  return (
+    <StatTile
+      icon={
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+        </svg>
+      }
+      iconClassName="text-emerald-500"
+      label="Lab links"
+      stat={isLoading ? "—" : links.length}
+      sub={
+        links.length === 0
+          ? "No links saved"
+          : `${categories.size} categor${categories.size === 1 ? "y" : "ies"}`
+      }
+    />
+  );
+}
+
+export const ExpandedView = LabLinksWidget;

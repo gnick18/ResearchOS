@@ -318,3 +318,55 @@ function formatRelative(iso: string): string {
   if (diffDay < 7) return `${diffDay}d ago`;
   return new Date(iso).toLocaleDateString();
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase A snapshot + expanded contract (Phase A redispatch manager, 2026-05-23)
+// ─────────────────────────────────────────────────────────────────────────────
+// The widget body above is unchanged from R3 + the emoji-SVG sweep
+// (KIND_ICON + KIND_ICON_COLOR maps preserved). The snapshot reuses
+// the same notes-shared cache the body reads; the count is a quick
+// "is there activity" signal, the popup shows the full feed.
+import StatTile from "./snapshot/StatTile";
+import type { SnapshotTileProps } from "./types";
+
+export function SnapshotTile(_props: SnapshotTileProps) {
+  const { tasks } = useLabData();
+  const { data: notes = [], isLoading } = useQuery<Note[]>({
+    queryKey: ["lab", "notes-shared"],
+    queryFn: () => labApi.getNotes({ shared_only: true }),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+  const { data: announcements = [] } = useQuery({
+    queryKey: ["lab-announcements"],
+    queryFn: listAnnouncements,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+  // Count signals in the last 7 days so the headline reads as
+  // "fresh activity" rather than the lab's historical total.
+  const cutoff = isoDaysAgo(7);
+  let recent = 0;
+  for (const n of notes) {
+    for (const c of n.comments ?? []) {
+      if (c.created_at && c.created_at >= cutoff) recent++;
+    }
+  }
+  for (const t of tasks) {
+    if (t.start_date && t.start_date >= cutoff) recent++;
+  }
+  for (const a of announcements) {
+    if (a.created_at && a.created_at >= cutoff) recent++;
+  }
+  return (
+    <StatTile
+      icon={KIND_ICON.comment}
+      iconClassName={KIND_ICON_COLOR.comment}
+      label="Recent activity"
+      stat={isLoading ? "—" : recent}
+      sub={recent === 0 ? "Quiet this week" : "in the last 7 days"}
+    />
+  );
+}
+
+export const ExpandedView = RecentActivityWidget;

@@ -505,3 +505,57 @@ function formatRelative(iso: string): string {
   if (diffDay < 7) return `${diffDay}d ago`;
   return new Date(iso).toLocaleDateString();
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase A snapshot + expanded contract (Phase A redispatch manager, 2026-05-23)
+// ─────────────────────────────────────────────────────────────────────────────
+// The widget body above is unchanged from R3 + Mira polish (draft
+// persistence, unsaved-changes guard, lab_head badge gating). The Phase
+// A contract layers two small exports:
+//   - SnapshotTile: shared `<StatTile>` template, reads the same
+//     `LAB_ANNOUNCEMENTS_QUERY_KEY` so the cache is warm.
+//   - ExpandedView: alias of the existing default export — the body IS
+//     the expanded view, opened from the snapshot popup.
+import StatTile from "./snapshot/StatTile";
+import type { SnapshotTileProps } from "./types";
+
+export function SnapshotTile(_props: SnapshotTileProps) {
+  const { data: announcements = [], isLoading } = useQuery({
+    queryKey: LAB_ANNOUNCEMENTS_QUERY_KEY,
+    queryFn: listAnnouncements,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+  const total = announcements.length;
+  const pinned = announcements.filter((a) => a.pinned).length;
+  return (
+    <StatTile
+      icon={
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M3 11l18-5v12L3 14v-3z" />
+          <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
+        </svg>
+      }
+      iconClassName="text-purple-500"
+      label="Announcements"
+      stat={isLoading ? "—" : total}
+      sub={total === 0 ? "Nothing posted yet" : `${pinned} pinned`}
+    />
+  );
+}
+
+// The default-exported body above IS the expanded view. We expose it
+// under the Phase A name so the registry can import it as
+// `ExpandedView` without any change to the body itself.
+export const ExpandedView = AnnouncementsWidget;

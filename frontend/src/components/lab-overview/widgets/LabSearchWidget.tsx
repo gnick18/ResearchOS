@@ -105,3 +105,44 @@ function labTaskToTask(labTask: LabTask): Task {
     inherited_from_project: null,
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase A snapshot + expanded contract (Phase A redispatch manager, 2026-05-23)
+// ─────────────────────────────────────────────────────────────────────────────
+import StatTile from "./snapshot/StatTile";
+import type { SnapshotTileProps } from "./types";
+
+export function SnapshotTile(_props: SnapshotTileProps) {
+  const { users, tasks } = useLabData();
+  return (
+    <StatTile
+      icon={
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+      }
+      iconClassName="text-gray-500"
+      label="Lab search"
+      stat={tasks.length}
+      sub={
+        users.length === 0
+          ? "No members yet"
+          : `across ${users.length} member${users.length === 1 ? "" : "s"}`
+      }
+    />
+  );
+}
+
+export const ExpandedView = LabSearchWidget;

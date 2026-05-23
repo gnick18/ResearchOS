@@ -10,24 +10,87 @@
  * IDs are stable: changing one is a breaking schema change for
  * `_user_settings.json:lab_overview_layout`. If a widget needs to be
  * renamed in copy, leave the id; rename `title` only.
+ *
+ * Widget canvas Phase A (Phase A redispatch manager, 2026-05-23): a
+ * catalog entry now lists `SnapshotTile` + `ExpandedView` instead of a
+ * single `Component`. The snapshot is the small tile rendered on the
+ * canvas + sidebar; the expanded view is the rich body that previously
+ * mounted directly. The existing widget bodies are preserved
+ * unchanged — they're simply re-exposed under the `ExpandedView` name
+ * (see each widget file's bottom for the alias). The snapshot tile is
+ * a small placeholder built on the shared `<StatTile>` template; Phase
+ * B chips replace each per-widget design.
  */
 import type { WidgetDefinition } from "./types";
-import AnnouncementsWidget from "./AnnouncementsWidget";
-import CommentFeedWidget from "./CommentFeedWidget";
-import MetricsWidget from "./MetricsWidget";
-import RecentActivityWidget from "./RecentActivityWidget";
-import PiActionsWidget from "./PiActionsWidget";
-import MemberWorkloadWidget from "./MemberWorkloadWidget";
-import TodaysAnnouncementsWidget from "./TodaysAnnouncementsWidget";
-import LabNotesWidget from "./LabNotesWidget";
-import LabExperimentsWidget from "./LabExperimentsWidget";
-import LabSearchWidget from "./LabSearchWidget";
-import LabLinksWidget from "./LabLinksWidget";
+import AnnouncementsWidget, {
+  SnapshotTile as AnnouncementsSnapshot,
+  ExpandedView as AnnouncementsExpanded,
+} from "./AnnouncementsWidget";
+import CommentFeedWidget, {
+  SnapshotTile as CommentFeedSnapshot,
+  ExpandedView as CommentFeedExpanded,
+} from "./CommentFeedWidget";
+import MetricsWidget, {
+  SnapshotTile as MetricsSnapshot,
+  ExpandedView as MetricsExpanded,
+} from "./MetricsWidget";
+import RecentActivityWidget, {
+  SnapshotTile as RecentActivitySnapshot,
+  ExpandedView as RecentActivityExpanded,
+} from "./RecentActivityWidget";
+import PiActionsWidget, {
+  SnapshotTile as PiActionsSnapshot,
+  ExpandedView as PiActionsExpanded,
+} from "./PiActionsWidget";
+import MemberWorkloadWidget, {
+  SnapshotTile as MemberWorkloadSnapshot,
+  ExpandedView as MemberWorkloadExpanded,
+} from "./MemberWorkloadWidget";
+import TodaysAnnouncementsWidget, {
+  SnapshotTile as TodaysAnnouncementsSnapshot,
+  ExpandedView as TodaysAnnouncementsExpanded,
+} from "./TodaysAnnouncementsWidget";
+import LabNotesWidget, {
+  SnapshotTile as LabNotesSnapshot,
+  ExpandedView as LabNotesExpanded,
+} from "./LabNotesWidget";
+import LabExperimentsWidget, {
+  SnapshotTile as LabExperimentsSnapshot,
+  ExpandedView as LabExperimentsExpanded,
+} from "./LabExperimentsWidget";
+import LabSearchWidget, {
+  SnapshotTile as LabSearchSnapshot,
+  ExpandedView as LabSearchExpanded,
+} from "./LabSearchWidget";
+import LabLinksWidget, {
+  SnapshotTile as LabLinksSnapshot,
+  ExpandedView as LabLinksExpanded,
+} from "./LabLinksWidget";
 import {
-  OverdueTasksWidget,
-  TodaysTasksWidget,
-  UpcomingTasksWidget,
+  OverdueTasksSnapshot,
+  TodaysTasksSnapshot,
+  UpcomingTasksSnapshot,
+  OverdueTasksExpanded,
+  TodaysTasksExpanded,
+  UpcomingTasksExpanded,
 } from "./TaskListWidgets";
+
+// Touch the default exports so TypeScript doesn't flag them as unused
+// imports — we intentionally import them for symmetry / side-effect
+// (the widget body module is loaded eagerly so its hooks register the
+// query keys in React Query's cache map). Cheaper than splitting the
+// imports across "type only" + "value" lines.
+void AnnouncementsWidget;
+void CommentFeedWidget;
+void MetricsWidget;
+void RecentActivityWidget;
+void PiActionsWidget;
+void MemberWorkloadWidget;
+void TodaysAnnouncementsWidget;
+void LabNotesWidget;
+void LabExperimentsWidget;
+void LabSearchWidget;
+void LabLinksWidget;
 
 export const WIDGET_CATALOG: WidgetDefinition[] = [
   // ── Canvas widgets ───────────────────────────────────────────────────
@@ -35,7 +98,8 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     id: "announcements",
     title: "Announcements",
     description: "Lab-wide updates. PI composer + pinned posts.",
-    Component: AnnouncementsWidget,
+    SnapshotTile: AnnouncementsSnapshot,
+    ExpandedView: AnnouncementsExpanded,
     defaultLayout: { w: 12, h: 3, minW: 4, minH: 2 },
     surface: "canvas",
     memberVisible: true,
@@ -44,7 +108,8 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     id: "comment-feed",
     title: "Lab comments",
     description: "Every comment thread across the lab, newest first.",
-    Component: CommentFeedWidget,
+    SnapshotTile: CommentFeedSnapshot,
+    ExpandedView: CommentFeedExpanded,
     defaultLayout: { w: 8, h: 6, minW: 4, minH: 3 },
     surface: "canvas",
     memberVisible: true,
@@ -53,23 +118,22 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     id: "metrics",
     title: "Lab metrics",
     description: "Cross-lab Gantt overlay + funding + roadmap rollup.",
-    Component: MetricsWidget,
+    SnapshotTile: MetricsSnapshot,
+    ExpandedView: MetricsExpanded,
     defaultLayout: { w: 4, h: 6, minW: 4, minH: 4 },
     surface: "canvas",
     memberVisible: false, // lab_head only
   },
 
   // R3 catalog additions (R3 widget catalog manager, 2026-05-23):
-  // canvas-surface ports of the Lab Mode panels. None are in the
-  // default layout — members + PIs add via the "+ Add widget" palette
-  // so the first-run Lab Overview stays focused on the R2 trio
-  // (announcements + comments + metrics).
+  // canvas-surface ports of the Lab Mode panels.
   {
     id: "lab-notes",
     title: "Lab notes",
     description:
       "Cross-lab notes the viewer can read (canRead filter), searchable + filterable.",
-    Component: LabNotesWidget,
+    SnapshotTile: LabNotesSnapshot,
+    ExpandedView: LabNotesExpanded,
     defaultLayout: { w: 6, h: 6, minW: 4, minH: 4 },
     surface: "canvas",
     memberVisible: true,
@@ -78,7 +142,8 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     id: "lab-experiments",
     title: "Lab experiments",
     description: "Outcome gallery of every lab member's experiments.",
-    Component: LabExperimentsWidget,
+    SnapshotTile: LabExperimentsSnapshot,
+    ExpandedView: LabExperimentsExpanded,
     defaultLayout: { w: 6, h: 6, minW: 4, minH: 4 },
     surface: "canvas",
     memberVisible: true,
@@ -88,7 +153,8 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     title: "Lab search",
     description:
       "Cross-lab keyword + filter search across tasks, projects, methods.",
-    Component: LabSearchWidget,
+    SnapshotTile: LabSearchSnapshot,
+    ExpandedView: LabSearchExpanded,
     defaultLayout: { w: 6, h: 8, minW: 4, minH: 5 },
     surface: "canvas",
     memberVisible: true,
@@ -97,7 +163,8 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     id: "lab-links",
     title: "Lab links",
     description: "Shared lab links grouped by category. Read-only navigation.",
-    Component: LabLinksWidget,
+    SnapshotTile: LabLinksSnapshot,
+    ExpandedView: LabLinksExpanded,
     defaultLayout: { w: 6, h: 4, minW: 3, minH: 3 },
     surface: "canvas",
     memberVisible: true,
@@ -108,16 +175,18 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     id: "sidebar-recent-activity",
     title: "Recent lab activity",
     description: "Newest comments, shares, and task creations across the lab.",
-    Component: RecentActivityWidget,
+    SnapshotTile: RecentActivitySnapshot,
+    ExpandedView: RecentActivityExpanded,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
-    memberVisible: true, // ordinary members benefit too if they enable it
+    memberVisible: true,
   },
   {
     id: "sidebar-pi-actions",
     title: "Pending lab head actions",
     description: "Purchase approvals + flag queue counts (R3).",
-    Component: PiActionsWidget,
+    SnapshotTile: PiActionsSnapshot,
+    ExpandedView: PiActionsExpanded,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
     memberVisible: false, // PI-only signal
@@ -126,7 +195,8 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     id: "sidebar-member-workload",
     title: "Member workload",
     description: "Open + overdue counts per lab member.",
-    Component: MemberWorkloadWidget,
+    SnapshotTile: MemberWorkloadSnapshot,
+    ExpandedView: MemberWorkloadExpanded,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
     memberVisible: false,
@@ -135,7 +205,8 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     id: "sidebar-todays-announcements",
     title: "Today's announcements",
     description: "Pinned announcements, titles only.",
-    Component: TodaysAnnouncementsWidget,
+    SnapshotTile: TodaysAnnouncementsSnapshot,
+    ExpandedView: TodaysAnnouncementsExpanded,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
     memberVisible: true,
@@ -146,7 +217,8 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     id: "sidebar-overdue",
     title: "Overdue tasks",
     description: "Your past-due open tasks.",
-    Component: OverdueTasksWidget,
+    SnapshotTile: OverdueTasksSnapshot,
+    ExpandedView: OverdueTasksExpanded,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
     memberVisible: true,
@@ -155,7 +227,8 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     id: "sidebar-today",
     title: "Today's tasks",
     description: "Tasks scheduled to land today.",
-    Component: TodaysTasksWidget,
+    SnapshotTile: TodaysTasksSnapshot,
+    ExpandedView: TodaysTasksExpanded,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
     memberVisible: true,
@@ -164,7 +237,8 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     id: "sidebar-upcoming",
     title: "Upcoming tasks",
     description: "Tasks starting after today.",
-    Component: UpcomingTasksWidget,
+    SnapshotTile: UpcomingTasksSnapshot,
+    ExpandedView: UpcomingTasksExpanded,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
     memberVisible: true,

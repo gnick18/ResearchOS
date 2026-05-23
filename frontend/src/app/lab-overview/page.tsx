@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
-import WidgetCanvas from "@/components/lab-overview/WidgetCanvas";
+import SnapshotCanvas from "@/components/lab-overview/SnapshotCanvas";
 import SidebarWidgetRail from "@/components/lab-overview/SidebarWidgetRail";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { readUserSettings, type AccountType } from "@/lib/settings/user-settings";
@@ -128,7 +128,7 @@ function LabOverviewBody() {
             </p>
           </header>
 
-          <WidgetCanvas username={currentUser} accountType={accountType} />
+          <SnapshotCanvas username={currentUser} accountType={accountType} />
         </div>
       </div>
     </div>

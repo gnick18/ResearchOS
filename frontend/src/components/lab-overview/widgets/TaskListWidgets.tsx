@@ -123,3 +123,84 @@ export function UpcomingTasksWidget(_props?: WidgetBodyProps) {
     </ul>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase A snapshot + expanded contract (Phase A redispatch manager, 2026-05-23)
+// ─────────────────────────────────────────────────────────────────────────────
+// Three widgets in one file → three SnapshotTile + ExpandedView pairs.
+// Each snapshot reuses the same `useActiveTasks` hook the body uses
+// so React Query dedupes the fetch.
+import StatTile from "./snapshot/StatTile";
+import type { SnapshotTileProps } from "./types";
+
+const TASK_ICON = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M9 11l3 3L22 4" />
+    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+  </svg>
+);
+
+export function OverdueTasksSnapshot(_props: SnapshotTileProps) {
+  const tasks = useActiveTasks();
+  const today = todayISO();
+  const count = tasks.filter((t) => t.end_date < today && !t.is_complete).length;
+  return (
+    <StatTile
+      icon={TASK_ICON}
+      iconClassName="text-red-500"
+      label="Overdue"
+      stat={count}
+      sub={count === 0 ? "Nothing overdue" : "task" + (count === 1 ? "" : "s")}
+    />
+  );
+}
+
+export function TodaysTasksSnapshot(_props: SnapshotTileProps) {
+  const tasks = useActiveTasks();
+  const today = todayISO();
+  const count = tasks.filter(
+    (t) => t.start_date <= today && t.end_date >= today && !t.is_complete,
+  ).length;
+  return (
+    <StatTile
+      icon={TASK_ICON}
+      iconClassName="text-blue-500"
+      label="Today"
+      stat={count}
+      sub={count === 0 ? "Nothing scheduled" : "task" + (count === 1 ? "" : "s") + " today"}
+    />
+  );
+}
+
+export function UpcomingTasksSnapshot(_props: SnapshotTileProps) {
+  const tasks = useActiveTasks();
+  const today = todayISO();
+  const count = tasks.filter((t) => t.start_date > today && !t.is_complete).length;
+  return (
+    <StatTile
+      icon={TASK_ICON}
+      iconClassName="text-emerald-500"
+      label="Upcoming"
+      stat={count}
+      sub={count === 0 ? "Nothing queued" : "task" + (count === 1 ? "" : "s") + " ahead"}
+    />
+  );
+}
+
+// ExpandedView aliases — the existing widget bodies ARE the expanded
+// views, exposed under the Phase A name so the registry can wire them
+// in via the `ExpandedView` field.
+export const OverdueTasksExpanded = OverdueTasksWidget;
+export const TodaysTasksExpanded = TodaysTasksWidget;
+export const UpcomingTasksExpanded = UpcomingTasksWidget;

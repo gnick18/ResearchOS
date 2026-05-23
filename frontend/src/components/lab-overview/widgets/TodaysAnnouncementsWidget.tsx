@@ -71,3 +71,49 @@ export default function TodaysAnnouncementsWidget(_props?: {
     </ul>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase A snapshot + expanded contract (Phase A redispatch manager, 2026-05-23)
+// ─────────────────────────────────────────────────────────────────────────────
+// The widget body above is unchanged (inline pin SVG preserved). The
+// snapshot reads the same `lab-announcements` cache; the body is the
+// expanded popup content.
+import StatTile from "./snapshot/StatTile";
+import type { SnapshotTileProps } from "./types";
+
+export function SnapshotTile(_props: SnapshotTileProps) {
+  const { data: announcements = [], isLoading } = useQuery({
+    queryKey: ["lab-announcements"],
+    queryFn: listAnnouncements,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+  const pinned = announcements.filter((a) => a.pinned).length;
+  return (
+    <StatTile
+      icon={
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <line x1="12" y1="17" x2="12" y2="22" />
+          <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24z" />
+        </svg>
+      }
+      iconClassName="text-emerald-500"
+      label="Pinned today"
+      stat={isLoading ? "—" : pinned}
+      sub={pinned === 0 ? "Nothing pinned" : "announcement" + (pinned === 1 ? "" : "s")}
+    />
+  );
+}
+
+export const ExpandedView = TodaysAnnouncementsWidget;

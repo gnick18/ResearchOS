@@ -1,30 +1,44 @@
 import { describe, it, expect } from "vitest";
-import { resolveLayout } from "./layout-persistence";
+import {
+  LAB_OVERVIEW_LAYOUT_VERSION,
+  migrateLayoutToV2,
+  resolveLayout,
+} from "./layout-persistence";
 import {
   visibleCatalog,
   type WidgetDefinition,
 } from "@/components/lab-overview/widgets/types";
-import type { LabOverviewLayout } from "@/lib/settings/user-settings";
+import type {
+  LabOverviewLayout,
+  LabOverviewLayoutV1,
+} from "@/lib/settings/user-settings";
 
 /**
- * Lab Mode retirement R2 (R2 widget framework manager, 2026-05-23):
- * unit tests for the layout resolver. Covers the three load-bearing
- * promises in the brief:
- *   - missing layout → account-type-appropriate default
+ * Widget canvas Phase A (Phase A redispatch manager, 2026-05-23):
+ * unit tests for the layout resolver + the v1 → v2 migration.
+ *
+ * Covers:
+ *   - missing layout → account-type-appropriate default (v2 shape)
  *   - unknown widget id in saved layout → silently dropped
- *   - new catalog widget not in saved layout → appended at bottom
+ *   - new catalog widget not in saved layout → appended at end
+ *   - v1 free-grid → v2 ordered-list migration: y ASC, x ASC sort for
+ *     canvas; sidebar = order minus hidden
+ *   - migration idempotence: feeding a v2 payload back through returns
+ *     an equivalent v2 payload, not a doubly-migrated mess
  *
  * `resolveLayout` is the pure core (no I/O) so we can test it without
  * stubbing the file system.
  */
 
-const NullComponent = () => null;
+const NullSnapshot = () => null;
+const NullExpanded = () => null;
 
 const fakeCatalog: WidgetDefinition[] = [
   {
     id: "announcements",
     title: "Announcements",
-    Component: NullComponent,
+    SnapshotTile: NullSnapshot,
+    ExpandedView: NullExpanded,
     defaultLayout: { w: 12, h: 3 },
     surface: "canvas",
     memberVisible: true,
@@ -32,7 +46,8 @@ const fakeCatalog: WidgetDefinition[] = [
   {
     id: "comment-feed",
     title: "Lab comments",
-    Component: NullComponent,
+    SnapshotTile: NullSnapshot,
+    ExpandedView: NullExpanded,
     defaultLayout: { w: 8, h: 6 },
     surface: "canvas",
     memberVisible: true,
@@ -40,7 +55,8 @@ const fakeCatalog: WidgetDefinition[] = [
   {
     id: "metrics",
     title: "Lab metrics",
-    Component: NullComponent,
+    SnapshotTile: NullSnapshot,
+    ExpandedView: NullExpanded,
     defaultLayout: { w: 4, h: 6 },
     surface: "canvas",
     memberVisible: false,
@@ -48,7 +64,8 @@ const fakeCatalog: WidgetDefinition[] = [
   {
     id: "sidebar-recent-activity",
     title: "Recent lab activity",
-    Component: NullComponent,
+    SnapshotTile: NullSnapshot,
+    ExpandedView: NullExpanded,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
     memberVisible: true,
@@ -56,95 +73,96 @@ const fakeCatalog: WidgetDefinition[] = [
   {
     id: "sidebar-overdue",
     title: "Overdue",
-    Component: NullComponent,
+    SnapshotTile: NullSnapshot,
+    ExpandedView: NullExpanded,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
     memberVisible: true,
   },
 ];
 
-describe("resolveLayout", () => {
+describe("resolveLayout (v2 shape)", () => {
   it("falls back to the lab_head default when saved is undefined", () => {
     const layout = resolveLayout(undefined, "lab_head", fakeCatalog);
-    // lab_head default has announcements + comment-feed + metrics on canvas
-    expect(Object.keys(layout.canvas).sort()).toEqual([
+    expect(layout.version).toBe(LAB_OVERVIEW_LAYOUT_VERSION);
+    expect(layout.widgetOrder.canvas).toEqual([
       "announcements",
       "comment-feed",
       "metrics",
     ]);
-    expect(layout.sidebar.order).toContain("sidebar-recent-activity");
+    expect(layout.widgetOrder.sidebar).toContain("sidebar-recent-activity");
   });
 
   it("falls back to the member default when saved is undefined", () => {
-    // Member callers pass a visibility-filtered catalog (no PI-only widgets).
     const memberCatalog = visibleCatalog(fakeCatalog, "member");
     const layout = resolveLayout(undefined, "member", memberCatalog);
-    // Member default: no metrics widget on canvas (it's lab_head only).
-    expect(Object.keys(layout.canvas).sort()).toEqual([
+    expect(layout.widgetOrder.canvas).toEqual([
       "announcements",
       "comment-feed",
     ]);
-    expect(layout.sidebar.order).toContain("sidebar-overdue");
+    expect(layout.widgetOrder.sidebar).toContain("sidebar-overdue");
+    // No metrics for members
+    expect(layout.widgetOrder.canvas).not.toContain("metrics");
   });
 
   it("drops unknown widget ids from the saved canvas", () => {
     const saved: LabOverviewLayout = {
-      version: 1,
-      canvas: {
-        announcements: { x: 0, y: 0, w: 12, h: 3 },
-        // This id is not in the catalog — it must be silently dropped.
-        "ancient-widget-from-r1": { x: 0, y: 3, w: 6, h: 4 },
+      version: 2,
+      widgetOrder: {
+        canvas: ["announcements", "ancient-widget-from-r1"],
+        sidebar: ["sidebar-overdue"],
       },
-      sidebar: { order: ["sidebar-overdue"], hidden: [] },
     };
     const layout = resolveLayout(saved, "lab_head", fakeCatalog);
-    expect(layout.canvas).not.toHaveProperty("ancient-widget-from-r1");
-    expect(layout.canvas).toHaveProperty("announcements");
+    expect(layout.widgetOrder.canvas).not.toContain("ancient-widget-from-r1");
+    expect(layout.widgetOrder.canvas).toContain("announcements");
   });
 
-  it("appends new catalog widgets that aren't in the saved canvas at the bottom", () => {
+  it("appends new catalog widgets that aren't in the saved canvas at the end", () => {
     const saved: LabOverviewLayout = {
-      version: 1,
-      canvas: {
-        announcements: { x: 0, y: 0, w: 12, h: 3 },
-        // comment-feed + metrics are in the catalog but missing here —
-        // they should be appended below announcements, in catalog order.
+      version: 2,
+      widgetOrder: {
+        canvas: ["announcements"],
+        sidebar: [],
       },
-      sidebar: { order: [], hidden: [] },
     };
     const layout = resolveLayout(saved, "lab_head", fakeCatalog);
-    expect(layout.canvas).toHaveProperty("comment-feed");
-    expect(layout.canvas).toHaveProperty("metrics");
-    // Announcements stays at y=0; appended widgets land below it.
-    expect(layout.canvas.announcements.y).toBe(0);
-    expect(layout.canvas["comment-feed"].y).toBeGreaterThanOrEqual(3);
-    expect(layout.canvas.metrics.y).toBeGreaterThan(layout.canvas["comment-feed"].y);
+    expect(layout.widgetOrder.canvas[0]).toBe("announcements");
+    expect(layout.widgetOrder.canvas).toContain("comment-feed");
+    expect(layout.widgetOrder.canvas).toContain("metrics");
+    // Appended widgets come AFTER the user's saved entry.
+    const idxAnnouncements = layout.widgetOrder.canvas.indexOf("announcements");
+    const idxCommentFeed = layout.widgetOrder.canvas.indexOf("comment-feed");
+    expect(idxCommentFeed).toBeGreaterThan(idxAnnouncements);
   });
 
-  it("preserves the user's custom positions for widgets they've moved", () => {
+  it("preserves the user's custom order for widgets they've moved", () => {
     const saved: LabOverviewLayout = {
-      version: 1,
-      canvas: {
-        announcements: { x: 6, y: 4, w: 6, h: 2 }, // user moved + resized
+      version: 2,
+      widgetOrder: {
+        canvas: ["metrics", "announcements", "comment-feed"],
+        sidebar: [],
       },
-      sidebar: { order: [], hidden: [] },
     };
     const layout = resolveLayout(saved, "lab_head", fakeCatalog);
-    expect(layout.canvas.announcements).toEqual({ x: 6, y: 4, w: 6, h: 2 });
+    expect(layout.widgetOrder.canvas).toEqual([
+      "metrics",
+      "announcements",
+      "comment-feed",
+    ]);
   });
 
-  it("appends new sidebar catalog widgets to the end of order, un-hidden", () => {
+  it("appends new sidebar catalog widgets to the end of order", () => {
     const saved: LabOverviewLayout = {
-      version: 1,
-      canvas: {},
-      sidebar: { order: ["sidebar-overdue"], hidden: [] },
+      version: 2,
+      widgetOrder: {
+        canvas: [],
+        sidebar: ["sidebar-overdue"],
+      },
     };
     const layout = resolveLayout(saved, "lab_head", fakeCatalog);
-    // sidebar-recent-activity is a catalog entry not in saved order; gets appended.
-    expect(layout.sidebar.order).toContain("sidebar-recent-activity");
-    expect(layout.sidebar.hidden).not.toContain("sidebar-recent-activity");
-    // Existing entry stays at its position.
-    expect(layout.sidebar.order[0]).toBe("sidebar-overdue");
+    expect(layout.widgetOrder.sidebar).toContain("sidebar-recent-activity");
+    expect(layout.widgetOrder.sidebar[0]).toBe("sidebar-overdue");
   });
 
   it("visibleCatalog filters out PI-only widgets for members", () => {
@@ -161,16 +179,116 @@ describe("resolveLayout", () => {
 
   it("dedupes any duplicate sidebar order entries from a hand-edited blob", () => {
     const saved: LabOverviewLayout = {
-      version: 1,
-      canvas: {},
-      sidebar: {
-        order: ["sidebar-overdue", "sidebar-overdue", "sidebar-overdue"],
-        hidden: [],
+      version: 2,
+      widgetOrder: {
+        canvas: [],
+        sidebar: ["sidebar-overdue", "sidebar-overdue", "sidebar-overdue"],
       },
     };
     const layout = resolveLayout(saved, "lab_head", fakeCatalog);
     expect(
-      layout.sidebar.order.filter((id) => id === "sidebar-overdue").length,
+      layout.widgetOrder.sidebar.filter((id) => id === "sidebar-overdue").length,
     ).toBe(1);
+  });
+});
+
+describe("migrateLayoutToV2", () => {
+  it("returns undefined when input is undefined", () => {
+    expect(migrateLayoutToV2(undefined)).toBeUndefined();
+  });
+
+  it("sorts the v1 canvas by y ASC then x ASC and flattens to id list", () => {
+    const v1: LabOverviewLayoutV1 = {
+      version: 1,
+      canvas: {
+        // Intentionally unordered to exercise the sort. Expected output
+        // order: announcements (y=0), comment-feed (y=3,x=0), metrics
+        // (y=3,x=8), lab-notes (y=9).
+        metrics: { x: 8, y: 3, w: 4, h: 6 },
+        "comment-feed": { x: 0, y: 3, w: 8, h: 6 },
+        "lab-notes": { x: 0, y: 9, w: 6, h: 6 },
+        announcements: { x: 0, y: 0, w: 12, h: 3 },
+      },
+      sidebar: { order: [], hidden: [] },
+    };
+    const migrated = migrateLayoutToV2(v1)!;
+    expect(migrated.version).toBe(LAB_OVERVIEW_LAYOUT_VERSION);
+    expect(migrated.widgetOrder.canvas).toEqual([
+      "announcements",
+      "comment-feed",
+      "metrics",
+      "lab-notes",
+    ]);
+  });
+
+  it("drops hidden sidebar ids from the migrated order", () => {
+    const v1: LabOverviewLayoutV1 = {
+      version: 1,
+      canvas: {},
+      sidebar: {
+        order: [
+          "sidebar-recent-activity",
+          "sidebar-pi-actions",
+          "sidebar-overdue",
+        ],
+        hidden: ["sidebar-overdue"],
+      },
+    };
+    const migrated = migrateLayoutToV2(v1)!;
+    expect(migrated.widgetOrder.sidebar).toEqual([
+      "sidebar-recent-activity",
+      "sidebar-pi-actions",
+    ]);
+    expect(migrated.widgetOrder.sidebar).not.toContain("sidebar-overdue");
+  });
+
+  it("is idempotent on a v2 payload (no double migration)", () => {
+    const v2: LabOverviewLayout = {
+      version: 2,
+      widgetOrder: {
+        canvas: ["announcements", "comment-feed", "metrics"],
+        sidebar: ["sidebar-recent-activity"],
+      },
+    };
+    const once = migrateLayoutToV2(v2)!;
+    const twice = migrateLayoutToV2(once)!;
+    expect(once.widgetOrder).toEqual(v2.widgetOrder);
+    expect(twice.widgetOrder).toEqual(v2.widgetOrder);
+    expect(twice.version).toBe(LAB_OVERVIEW_LAYOUT_VERSION);
+  });
+
+  it("resolveLayout migrates a v1 payload end-to-end", () => {
+    const v1: LabOverviewLayoutV1 = {
+      version: 1,
+      canvas: {
+        metrics: { x: 8, y: 3, w: 4, h: 6 },
+        announcements: { x: 0, y: 0, w: 12, h: 3 },
+        "comment-feed": { x: 0, y: 3, w: 8, h: 6 },
+      },
+      sidebar: {
+        order: ["sidebar-recent-activity", "sidebar-overdue"],
+        hidden: ["sidebar-overdue"],
+      },
+    };
+    const layout = resolveLayout(v1, "lab_head", fakeCatalog);
+    expect(layout.version).toBe(LAB_OVERVIEW_LAYOUT_VERSION);
+    expect(layout.widgetOrder.canvas).toEqual([
+      "announcements",
+      "comment-feed",
+      "metrics",
+    ]);
+    // sidebar-overdue was hidden in v1; after migration it drops out of
+    // the saved order. resolveLayout then re-appends it (every catalog
+    // widget not in the saved list is appended at the end) — so the
+    // post-migrate-then-resolve sidebar has sidebar-recent-activity
+    // FIRST (saved position) and sidebar-overdue LAST (re-appended from
+    // catalog). Idiomatic: v1 "hidden" meant "I don't see this today",
+    // not "delete forever"; the new model surfaces all catalog entries
+    // unless the user explicitly removes them post-migration.
+    expect(layout.widgetOrder.sidebar[0]).toBe("sidebar-recent-activity");
+    expect(layout.widgetOrder.sidebar).toContain("sidebar-overdue");
+    const idxRecent = layout.widgetOrder.sidebar.indexOf("sidebar-recent-activity");
+    const idxOverdue = layout.widgetOrder.sidebar.indexOf("sidebar-overdue");
+    expect(idxOverdue).toBeGreaterThan(idxRecent);
   });
 });

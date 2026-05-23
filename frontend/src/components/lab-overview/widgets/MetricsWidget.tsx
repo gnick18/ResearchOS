@@ -727,3 +727,57 @@ function startOfTodayISO(): string {
   d.setHours(0, 0, 0, 0);
   return d.toISOString().slice(0, 10);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase A snapshot + expanded contract (Phase A redispatch manager, 2026-05-23)
+// ─────────────────────────────────────────────────────────────────────────────
+// The widget body above is unchanged from R3 + Mira-Skeptic
+// approved-filter + Mira-polish archived-user filter. The Phase A
+// snapshot reads the same caches the body uses (useLabData +
+// getAllPurchaseItems) so no extra network. The `isApproved` predicate
+// is preserved INSIDE the body — the snapshot here uses the same
+// `approved === false` literal to keep the two surfaces in sync.
+import StatTile from "./snapshot/StatTile";
+import type { SnapshotTileProps } from "./types";
+
+export function SnapshotTile(_props: SnapshotTileProps) {
+  const { tasks } = useLabData();
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ["lab", "purchase-items"],
+    queryFn: () => labApi.getAllPurchaseItems(),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+  const pending = items.filter((it: { approved?: boolean }) => it.approved === false).length;
+  return (
+    <StatTile
+      icon={
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M3 3v18h18" />
+          <path d="M7 14l4-4 4 4 5-6" />
+        </svg>
+      }
+      iconClassName="text-emerald-600"
+      label="Lab metrics"
+      stat={isLoading ? "—" : tasks.length}
+      sub={
+        pending > 0
+          ? `${pending} pending approval${pending === 1 ? "" : "s"}`
+          : "tasks in flight"
+      }
+    />
+  );
+}
+
+export const ExpandedView = MetricsWidget;

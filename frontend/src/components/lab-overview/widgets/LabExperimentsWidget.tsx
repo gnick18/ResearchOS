@@ -139,3 +139,48 @@ function labTaskToTask(labTask: LabTask): Task {
     inherited_from_project: null,
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase A snapshot + expanded contract (Phase A redispatch manager, 2026-05-23)
+// ─────────────────────────────────────────────────────────────────────────────
+import StatTile from "./snapshot/StatTile";
+import type { SnapshotTileProps } from "./types";
+
+export function SnapshotTile(_props: SnapshotTileProps) {
+  const { tasks } = useLabData();
+  const experiments = tasks.filter((t) => t.task_type === "experiment");
+  const open = experiments.filter((t) => !t.is_complete).length;
+  return (
+    <StatTile
+      icon={
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M10 2v7.31" />
+          <path d="M14 9.3V2" />
+          <path d="M8.5 2h7" />
+          <path d="M14 9.3a6.5 6.5 0 1 1-4 0" />
+        </svg>
+      }
+      iconClassName="text-purple-500"
+      label="Lab experiments"
+      stat={experiments.length}
+      sub={
+        experiments.length === 0
+          ? "None tracked yet"
+          : `${open} open`
+      }
+    />
+  );
+}
+
+export const ExpandedView = LabExperimentsWidget;

@@ -542,3 +542,55 @@ function formatRelative(iso: string): string {
   return new Date(iso).toLocaleDateString();
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase A snapshot + expanded contract (Phase A redispatch manager, 2026-05-23)
+// ─────────────────────────────────────────────────────────────────────────────
+// The widget body above is unchanged. SnapshotTile reads the same
+// notes-shared cache the body uses, so the count is free of network.
+// `filterMine` and the rest of the body wiring (Mira-Literal P0) is
+// untouched — the snapshot is a separate, read-only entry point.
+import StatTile from "./snapshot/StatTile";
+import type { SnapshotTileProps } from "./types";
+
+export function SnapshotTile(_props: SnapshotTileProps) {
+  const { data: notes = [], isLoading } = useQuery<Note[]>({
+    queryKey: ["lab", "notes-shared"],
+    queryFn: () => labApi.getNotes({ shared_only: true }),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+  // Note-only count: matches the always-warm cache the body uses. The
+  // body's secondary `lab-inbox/task-comments` query is heavier (per-
+  // task fetch) and would force the snapshot tile to wait on N extra
+  // reads; the note count is the right "is there activity" signal for
+  // a glance-only tile. Phase B can swap in a richer feed.
+  let count = 0;
+  for (const n of notes) count += (n.comments ?? []).length;
+  return (
+    <StatTile
+      icon={
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
+      }
+      iconClassName="text-blue-500"
+      label="Lab comments"
+      stat={isLoading ? "—" : count}
+      sub={count === 0 ? "No comments yet" : "on shared notes"}
+    />
+  );
+}
+
+export const ExpandedView = CommentFeedWidget;
+

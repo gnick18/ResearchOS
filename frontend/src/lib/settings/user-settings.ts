@@ -25,6 +25,24 @@ export type TimeFormat = "12h" | "24h";
 // widget IDs (e.g. a widget that got renamed or removed) are dropped at
 // read time with a console.warn; the read helper still resolves to a
 // usable shape.
+/**
+ * Widget canvas Phase A (Phase A redispatch manager, 2026-05-23):
+ * the persisted layout shape switched from the R2 free-grid map to a
+ * simple ordered list of widget IDs per surface.
+ *
+ * v2 (current) — `LabOverviewLayout`:
+ *   { version: 2, widgetOrder: { canvas: string[], sidebar: string[] } }
+ *
+ * v1 (legacy, migrated at read time) — `LabOverviewLayoutV1`:
+ *   { version: 1, canvas: { [id]: { x, y, w, h } },
+ *                 sidebar: { order, hidden } }
+ *
+ * Both shapes can exist on disk; `migrateLayoutToV2` in
+ * `frontend/src/lib/lab-overview/layout-persistence.ts` upgrades v1
+ * payloads on read. The `LabOverviewLayout` union type below covers
+ * both so consumers (mostly the layout-persistence module) can hold a
+ * reference to either while still being type-checked.
+ */
 export interface LabOverviewWidgetPosition {
   x: number;
   y: number;
@@ -32,20 +50,32 @@ export interface LabOverviewWidgetPosition {
   h: number;
 }
 
-export interface LabOverviewLayout {
-  /** Schema version. Bumped when the persistence shape changes. Catalog
-   *  additions DO NOT bump this — they're handled additively at read time. */
-  version: number;
-  /** Free-grid canvas positions keyed by widget id. */
+/** Legacy v1 free-grid shape. Still appears on disk for users who
+ *  haven't visited the Lab Overview surface since the Phase A change.
+ *  Migrated at read time; never written. */
+export interface LabOverviewLayoutV1 {
+  version: 1;
   canvas: Record<string, LabOverviewWidgetPosition>;
-  /** Vertical-only sidebar: an ordered list of widget ids + a set of ids
-   *  the user has explicitly hidden (so a default widget can be hidden
-   *  without losing its catalog entry). */
   sidebar: {
     order: string[];
     hidden: string[];
   };
 }
+
+/** Current v2 ordered-list shape. Written by every Phase A mutator. */
+export interface LabOverviewLayoutV2 {
+  version: 2;
+  widgetOrder: {
+    canvas: string[];
+    sidebar: string[];
+  };
+}
+
+/** The canonical type consumers reference. Always v2 when read through
+ *  `layout-persistence.readResolvedLayout`. Persisted payloads can
+ *  still be v1 on disk; settings reader hands them through unchanged
+ *  and the layout-persistence module migrates on the fly. */
+export type LabOverviewLayout = LabOverviewLayoutV2;
 // Lab Head Phase 1 (2026-05-23): per-user account role inside a shared lab.
 // `member` = regular lab researcher (the existing behavior, defaults here).
 // `lab_head` = PI / principal investigator; reveals the Lab Overview surface
@@ -119,8 +149,13 @@ export interface UserSettings {
   // optional, additive. When absent, the layout-persistence reader fills
   // in the account-type-appropriate default. When present, unknown
   // widget IDs are dropped at read time and new catalog widgets append
-  // at the bottom of canvas / sidebar. See `LabOverviewLayout` above.
-  lab_overview_layout?: LabOverviewLayout;
+  // at the end of canvas / sidebar. See `LabOverviewLayout` above.
+  //
+  // Widget canvas Phase A (Phase A redispatch manager, 2026-05-23): the
+  // field type accepts either v1 (legacy free-grid) or v2 (current
+  // ordered lists) so disk payloads from before the migration still
+  // type-check. `readResolvedLayout` migrates v1 → v2 on the fly.
+  lab_overview_layout?: LabOverviewLayout | LabOverviewLayoutV1;
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {

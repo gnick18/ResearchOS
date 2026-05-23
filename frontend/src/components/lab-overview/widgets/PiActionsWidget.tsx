@@ -177,3 +177,60 @@ export default function PiActionsWidget(_props?: {
     </ul>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase A snapshot + expanded contract (Phase A redispatch manager, 2026-05-23)
+// ─────────────────────────────────────────────────────────────────────────────
+// The widget body above is unchanged from R3 + Mira polish
+// (notificationWriteQueue, tombstoned-user filtering, pre-Phase-3
+// handling). Snapshot tile reads the same purchase-items cache; the
+// `auditCount` query the body uses is heavier (per-user file scan)
+// and we skip it on the snapshot for the same "is there activity"
+// glanceability reason as RecentActivityWidget.
+import StatTile from "./snapshot/StatTile";
+import type { SnapshotTileProps } from "./types";
+
+export function SnapshotTile(_props: SnapshotTileProps) {
+  const { currentUser } = useCurrentUser();
+  const accountType = useAccountType(currentUser);
+  const { data: items = [], isLoading } = useQuery<Array<PurchaseItem & { username: string }>>({
+    queryKey: ["lab", "purchase-items"],
+    queryFn: () => labApi.getAllPurchaseItems(),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    enabled: accountType === "lab_head",
+  });
+  if (accountType !== "lab_head") return null;
+  const pending = items.filter((it) => !it.approved).length;
+  return (
+    <StatTile
+      icon={
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M9 11l3 3L22 4" />
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+        </svg>
+      }
+      iconClassName="text-amber-600"
+      label="Pending PI actions"
+      stat={isLoading ? "—" : pending}
+      sub={
+        pending === 0
+          ? "All caught up"
+          : `purchase approval${pending === 1 ? "" : "s"}`
+      }
+    />
+  );
+}
+
+export const ExpandedView = PiActionsWidget;

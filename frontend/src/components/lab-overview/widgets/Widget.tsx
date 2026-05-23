@@ -4,24 +4,23 @@ import type { ReactNode } from "react";
 import Tooltip from "@/components/Tooltip";
 
 /**
- * Lab Mode retirement R2 (R2 widget framework manager, 2026-05-23):
- * the canonical widget frame. Every Lab Overview widget — canvas or
- * sidebar — renders inside this wrapper.
+ * Lab Mode retirement R2 (R2 widget framework manager, 2026-05-23) +
+ * Widget canvas Phase A (Phase A redispatch manager, 2026-05-23):
+ * the canonical widget frame. Every Lab Overview widget — canvas
+ * snapshot tile or sidebar tile — renders inside this wrapper. The
+ * popup chrome (`SnapshotTilePopup`) supplies its own header; this
+ * frame is only used at the snapshot layer.
  *
  * The frame owns:
  *   - the card chrome (rounded white surface, soft shadow, border)
- *   - the header bar (title + drag handle in edit mode)
+ *   - the header bar (title + drag affordance in edit mode)
  *   - the remove ("×") button (visible only in edit mode)
- *   - the resize visual hint (a tiny corner glyph; the actual resize
- *     handle is added by react-grid-layout when `isEditing` is true)
  *
- * Widget bodies render in the content slot and are completely free of
- * drag / resize concerns: react-grid-layout sees the parent `<div>` we
- * mount via WidgetCanvas and attaches handles automatically. The drag
- * handle inside this frame is wired via the `.lab-widget-drag-handle`
- * class so react-grid-layout's `draggableHandle` prop picks it up,
- * which is what keeps clicks inside the widget body (comment rows,
- * link cards, etc.) from accidentally starting a drag.
+ * Phase A: react-grid-layout is gone — the canvas is a CSS-grid of
+ * tiles with native HTML5 drag-and-drop wired by the parent. The
+ * frame's header still shows a drag-handle glyph in edit mode for
+ * visual affordance, but the actual draggable attribute is on the
+ * parent tile wrapper, not on the header.
  */
 export interface WidgetFrameProps {
   /** Stable widget id — used by the canvas to wire grid positioning. */
@@ -61,7 +60,7 @@ export default function Widget({
           surface === "sidebar" ? "px-2.5 py-1.5" : "px-3 py-2"
         } ${
           isEditing
-            ? "lab-widget-drag-handle cursor-grab active:cursor-grabbing select-none bg-gray-50"
+            ? "cursor-grab active:cursor-grabbing select-none bg-gray-50"
             : "bg-white"
         }`}
       >
