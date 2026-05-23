@@ -1049,18 +1049,16 @@ export default function BeakerBot({
             stroke="currentColor"
             strokeWidth="0.6"
           />
-          {/* Question mark — bold + centered in the cloud */}
-          <text
-            x="35"
-            y="5.5"
-            textAnchor="middle"
-            fontSize="5"
-            fontWeight="900"
-            fill="currentColor"
-            fontFamily="sans-serif"
-          >
-            ?
-          </text>
+          {/* Thinking ellipsis — three small dots inside the cloud, the
+           *  universal "loading thoughts" indicator. Swapped from "?"
+           *  (Grant 2026-05-23) because the question-mark curl + tail
+           *  dot inside the rounded cloud read unfortunately. Ellipsis
+           *  is anatomically unambiguous + matches the generic-thinking
+           *  read better than "?" (which implies confusion / puzzlement
+           *  rather than processing). */}
+          <circle cx="33" cy="4" r="0.7" fill="currentColor" stroke="none" />
+          <circle cx="35" cy="4" r="0.7" fill="currentColor" stroke="none" />
+          <circle cx="37" cy="4" r="0.7" fill="currentColor" stroke="none" />
         </>
       )}
 

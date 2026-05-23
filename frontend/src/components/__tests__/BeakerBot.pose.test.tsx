@@ -73,26 +73,23 @@ describe("BeakerBot pose mechanism", () => {
   });
 
   it("renders the thinking thought-cloud only when pose=thinking", () => {
-    // Updated 2026-05-23 (copy manager, commit 00a949bb): the thinking
-    // pose now uses a fluffy cloud silhouette (single path) + cascading
-    // mini-bubbles + a bold "?" text inside the cloud — replacing the
-    // earlier three-dot trio. This was Grant's polish to distinguish
-    // it from the sleeping pose's Zzz letters at a glance.
+    // 2026-05-23 (copy manager): the thinking pose uses a fluffy cloud
+    // silhouette + cascading mini-bubbles + three ellipsis dots inside
+    // the cloud at cy=4. Sleeping uses Zzz letters; the cloud + dots
+    // combo at this position is unique to thinking. Gate on the trio
+    // of dots at (33,4) / (35,4) / (37,4).
     const idleResult = render(<BeakerBot pose="idle" />);
-    // Idle has no "?" text glyph.
-    const idleQuestion = Array.from(
-      idleResult.container.querySelectorAll("text"),
-    ).filter((t) => t.textContent === "?");
-    expect(idleQuestion.length).toBe(0);
+    const idleDots = Array.from(
+      idleResult.container.querySelectorAll("circle"),
+    ).filter((c) => c.getAttribute("cy") === "4");
+    expect(idleDots.length).toBe(0);
     idleResult.unmount();
 
     const thinkResult = render(<BeakerBot pose="thinking" />);
-    // The thinking pose emits exactly one "?" text glyph centered in
-    // the thought cloud — distinctive enough to gate on.
-    const thinkQuestion = Array.from(
-      thinkResult.container.querySelectorAll("text"),
-    ).filter((t) => t.textContent === "?");
-    expect(thinkQuestion.length).toBe(1);
+    const thinkDots = Array.from(
+      thinkResult.container.querySelectorAll("circle"),
+    ).filter((c) => c.getAttribute("cy") === "4");
+    expect(thinkDots.length).toBe(3);
   });
 
   it("renders a typing-hand circle at cx=33 only when pose=typing", () => {
