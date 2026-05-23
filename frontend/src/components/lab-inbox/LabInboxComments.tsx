@@ -1,22 +1,27 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
-import { labApi } from "@/lib/local-api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { labApi, notesApi, tasksApi } from "@/lib/local-api";
 import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import UserAvatar from "@/components/UserAvatar";
+import TaskDetailPopup from "@/components/TaskDetailPopup";
+import NoteDetailPopup from "@/components/NoteDetailPopup";
 import { buildCommentTree, tokenizeComment } from "@/lib/comments/mentions";
 import type { LabTask } from "@/lib/local-api";
-import type { Note, NoteComment, TaskComment } from "@/lib/types";
+import type { Note, NoteComment, Task, TaskComment } from "@/lib/types";
 import type { LabUserProfile } from "@/hooks/useLabUserProfiles";
 
 /**
  * Lab Head Phase 2 (lab head Phase 2 manager, 2026-05-23) — the comment
  * feed inside the Lab Inbox surface. Lists every comment authored anywhere
  * in the lab, newest first, with:
- *   - source-surface link ("On {task / note} name") that navigates to the
- *     underlying record
+ *   - source-surface link ("On {task / note} name") that opens an in-place
+ *     popup over the Lab Inbox so context isn't lost (Lab Inbox R1, 2026-
+ *     05-23 — lab inbox R1 manager). Before R1 the click navigated to
+ *     `/lab?tab=…`, which dropped the user out of the inbox entirely; the
+ *     comment without its source record was effectively meaningless.
  *   - threaded reply rendering (1 level deep — Phase 2 cap)
  *   - inline @-mention chips (rendered via tokenizeComment / the same
  *     parser the in-record CommentsThread uses)
@@ -32,9 +37,11 @@ import type { LabUserProfile } from "@/hooks/useLabUserProfiles";
  * minimal — see `app/lab-inbox/page.tsx`.
  */
 export default function LabInboxComments() {
-  const router = useRouter();
   const profileMap = useLabUserProfileMap();
+  const { currentUser } = useCurrentUser();
+  const queryClient = useQueryClient();
   const [filterMine, setFilterMine] = useState(false);
+  const [activePopup, setActivePopup] = useState<ActivePopup | null>(null);
 
   const notesQuery = useQuery<Note[]>({
     queryKey: ["lab", "notes-shared"],
@@ -79,7 +86,6 @@ export default function LabInboxComments() {
       // 2 users), but it's O(N) reads each invalidation. Cache TTL keeps
       // it warm between bell clicks.
       const labTasks = await labApi.getTasks({ exclude_goals: true });
-      const { tasksApi } = await import("@/lib/local-api");
       const settled = await Promise.all(
         labTasks.map(async (lt) => {
           try {
@@ -185,13 +191,194 @@ export default function LabInboxComments() {
               <FeedRow
                 entry={entry}
                 profileMap={profileMap}
-                onOpenRecord={() => navigateToRecord(router, entry)}
+                onOpenRecord={() =>
+                  setActivePopup({
+                    kind: entry.kind,
+                    recordId: entry.recordId,
+                    recordOwner: entry.recordOwner,
+                  })
+                }
               />
             </li>
           ))}
         </ul>
       )}
+
+      {/* Lab Inbox R1 (lab inbox R1 manager, 2026-05-23): in-place record
+          popup. Click "On {name}" → open TaskDetailPopup / NoteDetailPopup
+          over the Lab Inbox so the user reads context without losing the
+          feed scroll position. Close (X or Esc) clears activePopup → user
+          is back on the feed exactly where they left off. */}
+      {activePopup && (
+        <ActivePopupMount
+          popup={activePopup}
+          currentUser={currentUser}
+          onClose={() => {
+            setActivePopup(null);
+            // Refresh underlying feed in case the popup mutated the record
+            // (comments added, fields edited via PI edit-mode, etc.) so the
+            // inbox reflects the new state without a manual reload.
+            void queryClient.refetchQueries({ queryKey: ["lab", "notes-shared"] });
+            void queryClient.refetchQueries({ queryKey: ["lab-inbox", "task-comments"] });
+          }}
+        />
+      )}
     </section>
+  );
+}
+
+// ── Popup orchestration ──────────────────────────────────────────────────
+
+type ActivePopup =
+  | { kind: "task"; recordId: number; recordOwner: string }
+  | { kind: "note"; recordId: number; recordOwner: string };
+
+/**
+ * Loads the full record for the active popup target and mounts the right
+ * detail popup component.
+ *
+ * Records are owner-routed reads — the comment feed exposes the
+ * `recordOwner`, and the underlying file lives in that user's directory.
+ * For lab-head viewers this is exactly the cross-owner read pattern
+ * LabInboxMetrics already uses; for members it lines up with the
+ * shared-with-me read path that NotesPanel + WorkbenchExperimentsPanel
+ * have always followed.
+ *
+ * Read-only gating: when the viewer is NOT the record owner, the popup is
+ * mounted with `readOnly={true}` so write affordances are suppressed.
+ * Lab Head Phase 5 layers PI edit-mode on top inside the popup itself
+ * via `useLabHeadEditGate`, so PIs see "Request edit" exactly as they do
+ * on the regular lab surfaces — nothing extra needed here.
+ */
+function ActivePopupMount({
+  popup,
+  currentUser,
+  onClose,
+}: {
+  popup: ActivePopup;
+  currentUser: string | null;
+  onClose: () => void;
+}) {
+  const isOwner = !!currentUser && currentUser === popup.recordOwner;
+  // Cross-owner reads require explicit owner routing so the record file is
+  // looked up in the target user's directory.
+  const ownerArg = isOwner ? undefined : popup.recordOwner;
+
+  const taskQuery = useQuery<Task | null>({
+    queryKey: ["lab-inbox", "popup-task", popup.recordOwner, popup.recordId],
+    queryFn: () => tasksApi.get(popup.recordId, ownerArg),
+    enabled: popup.kind === "task",
+    staleTime: 0,
+    refetchOnWindowFocus: false,
+  });
+
+  const noteQuery = useQuery<Note | null>({
+    queryKey: ["lab-inbox", "popup-note", popup.recordOwner, popup.recordId],
+    queryFn: async () => {
+      const n = await notesApi.get(popup.recordId, ownerArg);
+      if (!n) return null;
+      // Mirror labApi.getNotes — stamp `.username` so the popup's owner
+      // routing (Phase 5 PI edit-mode) reads the right value.
+      return { ...n, username: n.username || popup.recordOwner };
+    },
+    enabled: popup.kind === "note",
+    staleTime: 0,
+    refetchOnWindowFocus: false,
+  });
+
+  if (popup.kind === "task") {
+    if (taskQuery.isLoading) {
+      return <PopupLoading onClose={onClose} />;
+    }
+    if (!taskQuery.data) {
+      return <PopupMissing kind="task" onClose={onClose} />;
+    }
+    // Open straight to the Items tab for purchase tasks so the user lands
+    // on the relevant context (mirrors SpendingDashboard's TaskDetailPopup
+    // mount at SpendingDashboard.tsx:803).
+    const initialTab =
+      taskQuery.data.task_type === "purchase" ? "purchases" : undefined;
+    return (
+      <TaskDetailPopup
+        task={taskQuery.data}
+        onClose={onClose}
+        readOnly={!isOwner}
+        username={isOwner ? undefined : popup.recordOwner}
+        initialTab={initialTab}
+      />
+    );
+  }
+
+  if (noteQuery.isLoading) {
+    return <PopupLoading onClose={onClose} />;
+  }
+  if (!noteQuery.data) {
+    return <PopupMissing kind="note" onClose={onClose} />;
+  }
+  return (
+    <NoteDetailPopup
+      note={noteQuery.data}
+      onClose={onClose}
+      // For cross-owner views these callbacks are effectively no-ops — the
+      // popup's readOnly gate suppresses every write path that would call
+      // them. For owner views we still want the popup to refresh the feed
+      // by invalidating the query keys above, which `onClose` already does.
+      onUpdate={() => {}}
+      onDelete={onClose}
+      readOnly={!isOwner}
+    />
+  );
+}
+
+function PopupLoading({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-xl shadow-2xl px-6 py-5 flex items-center gap-3"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-emerald-600" />
+        <p className="text-sm text-gray-500">Loading record…</p>
+      </div>
+    </div>
+  );
+}
+
+function PopupMissing({
+  kind,
+  onClose,
+}: {
+  kind: "task" | "note";
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-xl shadow-2xl px-6 py-5 max-w-sm flex flex-col gap-2"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="text-sm font-medium text-gray-900">
+          {kind === "task" ? "Task" : "Note"} not found
+        </p>
+        <p className="text-xs text-gray-500">
+          The source record may have been deleted or renamed. Close this
+          message and refresh the inbox.
+        </p>
+        <button
+          type="button"
+          onClick={onClose}
+          className="self-end mt-1 text-xs text-emerald-700 hover:text-emerald-800 font-medium"
+        >
+          Close
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -223,16 +410,36 @@ function FeedRow({ entry, profileMap, onOpenRecord }: FeedRowProps) {
     <div>
       <CommentCell comment={entry.rootComment} profileMap={profileMap} />
 
-      {/* Source-surface inline link — clicking navigates to the underlying
-          record. Owner color comes from the user list. */}
+      {/* Source-surface inline link — clicking opens the underlying
+          record in an in-place popup (Lab Inbox R1, 2026-05-23). Visual
+          treatment leans into "this is interactive": pointer cursor, hover
+          underline, plus a small open-in-popup glyph so the affordance is
+          legible at a glance. Owner color comes from the user list. */}
       <div className="mt-1 ml-10 flex items-center gap-2 text-xs text-gray-500">
         <span>On</span>
         <button
           type="button"
           onClick={onOpenRecord}
-          className="text-emerald-700 hover:text-emerald-800 hover:underline font-medium"
+          className="inline-flex items-center gap-1 cursor-pointer text-emerald-700 hover:text-emerald-800 hover:underline font-medium rounded focus:outline-none focus:ring-2 focus:ring-emerald-300"
+          title={`Open ${entry.kind === "task" ? "task" : "note"} in a popup`}
         >
-          {entry.recordName}
+          <span>{entry.recordName}</span>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="10"
+            height="10"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.25"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M15 3h6v6" />
+            <path d="M10 14L21 3" />
+            <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
+          </svg>
         </button>
         <span>·</span>
         <span className="text-gray-500">
@@ -342,17 +549,3 @@ function formatRelative(iso: string): string {
   return new Date(iso).toLocaleDateString();
 }
 
-function navigateToRecord(
-  router: ReturnType<typeof useRouter>,
-  entry: FeedEntry,
-): void {
-  // The Lab Inbox doesn't host a TaskDetailPopup of its own. Route the
-  // user to Lab Mode's record-aware tabs and rely on those tabs' existing
-  // detail-popup machinery. The Lab Activity / Notes panels both open the
-  // record popup on click, so deep-linking to the right tab is enough.
-  if (entry.kind === "task") {
-    router.push(`/lab?tab=experiments`);
-  } else {
-    router.push(`/lab?tab=notes`);
-  }
-}
