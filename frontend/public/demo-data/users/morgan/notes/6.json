@@ -38,7 +38,14 @@
       "updated_at": "2026-05-12T08:30:00Z"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "cmt-mira-morgan-note6-1",
+      "author": "mira",
+      "text": "Excellent discipline keeping this log weekly. I'm going to point any new rotation students at this exact format as the calibration-log template. Thank you for setting that bar.",
+      "created_at": "2026-05-13T07:55:00Z"
+    }
+  ],
   "created_at": "2026-04-21T08:30:00Z",
   "updated_at": "2026-05-12T08:30:00Z",
   "username": "morgan"

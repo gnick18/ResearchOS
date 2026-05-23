@@ -29,5 +29,13 @@
   ],
   "owner": "morgan",
   "shared_with": [],
-  "external_project": null
+  "external_project": null,
+  "comments": [
+    {
+      "id": "cmt-mira-morgan-t1-1",
+      "author": "mira",
+      "text": "Plate photos look clean. When you do the reader scan tomorrow, please send me the column-12 positive control read as soon as it exports — I want to confirm we are in the linear range before you scale up.",
+      "created_at": "2026-05-13T18:05:00Z"
+    }
+  ]
 }

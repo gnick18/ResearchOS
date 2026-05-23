@@ -45,5 +45,13 @@
   ],
   "owner": "alex",
   "shared_with": [],
-  "external_project": null
+  "external_project": null,
+  "comments": [
+    {
+      "id": "cmt-mira-alex-t5-1",
+      "author": "mira",
+      "text": "75% integration is solid for a LiAc transformation — and the gel bands look clean by eye. Pick T1 and T6 as the lead candidates for the qPCR follow-up; both have the strongest signal in the screen.",
+      "created_at": "2026-05-13T16:40:00Z"
+    }
+  ]
 }

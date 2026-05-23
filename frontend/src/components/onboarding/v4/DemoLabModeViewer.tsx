@@ -230,10 +230,13 @@ export default function DemoLabModeViewer({
 }: DemoLabModeViewerProps) {
   // The initial user-filter selection seeds the inner viewer body AND
   // pre-determines which `["lab-notes", set]` cache slot we populate.
-  // Hard-coding both demo users keeps the first paint populated; the
-  // user can untoggle interactively from the filter sidebar.
+  // Hard-coding all three demo users (mira PI + alex + morgan) keeps the
+  // first paint populated; the user can untoggle interactively from the
+  // filter sidebar. Including mira ensures her LabComment authorship
+  // resolves to her PI color/avatar from first paint, even though she
+  // owns no rows of her own.
   const initialUsernames = useMemo(
-    () => new Set(["alex", "morgan"]),
+    () => new Set(["mira", "alex", "morgan"]),
     [],
   );
 

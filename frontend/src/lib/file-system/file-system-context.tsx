@@ -391,7 +391,11 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
             directoryName: "wiki-capture-fixture",
             currentUser: signIn ? "alex" : null,
             mainUser: signIn ? "alex" : null,
-            availableUsers: ["alex", "morgan"],
+            // mira (Dr. Mira Castellanos) is the demo PI archetype — owns
+            // no tasks/notes of her own, but authors LabComments across
+            // alex + morgan's shared content. Listed so user-picker UI
+            // and lab-mode user filters surface her as a real lab member.
+            availableUsers: ["alex", "morgan", "mira"],
             needsInitialization: false,
             lastConnectedFolder: "wiki-capture-fixture",
           }));

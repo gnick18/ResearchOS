@@ -6,5 +6,9 @@
   "morgan": {
     "color": "#10b981",
     "created_at": "2026-01-20T00:00:00Z"
+  },
+  "mira": {
+    "color": "#f97316",
+    "created_at": "2026-01-05T00:00:00Z"
   }
 }

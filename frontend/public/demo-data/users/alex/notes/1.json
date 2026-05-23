@@ -5,7 +5,14 @@
   "is_running_log": false,
   "is_shared": true,
   "entries": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "cmt-mira-alex-note1-1",
+      "author": "mira",
+      "text": "Good catch logging the heat-shock interruption. 38 min is well within tolerance for this strain — and documenting the timer drift will save us the next time efficiency unexpectedly dips. Keep that habit.",
+      "created_at": "2026-05-09T10:15:00Z"
+    }
+  ],
   "created_at": "2026-05-08T14:00:00Z",
   "updated_at": "2026-05-11T09:00:00Z",
   "username": "alex"

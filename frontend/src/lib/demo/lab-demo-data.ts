@@ -178,10 +178,11 @@ async function fetchOneOptional<T>(url: string): Promise<T | null> {
 /** Default color when metadata is missing for a user. */
 function defaultColorFor(username: string): string {
   // Mirrors `fallbackUserColor`'s spirit but with a stable demo palette
-  // so the two demo users get distinct colors even if the metadata
+  // so the three demo users get distinct colors even if the metadata
   // file is missing (tests use minimal fixtures).
-  if (username === "alex") return "#3b82f6";
-  if (username === "morgan") return "#10b981";
+  if (username === "alex") return "#3b82f6"; // blue
+  if (username === "morgan") return "#10b981"; // emerald
+  if (username === "mira") return "#f97316"; // orange — demo PI
   return "#6b7280";
 }
 
@@ -376,14 +377,21 @@ export async function aggregateDemoLabData(
       `${fixtureBase}/users/_user_metadata.json`,
     )) ?? {};
 
-  // 2. The two demo users we ship. Hard-coded here because the bundle's
+  // 2. The three demo users we ship. Hard-coded here because the bundle's
   //    user discovery happens at generate-time and the on-disk demo
   //    folder is the source of truth — we don't enumerate the directory
   //    at runtime (no FSA-listDirectories in the demo path).
   //
-  //    The order is stable so the Lab Mode user-filter button renders
-  //    Alex first, Morgan second.
-  const usernames = ["alex", "morgan"];
+  //    Order matters for the Lab Mode user-filter button: mira (the demo
+  //    PI archetype, Dr. Mira Castellanos) renders first so PI-side
+  //    LabComments surface at the top of any user-grouped view; alex
+  //    (postdoc) second, morgan (grad student) third. Mira owns no tasks /
+  //    projects / notes / methods of her own in the fixture — her counters
+  //    are all zero so the aggregator iterates her directory cleanly and
+  //    contributes no rows to Gantt / Notes / Methods panels. Her presence
+  //    is the LabComment thread layer authored across alex + morgan's
+  //    shared content.
+  const usernames = ["mira", "alex", "morgan"];
 
   // 3. Build LabUser entries up-front so we can decorate each per-user
   //    slice with the matching color in one pass.

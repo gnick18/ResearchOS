@@ -5,7 +5,20 @@
   "is_running_log": false,
   "is_shared": true,
   "entries": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "cmt-mira-morgan-note4-1",
+      "author": "mira",
+      "text": "Big +1 on the mScarlet positive control. Without it we can't separate reporter misfolding from cell death and the whole story falls apart in review. Approve charging this to DEMO-DOE-EERE.",
+      "created_at": "2026-05-07T17:05:00Z"
+    },
+    {
+      "id": "cmt-mira-morgan-note4-2",
+      "author": "mira",
+      "text": "On the 384-well question — please pre-book the reader for at least one dry run before committing. Last grad student lost a week on cycle-time issues we could have caught with an empty plate.",
+      "created_at": "2026-05-08T09:12:00Z"
+    }
+  ],
   "created_at": "2026-05-07T14:00:00Z",
   "updated_at": "2026-05-07T15:30:00Z",
   "username": "morgan"

@@ -1,0 +1,20 @@
+{
+  "animationType": "celebration",
+  "defaultGanttViewMode": "3-months",
+  "defaultCalendarViewMode": "month",
+  "showSharedByDefault": true,
+  "visibleTabs": [
+    "/experiments",
+    "/gantt",
+    "/methods",
+    "/purchases",
+    "/results",
+    "/calendar",
+    "/links"
+  ],
+  "defaultLandingTab": "/",
+  "sidebarShowTasks": true,
+  "sidebarShowCalendarEvents": true,
+  "sidebarEventsHorizonDays": 7,
+  "coloredHeader": false
+}
