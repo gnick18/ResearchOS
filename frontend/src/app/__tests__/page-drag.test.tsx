@@ -23,6 +23,9 @@ import type { Project } from "@/lib/types";
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
+  // R2 chip B Fix 1/3: TourController now subscribes to usePathname
+  // for the expectedRoute auto-correct effect.
+  usePathname: () => "/",
 }));
 
 vi.mock("@/lib/file-system/file-system-context", () => ({

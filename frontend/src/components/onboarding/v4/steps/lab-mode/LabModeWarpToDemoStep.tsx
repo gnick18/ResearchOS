@@ -60,6 +60,13 @@ export const labModeWarpToDemoStep: TourStep = buildWalkthroughStep({
   },
   completion: manualAdvance("Got it, next"),
   conditionalOn: (picks) => picks?.account_type === "lab",
+  // R2 chip B Fix 3/3: even on the warp step itself, an Esc press
+  // inside the viewer would tear the overlay down before the user
+  // advances. The recovery hint directs them at the speech bubble's
+  // Back button (one Back leaves the cluster cleanly via lab-mode-
+  // intro, then re-entering this step dispatches openDemoLabModeViewer
+  // again). Kept consistent with the tab steps' shared label.
+  recoveryHint: { buttonLabel: "Back" },
 });
 
 export default LabModeWarpToDemoInner;

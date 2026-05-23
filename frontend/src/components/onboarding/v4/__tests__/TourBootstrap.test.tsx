@@ -52,6 +52,8 @@ vi.mock("next/navigation", () => ({
     forward: vi.fn(),
     refresh: vi.fn(),
   }),
+  // R2 chip B Fix 1/3: usePathname now in TourController's dep array.
+  usePathname: () => "/",
 }));
 
 import TourBootstrap from "../TourBootstrap";

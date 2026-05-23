@@ -100,6 +100,16 @@ describe("labModeWarpToDemoStep", () => {
       window.removeEventListener(DEMO_LAB_MODE_EVENTS.open, handler);
     }
   });
+
+  // R2 chip B Fix 3/3: even on the warp step itself, an Esc inside
+  // the just-mounted viewer tears the overlay down. The recoveryHint
+  // gives the TourController's target-detach watcher a buttonLabel
+  // to drop into the recovery speech.
+  it("declares a recoveryHint for the lab-mode-tour:close recovery copy", () => {
+    expect(labModeWarpToDemoStep.recoveryHint).toEqual({
+      buttonLabel: "Back",
+    });
+  });
 });
 
 describe("lab-mode tab steps shared shape", () => {
@@ -129,6 +139,17 @@ describe("lab-mode tab steps shared shape", () => {
       // safeClickAction returns null on missing target; compactScript
       // drops nulls. The resulting array is empty.
       expect(actions).toEqual([]);
+    });
+
+    // R2 chip B Fix 3/3: when the user presses Esc inside the demo
+    // viewer mid-step, the DemoLabModeViewer unmounts and the tab
+    // target detaches. The Wave 2 target-detach watcher needs a
+    // buttonLabel to plug into "Looks like that closed. Click X to
+    // re-open and try again." All eight tab steps share the same
+    // "Back" label so the user lands on the warp step on the next
+    // controller.goBack() (whose onEnter re-opens the viewer).
+    it(`${id} declares the shared lab-mode recoveryHint`, () => {
+      expect(step.recoveryHint).toEqual({ buttonLabel: "Back" });
     });
   }
 });

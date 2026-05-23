@@ -109,7 +109,17 @@ function LabModeTabSpeech({ testid, children }: LabModeTabSpeechProps) {
  * the tab button by `data-tour-target`; `safeClickAction` no-ops
  * when the target isn't on screen (the user closed the viewer
  * mid-step, the overlay hasn't mounted yet on a refresh, etc.).
+ *
+ * R2 chip B Fix 3/3 (2026-05-22): every tab step also declares a
+ * shared `recoveryHint.buttonLabel: "Back"` so the Wave 2 target-
+ * detach watcher can swap speech to "Looks like that closed. Click
+ * Back to re-open and try again." when the demo viewer dismisses
+ * mid-step. Walking Back through the cluster eventually re-enters
+ * `lab-mode-warp-to-demo`, whose onEnter dispatches the viewer's
+ * `open` event so the overlay re-mounts.
  */
+export const LAB_MODE_RECOVERY_BUTTON_LABEL = "Back";
+
 export function buildLabModeTabStep(input: LabModeTabStepInput): TourStep {
   return buildWalkthroughStep({
     id: input.id,
@@ -120,6 +130,7 @@ export function buildLabModeTabStep(input: LabModeTabStepInput): TourStep {
       </LabModeTabSpeech>
     ),
     targetSelector: targetSelector(input.tabTarget),
+    recoveryHint: { buttonLabel: LAB_MODE_RECOVERY_BUTTON_LABEL },
     cursorScript: cursorScript(async () => {
       // Resume-friendly short-circuit: if the demo viewer overlay
       // isn't mounted (the user manually closed it, the warp step

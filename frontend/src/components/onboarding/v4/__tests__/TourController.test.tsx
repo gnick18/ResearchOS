@@ -1221,3 +1221,48 @@ describe("TourController — Wave 2 Fix 2: target-detach watcher", () => {
     expect(result.current.targetDetachRecoveryLabel).toBeNull();
   });
 });
+
+// R2 chip B Fix 3/3: lab-mode-tour:close event subscription on lab-mode-*
+// cluster steps. Pre-fix, the watcher only swapped speech for
+// `isLabPhaseStep` (one step: `lab-cleanup`). The 8 tab steps + the
+// warp step had no recovery path when the viewer dismissed mid-step.
+describe("TourController — R2 chip B Fix 3: lab-mode-* close recovery", () => {
+  beforeEach(() => {
+    window.history.pushState({}, "", "/");
+    setMockPathname("/");
+  });
+
+  it("subscribes to lab-mode-tour:close on a lab-mode-* step (recovery speech swaps in when the event fires)", async () => {
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: wrapper(picks({ account_type: "lab" })),
+    });
+    act(() => result.current.start("lab-mode-warp-to-demo"));
+    // Sanity: no recovery copy before the close event fires.
+    expect(result.current.targetDetachRecoveryLabel).toBeNull();
+    // Fire the close event the DemoLabModeMount host listens for.
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("lab-mode-tour:close"));
+      // Allow the effect's state setter to flush.
+      await Promise.resolve();
+    });
+    // The recoveryHint on lab-mode-warp-to-demo is "Back"; the watcher
+    // promotes it to the bubble's recovery line via the controller's
+    // targetDetachRecoveryLabel state.
+    expect(result.current.targetDetachRecoveryLabel).toBe("Back");
+  });
+
+  it("does NOT swap recovery speech on lab-mode-exit (terminal step closes the viewer on purpose)", async () => {
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: wrapper(picks({ account_type: "lab" })),
+    });
+    act(() => result.current.start("lab-mode-exit"));
+    expect(result.current.targetDetachRecoveryLabel).toBeNull();
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("lab-mode-tour:close"));
+      await Promise.resolve();
+    });
+    // lab-mode-exit's whole purpose is to close the viewer; firing
+    // recovery here would contradict the step's design.
+    expect(result.current.targetDetachRecoveryLabel).toBeNull();
+  });
+});

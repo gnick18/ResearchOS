@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 
 // Stub next/navigation's useRouter for the TourController auto-
 // navigate effect (Onboarding v4 route-nav fix). push() is a no-op.
+// R2 chip B Fix 1/3: usePathname now in TourController's dep array.
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: vi.fn(),
@@ -12,6 +13,7 @@ vi.mock("next/navigation", () => ({
     forward: vi.fn(),
     refresh: vi.fn(),
   }),
+  usePathname: () => "/",
 }));
 
 import { linksConditionalStep } from "../LinksConditionalStep";

@@ -17,6 +17,8 @@ vi.mock("next/navigation", () => ({
     push: pushMock,
     back: backMock,
   }),
+  // R2 chip B Fix 1/3: TourController now subscribes to usePathname.
+  usePathname: () => "/",
 }));
 
 const RETURN_PATH_KEY = "researchOS.wikiReturnPath";
