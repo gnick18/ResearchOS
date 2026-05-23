@@ -121,6 +121,19 @@ describe("V4MountForUser:children render", () => {
   });
 });
 
+// R2 chip A Fix 3/3 (b): the bootstrap's resume probe forces a
+// restart from welcome when current_step is a mid-tour step but
+// feature_picks is null. These tests seed valid picks so they
+// continue to exercise the resume-prompt happy path.
+const V4_VALID_PICKS = {
+  account_type: "solo" as const,
+  purchases: "yes" as const,
+  calendar: "no" as const,
+  goals: "no" as const,
+  telegram: "no" as const,
+  ai_helper: "full" as const,
+};
+
 describe("V4MountForUser — tour-goodbye finalize (Cleanup retirement 2026-05-22)", () => {
   it("Let's go on tour-goodbye triggers auto-cleanup + writes wizard_completed_at", async () => {
     // Seed mid-walkthrough so the P12 Resume modal appears; pick a
@@ -130,6 +143,7 @@ describe("V4MountForUser — tour-goodbye finalize (Cleanup retirement 2026-05-2
     memFs.set(
       PATH,
       fullSidecar({
+        feature_picks: V4_VALID_PICKS,
         wizard_resume_state: {
           current_step: "tour-goodbye",
           skipped_steps: [],
@@ -184,6 +198,7 @@ describe("V4MountForUser — tour-goodbye finalize (Cleanup retirement 2026-05-2
     memFs.set(
       PATH,
       fullSidecar({
+        feature_picks: V4_VALID_PICKS,
         wizard_resume_state: {
           current_step: "home-create-project",
           skipped_steps: [],
