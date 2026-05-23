@@ -1,6 +1,16 @@
 // Animation library - exports all animation types
 import type { ComponentType } from "react";
 import BeakerBot from "../BeakerBot";
+import CelebrationIcon from "./icons/CelebrationIcon";
+import RockIcon from "./icons/RockIcon";
+import SpaceIcon from "./icons/SpaceIcon";
+import UnderwaterIcon from "./icons/UnderwaterIcon";
+import SportsIcon from "./icons/SportsIcon";
+import ScienceIcon from "./icons/ScienceIcon";
+import PlantsIcon from "./icons/PlantsIcon";
+import AnimalsIcon from "./icons/AnimalsIcon";
+import FungiIcon from "./icons/FungiIcon";
+import ScaryIcon from "./icons/ScaryIcon";
 
 export { default as CelebrationAnimation } from "../CelebrationAnimation";
 export { default as RockExplosionAnimation } from "../RockExplosionAnimation";
@@ -46,61 +56,61 @@ export const ANIMATION_METADATA: Record<AnimationType, {
 }> = {
   celebration: {
     name: "Celebration",
-    icon: "🎉",
+    icon: CelebrationIcon,
     description: "Confetti, unicorns, and rainbows",
     color: "#ff6b6b",
   },
   rock: {
     name: "Rock & Roll",
-    icon: "🎸",
+    icon: RockIcon,
     description: "Guitars, lightning, and skulls",
     color: "#ff4500",
   },
   space: {
     name: "Space",
-    icon: "🚀",
+    icon: SpaceIcon,
     description: "Rockets, planets, and aliens",
     color: "#8b5cf6",
   },
   underwater: {
     name: "Underwater",
-    icon: "🐠",
+    icon: UnderwaterIcon,
     description: "Fish, bubbles, and jellyfish",
     color: "#00bcd4",
   },
   sports: {
     name: "Sports",
-    icon: "🏆",
+    icon: SportsIcon,
     description: "Balls, trophies, and medals",
     color: "#10b981",
   },
   science: {
     name: "Science",
-    icon: "🔬",
+    icon: ScienceIcon,
     description: "Atoms, DNA, and beakers",
     color: "#009688",
   },
   plants: {
     name: "Plants",
-    icon: "🌸",
+    icon: PlantsIcon,
     description: "Flowers, leaves, and seeds",
     color: "#10ac84",
   },
   animals: {
     name: "Animals",
-    icon: "🐾",
+    icon: AnimalsIcon,
     description: "Paw prints, birds, and butterflies",
     color: "#ff9f43",
   },
   fungi: {
     name: "Fungi",
-    icon: "🍄",
+    icon: FungiIcon,
     description: "Mushrooms, spores, and mycelium",
     color: "#8B4513",
   },
   scary: {
     name: "Scary",
-    icon: "💀",
+    icon: ScaryIcon,
     description: "Skulls, ghosts, and monsters",
     color: "#4a0000",
   },
