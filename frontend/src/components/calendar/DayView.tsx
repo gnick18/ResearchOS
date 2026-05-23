@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Event, ExternalEvent } from "@/lib/types";
 import { hasEnded } from "@/lib/calendar/event-status";
+import { getReadableTextColor } from "@/lib/colors";
 import {
   assignLanes,
   type CalendarItem,
@@ -111,15 +112,19 @@ export default function DayView({
           <div className="space-y-1">
             {sortedAllDay.map((item) => {
               const ended = hasEnded(item.event, now);
+              const itemColor =
+                item.kind === "native"
+                  ? item.event.color || EVENT_TYPE_COLORS[item.event.event_type]
+                  : item.event.color;
+              const textColor = getReadableTextColor(itemColor);
               return item.kind === "native" ? (
                 <button
                   key={`n-${item.event.id}`}
                   onClick={() => onEventClick(item.event)}
                   className={`w-full text-left px-2 py-1 text-xs rounded hover:opacity-90 ${ended ? ENDED_CLASSES : ""}`}
                   style={{
-                    backgroundColor:
-                      item.event.color || EVENT_TYPE_COLORS[item.event.event_type],
-                    color: "white",
+                    backgroundColor: itemColor,
+                    color: textColor,
                   }}
                 >
                   {item.event.start_time && (
@@ -136,9 +141,9 @@ export default function DayView({
                   title="Linked calendar event (read-only)"
                   className={`w-full text-left px-2 py-1 text-xs rounded hover:opacity-90 flex items-center gap-1 ${ended ? ENDED_CLASSES : ""}`}
                   style={{
-                    backgroundColor: "white",
-                    color: item.event.color,
-                    border: `1px solid ${item.event.color}`,
+                    backgroundColor: itemColor,
+                    color: textColor,
+                    border: `1px solid ${itemColor}`,
                   }}
                 >
                   <svg
@@ -238,6 +243,7 @@ export default function DayView({
                   : () => onExternalClick(item.event);
               const ended = hasEnded(item.event, now);
 
+              const textColor = getReadableTextColor(color);
               return (
                 <button
                   key={item.kind === "native" ? `n-${item.event.id}` : `x-${item.event.id}`}
@@ -251,8 +257,8 @@ export default function DayView({
                     height: height - 1,
                     left: `calc(${leftPct}% + 4px)`,
                     width: `calc(${widthPct}% - 8px)`,
-                    backgroundColor: item.kind === "native" ? color : "white",
-                    color: item.kind === "native" ? "white" : color,
+                    backgroundColor: color,
+                    color: textColor,
                     border: item.kind === "external" ? `1px solid ${color}` : "none",
                   }}
                 >

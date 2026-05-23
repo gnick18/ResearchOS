@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Event, ExternalEvent } from "@/lib/types";
 import { hasEnded } from "@/lib/calendar/event-status";
+import { getReadableTextColor } from "@/lib/colors";
 import {
   type CalendarItem,
   EVENT_TYPE_COLORS,
@@ -144,6 +145,11 @@ export default function MonthView({
                   const ended = hasEnded(item.event, now);
                   const isPto =
                     item.kind === "native" && item.event.is_pto === true;
+                  const itemColor =
+                    item.kind === "native"
+                      ? item.event.color || EVENT_TYPE_COLORS[item.event.event_type]
+                      : item.event.color;
+                  const textColor = getReadableTextColor(itemColor);
                   return item.kind === "native" ? (
                     <button
                       key={`n-${item.event.id}`}
@@ -159,9 +165,8 @@ export default function MonthView({
                         isPto ? "ring-1 ring-sky-300 ring-inset" : ""
                       } ${ended ? ENDED_CLASSES : ""}`}
                       style={{
-                        backgroundColor:
-                          item.event.color || EVENT_TYPE_COLORS[item.event.event_type],
-                        color: "white",
+                        backgroundColor: itemColor,
+                        color: textColor,
                       }}
                     >
                       {isPto && (
@@ -186,9 +191,9 @@ export default function MonthView({
                       title="Linked calendar event (read-only)"
                       className={`w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80 flex items-center gap-1 ${ended ? ENDED_CLASSES : ""}`}
                       style={{
-                        backgroundColor: "white",
-                        color: item.event.color,
-                        border: `1px solid ${item.event.color}`,
+                        backgroundColor: itemColor,
+                        color: textColor,
+                        border: `1px solid ${itemColor}`,
                       }}
                     >
                       <svg
