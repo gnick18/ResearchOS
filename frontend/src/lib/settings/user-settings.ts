@@ -11,6 +11,41 @@ import { ALL_TAB_HREFS, HOME_HREF, isValidTabHref } from "../nav";
 export type CalendarViewMode = "month" | "week" | "day";
 export type DateFormat = "MDY" | "DMY" | "YMD";
 export type TimeFormat = "12h" | "24h";
+
+// Lab Mode retirement R2 (R2 widget framework manager, 2026-05-23):
+// per-user persistence of the Lab Overview widget canvas + customizable
+// sidebar (proposal §3, §3g). Stored in users/<u>/settings.json under
+// the `lab_overview_layout` key — additive, optional; missing payload
+// resolves to the account-type-default layout at read time (see
+// `frontend/src/lib/lab-overview/layout-persistence.ts`).
+//
+// Schema is versioned so future catalog additions can run a one-way
+// migration that appends the new widget at the bottom of `canvas` (or
+// `sidebar.order`) without trashing the user's custom positions. Unknown
+// widget IDs (e.g. a widget that got renamed or removed) are dropped at
+// read time with a console.warn; the read helper still resolves to a
+// usable shape.
+export interface LabOverviewWidgetPosition {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface LabOverviewLayout {
+  /** Schema version. Bumped when the persistence shape changes. Catalog
+   *  additions DO NOT bump this — they're handled additively at read time. */
+  version: number;
+  /** Free-grid canvas positions keyed by widget id. */
+  canvas: Record<string, LabOverviewWidgetPosition>;
+  /** Vertical-only sidebar: an ordered list of widget ids + a set of ids
+   *  the user has explicitly hidden (so a default widget can be hidden
+   *  without losing its catalog entry). */
+  sidebar: {
+    order: string[];
+    hidden: string[];
+  };
+}
 // Lab Head Phase 1 (2026-05-23): per-user account role inside a shared lab.
 // `member` = regular lab researcher (the existing behavior, defaults here).
 // `lab_head` = PI / principal investigator; reveals the Lab Overview surface
@@ -79,6 +114,13 @@ export interface UserSettings {
   // (`/api/calendar-feed`, `/api/telegram-file`). Direct browser → Telegram
   // polling continues because that talks to api.telegram.org directly.
   offlineMode: boolean;
+
+  // Lab Mode retirement R2 (R2 widget framework manager, 2026-05-23):
+  // optional, additive. When absent, the layout-persistence reader fills
+  // in the account-type-appropriate default. When present, unknown
+  // widget IDs are dropped at read time and new catalog widgets append
+  // at the bottom of canvas / sidebar. See `LabOverviewLayout` above.
+  lab_overview_layout?: LabOverviewLayout;
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {

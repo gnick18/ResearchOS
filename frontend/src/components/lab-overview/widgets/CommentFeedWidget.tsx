@@ -36,7 +36,10 @@ import type { LabUserProfile } from "@/hooks/useLabUserProfiles";
  * to this component. To avoid cherry-pick conflicts the page edit stays
  * minimal — see `app/lab-inbox/page.tsx`.
  */
-export default function LabInboxComments() {
+export default function CommentFeedWidget(_props?: {
+  isEditing?: boolean;
+  surface?: "canvas" | "sidebar";
+}) {
   const profileMap = useLabUserProfileMap();
   const { currentUser } = useCurrentUser();
   const queryClient = useQueryClient();
@@ -147,38 +150,30 @@ export default function LabInboxComments() {
 
   if (isLoading) {
     return (
-      <section className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="flex items-center gap-3">
-          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-emerald-600" />
-          <p className="text-sm text-gray-500">Loading lab comments…</p>
-        </div>
-      </section>
+      <div className="flex items-center gap-3">
+        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-emerald-600" />
+        <p className="text-sm text-gray-500">Loading lab comments…</p>
+      </div>
     );
   }
 
+  // R2 (R2 widget framework manager, 2026-05-23): outer card chrome
+  // moved into the canonical `<Widget>` frame. The "Lab comments"
+  // header copy is now the widget title; the "Only on my records"
+  // toggle stays in-body since it's an interactive filter, not chrome.
   return (
-    <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-      <header className="flex items-center justify-between">
-        <div>
-          <h2 className="text-base font-semibold text-gray-900">
-            Lab comments
-          </h2>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Every comment thread across the lab, newest first.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-gray-500">
-          <label className="flex items-center gap-1.5 cursor-pointer">
-            <input
-              type="checkbox"
-              className="rounded text-emerald-600 focus:ring-emerald-500"
-              checked={filterMine}
-              onChange={(e) => setFilterMine(e.target.checked)}
-            />
-            Only on my records
-          </label>
-        </div>
-      </header>
+    <div className="space-y-3">
+      <div className="flex items-center justify-end text-xs text-gray-500">
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <input
+            type="checkbox"
+            className="rounded text-emerald-600 focus:ring-emerald-500"
+            checked={filterMine}
+            onChange={(e) => setFilterMine(e.target.checked)}
+          />
+          Only on my records
+        </label>
+      </div>
 
       {visibleFeed.length === 0 ? (
         <p className="text-sm text-gray-400 italic">
@@ -223,7 +218,7 @@ export default function LabInboxComments() {
           }}
         />
       )}
-    </section>
+    </div>
   );
 }
 

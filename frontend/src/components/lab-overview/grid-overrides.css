@@ -1,0 +1,53 @@
+/*
+ * Lab Mode retirement R2 (R2 widget framework manager, 2026-05-23):
+ * react-grid-layout style hooks specific to the Lab Overview canvas.
+ *
+ * react-grid-layout ships a baseline `styles.css` (grid item positioning
+ * + resize handle shape). The lib also re-exports react-resizable's
+ * handle styles; without those imported, the resize corner is
+ * invisible. We import both via the WidgetCanvas.tsx top imports — this
+ * file layers on the visual treatment that matches the rest of the app
+ * (soft-shadow widget cards, blue accent on drag).
+ *
+ * The `.lab-widget-drag-handle` class is wired via WidgetCanvas's
+ * `draggableHandle` prop, so the grid item only initiates drag from
+ * the widget header. Clicks inside the body (comment rows, link cards,
+ * etc.) work normally.
+ */
+
+/* Visual cue while dragging — soft blue ring. */
+.react-grid-item.react-draggable-dragging {
+  z-index: 30;
+  box-shadow: 0 8px 24px -8px rgba(59, 130, 246, 0.45);
+}
+
+/* Resize corner — make it visible only in edit mode (the canvas adds
+ * `isDraggable` + `isResizable` based on edit state, so the handle is
+ * only rendered when applicable; we just give it a clearer affordance). */
+.react-grid-item > .react-resizable-handle {
+  background-image: none;
+  width: 12px;
+  height: 12px;
+  bottom: 0;
+  right: 0;
+}
+
+.react-grid-item > .react-resizable-handle::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid rgb(156, 163, 175);
+  border-bottom: 2px solid rgb(156, 163, 175);
+}
+
+.react-grid-item.react-grid-placeholder {
+  background: rgb(96, 165, 250) !important;
+  opacity: 0.18 !important;
+  border-radius: 0.5rem;
+  transition-duration: 100ms;
+  z-index: 2;
+  user-select: none;
+}
