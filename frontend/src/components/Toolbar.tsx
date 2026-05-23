@@ -6,7 +6,7 @@ import { useAppStore } from "@/lib/store";
 import { encodeFilterKey, parseFilterKey } from "@/lib/search/filterKey";
 import type { Project, ViewMode } from "@/lib/types";
 import AnimationSettingsPopup from "@/components/AnimationSettingsPopup";
-import { ANIMATION_METADATA } from "@/components/animations";
+import { ANIMATION_METADATA, renderAnimationIcon } from "@/components/animations";
 import Tooltip from "@/components/Tooltip";
 
 const VIEW_MODES: { label: string; value: ViewMode }[] = [
@@ -299,7 +299,12 @@ export default function Toolbar({
           data-tour-target="gantt-animation-picker"
           className="px-2.5 py-1.5 text-sm bg-white border border-gray-200 text-gray-700 rounded-lg hover:border-gray-300 hover:shadow-sm transition-all flex items-center gap-1.5 hover:animate-jiggle"
         >
-          <span className="text-base">{ANIMATION_METADATA[animationType].icon}</span>
+          {renderAnimationIcon(
+            ANIMATION_METADATA[animationType].icon,
+            ANIMATION_METADATA[animationType].color,
+            "text-base",
+            "w-5 h-5",
+          )}
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 20h9"/>
             <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
