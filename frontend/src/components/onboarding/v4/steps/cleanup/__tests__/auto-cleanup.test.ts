@@ -430,3 +430,71 @@ describe("runEndOfTourAutoCleanup — finalize behavior", () => {
     expect(patchOnboarding).toHaveBeenCalled();
   });
 });
+
+// cleanup scope fix manager 2026-05-23: pre-existing fixture data must
+// survive cleanup. The artifacts_created list should only contain
+// tour-created entities; this suite asserts that cleanup is strictly
+// list-driven and never touches ids that were NOT recorded during the
+// tour walkthrough.
+describe("runEndOfTourAutoCleanup — pre-existing fixture data is unaffected", () => {
+  it("does not delete tasks absent from artifacts_created (demo fixture task ids)", async () => {
+    // Simulate the scenario: the tour recorded two tour-created tasks
+    // (ids 31, 32) but the user's pre-existing demo fixture has tasks
+    // with overlapping id numbers in a DIFFERENT namespace. Cleanup
+    // must only delete what is explicitly listed in artifacts_created.
+    seedArtifacts([
+      art("task", "31", "discard"),
+      art("task", "32", "discard"),
+    ]);
+    await runEndOfTourAutoCleanup({
+      username: "alex",
+      firstProjectId: null,
+    });
+    // Only the two tour-created task ids were attempted.
+    expect(taskDelete).toHaveBeenCalledTimes(2);
+    expect(taskDelete).toHaveBeenCalledWith(31);
+    expect(taskDelete).toHaveBeenCalledWith(32);
+    // Crucially: pre-existing demo task ids (morgan's project 1 tasks:
+    // 1, 2, 3, 6, 7, 9, 10, 12) were NOT passed to tasksApi.delete.
+    for (const prExistingId of [1, 2, 3, 6, 7, 9, 10, 12]) {
+      expect(taskDelete).not.toHaveBeenCalledWith(prExistingId);
+    }
+  });
+
+  it("does not delete projects absent from artifacts_created (demo fixture project ids)", async () => {
+    // Tour created one project (id 5, preserved as firstProjectId)
+    // and one method (id 13). Pre-existing demo fixture projects 1-4
+    // must not be touched by cleanup.
+    seedArtifacts([
+      art("project", "5", "keep"),
+      art("method", "13:placeholder", "discard"),
+    ]);
+    await runEndOfTourAutoCleanup({
+      username: "alex",
+      firstProjectId: "5",
+    });
+    // Project 5 preserved (firstProjectId), method 13 deleted.
+    expect(projectDelete).not.toHaveBeenCalled();
+    expect(methodDelete).toHaveBeenCalledWith(13);
+    // Pre-existing demo project ids must not be touched.
+    for (const preExistingProjectId of [1, 2, 3, 4]) {
+      expect(projectDelete).not.toHaveBeenCalledWith(preExistingProjectId);
+    }
+  });
+
+  it("no-ops when artifacts_created is empty (skip-ahead before any step)", async () => {
+    // User clicked Skip ahead before doing anything. No artifacts
+    // recorded. Cleanup must make zero domain delete calls.
+    seedArtifacts([]);
+    const summary = await runEndOfTourAutoCleanup({
+      username: "alex",
+      firstProjectId: null,
+    });
+    expect(summary.attempted).toBe(0);
+    expect(summary.preserved).toBe(0);
+    expect(taskDelete).not.toHaveBeenCalled();
+    expect(projectDelete).not.toHaveBeenCalled();
+    expect(goalDelete).not.toHaveBeenCalled();
+    expect(methodDelete).not.toHaveBeenCalled();
+  });
+});

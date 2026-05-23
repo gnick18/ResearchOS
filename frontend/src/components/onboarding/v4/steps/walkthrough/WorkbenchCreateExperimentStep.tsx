@@ -47,6 +47,21 @@ const STEP_ID = "workbench-create-experiment";
  *  re-plumbing TourController context. */
 const baselineTaskIds = new Set<number>();
 
+/**
+ * Guard flag: true when `onEnter` ran and successfully populated
+ * `baselineTaskIds` for the current step visit. Reset to false by
+ * `onExit` after the diff runs.
+ *
+ * Safety net against over-scoping: if the user navigates directly
+ * to this step (e.g. via "Skip ahead" or a page refresh that
+ * resumes mid-tour), `onEnter` never fired, so `baselineTaskIds`
+ * is empty. Without this flag, `onExit` would treat ALL tasks in
+ * project-0 as "newly created by the tour" and incorrectly add
+ * pre-existing task ids to `artifacts_created`, causing cleanup to
+ * delete data the tour did not create.
+ */
+let baselineWasTaken = false;
+
 /** Placeholder experiment name. Re-used by the §6.11 search step's
  *  cursor-typed query. The demo step types this string into the Task
  *  Name input verbatim, so the search query in §6.11 always finds the
@@ -85,9 +100,15 @@ export const workbenchCreateExperimentStep = buildWalkthroughStep({
   // project when none is selected.
   onEnter: async () => {
     baselineTaskIds.clear();
+    baselineWasTaken = false;
     try {
       const tasks = await tasksApi.listByProject(0);
       for (const task of tasks) baselineTaskIds.add(task.id);
+      // Mark baseline as taken only after a successful read so onExit
+      // knows it can safely trust the diff. An empty set is legitimate
+      // (no pre-existing workbench tasks) and is fine — we just need to
+      // know that onEnter actually ran.
+      baselineWasTaken = true;
     } catch (err) {
       console.warn(
         "[onboarding-v4] workbench-create-experiment baseline read failed:",
@@ -96,6 +117,16 @@ export const workbenchCreateExperimentStep = buildWalkthroughStep({
     }
   },
   onExit: async () => {
+    // Guard: if onEnter never ran for this step visit (e.g. the user
+    // arrived via "Skip ahead" or a mid-tour page refresh), skip the
+    // diff entirely. An empty baseline would treat ALL existing
+    // project-0 tasks as tour-created, incorrectly adding pre-existing
+    // task ids to artifacts_created and causing cleanup to delete data
+    // the tour did not create. cleanup scope fix manager 2026-05-23.
+    if (!baselineWasTaken) {
+      baselineTaskIds.clear();
+      return;
+    }
     try {
       const tasks = await tasksApi.listByProject(0);
       for (const task of tasks) {
@@ -114,6 +145,7 @@ export const workbenchCreateExperimentStep = buildWalkthroughStep({
       );
     }
     baselineTaskIds.clear();
+    baselineWasTaken = false;
     await flushPendingArtifacts(STEP_ID);
   },
   expectedRoute: "/workbench",
