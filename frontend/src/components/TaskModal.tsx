@@ -534,7 +534,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
             >
               {activeProjects.map((p) => (
                 <option key={`${p.owner}:${p.id}`} value={p.id}>
-                  {p.name === "Miscellaneous" ? "📋 Miscellaneous (standalone tasks)" : p.name}
+                  {p.name === "Miscellaneous" ? "Miscellaneous (standalone tasks)" : p.name}
                 </option>
               ))}
             </select>
