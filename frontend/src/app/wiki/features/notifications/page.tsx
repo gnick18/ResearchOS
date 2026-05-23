@@ -72,8 +72,12 @@ export default function NotificationsFeaturePage() {
         caption="Shift-alert row in the bell. The amber delta is the headline. View task jumps to the new start date on the calendar, Ignore dismisses the row."
       />
       <p>
-        Clicking anywhere on a row marks it as read but doesn&apos;t go
-        anywhere. Reminder rows have an extra <strong>Open in calendar →</strong>{" "}
+        Clicking anywhere on an unread row marks it as read but doesn&apos;t go
+        anywhere. Clicking a row that is already read is a no-op. Each row also
+        has a <strong>blue pill with a checkmark</strong> on the right that marks
+        just that one item as read, making it the primary affordance for silencing
+        a single notification without touching the rest. Reminder rows have an
+        extra <strong>Open in calendar →</strong>{" "}
         link that jumps the calendar to the day of the event and closes the
         dropdown. Shift-alert rows have <strong>View task →</strong> (jumps
         the calendar to the new start date and closes the dropdown) and{" "}
@@ -83,10 +87,11 @@ export default function NotificationsFeaturePage() {
       </p>
       <p>
         At the top of the dropdown, <strong>Mark all read</strong> clears the
-        unread badge without removing anything. <strong>Clear read</strong>{" "}
-        removes the rows you&apos;ve already acknowledged, and{" "}
-        <strong>Clear all</strong> empties the list (with a confirm prompt so
-        you don&apos;t lose unread items by accident).
+        unread badge without removing anything. It only appears when at least
+        one unread item exists. <strong>Clear read</strong>{" "}
+        removes the rows you&apos;ve already acknowledged, and only appears
+        when at least one read item is present. <strong>Clear all</strong> empties
+        the list (with a confirm prompt so you don&apos;t lose unread items by accident).
       </p>
       <p>
         The bell rechecks for new notifications every 30 seconds while the app

@@ -132,7 +132,7 @@ export const WIKI_NAV: WikiNode[] = [
       {
         href: "/wiki/features/projects",
         label: "Project Surface",
-        blurb: "Slim Inspector popup plus a full Workspace route for each project.",
+        blurb: "Card anatomy, kebab menu actions, and the full Workspace route for each project.",
       },
       {
         href: "/wiki/features/gantt",

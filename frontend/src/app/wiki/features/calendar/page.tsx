@@ -36,9 +36,9 @@ export default function CalendarFeaturePage() {
         <li>
           <strong>Month</strong> is a 7-column grid of day cells. Each cell
           shows up to three events, and the rest collapse into a{" "}
-          <code>+N more</code> link. Single-click a day to open a
-          day-detail drawer listing every event on that date. Double-click
-          to start a new event prefilled with that date.
+          <code>+N more</code> count (a non-clickable label, not a link).
+          Single-click a day to open a day-detail drawer listing every event
+          on that date. Double-click to start a new event prefilled with that date.
         </li>
         <li>
           <strong>Week</strong> is a 7-day stack with an all-day strip
@@ -48,16 +48,20 @@ export default function CalendarFeaturePage() {
           tracks the current minute on today&apos;s column.
         </li>
         <li>
-          <strong>Day</strong> shows the same hourly grid for a single day.
+          <strong>Day</strong> shows the same hourly grid for a single day,
+          also with a red &ldquo;now&rdquo; line tracking the current minute.
           Useful first thing in the morning, and roomy enough to show an
           event&apos;s location inline.
         </li>
       </ul>
 
       <Callout variant="info" title="Default view">
-        The month/week/day toggle remembers your choice for the session.
-        To change the persisted default, open <strong>Settings</strong> →{" "}
-        <strong>Defaults</strong> and pick a different starting view.
+        The month/week/day toggle changes your view for the current session only.
+        The change is ephemeral: when you reload the app, the calendar returns to
+        its persisted startup view. To change that startup view, open{" "}
+        <strong>Settings</strong> → <strong>View defaults</strong> and pick a
+        different starting view. ResearchOS reads the setting from settings.json
+        on load and hydrates the calendar to that view before rendering.
       </Callout>
 
       <h2>Create an event</h2>
@@ -100,6 +104,14 @@ export default function CalendarFeaturePage() {
         <strong> Delete</strong> removes the event after a confirmation.
       </p>
 
+      <Callout variant="info" title="Mark as PTO day">
+        The event create/edit modal includes a <strong>Mark as PTO day</strong>{" "}
+        checkbox. Events flagged PTO display a badge on their chip in the
+        calendar grid. ResearchOS also factors PTO days into streaks and project
+        schedule calculations, so marking time off keeps your progress tracking
+        accurate.
+      </Callout>
+
       <h2>Linked calendars (Google, Outlook, iCloud)</h2>
       <Screenshot
         src="/wiki/screenshots/calendar-feeds-modal.png"
@@ -107,8 +119,10 @@ export default function CalendarFeaturePage() {
       />
       <p>
         Click <strong>Linked Calendars</strong> in the top right (or{" "}
-        <strong>Manage</strong> in the sidebar) to open the modal. The
-        same iCal-URL flow works for all three providers:
+        <strong>Manage</strong> in the sidebar) to open the modal. You can also
+        navigate to <code>/calendar?addFeed=1</code> directly, which auto-opens
+        the modal so you can share a deep-link that drops someone straight into
+        the add-feed flow. The same iCal-URL flow works for all four providers:
       </p>
       <ul>
         <li>
@@ -127,12 +141,19 @@ export default function CalendarFeaturePage() {
           <code>webcal://</code> URL as-is. ResearchOS rewrites it
           automatically.
         </li>
+        <li>
+          <strong>Other (any iCal URL)</strong> accepts any standard{" "}
+          <code>.ics</code> feed URL, so you can add lab-managed or
+          third-party calendars that aren&apos;t one of the three named providers.
+        </li>
       </ul>
       <p>
-        Every linked calendar gets a color in the sidebar legend. Toggle a
-        feed on or off from either the modal or the legend. Remove a feed
-        with the <strong>Remove</strong> link in the modal. Feeds refetch
-        every 15 minutes. If a feed fails to fetch, an amber banner
+        Every linked calendar gets a color in the sidebar legend. The Linked
+        Calendars modal also has a per-feed <strong>color picker</strong> so
+        you can recolor any feed to match your preferences without disconnecting
+        and re-adding it. Toggle a feed on or off from either the modal or the
+        legend. Remove a feed with the <strong>Remove</strong> link in the modal.
+        Feeds refetch every 15 minutes. If a feed fails to fetch, an amber banner
         appears above the calendar grid with a <strong>Retry now</strong>{" "}
         button.
       </p>
