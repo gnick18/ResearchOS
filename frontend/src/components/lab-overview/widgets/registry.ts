@@ -58,14 +58,14 @@ import LabExperimentsWidget, {
   SnapshotTile as LabExperimentsSnapshot,
   ExpandedView as LabExperimentsExpanded,
 } from "./LabExperimentsWidget";
-import LabSearchWidget, {
-  SnapshotTile as LabSearchSnapshot,
-  ExpandedView as LabSearchExpanded,
-} from "./LabSearchWidget";
-import LabLinksWidget, {
-  SnapshotTile as LabLinksSnapshot,
-  ExpandedView as LabLinksExpanded,
-} from "./LabLinksWidget";
+import LabActivityWidget, {
+  SnapshotTile as LabActivitySnapshot,
+  ExpandedView as LabActivityExpanded,
+} from "./LabActivityWidget";
+import LabPurchasesWidget, {
+  SnapshotTile as LabPurchasesSnapshot,
+  ExpandedView as LabPurchasesExpanded,
+} from "./LabPurchasesWidget";
 import {
   OverdueTasksSnapshot,
   TodaysTasksSnapshot,
@@ -89,8 +89,8 @@ void MemberWorkloadWidget;
 void TodaysAnnouncementsWidget;
 void LabNotesWidget;
 void LabExperimentsWidget;
-void LabSearchWidget;
-void LabLinksWidget;
+void LabActivityWidget;
+void LabPurchasesWidget;
 
 export const WIDGET_CATALOG: WidgetDefinition[] = [
   // ── Canvas widgets ───────────────────────────────────────────────────
@@ -148,26 +148,35 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     surface: "canvas",
     memberVisible: true,
   },
+  // Widget catalog cleanup (widget catalog cleanup manager, 2026-05-23):
+  // Lab Links + Lab Search dropped. Both surfaces already exist as
+  // top-nav tabs (/links + the global search affordances), so the
+  // widget variants were redundant. Replaced by the two entries below.
   {
-    id: "lab-search",
-    title: "Lab search",
+    id: "lab-activity",
+    title: "Lab activity",
     description:
-      "Cross-lab keyword + filter search across tasks, projects, methods.",
-    SnapshotTile: LabSearchSnapshot,
-    ExpandedView: LabSearchExpanded,
+      "Deep, paginated activity feed across the lab (comments, tasks, flags, announcements).",
+    SnapshotTile: LabActivitySnapshot,
+    ExpandedView: LabActivityExpanded,
     defaultLayout: { w: 6, h: 8, minW: 4, minH: 5 },
     surface: "canvas",
+    // Members can see the same activity buckets the sidebar
+    // RecentActivityWidget already surfaces (no PI-only fields). If a
+    // later refinement adds purchase approvals or audit entries here
+    // this should flip to false.
     memberVisible: true,
   },
   {
-    id: "lab-links",
-    title: "Lab links",
-    description: "Shared lab links grouped by category. Read-only navigation.",
-    SnapshotTile: LabLinksSnapshot,
-    ExpandedView: LabLinksExpanded,
-    defaultLayout: { w: 6, h: 4, minW: 3, minH: 3 },
+    id: "lab-purchases",
+    title: "Lab purchases",
+    description:
+      "Pending approvals, recent purchases, and funding rollup. Lab head only.",
+    SnapshotTile: LabPurchasesSnapshot,
+    ExpandedView: LabPurchasesExpanded,
+    defaultLayout: { w: 6, h: 8, minW: 4, minH: 5 },
     surface: "canvas",
-    memberVisible: true,
+    memberVisible: false, // lab_head only; replaces the /purchases nav for PIs
   },
 
   // ── Sidebar widgets (PI-oriented) ────────────────────────────────────

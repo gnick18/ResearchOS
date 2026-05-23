@@ -140,18 +140,28 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const showLabOverview =
     accountType === "lab_head" ||
     (accountType === "member" && isLabWorkspace);
+  // Widget catalog cleanup (widget catalog cleanup manager, 2026-05-23):
+  // for lab_head accounts the /purchases top-nav entry is hidden because
+  // the LabPurchasesWidget on Lab Overview now covers their workflow
+  // (pending approvals + recent purchases + funding rollup). The route
+  // itself stays alive, so a lab head who types /purchases directly still
+  // gets the full page, and members keep the nav entry unchanged.
   const navItemsWithOverview = useMemo(() => {
-    if (!showLabOverview) return filtered;
-    // Slot the entry right after Home. Home is always at index 0 of
-    // `filtered` (Home is force-included via the filter predicate
-    // above), so a splice at index 1 is safe even when every other
-    // NAV_ITEMS entry has been hidden via Settings → Tabs.
-    const next = [...filtered];
-    const homeIdx = next.findIndex((item) => item.href === HOME_HREF);
-    const insertAt = homeIdx >= 0 ? homeIdx + 1 : 0;
-    next.splice(insertAt, 0, { href: "/lab-overview", label: "Lab Overview" });
+    let next = [...filtered];
+    if (accountType === "lab_head") {
+      next = next.filter((i) => i.href !== "/purchases");
+    }
+    if (showLabOverview) {
+      // Slot the entry right after Home. Home is always at index 0 of
+      // `filtered` (Home is force-included via the filter predicate
+      // above), so a splice at index 1 is safe even when every other
+      // NAV_ITEMS entry has been hidden via Settings → Tabs.
+      const homeIdx = next.findIndex((item) => item.href === HOME_HREF);
+      const insertAt = homeIdx >= 0 ? homeIdx + 1 : 0;
+      next.splice(insertAt, 0, { href: "/lab-overview", label: "Lab Overview" });
+    }
     return next;
-  }, [filtered, showLabOverview]);
+  }, [filtered, showLabOverview, accountType]);
 
   // Onboarding v4 L23: while the in-product walkthrough is active, the
   // top-nav tabs are visually disabled + onClick-suppressed so the user
