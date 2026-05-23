@@ -147,14 +147,24 @@ export default function TourBootstrap({ username }: TourBootstrapProps) {
         if (cancelled) return;
 
         if (previewMode) {
-          // Dev hook (parallels v3's WizardMount). Always start at
-          // the first applicable step so wiki screenshots + manual
-          // tests don't have to wipe sidecars.
+          // Dev hook (parallels v3's WizardMount). The previous behavior
+          // was an unconditional `controller.start()` (or seeded start)
+          // which silently wiped progress on any reload while the sticky
+          // sessionStorage preview flag was set. R2 chip A Fix 1/3: the
+          // wiki-capture-driven `?wizardSeedStep=<id>` path is still the
+          // intentional force-start (screenshot scripts seed
+          // `wizard_resume_state` themselves and expect the bootstrap
+          // to honor the URL). A real user under sticky preview mode
+          // with mid-tour progress must NOT lose that progress on hard
+          // reload, so we now still consult `wizard_resume_state` and
+          // surface the V4ResumePrompt when the saved step is past
+          // welcome and no explicit seed is present in the URL.
           // P12 follow-up: previewMode pre-empts the auto-resume flag.
-          // Preview is always a force-start, so any stale flag from a
-          // prior session is cleared here too (otherwise a sessionStorage
-          // value left over from a real-user reload could bleed into the
-          // preview surface).
+          // Preview is always a force-start (when no real progress is
+          // being honored), so any stale flag from a prior session is
+          // cleared here too — otherwise a sessionStorage value left
+          // over from a real-user reload could bleed into the preview
+          // surface.
           if (typeof sessionStorage !== "undefined") {
             try {
               sessionStorage.removeItem(AUTO_RESUME_FLAG);
@@ -173,13 +183,35 @@ export default function TourBootstrap({ username }: TourBootstrapProps) {
           // read `?wizardSeedStep` from the URL, validate it is a real
           // v4 step id via the registry-backed isV4StepId helper, and
           // pass it through to `controller.start(seedStep)`. Invalid /
-          // missing seeds fall through to the existing welcome start.
+          // missing seeds fall through to the resume-state-aware path.
           const seedStep = searchParams?.get("wizardSeedStep") ?? null;
           if (seedStep && isV4StepId(seedStep)) {
             controller.start(seedStep);
-          } else {
-            controller.start();
+            setState({ kind: "resolved" });
+            return;
           }
+          // R2 chip A Fix 1/3: honor mid-tour `wizard_resume_state`
+          // under sticky preview mode. If the user has real progress
+          // past welcome, surface the V4ResumePrompt (or honor a
+          // welcome-step resume as a fresh start) instead of silently
+          // restarting from welcome. The dev-hook force-start behavior
+          // still applies when there is no meaningful resume state
+          // (null OR welcome).
+          const previewResumeId =
+            sidecar.wizard_resume_state?.current_step ?? null;
+          if (
+            previewResumeId &&
+            isV4StepId(previewResumeId) &&
+            previewResumeId !== "welcome"
+          ) {
+            setState({
+              kind: "v4-resume",
+              sidecar,
+              resumeStep: previewResumeId,
+            });
+            return;
+          }
+          controller.start();
           setState({ kind: "resolved" });
           return;
         }

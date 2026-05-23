@@ -596,6 +596,41 @@ describe("TourBootstrap:preview mode wizardSeedStep", () => {
       expect(modal?.getAttribute("data-tour-step")).toBe("welcome");
     });
   });
+
+  // R2 chip A Fix 1/3: under sticky preview mode, a real user with
+  // mid-tour `wizard_resume_state` must NOT be silently restarted
+  // from welcome on a hard reload. The bootstrap should consult the
+  // resume state and surface the V4ResumePrompt for non-welcome
+  // saved steps, exactly like the non-preview path.
+  it("preview mode honors mid-tour wizard_resume_state and surfaces V4ResumePrompt", async () => {
+    // Sticky preview flag (set by isV4PreviewMode after the initial
+    // ?wizard-preview=1 visit) — no URL query, just the sessionStorage
+    // marker. With prior progress past welcome, the bootstrap must NOT
+    // force-start from welcome.
+    sessionStorage.setItem("researchos:v4-preview-active", "1");
+    memFs.set(
+      PATH,
+      fullSidecar({
+        wizard_resume_state: {
+          current_step: "home-create-project",
+          skipped_steps: [],
+          artifacts_created: [],
+        },
+      }),
+    );
+    renderWithProvider(<TourBootstrap username={USER} />);
+    await waitFor(() => {
+      expect(
+        document.body.querySelector("[data-testid='v4-resume-prompt']"),
+      ).toBeTruthy();
+    });
+    // Force-start from welcome did NOT happen.
+    expect(
+      document.body
+        .querySelector("[data-tour-modal='v4-setup']")
+        ?.getAttribute("data-tour-step"),
+    ).not.toBe("welcome");
+  });
 });
 
 describe("isV4StepId helper", () => {
