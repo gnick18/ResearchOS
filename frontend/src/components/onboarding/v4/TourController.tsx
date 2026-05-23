@@ -28,7 +28,6 @@ import {
   firstApplicableStep,
   getNextStep,
   getPreviousStep,
-  isLabModeTourStep,
   isLabPhaseStep,
   isSetupPhaseStep,
 } from "./step-machine";
@@ -1132,25 +1131,18 @@ export function TourControllerProvider({
     setTargetDetachRecoveryLabel(null);
     if (typeof document === "undefined") return;
     if (!state.currentStep || state.paused) return;
-    // R2 chip B Fix 3/3: short-circuit on lab-mode-exit. The terminal
-    // step's whole purpose is to close the demo viewer — its cursor
-    // script clicks the Exit button, the viewer dismisses, the target
-    // selector intentionally detaches. Firing recovery copy here would
-    // contradict the step (the user is meant to be leaving the viewer).
-    if (state.currentStep === "lab-mode-exit") return;
     const body = getStep(state.currentStep);
     if (!body) return;
     const selector = body.targetSelector;
     const hint = body.recoveryHint?.buttonLabel ?? "the button you clicked before";
     const isLabStep = isLabPhaseStep(state.currentStep);
-    // R2 chip B Fix 3/3: subscribe lab-mode-* tour steps (the §6.16
-    // cluster) to the DemoLabModeMount `lab-mode-tour:close` event.
-    // When the viewer overlay closes mid-step (user pressed Esc inside
-    // the viewer, the close button on the viewer fired its onExit),
-    // every subsequent tab step would narrate against missing UI.
-    // We swap to the recovery line so the user gets a clear "click X
-    // to re-open" prompt instead of a stale spotlight.
-    const isLabModeTourStepNonExit = isLabModeTourStep(state.currentStep);
+    // R4 Lab Mode retirement 2026-05-23: the prior `lab-mode-tour:close`
+    // event subscription (which paired with the DemoLabModeViewer
+    // overlay) is gone alongside the overlay itself. The new Lab
+    // Overview tour walks the user's real `/lab-overview` widget canvas,
+    // so there's no overlay to detect dismissal of. The MutationObserver
+    // path below still catches target-detach (e.g. the user closes a
+    // popup that contained the spotlight target) on every step.
 
     let mo: MutationObserver | null = null;
     let detached = false;
@@ -1179,38 +1171,16 @@ export function TourControllerProvider({
         });
         mo.observe(document.body, { childList: true, subtree: true });
       }
-      const onLabClose = () => {
-        // R2 chip B Fix 3/3: include lab-mode-* tour steps (not just
-        // the legacy `lab-cleanup` lab-phase id). The viewer overlay
-        // dismissal detaches every spotlight target in the cluster.
-        if (!isLabStep && !isLabModeTourStepNonExit) return;
-        detached = true;
-        setTargetDetachRecoveryLabel(hint);
-      };
-      window.addEventListener("lab-mode-tour:close", onLabClose);
       return () => {
         window.clearTimeout(initialTimer);
         mo?.disconnect();
-        window.removeEventListener("lab-mode-tour:close", onLabClose);
       };
     }
 
-    // Lab-mode steps without a fixed targetSelector still subscribe to
-    // the close event so the speech swaps even when the spotlight has
-    // no DOM anchor. R2 chip B Fix 3/3 widens this from the legacy
-    // `isLabPhaseStep` (only `lab-cleanup`) to also include the §6.16
-    // lab-mode-* cluster — `lab-mode-warp-to-demo` in particular has
-    // no targetSelector (speech-only intro) but still needs recovery
-    // copy when the viewer closes under it.
-    if (isLabStep || isLabModeTourStepNonExit) {
-      const onLabClose = () => {
-        setTargetDetachRecoveryLabel(hint);
-      };
-      window.addEventListener("lab-mode-tour:close", onLabClose);
-      return () => {
-        window.removeEventListener("lab-mode-tour:close", onLabClose);
-      };
-    }
+    // Suppress unused-variable warning on isLabStep — kept around in
+    // case a future lab-only target-detach contract reappears (R5 may
+    // need it for the `/lab` deletion sweep).
+    void isLabStep;
   }, [state.currentStep, state.paused]);
 
   // Popstate toast visibility — flipped on by the popstate listener,

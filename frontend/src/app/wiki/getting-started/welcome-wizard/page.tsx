@@ -474,44 +474,49 @@ export default function WelcomeWizardPage() {
         </li>
       </ul>
 
-      <h2>Lab Mode tour (lab accounts only)</h2>
+      <h2>Lab Overview tour (lab accounts only)</h2>
       <p>
-        If Q1 was Lab, Phase 2 ends with an opt-in prompt. BeakerBot asks:
-        tour Lab Mode now, later (re-prompt from the Lab Mode tab), or dismiss
-        (Settings re-run is the only path back). Picking <strong>Now</strong>{" "}
-        drops you into a twelve-step walkthrough of the DemoLabModeViewer
-        overlay.
+        If Q1 was Lab, Phase 2 ends with a short walkthrough of the Lab
+        Overview surface: a customizable widget dashboard that sits at{" "}
+        <code>/lab-overview</code>. The cluster runs against your real lab
+        overview using your own data (no demo overlay, no warp). Six beats,
+        each one a small concept the user picks up on their actual surface.
       </p>
       <p>
-        The overlay is a read-only demo environment with realistic fake lab
-        data. BeakerBot opens it via the <code>openDemoLabModeViewer()</code>{" "}
-        event and narrates each surface as a tab-tour. If you accidentally close
-        the overlay (for example, by pressing Escape), pressing{" "}
-        <strong>Back</strong> in the speech bubble re-opens it.
+        The cluster opens with BeakerBot waving on the empty (or
+        nearly-empty) overview, sets the scene, then walks four anchor
+        points (canvas, sidebar rail, the Add widget catalog, and the
+        unified sharing primitive) before waving the user back out to
+        customize the dashboard at their own pace.
       </p>
       <p>
-        The twelve steps cover:
+        The six steps cover:
       </p>
       <Steps>
-        <Step><strong>lab-mode-prompt.</strong> BeakerBot asks Now / Later / Dismiss.</Step>
-        <Step><strong>lab-mode-intro.</strong> BeakerBot explains what Lab Mode is conceptually.</Step>
-        <Step><strong>lab-mode-warp-to-demo.</strong> BeakerBot dispatches <code>openDemoLabModeViewer()</code>. The overlay mounts. BeakerBot says &quot;Welcome to the demo. Real fake lab data, lots of it.&quot;</Step>
-        <Step><strong>lab-mode-activity.</strong> Tour of the Activity tab inside the overlay.</Step>
-        <Step><strong>lab-mode-experiments.</strong> Tour of the Experiments tab.</Step>
-        <Step><strong>lab-mode-gantt.</strong> Tour of the Gantt tab.</Step>
-        <Step><strong>lab-mode-methods.</strong> Tour of the Methods tab.</Step>
-        <Step><strong>lab-mode-notes.</strong> Tour of the Notes tab.</Step>
-        <Step><strong>lab-mode-purchases.</strong> Tour of the Purchases tab.</Step>
-        <Step><strong>lab-mode-roadmaps.</strong> Tour of the Roadmaps tab.</Step>
-        <Step><strong>lab-mode-search.</strong> Tour of the Search tab.</Step>
-        <Step><strong>lab-mode-exit.</strong> BeakerBot exits the demo viewer and transitions to cleanup.</Step>
+        <Step><strong>lab-overview-intro.</strong> BeakerBot sets the scene: the Lab Overview is a customizable widget dashboard, the home base for everything cross-lab.</Step>
+        <Step><strong>lab-overview-widget-canvas.</strong> Spotlights the widget grid wrapper. BeakerBot narrates the drag, resize, and remove affordances available in Edit mode.</Step>
+        <Step><strong>lab-overview-sidebar-rail.</strong> Spotlights the sidebar widget rail on the left of the page (recent activity, PI quick actions, member workload). The rail has its own edit affordance via the gear icon.</Step>
+        <Step><strong>lab-overview-add-widget.</strong> Cursor glides to the + Add widget toolbar button. BeakerBot describes the catalog popover that opens, where each row toggles a widget on or off the canvas.</Step>
+        <Step><strong>lab-overview-sharing.</strong> Narration-only. BeakerBot explains the unified Share button that every record (tasks, notes, lists, methods, links, goals, projects) carries on its detail popup, with the Whole lab sentinel for everyone-visible and per-user shares for one-to-one sharing.</Step>
+        <Step><strong>lab-overview-exit.</strong> Wraps up. BeakerBot waves the user back out into the dashboard so they can customize it however helps them work.</Step>
       </Steps>
 
       <p>
-        After the Lab Mode cluster (whether you took it now, deferred it, or
-        dismissed it), a single <code>lab-cleanup</code> step runs to wipe the
-        BeakerBot fake user that was spawned during the Gantt share cluster.
+        After the Lab Overview cluster, a single <code>lab-cleanup</code>{" "}
+        step runs to wipe the BeakerBot fake user that was spawned during
+        the Gantt share cluster.
       </p>
+
+      <Callout variant="info" title="If you remember the old Lab Mode tour">
+        Earlier builds shipped a twelve-step Lab Mode tour that warped the
+        user into a read-only DemoLabModeViewer overlay populated with fake
+        cross-user data. That cluster has been retired. The new Lab
+        Overview tour teaches the same cross-lab concepts (announcements,
+        member activity, shared records) on the real customizable
+        dashboard at <code>/lab-overview</code> instead of a demo overlay.
+        Sharing now lives on every record type via the unified Share
+        button, not as a separate &quot;cross-user&quot; surface.
+      </Callout>
 
       <h2>Terminal step: tour-goodbye</h2>
       <p>

@@ -63,21 +63,18 @@ import { linksConditionalStep } from "./steps/walkthrough/LinksConditionalStep";
 // `steps/lab/` with @deprecated JSDoc for git-history reference; the
 // imports are dropped here so unused-export warnings don't accumulate.
 import { buildLabCleanupStep } from "./steps/lab/LabAutoCleanupStep";
-// §6.16 Phase 2c Lab Mode tour cluster (Lab Mode redesign 2026-05-22).
-// 12 new step bodies that mount the DemoLabModeViewer overlay and walk
-// each lab-mode tab. All gate on `picks.account_type === "lab"`.
-import { labModePromptStep } from "./steps/lab-mode/LabModePromptStep";
-import { labModeIntroStep } from "./steps/lab-mode/LabModeIntroStep";
-import { labModeWarpToDemoStep } from "./steps/lab-mode/LabModeWarpToDemoStep";
-import { labModeActivityStep } from "./steps/lab-mode/LabModeActivityStep";
-import { labModeGanttStep } from "./steps/lab-mode/LabModeGanttStep";
-import { labModeExperimentsStep } from "./steps/lab-mode/LabModeExperimentsStep";
-import { labModePurchasesStep } from "./steps/lab-mode/LabModePurchasesStep";
-import { labModeRoadmapsStep } from "./steps/lab-mode/LabModeRoadmapsStep";
-import { labModeMethodsStep } from "./steps/lab-mode/LabModeMethodsStep";
-import { labModeNotesStep } from "./steps/lab-mode/LabModeNotesStep";
-import { labModeSearchStep } from "./steps/lab-mode/LabModeSearchStep";
-import { labModeExitStep } from "./steps/lab-mode/LabModeExitStep";
+// R4 Lab Overview tour cluster (R4 Lab Mode retirement, 2026-05-23).
+// Six new step bodies that walk the user's own `/lab-overview` widget
+// canvas + the unified sharing primitive. All gate on
+// `picks.account_type === "lab"`. Replaces the prior 12-step
+// `lab-mode-*` cluster (which mounted a DemoLabModeViewer overlay over
+// the soon-to-be-retired `/lab` pseudo-account).
+import { labOverviewIntroStep } from "./steps/lab-overview/LabOverviewIntroStep";
+import { labOverviewWidgetCanvasStep } from "./steps/lab-overview/LabOverviewWidgetCanvasStep";
+import { labOverviewSidebarRailStep } from "./steps/lab-overview/LabOverviewSidebarRailStep";
+import { labOverviewAddWidgetStep } from "./steps/lab-overview/LabOverviewAddWidgetStep";
+import { labOverviewSharingStep } from "./steps/lab-overview/LabOverviewSharingStep";
+import { labOverviewExitStep } from "./steps/lab-overview/LabOverviewExitStep";
 import {
   onEnterGanttGoalsOverview,
   onEnterHybridEditorImageDrop,
@@ -363,21 +360,17 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   // step; the body lives in steps/cleanup/TourGoodbyeStep.tsx alongside
   // the retired Phase 4 cleanup-grid sources (marked @deprecated).
   [tourGoodbyeStep.id]: tourGoodbyeStep,
-  // §6.16 Phase 2c Lab Mode tour cluster (Lab Mode redesign 2026-05-22).
-  // Order matches TOUR_STEP_ORDER: prompt → intro → warp → 8 tab beats
-  // → exit. Each step's conditionalOn gates on account_type === "lab".
-  [labModePromptStep.id]: labModePromptStep,
-  [labModeIntroStep.id]: labModeIntroStep,
-  [labModeWarpToDemoStep.id]: labModeWarpToDemoStep,
-  [labModeActivityStep.id]: labModeActivityStep,
-  [labModeGanttStep.id]: labModeGanttStep,
-  [labModeExperimentsStep.id]: labModeExperimentsStep,
-  [labModePurchasesStep.id]: labModePurchasesStep,
-  [labModeRoadmapsStep.id]: labModeRoadmapsStep,
-  [labModeMethodsStep.id]: labModeMethodsStep,
-  [labModeNotesStep.id]: labModeNotesStep,
-  [labModeSearchStep.id]: labModeSearchStep,
-  [labModeExitStep.id]: labModeExitStep,
+  // R4 Lab Overview tour cluster (R4 Lab Mode retirement, 2026-05-23).
+  // Order matches TOUR_STEP_ORDER: intro → canvas → sidebar → add
+  // widget → sharing → exit. Each step's conditionalOn gates on
+  // `account_type === "lab"`. Replaces the legacy 12-step lab-mode-*
+  // cluster.
+  [labOverviewIntroStep.id]: labOverviewIntroStep,
+  [labOverviewWidgetCanvasStep.id]: labOverviewWidgetCanvasStep,
+  [labOverviewSidebarRailStep.id]: labOverviewSidebarRailStep,
+  [labOverviewAddWidgetStep.id]: labOverviewAddWidgetStep,
+  [labOverviewSharingStep.id]: labOverviewSharingStep,
+  [labOverviewExitStep.id]: labOverviewExitStep,
 };
 
 /**

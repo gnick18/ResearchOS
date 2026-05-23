@@ -179,13 +179,14 @@ export default function WidgetCanvas({ username, accountType }: WidgetCanvasProp
   const mountedIds = new Set(Object.keys(canvas));
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" data-tour-target="lab-overview-canvas">
       {/* Toolbar */}
       <div className="flex items-center justify-end gap-2 relative">
         <Tooltip label="Add a widget to the canvas" placement="bottom">
           <button
             type="button"
             onClick={() => setShowPalette((p) => !p)}
+            data-tour-target="lab-overview-add-widget"
             className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
           >
             + Add widget

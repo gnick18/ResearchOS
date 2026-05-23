@@ -429,6 +429,23 @@ export const TOUR_TARGETS = {
   /** The Keywords input on LabSearchPanel — cursor types a query
    *  into it during the lab-mode-search demo. */
   labModeSearchKeywordInput: "lab-mode-search-keyword-input",
+
+  // ----- R4 Lab Overview targets (R4 Lab Mode retirement, 2026-05-23).
+  // Anchors for the 6-step Lab Overview tour cluster that walks the
+  // user's own `/lab-overview` widget canvas + the unified sharing
+  // primitive. Replaces the prior lab-mode-* tab targets (which lived
+  // on the soon-to-be-retired `/lab` pseudo-account surface).
+  // Stamped on:
+  //   - WidgetCanvas's grid wrapper (lab-overview-canvas)
+  //   - SidebarWidgetRail's <aside> (lab-overview-sidebar)
+  //   - WidgetCanvas's "+ Add widget" toolbar button (lab-overview-add-widget)
+  //   - A sample share button on a canvas record (lab-overview-share-button);
+  //     when no record exposes the anchor, the step degrades to speech-only
+  //     narration of the sharing primitive.
+  labOverviewCanvas: "lab-overview-canvas",
+  labOverviewSidebar: "lab-overview-sidebar",
+  labOverviewAddWidget: "lab-overview-add-widget",
+  labOverviewShareButton: "lab-overview-share-button",
 } as const;
 
 export type TourTargetName = (typeof TOUR_TARGETS)[keyof typeof TOUR_TARGETS];

@@ -355,14 +355,14 @@ describe("TourController — setFeaturePicks", () => {
     expect(result.current.currentStep).toBe("tour-goodbye");
     // Flip to lab and re-enter the terminal wiki-pointer beat; advance
     // now lands on the first applicable post-wiki step. After the
-    // Lab Mode redesign 2026-05-22, the new §6.16 Phase 2c lab-mode
+    // R4 Lab Mode retirement 2026-05-23, the new 6-step Lab Overview
     // cluster sits between the conditional walkthroughs and
     // lab-cleanup, so the first applicable lab-only step is now
-    // `lab-mode-prompt`.
+    // `lab-overview-intro`.
     act(() => result.current.setFeaturePicks(picks({ account_type: "lab" })));
     act(() => result.current.start("wiki-pointer-back-demo"));
     act(() => result.current.advance());
-    expect(result.current.currentStep).toBe("lab-mode-prompt");
+    expect(result.current.currentStep).toBe("lab-overview-intro");
   });
 });
 
@@ -1319,7 +1319,7 @@ describe("TourController — Wave 2 Fix 6: waitForPathnameSettle", () => {
   });
 });
 
-// Wave 2 Fix 2/9: target-detach watcher + lab-mode-tour:close event.
+// Wave 2 Fix 2/9: target-detach watcher.
 describe("TourController — Wave 2 Fix 2: target-detach watcher", () => {
   it("exposes targetDetachRecoveryLabel defaulting to null", () => {
     const { result } = renderHook(() => useTourController(), {
@@ -1329,47 +1329,10 @@ describe("TourController — Wave 2 Fix 2: target-detach watcher", () => {
   });
 });
 
-// R2 chip B Fix 3/3: lab-mode-tour:close event subscription on lab-mode-*
-// cluster steps. Pre-fix, the watcher only swapped speech for
-// `isLabPhaseStep` (one step: `lab-cleanup`). The 8 tab steps + the
-// warp step had no recovery path when the viewer dismissed mid-step.
-describe("TourController — R2 chip B Fix 3: lab-mode-* close recovery", () => {
-  beforeEach(() => {
-    window.history.pushState({}, "", "/");
-    setMockPathname("/");
-  });
-
-  it("subscribes to lab-mode-tour:close on a lab-mode-* step (recovery speech swaps in when the event fires)", async () => {
-    const { result } = renderHook(() => useTourController(), {
-      wrapper: wrapper(picks({ account_type: "lab" })),
-    });
-    act(() => result.current.start("lab-mode-warp-to-demo"));
-    // Sanity: no recovery copy before the close event fires.
-    expect(result.current.targetDetachRecoveryLabel).toBeNull();
-    // Fire the close event the DemoLabModeMount host listens for.
-    await act(async () => {
-      window.dispatchEvent(new CustomEvent("lab-mode-tour:close"));
-      // Allow the effect's state setter to flush.
-      await Promise.resolve();
-    });
-    // The recoveryHint on lab-mode-warp-to-demo is "Back"; the watcher
-    // promotes it to the bubble's recovery line via the controller's
-    // targetDetachRecoveryLabel state.
-    expect(result.current.targetDetachRecoveryLabel).toBe("Back");
-  });
-
-  it("does NOT swap recovery speech on lab-mode-exit (terminal step closes the viewer on purpose)", async () => {
-    const { result } = renderHook(() => useTourController(), {
-      wrapper: wrapper(picks({ account_type: "lab" })),
-    });
-    act(() => result.current.start("lab-mode-exit"));
-    expect(result.current.targetDetachRecoveryLabel).toBeNull();
-    await act(async () => {
-      window.dispatchEvent(new CustomEvent("lab-mode-tour:close"));
-      await Promise.resolve();
-    });
-    // lab-mode-exit's whole purpose is to close the viewer; firing
-    // recovery here would contradict the step's design.
-    expect(result.current.targetDetachRecoveryLabel).toBeNull();
-  });
-});
+// R4 Lab Mode retirement 2026-05-23: the prior `lab-mode-tour:close`
+// event-subscription test block was deleted alongside the
+// DemoLabModeViewer overlay and the 12-step `lab-mode-*` cluster.
+// The new Lab Overview tour walks the user's real `/lab-overview`
+// surface, so there's no overlay-close event to subscribe to. The
+// MutationObserver-based target-detach watcher above still catches
+// popup-style dismissals on every step that has a `targetSelector`.

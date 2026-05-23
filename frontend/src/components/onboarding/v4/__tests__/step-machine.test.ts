@@ -801,7 +801,8 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     const soloCount = totalApplicableSteps(soloMin);
     const labCount = totalApplicableSteps(labMax);
     expect(labCount).toBeGreaterThan(soloCount);
-    // Gantt + Purchases + Hybrid + Lab Mode combined math (2026-05-22):
+    // Gantt + Purchases + Hybrid + Lab Overview combined math (R4 Lab
+    // Mode retirement, 2026-05-23):
     //
     // Gantt manager: lab tour Phase 3 retired (lab-prompt /
     // lab-spawn-beakerbot / lab-permission-practice gone), only
@@ -816,8 +817,10 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     // is empty at module load (no branch click fired), so the gate
     // evaluates to "gated out" — applies to both solo and lab paths.
     //
-    // Lab Mode manager: §6.16 Phase 2c Lab Mode tour cluster adds 12
-    // more lab-only steps (lab-mode-prompt through lab-mode-exit).
+    // R4 Lab Mode retirement: the prior 12-step §6.16 Lab Mode cluster
+    // (lab-mode-prompt → lab-mode-exit) is REPLACED by the 6-step Lab
+    // Overview cluster (lab-overview-intro → lab-overview-exit). Same
+    // `account_type === "lab"` gate; 6 fewer lab-only steps overall.
     //
     // §6.10 Settings phase redesign 2026-05-22 (Settings manager):
     // ai-helper-deep-explain split into 3 beats (size-diff, paste,
@@ -826,16 +829,14 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     // calendar=yes, telegram gates on telegram=yes, lab-mode-toggle
     // gates on account_type=solo.
     //
-    // §6.16 Lab Mode tour: 12 lab-only steps still in the order.
-    //
     // Solo+minimal skips: 4 prior conditionals (telegram, calendar,
     // links, gantt-goals-overview) + 3 ai-helper-* (was 1
     // ai-helper-deep-explain; now 3 split beats sharing the same gate)
     // + 8 purchases cluster + 1 lab-cleanup + 7 Gantt share cluster
-    // + 12 Lab Mode cluster + 1 HE-3 (branch-gated) + 2
+    // + 6 Lab Overview cluster + 1 HE-3 (branch-gated) + 2
     // settings-tour-* conditional (calendar, telegram; lab-mode-toggle
-    // FIRES for solo) = 38 gated out for solo.
-    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 38);
+    // FIRES for solo) = 32 gated out for solo.
+    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 32);
     // Lab+max: HE-3 still branch-gated (user hasn't picked the
     // overview branch yet at static evaluation time) + settings-tour-
     // lab-mode-toggle gates out for lab = 2 gated out.
@@ -860,43 +861,38 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
 });
 
 // =============================================================================
-// §6.16 Phase 2c Lab Mode tour cluster (Lab Mode redesign 2026-05-22).
-// 12 new step ids inserted between the conditional walkthrough cluster
-// (telegram / purchases / calendar / links) and `lab-cleanup`. All gate
-// on `picks.account_type === "lab"`. The prompt step's branchOn handles
-// the Later / Dismiss skip path by jumping straight to lab-cleanup.
+// R4 Lab Overview tour cluster (R4 Lab Mode retirement, 2026-05-23).
+// Six new step ids inserted between the conditional walkthrough cluster
+// (telegram / purchases / calendar / links) and `lab-cleanup`. Every
+// entry gates on `picks.account_type === "lab"`. Replaces the prior
+// 12-step `lab-mode-*` cluster (DemoLabModeViewer overlay walk) with a
+// real-surface walkthrough of the user's own `/lab-overview`.
 // =============================================================================
-const LAB_MODE_CLUSTER = [
-  "lab-mode-prompt",
-  "lab-mode-intro",
-  "lab-mode-warp-to-demo",
-  "lab-mode-activity",
-  "lab-mode-gantt",
-  "lab-mode-experiments",
-  "lab-mode-purchases",
-  "lab-mode-roadmaps",
-  "lab-mode-methods",
-  "lab-mode-notes",
-  "lab-mode-search",
-  "lab-mode-exit",
+const LAB_OVERVIEW_CLUSTER = [
+  "lab-overview-intro",
+  "lab-overview-widget-canvas",
+  "lab-overview-sidebar-rail",
+  "lab-overview-add-widget",
+  "lab-overview-sharing",
+  "lab-overview-exit",
 ] as const;
 
-describe("TOUR_STEP_ORDER — §6.16 lab-mode cluster (Lab Mode manager 2026-05-22)", () => {
-  it("includes every lab-mode-* step id in cluster order", () => {
-    const indices = LAB_MODE_CLUSTER.map((id) => TOUR_STEP_ORDER.indexOf(id));
+describe("TOUR_STEP_ORDER — Lab Overview cluster (R4 Lab Mode retirement 2026-05-23)", () => {
+  it("includes every lab-overview-* step id in cluster order", () => {
+    const indices = LAB_OVERVIEW_CLUSTER.map((id) => TOUR_STEP_ORDER.indexOf(id));
     indices.forEach((idx, i) => {
-      expect(idx, `${LAB_MODE_CLUSTER[i]} missing`).toBeGreaterThanOrEqual(0);
+      expect(idx, `${LAB_OVERVIEW_CLUSTER[i]} missing`).toBeGreaterThanOrEqual(0);
       if (i > 0) {
         expect(
           idx,
-          `${LAB_MODE_CLUSTER[i]} must follow ${LAB_MODE_CLUSTER[i - 1]}`,
+          `${LAB_OVERVIEW_CLUSTER[i]} must follow ${LAB_OVERVIEW_CLUSTER[i - 1]}`,
         ).toBe(indices[i - 1] + 1);
       }
     });
   });
 
   it("sits before lab-cleanup in TOUR_STEP_ORDER", () => {
-    const exitIdx = TOUR_STEP_ORDER.indexOf("lab-mode-exit");
+    const exitIdx = TOUR_STEP_ORDER.indexOf("lab-overview-exit");
     const cleanupIdx = TOUR_STEP_ORDER.indexOf("lab-cleanup");
     expect(exitIdx).toBeGreaterThanOrEqual(0);
     expect(cleanupIdx).toBeGreaterThan(exitIdx);
@@ -905,44 +901,41 @@ describe("TOUR_STEP_ORDER — §6.16 lab-mode cluster (Lab Mode manager 2026-05-
   it("gates every step on picks.account_type === 'lab'", () => {
     const lab = picks({ account_type: "lab" });
     const solo = picks({ account_type: "solo" });
-    for (const id of LAB_MODE_CLUSTER) {
+    for (const id of LAB_OVERVIEW_CLUSTER) {
       expect(isStepGatedOut(id, solo), `${id} should hide for solo`).toBe(true);
       expect(isStepGatedOut(id, lab), `${id} should show for lab`).toBe(false);
     }
     // null picks → all hide.
-    for (const id of LAB_MODE_CLUSTER) {
+    for (const id of LAB_OVERVIEW_CLUSTER) {
       expect(isStepGatedOut(id, null), `${id} should hide for null picks`).toBe(
         true,
       );
     }
   });
 
-  it("solo walk skips the entire lab-mode cluster", () => {
+  it("solo walk skips the entire lab-overview cluster", () => {
     const visited = walkForward("welcome", picks({ account_type: "solo" }));
-    for (const id of LAB_MODE_CLUSTER) {
+    for (const id of LAB_OVERVIEW_CLUSTER) {
       expect(visited).not.toContain(id);
     }
   });
 
-  it("lab walk includes every lab-mode cluster step", () => {
+  it("lab walk includes every lab-overview cluster step", () => {
     const visited = walkForward("welcome", picks({ account_type: "lab" }));
-    for (const id of LAB_MODE_CLUSTER) {
+    for (const id of LAB_OVERVIEW_CLUSTER) {
       expect(visited).toContain(id);
     }
   });
 
-  it("getNextStep on lab-mode-prompt with lab picks lands on lab-mode-intro", () => {
-    // The branchOn affordances inside the prompt body override this
-    // linear traversal — but getNextStep itself must keep walking the
-    // order so a back-step from lab-mode-intro returns here.
+  it("getNextStep on lab-overview-intro with lab picks lands on lab-overview-widget-canvas", () => {
     expect(
-      getNextStep("lab-mode-prompt", picks({ account_type: "lab" })),
-    ).toBe("lab-mode-intro");
+      getNextStep("lab-overview-intro", picks({ account_type: "lab" })),
+    ).toBe("lab-overview-widget-canvas");
   });
 
-  it("getNextStep on lab-mode-exit with lab picks lands on lab-cleanup", () => {
+  it("getNextStep on lab-overview-exit with lab picks lands on lab-cleanup", () => {
     expect(
-      getNextStep("lab-mode-exit", picks({ account_type: "lab" })),
+      getNextStep("lab-overview-exit", picks({ account_type: "lab" })),
     ).toBe("lab-cleanup");
   });
 });

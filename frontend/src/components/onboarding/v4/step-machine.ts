@@ -294,25 +294,19 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "calendar",
   "links",
 
-  // ----- Phase 2c: Lab Mode tour cluster (§6.16, Lab Mode redesign
-  // 2026-05-22, Lab Mode manager). 12 sub-steps that sit BEFORE
-  // lab-cleanup: prompt + intro + warp + 8 per-tab beats + exit.
-  // Every entry gates on `picks.account_type === "lab"`. The prompt
-  // step's branchOn redirects Later / Dismiss past the cluster
-  // straight to lab-cleanup so the user can opt out without
-  // walking each beat.
-  "lab-mode-prompt",
-  "lab-mode-intro",
-  "lab-mode-warp-to-demo",
-  "lab-mode-activity",
-  "lab-mode-gantt",
-  "lab-mode-experiments",
-  "lab-mode-purchases",
-  "lab-mode-roadmaps",
-  "lab-mode-methods",
-  "lab-mode-notes",
-  "lab-mode-search",
-  "lab-mode-exit",
+  // ----- Phase 2c: Lab Overview tour cluster (R4 Lab Mode retirement,
+  // 2026-05-23). The legacy `lab-mode-*` cluster (12 steps, prompt +
+  // warp + 8 demo-viewer tab beats + exit) is RETIRED. The new shape
+  // is a 6-step walkthrough of the user's own `/lab-overview` widget
+  // canvas + the unified sharing primitive. Every entry gates on
+  // `picks.account_type === "lab"`. No warp-to-demo prompt: the tour
+  // runs against the user's real lab-overview, using their own data.
+  "lab-overview-intro",
+  "lab-overview-widget-canvas",
+  "lab-overview-sidebar-rail",
+  "lab-overview-add-widget",
+  "lab-overview-sharing",
+  "lab-overview-exit",
 
   // ----- Phase 2c: lab cleanup terminal step (§6.16c, conditional on Q1=lab)
   // Gantt redesign 2026-05-22 (Gantt manager): the prior lab tour cluster
@@ -388,25 +382,19 @@ const GANTT_SHARE_LAB_ONLY_STEP_IDS: ReadonlySet<TourStepId> =
     "gantt-share-user-sees-edit",
   ]);
 
-/** Lab Mode tour cluster step ids (§6.16, Lab Mode redesign 2026-05-22).
- *  All 12 entries gate on `picks.account_type === "lab"`. The prompt
- *  step's `branchOn` Later / Dismiss branches jump past the rest of
- *  the cluster directly to `lab-cleanup`. The cluster's per-step
- *  resume-guards probe the sidecar's `lab_mode_tour_choice` field to
- *  catch a stale resume into a step the user actually skipped. */
-const LAB_MODE_STEP_IDS: ReadonlySet<TourStepId> = new Set<TourStepId>([
-  "lab-mode-prompt",
-  "lab-mode-intro",
-  "lab-mode-warp-to-demo",
-  "lab-mode-activity",
-  "lab-mode-gantt",
-  "lab-mode-experiments",
-  "lab-mode-purchases",
-  "lab-mode-roadmaps",
-  "lab-mode-methods",
-  "lab-mode-notes",
-  "lab-mode-search",
-  "lab-mode-exit",
+/** Lab Overview tour cluster step ids (R4 Lab Mode retirement, 2026-05-23).
+ *  Replaces the legacy 12-step `lab-mode-*` cluster with a 6-step walk
+ *  of the user's own `/lab-overview` widget canvas + the unified sharing
+ *  primitive. All 6 entries gate on `picks.account_type === "lab"`. No
+ *  prompt step, no warp-to-demo, no resume-guard sidecar field: the new
+ *  tour runs against the user's real lab-overview surface. */
+const LAB_OVERVIEW_STEP_IDS: ReadonlySet<TourStepId> = new Set<TourStepId>([
+  "lab-overview-intro",
+  "lab-overview-widget-canvas",
+  "lab-overview-sidebar-rail",
+  "lab-overview-add-widget",
+  "lab-overview-sharing",
+  "lab-overview-exit",
 ]);
 
 /** True when this step is one of the Phase 1 modal setup questions. */
@@ -426,10 +414,22 @@ export function isGanttShareLabStep(step: TourStepId): boolean {
   return GANTT_SHARE_LAB_ONLY_STEP_IDS.has(step);
 }
 
-/** True when this step belongs to the §6.16 Phase 2c Lab Mode cluster
- *  (Lab Mode redesign 2026-05-22). Gated by `picks.account_type === "lab"`. */
-export function isLabModeTourStep(step: TourStepId): boolean {
-  return LAB_MODE_STEP_IDS.has(step);
+/** True when this step belongs to the R4 Lab Overview tour cluster
+ *  (R4 Lab Mode retirement, 2026-05-23). Gated by
+ *  `picks.account_type === "lab"`. Replaces the prior
+ *  `isLabModeTourStep` helper; the export name changed to track the
+ *  new cluster identity. */
+export function isLabOverviewTourStep(step: TourStepId): boolean {
+  return LAB_OVERVIEW_STEP_IDS.has(step);
+}
+
+/** @deprecated Back-compat alias for the prior `isLabModeTourStep`
+ *  helper. Returns false for every input now that the lab-mode cluster
+ *  is retired. Kept so external callers don't crash mid-flight; remove
+ *  in a follow-up sweep once every importer migrates to
+ *  `isLabOverviewTourStep`. */
+export function isLabModeTourStep(_step: TourStepId): boolean {
+  return false;
 }
 
 /**
@@ -557,13 +557,12 @@ export function isStepGatedOut(
     return picks?.account_type !== "lab";
   }
 
-  // §6.16 Lab Mode tour cluster (Lab Mode redesign 2026-05-22). Same
-  // shape as the legacy LAB_STEP_IDS: machine-level gate is solely
-  // `account_type === "lab"`. The prompt step's branchOn handles the
-  // Later / Dismiss skip path by jumping straight to lab-cleanup;
-  // each per-step body's resume-guard catches stale resumes via the
-  // sidecar `lab_mode_tour_choice` field.
-  if (LAB_MODE_STEP_IDS.has(step)) {
+  // R4 Lab Overview tour cluster (R4 Lab Mode retirement, 2026-05-23).
+  // Same shape as the prior LAB_STEP_IDS gate: machine-level decision
+  // is solely `account_type === "lab"`. No prompt step + no warp, so
+  // no resume-guard sidecar field is needed; the cluster walks the
+  // user's real `/lab-overview` instead of a demo overlay.
+  if (LAB_OVERVIEW_STEP_IDS.has(step)) {
     return picks?.account_type !== "lab";
   }
 

@@ -10,12 +10,11 @@ import {
 } from "@/lib/onboarding/sidecar";
 import TourBootstrap from "./TourBootstrap";
 import { TourControllerProvider } from "./TourController";
-// Lab Mode redesign 2026-05-22 — append-only mount for the Phase 2c
-// DemoLabModeViewer overlay. The host is window-event-driven and sits
-// alongside TourControllerProvider so the overlay survives across
-// multiple lab-mode-* tour sub-steps. No-op when no step has dispatched
-// `lab-mode-tour:open`.
-import DemoLabModeMount from "./DemoLabModeMount";
+// R4 Lab Mode retirement 2026-05-23: the prior `<DemoLabModeMount>`
+// host that mounted the DemoLabModeViewer overlay for the lab-mode-*
+// tour cluster has been removed. The new Lab Overview tour runs
+// against the user's real `/lab-overview` widget canvas, so no overlay
+// host is needed.
 // Cleanup retirement 2026-05-22 (Cleanup manager R2) — sibling overlay
 // host for the new `tour-goodbye` terminal step. Window-event-driven;
 // renders nothing until the step body dispatches
@@ -180,10 +179,10 @@ export default function V4MountForUser({
           </div>
         </div>
       )}
-      {/* Lab Mode redesign 2026-05-22 — Phase 2c demo viewer host.
-          Window-event-driven; renders nothing until the
-          `lab-mode-warp-to-demo` step dispatches the open event. */}
-      <DemoLabModeMount />
+      {/* R4 Lab Mode retirement 2026-05-23 — the prior
+          <DemoLabModeMount /> overlay host has been removed. The new
+          Lab Overview tour runs against the user's real
+          `/lab-overview` widget canvas, so no overlay host is needed. */}
       {/* Cleanup retirement 2026-05-22 (Cleanup manager R2) — terminal
           step goodbye animation + auto-cleanup host. Window-event-driven;
           renders nothing until the `tour-goodbye` step body dispatches

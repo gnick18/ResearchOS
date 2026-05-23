@@ -11,7 +11,6 @@ import InboxBadge from "./InboxBadge";
 import InboxToast from "./InboxToast";
 import NotificationBadge from "./NotificationBadge";
 import ReminderRunner from "./ReminderRunner";
-import DemoLabBanner from "./DemoLabBanner";
 import TelegramRecoveryPrompt from "./TelegramRecoveryPrompt";
 import TelegramEncryptedRecoveryPrompt from "./TelegramEncryptedRecoveryPrompt";
 import IdlePasswordWipe from "./IdlePasswordWipe";
@@ -201,7 +200,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     // paint — the selector must resolve synchronously from the very
     // first render.
     <div data-app-shell-mounted className="h-screen flex flex-col bg-gray-50">
-      <DemoLabBanner />
       <TelegramRecoveryPrompt />
       <TelegramEncryptedRecoveryPrompt />
       <IdlePasswordWipe />

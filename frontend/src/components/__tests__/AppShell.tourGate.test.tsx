@@ -86,7 +86,6 @@ vi.mock("@/components/InboxBadge", () => ({ default: () => null }));
 vi.mock("@/components/InboxToast", () => ({ default: () => null }));
 vi.mock("@/components/NotificationBadge", () => ({ default: () => null }));
 vi.mock("@/components/ReminderRunner", () => ({ default: () => null }));
-vi.mock("@/components/DemoLabBanner", () => ({ default: () => null }));
 vi.mock("@/components/TelegramRecoveryPrompt", () => ({ default: () => null }));
 vi.mock("@/components/TelegramEncryptedRecoveryPrompt", () => ({ default: () => null }));
 vi.mock("@/components/IdlePasswordWipe", () => ({ default: () => null }));
