@@ -197,6 +197,10 @@ export default function TourBootstrap({ username }: TourBootstrapProps) {
           // restarting from welcome. The dev-hook force-start behavior
           // still applies when there is no meaningful resume state
           // (null OR welcome).
+          //
+          // R2 chip A Fix 3/3 (approach b): apply the same defensive
+          // mid-tour-step + null-picks guard the non-preview branch
+          // has below, so preview-mode reload doesn't bypass it.
           const previewResumeId =
             sidecar.wizard_resume_state?.current_step ?? null;
           if (
@@ -204,6 +208,16 @@ export default function TourBootstrap({ username }: TourBootstrapProps) {
             isV4StepId(previewResumeId) &&
             previewResumeId !== "welcome"
           ) {
+            if (sidecar.feature_picks === null) {
+              console.warn(
+                "[onboarding-v4] preview-mode resume_state has mid-tour step",
+                previewResumeId,
+                "but feature_picks is null; forcing restart from welcome",
+              );
+              controller.start();
+              setState({ kind: "resolved" });
+              return;
+            }
             setState({
               kind: "v4-resume",
               sidecar,
@@ -258,6 +272,29 @@ export default function TourBootstrap({ username }: TourBootstrapProps) {
             // the user opts in to where they pick up rather than
             // silently teleporting.
             if (resumeId === "welcome") {
+              controller.start();
+              setState({ kind: "resolved" });
+              return;
+            }
+            // R2 chip A Fix 3/3 (approach b): defensive guard against
+            // inconsistent sidecar state where current_step is a real
+            // mid-tour step but feature_picks is null. This can happen
+            // when Restart cleared picks but the user closed the tab
+            // mid-run before re-answering Q1-Q6 (the P12 persist effect
+            // wrote the new mid-tour step into resume_state, but picks
+            // is still null because they never made it through setup).
+            // Resuming at a mid-tour step with null picks mis-gates
+            // every conditional step (e.g., lab-cluster steps gate on
+            // picks.account_type, purchases-tab on picks.purchases,
+            // etc.) — the user lands in a tour that's missing half its
+            // surface. Force a clean restart from welcome with a
+            // console warning so this case is visible in logs.
+            if (sidecar.feature_picks === null) {
+              console.warn(
+                "[onboarding-v4] resume_state has mid-tour step",
+                resumeId,
+                "but feature_picks is null; forcing restart from welcome",
+              );
               controller.start();
               setState({ kind: "resolved" });
               return;
@@ -371,9 +408,25 @@ export default function TourBootstrap({ username }: TourBootstrapProps) {
 
   const handleRestartV4 = useCallback(async () => {
     try {
+      // R2 chip A Fix 3/3 (approach a): explicitly seed
+      // wizard_resume_state to { current_step: "welcome", ... } rather
+      // than nulling it. The previous null-patch left a brief window
+      // where, if the user closed the browser between Restart and the
+      // P12 persist effect firing for the new welcome step, the resume
+      // state could be inconsistent with feature_picks (picks: null but
+      // resume_state: null — fine in isolation, but if a stale write
+      // beat us we'd be in trouble). Seeding welcome explicitly makes
+      // the post-Restart sidecar a coherent "fresh-but-not-quite-empty"
+      // shape: feature_picks: null + current_step: welcome, which the
+      // bootstrap special-cases as fresh-start (the "resume at welcome
+      // means treat as fresh" branch in the probe).
       await patchOnboarding(username, (cur) => ({
         ...cur,
-        wizard_resume_state: null,
+        wizard_resume_state: {
+          current_step: "welcome",
+          skipped_steps: [],
+          artifacts_created: cur.wizard_resume_state?.artifacts_created ?? [],
+        },
         feature_picks: null,
       }));
     } catch (err) {

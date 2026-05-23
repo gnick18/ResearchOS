@@ -162,6 +162,21 @@ describe("TourBootstrap:skipped user", () => {
   });
 });
 
+// R2 chip A Fix 3/3 (approach b): the resume-prompt branch requires
+// feature_picks !== null when current_step is a mid-tour step (otherwise
+// the conditional gating machine would mis-gate every step). Tests in
+// this block that previously left feature_picks at its default null now
+// seed valid picks so they exercise the resume-prompt path rather than
+// the defensive forced-restart path.
+const VALID_PICKS = {
+  account_type: "solo" as const,
+  purchases: "yes" as const,
+  calendar: "no" as const,
+  goals: "no" as const,
+  telegram: "no" as const,
+  ai_helper: "full" as const,
+};
+
 describe("TourBootstrap:v4 mid-tour resume", () => {
   it("renders the Restart/Resume/Discard modal for a non-welcome v4 step", async () => {
     // P12: a mid-tour user with progress past welcome should see the
@@ -171,6 +186,7 @@ describe("TourBootstrap:v4 mid-tour resume", () => {
     memFs.set(
       PATH,
       fullSidecar({
+        feature_picks: VALID_PICKS,
         wizard_resume_state: {
           current_step: "home-create-project",
           skipped_steps: [],
@@ -222,6 +238,7 @@ describe("TourBootstrap:v4 mid-tour resume", () => {
     memFs.set(
       PATH,
       fullSidecar({
+        feature_picks: VALID_PICKS,
         wizard_resume_state: {
           current_step: "home-create-project",
           skipped_steps: [],
@@ -262,6 +279,7 @@ describe("TourBootstrap:v4 mid-tour resume", () => {
       memFs.set(
         PATH,
         fullSidecar({
+          feature_picks: VALID_PICKS,
           wizard_resume_state: {
             current_step: "home-create-project",
             skipped_steps: [],
@@ -363,6 +381,7 @@ describe("TourBootstrap:v4 mid-tour resume", () => {
     memFs.set(
       PATH,
       fullSidecar({
+        feature_picks: VALID_PICKS,
         wizard_resume_state: {
           current_step: "home-create-project",
           skipped_steps: [],
@@ -388,7 +407,13 @@ describe("TourBootstrap:v4 mid-tour resume", () => {
     expect(sessionStorage.getItem("v4_auto_resume_on_next_mount")).toBeNull();
   });
 
-  it("Restart click clears resume_state + feature_picks, starts at welcome", async () => {
+  it("Restart click resets resume_state.current_step to welcome + clears feature_picks", async () => {
+    // R2 chip A Fix 3/3 (approach a): handleRestartV4 now seeds
+    // wizard_resume_state to { current_step: "welcome", ... } rather
+    // than nulling it. This makes the post-Restart sidecar coherent:
+    // a close+reopen before the user makes new progress lands on the
+    // welcome-step probe branch (treated as fresh) rather than a
+    // potentially stale mid-tour current_step.
     memFs.set(
       PATH,
       fullSidecar({
@@ -411,7 +436,7 @@ describe("TourBootstrap:v4 mid-tour resume", () => {
     const restart = await screen.findByTestId("v4-resume-restart");
     await userEvent.click(restart);
     // After Restart: welcome modal appears; sidecar has feature_picks
-    // and resume_state cleared.
+    // cleared and resume_state.current_step reset to welcome.
     await waitFor(() => {
       const modal = document.body.querySelector(
         "[data-tour-modal='v4-setup']",
@@ -420,8 +445,58 @@ describe("TourBootstrap:v4 mid-tour resume", () => {
       expect(modal?.getAttribute("data-tour-step")).toBe("welcome");
     });
     const persisted = memFs.get(PATH) as OnboardingSidecar;
-    expect(persisted.wizard_resume_state).toBeNull();
     expect(persisted.feature_picks).toBeNull();
+    // R2 chip A Fix 3/3 assertion: resume_state is rebuilt to welcome,
+    // not nulled. This is the explicit-coherent-shape approach (a).
+    expect(persisted.wizard_resume_state).not.toBeNull();
+    expect(persisted.wizard_resume_state?.current_step).toBe("welcome");
+    expect(persisted.wizard_resume_state?.skipped_steps).toEqual([]);
+  });
+
+  // R2 chip A Fix 3/3 (approach b): defensive guard. If a sidecar
+  // somehow ends up with a mid-tour current_step but feature_picks
+  // === null (eg. user closed the browser mid-run between Restart
+  // wiping picks and re-answering Q1-Q6, and the P12 persist effect
+  // had already written the new mid-tour step before they closed),
+  // resuming would mis-gate every conditional step. The probe must
+  // detect this and force a clean restart from welcome.
+  it("inconsistent sidecar (mid-tour step + null feature_picks) forces restart from welcome", async () => {
+    memFs.set(
+      PATH,
+      fullSidecar({
+        // feature_picks is null but resume_state points at a mid-tour
+        // step. This is the inconsistent state Fix 3/3 (b) guards.
+        feature_picks: null,
+        wizard_resume_state: {
+          current_step: "home-create-project",
+          skipped_steps: [],
+          artifacts_created: [],
+        },
+      }),
+    );
+    // Silence the expected console.warn so the test output stays clean
+    // but still assert it was emitted.
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      renderWithProvider(<TourBootstrap username={USER} />);
+      // The probe should NOT surface the V4ResumePrompt; it should
+      // force a clean restart from welcome instead.
+      await waitFor(() => {
+        const modal = document.body.querySelector(
+          "[data-tour-modal='v4-setup']",
+        );
+        expect(modal).toBeTruthy();
+        expect(modal?.getAttribute("data-tour-step")).toBe("welcome");
+      });
+      expect(
+        document.body.querySelector("[data-testid='v4-resume-prompt']"),
+      ).toBeNull();
+      // Console warning emitted so the inconsistency is visible in
+      // dev-tools logs.
+      expect(warnSpy).toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   it("Discard click sets wizard_skipped_at + clears resume_state + feature_picks, no tour starts", async () => {
@@ -626,6 +701,17 @@ describe("TourBootstrap:preview mode wizardSeedStep", () => {
     memFs.set(
       PATH,
       fullSidecar({
+        // feature_picks must be set so the Fix 3/3 (b) defensive guard
+        // does not force a restart from welcome (the guard applies in
+        // preview mode too).
+        feature_picks: {
+          account_type: "solo",
+          purchases: "yes",
+          calendar: "no",
+          goals: "no",
+          telegram: "no",
+          ai_helper: "full",
+        },
         wizard_resume_state: {
           current_step: "home-create-project",
           skipped_steps: [],
