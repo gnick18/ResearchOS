@@ -16,5 +16,7 @@
   "sidebarShowTasks": true,
   "sidebarShowCalendarEvents": true,
   "sidebarEventsHorizonDays": 7,
-  "coloredHeader": false
+  "coloredHeader": false,
+  "displayName": "Dr. Mira Castellanos",
+  "account_type": "lab_head"
 }

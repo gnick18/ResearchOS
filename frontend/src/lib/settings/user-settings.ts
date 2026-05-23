@@ -11,6 +11,14 @@ import { ALL_TAB_HREFS, HOME_HREF, isValidTabHref } from "../nav";
 export type CalendarViewMode = "month" | "week" | "day";
 export type DateFormat = "MDY" | "DMY" | "YMD";
 export type TimeFormat = "12h" | "24h";
+// Lab Head Phase 1 (2026-05-23): per-user account role inside a shared lab.
+// `member` = regular lab researcher (the existing behavior, defaults here).
+// `lab_head` = PI / principal investigator; reveals the Lab Inbox surface
+// and (in Phase 2+) gains audit + soft-write capabilities. This is
+// orthogonal to `FeaturePicks.account_type` ("solo" | "lab") which captures
+// the onboarding-wizard choice of workspace shape; this field captures the
+// user's role *within* a lab and is meaningful only for lab accounts.
+export type AccountType = "member" | "lab_head";
 
 export interface UserSettings {
   schemaVersion: 1;
@@ -59,6 +67,13 @@ export interface UserSettings {
   // Per-user opt-out (mirrored to _user_metadata.json so the existing lab readers keep working)
   hideGoalsFromLab: boolean;
 
+  // Lab Head Phase 1: role inside the lab. Defaults to `member` for every
+  // existing user via plain object spread in `normalize()`. `lab_head`
+  // reveals the Lab Inbox sidebar entry and (Phase 2+) audit + soft-write
+  // surfaces. Multiple users in a lab can hold `lab_head` (co-PIs are
+  // allowed by design, per Grant's 2026-05-23 decisions).
+  account_type: AccountType;
+
   // When on, the app makes zero calls to its own server proxies
   // (`/api/calendar-feed`, `/api/telegram-file`). Direct browser → Telegram
   // polling continues because that talks to api.telegram.org directly.
@@ -87,6 +102,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   sidebarEventsHorizonDays: 7,
   hideGoalsFromLab: false,
   offlineMode: false,
+  account_type: "member",
 };
 
 /** Horizon choices surfaced in the Settings → Sidebar selector. */
@@ -141,6 +157,13 @@ function normalize(raw: Partial<UserSettings> | null | undefined): UserSettings 
   merged.sidebarEventsHorizonDays = Number.isFinite(horizonRaw)
     ? Math.max(0, Math.min(365, Math.floor(horizonRaw)))
     : DEFAULT_SETTINGS.sidebarEventsHorizonDays;
+
+  // Lab Head Phase 1: clamp `account_type` to the accepted union so a
+  // hand-edited settings.json with a garbage value falls back to `member`
+  // (the safe default — never accidentally elevate someone to lab_head).
+  if (merged.account_type !== "member" && merged.account_type !== "lab_head") {
+    merged.account_type = "member";
+  }
 
   return merged;
 }

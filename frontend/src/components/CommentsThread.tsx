@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { usersApi } from "@/lib/local-api";
 import UserAvatar from "@/components/UserAvatar";
+import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
 import type { NoteComment, TaskComment } from "@/lib/types";
 
 // NoteComment and TaskComment share an identical shape — `{id, author, text,
@@ -98,6 +99,15 @@ export default function CommentsThread({
   });
   const author = identity?.main_user || identity?.current_user || "";
   const canComment = !readOnly && !!author && author !== "lab";
+
+  // Lab Head Phase 1 (lab head Phase 1 manager, 2026-05-23): the per-comment
+  // attribution row resolves each author's display name + account_type from
+  // the lab user profile map. A missing lookup ("departed lab member")
+  // renders the author name in gray with no badge — the demo fixture
+  // doesn't have a departed user yet, but the fallback path lights up
+  // automatically when one appears so Phase 2's full departure pipeline
+  // doesn't need extra renderer changes here.
+  const profileMap = useLabUserProfileMap();
 
   // Sort comments by created_at so new entries land at the bottom.
   const sorted = comments.slice().sort((a, b) =>
@@ -194,12 +204,36 @@ export default function CommentsThread({
             <ul className="space-y-3 mb-3">
               {sorted.map((c) => {
                 const mine = c.author === author;
+                const profile = profileMap[c.author];
+                const departed = !profile;
+                // Display name fallback chain: settings.displayName ->
+                // username. The username is the safest last-resort label;
+                // never render an empty author row.
+                const displayName =
+                  (profile?.displayName && profile.displayName.trim()) ||
+                  c.author;
+                const isPI = profile?.account_type === "lab_head";
+                // Departed-lab-head case: gray the name, drop the badge.
+                // Per Grant's 2026-05-23 design decision (#5), departed
+                // comments retain the author name so threads stay
+                // historically intact.
+                const nameClass = departed
+                  ? "font-medium text-gray-400 italic"
+                  : "font-medium text-gray-700";
                 return (
                   <li key={c.id} className="flex gap-2.5">
                     <UserAvatar username={c.author} size="sm" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 text-xs text-gray-500">
-                        <span className="font-medium text-gray-700">{c.author}</span>
+                        <span className={nameClass}>{displayName}</span>
+                        {isPI && !departed && (
+                          <span
+                            className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide rounded bg-amber-100 text-amber-800"
+                            title="Lab head / principal investigator"
+                          >
+                            PI
+                          </span>
+                        )}
                         <span>·</span>
                         <span title={c.created_at}>{formatRelative(c.created_at)}</span>
                         {mine && !readOnly && (

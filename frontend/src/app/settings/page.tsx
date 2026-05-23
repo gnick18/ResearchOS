@@ -294,6 +294,7 @@ function SettingsBody() {
             the lab user switches mid-session, so we never show user A's
             half-typed display-name draft to user B. */}
         <ProfileSection key={`profile-${currentUser}`} settings={settings} update={update} />
+        <AccountTypeSection settings={settings} update={update} />
         <TabsSection settings={settings} update={update} />
         <LabArchivesSection />
         <AIHelperSection />
@@ -447,6 +448,76 @@ function ProfileSection({ settings, update }: SectionProps) {
         checked={settings.coloredHeader}
         onChange={(v) => void update({ coloredHeader: v })}
       />
+    </SectionShell>
+  );
+}
+
+/**
+ * Lab Head Phase 1 (lab head Phase 1 manager, 2026-05-23): account-role
+ * picker. Member vs Lab Head. Member is the default and matches the
+ * existing behavior — picking Lab Head reveals the Lab Inbox sidebar
+ * entry and (Phase 2+) audit + soft-write surfaces. Multiple users in
+ * the same lab can hold Lab Head (co-PIs allowed by design).
+ *
+ * No password gate yet — Phase 5 will reuse the account password to
+ * unlock soft-write edit mode. For now the toggle is unguarded.
+ */
+function AccountTypeSection({ settings, update }: SectionProps) {
+  const options: Array<{
+    value: UserSettings["account_type"];
+    title: string;
+    description: string;
+  }> = [
+    {
+      value: "member",
+      title: "Member",
+      description: "Regular lab researcher. The default for everyone.",
+    },
+    {
+      value: "lab_head",
+      title: "Lab Head",
+      description:
+        "Principal investigator. Adds a Lab Inbox surface; can leave comments and run audit oversight (coming soon).",
+    },
+  ];
+
+  return (
+    <SectionShell
+      id="account-type"
+      title="Account type"
+      description="What's your role in this lab? Member is the default. Lab Head adds an inbox where comments and audit notifications collect."
+    >
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {options.map((opt) => {
+          const selected = settings.account_type === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => {
+                if (settings.account_type !== opt.value) {
+                  void update({ account_type: opt.value });
+                }
+              }}
+              aria-pressed={selected}
+              className={`flex flex-col items-start gap-1 p-3 rounded-lg border-2 text-left transition-colors ${
+                selected
+                  ? "border-amber-400 bg-amber-50"
+                  : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+              }`}
+            >
+              <span
+                className={`text-sm font-semibold ${
+                  selected ? "text-amber-800" : "text-gray-800"
+                }`}
+              >
+                {opt.title}
+              </span>
+              <span className="text-xs text-gray-500">{opt.description}</span>
+            </button>
+          );
+        })}
+      </div>
     </SectionShell>
   );
 }
