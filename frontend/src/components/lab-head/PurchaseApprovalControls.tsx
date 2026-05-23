@@ -100,8 +100,8 @@ export function PurchaseApprovalToggle({
 }
 
 /**
- * Compact green "PI Approved" badge for lists and read-only views. Shows
- * who approved + when when hovered.
+ * Compact green "Lab Head Approved" badge for lists and read-only views.
+ * Shows who approved + when when hovered.
  */
 export function PurchaseApprovalBadge({ item }: { item: PurchaseItem }) {
   const profileMap = useLabUserProfileMap();
@@ -119,7 +119,7 @@ export function PurchaseApprovalBadge({ item }: { item: PurchaseItem }) {
       placement="top"
     >
       <span
-        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-green-100 text-green-800 border border-green-300"
+        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-800 border border-green-300"
         data-testid="lab-head-purchase-approved-badge"
       >
         <svg
@@ -136,7 +136,7 @@ export function PurchaseApprovalBadge({ item }: { item: PurchaseItem }) {
         >
           <polyline points="20 6 9 17 4 12" />
         </svg>
-        PI Approved
+        Lab Head Approved
       </span>
     </Tooltip>
   );

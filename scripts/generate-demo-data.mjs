@@ -680,7 +680,7 @@ function buildEntries() {
         { id: "st1", text: "Choose hosting (Notion vs internal wiki)", is_complete: true },
         { id: "st2", text: "Draft initial outline", is_complete: true },
         { id: "st3", text: "Stub out sections - bench, safety, IT, software", is_complete: true },
-        { id: "st4", text: "Share read-only link with PI for sign-off", is_complete: true },
+        { id: "st4", text: "Share read-only link with Lab Head for sign-off", is_complete: true },
       ] },
     // Workbench Lists-tab fixtures (chip: Lists-tab landing). Each one
     // populates a specific section of the new tab. Anchored at BASE_DATE
@@ -691,7 +691,7 @@ function buildEntries() {
       sub_tasks: [
         { id: "st1", text: "Pull approval form template from compliance portal", is_complete: true },
         { id: "st2", text: "Update reagent list (added pYES2 + Gibson kit since last quarter)", is_complete: true },
-        { id: "st3", text: "Get PI signature", is_complete: false },
+        { id: "st3", text: "Get Lab Head signature", is_complete: false },
         { id: "st4", text: "Scan + upload signed PDF to compliance portal", is_complete: false },
         { id: "st5", text: "Submit to compliance office + log confirmation", is_complete: false },
       ] },
@@ -702,7 +702,7 @@ function buildEntries() {
         { id: "st1", text: "Sketch aims 1–3", is_complete: false },
         { id: "st2", text: "Draft preliminary-data list", is_complete: false },
         { id: "st3", text: "Pull figures from FakeYeast biofuel project (Fig 2 + 4)", is_complete: false },
-        { id: "st4", text: "Book 1hr with PI to align on timeline", is_complete: false },
+        { id: "st4", text: "Book 1hr with Lab Head to align on timeline", is_complete: false },
       ] },
     // ── Earlier (alex/23): completed > 30 days ago, lands in the
     //    collapsed-by-default Earlier accordion at the bottom of the panel.
@@ -733,7 +733,7 @@ function buildEntries() {
         { id: "st1", text: "Walk benches with safety officer", is_complete: true },
         { id: "st2", text: "File quarterly chemical inventory report", is_complete: true },
         { id: "st3", text: "Replace expired EtBr waste container", is_complete: true },
-        { id: "st4", text: "Email summary to PI + safety office", is_complete: true },
+        { id: "st4", text: "Email summary to Lab Head + safety office", is_complete: true },
       ] },
     // ── Earlier (alex/29): completed > 30 days before BASE_DATE — gives the
     //    Earlier accordion a second alex row beside alex/20 + alex/23.
@@ -1333,7 +1333,7 @@ function buildEntries() {
   out.push(["users/alex/purchase_items/17.json", { id: 17, task_id: 27, item_name: "50 mL conical tubes (sleeve)", quantity: 4, link: "https://example.org/demo-sigma", cas: null, price_per_unit: 24, shipping_fees: 0, total_price: 96, notes: null, funding_string: "DEMO-Internal-Bridge", vendor: "Sigma-Aldrich", category: "Consumables" }]);
   // Task 15 (existing — Order LC-MS solvents) — two more items.
   // funding_string null = uncategorized tail (proposal §7 + §4 dashboard).
-  out.push(["users/alex/purchase_items/18.json", { id: 18, task_id: 15, item_name: "LC-MS column hardware service kit", quantity: 1, link: "https://example.org/demo-thermo", cas: null, price_per_unit: 450, shipping_fees: 25, total_price: 475, notes: "Awaiting PI sign-off on funding source.", funding_string: null, vendor: "Thermo", category: "Service" }]);
+  out.push(["users/alex/purchase_items/18.json", { id: 18, task_id: 15, item_name: "LC-MS column hardware service kit", quantity: 1, link: "https://example.org/demo-thermo", cas: null, price_per_unit: 450, shipping_fees: 25, total_price: 475, notes: "Awaiting Lab Head sign-off on funding source.", funding_string: null, vendor: "Thermo", category: "Service" }]);
   out.push(["users/alex/purchase_items/19.json", { id: 19, task_id: 15, item_name: "Solvent waste disposal bottles (4 L)", quantity: 6, link: "https://example.org/demo-sigma", cas: null, price_per_unit: 18, shipping_fees: 0, total_price: 108, notes: null, funding_string: null, vendor: "Sigma-Aldrich", category: "Consumables" }]);
   // Item 20 hangs off experiment task 11 ("Heat-shock survival assay")
   // — exercises the §5 latent-bug surface ("items on non-purchase tasks")
@@ -1400,7 +1400,7 @@ function buildEntries() {
     is_running_log: false, is_shared: true, entries: [], comments: [], created_at: "2026-05-05T15:00:00Z", updated_at: "2026-05-05T15:00:00Z", username: "alex" }]);
 
   // Note 7: 1:1 meeting note, prose.
-  out.push(["users/alex/notes/7.json", { id: 7, title: "PI 1:1 with morgan: 2026-05-14 prep", description:
+  out.push(["users/alex/notes/7.json", { id: 7, title: "Lab Head 1:1 with morgan: 2026-05-14 prep", description:
       "Prep card for the 1:1 calendar event.\n\nTopics to cover:\n1. Dissertation timeline check, especially chapter 2 figure plan\n2. 96-well screen prep status (project 1 shared task)\n3. Conference travel: Demo Synthetic Biology Conference 2026 in June\n4. Anything blocking the qPCR run?\n\nNotes I want to give:\n- Patch-plate photos looked clean, good documentation.\n- Plate-map note (morgan #1) is exactly the format I want going forward; can we make that the template for future screens?\n- Encourage morgan to flip more of her notes to shared so the lab-mode feed reflects her actual output.\n\nFollow-up tasks (to convert into actual tasks afterward):\n- Draft chapter 2 outline by 2026-05-30\n- Book the plate reader for the full screen replicate, 2026-05-22",
     is_running_log: false, is_shared: true, entries: [], comments: [], created_at: "2026-05-13T17:00:00Z", updated_at: "2026-05-13T17:30:00Z", username: "alex" }]);
 
@@ -2077,7 +2077,7 @@ function buildEntries() {
 
   // Note 3: meeting note, prose.
   out.push(["users/morgan/notes/3.json", { id: 3, title: "Lab meeting 2026-04-15: my notes", description:
-      "Lab meeting recap, taken from my seat.\n\nWalk-throughs:\n- alex: transformation efficiency update. Heat-shock time matters more than I thought (38 vs 40 min produced a 2-fold colony drop in the 2026-04 batch).\n- Me: chapter 2 figure brainstorm. Got useful pushback on the heatmap color scale (use viridis, not the default red/green which is colorblind-unfriendly).\n\nGroup decisions:\n- Standardize on the public DemoCheck PCR protocol for all integration checks (was previously split between two slightly different copies)\n- New lab convention: every PCR has a no-template control on the same plate, no exceptions\n- The PI will write a 1-page bench-safety refresher and post it in the lab links section\n\nWhat I want to remember for me:\nThe colorblind point also applies to my pYES-vs-pDEMO figure. Re-render with viridis before the next dissertation committee check-in.",
+      "Lab meeting recap, taken from my seat.\n\nWalk-throughs:\n- alex: transformation efficiency update. Heat-shock time matters more than I thought (38 vs 40 min produced a 2-fold colony drop in the 2026-04 batch).\n- Me: chapter 2 figure brainstorm. Got useful pushback on the heatmap color scale (use viridis, not the default red/green which is colorblind-unfriendly).\n\nGroup decisions:\n- Standardize on the public DemoCheck PCR protocol for all integration checks (was previously split between two slightly different copies)\n- New lab convention: every PCR has a no-template control on the same plate, no exceptions\n- The Lab Head will write a 1-page bench-safety refresher and post it in the lab links section\n\nWhat I want to remember for me:\nThe colorblind point also applies to my pYES-vs-pDEMO figure. Re-render with viridis before the next dissertation committee check-in.",
     is_running_log: false, is_shared: true, entries: [], comments: [], created_at: "2026-04-15T13:00:00Z", updated_at: "2026-04-15T16:00:00Z", username: "morgan" }]);
 
   // Note 4: group brainstorm meeting, prose.
@@ -2453,7 +2453,7 @@ function buildEntries() {
           old_value:
             "Plate layouts for the 96-well growth-curve screen.",
           new_value:
-            "Plate layouts for the 96-well growth-curve screen. Includes corner-evaporation controls per PI request.",
+            "Plate layouts for the 96-well growth-curve screen. Includes corner-evaporation controls per Lab Head request.",
           timestamp: "2026-05-17T10:08:22Z",
         },
       ],
@@ -2737,7 +2737,7 @@ function buildEntries() {
           old_value:
             "Plate layouts for the 96-well growth-curve screen.",
           new_value:
-            "Plate layouts for the 96-well growth-curve screen. Includes corner-evaporation controls per PI request.",
+            "Plate layouts for the 96-well growth-curve screen. Includes corner-evaporation controls per Lab Head request.",
           timestamp: "2026-05-17T10:08:22Z",
         },
         {

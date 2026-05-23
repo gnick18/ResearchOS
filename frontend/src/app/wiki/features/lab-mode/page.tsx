@@ -29,7 +29,7 @@ export default function LabModeFeaturePage() {
       </p>
       <ul>
         <li>
-          A <strong>PI prepping for lab meeting</strong> who wants a one-page
+          A <strong>Lab Head prepping for lab meeting</strong> who wants a one-page
           read on what every member is running this week and what just
           wrapped.
         </li>

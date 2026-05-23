@@ -566,7 +566,7 @@ function LabHeadSection({ username }: { username: string }) {
     <SectionShell
       id="lab-head"
       title="Lab Head"
-      description="Manage your edit-mode password and session for the Phase 5 PI workflow. Use Request edit on another member's record to start a session."
+      description="Manage your edit-mode password and session for the Phase 5 Lab Head workflow. Use Request edit on another member's record to start a session."
     >
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-gray-200 bg-white">

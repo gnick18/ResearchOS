@@ -624,7 +624,7 @@ export default function PurchaseEditor({
                   approval + flag column. Always rendered so list rows
                   line up consistently regardless of view. */}
               <th className="text-left py-2 px-2 text-xs font-semibold text-gray-500 w-28">
-                PI status
+                Lab Head status
               </th>
               <th className="w-8"></th>
             </tr>

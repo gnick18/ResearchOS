@@ -317,10 +317,10 @@ function AnnouncementCard({
         <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
           <span className={authorClass}>{authorDisplayName}</span>
           <span
-            className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide rounded bg-amber-100 text-amber-800"
-            title="Lab head / principal investigator"
+            className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-100 text-amber-800"
+            title="Lab Head"
           >
-            PI
+            Lab Head
           </span>
           {entry.pinned && (
             <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide rounded bg-amber-200 text-amber-900">
