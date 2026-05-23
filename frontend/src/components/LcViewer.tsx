@@ -15,6 +15,8 @@ import ShareDialogAdapter from "@/components/sharing/ShareDialogAdapter";
 import Tooltip from "@/components/Tooltip";
 import { GlobeIcon, LockIcon } from "@/lib/utils/icons";
 import LcGradientEditor from "@/components/LcGradientEditor";
+import { useMethodPermissions } from "@/hooks/useMethodPermissions";
+import { isWholeLabShared } from "@/lib/sharing/unified";
 
 /**
  * Read-write viewer for an LC gradient method, shown by the /methods modal.
@@ -56,6 +58,7 @@ export default function LcViewer({
   onDelete,
 }: LcViewerProps) {
   const queryClient = useQueryClient();
+  const { canModifyMethod } = useMethodPermissions();
   const [currentMethod, setCurrentMethod] = useState(method);
   const [protocol, setProtocol] = useState<LCGradientProtocol | null>(null);
   const [loading, setLoading] = useState(true);
@@ -126,7 +129,10 @@ export default function LcViewer({
     }
   }, [persist, gradientSteps, column, wavelength, description, ingredients]);
 
-  const canModify = !currentMethod.is_public || currentMethod.created_by === currentUser;
+  // R1c: unified canWrite gate.
+  const canModify = canModifyMethod(currentMethod);
+  const isWholeLab =
+    currentMethod.is_public || isWholeLabShared(currentMethod.shared_with);
 
   return (
     <>
@@ -141,15 +147,15 @@ export default function LcViewer({
               <button
                 onClick={() => setShowSharePopup(true)}
                 className={`px-3 py-1.5 text-xs rounded-lg ${
-                  currentMethod.is_public
+                  isWholeLab
                     ? "bg-green-50 text-green-600 hover:bg-green-100"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}
                 title="Share method"
               >
                 <span className="flex items-center gap-1">
-                  {currentMethod.is_public ? <GlobeIcon /> : <LockIcon />}
-                  {currentMethod.is_public ? "Public" : "Private"}
+                  {isWholeLab ? <GlobeIcon /> : <LockIcon />}
+                  {isWholeLab ? "Public" : "Private"}
                 </span>
               </button>
             )}

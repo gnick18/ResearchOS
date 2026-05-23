@@ -124,11 +124,16 @@ export function CompoundChildCreator({
   const [name, setName] = useState("");
   const [folder, setFolder] = useState("");
   const [tags, setTags] = useState("");
-  // Lab Mode retirement R1b: checkbox UI removed; setter unused.
-  // State is still consumed by record-creation calls below for one
-  // release of backward compat.
-  const [isPublic, _setIsPublic] = useState(false);
-  void _setIsPublic;
+  // Lab Mode retirement R1c (R1c methods canRead manager, 2026-05-23):
+  // the state setter is gone. Compound children inherit their parent
+  // compound's sharing surface (read at parent-method-load time, not
+  // duplicated here), so this creator never needs to flip is_public.
+  // The constant `false` is still passed through to method-create
+  // payloads because `methodsApi.create` routes on the boolean to
+  // decide between the user's private store and the public store.
+  // Children always land in the private store; the legacy field
+  // stays on disk for one more release.
+  const isPublic = false;
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);

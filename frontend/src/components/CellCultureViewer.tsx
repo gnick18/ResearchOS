@@ -15,6 +15,8 @@ import ShareDialogAdapter from "@/components/sharing/ShareDialogAdapter";
 import Tooltip from "@/components/Tooltip";
 import CellCultureScheduleEditor from "@/components/CellCultureScheduleEditor";
 import { GlobeIcon, LockIcon } from "@/lib/utils/icons";
+import { useMethodPermissions } from "@/hooks/useMethodPermissions";
+import { isWholeLabShared } from "@/lib/sharing/unified";
 
 /**
  * Read-write viewer for a cell-culture passaging schedule method, shown by
@@ -54,7 +56,12 @@ export default function CellCultureViewer({
   onClose,
   onDelete,
 }: CellCultureViewerProps) {
+  // R1c: permissions resolve through `useMethodPermissions` (canRead /
+  // canWrite / canReadMethodViaTask). `currentUser` is still consumed
+  // below as the `ownerUsername` fallback for the share dialog when a
+  // method record has neither `owner` nor `created_by` set.
   const queryClient = useQueryClient();
+  const { canModifyMethod } = useMethodPermissions();
   const [currentMethod, setCurrentMethod] = useState(method);
   const [schedule, setSchedule] = useState<CellCultureSchedule | null>(null);
   const [loading, setLoading] = useState(true);
@@ -127,8 +134,9 @@ export default function CellCultureViewer({
     }
   }, [persist, cellLine, media, plannedEvents, description]);
 
-  const canModify =
-    !currentMethod.is_public || currentMethod.created_by === currentUser;
+  const canModify = canModifyMethod(currentMethod);
+  const isWholeLab =
+    currentMethod.is_public || isWholeLabShared(currentMethod.shared_with);
 
   return (
     <>
@@ -143,15 +151,15 @@ export default function CellCultureViewer({
               <button
                 onClick={() => setShowSharePopup(true)}
                 className={`px-3 py-1.5 text-xs rounded-lg ${
-                  currentMethod.is_public
+                  isWholeLab
                     ? "bg-green-50 text-green-600 hover:bg-green-100"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}
                 title="Share method"
               >
                 <span className="flex items-center gap-1">
-                  {currentMethod.is_public ? <GlobeIcon /> : <LockIcon />}
-                  {currentMethod.is_public ? "Public" : "Private"}
+                  {isWholeLab ? <GlobeIcon /> : <LockIcon />}
+                  {isWholeLab ? "Public" : "Private"}
                 </span>
               </button>
             )}
