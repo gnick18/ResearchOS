@@ -1,7 +1,8 @@
 // frontend/src/components/__tests__/BeakerBotBugStompScene.test.tsx
 //
 // Smoke + behavior coverage for the BeakerBot bug-stomp easter-egg
-// scene (R2: scatter swarm + sneak + fly swatter + splat residue).
+// scene (R3: ONE bug, real horizontal sneak, single BeakerBot pose
+// at a time).
 //
 // We don't try to assert on each individual keyframe (CSS animations
 // are not introspectable from jsdom) — instead we cover:
@@ -9,7 +10,7 @@
 //   1. Mount: when `active=true`, the scene portals into document.body
 //      and exposes the testid.
 //   2. Unmount: when `active=false`, the scene renders nothing.
-//   3. onComplete: after the full scene duration (6300ms) elapses, the
+//   3. onComplete: after the full scene duration (5000ms) elapses, the
 //      parent's onComplete fires exactly once. Uses vi.useFakeTimers.
 //   4. Reduced-motion shortcut: when prefers-reduced-motion: reduce,
 //      onComplete fires after the shorter 2s tableau and the scene
@@ -17,10 +18,16 @@
 //   5. Direction prop: `beakerBotEntersFrom="left"` swaps BeakerBot's
 //      start/exit edges. Asserted via the CSS custom properties on
 //      the scene container.
-//   6. Swarm: multiple bugs render (BUG_COUNT = 5), one marked as the
-//      target.
+//   6. Single bug: exactly ONE bug element renders (no swarm — that
+//      was the R2 mistake Grant called out).
 //   7. Splat + swatter: residue and swatter elements render so the
 //      "evidence remains" gag is wired up.
+//   8. Single BeakerBot: only one <BeakerBot/> instance renders at
+//      a time (no overlapping pose stack -> no three-arm bug).
+//   9. Stage progression: the data-stage attribute walks through the
+//      sequence as the timer advances.
+//  10. Callback ref guard: re-rendering with a new onComplete arrow
+//      doesn't double-fire.
 
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, act } from "@testing-library/react";
@@ -65,9 +72,10 @@ describe("BeakerBotBugStompScene", () => {
     // depend on this invariant.
     const sum = Object.values(STAGE_DURATIONS).reduce((a, b) => a + b, 0);
     expect(SCENE_DURATION_MS).toBe(sum);
-    // Sanity: ~6.3s, tighter than the v1 ~7.4s despite more story.
-    expect(SCENE_DURATION_MS).toBeLessThan(7000);
-    expect(SCENE_DURATION_MS).toBeGreaterThan(5500);
+    // Sanity: ~5s, tighter than R2's ~6.3s after dropping the swarm
+    // scatter stage and trimming the sneak.
+    expect(SCENE_DURATION_MS).toBeLessThan(6000);
+    expect(SCENE_DURATION_MS).toBeGreaterThan(4000);
   });
 
   it("renders nothing when active=false", () => {
@@ -86,7 +94,7 @@ describe("BeakerBotBugStompScene", () => {
     expect(scene.getAttribute("data-reduced-motion")).toBe("false");
   });
 
-  it("calls onComplete after the full scene duration (~6.3s)", () => {
+  it("calls onComplete after the full scene duration (~5s)", () => {
     const onComplete = vi.fn();
     render(<BeakerBotBugStompScene active onComplete={onComplete} />);
     expect(onComplete).not.toHaveBeenCalled();
@@ -108,7 +116,7 @@ describe("BeakerBotBugStompScene", () => {
     render(<BeakerBotBugStompScene active onComplete={onComplete} />);
     const scene = screen.getByTestId("beakerbot-bug-stomp-scene");
     expect(scene.getAttribute("data-reduced-motion")).toBe("true");
-    // Reduced-motion fallback is only 2s, not 6.3s.
+    // Reduced-motion fallback is only 2s, not 5s.
     act(() => {
       vi.advanceTimersByTime(1500);
     });
@@ -129,15 +137,16 @@ describe("BeakerBotBugStompScene", () => {
     expect(screen.getByTestId("beakerbot-bug-stomp-swatter")).toBeInTheDocument();
   });
 
-  it("renders a swarm of multiple bugs with one marked as the target", () => {
+  it("renders exactly ONE bug (no swarm — R2 mistake fixed)", () => {
     const onComplete = vi.fn();
     render(<BeakerBotBugStompScene active onComplete={onComplete} />);
-    // Bug 0 is the target (the one BeakerBot whacks).
+    // The single bug is the target.
     const target = screen.getByTestId("beakerbot-bug-stomp-bug-0");
+    expect(target).toBeInTheDocument();
     expect(target.getAttribute("data-bug-is-target")).toBe("true");
-    // At least one non-target bug exists (swarm reads as infestation).
-    const witness = screen.getByTestId("beakerbot-bug-stomp-bug-1");
-    expect(witness.getAttribute("data-bug-is-target")).toBe("false");
+    // No other bug indices exist (used to be 0..4 in R2 swarm).
+    expect(screen.queryByTestId("beakerbot-bug-stomp-bug-1")).toBeNull();
+    expect(screen.queryByTestId("beakerbot-bug-stomp-bug-2")).toBeNull();
   });
 
   it("renders splat residue + fly swatter inside the animated scene", () => {
@@ -147,6 +156,44 @@ describe("BeakerBotBugStompScene", () => {
     // they're present in the DOM but invisible until their stage).
     expect(screen.getByTestId("beakerbot-bug-stomp-splat")).toBeInTheDocument();
     expect(screen.getByTestId("beakerbot-bug-stomp-swatter")).toBeInTheDocument();
+  });
+
+  it("renders only ONE BeakerBot pose at a time (no three-arm overlap)", () => {
+    const onComplete = vi.fn();
+    render(<BeakerBotBugStompScene active onComplete={onComplete} />);
+    // BeakerBot.tsx tags its root with data-pose; previously R2's
+    // PoseStack rendered three of these stacked, giving the
+    // three-arm visual bug. R3 must render exactly one.
+    const poses = document.querySelectorAll("[data-pose]");
+    expect(poses.length).toBe(1);
+  });
+
+  it("walks through stages as the timer advances", () => {
+    const onComplete = vi.fn();
+    render(<BeakerBotBugStompScene active onComplete={onComplete} />);
+    const scene = screen.getByTestId("beakerbot-bug-stomp-scene");
+    // Initial stage is walkIn.
+    expect(scene.getAttribute("data-stage")).toBe("walkIn");
+    // After walkIn duration we should be in spot.
+    act(() => {
+      vi.advanceTimersByTime(STAGE_DURATIONS.walkIn + 10);
+    });
+    expect(scene.getAttribute("data-stage")).toBe("spot");
+    // Advance through spot -> sneak.
+    act(() => {
+      vi.advanceTimersByTime(STAGE_DURATIONS.spot);
+    });
+    expect(scene.getAttribute("data-stage")).toBe("sneak");
+    // Advance through sneak -> whack -> splat -> celebrate -> exit.
+    act(() => {
+      vi.advanceTimersByTime(
+        STAGE_DURATIONS.sneak +
+          STAGE_DURATIONS.whack +
+          STAGE_DURATIONS.splat +
+          STAGE_DURATIONS.celebrate,
+      );
+    });
+    expect(scene.getAttribute("data-stage")).toBe("exit");
   });
 
   it("swaps BeakerBot's start + exit edges when beakerBotEntersFrom changes", () => {
