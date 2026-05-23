@@ -49,6 +49,7 @@ import BeakerBotTooManyBeakersScene from "@/components/BeakerBotTooManyBeakersSc
 import BeakerBotMouseWaveScene from "@/components/BeakerBotMouseWaveScene";
 import BeakerBotCentrifugeScene from "@/components/BeakerBotCentrifugeScene";
 import BeakerBotEurekaScene from "@/components/BeakerBotEurekaScene";
+import BeakerBotCoffeeRefillScene from "@/components/BeakerBotCoffeeRefillScene";
 import BeakerBotPoseCelebrationScene from "@/components/onboarding/BeakerBotPoseCelebrationScene";
 
 // ── Catalog types ──────────────────────────────────────────────────────────
@@ -392,6 +393,15 @@ const SCENES: SceneEntry[] = [
     description:
       "BeakerBot peeks through a microscope, pulls back amazed, a light bulb pops on, rainbow sparkles, cheers, walks off.",
     timingNote: "~5700ms total",
+  },
+  {
+    kind: "scene",
+    id: "scene:coffee-refill",
+    label: "BeakerBotCoffeeRefillScene",
+    Component: BeakerBotCoffeeRefillScene as unknown as SceneComponent,
+    description:
+      "BeakerBot walks to a mug, pours pastel-brown coffee from his beaker, blows on it, sips, eyes go heart-shaped with hearts drifting up, walks off carrying the mug.",
+    timingNote: "~5000ms total",
   },
 ];
 
