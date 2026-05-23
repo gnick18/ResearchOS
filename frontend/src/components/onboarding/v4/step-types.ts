@@ -120,6 +120,7 @@ export type TourStepCompletion =
        */
       onChoose?: (chosen: {
         label: string;
+        buttonLabel: string;
         nextStep: TourStepId;
       }) => void | Promise<void>;
     };
