@@ -127,18 +127,31 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // see PI announcements. Solo accounts (feature_picks.account_type ===
   // "solo") have no lab to belong to and never get the tab. The composer
   // + metrics gate themselves internally on account_type === "lab_head".
+  //
+  // Lab Overview rename (lab overview rename manager, 2026-05-23):
+  // promote the entry from the right-edge of the top-nav into the
+  // second slot (immediately right of Home) since the surface now hosts
+  // announcements + comments + metrics + roster + audit notices and is
+  // the primary lab-mode landing surface alongside Home. The label
+  // changes from "Lab Inbox" to "Lab Overview"; the route directory
+  // moved to /lab-overview (legacy /lab-inbox redirects).
   const accountType = useAccountType(currentUser ?? null);
   const isLabWorkspace = featurePicks?.account_type === "lab";
-  const showLabInbox =
+  const showLabOverview =
     accountType === "lab_head" ||
     (accountType === "member" && isLabWorkspace);
-  const navItemsWithInbox = useMemo(
-    () =>
-      showLabInbox
-        ? [...filtered, { href: "/lab-inbox", label: "Lab Inbox" }]
-        : filtered,
-    [filtered, showLabInbox],
-  );
+  const navItemsWithOverview = useMemo(() => {
+    if (!showLabOverview) return filtered;
+    // Slot the entry right after Home. Home is always at index 0 of
+    // `filtered` (Home is force-included via the filter predicate
+    // above), so a splice at index 1 is safe even when every other
+    // NAV_ITEMS entry has been hidden via Settings → Tabs.
+    const next = [...filtered];
+    const homeIdx = next.findIndex((item) => item.href === HOME_HREF);
+    const insertAt = homeIdx >= 0 ? homeIdx + 1 : 0;
+    next.splice(insertAt, 0, { href: "/lab-overview", label: "Lab Overview" });
+    return next;
+  }, [filtered, showLabOverview]);
 
   // Onboarding v4 L23: while the in-product walkthrough is active, the
   // top-nav tabs are visually disabled + onClick-suppressed so the user
@@ -227,7 +240,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           className="flex items-center gap-1"
           data-tour-nav-disabled={navDisabledByTour ? "true" : undefined}
         >
-          {navItemsWithInbox.map((item) => {
+          {navItemsWithOverview.map((item) => {
             const isActive = pathname === item.href;
             // Onboarding v4 §6.12+ walkthrough anchors. Each top-nav
             // item gets a `data-tour-target` keyed off its route
@@ -243,8 +256,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     ? "calendar-tab"
                     : item.href === "/links"
                       ? "lab-links-nav-tab"
-                      : item.href === "/lab-inbox"
-                        ? "lab-inbox-nav-tab"
+                      : item.href === "/lab-overview"
+                        ? "lab-overview-nav-tab"
                         : undefined;
             // Lab Links manager 2026-05-22: the /links surface is
             // account-type-conditional. Solo accounts see "Links",

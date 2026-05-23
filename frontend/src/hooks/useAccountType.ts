@@ -18,8 +18,9 @@ import {
  *   - `"member"` (default for existing users — see `DEFAULT_SETTINGS`)
  *     or `"lab_head"` once the settings read resolves.
  *
- * AppShell consumes this to gate the Lab Inbox sidebar entry; the
- * Lab Inbox page itself re-reads the settings authoritatively so a
+ * AppShell consumes this to gate the Lab Overview top-nav entry
+ * (renamed from "Lab Inbox" + promoted to top-nav 2026-05-23); the
+ * Lab Overview page itself re-reads the settings authoritatively so a
  * URL-jump from a stale cache can't bypass the gate.
  *
  * Reactivity gap (matches `useFeaturePicks`): re-reads only on mount +

@@ -2387,8 +2387,9 @@ function buildEntries() {
       coloredHeader: false,
       // Lab Head Phase 1 (lab head Phase 1 manager, 2026-05-23): mira is
       // the demo lab's principal investigator. Setting `lab_head` reveals
-      // the Lab Inbox sidebar entry when this fixture is loaded as the
-      // active user, and lights up the "PI" badge on her comments
+      // the Lab Overview top-nav entry (renamed from "Lab Inbox" +
+      // promoted to top-nav 2026-05-23) when this fixture is loaded as
+      // the active user, and lights up the "PI" badge on her comments
       // across alex + morgan's shared content.
       displayName: "Dr. Mira Castellanos",
       account_type: "lab_head",
