@@ -84,16 +84,34 @@ describe("BeakerBotSkateboardScene", () => {
     // Bot + skateboard SVG both present.
     expect(screen.getByTestId("beakerbot-skateboard-bot")).toBeInTheDocument();
     expect(screen.getByTestId("beakerbot-skateboard-svg")).toBeInTheDocument();
-    // Fixed positioning + z-index 800 per scene contract.
+    // Fixed positioning + z-index 800 per scene contract. `overflow:
+    // visible` lets the bot leave the wrapper during the loopy-loop
+    // apex without being clipped.
     expect(scene.style.position).toBe("fixed");
     expect(scene.style.zIndex).toBe("800");
+    expect(scene.style.overflow).toBe("visible");
+  });
+
+  it("renders the loop wrapper for the mid-cruise loopy-loop", () => {
+    const onComplete = vi.fn();
+    render(<BeakerBotSkateboardScene active={true} onComplete={onComplete} />);
+    // Loop wrapper is the mid-cruise translateY arc + 360° rotation
+    // host. Separated from the X cruise transform so the two
+    // animations compose without fighting for `transform`.
+    const loop = screen.getByTestId("beakerbot-skateboard-loop");
+    expect(loop).toBeInTheDocument();
+    // SkateboardStack lives inside the loop wrapper so the loop's
+    // translate+rotate moves the whole bot+deck rig together.
+    expect(loop.contains(screen.getByTestId("beakerbot-skateboard-bot"))).toBe(true);
+    expect(loop.contains(screen.getByTestId("beakerbot-skateboard-svg"))).toBe(true);
   });
 
   it("fires onComplete after the full entry + cruise + exit duration", () => {
     const onComplete = vi.fn();
-    // Speed 1000px/s over 1000px viewport = 1000ms cruise + 300ms
-    // entry + 300ms exit = 1600ms total. Cruise floor is 600ms so
-    // the math holds.
+    // Speed 1000px/s over 1000px viewport = 1000ms base cruise + 700ms
+    // loop runway + 300ms entry + 300ms exit = 2300ms total. The loop
+    // runway gives the mid-cruise loopy-loop room to read at human
+    // speed; cruise floor is 600ms so the math holds.
     render(
       <BeakerBotSkateboardScene
         active={true}
@@ -103,7 +121,7 @@ describe("BeakerBotSkateboardScene", () => {
     );
     expect(onComplete).not.toHaveBeenCalled();
     // Just before total: still no fire.
-    vi.advanceTimersByTime(1500);
+    vi.advanceTimersByTime(2200);
     expect(onComplete).not.toHaveBeenCalled();
     // Past total: fires exactly once.
     vi.advanceTimersByTime(200);
