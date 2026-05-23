@@ -457,6 +457,28 @@ Per Phase 3 visibility (Grant 2026-05-23):
 
 Phase R3 estimate: 1-2 days of mobile polish on top of the desktop framework.
 
+### 3g. Customizable left sidebar for Lab Heads (R2 extension, Grant 2026-05-23)
+
+The same widget primitive that powers the Lab Overview canvas also powers a customizable left sidebar — different surface, identical mechanism. Rationale: the default sidebar today is task-centric (Overdue / Today / Upcoming), which presumes the viewer is running their own experiments. PIs typically oversee rather than run, so a one-size-fits-all sidebar mis-serves them.
+
+**Sidebar widget catalog (PI-oriented, additive to the existing task widgets):**
+
+- **Recent lab activity** — newest comments, shares, task creations across the lab. Compact 6-row feed.
+- **Pending lab head actions** — purchase approvals waiting, records flagged for review, audit entries to acknowledge. Counts + jump links.
+- **Member workload at-a-glance** — each member's open-task count + overdue count, sorted by overdue desc. 1-line per member.
+- **Lab metric snapshot** — single key stat (total open tasks across lab, this-week's spending, etc.) with mini-trend sparkline.
+- **Today's announcements** — pinned announcements from the announcements widget, condensed to titles only.
+
+**Persistence model:** sidebar layout lives in the SAME `lab_overview_layout` blob on `_user_settings.json` — just under a `sidebar` key alongside the main `canvas` key. Same migration helper, same version field, same unknown-widget drop rule.
+
+**Edit affordance:** "Edit sidebar" mode toggle on the sidebar itself (small gear or Edit pill). When active, sidebar widgets become drag-handles in vertical order + show/hide checkboxes. No horizontal grid — sidebar is single-column always.
+
+**Default sidebar for lab heads:** Recent lab activity (top) → Pending lab head actions → Member workload → Today's announcements. The existing Overdue / Today / Upcoming task widgets remain available in the catalog (toggle-on) for PIs who still run their own experiments.
+
+**Default sidebar for members (account_type === "member"):** unchanged from today. Members get the same "Edit sidebar" affordance to reorder / show-hide / add a "Recent lab activity" widget if they want one, but the default stays the current Overdue / Today / Upcoming.
+
+**Scope estimate:** +1-2 days on top of R2's main-canvas framework. The widget primitive is shared; only the layout-engine wrapper differs (react-grid-layout for the canvas, a simple vertical react-beautiful-dnd or framer-motion-reorder for the sidebar).
+
 ---
 
 ## 4. PI Walkthrough Replacement
