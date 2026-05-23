@@ -3,13 +3,19 @@
 // frontend/src/components/BeakerBotBlowingBubblesScene.tsx
 //
 // Side easter-egg scene: BeakerBot walks in carrying a bubble wand,
-// settles near the center of the viewport, and blows a stream of
-// iridescent soap bubbles. Each bubble spawns at the wand tip, grows,
-// detaches, then drifts upward + sideways with a slight sine-wobble.
-// Bubbles can be CLICKED to pop them immediately, or they auto-pop
-// after 3-4 seconds. This is the first BeakerBot scene with USER
-// INTERACTIVITY: the bubble overlay exposes pointer-events so clicks
-// register through the otherwise pointer-events:none scene wrapper.
+// settles on the LEFT side of the viewport, and blows a stream of
+// iridescent soap bubbles RIGHTWARD across the screen. He holds the
+// wand off to his right side with one extended arm; the other arm
+// rests against the body silhouette (not drawn). Each bubble spawns
+// at the wand tip with HIGHLY randomized physics (variable rise speed,
+// horizontal drift direction, wobble amp + frequency) and drifts
+// across a large portion of the viewport before auto-popping. Bubbles
+// can be CLICKED to pop them immediately, or they auto-pop after
+// 6-8 seconds. Each new bubble spawn fires a small wind-gust puff
+// from BeakerBot's mouth toward the wand, suggesting blowing.
+// This is the first BeakerBot scene with USER INTERACTIVITY: the
+// bubble overlay exposes pointer-events so clicks register through
+// the otherwise pointer-events:none scene wrapper.
 //
 // Built on the same skeleton as the other bench-style scenes:
 //   - Portaled overlay at document.body
@@ -111,22 +117,38 @@ const MAX_BUBBLES_ON_SCREEN = 5;
 const BUBBLE_SPAWN_INTERVAL_MS = 800;
 
 /** Lifetime range (auto-pop age). Each bubble samples a uniform value
- *  in [min, max] at spawn so they don't all pop in lockstep. */
-const BUBBLE_LIFETIME_MIN_MS = 3000;
-const BUBBLE_LIFETIME_MAX_MS = 4000;
+ *  in [min, max] at spawn so they don't all pop in lockstep. Extended
+ *  to 6-8s (was 3-4s) so bubbles travel a large portion of the
+ *  viewport before vanishing — they spawn on the LEFT (at BeakerBot's
+ *  wand) and need time to drift across to the right + up. */
+const BUBBLE_LIFETIME_MIN_MS = 6000;
+const BUBBLE_LIFETIME_MAX_MS = 8000;
 
 /** Pop-out animation duration (scale-fade after pop fires). After
  *  this elapses the bubble is fully removed from state. */
 const POP_ANIMATION_MS = 300;
 
 /** Bubble physics — vy is upward (negative), vx is horizontal drift.
- *  All values are in px/sec; the rAF loop integrates by elapsed dt. */
-const BUBBLE_VY_MIN = -40; // fastest rise (most negative)
-const BUBBLE_VY_MAX = -20; // slowest rise (least negative)
-const BUBBLE_VX_RANGE = 10; // ±10 px/s horizontal drift
-/** Wobble amplitude in px — bubbles oscillate sideways as they rise. */
-const BUBBLE_WOBBLE_AMPLITUDE_PX = 6;
-const BUBBLE_WOBBLE_FREQ_HZ = 0.7;
+ *  All values are in px/sec; the rAF loop integrates by elapsed dt.
+ *  Cranked up (was -40..-20 / ±10) so bubbles cover ground from the
+ *  left-side wand position out across the viewport. */
+const BUBBLE_VY_MIN = -90; // fastest rise (most negative)
+const BUBBLE_VY_MAX = -30; // slowest rise (least negative)
+/** ±range px/s horizontal drift. With bot on the LEFT and wand
+ *  emitting rightward, biased rightward is fine but we keep a full
+ *  ±range so some bubbles drift left, some right, some hold steady. */
+const BUBBLE_VX_RANGE = 60;
+/** Wobble amplitude RANGE in px — per-bubble random value in
+ *  [min, max] so some wobble tight, others swing wide. */
+const BUBBLE_WOBBLE_AMP_MIN_PX = 3;
+const BUBBLE_WOBBLE_AMP_MAX_PX = 22;
+/** Wobble frequency RANGE in Hz — per-bubble random value so some
+ *  wobble fast, others slow. */
+const BUBBLE_WOBBLE_FREQ_MIN_HZ = 0.25;
+const BUBBLE_WOBBLE_FREQ_MAX_HZ = 1.2;
+/** Wobble phase offset RANGE in radians — per-bubble random so two
+ *  bubbles spawned at the same moment don't sway in lockstep. */
+const BUBBLE_WOBBLE_PHASE_MAX = Math.PI * 2;
 
 /** Bubble radius range (in px) at full size. Bubbles grow from 0 to
  *  their target radius during the spawn-grow phase. */
@@ -145,7 +167,10 @@ function useIsClient(): boolean {
   );
 }
 
-/** Per-bubble runtime state. */
+/** Per-bubble runtime state. EVERY visible-physics parameter is
+ *  sampled per-bubble at spawn so two bubbles spawned at the same
+ *  moment look visibly distinct: different rise speed, drift
+ *  direction, wobble shape, baseline rotation. */
 interface Bubble {
   id: number;
   /** px from left of viewport */
@@ -168,6 +193,18 @@ interface Bubble {
   popped: boolean;
   /** ms timestamp when the pop began (only meaningful when popped). */
   poppedAt: number | null;
+  /** Per-bubble sine wobble amplitude in px (random per spawn). */
+  wobbleAmpPx: number;
+  /** Per-bubble sine wobble frequency in Hz (random per spawn). */
+  wobbleFreqHz: number;
+  /** Per-bubble sine wobble phase offset in radians (random per spawn)
+   *  so wobble shapes don't align across simultaneously-spawned
+   *  bubbles. */
+  wobblePhase: number;
+  /** Per-bubble base rotation (deg) — visual variety, applied to the
+   *  inner <g> so the specular highlights land in different positions
+   *  across the stream of bubbles. */
+  baseRotationDeg: number;
 }
 
 /** Bubble wand glyph — handle + soapy ring at the tip. The bot holds
@@ -277,6 +314,11 @@ export default function BeakerBotBlowingBubblesScene({
   const [stage, setStage] = useState<BlowingBubblesStage>("idle");
   const [reducedMotion, setReducedMotion] = useState(false);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
+  /** Increments on each bubble spawn during the blowing stage. Drives
+   *  the wind-gust puff icon: a key bump re-mounts the puff element so
+   *  its quick opacity-0→1→0 keyframe re-fires from frame zero. The
+   *  puff renders only while > 0 AND we're in blowing stage. */
+  const [puffSpawnKey, setPuffSpawnKey] = useState(0);
 
   // Stash onComplete in a ref so the stage-driver effect doesn't
   // re-fire just because a parent passes a new inline-fn each render.
@@ -350,32 +392,56 @@ export default function BeakerBotBlowingBubblesScene({
   const bubbleGradId = `${animSuffix}-bubble-grad`;
 
   // Direction-driven offsets: BeakerBot enters from `enterFrom`, walks
-  // toward the center, settles, blows bubbles, and exits the SAME
-  // side he came in from.
+  // to his LEFT-side settle position (12vw), blows bubbles toward the
+  // open right side of the viewport, then exits the same side he came
+  // in from. The bot always FACES RIGHT at settle so the wand-bearing
+  // arm extends out across the open viewport regardless of which side
+  // he entered from. The wand is offset +44px from the body center
+  // (held at the end of an extended right arm) so the emission
+  // origin is clearly off to the side, not in front of the body.
   const direction = useMemo(() => {
     const fromLeft = enterFrom === "left";
     return {
       beakerStartX: fromLeft ? "-20vw" : "120vw",
-      beakerSettleX: "50vw",
-      // BeakerBot faces toward viewport center while blowing — the
-      // facing direction is the opposite of entry direction.
-      facing: (fromLeft ? "right" : "left") as "left" | "right",
-      sideSign: fromLeft ? 1 : -1,
+      // LEFT-side settle so the bot has a wide open viewport on his
+      // right to blow bubbles into.
+      beakerSettleX: "12vw",
+      // Always face right at settle so the wand sticks out toward the
+      // open viewport regardless of entry direction.
+      facing: "right" as "left" | "right",
+      // sideSign drives wand + arm positioning: always +1 (right side)
+      // so the wand is held off to the right.
+      sideSign: 1,
     };
   }, [enterFrom]);
 
+  /** Horizontal offset (px from the bot's body center) where the wand
+   *  is held — out at arm's length, not next to the body. This is the
+   *  ONE source of truth for "where is the wand in bot-local coords"
+   *  shared by the wand transform, the arm bezier, and the wand-tip
+   *  spawn origin. */
+  const WAND_HAND_OFFSET_PX = 44;
+
   // Compute the wand tip position in viewport px so newly-spawned
-  // bubbles emerge from there. Recomputed on resize. We assume a
-  // center-mounted bot on a vw-based settle position.
+  // bubbles emerge from there. Recomputed on resize. The bot's
+  // body-center sits at `beakerSettleX` (12vw). The wand is held at
+  // hand position (offset from body) and its tip sits roughly at
+  // mouth-height (~84px above the feet line). When the wand is
+  // angled ~30deg upward, the tip ends up a bit higher and a bit
+  // outward from the hand; the small extra dx + dy below approximate
+  // that tilt so bubbles spawn at the ring of the wand, not the hand.
   const computeWandTipPos = useCallback(() => {
     if (typeof window === "undefined") return { x: 0, y: 0 };
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    // BeakerBot center is at 50vw. The wand is held mid-body and its
-    // tip sits a bit above the bot's mouth (mid-upper body level).
     const feetY = vh - (vh * SCENE_GROUND_BOTTOM_VH) / 100;
-    const wandTipY = feetY - 84; // approximate mouth height
-    const wandTipX = vw * 0.5 + direction.sideSign * 18;
+    // Body center sits at 12vw; the wand-bearing hand is +44px out;
+    // the wand tilts ~30deg above horizontal so the soapy-ring tip
+    // ends up further outward (~+14px) AND up (~-8px) from the hand.
+    const handX = vw * 0.12 + direction.sideSign * WAND_HAND_OFFSET_PX;
+    const handY = feetY - 70; // hand height (mid-upper body)
+    const wandTipX = handX + direction.sideSign * 14;
+    const wandTipY = handY - 8;
     return { x: wandTipX, y: wandTipY };
   }, [direction.sideSign]);
 
@@ -394,14 +460,24 @@ export default function BeakerBotBlowingBubblesScene({
   // stable across renders.
   const nextBubbleIdRef = useRef(1);
 
-  /** Sample a fresh bubble with randomized physics + lifetime. */
+  /** Sample a fresh bubble with HIGHLY randomized physics + lifetime.
+   *  Every visible physics parameter is sampled per-bubble so a stream
+   *  of bubbles looks like individuals (different rise speeds, drift
+   *  directions, wobble shapes, rotation tumble) rather than a uniform
+   *  conveyor belt. */
   const sampleBubble = useCallback(
     (now: number, originX: number, originY: number): Bubble => {
       const id = nextBubbleIdRef.current++;
       // vy in [BUBBLE_VY_MIN, BUBBLE_VY_MAX]. Both are negative; min
-      // is the most-negative (fastest rise).
+      // is the most-negative (fastest rise). Each bubble picks its own
+      // rise speed so some race upward, others linger.
       const vy =
         BUBBLE_VY_MIN + Math.random() * (BUBBLE_VY_MAX - BUBBLE_VY_MIN);
+      // Horizontal drift in [-VX_RANGE, +VX_RANGE]. Even bias around 0
+      // so some bubbles drift left, some right, some hold steady — but
+      // because the bot sits on the LEFT with the wand emitting
+      // rightward, even bubbles that pick a small negative vx still
+      // drift broadly across the open viewport to the right.
       const vx = (Math.random() * 2 - 1) * BUBBLE_VX_RANGE;
       const targetR =
         BUBBLE_RADIUS_MIN +
@@ -409,6 +485,15 @@ export default function BeakerBotBlowingBubblesScene({
       const lifetimeMs =
         BUBBLE_LIFETIME_MIN_MS +
         Math.random() * (BUBBLE_LIFETIME_MAX_MS - BUBBLE_LIFETIME_MIN_MS);
+      const wobbleAmpPx =
+        BUBBLE_WOBBLE_AMP_MIN_PX +
+        Math.random() * (BUBBLE_WOBBLE_AMP_MAX_PX - BUBBLE_WOBBLE_AMP_MIN_PX);
+      const wobbleFreqHz =
+        BUBBLE_WOBBLE_FREQ_MIN_HZ +
+        Math.random() *
+          (BUBBLE_WOBBLE_FREQ_MAX_HZ - BUBBLE_WOBBLE_FREQ_MIN_HZ);
+      const wobblePhase = Math.random() * BUBBLE_WOBBLE_PHASE_MAX;
+      const baseRotationDeg = Math.random() * 360;
       return {
         id,
         x: originX,
@@ -421,6 +506,10 @@ export default function BeakerBotBlowingBubblesScene({
         lifetimeMs,
         popped: false,
         poppedAt: null,
+        wobbleAmpPx,
+        wobbleFreqHz,
+        wobblePhase,
+        baseRotationDeg,
       };
     },
     [],
@@ -448,6 +537,9 @@ export default function BeakerBotBlowingBubblesScene({
       const now =
         typeof performance !== "undefined" ? performance.now() : Date.now();
       const { x, y } = wandTipPosRef.current;
+      // Bump puff key so the wind-gust puff re-mounts + replays its
+      // quick opacity-0→1→0 keyframe with this new bubble's spawn.
+      setPuffSpawnKey((k) => k + 1);
       setBubbles((prev) => {
         // Cap-and-drop-oldest: if we're at the cap, force the OLDEST
         // non-popped bubble to start popping so the new one fits.
@@ -514,13 +606,17 @@ export default function BeakerBotBlowingBubblesScene({
             next.push({ ...b, popped: true, poppedAt: now });
             continue;
           }
-          // Integrate horizontal drift + apply sine wobble. Integrate
-          // vy directly into y.
+          // Integrate horizontal drift + apply PER-BUBBLE sine wobble
+          // (amp + frequency + phase all sampled at spawn so each
+          // bubble has its own oscillation signature). Integrate vy
+          // directly into y.
           const newBaseX = b.baseX + b.vx * dt;
           const ageSec = age / 1000;
           const wobble =
-            BUBBLE_WOBBLE_AMPLITUDE_PX *
-            Math.sin(ageSec * BUBBLE_WOBBLE_FREQ_HZ * 2 * Math.PI);
+            b.wobbleAmpPx *
+            Math.sin(
+              ageSec * b.wobbleFreqHz * 2 * Math.PI + b.wobblePhase,
+            );
           const newX = newBaseX + wobble;
           const newY = b.y + b.vy * dt;
           next.push({ ...b, x: newX, y: newY, baseX: newBaseX });
@@ -539,59 +635,39 @@ export default function BeakerBotBlowingBubblesScene({
     if (!reducedMotion || stage !== "done" || !active) return;
     if (typeof window === "undefined") return;
     const { x: tipX, y: tipY } = computeWandTipPos();
+    // Reduced-motion tableau: 4 static bubbles arranged in a fan
+    // RIGHTWARD + UPWARD from the wand tip (since the bot sits on the
+    // left and bubbles travel out across the open viewport). Each has
+    // the new wobble/rotation fields populated with zeros so the
+    // type-check passes; they're never read in reduced-motion mode
+    // because the rAF loop is gated off.
+    const staticBubble = (
+      id: number,
+      dx: number,
+      dy: number,
+      r: number,
+    ): Bubble => ({
+      id,
+      x: tipX + dx,
+      y: tipY + dy,
+      baseX: tipX + dx,
+      vx: 0,
+      vy: 0,
+      targetR: r,
+      spawnedAt: 0,
+      lifetimeMs: Infinity,
+      popped: false,
+      poppedAt: null,
+      wobbleAmpPx: 0,
+      wobbleFreqHz: 0,
+      wobblePhase: 0,
+      baseRotationDeg: 0,
+    });
     const tableau: Bubble[] = [
-      {
-        id: 1001,
-        x: tipX - 12,
-        y: tipY - 30,
-        baseX: tipX - 12,
-        vx: 0,
-        vy: 0,
-        targetR: 10,
-        spawnedAt: 0,
-        lifetimeMs: Infinity,
-        popped: false,
-        poppedAt: null,
-      },
-      {
-        id: 1002,
-        x: tipX + 8,
-        y: tipY - 70,
-        baseX: tipX + 8,
-        vx: 0,
-        vy: 0,
-        targetR: 8,
-        spawnedAt: 0,
-        lifetimeMs: Infinity,
-        popped: false,
-        poppedAt: null,
-      },
-      {
-        id: 1003,
-        x: tipX - 4,
-        y: tipY - 110,
-        baseX: tipX - 4,
-        vx: 0,
-        vy: 0,
-        targetR: 12,
-        spawnedAt: 0,
-        lifetimeMs: Infinity,
-        popped: false,
-        poppedAt: null,
-      },
-      {
-        id: 1004,
-        x: tipX + 16,
-        y: tipY - 150,
-        baseX: tipX + 16,
-        vx: 0,
-        vy: 0,
-        targetR: 9,
-        spawnedAt: 0,
-        lifetimeMs: Infinity,
-        popped: false,
-        poppedAt: null,
-      },
+      staticBubble(1001, 12, -30, 10),
+      staticBubble(1002, 48, -70, 8),
+      staticBubble(1003, 90, -110, 12),
+      staticBubble(1004, 140, -150, 9),
     ];
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot population of the reduced-motion tableau when the scene enters its done state
     setBubbles(tableau);
@@ -691,7 +767,8 @@ export default function BeakerBotBlowingBubblesScene({
       }}
     >
       {/* Scoped keyframes for the body breath-bob, per-bubble
-          spawn-grow, and pop-out scale-fade. */}
+          spawn-grow, pop-out scale-fade, and the wind-gust puff that
+          fires when each bubble spawns. */}
       <style>{`
         @keyframes ${animSuffix}-breath {
           0%, 100% { transform: translateY(0); }
@@ -705,6 +782,17 @@ export default function BeakerBotBlowingBubblesScene({
           0%   { transform: scale(1); opacity: 1; }
           40%  { transform: scale(1.15); opacity: 1; }
           100% { transform: scale(0); opacity: 0; }
+        }
+        /* Wind-gust puff: each puff arc starts at the bot's mouth and
+           drifts a short distance outward toward the wand while fading
+           in then back out, suggesting a quick exhale. The translate
+           direction is set inline via custom-prop --puff-dx because it
+           depends on the bot's facing direction (always right in this
+           polished version). */
+        @keyframes ${animSuffix}-puff {
+          0%   { opacity: 0; transform: translate(0, 0) scale(0.6); }
+          30%  { opacity: 0.85; }
+          100% { opacity: 0; transform: translate(var(--puff-dx, 14px), var(--puff-dy, -2px)) scale(1.15); }
         }
       `}</style>
 
@@ -767,10 +855,16 @@ export default function BeakerBotBlowingBubblesScene({
                         : `${animSuffix}-bubble-grow ${BUBBLE_GROW_MS}ms ease-out forwards`,
                   }}
                 >
-                  <BubbleGlyph
-                    bubble={bubble}
-                    gradientIdBase={bubbleGradId}
-                  />
+                  {/* Per-bubble rotation wrapper — applies a static
+                      baseline rotation sampled at spawn so the
+                      specular highlights aren't aligned across the
+                      stream of bubbles. */}
+                  <g transform={`rotate(${bubble.baseRotationDeg})`}>
+                    <BubbleGlyph
+                      bubble={bubble}
+                      gradientIdBase={bubbleGradId}
+                    />
+                  </g>
                 </g>
               </g>
             );
@@ -816,28 +910,178 @@ export default function BeakerBotBlowingBubblesScene({
             ariaLabel="BeakerBot"
           />
 
-          {/* WAND — anchored in front of the bot's body on the facing
-              side. Pivots when raised at settleDone. */}
+          {/* ARM + WAND — BeakerBot extends his RIGHT arm out to the
+              side, holding the bubble wand at the end. The arm is a
+              small inline SVG (a single stroked line from the body's
+              shoulder area out to the wand hand), the wand sits at
+              the end of the arm tilted ~30deg above horizontal. The
+              other arm rests against the body silhouette (not drawn —
+              same convention as the regular `idle`/`typing` poses).
+
+              All three sub-elements (arm, wand, puff) sit inside one
+              absolutely-positioned container anchored at the bot's
+              "hand pivot" point — shoulder height (top:42px) on the
+              facing side. The arm draws OUTWARD from a small inward
+              offset toward (WAND_HAND_OFFSET_PX, 0); the wand draws
+              UPWARD from that endpoint after a small wand-tilt
+              rotation. */}
           <div
             data-testid="beakerbot-blowing-bubbles-scene-wand"
             style={{
               position: "absolute",
-              // Hand sits ~mid-body on the facing side. The 128x128
-              // bot frame: hand is roughly at (50% ± 18px,
-              // ~50px from top).
-              left: `calc(50% + ${direction.sideSign * 18}px)`,
-              top: 50,
-              width: 12,
-              height: 24,
-              transformOrigin: "50% 100%",
+              // Shoulder pivot — hand starts on the facing side at the
+              // bot's upper body. We place the container ON the
+              // shoulder; the arm + wand draw outward from there.
+              left: `calc(50% + ${direction.sideSign * 6}px)`,
+              top: 42,
+              width: 1,
+              height: 1,
+              // Raise the whole arm-wand assembly slightly when the
+              // bot does his triumph cheer at the end of the act.
+              transformOrigin: "0 100%",
               transform: wandRaised
-                ? "rotate(-15deg) translateY(-6px)"
+                ? "rotate(-18deg) translateY(-6px)"
                 : "rotate(0deg) translateY(0)",
               transition: "transform 300ms ease-out",
               pointerEvents: "none",
+              overflow: "visible",
             }}
           >
-            <BubbleWand width={12} height={24} />
+            {/* Arm — drawn as an SVG line from the shoulder (0,0) out
+                to the hand endpoint. The hand sits at
+                (sideSign * WAND_HAND_OFFSET_PX, +4) so the arm reads
+                as a slight downward+outward extension. Stroke matches
+                the BeakerBot's currentColor sky-blue line family.
+
+                Hidden during settleDone since the `cheering` pose
+                already draws both arms up — our custom side-arm would
+                read as a third arm there. The wand continues to
+                render and translates upward to read as "raised in
+                triumph" alongside cheering. In reduced-motion mode
+                the pose stays `idle`, so the custom arm renders to
+                hold the wand in the static tableau. */}
+            {stage !== "settleDone" && (
+              <svg
+                data-testid="beakerbot-blowing-bubbles-scene-arm"
+                width="80"
+                height="40"
+                viewBox="-10 -6 80 40"
+                style={{
+                  position: "absolute",
+                  left: direction.sideSign > 0 ? 0 : -70,
+                  top: -6,
+                  overflow: "visible",
+                  color: "rgb(14 165 233)", // sky-500 — matches BeakerBot tint
+                }}
+                aria-hidden="true"
+              >
+                {/* The arm: a single rounded line from shoulder out to
+                    the hand. */}
+                <line
+                  x1="0"
+                  y1="0"
+                  x2={direction.sideSign * WAND_HAND_OFFSET_PX}
+                  y2="4"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+                {/* Hand — small circle at the end of the arm holding
+                    the base of the wand. */}
+                <circle
+                  cx={direction.sideSign * WAND_HAND_OFFSET_PX}
+                  cy="4"
+                  r="2.4"
+                  fill="currentColor"
+                />
+              </svg>
+            )}
+
+            {/* Wand — anchored at the hand end of the arm, tilted
+                ~30deg above horizontal so the soapy ring points
+                outward + slightly upward (natural emission angle for
+                a stream of rising bubbles). The wand container's
+                local origin is at the bottom of the wand (the hand
+                grip); rotation pivots about that grip. */}
+            <div
+              data-testid="beakerbot-blowing-bubbles-scene-wand-glyph"
+              style={{
+                position: "absolute",
+                left: direction.sideSign * WAND_HAND_OFFSET_PX,
+                top: 4,
+                width: 12,
+                height: 24,
+                // Center the wand horizontally on the hand point, then
+                // tilt outward. Rotation pivot at the bottom-center of
+                // the wand (the grip).
+                transformOrigin: "50% 100%",
+                transform: `translate(-50%, -100%) rotate(${direction.sideSign * 30}deg)`,
+                pointerEvents: "none",
+              }}
+            >
+              <BubbleWand width={12} height={24} />
+            </div>
+
+            {/* WIND-GUST PUFF — fires from the bot's MOUTH area toward
+                the wand each time a new bubble spawns. Rendered as
+                2-3 small curved arcs (suggesting puffs of air) with a
+                quick opacity-0→1→0 + outward-translate keyframe.
+                Re-mounted on each spawn via the `puffSpawnKey` key so
+                the keyframe replays from frame zero. Only renders
+                during the blowing stage (so it doesn't fire after the
+                blowing window ends + lingering bubbles persist). */}
+            {!reducedMotion && stage === "blowing" && puffSpawnKey > 0 && (
+              <svg
+                key={puffSpawnKey}
+                data-testid="beakerbot-blowing-bubbles-scene-puff"
+                data-puff-key={puffSpawnKey}
+                width="40"
+                height="20"
+                viewBox="0 0 40 20"
+                style={{
+                  position: "absolute",
+                  // Anchor at the bot's MOUTH — roughly 10px above the
+                  // shoulder (the shoulder is `top:42`, the mouth sits
+                  // higher) and offset slightly out toward the wand.
+                  left: direction.sideSign * 4,
+                  top: -16,
+                  overflow: "visible",
+                  // Direction-dependent translate target: outward
+                  // toward the wand position.
+                  ["--puff-dx" as unknown as string]: `${direction.sideSign * 16}px`,
+                  ["--puff-dy" as unknown as string]: "-2px",
+                  animation: `${animSuffix}-puff 320ms ease-out forwards`,
+                  pointerEvents: "none",
+                }}
+                aria-hidden="true"
+              >
+                {/* 3 small curved arcs at staggered offsets — each is
+                    a faint cubic curve suggesting a wisp of air. Color
+                    is a light sky-blue so it reads as "puff of breath"
+                    against most page backgrounds. */}
+                <path
+                  d="M 4 12 Q 10 6 18 10"
+                  fill="none"
+                  stroke="rgba(148, 163, 184, 0.85)"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M 6 16 Q 14 12 22 14"
+                  fill="none"
+                  stroke="rgba(148, 163, 184, 0.7)"
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M 2 8 Q 8 4 14 6"
+                  fill="none"
+                  stroke="rgba(148, 163, 184, 0.6)"
+                  strokeWidth="1.1"
+                  strokeLinecap="round"
+                />
+              </svg>
+            )}
           </div>
         </div>
       </div>
