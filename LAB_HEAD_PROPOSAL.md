@@ -375,6 +375,21 @@ Dependent files: `AccountPasswordPopup.tsx` (reference for PBKDF2 pattern), `Tas
 
 Scope: **large** (security-sensitive; touches many record views; timer state needs careful cleanup on unmount).
 
+### Phase 6 — User archiving (medium)
+
+Hide departed lab members from the login page, mention pickers, share dialogs, and assignee selectors without deleting any data. Full design lives in section 7 below. Depends on Phase 3 (soft-write action infra for the archive button) and Phase 5 (session edit mode for archive auth gating). Sub-phases 6a-6e dispatch as separate chips after Phase 5 lands.
+
+Deliverables:
+- `users/<username>/_onboarding.json`: new `archived`, `archived_at`, `archived_by` fields (additive, default false).
+- Login page filter: hide archived by default + "Show archived" toggle.
+- Picker filters: mentions, share dialogs, assignee selectors strip archived users.
+- Lab Roster surface (Settings or Lab Inbox): archive / restore buttons for lab heads.
+- Demo content: fourth fixture user with `archived: true` to showcase the feature.
+
+Dependent files: `app/login/page.tsx` (or equivalent), `lib/settings/user-settings.ts`, mention / share / assignee picker components, new `LabRoster` component, `wiki-capture-fixture.ts`, `scripts/generate-demo-data.mjs`.
+
+Scope: **medium** (additive sidecar field, filter logic across multiple pickers, one new admin surface).
+
 ---
 
 ## 5. Edge Cases and Open Questions
@@ -418,7 +433,98 @@ If the PI navigates away from the record under edit before the 5-minute window e
 
 ---
 
-## 6. Out of Scope (Explicit)
+## 6. Phase 6 Detail — User Archiving
+
+### Motivation
+
+When a lab has been on ResearchOS for years, departed members accumulate. The shared-machine user login page gets cluttered with stale accounts. We need a way to hide them from default surfaces while preserving all their data, full searchability, and PI editability.
+
+### Design decisions (locked, Grant 2026-05-23)
+
+1. **Who can archive:** lab_head only. Members cannot archive themselves or other members. The PI is the single source of departure decisions, matching the existing oversight pattern.
+2. **Login page visibility:** archived users are hidden by default. A small "Show archived" toggle below the user grid reveals them so a temporary returner can re-login without PI intervention.
+3. **Mention / share / assignee pickers:** archived users are hidden from new-action surfaces. Existing references stay intact (an old `@mira` mention still renders).
+
+### Behavior spec
+
+**Search:** archived users' content remains globally searchable. Their author attribution renders gray, per the comment polish from Phase 1 (decision #5).
+
+**PI edit mode (Phase 5):** the PI can access archived users' data through normal navigation. Archive state is independent of edit-mode auth — the PI can edit Mira's experiment whether or not Mira is archived.
+
+**Restore:** lab_head can un-archive any user via the Lab Roster surface (see UX below). Un-archive immediately restores them to all pickers and login defaults.
+
+**Lab Inbox filtering (Phase 2 surface):** when filtering comments by user, archived users appear in a collapsed "Archived" subgroup at the bottom of the user filter.
+
+### Data shape
+
+Add to `users/<username>/_onboarding.json` (the existing per-user sidecar):
+
+```json
+{
+  "archived": false,
+  "archived_at": null,
+  "archived_by": null
+}
+```
+
+- `archived`: boolean, default `false`. Single source of truth for visibility filtering.
+- `archived_at`: ISO 8601 timestamp set when `archived` flips to `true`, cleared when restored.
+- `archived_by`: username of the lab_head who triggered the most recent transition (archive or restore).
+
+Migration: existing users have no archive fields. The reader defaults missing fields to `false` / `null`. No SoT data migration needed; the field is purely additive.
+
+### UX surfaces
+
+**Login page** (`frontend/src/app/login/page.tsx` or equivalent):
+- Filter `users` to `!u.archived` by default.
+- "Show archived" toggle (text link or pill) below the grid. Toggle on → archived accounts appear with a small "Archived" badge, sorted to the bottom.
+- Clicking an archived account still allows login (no extra gate).
+
+**Lab Roster surface** (new component, mounted either in Settings page or the Lab Inbox route from Phase 1):
+- Lists all users with display name, username, account_type pill, and status (Active / Archived).
+- "Archive" button per non-archived member — lab_head only. Confirmation dialog: "Archive Alex Chen? Their data stays searchable; they're just hidden from the login page and pickers."
+- "Restore" button per archived member.
+- Members see this surface read-only (view the roster, no buttons).
+- The archive / restore action goes through Phase 5's session edit mode gating — the lab head must be unlocked to take the action.
+
+**Mention / share / assignee pickers:**
+- Filter `users` to `!u.archived` in the picker query.
+- Existing references (old `@mira` mentions, existing assignments) render normally with gray author attribution.
+
+### Edge cases
+
+**Self-archive prevention:** the archive UI does not expose an "archive me" action for the currently logged-in lab_head. If a PI wants to leave the lab, they hand off to a co-PI who archives them.
+
+**Last lab_head:** if archiving the last lab_head would leave the lab with zero PIs, surface a warning ("This is your last lab head. Archiving will leave the lab without a PI. Continue?"). Don't block — Grant's decision #1 explicitly allows co-PIs to coexist naturally without enforcement, and this is the consistent extension.
+
+**Archived user comments on shared records:** continue rendering with gray author name (Phase 1 design decision #5 handles this).
+
+**Edits made by PI while user was archived:** edits made in edit mode while the user was archived stay attributed to the PI in the audit log (Phase 2). Restoring doesn't reattribute.
+
+**Sync folder layout:** archived users' files remain in `users/<username>/` on disk. Archive is purely a UI filter, not a data move. This means archived data still consumes shared sync bandwidth — acceptable, since the alternative (move-to-archive subfolder) breaks file paths in existing notes.
+
+**Phase 1 demo PI (Mira) not yet archived:** Mira ships as `archived: false`. Phase 6's fourth fixture user will be the archive showcase.
+
+### Sub-phase split
+
+- **6a.** Sidecar schema: `archived`, `archived_at`, `archived_by` fields. Reader defaults missing → false. Settings type extension.
+- **6b.** Login page filter + "Show archived" toggle. Default hidden.
+- **6c.** Picker filters across mention / share / assignee surfaces. Existing references unchanged.
+- **6d.** Lab Roster component: archive / restore buttons gated by Phase 5 edit mode, lab_head only.
+- **6e.** Demo content: fourth fixture user (e.g. "Dr. Sam Whitley, former postdoc") with `archived: true, archived_by: "mira"`. Showcases the feature end to end.
+
+Each sub-phase is a separate chip after Phase 5 lands.
+
+### Out of scope (Phase 6 explicitly)
+
+- **Permanent user deletion** — archive is non-destructive only. A delete-with-data action is a different (scarier) feature.
+- **Auto-archive on inactivity** — manual PI action only. No "if a user hasn't logged in for 6 months, archive them" rule.
+- **Archive history audit log** — relies on Phase 2 audit infrastructure. Phase 6 just sets the `archived_by` field; the diff log for archive / restore transitions is a Phase 2 follow-up.
+- **Ownership transfer on archive** — archiving doesn't reassign projects / experiments / lists owned by the departed member. PI uses edit mode (Phase 5) to move things around if needed.
+
+---
+
+## 7. Out of Scope (Explicit)
 
 The following are explicitly excluded from this proposal:
 
