@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import AccountPasswordPopup from "@/components/AccountPasswordPopup";
 import ImportExperimentDialog from "@/components/ImportExperimentDialog";
@@ -2571,6 +2572,7 @@ function AIHelperSection() {
 function TipsSection() {
   const { currentUser } = useFileSystem();
   const tourController = useOptionalTourController();
+  const router = useRouter();
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // Wave 1 sidecar hardening manager (v2): orphan-artifact recovery
@@ -2630,18 +2632,26 @@ function TipsSection() {
         lab_tour_dismissed_at: null,
       }));
       // Reset the controller's in-memory feature_picks snapshot so the
-      // re-run's gating machine sees the cleared picks immediately,
-      // then start the tour at the first applicable step.
+      // re-run's gating machine sees the cleared picks immediately.
+      // Do NOT call tourController.start() here — that would write
+      // current_step:"welcome" to disk before the user leaves /settings,
+      // causing TourBootstrap on every subsequent /wiki/* visit to
+      // re-probe the sidecar and re-fire start() in an infinite loop.
+      // Instead, navigate to / so the home-route TourBootstrap re-probes
+      // the now-cleared sidecar and fires start() naturally from a
+      // fresh-user state with no route-change race.
       tourController?.setFeaturePicks(null);
-      tourController?.start();
       setStatus("Re-running the tour. BeakerBot is on the way.");
-      setTimeout(() => setBusy(false), 600);
+      setTimeout(() => {
+        setBusy(false);
+        router.push("/");
+      }, 600);
     } catch (err) {
       console.error("[Settings/Tips] re-run wizard failed", err);
       setStatus("Couldn't reset. See console for details.");
       setBusy(false);
     }
-  }, [currentUser, tourController]);
+  }, [currentUser, tourController, router]);
 
   return (
     <SectionShell

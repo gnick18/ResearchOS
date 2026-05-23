@@ -51,6 +51,7 @@ export default function Screenshot({
       height={height}
       onError={() => setErrored(true)}
       className="w-full h-auto rounded-lg border border-gray-200 shadow-sm"
+      loading="eager"
       unoptimized
     />
   );
@@ -88,6 +89,7 @@ export default function Screenshot({
             width={width}
             height={height}
             className="max-w-full max-h-full w-auto h-auto rounded-lg shadow-2xl"
+            loading="eager"
             unoptimized
           />
         </div>
