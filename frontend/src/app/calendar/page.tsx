@@ -47,6 +47,7 @@ export default function CalendarPage() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [creating, setCreating] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [deleteConfirmEvent, setDeleteConfirmEvent] = useState<Event | null>(null);
   const [prefilledStartDate, setPrefilledStartDate] = useState<string | null>(null);
   const [prefilledStartTime, setPrefilledStartTime] = useState<string | null>(null);
 
@@ -294,33 +295,9 @@ export default function CalendarPage() {
             setEditingEvent(selectedEvent);
             setSelectedEvent(null);
           }}
-          onDelete={async () => {
+          onDelete={() => {
             if (!selectedEvent) return;
-            if (!confirm(`Delete "${selectedEvent.title}"?`)) return;
-            try {
-              // Capture PTO state BEFORE the delete so we can mirror the
-              // removal into pto_dates (Phase S5 §6.5: one-way sync,
-              // event deletion drops the PTO mark too).
-              const prevIsPto = selectedEvent.is_pto === true;
-              const prevDates = prevIsPto
-                ? expandDateRange(
-                    selectedEvent.start_date,
-                    selectedEvent.end_date,
-                  )
-                : [];
-              await eventsApi.delete(selectedEvent.id);
-              await queryClient.refetchQueries({ queryKey: ["events"] });
-              if (currentUser && prevIsPto) {
-                void syncEventPtoChange(
-                  currentUser,
-                  { isPto: true, dates: prevDates },
-                  null,
-                );
-              }
-              setSelectedEvent(null);
-            } catch {
-              alert("Failed to delete event");
-            }
+            setDeleteConfirmEvent(selectedEvent);
           }}
           onSave={async (data) => {
             if (!editingEvent) return;
@@ -450,6 +427,61 @@ export default function CalendarPage() {
           }}
         />
       )}
+
+      {/* Delete Confirmation Dialog (P0-2: replaces window.confirm) */}
+      {deleteConfirmEvent && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]"
+          onClick={() => setDeleteConfirmEvent(null)}
+        >
+          <div
+            className="bg-white rounded-xl p-6 max-w-sm mx-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Delete Event?
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">
+              &ldquo;{deleteConfirmEvent.title}&rdquo; will be permanently deleted. This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteConfirmEvent(null)}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const ev = deleteConfirmEvent;
+                  setDeleteConfirmEvent(null);
+                  try {
+                    const prevIsPto = ev.is_pto === true;
+                    const prevDates = prevIsPto
+                      ? expandDateRange(ev.start_date, ev.end_date)
+                      : [];
+                    await eventsApi.delete(ev.id);
+                    await queryClient.refetchQueries({ queryKey: ["events"] });
+                    if (currentUser && prevIsPto) {
+                      void syncEventPtoChange(
+                        currentUser,
+                        { isPto: true, dates: prevDates },
+                        null,
+                      );
+                    }
+                    setSelectedEvent(null);
+                  } catch {
+                    alert("Failed to delete event");
+                  }
+                }}
+                className="px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }
@@ -485,8 +517,22 @@ function EventModal({
   // user's pto_dates list when on, removes them when off. Stored on the
   // event record as `is_pto` so the box survives reopen.
   const [isPto, setIsPto] = useState<boolean>(event.is_pto === true);
+  // P1-6: end-before-start validation
+  const [endTimeTouched, setEndTimeTouched] = useState(false);
+  const endBeforeStart =
+    !!startTime && !!endTime && endTime < startTime;
+
+  // P1-3: Escape key closes the modal
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
 
   const handleSave = () => {
+    if (endBeforeStart) return;
     onSave({
       title,
       event_type: eventType,
@@ -504,14 +550,15 @@ function EventModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
+      {/* P0-1: modal shell uses flex-col + max-h so header/footer stay fixed and body scrolls */}
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="event-details-title"
-        className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4"
+        className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 flex flex-col max-h-[calc(100vh-2rem)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
           <h3 id="event-details-title" className="text-base font-semibold text-gray-900">
             {isEditing ? "Edit Event" : "Event Details"}
           </h3>
@@ -521,7 +568,7 @@ function EventModal({
             </button>
           </Tooltip>
         </div>
-        <div className="p-6">
+        <div className="p-6 overflow-y-auto flex-1">
           {isEditing ? (
             <div className="space-y-4">
               <div>
@@ -585,9 +632,22 @@ function EventModal({
                   <input
                     type="time"
                     value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) => {
+                      setEndTime(e.target.value);
+                      setEndTimeTouched(true);
+                    }}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      endTimeTouched && endBeforeStart
+                        ? "border-red-400"
+                        : "border-gray-200"
+                    }`}
                   />
+                  {/* P1-6: inline error shown after user has interacted with end time */}
+                  {endTimeTouched && endBeforeStart && (
+                    <p className="mt-1 text-xs text-red-500">
+                      End time must be after start time.
+                    </p>
+                  )}
                 </div>
               </div>
               {(startTime || endTime) && (
@@ -596,6 +656,7 @@ function EventModal({
                   onClick={() => {
                     setStartTime("");
                     setEndTime("");
+                    setEndTimeTouched(false);
                   }}
                   className="text-[11px] text-blue-600 hover:underline -mt-2"
                 >
@@ -719,13 +780,19 @@ function EventModal({
             </div>
           )}
         </div>
-        <div className="flex gap-3 justify-end px-6 py-4 border-t border-gray-100">
+        {/* P0-1: footer stays pinned at bottom (flex-shrink-0 on parent flex-col) */}
+        <div className="flex gap-3 justify-end px-6 py-4 border-t border-gray-100 flex-shrink-0">
           {isEditing ? (
             <>
               <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">
                 Cancel
               </button>
-              <button onClick={handleSave} className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg">
+              {/* P1-6: disabled when end time is before start time */}
+              <button
+                onClick={handleSave}
+                disabled={endBeforeStart}
+                className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 Save
               </button>
             </>
@@ -775,6 +842,15 @@ function CreateEventModal({
   const [color, setColor] = useState("");
   const [isPto, setIsPto] = useState<boolean>(false);
 
+  // P1-3: Escape key closes the modal
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
   const handleCreate = () => {
     if (!title.trim()) return;
     onCreate({
@@ -794,8 +870,12 @@ function CreateEventModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+      {/* P0-1: flex-col + max-h keeps header/footer fixed while body scrolls */}
+      <div
+        className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 flex flex-col max-h-[calc(100vh-2rem)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
           <h3 className="text-base font-semibold text-gray-900">New Event</h3>
           <Tooltip label="Close" placement="bottom">
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">
@@ -803,7 +883,7 @@ function CreateEventModal({
             </button>
           </Tooltip>
         </div>
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-4 overflow-y-auto flex-1">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Title</label>
             <input
@@ -942,7 +1022,8 @@ function CreateEventModal({
             </label>
           </div>
         </div>
-        <div className="flex gap-3 justify-end px-6 py-4 border-t border-gray-100">
+        {/* P0-1: footer stays pinned */}
+        <div className="flex gap-3 justify-end px-6 py-4 border-t border-gray-100 flex-shrink-0">
           <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">
             Cancel
           </button>
@@ -970,6 +1051,15 @@ function ExternalEventModal({
   feed: CalendarFeed | null;
   onClose: () => void;
 }) {
+  // P1-3: Escape key closes the modal
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
