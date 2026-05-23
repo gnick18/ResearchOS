@@ -45,7 +45,7 @@ export const ganttDepsCascadeStep = buildWalkthroughStep({
         slide right because A is upstream of them.
       </p>
       <p>
-        Move any task earlier in a chain, everything downstream
+        Move any task later in a chain, everything downstream
         reschedules with it.
       </p>
     </>

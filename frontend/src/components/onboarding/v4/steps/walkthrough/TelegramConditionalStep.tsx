@@ -378,9 +378,8 @@ function TelegramBranchPicker() {
       <div className="space-y-2" data-testid="telegram-branch-synthetic-body">
         <p>
           No problem, let me show you what it WOULD look like. I&apos;ll
-          drop a synthetic photo into your inbox, walk you through the
-          caption and metadata flow, then drag it into your experiment&apos;s
-          notes.
+          drop a synthetic photo into your inbox and walk you through the
+          caption and metadata flow.
         </p>
         {syntheticError ? (
           <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded px-2 py-1.5">

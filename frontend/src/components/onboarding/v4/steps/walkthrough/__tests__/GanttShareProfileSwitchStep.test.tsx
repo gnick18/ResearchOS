@@ -101,7 +101,13 @@ describe("GanttShareProfileSwitchStep (Gantt manager 2026-05-22)", () => {
     expect(appendBeakerBotNoteMock).toHaveBeenCalledWith(BEAKERBOT_NOTE_TEXT);
   });
 
-  it("uses manual completion", () => {
-    expect(ganttShareProfileSwitchStep.completion.type).toBe("manual");
+  it("uses event-driven completion gated on the note-write event", () => {
+    // R2 chip C 2026-05-22: completion was switched from manual to
+    // event-driven so fast users can't click "Got it, next" before the
+    // genuine `appendBeakerBotNote` write has resolved. The speech body
+    // dispatches `tour:gantt-share-note-write-done` at T+6800ms (after
+    // the full switch+write+switch-back sequence has played out) and
+    // the step's event listener advances on that signal.
+    expect(ganttShareProfileSwitchStep.completion.type).toBe("event");
   });
 });

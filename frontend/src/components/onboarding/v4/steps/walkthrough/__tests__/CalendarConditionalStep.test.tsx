@@ -1,5 +1,5 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { act, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
 
 // Stub next/navigation's useRouter for the TourController auto-
 // navigate effect (Onboarding v4 route-nav fix). push() is a no-op.
@@ -14,11 +14,7 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
-import {
-  calendarConditionalStep,
-  READ_DURATION_MS,
-} from "../CalendarConditionalStep";
-import { TourControllerProvider } from "../../../TourController";
+import { calendarConditionalStep } from "../CalendarConditionalStep";
 import type { FeaturePicks } from "@/lib/onboarding/sidecar";
 
 /**
@@ -29,7 +25,8 @@ import type { FeaturePicks } from "@/lib/onboarding/sidecar";
  *      conditional gate.
  *   2. The speech ReactNode renders the §6.15 explainer copy (key
  *      phrases checked, no em-dashes).
- *   3. The body auto-advances after READ_DURATION_MS.
+ *   3. The completion uses manualAdvance per Wave 1 universal-pacing
+ *      rule (R2 chip C 2026-05-22).
  *   4. The conditional gate matches `picks.calendar === "yes"`.
  */
 
@@ -62,36 +59,34 @@ describe("calendarConditionalStep step shape", () => {
     expect(gate(null)).toBe(false);
   });
 
-  it("uses event-driven completion (no manual button shown)", () => {
-    expect(calendarConditionalStep.completion.type).toBe("event");
+  it("uses manualAdvance completion (Wave 1 universal-pacing rule)", () => {
+    expect(calendarConditionalStep.completion.type).toBe("manual");
+    expect(
+      (calendarConditionalStep.completion as { buttonLabel?: string })
+        .buttonLabel,
+    ).toBe("Got it, next");
   });
 });
 
 describe("CalendarExplainerBody speech copy", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  function renderInProvider() {
-    if (typeof calendarConditionalStep.speech !== "function") {
-      throw new Error("expected speech to be a render function");
-    }
-    const speechNode = calendarConditionalStep.speech();
-    return render(
-      <TourControllerProvider
-        initialFeaturePicks={picks()}
-        initialStep="calendar"
-      >
-        {speechNode}
-      </TourControllerProvider>,
-    );
+  function renderStandalone() {
+    // R2 chip C 2026-05-22: speech is now an inline ReactNode (no
+    // hooks, no controller dependency) because the prior
+    // CalendarExplainerBody body existed only to schedule the auto-
+    // advance timer. With manual advance, no body component is needed,
+    // so we can render the speech outside the TourControllerProvider
+    // entirely. (Rendering inside the provider would double-mount the
+    // speech because the provider's TourOverlay also renders the
+    // active step's speech, surfacing as a getByTestId "multiple
+    // elements" failure.)
+    const speechProp = calendarConditionalStep.speech;
+    const speechNode =
+      typeof speechProp === "function" ? speechProp() : speechProp;
+    return render(<>{speechNode}</>);
   }
 
   it("renders the §6.15 explainer body", () => {
-    renderInProvider();
+    renderStandalone();
     const body = screen.getByTestId("calendar-explainer-body");
     // Hits the key spec phrases.
     expect(body.textContent).toMatch(/Calendar tab/);
@@ -105,22 +100,8 @@ describe("CalendarExplainerBody speech copy", () => {
   });
 
   it("does not contain em-dashes (Grant standing rule)", () => {
-    renderInProvider();
+    renderStandalone();
     const body = screen.getByTestId("calendar-explainer-body");
     expect(body.textContent ?? "").not.toContain("—");
-  });
-
-  it("auto-advances after READ_DURATION_MS", () => {
-    renderInProvider();
-    expect(screen.getByTestId("calendar-explainer-body")).toBeInTheDocument();
-    // Fast-forward past the read duration. The body schedules a
-    // `noteEventFired + advance` after exactly READ_DURATION_MS.
-    act(() => {
-      vi.advanceTimersByTime(READ_DURATION_MS + 50);
-    });
-    // The provider's onExit fires on advance, so the speech body is
-    // expected to be torn down. The test just verifies the timer
-    // fires without error (the controller's advance ran).
-    expect(READ_DURATION_MS).toBeGreaterThan(0);
   });
 });

@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { useTourController } from "../../TourController";
+import { manualAdvance } from "./lib/step-helpers";
 import type { TourStep } from "../../step-types";
 
 /**
@@ -9,8 +8,8 @@ import type { TourStep } from "../../step-types";
  *
  * High-level explanation only per the proposal: no real ICS subscribe
  * (would require URLs the user doesn't have ready). BeakerBot points
- * at the Calendar tab and explains what it does. Auto-advances after
- * the speech has had time to land.
+ * at the Calendar tab and explains what it does. Manual-advance per
+ * the Wave 1 universal-pacing rule (R2 chip C 2026-05-22 fix).
  *
  * **Speech copy (from §6.15, no em-dashes):**
  *
@@ -35,36 +34,32 @@ import type { TourStep } from "../../step-types";
  * click/type/drag to strip. When future navigation wiring lands, the
  * cursor click on the Calendar tab would qualify as a navigation
  * beat per the rule (BeakerBot's speech narrates the move).
+ *
+ * R2 chip C 2026-05-22 pacing fix: dropped the inline
+ * CalendarExplainerBody auto-advance (was 7.5s). The Wave 1 universal
+ * manual-advance rule applies to every BeakerBot-led step in the
+ * walkthrough; literal readers who needed more than 7.5s to read the
+ * speech had no way to pace themselves. The other conditional
+ * walkthrough steps (purchases, telegram, etc.) already use
+ * manualAdvance per Wave 1.
  */
 
-const READ_DURATION_MS = 7500;
+// ---------------------------------------------------------------------------
+// Step body export
+// ---------------------------------------------------------------------------
 
 /**
- * Inner speech-bubble body. Schedules an auto-advance after the read
- * duration. The duration is generous (7.5s) because the speech is
- * long enough that reduced-motion users want time to actually read.
+ * §6.15 conditional walkthrough step. Pure explainer, no API calls,
+ * no artifacts. Manual-advance per Wave 1 universal-pacing rule.
+ *
+ * Conditional gate (calendar === "yes") is enforced by
+ * `step-machine.ts isStepGatedOut`. `conditionalOn` mirrors it for
+ * self-description.
  */
-function CalendarExplainerBody() {
-  const { advance, noteEventFired } = useTourController();
-  const startedRef = useRef(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
-    timerRef.current = setTimeout(() => {
-      noteEventFired();
-      advance();
-    }, READ_DURATION_MS);
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-  }, [advance, noteEventFired]);
-
-  return (
+export const calendarConditionalStep: TourStep = {
+  id: "calendar",
+  pose: "pointing",
+  speech: (
     <div className="space-y-2" data-testid="calendar-explainer-body">
       <p>
         Calendar tab&apos;s optional. You can add events directly, or
@@ -74,32 +69,8 @@ function CalendarExplainerBody() {
         Settings.
       </p>
     </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Step body export
-// ---------------------------------------------------------------------------
-
-/**
- * §6.15 conditional walkthrough step. Pure explainer, no API calls,
- * no artifacts. Auto-advances after the read duration so the spotlight
- * doesn't dwell on the Calendar tab past where the speech ends.
- *
- * Conditional gate (calendar === "yes") is enforced by
- * `step-machine.ts isStepGatedOut`. `conditionalOn` mirrors it for
- * self-description.
- */
-export const calendarConditionalStep: TourStep = {
-  id: "calendar",
-  pose: "pointing",
-  speech: () => <CalendarExplainerBody />,
-  // Event-driven completion so the bubble doesn't render a "Got it,
-  // next" button while the inner component is still narrating.
-  completion: {
-    type: "event",
-    eventListener: () => () => {},
-  },
+  ),
+  completion: manualAdvance("Got it, next"),
   // Calendar tab marker. Same data-tour-target shape as the other
   // sidebar steps so TourSpotlight resolves it via the standard
   // selector path.
@@ -108,6 +79,3 @@ export const calendarConditionalStep: TourStep = {
   // Auto-navigate to /calendar on refresh so the month view is visible.
   expectedRoute: "/calendar",
 };
-
-// Export the read duration for tests + future tuning chips.
-export { READ_DURATION_MS };

@@ -61,7 +61,7 @@ import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 export const methodsLcDemoStep = buildWalkthroughStep({
   id: "methods-lc-demo",
   speech:
-    "And here's the LC Gradient editor. The chart updates live as you change steps in the table. Same deal: play around to get a feel for it, then click Got it, next when you're ready to keep going.",
+    "And here's the LC Gradient editor. Play around, the chart updates live as you change steps in the table. Click Got it, next when you're ready to keep going.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.methodsTypeLcGradientTile),
   cursorScript: cursorScript(async () => {

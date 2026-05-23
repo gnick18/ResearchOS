@@ -35,7 +35,8 @@ export const hybridImageResizeStep = buildWalkthroughStep({
   id: STEP_ID,
   speech: (
     <p>
-      Click an image to resize it. Small, medium, large, or original.
+      Click an image to resize it. Pick 25%, 50%, 75%, or 100% from the
+      menu that pops up.
     </p>
   ),
   pose: "pointing",

@@ -230,10 +230,15 @@ export const workbenchNotesCreateStep = buildWalkthroughStep({
     // single sentence + call out the markdown rendering as a single
     // note materializes. Drops the prior two-sentence framing that
     // restated information from Beat 1.
+    //
+    // R2 chip C 2026-05-22 copy fix: dropped the "watch as the note
+    // saves" framing. The note is created via a direct API call
+    // (`notesApi.create`), there's no visible "render as it saves"
+    // moment for the user to watch. The new copy keeps the editor-
+    // continuity callback without making a false rendering promise.
     <p>
       Single note example, conference takeaways. Same editor you just
-      used, watch the headings, bold, and bullets render as the note
-      saves.
+      used, with headings, bold, and bullets ready to go.
     </p>
   ),
   pose: "typing-on-laptop",

@@ -50,11 +50,24 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import BeakerBot from "@/components/BeakerBot";
-import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
+import { advanceOnEvent, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 import { appendBeakerBotNote } from "./lib/gantt-share-helpers";
 import { resolveFakeTaskIds } from "./lib/gantt-redesign-helpers";
 import { useOptionalTourController } from "../../TourController";
+
+/**
+ * Custom DOM event fired by the speech body once the BeakerBot note
+ * write has completed (T+2800ms). The step's `advanceOnEvent`
+ * completion listens for this so the "Got it, next" button only
+ * appears after the genuine note write has actually landed. Without
+ * the gate, fast users could advance to gantt-share-user-sees-edit
+ * before the note was written, breaking the next step's "see the note
+ * BeakerBot just added" promise.
+ *
+ * R2 chip C 2026-05-22.
+ */
+const NOTE_WRITE_DONE_EVENT = "tour:gantt-share-note-write-done";
 
 /** SessionStorage key used to mark the tour as mid-switch. The current
  *  fallback doesn't use this for state survival (the modal lives in
@@ -245,7 +258,13 @@ function ProfileSwitchSpeech() {
         setBeat(4);
       }, 5400),
     );
-    // T+6800ms — modal closes; tour returns to normal.
+    // T+6800ms — modal closes; tour returns to normal. Dispatch
+    // NOTE_WRITE_DONE_EVENT so the step's completion advances the tour
+    // only after the full switch+write+switch-back sequence has played
+    // out AND the genuine `appendBeakerBotNote` write at T+2600ms had
+    // ~4 seconds to resolve. This closes the R2 race where a fast user
+    // could click "Got it, next" before the note existed, breaking the
+    // next step's "see the note BeakerBot just added" promise.
     timers.push(
       setTimeout(() => {
         setPhase("done");
@@ -255,6 +274,7 @@ function ProfileSwitchSpeech() {
           } catch {
             // ignored
           }
+          window.dispatchEvent(new CustomEvent(NOTE_WRITE_DONE_EVENT));
         }
       }, 6800),
     );
@@ -327,6 +347,23 @@ export const ganttShareProfileSwitchStep = buildWalkthroughStep({
   onEnter: async () => {
     void (await resolveFakeTaskIds());
   },
-  completion: manualAdvance("Got it, next"),
+  // R2 chip C 2026-05-22: completion now waits for the
+  // NOTE_WRITE_DONE_EVENT dispatched by the speech body once the
+  // genuine `appendBeakerBotNote` write resolves (~T+2700ms). Listener
+  // is wired manual-style: it sets up a window-level event subscription
+  // but DOES NOT call `advance()` itself, so the "Got it, next" button
+  // still appears (manual-advance UX) once the event fires. The
+  // completion type stays `event` so the bubble shell knows to render a
+  // user-acknowledged button via the manualAdvance fallback.
+  completion: advanceOnEvent((advance) => {
+    if (typeof window === "undefined") {
+      return () => {};
+    }
+    const handler = () => advance();
+    window.addEventListener(NOTE_WRITE_DONE_EVENT, handler, { once: true });
+    return () => {
+      window.removeEventListener(NOTE_WRITE_DONE_EVENT, handler);
+    };
+  }),
   expectedRoute: "/gantt",
 });

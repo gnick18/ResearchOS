@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import { useTourController } from "../../TourController";
+import { manualAdvance } from "./lib/step-helpers";
 import type { TourStep } from "../../step-types";
 
 /**
@@ -21,10 +21,9 @@ import type { TourStep } from "../../step-types";
  * Solo accounts skip beat 2 entirely — the public-toggle isn't a thing
  * for them, so the speech would be confusing.
  *
- * Auto-advance like the Calendar conditional step: pure narration, no
- * cursor demo (just spotlight + speech), so the universal-pacing rule
- * permits auto-advance after the read duration. Lab accounts get a
- * longer read budget because they get an extra beat.
+ * Manual-advance per Wave 1 universal-pacing rule (R2 chip C
+ * 2026-05-22). The prior auto-advance after a 6.5-11s read duration
+ * stranded literal readers who needed more time to read the speech.
  *
  * Classification (per Grant's 2026-05-21 design rule): BEAKERBOT
  * NARRATION (no cursor action). The spotlight just points at the tab
@@ -32,31 +31,14 @@ import type { TourStep } from "../../step-types";
  * strip.
  */
 
-const SOLO_READ_DURATION_MS = 6500;
-const LAB_READ_DURATION_MS = 11000;
-
+/**
+ * Inner speech-bubble body. Renders Beat 1 always, Beat 2 only for
+ * lab accounts. No auto-advance: the user paces themselves with the
+ * "Got it, next" button on the bubble shell.
+ */
 function LinksExplainerBody() {
-  const { advance, noteEventFired, featurePicks } = useTourController();
-  const startedRef = useRef(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
+  const { featurePicks } = useTourController();
   const isLab = featurePicks?.account_type === "lab";
-  const readDuration = isLab ? LAB_READ_DURATION_MS : SOLO_READ_DURATION_MS;
-
-  useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
-    timerRef.current = setTimeout(() => {
-      noteEventFired();
-      advance();
-    }, readDuration);
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-  }, [advance, noteEventFired, readDuration]);
 
   return (
     <div className="space-y-2" data-testid="links-explainer-body">
@@ -83,8 +65,7 @@ function LinksExplainerBody() {
 
 /**
  * Links conditional walkthrough step. Pure explainer, no API calls,
- * no artifacts. Auto-advances after the read duration so the spotlight
- * doesn't dwell on the tab past where the speech ends.
+ * no artifacts. Manual-advance per Wave 1 universal-pacing rule.
  *
  * Conditional gate (links === "yes") is enforced by
  * `step-machine.ts isStepGatedOut`. `conditionalOn` mirrors it for
@@ -100,15 +81,9 @@ export const linksConditionalStep: TourStep = {
   id: "links",
   pose: "pointing",
   speech: () => <LinksExplainerBody />,
-  completion: {
-    type: "event",
-    eventListener: () => () => {},
-  },
+  completion: manualAdvance("Got it, next"),
   targetSelector: "[data-tour-target='lab-links-nav-tab']",
   conditionalOn: (picks) => picks?.links === "yes",
   // The surface lives at /links for both solo and lab accounts.
   expectedRoute: "/links",
 };
-
-// Export the read durations for tests + future tuning chips.
-export { SOLO_READ_DURATION_MS, LAB_READ_DURATION_MS };

@@ -144,10 +144,16 @@ describe("settings-tour-telegram (conditional: telegram === yes)", () => {
     expect(gate(picks({ telegram: "maybe" }))).toBe(false);
     expect(gate(null)).toBe(false);
   });
-  it("speech mentions Telegram + 'spot'", () => {
+  it("speech mentions Telegram + the neutral linked/not-linked framing", () => {
+    // R2 chip C 2026-05-22: the prior copy ("You linked it during
+    // setup. ...this is the spot") was false for users who picked Q6 =
+    // yes-later (Q5=yes still gates this step, but they did NOT link).
+    // The reworked speech is neutral about whether the user linked
+    // already and points them at the steps in the Settings section.
     const text = renderSpeech(settingsTourTelegramStep);
     expect(text).toMatch(/Telegram/);
-    expect(text).toMatch(/spot/i);
+    expect(text).toMatch(/wire it up anytime/i);
+    expect(text).not.toMatch(/You linked it during setup/i);
   });
   it("speech is em-dash free", () => {
     expect(renderSpeech(settingsTourTelegramStep)).not.toContain("—");

@@ -1,5 +1,5 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { act, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
 
 // Stub next/navigation's useRouter for the TourController auto-
 // navigate effect (Onboarding v4 route-nav fix). push() is a no-op.
@@ -14,11 +14,7 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
-import {
-  linksConditionalStep,
-  SOLO_READ_DURATION_MS,
-  LAB_READ_DURATION_MS,
-} from "../LinksConditionalStep";
+import { linksConditionalStep } from "../LinksConditionalStep";
 import { TourControllerProvider } from "../../../TourController";
 import type { FeaturePicks } from "@/lib/onboarding/sidecar";
 
@@ -31,8 +27,8 @@ import type { FeaturePicks } from "@/lib/onboarding/sidecar";
  *      `picks.account_type`.
  *   3. Solo accounts with links=yes see ONLY beat 1.
  *   4. Lab accounts with links=yes see BOTH beats.
- *   5. The body auto-advances after the read duration (different
- *      durations for solo vs lab).
+ *   5. The completion uses manualAdvance per Wave 1 universal-pacing
+ *      rule (R2 chip C 2026-05-22).
  */
 
 function picks(over: Partial<FeaturePicks> = {}): FeaturePicks {
@@ -72,8 +68,12 @@ describe("linksConditionalStep step shape", () => {
     expect(gate(picks({ account_type: "lab", links: "yes" }))).toBe(true);
   });
 
-  it("uses event-driven completion (no manual button shown)", () => {
-    expect(linksConditionalStep.completion.type).toBe("event");
+  it("uses manualAdvance completion (Wave 1 universal-pacing rule)", () => {
+    expect(linksConditionalStep.completion.type).toBe("manual");
+    expect(
+      (linksConditionalStep.completion as { buttonLabel?: string })
+        .buttonLabel,
+    ).toBe("Got it, next");
   });
 
   it("targets /links via expectedRoute", () => {
@@ -82,13 +82,6 @@ describe("linksConditionalStep step shape", () => {
 });
 
 describe("LinksExplainerBody — solo accounts see ONLY beat 1", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
   function renderInProvider(p: FeaturePicks) {
     if (typeof linksConditionalStep.speech !== "function") {
       throw new Error("expected speech to be a render function");
@@ -126,13 +119,6 @@ describe("LinksExplainerBody — solo accounts see ONLY beat 1", () => {
 });
 
 describe("LinksExplainerBody — lab accounts see BOTH beats", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
   function renderInProvider(p: FeaturePicks) {
     if (typeof linksConditionalStep.speech !== "function") {
       throw new Error("expected speech to be a render function");
@@ -156,39 +142,5 @@ describe("LinksExplainerBody — lab accounts see BOTH beats", () => {
     const beat2 = screen.getByTestId("links-explainer-beat-2");
     expect(beat2.textContent).toMatch(/public/i);
     expect(beat2.textContent).toMatch(/teammates/i);
-  });
-});
-
-describe("LinksExplainerBody auto-advance timing", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  function renderInProvider(p: FeaturePicks) {
-    if (typeof linksConditionalStep.speech !== "function") {
-      throw new Error("expected speech to be a render function");
-    }
-    const speechNode = linksConditionalStep.speech();
-    return render(
-      <TourControllerProvider initialFeaturePicks={p} initialStep="links">
-        {speechNode}
-      </TourControllerProvider>,
-    );
-  }
-
-  it("solo body schedules an advance after SOLO_READ_DURATION_MS", () => {
-    renderInProvider(picks({ account_type: "solo", links: "yes" }));
-    expect(screen.getByTestId("links-explainer-body")).toBeInTheDocument();
-    act(() => {
-      vi.advanceTimersByTime(SOLO_READ_DURATION_MS + 50);
-    });
-    expect(SOLO_READ_DURATION_MS).toBeGreaterThan(0);
-  });
-
-  it("lab body uses a longer duration than solo (extra beat)", () => {
-    expect(LAB_READ_DURATION_MS).toBeGreaterThan(SOLO_READ_DURATION_MS);
   });
 });

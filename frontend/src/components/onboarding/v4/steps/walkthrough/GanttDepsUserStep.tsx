@@ -51,16 +51,21 @@ function GanttDepsUserSpeech() {
     // in isolation), skip the page-lock wiring entirely.
     if (!controller) return;
     // Gantt fix manager R1 (P0 #3): the dep-type picker's "start after"
-    // / "start before" buttons MUST be on the allow-list so the user
-    // can complete the chain after the drag lands. The picker now
-    // carries `data-tour-target` attributes (see GanttChart.tsx).
+    // button MUST be on the allow-list so the user can complete the
+    // chain after the drag lands. The picker now carries
+    // `data-tour-target` attributes (see GanttChart.tsx).
+    //
+    // R2 chip C 2026-05-22: tightened the picker allow-list to ONLY
+    // include `ganttDepPickerStartAfter`. The advance poll only fires
+    // for dep_type === "FS" (start after), so wrong-sibling clicks on
+    // "start before" / "start same" used to close the picker silently
+    // and strand the user. With the tightened allow-list, those wrong
+    // clicks now surface the standard TourPageLock oops flash instead.
     controller.setPageLock(
       [
         TOUR_TARGETS.ganttBarFakeB,
         TOUR_TARGETS.ganttBarUserExperiment,
         TOUR_TARGETS.ganttDepPickerStartAfter,
-        TOUR_TARGETS.ganttDepPickerStartBefore,
-        TOUR_TARGETS.ganttDepPickerStartSame,
       ],
       (
         <>
