@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import AccountPasswordPopup from "@/components/AccountPasswordPopup";
 import ImportExperimentDialog from "@/components/ImportExperimentDialog";
@@ -79,6 +79,7 @@ import {
   replayOnboarding,
 } from "@/lib/onboarding/sidecar";
 import { useOptionalTourController } from "@/components/onboarding/v4/TourController";
+import { useFeaturePicks } from "@/hooks/useFeaturePicks";
 import { forgetAllTelegramTokenCache } from "@/lib/telegram/telegram-token-cache";
 import StreaksSection from "./StreaksSection";
 
@@ -123,10 +124,25 @@ export default function SettingsPage() {
   );
 }
 
+/**
+ * Settings tab identifier. Drives the Personal / Lab Mode split introduced
+ * by settings tabs manager 2026-05-23. Solo accounts (no lab folder) never
+ * see the tab strip at all — the value is purely cosmetic for them and
+ * defaults to "personal".
+ */
+type SettingsTab = "personal" | "lab";
+
+function isSettingsTab(value: string | null | undefined): value is SettingsTab {
+  return value === "personal" || value === "lab";
+}
+
 function SettingsBody() {
   const { currentUser, isConnected } = useFileSystem();
   const hydrateFromSettings = useAppStore((s) => s.hydrateFromSettings);
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const featurePicks = useFeaturePicks(currentUser);
 
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -134,6 +150,64 @@ function SettingsBody() {
   const [recentlySaved, setRecentlySaved] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
   const [pwExists, setPwExists] = useState<boolean | null>(null);
+
+  // Lab-mode users see a Personal / Lab Mode tab strip; solos see the
+  // original single-stream Settings layout. The gate mirrors the Lab
+  // Inbox visibility logic in AppShell.tsx so the two surfaces stay in
+  // sync: `lab_head` always qualifies (a PI necessarily has a lab), and
+  // a `member` qualifies when their onboarding picks declared a lab
+  // workspace. Existing demo users (Mira, alex, etc.) have
+  // `feature_picks: null` because they predate Phase 1; for them the
+  // `account_type === "lab_head"` branch carries the signal so Mira
+  // still gets the Lab Mode tab. The `settings.account_type` field
+  // (member vs lab_head) is also what gates the Lab Head admin controls
+  // inside the tab.
+  const isLabWorkspace = featurePicks?.account_type === "lab";
+  const isLabMode =
+    settings?.account_type === "lab_head" ||
+    (settings?.account_type === "member" && isLabWorkspace);
+  // Tab state. Read the initial value from the `?tab=...` query so a
+  // deep-link or in-session back-nav lands the user on the same tab.
+  // Solo users never see the tab strip but we still respect the query
+  // so a stray `?tab=lab` URL doesn't loop them through an inert state.
+  const initialTab: SettingsTab = isSettingsTab(searchParams.get("tab"))
+    ? (searchParams.get("tab") as SettingsTab)
+    : "personal";
+  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
+
+  // Keep the URL query in sync as the user clicks between tabs so they can
+  // deep-link a screenshot ("see Lab Mode") and so Back/Forward restores
+  // the right view. Use router.replace to avoid history bloat.
+  const handleTabChange = useCallback(
+    (next: SettingsTab) => {
+      setActiveTab(next);
+      const params = new URLSearchParams(searchParams.toString());
+      if (next === "personal") {
+        params.delete("tab");
+      } else {
+        params.set("tab", next);
+      }
+      const query = params.toString();
+      router.replace(query ? `/settings?${query}` : "/settings", {
+        scroll: false,
+      });
+    },
+    [router, searchParams],
+  );
+
+  // Sync when the URL changes from outside (e.g. an in-product Link
+  // points at /settings?tab=lab). Only mirrors valid values so a stale
+  // `?tab=garbage` stays harmless.
+  useEffect(() => {
+    const param = searchParams.get("tab");
+    if (isSettingsTab(param) && param !== activeTab) {
+      setActiveTab(param);
+    }
+    // We intentionally don't include `activeTab` here — this is a one-
+    // way URL → state sync; the other direction is handled by
+    // `handleTabChange`. Including it would create a loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // The wrapping <div className="flex-1 overflow-y-auto"> is the actual
   // scroll container — not window. Calling el.scrollIntoView() defaults
@@ -297,30 +371,55 @@ function SettingsBody() {
           <SavedIndicator saving={saving} recentlySaved={recentlySaved} />
         </header>
 
+        {/* Settings tabs manager 2026-05-23: split lab-admin work from
+            personal preferences. Solo accounts never see this strip
+            (single-stream layout, identical to the pre-tabs page). Lab
+            accounts see Personal (default) and Lab Mode. Account Type +
+            Lab Head admin + Lab Roster live under Lab Mode; everything
+            else stays in Personal. */}
+        {isLabMode && (
+          <SettingsTabStrip
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+          />
+        )}
+
         {/* key={currentUser} resets each section's local draft state when
             the lab user switches mid-session, so we never show user A's
             half-typed display-name draft to user B. */}
-        <ProfileSection key={`profile-${currentUser}`} settings={settings} update={update} />
-        <AccountTypeSection settings={settings} update={update} />
-        {settings.account_type === "lab_head" && (
-          <LabHeadSection username={currentUser} />
+        {(!isLabMode || activeTab === "personal") && (
+          <>
+            <ProfileSection
+              key={`profile-${currentUser}`}
+              settings={settings}
+              update={update}
+            />
+            <TabsSection settings={settings} update={update} />
+            <LabArchivesSection />
+            <AIHelperSection />
+            <SidebarSection settings={settings} update={update} />
+            <DefaultsSection settings={settings} update={update} />
+            <AnimationSection settings={settings} update={update} />
+            <BehaviorSection settings={settings} update={update} />
+            <StreaksSection />
+            <DataInventorySection />
+            <MaintenanceSection />
+            <TipsSection />
+            <SecuritySection
+              pwExists={pwExists}
+              onOpen={() => setPwOpen(true)}
+            />
+            <OfflineModeSection settings={settings} update={update} />
+          </>
         )}
-        <TabsSection settings={settings} update={update} />
-        <LabArchivesSection />
-        <AIHelperSection />
-        <SidebarSection settings={settings} update={update} />
-        <DefaultsSection settings={settings} update={update} />
-        <AnimationSection settings={settings} update={update} />
-        <BehaviorSection settings={settings} update={update} />
-        <StreaksSection />
-        <DataInventorySection />
-        <MaintenanceSection />
-        <TipsSection />
-        <SecuritySection
-          pwExists={pwExists}
-          onOpen={() => setPwOpen(true)}
-        />
-        <OfflineModeSection settings={settings} update={update} />
+
+        {isLabMode && activeTab === "lab" && (
+          <LabModeTabContent
+            settings={settings}
+            update={update}
+            currentUser={currentUser}
+          />
+        )}
       </div>
 
       {pwOpen && currentUser && (
@@ -537,18 +636,23 @@ function AccountTypeSection({ settings, update }: SectionProps) {
  * Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23): "Lab Head"
  * Settings section. Visible only when `account_type === "lab_head"`.
  *
- * Three controls:
+ * Two controls:
  *   1. "Change lab-head password" — opens `ChangeLabHeadPasswordPopup`,
  *      verifies the current password, then sets a new one.
  *   2. "Active session" — live status pill subscribed to the
  *      module-scoped session via `useEditSession`. Shows
- *      "Active (M:SS remaining)" / "Locked" / "Not active."
- *   3. "Lock session now" — manually ends an active session.
+ *      "Active (M:SS remaining)" / "Locked" / "Not active." A
+ *      companion "Lock session now" button manually ends the session.
  *
  * Per Grant 2026-05-23 (decision #3): the lab-head password starts as
  * the user's account password. First-time unlock bootstraps a hash via
  * `verifyLabHeadPassword`'s fallback path. After the first change here
  * the two passwords diverge.
+ *
+ * settings tabs manager 2026-05-23: the Lab Roster surface lived inside
+ * this section originally. It now stands alone as
+ * `LabRosterSection` so members (who never see this Lab Head section)
+ * still get the read-only roster under the Lab Mode tab.
  */
 function LabHeadSection({ username }: { username: string }) {
   const session = useEditSession();
@@ -611,18 +715,6 @@ function LabHeadSection({ username }: { username: string }) {
             Lock session now
           </button>
         </div>
-
-        {/* Lab Head Phase 6 (lab head Phase 6 manager, 2026-05-23): Lab
-            Roster — archive / restore lab members. Mounted inside the
-            existing Lab Head section because archiving is admin work
-            and fits with the password + session controls; the Lab
-            Inbox is for ops (comments, announcements, metrics) and
-            shouldn't shoulder roster management. The roster has its
-            own session gate via RequestEditButton inside the
-            component. */}
-        <div className="pt-3 border-t border-gray-200">
-          <LabRoster />
-        </div>
       </div>
 
       {changePwOpen && (
@@ -632,6 +724,121 @@ function LabHeadSection({ username }: { username: string }) {
         />
       )}
     </SectionShell>
+  );
+}
+
+/**
+ * Settings tabs manager 2026-05-23: Lab Roster wrapped in its own
+ * SectionShell so it can stand alone in the Lab Mode tab. Lab heads see
+ * an interactive archive / restore UI; members see the same roster
+ * read-only (LabRoster gates its archive buttons internally via
+ * `canArchive`). Previously the roster was nested inside
+ * `LabHeadSection`; pulling it out keeps members from losing access to
+ * the read-only roster surface when they aren't lab heads themselves.
+ */
+function LabRosterSection() {
+  return (
+    <SectionShell
+      id="lab-roster"
+      title="Lab Roster"
+      description="Active and archived lab members. Lab heads can archive or restore members; everyone else sees the roster read-only."
+    >
+      <LabRoster />
+    </SectionShell>
+  );
+}
+
+/**
+ * Settings tabs manager 2026-05-23: Personal / Lab Mode segmented
+ * control. Modeled after the Workbench tab strip
+ * (`frontend/src/app/workbench/page.tsx`) so the two surfaces feel
+ * consistent. Renders nothing for solo accounts — the caller already
+ * gates on `isLabMode`.
+ */
+function SettingsTabStrip({
+  activeTab,
+  onTabChange,
+}: {
+  activeTab: SettingsTab;
+  onTabChange: (next: SettingsTab) => void;
+}) {
+  return (
+    <div
+      className="flex items-center gap-1 border-b border-gray-200 pb-3"
+      role="tablist"
+      aria-label="Settings sections"
+    >
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeTab === "personal"}
+        onClick={() => onTabChange("personal")}
+        data-tour-target="settings-tab-personal"
+        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+          activeTab === "personal"
+            ? "bg-blue-100 text-blue-700"
+            : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+        }`}
+      >
+        Personal
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeTab === "lab"}
+        onClick={() => onTabChange("lab")}
+        data-tour-target="settings-tab-lab"
+        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+          activeTab === "lab"
+            ? "bg-amber-100 text-amber-800"
+            : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+        }`}
+      >
+        Lab Mode
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Settings tabs manager 2026-05-23: container for the Lab Mode tab. Lists
+ * the lab-admin sections in priority order:
+ *
+ *   1. AccountTypeSection — member vs lab_head toggle. Always visible
+ *      to lab accounts. Toggling here is the entry point for becoming
+ *      a lab head (no separate elevation flow).
+ *   2. LabHeadSection — change password + active session controls.
+ *      Lab heads only. The settings.account_type read drives this gate
+ *      directly so the section appears live (no reload) the instant the
+ *      toggle above flips to "lab_head".
+ *   3. LabRosterSection — archive / restore lab members. Visible to
+ *      everyone; LabRoster's internal `canArchive` gate hides the
+ *      actions for non-lab-heads (or lab heads without an active edit
+ *      session).
+ *
+ * AccountTypeSection + LabRosterSection always render under Lab Mode,
+ * so the brief's defensive empty-state branch is unreachable today.
+ * If both are ever gated away, swap in the friendly message described
+ * in the role brief ("Lab Mode settings appear here when you're a
+ * member or lab head of a lab folder.").
+ */
+function LabModeTabContent({
+  settings,
+  update,
+  currentUser,
+}: {
+  settings: UserSettings;
+  update: (patch: Partial<UserSettings>) => Promise<void>;
+  currentUser: string;
+}) {
+  return (
+    <>
+      <AccountTypeSection settings={settings} update={update} />
+      {settings.account_type === "lab_head" && (
+        <LabHeadSection username={currentUser} />
+      )}
+      <LabRosterSection />
+    </>
   );
 }
 
