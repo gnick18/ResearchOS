@@ -82,6 +82,14 @@ import { useOptionalTourController } from "@/components/onboarding/v4/TourContro
 import { useFeaturePicks } from "@/hooks/useFeaturePicks";
 import { forgetAllTelegramTokenCache } from "@/lib/telegram/telegram-token-cache";
 import StreaksSection from "./StreaksSection";
+import {
+  HighlightedText,
+  SearchableRow,
+  SectionMatchProvider,
+  SettingsSearchProvider,
+  useSectionSearchState,
+  useSettingsSearch,
+} from "./search-context";
 
 const USER_COLOR_PALETTE = [
   "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
@@ -119,7 +127,9 @@ const TIME_FORMAT_OPTIONS: { value: TimeFormat; label: string }[] = [
 export default function SettingsPage() {
   return (
     <AppShell>
-      <SettingsBody />
+      <SettingsSearchProvider>
+        <SettingsBody />
+      </SettingsSearchProvider>
     </AppShell>
   );
 }
@@ -371,6 +381,14 @@ function SettingsBody() {
           <SavedIndicator saving={saving} recentlySaved={recentlySaved} />
         </header>
 
+        {/* Inline filter bar (settings search UX manager, 2026-05-23):
+            scrolls with the page so it stays in reach but never blocks
+            the header. Typing here filters every SectionShell + every
+            SearchableRow on this page by case-insensitive substring on
+            the row's label or description. Empty query is a no-op. */}
+        <SettingsSearchBar />
+        <SettingsSearchEmptyState />
+
         {/* Settings tabs manager 2026-05-23: split lab-admin work from
             personal preferences. Solo accounts never see this strip
             (single-stream layout, identical to the pre-tabs page). Lab
@@ -441,6 +459,135 @@ function SavedIndicator({ saving, recentlySaved }: { saving: boolean; recentlySa
   return null;
 }
 
+/**
+ * Settings page inline filter bar (settings search UX manager, 2026-05-23).
+ *
+ * Renders the magnifying-glass + input + clear-button row that drives the
+ * SettingsSearchProvider's query. Reads + writes the shared context so
+ * every SectionShell + SearchableRow on the page filters live as the
+ * user types. The provider already debounces the lower-cased query by
+ * ~120ms so a fast typist doesn't trigger 20 re-renders per keystroke;
+ * the input itself stays uncontrolled-feeling (raw value updates
+ * immediately so the caret follows the keys).
+ */
+function SettingsSearchBar() {
+  const { query, setQuery } = useSettingsSearch();
+  const inputRef = useRef<HTMLInputElement>(null);
+  return (
+    <div className="relative">
+      <span
+        className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+        aria-hidden="true"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+      </span>
+      <input
+        ref={inputRef}
+        type="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search settings..."
+        aria-label="Search settings"
+        className="w-full pl-9 pr-9 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+      {query && (
+        <div className="absolute right-2 top-1/2 -translate-y-1/2">
+          <Tooltip label="Clear search">
+            <button
+              type="button"
+              onClick={() => {
+                setQuery("");
+                inputRef.current?.focus();
+              }}
+              aria-label="Clear search"
+              className="p-1 text-gray-400 hover:text-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </Tooltip>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Empty-state surface (settings search UX manager, 2026-05-23). Renders
+ * a single line when the user has an active query but every section on
+ * the page has hidden itself. Polls the DOM for visible sections after
+ * each query change so we don't have to thread "did anything match?"
+ * back up from every SectionShell. Cheap: one querySelectorAll on the
+ * settings page scope each time the lowered query changes.
+ */
+function SettingsSearchEmptyState() {
+  const { query, lower, active } = useSettingsSearch();
+  const [noMatches, setNoMatches] = useState(false);
+
+  useEffect(() => {
+    if (!active) {
+      // Reset on next frame so the effect body avoids the synchronous
+      // setState-in-effect lint (cascading-render warning). Same
+      // deferral that the post-query measure uses below.
+      const reset = requestAnimationFrame(() => setNoMatches(false));
+      return () => cancelAnimationFrame(reset);
+    }
+    // Defer to next frame so SectionShells have committed their
+    // `hidden` attribute based on the new query.
+    const raf = requestAnimationFrame(() => {
+      const sections = document.querySelectorAll<HTMLElement>(
+        '[data-settings-section-marker="1"]',
+      );
+      let anyVisible = false;
+      for (const s of sections) {
+        if (!s.hidden) {
+          anyVisible = true;
+          break;
+        }
+      }
+      setNoMatches(!anyVisible && sections.length > 0);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [active, lower]);
+
+  if (!active || !noMatches) return null;
+  return (
+    <div
+      role="status"
+      className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600"
+    >
+      No settings match{" "}
+      <span className="font-medium text-gray-800">&ldquo;{query}&rdquo;</span>.
+      Try a different keyword.
+    </div>
+  );
+}
+
 // ── Sections ────────────────────────────────────────────────────────────────
 
 interface SectionProps {
@@ -454,6 +601,12 @@ function SectionShell({
   children,
   id,
   tourTarget,
+  /** Extra strings to include in the section's search-match check
+   *  beyond `title` + `description`. Used when a section contains
+   *  meaningful row keywords that aren't directly in its own title
+   *  (e.g. the Tabs section references each NAV_ITEM label).
+   *  Concatenated with spaces. */
+  searchKeywords,
 }: {
   title: string;
   description?: string;
@@ -466,18 +619,37 @@ function SectionShell({
    *  walkthrough to anchor spotlights on specific Settings sections
    *  (e.g. the AI Helper section in §6.10). */
   tourTarget?: string;
+  searchKeywords?: string;
 }) {
+  // Hook into the page-level search filter. The section hides itself
+  // when the query is active AND neither the section's own
+  // title / description / keywords nor any registered child row match.
+  // `data-tour-target` stays on the outermost <section> in both render
+  // paths so the V4 walkthrough selectors keep resolving.
+  const descBlob = [description, searchKeywords].filter(Boolean).join(" ");
+  const state = useSectionSearchState(title, descBlob || undefined);
+
   return (
     <section
       id={id}
       data-tour-target={tourTarget}
+      data-settings-section-marker="1"
+      hidden={state.shouldHide}
       className="bg-white rounded-xl border border-gray-200 p-6 scroll-mt-4"
     >
       <div className="mb-4">
-        <h2 className="text-base font-semibold text-gray-900">{title}</h2>
-        {description && <p className="text-xs text-gray-500 mt-1">{description}</p>}
+        <h2 className="text-base font-semibold text-gray-900">
+          <HighlightedText text={title} />
+        </h2>
+        {description && (
+          <p className="text-xs text-gray-500 mt-1">
+            <HighlightedText text={description} />
+          </p>
+        )}
       </div>
-      <div className="space-y-4">{children}</div>
+      <SectionMatchProvider register={state.register}>
+        <div className="space-y-4">{children}</div>
+      </SectionMatchProvider>
     </section>
   );
 }
@@ -498,6 +670,7 @@ function ProfileSection({ settings, update }: SectionProps) {
       id="personalize"
       title="Profile"
       description="How you appear in the app. The color flows everywhere your initial bubble appears — lab views, comments, the login screen, etc."
+      searchKeywords="display name color avatar gradient primary secondary swatch palette personalize header tint"
     >
       {/* Live avatar preview — colorOverride + secondaryOverride use the
           in-flight pick so the gradient updates instantly before the save
@@ -598,6 +771,7 @@ function AccountTypeSection({ settings, update }: SectionProps) {
       id="account-type"
       title="Account type"
       description="What's your role in this lab? Member is the default. Lab Head adds an inbox where comments and audit notifications collect."
+      searchKeywords="member lab head PI principal investigator role"
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {options.map((opt) => {
@@ -675,6 +849,7 @@ function LabHeadSection({ username }: { username: string }) {
       id="lab-head"
       title="Lab Head"
       description="Manage your edit-mode password and session for the Phase 5 Lab Head workflow. Use Request edit on another member's record to start a session."
+      searchKeywords="edit mode session password PI roster"
     >
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-gray-200 bg-white">
@@ -744,6 +919,7 @@ function LabRosterSection() {
       id="lab-roster"
       title="Lab Roster"
       description="Active and archived lab members. Lab heads can archive or restore members; everyone else sees the roster read-only."
+      searchKeywords="members archive restore lab"
     >
       <LabRoster />
     </SectionShell>
@@ -1240,11 +1416,16 @@ function TabsSection({ settings, update }: SectionProps) {
     void update({ visibleTabs: Array.from(next) });
   };
 
+  // Search keywords: every nav-item label flows through here so a query
+  // like "Calendar" or "Methods" surfaces the Tabs section even though
+  // the section's own title is just "Tabs".
+  const navKeywords = NAV_ITEMS.map((i) => i.label).join(" ");
   return (
     <SectionShell
       title="Tabs"
       tourTarget="settings-tabs-section"
       description="Pick which tabs show up in the header. Home is always shown so you have a guaranteed landing spot. Settings (this page) is always reachable via the gear icon."
+      searchKeywords={`${navKeywords} default landing tab`}
     >
       <div className="grid grid-cols-2 gap-2">
         {NAV_ITEMS.map((item) => {
@@ -1300,6 +1481,7 @@ function SidebarSection({ settings, update }: SectionProps) {
     <SectionShell
       title="Sidebar"
       description="The left sidebar shown on every page except Calendar (which has its own). Pick what to show — tasks for today, today's calendar events, or both stacked."
+      searchKeywords="tasks calendar events horizon next days today overdue upcoming"
     >
       <div className="space-y-2">
         <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer">
@@ -1369,6 +1551,7 @@ function DefaultsSection({ settings, update }: SectionProps) {
     <SectionShell
       title="View defaults"
       description="Initial values for the GANTT range and Calendar view. In-app changes still let you flip between them for the current session."
+      searchKeywords="GANTT calendar week month year date format time format MDY DMY YMD 12-hour 24-hour shared"
     >
       <div className="grid grid-cols-2 gap-4">
         <SelectField
@@ -1408,12 +1591,23 @@ function DefaultsSection({ settings, update }: SectionProps) {
 
 function AnimationSection({ settings, update }: SectionProps) {
   const types = Object.keys(ANIMATION_METADATA) as AnimationType[];
+  // Concatenate every animation's name + description into the section's
+  // search-keyword blob. Lets a query like "confetti" or "explosion"
+  // surface the Animation section even though the section title is
+  // just "Animation".
+  const animationKeywords = types
+    .flatMap((t) => [
+      ANIMATION_METADATA[t].name,
+      ANIMATION_METADATA[t].description,
+    ])
+    .join(" ");
   return (
     <SectionShell
       id="animation"
       tourTarget="settings-animation-picker"
       title="Animation"
       description="Plays when you complete a task. Pick the one that suits your vibe."
+      searchKeywords={animationKeywords}
     >
       <div className="grid grid-cols-2 gap-2">
         {types.map((type) => {
@@ -1451,6 +1645,7 @@ function BehaviorSection({ settings, update }: SectionProps) {
       tourTarget="settings-telegram-section"
       title="Notifications & behavior"
       description="Master switches for messaging and safety prompts."
+      searchKeywords="telegram notifications bot auto-reconnect encrypted backup destructive confirm prompts safety"
     >
       {/* Alias anchor so `/settings#behavior` also lands on this section
           (some docs/links use the section's title word rather than the
@@ -1900,6 +2095,7 @@ function DataInventorySection() {
     <SectionShell
       title="Data inventory"
       description="Every file path the app has written to your folder, plus every IndexedDB key in your browser. Read-only — proves nothing is leaving your computer."
+      searchKeywords="files disk IndexedDB IDB telegram bot backup encrypted forget cache external calls api network privacy"
     >
       <div>
         <div className="flex items-start justify-between gap-4 mb-3">
@@ -2138,6 +2334,7 @@ function MaintenanceSection() {
     <SectionShell
       title="Data maintenance"
       description="Tools for normalising on-disk task and method data. Safe to run any time; reports what it changed."
+      searchKeywords="repair method links source paths split lab notes results attachments stamp formats reconcile cross-owner project sharing import experiment zip LabArchives orphan credentials"
     >
       {orphanNotice !== null && (
         <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
@@ -2154,6 +2351,7 @@ function MaintenanceSection() {
       )}
       <RepairRow
         title="Repair method links"
+        searchDesc="Walks every task in your folder and rewrites the few that still store their linked method in the old method_id field. The app already understands the legacy shape on read; this is for confidence and tidier files on disk."
         description={
           <>
             Walks every task in your folder and rewrites the few that still
@@ -2167,6 +2365,7 @@ function MaintenanceSection() {
       />
       <RepairRow
         title="Repair method source paths"
+        searchDesc="Walks every method (private and public) and renames the legacy github_path field to source_path. Same value, just under the new name."
         description={
           <>
             Walks every method (private and public) and renames the legacy <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">github_path</code> field to <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">source_path</code>.
@@ -2179,6 +2378,7 @@ function MaintenanceSection() {
       />
       <RepairRow
         title="Split Lab Notes / Results attachments"
+        searchDesc="Walks every task you own and splits the shared results/task-N/Files/ and Images/ into per-tab folders notes and results, copying each file into whichever tab body references it and rewriting markdown links to match."
         description={
           <>
             Walks every task you own and splits the shared <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">results/task-N/Files/</code> and <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">results/task-N/Images/</code> into per-tab folders <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">notes/{`{Files,Images}`}</code> and <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">results/{`{Files,Images}`}</code>, copying each file into whichever tab body references it (or both if both reference it) and rewriting markdown links to match.
@@ -2192,6 +2392,7 @@ function MaintenanceSection() {
       />
       <RepairRow
         title="Repair stamp formats"
+        searchDesc="Walks every notes, results, and method markdown file and rewrites the legacy stamp header into the new HTML-comment format."
         description={
           <>
             Walks every notes, results, and method markdown file and rewrites the legacy stamp header (the <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">[stamp-start]: # (hidden)</code> block at the top) into the new HTML-comment format.
@@ -2285,9 +2486,16 @@ function LabArchivesOrphanCleanupRow() {
   }, [flashStatus]);
 
   return (
+    <SearchableRow
+      id="orphan:labarchives"
+      label="Clean up orphaned LabArchives credentials"
+      desc="The institutional LabArchives API was removed, but earlier setups may have left two sidecar files on disk per user. Scans for them and offers to delete."
+    >
     <div className="flex items-start justify-between gap-4">
       <div className="min-w-0 flex-1">
-        <p className="text-sm text-gray-800">Clean up orphaned LabArchives credentials</p>
+        <p className="text-sm text-gray-800">
+          <HighlightedText text="Clean up orphaned LabArchives credentials" />
+        </p>
         <p className="text-xs text-gray-500 mt-1">
           The institutional LabArchives API was removed, but earlier setups may
           have left two sidecar files on disk: <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">{DEPLOYER_SIDECAR}</code>{" "}
@@ -2324,14 +2532,22 @@ function LabArchivesOrphanCleanupRow() {
         {running ? "Scanning…" : "Scan + clean"}
       </button>
     </div>
+    </SearchableRow>
   );
 }
 
 function ImportRow({ onOpen }: { onOpen: () => void }) {
   return (
+    <SearchableRow
+      id="import:experiment"
+      label="Import experiment"
+      desc="Bring an experiment exported by another ResearchOS user (a -raw.zip bundle) into your workspace. You'll get a chance to match its project and methods against your own before anything is written."
+    >
     <div className="flex items-start justify-between gap-4">
       <div className="min-w-0 flex-1">
-        <p className="text-sm text-gray-800">Import experiment</p>
+        <p className="text-sm text-gray-800">
+          <HighlightedText text="Import experiment" />
+        </p>
         <p className="text-xs text-gray-500 mt-1">
           Bring an experiment exported by another ResearchOS user (a <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">-raw.zip</code> bundle) into your workspace.
           You&apos;ll get a chance to match its project and methods against your own before anything is written.
@@ -2345,6 +2561,7 @@ function ImportRow({ onOpen }: { onOpen: () => void }) {
         Import .zip
       </button>
     </div>
+    </SearchableRow>
   );
 }
 
@@ -2362,6 +2579,7 @@ function LabArchivesSection() {
     <SectionShell
       title="LabArchives"
       description="Bulk-import offline LabArchives notebooks into ResearchOS. Each notebook page becomes a task; folders become projects you can map onto your existing list."
+      searchKeywords="ELN notebook import zip offline notebook pages projects fetch images"
     >
       <LabArchivesOptionCard
         title="Import from LabArchives"
@@ -2475,11 +2693,18 @@ function LabArchivesOptionCard({
 function RepairRow({
   title,
   description,
+  /** Plain-text mirror of `description` for the page-level search
+   *  index. `description` is a React node (often containing `<code>`)
+   *  so it can't be substring-searched directly; the caller passes a
+   *  flat string here that captures the same vocabulary. Optional —
+   *  if absent, only the title is indexed. */
+  searchDesc,
   run,
   invalidateKey,
 }: {
   title: string;
   description: React.ReactNode;
+  searchDesc?: string;
   run: () => Promise<RepairSummary>;
   invalidateKey: readonly string[];
 }) {
@@ -2505,9 +2730,12 @@ function RepairRow({
   }, [run, queryClient, invalidateKey, title]);
 
   return (
+    <SearchableRow id={`repair:${title}`} label={title} desc={searchDesc}>
     <div className="flex items-start justify-between gap-4">
       <div className="min-w-0 flex-1">
-        <p className="text-sm text-gray-800">{title}</p>
+        <p className="text-sm text-gray-800">
+          <HighlightedText text={title} />
+        </p>
         <p className="text-xs text-gray-500 mt-1">{description}</p>
         {result && (
           <p className="text-xs text-gray-600 mt-2">
@@ -2533,6 +2761,7 @@ function RepairRow({
         {running ? "Running…" : "Run repair"}
       </button>
     </div>
+    </SearchableRow>
   );
 }
 
@@ -2609,9 +2838,16 @@ function ReconcileRow() {
   }, [queryClient]);
 
   return (
+    <SearchableRow
+      id="reconcile:cross-owner"
+      label="Reconcile cross-owner project sharing"
+      desc="Walks every task and every project hosted manifest and fixes drift between the two sides (a hosted task that's no longer marked as external on its origin, or a manifest entry pointing at a deleted task). Safe to run anytime; no destructive operations beyond pruning broken refs."
+    >
     <div className="flex items-start justify-between gap-4">
       <div className="min-w-0 flex-1">
-        <p className="text-sm text-gray-800">Reconcile cross-owner project sharing</p>
+        <p className="text-sm text-gray-800">
+          <HighlightedText text="Reconcile cross-owner project sharing" />
+        </p>
         <p className="text-xs text-gray-500 mt-1">
           Walks every task and every project hosted manifest and fixes drift between the two sides
           (a hosted task that&apos;s no longer marked as external on its origin, or a manifest entry
@@ -2636,6 +2872,7 @@ function ReconcileRow() {
         {running ? "Running…" : "Run reconcile"}
       </button>
     </div>
+    </SearchableRow>
   );
 }
 
@@ -2942,6 +3179,7 @@ function AIHelperSection() {
       tourTarget="settings-ai-helper-section"
       title="AI Helper"
       description="Train your own AI chatbot to know ResearchOS inside out. Paste this prompt into Claude, ChatGPT, or Gemini and the chatbot becomes a schema-aware support assistant."
+      searchKeywords="Claude ChatGPT Gemini prompt copy clipboard lean full minimal size tokens schema chatbot LLM"
     >
       <div className="space-y-4">
         {/* Size picker */}
@@ -3231,6 +3469,7 @@ function TipsSection() {
       title="Onboarding"
       tourTarget="settings-rerun-section"
       description="Re-run the welcome tour to revisit setup picks and the BeakerBot walkthrough on your real account."
+      searchKeywords="welcome tour walkthrough tips BeakerBot replay re-run reset wizard"
     >
       {orphanedArtifactCount > 0 && (
         <div
@@ -3292,6 +3531,7 @@ function SecuritySection({
     <SectionShell
       title="Security"
       description="A password blocks accidental sign-in to this account from inside the app. It does not encrypt files on disk."
+      searchKeywords="password lock login sign-in"
     >
       <div className="flex items-center justify-between gap-4">
         <div>
@@ -3330,6 +3570,7 @@ function OfflineModeSection({ settings, update }: SectionProps) {
     <SectionShell
       title="Offline mode"
       description="Disable the two proxy routes (/api/calendar-feed and /api/telegram-file) so the app makes no calls to its own server. Useful if you want zero outbound network from the app surface."
+      searchKeywords="network proxy server outbound block disable api"
     >
       <ToggleRow
         label="Block calls to our server"
@@ -3360,9 +3601,21 @@ function SelectField<T extends string>({
   options: { value: T; label: string }[];
   onChange: (v: T) => void;
 }) {
+  // Each SelectField counts as one search-indexable row. The visible
+  // option labels are also baked into the desc so picking "MM/DD/YYYY"
+  // out of "Date format" still surfaces this row when the user types
+  // "MDY" or "DD/MM".
+  const optionsBlob = options.map((o) => o.label).join(" ");
   return (
+    <SearchableRow
+      id={`select:${label}`}
+      label={label}
+      desc={optionsBlob}
+    >
     <div>
-      <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>
+      <label className="block text-xs font-medium text-gray-700 mb-1">
+        <HighlightedText text={label} />
+      </label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as T)}
@@ -3375,6 +3628,7 @@ function SelectField<T extends string>({
         ))}
       </select>
     </div>
+    </SearchableRow>
   );
 }
 
@@ -3389,28 +3643,42 @@ function ToggleRow({
   checked: boolean;
   onChange: (v: boolean) => void;
 }) {
+  // Auto-registers with the parent section's search index so the
+  // page-level filter can hit any ToggleRow by label or description
+  // substring. The `id` is the label itself: labels are unique within
+  // every section we ship, and even if a label collides the Map's
+  // last-write-wins semantics still gives correct match information
+  // (both entries would carry the same strings).
   return (
-    <label className="flex items-start justify-between gap-4 cursor-pointer">
-      <div className="min-w-0">
-        <p className="text-sm text-gray-800">{label}</p>
-        {description && <p className="text-xs text-gray-500 mt-0.5">{description}</p>}
-      </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={() => onChange(!checked)}
-        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors mt-0.5 ${
-          checked ? "bg-blue-600" : "bg-gray-300"
-        }`}
-      >
-        <span
-          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-            checked ? "translate-x-4" : "translate-x-0.5"
-          } translate-y-0.5`}
-        />
-      </button>
-    </label>
+    <SearchableRow id={`toggle:${label}`} label={label} desc={description}>
+      <label className="flex items-start justify-between gap-4 cursor-pointer">
+        <div className="min-w-0">
+          <p className="text-sm text-gray-800">
+            <HighlightedText text={label} />
+          </p>
+          {description && (
+            <p className="text-xs text-gray-500 mt-0.5">
+              <HighlightedText text={description} />
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={checked}
+          onClick={() => onChange(!checked)}
+          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors mt-0.5 ${
+            checked ? "bg-blue-600" : "bg-gray-300"
+          }`}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+              checked ? "translate-x-4" : "translate-x-0.5"
+            } translate-y-0.5`}
+          />
+        </button>
+      </label>
+    </SearchableRow>
   );
 }
 

@@ -34,6 +34,11 @@ import {
 } from "@/lib/streak/streak-sidecar";
 import PtoEditor from "./PtoEditor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import {
+  HighlightedText,
+  SectionMatchProvider,
+  useSectionSearchState,
+} from "./search-context";
 
 export default function StreaksSection() {
   const { currentUser, isConnected } = useFileSystem();
@@ -106,25 +111,47 @@ export default function StreaksSection() {
   // between the other Settings sections. (Inlined instead of importing
   // SectionShell, since page.tsx keeps SectionShell private, and duplicating
   // ~12 lines is cheaper than refactoring the shared file from S3 scope.)
+  //
+  // Settings search UX manager 2026-05-23: also wires this hand-rolled
+  // shell into the page-wide search filter (search-context.tsx) so a
+  // query like "streak" or "personal best" hides every other section
+  // and keeps this one visible. Uses the same `useSectionSearchState`
+  // hook as `SectionShell` in page.tsx so behavior is identical.
+  const sectionTitle = "Streaks (private to you)";
+  const sectionDesc =
+    sidecar && sidecar.enabled === false
+      ? "Streaks are off. Re-enable to start tracking from today onward. Your existing state is kept but won't update."
+      : "Tracks how many workdays in a row you've saved something. Visible only to you.";
+  // Extra search keywords for row primitives inside this section that
+  // don't (yet) go through SearchableRow — the personal-best stat tile,
+  // the PTO subsection labels, the reset button. Keeps "PTO" and
+  // "personal best" hitting this section.
+  const searchKeywords =
+    "personal best current streak started on reset streak PTO paid time off";
+  const state = useSectionSearchState(
+    sectionTitle,
+    `${sectionDesc} ${searchKeywords}`,
+  );
   return (
     <section
       id="streaks"
       className="bg-white rounded-xl border border-gray-200 p-6 scroll-mt-4"
       data-testid="streaks-section"
       data-tour-target="settings-streak-section"
+      data-settings-section-marker="1"
+      hidden={state.shouldHide}
     >
       <div className="mb-4">
         <h2 className="text-base font-semibold text-gray-900 flex items-center gap-1.5">
           <LockIcon className="h-3.5 w-3.5 text-sky-500" />
-          Streaks (private to you)
+          <HighlightedText text={sectionTitle} />
         </h2>
         <p className="text-xs text-gray-500 mt-1">
-          {sidecar && sidecar.enabled === false
-            ? "Streaks are off. Re-enable to start tracking from today onward. Your existing state is kept but won't update."
-            : "Tracks how many workdays in a row you've saved something. Visible only to you."}
+          <HighlightedText text={sectionDesc} />
         </p>
       </div>
 
+      <SectionMatchProvider register={state.register}>
       <div className="space-y-4">
         {loading || !sidecar ? (
           <div className="text-xs text-gray-400">Loading.</div>
@@ -172,6 +199,7 @@ export default function StreaksSection() {
           </>
         )}
       </div>
+      </SectionMatchProvider>
 
       {showResetModal && sidecar && (
         <ResetStreakModal
