@@ -2197,14 +2197,15 @@ function buildEntries() {
   // morgan result task markdown — rich lab-recipe writeups. Three companion
   // files alongside the stubs above: task-2 + task-3 get full results.md
   // analyses (figures, tables, conclusions) and task-7 gets a full notes.md
-  // (reagents, dilution series, reader settings). Each references the orphan
-  // PNGs under its Images/ dir, which are tracked in git and restored via
-  // generate-demo-images.mjs (gel-qpcr-products, fluo-scan-results) plus
-  // `git checkout` for the four custom plots not yet covered by the image
-  // generator (gfp-kinetics, od-vs-gfp-scatter, melt-curves,
-  // qpcr-amplification-curves). Keeping these in the SoT prevents the regen
-  // drift that happened during commit 18e32de7 (rich content was wiped and
-  // had to be manually `git checkout`-ed back).
+  // (reagents, dilution series, reader settings). Each references PNGs
+  // under its Images/ dir; the full SoT pair (this script +
+  // generate-demo-images.mjs) regenerates every image deterministically,
+  // including the seven morgan custom plots (colony-picking, gfp-kinetics,
+  // od-vs-gfp-scatter, melt-curves, qpcr-amplification-curves, cv-baseline,
+  // standard-curve) that used to require a manual `git checkout` after
+  // each full regen. Keeping the markdown in the SoT prevents the regen
+  // drift that happened during commit 18e32de7 (rich content was wiped
+  // and had to be manually `git checkout`-ed back).
   out.push(["users/morgan/results/task-2/results.md", DEMO_BANNER_MD +
     "## Fluorescence scan — Plate M-T7-A-R (2026-05-14)\n" +
     "\n" +
