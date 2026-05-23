@@ -61,7 +61,7 @@ import { appRouteToWikiRoute } from "@/lib/wiki/nav";
 export const wikiPointerIntroStep = buildWalkthroughStep({
   id: "wiki-pointer-intro",
   speech:
-    "One last thing. There's a wiki with detailed documentation of every page in the app. Search behavior, list semantics, Gantt dependencies, it's all spelled out there.",
+    "Quick aside before we move on. There's a wiki with detailed documentation of every page in the app. Search behavior, list semantics, Gantt dependencies, it's all spelled out there.",
   pose: "pointing-up",
   completion: manualAdvance("Got it, next"),
 });
@@ -150,7 +150,7 @@ export const wikiPointerClickDemoStep = buildWalkthroughStep({
 export const wikiPointerBackDemoStep = buildWalkthroughStep({
   id: "wiki-pointer-back-demo",
   speech:
-    "Click around to read more, or use the back button up here to jump straight back to where you came from.",
+    "When you're done exploring the wiki, hit the back button up here to jump straight back to where you started.",
   pose: "pointing-up",
   targetSelector: targetSelector(TOUR_TARGETS.wikiBackToApp),
   cursorScript: cursorScript(async () => {
