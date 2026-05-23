@@ -177,14 +177,19 @@ describe("usersApi.delete — tombstone register", () => {
   });
 });
 
-describe("usersApi.getMainUser — tombstone-aware validation", () => {
-  // The user-tombstone work at 3f83e157 filtered discoverUsers + usersApi.list
-  // but left getMainUser returning the raw IDB candidate without validation.
-  // Symptom: Grant exited Lab Mode and landed on user `alex` — a deleted user
-  // whose folder no longer existed but whose username still sat in IDB's
-  // mainUser key (carryover from an old demo lab copy). The fix validates the
-  // candidate against discoverUsers and clears the stale IDB key when invalid.
-  // See app/lab/page.tsx:164 (handleLogout) for the calling site.
+describe("usersApi.getMainUser — per-folder storage + tombstone validation", () => {
+  // Bug 2 fix 2026-05-23 (login bug fix manager): Main user moved from
+  // a per-machine IndexedDB key (`research-os-main-user`) into the
+  // per-folder `users/_user_metadata.json` file. The IDB key still
+  // exists as a migration fallback for legacy pins, but ONLY gets
+  // promoted to the file when the candidate username actually exists
+  // in the current folder — that's the cross-folder-leak guard.
+  //
+  // The tombstone-aware validation from 3f83e157 carries forward: when
+  // a persisted main_user no longer exists in discoverUsers (manually
+  // deleted directory, OneDrive resurrection of a tombstoned user,
+  // etc.), the field is cleared on disk so lab-mode exit doesn't try
+  // to log in as a vanished user. See app/lab/page.tsx:164.
 
   let store: typeof import("./file-system/indexeddb-store");
 
@@ -192,15 +197,37 @@ describe("usersApi.getMainUser — tombstone-aware validation", () => {
     store = await import("./file-system/indexeddb-store");
     (store.getMainUser as ReturnType<typeof vi.fn>).mockClear();
     (store.clearMainUser as ReturnType<typeof vi.fn>).mockClear();
+    (store.storeMainUser as ReturnType<typeof vi.fn>).mockClear();
     (store.getCurrentUser as ReturnType<typeof vi.fn>).mockClear();
     const { fileService } = await import("./file-system/file-service");
     (fileService.listDirectories as ReturnType<typeof vi.fn>).mockClear();
   });
 
-  it("returns the candidate unchanged when it is a valid (non-tombstoned) user", async () => {
-    (store.getMainUser as ReturnType<typeof vi.fn>).mockResolvedValueOnce("alex");
+  it("returns the per-folder main_user field when it points at a valid user", async () => {
     const { fileService } = await import("./file-system/file-service");
     (fileService.listDirectories as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      "alex",
+      "morgan",
+    ]);
+    memFs.set("users/_user_metadata.json", {
+      users: {
+        alex: { color: "#10b981", created_at: "2026-01-01T00:00:00.000Z" },
+        morgan: { color: "#3b82f6", created_at: "2026-01-01T00:00:00.000Z" },
+      },
+      main_user: "alex",
+    });
+
+    const result = await usersApi.getMainUser();
+    expect(result.main_user).toBe("alex");
+  });
+
+  it("migrates a legacy IDB pin to the per-folder file when the candidate exists in this folder", async () => {
+    // Folder has no main_user field on disk yet, but IDB holds an
+    // honest-to-goodness legacy pin from before per-folder storage.
+    // discoverUsers confirms the candidate is real → migrate.
+    (store.getMainUser as ReturnType<typeof vi.fn>).mockResolvedValueOnce("alex");
+    const { fileService } = await import("./file-system/file-service");
+    (fileService.listDirectories as ReturnType<typeof vi.fn>).mockResolvedValue([
       "alex",
       "morgan",
     ]);
@@ -213,13 +240,45 @@ describe("usersApi.getMainUser — tombstone-aware validation", () => {
 
     const result = await usersApi.getMainUser();
     expect(result.main_user).toBe("alex");
-    expect(store.clearMainUser).not.toHaveBeenCalled();
+    // Migration write should have happened.
+    const persisted = memFs.get("users/_user_metadata.json") as {
+      main_user?: string;
+    };
+    expect(persisted.main_user).toBe("alex");
   });
 
-  it("clears the stale IDB key and returns empty when the candidate no longer exists on disk", async () => {
-    (store.getMainUser as ReturnType<typeof vi.fn>).mockResolvedValueOnce("alex");
+  it("does NOT migrate a leaked cross-folder IDB pin (Bug 2 — the candidate is unknown to this folder)", async () => {
+    // IDB still holds "Grant" from a previous folder. This folder has
+    // users "alex" + "morgan". Promoting "Grant" would surface a (Main)
+    // badge on whoever happens to share a name; ignoring the IDB
+    // candidate entirely is the fix.
+    (store.getMainUser as ReturnType<typeof vi.fn>).mockResolvedValueOnce("Grant");
     const { fileService } = await import("./file-system/file-service");
-    (fileService.listDirectories as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+    (fileService.listDirectories as ReturnType<typeof vi.fn>).mockResolvedValue([
+      "alex",
+      "morgan",
+    ]);
+    memFs.set("users/_user_metadata.json", {
+      users: {
+        alex: { color: "#10b981", created_at: "2026-01-01T00:00:00.000Z" },
+        morgan: { color: "#3b82f6", created_at: "2026-01-01T00:00:00.000Z" },
+      },
+    });
+
+    const result = await usersApi.getMainUser();
+    expect(result.main_user).toBe("");
+    // The IDB candidate stayed put (no migration, no clear). Disconnect
+    // is the place that wipes the IDB key; getMainUser leaves it alone
+    // to avoid racing concurrent reads.
+    const persisted = memFs.get("users/_user_metadata.json") as {
+      main_user?: string;
+    };
+    expect(persisted.main_user).toBeUndefined();
+  });
+
+  it("clears the persisted main_user when it no longer points at a real folder user (deleted directory)", async () => {
+    const { fileService } = await import("./file-system/file-service");
+    (fileService.listDirectories as ReturnType<typeof vi.fn>).mockResolvedValue([
       "morgan",
       "GrantNickles",
     ]);
@@ -228,21 +287,24 @@ describe("usersApi.getMainUser — tombstone-aware validation", () => {
         morgan: { color: "#3b82f6", created_at: "2026-01-01T00:00:00.000Z" },
         GrantNickles: { color: "#a855f7", created_at: "2026-01-01T00:00:00.000Z" },
       },
+      main_user: "alex", // alex was deleted; main_user is stale
     });
 
     const result = await usersApi.getMainUser();
     expect(result.main_user).toBe("");
-    expect(store.clearMainUser).toHaveBeenCalledTimes(1);
+    // Stale pin cleared on disk.
+    const persisted = memFs.get("users/_user_metadata.json") as {
+      main_user?: string;
+    };
+    expect(persisted.main_user).toBeUndefined();
   });
 
-  it("clears the IDB key when the candidate is tombstoned (deleted_at set)", async () => {
-    (store.getMainUser as ReturnType<typeof vi.fn>).mockResolvedValueOnce("kritika");
+  it("clears the persisted main_user when it points at a tombstoned user (deleted_at set)", async () => {
     const { fileService } = await import("./file-system/file-service");
-    // OneDrive Files On-Demand has restored `kritika/` as a placeholder — the
-    // directory listing surfaces her, but the deleted_at tombstone hides her
-    // from discoverUsers. getMainUser should still treat the candidate as
-    // invalid and clear the IDB key.
-    (fileService.listDirectories as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+    // OneDrive Files On-Demand restored `kritika/` as a placeholder.
+    // discoverUsers filters her out via deleted_at, so main_user
+    // pointing at her is stale.
+    (fileService.listDirectories as ReturnType<typeof vi.fn>).mockResolvedValue([
       "alice",
       "kritika",
     ]);
@@ -255,45 +317,54 @@ describe("usersApi.getMainUser — tombstone-aware validation", () => {
           deleted_at: "2026-05-15T12:00:00.000Z",
         },
       },
+      main_user: "kritika",
     });
 
     const result = await usersApi.getMainUser();
     expect(result.main_user).toBe("");
-    expect(store.clearMainUser).toHaveBeenCalledTimes(1);
+    const persisted = memFs.get("users/_user_metadata.json") as {
+      main_user?: string;
+    };
+    expect(persisted.main_user).toBeUndefined();
   });
 
-  it("returns empty without validation when the IDB key is already empty", async () => {
+  it("returns empty without writing anything when neither the file nor the IDB key has a candidate", async () => {
     (store.getMainUser as ReturnType<typeof vi.fn>).mockResolvedValueOnce("");
-    const { fileService } = await import("./file-system/file-service");
+    memFs.set("users/_user_metadata.json", {
+      users: {
+        alice: { color: "#3b82f6", created_at: "2026-01-01T00:00:00.000Z" },
+      },
+    });
 
     const result = await usersApi.getMainUser();
     expect(result.main_user).toBe("");
-    // Skip the validation path entirely — no discoverUsers call, no clear.
-    expect(store.clearMainUser).not.toHaveBeenCalled();
-    expect(fileService.listDirectories).not.toHaveBeenCalled();
+    // No tombstone-clear write fired (nothing to clear).
+    const writes = writeJsonCalls.filter(
+      (c) => c.path === "users/_user_metadata.json",
+    );
+    expect(writes).toHaveLength(0);
   });
 
-  it("does NOT clear the IDB key when discoverUsers returns an empty list (ambiguous: fresh folder vs transient FS error)", async () => {
-    // Originally this test asserted that an empty discoverUsers should clear
-    // the stale candidate. Grant hit a regression 2026-05-20 where his
-    // GrantNickles "set as main" pin was wiped on browser refresh — root
-    // cause was a concurrent listDirectories call hiccupping and returning
-    // [], which triggered this clear path against a valid candidate.
-    //
-    // discoverUsers returns [] both for (a) genuinely empty folders and
-    // (b) any transient FS error (listDirectories or readAllUserMetadata
-    // throwing — discoverUsers swallows). We can't tell those apart from
-    // the outside, so the conservative call is to keep the IDB key in the
-    // ambiguous case. A stale key in a genuinely empty folder costs
-    // nothing (next set-as-main overwrites); a wiped valid key costs a UX
-    // regression.
-    (store.getMainUser as ReturnType<typeof vi.fn>).mockResolvedValueOnce("alex");
+  it("preserves a persisted main_user when discoverUsers returns an empty list (transient FS hiccup)", async () => {
+    // Same conservative behavior as the legacy validation: an empty
+    // discoverUsers can mean either a genuinely fresh folder OR a
+    // transient FS error. Clearing on [] caused a 2026-05-20 regression
+    // where Grant's valid pin was wiped on browser refresh.
     const { fileService } = await import("./file-system/file-service");
-    (fileService.listDirectories as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
+    (fileService.listDirectories as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    memFs.set("users/_user_metadata.json", {
+      users: {
+        alex: { color: "#3b82f6", created_at: "2026-01-01T00:00:00.000Z" },
+      },
+      main_user: "alex",
+    });
 
     const result = await usersApi.getMainUser();
     expect(result.main_user).toBe("alex");
-    expect(store.clearMainUser).not.toHaveBeenCalled();
+    const persisted = memFs.get("users/_user_metadata.json") as {
+      main_user?: string;
+    };
+    expect(persisted.main_user).toBe("alex");
   });
 });
 

@@ -9,11 +9,12 @@ import {
   clearDirectoryHandle,
   storeCurrentUser,
   getCurrentUser,
-  storeMainUser,
   getMainUser,
+  clearMainUser,
   clearCurrentUser,
   restorePreDemoStateOrClear,
 } from "./indexeddb-store";
+import { readMainUser, writeMainUser } from "./user-metadata";
 import { clearCurrentUserCache } from "../storage/json-store";
 import { clearCachedPassword } from "../auth/cached-password";
 import { discoverUsers, validateResearchFolder, ensureFolderStructure } from "./user-discovery";
@@ -249,21 +250,39 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
           currentUser = null;
         }
 
-        let mainUser = await getMainUser();
-        // Bootstrap mainUser from currentUser when it isn't set yet — but
-        // NEVER store "lab" as mainUser. "lab" is a sentinel for Lab Mode,
-        // not a real account. If the provider initializes with currentUser
-        // === "lab" (e.g. user just clicked Lab Mode and the page reloaded
-        // before mainUser was properly set to their real account), storing
-        // "lab" as mainUser creates an Exit-Lab-Mode trap: handleLogout
-        // tries to return to mainUser="lab" → useEffect bounces back to
-        // /lab → loop. Hit by Grant 2026-05-14; fixed defensively at the
-        // exit-handler level too (lab/page.tsx:3770b97f), but this is the
-        // source.
-        if (!mainUser && currentUser && currentUser.toLowerCase() !== "lab") {
-          mainUser = currentUser;
-          await storeMainUser(mainUser);
+        // Per-folder Main read (Bug 2 fix 2026-05-23). The previous
+        // impl read from IndexedDB only, which is per-machine and
+        // leaked across folder switches. Now: read the per-folder
+        // _user_metadata.json file first; fall back to the IDB key
+        // only when it points at a user that genuinely exists in
+        // this folder (migration shim for legacy pins set before
+        // the per-folder field existed).
+        let mainUser = await readMainUser();
+        if (!mainUser) {
+          const idbMain = await getMainUser();
+          if (idbMain && users.includes(idbMain)) {
+            // Legacy IDB pin and it actually maps to a real user in
+            // this folder. Migrate to the file so future reads are
+            // authoritative without consulting IDB.
+            mainUser = idbMain;
+            try {
+              await writeMainUser(idbMain);
+            } catch {
+              // Best-effort. The next read will retry the migration.
+            }
+          }
+          // If the IDB pin is a stale cross-folder leak (the Bug 2
+          // case), DO NOT promote it. Leave mainUser null so the
+          // picker renders without a (Main) badge until the user
+          // clicks the star explicitly.
         }
+        // Auto-promote-on-connect (was: bootstrap mainUser from
+        // currentUser when null) is GONE. Main must come from an
+        // explicit user action (star-click in the picker) so folder
+        // switches don't silently re-pin Main. The Lab Mode "lab"
+        // sentinel concern that gated the old branch no longer
+        // applies because the new code never writes mainUser
+        // unsolicited.
 
         setState((prev) => ({
           ...prev,
@@ -410,12 +429,18 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         // re-read after `restorePreDemoStateOrClear` swaps the live IDB
         // state. `meta` is read-only and stays const-shaped via the
         // initial assignment.
+        //
+        // mainUser is NOT read here anymore — Bug 2 fix 2026-05-23 made
+        // Main per-folder, so its authoritative value lives in
+        // `users/_user_metadata.json` and gets read inside `finishConnect`
+        // (the post-permission, post-folder-validation phase). Reading
+        // the IDB key at this earlier point would surface a leaked
+        // cross-folder pin in the loading screen UI.
         // eslint-disable-next-line prefer-const -- destructured reassignment below
-        let [storedHandle, meta, currentUser, mainUser] = await Promise.all([
+        let [storedHandle, meta, currentUser] = await Promise.all([
           getStoredDirectoryHandle(),
           getStoredDirectoryMeta(),
           getCurrentUser(),
-          getMainUser(),
         ]);
 
         console.log("[FileSystemProvider.initialize] meta:", meta, "hasHandle:", !!storedHandle);
@@ -443,10 +468,11 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
           if (restored) {
             // Re-read so the silent-reconnect path below sees the
             // restored real handle + users instead of the stale fake.
-            [storedHandle, currentUser, mainUser] = await Promise.all([
+            // mainUser is read inside finishConnect from the
+            // per-folder file (Bug 2 fix 2026-05-23).
+            [storedHandle, currentUser] = await Promise.all([
               getStoredDirectoryHandle(),
               getCurrentUser(),
-              getMainUser(),
             ]);
           } else {
             setState((prev) => ({
@@ -479,7 +505,13 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
                   loadingStage: "connecting",
                   lastConnectedFolder: storedHandle.name,
                   currentUser,
-                  mainUser,
+                  // Don't surface the IDB mainUser candidate here —
+                  // finishConnect re-reads from the per-folder file
+                  // and writes the authoritative value. Setting null
+                  // during the connecting phase avoids briefly badging
+                  // a (Main) user from a leaked cross-folder IDB pin
+                  // (Bug 2 fix 2026-05-23).
+                  mainUser: null,
                 }));
                 const ok = await finishConnect(storedHandle);
                 if (ok) return;
@@ -496,7 +528,10 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
           ...prev,
           lastConnectedFolder: meta?.name || storedHandle?.name || null,
           currentUser,
-          mainUser,
+          // mainUser stays null until finishConnect runs and reads the
+          // per-folder _user_metadata.json. The IDB mainUser candidate
+          // is no longer authoritative — see Bug 2 fix 2026-05-23.
+          mainUser: null,
           isLoading: false,
         }));
       } catch (err) {
@@ -773,6 +808,16 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     fileService.clearDirectoryHandle();
     await clearDirectoryHandle();
     await clearCurrentUser();
+    // Bug 2 fix 2026-05-23: clear the legacy per-machine Main IDB key
+    // on disconnect. With Main now stored per-folder in
+    // `users/_user_metadata.json`, the IDB key only exists as a
+    // migration fallback for legacy pins — but leaving a stale value
+    // here can still leak across folder switches via the migration
+    // shim in `usersApi.getMainUser` if the leaked username happens
+    // to also exist in the new folder. Clearing on disconnect closes
+    // that window: connecting to a different folder always starts
+    // with no IDB candidate to migrate from.
+    await clearMainUser();
 
     // Constraint #2(c): folder switch wipes the cached password. The
     // encrypted backup at users/<u>/_telegram-encrypted.json stays with
