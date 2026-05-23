@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useAppStore } from "@/lib/store";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { patchUserSettings } from "@/lib/settings/user-settings";
@@ -13,6 +13,17 @@ interface AnimationSettingsPopupProps {
   onClose: () => void;
 }
 
+interface PreviewState {
+  type: AnimationType;
+  x: number;
+  y: number;
+  /** Bumped every time the user picks an animation. Used as the
+   *  DynamicAnimation `key` so a fresh click halts any in-progress
+   *  preview and starts the new one immediately (the previous one
+   *  unmounts, freeing its timers + particle state). */
+  nonce: number;
+}
+
 export default function AnimationSettingsPopup({
   isOpen,
   onClose,
@@ -20,28 +31,33 @@ export default function AnimationSettingsPopup({
   const animationType = useAppStore((s) => s.animationType);
   const setAnimationType = useAppStore((s) => s.setAnimationType);
   const { currentUser } = useFileSystem();
-  const [previewAnimation, setPreviewAnimation] = useState<{ type: AnimationType; x: number; y: number } | null>(null);
-  // Use a ref to track if we're currently showing a preview animation
-  // This prevents re-triggering while an animation is playing
-  const isShowingPreviewRef = useRef(false);
+  const [previewAnimation, setPreviewAnimation] = useState<PreviewState | null>(null);
 
   if (!isOpen) return null;
 
   const handleSelectAnimation = (type: AnimationType, event: React.MouseEvent<HTMLButtonElement>) => {
-    // Don't trigger if already showing a preview animation or if same type
-    if (isShowingPreviewRef.current) return;
     if (type === animationType) return;
 
-    isShowingPreviewRef.current = true;
     setAnimationType(type);
     // Persist to settings.json so the choice survives reload / browser
     // change. Fire-and-forget — Zustand has already updated the live UI.
     if (currentUser) {
       void patchUserSettings(currentUser, { animationType: type });
     }
-    // Show a preview animation at the clicked button position
+    // Show a preview animation at the clicked button position. The
+    // nonce forces React to remount DynamicAnimation on every click,
+    // so clicking a new theme mid-animation halts the in-flight one
+    // and starts the new one immediately (no lockout). The old
+    // animation's onComplete still fires (during unmount cleanup) but
+    // setPreviewAnimation(null) inside it is harmless because the new
+    // animation already replaced the state.
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    setPreviewAnimation({ type, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+    setPreviewAnimation({
+      type,
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+      nonce: Date.now(),
+    });
   };
 
   return (
@@ -131,16 +147,17 @@ export default function AnimationSettingsPopup({
         </div>
       </div>
 
-      {/* Preview animation when selecting a new type */}
+      {/* Preview animation when selecting a new type. The `key` swap
+       *  on each click forces React to unmount the previous preview
+       *  (clearing its timers + particle state) and mount the new one
+       *  fresh, so the user can halt and switch mid-animation. */}
       {previewAnimation && (
         <DynamicAnimation
+          key={previewAnimation.nonce}
           type={previewAnimation.type}
           x={previewAnimation.x}
           y={previewAnimation.y}
-          onComplete={() => {
-            setPreviewAnimation(null);
-            isShowingPreviewRef.current = false;
-          }}
+          onComplete={() => setPreviewAnimation(null)}
         />
       )}
     </div>
