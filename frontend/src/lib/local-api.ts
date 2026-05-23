@@ -3722,8 +3722,11 @@ async function removeReceiverShare(
   }
 }
 
+// Lab Mode retirement R1 (R1 unified sharing manager, 2026-05-23): the
+// shared-entry shape accepts either the legacy `permission` or the new
+// `level` field (or both). Reads normalize via `normalizeSharedWith`.
 interface ShareableEntity {
-  shared_with?: Array<{ username: string; permission: string }> | null;
+  shared_with?: Array<{ username: string; permission?: string; level?: string }> | null;
   name?: string;
 }
 
@@ -3732,16 +3735,16 @@ function upsertSharedWith<T extends ShareableEntity>(
   username: string,
   permission: string
 ): T {
-  const list = entity.shared_with ?? [];
+  const list: Array<{ username: string; permission?: string; level?: string }> = (entity.shared_with ?? []) as Array<{ username: string; permission?: string; level?: string }>;
   const idx = list.findIndex((s) => s.username === username);
   if (idx >= 0) list[idx] = { username, permission };
   else list.push({ username, permission });
-  return { ...entity, shared_with: list };
+  return { ...entity, shared_with: list } as T;
 }
 
 function removeSharedWith<T extends ShareableEntity>(entity: T, username: string): T {
   const list = (entity.shared_with ?? []).filter((s) => s.username !== username);
-  return { ...entity, shared_with: list };
+  return { ...entity, shared_with: list } as T;
 }
 
 /**
@@ -3775,19 +3778,40 @@ async function getTaskAncestors(taskId: number): Promise<number[]> {
 
 // ── Sharing API ──────────────────────────────────────────────────────────────
 
+// Lab Mode retirement R1 (R1 unified sharing manager, 2026-05-23): map a
+// caller-provided `level: "read" | "edit"` OR legacy `permission: "view"
+// | "edit"` to the canonical storage representation. The sharing API
+// accepts either field so the unified ShareDialog can pass `level` while
+// older callers (and tests) keep passing `permission`. On-disk the
+// migration eventually rewrites everything to `level`; sharingApi here
+// is one of the bridges.
+function resolveShareLevel(input: {
+  level?: "read" | "edit";
+  permission?: "view" | "edit";
+}): "read" | "edit" {
+  if (input.level === "edit" || input.level === "read") return input.level;
+  if (input.permission === "edit") return "edit";
+  if (input.permission === "view") return "read";
+  return PERMISSION_DEFAULT === "edit" ? "edit" : "read";
+}
+
 export const sharingApi = {
   shareTask: async (
     taskId: number,
-    data: { username: string; permission?: "view" | "edit"; include_chain?: boolean }
+    data: { username: string; permission?: "view" | "edit"; level?: "read" | "edit"; include_chain?: boolean }
   ): Promise<{
     status: string;
     item_id: number;
     shared_with: string;
     permission: string;
+    level: "read" | "edit";
     chain_shared_count?: number;
   }> => {
     const currentUser = await getCurrentUserCached();
-    const permission = data.permission ?? PERMISSION_DEFAULT;
+    const level = resolveShareLevel(data);
+    // Legacy `permission` field is preserved on the receiver-side
+    // SharedItemEntry for backwards compat; new code reads `level`.
+    const permission = level === "edit" ? "edit" : "view";
     if (data.username === currentUser) {
       throw new Error("Cannot share a task with yourself");
     }
@@ -3797,7 +3821,13 @@ export const sharingApi = {
     for (const id of ids) {
       const task = await tasksStore.get(id);
       if (!task) continue;
-      const updated = upsertSharedWith(task, data.username, permission);
+      // Persist BOTH `level` (the new canonical field) and `permission`
+      // (legacy) so old readers + new readers both work during the
+      // migration window. upsertSharedWith only sets `permission`; we
+      // overlay `level` here.
+      const sharedListWithLevel = (upsertSharedWith(task, data.username, permission).shared_with ?? [])
+        .map((s) => (s.username === data.username ? { ...s, level } : s));
+      const updated = { ...task, shared_with: sharedListWithLevel };
       await tasksStore.save(id, updated);
       await addReceiverShare(
         data.username,
@@ -3812,6 +3842,7 @@ export const sharingApi = {
       item_id: taskId,
       shared_with: data.username,
       permission,
+      level,
       chain_shared_count: data.include_chain ? count : undefined,
     };
   },
@@ -3936,16 +3967,19 @@ export const sharingApi = {
 
   shareMethod: async (
     methodId: number,
-    data: { username: string; permission?: "view" | "edit" }
-  ): Promise<{ status: string; item_id: number; shared_with: string; permission: string }> => {
+    data: { username: string; permission?: "view" | "edit"; level?: "read" | "edit" }
+  ): Promise<{ status: string; item_id: number; shared_with: string; permission: string; level: "read" | "edit" }> => {
     const currentUser = await getCurrentUserCached();
-    const permission = data.permission ?? PERMISSION_DEFAULT;
+    const level = resolveShareLevel(data);
+    const permission = level === "edit" ? "edit" : "view";
     if (data.username === currentUser) {
       throw new Error("Cannot share a method with yourself");
     }
     const method = await methodsStore.get(methodId);
     if (!method) throw new Error(`Method ${methodId} not found in current user's library`);
-    const updated = upsertSharedWith(method, data.username, permission);
+    const sharedListWithLevel = (upsertSharedWith(method, data.username, permission).shared_with ?? [])
+      .map((s) => (s.username === data.username ? { ...s, level } : s));
+    const updated = { ...method, shared_with: sharedListWithLevel };
     await methodsStore.save(methodId, updated);
     await addReceiverShare(
       data.username,
@@ -3953,7 +3987,7 @@ export const sharingApi = {
       { id: methodId, owner: currentUser, permission, shared_at: new Date().toISOString() },
       method.name
     );
-    return { status: "ok", item_id: methodId, shared_with: data.username, permission };
+    return { status: "ok", item_id: methodId, shared_with: data.username, permission, level };
   },
 
   unshareMethod: async (
@@ -3972,16 +4006,19 @@ export const sharingApi = {
 
   shareProject: async (
     projectId: number,
-    data: { username: string; permission?: "view" | "edit" }
-  ): Promise<{ status: string; item_id: number; shared_with: string; permission: string }> => {
+    data: { username: string; permission?: "view" | "edit"; level?: "read" | "edit" }
+  ): Promise<{ status: string; item_id: number; shared_with: string; permission: string; level: "read" | "edit" }> => {
     const currentUser = await getCurrentUserCached();
-    const permission = data.permission ?? PERMISSION_DEFAULT;
+    const level = resolveShareLevel(data);
+    const permission = level === "edit" ? "edit" : "view";
     if (data.username === currentUser) {
       throw new Error("Cannot share a project with yourself");
     }
     const project = await projectsStore.get(projectId);
     if (!project) throw new Error(`Project ${projectId} not found in current user's workspace`);
-    const updated = upsertSharedWith(project, data.username, permission);
+    const sharedListWithLevel = (upsertSharedWith(project, data.username, permission).shared_with ?? [])
+      .map((s) => (s.username === data.username ? { ...s, level } : s));
+    const updated = { ...project, shared_with: sharedListWithLevel };
     await projectsStore.save(projectId, updated);
     await addReceiverShare(
       data.username,
@@ -3994,7 +4031,7 @@ export const sharingApi = {
       recipient: data.username,
       permission: permission as "view" | "edit",
     });
-    return { status: "ok", item_id: projectId, shared_with: data.username, permission };
+    return { status: "ok", item_id: projectId, shared_with: data.username, permission, level };
   },
 
   unshareProject: async (
@@ -4775,6 +4812,18 @@ export const usersApi = {
   login: async (username: string): Promise<{ status: string; current_user: string }> => {
     clearCurrentUserCache();
     await storeCurrentUser(username);
+    // Lab Mode retirement R1 (R1 unified sharing manager, 2026-05-23):
+    // run the unified-sharing migration lazily on login. Idempotent: the
+    // marker file in users/<u>/_sharing_migration.json short-circuits
+    // subsequent runs. Best-effort: failures are swallowed by the helper.
+    try {
+      const { ensureSharingMigrated } = await import("./sharing/migrate-unified");
+      await ensureSharingMigrated(username);
+    } catch {
+      // Migration helper handles its own errors internally; this catch
+      // only fires if the dynamic import itself fails (which would
+      // indicate a bundling problem, not data corruption).
+    }
     return { status: "ok", current_user: username };
   },
 

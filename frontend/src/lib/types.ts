@@ -1,13 +1,46 @@
 // ── Shared Access Types ─────────────────────────────────────────────────────
 
+/**
+ * Lab Mode retirement R1 (R1 unified sharing manager, 2026-05-23): the
+ * canonical share entry. One unified shape across every shareable record
+ * type (Task, Note, Method, Project, Link, Goal, MassSpecProtocol, etc.).
+ *
+ *   - `username` is a real lab member's username OR the "*" sentinel
+ *     meaning "every current lab member" (expanded at read time).
+ *   - `level` replaces the old `permission` field. "read" reads more
+ *     naturally in callsites than "view". The legacy `permission` field
+ *     is kept as optional alongside `level` so on-disk records that
+ *     predate the unified migration still parse — the read path
+ *     normalizes either to `level` via `normalizeSharedWith` in
+ *     `lib/sharing/unified.ts`. Migration rewrites the field on next
+ *     save.
+ *
+ * Default for new records: shared_with: [] (owner-only). Records missing
+ * the field entirely also default to [] on read.
+ */
 export interface SharedUser {
   username: string;
-  permission: "view" | "edit";
+  /** Unified field — preferred. Optional during the R1 migration window
+   *  so older callsites that still hand-build with `permission` continue
+   *  to compile. New code MUST always set `level`. The
+   *  `normalizeSharedWith` helper in `lib/sharing/unified.ts` resolves
+   *  whichever field is present (`level` wins; otherwise `permission`
+   *  is mapped: "view"→"read", "edit"→"edit"). */
+  level?: "read" | "edit";
+  /** @deprecated Legacy field, present only on pre-R1 records and
+   *  un-migrated callsites. Read paths normalize via
+   *  `normalizeSharedWith`. Migration in `lib/sharing/migrate-unified.ts`
+   *  rewrites every on-disk record to use `level` and drops this
+   *  field. New code should NOT write this. */
+  permission?: "view" | "edit";
 }
 
 export interface ShareRequest {
   username: string;
-  permission: "view" | "edit";
+  /** Preferred — matches SharedUser.level. */
+  level?: "read" | "edit";
+  /** @deprecated Use `level`. Kept for callers that still pass `permission`. */
+  permission?: "view" | "edit";
   include_chain?: boolean;  // For tasks: share entire dependency chain
 }
 
