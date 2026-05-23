@@ -33,17 +33,18 @@ import BeakerBot from "./BeakerBot";
  *  - `pointer-events: none` end-to-end — the scene is purely visual,
  *    never intercepts clicks
  *
- * Stage timeline (~10.8s total in motion mode):
+ * Stage timeline (~8.3s total in motion mode):
  *  1. ladder-rise        0      → 800ms    (ladder slides up from below)
  *  2. climb              800    → 3600ms   (BeakerBot translates up
- *                                           the *full* ladder height —
+ *                                           the *full* ladder height,
  *                                           continuous, no snap to top)
  *  3. top                3600   → 3900ms   (settles at top of ladder)
- *  4. clean              3900   → 8900ms   (wipe-back-and-forth + sparkles)
- *  5. disruption         8900   → 9300ms   (unprompted slip — hands fly
+ *  4. clean              3900   → 6400ms   (wipe-back-and-forth + sparkles,
+ *                                           one wipe cycle + settle beat)
+ *  5. disruption         6400   → 6800ms   (unprompted slip, hands fly
  *                                           off, body tilts + lurches)
- *  6. fall               9300   → 10800ms  (BeakerBot + ladder tumble off)
- *  7. done               10800ms           (onComplete fires, parent unmounts)
+ *  6. fall               6800   → 8300ms   (BeakerBot + ladder tumble off)
+ *  7. done               8300ms            (onComplete fires, parent unmounts)
  *
  * Reduced-motion fallback: when
  * `prefers-reduced-motion: reduce` is set, the scene renders BeakerBot
@@ -87,7 +88,10 @@ const STAGE_MS = {
   // from foot-of-ladder to top-of-ladder (no mid-climb snap).
   climb: 2800,
   top: 300,
-  clean: 5000,
+  // One wipe cycle (800ms ease-in-out) plus a settle beat. Trimmed
+  // from 5000ms (~6 cycles) which read as repetitive at the per-task
+  // reward cadence.
+  clean: 2500,
   // Brief, unprompted slip: hands fly off the rails, body lurches +
   // tilts. ~400ms — just long enough for the "oh-no" beat to read
   // before the fall keyframes take over.

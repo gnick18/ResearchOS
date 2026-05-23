@@ -93,9 +93,10 @@ describe("BeakerBotEurekaScene", () => {
     // Should have observed walkIn (initial) plus each subsequent stage
     // transition, ending at "done". The recorded sequence is:
     //   [walkIn, setDown, leanPeek, peeking, pullBack, bulbOn,
-    //    sparkles, cheering, scan, exit, done]
-    // (`scan` is the L→R→L head-turn over the bulb, between cheering
-    // and exit, so the user can see the whole bulb.)
+    //    sparkles, cheering, exit, done]
+    // (The `scan` stage between cheering and exit was removed in the
+    // scene polish A2 pass — cheering + bulb pulse already show the
+    // bulb adequately for a per-task reward.)
     expect(observed).toEqual([
       "walkIn",
       "setDown",
@@ -105,7 +106,6 @@ describe("BeakerBotEurekaScene", () => {
       "bulbOn",
       "sparkles",
       "cheering",
-      "scan",
       "exit",
       "done",
     ]);
@@ -243,24 +243,24 @@ describe("BeakerBotEurekaScene", () => {
     const bubble = screen.getByTestId("beakerbot-eureka-scene-bubble");
     expect(bubble).toBeInTheDocument();
     expect(bubble.textContent).toContain("Eureka!");
-    // Advance past cheering → scan (head-turn over the bulb). Bubble
-    // should be gone. (`scan` was added between `cheering` and `exit`
-    // so the user can see the whole bulb before BeakerBot leaves.)
+    // Advance past cheering → exit. Bubble should be gone. (The
+    // intermediate `scan` head-turn stage was removed in scene polish
+    // A2; cheering now transitions directly into exit.)
     act(() => {
       vi.advanceTimersByTime(STAGE_DURATIONS.cheering);
     });
-    expect(scene.getAttribute("data-stage")).toBe("scan");
+    expect(scene.getAttribute("data-stage")).toBe("exit");
     expect(screen.queryByTestId("beakerbot-eureka-scene-bubble")).toBeNull();
   });
 
-  it("enters the `scan` head-turn stage between cheering and exit, with bulb still visible", () => {
+  it("transitions cheering → exit directly (scan stage removed) with bulb still visible at exit", () => {
     const onComplete = vi.fn();
     render(<BeakerBotEurekaScene active onComplete={onComplete} />);
     const scene = screen.getByTestId("beakerbot-eureka-scene");
 
-    // Advance to scan: walkIn + setDown + leanPeek + peeking + pullBack
-    // + bulbOn + sparkles + cheering.
-    const preScanMs =
+    // Advance through cheering: walkIn + setDown + leanPeek + peeking +
+    // pullBack + bulbOn + sparkles + cheering.
+    const preExitMs =
       STAGE_DURATIONS.walkIn +
       STAGE_DURATIONS.setDown +
       STAGE_DURATIONS.leanPeek +
@@ -270,19 +270,14 @@ describe("BeakerBotEurekaScene", () => {
       STAGE_DURATIONS.sparkles +
       STAGE_DURATIONS.cheering;
     act(() => {
-      vi.advanceTimersByTime(preScanMs);
-    });
-    expect(scene.getAttribute("data-stage")).toBe("scan");
-    // Bulb must still be visible during scan — that's the whole point.
-    expect(screen.getByTestId("beakerbot-eureka-scene-lightbulb")).toBeInTheDocument();
-    // Microscope still on the bench during scan too.
-    expect(screen.getByTestId("beakerbot-eureka-scene-microscope")).toBeInTheDocument();
-
-    // Advancing scan duration moves us to exit.
-    act(() => {
-      vi.advanceTimersByTime(STAGE_DURATIONS.scan);
+      vi.advanceTimersByTime(preExitMs);
     });
     expect(scene.getAttribute("data-stage")).toBe("exit");
+    // Bulb must still be visible during exit (fades out during the
+    // exit walk-off).
+    expect(screen.getByTestId("beakerbot-eureka-scene-lightbulb")).toBeInTheDocument();
+    // Microscope still on the bench during exit.
+    expect(screen.getByTestId("beakerbot-eureka-scene-microscope")).toBeInTheDocument();
   });
 
   it("does not double-fire onComplete when parent re-renders with a new callback identity", () => {
