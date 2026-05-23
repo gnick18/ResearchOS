@@ -1221,9 +1221,12 @@ describe("Gantt steps (§6.8) — Gantt manager redesign 2026-05-22", () => {
 });
 
 describe("AnimationPickerStep (§6.9)", () => {
-  it("targets the Gantt toolbar animation picker", () => {
+  it("targets the Settings page animation picker", () => {
+    // Re-pointed to the Settings page in the Gantt toolbar declutter
+    // pass (2026-05-23). The old gantt-animation-picker target was
+    // removed when the toolbar popup was retired.
     expect(animationPickerStep.targetSelector).toBe(
-      "[data-tour-target=\"gantt-animation-picker\"]",
+      "[data-tour-target=\"settings-animation-picker\"]",
     );
   });
 });

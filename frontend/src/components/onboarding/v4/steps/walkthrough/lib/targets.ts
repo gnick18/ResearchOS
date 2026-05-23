@@ -236,8 +236,16 @@ export const TOUR_TARGETS = {
   // it to perform the real switch.
   userPickerOption: "user-picker-option",
 
-  // §6.9 Animation picker (Gantt toolbar)
+  // §6.9 Animation picker.
+  /** @deprecated post-Gantt-declutter (2026-05-23). The animation picker
+   *  no longer lives on the Gantt toolbar; use `settingsAnimationPicker`
+   *  instead. Kept on the constants object so any stragglers still
+   *  resolve to a (non-rendered) selector rather than a build break. */
   ganttAnimationPicker: "gantt-animation-picker",
+  /** Animation picker section inside `/settings` (the inline 2-column
+   *  grid of theme tiles). Stamped on the SectionShell that wraps the
+   *  picker so the v4 tour spotlight wraps the whole card. */
+  settingsAnimationPicker: "settings-animation-picker",
 
   // §6.10 Settings
   settingsColorPicker: "settings-color-picker",

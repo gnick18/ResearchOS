@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAppStore } from "@/lib/store";
 import { encodeFilterKey, parseFilterKey } from "@/lib/search/filterKey";
 import type { Project, ViewMode } from "@/lib/types";
-import AnimationSettingsPopup from "@/components/AnimationSettingsPopup";
-import { ANIMATION_METADATA, renderAnimationIcon } from "@/components/animations";
 import Tooltip from "@/components/Tooltip";
 
 const VIEW_MODES: { label: string; value: ViewMode }[] = [
@@ -72,34 +70,40 @@ export default function Toolbar({
   const toggleTag = useAppStore((s) => s.toggleTag);
   const showShared = useAppStore((s) => s.showShared);
   const setShowShared = useAppStore((s) => s.setShowShared);
-  const animationType = useAppStore((s) => s.animationType);
   const ganttStartDate = useAppStore((s) => s.ganttStartDate);
   const setGanttStartDate = useAppStore((s) => s.setGanttStartDate);
   const ganttNavigateWeeks = useAppStore((s) => s.ganttNavigateWeeks);
-  
-  const [showAnimationSettings, setShowAnimationSettings] = useState(false);
 
-  // Deep-link hooks. `/gantt?animations=1` auto-opens the animation
-  // settings popup. `/gantt?createGoal=1` fires the create-goal flow.
+  // Project filter dropdown UI state. The Gantt toolbar used to render
+  // one chip per project; with 10+ projects that overflowed the toolbar
+  // (Grant declutter pass, 2026-05-23). We render a single multi-select
+  // dropdown instead: trigger label adapts to selection count, color
+  // dots preserved, search filter keeps the list usable when the user
+  // has many projects.
+  const [showProjectFilter, setShowProjectFilter] = useState(false);
+  const [projectFilterQuery, setProjectFilterQuery] = useState("");
+  const projectFilterRef = useRef<HTMLDivElement | null>(null);
+
+  // Deep-link hooks. `/gantt?createGoal=1` fires the create-goal flow.
   // `/gantt?project=<owner>:<id>` initializes the project filter to
   // that single project (used by the Project Surface "View timeline →"
-  // link). The `project` param now carries a composite owner:id key —
+  // link). The `project` param now carries a composite owner:id key,
   // a bare numeric form is rejected because two projects can share the
   // same numeric id across owners (persona 18 collision; same fix shape
   // as /search at ab1548a8). Each param strips after acting so a reload
-  // doesn't re-trigger.
+  // doesn't re-trigger. The legacy `?animations=1` param is also
+  // stripped on arrival so existing bookmarks don't leave the URL dirty
+  // after the Gantt toolbar's animation picker moved to Settings.
   const router = useRouter();
   const searchParams = useSearchParams();
   useEffect(() => {
     if (!searchParams) return;
-    const wantsAnimations = searchParams.get("animations") === "1";
+    const hasLegacyAnimations = searchParams.get("animations") === "1";
     const wantsCreateGoal = searchParams.get("createGoal") === "1";
     const projectParam = searchParams.get("project");
     const projectKeyParts = parseFilterKey(projectParam);
     const wantsProjectFilter = projectKeyParts !== null;
-    if (!wantsAnimations && !wantsCreateGoal && !wantsProjectFilter) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- deep-link handler: imperatively opens animation-settings popup when URL param is present, then strips the param so reload doesn't re-trigger. Derived-state alternative would require URL navigation on every open/close, breaking the onboarding tip's setupAction flow.
-    if (wantsAnimations) setShowAnimationSettings(true);
+    if (!hasLegacyAnimations && !wantsCreateGoal && !wantsProjectFilter) return;
     if (wantsCreateGoal) onCreateGoal();
     if (wantsProjectFilter && projectParam) setSelectedProjects([projectParam]);
     const next = new URLSearchParams(searchParams.toString());
@@ -109,6 +113,57 @@ export default function Toolbar({
     const query = next.toString();
     router.replace(query ? `/gantt?${query}` : "/gantt");
   }, [searchParams, router, onCreateGoal, setSelectedProjects]);
+
+  // Close project-filter dropdown on outside click / Escape.
+  useEffect(() => {
+    if (!showProjectFilter) return;
+    const onMouseDown = (e: MouseEvent) => {
+      const root = projectFilterRef.current;
+      if (root && !root.contains(e.target as Node)) {
+        setShowProjectFilter(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowProjectFilter(false);
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [showProjectFilter]);
+
+  // Derived: the visible rows in the dropdown body. Filtered by the
+  // search query (case-insensitive substring on the project name).
+  const filteredProjects = useMemo(() => {
+    const q = projectFilterQuery.trim().toLowerCase();
+    if (!q) return projects;
+    return projects.filter((p) => p.name.toLowerCase().includes(q));
+  }, [projects, projectFilterQuery]);
+
+  // Derived: the label rendered on the trigger button.
+  const projectFilterLabel = useMemo(() => {
+    if (selectedProjectIds.length === 0) {
+      return { kind: "all" as const };
+    }
+    if (selectedProjectIds.length === 1) {
+      const onlyKey = selectedProjectIds[0];
+      const match = projects.find((p) => encodeFilterKey(p) === onlyKey);
+      if (match) {
+        return {
+          kind: "one" as const,
+          name: match.name,
+          color: projectColors?.[projectKey(match)] ?? "#3b82f6",
+        };
+      }
+      // The single selected id no longer matches any visible project
+      // (could happen after a project archive). Fall back to "1
+      // selected" so the trigger is still meaningful.
+      return { kind: "many" as const, count: 1 };
+    }
+    return { kind: "many" as const, count: selectedProjectIds.length };
+  }, [selectedProjectIds, projects, projectColors]);
 
   // Calculate weeks to show based on view mode
   const weeksToShow = useMemo(() => {
@@ -160,39 +215,153 @@ export default function Toolbar({
 
   return (
     <div className="border-b border-gray-200 bg-white px-4 py-3 flex items-center gap-4 flex-wrap">
-      {/* Project filter pills */}
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs text-gray-400 font-medium mr-1">
-          Projects:
-        </span>
-        {projects.map((p) => {
-          const pKey = encodeFilterKey(p);
-          const isSelected =
-            selectedProjectIds.length === 0 ||
-            selectedProjectIds.includes(pKey);
-          const projectColor = projectColors?.[projectKey(p)] || "#3b82f6";
-          return (
-            <button
-              key={pKey}
-              onClick={() => toggleProject(pKey)}
-              className={`
-                px-2.5 py-1 text-xs rounded-full transition-colors
-                ${
-                  isSelected
-                    ? "text-white font-medium"
-                    : "bg-gray-100 text-gray-400"
-                }
-              `}
-              style={
-                isSelected
-                  ? { backgroundColor: projectColor }
-                  : undefined
-              }
-            >
-              {p.name}
-            </button>
-          );
-        })}
+      {/* Project filter — multi-select dropdown. Replaces the legacy
+          chip-row that overflowed the toolbar past ~5 projects. */}
+      <div className="relative" ref={projectFilterRef}>
+        <button
+          type="button"
+          onClick={() => setShowProjectFilter((v) => !v)}
+          data-tour-target="gantt-project-filter"
+          aria-expanded={showProjectFilter}
+          aria-haspopup="listbox"
+          className={`
+            px-2.5 py-1.5 text-xs rounded-lg border transition-colors flex items-center gap-1.5
+            ${
+              selectedProjectIds.length > 0
+                ? "border-blue-300 bg-blue-50 text-blue-700"
+                : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+            }
+          `}
+        >
+          <span className="text-gray-400 font-medium">Projects:</span>
+          {projectFilterLabel.kind === "all" && (
+            <span className="font-medium">All</span>
+          )}
+          {projectFilterLabel.kind === "one" && (
+            <span className="flex items-center gap-1.5">
+              <span
+                className="inline-block w-2.5 h-2.5 rounded-full"
+                style={{ backgroundColor: projectFilterLabel.color }}
+                aria-hidden="true"
+              />
+              <span className="font-medium truncate max-w-[10rem]">
+                {projectFilterLabel.name}
+              </span>
+            </span>
+          )}
+          {projectFilterLabel.kind === "many" && (
+            <span className="font-medium">
+              {projectFilterLabel.count} selected
+            </span>
+          )}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={`transition-transform ${showProjectFilter ? "rotate-180" : ""}`}
+            aria-hidden="true"
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+
+        {showProjectFilter && (
+          <div
+            role="listbox"
+            aria-label="Filter Gantt by project"
+            className="absolute top-full left-0 mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-lg z-30"
+          >
+            <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5 border-b border-gray-100">
+              <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">
+                Filter by project
+              </span>
+              {selectedProjectIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedProjects([])}
+                  className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            <div className="px-2 pt-2">
+              <input
+                type="text"
+                value={projectFilterQuery}
+                onChange={(e) => setProjectFilterQuery(e.target.value)}
+                placeholder="Search projects..."
+                aria-label="Search projects"
+                className="w-full px-2 py-1 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div className="max-h-[300px] overflow-y-auto py-1.5">
+              {filteredProjects.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-gray-400">
+                  No projects match &ldquo;{projectFilterQuery}&rdquo;.
+                </p>
+              ) : (
+                filteredProjects.map((p) => {
+                  const pKey = encodeFilterKey(p);
+                  const isSelected = selectedProjectIds.includes(pKey);
+                  const projectColor =
+                    projectColors?.[projectKey(p)] ?? "#3b82f6";
+                  return (
+                    <button
+                      key={pKey}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      onClick={() => toggleProject(pKey)}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left hover:bg-gray-50 focus:outline-none focus:bg-gray-50"
+                    >
+                      <span
+                        className={`
+                          inline-flex items-center justify-center w-4 h-4 rounded border
+                          ${isSelected ? "bg-blue-600 border-blue-600 text-white" : "bg-white border-gray-300"}
+                        `}
+                        aria-hidden="true"
+                      >
+                        {isSelected && (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="10"
+                            height="10"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        )}
+                      </span>
+                      <span
+                        className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: projectColor }}
+                        aria-hidden="true"
+                      />
+                      <span className="truncate text-gray-700">{p.name}</span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            {selectedProjectIds.length === 0 && (
+              <p className="px-3 py-1.5 text-[11px] text-gray-400 border-t border-gray-100">
+                Showing all projects. Click rows to scope the Gantt.
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Tag filter pills */}
@@ -292,26 +461,6 @@ export default function Toolbar({
         + Task
       </button>
 
-      {/* Animation settings button */}
-      <Tooltip label="Animation Settings" placement="bottom">
-        <button
-          onClick={() => setShowAnimationSettings(true)}
-          data-tour-target="gantt-animation-picker"
-          className="px-2.5 py-1.5 text-sm bg-white border border-gray-200 text-gray-700 rounded-lg hover:border-gray-300 hover:shadow-sm transition-all flex items-center gap-1.5 hover:animate-jiggle"
-        >
-          {renderAnimationIcon(
-            ANIMATION_METADATA[animationType].icon,
-            ANIMATION_METADATA[animationType].color,
-            "text-base",
-            "w-5 h-5",
-          )}
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 20h9"/>
-            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-          </svg>
-        </button>
-      </Tooltip>
-
       {/* Week navigation controls */}
       <div className="flex items-center gap-1.5 border-l border-gray-200 pl-4">
         {/* Previous week button */}
@@ -366,11 +515,6 @@ export default function Toolbar({
         </span>
       </div>
 
-      {/* Animation Settings Popup */}
-      <AnimationSettingsPopup
-        isOpen={showAnimationSettings}
-        onClose={() => setShowAnimationSettings(false)}
-      />
     </div>
   );
 }

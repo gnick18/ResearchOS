@@ -1,10 +1,12 @@
 /**
  * §6.9 Animation picker — universal walkthrough.
  *
- * On the Gantt page's toolbar (no navigation needed). Cursor moves to
- * the toolbar's animation icon, clicks. Animation picker popup opens.
- * Cursor clicks a theme; animation preview fires (same UX as v3 W6's
- * fix).
+ * Lives on the Settings page's Animation section (Gantt toolbar
+ * declutter, 2026-05-23). The previous toolbar-popup affordance was
+ * removed because Settings already carried an inline picker; rather
+ * than maintain both surfaces the tour now anchors to the Settings
+ * tile grid directly. Cursor clicks the "celebration" tile and the
+ * animation preview fires.
  *
  * Per §6.9, the suggested default pick is "celebration." Pickable
  * themes vary by user settings; the cursor click targets the
@@ -23,10 +25,9 @@
  *
  * Classification: BEAKERBOT DEMO (per Grant's design correction
  * 2026-05-21). Brief explicitly classifies personalization-animations
- * as demo: cursor opens the picker and picks the "celebration"
- * default so the user sees the animation fire. The cleanup grid
- * later lets the user revert if they prefer a quieter theme.
- * Cursor keeps the open + pick.
+ * as demo: cursor picks the "celebration" default so the user sees
+ * the animation fire. The cleanup grid later lets the user revert if
+ * they prefer a quieter theme.
  */
 import { readUserSettings } from "@/lib/settings/user-settings";
 import { getCurrentUserCached } from "@/lib/storage/json-store";
@@ -51,17 +52,16 @@ export const animationPickerStep = buildWalkthroughStep({
   speech:
     "Quick personal touch, pick an animation theme that fires when you complete experiments.",
   pose: "bouncing",
-  targetSelector: targetSelector(TOUR_TARGETS.ganttAnimationPicker),
+  targetSelector: targetSelector(TOUR_TARGETS.settingsAnimationPicker),
   cursorScript: cursorScript(async () => {
-    const openPicker = await safeClickAction(
-      targetSelector(TOUR_TARGETS.ganttAnimationPicker),
-    );
-    // The picker renders tiles with `data-animation-theme="<id>"`. The
-    // "celebration" theme is the default pick per §6.9.
+    // The Settings page renders the picker as an inline tile grid; each
+    // tile carries `data-animation-theme="<id>"`. The "celebration"
+    // theme is the default pick per §6.9. No popup-open beat anymore
+    // (the toolbar popup was removed in the 2026-05-23 declutter pass).
     const pickCelebration = await safeClickAction(
       "[data-animation-theme='celebration']",
     );
-    return compactScript([openPicker, pickCelebration]);
+    return compactScript([pickCelebration]);
   }),
   // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
   completion: manualAdvance("Got it, next"),
@@ -113,6 +113,8 @@ export const animationPickerStep = buildWalkthroughStep({
     preChangeAnimation = null;
     await flushPendingArtifacts(STEP_ID);
   },
-  // Animation picker lives on the Gantt toolbar.
-  expectedRoute: "/gantt",
+  // Animation picker lives on the Settings page (post-Gantt-declutter,
+  // 2026-05-23). The tour controller routes the user to /settings if
+  // they're elsewhere when the step fires.
+  expectedRoute: "/settings",
 });

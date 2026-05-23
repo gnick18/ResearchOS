@@ -393,7 +393,7 @@ export default function WelcomeWizardPage() {
         beats across the major Settings sections, then three AI Helper beats:
       </p>
       <Steps>
-        <Step><strong>personalization-animations.</strong> Animated on the Gantt toolbar: BeakerBot demos the animations toggle.</Step>
+        <Step><strong>personalization-animations.</strong> BeakerBot demos the animation picker inside the Settings page (the per-tile grid under the Animation section), picking &ldquo;celebration&rdquo; so you see a preview fire.</Step>
         <Step><strong>personalization-color.</strong> BeakerBot demos the primary accent color picker and invites you to pick a secondary color at your own pace.</Step>
         <Step><strong>settings-tour-folder.</strong> Universal: explains that the connected lab folder is set; switching folders means signing out and picking a new one from the entry screen.</Step>
         <Step><strong>settings-tour-calendar.</strong> Conditional on Q3 = yes: calendar feeds are managed from the Calendar tab, not Settings (yet).</Step>

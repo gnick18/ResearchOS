@@ -1408,6 +1408,8 @@ function AnimationSection({ settings, update }: SectionProps) {
   const types = Object.keys(ANIMATION_METADATA) as AnimationType[];
   return (
     <SectionShell
+      id="animation"
+      tourTarget="settings-animation-picker"
       title="Animation"
       description="Plays when you complete a task. Pick the one that suits your vibe."
     >
@@ -1419,6 +1421,7 @@ function AnimationSection({ settings, update }: SectionProps) {
             <button
               key={type}
               type="button"
+              data-animation-theme={type}
               onClick={() => void update({ animationType: type })}
               className={`flex items-center gap-2 p-3 rounded-lg border-2 text-left transition-colors ${
                 selected ? "border-purple-400 bg-purple-50" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"

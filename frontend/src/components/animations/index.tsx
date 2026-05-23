@@ -135,10 +135,10 @@ export function coerceAnimationType(
  * the entry's `color` applied via the `color` CSS property so the SVG's
  * `currentColor` strokes pick it up.
  *
- * The two className args let the three current consumers (settings page,
- * Toolbar, AnimationSettingsPopup) keep their existing emoji sizing
- * (`text-xl`, `text-base`, `text-2xl`) while still having a sensible
- * default SVG size that visually matches each slot.
+ * The two className args let consumers (today: the Settings page's
+ * animation picker section) keep their existing emoji sizing while
+ * still having a sensible default SVG size that visually matches each
+ * slot.
  */
 export function renderAnimationIcon(
   icon: AnimationIcon,
