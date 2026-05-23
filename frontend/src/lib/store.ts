@@ -62,6 +62,20 @@ interface AppState extends ConnectionState {
   selectedProjectIds: string[];
   toggleProject: (key: string) => void;
   setSelectedProjects: (keys: string[]) => void;
+  /**
+   * Project filter mode.
+   *  - `"all"`: Gantt shows every active project; the toolbar dropdown renders
+   *    every checkbox as checked. `selectedProjectIds` is ignored in this mode.
+   *  - `"explicit"`: Gantt shows only the projects whose composite keys appear
+   *    in `selectedProjectIds`. An empty `selectedProjectIds` in this mode
+   *    means "show nothing", which is the Clear button state.
+   *
+   * The mode flips to `"explicit"` automatically when the user toggles any
+   * single project, so the chip-style "click to scope" gesture still works.
+   * The Select all / Clear buttons in the dropdown flip the mode explicitly.
+   */
+  projectFilterMode: "all" | "explicit";
+  setProjectFilterMode: (mode: "all" | "explicit") => void;
 
   selectedTags: string[];
   toggleTag: (tag: string) => void;
@@ -170,13 +184,36 @@ export const useAppStore = create<AppState>()((set) => ({
   setConnectionError: (error) => set({ connectionError: error }),
 
   selectedProjectIds: [],
+  // Clicking a single project flips the filter into "explicit" mode so the
+  // user gets the "scope to this one" gesture in one click from the all-checked
+  // default. The toolbar passes the FULL set of currently-visible project keys
+  // through `toggleProject` via the wrapped onClick handler so the explicit
+  // array is correctly seeded with the intended new selection.
   toggleProject: (key) =>
-    set((s) => ({
-      selectedProjectIds: s.selectedProjectIds.includes(key)
-        ? s.selectedProjectIds.filter((k) => k !== key)
-        : [...s.selectedProjectIds, key],
-    })),
+    set((s) => {
+      if (s.projectFilterMode === "all") {
+        // Coming from the implicit-all state: clicking a row scopes to just
+        // that project, matching the chip-row pattern from before the
+        // dropdown landed.
+        return {
+          projectFilterMode: "explicit",
+          selectedProjectIds: [key],
+        };
+      }
+      return {
+        selectedProjectIds: s.selectedProjectIds.includes(key)
+          ? s.selectedProjectIds.filter((k) => k !== key)
+          : [...s.selectedProjectIds, key],
+      };
+    }),
   setSelectedProjects: (keys) => set({ selectedProjectIds: keys }),
+  projectFilterMode: "all",
+  setProjectFilterMode: (mode) =>
+    set((s) =>
+      mode === "all"
+        ? { projectFilterMode: "all", selectedProjectIds: [] }
+        : { projectFilterMode: "explicit", selectedProjectIds: s.selectedProjectIds },
+    ),
 
   selectedTags: [],
   toggleTag: (tag) =>

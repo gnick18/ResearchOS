@@ -66,6 +66,8 @@ export default function Toolbar({
   const selectedProjectIds = useAppStore((s) => s.selectedProjectIds);
   const toggleProject = useAppStore((s) => s.toggleProject);
   const setSelectedProjects = useAppStore((s) => s.setSelectedProjects);
+  const projectFilterMode = useAppStore((s) => s.projectFilterMode);
+  const setProjectFilterMode = useAppStore((s) => s.setProjectFilterMode);
   const selectedTags = useAppStore((s) => s.selectedTags);
   const toggleTag = useAppStore((s) => s.toggleTag);
   const showShared = useAppStore((s) => s.showShared);
@@ -143,9 +145,17 @@ export default function Toolbar({
   }, [projects, projectFilterQuery]);
 
   // Derived: the label rendered on the trigger button.
+  // "all" mode collapses to the literal "All" word regardless of how the
+  // explicit array stands; "explicit" mode reads the array. An empty
+  // explicit array means the user cleared the filter and nothing renders
+  // on the Gantt, so the label says "None" rather than misleadingly
+  // implying "all".
   const projectFilterLabel = useMemo(() => {
-    if (selectedProjectIds.length === 0) {
+    if (projectFilterMode === "all") {
       return { kind: "all" as const };
+    }
+    if (selectedProjectIds.length === 0) {
+      return { kind: "none" as const };
     }
     if (selectedProjectIds.length === 1) {
       const onlyKey = selectedProjectIds[0];
@@ -163,7 +173,7 @@ export default function Toolbar({
       return { kind: "many" as const, count: 1 };
     }
     return { kind: "many" as const, count: selectedProjectIds.length };
-  }, [selectedProjectIds, projects, projectColors]);
+  }, [projectFilterMode, selectedProjectIds, projects, projectColors]);
 
   // Calculate weeks to show based on view mode
   const weeksToShow = useMemo(() => {
@@ -227,7 +237,7 @@ export default function Toolbar({
           className={`
             px-2.5 py-1.5 text-xs rounded-lg border transition-colors flex items-center gap-1.5
             ${
-              selectedProjectIds.length > 0
+              projectFilterMode === "explicit"
                 ? "border-blue-300 bg-blue-50 text-blue-700"
                 : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
             }
@@ -236,6 +246,9 @@ export default function Toolbar({
           <span className="text-gray-400 font-medium">Projects:</span>
           {projectFilterLabel.kind === "all" && (
             <span className="font-medium">All</span>
+          )}
+          {projectFilterLabel.kind === "none" && (
+            <span className="font-medium">None</span>
           )}
           {projectFilterLabel.kind === "one" && (
             <span className="flex items-center gap-1.5">
@@ -281,15 +294,28 @@ export default function Toolbar({
               <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">
                 Filter by project
               </span>
-              {selectedProjectIds.length > 0 && (
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setSelectedProjects([])}
-                  className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                  onClick={() => setProjectFilterMode("all")}
+                  disabled={projectFilterMode === "all"}
+                  className="text-xs text-blue-600 hover:text-blue-800 hover:underline disabled:text-gray-300 disabled:cursor-default disabled:hover:no-underline"
+                >
+                  Select all
+                </button>
+                <span className="text-gray-200" aria-hidden="true">·</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProjectFilterMode("explicit");
+                    setSelectedProjects([]);
+                  }}
+                  disabled={projectFilterMode === "explicit" && selectedProjectIds.length === 0}
+                  className="text-xs text-blue-600 hover:text-blue-800 hover:underline disabled:text-gray-300 disabled:cursor-default disabled:hover:no-underline"
                 >
                   Clear
                 </button>
-              )}
+              </div>
             </div>
             <div className="px-2 pt-2">
               <input
@@ -309,7 +335,14 @@ export default function Toolbar({
               ) : (
                 filteredProjects.map((p) => {
                   const pKey = encodeFilterKey(p);
-                  const isSelected = selectedProjectIds.includes(pKey);
+                  // In "all" mode, every checkbox renders as checked so the
+                  // visual state matches reality (the Gantt is showing every
+                  // project). The store's toggleProject handler flips into
+                  // "explicit" mode on first click, scoping the array to
+                  // just that row.
+                  const isSelected =
+                    projectFilterMode === "all" ||
+                    selectedProjectIds.includes(pKey);
                   const projectColor =
                     projectColors?.[projectKey(p)] ?? "#3b82f6";
                   return (
@@ -355,9 +388,14 @@ export default function Toolbar({
                 })
               )}
             </div>
-            {selectedProjectIds.length === 0 && (
+            {projectFilterMode === "all" && (
               <p className="px-3 py-1.5 text-[11px] text-gray-400 border-t border-gray-100">
-                Showing all projects. Click rows to scope the Gantt.
+                Showing all projects. Click a row to scope the Gantt.
+              </p>
+            )}
+            {projectFilterMode === "explicit" && selectedProjectIds.length === 0 && (
+              <p className="px-3 py-1.5 text-[11px] text-gray-400 border-t border-gray-100">
+                Showing no projects. Pick rows or click Select all.
               </p>
             )}
           </div>

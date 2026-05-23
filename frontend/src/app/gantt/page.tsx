@@ -25,6 +25,7 @@ const projectKey = (p: Pick<Project, "id" | "owner">) => `${p.owner}:${p.id}`;
 export default function Home() {
   const queryClient = useQueryClient();
   const selectedProjectIds = useAppStore((s) => s.selectedProjectIds);
+  const projectFilterMode = useAppStore((s) => s.projectFilterMode);
   const selectedTags = useAppStore((s) => s.selectedTags);
   const showShared = useAppStore((s) => s.showShared);
   const editingTaskKey = useAppStore((s) => s.editingTaskKey);
@@ -135,12 +136,15 @@ export default function Home() {
   const filteredTasks = useMemo(() => {
     console.log("[Gantt.filteredTasks] Computing from activeTasks:", activeTasks.length);
     let tasks = activeTasks;
-    
-    if (selectedProjectIds.length > 0) {
+
+    if (projectFilterMode === "explicit") {
       // Composite-key match (alex:1 vs morgan:1 disambiguated by owner).
       // Shared-into-me tasks bypass the project filter on purpose: their
       // project lives in the other user's namespace and would never
       // satisfy a local owner:id key.
+      // When selectedProjectIds is empty in explicit mode, this collapses
+      // every non-shared task away (the Clear button state). The Shared
+      // bypass keeps shared-in tasks visible regardless.
       tasks = tasks.filter((t) => {
         if (t.is_shared_with_me) return true;
         return matchesAnyProjectFilter(t, selectedProjectIds);
@@ -157,7 +161,7 @@ export default function Home() {
     
     console.log("[Gantt.filteredTasks] Final count:", tasks.length, "Sample:", tasks[0] ? { id: tasks[0].id, name: tasks[0].name, start: tasks[0].start_date } : null);
     return tasks;
-  }, [activeTasks, selectedProjectIds, selectedTags]);
+  }, [activeTasks, selectedProjectIds, selectedTags, projectFilterMode]);
 
   const allTags = useMemo(() => {
     const tagSet = new Set<string>();
