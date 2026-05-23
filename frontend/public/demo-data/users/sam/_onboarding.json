@@ -1,0 +1,16 @@
+{
+  "version": 5,
+  "first_seen_at": "2025-09-01T00:00:00.000Z",
+  "active_seconds": 0,
+  "feature_picks": null,
+  "wizard_completed_at": "2025-09-15T12:00:00.000Z",
+  "wizard_skipped_at": null,
+  "wizard_force_show": false,
+  "wizard_resume_state": null,
+  "lab_tour_pending": false,
+  "lab_tour_dismissed_at": null,
+  "lab_mode_tour_choice": null,
+  "archived": true,
+  "archived_at": "2026-03-15T10:00:00.000Z",
+  "archived_by": "mira"
+}

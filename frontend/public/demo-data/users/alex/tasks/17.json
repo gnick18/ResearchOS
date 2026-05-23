@@ -22,5 +22,22 @@
   "owner": "alex",
   "shared_with": [],
   "external_project": null,
-  "comments": []
+  "comments": [
+    {
+      "id": "cmt-sam-alex-t17-1",
+      "author": "sam",
+      "text": "FakeYeast-001 vs FakeYeast-002 — pick 001. The mating-type stability is way better in our hands. I have a frozen stock at -80 box 3 row D.",
+      "created_at": "2026-02-09T14:20:00Z"
+    },
+    {
+      "id": "cmt-alex-reply-t17-1",
+      "author": "alex",
+      "text": "Thanks @sam — pulled the 001 aliquot this morning, growing the overnight now.",
+      "created_at": "2026-02-09T15:05:00Z",
+      "parent_id": "cmt-sam-alex-t17-1",
+      "mentions": [
+        "sam"
+      ]
+    }
+  ]
 }

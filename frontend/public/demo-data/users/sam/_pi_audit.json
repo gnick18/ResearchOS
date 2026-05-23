@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "audit-mira-sam-archive",
+      "session_id": "demo-sess-2026-03-15-sam-archive",
+      "actor": "mira",
+      "target_user": "sam",
+      "record_type": "user",
+      "record_id": "sam",
+      "field_path": "archived",
+      "old_value": false,
+      "new_value": true,
+      "timestamp": "2026-03-15T10:00:00.000Z"
+    }
+  ]
+}

@@ -49,6 +49,7 @@ import {
 } from "@/lib/lab/lab-head-auth";
 import { endEditSession, formatRemaining } from "@/lib/lab/edit-session";
 import { useEditSession } from "@/hooks/useEditSession";
+import LabRoster from "@/components/lab-head/LabRoster";
 import {
   clearCachedPassword,
   hasCachedPassword,
@@ -608,6 +609,18 @@ function LabHeadSection({ username }: { username: string }) {
           >
             Lock session now
           </button>
+        </div>
+
+        {/* Lab Head Phase 6 (lab head Phase 6 manager, 2026-05-23): Lab
+            Roster — archive / restore lab members. Mounted inside the
+            existing Lab Head section because archiving is admin work
+            and fits with the password + session controls; the Lab
+            Inbox is for ops (comments, announcements, metrics) and
+            shouldn't shoulder roster management. The roster has its
+            own session gate via RequestEditButton inside the
+            component. */}
+        <div className="pt-3 border-t border-gray-200">
+          <LabRoster />
         </div>
       </div>
 

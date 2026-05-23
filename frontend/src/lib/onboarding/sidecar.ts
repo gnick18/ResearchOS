@@ -59,9 +59,20 @@ function enqueueOnboardingWrite<T>(
  *    false` so existing users get nothing automatic (L1/L22). Tab
  *    visibility falls back to settings.json visibleTabs while
  *    feature_picks is null. See ONBOARDING_V3_PROPOSAL.md §10 + §11.
+ *  - v5 (2026-05-23): Lab Head Phase 6 — user archiving. Adds three
+ *    additive fields: `archived` (bool, default false), `archived_at`
+ *    (ISO string | null), `archived_by` (username string | null). All
+ *    fields default to non-archived for pre-v5 records, so no data
+ *    migration is needed. The Lab Roster surface (lab_head only) flips
+ *    these flags via `lib/lab/user-archive.ts` under a Phase 5 session
+ *    gate. Archived users are hidden from the login picker by default
+ *    (Show archived toggle reveals them) and from new mention / share
+ *    / assignee pickers; existing references stay intact (the comment
+ *    renderer's missing-user-lookup fallback handles departed authors).
+ *    See LAB_HEAD_PROPOSAL.md §6.
  */
 
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 /** Phase 1 setup-question outcomes. Populated by the v3 wizard's Phase
  *  1 (Welcome + Q1 solo/lab + Q1a/Q1b storage + Q2-Q6 feature picks).
@@ -183,6 +194,34 @@ export interface OnboardingSidecar {
    *  normalizer always coerces to `null` when absent, so readers
    *  can safely treat `undefined` as `null`. */
   lab_mode_tour_choice?: "now" | "later" | "dismiss" | null;
+
+  // ── Lab Head Phase 6 (lab head Phase 6 manager, 2026-05-23) ──────────
+  //
+  // User archiving. The PI flips these via the Lab Roster surface
+  // (lab_head only, gated by Phase 5's session edit mode). Archived
+  // users stay on disk with all their data intact; they're hidden from
+  // the login picker by default (a Show archived toggle reveals them)
+  // and from new mention / share / assignee pickers. Existing
+  // references (an old `@mira` mention) render normally; the comment
+  // renderer's missing-user-lookup fallback handles departed authors
+  // with gray attribution.
+  //
+  // The three fields are optional on the type so test fixtures and the
+  // demo-data writer that hand-build sidecars don't have to enumerate
+  // every new field on a v5 bump; the runtime normalizer coerces
+  // missing fields to the non-archived defaults (false / null / null).
+
+  /** Visibility flag. `true` = hidden from login picker default + all
+   *  pickers. `false` (or absent) = visible. Default for fresh users. */
+  archived?: boolean;
+  /** ISO 8601 timestamp of the most-recent transition to `archived: true`.
+   *  `null` (or absent) = never archived (the default for fresh users).
+   *  Cleared back to `null` on restore. */
+  archived_at?: string | null;
+  /** Username of the lab_head who triggered the most-recent transition
+   *  (archive OR restore). Preserved on restore for audit. `null` (or
+   *  absent) = never archived. */
+  archived_by?: string | null;
 }
 
 function sidecarPath(username: string): string {
@@ -202,6 +241,13 @@ function makeDefault(): OnboardingSidecar {
     lab_tour_pending: false,
     lab_tour_dismissed_at: null,
     lab_mode_tour_choice: null,
+    // Lab Head Phase 6 (lab head Phase 6 manager, 2026-05-23): fresh
+    // users start non-archived. Pre-v5 records also normalize to these
+    // defaults via `normalize()` below — the fields are purely additive
+    // so no data migration is needed.
+    archived: false,
+    archived_at: null,
+    archived_by: null,
   };
 }
 
@@ -241,9 +287,17 @@ function normalize(raw: Partial<OnboardingSidecar> | null): OnboardingSidecar {
   // feature_picks object as long as it has the required keys; any
   // partial / malformed object normalizes back to null so we never
   // half-trust a corrupt write.
+  //
+  // Lab Head Phase 6 (lab head Phase 6 manager, 2026-05-23): the v5
+  // bump is purely additive (archived / archived_at / archived_by).
+  // The existing-user invariant continues to key off `version < 4` so a
+  // v4 record bumped to v5 by the writer doesn't suddenly lose its
+  // feature_picks. Test: a v4 record with feature_picks set, normalized
+  // through this function, must still emit a v5 record with the SAME
+  // feature_picks object intact.
   const existingVersion =
     typeof r.version === "number" ? (r.version as number) : 0;
-  const isPreV4Record = existingVersion < SCHEMA_VERSION;
+  const isPreV4Record = existingVersion < 4;
   const feature_picks = isPreV4Record
     ? null
     : parseFeaturePicks(r.feature_picks);
@@ -267,6 +321,18 @@ function normalize(raw: Partial<OnboardingSidecar> | null): OnboardingSidecar {
       ? (labChoiceRaw as "now" | "later" | "dismiss")
       : null;
 
+  // Lab Head Phase 6 (lab head Phase 6 manager, 2026-05-23): archive
+  // fields. Missing or malformed values default to non-archived so a
+  // pre-v5 record (or a hand-edited corrupt blob) cannot accidentally
+  // hide a user. The `archived` flag is the only field readers
+  // actually filter on; `archived_at` / `archived_by` are read by the
+  // Lab Roster surface for the timestamp + audit-attribution display.
+  const archived = r.archived === true;
+  const archived_at =
+    typeof r.archived_at === "string" ? (r.archived_at as string) : null;
+  const archived_by =
+    typeof r.archived_by === "string" ? (r.archived_by as string) : null;
+
   return {
     version: SCHEMA_VERSION,
     first_seen_at,
@@ -279,6 +345,9 @@ function normalize(raw: Partial<OnboardingSidecar> | null): OnboardingSidecar {
     lab_tour_pending,
     lab_tour_dismissed_at,
     lab_mode_tour_choice,
+    archived,
+    archived_at,
+    archived_by,
   };
 }
 
