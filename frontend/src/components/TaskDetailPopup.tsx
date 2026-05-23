@@ -14,7 +14,8 @@ import PurchaseEditor from "./PurchaseEditor";
 import DynamicAnimation from "./DynamicAnimation";
 import MethodTabs from "./MethodTabs";
 import TaskPicker from "./TaskPicker";
-import SharePopup from "./SharePopup";
+import ShareDialogAdapter from "@/components/sharing/ShareDialogAdapter";
+import SharingChips from "@/components/sharing/SharingChips";
 import CommentsThread from "./CommentsThread";
 import Tooltip from "./Tooltip";
 import { useAppStore } from "@/lib/store";
@@ -984,6 +985,17 @@ export default function TaskDetailPopup({
           </div>
         )}
 
+        {/* R1b: sharing chips — read-only visibility hint row right
+            below the header so viewers can see at a glance who else is
+            on this task without opening the share dialog. */}
+        <div className="px-6 pt-2">
+          <SharingChips
+            sharedWith={task.shared_with || []}
+            ownerUsername={task.owner}
+            viewerUsername={currentUser ?? undefined}
+          />
+        </div>
+
         {/* Tabs */}
         <div
           className="flex border-b border-gray-100 px-6 bg-gray-50"
@@ -1097,13 +1109,13 @@ export default function TaskDetailPopup({
       </div>
 
       {/* Share Popup */}
-      <SharePopup
+      <ShareDialogAdapter
         isOpen={showSharePopup}
         onClose={() => setShowSharePopup(false)}
-        itemType="task"
-        itemId={task.id}
-        itemName={task.name}
-        currentOwner={task.owner}
+        recordType="task"
+        recordId={task.id}
+        recordName={task.name}
+        ownerUsername={task.owner}
         currentSharedWith={task.shared_with || []}
         onShared={() => queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] })}
       />

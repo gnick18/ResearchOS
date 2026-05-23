@@ -124,7 +124,11 @@ export function CompoundChildCreator({
   const [name, setName] = useState("");
   const [folder, setFolder] = useState("");
   const [tags, setTags] = useState("");
-  const [isPublic, setIsPublic] = useState(false);
+  // Lab Mode retirement R1b: checkbox UI removed; setter unused.
+  // State is still consumed by record-creation calls below for one
+  // release of backward compat.
+  const [isPublic, _setIsPublic] = useState(false);
+  void _setIsPublic;
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
@@ -647,18 +651,10 @@ export function CompoundChildCreator({
             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            id="compoundChildPublic"
-            checked={isPublic}
-            onChange={(e) => setIsPublic(e.target.checked)}
-            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-          />
-          <label htmlFor="compoundChildPublic" className="text-xs text-gray-700">
-            Make this child method public (visible to all lab members)
-          </label>
-        </div>
+        {/* Lab Mode retirement R1b: child-method "public" checkbox
+            removed. Use the unified ShareDialog on the compound method
+            after creation; child methods inherit the parent's sharing
+            (handled in the methods read paths). */}
 
         {phase.type === "markdown" && (
           <div>

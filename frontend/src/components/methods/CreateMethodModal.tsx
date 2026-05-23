@@ -93,7 +93,13 @@ export function CreateMethodModal({
   const [name, setName] = useState("");
   const [folder, setFolder] = useState(prefilledFolder || "");
   const [tags, setTags] = useState("");
-  const [isPublic, setIsPublic] = useState(initialIsPublic);
+  // Lab Mode retirement R1b: `setIsPublic` is unused after the
+  // "Make this method public" checkbox was retired. The state is
+  // still read into the API payload for one release of backward
+  // compat. The setter is prefixed `_` to satisfy no-unused-vars
+  // until the field is fully dropped.
+  const [isPublic, _setIsPublic] = useState(initialIsPublic);
+  void _setIsPublic;
   // Discriminated saving state: "save" = plain create, "extend" = create +
   // wrap-as-compound. Drives the per-button spinner labels and disables
   // both buttons (+ Cancel) while either flow is in flight.
@@ -762,19 +768,14 @@ export function CreateMethodModal({
               </div>
             </div>
 
-            {/* Public/Private Toggle */}
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="isPublic"
-                checked={isPublic}
-                onChange={(e) => setIsPublic(e.target.checked)}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-              />
-              <label htmlFor="isPublic" className="text-sm text-gray-700">
-                Make this method public (visible to all lab members)
-              </label>
-            </div>
+            {/* Lab Mode retirement R1b (R1b sharing completion manager,
+                2026-05-23): the "Make this method public" checkbox is
+                removed. Methods are now shared via the unified
+                ShareDialog (open from the method viewer's Share
+                button), same surface as tasks / projects. The
+                `is_public` field is still written for one release of
+                backward compat — defaulted to false here; the Share
+                dialog flips it via the "+ Share with whole lab" chip. */}
 
             {/* Markdown editor */}
             {uploadType === "markdown" && (

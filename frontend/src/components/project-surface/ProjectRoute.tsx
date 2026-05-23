@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { projectsApi as rawProjectsApi } from "@/lib/local-api";
 import type { ProjectUpdate } from "@/lib/local-api";
-import SharePopup from "@/components/SharePopup";
+import ShareDialogAdapter from "@/components/sharing/ShareDialogAdapter";
 import Tooltip from "@/components/Tooltip";
 import ResultsGallery from "@/components/project-surface/ResultsGallery";
 import MethodsInventory from "@/components/project-surface/MethodsInventory";
@@ -376,13 +376,13 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
       </div>
 
       {showSharePopup && (
-        <SharePopup
+        <ShareDialogAdapter
           isOpen={showSharePopup}
           onClose={() => setShowSharePopup(false)}
-          itemType="project"
-          itemId={project.id}
-          itemName={project.name}
-          currentOwner={project.owner}
+          recordType="project"
+          recordId={project.id}
+          recordName={project.name}
+          ownerUsername={project.owner}
           currentSharedWith={project.shared_with || []}
           onShared={() => queryClient.refetchQueries({ queryKey: ["projects"] })}
         />

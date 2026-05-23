@@ -4,6 +4,13 @@
   "description": "Weekly calibration check on the BioTek H1 plate reader (demo unit). I run a 6-well standard curve every Monday before any GFP screen.",
   "is_running_log": true,
   "is_shared": true,
+  "shared_with": [
+    {
+      "username": "*",
+      "level": "read",
+      "permission": "view"
+    }
+  ],
   "entries": [
     {
       "id": "rl-morgan-6-e1",

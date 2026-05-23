@@ -15,7 +15,7 @@ import type {
   MethodUpdate,
 } from "@/lib/types";
 import { getMethodTypeMeta } from "@/lib/methods/method-type-registry";
-import SharePopup from "@/components/SharePopup";
+import ShareDialogAdapter from "@/components/sharing/ShareDialogAdapter";
 import Tooltip from "@/components/Tooltip";
 import CodingWorkflowEditor, { highlightHintFor } from "@/components/CodingWorkflowEditor";
 import { GlobeIcon, LockIcon } from "@/lib/utils/icons";
@@ -216,15 +216,14 @@ export default function CodingWorkflowViewer({
       </div>
 
       {showSharePopup && (
-        <SharePopup
+        <ShareDialogAdapter
           isOpen={showSharePopup}
           onClose={() => setShowSharePopup(false)}
-          itemType="method"
-          itemId={currentMethod.id}
-          itemName={currentMethod.name}
-          currentOwner={currentMethod.owner || currentMethod.created_by || currentUser}
+          recordType="method"
+          recordId={currentMethod.id}
+          recordName={currentMethod.name}
+          ownerUsername={currentMethod.owner || currentMethod.created_by || currentUser}
           currentSharedWith={currentMethod.shared_with || []}
-          isPublic={currentMethod.is_public}
           onShared={() => {
             queryClient.refetchQueries({ queryKey: ["methods"] });
             scopedMethodsApi.get(currentMethod.id).then((updatedMethod) => {

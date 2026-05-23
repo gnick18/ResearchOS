@@ -654,6 +654,14 @@ export interface HighLevelGoal {
   smart_goals: SmartGoal[];
   is_complete: boolean;
   created_at: string;
+  // Lab Mode retirement R1b (R1b sharing completion manager, 2026-05-23):
+  // unified sharing surface. Optional during the migration window —
+  // pre-R1b goals have neither field and render as owner-only (which
+  // is the current behavior since `hide_goals_from_lab` was the only
+  // visibility control). Migration backfills `owner` from the goal's
+  // owning user folder on next save.
+  owner?: string;
+  shared_with?: SharedUser[];
 }
 
 export interface HighLevelGoalCreate {
@@ -1668,6 +1676,10 @@ export interface LabLink {
   preview_image_url: string | null;
   sort_order: number;
   created_at: string;
+  // Lab Mode retirement R1b (R1b sharing completion manager, 2026-05-23):
+  // unified sharing surface. Optional during the migration window.
+  owner?: string;
+  shared_with?: SharedUser[];
 }
 
 export interface LabLinkCreate {
@@ -1778,6 +1790,12 @@ export interface Note {
   created_at: string;
   updated_at: string;
   username: string;
+  // Lab Mode retirement R1b (R1b sharing completion manager, 2026-05-23):
+  // unified sharing surface. Notes had `is_shared: boolean` pre-R1b
+  // (whole-lab toggle). Migration converts `is_shared: true` → a single
+  // "*" entry in `shared_with`. Both fields are kept readable during
+  // the release window so legacy code keeps working.
+  shared_with?: SharedUser[];
 }
 
 export interface NoteCreate {

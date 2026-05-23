@@ -20,6 +20,7 @@ import EditSessionBanner from "./EditSessionBanner";
 import AuditTrailNotice from "./AuditTrailNotice";
 import FlagForReviewButton from "./lab-head/FlagForReviewButton";
 import FlagBanner from "./lab-head/FlagBanner";
+import SharingChips from "@/components/sharing/SharingChips";
 
 interface NoteDetailPopupProps {
   note: Note;
@@ -766,6 +767,18 @@ export default function NoteDetailPopup({
                 recordId={note.id}
                 owner={note.username}
                 activeUser={currentUser}
+              />
+            </div>
+          )}
+
+          {/* R1b: sharing chips — read-only visibility hint row
+              showing who currently has access. */}
+          {note.username && (
+            <div className="mt-3">
+              <SharingChips
+                sharedWith={note.shared_with || []}
+                ownerUsername={note.username}
+                viewerUsername={currentUser ?? undefined}
               />
             </div>
           )}
