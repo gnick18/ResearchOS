@@ -66,6 +66,12 @@ export default function ICloudPage() {
         </Step>
       </Steps>
 
+      <Callout variant="tip" title="Folder picker may be slow">
+        The folder picker can take up to a minute to open for iCloud Drive
+        folders. This is normal; iCloud needs time to enumerate the folder
+        tree. Wait for it rather than clicking again.
+      </Callout>
+
       <Callout variant="tip" title="Or keep all of iCloud Drive local">
         If you&apos;d rather not have macOS offloading anything in iCloud,
         open <strong>System Settings &rarr; Apple ID &rarr; iCloud</strong>{" "}

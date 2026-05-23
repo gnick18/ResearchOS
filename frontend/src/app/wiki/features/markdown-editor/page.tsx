@@ -36,8 +36,10 @@ export default function MarkdownEditorPage() {
           the left sidebar, search results, or the calendar.
         </li>
         <li>
-          The right-side write-up panel on the{" "}
-          <Link href="/wiki/features/results">Results</Link> page.
+          The <strong>Results tab</strong> inside the Workbench project view
+          (the old standalone Results page was retired; <code>/results</code>{" "}
+          now redirects to{" "}
+          <Link href="/wiki/features/experiments">Workbench</Link>).
         </li>
         <li>
           The body of every method in the{" "}
