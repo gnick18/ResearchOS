@@ -117,6 +117,15 @@ const TYPE_FALLBACK_TITLE: Record<FeedbackType, string> = {
   feedback: "User feedback",
 };
 
+// Feedback and feature both route to feature.yml — `blank_issues_enabled: false`
+// in config.yml means there's no untemplated fallback, and feature is the closer fit
+// for general feedback than the bug form.
+const TEMPLATE_FILE: Record<FeedbackType, string> = {
+  bug: "bug.yml",
+  feature: "feature.yml",
+  feedback: "feature.yml",
+};
+
 export function generateGitHubIssueUrl(
   payload: FeedbackPayload
 ): string {
@@ -133,33 +142,36 @@ export function generateGitHubIssueUrl(
   }
   const title = `${labelTag} ${titleBody}`;
 
-  let body = "";
+  // Issue forms ignore `body=`; each form field is prefilled via its `id`.
+  const fields: Record<string, string> = {};
 
-  if (description) {
-    const heading =
-      type === "bug"
-        ? "What happened:"
-        : type === "feature"
-        ? "Feature description:"
-        : "Feedback:";
-    body += `**${heading}**\n${description}\n\n`;
-  }
+  if (type === "bug") {
+    if (description) fields["what-happened"] = description;
 
-  if (type === "bug" && errorInfo) {
-    body += `**Error Message:**\n\`\`\`\n${errorInfo.message}\n\`\`\`\n\n`;
+    if (errorInfo) {
+      const envLines = [
+        `Browser: ${getBrowserInfo()}`,
+        `URL when error happened: ${errorInfo.url}`,
+        `Time: ${errorInfo.timestamp}`,
+        `User agent: ${errorInfo.userAgent}`,
+      ];
+      fields.environment = envLines.join("\n");
 
-    if (errorInfo.stack) {
-      body += `**Stack Trace:**\n\`\`\`\n${errorInfo.stack}\n\`\`\`\n\n`;
+      const errorLogParts = [errorInfo.message];
+      if (errorInfo.stack) errorLogParts.push("", errorInfo.stack);
+      fields["error-log"] = errorLogParts.join("\n");
+    } else if (typeof navigator !== "undefined") {
+      fields.environment = `Browser: ${getBrowserInfo()}`;
     }
-
-    body += `**URL:** ${errorInfo.url}\n\n`;
-    body += `**User Agent:** ${errorInfo.userAgent}\n\n`;
-    body += `**Time:** ${errorInfo.timestamp}\n`;
+  } else {
+    // feature + feedback both map to feature.yml; description goes in the main field.
+    if (description) fields.feature = description;
   }
 
   const params = new URLSearchParams({
+    template: TEMPLATE_FILE[type],
     title,
-    body: body.trim(),
+    ...fields,
   });
 
   return `https://github.com/${GITHUB_REPO}/issues/new?${params.toString()}`;
