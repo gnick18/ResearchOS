@@ -2324,27 +2324,38 @@ function TourBeakerBotOverlay({
           ) : (
             <span />
           )}
-          <div className="flex items-center gap-1.5 whitespace-nowrap">
-            <button
-              type="button"
-              onClick={onSkipStep}
-              className="text-xs text-gray-500 hover:text-gray-700 underline underline-offset-2"
-              aria-label="Skip this step"
-            >
-              Skip this step
-            </button>
-            <span aria-hidden className="text-xs text-gray-300">
-              {"·"}
-            </span>
-            <button
-              type="button"
-              onClick={onExitTour}
-              className="text-xs text-gray-400 hover:text-gray-600 underline underline-offset-2"
-              aria-label="Skip walkthrough"
-            >
-              Skip walkthrough
-            </button>
-          </div>
+          {step?.id === "tour-goodbye" ? (
+            // Terminal "goodbye" step (Grant 2026-05-23 inline edit):
+            // suppress Skip this step + Skip walkthrough entirely. Both
+            // affordances are meaningless on the wrap-up screen (there
+            // is no "next step" to skip to, and the walkthrough is
+            // already over the moment Let's go is clicked). Empty
+            // placeholder keeps the flex layout's right slot reserved
+            // so the manual-advance button stays centered.
+            <div aria-hidden className="w-[1px]" />
+          ) : (
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <button
+                type="button"
+                onClick={onSkipStep}
+                className="text-xs text-gray-500 hover:text-gray-700 underline underline-offset-2"
+                aria-label="Skip this step"
+              >
+                Skip this step
+              </button>
+              <span aria-hidden className="text-xs text-gray-300">
+                {"·"}
+              </span>
+              <button
+                type="button"
+                onClick={onExitTour}
+                className="text-xs text-gray-400 hover:text-gray-600 underline underline-offset-2"
+                aria-label="Skip walkthrough"
+              >
+                Skip walkthrough
+              </button>
+            </div>
+          )}
         </div>
       </div>
       {/* BeakerBot mascot. Size bumped from 80px to 120px per Grant's
