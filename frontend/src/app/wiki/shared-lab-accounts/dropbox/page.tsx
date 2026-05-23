@@ -53,7 +53,7 @@ export default function DropboxPage() {
           date&quot; before opening ResearchOS.
         </Step>
         <Step>
-          Open ResearchOS, click <strong>Connect Folder</strong>, and pick that
+          Open ResearchOS, click <strong>Link Folder</strong>, and pick that
           shared folder.
         </Step>
       </Steps>

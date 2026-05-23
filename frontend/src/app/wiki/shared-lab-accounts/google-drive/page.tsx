@@ -5,7 +5,7 @@ import { Steps, Step } from "@/components/wiki/Steps";
 export default function GoogleDrivePage() {
   return (
     <WikiPage
-      intro="Install Drive for desktop and choose Mirror mode. Mirror means every file is stored locally on your disk."
+      intro="Install Drive for desktop and mark the lab folder Available offline. That keeps only the lab folder on disk without pulling your whole Drive local."
     >
       <h2>Install Drive for desktop</h2>
       <p>
@@ -21,52 +21,6 @@ export default function GoogleDrivePage() {
         is not enough. ResearchOS needs the desktop app because that&apos;s what
         creates the local filesystem folder you point ResearchOS at.
       </p>
-
-      <h2>Make the lab folder always available offline</h2>
-      <p>
-        Drive for desktop has two ways of keeping a folder on disk:{" "}
-        <strong>Stream files</strong> (download on demand) and{" "}
-        <strong>Mirror files</strong> (always local). ResearchOS reads
-        directly from disk, so anything still in Stream mode breaks. Most
-        labs don&apos;t want the whole Drive switched to Mirror (your
-        unrelated personal files, downloads, photos all get pulled local).
-        Instead, mark just the lab folder as offline.
-      </p>
-      <Steps>
-        <Step>
-          Open the lab folder in Finder (macOS) or Explorer (Windows). It
-          shows up wherever Drive mounts (see &quot;Where the folder lives
-          on disk&quot; below).
-        </Step>
-        <Step>
-          Right-click the folder. The Drive menu adds an{" "}
-          <strong>Offline access</strong> submenu.
-        </Step>
-        <Step>
-          Click <strong>Available offline</strong>. The folder gets a small
-          green check icon, and Drive starts pulling every file inside it
-          down to disk.
-        </Step>
-        <Step>
-          Wait for the green check on every file inside. Cloud icons mean
-          the file isn&apos;t local yet. ResearchOS won&apos;t be able to
-          read those until they download.
-        </Step>
-      </Steps>
-      <p>
-        Each member has to do this on every laptop they use ResearchOS
-        from. Drive doesn&apos;t carry the &quot;available offline&quot;
-        flag across machines.
-      </p>
-
-      <Callout variant="tip" title="Or switch the whole Drive to Mirror">
-        If you want all of Drive locally (not just the lab folder), open
-        Drive for desktop&apos;s <strong>Preferences → My Drive → Mirror
-        files</strong> and confirm. Drive will download everything you have
-        in My Drive over the next few minutes or hours depending on size.
-        Pick this if you don&apos;t mind the extra disk use or you have
-        other folders besides the lab folder that need to stay local.
-      </Callout>
 
       <h2>Share the lab folder</h2>
       <Steps>
@@ -88,11 +42,55 @@ export default function GoogleDrivePage() {
           On each laptop, confirm in Finder / Explorer that the shared folder
           is fully downloaded (i.e., no cloud icon next to file names).
         </Step>
+      </Steps>
+
+      <h2>Mark the lab folder Available offline (every member, every laptop)</h2>
+      <p>
+        ResearchOS reads directly from disk, so anything still in Stream
+        mode breaks. Most labs don&apos;t want the whole Drive switched to
+        Mirror (your unrelated personal files, downloads, photos all get
+        pulled local). Instead, mark just the lab folder as available
+        offline.
+      </p>
+      <Steps>
         <Step>
-          Open ResearchOS, click <strong>Connect Folder</strong>, and pick that
+          Open the lab folder in Finder (macOS) or Explorer (Windows). It
+          shows up wherever Drive mounts (see &quot;Where the folder lives
+          on disk&quot; below).
+        </Step>
+        <Step>
+          Right-click the folder. The Drive menu adds an{" "}
+          <strong>Offline access</strong> submenu.
+        </Step>
+        <Step>
+          Click <strong>Available offline</strong>. The folder gets a small
+          green check icon, and Drive starts pulling every file inside it
+          down to disk.
+        </Step>
+        <Step>
+          Wait for the green check on every file inside. Cloud icons mean
+          the file isn&apos;t local yet. ResearchOS won&apos;t be able to
+          read those until they download.
+        </Step>
+        <Step>
+          Open ResearchOS, click <strong>Link Folder</strong>, and pick that
           shared folder.
         </Step>
       </Steps>
+      <p>
+        Drive doesn&apos;t carry the &quot;available offline&quot; flag
+        across machines, so every member has to do this on every laptop they
+        use ResearchOS from.
+      </p>
+
+      <Callout variant="tip" title="Or switch the whole Drive to Mirror">
+        If you want all of Drive locally (not just the lab folder), open
+        Drive for desktop&apos;s <strong>Preferences → My Drive → Mirror
+        files</strong> and confirm. Drive will download everything you have
+        in My Drive over the next few minutes or hours depending on size.
+        Pick this if you don&apos;t mind the extra disk use or you have
+        other folders besides the lab folder that need to stay local.
+      </Callout>
 
       <h2>Where the folder lives on disk</h2>
       <ul>

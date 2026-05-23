@@ -64,11 +64,11 @@ export default function SharedLabAccountsPage() {
           the folder <strong>always available offline</strong>.
         </Step>
         <Step>
-          Each member opens ResearchOS, clicks <strong>Connect Folder</strong>,
+          Each member opens ResearchOS, clicks <strong>Link Folder</strong>,
           and picks that shared folder.
         </Step>
         <Step>
-          On the user-picker, each member clicks <strong>New User</strong> and
+          On the user-picker, each member clicks <strong>Create New User</strong> and
           types their own username.
         </Step>
       </Steps>

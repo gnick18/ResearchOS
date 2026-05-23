@@ -183,6 +183,13 @@ export default function CalendarFeedsIntegrationPage() {
         cache for another 15 minutes. Back-to-back page loads don&apos;t
         hammer the source calendar&apos;s servers as a result.
       </p>
+      <Callout variant="info" title="Stale-while-revalidate">
+        The edge cache also serves the previous response while fetching a
+        fresh copy in the background (stale-while-revalidate, up to 1 hour).
+        In the worst case an event you just added could take up to 75 minutes
+        to appear (15 min client window + 60 min stale window). Hard-refreshing
+        the browser tab bypasses the client-side window but not the edge cache.
+      </Callout>
       <p>
         If you just added an event in the source calendar and want it on
         the ResearchOS grid right now, hard-refresh the browser tab or
@@ -199,10 +206,12 @@ export default function CalendarFeedsIntegrationPage() {
       </p>
       <ul className="list-disc pl-6 space-y-1">
         <li>
-          Anything that isn&apos;t <code>http://</code> or <code>https://</code>{" "}
-          (so no <code>file://</code>, no <code>ftp://</code>). The{" "}
-          <code>webcal://</code> prefix is rewritten to{" "}
-          <code>https://</code> first, so iCloud URLs still work.
+          Anything that isn&apos;t <code>https://</code> (so no{" "}
+          <code>http://</code>, no <code>file://</code>, no{" "}
+          <code>ftp://</code>). Plain <code>http://</code> is rejected
+          outright for security. The <code>webcal://</code> prefix is
+          rewritten to <code>https://</code> first, so iCloud URLs still
+          work.
         </li>
         <li>
           <code>localhost</code> and the loopback range{" "}

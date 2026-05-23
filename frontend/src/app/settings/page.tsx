@@ -1523,8 +1523,8 @@ function DataInventorySection() {
           </code>{" "}
           only if you click{" "}
           <strong>Pull latest from research-os-xi.vercel.app</strong> in the AI
-          Helper section above — a user-initiated, on-demand fetch of the newest
-          AI Helper prompt when the bundled copy is stale. Toggle
+          Helper section above (a user-initiated, on-demand fetch of the newest
+          AI Helper prompt when the bundled copy is stale). Toggle
           &quot;Offline mode&quot; below to disable destinations (b), (c), and
           (d) durably. Direct{" "}
           <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">

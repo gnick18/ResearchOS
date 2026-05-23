@@ -60,7 +60,7 @@ export default function OneDrivePage() {
           to date&quot; in the menu-bar / tray icon).
         </Step>
         <Step>
-          Open ResearchOS, click <strong>Connect Folder</strong>, and pick that
+          Open ResearchOS, click <strong>Link Folder</strong>, and pick that
           shared folder.
         </Step>
       </Steps>
