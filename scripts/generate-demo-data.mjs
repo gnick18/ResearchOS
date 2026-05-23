@@ -199,11 +199,31 @@ const METHOD_HEATSHOCK_MD =
 // regardless of when the demo is opened.
 //
 // SCHEMA_VERSION must stay in sync with lib/onboarding/sidecar.ts.
+//
+// demo fixture manager 2026-05-23: feature_picks is no longer null. The
+// previous shape (null) predates Lab Head Phase 1 / 3 and meant that
+// member-role users (alex, morgan) failed the lab-workspace gate
+// `featurePicks?.account_type === "lab"`, hiding Lab Overview from the
+// top-nav and the Settings > Lab Mode tab. The demo lab is a lab
+// workspace by design, so every demo user is configured as a completed
+// Phase 1 lab pick with the default tour answers (yes / full across
+// the board, local storage). mira (lab_head) and alex/morgan (members)
+// all clear the gate via the shared shape; sam gets the same picks for
+// consistency even though he's archived and hidden from pickers anyway.
 const DEMO_ONBOARDING_SIDECAR = {
-  version: 4,
+  version: 5,
   first_seen_at: "2026-01-01T00:00:00.000Z",
   active_seconds: 0,
-  feature_picks: null,
+  feature_picks: {
+    account_type: "lab",
+    lab_storage: "local",
+    purchases: "yes",
+    calendar: "yes",
+    goals: "yes",
+    telegram: "yes",
+    ai_helper: "full",
+    links: "yes",
+  },
   wizard_completed_at: "2026-01-15T12:00:00.000Z",
   wizard_skipped_at: null,
   wizard_force_show: false,
@@ -211,6 +231,9 @@ const DEMO_ONBOARDING_SIDECAR = {
   lab_tour_pending: false,
   lab_tour_dismissed_at: null,
   lab_mode_tour_choice: null,
+  archived: false,
+  archived_at: null,
+  archived_by: null,
 };
 
 // ─── Build entries (single source of truth) ───────────────────────────────────
@@ -2559,7 +2582,22 @@ function buildEntries() {
       version: 5,
       first_seen_at: "2025-09-01T00:00:00.000Z",
       active_seconds: 0,
-      feature_picks: null,
+      // demo fixture manager 2026-05-23: sam was a member in the demo
+      // lab before departing, so his picks mirror the shared
+      // DEMO_ONBOARDING_SIDECAR shape. Doesn't change picker
+      // visibility (archived: true keeps him hidden by default), but
+      // keeps the Phase 1 / 3 lab-workspace gate consistent if he's
+      // ever surfaced via Show archived.
+      feature_picks: {
+        account_type: "lab",
+        lab_storage: "local",
+        purchases: "yes",
+        calendar: "yes",
+        goals: "yes",
+        telegram: "yes",
+        ai_helper: "full",
+        links: "yes",
+      },
       wizard_completed_at: "2025-09-15T12:00:00.000Z",
       wizard_skipped_at: null,
       wizard_force_show: false,
