@@ -403,8 +403,8 @@ const SCENES: SceneEntry[] = [
     label: "BeakerBotCoffeeRefillScene",
     Component: BeakerBotCoffeeRefillScene as unknown as SceneComponent,
     description:
-      "BeakerBot walks to a mug, pours pastel-brown coffee from his beaker, blows on it, sips, eyes go heart-shaped with hearts drifting up, walks off carrying the mug.",
-    timingNote: "~5000ms total",
+      "BeakerBot carries in a bag of beans, dumps them into a classic drip coffee machine, whistles ♪ ♫ with a body sway while the pot slowly fills over 8s, then picks up the full pot and carries it off-screen. The long brewing wait IS the gag.",
+    timingNote: "~13000ms total",
   },
   {
     kind: "scene",
