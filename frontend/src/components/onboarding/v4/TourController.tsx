@@ -13,7 +13,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import BeakerBot from "@/components/BeakerBot";
 import BeakerBotCursor, {
   type BeakerBotCursorRef,
@@ -549,6 +549,14 @@ export function TourControllerProvider({
   // overlay owns the sidecar finalize patch end-to-end.
 }: TourControllerProviderProps) {
   const router = useRouter();
+  // R2 chip B Fix 1/3: subscribe to pathname so the expectedRoute
+  // auto-correct effect re-fires when the user navigates away from
+  // the expected route mid-step (e.g. clicks a demo project card
+  // during `home-create-project`). Without pathname in the dep array,
+  // the effect only re-evaluates on step change or pause toggles, so
+  // a mid-step nav-escape left the tour parked pointing at UI that
+  // wasn't on screen.
+  const pathname = usePathname();
   const [state, dispatch] = useReducer(reducer, {
     ...initialState,
     featurePicks: initialFeaturePicks,
@@ -1032,7 +1040,12 @@ export function TourControllerProvider({
     // initial bootstrap.
     const filteredSearch = stripPreviewQueryParams(window.location.search);
     router.push(`${expected}${filteredSearch}`);
-  }, [state.currentStep, state.paused, router]);
+    // R2 chip B Fix 1/3: pathname is in the dep array so a mid-step
+    // nav-escape (user clicks a project card while on a home-rooted
+    // step) re-fires the auto-correct. Without it, the effect only
+    // re-runs on step transitions and the tour stays parked on the
+    // wrong route with no recovery.
+  }, [state.currentStep, state.paused, router, pathname]);
 
   // Wave 2 Fix 1/9: popstate guard.
   // When the user hits the browser Back button during an active tour

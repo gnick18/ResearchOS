@@ -48,7 +48,17 @@ vi.mock("@/components/BeakerBotCursor", async () => {
 // expectedRoute) is observable in tests. `pushMock` is reset before
 // each test via the `beforeEach` below so per-spec assertions don't
 // leak across tests.
+//
+// R2 chip B Fix 1/3: also mock `usePathname` so the expectedRoute
+// auto-correct effect's pathname dep can be steered in tests
+// (a mid-step nav-escape changes pathname without changing the step).
+// `pathnameMock` returns whatever value `setMockPathname` last set;
+// defaulting to "/" matches the jsdom window.location.pathname seed.
 const pushMock = vi.fn();
+let mockPathname = "/";
+function setMockPathname(p: string): void {
+  mockPathname = p;
+}
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: pushMock,
@@ -58,6 +68,7 @@ vi.mock("next/navigation", () => ({
     forward: vi.fn(),
     refresh: vi.fn(),
   }),
+  usePathname: () => mockPathname,
 }));
 
 import {
@@ -99,12 +110,17 @@ beforeEach(() => {
   // navigation. For tests that need a different starting route, push
   // a history entry inline.
   window.history.pushState({}, "", "/");
+  // R2 chip B Fix 1/3: keep the mocked usePathname in sync with the
+  // default jsdom pathname so the expectedRoute effect's pathname dep
+  // matches what window.location.pathname reports.
+  setMockPathname("/");
 });
 
 afterEach(() => {
   // Reset the pathname so a test that pushed a new route doesn't leak
   // across tests.
   window.history.pushState({}, "", "/");
+  setMockPathname("/");
 });
 
 describe("useTourController — hook contract", () => {
@@ -941,6 +957,30 @@ describe("TourController — expectedRoute auto-navigation", () => {
     expect(pushMock).not.toHaveBeenCalled();
     act(() => result.current.start("methods-category"));
     expect(pushMock).toHaveBeenCalledWith("/methods");
+  });
+
+  // R2 chip B Fix 1/3: nav-guard gap. When the user navigates away
+  // from the expected route mid-step (e.g. clicks a demo project
+  // card during `home-create-project`), the route changes but
+  // `currentStep` and `paused` are unchanged. Before this fix the
+  // effect didn't re-fire; with `pathname` in the dep array it auto-
+  // corrects back to expectedRoute on the next render cycle.
+  it("auto-corrects when the user navigates away from expectedRoute mid-step", () => {
+    const { result, rerender } = renderHook(() => useTourController(), {
+      wrapper: wrapper(),
+    });
+    act(() => result.current.start("home-create-project"));
+    expect(pushMock).not.toHaveBeenCalled();
+    // Simulate a mid-step nav-escape: pathname changes (the user
+    // clicked a project card), window.location updates, but the step
+    // is still home-create-project. The pathname dep should trigger
+    // the auto-correct effect.
+    act(() => {
+      window.history.pushState({}, "", "/workbench/projects/42");
+      setMockPathname("/workbench/projects/42");
+    });
+    rerender();
+    expect(pushMock).toHaveBeenCalledWith("/");
   });
 });
 
