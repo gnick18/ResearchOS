@@ -7,7 +7,7 @@ export default function SettingsFeaturePage() {
   return (
     <WikiPage
       title="Settings"
-      intro="Fifteen panels stacked top to bottom: Profile, Tabs, LabArchives, AI Helper, Sidebar, View defaults, Animation, Notifications &amp; behavior, Streaks, Data inventory, Data maintenance, Onboarding, Security, and Offline mode. Reach the page through the gear icon in the top-right of the header."
+      intro="Fourteen panels stacked top to bottom: Profile, Tabs, LabArchives, AI Helper, Sidebar, View defaults, Animation, Notifications &amp; behavior, Streaks, Data inventory, Data maintenance, Onboarding, Security, and Offline mode. Reach the page through the gear icon in the top-right of the header."
     >
       <Screenshot
         src="/wiki/screenshots/settings.png"

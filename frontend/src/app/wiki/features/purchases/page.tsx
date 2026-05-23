@@ -43,11 +43,11 @@ export default function PurchasesFeaturePage() {
         of two.
       </p>
 
-      <Screenshot
-        src="/wiki/screenshots/purchases-new-purchase-modal.png"
-        alt="The New Purchase modal open over the Purchases page, showing fields for Item Name, Vendor, Category select, Price per unit, Quantity, and Funding string."
-        caption="The New Purchase modal. Item Name is focused on open; selecting a prior item auto-fills Vendor and Price. Category defaults to the first owned project, or Miscellaneous if none exist."
-      />
+      {/* TODO recapture: purchases-new-purchase-modal.png pending. Capture
+       *  with ?wikiCapture=1 against fixture data, then restore the
+       *  <Screenshot> block here. Removed for now so the page does not
+       *  render a broken-image placeholder.
+       */}
 
       <p>
         The modal has six fields:
