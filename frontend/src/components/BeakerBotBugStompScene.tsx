@@ -141,7 +141,7 @@ export default function BeakerBotBugStompScene({
 
   // Portal-mount detection (SSR-safe): render nothing on the server,
   // flip to mounted on client mount so createPortal(document.body) is
-  // safe to call. Same pattern as OnboardingTipCard.
+  // safe to call.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot mount detection: render nothing on the server, then flip to mounted on client mount so createPortal(document.body) is safe to call.
     setMounted(true);

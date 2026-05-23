@@ -53,7 +53,6 @@ const hoisted = vi.hoisted(() => {
       altText: "",
       markdownSnippet: "",
     })),
-    broadcastMock: vi.fn((_signal: unknown) => {}),
     activeTaskRef: { current: null as
       | { id: number; owner: string; name: string }
       | null },
@@ -110,10 +109,6 @@ vi.mock("@/lib/store", () => ({
   useAppStore: {
     getState: () => ({ activeTask: hoisted.activeTaskRef.current }),
   },
-}));
-
-vi.mock("./tutorial-signal", () => ({
-  broadcastTutorialSignal: (signal: unknown) => hoisted.broadcastMock(signal),
 }));
 
 // Spy on batch-routing so the tutorial-mode pass-through test can confirm
@@ -182,7 +177,6 @@ beforeEach(() => {
   hoisted.downloadFileMock.mockClear();
   hoisted.getFileMock.mockClear();
   hoisted.attachImageToTaskMock.mockClear();
-  hoisted.broadcastMock.mockClear();
   batchSpy.routeBatchablePhotoMock.mockClear();
   batchSpy.routeSinglePhotoThroughBatchMock.mockClear();
   batchSpy.consumeBatchTextReplyMock.mockClear();
@@ -196,8 +190,6 @@ describe("image-router text commands", () => {
     await routeTelegramMessage(textMessage("/start"), baseCtx);
     expect(hoisted.sendMessageMock).toHaveBeenCalledTimes(1);
     expect(hoisted.sendMessageMock.mock.calls[0][2]).toBe(START_REPLY);
-    // /start does not broadcast.
-    expect(hoisted.broadcastMock).not.toHaveBeenCalled();
   });
 
   it("/help replies with the dual-mode help copy", async () => {
@@ -206,21 +198,17 @@ describe("image-router text commands", () => {
     expect(hoisted.sendMessageMock.mock.calls[0][2]).toBe(HELP_REPLY);
   });
 
-  it("/tutorial broadcasts trigger-tutorial-modal AND replies with tutorial-aware copy", async () => {
+  it("/tutorial replies with tutorial-aware copy", async () => {
+    // V3 cross-tab broadcast was removed with the V3 rip (Phase B
+    // 2026-05-22); reply text is the surviving observable.
     await routeTelegramMessage(textMessage("/tutorial"), baseCtx);
-    // Reply text matches the canonical TUTORIAL_REPLY.
     expect(hoisted.sendMessageMock).toHaveBeenCalledTimes(1);
     expect(hoisted.sendMessageMock.mock.calls[0][2]).toBe(TUTORIAL_REPLY);
-    // Cross-tab signal fires.
-    expect(hoisted.broadcastMock).toHaveBeenCalledWith({
-      type: "trigger-tutorial-modal",
-    });
   });
 
   it("unrecognized slash command stays quiet", async () => {
     await routeTelegramMessage(textMessage("/wat"), baseCtx);
     expect(hoisted.sendMessageMock).not.toHaveBeenCalled();
-    expect(hoisted.broadcastMock).not.toHaveBeenCalled();
   });
 });
 
@@ -236,16 +224,6 @@ describe("image-router photo handling, tutorial-aware reply", () => {
     // begins with "Got it!" and mentions the user's real folder.
     expect(replyText).toMatch(/^Got it!/);
     expect(replyText).toContain("real folder");
-  });
-
-  it("tutorial photo-arrived broadcast still fires (silent-attach path)", async () => {
-    await startTelegramTutorialStep(USER, "first-photo");
-    await routeTelegramMessage(photoMessage(), baseCtx);
-    expect(hoisted.broadcastMock).toHaveBeenCalledWith({
-      type: "photo-arrived",
-      taskId: null,
-      fromInbox: true,
-    });
   });
 
   it("stamps tutorial_test:true in the sidecar when the photo arrives in tutorial mode", async () => {
@@ -270,20 +248,6 @@ describe("image-router photo handling, tutorial-aware reply", () => {
     expect(hoisted.memFs.get("users/alex/inbox/Images/photo-final.jpg.json")).toBeUndefined();
   });
 
-  it("tutorial photo-arrived carries task id when active task is open", async () => {
-    await startTelegramTutorialStep(USER, "first-photo");
-    hoisted.activeTaskRef.current = {
-      id: 7,
-      owner: "alex",
-      name: "Yeast transformation",
-    };
-    await routeTelegramMessage(photoMessage(), baseCtx);
-    expect(hoisted.broadcastMock).toHaveBeenCalledWith({
-      type: "photo-arrived",
-      taskId: 7,
-      fromInbox: false,
-    });
-  });
 });
 
 describe("image-router photo handling, non-tutorial → batch state machine", () => {
@@ -349,17 +313,15 @@ describe("image-router photo handling, media_group_id branch", () => {
   });
 
   it("falls through to the per-photo flow when tutorial is active, even with media_group_id", async () => {
-    // Tutorial active → batch flow short-circuits so the demo
-    // sequencer's first-photo broadcast still fires per photo.
+    // Tutorial active → batch flow short-circuits so the per-photo
+    // tutorial-aware attach + reply path runs. V3 cross-tab broadcast
+    // was removed with the V3 rip (Phase B 2026-05-22).
     await startTelegramTutorialStep(USER, "first-photo");
     await routeTelegramMessage(albumPhotoMessage(), baseCtx);
     // Batch routing skipped.
     expect(batchSpy.routeBatchablePhotoMock).not.toHaveBeenCalled();
-    // Single-photo path ran: attach + tutorial-aware reply + broadcast.
+    // Single-photo path ran: attach + tutorial-aware reply.
     expect(hoisted.attachImageToTaskMock).toHaveBeenCalledTimes(1);
     expect(hoisted.sendMessageMock).toHaveBeenCalledTimes(1);
-    expect(hoisted.broadcastMock).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "photo-arrived" }),
-    );
   });
 });

@@ -97,7 +97,6 @@ vi.mock("@/components/UserAvatar", () => ({ default: () => null }));
 vi.mock("@/components/FeedbackButton", () => ({ default: () => null }));
 vi.mock("@/components/BetaDonationButton", () => ({ default: () => null }));
 vi.mock("@/components/DevTestNotificationButton", () => ({ default: () => null }));
-vi.mock("@/components/DevForceTipButton", () => ({ default: () => null }));
 vi.mock("@/components/DevDemoToggleButton", () => ({ default: () => null }));
 vi.mock("@/components/DataSetupScreen", () => ({ default: () => null }));
 vi.mock("@/components/UserLoginScreen", () => ({ default: () => null }));

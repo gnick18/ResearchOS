@@ -98,12 +98,11 @@ import styles from "./BeakerBot.module.css";
  *                       left/right across the pages, every ~6s the
  *                       right page flips to the left. Looping infinite.
  *
- * The dotted pointer-line in `OnboardingTipCard` emits from the
- * triangle tip in the `pointing*` poses; the non-pointing poses
- * (`cheering`, `waving`, `bouncing`, `thinking`, `typing`,
- * `typing-on-laptop`, `bow-wink`, `volcano-eruption`, `sleeping`,
- * `hiccup`, `yawn`, `reading`) are used in the modal mascot slot
- * and don't drive a pointer line.
+ * The `pointing*` poses emit a triangle tip used by pointer-line
+ * overlays; the non-pointing poses (`cheering`, `waving`, `bouncing`,
+ * `thinking`, `typing`, `typing-on-laptop`, `bow-wink`,
+ * `volcano-eruption`, `sleeping`, `hiccup`, `yawn`, `reading`) are
+ * used in the modal mascot slot and don't drive a pointer line.
  */
 
 export type BeakerBotPose =

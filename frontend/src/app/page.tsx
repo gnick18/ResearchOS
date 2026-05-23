@@ -120,8 +120,7 @@ export default function HomePage() {
 
   // Deep-link: `/?openTask=<id>` opens the task detail popup once the
   // task data has loaded, then strips that param so a reload doesn't
-  // re-trigger. Other params (notably `?tutorial=1`) pass through
-  // untouched so the sequencer's gate stays satisfied.
+  // re-trigger. Other params pass through untouched.
   //
   // `?openProject=<id>` previously opened the now-deleted
   // ProjectDetailPopup; it now navigates to the project route

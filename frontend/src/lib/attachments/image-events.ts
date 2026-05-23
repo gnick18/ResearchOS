@@ -9,12 +9,12 @@
  * Telegram polling loop is cross-tab-locked to one tab, so when a photo
  * lands the attach emit fires only in that tab; without cross-tab
  * broadcast the OTHER tabs' InboxBadge / InboxToast / ImageStrip stay
- * stale until a refresh. We solve it the same way `tutorial-signal.ts`
- * does: keep the in-tab EventTarget for synchronous in-tab dispatch
- * (ImageStrip's optimistic UI patterns rely on that), and additionally
- * fan out via BroadcastChannel + a localStorage write so the storage
- * event reaches tabs in browsers/private-mode where BC fails. Subscribers
- * dedup by eventId so the same emit doesn't fire their handler twice.
+ * stale until a refresh. We solve it with a layered approach: keep the
+ * in-tab EventTarget for synchronous in-tab dispatch (ImageStrip's
+ * optimistic UI patterns rely on that), and additionally fan out via
+ * BroadcastChannel + a localStorage write so the storage event reaches
+ * tabs in browsers/private-mode where BC fails. Subscribers dedup by
+ * eventId so the same emit doesn't fire their handler twice.
  *
  * Drag events are intentionally tab-local: cross-tab "drag started" would
  * be confusing UX.

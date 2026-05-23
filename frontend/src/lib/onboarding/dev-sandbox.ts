@@ -1,19 +1,22 @@
 // frontend/src/lib/onboarding/dev-sandbox.ts
 //
 // Dev-only helpers for the "Show welcome wizard (creates Test user)"
-// affordance in DevForceTipButton. Isolated in its own file because the
-// concept is strictly dev-sandbox — not part of the production wizard
-// runtime, not consumed by the orchestrator. Keeping it next to
-// sidecar.ts (the wizard's persistence layer) is enough proximity.
+// sandbox-user mint. Isolated in its own file because the concept is
+// strictly dev-sandbox: not part of the production wizard runtime, not
+// consumed by the orchestrator. Keeping it next to sidecar.ts (the
+// wizard's persistence layer) is enough proximity. The original
+// DevForceTipButton consumer was removed with the V3 rip (Phase B
+// 2026-05-22); this helper survives for any future dev-only Test-N
+// minting surface.
 //
 // Design lock (Grant, onboarding v2 manager 2026-05-20):
-//   - The dev button at DevForceTipButton must NEVER mutate the real
-//     signed-in user's data when previewing the v2 wizard. Instead it
-//     mints a throwaway "Test-N" user, points active-user at it, and
-//     lets the orchestrator's normal showWizard gate mount the wizard
-//     against that user. Inline pair / feed / clipboard flows then
-//     write to Test-N's folder, completion writes Test-N's sidecar,
-//     skip writes Test-N's sidecar. The real user is invariant.
+//   - A dev mint button must NEVER mutate the real signed-in user's
+//     data when previewing the wizard. Instead it mints a throwaway
+//     "Test-N" user, points active-user at it, and lets the
+//     orchestrator's normal showWizard gate mount the wizard against
+//     that user. Inline pair / feed / clipboard flows then write to
+//     Test-N's folder, completion writes Test-N's sidecar, skip writes
+//     Test-N's sidecar. The real user is invariant.
 //
 //   - The Test user is created at click-time (not lazily). The
 //     wizard's inline integration flows need a user to write into

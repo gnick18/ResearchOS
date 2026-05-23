@@ -20,7 +20,6 @@ import UserAvatar from "./UserAvatar";
 import FeedbackButton from "./FeedbackButton";
 import BetaDonationButton from "./BetaDonationButton";
 import DevTestNotificationButton from "./DevTestNotificationButton";
-import DevForceTipButton from "./DevForceTipButton";
 import DevDemoToggleButton from "./DevDemoToggleButton";
 import DevBeakerBotGalleryButton from "./DevBeakerBotGalleryButton";
 import DataSetupScreen from "./DataSetupScreen";
@@ -438,8 +437,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <DevTestNotificationButton />
 
         <DevDemoToggleButton />
-
-        <DevForceTipButton />
 
         <Tooltip label="Data folder · connect or switch" placement="top">
           <button

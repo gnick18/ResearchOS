@@ -17,7 +17,7 @@ import {
   decodeCalendarFeedId,
   decodeMethodSource,
   decodeTelegramImageLocation,
-} from "../../../v3/steps/walkthrough/lib/wizard-artifacts";
+} from "../walkthrough/lib/artifacts";
 import ArtifactRow, { artifactKey } from "./ArtifactRow";
 import CleanupSection from "./CleanupSection";
 import { cleanupArtifacts, isCleanupExcluded } from "./cleanup-execution";

@@ -329,47 +329,19 @@ export function isDemoOrWikiCapture(): boolean {
   return isWikiCaptureMode() || getDemoMode();
 }
 
-/** Which tutorial flow (if any) the current URL is requesting.
+/** Tutorial-mode probe.
  *
- *  - `?tutorial=1`        → `"full"` — the original 10-tip intro tour
- *                            opened from the welcome modal's "Walk me
- *                            through it" button.
- *  - `?tutorial=telegram` → `"telegram"` — the standalone Telegram
- *                            walkthrough: the Telegram catalog tip,
- *                            first-photo interstitial, confirmation,
- *                            and end-screen. Entry points: the
- *                            "Set up Telegram" button on `/settings#telegram`
- *                            and the "Force Telegram walkthrough" entry
- *                            in the dev tip-force dropdown.
- *  - anything else / absent → `null`.
- *
- *  Both modes mount the `<OnboardingTutorialSequencer>` against the
- *  demo lab. The flag passes through within-tour navigations so
- *  `router.push` helpers must preserve it. SSR-safe: returns null on
- *  the server. */
-export type TutorialMode = "full" | "telegram";
-
-export function getTutorialMode(): TutorialMode | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const params = new URLSearchParams(window.location.search);
-    const value = params.get("tutorial");
-    if (value === "1") return "full";
-    if (value === "telegram") return "telegram";
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-/** Back-compat wrapper. Several callers (Leave Demo banner / button /
- *  modal, the OnboardingProvider mount gate) only care whether ANY
- *  tutorial is active, not which one — they treat the full tour and
- *  the standalone Telegram walkthrough the same way ("you're in a
- *  guided tab; offer the Exit Tour copy"). New mode-aware code should
- *  call `getTutorialMode()` directly. */
+ *  After the V3 rip (Phase B 2026-05-22) there is no tutorial overlay
+ *  on the demo route at all: v4 is the only walkthrough and only fires
+ *  for real new-user signups. The previous `?tutorial=1` (full V3
+ *  tour) and `?tutorial=telegram` (standalone Telegram walkthrough)
+ *  query params no longer mount anything; the helper is kept as a
+ *  permanent `false` so legacy callers in `LeaveDemoModal`,
+ *  `FloatingLeaveDemoButton`, and `DemoLabBanner` continue to compile
+ *  without churning their copy. Those callers can be simplified in a
+ *  follow-up. SSR-safe: returns false on the server. */
 export function isTutorialMode(): boolean {
-  return getTutorialMode() !== null;
+  return false;
 }
 
 let installed = false;

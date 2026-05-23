@@ -15,7 +15,6 @@ import {
   readTelegramTutorial,
   type TelegramTutorialState,
 } from "./tutorial-store";
-import { broadcastTutorialSignal } from "./tutorial-signal";
 import {
   consumeBatchTextReply,
   routeBatchablePhoto,
@@ -107,9 +106,9 @@ async function handleTextCommand(text: string, ctx: RouteContext): Promise<boole
     return true;
   }
   if (text === "/tutorial") {
-    // Fire-and-forget cross-tab broadcast. No open ResearchOS tab means
-    // the signal lands on no listener; the reply text covers that case.
-    broadcastTutorialSignal({ type: "trigger-tutorial-modal" });
+    // V3 cross-tab broadcast removed with the V3 rip (Phase B 2026-05-22):
+    // the V3 sequencer was the only consumer of tutorial-signal.ts and
+    // it is gone. Reply text still works on its own.
     await sendMessage(ctx.botToken, ctx.chatId, TUTORIAL_REPLY);
     return true;
   }
@@ -339,11 +338,6 @@ export async function routeTelegramMessage(
     /* best-effort */
   }
 
-  // Cross-tab broadcast for the guided tour. The tutorial tab listens
-  // and advances its sequencer past the first-photo step.
-  broadcastTutorialSignal({
-    type: "photo-arrived",
-    taskId: active ? active.id : null,
-    fromInbox: !active,
-  });
+  // V3 cross-tab broadcast removed with the V3 rip (Phase B 2026-05-22):
+  // the V3 sequencer was the only consumer; tutorial-signal.ts is gone.
 }

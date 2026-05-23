@@ -23,7 +23,7 @@
  *
  * Portal mount: `document.body`, position fixed, z-index 800 — high
  * enough to overlay app chrome but below modal-stacking surfaces
- * (`OnboardingTipCard` uses 1000+; OnboardingWizard uses ~9000).
+ * (modals + onboarding overlays use higher z-indices).
  */
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
@@ -114,7 +114,7 @@ export default function BeakerBotSkateboardScene({
   // Portal is client-only — render nothing on the server, then flip
   // to mounted on client mount so createPortal(document.body) is safe.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot mount detection for portal safety, same pattern as OnboardingTipCard
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot mount detection for portal safety
     setMounted(true);
   }, []);
 

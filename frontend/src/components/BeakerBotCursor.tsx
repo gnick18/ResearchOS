@@ -311,7 +311,7 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
     // Client-only portal mount. SSR returns null until mounted.
     const [mounted, setMounted] = useState(false);
     useEffect(() => {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot mount detection: render nothing on the server, then flip to mounted on client mount so createPortal(document.body) is safe to call. Same pattern as OnboardingTipCard.tsx.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot mount detection: render nothing on the server, then flip to mounted on client mount so createPortal(document.body) is safe to call.
       setMounted(true);
     }, []);
 

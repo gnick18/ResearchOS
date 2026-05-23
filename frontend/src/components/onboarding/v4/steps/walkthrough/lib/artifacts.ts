@@ -9,11 +9,10 @@ import { getCurrentUserCached } from "@/lib/storage/json-store";
  * Pure artifact helpers for the v4 conditional walkthrough steps (P6)
  * + universal walkthrough steps (P8 Phase 4 completeness sweep).
  *
- * Mirrors `v3/steps/walkthrough/lib/wizard-artifacts.ts` but trimmed to
- * the surface the v4 steps actually use (append + find + persist).
- * The v3 module is kept around for v3 step bodies that still ship; this
- * v4 module exists so P6+ can evolve independently without dragging the
- * v3 contract along.
+ * Originally trimmed from v3's `wizard-artifacts.ts`. After the V3 rip
+ * (Phase B 2026-05-22) this is the single source of truth for artifact
+ * encode/decode + persistence helpers used across the walkthrough +
+ * cleanup steps.
  *
  * No sidecar.ts schema change: `WizardArtifact.type` is a free-form
  * string per sidecar.ts:63, so the v4 walkthrough is free to introduce
@@ -185,4 +184,94 @@ export async function flushPendingArtifacts(
   for (const artifact of pending) {
     await persistArtifact(resolved, artifact);
   }
+}
+
+/**
+ * Artifact id encode/decode helpers — moved here from v3's
+ * `wizard-artifacts.ts` during the V3 rip (Phase B 2026-05-22). These
+ * keep structured payloads (method source, telegram-image location,
+ * calendar-feed url, settings_change from/to) inside the artifact id
+ * string so the Phase 4 cleanup grid can reconstruct what it's about
+ * to delete without bumping the `WizardArtifact` schema.
+ */
+
+/** Convenience: encode the W2 method `source` (placeholder vs user-file)
+ *  into the artifact id. Phase 4 parses with {@link decodeMethodSource}.
+ *  Format: `"<numeric-method-id>:<source>"`. */
+export function encodeMethodId(
+  methodId: number,
+  source: "placeholder" | "user-file",
+): string {
+  return `${methodId}:${source}`;
+}
+
+export function decodeMethodSource(
+  id: string,
+): { methodId: number; source: "placeholder" | "user-file" } | null {
+  const [rawId, source] = id.split(":", 2);
+  const methodId = Number(rawId);
+  if (!Number.isFinite(methodId)) return null;
+  if (source !== "placeholder" && source !== "user-file") return null;
+  return { methodId, source };
+}
+
+/** Encode a settings_change artifact id as `"<field>:<from>→<to>"`. The
+ *  `→` is the only U+2192 in the codebase; Phase 4's restore path
+ *  splits on it. Plain ASCII `->` would collide with theme tokens. */
+export function encodeSettingsChangeId(
+  field: string,
+  from: string,
+  to: string,
+): string {
+  return `${field}:${from}→${to}`;
+}
+
+/** Encode a telegram_image artifact id as `"<filename>:<location>"`. The
+ *  location is either `"inbox"` (the file still lives at
+ *  `users/<u>/inbox/Images/<filename>`) or `"task-<taskId>"` (the
+ *  user clicked "Attach to my experiment" and the file moved into the
+ *  experiment's results folder). Phase 4 cleanup splits on the colon to
+ *  pick the right base path before deleting. */
+export function encodeTelegramImageId(
+  filename: string,
+  location: "inbox" | { taskId: number },
+): string {
+  if (location === "inbox") return `${filename}:inbox`;
+  return `${filename}:task-${location.taskId}`;
+}
+
+export function decodeTelegramImageLocation(
+  id: string,
+): { filename: string; location: "inbox" | { taskId: number } } | null {
+  const lastColon = id.lastIndexOf(":");
+  if (lastColon < 0) return null;
+  const filename = id.slice(0, lastColon);
+  const loc = id.slice(lastColon + 1);
+  if (loc === "inbox") return { filename, location: "inbox" };
+  if (loc.startsWith("task-")) {
+    const taskId = Number(loc.slice(5));
+    if (!Number.isFinite(taskId)) return null;
+    return { filename, location: { taskId } };
+  }
+  return null;
+}
+
+/** Encode a calendar_feed artifact id as `"<feed-id>:<ics-url>"` so
+ *  Phase 4 can show the user the feed URL it's about to delete
+ *  without re-reading `_calendar-feeds.json`. The feed-id portion is
+ *  the integer id returned by `createFeed`. */
+export function encodeCalendarFeedId(feedId: number, icsUrl: string): string {
+  return `${feedId}:${icsUrl}`;
+}
+
+export function decodeCalendarFeedId(
+  id: string,
+): { feedId: number; icsUrl: string } | null {
+  const firstColon = id.indexOf(":");
+  if (firstColon < 0) return null;
+  const feedId = Number(id.slice(0, firstColon));
+  if (!Number.isFinite(feedId)) return null;
+  const icsUrl = id.slice(firstColon + 1);
+  if (!icsUrl) return null;
+  return { feedId, icsUrl };
 }

@@ -17,8 +17,7 @@ import Tooltip from "./Tooltip";
  * that `<LeaveDemoModal>` does on its "Leave demo" branch.
  *
  * Hard-gated on `process.env.NODE_ENV === "development"` so the body becomes
- * dead code in production builds (same pattern as `DevForceTipButton` /
- * `DevTestNotificationButton`).
+ * dead code in production builds (same pattern as `DevTestNotificationButton`).
  */
 const IS_DEV = process.env.NODE_ENV === "development";
 

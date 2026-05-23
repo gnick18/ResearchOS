@@ -36,12 +36,11 @@ import { taskNotesBase } from "@/lib/tasks/results-paths";
 import { patchOnboarding } from "@/lib/onboarding/sidecar";
 import { appQueryClient } from "@/lib/query-client";
 import type { Project, Task } from "@/lib/types";
-import { encodeTelegramImageId } from "../../../../v3/steps/walkthrough/lib/wizard-artifacts";
 import {
   DEP_CHAIN_NAMES,
   spawnDemoDependencyTasks,
 } from "../GanttDependenciesStep";
-import { appendArtifact } from "./artifacts";
+import { appendArtifact, encodeTelegramImageId } from "./artifacts";
 
 /** Selfie filename written into the experiment's `Images/` folder. The
  *  asset itself lives in `frontend/public/onboarding/beakerbot-selfie.png`

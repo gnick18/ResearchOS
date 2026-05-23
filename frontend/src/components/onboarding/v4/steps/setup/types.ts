@@ -3,12 +3,8 @@
  *
  * Onboarding v4's Phase 1 (Welcome + Q1 + Q1a/Q1b + Q2-Q6) stays
  * modal-contained per ONBOARDING_V4_PROPOSAL.md L9 ("no real surface to
- * anchor on yet"), so the bodies look + behave identically to v3's setup
- * bodies. The big difference vs v3: they mount under the v4 TourController's
- * modal-setup surface, not the v3 WizardMount shell.
- *
- * The contract mirrors v3 intentionally so a developer porting any of the
- * 9 setup bodies just renames the import and drops it in. The fields are:
+ * anchor on yet"). The bodies mount under the v4 TourController's
+ * modal-setup surface. The fields are:
  *
  *   - `sidecar`           : current onboarding sidecar snapshot (or null
  *                           while the very first persistence write is

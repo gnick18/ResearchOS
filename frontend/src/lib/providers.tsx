@@ -18,8 +18,6 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import GlobalDropGuard from "@/components/GlobalDropGuard";
 import FloatingLeaveDemoButton from "@/components/FloatingLeaveDemoButton";
 import OpenDocsButton from "@/components/OpenDocsButton";
-import { OnboardingProvider } from "@/lib/onboarding/orchestrator";
-import LabTourResumePrompt from "@/components/onboarding/v3/LabTourResumePrompt";
 import V4MountForUser from "@/components/onboarding/v4/V4MountForUser";
 import CelebrationManager from "@/components/onboarding/CelebrationManager";
 import { initializeErrorHandlers } from "@/lib/error-reporting";
@@ -174,24 +172,15 @@ function AppContent({ children }: { children: ReactNode }) {
   // screenshots that captured the picker UI in this mode may need
   // recapturing — flagged in §8 for the wiki manager.
   if (isDemoOrWikiCapture() && currentUser) {
-    // Wrap in OnboardingProvider even in demo mode so the
-    // tutorial-tab carve-out (`isTutorialMode()` → mount the
-    // sequencer) can fire. Without this wrapper, /demo?tutorial=1
-    // short-circuits straight to children and the guided tour never
-    // appears. For non-tutorial demo (the public /demo route +
-    // ?wikiCapture=1 screenshots), OnboardingProvider's own logic
-    // pass-throughs the children unchanged — no behavior change in
-    // those modes.
+    // Demo + wiki-capture: render children only. V4MountForUser only
+    // mounts when the URL explicitly opts in via `?wizard-preview=1`
+    // or `?wizardSeedStep=…` (the v4 preview / screenshot pipeline).
+    // The V3 sequencer carve-out is gone (V3 rip Phase B 2026-05-22).
     //
-    // V4 mount carve-out (live-test sub-bot 2026-05-21): when
-    // ?wizard-preview=1 OR ?wizardSeedStep=… is on the URL, we ALSO
-    // wrap children in V4MountForUser so automated tests + wiki
-    // captures can drive the v4 onboarding tour against the fixture
-    // store. Without this carve-out, the v4 tour controller never
-    // mounts in wikiCapture mode and the seed plumbing in
-    // wiki-capture-mock.ts has no consumer. Plain /demo and bare
-    // ?wikiCapture=1 stay unchanged — v4 only activates when the URL
-    // explicitly opts in.
+    // Plain `/demo` and bare `?wikiCapture=1` skip the orchestrator
+    // entirely: fixture data, demo banner, floating Leave Demo button
+    // (mounted at the `<Providers>` level), no tour overlay.
+    //
     // Sticky check (live-test R3 cascade fix 2026-05-21): isV4PreviewMode
     // reads URL params AND sessionStorage so in-tab navigations whose
     // hrefs strip the query string don't drop V4MountForUser. Without
@@ -201,13 +190,11 @@ function AppContent({ children }: { children: ReactNode }) {
     const wantsV4Mount = isV4PreviewMode();
     return (
       <QueryClientProvider client={queryClient}>
-        <OnboardingProvider currentUser={currentUser}>
-          {wantsV4Mount ? (
-            <V4MountForUser username={currentUser}>{children}</V4MountForUser>
-          ) : (
-            children
-          )}
-        </OnboardingProvider>
+        {wantsV4Mount ? (
+          <V4MountForUser username={currentUser}>{children}</V4MountForUser>
+        ) : (
+          <>{children}</>
+        )}
       </QueryClientProvider>
     );
   }
@@ -324,62 +311,46 @@ function AppContent({ children }: { children: ReactNode }) {
   }
 
   console.log("AppContent: rendering main app with QueryClientProvider");
-  // Onboarding tips orchestrator. Wrapped inside the QueryClientProvider
-  // and only on the non-demo, signed-in code path. Demo + wiki-capture
-  // are exempt by design (they short-circuit the previous branch); the
-  // provider itself also asserts the exemption via isDemoOrWikiCapture()
-  // so a stray mount can't fire tips during a screenshot run.
-  //
-  // LabTourResumePrompt is a sibling — P3b's deferred lab-tour trigger.
-  // Lives outside OnboardingProvider so it doesn't depend on the wizard
-  // context, but inside the same demo / wiki-capture exemption (the outer
-  // conditional in this file peels those modes off before reaching here).
-  //
-  // V4MountForUser (P11) mounts INSIDE OnboardingProvider so both the
-  // v3 orchestrator context and the v4 TourController context coexist
-  // during the cutover window. v3's auto-fire is gated off (see
-  // WizardMount.tsx), so the two do not conflict at runtime. v3's
-  // remaining surface (the orchestrator context + LabTourResumePrompt)
-  // stays available for in-flight users until P9 deletes v3. Lab Mode
-  // users skip v4 because OnboardingProvider already returns
-  // children-only for them; this also matches v3's behavior for Lab
-  // Mode (no welcome tour on a read-only cross-user view).
+  // Onboarding wrapper. After the V3 rip (V3 rip Phase B 2026-05-22),
+  // OnboardingProvider / OnboardingOrchestrator / useOnboarding are gone:
+  // v4 is the only walkthrough and it mounts via V4MountForUser. Real
+  // signed-in users get V4MountForUser; the lab pseudo-user skips it.
+  // CelebrationManager is a peer inside V4MountForUser so
+  // useOptionalTourController() resolves to the live controller and the
+  // manager defers firing during an active tour.
   const isLabUser = currentUser.toLowerCase() === "lab";
   return (
     <QueryClientProvider client={queryClient}>
       {/* Once-per-session orphan-project sweep. Mounted as a sibling of
-          OnboardingProvider so it runs whether the user lands on /home,
+          V4MountForUser so it runs whether the user lands on /home,
           /workbench, or any other route on their first paint. Skipped
           for the lab pseudo-user since the lab namespace doesn't host
           per-user projects in the same shape. (orphan v2 sub-bot) */}
       {!isLabUser && <OrphanProjectSweep currentUser={currentUser} />}
-      <OnboardingProvider currentUser={currentUser}>
-        {isLabUser ? (
-          <>
-            {children}
-            {/* Lab Mode bypasses the v4 tour entirely, so no
-                TourControllerProvider is in the tree. CelebrationManager
-                still mounts here so streak milestones earned by a lab
-                user (rare but possible, since they can write to their data
-                folder) fire as expected. useOptionalTourController()
-                will return null in this branch, which the manager
-                treats as "no tour active" → fires normally. */}
-            <CelebrationManager username={currentUser} />
-          </>
-        ) : (
-          <V4MountForUser username={currentUser}>
-            {children}
-            {/* CelebrationManager is a peer of TourBootstrap inside
-                the TourControllerProvider tree. Inside the provider so
-                useOptionalTourController() returns the live controller
-                value (the manager defers firing while a tour is
-                active, per proposal §6.7 "don't overlap with the
-                bottom-right tour BeakerBot"). */}
-            <CelebrationManager username={currentUser} />
-          </V4MountForUser>
-        )}
-      </OnboardingProvider>
-      <LabTourResumePrompt username={currentUser} />
+      {isLabUser ? (
+        <>
+          {children}
+          {/* Lab Mode bypasses the v4 tour entirely, so no
+              TourControllerProvider is in the tree. CelebrationManager
+              still mounts here so streak milestones earned by a lab
+              user (rare but possible, since they can write to their data
+              folder) fire as expected. useOptionalTourController()
+              will return null in this branch, which the manager
+              treats as "no tour active" → fires normally. */}
+          <CelebrationManager username={currentUser} />
+        </>
+      ) : (
+        <V4MountForUser username={currentUser}>
+          {children}
+          {/* CelebrationManager is a peer of TourBootstrap inside
+              the TourControllerProvider tree. Inside the provider so
+              useOptionalTourController() returns the live controller
+              value (the manager defers firing while a tour is
+              active, per proposal §6.7 "don't overlap with the
+              bottom-right tour BeakerBot"). */}
+          <CelebrationManager username={currentUser} />
+        </V4MountForUser>
+      )}
     </QueryClientProvider>
   );
 }

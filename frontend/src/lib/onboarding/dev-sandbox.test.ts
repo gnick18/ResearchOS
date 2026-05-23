@@ -1,8 +1,10 @@
 // frontend/src/lib/onboarding/dev-sandbox.test.ts
 //
-// Pins the `nextTestUserName()` counter behavior used by
-// DevForceTipButton's "Show welcome wizard (creates Test user)"
-// affordance. Per Grant's design lock (onboarding v2 manager 2026-05-20):
+// Pins the `nextTestUserName()` counter behavior used by the dev
+// "Show welcome wizard (creates Test user)" sandbox affordance. The
+// original DevForceTipButton consumer was removed with the V3 rip
+// (Phase B 2026-05-22). Per Grant's design lock (onboarding v2 manager
+// 2026-05-20):
 //
 //   - Counter starts at 1, returns the lowest positive integer N
 //     where "Test-N" is not present in _user_metadata.

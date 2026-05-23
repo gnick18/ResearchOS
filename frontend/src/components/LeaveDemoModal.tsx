@@ -14,39 +14,33 @@ interface Props {
 
 /**
  * Modal shown when the visitor clicks "Leave Demo" in `<DemoLabBanner>` or
- * `<FloatingLeaveDemoButton>` — either from the public `/demo` route or from
- * the Phase-4 guided tutorial tab (`/demo?tutorial=1`, opened via
- * `window.open` from the welcome modal).
+ * `<FloatingLeaveDemoButton>` from the public `/demo` route.
  *
- * Two exit paths, branched on `isTutorialMode()`:
+ * After the V3 rip (Phase B 2026-05-22) the `/demo` route is fixture-mode
+ * browsing only: no tour overlay, no tutorial query params. The legacy
+ * `?tutorial=1` (V3 full tour) and `?tutorial=telegram` (standalone
+ * Telegram walkthrough) entry points are gone. `isTutorialMode()` now
+ * returns a permanent false; the tutorial branch below is dead code
+ * kept short-term for copy continuity and to be cleaned up in a
+ * follow-up.
  *
- * 1. Tutorial path — the parent tab still has the user's REAL folder
- *    connected; IndexedDB is shared across same-origin tabs, so clearing
- *    `directoryHandle` / `currentUser` / `mainUser` here would yank the
- *    rug out from under the parent tab. We leave IndexedDB alone, clear
- *    only the sticky sessionStorage demo flag, and try `window.close()`
- *    first (the welcome modal opened this tab via `window.open`, so the
- *    browser will honor the close). If `window.close()` is refused, the
- *    timeout below falls back to `location.replace("/")` — the post-reload
- *    `/` detects the existing IndexedDB handle and reconnects to the
- *    user's real folder.
- *
- * 2. Public-demo path — visitor came in via `/demo` from somewhere. Two
- *    sub-cases handled by `restorePreDemoStateOrClear`:
- *    a. Real folder pre-existed (user navigated to /demo from inside their
- *       connected app, or opened it in another same-origin tab):
- *       `installWikiCaptureFixture` saved the real handle + users into
- *       pre-demo backup keys before overwriting IDB with the fixture's
- *       fake handle. Restore those keys onto the main keys, clear the
- *       backup, reload — `/` then silent-reconnects to the real folder.
- *    b. True public visitor (no real folder ever connected): no backup
- *       exists; clear the main keys (which hold only the fake fixture
- *       handle + "alex"), reload to the folder picker.
+ * Exit path (public-demo): visitor came in via `/demo` from somewhere.
+ * Two sub-cases handled by `restorePreDemoStateOrClear`:
+ *   a. Real folder pre-existed (user navigated to /demo from inside
+ *      their connected app, or opened it in another same-origin tab):
+ *      `installWikiCaptureFixture` saved the real handle + users into
+ *      pre-demo backup keys before overwriting IDB with the fixture's
+ *      fake handle. Restore those keys onto the main keys, clear the
+ *      backup, reload, `/` then silent-reconnects to the real folder.
+ *   b. True public visitor (no real folder ever connected): no backup
+ *      exists; clear the main keys (which hold only the fake fixture
+ *      handle + "alex"), reload to the folder picker.
  */
 export default function LeaveDemoModal({ isOpen, onClose }: Props) {
   // Read once on mount so the same value drives both copy and behavior.
-  // The URL still carries `?tutorial=1` until we navigate, so reading on
-  // mount (not at module load) is correct and SSR-safe.
+  // isTutorialMode() is hard-wired to false after the V3 rip (Phase B
+  // 2026-05-22); the state + branch below remain short-term so the
+  // component shape stays unchanged for any in-flight callers.
   const [tutorial, setTutorial] = useState(false);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot read of the URL flag once mounted on the client

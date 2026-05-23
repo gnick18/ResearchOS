@@ -1,11 +1,8 @@
 import type { ReactNode } from "react";
 
 /**
- * Shared radio-card primitive used by the v4 Q1-Q6 setup steps. Visual
- * + behavioral parity with the v3 RadioCard so the Phase 1 modal feels
- * unchanged after the v4 deprecation sweep (P9). Duplicated rather than
- * re-exported from v3 so P9 can drop the entire v3 tree in a single
- * commit without any v4 → v3 imports left over.
+ * Shared radio-card primitive used by the v4 Q1-Q6 setup steps.
+ * Authoritative copy after the V3 rip (Phase B 2026-05-22).
  */
 interface RadioCardProps<V extends string> {
   name: string;

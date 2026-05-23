@@ -882,16 +882,6 @@ function AnimationSection({ settings, update }: SectionProps) {
 }
 
 function BehaviorSection({ settings, update }: SectionProps) {
-  // The walkthrough opens against the demo lab in a new tab — same
-  // pattern as the welcome modal's "Walk me through it" button.
-  // `noopener` keeps the tutorial tab from holding a handle to this
-  // tab's window, matching what we use for the full-tour link.
-  const openTelegramWalkthrough = () => {
-    if (typeof window !== "undefined") {
-      window.open("/demo?tutorial=telegram", "_blank", "noopener");
-    }
-  };
-
   return (
     <SectionShell
       id="telegram"
@@ -903,23 +893,6 @@ function BehaviorSection({ settings, update }: SectionProps) {
           (some docs/links use the section's title word rather than the
           original `#telegram` id). */}
       <span id="behavior" aria-hidden="true" />
-      <div className="flex items-start justify-between gap-4 pb-2 border-b border-gray-100">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-gray-800">Set up Telegram</p>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Walks you through pairing your Telegram bot and texting your
-            first photo — runs in a demo tab so your real folder stays
-            untouched.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={openTelegramWalkthrough}
-          className="shrink-0 px-3 py-1.5 text-sm font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg shadow-sm transition-colors"
-        >
-          Set up Telegram
-        </button>
-      </div>
       <ToggleRow
         label="Telegram notifications"
         description="When off, the app stops polling Telegram for inbound photos and updates."
@@ -2598,9 +2571,10 @@ function TipsSection() {
     try {
       // Clear all v4 completion / skip / resume + feature_picks so the
       // tour starts from a clean slate (Phase 1 setup re-runs, then
-      // the in-product walkthrough). wizard_force_show is kept as a
-      // dev affordance for the v3 DevForceTipButton compat path; v4's
-      // TourController does not consult that flag.
+      // the in-product walkthrough). wizard_force_show is cleared too:
+      // V3's DevForceTipButton compat path is gone after the V3 rip
+      // (Phase B 2026-05-22) and v4's TourController never consulted
+      // that flag.
       await patchOnboarding(currentUser, (cur) => ({
         ...cur,
         wizard_completed_at: null,

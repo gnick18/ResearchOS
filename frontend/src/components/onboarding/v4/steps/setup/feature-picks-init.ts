@@ -15,8 +15,7 @@ import type { FeaturePicks } from "@/lib/onboarding/sidecar";
  * nothing pre-selected on first encounter. Back-stepping after a pick
  * still shows the saved answer because the field is set by then.
  *
- * Duplicated from the v3 feature-picks-init.ts so P9 can delete the v3
- * tree without leaving a dangling import.
+ * Authoritative copy after the V3 rip (Phase B 2026-05-22).
  */
 export function initialFeaturePicks(
   accountType: FeaturePicks["account_type"],

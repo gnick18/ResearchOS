@@ -106,7 +106,7 @@ import {
   decodeCalendarFeedId,
   decodeMethodSource,
   decodeTelegramImageLocation,
-} from "../../../v3/steps/walkthrough/lib/wizard-artifacts";
+} from "../walkthrough/lib/artifacts";
 
 /**
  * Optional summary the caller can surface as a toast if any per-artifact
