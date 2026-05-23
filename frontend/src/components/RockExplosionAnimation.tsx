@@ -11,13 +11,32 @@ interface RockPiece {
   velocityX: number;
   velocityY: number;
   rotationSpeed: number;
-  type: "guitar" | "rockhand" | "plane" | "fire" | "lightning" | "star" | "skull";
+  type:
+    | "guitar"
+    | "rockhand"
+    | "amp"
+    | "fire"
+    | "lightning"
+    | "vinyl"
+    | "skull"
+    | "shatter"
+    | "string";
   opacity: number;
 }
 
-interface EmojiParticle {
+// Custom-SVG particle layer (replaces the old emoji particles). Keeps
+// independent physics so we don't disturb the main pieces array.
+interface SvgParticle {
   id: number;
-  emoji: string;
+  kind:
+    | "boltSmall"
+    | "skullFire"
+    | "horns"
+    | "vinyl"
+    | "ampMini"
+    | "shard"
+    | "guitarPick"
+    | "flame";
   x: number;
   y: number;
   velocityX: number;
@@ -33,18 +52,404 @@ interface RockExplosionAnimationProps {
   onComplete: () => void;
 }
 
-const ROCK_EMOJIS = ["🎸", "🤘", "✈️", "🔥", "⚡", "💀", "🦅", "💣", "🚀", "🌟"];
+const SVG_KINDS: SvgParticle["kind"][] = [
+  "boltSmall",
+  "skullFire",
+  "horns",
+  "vinyl",
+  "ampMini",
+  "shard",
+  "guitarPick",
+  "flame",
+];
+
+// ---------- Reusable inline SVG particle components ----------
+
+interface PieceSvgProps {
+  uid: number; // unique gradient id namespace
+}
+
+function GuitarSvg({ uid }: PieceSvgProps) {
+  return (
+    <svg viewBox="0 0 40 40" className="w-full h-full">
+      <defs>
+        <linearGradient id={`gbody-${uid}`} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#1a1a1a" />
+          <stop offset="100%" stopColor="#3a0a0a" />
+        </linearGradient>
+      </defs>
+      {/* Neck */}
+      <rect
+        x="22"
+        y="6"
+        width="4"
+        height="16"
+        fill="#2a1a0a"
+        stroke="#000"
+        strokeWidth="1"
+        transform="rotate(35 24 14)"
+      />
+      {/* Frets */}
+      <g stroke="#c0c0c0" strokeWidth="0.6">
+        <line x1="22" y1="10" x2="26" y2="10" transform="rotate(35 24 14)" />
+        <line x1="22" y1="13" x2="26" y2="13" transform="rotate(35 24 14)" />
+        <line x1="22" y1="16" x2="26" y2="16" transform="rotate(35 24 14)" />
+      </g>
+      {/* Flying-V body */}
+      <path
+        d="M8 22 L14 30 L18 24 L22 30 L28 22 L20 16 Z"
+        fill={`url(#gbody-${uid})`}
+        stroke="#ff1a00"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+      {/* Pickup */}
+      <rect x="16" y="20" width="6" height="1.6" fill="#c0c0c0" />
+      {/* Strings */}
+      <line x1="11" y1="26" x2="28" y2="9" stroke="#ffe600" strokeWidth="0.4" />
+      <line x1="13" y1="27" x2="30" y2="10" stroke="#ffe600" strokeWidth="0.4" />
+    </svg>
+  );
+}
+
+function RockHandSvg() {
+  // Devil-horns / \m/ silhouette
+  return (
+    <svg viewBox="0 0 40 40" className="w-full h-full">
+      <path
+        d="M12 6 L12 22 M28 6 L28 22 M18 12 L18 22 M22 12 L22 22 M14 22 Q14 32 20 34 Q26 32 26 22 L14 22 Z"
+        fill="#1a1a1a"
+        stroke="#ffe600"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+      {/* Wristband */}
+      <rect x="13" y="30" width="14" height="3" fill="#ff1a00" stroke="#000" strokeWidth="0.6" />
+      <rect x="15" y="30.5" width="1" height="2" fill="#ffe600" />
+      <rect x="19" y="30.5" width="1" height="2" fill="#ffe600" />
+      <rect x="23" y="30.5" width="1" height="2" fill="#ffe600" />
+    </svg>
+  );
+}
+
+function AmpSvg({ uid }: PieceSvgProps) {
+  // Exploding stack amp
+  return (
+    <svg viewBox="0 0 40 40" className="w-full h-full">
+      <defs>
+        <radialGradient id={`amp-${uid}`} cx="50%" cy="40%" r="60%">
+          <stop offset="0%" stopColor="#ffe600" />
+          <stop offset="40%" stopColor="#ff6a00" />
+          <stop offset="100%" stopColor="#1a0000" />
+        </radialGradient>
+      </defs>
+      {/* Body */}
+      <rect x="8" y="14" width="24" height="20" fill="#1a1a1a" stroke="#000" strokeWidth="1" />
+      {/* Speaker cones */}
+      <circle cx="15" cy="24" r="4" fill={`url(#amp-${uid})`} stroke="#000" strokeWidth="0.6" />
+      <circle cx="25" cy="24" r="4" fill={`url(#amp-${uid})`} stroke="#000" strokeWidth="0.6" />
+      <circle cx="15" cy="24" r="1" fill="#000" />
+      <circle cx="25" cy="24" r="1" fill="#000" />
+      {/* Top panel with knobs */}
+      <rect x="8" y="10" width="24" height="5" fill="#2a2a2a" stroke="#000" strokeWidth="0.6" />
+      <circle cx="13" cy="12.5" r="0.9" fill="#ff1a00" />
+      <circle cx="17" cy="12.5" r="0.9" fill="#ffe600" />
+      <circle cx="21" cy="12.5" r="0.9" fill="#ff1a00" />
+      <circle cx="25" cy="12.5" r="0.9" fill="#ffe600" />
+      <circle cx="29" cy="12.5" r="0.9" fill="#ff1a00" />
+      {/* Lightning crack */}
+      <path d="M20 6 L17 14 L21 14 L18 22" stroke="#ffe600" strokeWidth="1.4" fill="none" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function FireSvg({ uid }: PieceSvgProps) {
+  return (
+    <svg viewBox="0 0 24 24" className="w-full h-full">
+      <defs>
+        <linearGradient id={`fire-${uid}`} x1="0%" y1="100%" x2="0%" y2="0%">
+          <stop offset="0%" stopColor="#ff0000" />
+          <stop offset="50%" stopColor="#ff6600" />
+          <stop offset="100%" stopColor="#ffcc00" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M12 2C12 2 8 8 8 12C8 16 10 18 12 22C14 18 16 16 16 12C16 8 12 2 12 2Z"
+        fill={`url(#fire-${uid})`}
+      />
+      <path
+        d="M12 8C12 8 10 11 10 13C10 15 11 16 12 18C13 16 14 15 14 13C14 11 12 8 12 8Z"
+        fill="#ffff66"
+        opacity="0.9"
+      />
+    </svg>
+  );
+}
+
+function LightningSvg({ uid }: PieceSvgProps) {
+  // Jagged bold bolt with halo
+  return (
+    <svg viewBox="0 0 40 40" className="w-full h-full">
+      <defs>
+        <linearGradient id={`bolt-${uid}`} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="40%" stopColor="#ffe600" />
+          <stop offset="100%" stopColor="#ff8a00" />
+        </linearGradient>
+      </defs>
+      {/* Glow */}
+      <path
+        d="M22 2 L8 22 L17 22 L14 38 L32 16 L22 16 L26 2 Z"
+        fill="#ffe600"
+        opacity="0.25"
+        transform="scale(1.15) translate(-3 -3)"
+      />
+      {/* Bolt */}
+      <path
+        d="M22 2 L8 22 L17 22 L14 38 L32 16 L22 16 L26 2 Z"
+        fill={`url(#bolt-${uid})`}
+        stroke="#ff1a00"
+        strokeWidth="1"
+        strokeLinejoin="miter"
+      />
+    </svg>
+  );
+}
+
+function VinylSvg() {
+  // Shattered vinyl record
+  return (
+    <svg viewBox="0 0 40 40" className="w-full h-full">
+      <circle cx="20" cy="20" r="16" fill="#0a0a0a" stroke="#1a1a1a" strokeWidth="0.6" />
+      <circle cx="20" cy="20" r="13" fill="none" stroke="#222" strokeWidth="0.5" />
+      <circle cx="20" cy="20" r="10" fill="none" stroke="#222" strokeWidth="0.5" />
+      <circle cx="20" cy="20" r="7" fill="none" stroke="#222" strokeWidth="0.5" />
+      <circle cx="20" cy="20" r="5" fill="#ff1a00" stroke="#000" strokeWidth="0.5" />
+      <circle cx="20" cy="20" r="1.2" fill="#000" />
+      {/* Shine highlight */}
+      <path
+        d="M10 12 Q14 8 22 8"
+        stroke="#ffffff"
+        strokeWidth="0.6"
+        fill="none"
+        opacity="0.5"
+      />
+    </svg>
+  );
+}
+
+function SkullSvg({ uid }: PieceSvgProps) {
+  // Flaming skull
+  return (
+    <svg viewBox="0 0 40 40" className="w-full h-full">
+      <defs>
+        <linearGradient id={`skullflame-${uid}`} x1="0%" y1="100%" x2="0%" y2="0%">
+          <stop offset="0%" stopColor="#ff1a00" />
+          <stop offset="100%" stopColor="#ffe600" />
+        </linearGradient>
+      </defs>
+      {/* Flames above */}
+      <path
+        d="M10 14 Q12 6 16 10 Q18 4 20 10 Q22 4 24 10 Q28 6 30 14 Z"
+        fill={`url(#skullflame-${uid})`}
+      />
+      {/* Cranium */}
+      <ellipse cx="20" cy="20" rx="11" ry="10" fill="#f0f0f0" stroke="#000" strokeWidth="1" />
+      {/* Jaw */}
+      <path
+        d="M12 24 Q12 32 20 33 Q28 32 28 24 Z"
+        fill="#f0f0f0"
+        stroke="#000"
+        strokeWidth="1"
+      />
+      {/* Eye sockets (burning) */}
+      <ellipse cx="15.5" cy="20" rx="2.6" ry="2.8" fill="#000" />
+      <ellipse cx="24.5" cy="20" rx="2.6" ry="2.8" fill="#000" />
+      <circle cx="15.5" cy="20.5" r="1" fill="#ff6a00" />
+      <circle cx="24.5" cy="20.5" r="1" fill="#ff6a00" />
+      {/* Nasal */}
+      <path d="M20 22 L18.6 25 L21.4 25 Z" fill="#000" />
+      {/* Teeth */}
+      <path d="M14 28 L14 31 M17 28 L17 31 M20 28 L20 31 M23 28 L23 31 M26 28 L26 31"
+        stroke="#000" strokeWidth="0.9" />
+    </svg>
+  );
+}
+
+function ShatterSvg() {
+  // Shattered glass shard
+  return (
+    <svg viewBox="0 0 40 40" className="w-full h-full">
+      <polygon
+        points="6,30 18,8 26,18 22,32"
+        fill="#e0f7ff"
+        stroke="#ffffff"
+        strokeWidth="1"
+        opacity="0.9"
+      />
+      <polyline
+        points="6,30 18,8 26,18"
+        fill="none"
+        stroke="#ffffff"
+        strokeWidth="0.7"
+        opacity="0.9"
+      />
+    </svg>
+  );
+}
+
+function BrokenStringSvg() {
+  // Snapped guitar string with curl
+  return (
+    <svg viewBox="0 0 40 40" className="w-full h-full">
+      <path
+        d="M2 20 Q12 12 20 20 T38 20"
+        fill="none"
+        stroke="#ffe600"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
+      <path
+        d="M30 20 Q34 16 36 24"
+        fill="none"
+        stroke="#ffe600"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+// Smaller particle SVGs for the secondary layer
+
+function SmallBolt() {
+  return (
+    <svg viewBox="0 0 24 24" className="w-full h-full">
+      <path
+        d="M13 2 L4 14 L11 14 L9 22 L20 10 L13 10 L15 2 Z"
+        fill="#ffe600"
+        stroke="#ff1a00"
+        strokeWidth="1"
+      />
+    </svg>
+  );
+}
+
+function SmallSkullFire({ uid }: PieceSvgProps) {
+  return (
+    <svg viewBox="0 0 24 24" className="w-full h-full">
+      <defs>
+        <linearGradient id={`smskull-${uid}`} x1="0%" y1="100%" x2="0%" y2="0%">
+          <stop offset="0%" stopColor="#ff1a00" />
+          <stop offset="100%" stopColor="#ffe600" />
+        </linearGradient>
+      </defs>
+      <path d="M6 8 Q8 2 12 6 Q16 2 18 8 Z" fill={`url(#smskull-${uid})`} />
+      <ellipse cx="12" cy="14" rx="6" ry="5.5" fill="#f0f0f0" stroke="#000" strokeWidth="0.7" />
+      <circle cx="10" cy="14" r="1.3" fill="#000" />
+      <circle cx="14" cy="14" r="1.3" fill="#000" />
+      <path d="M9 19 L9 21 M12 19 L12 21 M15 19 L15 21" stroke="#000" strokeWidth="0.7" />
+    </svg>
+  );
+}
+
+function SmallHorns() {
+  return (
+    <svg viewBox="0 0 24 24" className="w-full h-full">
+      <path
+        d="M7 4 L7 14 M17 4 L17 14 M11 8 L11 14 M13 8 L13 14 M8 14 Q8 19 12 20 Q16 19 16 14 Z"
+        fill="#1a1a1a"
+        stroke="#ffe600"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function SmallVinyl() {
+  return (
+    <svg viewBox="0 0 24 24" className="w-full h-full">
+      <circle cx="12" cy="12" r="10" fill="#0a0a0a" />
+      <circle cx="12" cy="12" r="7" fill="none" stroke="#333" strokeWidth="0.4" />
+      <circle cx="12" cy="12" r="3" fill="#ff1a00" />
+      <circle cx="12" cy="12" r="0.8" fill="#000" />
+    </svg>
+  );
+}
+
+function SmallAmp() {
+  return (
+    <svg viewBox="0 0 24 24" className="w-full h-full">
+      <rect x="4" y="6" width="16" height="14" fill="#1a1a1a" stroke="#000" strokeWidth="0.7" />
+      <circle cx="9" cy="14" r="2.5" fill="#ff6a00" stroke="#000" strokeWidth="0.5" />
+      <circle cx="15" cy="14" r="2.5" fill="#ff6a00" stroke="#000" strokeWidth="0.5" />
+      <circle cx="9" cy="14" r="0.6" fill="#000" />
+      <circle cx="15" cy="14" r="0.6" fill="#000" />
+      <rect x="4" y="6" width="16" height="2.5" fill="#2a2a2a" />
+    </svg>
+  );
+}
+
+function SmallShard() {
+  return (
+    <svg viewBox="0 0 24 24" className="w-full h-full">
+      <polygon
+        points="3,20 12,4 18,12 14,22"
+        fill="#fff7d6"
+        stroke="#ffffff"
+        strokeWidth="0.6"
+      />
+    </svg>
+  );
+}
+
+function SmallPick() {
+  // Guitar pick
+  return (
+    <svg viewBox="0 0 24 24" className="w-full h-full">
+      <path
+        d="M12 3 Q19 6 17 14 Q14 22 12 22 Q10 22 7 14 Q5 6 12 3 Z"
+        fill="#ff1a00"
+        stroke="#1a1a1a"
+        strokeWidth="1"
+      />
+      <path d="M12 6 Q14 7 14 10" stroke="#ffe600" strokeWidth="0.7" fill="none" />
+    </svg>
+  );
+}
+
+function SmallFlame({ uid }: PieceSvgProps) {
+  return (
+    <svg viewBox="0 0 24 24" className="w-full h-full">
+      <defs>
+        <linearGradient id={`smflame-${uid}`} x1="0%" y1="100%" x2="0%" y2="0%">
+          <stop offset="0%" stopColor="#ff0000" />
+          <stop offset="60%" stopColor="#ff8a00" />
+          <stop offset="100%" stopColor="#ffe600" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M12 2 Q14 6 12 9 Q9 7 8 12 Q7 17 12 22 Q17 17 16 12 Q15 7 12 9 Q10 6 12 2 Z"
+        fill={`url(#smflame-${uid})`}
+      />
+    </svg>
+  );
+}
+
+// ---------- Main component ----------
 
 export default function RockExplosionAnimation({ x, y, onComplete }: RockExplosionAnimationProps) {
   const [pieces, setPieces] = useState<RockPiece[]>([]);
-  const [emojis, setEmojis] = useState<EmojiParticle[]>([]);
+  const [svgParticles, setSvgParticles] = useState<SvgParticle[]>([]);
   const [shockwave, setShockwave] = useState({ scale: 0, opacity: 1 });
   const [flashOpacity, setFlashOpacity] = useState(0.8);
 
   const createPieces = useCallback(() => {
     const newPieces: RockPiece[] = [];
-    
-    // Create guitars - flying outward with style
+
+    // Flying-V guitars
     for (let i = 0; i < 5; i++) {
       const angle = (i / 5) * Math.PI * 2 + Math.random() * 0.5;
       const speed = 8 + Math.random() * 8;
@@ -62,7 +467,7 @@ export default function RockExplosionAnimation({ x, y, onComplete }: RockExplosi
       });
     }
 
-    // Create rock hands 🤘
+    // Devil-horns hands
     for (let i = 0; i < 8; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = 6 + Math.random() * 10;
@@ -80,7 +485,7 @@ export default function RockExplosionAnimation({ x, y, onComplete }: RockExplosi
       });
     }
 
-    // Create planes flying off
+    // Exploding amps (replaces planes)
     for (let i = 0; i < 4; i++) {
       const direction = i % 2 === 0 ? 1 : -1;
       newPieces.push({
@@ -91,13 +496,13 @@ export default function RockExplosionAnimation({ x, y, onComplete }: RockExplosi
         scale: 0.7 + Math.random() * 0.5,
         velocityX: direction * (12 + Math.random() * 8),
         velocityY: -6 - Math.random() * 6,
-        rotationSpeed: direction * 2,
-        type: "plane",
+        rotationSpeed: direction * 4,
+        type: "amp",
         opacity: 1,
       });
     }
 
-    // Create fire particles
+    // Fire particles
     for (let i = 0; i < 25; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = 3 + Math.random() * 8;
@@ -115,8 +520,8 @@ export default function RockExplosionAnimation({ x, y, onComplete }: RockExplosi
       });
     }
 
-    // Create lightning bolts
-    for (let i = 0; i < 6; i++) {
+    // Lightning bolts (jagged + bolder)
+    for (let i = 0; i < 8; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = 5 + Math.random() * 7;
       newPieces.push({
@@ -133,12 +538,12 @@ export default function RockExplosionAnimation({ x, y, onComplete }: RockExplosi
       });
     }
 
-    // Create skulls
-    for (let i = 0; i < 3; i++) {
+    // Flaming skulls
+    for (let i = 0; i < 4; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = 4 + Math.random() * 6;
       newPieces.push({
-        id: 48 + i,
+        id: 50 + i,
         x: x + (Math.random() - 0.5) * 40,
         y: y + (Math.random() - 0.5) * 40,
         rotation: Math.random() * 360,
@@ -151,12 +556,12 @@ export default function RockExplosionAnimation({ x, y, onComplete }: RockExplosi
       });
     }
 
-    // Create stars
-    for (let i = 0; i < 10; i++) {
+    // Vinyl records (replaces stars — same count + spread)
+    for (let i = 0; i < 6; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = 4 + Math.random() * 6;
       newPieces.push({
-        id: 51 + i,
+        id: 54 + i,
         x: x + (Math.random() - 0.5) * 100,
         y: y + (Math.random() - 0.5) * 100,
         rotation: Math.random() * 360,
@@ -164,7 +569,43 @@ export default function RockExplosionAnimation({ x, y, onComplete }: RockExplosi
         velocityX: Math.cos(angle) * speed,
         velocityY: Math.sin(angle) * speed - 2,
         rotationSpeed: (Math.random() - 0.5) * 20,
-        type: "star",
+        type: "vinyl",
+        opacity: 1,
+      });
+    }
+
+    // Shattered glass shards
+    for (let i = 0; i < 6; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 7 + Math.random() * 9;
+      newPieces.push({
+        id: 60 + i,
+        x: x + (Math.random() - 0.5) * 60,
+        y: y + (Math.random() - 0.5) * 60,
+        rotation: Math.random() * 360,
+        scale: 0.4 + Math.random() * 0.5,
+        velocityX: Math.cos(angle) * speed,
+        velocityY: Math.sin(angle) * speed - 5,
+        rotationSpeed: (Math.random() - 0.5) * 30,
+        type: "shatter",
+        opacity: 1,
+      });
+    }
+
+    // Broken strings flying off
+    for (let i = 0; i < 4; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 6 + Math.random() * 8;
+      newPieces.push({
+        id: 66 + i,
+        x: x + (Math.random() - 0.5) * 50,
+        y: y + (Math.random() - 0.5) * 50,
+        rotation: Math.random() * 360,
+        scale: 0.5 + Math.random() * 0.5,
+        velocityX: Math.cos(angle) * speed,
+        velocityY: Math.sin(angle) * speed - 4,
+        rotationSpeed: (Math.random() - 0.5) * 18,
+        type: "string",
         opacity: 1,
       });
     }
@@ -175,15 +616,15 @@ export default function RockExplosionAnimation({ x, y, onComplete }: RockExplosi
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot init of mount-time random particles, then setInterval drives animation
     setPieces(createPieces());
-    
-    // Create emoji particles
-    const newEmojis: EmojiParticle[] = [];
-    for (let i = 0; i < 15; i++) {
+
+    // Custom-SVG particle layer (replaces old emoji particles)
+    const newSvgParticles: SvgParticle[] = [];
+    for (let i = 0; i < 18; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = 5 + Math.random() * 10;
-      newEmojis.push({
+      newSvgParticles.push({
         id: i,
-        emoji: ROCK_EMOJIS[Math.floor(Math.random() * ROCK_EMOJIS.length)],
+        kind: SVG_KINDS[Math.floor(Math.random() * SVG_KINDS.length)],
         x: x + (Math.random() - 0.5) * 60,
         y: y + (Math.random() - 0.5) * 60,
         velocityX: Math.cos(angle) * speed,
@@ -193,14 +634,14 @@ export default function RockExplosionAnimation({ x, y, onComplete }: RockExplosi
         opacity: 1,
       });
     }
-    setEmojis(newEmojis);
+    setSvgParticles(newSvgParticles);
 
     // Flash effect
     setFlashOpacity(0.8);
 
     // Animate
     const interval = setInterval(() => {
-      setPieces(prev => 
+      setPieces(prev =>
         prev.map(piece => ({
           ...piece,
           x: piece.x + piece.velocityX,
@@ -210,17 +651,17 @@ export default function RockExplosionAnimation({ x, y, onComplete }: RockExplosi
           opacity: Math.max(0, piece.opacity - 0.015),
         })).filter(piece => piece.y < window.innerHeight + 100 && piece.opacity > 0)
       );
-      
-      setEmojis(prev => 
-        prev.map(e => ({
-          ...e,
-          x: e.x + e.velocityX,
-          y: e.y + e.velocityY + 1,
-          velocityY: e.velocityY + 0.2,
-          rotation: e.rotation + 5,
-          opacity: Math.max(0, e.opacity - 0.02),
-          scale: e.scale * 1.01,
-        })).filter(e => e.y < window.innerHeight + 50 && e.opacity > 0)
+
+      setSvgParticles(prev =>
+        prev.map(p => ({
+          ...p,
+          x: p.x + p.velocityX,
+          y: p.y + p.velocityY + 1,
+          velocityY: p.velocityY + 0.2,
+          rotation: p.rotation + 5,
+          opacity: Math.max(0, p.opacity - 0.02),
+          scale: p.scale * 1.01,
+        })).filter(p => p.y < window.innerHeight + 50 && p.opacity > 0)
       );
 
       setShockwave(prev => ({
@@ -243,137 +684,106 @@ export default function RockExplosionAnimation({ x, y, onComplete }: RockExplosi
     };
   }, [createPieces, onComplete, x, y]);
 
+  // Size dispatch — fire is small, rest are standard
+  const sizeFor = (type: RockPiece["type"]) => (type === "fire" ? 22 : 44);
+
   return (
     <div className="fixed inset-0 pointer-events-none z-[100]">
-      {/* Flash effect */}
-      <div 
-        className="fixed inset-0 bg-orange-400"
-        style={{ opacity: flashOpacity }}
-      />
-      
-      {/* Shockwave ring */}
+      {/* Flash effect — pure red→orange burst */}
       <div
-        className="absolute rounded-full border-4 border-orange-500"
+        className="fixed inset-0"
+        style={{
+          opacity: flashOpacity,
+          background:
+            "radial-gradient(circle at " +
+            x +
+            "px " +
+            y +
+            "px, #ffe600 0%, #ff6a00 25%, #ff1a00 55%, transparent 80%)",
+        }}
+      />
+
+      {/* Shockwave ring — red */}
+      <div
+        className="absolute rounded-full border-4"
         style={{
           left: x - shockwave.scale,
           top: y - shockwave.scale,
           width: shockwave.scale * 2,
           height: shockwave.scale * 2,
           opacity: shockwave.opacity,
+          borderColor: "#ff1a00",
+          boxShadow: "0 0 20px #ff1a00",
         }}
       />
-      
-      {/* Second shockwave */}
+
+      {/* Second shockwave — electric yellow */}
       <div
-        className="absolute rounded-full border-2 border-yellow-400"
+        className="absolute rounded-full border-2"
         style={{
           left: x - shockwave.scale * 0.7,
           top: y - shockwave.scale * 0.7,
           width: shockwave.scale * 1.4,
           height: shockwave.scale * 1.4,
           opacity: shockwave.opacity * 0.7,
+          borderColor: "#ffe600",
+          boxShadow: "0 0 15px #ffe600",
         }}
       />
 
       {/* SVG Pieces */}
-      {pieces.map(piece => (
+      {pieces.map(piece => {
+        const size = sizeFor(piece.type);
+        return (
+          <div
+            key={piece.id}
+            className="absolute"
+            style={{
+              left: piece.x,
+              top: piece.y,
+              transform: `rotate(${piece.rotation}deg) scale(${piece.scale})`,
+              opacity: piece.opacity,
+              width: size,
+              height: size,
+            }}
+          >
+            {piece.type === "guitar" && <GuitarSvg uid={piece.id} />}
+            {piece.type === "rockhand" && <RockHandSvg />}
+            {piece.type === "amp" && <AmpSvg uid={piece.id} />}
+            {piece.type === "fire" && <FireSvg uid={piece.id} />}
+            {piece.type === "lightning" && <LightningSvg uid={piece.id} />}
+            {piece.type === "vinyl" && <VinylSvg />}
+            {piece.type === "skull" && <SkullSvg uid={piece.id} />}
+            {piece.type === "shatter" && <ShatterSvg />}
+            {piece.type === "string" && <BrokenStringSvg />}
+          </div>
+        );
+      })}
+
+      {/* Custom SVG particles (replaces old emoji layer) */}
+      {svgParticles.map(p => (
         <div
-          key={piece.id}
+          key={`svgp-${p.id}`}
           className="absolute"
           style={{
-            left: piece.x,
-            top: piece.y,
-            transform: `rotate(${piece.rotation}deg) scale(${piece.scale})`,
-            opacity: piece.opacity,
-            width: piece.type === "fire" ? 20 : 40,
-            height: piece.type === "fire" ? 20 : 40,
+            left: p.x,
+            top: p.y,
+            opacity: p.opacity,
+            transform: `rotate(${p.rotation}deg) scale(${p.scale})`,
+            width: 28,
+            height: 28,
           }}
         >
-          {piece.type === "guitar" && (
-            <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
-              <path d="M19.59 3.59L20.41 2.77C21 2.17 21 1.21 20.41 0.71C19.82 0.21 18.86 0.21 18.27 0.71L17.45 1.53L19.59 3.59ZM5.41 17.59L4.59 18.41C4 19 4 19.95 4.59 20.54C5.18 21.13 6.14 21.13 6.73 20.54L7.55 19.72L5.41 17.59ZM9.36 16.64L7.22 14.5L15.36 6.36L17.5 8.5L9.36 16.64Z" 
-                fill="#8B4513" stroke="#5D2E0C" strokeWidth="1"/>
-              <ellipse cx="6" cy="18" rx="3" ry="2.5" fill="#D2691E" stroke="#8B4513"/>
-              <circle cx="5" cy="17.5" r="0.5" fill="#1a1a1a"/>
-              <circle cx="7" cy="18.5" r="0.5" fill="#1a1a1a"/>
-              <circle cx="6" cy="19" r="0.5" fill="#1a1a1a"/>
-            </svg>
-          )}
-          {piece.type === "rockhand" && (
-            <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
-              <path d="M7 2V13M7 2L5 4M7 2L9 4M12 2V11M12 2L10 4M12 2L14 4M17 4V13M17 4L15 6M17 4L19 6M7 13C7 13 7 17 9 19C11 21 13 21 14 21C15 21 17 20 18 18C19 16 19 13 19 13" 
-                stroke="#FFD700" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M7 2V13M12 2V11M17 4V13" 
-                stroke="#FFA500" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-          )}
-          {piece.type === "plane" && (
-            <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
-              <path d="M21 16V14L13 9V3.5C13 2.67 12.33 2 11.5 2S10 2.67 10 3.5V9L2 14V16L10 13.5V19L8 20.5V22L11.5 21L15 22V20.5L13 19V13.5L21 16Z" 
-                fill="#4A4A4A" stroke="#2A2A2A" strokeWidth="1"/>
-              <path d="M11 4V9" stroke="#FF4500" strokeWidth="2"/>
-              <path d="M3 15L10 13" stroke="#FF4500" strokeWidth="1"/>
-              <path d="M20 15L13 13" stroke="#FF4500" strokeWidth="1"/>
-            </svg>
-          )}
-          {piece.type === "fire" && (
-            <svg viewBox="0 0 24 24" className="w-full h-full">
-              <defs>
-                <linearGradient id={`fire-${piece.id}`} x1="0%" y1="100%" x2="0%" y2="0%">
-                  <stop offset="0%" stopColor="#ff0000" />
-                  <stop offset="50%" stopColor="#ff6600" />
-                  <stop offset="100%" stopColor="#ffcc00" />
-                </linearGradient>
-              </defs>
-              <path d="M12 2C12 2 8 8 8 12C8 16 10 18 12 22C14 18 16 16 16 12C16 8 12 2 12 2Z" 
-                fill={`url(#fire-${piece.id})`} />
-              <path d="M12 8C12 8 10 11 10 13C10 15 11 16 12 18C13 16 14 15 14 13C14 11 12 8 12 8Z" 
-                fill="#ffff00" opacity="0.8"/>
-            </svg>
-          )}
-          {piece.type === "lightning" && (
-            <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
-              <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" 
-                fill="#FFD700" stroke="#FFA500" strokeWidth="1"/>
-              <path d="M12 5L6 13H12L11 18L17 11H12L12 5Z" 
-                fill="#FFFF00" opacity="0.7"/>
-            </svg>
-          )}
-          {piece.type === "skull" && (
-            <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
-              <ellipse cx="12" cy="10" rx="8" ry="7" fill="#E0E0E0" stroke="#888" strokeWidth="1"/>
-              <ellipse cx="12" cy="15" rx="5" ry="4" fill="#E0E0E0" stroke="#888" strokeWidth="1"/>
-              <circle cx="9" cy="9" r="2" fill="#1a1a1a"/>
-              <circle cx="15" cy="9" r="2" fill="#1a1a1a"/>
-              <path d="M9 14L10 13L11 14L12 13L13 14L14 13L15 14" stroke="#1a1a1a" strokeWidth="1.5"/>
-              <circle cx="12" cy="12" r="1" fill="#1a1a1a"/>
-            </svg>
-          )}
-          {piece.type === "star" && (
-            <svg viewBox="0 0 24 24" className="w-full h-full">
-              <path d="M12 2L14.09 8.26L21 9.27L16 14.14L17.18 21.02L12 17.77L6.82 21.02L8 14.14L3 9.27L9.91 8.26L12 2Z" 
-                fill="#FFD700" stroke="#FFA500" strokeWidth="1"/>
-            </svg>
-          )}
+          {p.kind === "boltSmall" && <SmallBolt />}
+          {p.kind === "skullFire" && <SmallSkullFire uid={p.id} />}
+          {p.kind === "horns" && <SmallHorns />}
+          {p.kind === "vinyl" && <SmallVinyl />}
+          {p.kind === "ampMini" && <SmallAmp />}
+          {p.kind === "shard" && <SmallShard />}
+          {p.kind === "guitarPick" && <SmallPick />}
+          {p.kind === "flame" && <SmallFlame uid={p.id} />}
         </div>
       ))}
-      
-      {/* Emoji particles */}
-      {emojis.map(e => (
-        <div
-          key={`emoji-${e.id}`}
-          className="absolute text-3xl"
-          style={{
-            left: e.x,
-            top: e.y,
-            opacity: e.opacity,
-            transform: `rotate(${e.rotation}deg) scale(${e.scale})`,
-          }}
-        >
-          {e.emoji}
-        </div>
-      ))}
-      
     </div>
   );
 }
