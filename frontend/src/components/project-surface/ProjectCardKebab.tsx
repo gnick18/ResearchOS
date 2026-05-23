@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { projectsApi as rawProjectsApi } from "@/lib/local-api";
 import type { ProjectUpdate } from "@/lib/local-api";
-import SharePopup from "@/components/SharePopup";
+import ShareDialogAdapter from "@/components/sharing/ShareDialogAdapter";
 import { EditProjectModal } from "@/components/project-surface/ProjectRoute";
 import type { Project } from "@/lib/types";
 
@@ -251,13 +251,13 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
       )}
 
       {showSharePopup && (
-        <SharePopup
+        <ShareDialogAdapter
           isOpen={showSharePopup}
           onClose={() => setShowSharePopup(false)}
-          itemType="project"
-          itemId={project.id}
-          itemName={project.name}
-          currentOwner={project.owner}
+          recordType="project"
+          recordId={project.id}
+          recordName={project.name}
+          ownerUsername={project.owner}
           currentSharedWith={project.shared_with || []}
           onShared={() => queryClient.refetchQueries({ queryKey: ["projects"] })}
         />

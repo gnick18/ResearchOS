@@ -351,6 +351,11 @@ function MethodRowView({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-medium text-gray-900 truncate">{method.name}</p>
+            {/* TODO: migrate to canRead — R1b: `is_public` is the legacy
+                whole-lab boolean for methods. Migration converts to "*"
+                entry in `shared_with`. This badge is read-only display
+                so the legacy field still works; switch to
+                `isWholeLabShared(method.shared_with)` in R-next. */}
             {method.is_public ? (
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600">
                 public

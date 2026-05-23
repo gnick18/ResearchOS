@@ -4048,6 +4048,78 @@ export const sharingApi = {
     return { status: "ok", item_id: projectId, shared_with: username };
   },
 
+  // Lab Mode retirement R1b (R1b sharing completion manager, 2026-05-23):
+  // share Note / LabLink / HighLevelGoal records via the unified shape.
+  //
+  // Unlike `shareTask`/`shareMethod`/`shareProject` which take a single
+  // recipient + permission and ALSO maintain the receiver-side manifest
+  // (`_shared_with_me.json`) + bell notification, these three are
+  // simpler: they replace the entire `shared_with` array on the record
+  // in one disk write. No receiver-side manifest update (R1b scope:
+  // record-side only — the unified `canRead` already drives discovery
+  // from the source record itself; no manifest needed for these types).
+  //
+  // Callers (`ShareDialogAdapter`) compute the full desired list and
+  // pass it in. The dialog UI is the only writer; UI-only nature means
+  // batched replacement is the right shape.
+  shareNote: async (
+    noteId: number,
+    recipients: { username: string; level: "read" | "edit" }[]
+  ): Promise<{ status: string; item_id: number; shared_with: SharedUser[] }> => {
+    const note = await notesStore.get(noteId);
+    if (!note) throw new Error(`Note ${noteId} not found`);
+    const sharedWith: SharedUser[] = recipients.map((r) => ({
+      username: r.username,
+      level: r.level,
+      // Legacy `permission` mirror so any pre-R1 reader still resolves.
+      permission: r.level === "edit" ? "edit" : "view",
+    }));
+    // Note: legacy `is_shared` boolean stays in sync with whether the
+    // "*" sentinel is present. One release of dual-write keeps old
+    // readers (e.g. Lab Notes feed) working until they migrate to
+    // `canRead`.
+    const wholeLab = sharedWith.some((s) => s.username === "*");
+    await notesStore.update(noteId, {
+      shared_with: sharedWith,
+      is_shared: wholeLab,
+    } as Partial<Note>);
+    return { status: "ok", item_id: noteId, shared_with: sharedWith };
+  },
+
+  shareLink: async (
+    linkId: number,
+    recipients: { username: string; level: "read" | "edit" }[]
+  ): Promise<{ status: string; item_id: number; shared_with: SharedUser[] }> => {
+    const link = await labLinksStore.get(linkId);
+    if (!link) throw new Error(`LabLink ${linkId} not found`);
+    const sharedWith: SharedUser[] = recipients.map((r) => ({
+      username: r.username,
+      level: r.level,
+      permission: r.level === "edit" ? "edit" : "view",
+    }));
+    await labLinksStore.update(linkId, {
+      shared_with: sharedWith,
+    } as Partial<LabLink>);
+    return { status: "ok", item_id: linkId, shared_with: sharedWith };
+  },
+
+  shareGoal: async (
+    goalId: number,
+    recipients: { username: string; level: "read" | "edit" }[]
+  ): Promise<{ status: string; item_id: number; shared_with: SharedUser[] }> => {
+    const goal = await goalsStore.get(goalId);
+    if (!goal) throw new Error(`HighLevelGoal ${goalId} not found`);
+    const sharedWith: SharedUser[] = recipients.map((r) => ({
+      username: r.username,
+      level: r.level,
+      permission: r.level === "edit" ? "edit" : "view",
+    }));
+    await goalsStore.update(goalId, {
+      shared_with: sharedWith,
+    } as Partial<HighLevelGoal>);
+    return { status: "ok", item_id: goalId, shared_with: sharedWith };
+  },
+
   getSharedWithMe: async (): Promise<{
     projects: SharedItemEntry[];
     tasks: SharedItemEntry[];

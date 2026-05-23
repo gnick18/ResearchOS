@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { labApi } from "@/lib/local-api";
+import { labApi, tasksApi } from "@/lib/local-api";
+import SharingChips from "@/components/sharing/SharingChips";
 import { ownerScopedPurchasesApi } from "@/lib/purchases/owner-scoped-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useLabHeadEditGate } from "@/hooks/useLabHeadEditGate";
@@ -130,6 +131,15 @@ export default function PurchaseEditor({
   // buttons, hide the new-row input, and skip the autocomplete query.
   const writesDisabled = readOnly || isSharedWithMe;
   const sharedTooltip = `Only the owner${ownerLabel ? ` (${ownerLabel})` : ""} can edit this shared purchase order`;
+
+  // R1b: pull the parent task's shared_with for the SharingChips
+  // row. The chip set is read-only so a lightweight query is enough;
+  // failure renders no chips (graceful).
+  const { data: parentTask } = useQuery({
+    queryKey: ["task-shared-with", taskId, username],
+    queryFn: () => tasksApi.get(taskId, username ?? undefined),
+    enabled: !!taskId,
+  });
   const [newRow, setNewRow] = useState<EditingRow>({ ...EMPTY_ROW });
   const [suggestions, setSuggestions] = useState<CatalogItem[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -479,6 +489,18 @@ export default function PurchaseEditor({
 
   return (
     <div className="p-4">
+      {/* R1b: sharing chips — read-only visibility hint row for the
+          parent purchase task. */}
+      {parentTask && (
+        <div className="mb-2">
+          <SharingChips
+            sharedWith={parentTask.shared_with || []}
+            ownerUsername={parentTask.owner}
+            viewerUsername={currentUser ?? undefined}
+          />
+        </div>
+      )}
+
       {/* Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23):
           unlocked-session timer banner for the purchase editor. */}
       {labHeadGate.unlocked && labHeadGate.activeUser && (

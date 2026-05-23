@@ -123,6 +123,47 @@ export async function appendAuditEntries(
 }
 
 /**
+ * Lab Mode retirement R1b (R1b sharing completion manager, 2026-05-23):
+ * emit a `method-transient-read` audit entry. Fires whenever a viewer
+ * auto-reads a method via a shared-task auto-grant (depth-1; see
+ * `canReadMethodViaTask` in `lib/sharing/unified.ts`).
+ *
+ * Schema deviation: this entry type sets `actor: "system"` (no human
+ * actor — the read was automatic), `session_id: "auto-grant"` (no
+ * 5-min unlock window), and uses `field_path: "transient-read"` as a
+ * sentinel. The shared PiAuditEntry interface is wide enough to carry
+ * this without a separate file.
+ *
+ * Fire-and-forget: callers should NOT await. Failures are swallowed
+ * so a write hiccup on the audit log never blocks a read path.
+ */
+export function emitMethodTransientReadAudit(args: {
+  methodOwner: string;
+  methodId: number;
+  viewer: string;
+}): void {
+  // Self-read isn't a transient grant — guard at the call site too,
+  // but defensive here.
+  if (args.methodOwner === args.viewer) return;
+  void appendAuditEntries(args.methodOwner, [
+    {
+      session_id: "auto-grant",
+      actor: "system",
+      target_user: args.methodOwner,
+      record_type: "method-transient-read",
+      record_id: args.methodId,
+      field_path: "transient-read",
+      old_value: null,
+      new_value: { viewer: args.viewer, method_id: args.methodId },
+    },
+  ]).catch((err) => {
+    // Audit log writes are best-effort. A failure here must not
+    // disrupt the underlying read path that triggered it.
+    console.warn("[pi-audit] emitMethodTransientReadAudit failed", err);
+  });
+}
+
+/**
  * Read all audit entries for a user. Returns [] if the file doesn't
  * exist. The reader is not paginated — labs accumulate a few hundred
  * entries at most over the lifetime of the demo and the file is JSON,

@@ -4,6 +4,13 @@
   "description": "Weekly bench log for the FakeYeast biofuel project. See dated entries below for transformation efficiencies, gel reads, and any deviations that don't fit in a task's deviation_log field.",
   "is_running_log": true,
   "is_shared": true,
+  "shared_with": [
+    {
+      "username": "*",
+      "level": "read",
+      "permission": "view"
+    }
+  ],
   "entries": [
     {
       "id": "rl-alex-2-e1",

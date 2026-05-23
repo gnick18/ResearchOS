@@ -235,3 +235,43 @@ export function readShareRequestLevel(req: {
   // "view" or unset → "read" (the more conservative default).
   return "read";
 }
+
+/**
+ * Lab Mode retirement R1b (R1b sharing completion manager, 2026-05-23):
+ * method auto-grant transient read. When a viewer has a shared task
+ * that references a method they wouldn't otherwise be able to read,
+ * grant them transient read access AND emit a `method-transient-read`
+ * audit entry so the method owner can see who's auto-reading their
+ * methods via task-share.
+ *
+ * Depth-1 only: we check direct task->method references. We do NOT
+ * recurse into compound-method children (a viewer who can read a
+ * compound method via task-share does NOT auto-read its children;
+ * they'd need to canRead each child independently).
+ *
+ * This helper is PURE — it returns a boolean. Audit emission is
+ * driven separately by callers that have file-system access (see
+ * `frontend/src/lib/lab/pi-audit.ts::emitMethodTransientReadAudit`).
+ * Keeping unified.ts I/O-free preserves the rest of the surface as a
+ * pure-functions module.
+ *
+ * @param method   The method record being read.
+ * @param viewer   The viewer trying to read.
+ * @param viewerSharedTaskMethodIds  The set of method_ids referenced by
+ *   tasks the viewer can already canRead (owner-or-shared). Caller
+ *   computes this once per page-load so we don't re-walk the task
+ *   index per method.
+ * @returns `true` if the auto-grant fires, `false` otherwise.
+ */
+export function canReadMethodViaTask(
+  method: ShareableRecord & { id?: number; method_id?: number },
+  viewer: Viewer,
+  viewerSharedTaskMethodIds: Set<number>,
+): boolean {
+  if (!method) return false;
+  if (method.owner === viewer.username) return false; // owner already reads via canRead.
+  // Method id can live on either `id` (top-level) or `method_id` (legacy).
+  const mid = typeof method.id === "number" ? method.id : method.method_id;
+  if (typeof mid !== "number") return false;
+  return viewerSharedTaskMethodIds.has(mid);
+}

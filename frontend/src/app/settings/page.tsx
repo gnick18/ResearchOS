@@ -1465,12 +1465,13 @@ function BehaviorSection({ settings, update }: SectionProps) {
         checked={settings.confirmDestructiveActions}
         onChange={(v) => void update({ confirmDestructiveActions: v })}
       />
-      <ToggleRow
-        label="Hide my goals from lab view"
-        description="When on, other lab members won't see your goals in their aggregated lab view. Mirrored to the shared user metadata file."
-        checked={settings.hideGoalsFromLab}
-        onChange={(v) => void update({ hideGoalsFromLab: v })}
-      />
+      {/* Lab Mode retirement R1b (R1b sharing completion manager, 2026-05-23):
+          the global "Hide my goals from lab view" toggle is removed.
+          Goal visibility is now PER-GOAL via the unified ShareDialog
+          (each HighLevelGoal has its own `shared_with` list). The
+          `hide_goals_from_lab` user-metadata field is kept on the type
+          for one release (R1 migration honored it once on first login),
+          but the UI control no longer exists. */}
     </SectionShell>
   );
 }

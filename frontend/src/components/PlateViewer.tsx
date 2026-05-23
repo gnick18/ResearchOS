@@ -11,7 +11,7 @@ import type {
   PlateSize,
   PlateWellAnnotation,
 } from "@/lib/types";
-import SharePopup from "@/components/SharePopup";
+import ShareDialogAdapter from "@/components/sharing/ShareDialogAdapter";
 import Tooltip from "@/components/Tooltip";
 import { GlobeIcon, LockIcon } from "@/lib/utils/icons";
 import PlateLayoutEditor, {
@@ -197,15 +197,14 @@ export default function PlateViewer({
       </div>
 
       {showSharePopup && (
-        <SharePopup
+        <ShareDialogAdapter
           isOpen={showSharePopup}
           onClose={() => setShowSharePopup(false)}
-          itemType="method"
-          itemId={currentMethod.id}
-          itemName={currentMethod.name}
-          currentOwner={currentMethod.owner || currentMethod.created_by || currentUser}
+          recordType="method"
+          recordId={currentMethod.id}
+          recordName={currentMethod.name}
+          ownerUsername={currentMethod.owner || currentMethod.created_by || currentUser}
           currentSharedWith={currentMethod.shared_with || []}
-          isPublic={currentMethod.is_public}
           onShared={() => {
             queryClient.refetchQueries({ queryKey: ["methods"] });
             scopedMethodsApi.get(currentMethod.id).then((updatedMethod) => {

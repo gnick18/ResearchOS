@@ -122,6 +122,11 @@ export default function LabUserDetailPanel({
   }, [userTasks, today, windowStart]);
 
   const recentSharedNotes = useMemo(() => {
+    // TODO: migrate to canRead — R1b: `is_shared` is the legacy
+    // whole-lab boolean. Migration converts it to a "*" entry in
+    // `shared_with`. canRead would resolve both; this filter still
+    // works because the migration on login keeps `is_shared` in sync
+    // until the R-next release.
     return notes
       .filter((n) => n.is_shared)
       .filter((n) => {

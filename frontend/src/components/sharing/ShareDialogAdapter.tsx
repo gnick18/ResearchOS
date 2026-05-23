@@ -75,12 +75,16 @@ export default function ShareDialogAdapter({
         if (!afterMap.has(u)) toRemove.push(u);
       }
 
-      // 2. Dispatch to the right API per record type. Tasks / methods /
-      // projects have explicit share/unshare endpoints. Other types
-      // (note / link / goal / mass_spec_protocol) get TODO routing in
-      // R1b — for now, fall back to a console warning if those try to
-      // share. This adapter is here to bridge the existing 9 callsites
-      // (all task / method / project) immediately.
+      // 2. Dispatch to the right API per record type.
+      //
+      //   - task / method / project: per-recipient share/unshare calls
+      //     (existing pattern; each call updates the receiver-side
+      //     `_shared_with_me.json` + bell notification).
+      //   - note / link / goal: R1b adds batched `shareX(id, recipients[])`
+      //     that replaces the whole `shared_with` list in one write
+      //     (no receiver-side manifest; discovery is canRead-driven).
+      //   - mass_spec_protocol: not yet wired — falls through to a
+      //     console.warn. Surfaces as the next R1c chip if needed.
       if (
         recordType === "task" ||
         recordType === "method" ||
@@ -108,10 +112,29 @@ export default function ShareDialogAdapter({
             await sharingApi.unshareProject(recordId, username);
           }
         }
+      } else if (
+        recordType === "note" ||
+        recordType === "link" ||
+        recordType === "goal"
+      ) {
+        // Batched replacement: take the full `after` list as the new
+        // truth. The new sharingApi.shareX helpers persist the whole
+        // array in one disk write.
+        const recipients = after.map((s) => ({
+          username: s.username,
+          level: s.level,
+        }));
+        if (recordType === "note") {
+          await sharingApi.shareNote(recordId, recipients);
+        } else if (recordType === "link") {
+          await sharingApi.shareLink(recordId, recipients);
+        } else {
+          await sharingApi.shareGoal(recordId, recipients);
+        }
       } else {
         console.warn(
           `[ShareDialogAdapter] record type "${recordType}" not yet wired ` +
-            `into the per-type sharingApi. Pending R1b follow-up.`,
+            `into the per-type sharingApi. Pending R1c follow-up.`,
         );
       }
 
