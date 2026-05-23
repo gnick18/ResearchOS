@@ -321,6 +321,8 @@ describe("isSetupPhaseStep / isLabPhaseStep", () => {
     // setup-q1a / setup-q1b removed 2026-05-22 — no longer setup steps.
     expect(isSetupPhaseStep("setup-q1a")).toBe(false);
     expect(isSetupPhaseStep("setup-q1b")).toBe(false);
+    // setup-q1c added 2026-05-23 (lab head follow-up).
+    expect(isSetupPhaseStep("setup-q1c")).toBe(true);
   });
 
   it("classifies the Phase 2c lab steps", () => {
@@ -340,6 +342,35 @@ describe("isSetupPhaseStep / isLabPhaseStep", () => {
 // 2026-05-22: setup-q1a / setup-q1b dropped from the v4 setup phase.
 // The gating tests they used to live in were removed; lab storage is
 // now decided in pre-onboarding §6.4 (cloud-provider screen) instead.
+
+// setup-q1c lab head manager 2026-05-23: setup-q1c (lab head follow-up)
+// gates on account_type === "lab". Solo accounts skip the question.
+describe("isStepGatedOut — setup-q1c (lab head follow-up)", () => {
+  it("fires for lab accounts regardless of lab_head value", () => {
+    expect(
+      isStepGatedOut("setup-q1c", picks({ account_type: "lab" })),
+    ).toBe(false);
+    expect(
+      isStepGatedOut(
+        "setup-q1c",
+        picks({ account_type: "lab", lab_head: true }),
+      ),
+    ).toBe(false);
+    expect(
+      isStepGatedOut(
+        "setup-q1c",
+        picks({ account_type: "lab", lab_head: false }),
+      ),
+    ).toBe(false);
+  });
+
+  it("hides for solo accounts and null picks", () => {
+    expect(
+      isStepGatedOut("setup-q1c", picks({ account_type: "solo" })),
+    ).toBe(true);
+    expect(isStepGatedOut("setup-q1c", null)).toBe(true);
+  });
+});
 
 describe("isStepGatedOut — Phase 2 conditional walkthroughs (§6.13-6.15)", () => {
   it("gates telegram on picks.telegram === 'yes'", () => {
@@ -587,6 +618,9 @@ describe("getNextStep — forward traversal", () => {
     // 2026-05-22 — lab storage decision moved to pre-onboarding §6.4).
     expect(visited).not.toContain("setup-q1a");
     expect(visited).not.toContain("setup-q1b");
+    // setup-q1c lab head manager 2026-05-23: setup-q1c is lab-only;
+    // solo accounts skip it.
+    expect(visited).not.toContain("setup-q1c");
     // Solo skips all lab steps
     expect(visited).not.toContain("lab-prompt");
     expect(visited).not.toContain("lab-spawn-beakerbot");
@@ -631,9 +665,12 @@ describe("getNextStep — forward traversal", () => {
     expect(visited[visited.length - 1]).toBe("tour-goodbye");
   });
 
-  it("lab + all conditionals walks the maximal path", () => {
+  it("lab head + all conditionals walks the maximal path", () => {
     const p = picks({
       account_type: "lab",
+      // setup-q1c lab head manager 2026-05-23: lab_head: true unlocks
+      // the 6-step Lab Overview cluster (the PI dashboard tour).
+      lab_head: true,
       purchases: "yes",
       calendar: "yes",
       goals: "yes",
@@ -648,6 +685,9 @@ describe("getNextStep — forward traversal", () => {
     // lives in pre-onboarding §6.4 (cloud-provider screen).
     expect(visited).not.toContain("setup-q1a");
     expect(visited).not.toContain("setup-q1b");
+    // setup-q1c lab head manager 2026-05-23: the lab head follow-up
+    // fires for any lab account (regardless of lab_head answer).
+    expect(visited).toContain("setup-q1c");
     // Lab Links manager 2026-05-22: setup-q7 + links cluster appear
     // in the maximal lab walk.
     expect(visited).toContain("setup-q7");
@@ -725,13 +765,15 @@ describe("getNextStep — forward traversal", () => {
     expect(getNextStep("setup-q1", p)).toBe("setup-q2");
   });
 
-  it("lab-from-q1 lands on setup-q2 (q1a/q1b removed 2026-05-22)", () => {
+  it("lab-from-q1 lands on setup-q1c (lab head follow-up, setup-q1c lab head manager 2026-05-23)", () => {
     // setup-q1a (lab storage picker) + setup-q1b (lab connect info)
-    // were dropped from the v4 setup phase. Lab storage is decided in
-    // pre-onboarding §6.4 (cloud-provider screen) now. So setup-q1
-    // advances straight to setup-q2 for lab users, same as solo.
+    // were dropped 2026-05-22. setup-q1c (lab head follow-up) was added
+    // 2026-05-23 — it asks the lab user if they're the PI so the
+    // lab-overview cluster gate can scope to lab heads only.
     const p = picks({ account_type: "lab" });
-    expect(getNextStep("setup-q1", p)).toBe("setup-q2");
+    expect(getNextStep("setup-q1", p)).toBe("setup-q1c");
+    // From setup-q1c, lab users advance to setup-q2 (universal).
+    expect(getNextStep("setup-q1c", p)).toBe("setup-q2");
   });
 });
 
@@ -746,12 +788,13 @@ describe("getPreviousStep — backward traversal", () => {
     expect(getPreviousStep("setup-q2", p)).toBe("setup-q1");
   });
 
-  it("lab backstep from setup-q2 also lands on setup-q1 (q1a/q1b removed 2026-05-22)", () => {
-    // setup-q1a / setup-q1b dropped from the v4 setup phase; lab
-    // storage decision moved to pre-onboarding §6.4. Backstep behavior
-    // for lab is now identical to solo.
+  it("lab backstep from setup-q2 lands on setup-q1c (setup-q1c lab head manager 2026-05-23)", () => {
+    // setup-q1c (lab head follow-up) sits between setup-q1 and setup-q2
+    // for lab accounts only. Backstep from setup-q2 for a lab user
+    // lands on setup-q1c; backstep from setup-q1c lands on setup-q1.
     const p = picks({ account_type: "lab" });
-    expect(getPreviousStep("setup-q2", p)).toBe("setup-q1");
+    expect(getPreviousStep("setup-q2", p)).toBe("setup-q1c");
+    expect(getPreviousStep("setup-q1c", p)).toBe("setup-q1");
   });
 
   it("conditional-on backstep traverses the conditional step", () => {
@@ -819,8 +862,14 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     //
     // R4 Lab Mode retirement: the prior 12-step §6.16 Lab Mode cluster
     // (lab-mode-prompt → lab-mode-exit) is REPLACED by the 6-step Lab
-    // Overview cluster (lab-overview-intro → lab-overview-exit). Same
-    // `account_type === "lab"` gate; 6 fewer lab-only steps overall.
+    // Overview cluster (lab-overview-intro → lab-overview-exit). The
+    // gate flipped to `lab_head === true` per the setup-q1c lab head
+    // manager 2026-05-23 chip (the cluster is a PI tool).
+    //
+    // setup-q1c lab head manager 2026-05-23: added one new modal-setup
+    // step (`setup-q1c`) gated on `account_type === "lab"`. Solo
+    // accounts skip it; lab accounts (regardless of lab_head) see it
+    // once and then branch.
     //
     // §6.10 Settings phase redesign 2026-05-22 (Settings manager):
     // ai-helper-deep-explain split into 3 beats (size-diff, paste,
@@ -835,12 +884,14 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     // + 8 purchases cluster + 1 lab-cleanup + 7 Gantt share cluster
     // + 6 Lab Overview cluster + 1 HE-3 (branch-gated) + 2
     // settings-tour-* conditional (calendar, telegram; lab-mode-toggle
-    // FIRES for solo) = 32 gated out for solo.
-    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 32);
-    // Lab+max: HE-3 still branch-gated (user hasn't picked the
-    // overview branch yet at static evaluation time) + settings-tour-
-    // lab-mode-toggle gates out for lab = 2 gated out.
-    expect(labCount).toBe(TOUR_STEP_ORDER.length - 2);
+    // FIRES for solo) + 1 setup-q1c (lab-only) = 33 gated out for solo.
+    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 33);
+    // Lab+max (labMax has no lab_head pick, so the 6-step Lab Overview
+    // cluster gates out under the new lab_head === true gate). HE-3
+    // still branch-gated + settings-tour-lab-mode-toggle gates out for
+    // lab + 6 Lab Overview cluster steps gated by missing lab_head
+    // = 8 gated out.
+    expect(labCount).toBe(TOUR_STEP_ORDER.length - 8);
   });
 
   it("applicableStepIndex is 1-based and skips gated steps", () => {
@@ -898,12 +949,29 @@ describe("TOUR_STEP_ORDER — Lab Overview cluster (R4 Lab Mode retirement 2026-
     expect(cleanupIdx).toBeGreaterThan(exitIdx);
   });
 
-  it("gates every step on picks.account_type === 'lab'", () => {
-    const lab = picks({ account_type: "lab" });
+  // setup-q1c lab head manager 2026-05-23: the lab-overview cluster's
+  // gate flipped from `account_type === "lab"` to `lab_head === true`.
+  // Lab members (account_type=lab + lab_head=false) skip the cluster;
+  // only lab heads see it. Solo accounts and null picks still skip.
+  it("gates every step on picks.lab_head === true", () => {
+    const labHead = picks({ account_type: "lab", lab_head: true });
+    const labMember = picks({ account_type: "lab", lab_head: false });
+    const labUndecided = picks({ account_type: "lab" });
     const solo = picks({ account_type: "solo" });
     for (const id of LAB_OVERVIEW_CLUSTER) {
       expect(isStepGatedOut(id, solo), `${id} should hide for solo`).toBe(true);
-      expect(isStepGatedOut(id, lab), `${id} should show for lab`).toBe(false);
+      expect(
+        isStepGatedOut(id, labHead),
+        `${id} should show for lab heads`,
+      ).toBe(false);
+      expect(
+        isStepGatedOut(id, labMember),
+        `${id} should hide for lab members`,
+      ).toBe(true);
+      expect(
+        isStepGatedOut(id, labUndecided),
+        `${id} should hide when lab_head is undefined`,
+      ).toBe(true);
     }
     // null picks → all hide.
     for (const id of LAB_OVERVIEW_CLUSTER) {
@@ -920,22 +988,41 @@ describe("TOUR_STEP_ORDER — Lab Overview cluster (R4 Lab Mode retirement 2026-
     }
   });
 
-  it("lab walk includes every lab-overview cluster step", () => {
-    const visited = walkForward("welcome", picks({ account_type: "lab" }));
+  it("lab head walk includes every lab-overview cluster step", () => {
+    const visited = walkForward(
+      "welcome",
+      picks({ account_type: "lab", lab_head: true }),
+    );
     for (const id of LAB_OVERVIEW_CLUSTER) {
       expect(visited).toContain(id);
     }
   });
 
-  it("getNextStep on lab-overview-intro with lab picks lands on lab-overview-widget-canvas", () => {
+  it("lab member walk skips the entire lab-overview cluster", () => {
+    const visited = walkForward(
+      "welcome",
+      picks({ account_type: "lab", lab_head: false }),
+    );
+    for (const id of LAB_OVERVIEW_CLUSTER) {
+      expect(visited).not.toContain(id);
+    }
+  });
+
+  it("getNextStep on lab-overview-intro with lab head picks lands on lab-overview-widget-canvas", () => {
     expect(
-      getNextStep("lab-overview-intro", picks({ account_type: "lab" })),
+      getNextStep(
+        "lab-overview-intro",
+        picks({ account_type: "lab", lab_head: true }),
+      ),
     ).toBe("lab-overview-widget-canvas");
   });
 
-  it("getNextStep on lab-overview-exit with lab picks lands on lab-cleanup", () => {
+  it("getNextStep on lab-overview-exit with lab head picks lands on lab-cleanup", () => {
     expect(
-      getNextStep("lab-overview-exit", picks({ account_type: "lab" })),
+      getNextStep(
+        "lab-overview-exit",
+        picks({ account_type: "lab", lab_head: true }),
+      ),
     ).toBe("lab-cleanup");
   });
 });

@@ -39,6 +39,6 @@ export const labOverviewExitStep: TourStep = buildWalkthroughStep({
     </div>
   ),
   completion: manualAdvance("Let's customize"),
-  conditionalOn: (picks) => picks?.account_type === "lab",
+  conditionalOn: (picks) => picks?.lab_head === true,
   expectedRoute: "/lab-overview",
 });

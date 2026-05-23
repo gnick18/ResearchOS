@@ -23,8 +23,13 @@ describe("labOverviewWidgetCanvasStep shape", () => {
     );
     expect(labOverviewWidgetCanvasStep.completion.type).toBe("manual");
     expect(labOverviewWidgetCanvasStep.expectedRoute).toBe("/lab-overview");
+    // setup-q1c lab head manager 2026-05-23: gate is now `lab_head ===
+    // true`, not `account_type === "lab"`. Lab members (account_type=lab
+    // but lab_head=false) skip the cluster; only lab heads see it.
     const gate = labOverviewWidgetCanvasStep.conditionalOn!;
-    expect(gate({ account_type: "lab" })).toBe(true);
+    expect(gate({ account_type: "lab", lab_head: true })).toBe(true);
+    expect(gate({ account_type: "lab", lab_head: false })).toBe(false);
+    expect(gate({ account_type: "lab" })).toBe(false);
     expect(gate({ account_type: "solo" })).toBe(false);
   });
 

@@ -10,8 +10,20 @@
  * controller's expectedRoute auto-navigates to `/lab-overview` before
  * the speech bubble lands.
  *
- * Gates on `picks.account_type === "lab"`. Solo accounts skip the
- * entire cluster (the step-machine LAB_OVERVIEW_STEP_IDS list).
+ * setup-q1c lab head manager 2026-05-23: re-gated from
+ * `account_type === "lab"` to `lab_head === true`. The Lab Overview
+ * dashboard is a PI tool (widget curation, member spotlighting, sharing
+ * concepts), so lab members who picked "Lab" on Q1 but "No, I'm a lab
+ * member" on Q1c skip the cluster entirely. They still see the
+ * universal walkthrough.
+ *
+ * FOLLOW-UP (deferred 2026-05-23): Grant's direction is that lab heads
+ * should land on /lab-overview as their first post-setup destination,
+ * with Mira's demo lab data substituted in for visual richness. Today
+ * R4's tour runs against the user's REAL canvas, which can be empty
+ * when other lab members haven't filled it in yet. A future variant
+ * should swap in Mira's substrate so a brand-new lab head sees a rich
+ * dashboard before their team has populated theirs. Not built here.
  */
 import type { TourStep } from "../../step-types";
 import {
@@ -39,6 +51,6 @@ export const labOverviewIntroStep: TourStep = buildWalkthroughStep({
     </div>
   ),
   completion: manualAdvance("Got it, next"),
-  conditionalOn: (picks) => picks?.account_type === "lab",
+  conditionalOn: (picks) => picks?.lab_head === true,
   expectedRoute: "/lab-overview",
 });

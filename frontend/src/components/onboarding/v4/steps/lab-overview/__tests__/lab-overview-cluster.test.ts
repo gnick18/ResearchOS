@@ -69,9 +69,26 @@ describe("Lab Overview cluster — registry wiring", () => {
 });
 
 describe("Lab Overview cluster — gating", () => {
-  it("gates every cluster step on picks.account_type === 'lab'", () => {
+  // setup-q1c lab head manager 2026-05-23: the gate flipped from
+  // `account_type === "lab"` to `lab_head === true`. Lab members
+  // (account_type=lab + lab_head=false) skip the cluster; only lab
+  // heads (account_type=lab + lab_head=true) see it. The dashboard
+  // customization + sharing concepts are a PI tool, not a generic
+  // member tool.
+  it("gates every cluster step on picks.lab_head === true", () => {
     for (const id of CLUSTER_IDS) {
-      expect(isStepGatedOut(id, { account_type: "lab" }), `${id} should fire for lab`).toBe(false);
+      expect(
+        isStepGatedOut(id, { account_type: "lab", lab_head: true }),
+        `${id} should fire for lab heads`,
+      ).toBe(false);
+      expect(
+        isStepGatedOut(id, { account_type: "lab", lab_head: false }),
+        `${id} should hide for lab members`,
+      ).toBe(true);
+      expect(
+        isStepGatedOut(id, { account_type: "lab" }),
+        `${id} should hide when lab_head is undefined`,
+      ).toBe(true);
       expect(isStepGatedOut(id, { account_type: "solo" }), `${id} should hide for solo`).toBe(true);
       expect(isStepGatedOut(id, null), `${id} should hide for null picks`).toBe(true);
     }

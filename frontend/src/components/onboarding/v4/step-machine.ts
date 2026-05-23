@@ -61,6 +61,13 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // stops writing it; pre-onboarding P3-P4 will populate it later).
   "welcome",
   "setup-q1",
+  // Lab Head follow-up (setup-q1c lab head manager 2026-05-23). Gated on
+  // `account_type === "lab"`; solo accounts skip straight to setup-q2.
+  // Skipped letter "b" because v3 had a setup-q1b lab connect-info step
+  // that was dropped 2026-05-22; "q1c" reads as "the lab-only follow-up
+  // immediately after q1" without confusing the existing q1a/q1b retired
+  // ids in test history.
+  "setup-q1c",
   "setup-q2",
   "setup-q3",
   "setup-q4",
@@ -336,6 +343,10 @@ const STEP_INDEX: ReadonlyMap<TourStepId, number> = new Map(
 const SETUP_STEP_IDS: ReadonlySet<TourStepId> = new Set<TourStepId>([
   "welcome",
   "setup-q1",
+  // Lab Head follow-up (setup-q1c lab head manager 2026-05-23). Modal-
+  // contained alongside the other setup-q* steps; the modal shell mounts
+  // the body via SETUP_STEP_DESCRIPTORS.
+  "setup-q1c",
   "setup-q2",
   "setup-q3",
   "setup-q4",
@@ -452,6 +463,13 @@ export function isStepGatedOut(
   // (cloud-provider screen), so the v4 modal setup no longer asks the
   // user where lab data lives.
 
+  // Lab Head follow-up (setup-q1c lab head manager 2026-05-23). The
+  // step asks "are you the lab head?" and only makes sense after the
+  // user picked "Lab" on Q1. Solo accounts skip it. The answer drives
+  // the Lab Overview cluster gate (only lab heads see the dashboard
+  // customization tour).
+  if (step === "setup-q1c") return picks?.account_type !== "lab";
+
   // Phase 2 conditional walkthroughs (§6.13 - §6.15).
   if (step === "telegram") return picks?.telegram !== "yes";
   // Purchases redesign 2026-05-22 (Purchases manager): the legacy
@@ -558,12 +576,17 @@ export function isStepGatedOut(
   }
 
   // R4 Lab Overview tour cluster (R4 Lab Mode retirement, 2026-05-23).
-  // Same shape as the prior LAB_STEP_IDS gate: machine-level decision
-  // is solely `account_type === "lab"`. No prompt step + no warp, so
-  // no resume-guard sidecar field is needed; the cluster walks the
-  // user's real `/lab-overview` instead of a demo overlay.
+  // setup-q1c lab head manager 2026-05-23: the cluster now gates on
+  // `lab_head === true` (was `account_type === "lab"`). The Lab Overview
+  // dashboard is a PI tool — widget curation, member spotlighting, and
+  // sharing concepts target the person running the lab, not every lab
+  // member. Lab members (who picked "Lab" on Q1 but "No" on Q1c) still
+  // see the universal walkthrough; they just skip this 6-step cluster.
+  // No prompt step + no warp, so no resume-guard sidecar field is needed;
+  // the cluster walks the user's real `/lab-overview` instead of a demo
+  // overlay.
   if (LAB_OVERVIEW_STEP_IDS.has(step)) {
-    return picks?.account_type !== "lab";
+    return picks?.lab_head !== true;
   }
 
   return false;

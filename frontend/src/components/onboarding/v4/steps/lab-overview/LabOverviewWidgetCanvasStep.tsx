@@ -56,6 +56,6 @@ export const labOverviewWidgetCanvasStep: TourStep = buildWalkthroughStep({
     return compactScript([glide]);
   }),
   completion: manualAdvance("Got it, next"),
-  conditionalOn: (picks) => picks?.account_type === "lab",
+  conditionalOn: (picks) => picks?.lab_head === true,
   expectedRoute: "/lab-overview",
 });

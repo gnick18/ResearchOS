@@ -28,6 +28,7 @@ import type { TourStepId } from "../../step-types";
 import type { SetupStepProps } from "./types";
 import WelcomeStep from "./WelcomeStep";
 import Q1AccountTypeStep from "./Q1AccountTypeStep";
+import Q1cLabHeadStep from "./Q1cLabHeadStep";
 import Q2PurchasesStep from "./Q2PurchasesStep";
 import Q3CalendarStep from "./Q3CalendarStep";
 import Q4GoalsStep from "./Q4GoalsStep";
@@ -73,6 +74,13 @@ export const SETUP_STEP_DESCRIPTORS: Partial<
     speech:
       "Quick first call: are you flying solo, or is this for a whole lab?",
     Component: Q1AccountTypeStep,
+  },
+  "setup-q1c": {
+    title: "Are you the lab head?",
+    pose: "thinking",
+    speech:
+      "One follow-up before we move on: are you the PI, or a lab member?",
+    Component: Q1cLabHeadStep,
   },
   "setup-q2": {
     title: "Track lab purchases?",
@@ -131,6 +139,7 @@ export function getSetupDescriptor(
 export {
   WelcomeStep,
   Q1AccountTypeStep,
+  Q1cLabHeadStep,
   Q2PurchasesStep,
   Q3CalendarStep,
   Q4GoalsStep,

@@ -23,8 +23,12 @@ describe("labOverviewSidebarRailStep shape", () => {
     );
     expect(labOverviewSidebarRailStep.completion.type).toBe("manual");
     expect(labOverviewSidebarRailStep.expectedRoute).toBe("/lab-overview");
+    // setup-q1c lab head manager 2026-05-23: gate is now `lab_head ===
+    // true`. Lab members skip the cluster; only lab heads see it.
     const gate = labOverviewSidebarRailStep.conditionalOn!;
-    expect(gate({ account_type: "lab" })).toBe(true);
+    expect(gate({ account_type: "lab", lab_head: true })).toBe(true);
+    expect(gate({ account_type: "lab", lab_head: false })).toBe(false);
+    expect(gate({ account_type: "lab" })).toBe(false);
     expect(gate({ account_type: "solo" })).toBe(false);
   });
 

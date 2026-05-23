@@ -15,8 +15,12 @@ describe("labOverviewIntroStep shape", () => {
     expect(labOverviewIntroStep.pose).toBe("waving");
     expect(labOverviewIntroStep.completion.type).toBe("manual");
     expect(labOverviewIntroStep.expectedRoute).toBe("/lab-overview");
+    // setup-q1c lab head manager 2026-05-23: gate is now `lab_head ===
+    // true`. Lab members skip the cluster; only lab heads see it.
     const gate = labOverviewIntroStep.conditionalOn!;
-    expect(gate({ account_type: "lab" })).toBe(true);
+    expect(gate({ account_type: "lab", lab_head: true })).toBe(true);
+    expect(gate({ account_type: "lab", lab_head: false })).toBe(false);
+    expect(gate({ account_type: "lab" })).toBe(false);
     expect(gate({ account_type: "solo" })).toBe(false);
     expect(gate(null)).toBe(false);
   });

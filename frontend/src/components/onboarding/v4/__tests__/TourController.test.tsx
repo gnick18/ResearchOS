@@ -71,6 +71,17 @@ vi.mock("next/navigation", () => ({
   usePathname: () => mockPathname,
 }));
 
+// setup-q1c lab head manager 2026-05-23: Q1AccountTypeStep now calls
+// `useCurrentUser` + `discoverUsers` on mount. Mock both so the
+// controller tests that mount the setup-q1 body don't crash for lack
+// of a FileSystemProvider.
+vi.mock("@/hooks/useCurrentUser", () => ({
+  useCurrentUser: () => ({ currentUser: "alex" }),
+}));
+vi.mock("@/lib/file-system/user-discovery", () => ({
+  discoverUsers: async () => [] as string[],
+}));
+
 import {
   TourControllerProvider,
   useOptionalTourController,
@@ -204,9 +215,10 @@ describe("TourController — start() / advance() / goBack() / exitTour()", () =>
     });
     act(() => result.current.start("setup-q2"));
     act(() => result.current.goBack());
-    // 2026-05-22: setup-q1a / setup-q1b dropped — lab backstep from
-    // setup-q2 lands directly on setup-q1, same as solo.
-    expect(result.current.currentStep).toBe("setup-q1");
+    // setup-q1c lab head manager 2026-05-23: setup-q1c (lab head
+    // follow-up) sits between setup-q1 and setup-q2 for lab accounts.
+    // Lab backstep from setup-q2 lands on setup-q1c, not setup-q1.
+    expect(result.current.currentStep).toBe("setup-q1c");
   });
 
   it("goBack() at the head is a no-op", () => {
@@ -353,13 +365,20 @@ describe("TourController — setFeaturePicks", () => {
     // tour-goodbye (Cleanup retirement 2026-05-22 swap from
     // phase4-cleanup).
     expect(result.current.currentStep).toBe("tour-goodbye");
-    // Flip to lab and re-enter the terminal wiki-pointer beat; advance
-    // now lands on the first applicable post-wiki step. After the
-    // R4 Lab Mode retirement 2026-05-23, the new 6-step Lab Overview
-    // cluster sits between the conditional walkthroughs and
-    // lab-cleanup, so the first applicable lab-only step is now
-    // `lab-overview-intro`.
-    act(() => result.current.setFeaturePicks(picks({ account_type: "lab" })));
+    // Flip to lab head and re-enter the terminal wiki-pointer beat;
+    // advance now lands on the first applicable post-wiki step. After
+    // the R4 Lab Mode retirement 2026-05-23, the new 6-step Lab Overview
+    // cluster sits between the conditional walkthroughs and lab-cleanup,
+    // so the first applicable lab-only step is `lab-overview-intro`.
+    // setup-q1c lab head manager 2026-05-23: the cluster gate is now
+    // `lab_head === true`, not `account_type === "lab"`. Use lab_head:
+    // true so the cluster fires; a plain lab pick would skip straight
+    // to lab-cleanup.
+    act(() =>
+      result.current.setFeaturePicks(
+        picks({ account_type: "lab", lab_head: true }),
+      ),
+    );
     act(() => result.current.start("wiki-pointer-back-demo"));
     act(() => result.current.advance());
     expect(result.current.currentStep).toBe("lab-overview-intro");

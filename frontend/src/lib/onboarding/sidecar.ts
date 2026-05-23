@@ -81,6 +81,18 @@ const SCHEMA_VERSION = 5;
  *  visibleTabs in that case. See ONBOARDING_V3_PROPOSAL.md §10. */
 export interface FeaturePicks {
   account_type: "solo" | "lab";
+  /** Lab accounts only. Set in v4 setup-q1c (asked immediately after the
+   *  user picks "Lab" on Q1). `true` means the user runs the lab (PI /
+   *  group leader); `false` means they're a lab member working under
+   *  someone else. Used by the Lab Overview tour gate (the cluster only
+   *  fires for `lab_head === true` because the dashboard customization +
+   *  sharing concepts are PI tools) and may key future PI-only surfaces.
+   *
+   *  Optional + defaults to undefined for back-compat with sidecars
+   *  written before 2026-05-23. Schema version stayed at 5 because no
+   *  reader requires the field to be present — every consumer treats
+   *  `lab_head !== true` (including undefined) as "not the lab head". */
+  lab_head?: boolean;
   /** Lab accounts only. `"deferred"` means user picked lab but chose to
    *  set up storage later. */
   lab_storage?: "local" | "google_drive" | "onedrive" | "box" | "deferred";
