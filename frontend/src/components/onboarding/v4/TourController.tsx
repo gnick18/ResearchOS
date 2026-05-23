@@ -1487,6 +1487,12 @@ function InProductWalkthroughOverlay({
     if (!ref) return;
 
     let cancelled = false;
+    // Wave 2 Fix 3/9: per-effect AbortController. The cursor's
+    // runScript receives the signal so it short-circuits at the next
+    // action boundary when the step exits while a long script is
+    // still queued. Aborts also wake abortable sleep() / pause(),
+    // collapsing multi-second waits into microtasks.
+    const abortController = new AbortController();
     void (async () => {
       try {
         // Build the action list FIRST. Some step bodies (e.g. the LC
@@ -1551,7 +1557,7 @@ function InProductWalkthroughOverlay({
         // dispatching click events).
         setCursorActive(true);
         try {
-          await liveRef.runScript(actions);
+          await liveRef.runScript(actions, abortController.signal);
         } finally {
           if (!cancelled) setCursorActive(false);
         }
@@ -1566,6 +1572,13 @@ function InProductWalkthroughOverlay({
 
     return () => {
       cancelled = true;
+      // Wave 2 Fix 3/9: signal the in-flight runScript to abort at the
+      // next action boundary + wake any abortable sleep / pause that's
+      // currently parked. Without this the cursor queue would keep
+      // chugging through the prior step's actions until it naturally
+      // ran out, which was visible to users when fast-clicking through
+      // steps.
+      abortController.abort();
       // Release the lock the moment the step exits — even if runScript
       // is still mid-animation, we want the user free to interact with
       // the next step's surface. Skip / Back paths from the speech

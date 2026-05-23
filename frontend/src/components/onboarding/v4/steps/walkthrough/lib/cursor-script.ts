@@ -30,6 +30,7 @@
  * to skip a step gracefully if the target never appears.
  */
 import type { CursorAction } from "@/components/BeakerBotCursor";
+import { abortableSleep } from "@/components/BeakerBotCursor";
 
 /**
  * Build a cursor script. The returned callback is what `TourStep.cursorScript`
@@ -387,9 +388,25 @@ export async function safeDragAction(
  * can just gate it on their own condition before pushing it.
  */
 export function callbackAction(
-  fn: () => void | Promise<void>,
+  fn: (signal?: AbortSignal) => void | Promise<void>,
 ): CursorAction {
   return { type: "callback", fn };
+}
+
+/**
+ * Wave 2 Fix 3/9 — abortable pause action.
+ *
+ * Wraps a `setTimeout`-based wait inside a callback action so the
+ * runScript caller's AbortSignal (if any) can short-circuit the
+ * pause. Without this, a step body's `pause(2000)` would hold the
+ * cursor queue for the full 2s even if the controller already
+ * cancelled. With it, the timer races abort and the queue advances
+ * (then short-circuits at the next abort check in runScript).
+ */
+export function pause(ms: number): CursorAction {
+  return callbackAction(async (signal) => {
+    await abortableSleep(ms, signal);
+  });
 }
 
 /**

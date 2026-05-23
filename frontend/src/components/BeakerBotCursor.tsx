@@ -114,7 +114,15 @@ export type CursorAction =
    * inside fn are caught and logged inside runScript (a buggy callback
    * must not stall the rest of the demo).
    */
-  | { type: "callback"; fn: () => void | Promise<void> };
+  | {
+      type: "callback";
+      /** Wave 2 Fix 3/9: the callback receives the active runScript
+       *  `AbortSignal` (when one was supplied) so it can race its
+       *  own waits against cancellation. The signal is forwarded
+       *  verbatim — callbacks that don't care about cancellation
+       *  can ignore the arg. */
+      fn: (signal?: AbortSignal) => void | Promise<void>;
+    };
 
 export interface BeakerBotCursorRef {
   /** Glide to absolute viewport coords (x, y). Resolves on arrival. */
@@ -142,8 +150,12 @@ export interface BeakerBotCursorRef {
   hide(): void;
   /** Show the cursor (default visibility). */
   show(): void;
-  /** Run a queue of primitives sequentially. Resolves after the last. */
-  runScript(actions: readonly CursorAction[]): Promise<void>;
+  /** Run a queue of primitives sequentially. Resolves after the last.
+   *  Wave 2 Fix 3/9: optional `signal` aborts the script between
+   *  actions. callback actions receive the signal so they can chain
+   *  it into their own waits. A pending sleep / pause inside an
+   *  action is also cancelled by the signal. */
+  runScript(actions: readonly CursorAction[], signal?: AbortSignal): Promise<void>;
   /** Snap the cursor to the given coords WITHOUT animation. Used by the
    *  §6.7 HE-8 off-screen entry: the controller calls `snapTo` to place
    *  the cursor outside the viewport before runScript fires, so the
@@ -268,6 +280,30 @@ function sleep(ms: number): Promise<void> {
       return;
     }
     window.setTimeout(resolve, ms);
+  });
+}
+
+/**
+ * Wave 2 Fix 3/9: abortable sleep. Resolves when the timer fires OR
+ * when the signal aborts (whichever lands first). On abort we resolve
+ * (not reject) so callers can simply check `signal.aborted` after the
+ * await to decide whether to bail — matches the existing fire-and-
+ * forget posture inside runScript.
+ */
+export function abortableSleep(ms: number, signal?: AbortSignal): Promise<void> {
+  if (!signal) return sleep(ms);
+  if (signal.aborted) return Promise.resolve();
+  return new Promise((resolve) => {
+    const onAbort = () => {
+      window.clearTimeout(timer);
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    };
+    const timer = window.setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms <= 0 ? 0 : ms);
+    signal.addEventListener("abort", onAbort, { once: true });
   });
 }
 
@@ -758,8 +794,19 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
     // Composable script runner
     // ---------------------------------------------------------------------
     const runScript = useCallback(
-      async (actions: readonly CursorAction[]): Promise<void> => {
+      async (
+        actions: readonly CursorAction[],
+        signal?: AbortSignal,
+      ): Promise<void> => {
         for (const action of actions) {
+          // Wave 2 Fix 3/9: short-circuit between actions when the
+          // controller has aborted. We don't try to mid-cancel an
+          // in-flight glide/click/type — those resolve in ~hundreds
+          // of ms — but we DO stop the queue at the next boundary.
+          // Pauses + the new abortable sleep also resolve early when
+          // aborted, so a stuck script can release in under a frame
+          // of wall time when cancellation lands.
+          if (signal?.aborted) return;
           switch (action.type) {
             case "glide":
               await glideTo(action.x, action.y);
@@ -785,7 +832,7 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
               // swallowed + logged" posture (TourController already
               // wraps runScript in another try/catch one level up).
               try {
-                await action.fn();
+                await action.fn(signal);
               } catch (err) {
                 console.warn(
                   "[BeakerBotCursor] callback action threw:",

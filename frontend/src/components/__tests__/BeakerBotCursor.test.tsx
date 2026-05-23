@@ -399,6 +399,39 @@ describe("BeakerBotCursor — edge cases", () => {
     document.body.removeChild(button);
   });
 
+  it("runScript short-circuits between actions when the AbortSignal is already aborted (Wave 2 Fix 3/9)", async () => {
+    const button1 = document.createElement("button");
+    const button2 = document.createElement("button");
+    button1.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 10, height: 10, right: 10, bottom: 10, x: 0, y: 0, toJSON: () => "" }) as DOMRect;
+    button2.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 10, height: 10, right: 10, bottom: 10, x: 0, y: 0, toJSON: () => "" }) as DOMRect;
+    document.body.append(button1, button2);
+    const onClick1 = vi.fn();
+    const onClick2 = vi.fn();
+    button1.addEventListener("click", onClick1);
+    button2.addEventListener("click", onClick2);
+
+    const { ref } = renderWithRef({ glideMs: 5, rippleMs: 5 });
+    await act(async () => {});
+    const ac = new AbortController();
+    ac.abort();
+    await act(async () => {
+      await ref.current?.runScript(
+        [
+          { type: "click", target: button1 },
+          { type: "click", target: button2 },
+        ],
+        ac.signal,
+      );
+    });
+    // Aborted before the first action ran → no clicks landed.
+    expect(onClick1).not.toHaveBeenCalled();
+    expect(onClick2).not.toHaveBeenCalled();
+    document.body.removeChild(button1);
+    document.body.removeChild(button2);
+  });
+
   it("runScript composes primitives sequentially", async () => {
     const button = document.createElement("button");
     const input = document.createElement("input");
