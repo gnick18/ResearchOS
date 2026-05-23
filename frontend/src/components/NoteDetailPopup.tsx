@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import type { Note, NoteEntry } from "@/lib/types";
-import { notesApi } from "@/lib/local-api";
+import { ownerScopedNotesApi } from "@/lib/notes/owner-scoped-api";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import NoteCommentsThread from "./NoteCommentsThread";
 import Tooltip from "./Tooltip";
@@ -18,7 +18,6 @@ import { useLabHeadEditGate } from "@/hooks/useLabHeadEditGate";
 import RequestEditButton from "./RequestEditButton";
 import EditSessionBanner from "./EditSessionBanner";
 import AuditTrailNotice from "./AuditTrailNotice";
-import { appendAuditEntries } from "@/lib/lab/pi-audit";
 
 interface NoteDetailPopupProps {
   note: Note;
@@ -81,15 +80,33 @@ export default function NoteDetailPopup({
   // prop-passed readOnly flag with the PI edit-mode gate. When the active
   // user is a lab head and has unlocked a session for this note, the
   // effective readOnly flips false so inputs become editable + saves
-  // emit audit entries. Underlying notesApi.update currently routes to
-  // the active user's folder (not the note owner's) — extending notes
-  // for cross-owner writes is Phase 3+ work; the auth infrastructure
-  // and visible chrome ship in Phase 5.
+  // emit audit entries.
+  //
+  // Lab Head Phase 5 R1 (lab head Phase 5 R1 manager, 2026-05-23): writes
+  // now route to the NOTE-OWNER's folder via `ownerScopedNotesApi`, not
+  // the PI's. Closes the silent-data-corruption gap Phase 5 deferred.
+  // When the session is NOT unlocked (or any session arg is missing) the
+  // wrapper falls through to the raw notesApi — current-user behavior is
+  // unchanged for members and PIs editing their own data.
   const labHeadGate = useLabHeadEditGate({
     readOnly: propReadOnly,
     recordOwner: note.username ?? null,
   });
   const readOnly = labHeadGate.effectiveReadOnly;
+  const notesApi = useMemo(
+    () =>
+      ownerScopedNotesApi({
+        targetOwner: labHeadGate.unlocked ? note.username : undefined,
+        actor: labHeadGate.unlocked ? labHeadGate.activeUser : undefined,
+        sessionId: labHeadGate.unlocked ? labHeadGate.sessionId : undefined,
+      }),
+    [
+      labHeadGate.unlocked,
+      labHeadGate.activeUser,
+      labHeadGate.sessionId,
+      note.username,
+    ],
+  );
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingDescription, setEditingDescription] = useState(false);
@@ -176,7 +193,7 @@ export default function NoteDetailPopup({
         isSavingRef.current = false;
       }
     },
-    [note.id, onUpdate]
+    [note.id, onUpdate, notesApi]
   );
 
   // Debounced save (1.5 seconds after user stops typing)
@@ -229,7 +246,7 @@ export default function NoteDetailPopup({
     }
 
     onClose();
-  }, [note.id, onClose, cancelDebouncedSave]);
+  }, [note.id, onClose, cancelDebouncedSave, notesApi]);
 
   // Handle escape key to close or exit fullscreen
   useEffect(() => {
@@ -246,48 +263,6 @@ export default function NoteDetailPopup({
     return () => window.removeEventListener("keydown", handleEscape);
   }, [isExpanded, handleClose]);
 
-  // Lab Head Phase 5 — write per-field audit entries when the active save
-  // happens during an unlocked PI session on another member's note.
-  const writeLabHeadAuditIfActive = useCallback(
-    async (
-      fieldPath: string,
-      oldValue: unknown,
-      newValue: unknown,
-    ) => {
-      if (
-        !labHeadGate.unlocked ||
-        !labHeadGate.sessionId ||
-        !labHeadGate.activeUser ||
-        !note.username
-      ) {
-        return;
-      }
-      try {
-        await appendAuditEntries(note.username, [
-          {
-            session_id: labHeadGate.sessionId,
-            actor: labHeadGate.activeUser,
-            target_user: note.username,
-            record_type: "note",
-            record_id: note.id,
-            field_path: fieldPath,
-            old_value: oldValue ?? null,
-            new_value: newValue ?? null,
-          },
-        ]);
-      } catch (err) {
-        console.warn("[NoteDetailPopup] appendAuditEntries failed", err);
-      }
-    },
-    [
-      labHeadGate.unlocked,
-      labHeadGate.sessionId,
-      labHeadGate.activeUser,
-      note.username,
-      note.id,
-    ],
-  );
-
   // Save title
   const saveTitle = async () => {
     if (title === note.title) {
@@ -296,12 +271,11 @@ export default function NoteDetailPopup({
     }
     setSaving(true);
     try {
-      const oldTitle = note.title;
+      // Phase 5 R1: notesApi is owner-scoped — write goes to the note
+      // owner's folder + audit entries emitted automatically when a PI
+      // edit session is unlocked.
       const updated = await notesApi.update(note.id, { title });
-      if (updated) {
-        onUpdate(updated);
-        await writeLabHeadAuditIfActive("title", oldTitle, title);
-      }
+      if (updated) onUpdate(updated);
       setEditingTitle(false);
     } catch (error) {
       console.error("Failed to save title:", error);
@@ -319,12 +293,8 @@ export default function NoteDetailPopup({
     }
     setSaving(true);
     try {
-      const oldDesc = note.description;
       const updated = await notesApi.update(note.id, { description });
-      if (updated) {
-        onUpdate(updated);
-        await writeLabHeadAuditIfActive("description", oldDesc, description);
-      }
+      if (updated) onUpdate(updated);
       setEditingDescription(false);
     } catch (error) {
       console.error("Failed to save description:", error);
