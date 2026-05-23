@@ -43,7 +43,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import BeakerBot, { type BeakerBotPose } from "./BeakerBot";
-import { SCENE_GROUND_BOTTOM_CSS } from "./beakerbot/scene-constants";
+import {
+  BEAKERBOT_SCENE_SIZE_CLASS,
+  BEAKERBOT_SCENE_SIZE_PX,
+  SCENE_GROUND_BOTTOM_CSS,
+} from "./beakerbot/scene-constants";
 
 export interface BeakerBotBugStompSceneProps {
   /** When true, the scene mounts and runs through its sequence.
@@ -442,7 +446,7 @@ export default function BeakerBotBugStompScene({
           <div style={{ position: "relative" }}>
             <BeakerBot
               pose="cheering"
-              className="w-32 h-32 text-sky-500"
+              className={`${BEAKERBOT_SCENE_SIZE_CLASS} text-sky-500`}
               ariaLabel="BeakerBot victorious"
             />
             <div
@@ -670,7 +674,13 @@ export default function BeakerBotBugStompScene({
               willChange: "transform, opacity",
             }}
           >
-            <div style={{ position: "relative", width: 128, height: 128 }}>
+            <div
+              style={{
+                position: "relative",
+                width: BEAKERBOT_SCENE_SIZE_PX,
+                height: BEAKERBOT_SCENE_SIZE_PX,
+              }}
+            >
               {/* Exclamation mark — pops in during celebrate. */}
               <div
                 style={{
@@ -698,7 +708,7 @@ export default function BeakerBotBugStompScene({
                   no three-arm bug from R2). */}
               <BeakerBot
                 pose={currentPose}
-                className="w-32 h-32 text-sky-500"
+                className={`${BEAKERBOT_SCENE_SIZE_CLASS} text-sky-500`}
                 ariaLabel="BeakerBot bug stomper"
               />
 
