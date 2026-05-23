@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useState } from "react";
+import { create } from "zustand";
 import {
   subscribeToErrors,
   getLastError,
@@ -29,59 +30,130 @@ function fingerprintError(error: ErrorInfo): string {
   return `${error.message}|${firstStackLine}`.slice(0, 500);
 }
 
+/**
+ * Global store for the auto-error confirm dialog state.
+ *
+ * Why a store rather than per-hook React state: `useErrorReporting()`
+ * is called from 5+ sites (AppShell, UserLoginScreen, DataSetupScreen,
+ * ResearchFolderSetupNew, AutoErrorConfirmHost). Each instance would
+ * otherwise hold its own copy of `showAutoErrorConfirm`, and only the
+ * instance that wins the listener race would actually flip — every
+ * other instance would silently miss the auto-error event. The
+ * AutoErrorConfirmHost (which renders the dialog) might not be the
+ * winner. Lifting this into a single global store makes the dialog
+ * mount and the consent state share one source of truth regardless of
+ * which hook instance the event fires from.
+ *
+ * Also moves the subscribe-to-errors side-effect for the auto-error
+ * path into module-scope. The subscription is registered exactly once,
+ * not per-hook-instance, so there's no fingerprint-dedup race between
+ * 5 sibling refs.
+ */
+interface AutoErrorConfirmState {
+  showAutoErrorConfirm: boolean;
+  pendingAutoError: ErrorInfo | null;
+  lastFingerprint: string | null;
+
+  /** Auto-error event handler: invoked by the module-level subscriber
+   *  on every captured error. Runs the fingerprint dedup + scene fire
+   *  inside the store so no hook instance has to. */
+  onAutoError: (error: ErrorInfo) => void;
+
+  /** User clicked Send on the confirm dialog. Caller (the hook) reads
+   *  pendingAutoError and routes it into the bug-report modal flow. */
+  consume: () => ErrorInfo | null;
+
+  /** User clicked Dismiss (or backdrop) on the confirm dialog. */
+  dismiss: () => void;
+}
+
+const useAutoErrorConfirmStore = create<AutoErrorConfirmState>((set, get) => ({
+  showAutoErrorConfirm: false,
+  pendingAutoError: null,
+  lastFingerprint: null,
+
+  onAutoError: (error) => {
+    const fp = fingerprintError(error);
+    if (get().lastFingerprint === fp) return;
+    set({ lastFingerprint: fp });
+
+    // Fire the splat scene; on completion, surface the confirm dialog
+    // with the captured error. If the store rejects (cooldown not yet
+    // elapsed, or scene already playing), the dialog stays closed and
+    // the toast remains as the fallback Report path.
+    const { fireScene } = useSceneTriggerStore.getState();
+    fireScene(
+      "bugstomp",
+      () => {
+        set({ showAutoErrorConfirm: true, pendingAutoError: error });
+      },
+      AUTO_ERROR_COOLDOWN_MS,
+    );
+  },
+
+  consume: () => {
+    const { pendingAutoError } = get();
+    set({ showAutoErrorConfirm: false, pendingAutoError: null });
+    return pendingAutoError;
+  },
+
+  dismiss: () => {
+    set({ showAutoErrorConfirm: false, pendingAutoError: null });
+    clearLastError();
+  },
+}));
+
+// Module-level subscription: registered once on first import on the
+// client. Hot-reload re-runs this file in dev; the previous
+// subscription is replaced by the new one via subscribeToErrors's
+// Set-based listener registry (a stale closure would otherwise keep
+// pushing to the dead store).
+let autoErrorSubscribed = false;
+function ensureAutoErrorSubscribed() {
+  if (autoErrorSubscribed) return;
+  if (typeof window === "undefined") return;
+  autoErrorSubscribed = true;
+  subscribeToErrors((error) => {
+    useAutoErrorConfirmStore.getState().onAutoError(error);
+  });
+}
+
 export function useErrorReporting() {
   const [showBugReport, setShowBugReport] = useState(false);
   const [currentError, setCurrentError] = useState<ErrorInfo | null>(null);
   const [showErrorToast, setShowErrorToast] = useState(false);
 
-  /** Error captured by the auto-detect path that's currently waiting on
-   *  user consent. Distinct from `currentError` (which is used both for
-   *  the manual flow and the toast) so the confirm dialog stays
-   *  scoped — re-clicking the toast doesn't repurpose its state. */
-  const [pendingAutoError, setPendingAutoError] = useState<ErrorInfo | null>(
-    null,
-  );
-  const [showAutoConfirm, setShowAutoConfirm] = useState(false);
-
-  /** Last-seen fingerprint, used to drop duplicate auto-errors that
-   *  arrive in quick succession (React strict-mode double-invoke,
-   *  effect loops, etc.). Lives in a ref so it doesn't trigger
-   *  re-renders. */
-  const lastFingerprint = useRef<string | null>(null);
-
   const fireScene = useSceneTriggerStore((s) => s.fireScene);
 
+  // Auto-error confirm state lives in a global Zustand store so all
+  // hook instances see the same dialog state. See store docstring
+  // above for why this isn't per-hook React state.
+  const showAutoErrorConfirm = useAutoErrorConfirmStore(
+    (s) => s.showAutoErrorConfirm,
+  );
+  const pendingAutoError = useAutoErrorConfirmStore((s) => s.pendingAutoError);
+
+  // Toast path: still per-hook React state because the toast itself
+  // is rendered per-callsite (AppShell owns its toast in the bottom-
+  // right cluster). Each hook instance subscribes so the toast flips
+  // wherever the user happens to be.
   useEffect(() => {
+    ensureAutoErrorSubscribed();
     const unsubscribe = subscribeToErrors((error) => {
       setCurrentError(error);
       setShowErrorToast(true);
-
-      // Auto-error splat path: dedup on fingerprint + enforce the
-      // cooldown via the store. The splat is fire-and-forget here:
-      // if it gets dropped (cooldown not yet elapsed, or a scene
-      // already playing), we still show the toast — the user can
-      // click Report there to invoke the manual flow.
-      const fp = fingerprintError(error);
-      if (lastFingerprint.current === fp) return;
-      lastFingerprint.current = fp;
-
-      fireScene(
-        "bugstomp",
-        () => {
-          // Scene finished — surface the confirm dialog with the
-          // captured error. Re-read into setPendingAutoError because
-          // a newer error may have arrived during the 6.3s scene; we
-          // want to confirm the one the user actually saw acknowledged.
-          setPendingAutoError(error);
-          setShowAutoConfirm(true);
-        },
-        AUTO_ERROR_COOLDOWN_MS,
-      );
     });
-
     return unsubscribe;
-  }, [fireScene]);
+  }, []);
 
+  /** Toast "Report" handler: open the bug-report modal with the last-
+   *  captured error pre-filled. Does NOT re-fire the splat scene — by
+   *  the time the toast is up, the splat has already played (auto-error
+   *  path) OR the user is in a non-auto-error context where the splat
+   *  wasn't appropriate to begin with. Doubling the scene here would
+   *  be redundant noise; the toast Report is purely "open the form".
+   *  Manual FeedbackButton click (openBugReport below) still fires the
+   *  splat because that's the entry point and no scene has played yet. */
   const reportCurrentError = useCallback(() => {
     const error = getLastError();
     setCurrentError(error);
@@ -119,26 +191,25 @@ export function useErrorReporting() {
     setShowErrorToast(false);
   }, []);
 
-  /** Auto-error confirm path: user clicked Send. Hand off to the
-   *  bug-report modal with the captured error pre-filled. The confirm
-   *  dialog closes; the toast hides because the modal is the more
-   *  detailed surface for the same error. */
+  /** Auto-error confirm path: user clicked Send. Pull the captured
+   *  error out of the global store and route it into THIS hook's
+   *  bug-report modal flow (so the FeedbackModal opens in whichever
+   *  tree the host instance lives — AutoErrorConfirmHost in
+   *  providers.tsx). The toast also hides because the modal is the
+   *  more detailed surface for the same error. */
   const sendAutoErrorReport = useCallback(() => {
-    setCurrentError(pendingAutoError);
-    setShowAutoConfirm(false);
-    setPendingAutoError(null);
+    const error = useAutoErrorConfirmStore.getState().consume();
+    setCurrentError(error);
     setShowBugReport(true);
     setShowErrorToast(false);
-  }, [pendingAutoError]);
+  }, []);
 
   /** Auto-error confirm path: user clicked Dismiss. Drop the captured
    *  error without filing. The toast also goes away since the user has
    *  now explicitly declined; leaving it up would be nagging. */
   const dismissAutoErrorReport = useCallback(() => {
-    setShowAutoConfirm(false);
-    setPendingAutoError(null);
+    useAutoErrorConfirmStore.getState().dismiss();
     setShowErrorToast(false);
-    clearLastError();
   }, []);
 
   return {
@@ -150,10 +221,21 @@ export function useErrorReporting() {
     closeBugReport,
     dismissErrorToast,
 
-    // Auto-error confirm-dialog surface (consumed by AppShell).
-    showAutoErrorConfirm: showAutoConfirm,
+    // Auto-error confirm-dialog surface (consumed by AutoErrorConfirmHost
+    // mounted in lib/providers.tsx).
+    showAutoErrorConfirm,
     pendingAutoError,
     sendAutoErrorReport,
     dismissAutoErrorReport,
   };
+}
+
+/** Test-only helper to reset the auto-error confirm store between
+ *  tests. Not part of the public hook API. */
+export function __resetAutoErrorStoreForTests(): void {
+  useAutoErrorConfirmStore.setState({
+    showAutoErrorConfirm: false,
+    pendingAutoError: null,
+    lastFingerprint: null,
+  });
 }

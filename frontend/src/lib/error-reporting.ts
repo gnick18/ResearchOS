@@ -117,6 +117,19 @@ const TYPE_FALLBACK_TITLE: Record<FeedbackType, string> = {
   feedback: "User feedback",
 };
 
+/**
+ * GitHub issue labels by feedback type. The `bug` and `enhancement`
+ * labels ship in every GitHub repo by default, so the URL we open is
+ * guaranteed to apply them on submission. `feedback` is intentionally
+ * unlabeled — the repo doesn't carry a "feedback" label, and passing a
+ * non-existent label silently drops on GitHub's side anyway.
+ */
+const TYPE_LABEL_PARAM: Record<FeedbackType, string | null> = {
+  bug: "bug",
+  feature: "enhancement",
+  feedback: null,
+};
+
 export function generateGitHubIssueUrl(
   payload: FeedbackPayload
 ): string {
@@ -161,6 +174,11 @@ export function generateGitHubIssueUrl(
     title,
     body: body.trim(),
   });
+
+  const labelParam = TYPE_LABEL_PARAM[type];
+  if (labelParam) {
+    params.set("labels", labelParam);
+  }
 
   return `https://github.com/${GITHUB_REPO}/issues/new?${params.toString()}`;
 }

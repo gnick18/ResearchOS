@@ -1,7 +1,11 @@
 "use client";
 
 import { Component, type ReactNode, type ErrorInfo as ReactErrorInfo } from "react";
-import { captureError } from "@/lib/error-reporting";
+import {
+  captureError,
+  generateGitHubIssueUrl,
+  type ErrorInfo,
+} from "@/lib/error-reporting";
 
 interface Props {
   children: ReactNode;
@@ -33,6 +37,36 @@ export default class ErrorBoundary extends Component<Props, State> {
     this.setState({ hasError: false, error: null });
   };
 
+  /** Build an ErrorInfo snapshot from `this.state.error` for the
+   *  "Send Bug Report" fallback button. The boundary intentionally
+   *  doesn't reuse `getLastError()` from the reporting module — that
+   *  global may have been clobbered by a later error during teardown.
+   *  The error we want to file is the one that actually tripped this
+   *  boundary, so we synthesize the ErrorInfo from local state.
+   *  (feedback polish R1) */
+  buildErrorInfo = (): ErrorInfo | null => {
+    const err = this.state.error;
+    if (!err) return null;
+    return {
+      message: err.message,
+      stack: err.stack ? err.stack.slice(0, 2000) : undefined,
+      timestamp: new Date().toISOString(),
+      url: typeof window !== "undefined" ? window.location.href : "",
+      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
+    };
+  };
+
+  handleSendBugReport = () => {
+    const errorInfo = this.buildErrorInfo();
+    if (typeof window === "undefined") return;
+    const url = generateGitHubIssueUrl({
+      type: "bug",
+      description: "",
+      errorInfo,
+    });
+    window.open(url, "_blank");
+  };
+
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
@@ -58,18 +92,33 @@ export default class ErrorBoundary extends Component<Props, State> {
                 </p>
               </div>
             )}
-            <div className="flex gap-3">
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-3">
+                <button
+                  onClick={this.handleRetry}
+                  className="flex-1 px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  Try Again
+                </button>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="flex-1 px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                >
+                  Refresh Page
+                </button>
+              </div>
+              {/* Send Bug Report opens a pre-filled GitHub issue in a
+                  new tab with the captured error (message + stack +
+                  URL + UA + timestamp). The user reviews and submits
+                  on GitHub. We don't gate on "is the user logged in"
+                  because the boundary catches errors that may have
+                  ripped the whole app down — the report path needs to
+                  work from any state. (feedback polish R1) */}
               <button
-                onClick={this.handleRetry}
-                className="flex-1 px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                onClick={this.handleSendBugReport}
+                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
               >
-                Try Again
-              </button>
-              <button
-                onClick={() => window.location.reload()}
-                className="flex-1 px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-              >
-                Refresh Page
+                Send Bug Report
               </button>
             </div>
           </div>
