@@ -475,7 +475,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Main content with route-specific sidebar */}
       <div className="flex flex-1 overflow-hidden">
-        {pathname === "/calendar" ? <CalendarSidebar /> : <DailyTasksSidebar />}
+        {pathname === "/calendar" ? (
+          <CalendarSidebar />
+        ) : pathname === "/lab-overview" ? (
+          /* Lab Overview owns its own customizable widget rail via
+           *  SidebarWidgetRail rendered inside the page body. Render
+           *  nothing here so we don't double-stack two sidebars on
+           *  that route (Grant 2026-05-23 — R2 widget framework). */
+          null
+        ) : (
+          <DailyTasksSidebar />
+        )}
         <main className="flex-1 flex flex-col overflow-hidden">
           {children}
         </main>
