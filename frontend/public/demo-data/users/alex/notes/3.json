@@ -1,7 +1,7 @@
 {
   "id": 3,
   "title": "Plasmid mini-prep recipe v3 (column-based)",
-  "description": "Demo recipe note. Bench card for the column mini-prep.\n\nReagents per 5 mL overnight:\n- P1 resuspension: 250 µL (4 °C, w/ RNase A)\n- P2 lysis: 250 µL (RT, fresh)\n- N3 neutralization: 350 µL (RT)\n- PB wash: 500 µL\n- PE wash: 750 µL (with ethanol)\n- EB elution: 30 µL (pre-warm to 50 °C)\n\nSteps:\n1. Pellet 5 mL overnight @ 3000 g, 5 min, RT. Decant.\n2. Resuspend in P1, transfer to 1.5 mL tube.\n3. Add P2, invert 4 to 6×, incubate 3 min.\n4. Add N3, invert 4 to 6×, spin 13k rpm, 10 min.\n5. Load supernatant onto column, spin 60 sec.\n6. Wash PB (60 sec), wash PE (60 sec), dry-spin 60 sec.\n7. Elute in 30 µL EB, sit 1 min, spin 60 sec.\n\nExpected yield: 80 to 150 ng/µL for FakeYeast-001 strains.\nLowercase ID: alex_mp_v3.",
+  "description": "Bench card for the column mini-prep.\n\nReagents per 5 mL overnight:\n- P1 resuspension: 250 µL (4 °C, w/ RNase A)\n- P2 lysis: 250 µL (RT, fresh)\n- N3 neutralization: 350 µL (RT)\n- PB wash: 500 µL\n- PE wash: 750 µL (with ethanol)\n- EB elution: 30 µL (pre-warm to 50 °C)\n\nSteps:\n1. Pellet 5 mL overnight @ 3000 g, 5 min, RT. Decant.\n2. Resuspend in P1, transfer to 1.5 mL tube.\n3. Add P2, invert 4 to 6×, incubate 3 min.\n4. Add N3, invert 4 to 6×, spin 13k rpm, 10 min.\n5. Load supernatant onto column, spin 60 sec.\n6. Wash PB (60 sec), wash PE (60 sec), dry-spin 60 sec.\n7. Elute in 30 µL EB, sit 1 min, spin 60 sec.\n\nExpected yield: 80 to 150 ng/µL for FakeYeast-001 strains.\nLowercase ID: alex_mp_v3.",
   "is_running_log": false,
   "is_shared": true,
   "entries": [],

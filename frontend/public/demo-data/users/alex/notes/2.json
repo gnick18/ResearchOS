@@ -1,7 +1,7 @@
 {
   "id": 2,
   "title": "Lab observations (running log)",
-  "description": "Demo running log. Tracking weekly bench notes.\n\n2026-05-13: PCR screen of 16 transformants today. Expect ~50% positive based on the patch results. Will update the gel image once it's run.\n\n2026-05-10: Patched plates look clean, no contamination.",
+  "description": "Weekly bench log for the FakeYeast biofuel project. See dated entries below for transformation efficiencies, gel reads, and any deviations that don't fit in a task's deviation_log field.",
   "is_running_log": true,
   "is_shared": true,
   "entries": [

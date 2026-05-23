@@ -1,7 +1,7 @@
 {
   "id": 5,
   "title": "qPCR optimization log (fakeGFP vs ACT1)",
-  "description": "Demo running log. Optimizing the SYBR-based qPCR for fakeGFP expression. Reference: alex pcr_protocol 1.\n\nDoc tracks Cq values per primer-anneal sweep so we lock in conditions before the full triplicate run.",
+  "description": "Optimizing the SYBR-based qPCR for fakeGFP expression. Reference: alex pcr_protocol 1.\n\nDoc tracks Cq values per primer-anneal sweep so we lock in conditions before the full triplicate run.",
   "is_running_log": true,
   "is_shared": true,
   "entries": [
