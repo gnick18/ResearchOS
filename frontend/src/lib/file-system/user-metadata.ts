@@ -59,6 +59,27 @@ export interface UserMetadataEntry {
 
 export interface UserMetadataFile {
   users: Record<string, UserMetadataEntry>;
+  /** Per-folder pin for the "Main" user (the gold-star account that
+   *  Lab Mode exits back to, the picker badges as "(Main)", etc.).
+   *
+   *  Previously stored only in IndexedDB under `research-os-main-user`,
+   *  which leaked across folder switches: disconnecting from folder A
+   *  and reconnecting to folder B silently kept folder A's main pin
+   *  applied to whatever same-named user happened to live in B. Grant
+   *  hit this 2026-05-23 ("It just switched the test to the main even
+   *  though I'm 99% sure I never clicked the star").
+   *
+   *  Now persisted as a folder-scoped field. The IndexedDB key still
+   *  exists as a read-fallback during the migration window (see
+   *  `usersApi.getMainUser` in local-api.ts); once a folder writes its
+   *  `main_user` field the IDB key is no longer consulted for that
+   *  folder. New folders start with `main_user` absent and require an
+   *  explicit star-click to populate it.
+   *
+   *  Absent / empty-string / undefined all mean "no Main set"; the
+   *  picker renders without a (Main) badge in that case.
+   */
+  main_user?: string | null;
 }
 
 function hashColor(username: string): string {
@@ -181,6 +202,63 @@ export async function getUserMetadata(
 ): Promise<UserMetadataEntry | null> {
   const file = await readMetadataFile();
   return file.users[username] ?? null;
+}
+
+/**
+ * Reads the per-folder Main user pin from users/_user_metadata.json.
+ *
+ * Returns null when:
+ *   - No folder is connected
+ *   - The metadata file doesn't exist yet (fresh folder)
+ *   - The `main_user` field is absent / null / empty string
+ *
+ * Crucially, returns null for a never-set `main_user` even if the
+ * folder has users — Main now requires an explicit star-click to set.
+ * The auto-promote-on-connect behavior the IndexedDB-only impl had is
+ * intentionally gone (Bug 2 root cause, fixed 2026-05-23).
+ */
+export async function readMainUser(): Promise<string | null> {
+  const file = await readMetadataFile();
+  const v = file.main_user;
+  if (typeof v !== "string" || v.length === 0) return null;
+  return v;
+}
+
+/**
+ * Writes the per-folder Main user pin to users/_user_metadata.json.
+ *
+ * Pass an empty string OR null to clear the pin (deletion path used by
+ * `performUserDelete` when the Main user is the one being deleted).
+ *
+ * Routed through the write queue so it can't race a concurrent
+ * `ensureLabUserMetadata` / `setUserMetadataField` call on the same
+ * file. Returns the persisted value (null when cleared) for caller
+ * convenience.
+ */
+export async function writeMainUser(
+  username: string | null,
+): Promise<string | null> {
+  if (!fileService.isConnected()) return null;
+  const normalized =
+    typeof username === "string" && username.length > 0 ? username : null;
+  return enqueueMetadataWrite(async () => {
+    const file = await readMetadataFile();
+    if (normalized === null) {
+      // Drop the field entirely rather than persisting `null` so older
+      // readers (and external diff tools) see a clean absence rather
+      // than a literal null marker.
+      delete file.main_user;
+    } else {
+      file.main_user = normalized;
+    }
+    try {
+      await fileService.writeJson(METADATA_PATH, file);
+    } catch (err) {
+      console.error("writeMainUser: failed to persist", err);
+      return null;
+    }
+    return normalized;
+  });
 }
 
 /**

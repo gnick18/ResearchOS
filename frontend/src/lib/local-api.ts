@@ -11,7 +11,7 @@ import {
   legacyTaskResultsBase,
 } from "./tasks/results-paths";
 import { discoverUsers } from "./file-system/user-discovery";
-import { ensureLabUserMetadata, fallbackUserColor, setUserMetadataField, getUserMetadata, readAllUserMetadata, type UserMetadataEntry } from "./file-system/user-metadata";
+import { ensureLabUserMetadata, fallbackUserColor, setUserMetadataField, getUserMetadata, readAllUserMetadata, readMainUser, writeMainUser, type UserMetadataEntry } from "./file-system/user-metadata";
 import JSZip from "jszip";
 import type {
   Project,
@@ -4621,8 +4621,17 @@ export const usersApi = {
       clearCurrentUserCache();
       await storeCurrentUser(sanitized);
     }
-    const main = await getMainUser();
-    if (main === oldUsername) {
+    // Rename the per-folder Main pin alongside the directory. Also
+    // refresh the IDB mirror so the migration shim sees the new name
+    // if it runs before the next file read. (The file-write is the
+    // authoritative one; the IDB write is purely belt-and-suspenders
+    // for the deprecation window — see usersApi.getMainUser above.)
+    const fileMain = await readMainUser();
+    const idbMain = await getMainUser();
+    if (fileMain === oldUsername) {
+      await writeMainUser(sanitized);
+    }
+    if (idbMain === oldUsername) {
       await storeMainUser(sanitized);
     }
 
@@ -4636,45 +4645,99 @@ export const usersApi = {
   },
   
   getMainUser: async (): Promise<{ main_user: string; current_user: string }> => {
-    const [mainUserCandidate, currentUser] = await Promise.all([
+    // Per-folder Main: read from users/_user_metadata.json first.
+    // The IndexedDB key (`research-os-main-user`) is consulted only as
+    // a migration fallback for folders that pre-date this change — once
+    // a folder has its main_user field written, the IDB key is no
+    // longer authoritative.
+    //
+    // Bug 2 fix (2026-05-23): the previous impl read Main from
+    // IndexedDB only, which is per-machine rather than per-folder. That
+    // leaked Main across folder switches: disconnect from folder A
+    // (Main=Grant) → connect to folder B (no Main set) → folder B's
+    // same-named user got badged (Main) because the IDB key still held
+    // "Grant". Now Main lives on disk inside the folder, so switching
+    // folders shows that folder's pin or no pin at all.
+    const [fileMain, idbMain, currentUser] = await Promise.all([
+      readMainUser(),
       getMainUser(),
       getCurrentUser(),
     ]);
 
-    if (mainUserCandidate) {
-      // Validate the IDB candidate against discoverUsers (which already
-      // filters tombstoned + SKIP_DIRECTORIES + non-existent folders). If
-      // stale, clear the IDB key so callers (e.g. lab-mode exit at
-      // app/lab/page.tsx:164) fall through to their no-main-user branch
-      // instead of attempting login("alex") on a vanished user. The user
-      // tombstone work at 3f83e157 filtered discoverUsers/usersApi.list
-      // but left getMainUser un-validated — see INVESTIGATION_USER_LEAKS.md.
-      //
-      // Only clear when discoverUsers returned a non-empty list. An empty
-      // list is ambiguous: it can mean either a genuinely fresh folder OR
-      // a transient FS error (discoverUsers swallows errors and returns []
-      // the same way). Clearing on [] caused a regression where a valid
-      // mainUser pin was wiped on browser refresh whenever a concurrent
-      // listDirectories call hiccupped — Grant hit this 2026-05-20 right
-      // after the initial fix. A genuinely stale key in an empty folder
-      // costs nothing (next set-as-main overwrites it); a wiped valid key
-      // costs a UX regression. Bias toward keeping the key.
+    // Migration shim. If the file has no main_user pin but the IDB
+    // does, AND the IDB candidate actually exists in this folder's
+    // user list, promote it to the file. This is a one-time migration
+    // per (folder × IDB candidate) tuple; after the write, the file
+    // is authoritative.
+    //
+    // We DO NOT auto-promote if the IDB candidate is missing from this
+    // folder (the bug-2 leak case). The IDB key is per-machine so it
+    // routinely holds a username from a different folder; promoting it
+    // blindly is what caused the original cross-folder leak.
+    let main = fileMain;
+    if (!main && idbMain) {
+      let validUsers: string[] = [];
+      try {
+        validUsers = await discoverUsers();
+      } catch {
+        // discoverUsers swallows + returns []; an explicit throw here
+        // means something deeper is wrong. Bail without migrating.
+      }
+      if (validUsers.includes(idbMain)) {
+        // The IDB candidate is genuinely a user in THIS folder. Treat
+        // it as an honest legacy pin (set before per-folder storage
+        // existed) and migrate. Best-effort; a failed write just
+        // leaves the IDB key in place for the next read to retry.
+        try {
+          await writeMainUser(idbMain);
+          main = idbMain;
+        } catch {
+          // Best-effort migration. Fall back to surfacing the IDB
+          // value without promoting it on disk.
+          main = idbMain;
+        }
+      }
+      // else: IDB candidate isn't in this folder. That's the leaked
+      // cross-folder pin Bug 2 was about. Ignore it and let the file's
+      // null win. The picker renders without a (Main) badge.
+    }
+
+    // Tombstone-stale guard: if the persisted main_user no longer
+    // exists in the folder (manually deleted directory, OneDrive
+    // resurrection, etc.), clear it on disk and return empty. Mirrors
+    // the validation the old IDB impl had — kept here so lab-mode
+    // exit (app/lab/page.tsx) doesn't try to log in as a vanished
+    // user.
+    if (main) {
       let validUsers: string[];
       try {
         validUsers = await discoverUsers();
       } catch {
-        return { main_user: mainUserCandidate, current_user: currentUser || "" };
+        return { main_user: main, current_user: currentUser || "" };
       }
-      if (validUsers.length > 0 && !validUsers.includes(mainUserCandidate)) {
-        await clearMainUser();
+      if (validUsers.length > 0 && !validUsers.includes(main)) {
+        await writeMainUser(null);
         return { main_user: "", current_user: currentUser || "" };
       }
     }
-    return { main_user: mainUserCandidate || "", current_user: currentUser || "" };
+
+    return { main_user: main || "", current_user: currentUser || "" };
   },
-  
+
   setMainUser: async (username: string): Promise<{ status: string; main_user: string }> => {
-    await storeMainUser(username);
+    // Persist to the per-folder file. Also write to IndexedDB so any
+    // legacy code still reading the IDB key sees a consistent value
+    // for this session; the IDB key is no longer authoritative but
+    // keeping it in sync avoids surprises during the migration
+    // window. Empty string clears both surfaces (delete-user path
+    // passes "" via `setMainUserPersisted`).
+    const normalized = username && username.length > 0 ? username : null;
+    await writeMainUser(normalized);
+    if (normalized) {
+      await storeMainUser(normalized);
+    } else {
+      await clearMainUser();
+    }
     return { status: "ok", main_user: username };
   },
   

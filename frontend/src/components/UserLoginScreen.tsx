@@ -11,6 +11,7 @@ import FeedbackModal from "@/components/FeedbackModal";
 import UserAvatar from "@/components/UserAvatar";
 import Tooltip from "@/components/Tooltip";
 import BeakerBot from "@/components/BeakerBot";
+import DevForceWalkthroughButton from "@/components/DevForceWalkthroughButton";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
 
 interface UserLoginScreenProps {
@@ -906,6 +907,13 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         onClose={closeBugReport}
         prefilledError={currentError}
       />
+
+      {/* Dev-only floating button: create a temporary Test-N user and
+          fire the v4 walkthrough on it. Renders nothing in production
+          (NODE_ENV gate inside the component). Restored after the V3
+          onboarding rip removed the original DevForceTipButton; the
+          new button is v4-only and never touches a real account. */}
+      <DevForceWalkthroughButton onLoggedIn={onLogin} />
 
     </div>
   );
