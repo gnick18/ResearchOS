@@ -13,13 +13,12 @@ import BeakerBot from "./BeakerBot";
 
 /**
  * Side easter-egg scene: BeakerBot climbs a ladder, cleans an invisible
- * screen, then either slips or gets bumped by a passing bird and falls
- * off-screen alongside the ladder.
+ * screen, slips off it, and tumbles away alongside the ladder.
  *
- * This is a SCENE component — it orchestrates multiple SVG elements
- * (ladder + BeakerBot + optional bird) across stages. Lives outside the
- * BeakerBot SVG viewBox because the ladder extends well below BeakerBot
- * and the fall trajectory exits the viewport.
+ * This is a SCENE component — it orchestrates several SVG elements
+ * (ladder + BeakerBot) across stages. Lives outside the BeakerBot SVG
+ * viewBox because the ladder extends well below BeakerBot and the
+ * fall trajectory exits the viewport.
  *
  * The companion to the locked, in-production BeakerBot mascot
  * (`BeakerBot.tsx`). Onboarding shows BeakerBot once and then he
@@ -34,18 +33,17 @@ import BeakerBot from "./BeakerBot";
  *  - `pointer-events: none` end-to-end — the scene is purely visual,
  *    never intercepts clicks
  *
- * Stage timeline (~12.4s total in motion mode):
+ * Stage timeline (~10.8s total in motion mode):
  *  1. ladder-rise        0      → 800ms    (ladder slides up from below)
- *  2. climb              800    → 3600ms   (BeakerBot translates up + bobs
+ *  2. climb              800    → 3600ms   (BeakerBot translates up
  *                                           the *full* ladder height —
  *                                           continuous, no snap to top)
  *  3. top                3600   → 3900ms   (settles at top of ladder)
  *  4. clean              3900   → 8900ms   (wipe-back-and-forth + sparkles)
- *  5. disruption         8900   → 10800ms  (slip OR bird-bump — bird flies
- *                                           in slow + flapping, lands a
- *                                           cute bump on BeakerBot's head)
- *  6. fall               10800  → 12300ms  (BeakerBot + ladder tumble off)
- *  7. done               12300ms           (onComplete fires, parent unmounts)
+ *  5. disruption         8900   → 9300ms   (unprompted slip — hands fly
+ *                                           off, body tilts + lurches)
+ *  6. fall               9300   → 10800ms  (BeakerBot + ladder tumble off)
+ *  7. done               10800ms           (onComplete fires, parent unmounts)
  *
  * Reduced-motion fallback: when
  * `prefers-reduced-motion: reduce` is set, the scene renders BeakerBot
@@ -70,10 +68,6 @@ export interface BeakerBotLadderSceneProps {
   /** Which side of the viewport the ladder appears on. Default
    *  `"right"`. The ladder sits ~24px from the chosen edge. */
   side?: "left" | "right";
-  /** Override the disruption outcome. If omitted, picked randomly
-   *  at mount time. Useful for tests + future "preview this easter
-   *  egg" dev surfaces. */
-  outcome?: "slip" | "bird-bump";
 }
 
 type Stage =
@@ -88,29 +82,17 @@ type Stage =
 /** Timings in ms. Tweak here, not at usage sites. */
 const STAGE_MS = {
   ladderRise: 800,
-  // Climb stretched to 2800ms so the *full ladder height* is covered at
-  // a leisurely, readable rate. The keyframes interpolate continuously
+  // Climb takes 2800ms so the *full ladder height* is covered at a
+  // leisurely, readable rate. The keyframes interpolate continuously
   // from foot-of-ladder to top-of-ladder (no mid-climb snap).
   climb: 2800,
   top: 300,
   clean: 5000,
-  // Bird needs time to enter, flap-flap-flap across, bump BeakerBot,
-  // and exit — 300ms wasn't enough to see anything. 1900ms gives the
-  // bird ~1.5s of slow visible flight + a brief bump pause before fall.
-  disruption: 1900,
+  // Brief, unprompted slip: hands fly off the rails, body lurches +
+  // tilts. ~400ms — just long enough for the "oh-no" beat to read
+  // before the fall keyframes take over.
+  disruption: 400,
   fall: 1500,
-} as const;
-
-/** Bird timings — separated so the bird can fly slower than the
- *  disruption *stage* in case we ever extend disruption further. */
-const BIRD_MS = {
-  /** Horizontal traverse time. ~1.5s lets the user register "oh, a
-   *  bird is coming" before the bump lands. */
-  cross: 1500,
-  /** Wing flap cycle. ~300ms (one full up-down) — slower than the
-   *  original 120ms blur so the silhouette reads as a *flapping bird*
-   *  rather than a juddering blob. */
-  flapCycle: 300,
 } as const;
 
 const REDUCED_MOTION_HOLD_MS = 3000;
@@ -131,14 +113,21 @@ const LADDER_WIDTH_PX = 60;
 const BEAKERBOT_SIZE_PX = 96;
 /** Distance the ladder sits inset from the chosen viewport edge. */
 const EDGE_INSET_PX = 24;
-
-/** Pick a deterministic-by-mount outcome when the prop is omitted.
- *  Called inside a useState initializer so React runs it exactly
- *  once per mount; `Math.random()` would be an impure call during
- *  render otherwise (react/purity rule). */
-function rollOutcome(): "slip" | "bird-bump" {
-  return Math.random() < 0.5 ? "slip" : "bird-bump";
-}
+/** How far the ladder is shifted INWARD (toward BeakerBot's grasping
+ *  hand) from a centered position. In the `pointing-up` pose with
+ *  direction="left" (right-side ladder), BeakerBot's hand reaches
+ *  inward to roughly bot_center - 28.8px (hand SVG-x=8 of 40, scaled
+ *  to bot's 96px frame). The ladder's inner rail naturally sits at
+ *  bot_center - 20px (rail at viewBox-x=10 of 60, scaled to 60px).
+ *  Shifting the ladder ~10px inward closes that gap so the hand
+ *  visibly grips a rung instead of grasping at empty air. */
+const LADDER_INWARD_SHIFT_PX = 10;
+/** Vertical overlap between BeakerBot's feet and the top of the
+ *  ladder when he's at the "top" / "clean" stages. Without this the
+ *  bot floats above the ladder; with it his feet are visually
+ *  planted ON the top rung. Also used at the foot of the ladder so
+ *  the climb start + end have symmetric foot-on-rung placement. */
+const FEET_OVERLAP_PX = 24;
 
 /** SSR safety guard for createPortal. `'use client'` files still
  *  render once on the server during prerendering, so `document` is
@@ -159,18 +148,10 @@ export default function BeakerBotLadderScene({
   active,
   onComplete,
   side = "right",
-  outcome,
 }: BeakerBotLadderSceneProps) {
   const isClient = useIsClient();
   const [stage, setStage] = useState<Stage>("ladder-rise");
   const [reducedMotion, setReducedMotion] = useState(false);
-
-  // Cache the rolled outcome across renders so it stays stable
-  // through the disruption stage even if a parent re-renders. Use
-  // a lazy useState initializer so React runs `rollOutcome` once
-  // per mount (impure calls during render trip the purity rule).
-  const [rolledOutcome] = useState<"slip" | "bird-bump">(() => rollOutcome());
-  const effectiveOutcome = outcome ?? rolledOutcome;
 
   // Stash onComplete in a ref so the stage-progression effect can
   // call it without re-running when the parent passes a fresh
@@ -270,18 +251,34 @@ export default function BeakerBotLadderScene({
 
   if (!active || !isClient) return null;
 
-  // Edge positioning — ladder sits inset EDGE_INSET_PX from the
-  // chosen side. BeakerBot sits centered on the ladder.
-  const edgeStyle: React.CSSProperties =
+  // Edge positioning — ladder sits inset (EDGE_INSET_PX +
+  // LADDER_INWARD_SHIFT_PX) from the chosen side so the inner rail
+  // meets BeakerBot's grasping hand. BeakerBot sits at the original
+  // EDGE_INSET_PX-only offset (centered on his own frame), which
+  // keeps the bot from drifting toward the viewport edge while only
+  // the ladder slides inward to meet his hand.
+  const ladderEdgeStyle: React.CSSProperties =
     side === "right"
-      ? { right: `${EDGE_INSET_PX}px` }
-      : { left: `${EDGE_INSET_PX}px` };
+      ? { right: `${EDGE_INSET_PX + LADDER_INWARD_SHIFT_PX}px` }
+      : { left: `${EDGE_INSET_PX + LADDER_INWARD_SHIFT_PX}px` };
+
+  // BeakerBot stays centered on the ORIGINAL (un-shifted) ladder
+  // position. We compute his horizontal offset relative to the
+  // pre-shift ladder center so the inward-shifted rail visually
+  // aligns with his outstretched hand.
+  const botEdgeStyle: React.CSSProperties =
+    side === "right"
+      ? {
+          right: `${EDGE_INSET_PX + LADDER_WIDTH_PX / 2 - BEAKERBOT_SIZE_PX / 2}px`,
+        }
+      : {
+          left: `${EDGE_INSET_PX + LADDER_WIDTH_PX / 2 - BEAKERBOT_SIZE_PX / 2}px`,
+        };
 
   return createPortal(
     <div
       data-testid="beakerbot-ladder-scene"
       data-stage={stage}
-      data-outcome={effectiveOutcome}
       data-reduced-motion={reducedMotion ? "true" : "false"}
       aria-hidden="true"
       style={{
@@ -304,23 +301,24 @@ export default function BeakerBotLadderScene({
         @keyframes bbls-climb-${animSuffix} {
           /* IMPORTANT: vertical distance is driven by the
              --bbls-climb-dist custom property (set inline below),
-             which equals "top of ladder - bot half-height". The
-             keyframes interpolate continuously from 0 to full
-             distance with no mid-stage gap; the horizontal jitter
-             (the +/-3px sway) gives the climb a "rung-by-rung"
-             feel without snapping. Final keyframe leaves the bot
-             EXACTLY at the same y the post-climb "top" stage
-             positions him via the (bottom) property, so the
-             stage-to-stage handoff has no visible jump. */
-          0%   { transform: translate(0,    0); }
-          12%  { transform: translate(-3px, calc(var(--bbls-climb-dist) * -0.12)); }
-          25%  { transform: translate(3px,  calc(var(--bbls-climb-dist) * -0.25)); }
-          37%  { transform: translate(-3px, calc(var(--bbls-climb-dist) * -0.37)); }
-          50%  { transform: translate(3px,  calc(var(--bbls-climb-dist) * -0.50)); }
-          62%  { transform: translate(-3px, calc(var(--bbls-climb-dist) * -0.62)); }
-          75%  { transform: translate(3px,  calc(var(--bbls-climb-dist) * -0.75)); }
-          87%  { transform: translate(-3px, calc(var(--bbls-climb-dist) * -0.87)); }
-          100% { transform: translate(0,    calc(var(--bbls-climb-dist) * -1)); }
+             which equals the actual distance from the bot's resting
+             "top-of-ladder" position down to the foot of the ladder.
+             The keyframes interpolate continuously from
+             translateY(+climb-dist) (foot of ladder) at 0% down to
+             translateY(0) (top of ladder, matching the static
+             "top" stage's bottom value) at 100%. No mid-stage snap,
+             no overshoot past the top.
+
+             Horizontal +/-3px sway gives a "rung-by-rung" feel. */
+          0%   { transform: translate(0,    var(--bbls-climb-dist)); }
+          12%  { transform: translate(-3px, calc(var(--bbls-climb-dist) * 0.88)); }
+          25%  { transform: translate(3px,  calc(var(--bbls-climb-dist) * 0.75)); }
+          37%  { transform: translate(-3px, calc(var(--bbls-climb-dist) * 0.63)); }
+          50%  { transform: translate(3px,  calc(var(--bbls-climb-dist) * 0.50)); }
+          62%  { transform: translate(-3px, calc(var(--bbls-climb-dist) * 0.38)); }
+          75%  { transform: translate(3px,  calc(var(--bbls-climb-dist) * 0.25)); }
+          87%  { transform: translate(-3px, calc(var(--bbls-climb-dist) * 0.12)); }
+          100% { transform: translate(0,    0); }
         }
         @keyframes bbls-wipe-${animSuffix} {
           0%, 100% { transform: translateX(-8px) rotate(-6deg); }
@@ -329,29 +327,6 @@ export default function BeakerBotLadderScene({
         @keyframes bbls-sparkle-${animSuffix} {
           0%, 100% { opacity: 0; transform: scale(0.6); }
           50%      { opacity: 1; transform: scale(1); }
-        }
-        @keyframes bbls-bird-fly-${animSuffix} {
-          /* Slow, readable traverse with a brief "bump" pause near
-             the apex (around 55%) where the bird makes contact with
-             BeakerBot's head before continuing on. The pause is
-             implemented as two adjacent keyframes at the same x
-             value so the bird visibly hangs for a beat. A small
-             vertical dip + lift gives the bump some "weight". */
-          0%   { transform: translate(0,                            0); }
-          45%  { transform: translate(calc(var(--bbls-bird-end, -110vw) * 0.45), -4px); }
-          55%  { transform: translate(calc(var(--bbls-bird-end, -110vw) * 0.50),  2px); }
-          62%  { transform: translate(calc(var(--bbls-bird-end, -110vw) * 0.52), -2px); }
-          100% { transform: translate(var(--bbls-bird-end, -110vw),              -8px); }
-        }
-        @keyframes bbls-bird-flap-${animSuffix} {
-          /* Slower, more "wing-flap" looking cycle. The wings rotate
-             between an up-stroke (slight upward pitch) and a
-             down-stroke (compressed) so the silhouette reads as a
-             flapping bird, not a juddering blob. */
-          0%, 100% { transform: scaleY(1)   translateY(0); }
-          25%      { transform: scaleY(0.65) translateY(1px); }
-          50%      { transform: scaleY(0.45) translateY(2px); }
-          75%      { transform: scaleY(0.65) translateY(1px); }
         }
         @keyframes bbls-fall-bot-${animSuffix} {
           0%   { transform: translate(0, 0) rotate(0deg); }
@@ -366,8 +341,17 @@ export default function BeakerBotLadderScene({
           100% { transform: translate(20px, 120vh) rotate(40deg); }
         }
         @keyframes bbls-slip-${animSuffix} {
-          0%   { transform: rotate(0deg); }
-          100% { transform: rotate(20deg); }
+          /* Unprompted "oh-no" slip: hands fly off the rail (no more
+             grip), body tilts ~22deg + lurches a touch outward and
+             downward as gravity catches up. The end transform is the
+             starting frame for the fall keyframes (translate(0,0) +
+             rotate but we hand off cleanly — the fall keyframe
+             overrides at 0% with translate(0,0) rotate(0) which
+             reads as a tiny "reset" but in motion you see the slip
+             slide directly into the tumble). */
+          0%   { transform: translate(0, 0) rotate(0deg); }
+          40%  { transform: translate(-4px, 2px) rotate(-8deg); }
+          100% { transform: translate(6px, 8px) rotate(22deg); }
         }
       `}</style>
 
@@ -381,7 +365,7 @@ export default function BeakerBotLadderScene({
         style={{
           position: "absolute",
           bottom: 0,
-          ...edgeStyle,
+          ...ladderEdgeStyle,
           width: `${LADDER_WIDTH_PX}px`,
           height: "50vh",
           // Stage-driven animations.
@@ -441,68 +425,60 @@ export default function BeakerBotLadderScene({
 
       {/* BEAKERBOT — vertical positioning controlled per-stage.
           During fall, lives inside the same coordinate space as
-          the ladder so both tumble off together. */}
+          the ladder so both tumble off together.
+
+          Vertical anchor strategy (the climb-glitch fix):
+            - Static `bottom` is FIXED at the "top of ladder" value
+              across every non-ladder-rise stage (climb / top / clean /
+              disruption / fall). The bot is anchored there.
+            - Pre-climb (during ladder-rise) the inline transform
+              pushes him DOWN by --bbls-climb-dist so he sits at the
+              foot of the (still-rising) ladder.
+            - The climb keyframe interpolates from translateY(+dist)
+              at 0% back to translateY(0) at 100% — landing him
+              EXACTLY at the static "top" position. No snap. */}
       <div
         data-testid="beakerbot-ladder-scene-bot"
         style={
           {
             position: "absolute",
-            // BeakerBot sits at "top of ladder" during clean +
-            // disruption + falls from there. During ladder-rise he's
-            // hidden below the viewport; during climb he STARTS at
-            // the same `bottom` as the post-climb stages and the
-            // keyframe translates him *down* by --bbls-climb-dist
-            // at 0% then back up to 0 at 100%. This way the
-            // stage→stage handoff is bottom-equal across the whole
-            // transition — no snap.
+            // Ladder-rise: hidden below the viewport. Every other
+            // stage: anchored at the top of the ladder. Feet overlap
+            // the top rung by FEET_OVERLAP_PX so the bot reads as
+            // standing ON the ladder rather than floating above it.
             bottom:
               stage === "ladder-rise"
                 ? `-${BEAKERBOT_SIZE_PX}px`
-                : // climb / top / clean / disruption / fall all
-                  // share the "top of ladder" bottom value. The
-                  // climb keyframe negates it via translateY to
-                  // start at the foot of the ladder.
-                  `calc(50vh - ${BEAKERBOT_SIZE_PX / 2}px)`,
-            // Climb distance custom property: how far BeakerBot
-            // needs to translate vertically during the climb. The
-            // climb keyframe interpolates between
-            //   start = translate(0, climbDist)   (foot of ladder)
-            //   end   = translate(0, 0)            (top of ladder,
-            //                                       matching `bottom`)
-            // so the bot moves smoothly across the full ladder
-            // height with no mid-stage snap.
-            "--bbls-climb-dist": `calc(50vh - ${BEAKERBOT_SIZE_PX}px)`,
-            // Center BeakerBot horizontally on the ladder.
-            ...(side === "right"
-              ? {
-                  right: `${EDGE_INSET_PX + LADDER_WIDTH_PX / 2 - BEAKERBOT_SIZE_PX / 2}px`,
-                }
-              : {
-                  left: `${EDGE_INSET_PX + LADDER_WIDTH_PX / 2 - BEAKERBOT_SIZE_PX / 2}px`,
-                }),
+                : `calc(50vh - ${FEET_OVERLAP_PX}px)`,
+            // Climb distance: from the top-anchored resting position
+            // down to the foot of the ladder. Equals (50vh -
+            // FEET_OVERLAP_PX) - FEET_OVERLAP_PX so the climb start
+            // has the bot's feet overlapping the BOTTOM rung by the
+            // same amount as the top, giving symmetric foot-on-rung
+            // placement at both ends of the climb.
+            "--bbls-climb-dist": `calc(50vh - ${FEET_OVERLAP_PX * 2}px)`,
+            ...botEdgeStyle,
             width: `${BEAKERBOT_SIZE_PX}px`,
             height: `${BEAKERBOT_SIZE_PX}px`,
             animation:
               stage === "climb"
                 ? `bbls-climb-${animSuffix} ${STAGE_MS.climb}ms linear forwards`
-                : stage === "disruption" && effectiveOutcome === "slip"
+                : stage === "disruption"
                   ? `bbls-slip-${animSuffix} ${STAGE_MS.disruption}ms ease-out forwards`
                   : stage === "fall"
                     ? `bbls-fall-bot-${animSuffix} ${STAGE_MS.fall}ms cubic-bezier(0.55, 0.085, 0.68, 0.53) forwards`
                     : undefined,
             // Pre-climb hold: park BeakerBot at the foot of the
-            // ladder so there's no visible "pop" from `bottom: 0`
-            // up to `calc(50vh - ...)` on the climb→top boundary.
-            // Without this, the very first frame of the climb
-            // animation has to fight the React commit ordering.
+            // ladder by pre-applying the same translateY the climb
+            // keyframe will animate AWAY from. Matches keyframe-0%
+            // exactly so the climb→start transition has zero pop.
             transform:
-              stage === "climb"
+              stage === "ladder-rise"
                 ? `translateY(var(--bbls-climb-dist))`
                 : undefined,
-            // Pre-rise + reduced-motion modes: stay hidden until
-            // the ladder is in place. Reduced motion uses the static
-            // "top" stage which keeps BeakerBot visible from the
-            // moment the scene mounts.
+            // Pre-rise: stay hidden until the ladder is in place.
+            // Reduced motion uses the static "top" stage which keeps
+            // BeakerBot visible from the moment the scene mounts.
             opacity: stage === "ladder-rise" ? 0 : 1,
             transition: "opacity 200ms",
           } as unknown as React.CSSProperties
@@ -616,101 +592,6 @@ export default function BeakerBotLadderScene({
           </>
         )}
       </div>
-
-      {/* BIRD — only renders during the disruption stage when the
-          outcome is bird-bump. Flies across the viewport at
-          roughly BeakerBot's vertical position.
-          The bird flies for BIRD_MS.cross (1.5s) and the
-          disruption stage is sized to accommodate that plus a
-          beat for the bump. Wing-flap is a separate slow loop so
-          the silhouette reads as a recognizable flapping bird,
-          not a juddering blob. Larger size + warm yellow body
-          make him cute + visible against typical app chrome. */}
-      {stage === "disruption" && effectiveOutcome === "bird-bump" && (
-        <div
-          data-testid="beakerbot-ladder-scene-bird"
-          style={
-            {
-              position: "absolute",
-              // Bird flies in roughly at head-height (slightly
-              // above the top of the ladder so the "bump" lands
-              // on BeakerBot's head, not his middle).
-              bottom: `calc(50vh - 8px)`,
-              // Enter from the OPPOSITE side of the ladder so the
-              // bird flies toward BeakerBot before bumping him.
-              ...(side === "right"
-                ? { right: "-72px", "--bbls-bird-end": "calc(-100vw + 60px)" }
-                : { left: "-72px", "--bbls-bird-end": "calc(100vw - 60px)" }),
-              width: "56px",
-              height: "42px",
-              animation: `bbls-bird-fly-${animSuffix} ${BIRD_MS.cross}ms cubic-bezier(0.45, 0, 0.55, 1) forwards`,
-            } as React.CSSProperties
-          }
-        >
-          <div
-            style={{
-              width: "100%",
-              height: "100%",
-              animation: `bbls-bird-flap-${animSuffix} ${BIRD_MS.flapCycle}ms ease-in-out infinite`,
-              transformOrigin: "center",
-              // Flip the whole bird (body + wings) so it faces the
-              // direction of travel: right-side ladder = bird
-              // travels leftward and should *face left* (so its
-              // beak leads). The SVG's natural orientation has the
-              // beak on the LEFT, so right-side ladder = no flip,
-              // left-side ladder = horizontal flip.
-              transform: side === "left" ? "scaleX(-1)" : undefined,
-            }}
-          >
-            {/* Cute bird silhouette: round body, two wings making
-                an "M", a tiny beak, and a single eye dot. Warm
-                yellow body + dark wings reads as "cartoon bird"
-                at small sizes against any background. */}
-            <svg
-              viewBox="0 0 56 42"
-              width="100%"
-              height="100%"
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              {/* Body — soft yellow oval */}
-              <ellipse
-                cx="28"
-                cy="24"
-                rx="11"
-                ry="9"
-                fill="#fcd34d"
-                stroke="#b45309"
-                strokeWidth="1.5"
-              />
-              {/* Wings — dark "M" stroke across the body */}
-              <path
-                d="M 6 22 Q 14 6, 22 18 Q 28 26, 34 18 Q 42 6, 50 22"
-                stroke="#1f2937"
-                strokeWidth="3"
-                fill="none"
-              />
-              {/* Beak — small orange triangle on the LEFT side
-                  (leading edge of the bird in its default,
-                  unflipped orientation). */}
-              <path
-                d="M 17 23 L 11 25 L 17 27 Z"
-                fill="#f97316"
-                stroke="#9a3412"
-                strokeWidth="0.8"
-              />
-              {/* Eye — single black dot */}
-              <circle cx="22" cy="22" r="1.4" fill="#0f172a" />
-              {/* Tail — small dark notch on the trailing edge */}
-              <path
-                d="M 38 24 L 44 22 L 42 26 Z"
-                fill="#1f2937"
-              />
-            </svg>
-          </div>
-        </div>
-      )}
     </div>,
     document.body,
   );

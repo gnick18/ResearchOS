@@ -297,8 +297,8 @@ const SCENES: SceneEntry[] = [
     label: "BeakerBotLadderScene",
     Component: BeakerBotLadderScene as unknown as SceneComponent,
     description:
-      "Ladder rises, BeakerBot climbs, cleans the screen, then slips or gets bumped by a bird and falls off.",
-    timingNote: "~12300ms total",
+      "Ladder rises, BeakerBot climbs, cleans the screen, then slips and tumbles off alongside the ladder.",
+    timingNote: "~10800ms total",
   },
   {
     kind: "scene",

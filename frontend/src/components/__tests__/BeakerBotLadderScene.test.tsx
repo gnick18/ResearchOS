@@ -1,26 +1,26 @@
 // Component tests for BeakerBotLadderScene — the side easter-egg
 // scene that mounts BeakerBot on a ladder, plays the
-// climb→clean→fall choreography, then calls onComplete.
+// climb→clean→slip→fall choreography, then calls onComplete.
 //
 // Covers:
 //  - mount / unmount on active toggle
 //  - portal target (document.body)
 //  - onComplete fires after full duration (full motion path)
-//  - both outcome paths render their disruption visuals
+//  - stage progression (ladder-rise → climb → top → clean →
+//    disruption → fall)
 //  - reduced-motion short-circuit calls onComplete after ~3s without
 //    cycling through the climb/clean/fall stages
+//
+// R2 polish: bird removed entirely. Disruption is now always an
+// unprompted slip — no `outcome` prop, no bird DOM. Disruption stage
+// shortened from 1900ms → 400ms now that there's no bird to wait for.
 
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import BeakerBotLadderScene from "../BeakerBotLadderScene";
 
-const FULL_DURATION_MS = 12300; // ladder-rise 800 + climb 2800 + top 300 +
-//                                 clean 5000 + disruption 1900 + fall 1500
-//
-// Updated by the ladder-scene-polish pass: climb stretched 2000→2800ms
-// so BeakerBot covers the *full* ladder height (was visibly jumping at
-// the top), and disruption stretched 300→1900ms so the bird actually
-// has time to fly across the screen and visibly bump him.
+const FULL_DURATION_MS = 10800; // ladder-rise 800 + climb 2800 + top 300 +
+//                                 clean 5000 + disruption 400 + fall 1500
 
 describe("BeakerBotLadderScene", () => {
   beforeEach(() => {
@@ -62,15 +62,9 @@ describe("BeakerBotLadderScene", () => {
     setMatchMedia(false);
     const onComplete = vi.fn();
     const { rerender } = render(
-      <BeakerBotLadderScene
-        active={false}
-        onComplete={onComplete}
-        outcome="slip"
-      />,
+      <BeakerBotLadderScene active={false} onComplete={onComplete} />,
     );
-    rerender(
-      <BeakerBotLadderScene active onComplete={onComplete} outcome="slip" />,
-    );
+    rerender(<BeakerBotLadderScene active onComplete={onComplete} />);
     // Flush the mount effect.
     act(() => {
       vi.advanceTimersByTime(0);
@@ -85,9 +79,7 @@ describe("BeakerBotLadderScene", () => {
   it("renders ladder + BeakerBot at mount", () => {
     setMatchMedia(false);
     const onComplete = vi.fn();
-    render(
-      <BeakerBotLadderScene active onComplete={onComplete} outcome="slip" />,
-    );
+    render(<BeakerBotLadderScene active onComplete={onComplete} />);
     act(() => {
       vi.advanceTimersByTime(0);
     });
@@ -102,9 +94,7 @@ describe("BeakerBotLadderScene", () => {
   it("calls onComplete once after the full animation duration", () => {
     setMatchMedia(false);
     const onComplete = vi.fn();
-    render(
-      <BeakerBotLadderScene active onComplete={onComplete} outcome="slip" />,
-    );
+    render(<BeakerBotLadderScene active onComplete={onComplete} />);
     // Mount.
     act(() => {
       vi.advanceTimersByTime(0);
@@ -124,9 +114,7 @@ describe("BeakerBotLadderScene", () => {
   it("progresses through stages in order", () => {
     setMatchMedia(false);
     const onComplete = vi.fn();
-    render(
-      <BeakerBotLadderScene active onComplete={onComplete} outcome="slip" />,
-    );
+    render(<BeakerBotLadderScene active onComplete={onComplete} />);
     act(() => {
       vi.advanceTimersByTime(0);
     });
@@ -160,9 +148,9 @@ describe("BeakerBotLadderScene", () => {
     });
     expect(scene()?.getAttribute("data-stage")).toBe("disruption");
 
-    // After disruption (1900ms more): fall.
+    // After disruption (400ms more): fall.
     act(() => {
-      vi.advanceTimersByTime(1900);
+      vi.advanceTimersByTime(400);
     });
     expect(scene()?.getAttribute("data-stage")).toBe("fall");
   });
@@ -170,9 +158,7 @@ describe("BeakerBotLadderScene", () => {
   it("renders cleaning sparkles + wipe overlay during clean stage", () => {
     setMatchMedia(false);
     const onComplete = vi.fn();
-    render(
-      <BeakerBotLadderScene active onComplete={onComplete} outcome="slip" />,
-    );
+    render(<BeakerBotLadderScene active onComplete={onComplete} />);
     act(() => {
       vi.advanceTimersByTime(0);
     });
@@ -190,16 +176,10 @@ describe("BeakerBotLadderScene", () => {
     ).toBeGreaterThan(0);
   });
 
-  it("renders bird element when outcome is bird-bump", () => {
+  it("never renders a bird element (bird removed in R2 polish)", () => {
     setMatchMedia(false);
     const onComplete = vi.fn();
-    render(
-      <BeakerBotLadderScene
-        active
-        onComplete={onComplete}
-        outcome="bird-bump"
-      />,
-    );
+    render(<BeakerBotLadderScene active onComplete={onComplete} />);
     act(() => {
       vi.advanceTimersByTime(0);
     });
@@ -207,43 +187,22 @@ describe("BeakerBotLadderScene", () => {
     act(() => {
       vi.advanceTimersByTime(8900);
     });
-    expect(
-      document.querySelector('[data-testid="beakerbot-ladder-scene-bird"]'),
-    ).not.toBeNull();
-    expect(
-      document.querySelector('[data-testid="beakerbot-ladder-scene"]')
-        ?.getAttribute("data-outcome"),
-    ).toBe("bird-bump");
-  });
-
-  it("does NOT render a bird when outcome is slip", () => {
-    setMatchMedia(false);
-    const onComplete = vi.fn();
-    render(
-      <BeakerBotLadderScene active onComplete={onComplete} outcome="slip" />,
-    );
-    act(() => {
-      vi.advanceTimersByTime(0);
-    });
-    // Advance to disruption: 800 + 2800 + 300 + 5000 = 8900ms.
-    act(() => {
-      vi.advanceTimersByTime(8900);
-    });
+    // No bird element should ever exist in the DOM.
     expect(
       document.querySelector('[data-testid="beakerbot-ladder-scene-bird"]'),
     ).toBeNull();
+    // And the disruption stage is now the unprompted slip.
     expect(
-      document.querySelector('[data-testid="beakerbot-ladder-scene"]')
-        ?.getAttribute("data-outcome"),
-    ).toBe("slip");
+      document
+        .querySelector('[data-testid="beakerbot-ladder-scene"]')
+        ?.getAttribute("data-stage"),
+    ).toBe("disruption");
   });
 
   it("respects prefers-reduced-motion: short-circuits to onComplete after ~3s", () => {
     setMatchMedia(true);
     const onComplete = vi.fn();
-    render(
-      <BeakerBotLadderScene active onComplete={onComplete} outcome="slip" />,
-    );
+    render(<BeakerBotLadderScene active onComplete={onComplete} />);
     act(() => {
       vi.advanceTimersByTime(0);
     });
@@ -270,7 +229,7 @@ describe("BeakerBotLadderScene", () => {
     setMatchMedia(false);
     const onComplete = vi.fn();
     const { rerender } = render(
-      <BeakerBotLadderScene active onComplete={onComplete} outcome="slip" />,
+      <BeakerBotLadderScene active onComplete={onComplete} />,
     );
     act(() => {
       vi.advanceTimersByTime(0);
@@ -281,11 +240,7 @@ describe("BeakerBotLadderScene", () => {
 
     // Cancel mid-animation.
     rerender(
-      <BeakerBotLadderScene
-        active={false}
-        onComplete={onComplete}
-        outcome="slip"
-      />,
+      <BeakerBotLadderScene active={false} onComplete={onComplete} />,
     );
     expect(
       document.querySelector('[data-testid="beakerbot-ladder-scene"]'),
@@ -303,12 +258,7 @@ describe("BeakerBotLadderScene", () => {
     setMatchMedia(false);
     const onComplete = vi.fn();
     render(
-      <BeakerBotLadderScene
-        active
-        onComplete={onComplete}
-        outcome="slip"
-        side="left"
-      />,
+      <BeakerBotLadderScene active onComplete={onComplete} side="left" />,
     );
     act(() => {
       vi.advanceTimersByTime(0);
@@ -324,9 +274,7 @@ describe("BeakerBotLadderScene", () => {
   it("has aria-hidden + pointer-events: none on the overlay", () => {
     setMatchMedia(false);
     const onComplete = vi.fn();
-    render(
-      <BeakerBotLadderScene active onComplete={onComplete} outcome="slip" />,
-    );
+    render(<BeakerBotLadderScene active onComplete={onComplete} />);
     act(() => {
       vi.advanceTimersByTime(0);
     });
