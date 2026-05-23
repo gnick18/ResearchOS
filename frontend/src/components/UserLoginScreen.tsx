@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { usersApi } from "@/lib/local-api";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { hasPassword, verifyPassword } from "@/lib/auth/password";
 import { performUserDelete } from "@/lib/users/perform-delete";
+import { readUserSettings } from "@/lib/settings/user-settings";
 import AccountPasswordPopup from "@/components/AccountPasswordPopup";
 import BetaDonationButton from "@/components/BetaDonationButton";
 import FeedbackModal from "@/components/FeedbackModal";
@@ -57,6 +58,13 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   // Loaded after the user list comes back, refreshed after the password popup closes.
   const [lockedUsers, setLockedUsers] = useState<Set<string>>(new Set());
 
+  // Per-user `account_type` (Lab Head Phase 1). Drives both the PI badge
+  // on lab_head tiles and the sort order (lab heads to the top). Loaded
+  // alongside the user list; users we couldn't read settings for fall
+  // back to "member" so they never appear elevated by accident.
+  // Mirror of the lockedUsers pattern: fan-out read per user.
+  const [labHeadUsers, setLabHeadUsers] = useState<Set<string>>(new Set());
+
   // Bug report state
   const { showBugReport, currentError, openBugReport, closeBugReport } = useErrorReporting();
 
@@ -74,9 +82,31 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     setLockedUsers(next);
   };
 
+  // Fan-out read of every user's settings.json to find lab_head accounts.
+  // Mirrors the `refreshLockStatus` shape — a failed read leaves the user
+  // out of the set (i.e. defaults to member), which is the safe choice
+  // since elevating to lab_head by accident would be misleading. The PI
+  // badge + sort tier both key off this set.
+  const refreshLabHeadStatus = async (usernames: string[]) => {
+    const next = new Set<string>();
+    await Promise.all(
+      usernames.map(async (u) => {
+        try {
+          const settings = await readUserSettings(u);
+          if (settings.account_type === "lab_head") next.add(u);
+        } catch {
+          // Treat as member on read failure — never accidentally elevate.
+        }
+      })
+    );
+    setLabHeadUsers(next);
+  };
+
   useEffect(() => {
     if (users.length > 0) {
-      refreshLockStatus(users.filter((u) => u !== "lab"));
+      const real = users.filter((u) => u !== "lab");
+      refreshLockStatus(real);
+      refreshLabHeadStatus(real);
     }
   }, [users]);
 
@@ -376,6 +406,26 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   // Check if there are any users (excluding 'lab' user if present)
   const hasUsers = users.filter(u => u !== 'lab').length > 0;
 
+  // Tile sort order (Lab Head Phase 1 polish):
+  //   1. lab_head users (Main lab_head first within the tier)
+  //   2. member users (Main member first within the tier)
+  //   3. Alphabetical by username within each tier
+  // PI prominence wins over Main — the lab head's tile is always at the
+  // very top, even if some other account is flagged Main. The Main badge
+  // still appears on whichever tile owns it.
+  const sortedUsers = useMemo(() => {
+    const real = users.filter((u) => u !== "lab");
+    const tier = (u: string) => (labHeadUsers.has(u) ? 0 : 1);
+    const mainRank = (u: string) => (mainUser === u ? 0 : 1);
+    return [...real].sort((a, b) => {
+      const tierDiff = tier(a) - tier(b);
+      if (tierDiff !== 0) return tierDiff;
+      const mainDiff = mainRank(a) - mainRank(b);
+      if (mainDiff !== 0) return mainDiff;
+      return a.localeCompare(b);
+    });
+  }, [users, labHeadUsers, mainUser]);
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Background pattern */}
@@ -479,12 +529,12 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
 
               {/* User list */}
               <div className="space-y-2 mb-4">
-                {users.filter(u => u !== 'lab').length === 0 ? (
+                {sortedUsers.length === 0 ? (
                   <p className="text-center text-slate-400 py-4">
                     No users found. Create a new user to get started.
                   </p>
                 ) : (
-                  users.filter(u => u !== 'lab').map((user) => (
+                  sortedUsers.map((user) => (
                     <div key={user} className="relative">
                       {editingUser === user ? (
                         // Edit mode
@@ -544,10 +594,24 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                             size="md"
                             showOwnerBadge={mainUser === user}
                           />
-                          <div className="flex-1 text-left">
+                          <div className="flex-1 text-left flex items-center gap-2">
                             <span className="text-white font-medium">{user}</span>
+                            {labHeadUsers.has(user) && (
+                              // PI badge — matches the CommentsThread author
+                              // attribution badge (amber-100/amber-800). Darker
+                              // amber text variant keeps contrast readable on
+                              // the slate login backdrop. The Main badge is
+                              // orthogonal (laptop owner) and shows alongside
+                              // when both apply.
+                              <span
+                                className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide rounded bg-amber-100 text-amber-800"
+                                title="Lab head / principal investigator"
+                              >
+                                PI
+                              </span>
+                            )}
                             {mainUser === user && (
-                              <span className="ml-2 text-xs text-amber-400 font-normal">(Main)</span>
+                              <span className="text-xs text-amber-400 font-normal">(Main)</span>
                             )}
                           </div>
                           
