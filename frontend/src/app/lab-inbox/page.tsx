@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import LabInboxComments from "@/components/lab-inbox/LabInboxComments";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { readUserSettings } from "@/lib/settings/user-settings";
 
@@ -89,21 +90,15 @@ function LabInboxBody() {
           </p>
         </header>
 
-        <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
-          <h2 className="text-base font-semibold text-gray-900">
-            Comments and audit notifications
-          </h2>
-          <p className="text-sm text-gray-600">
-            This is where lab comments, mentions, flagged records, and audit
-            entries you need to review will land. Phase 1 (this release) wires
-            up the account-type field, the sidebar entry, and the comment
-            attribution badge so PI comments are clearly distinguishable in
-            the existing threads.
-          </p>
-          <p className="text-xs text-gray-500 italic">
-            Comments and audit notifications will appear here in Phase 2.
-          </p>
-        </section>
+        {/* Lab Head Phase 2 (lab head Phase 2 manager, 2026-05-23): the
+            Phase 1 placeholder section is replaced by the live
+            <LabInboxComments /> feed. Phase 4 will mount its
+            <LabInboxMetrics /> sibling around this — keep the wrapper div
+            shallow so the page edit stays minimal and avoids cherry-pick
+            conflicts. */}
+        <div>
+          <LabInboxComments />
+        </div>
       </div>
     </div>
   );

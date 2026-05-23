@@ -864,8 +864,8 @@ export default function TaskDetailPopup({
             isShared={(task.shared_with?.length ?? 0) > 0 || !!task.is_shared_with_me}
             notSharedHint="This task isn't shared with the lab. Share it to let lab mates comment."
             readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")}
-            onAdd={async (text, author) => {
-              await tasksApi.addComment(task.id, text, author);
+            onAdd={async (text, author, options) => {
+              await tasksApi.addComment(task.id, text, author, options);
               await Promise.all([
                 queryClient.refetchQueries({ queryKey: ["tasks"] }),
                 queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] }),

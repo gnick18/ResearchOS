@@ -26,8 +26,18 @@ export default function NoteCommentsThread({ note }: NoteCommentsThreadProps) {
   };
 
   const addCommentMutation = useMutation({
-    mutationFn: ({ text, author }: { text: string; author: string }) =>
-      notesApi.addComment(note.id, note.username, text, author),
+    // Lab Head Phase 2: forward `options` (parent_id + mentions) through
+    // the mutation hook so threaded replies + @-mention dispatch land on
+    // the owner's note file together with the comment write.
+    mutationFn: ({
+      text,
+      author,
+      options,
+    }: {
+      text: string;
+      author: string;
+      options?: { parent_id?: string | null; mentions?: string[] };
+    }) => notesApi.addComment(note.id, note.username, text, author, options),
     onSuccess: invalidateNotes,
   });
 
@@ -45,8 +55,8 @@ export default function NoteCommentsThread({ note }: NoteCommentsThreadProps) {
       comments={note.comments ?? []}
       isShared={note.is_shared}
       notSharedHint="This note isn't shared with the lab. Turn on sharing to let lab mates comment."
-      onAdd={async (text, author) => {
-        await addCommentMutation.mutateAsync({ text, author });
+      onAdd={async (text, author, options) => {
+        await addCommentMutation.mutateAsync({ text, author, options });
       }}
       onDelete={async (commentId) => {
         await deleteCommentMutation.mutateAsync(commentId);

@@ -39,8 +39,19 @@
     {
       "id": "cmt-mira-morgan-t3-1",
       "author": "mira",
-      "text": "Make sure you're using the same ACT1 reference primer pair as alex's optimization (alex's lab note #5). I want our two qPCR datasets directly comparable for the paper figures downstream.",
-      "created_at": "2026-05-14T09:15:00Z"
+      "text": "@morgan — make sure you're using the same ACT1 reference primer pair as @alex's optimization (alex's lab note #5). I want our two qPCR datasets directly comparable for the paper figures downstream.",
+      "created_at": "2026-05-14T09:15:00Z",
+      "mentions": [
+        "morgan",
+        "alex"
+      ]
+    },
+    {
+      "id": "cmt-morgan-reply-t3-1",
+      "author": "morgan",
+      "text": "Confirmed — pulling the ACT1 aliquot from alex's freezer 5 shelf tomorrow morning.",
+      "created_at": "2026-05-14T10:30:00Z",
+      "parent_id": "cmt-mira-morgan-t3-1"
     }
   ]
 }

@@ -81,6 +81,7 @@ import type {
   SharedItemNotification,
   EventReminderNotification,
   ShiftAlertNotification,
+  LabCommentNotification,
   ShiftedAlertEntry,
   ShiftedAlertsFile,
   SeenShiftAlertsFile,
@@ -1400,11 +1401,19 @@ export const tasksApi = {
   // lands on the owner's task file — same cross-user pattern as every other
   // mutating tasks call. Append-only by design; no edit. Author must be a
   // real username, not "lab" (the caller in CommentsThread enforces this).
+  //
+  // Lab Head Phase 2 (lab head Phase 2 manager, 2026-05-23): `options`
+  // carries the optional `parent_id` (threading) + `mentions` (denormalized
+  // @-mention list). Both stay optional for callers that haven't been
+  // updated yet — existing tests pass undefined and get pre-Phase-2
+  // behavior. After the comment lands, fan-out bell notifications to the
+  // owner / mentioned users / lab heads via dispatchCommentNotifications.
   addComment: async (
     taskId: number,
     text: string,
     author: string,
     owner?: string,
+    options?: { parent_id?: string | null; mentions?: string[] },
   ): Promise<Task | null> => {
     const trimmed = text.trim();
     if (!trimmed) return null;
@@ -1418,11 +1427,32 @@ export const tasksApi = {
       text: trimmed,
       created_at: new Date().toISOString(),
     };
+    if (options?.parent_id) newComment.parent_id = options.parent_id;
+    if (options?.mentions && options.mentions.length > 0) {
+      newComment.mentions = options.mentions;
+    }
     const comments = [...(task.comments || []), newComment];
     const patch = { comments };
     const updated = owner
       ? await tasksStore.updateForUser(taskId, patch, owner)
       : await tasksStore.update(taskId, patch);
+    if (updated) {
+      // Notification fan-out — never blocks the write. The owner of the
+      // task file is whichever directory the file lives in (owner arg) or
+      // the current user (the only writer who can update their own dir).
+      const ownerUsername =
+        owner || updated.owner || (await getCurrentUserCached());
+      void dispatchCommentNotifications({
+        commentId: newComment.id,
+        author,
+        text: trimmed,
+        ownerUsername,
+        recordType: "task",
+        recordId: taskId,
+        recordName: updated.name,
+        mentions: options?.mentions ?? [],
+      });
+    }
     return updated ? normalizeTaskRecord(updated) : null;
   },
 
@@ -3035,11 +3065,17 @@ export const notesApi = {
   // a different user than the note owner, so we read/write through the
   // owner's directory directly — same cross-user pattern as shared tasks.
   // Append-only by design; no edit. Author must be a real username, not "lab".
+  //
+  // Lab Head Phase 2 (lab head Phase 2 manager, 2026-05-23): `options`
+  // carries the optional `parent_id` (threading) + `mentions` (denormalized
+  // @-mention list). After the write, fan-out bell notifications to the
+  // owner / mentioned users / lab heads via dispatchCommentNotifications.
   addComment: async (
     noteId: number,
     ownerUsername: string,
     text: string,
     author: string,
+    options?: { parent_id?: string | null; mentions?: string[] },
   ): Promise<Note | null> => {
     const trimmed = text.trim();
     if (!trimmed) return null;
@@ -3051,12 +3087,29 @@ export const notesApi = {
       text: trimmed,
       created_at: new Date().toISOString(),
     };
+    if (options?.parent_id) newComment.parent_id = options.parent_id;
+    if (options?.mentions && options.mentions.length > 0) {
+      newComment.mentions = options.mentions;
+    }
     const comments = [...(note.comments || []), newComment];
-    return notesStore.updateForUser(
+    const updated = await notesStore.updateForUser(
       noteId,
       { comments, updated_at: new Date().toISOString() },
       ownerUsername,
     );
+    if (updated) {
+      void dispatchCommentNotifications({
+        commentId: newComment.id,
+        author,
+        text: trimmed,
+        ownerUsername,
+        recordType: "note",
+        recordId: noteId,
+        recordName: updated.title,
+        mentions: options?.mentions ?? [],
+      });
+    }
+    return updated;
   },
 
   // Remove a comment. Only the comment's author can call this — the UI
@@ -3473,6 +3526,130 @@ async function addReceiverShare(
     notifs.notifications.push(fresh);
   }
   await writeNotificationsFile(receiver, notifs);
+}
+
+/**
+ * Lab Head Phase 2 (lab head Phase 2 manager, 2026-05-23): dispatch
+ * comment-related bell notifications to every interested user when a new
+ * comment is added.
+ *
+ * Recipients (the union, dedupe at the end):
+ *   - the parent record's owner (`comment_on_owned`), unless they ARE the
+ *     commenter
+ *   - every @-mentioned username (`comment_mention`), unless they're
+ *     already in the owner bucket
+ *   - every lab_head user in the lab (`comment_lab_head_feed`), unless
+ *     they're already in one of the above buckets — Phase 2 brief: "lab
+ *     heads get notifications for ALL new comments in the lab"
+ *
+ * The commenter never gets a self-notification. Failures are best-effort —
+ * a write to one recipient's notification file failing must not block the
+ * comment write itself, otherwise a single broken file wedges the whole
+ * commenting flow. Mirror of the `addReceiverShare` failure model.
+ */
+async function dispatchCommentNotifications(params: {
+  commentId: string;
+  author: string;
+  text: string;
+  ownerUsername: string;
+  recordType: "task" | "note";
+  recordId: number;
+  recordName: string;
+  mentions: string[];
+}): Promise<void> {
+  const {
+    commentId,
+    author,
+    text,
+    ownerUsername,
+    recordType,
+    recordId,
+    recordName,
+    mentions,
+  } = params;
+
+  // Lazy import to avoid a circular dep with the comments util module.
+  const { commentPreview } = await import("./comments/mentions");
+  const preview = commentPreview(text);
+  const now = new Date().toISOString();
+
+  // Build the dispatch plan: map<receiver, type>. Owner wins over mention
+  // wins over lab-head-feed.
+  const plan = new Map<string, LabCommentNotification["type"]>();
+  if (ownerUsername && ownerUsername !== author) {
+    plan.set(ownerUsername, "comment_on_owned");
+  }
+  for (const mention of mentions) {
+    if (mention === author) continue;
+    if (plan.has(mention)) continue;
+    plan.set(mention, "comment_mention");
+  }
+
+  // Discover lab heads — read every user's settings.json and pick out
+  // `account_type === "lab_head"`. This is a fan-out read at comment-write
+  // time, which is cheap (a single small file per user); cache TTL on the
+  // React Query side (LAB_USER_PROFILES_QUERY_KEY) keeps the renderer
+  // path warm separately.
+  try {
+    const users = await discoverUsers();
+    const labHeads = (
+      await Promise.all(
+        users.map(async (u) => {
+          try {
+            // Direct read; we don't pull readUserSettings here to avoid
+            // the dep cycle with the settings module.
+            const s = await fileService.readJson<{ account_type?: string }>(
+              `users/${u}/settings.json`,
+            );
+            return s?.account_type === "lab_head" ? u : null;
+          } catch {
+            return null;
+          }
+        }),
+      )
+    ).filter((u): u is string => u !== null);
+    for (const head of labHeads) {
+      if (head === author) continue;
+      if (plan.has(head)) continue;
+      plan.set(head, "comment_lab_head_feed");
+    }
+  } catch {
+    // Lab-head discovery failure is non-fatal — the owner + mention
+    // notifications still go through.
+  }
+
+  // Write each notification. Best-effort, isolated per receiver.
+  await Promise.all(
+    Array.from(plan.entries()).map(async ([receiver, type]) => {
+      try {
+        const notif: LabCommentNotification = {
+          id:
+            typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? crypto.randomUUID()
+              : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          type,
+          from_user: author,
+          owner_username: ownerUsername,
+          record_type: recordType,
+          record_id: recordId,
+          record_name: recordName,
+          comment_id: commentId,
+          preview,
+          created_at: now,
+          read: false,
+        };
+        const file = await readNotificationsFile(receiver);
+        file.notifications.push(notif);
+        await writeNotificationsFile(receiver, file);
+      } catch (err) {
+        // One bad write must not poison the others.
+        console.warn(
+          `[comment-notify] failed to write notification for ${receiver}:`,
+          err,
+        );
+      }
+    }),
+  );
 }
 
 async function removeReceiverShare(

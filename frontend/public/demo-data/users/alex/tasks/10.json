@@ -71,8 +71,12 @@
     {
       "id": "cmt-mira-alex-t10-1",
       "author": "mira",
-      "text": "Question — are you logging the condensation event in the task deviation log too, not just the running-log note? I want a paper trail in case the 4% glucose plateau looks weird in the writeup later.",
-      "created_at": "2026-05-13T11:20:00Z"
+      "text": "@alex — are you logging the condensation event in the task deviation log too, not just the running-log note? I want a paper trail in case the 4% glucose plateau looks weird in the writeup later. @morgan, can you double-check this on Friday?",
+      "created_at": "2026-05-13T11:20:00Z",
+      "mentions": [
+        "alex",
+        "morgan"
+      ]
     }
   ]
 }
