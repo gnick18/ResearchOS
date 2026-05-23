@@ -3,11 +3,17 @@
  * underline / H1 / H2 / H3 sub-steps (HE-5 + HE-6).
  *
  * Hybrid editor manager 2026-05-22. Each typing beat shares the same
- * shape:
- *   - Speech: short pose + read-the-bubble copy
- *   - User clicks "Got it, next" → cursor types a sample sentence into
- *     a NEW paragraph block at the end of the editor body → cursor
- *     clicks outside the block so it renders.
+ * shape (R2 chip E Fix 3 docstring repair, 2026-05-22):
+ *   - On step ENTRY (mount), the TourController's cursorScript effect
+ *     immediately begins the script: the cursor types a sample
+ *     sentence into a NEW paragraph block at the end of the editor
+ *     body, then clicks outside the block so it renders.
+ *   - The user reads BeakerBot's "Watch me type..." speech bubble
+ *     while the cursor performs the action.
+ *   - The step then advances on manualAdvance ("Got it, next"). The
+ *     "Got it, next" click does NOT start the typing — typing already
+ *     happened on entry; the button only confirms the user is ready
+ *     to move on.
  *
  * The whole sequence sits behind a `pageLock` (no allow-list) so the
  * user can't accidentally click into the editor between beats.
@@ -94,9 +100,12 @@ export function buildHybridTypingStep(opts: HybridTypingStepOpts): TourStep {
       const clickOut = clickOutsideEditorAction();
       return compactScript([typeAction, settle, clickOut]);
     }),
-    // Universal pacing: user reads bubble, clicks Got it, next; cursor
-    // then types. The pageLock keeps them from interacting with the
-    // editor in the meantime.
+    // Universal pacing: on step entry, the cursor immediately types
+    // while the user reads BeakerBot's "Watch me type..." speech.
+    // After the cursor finishes (and clicks out so the block renders),
+    // the user clicks "Got it, next" to advance to the next sub-beat.
+    // The pageLock keeps them from interacting with the editor while
+    // the cursor is mid-script. (R2 chip E Fix 3 docstring repair.)
     completion: manualAdvance("Got it, next"),
     // Page lock: total (no allow-list). The bubble is implicitly allowed
     // so Skip/Back/Got-it stay reachable. Copy updated R1 fix-pass per
