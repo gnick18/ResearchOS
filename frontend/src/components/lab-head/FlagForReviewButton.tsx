@@ -47,6 +47,12 @@ export default function FlagForReviewButton({
 
   const isFlagged = !!currentFlag;
 
+  // Mira-Skeptic P0 compat migration (Mira-Skeptic P0 fix manager,
+  // 2026-05-23): see AssignTaskButton.tsx for the full template. This
+  // surface uses the minimal-touch shape: data-write failures surface
+  // the existing alert; audit failures emit a separate non-blocking
+  // alert + still invalidate + close so the UI reflects the data write
+  // that DID land.
   const handleSet = async () => {
     setBusy(true);
     try {
@@ -55,7 +61,7 @@ export default function FlagForReviewButton({
         at: new Date().toISOString(),
         reason: reason.trim() || null,
       };
-      await setFlagForReview({
+      const result = await setFlagForReview({
         actor,
         sessionId,
         targetOwner,
@@ -64,12 +70,25 @@ export default function FlagForReviewButton({
         flag: next,
         recordName,
       });
+      if (!result.ok && result.reason === "data-write") {
+        console.error("[flag-for-review] data write failed", result.error);
+        const msg =
+          result.error instanceof Error
+            ? result.error.message
+            : "Failed to flag record. See console for details.";
+        alert(msg);
+        return;
+      }
       await invalidateForRecord(queryClient, recordType);
       setOpen(false);
       onFlagged?.(next);
-    } catch (err) {
-      console.error("[flag-for-review] failed", err);
-      alert("Failed to flag record. See console for details.");
+      if (!result.ok && result.reason === "audit") {
+        console.warn("[flag-for-review] audit write failed", result.error);
+        alert(
+          "Flag was set, but the audit log entry could not be written. " +
+            "The record reflects the new flag, but this change won't appear in the audit history.",
+        );
+      }
     } finally {
       setBusy(false);
     }
@@ -78,7 +97,7 @@ export default function FlagForReviewButton({
   const handleClear = async () => {
     setBusy(true);
     try {
-      await setFlagForReview({
+      const result = await setFlagForReview({
         actor,
         sessionId,
         targetOwner,
@@ -87,12 +106,25 @@ export default function FlagForReviewButton({
         flag: null,
         recordName,
       });
+      if (!result.ok && result.reason === "data-write") {
+        console.error("[flag-for-review] data write failed", result.error);
+        const msg =
+          result.error instanceof Error
+            ? result.error.message
+            : "Failed to clear flag.";
+        alert(msg);
+        return;
+      }
       await invalidateForRecord(queryClient, recordType);
       setOpen(false);
       onFlagged?.(null);
-    } catch (err) {
-      console.error("[flag-for-review] failed", err);
-      alert("Failed to clear flag.");
+      if (!result.ok && result.reason === "audit") {
+        console.warn("[flag-for-review] audit write failed", result.error);
+        alert(
+          "Flag was cleared, but the audit log entry could not be written. " +
+            "The record reflects the cleared flag, but this change won't appear in the audit history.",
+        );
+      }
     } finally {
       setBusy(false);
     }

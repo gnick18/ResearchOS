@@ -37,10 +37,13 @@ export function PurchaseApprovalToggle({
   const [busy, setBusy] = useState(false);
   const isApproved = !!item.approved;
 
+  // Mira-Skeptic P0 compat migration (Mira-Skeptic P0 fix manager,
+  // 2026-05-23): handles the new PiActionResult shape; see
+  // AssignTaskButton.tsx for the full template.
   const handleToggle = async () => {
     setBusy(true);
     try {
-      await setPurchaseApproval({
+      const result = await setPurchaseApproval({
         actor,
         sessionId,
         targetOwner,
@@ -48,12 +51,25 @@ export function PurchaseApprovalToggle({
         approved: !isApproved,
         itemName: item.item_name,
       });
+      if (!result.ok && result.reason === "data-write") {
+        console.error("[purchase-approval] data write failed", result.error);
+        const msg =
+          result.error instanceof Error
+            ? result.error.message
+            : "Failed to update approval. See console.";
+        alert(msg);
+        return;
+      }
       await queryClient.invalidateQueries({ queryKey: ["purchases"] });
       await queryClient.invalidateQueries({ queryKey: ["purchases-all"] });
       onChanged?.();
-    } catch (err) {
-      console.error("[purchase-approval] toggle failed", err);
-      alert("Failed to update approval. See console.");
+      if (!result.ok && result.reason === "audit") {
+        console.warn("[purchase-approval] audit write failed", result.error);
+        alert(
+          "Approval status was updated, but the audit log entry could not be written. " +
+            "The record reflects the new state, but this change won't appear in the audit history.",
+        );
+      }
     } finally {
       setBusy(false);
     }

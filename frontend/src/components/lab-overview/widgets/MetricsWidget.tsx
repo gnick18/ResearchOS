@@ -229,43 +229,65 @@ function FundingRollup() {
     return (username: string) => map.get(username) ?? "#6b7280";
   }, [users]);
 
-  // Total spend across the entire lab.
+  // Mira-Skeptic P0 #3 (Mira-Skeptic P0 fix manager, 2026-05-23): only
+  // APPROVED items count toward "Total spent." Previously every
+  // submitted line item flowed into the rollup, so a $5000 unapproved
+  // line would inflate the dashboard before Mira had even reviewed it.
+  //
+  // Back-compat: items predating Phase 3 don't carry an `approved`
+  // field at all. `approved === undefined` is treated as approved so
+  // legacy demo data + pre-migration items continue to appear in the
+  // rollup (also resolves Skeptic P1-5).
+  const isApproved = (item: { approved?: boolean }) =>
+    item.approved === undefined || item.approved === true;
+
+  const approvedItems = useMemo(() => items.filter(isApproved), [items]);
+  const pendingItems = useMemo(() => items.filter((i) => !isApproved(i)), [items]);
+
+  // Total spend across the entire lab (approved only).
   const totalSpent = useMemo(
-    () => items.reduce((acc, item) => acc + (item.total_price ?? 0), 0),
-    [items],
+    () => approvedItems.reduce((acc, item) => acc + (item.total_price ?? 0), 0),
+    [approvedItems],
   );
 
-  // Spend by member, sorted highest first.
+  // Pending-approval total — surfaces the gap between submitted and
+  // approved so the PI can see what's awaiting review.
+  const totalPending = useMemo(
+    () => pendingItems.reduce((acc, item) => acc + (item.total_price ?? 0), 0),
+    [pendingItems],
+  );
+
+  // Spend by member, sorted highest first (approved only).
   const spendByMember = useMemo(() => {
     const totals = new Map<string, number>();
-    for (const item of items) {
+    for (const item of approvedItems) {
       totals.set(item.username, (totals.get(item.username) ?? 0) + (item.total_price ?? 0));
     }
     return Array.from(totals.entries()).sort((a, b) => b[1] - a[1]);
-  }, [items]);
+  }, [approvedItems]);
 
   // Spend by category. `category` is optional on each item, so missing /
-  // null falls into a single "Uncategorized" bucket.
+  // null falls into a single "Uncategorized" bucket. Approved only.
   const spendByCategory = useMemo(() => {
     const totals = new Map<string, number>();
-    for (const item of items) {
+    for (const item of approvedItems) {
       const key = item.category ?? UNCATEGORIZED_LABEL;
       totals.set(key, (totals.get(key) ?? 0) + (item.total_price ?? 0));
     }
     return Array.from(totals.entries()).sort((a, b) => b[1] - a[1]);
-  }, [items]);
+  }, [approvedItems]);
 
   // Spend by funding account. `funding_string` is the canonical account key
   // on each item; null falls into Uncategorized so the PI sees the
-  // attribution gap.
+  // attribution gap. Approved only.
   const spendByFunding = useMemo(() => {
     const totals = new Map<string, number>();
-    for (const item of items) {
+    for (const item of approvedItems) {
       const key = item.funding_string ?? UNCATEGORIZED_LABEL;
       totals.set(key, (totals.get(key) ?? 0) + (item.total_price ?? 0));
     }
     return Array.from(totals.entries()).sort((a, b) => b[1] - a[1]);
-  }, [items]);
+  }, [approvedItems]);
 
   // Recent purchases — 10 most recent line items by parent-task start_date.
   // Items don't carry their own date, so we attribute by the purchase task's
@@ -314,9 +336,15 @@ function FundingRollup() {
 
   return (
     <div className="space-y-6">
-      {/* Top-line summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {/* Top-line summary cards. Mira-Skeptic P0 #3: "Total spent" is
+          approved-only; "Pending approval" surfaces unapproved value so
+          the PI can see the gap. */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <SummaryCard label="Total spent" value={formatCurrency(totalSpent)} />
+        <SummaryCard
+          label="Pending approval"
+          value={formatCurrency(totalPending)}
+        />
         <SummaryCard label="Line items" value={items.length.toString()} />
         <SummaryCard label="Members spending" value={spendByMember.length.toString()} />
         <SummaryCard label="Funding accounts touched" value={spendByFunding.length.toString()} />

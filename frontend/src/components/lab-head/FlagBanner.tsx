@@ -41,10 +41,23 @@ export default function FlagBanner({
   const piName =
     profileMap[flag.by]?.displayName?.trim() || flag.by;
 
+  // Mira-Skeptic P0 compat migration (Mira-Skeptic P0 fix manager,
+  // 2026-05-23): handles the new PiActionResult shape; see
+  // AssignTaskButton.tsx for the full template. `clearFlagAsOwner` now
+  // emits its own audit entry (P0 #2) which can itself fail.
   const handleClear = async () => {
     setBusy(true);
     try {
-      await clearFlagAsOwner({ owner, recordType, recordId });
+      const result = await clearFlagAsOwner({ owner, recordType, recordId });
+      if (!result.ok && result.reason === "data-write") {
+        console.error("[flag-banner] data write failed", result.error);
+        const msg =
+          result.error instanceof Error
+            ? result.error.message
+            : "Failed to clear flag.";
+        alert(msg);
+        return;
+      }
       if (recordType === "task") {
         await queryClient.invalidateQueries({ queryKey: ["tasks"] });
         await queryClient.invalidateQueries({ queryKey: ["task"] });
@@ -55,9 +68,13 @@ export default function FlagBanner({
         await queryClient.invalidateQueries({ queryKey: ["purchases-all"] });
       }
       onCleared?.();
-    } catch (err) {
-      console.error("[flag-banner] clear failed", err);
-      alert("Failed to clear flag.");
+      if (!result.ok && result.reason === "audit") {
+        console.warn("[flag-banner] audit write failed", result.error);
+        alert(
+          "Flag was cleared, but the audit log entry could not be written. " +
+            "The record reflects the cleared flag, but this change won't appear in the audit history.",
+        );
+      }
     } finally {
       setBusy(false);
     }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { assignTask } from "@/lib/lab/pi-actions";
+import { getEditSession } from "@/lib/lab/edit-session";
 import { useLabData } from "@/hooks/useLabData";
 import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
 import { useArchivedUsers } from "@/hooks/useArchivedUsers";
@@ -55,28 +56,71 @@ export default function AssignTaskButton({
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
 
+  // Mira-Skeptic P0 POC migration (Mira-Skeptic P0 fix manager,
+  // 2026-05-23): demonstrates the new `PiActionResult` shape.
+  //
+  // Template for the remaining callsites (PurchaseApprovalControls,
+  // FlagForReviewButton, FlagBanner):
+  //   1. Read live sessionId via `getEditSession()` right before the
+  //      call so a stale prop captured at mount doesn't slip through.
+  //      (Defensive — pi-actions also gates internally, but a live read
+  //      gives the prettier error path.)
+  //   2. Switch from try/catch → `if (!result.ok)` discriminant check.
+  //   3. Data-write failures show the existing user-blocking alert.
+  //   4. Audit failures show a SEPARATE non-blocking alert — the data
+  //      DID land, the user just needs to know the log didn't.
+  //   5. Cache invalidation runs even on audit failure (the record
+  //      really did change; the UI should reflect that).
   const handleAssign = async () => {
     if (!selected) return;
     setBusy(true);
     try {
-      await assignTask({
+      // Live-read sessionId so a stale prop captured at mount cannot
+      // be passed to pi-actions. assertLiveSession also catches this,
+      // but pulling here lets us surface the "session expired" message
+      // before the action attempts a pre-read.
+      const live = getEditSession();
+      const liveSessionId =
+        live.state === "unlocked" && live.active?.username === actor
+          ? live.active.id
+          : sessionId;
+
+      const result = await assignTask({
         actor,
-        sessionId,
+        sessionId: liveSessionId,
         targetOwner: task.owner,
         taskId: task.id,
         assignee: selected,
         note: note.trim() || null,
         taskName: task.name,
       });
-      // Invalidate the task queries so the popup re-reads the new assignee.
+
+      if (!result.ok && result.reason === "data-write") {
+        console.error("[assign-task] data write failed", result.error);
+        const msg =
+          result.error instanceof Error
+            ? result.error.message
+            : "Failed to assign task. See console for details.";
+        alert(msg);
+        return;
+      }
+
+      // Either ok or audit-only failure — the data write LANDED, so
+      // we should invalidate and close.
       await queryClient.invalidateQueries({ queryKey: ["task", taskKey(task)] });
       await queryClient.invalidateQueries({ queryKey: ["lab", "tasks"] });
       setOpen(false);
       setNote("");
       onAssigned?.();
-    } catch (err) {
-      console.error("[assign-task] failed", err);
-      alert("Failed to assign task. See console for details.");
+
+      if (!result.ok && result.reason === "audit") {
+        console.warn("[assign-task] audit write failed", result.error);
+        alert(
+          "Task was assigned, but the audit log entry could not be written. " +
+            "The record reflects the new assignee, but this change won't appear in the audit history. " +
+            "Check the file system permissions and try again.",
+        );
+      }
     } finally {
       setBusy(false);
     }
