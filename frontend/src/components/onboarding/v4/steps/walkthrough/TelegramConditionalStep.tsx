@@ -387,11 +387,12 @@ function TelegramBranchPicker() {
           </p>
         ) : syntheticLanded ? (
           <p className="text-xs text-emerald-700">
-            Synthetic photo landed in your inbox{" "}
+            Got it. The photo{" "}
             {syntheticLanded === "svg-fallback"
-              ? "(SVG fallback, PNG asset pending)"
+              ? "(SVG fallback, PNG asset pending) "
               : ""}
-            . Watch BeakerBot file it into your experiment.
+            is in your inbox where you can drag it into any
+            experiment&apos;s notes whenever you want.
           </p>
         ) : (
           <p className="text-xs text-gray-500">
@@ -431,7 +432,8 @@ function TelegramBranchPicker() {
         </>
       ) : (
         <p className="text-xs text-emerald-700">
-          Got it. Filing the photo into your experiment&apos;s notes now.
+          Got it. The photo is in your inbox. Drag it into your
+          experiment&apos;s notes whenever you want.
         </p>
       )}
     </div>
