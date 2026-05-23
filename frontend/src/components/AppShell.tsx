@@ -172,11 +172,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <PillWrap on={tinted}>
           <div className="flex items-center gap-1.5 leading-none">
             {/* Small static BeakerBot brand-mark accent. No animation;
-                the idle bob is reserved for the onboarding wizard. */}
+                the idle bob is reserved for the onboarding wizard.
+                easterEgg="heart" swaps the default click-to-tickle behavior
+                for a pink-heart pop because the laughing animation is
+                unreadable at this 24px size — see BeakerBot.tsx easterEgg
+                prop docs. */}
             <BeakerBot
               pose="idle"
               ariaLabel="ResearchOS BeakerBot logo"
               className="w-6 h-6 text-sky-500 shrink-0 block"
+              easterEgg="heart"
             />
             {/* Streak badge sits between brand mark and wordmark per
                 proposal §6.1. Hidden when current_count is 0, when the

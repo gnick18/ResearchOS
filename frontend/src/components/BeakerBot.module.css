@@ -292,6 +292,59 @@
   }
 }
 
+/* Easter egg: heart pop. Per-instance opt-in via the `easterEgg="heart"`
+ * prop on <BeakerBot>. Used by the AppShell brand-mark logo (rendered at
+ * 24px, so the default tickle/laughing animation is unreadable at that
+ * size). On click, BeakerBot does a brief subtle squash/wobble (this
+ * keyframe, ~200ms) and a heart SVG pops + drifts + fades above his
+ * head (`beakerBotHeartPop`). The wobble is intentionally tiny so it
+ * reads as "responsive to your click" without escalating to full
+ * tickle motion. */
+@keyframes beakerBotHeartWobble {
+  0%,
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  40% {
+    transform: translateY(2%) scale(1.08, 0.92);
+  }
+  70% {
+    transform: translateY(-2%) scale(0.96, 1.04);
+  }
+}
+
+/* Heart pop + drift + fade. ~700ms total:
+ *   0%   : invisible, tiny (scale 0.2), at BeakerBot's center.
+ *   15%  : ramping up to scale 0.6, slight upward drift.
+ *   25%  : overshoot pop to scale 1.2 (the satisfying "pop" beat).
+ *   40%  : settle to scale 1.0.
+ *   100% : drifted upward ~14 SVG units, faded out.
+ * Horizontal drift is a per-instance CSS var --heart-drift-x set in the
+ * inline style at spawn time so sequential clicks fan out instead of
+ * stacking exactly. */
+@keyframes beakerBotHeartPop {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.2);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(0, -1px) scale(0.6);
+  }
+  25% {
+    opacity: 1;
+    transform: translate(0, -2px) scale(1.2);
+  }
+  40% {
+    opacity: 1;
+    transform: translate(0, -4px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--heart-drift-x, 0px), -14px) scale(1);
+  }
+}
+
 /* Easter egg: volcano-eruption. Side animation triggered occasionally
  * to keep BeakerBot visible outside the onboarding walkthrough. Stages:
  *   1. Pour setup  (0-19%,    ~600ms): test tube slides in, hovers
@@ -515,6 +568,27 @@
 
 .rollLaughing.animated {
   animation: beakerBotRollLaugh 3400ms ease-in-out 1 forwards;
+}
+
+/* Heart easter egg root body wobble. Brief 200ms squash anchored at the
+ * beaker base so the wobble looks like a soft "you tapped me" beat. */
+.heartWobbling.animated {
+  animation: beakerBotHeartWobble 200ms ease-out 1 forwards;
+}
+
+/* Heart easter egg overlay layer. The container itself has no animation;
+ * each child .heartPop runs its own keyframe with a per-spawn stagger
+ * via inline animation-delay. The viewBox is 40x40 so a heart drifting
+ * upward to translateY(-14) sits above the beaker lip. */
+.heartLayer {
+  transform-box: view-box;
+}
+
+.heartPop {
+  transform-box: view-box;
+  transform-origin: 20px 14px;
+  opacity: 0;
+  animation: beakerBotHeartPop 700ms ease-out 1 forwards;
 }
 
 /* Volcano-eruption root body wobble. Total cadence 3200ms; see the
@@ -1032,6 +1106,8 @@
   .bowing.animated,
   .giggling.animated,
   .rollLaughing.animated,
+  .heartWobbling.animated,
+  .heartPop,
   .volcanoErupting.animated,
   .volcanoTestTube.animated,
   .volcanoParticle,
@@ -1085,6 +1161,13 @@
   /* Reading pose under reduced-motion: hide the book so the static
    * silhouette is just neutral BeakerBot. */
   .readBook {
+    display: none;
+  }
+
+  /* Heart easter egg under reduced-motion: hide the heart layer
+   * entirely so no static heart hangs over BeakerBot when the wobble
+   * + pop are disabled. */
+  .heartLayer {
     display: none;
   }
 }
