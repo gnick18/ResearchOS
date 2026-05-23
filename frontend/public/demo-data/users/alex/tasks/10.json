@@ -66,5 +66,13 @@
   ],
   "owner": "alex",
   "shared_with": [],
-  "external_project": null
+  "external_project": null,
+  "comments": [
+    {
+      "id": "cmt-mira-alex-t10-1",
+      "author": "mira",
+      "text": "Question — are you logging the condensation event in the task deviation log too, not just the running-log note? I want a paper trail in case the 4% glucose plateau looks weird in the writeup later.",
+      "created_at": "2026-05-13T11:20:00Z"
+    }
+  ]
 }

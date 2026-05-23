@@ -5,7 +5,14 @@
   "is_running_log": false,
   "is_shared": true,
   "entries": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "cmt-mira-alex-note4-1",
+      "author": "mira",
+      "text": "Quick follow-up on the IDT order — please loop me in on the funding split before placing it. Want to keep DEMO-DOE-EERE balanced for the renewal package due next month.",
+      "created_at": "2026-05-11T17:42:00Z"
+    }
+  ],
   "created_at": "2026-05-11T13:00:00Z",
   "updated_at": "2026-05-11T15:30:00Z",
   "username": "alex"

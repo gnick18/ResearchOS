@@ -78,6 +78,10 @@ const LAB_COUNTERS = { funding_accounts: 1 };
 const USER_METADATA = {
   alex: { color: "#abc", created_at: "2026-01-15T00:00:00Z" },
   morgan: { color: "#def", created_at: "2026-01-20T00:00:00Z" },
+  // Demo PI archetype (Dr. Mira Castellanos). Zero counters in the real
+  // fixture; her presence is the LabComment thread layer across alex +
+  // morgan's shared content. She contributes no rows here.
+  mira: { color: "#fff", created_at: "2026-01-05T00:00:00Z" },
 };
 
 // One project per user.
@@ -333,15 +337,18 @@ afterEach(() => {
 });
 
 describe("aggregateDemoLabData", () => {
-  it("merges alex + morgan slices into a single bundle", async () => {
+  it("merges mira + alex + morgan slices into a single bundle", async () => {
     const bundle = await aggregateDemoLabData("/demo-data");
 
+    // mira (demo PI) is included but contributes zero rows — her presence
+    // is the LabComment thread layer across alex + morgan's content.
     expect(bundle.users.map((u) => u.username).sort()).toEqual([
       "alex",
+      "mira",
       "morgan",
     ]);
-    expect(bundle.tasks).toHaveLength(3); // 2 alex + 1 morgan
-    expect(bundle.projects).toHaveLength(2); // 1 alex + 1 morgan
+    expect(bundle.tasks).toHaveLength(3); // 2 alex + 1 morgan + 0 mira
+    expect(bundle.projects).toHaveLength(2); // 1 alex + 1 morgan + 0 mira
     expect(bundle.methods).toHaveLength(2);
     expect(bundle.goals).toHaveLength(2);
     expect(bundle.notesShared).toHaveLength(2);

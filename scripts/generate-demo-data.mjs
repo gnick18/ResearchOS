@@ -63,6 +63,10 @@ const EARLIER_DONE_MORGAN = "2026-03-20"; // BASE_DATE - 54 (Earlier accordion)
 
 const ALEX_COLOR = "#3b82f6";   // blue
 const MORGAN_COLOR = "#10b981"; // emerald
+// PI archetype (Dr. Mira Castellanos) — orange/amber so the PI's LabComments
+// pop visually against alex's blue + morgan's emerald. Sits separately from
+// the project palette (which uses its own #f59e0b amber for project 3).
+const MIRA_COLOR = "#f97316";   // orange
 
 // ─── Markdown bodies (broken out for legibility) ─────────────────────────────
 
@@ -208,6 +212,12 @@ function buildEntries() {
     {
       alex: { color: ALEX_COLOR, created_at: "2026-01-15T00:00:00Z" },
       morgan: { color: MORGAN_COLOR, created_at: "2026-01-20T00:00:00Z" },
+      // Demo PI (Dr. Mira Castellanos) — the lab's principal investigator
+      // archetype. Created earliest so the metadata mirrors a real lab
+      // (PI predates trainees). She doesn't own her own projects/tasks/
+      // notes in the demo fixture; her presence is the LabComment thread
+      // showing PI-style oversight across alex + morgan's shared content.
+      mira: { color: MIRA_COLOR, created_at: "2026-01-05T00:00:00Z" },
     },
   ]);
 
@@ -473,7 +483,10 @@ function buildEntries() {
         { id: "st2", text: "Pour 1% agarose gel", is_complete: true },
         { id: "st3", text: "Photograph + annotate gel", is_complete: true },
       ],
-      method_attachments: [{ method_id: 2, owner: "public", snapshot_at: "2026-05-13T07:00:00Z" }] },
+      method_attachments: [{ method_id: 2, owner: "public", snapshot_at: "2026-05-13T07:00:00Z" }],
+      comments: [
+        { id: "cmt-mira-alex-t5-1", author: "mira", text: "75% integration is solid for a LiAc transformation — and the gel bands look clean by eye. Pick T1 and T6 as the lead candidates for the qPCR follow-up; both have the strongest signal in the screen.", created_at: "2026-05-13T16:40:00Z" },
+      ] },
     { id: 6, project_id: 1, name: "Send sequencing — top 4", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "list", is_complete: false,
       sub_tasks: [
         { id: "st1", text: "Mini-prep top 4 candidate colonies", is_complete: true },
@@ -552,6 +565,9 @@ function buildEntries() {
         // Static reference template per Q-B4 lock — no per-task snapshot
         // field, the tab content simply reads the source protocol.
         { method_id: 9, owner: "alex", snapshot_at: "2026-05-13T08:00:00Z" },
+      ],
+      comments: [
+        { id: "cmt-mira-alex-t10-1", author: "mira", text: "Question — are you logging the condensation event in the task deviation log too, not just the running-log note? I want a paper trail in case the 4% glucose plateau looks weird in the writeup later.", created_at: "2026-05-13T11:20:00Z" },
       ] },
     { id: 11, project_id: 3, name: "Heat-shock survival assay", start_date: "2026-05-18", duration_days: 1, end_date: "2026-05-18", task_type: "experiment", is_complete: false, experiment_color: "#f59e0b",
       sub_tasks: [
@@ -1291,14 +1307,18 @@ function buildEntries() {
   // multi-entry running logs.
   out.push(["users/alex/notes/1.json", { id: 1, title: "Run 2026-05-08: pYES-GAL1::flbA transformation", description:
       "Transformed FakeYeast-001 with pYES-GAL1::flbA using the LiAc protocol. Heat shock ran short (38 min, see deviation_log). Plated on SD-Ura. 40 colonies after 48 h, eight patched for downstream work.",
-    is_running_log: false, is_shared: true, entries: [], comments: [], created_at: "2026-05-08T14:00:00Z", updated_at: "2026-05-11T09:00:00Z", username: "alex" }]);
+    is_running_log: false, is_shared: true, entries: [], comments: [
+      { id: "cmt-mira-alex-note1-1", author: "mira", text: "Good catch logging the heat-shock interruption. 38 min is well within tolerance for this strain — and documenting the timer drift will save us the next time efficiency unexpectedly dips. Keep that habit.", created_at: "2026-05-09T10:15:00Z" },
+    ], created_at: "2026-05-08T14:00:00Z", updated_at: "2026-05-11T09:00:00Z", username: "alex" }]);
   out.push(["users/alex/notes/2.json", { id: 2, title: "Lab observations (running log)", description:
       "Weekly bench log for the FakeYeast biofuel project. See dated entries below for transformation efficiencies, gel reads, and any deviations that don't fit in a task's deviation_log field.",
     is_running_log: true, is_shared: true, entries: [
       { id: "rl-alex-2-e1", title: "2026-05-01: running log opened", date: "2026-05-01", content: "Starting a weekly bench log for the FakeYeast biofuel project. Goal: capture transformation efficiencies, gel reads, and any deviations that don't fit in a task's deviation_log field.", created_at: "2026-05-01T09:00:00Z", updated_at: "2026-05-01T09:00:00Z" },
       { id: "rl-alex-2-e2", title: "2026-05-10: patch plates", date: "2026-05-10", content: "Patched 8 colonies onto fresh SD-Ura. All grew clean, no satellite colonies. Picking the top 4 (rows A1 to A4) for sequencing on Monday.", created_at: "2026-05-10T11:30:00Z", updated_at: "2026-05-10T11:30:00Z" },
       { id: "rl-alex-2-e3", title: "2026-05-13: PCR screen", date: "2026-05-13", content: "Ran DemoCheck PCR on 16 transformants. Expecting ~50% positive based on the patch results. Gel image goes into the task-3 results folder once it's run this afternoon.", created_at: "2026-05-13T09:00:00Z", updated_at: "2026-05-13T09:00:00Z" },
-    ], comments: [], created_at: "2026-05-01T00:00:00Z", updated_at: "2026-05-13T09:00:00Z", username: "alex" }]);
+    ], comments: [
+      { id: "cmt-mira-alex-note2-1", author: "mira", text: "Glad you opened a weekly log for this project. Much easier for me to follow than reading every task one-by-one. Can we make this the default format for everyone on the FakeYeast side going forward?", created_at: "2026-05-04T16:20:00Z" },
+    ], created_at: "2026-05-01T00:00:00Z", updated_at: "2026-05-13T09:00:00Z", username: "alex" }]);
 
   // Note 3: lab-recipe-style. Pure reagent table + steps, no prose.
   out.push(["users/alex/notes/3.json", { id: 3, title: "Plasmid mini-prep recipe v3 (column-based)", description:
@@ -1308,7 +1328,9 @@ function buildEntries() {
   // Note 4: meeting note, prose-style.
   out.push(["users/alex/notes/4.json", { id: 4, title: "Lab meeting 2026-05-11: strain design review", description:
       "Attendees: alex, morgan.\n\nAgenda:\n1. Walk through pYES-GAL1::flbA integration data\n2. Plan for the 96-well fluorescence screen (morgan's project 1)\n3. Review purchase pipeline for the stress-tolerance project\n\nNotes:\nMorgan presented the patch-plate photos from 2026-05-09. Eight clean colonies, no satellites. Plan is to send the top 4 for Sanger sequencing on Monday. Decision: pick rows A1, A2, A3, A4 (per the running log). If 3 of 4 come back clean we move to the qPCR expression check on the same colonies.\n\nFor the 96-well screen, morgan will use the public DemoCheck PCR protocol but with the fakeGFP primer pair (alex protocol 1). Plate map already drafted (morgan note 1). Reader booked for Thursday.\n\nAction items:\n- alex: place IDT order for the fakeGFP primers by Wednesday\n- morgan: finalize plate map and share via the lab notes panel\n- both: review the gel image from PCR screen 2026-05-13 once it's posted",
-    is_running_log: false, is_shared: true, entries: [], comments: [], created_at: "2026-05-11T13:00:00Z", updated_at: "2026-05-11T15:30:00Z", username: "alex" }]);
+    is_running_log: false, is_shared: true, entries: [], comments: [
+      { id: "cmt-mira-alex-note4-1", author: "mira", text: "Quick follow-up on the IDT order — please loop me in on the funding split before placing it. Want to keep DEMO-DOE-EERE balanced for the renewal package due next month.", created_at: "2026-05-11T17:42:00Z" },
+    ], created_at: "2026-05-11T13:00:00Z", updated_at: "2026-05-11T15:30:00Z", username: "alex" }]);
 
   // Note 5: qPCR optimization, running log with measurement tables.
   out.push(["users/alex/notes/5.json", { id: 5, title: "qPCR optimization log (fakeGFP vs ACT1)", description:
@@ -1317,7 +1339,9 @@ function buildEntries() {
       { id: "rl-alex-5-e1", title: "2026-04-22: anneal temp sweep 56, 58, 60, 62 °C", date: "2026-04-22", content: "fakeGFP-fwd/rev at 200 nM, cDNA 1:5. Cq means (n=2):\n- 56 °C: 22.9\n- 58 °C: 22.4\n- 60 °C: 21.7 (sharp melt peak)\n- 62 °C: 22.1\n\nLocking in 60 °C anneal. Melt curve confirms single product.", created_at: "2026-04-22T16:00:00Z", updated_at: "2026-04-22T16:00:00Z" },
       { id: "rl-alex-5-e2", title: "2026-04-29: primer concentration check (100 vs 200 nM)", date: "2026-04-29", content: "100 nM: Cq 22.1, lower fluorescence plateau. 200 nM: Cq 21.7, plateau ~2× higher. Sticking with 200 nM for the demo runs.", created_at: "2026-04-29T11:00:00Z", updated_at: "2026-04-29T11:00:00Z" },
       { id: "rl-alex-5-e3", title: "2026-05-06: reference gene comparison ACT1 vs PDA1", date: "2026-05-06", content: "ACT1 Cq spread across 8 wells: 21.6 to 21.9 (SD 0.10). PDA1 Cq spread: 24.1 to 24.7 (SD 0.22). ACT1 is the tighter reference, using it as the housekeeping baseline.", created_at: "2026-05-06T10:30:00Z", updated_at: "2026-05-06T10:30:00Z" },
-    ], comments: [], created_at: "2026-04-22T16:00:00Z", updated_at: "2026-05-06T10:30:00Z", username: "alex" }]);
+    ], comments: [
+      { id: "cmt-mira-alex-note5-1", author: "mira", text: "Nice tight ACT1 spread (SD 0.10) — that's a keeper reference. Let's discuss the 200 nM primer choice in Friday meeting; curious whether 150 nM still gives the same plateau and saves reagent burn over the long screen runs.", created_at: "2026-05-07T11:30:00Z" },
+    ], created_at: "2026-04-22T16:00:00Z", updated_at: "2026-05-06T10:30:00Z", username: "alex" }]);
 
   // Note 6: terse list-style single-shot, freezer cleanout.
   out.push(["users/alex/notes/6.json", { id: 6, title: "Freezer 3 cleanout 2026-05-05", description:
@@ -1833,7 +1857,10 @@ function buildEntries() {
     // Completed today — has a fluorescence plate image AND a results.md
     // write-up, so the gallery renders it in "Fresh results."
     { id: 1, project_id: 1, name: "Plate FY-Δgal80 transformants on 96-well", start_date: TODAY, duration_days: 1, end_date: TODAY, task_type: "experiment", is_complete: true, experiment_color: "#10b981",
-      method_attachments: [{ method_id: 1, owner: "morgan", snapshot_at: "2026-05-13T08:00:00Z" }] },
+      method_attachments: [{ method_id: 1, owner: "morgan", snapshot_at: "2026-05-13T08:00:00Z" }],
+      comments: [
+        { id: "cmt-mira-morgan-t1-1", author: "mira", text: "Plate photos look clean. When you do the reader scan tomorrow, please send me the column-12 positive control read as soon as it exports — I want to confirm we are in the linear range before you scale up.", created_at: "2026-05-13T18:05:00Z" },
+      ] },
     { id: 2, project_id: 1, name: "Run fluorescence reader scan", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "experiment", is_complete: false, experiment_color: "#10b981",
       sub_tasks: [
         { id: "st1", text: "Pre-warm plate reader to 30 °C", is_complete: false },
@@ -1843,7 +1870,10 @@ function buildEntries() {
       ],
       method_attachments: [{ method_id: 1, owner: "morgan", snapshot_at: "2026-05-13T08:00:00Z" }] },
     { id: 3, project_id: 1, name: "qPCR setup — verify GFP transcripts", start_date: "2026-05-16", duration_days: 1, end_date: "2026-05-16", task_type: "experiment", is_complete: false, experiment_color: "#10b981",
-      method_attachments: [{ method_id: 2, owner: "morgan", snapshot_at: "2026-05-13T08:00:00Z" }], shared_with: [{ username: "alex", permission: "edit" }] },
+      method_attachments: [{ method_id: 2, owner: "morgan", snapshot_at: "2026-05-13T08:00:00Z" }], shared_with: [{ username: "alex", permission: "edit" }],
+      comments: [
+        { id: "cmt-mira-morgan-t3-1", author: "mira", text: "Make sure you're using the same ACT1 reference primer pair as alex's optimization (alex's lab note #5). I want our two qPCR datasets directly comparable for the paper figures downstream.", created_at: "2026-05-14T09:15:00Z" },
+      ] },
     // Strategically-overdue: writing tasks slip. Stays 4 days overdue
     // regardless of when the demo is opened (see OVERDUE_* anchors).
     { id: 4, project_id: 2, name: "Draft Chapter 2 outline", start_date: OVERDUE_START, duration_days: 3, end_date: OVERDUE_END_4D, task_type: "list", is_complete: false,
@@ -1982,7 +2012,9 @@ function buildEntries() {
   // Note 2: plate-prep checklist, lab-recipe style.
   out.push(["users/morgan/notes/2.json", { id: 2, title: "96-well screen prep checklist", description:
       "Bench card for setting up the 96-well fluorescence screen.\n\nThe night before:\n- Pick 80 candidate colonies into 200 µL SD-Ura in deep-well plate\n- Pick 8 WT colonies into the same plate (column 1)\n- Pick 8 pDEMO-fluo+ positive control colonies (column 12)\n- 30 °C, shaking 200 rpm, 16 to 18 h\n\nMorning of:\n1. Pre-warm SD-Ura + 2% galactose (induction media) to 30 °C\n2. Spin deep-well plate 3000 g, 5 min\n3. Wash pellets 1× with sterile water\n4. Resuspend in 200 µL induction media\n5. Transfer 50 µL to clear-bottom 96-well reader plate\n6. Reader settings: 485/528 nm, every 15 min, 6 h, 30 °C\n\nDouble-check before starting the reader:\n- [ ] Plate lid clean (no condensation = no scatter)\n- [ ] Empty wells have water (corner evaporation correction)\n- [ ] BioTek H1 calibrated this week (see note 6)",
-    is_running_log: false, is_shared: true, entries: [], comments: [], created_at: "2026-04-18T11:00:00Z", updated_at: "2026-05-12T17:00:00Z", username: "morgan" }]);
+    is_running_log: false, is_shared: true, entries: [], comments: [
+      { id: "cmt-mira-morgan-note2-1", author: "mira", text: "Walk me through this one in our next 1:1 — I want to make sure the corner-evaporation control is set up correctly before the full screen runs. The water-only wells should be in the same column as your positive control, not opposite it.", created_at: "2026-05-13T09:50:00Z" },
+    ], created_at: "2026-04-18T11:00:00Z", updated_at: "2026-05-12T17:00:00Z", username: "morgan" }]);
 
   // Note 3: meeting note, prose.
   out.push(["users/morgan/notes/3.json", { id: 3, title: "Lab meeting 2026-04-15: my notes", description:
@@ -1992,7 +2024,10 @@ function buildEntries() {
   // Note 4: group brainstorm meeting, prose.
   out.push(["users/morgan/notes/4.json", { id: 4, title: "Group brainstorm: GFP heat-stress assay", description:
       "Whiteboard session 2026-05-07. Goal: design an assay that lets us screen the FY-Δgal80 library for heat-stress survival without losing the fakeGFP reporter signal.\n\nWhat we agreed on:\n- Pre-grow at 30 °C, then shift to 37 °C for 0, 30, 60, 120 min\n- Read fakeGFP at every timepoint plus a recovery read at 4 h post-shift\n- Use the 384-well plates we already ordered for the stress project (purchase item 13) so we don't have to wait\n\nOpen questions:\n- Does fakeGFP itself misfold above 35 °C? Need a quick mScarlet control to separate \"reporter killed\" from \"cell dead\".\n- Reader cycles long enough on 384-well? Morgan to check the reader docs link.\n\nAction items:\n- alex: order 2 plates of mScarlet+ positive control (demo)\n- morgan: schedule a calibration run on 384-well format this week\n- both: convert this brainstorm into a real experiment design by 2026-05-21.",
-    is_running_log: false, is_shared: true, entries: [], comments: [], created_at: "2026-05-07T14:00:00Z", updated_at: "2026-05-07T15:30:00Z", username: "morgan" }]);
+    is_running_log: false, is_shared: true, entries: [], comments: [
+      { id: "cmt-mira-morgan-note4-1", author: "mira", text: "Big +1 on the mScarlet positive control. Without it we can't separate reporter misfolding from cell death and the whole story falls apart in review. Approve charging this to DEMO-DOE-EERE.", created_at: "2026-05-07T17:05:00Z" },
+      { id: "cmt-mira-morgan-note4-2", author: "mira", text: "On the 384-well question — please pre-book the reader for at least one dry run before committing. Last grad student lost a week on cycle-time issues we could have caught with an empty plate.", created_at: "2026-05-08T09:12:00Z" },
+    ], created_at: "2026-05-07T14:00:00Z", updated_at: "2026-05-07T15:30:00Z", username: "morgan" }]);
 
   // Note 5: terse tracker, lab-recipe-adjacent style.
   out.push(["users/morgan/notes/5.json", { id: 5, title: "Reagent A expiration tracker", description:
@@ -2007,7 +2042,9 @@ function buildEntries() {
       { id: "rl-morgan-6-e2", title: "2026-04-28: weekly check", date: "2026-04-28", content: "R² = 0.995, slope drift +2.1%. PASS. Noted slight bubble in well A1, repeated the row to be safe (within tolerance the second time).", created_at: "2026-04-28T08:45:00Z", updated_at: "2026-04-28T08:45:00Z" },
       { id: "rl-morgan-6-e3", title: "2026-05-05: weekly check", date: "2026-05-05", content: "R² = 0.998. PASS. Cleaned the lamp housing per the docs link, run-to-run noise dropped from 1.4% CV to 0.9% CV.", created_at: "2026-05-05T08:30:00Z", updated_at: "2026-05-05T08:30:00Z" },
       { id: "rl-morgan-6-e4", title: "2026-05-12: weekly check", date: "2026-05-12", content: "R² = 0.996. PASS. Ready for the full 96-well screen on Thursday.", created_at: "2026-05-12T08:30:00Z", updated_at: "2026-05-12T08:30:00Z" },
-    ], comments: [], created_at: "2026-04-21T08:30:00Z", updated_at: "2026-05-12T08:30:00Z", username: "morgan" }]);
+    ], comments: [
+      { id: "cmt-mira-morgan-note6-1", author: "mira", text: "Excellent discipline keeping this log weekly. I'm going to point any new rotation students at this exact format as the calibration-log template. Thank you for setting that bar.", created_at: "2026-05-13T07:55:00Z" },
+    ], created_at: "2026-04-21T08:30:00Z", updated_at: "2026-05-12T08:30:00Z", username: "morgan" }]);
 
   // morgan dependencies
   out.push(["users/morgan/dependencies/1.json", { id: 1, parent_id: 1, child_id: 2, dep_type: "FS" }]);
@@ -2037,6 +2074,57 @@ function buildEntries() {
   // alex's Workbench "Earlier results" archive (it's in morgan's project 1
   // which is shared into alex's view) instead of "Awaiting writeup."
   out.push(["users/morgan/results/task-7/results.md", DEMO_BANNER_MD + "## Reader baseline\n\nFluorescence reader passed the calibration check — variance under 3% across replicates (demo data).\n"]);
+
+  // ── User: mira (Dr. Mira Castellanos, demo PI) ───────────────────────────
+  //
+  // The principal-investigator archetype. Oversees alex (postdoc) + morgan
+  // (grad student) and leaves guidance / questions / praise on their shared
+  // content as LabComments. Intentionally minimal: she has no projects,
+  // tasks, methods, goals, purchases, or notes of her own — the demo's
+  // story is that her engagement with the lab IS the comment thread layer
+  // showing up across alex/morgan's surfaces.
+  //
+  // The empty counters ensure the lab-demo-data aggregator iterates her
+  // directory cleanly without contributing any rows to the Gantt /
+  // Methods / Notes panels (matches a real PI's data shape — comments
+  // and meetings, not bench work).
+  out.push([
+    "users/mira/_counters.json",
+    {
+      projects: 0,
+      tasks: 0,
+      methods: 0,
+      events: 0,
+      goals: 0,
+      notes: 0,
+      purchase_items: 0,
+      lab_links: 0,
+      dependencies: 0,
+    },
+  ]);
+  out.push([
+    "users/mira/settings.json",
+    {
+      animationType: "celebration",
+      defaultGanttViewMode: "3-months",
+      defaultCalendarViewMode: "month",
+      showSharedByDefault: true,
+      visibleTabs: [
+        "/experiments",
+        "/gantt",
+        "/methods",
+        "/purchases",
+        "/results",
+        "/calendar",
+        "/links",
+      ],
+      defaultLandingTab: "/",
+      sidebarShowTasks: true,
+      sidebarShowCalendarEvents: true,
+      sidebarEventsHorizonDays: 7,
+      coloredHeader: false,
+    },
+  ]);
 
   return out;
 }
@@ -2103,6 +2191,12 @@ function tasks(owner, list) {
         // native project_id. Mirror the manifest in `users/<destOwner>/
         // projects/<destId>-hosted.json` — emitted separately below.
         external_project: t.external_project ?? null,
+        // LabComment thread on experiment tasks (CommentsThread mount in
+        // TaskDetailPopup gates on `isExperiment`). Demo PI Mira leaves
+        // guidance/praise/questions here so the LabComment feature is
+        // populated cross-user. Append-only by design; normalizeTaskRecord
+        // defaults missing values to [] on read.
+        comments: t.comments ?? [],
       },
     ];
   });

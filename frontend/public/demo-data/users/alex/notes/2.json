@@ -30,7 +30,14 @@
       "updated_at": "2026-05-13T09:00:00Z"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "cmt-mira-alex-note2-1",
+      "author": "mira",
+      "text": "Glad you opened a weekly log for this project. Much easier for me to follow than reading every task one-by-one. Can we make this the default format for everyone on the FakeYeast side going forward?",
+      "created_at": "2026-05-04T16:20:00Z"
+    }
+  ],
   "created_at": "2026-05-01T00:00:00Z",
   "updated_at": "2026-05-13T09:00:00Z",
   "username": "alex"

@@ -5,7 +5,14 @@
   "is_running_log": false,
   "is_shared": true,
   "entries": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "cmt-mira-morgan-note2-1",
+      "author": "mira",
+      "text": "Walk me through this one in our next 1:1 — I want to make sure the corner-evaporation control is set up correctly before the full screen runs. The water-only wells should be in the same column as your positive control, not opposite it.",
+      "created_at": "2026-05-13T09:50:00Z"
+    }
+  ],
   "created_at": "2026-04-18T11:00:00Z",
   "updated_at": "2026-05-12T17:00:00Z",
   "username": "morgan"
