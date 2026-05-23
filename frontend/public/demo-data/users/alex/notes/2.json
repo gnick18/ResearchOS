@@ -36,6 +36,13 @@
       "author": "mira",
       "text": "Glad you opened a weekly log for this project. Much easier for me to follow than reading every task one-by-one. Can we make this the default format for everyone on the FakeYeast side going forward?",
       "created_at": "2026-05-04T16:20:00Z"
+    },
+    {
+      "id": "cmt-alex-reply-note2-1",
+      "author": "alex",
+      "text": "Happy to standardize on it. I'll write up a one-pager template and share it on the lab links section by Friday.",
+      "created_at": "2026-05-04T17:10:00Z",
+      "parent_id": "cmt-mira-alex-note2-1"
     }
   ],
   "created_at": "2026-05-01T00:00:00Z",

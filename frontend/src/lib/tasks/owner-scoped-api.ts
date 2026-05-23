@@ -66,8 +66,16 @@ export function ownerScopedTasksApi(task: Task) {
     // route to the OWNER's task file so the comment is visible to everyone.
     // Read-only shared views never reach here — CommentsThread hides the
     // input when `readOnly` is set.
-    addComment: (taskId: number, text: string, author: string) =>
-      rawTasksApi.addComment(taskId, text, author, owner),
+    //
+    // Lab Head Phase 2: forward the optional `options` arg (parent_id +
+    // mentions) so reply threads + @-mention dispatch route through the
+    // owner-scoped path the same way new top-level comments do.
+    addComment: (
+      taskId: number,
+      text: string,
+      author: string,
+      options?: { parent_id?: string | null; mentions?: string[] },
+    ) => rawTasksApi.addComment(taskId, text, author, owner, options),
     deleteComment: (taskId: number, commentId: string) =>
       rawTasksApi.deleteComment(taskId, commentId, owner),
     // `delete` intentionally not owner-routed: only the original owner

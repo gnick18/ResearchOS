@@ -1,15 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { usersApi } from "@/lib/local-api";
 import UserAvatar from "@/components/UserAvatar";
-import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
+import MentionPicker from "@/components/MentionPicker";
+import { useLabUserProfileMap, type LabUserProfile } from "@/hooks/useLabUserProfiles";
+import {
+  buildCommentTree,
+  tokenizeComment,
+  extractMentions,
+} from "@/lib/comments/mentions";
 import type { NoteComment, TaskComment } from "@/lib/types";
 
 // NoteComment and TaskComment share an identical shape — `{id, author, text,
-// created_at}`. The component accepts either, keyed by `entityKind` only for
-// the collapse-state disambiguation.
+// created_at, parent_id?, mentions?}`. The component accepts either, keyed
+// by `entityKind` only for the collapse-state disambiguation.
 export type CommentLike = NoteComment | TaskComment;
 
 interface CommentsThreadProps {
@@ -39,7 +45,16 @@ interface CommentsThreadProps {
   readOnly?: boolean;
   // Async callbacks. The parent owns the mutation hooks + cache
   // invalidation; this component manages its own draft + pending state.
-  onAdd: (text: string, author: string) => Promise<void>;
+  //
+  // Phase 2 (lab head Phase 2 manager): `onAdd` now accepts optional
+  // `parent_id` + `mentions` so replies + @-mention dispatch flow through
+  // the same callback shape every existing caller already uses. Pre-Phase-2
+  // callers pass undefined and get the original top-level behavior.
+  onAdd: (
+    text: string,
+    author: string,
+    options?: { parent_id?: string | null; mentions?: string[] },
+  ) => Promise<void>;
   onDelete: (commentId: string) => Promise<void>;
 }
 
@@ -84,9 +99,8 @@ export default function CommentsThread({
   onAdd,
   onDelete,
 }: CommentsThreadProps) {
-  const [draft, setDraft] = useState("");
-  const [posting, setPosting] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
 
   // Resolve the real author. In lab mode the "current user" is literally
   // the lab shared account, so we prefer `main_user` (the actual person on
@@ -109,9 +123,13 @@ export default function CommentsThread({
   // doesn't need extra renderer changes here.
   const profileMap = useLabUserProfileMap();
 
-  // Sort comments by created_at so new entries land at the bottom.
-  const sorted = comments.slice().sort((a, b) =>
-    a.created_at.localeCompare(b.created_at),
+  // Phase 2: build the threaded tree from the flat comments list. Roots
+  // sort oldest-first inside the in-record view (the inbox-feed view
+  // reverses them itself); replies sort oldest-first under their parent.
+  const tree = useMemo(() => buildCommentTree(comments), [comments]);
+  const sortedRoots = useMemo(
+    () => tree.roots.slice().sort((a, b) => a.created_at.localeCompare(b.created_at)),
+    [tree.roots],
   );
 
   // Collapsible state. Default: collapsed when zero comments, expanded
@@ -131,23 +149,11 @@ export default function CommentsThread({
     setUserPreference(userCollapseMap.get(collapseKey));
   }
   const collapsed =
-    userPreference !== undefined ? userPreference : sorted.length === 0;
+    userPreference !== undefined ? userPreference : comments.length === 0;
   const toggleCollapse = () => {
     const next = !collapsed;
     userCollapseMap.set(collapseKey, next);
     setUserPreference(next);
-  };
-
-  const handleSubmit = async () => {
-    const text = draft.trim();
-    if (!text || !canComment || posting) return;
-    setPosting(true);
-    try {
-      await onAdd(text, author);
-      setDraft("");
-    } finally {
-      setPosting(false);
-    }
   };
 
   const handleDelete = async (commentId: string) => {
@@ -174,8 +180,8 @@ export default function CommentsThread({
           </svg>
           <span className="text-sm font-semibold text-gray-700">
             Lab comments
-            {sorted.length > 0 && (
-              <span className="ml-1 text-gray-400 font-normal">({sorted.length})</span>
+            {comments.length > 0 && (
+              <span className="ml-1 text-gray-400 font-normal">({comments.length})</span>
             )}
           </span>
         </span>
@@ -198,61 +204,28 @@ export default function CommentsThread({
             </div>
           )}
 
-          {sorted.length === 0 ? (
+          {comments.length === 0 ? (
             <p className="text-xs text-gray-400 mb-3">No comments yet.</p>
           ) : (
             <ul className="space-y-3 mb-3">
-              {sorted.map((c) => {
-                const mine = c.author === author;
-                const profile = profileMap[c.author];
-                const departed = !profile;
-                // Display name fallback chain: settings.displayName ->
-                // username. The username is the safest last-resort label;
-                // never render an empty author row.
-                const displayName =
-                  (profile?.displayName && profile.displayName.trim()) ||
-                  c.author;
-                const isPI = profile?.account_type === "lab_head";
-                // Departed-lab-head case: gray the name, drop the badge.
-                // Per Grant's 2026-05-23 design decision (#5), departed
-                // comments retain the author name so threads stay
-                // historically intact.
-                const nameClass = departed
-                  ? "font-medium text-gray-400 italic"
-                  : "font-medium text-gray-700";
+              {sortedRoots.map((c) => {
+                const replies = tree.repliesByParent.get(c.id) ?? [];
                 return (
-                  <li key={c.id} className="flex gap-2.5">
-                    <UserAvatar username={c.author} size="sm" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 text-xs text-gray-500">
-                        <span className={nameClass}>{displayName}</span>
-                        {isPI && !departed && (
-                          <span
-                            className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide rounded bg-amber-100 text-amber-800"
-                            title="Lab head / principal investigator"
-                          >
-                            PI
-                          </span>
-                        )}
-                        <span>·</span>
-                        <span title={c.created_at}>{formatRelative(c.created_at)}</span>
-                        {mine && !readOnly && (
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(c.id)}
-                            disabled={deleting === c.id}
-                            className="ml-auto text-gray-400 hover:text-red-600 disabled:opacity-50"
-                            title="Delete this comment"
-                          >
-                            delete
-                          </button>
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">
-                        {c.text}
-                      </p>
-                    </div>
-                  </li>
+                  <CommentRow
+                    key={c.id}
+                    comment={c}
+                    replies={replies}
+                    currentAuthor={author}
+                    profileMap={profileMap}
+                    readOnly={readOnly}
+                    isShared={isShared}
+                    canComment={canComment}
+                    deleting={deleting}
+                    onDelete={handleDelete}
+                    onAdd={onAdd}
+                    replyingTo={replyingTo}
+                    setReplyingTo={setReplyingTo}
+                  />
                 );
               })}
             </ul>
@@ -260,29 +233,13 @@ export default function CommentsThread({
 
           {isShared && !readOnly && (
             canComment ? (
-              <div className="flex gap-2">
-                <textarea
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-                      e.preventDefault();
-                      void handleSubmit();
-                    }
-                  }}
-                  placeholder={`Comment as ${author}…`}
-                  rows={2}
-                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y"
-                />
-                <button
-                  type="button"
-                  onClick={() => void handleSubmit()}
-                  disabled={!draft.trim() || posting}
-                  className="px-3 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed self-start"
-                >
-                  {posting ? "Posting…" : "Post"}
-                </button>
-              </div>
+              <CommentComposer
+                placeholder={`Comment as ${author}…`}
+                author={author}
+                onSubmit={async (text, mentions) => {
+                  await onAdd(text, author, { mentions });
+                }}
+              />
             ) : (
               <div className="text-xs text-gray-500 bg-amber-50 border border-amber-200 rounded-lg p-3">
                 Set a main user to comment as yourself (Settings → Main User).
@@ -291,6 +248,416 @@ export default function CommentsThread({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Individual comment row + reply thread ────────────────────────────────
+
+interface CommentRowProps {
+  comment: CommentLike;
+  replies: CommentLike[];
+  currentAuthor: string;
+  profileMap: Record<string, LabUserProfile>;
+  readOnly: boolean;
+  isShared: boolean;
+  canComment: boolean;
+  deleting: string | null;
+  onDelete: (id: string) => Promise<void>;
+  onAdd: CommentsThreadProps["onAdd"];
+  replyingTo: string | null;
+  setReplyingTo: (id: string | null) => void;
+}
+
+function CommentRow({
+  comment,
+  replies,
+  currentAuthor,
+  profileMap,
+  readOnly,
+  isShared,
+  canComment,
+  deleting,
+  onDelete,
+  onAdd,
+  replyingTo,
+  setReplyingTo,
+}: CommentRowProps) {
+  const showReplyBox = replyingTo === comment.id;
+
+  return (
+    <li>
+      <CommentBody
+        comment={comment}
+        currentAuthor={currentAuthor}
+        profileMap={profileMap}
+        readOnly={readOnly}
+        deleting={deleting}
+        onDelete={onDelete}
+      />
+
+      {(replies.length > 0 || showReplyBox || (isShared && !readOnly && canComment)) && (
+        <div className="mt-2 ml-8 space-y-2 border-l-2 border-gray-100 pl-3">
+          {replies.map((r) => (
+            <CommentBody
+              key={r.id}
+              comment={r}
+              currentAuthor={currentAuthor}
+              profileMap={profileMap}
+              readOnly={readOnly}
+              deleting={deleting}
+              onDelete={onDelete}
+            />
+          ))}
+
+          {isShared && !readOnly && canComment && (
+            showReplyBox ? (
+              <div className="pt-1">
+                <CommentComposer
+                  placeholder={`Reply as ${currentAuthor}…`}
+                  author={currentAuthor}
+                  compact
+                  onCancel={() => setReplyingTo(null)}
+                  onSubmit={async (text, mentions) => {
+                    await onAdd(text, currentAuthor, {
+                      parent_id: comment.id,
+                      mentions,
+                    });
+                    setReplyingTo(null);
+                  }}
+                />
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setReplyingTo(comment.id)}
+                className="text-xs text-emerald-700 hover:text-emerald-800 font-medium"
+              >
+                Reply
+              </button>
+            )
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
+
+interface CommentBodyProps {
+  comment: CommentLike;
+  currentAuthor: string;
+  profileMap: Record<string, LabUserProfile>;
+  readOnly: boolean;
+  deleting: string | null;
+  onDelete: (id: string) => Promise<void>;
+}
+
+function CommentBody({
+  comment,
+  currentAuthor,
+  profileMap,
+  readOnly,
+  deleting,
+  onDelete,
+}: CommentBodyProps) {
+  const mine = comment.author === currentAuthor;
+  const profile = profileMap[comment.author];
+  const departed = !profile;
+  const displayName =
+    (profile?.displayName && profile.displayName.trim()) || comment.author;
+  const isPI = profile?.account_type === "lab_head";
+  const nameClass = departed
+    ? "font-medium text-gray-400 italic"
+    : "font-medium text-gray-700";
+
+  return (
+    <div className="flex gap-2.5">
+      <UserAvatar username={comment.author} size="sm" />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 text-xs text-gray-500">
+          <span className={nameClass}>{displayName}</span>
+          {isPI && !departed && (
+            <span
+              className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide rounded bg-amber-100 text-amber-800"
+              title="Lab head / principal investigator"
+            >
+              PI
+            </span>
+          )}
+          <span>·</span>
+          <span title={comment.created_at}>{formatRelative(comment.created_at)}</span>
+          {mine && !readOnly && (
+            <button
+              type="button"
+              onClick={() => onDelete(comment.id)}
+              disabled={deleting === comment.id}
+              className="ml-auto text-gray-400 hover:text-red-600 disabled:opacity-50"
+              title="Delete this comment"
+            >
+              delete
+            </button>
+          )}
+        </div>
+        <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">
+          <CommentText text={comment.text} profileMap={profileMap} />
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Render a comment body with `@username` tokens replaced by styled chips.
+ * Each chip renders as a non-interactive span (no profile page yet — see
+ * Phase 3+) but is visually distinct so readers can scan for mentions.
+ * Unknown users (typed by hand, not picked) still render as a chip with
+ * the literal `@user` text — Slack-style; the picker is the happy path.
+ */
+function CommentText({
+  text,
+  profileMap,
+}: {
+  text: string;
+  profileMap: Record<string, LabUserProfile>;
+}) {
+  const spans = useMemo(() => tokenizeComment(text), [text]);
+  return (
+    <>
+      {spans.map((s, i) => {
+        if (s.kind === "text") return <span key={i}>{s.value}</span>;
+        const profile = profileMap[s.value];
+        const displayName =
+          (profile?.displayName && profile.displayName.trim()) || s.value;
+        return (
+          <span
+            key={i}
+            className="inline-flex items-center px-1 py-0 mx-0.5 rounded bg-emerald-50 text-emerald-700 font-medium"
+            // Phase 2 doesn't ship profile pages yet — the chip is a
+            // styled non-interactive span. When a user-profile route lands
+            // (Phase 5+) this becomes an <a href={`/users/${s.value}`}>.
+            title={profile ? `@${s.value}` : `@${s.value} (unknown user)`}
+          >
+            @{displayName}
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
+// ── Composer w/ inline @-mention picker ──────────────────────────────────
+
+interface CommentComposerProps {
+  placeholder: string;
+  author: string;
+  // Compact = reply composer (lighter chrome, smaller textarea).
+  compact?: boolean;
+  onSubmit: (text: string, mentions: string[]) => Promise<void>;
+  onCancel?: () => void;
+}
+
+function CommentComposer({
+  placeholder,
+  compact = false,
+  onSubmit,
+  onCancel,
+}: CommentComposerProps) {
+  const [draft, setDraft] = useState("");
+  const [posting, setPosting] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // @-mention picker state. We detect an active `@` token by looking at
+  // the character left of the cursor: if it's `@` (or the cursor is in
+  // the middle of an `@foo` word), we open the picker with `foo` as the
+  // query. The picker hides itself when the cursor moves off the token
+  // (e.g. user types a space or a different non-mention char).
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerQuery, setPickerQuery] = useState("");
+  // Anchor index in the textarea where the `@` lives. Used to splice the
+  // chosen username back into the body on pick.
+  const [atIndex, setAtIndex] = useState<number | null>(null);
+  const [pickerActiveIdx, setPickerActiveIdx] = useState(0);
+  const [filteredCount, setFilteredCount] = useState(0);
+  const filteredProfilesRef = useRef<LabUserProfile[]>([]);
+
+  /**
+   * Re-evaluate whether the picker should be open / what its query is,
+   * based on the current cursor position. Called on every keystroke +
+   * selection change. The active `@` is the LAST `@` that:
+   *   - sits at the start of the textarea, OR
+   *   - is preceded by whitespace / punctuation (per MENTION_REGEX rules)
+   *   - has only `[a-zA-Z0-9_-]*` chars between it and the cursor
+   * Otherwise the picker stays closed.
+   */
+  const updatePickerState = (value: string, cursor: number) => {
+    // Scan backwards from cursor to find the nearest `@`. Stop early if we
+    // hit whitespace or a non-username char (signals the token ended).
+    let i = cursor - 1;
+    let candidate: number | null = null;
+    while (i >= 0) {
+      const ch = value[i];
+      if (ch === "@") {
+        candidate = i;
+        break;
+      }
+      // Allowed chars inside a username — `[a-zA-Z0-9_-]`. Anything else
+      // means we walked out of the token.
+      if (!/[a-zA-Z0-9_-]/.test(ch)) break;
+      i -= 1;
+    }
+    if (candidate === null) {
+      setPickerOpen(false);
+      setAtIndex(null);
+      return;
+    }
+    // Verify the @ is at start or preceded by whitespace / punctuation so
+    // "foo@bar" doesn't trigger.
+    if (candidate > 0) {
+      const prev = value[candidate - 1];
+      if (!/[\s.,;:!?(){}[\]"'`]/.test(prev)) {
+        setPickerOpen(false);
+        setAtIndex(null);
+        return;
+      }
+    }
+    const query = value.slice(candidate + 1, cursor);
+    setAtIndex(candidate);
+    setPickerQuery(query);
+    setPickerOpen(true);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setDraft(value);
+    const cursor = e.target.selectionStart ?? value.length;
+    updatePickerState(value, cursor);
+  };
+
+  const handleSelect = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    const value = e.currentTarget.value;
+    const cursor = e.currentTarget.selectionStart ?? value.length;
+    updatePickerState(value, cursor);
+  };
+
+  const insertMention = (username: string) => {
+    if (atIndex === null) return;
+    const before = draft.slice(0, atIndex);
+    // Find the end of the current @ token in the textarea body — the
+    // contiguous `[a-zA-Z0-9_-]*` chars after the `@`.
+    let end = atIndex + 1;
+    while (end < draft.length && /[a-zA-Z0-9_-]/.test(draft[end])) end += 1;
+    const after = draft.slice(end);
+    // Add a trailing space so the user can keep typing without manually
+    // separating the mention from the next word.
+    const next = `${before}@${username} ${after}`;
+    setDraft(next);
+    setPickerOpen(false);
+    setAtIndex(null);
+    // Restore focus + place cursor right after the inserted mention +
+    // trailing space.
+    const cursorAfter = before.length + username.length + 2;
+    requestAnimationFrame(() => {
+      const ta = textareaRef.current;
+      if (!ta) return;
+      ta.focus();
+      ta.setSelectionRange(cursorAfter, cursorAfter);
+    });
+  };
+
+  const handleSubmit = async () => {
+    const text = draft.trim();
+    if (!text || posting) return;
+    setPosting(true);
+    try {
+      const mentions = extractMentions(text);
+      await onSubmit(text, mentions);
+      setDraft("");
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Picker keyboard nav takes priority.
+    if (pickerOpen && filteredCount > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setPickerActiveIdx((idx) => Math.min(filteredCount - 1, idx + 1));
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setPickerActiveIdx((idx) => Math.max(0, idx - 1));
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        const active = filteredProfilesRef.current[pickerActiveIdx];
+        if (active) insertMention(active.username);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setPickerOpen(false);
+        setAtIndex(null);
+        return;
+      }
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      e.preventDefault();
+      void handleSubmit();
+    }
+  };
+
+  return (
+    <div className="relative">
+      <div className="flex gap-2">
+        <textarea
+          ref={textareaRef}
+          value={draft}
+          onChange={handleChange}
+          onSelect={handleSelect}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          rows={compact ? 1 : 2}
+          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y"
+        />
+        <div className="flex flex-col gap-1 self-start">
+          <button
+            type="button"
+            onClick={() => void handleSubmit()}
+            disabled={!draft.trim() || posting}
+            className="px-3 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {posting ? "Posting…" : compact ? "Reply" : "Post"}
+          </button>
+          {compact && onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-3 py-1 text-xs text-gray-500 hover:text-gray-700"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+      </div>
+      <MentionPicker
+        open={pickerOpen}
+        query={pickerQuery}
+        anchor={textareaRef.current}
+        onPick={insertMention}
+        onClose={() => setPickerOpen(false)}
+        activeIdx={pickerActiveIdx}
+        onActiveIdxChange={setPickerActiveIdx}
+        onFilteredChange={(filtered) => {
+          filteredProfilesRef.current = filtered;
+          setFilteredCount(filtered.length);
+          if (pickerActiveIdx >= filtered.length) {
+            setPickerActiveIdx(Math.max(0, filtered.length - 1));
+          }
+        }}
+      />
     </div>
   );
 }

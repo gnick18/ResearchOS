@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import LabInboxComments from "@/components/lab-inbox/LabInboxComments";
 import LabInboxMetrics from "@/components/lab-inbox/LabInboxMetrics";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { readUserSettings } from "@/lib/settings/user-settings";
@@ -11,10 +12,11 @@ import { readUserSettings } from "@/lib/settings/user-settings";
  * Lab Inbox — the principal investigator's surface (Lab Head Phase 1
  * 2026-05-23 — lab head Phase 1 manager).
  *
- * Phase 1 ships only the shell. Phase 2 fills it with comment notifications
- * (mentions, replies, threads on the PI's lab's records), Phase 3 adds the
- * announcement composer + action queue (purchase approvals, flag-for-review,
- * task-assignment confirmations), Phase 4 the lab-overview metrics.
+ * Phase 1 shipped the shell. Phase 2 fills it with the cross-lab comment
+ * feed (mentions, replies, threads on the PI's lab's records). Phase 4
+ * adds the metrics dashboard (Gantt overlay tinted by owner, funding
+ * rollup, roadmap aggregation). Phase 3 will add the announcement composer
+ * + action queue.
  *
  * Visibility: gated by `UserSettings.account_type === "lab_head"`. A regular
  * member who navigates here directly (typed URL, stale bookmark) is bounced
@@ -83,38 +85,25 @@ function LabInboxBody() {
     <div className="flex-1 overflow-y-auto">
       {/* Phase 4 widened the container to 6xl so the Gantt overlay has room
        *  to breathe without horizontal-scrolling at typical laptop widths.
-       *  Phase 2's comments panel renders fine inside the wider column. */}
+       *  Phase 2's comment feed renders fine inside the wider column. */}
       <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
         <header>
           <h1 className="text-2xl font-bold text-gray-900">Lab Inbox</h1>
           <p className="text-sm text-gray-500 mt-1">
             Comments and audit notifications across your lab&apos;s shared
-            content. Phase 2+ fills this surface in.
+            content. Phase 3 will add the announcement composer + action queue.
           </p>
         </header>
 
-        <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
-          <h2 className="text-base font-semibold text-gray-900">
-            Comments and audit notifications
-          </h2>
-          <p className="text-sm text-gray-600">
-            This is where lab comments, mentions, flagged records, and audit
-            entries you need to review will land. Phase 1 (this release) wires
-            up the account-type field, the sidebar entry, and the comment
-            attribution badge so PI comments are clearly distinguishable in
-            the existing threads.
-          </p>
-          <p className="text-xs text-gray-500 italic">
-            Comments and audit notifications will appear here in Phase 2.
-          </p>
-        </section>
+        {/* Phase 2: cross-lab comment feed with source-surface links,
+         *  threaded replies, @mention chips, bell notifications. */}
+        <LabInboxComments />
 
-        {/* Lab Head Phase 4 (lab head Phase 4 manager, 2026-05-23): the
-         *  cross-lab metrics dashboard. Tabbed view across the Gantt overlay
-         *  (every member's tasks tinted by owner), funding rollup
-         *  (lab-wide spend aggregated by member / category / account), and
-         *  roadmap aggregation (all high-level goals with progress). All
-         *  three views read existing data — no new sidecars. */}
+        {/* Phase 4: cross-lab metrics dashboard — tabbed view across the
+         *  Gantt overlay (every member's tasks tinted by owner), funding
+         *  rollup (lab-wide spend), and roadmap aggregation (all high-level
+         *  goals with progress). All three read existing data — no new
+         *  sidecars. */}
         <LabInboxMetrics />
       </div>
     </div>

@@ -85,10 +85,56 @@ export interface ShiftAlertNotification {
   read: boolean;
 }
 
+/**
+ * Lab Head Phase 2 (lab head Phase 2 manager, 2026-05-23): bell notification
+ * fired when a new comment is left on a record the receiver owns, OR when
+ * the receiver is @-mentioned in a comment anywhere. Lab heads also receive
+ * one of these for EVERY new comment in the lab (cross-lab visibility per
+ * the Phase 2 brief — "so they don't miss anything").
+ *
+ * The notification points back at the source surface (task or note) via
+ * (`record_type`, `record_id`, `owner_username`) so the Lab Inbox feed +
+ * NotificationPopup can render an "Open" link that navigates to the record.
+ *
+ * Storage: written to the receiver's `_notifications.json` by `addComment`
+ * on the commenter's side — same cross-user write pattern as
+ * `addReceiverShare`. The receiver discovers it on the next bell-popup
+ * load via `sharingApi.getNotifications`.
+ */
+export interface LabCommentNotification {
+  id: string;
+  // Discriminated union tag. Two flavors:
+  //   - "comment_mention": the receiver was @-mentioned in `text`
+  //   - "comment_on_owned": the receiver owns the parent record
+  //   - "comment_lab_head_feed": the receiver is a lab head and sees every
+  //     comment lab-wide (no direct ownership / mention)
+  type: "comment_mention" | "comment_on_owned" | "comment_lab_head_feed";
+  // The author of the comment that triggered the notification.
+  from_user: string;
+  // The parent record's owner username (= directory the record file lives
+  // in). Combine with record_type + record_id to deep-link.
+  owner_username: string;
+  // Which surface the comment was posted on.
+  record_type: "task" | "note";
+  record_id: number;
+  // Denormalized record name so the popup row has something to show without
+  // a second fetch (mirrors `SharedItemNotification.item_name`).
+  record_name: string;
+  // The comment's own id, so the Lab Inbox feed row can highlight a single
+  // entry within a long thread.
+  comment_id: string;
+  // Short preview of the comment body (~120 chars, no formatting). For
+  // long comments the renderer adds an ellipsis.
+  preview: string;
+  created_at: string;
+  read: boolean;
+}
+
 export type Notification =
   | SharedItemNotification
   | EventReminderNotification
-  | ShiftAlertNotification;
+  | ShiftAlertNotification
+  | LabCommentNotification;
 
 /**
  * On-disk sidecar at `users/<owner>/_shifted-alerts.json`. Append-only on
@@ -291,11 +337,27 @@ export interface Task {
 
 // Mirror of `NoteComment`. Same shape so the shared `CommentsThread`
 // component can render either kind without a discriminated union.
+//
+// Lab Head Phase 2 (lab head Phase 2 manager, 2026-05-23): added optional
+// `parent_id` (threading — 1 level deep) and `mentions` (denormalized
+// @-mention list extracted from `text` at compose time). Both fields are
+// optional / additive — pre-Phase-2 comments on disk just don't carry them
+// and the renderer treats them as top-level / un-mentioning. No migration
+// needed.
 export interface TaskComment {
   id: string;
   author: string;       // username of the commenter (the real user, not "lab")
   text: string;
   created_at: string;
+  // Phase 2: id of the comment this is a reply to. Null / undefined / "" =
+  // top-level. Only 1 level of nesting is supported — replies to replies
+  // collapse onto the same parent at the renderer.
+  parent_id?: string | null;
+  // Phase 2: denormalized @-mention usernames extracted at compose time.
+  // The source of truth is still the inline `@username` tokens in `text`;
+  // this field exists so notification dispatch + the Lab Inbox feed can
+  // surface mentions without re-parsing the text on every render.
+  mentions?: string[];
 }
 
 /**
@@ -1542,6 +1604,10 @@ export interface NoteComment {
   author: string;       // username of the commenter (the real user, not "lab")
   text: string;
   created_at: string;
+  // Lab Head Phase 2 (lab head Phase 2 manager, 2026-05-23) — threading +
+  // @-mentions. See TaskComment for the same field docs.
+  parent_id?: string | null;
+  mentions?: string[];
 }
 
 export interface Note {

@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation";
 import { sharingApi } from "@/lib/local-api";
 import { useCalendarNavStore } from "@/lib/calendar/calendar-nav-store";
 import Tooltip from "./Tooltip";
-import type { Notification, ShiftAlertNotification } from "@/lib/types";
+import type {
+  LabCommentNotification,
+  Notification,
+  ShiftAlertNotification,
+} from "@/lib/types";
 
 interface NotificationPopupProps {
   isOpen: boolean;
@@ -268,6 +272,10 @@ export default function NotificationPopup({
             {notifications.map((notification) => {
               const isReminder = notification.type === "event_reminder";
               const isShiftAlert = notification.type === "shift_alert";
+              const isLabComment =
+                notification.type === "comment_mention" ||
+                notification.type === "comment_on_owned" ||
+                notification.type === "comment_lab_head_feed";
               // Row click only acknowledges the entry — never navigates and
               // never closes the popup. Navigation lives on an explicit
               // "Open in calendar" link inside reminder rows (or "View task"
@@ -301,6 +309,27 @@ export default function NotificationPopup({
                 if (!notification.read) {
                   void handleMarkRead(notification.id);
                 }
+                onClose();
+              };
+              const handleOpenLabComment = (e: React.MouseEvent) => {
+                e.stopPropagation();
+                if (
+                  notification.type !== "comment_mention" &&
+                  notification.type !== "comment_on_owned" &&
+                  notification.type !== "comment_lab_head_feed"
+                ) {
+                  return;
+                }
+                // For Phase 2 the comment notification's deep-link target
+                // is the Lab Inbox feed — the inline source-surface link
+                // there lets the user jump to the underlying record. The
+                // Lab Inbox is the single feed where every cross-lab
+                // comment lives, so it's a natural landing spot for the
+                // bell click. Mark read + close before navigating.
+                if (!notification.read) {
+                  void handleMarkRead(notification.id);
+                }
+                router.push("/lab-inbox");
                 onClose();
               };
               const handleDismissShiftAlert = async (e: React.MouseEvent) => {
@@ -342,11 +371,13 @@ export default function NotificationPopup({
                         ? getReminderIcon()
                         : isShiftAlert
                           ? getShiftAlertIcon()
-                          : notification.type === "task_shared" ||
-                              notification.type === "method_shared" ||
-                              notification.type === "project_shared"
-                            ? getItemTypeIcon(notification.item_type)
-                            : null}
+                          : isLabComment
+                            ? getLabCommentIcon()
+                            : notification.type === "task_shared" ||
+                                notification.type === "method_shared" ||
+                                notification.type === "project_shared"
+                              ? getItemTypeIcon(notification.item_type)
+                              : null}
                     </div>
                     <div className="flex-1 min-w-0">
                       {notification.type === "event_reminder" ? (
@@ -377,7 +408,9 @@ export default function NotificationPopup({
                             </button>
                           </div>
                         </>
-                      ) : (
+                      ) : notification.type === "task_shared" ||
+                          notification.type === "method_shared" ||
+                          notification.type === "project_shared" ? (
                         <>
                           <p className="text-sm text-gray-900">
                             <span className="font-medium">{notification.from_user}</span>
@@ -394,6 +427,23 @@ export default function NotificationPopup({
                               {notification.permission === "edit" ? "Can edit" : "Can view"}
                             </span>
                           </div>
+                        </>
+                      ) : (
+                        // Remaining notification family is the Lab Head
+                        // Phase 2 comment-feed trio (comment_mention /
+                        // comment_on_owned / comment_lab_head_feed). TS's
+                        // narrowing of the negated `task_shared | method_shared
+                        // | project_shared` disjunction above doesn't drop
+                        // SharedItemNotification cleanly, so we re-narrow
+                        // explicitly here.
+                        <>
+                          <LabCommentBody notification={notification as LabCommentNotification} />
+                          <button
+                            onClick={handleOpenLabComment}
+                            className="mt-1.5 text-[11px] text-blue-600 hover:text-blue-800 font-medium"
+                          >
+                            Open in Lab Inbox →
+                          </button>
                         </>
                       )}
                     </div>
@@ -541,6 +591,58 @@ function ShiftAlertBody({
           </>
         )}
       </p>
+    </>
+  );
+}
+
+// Lab Head Phase 2 (lab head Phase 2 manager, 2026-05-23): icon + body for
+// the `comment_mention` / `comment_on_owned` / `comment_lab_head_feed`
+// notification family. All three render the same row layout but the
+// headline copy differs so a lab head scanning the inbox can immediately
+// tell why each notification fired.
+function getLabCommentIcon() {
+  // Speech-bubble outline — same visual lineage as the in-record comment
+  // section header so the bell row is recognizable.
+  return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M7 8h10M7 12h6m-7 9l4-4h10a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h1v4z"
+      />
+    </svg>
+  );
+}
+
+function LabCommentBody({
+  notification,
+}: {
+  notification: LabCommentNotification;
+}) {
+  const headline =
+    notification.type === "comment_mention"
+      ? "mentioned you in"
+      : notification.type === "comment_on_owned"
+        ? "commented on your"
+        : "commented on";
+  const recordNoun = notification.record_type === "task" ? "task" : "note";
+  return (
+    <>
+      <p className="text-sm text-gray-900">
+        <span className="font-medium">{notification.from_user}</span>
+        {" "}
+        {headline}
+        {" "}
+        {notification.type === "comment_lab_head_feed" && `${notification.owner_username}'s `}
+        {recordNoun}{" "}
+        <span className="font-medium">{notification.record_name}</span>
+      </p>
+      {notification.preview && (
+        <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+          {notification.preview}
+        </p>
+      )}
     </>
   );
 }

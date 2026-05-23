@@ -493,7 +493,15 @@ function buildEntries() {
       ],
       method_attachments: [{ method_id: 2, owner: "public", snapshot_at: "2026-05-13T07:00:00Z" }],
       comments: [
-        { id: "cmt-mira-alex-t5-1", author: "mira", text: "75% integration is solid for a LiAc transformation — and the gel bands look clean by eye. Pick T1 and T6 as the lead candidates for the qPCR follow-up; both have the strongest signal in the screen.", created_at: "2026-05-13T16:40:00Z" },
+        // Lab Head Phase 2 (lab head Phase 2 manager, 2026-05-23): @-mention
+        // demo — mira loops alex into the lead-candidate decision.
+        { id: "cmt-mira-alex-t5-1", author: "mira", text: "75% integration is solid for a LiAc transformation, @alex — and the gel bands look clean by eye. Pick T1 and T6 as the lead candidates for the qPCR follow-up; both have the strongest signal in the screen.", created_at: "2026-05-13T16:40:00Z", mentions: ["alex"] },
+        // Lab Head Phase 2: reply thread anchored at the root comment.
+        // Alex acks the call and morgan chimes in to confirm the qPCR
+        // primer pair lines up. Two replies under one root exercises both
+        // the threading renderer + the "1 level deep" cap.
+        { id: "cmt-alex-reply-t5-1", author: "alex", text: "Acknowledged — running the qPCR on T1 and T6 tomorrow morning.", created_at: "2026-05-13T17:05:00Z", parent_id: "cmt-mira-alex-t5-1" },
+        { id: "cmt-morgan-reply-t5-1", author: "morgan", text: "I'll have the ACT1 primer aliquot ready on the bench so you don't have to thaw a fresh tube.", created_at: "2026-05-13T17:42:00Z", parent_id: "cmt-mira-alex-t5-1" },
       ] },
     { id: 6, project_id: 1, name: "Send sequencing — top 4", start_date: TOMORROW, duration_days: 1, end_date: TOMORROW, task_type: "list", is_complete: false,
       sub_tasks: [
@@ -575,7 +583,9 @@ function buildEntries() {
         { method_id: 9, owner: "alex", snapshot_at: "2026-05-13T08:00:00Z" },
       ],
       comments: [
-        { id: "cmt-mira-alex-t10-1", author: "mira", text: "Question — are you logging the condensation event in the task deviation log too, not just the running-log note? I want a paper trail in case the 4% glucose plateau looks weird in the writeup later.", created_at: "2026-05-13T11:20:00Z" },
+        // Lab Head Phase 2: @-mention demo — mira pings alex by name and
+        // tags morgan as the cross-check on the writeup.
+        { id: "cmt-mira-alex-t10-1", author: "mira", text: "@alex — are you logging the condensation event in the task deviation log too, not just the running-log note? I want a paper trail in case the 4% glucose plateau looks weird in the writeup later. @morgan, can you double-check this on Friday?", created_at: "2026-05-13T11:20:00Z", mentions: ["alex", "morgan"] },
       ] },
     { id: 11, project_id: 3, name: "Heat-shock survival assay", start_date: "2026-05-18", duration_days: 1, end_date: "2026-05-18", task_type: "experiment", is_complete: false, experiment_color: "#f59e0b",
       sub_tasks: [
@@ -1326,6 +1336,9 @@ function buildEntries() {
       { id: "rl-alex-2-e3", title: "2026-05-13: PCR screen", date: "2026-05-13", content: "Ran DemoCheck PCR on 16 transformants. Expecting ~50% positive based on the patch results. Gel image goes into the task-3 results folder once it's run this afternoon.", created_at: "2026-05-13T09:00:00Z", updated_at: "2026-05-13T09:00:00Z" },
     ], comments: [
       { id: "cmt-mira-alex-note2-1", author: "mira", text: "Glad you opened a weekly log for this project. Much easier for me to follow than reading every task one-by-one. Can we make this the default format for everyone on the FakeYeast side going forward?", created_at: "2026-05-04T16:20:00Z" },
+      // Lab Head Phase 2: reply thread under mira's root comment, showing
+      // the new threading UI in the running-log context.
+      { id: "cmt-alex-reply-note2-1", author: "alex", text: "Happy to standardize on it. I'll write up a one-pager template and share it on the lab links section by Friday.", created_at: "2026-05-04T17:10:00Z", parent_id: "cmt-mira-alex-note2-1" },
     ], created_at: "2026-05-01T00:00:00Z", updated_at: "2026-05-13T09:00:00Z", username: "alex" }]);
 
   // Note 3: lab-recipe-style. Pure reagent table + steps, no prose.
@@ -1882,7 +1895,12 @@ function buildEntries() {
     { id: 3, project_id: 1, name: "qPCR setup — verify GFP transcripts", start_date: "2026-05-16", duration_days: 1, end_date: "2026-05-16", task_type: "experiment", is_complete: false, experiment_color: "#10b981",
       method_attachments: [{ method_id: 2, owner: "morgan", snapshot_at: "2026-05-13T08:00:00Z" }], shared_with: [{ username: "alex", permission: "edit" }],
       comments: [
-        { id: "cmt-mira-morgan-t3-1", author: "mira", text: "Make sure you're using the same ACT1 reference primer pair as alex's optimization (alex's lab note #5). I want our two qPCR datasets directly comparable for the paper figures downstream.", created_at: "2026-05-14T09:15:00Z" },
+        // Lab Head Phase 2: @-mention demo — mira hooks morgan into alex's
+        // prior optimization (referenced inline), so both end up in the
+        // mention list.
+        { id: "cmt-mira-morgan-t3-1", author: "mira", text: "@morgan — make sure you're using the same ACT1 reference primer pair as @alex's optimization (alex's lab note #5). I want our two qPCR datasets directly comparable for the paper figures downstream.", created_at: "2026-05-14T09:15:00Z", mentions: ["morgan", "alex"] },
+        // Lab Head Phase 2: reply from morgan acks the call.
+        { id: "cmt-morgan-reply-t3-1", author: "morgan", text: "Confirmed — pulling the ACT1 aliquot from alex's freezer 5 shelf tomorrow morning.", created_at: "2026-05-14T10:30:00Z", parent_id: "cmt-mira-morgan-t3-1" },
       ] },
     // Strategically-overdue: writing tasks slip. Stays 4 days overdue
     // regardless of when the demo is opened (see OVERDUE_* anchors).
@@ -2036,6 +2054,10 @@ function buildEntries() {
       "Whiteboard session 2026-05-07. Goal: design an assay that lets us screen the FY-Δgal80 library for heat-stress survival without losing the fakeGFP reporter signal.\n\nWhat we agreed on:\n- Pre-grow at 30 °C, then shift to 37 °C for 0, 30, 60, 120 min\n- Read fakeGFP at every timepoint plus a recovery read at 4 h post-shift\n- Use the 384-well plates we already ordered for the stress project (purchase item 13) so we don't have to wait\n\nOpen questions:\n- Does fakeGFP itself misfold above 35 °C? Need a quick mScarlet control to separate \"reporter killed\" from \"cell dead\".\n- Reader cycles long enough on 384-well? Morgan to check the reader docs link.\n\nAction items:\n- alex: order 2 plates of mScarlet+ positive control (demo)\n- morgan: schedule a calibration run on 384-well format this week\n- both: convert this brainstorm into a real experiment design by 2026-05-21.",
     is_running_log: false, is_shared: true, entries: [], comments: [
       { id: "cmt-mira-morgan-note4-1", author: "mira", text: "Big +1 on the mScarlet positive control. Without it we can't separate reporter misfolding from cell death and the whole story falls apart in review. Approve charging this to DEMO-DOE-EERE.", created_at: "2026-05-07T17:05:00Z" },
+      // Lab Head Phase 2: reply thread under mira's approval — alex
+      // acknowledges and morgan confirms the dry-run will happen.
+      { id: "cmt-alex-reply-morgan-note4-1", author: "alex", text: "Ordering the mScarlet plates tomorrow morning. Will tag the funding line in the purchase notes so it's easy to audit.", created_at: "2026-05-07T18:30:00Z", parent_id: "cmt-mira-morgan-note4-1" },
+      { id: "cmt-morgan-reply-morgan-note4-1", author: "morgan", text: "Reader is on the calendar for Tuesday 9am — empty-plate cycle test goes first.", created_at: "2026-05-07T19:02:00Z", parent_id: "cmt-mira-morgan-note4-1" },
       { id: "cmt-mira-morgan-note4-2", author: "mira", text: "On the 384-well question — please pre-book the reader for at least one dry run before committing. Last grad student lost a week on cycle-time issues we could have caught with an empty plate.", created_at: "2026-05-08T09:12:00Z" },
     ], created_at: "2026-05-07T14:00:00Z", updated_at: "2026-05-07T15:30:00Z", username: "morgan" }]);
 
