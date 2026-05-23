@@ -125,6 +125,20 @@ const TEMPLATE_FILE: Record<FeedbackType, string> = {
   feedback: "feedback.yml",
 };
 
+/**
+ * GitHub issue labels by feedback type. The `bug` and `enhancement`
+ * labels ship in every GitHub repo by default, so the URL we open is
+ * guaranteed to apply them on submission. Feedback type now has its
+ * own `feedback` label (added with feedback.yml). The template's
+ * `labels:` array also applies these, so this parameter is a fallback
+ * for non-template URLs.
+ */
+const TYPE_LABEL_PARAM: Record<FeedbackType, string | null> = {
+  bug: "bug",
+  feature: "enhancement",
+  feedback: "feedback",
+};
+
 export function generateGitHubIssueUrl(
   payload: FeedbackPayload
 ): string {
@@ -174,6 +188,11 @@ export function generateGitHubIssueUrl(
     title,
     ...fields,
   });
+
+  const labelParam = TYPE_LABEL_PARAM[type];
+  if (labelParam) {
+    params.set("labels", labelParam);
+  }
 
   return `https://github.com/${GITHUB_REPO}/issues/new?${params.toString()}`;
 }

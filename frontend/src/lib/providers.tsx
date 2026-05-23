@@ -19,6 +19,7 @@ import GlobalDropGuard from "@/components/GlobalDropGuard";
 import FloatingLeaveDemoButton from "@/components/FloatingLeaveDemoButton";
 import OpenDocsButton from "@/components/OpenDocsButton";
 import SceneTriggerHost from "@/components/SceneTriggerHost";
+import AutoErrorConfirmHost from "@/components/AutoErrorConfirmHost";
 import V4MountForUser from "@/components/onboarding/v4/V4MountForUser";
 import CelebrationManager from "@/components/onboarding/CelebrationManager";
 import { initializeErrorHandlers } from "@/lib/error-reporting";
@@ -374,6 +375,13 @@ export function Providers({ children }: { children: ReactNode }) {
             its own Report Bug button) as well as the full AppShell.
             Bug-splat-manager wire (2026-05-23). */}
         <SceneTriggerHost />
+        {/* Global host for the auto-error confirm dialog (and its
+            hand-off FeedbackModal). Mounted at the providers level
+            for the same pre-login reason as SceneTriggerHost: an
+            auto-error captured on UserLoginScreen / DataSetupScreen /
+            ResearchFolderSetupNew needs the confirm dialog to render
+            before AppShell is in the tree. (feedback polish R1) */}
+        <AutoErrorConfirmHost />
         <AppContent>{children}</AppContent>
       </FileSystemProvider>
     </ErrorBoundary>

@@ -25,7 +25,6 @@ import DevBeakerBotGalleryButton from "./DevBeakerBotGalleryButton";
 import DataSetupScreen from "./DataSetupScreen";
 import UserLoginScreen from "./UserLoginScreen";
 import FeedbackModal from "./FeedbackModal";
-import ErrorReportConfirmDialog from "./ErrorReportConfirmDialog";
 import BeakerBot from "./BeakerBot";
 import StreakBadge from "./StreakBadge";
 import { installStreakActivityTracking } from "@/lib/streak/streak-activity-bootstrap";
@@ -92,10 +91,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     closeBugReport,
     reportCurrentError,
     dismissErrorToast,
-    showAutoErrorConfirm,
-    pendingAutoError,
-    sendAutoErrorReport,
-    dismissAutoErrorReport,
   } = useErrorReporting();
 
   // The `?` help button routes to the wiki page that documents whatever
@@ -557,17 +552,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         prefilledError={currentError}
       />
 
-      {/* Auto-error confirm dialog — surfaces after the BugStomp scene
-          plays on an auto-detected error, asks the user whether to file
-          a report. Bug-splat-manager wire (2026-05-23). The SceneTriggerHost
-          itself is mounted globally in lib/providers.tsx so it works on
-          pre-login surfaces (UserLoginScreen also wires up Report Bug). */}
-      <ErrorReportConfirmDialog
-        isOpen={showAutoErrorConfirm}
-        error={pendingAutoError}
-        onSend={sendAutoErrorReport}
-        onDismiss={dismissAutoErrorReport}
-      />
+      {/* Auto-error confirm dialog used to mount here; it moved to
+          lib/providers.tsx (via AutoErrorConfirmHost) so it renders on
+          pre-login surfaces too (UserLoginScreen, DataSetupScreen,
+          ResearchFolderSetupNew). The hook's auto-error confirm state
+          is now backed by a global store, so any callsite's
+          useErrorReporting() reads the same flag. (feedback polish R1) */}
 
       {/* Error toast — stacks above the cluster on the right edge so it
           doesn't collide with any of the four icon buttons at bottom-6. */}
