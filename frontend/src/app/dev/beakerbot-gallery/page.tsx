@@ -11,11 +11,11 @@
 //     thinking, typing, typing-on-laptop, bow-wink, giggle,
 //     rolling-laughing, volcano-eruption, sleeping, hiccup, yawn,
 //     reading, panicked, amazed, embarrassed)
-//   - 10 multi-stage scene components (Ladder, BugStomp, Skateboard,
+//   - 11 multi-stage scene components (Ladder, BugStomp, Skateboard,
 //     ScreenBump, TooManyBeakers, MouseWave, Centrifuge, Eureka,
-//     CoffeeRefill, MicroscopeBubble)
+//     CoffeeRefill, MicroscopeBubble, PipetteAim)
 //   - 3 pose-celebration variants (cheering, bouncing, volcano-eruption)
-//   = 34 entries total
+//   = 35 entries total
 //
 // Loop mechanic:
 //   - Scenes: on onComplete, flip active=false, wait 500ms, bump a
@@ -340,7 +340,7 @@ const SCENES: SceneEntry[] = [
     label: "BeakerBotBugStompScene",
     Component: BeakerBotBugStompScene as unknown as SceneComponent,
     description:
-      "BeakerBot spots a bug crawling across the screen, charges it, stomps, takes a victory pose.",
+      "A swarm of bugs scatters across the screen. BeakerBot sneaks up with a fly swatter, whacks the target, and the splat residue stays on screen.",
     timingNote: "Multi-stage one-shot",
   },
   {
