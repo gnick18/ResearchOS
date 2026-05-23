@@ -1493,6 +1493,15 @@ function InProductWalkthroughOverlay({
     // still queued. Aborts also wake abortable sleep() / pause(),
     // collapsing multi-second waits into microtasks.
     const abortController = new AbortController();
+    // Wave 2 Fix 5/9: lock input BEFORE the cursor-script build runs.
+    // The build can perform async DOM lookups (waitForElement, modal
+    // mount waits) that take hundreds of ms. Without this early
+    // activation, a user could click the spotlight target between
+    // step entry and runScript start, racing the cursor's
+    // pre-computed coordinates. The cleanup below still flips it off
+    // on step exit, and the lock-during-build window is invisible if
+    // no cursor is currently running.
+    setCursorActive(true);
     void (async () => {
       try {
         // Build the action list FIRST. Some step bodies (e.g. the LC
@@ -1550,12 +1559,10 @@ function InProductWalkthroughOverlay({
               break;
           }
         }
-        // Flip the input lock ON for the duration of the script. The
-        // overlay portal mounts immediately on the next React commit
-        // (synchronous-batched setState here followed by an await
-        // gives React a microtask to render before runScript starts
-        // dispatching click events).
-        setCursorActive(true);
+        // The input lock was already flipped ON at the top of this
+        // effect (Wave 2 Fix 5/9) so the lock covers the script
+        // build phase too. Nothing to flip here; runScript just plays
+        // the already-locked queue.
         try {
           await liveRef.runScript(actions, abortController.signal);
         } finally {
