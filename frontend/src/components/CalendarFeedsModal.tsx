@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
@@ -11,6 +11,11 @@ import {
 } from "@/lib/calendar/external-feeds-store";
 import { parseIcsToExternalEvents } from "@/lib/calendar/ics-parser";
 import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
+import { getNativeCalendarColor } from "@/lib/file-system/user-metadata";
+import {
+  DEFAULT_CALENDAR_COLORS,
+  pickFirstUnusedColor,
+} from "@/lib/calendar/calendar-colors";
 import type { CalendarFeed, CalendarFeedProvider } from "@/lib/types";
 import Tooltip from "./Tooltip";
 
@@ -21,10 +26,9 @@ const PROVIDER_LABELS: Record<CalendarFeedProvider, string> = {
   other: "Other (any iCal URL)",
 };
 
-const DEFAULT_COLORS = [
-  "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
-  "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1",
-];
+// Local alias so the existing JSX (which still references DEFAULT_COLORS)
+// keeps working without touching every call site.
+const DEFAULT_COLORS = DEFAULT_CALENDAR_COLORS;
 
 interface Props {
   onClose: () => void;
@@ -41,6 +45,8 @@ export default function CalendarFeedsModal({ onClose }: Props) {
   const [draftLabel, setDraftLabel] = useState("");
   const [draftUrl, setDraftUrl] = useState("");
   const [draftColor, setDraftColor] = useState(DEFAULT_COLORS[0]);
+  const [draftColorTouched, setDraftColorTouched] = useState(false);
+  const [nativeColor, setNativeColor] = useState<string>(DEFAULT_COLORS[0]);
   const [testing, setTesting] = useState(false);
   const [draftError, setDraftError] = useState<string | null>(null);
 
@@ -49,9 +55,13 @@ export default function CalendarFeedsModal({ onClose }: Props) {
     if (!currentUser) return;
     let cancelled = false;
     (async () => {
-      const list = await listFeeds(currentUser);
+      const [list, native] = await Promise.all([
+        listFeeds(currentUser),
+        getNativeCalendarColor(currentUser),
+      ]);
       if (!cancelled) {
         setFeeds(list);
+        setNativeColor(native);
         setLoading(false);
       }
     })();
@@ -59,6 +69,23 @@ export default function CalendarFeedsModal({ onClose }: Props) {
       cancelled = true;
     };
   }, [currentUser]);
+
+  // Smart default: auto-pick the first palette color NOT already used by an
+  // existing linked feed or the native "ResearchOS events" row. Recomputes
+  // whenever feeds or the native color change so the suggestion stays fresh
+  // while the modal is open. Once the user has manually clicked a swatch,
+  // we stop auto-mutating (draftColorTouched gate) so their pick isn't
+  // silently swapped after they add the next feed and re-open the form.
+  const suggestedColor = useMemo(() => {
+    const taken: string[] = [nativeColor];
+    for (const f of feeds) taken.push(f.color);
+    return pickFirstUnusedColor(taken);
+  }, [feeds, nativeColor]);
+
+  useEffect(() => {
+    if (draftColorTouched) return;
+    setDraftColor(suggestedColor);
+  }, [suggestedColor, draftColorTouched]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -121,6 +148,10 @@ export default function CalendarFeedsModal({ onClose }: Props) {
       setFeeds((prev) => [...prev, created]);
       setDraftUrl("");
       setDraftLabel("");
+      // Release the "touched" gate so the next-feed suggestion can
+      // refresh against the now-updated feeds list. Without this, every
+      // subsequent add would default to whatever the last manual pick was.
+      setDraftColorTouched(false);
       try {
         await ensureGitignoreEntries([
           "_calendar-feeds.json",
@@ -355,7 +386,10 @@ export default function CalendarFeedsModal({ onClose }: Props) {
                   {DEFAULT_COLORS.map((c) => (
                     <Tooltip key={c} label={`Use color ${c}`} placement="bottom">
                       <button
-                        onClick={() => setDraftColor(c)}
+                        onClick={() => {
+                          setDraftColor(c);
+                          setDraftColorTouched(true);
+                        }}
                         aria-label={`Use color ${c}`}
                         className={`w-6 h-6 rounded-full transition-transform ${
                           draftColor === c

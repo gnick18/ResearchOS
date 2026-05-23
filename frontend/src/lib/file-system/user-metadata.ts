@@ -55,6 +55,13 @@ export interface UserMetadataEntry {
   // is purely informational; no other consumer alters behavior based on
   // it (lab mode still surfaces the user normally during the tour).
   is_tutorial?: boolean;
+  // Per-user override for the "ResearchOS events" (native) calendar row
+  // swatch in CalendarSidebar. Absent / undefined falls back to the
+  // shared NATIVE_CALENDAR_DEFAULT_COLOR (#3b82f6). Stored per-user so
+  // each account in a folder can theme its native row independently of
+  // the others (mirrors how `color` is per-user). No migration needed:
+  // existing entries without the field render exactly as before.
+  native_calendar_color?: string;
 }
 
 export interface UserMetadataFile {
@@ -284,6 +291,40 @@ export async function getUserMetadata(
 ): Promise<UserMetadataEntry | null> {
   const file = await readMetadataFile();
   return file.users[username] ?? null;
+}
+
+/** Default color for the native "ResearchOS events" calendar-sidebar row
+ *  when the user hasn't picked an override. Re-declared here (matches
+ *  `NATIVE_CALENDAR_DEFAULT_COLOR` in lib/calendar/calendar-colors.ts) so
+ *  file-system callers don't have to import the calendar module. */
+const NATIVE_CALENDAR_FALLBACK = "#3b82f6";
+
+/**
+ * Reads the per-user override for the native "ResearchOS events" calendar
+ * swatch. Returns the persisted value when present, otherwise the
+ * historical default ("#3b82f6"). Pure read — does not mutate the
+ * metadata file.
+ */
+export async function getNativeCalendarColor(
+  username: string,
+): Promise<string> {
+  const entry = await getUserMetadata(username);
+  const v = entry?.native_calendar_color;
+  if (typeof v === "string" && v.length > 0) return v;
+  return NATIVE_CALENDAR_FALLBACK;
+}
+
+/**
+ * Persists the per-user override for the native "ResearchOS events"
+ * calendar swatch. Routed through `setUserMetadataField` so it shares the
+ * same serial write queue as every other metadata mutation. Returns the
+ * updated entry (or null when no folder is connected).
+ */
+export async function setNativeCalendarColor(
+  username: string,
+  color: string,
+): Promise<UserMetadataEntry | null> {
+  return setUserMetadataField(username, "native_calendar_color", color);
 }
 
 /**

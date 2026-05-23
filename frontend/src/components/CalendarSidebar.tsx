@@ -1,6 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { eventsApi } from "@/lib/local-api";
@@ -16,6 +23,11 @@ import {
   formatTime,
   toLocalDateString,
 } from "@/components/calendar/utils";
+import { DEFAULT_CALENDAR_COLORS } from "@/lib/calendar/calendar-colors";
+import {
+  getNativeCalendarColor,
+  setNativeCalendarColor,
+} from "@/lib/file-system/user-metadata";
 import CalendarFeedsModal from "./CalendarFeedsModal";
 import CalendarRemindersModal from "./CalendarRemindersModal";
 import Tooltip from "./Tooltip";
@@ -27,6 +39,7 @@ type UpcomingItem =
 
 const UPCOMING_DAYS = 30;
 const MAX_ITEMS = 40;
+const NATIVE_COLOR_QUERY_KEY = ["calendar-native-color"];
 
 export default function CalendarSidebar() {
   const queryClient = useQueryClient();
@@ -41,6 +54,17 @@ export default function CalendarSidebar() {
   const { data: events = [] } = useQuery({
     queryKey: ["events"],
     queryFn: eventsApi.list,
+  });
+
+  // Native "ResearchOS events" row color. Pulled from user metadata so the
+  // user's per-account override (Piece 3) is honored. Falls back to the
+  // shared default (#3b82f6) when no override is set, which matches the
+  // previously hardcoded value.
+  const { data: nativeColor = "#3b82f6" } = useQuery({
+    queryKey: [...NATIVE_COLOR_QUERY_KEY, currentUser],
+    queryFn: async () =>
+      currentUser ? getNativeCalendarColor(currentUser) : "#3b82f6",
+    enabled: !!currentUser,
   });
 
   const todayStr = toLocalDateString(new Date());
@@ -94,6 +118,29 @@ export default function CalendarSidebar() {
     queryClient.invalidateQueries({ queryKey: ["calendar-feed-events"] });
   };
 
+  const handleRecolorFeed = useCallback(
+    async (feed: CalendarFeed, color: string) => {
+      if (!currentUser) return;
+      await updateFeed(currentUser, feed.id, { color });
+      queryClient.invalidateQueries({
+        queryKey: ["calendar-feeds", currentUser],
+      });
+      queryClient.invalidateQueries({ queryKey: ["calendar-feed-events"] });
+    },
+    [currentUser, queryClient],
+  );
+
+  const handleRecolorNative = useCallback(
+    async (color: string) => {
+      if (!currentUser) return;
+      await setNativeCalendarColor(currentUser, color);
+      queryClient.invalidateQueries({
+        queryKey: [...NATIVE_COLOR_QUERY_KEY, currentUser],
+      });
+    },
+    [currentUser, queryClient],
+  );
+
   const handleEventClick = (dateStr: string) => {
     jumpTo("day", dateStr);
     // Make sure we're on the calendar route (no-op if already)
@@ -133,10 +180,10 @@ export default function CalendarSidebar() {
         <div className="px-3 py-2 space-y-1">
           <FeedRow
             label="ResearchOS events"
-            color="#3b82f6"
+            color={nativeColor}
             enabled={true}
-            disabled
             description="Native"
+            onRecolor={handleRecolorNative}
           />
           {feeds.length === 0 ? (
             <p className="text-[11px] text-gray-400 italic px-1 pt-2">
@@ -157,6 +204,7 @@ export default function CalendarSidebar() {
                 enabled={feed.enabled}
                 description={providerLabel(feed.provider)}
                 onToggle={() => handleToggleFeed(feed)}
+                onRecolor={(c) => handleRecolorFeed(feed, c)}
               />
             ))
           )}
@@ -218,40 +266,98 @@ function FeedRow({
   color,
   enabled,
   description,
-  disabled,
   onToggle,
+  onRecolor,
 }: {
   label: string;
   color: string;
   enabled: boolean;
   description: string;
-  disabled?: boolean;
+  /** Omitted on the native row, which is always shown and never toggles. */
   onToggle?: () => void;
+  /** Opens the color popover on swatch click. Required — every row in the
+   *  sidebar is recolor-eligible now (native row included). */
+  onRecolor: (color: string) => void | Promise<void>;
 }) {
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const isNative = !onToggle;
+  const interactive = !!onToggle;
+
+  // Close the popover on outside click and Escape. Anchored off the row
+  // so re-renders (e.g. after a recolor invalidate) don't break the
+  // outside-click reference.
+  useEffect(() => {
+    if (!popoverOpen) return;
+    const onDocPointerDown = (e: MouseEvent) => {
+      if (!rowRef.current) return;
+      if (rowRef.current.contains(e.target as Node)) return;
+      setPopoverOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPopoverOpen(false);
+    };
+    document.addEventListener("mousedown", onDocPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [popoverOpen]);
+
+  const handleSwatchClick = (e: ReactMouseEvent) => {
+    // Stop the outer row's toggle from firing when the swatch is clicked.
+    e.stopPropagation();
+    e.preventDefault();
+    setPopoverOpen((v) => !v);
+  };
+
+  const handlePick = async (c: string) => {
+    setPopoverOpen(false);
+    await onRecolor(c);
+  };
+
   return (
-    <button
-      onClick={onToggle}
-      disabled={disabled}
+    <div
+      ref={rowRef}
+      className={`relative w-full px-2 py-1 rounded-md flex items-center gap-2 ${
+        interactive
+          ? "hover:bg-gray-50 cursor-pointer"
+          : "cursor-default"
+      }`}
+      onClick={interactive ? onToggle : undefined}
+      role={interactive ? "button" : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onKeyDown={
+        interactive
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onToggle?.();
+              }
+            }
+          : undefined
+      }
       title={
-        disabled
+        isNative
           ? "Always shown"
           : enabled
             ? "Click to hide"
             : "Click to show"
       }
-      className={`w-full text-left px-2 py-1 rounded-md flex items-center gap-2 ${
-        disabled
-          ? "cursor-default"
-          : "hover:bg-gray-50 cursor-pointer"
-      }`}
     >
-      <span
-        className={`inline-block w-2.5 h-2.5 rounded-sm transition-opacity ${
-          enabled ? "opacity-100" : "opacity-25"
-        }`}
-        style={{ backgroundColor: color }}
-      />
-      <div className="flex-1 min-w-0">
+      <Tooltip label="Change color" placement="right">
+        <button
+          type="button"
+          onClick={handleSwatchClick}
+          aria-label={`Change color for ${label}`}
+          className={`inline-block w-2.5 h-2.5 rounded-sm transition-opacity hover:ring-2 hover:ring-offset-1 hover:ring-gray-300 ${
+            enabled ? "opacity-100" : "opacity-25"
+          }`}
+          style={{ backgroundColor: color }}
+        />
+      </Tooltip>
+      <div className="flex-1 min-w-0 pointer-events-none">
         <p
           className={`text-xs font-medium truncate ${
             enabled ? "text-gray-700" : "text-gray-400"
@@ -263,16 +369,70 @@ function FeedRow({
           {description}
         </p>
       </div>
-      {!disabled && (
+      {interactive && (
         <span
-          className={`text-[10px] ${
+          className={`text-[10px] pointer-events-none ${
             enabled ? "text-gray-400" : "text-gray-300"
           }`}
         >
           {enabled ? "✓" : ""}
         </span>
       )}
-    </button>
+      {popoverOpen && (
+        <ColorPopover
+          currentColor={color}
+          onPick={handlePick}
+          onDismiss={() => setPopoverOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Small floating popover that renders all 10 DEFAULT_CALENDAR_COLORS as a
+ * 2x5 grid of clickable swatches. Anchored absolutely to its parent row
+ * (no portal) so it travels with the FeedRow on layout changes. The
+ * parent owns outside-click + Escape dismissal — this component just
+ * surfaces user picks via `onPick`.
+ */
+function ColorPopover({
+  currentColor,
+  onPick,
+}: {
+  currentColor: string;
+  onPick: (c: string) => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <div
+      className="absolute left-1 top-6 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-2"
+      onClick={(e) => e.stopPropagation()}
+      role="dialog"
+      aria-label="Choose calendar color"
+    >
+      <div className="grid grid-cols-5 gap-1.5">
+        {DEFAULT_CALENDAR_COLORS.map((c) => {
+          const selected =
+            c.toLowerCase() === (currentColor || "").toLowerCase();
+          return (
+            <button
+              key={c}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onPick(c);
+              }}
+              aria-label={`Use color ${c}`}
+              className={`w-5 h-5 rounded-full transition-transform hover:scale-110 ${
+                selected ? "ring-2 ring-offset-1 ring-gray-500" : ""
+              }`}
+              style={{ backgroundColor: c }}
+            />
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
