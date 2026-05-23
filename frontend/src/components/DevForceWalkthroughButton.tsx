@@ -50,11 +50,11 @@ import Tooltip from "./Tooltip";
 const IS_DEV = process.env.NODE_ENV === "development";
 
 interface DevForceWalkthroughButtonProps {
-  /** Called after the test user is created + signed in, so the parent
-   *  login screen can transition out of its picker view the same way a
-   *  normal login completes. Mirrors the `onLogin` prop already threaded
-   *  through UserLoginScreen. */
-  onLoggedIn: () => void;
+  /** Optional callback fired after the test user is created + signed in.
+   *  UserLoginScreen passes its `onLogin` here to transition out of the
+   *  picker view. AppShell omits it — `setCurrentUser` already updates
+   *  the FileSystem context, which re-renders AppShell automatically. */
+  onLoggedIn?: () => void;
 }
 
 export default function DevForceWalkthroughButton({
@@ -94,12 +94,14 @@ export default function DevForceWalkthroughButton({
       // protects against any future gate change.
       await clearWizardCompletion(testUserName);
 
-      // Swap the active user. UserLoginScreen's onLogin callback (passed
-      // through onLoggedIn) then unmounts the picker, AppShell mounts,
-      // V4MountForUser reads the fresh sidecar, TourBootstrap fires.
+      // Swap the active user. From UserLoginScreen: the onLogin callback
+      // (passed through onLoggedIn) unmounts the picker → AppShell mounts.
+      // From AppShell: no callback needed — setCurrentUser updates the
+      // FileSystem context, which re-renders AppShell with the new user.
+      // Either way, V4MountForUser reads the fresh sidecar + TourBootstrap fires.
       await setCurrentUser(testUserName);
       setConfirming(false);
-      onLoggedIn();
+      onLoggedIn?.();
     } catch (err) {
       console.error("[dev-force-walkthrough] failed:", err);
       setError(
