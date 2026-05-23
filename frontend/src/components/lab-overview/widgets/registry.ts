@@ -19,6 +19,10 @@ import RecentActivityWidget from "./RecentActivityWidget";
 import PiActionsWidget from "./PiActionsWidget";
 import MemberWorkloadWidget from "./MemberWorkloadWidget";
 import TodaysAnnouncementsWidget from "./TodaysAnnouncementsWidget";
+import LabNotesWidget from "./LabNotesWidget";
+import LabExperimentsWidget from "./LabExperimentsWidget";
+import LabSearchWidget from "./LabSearchWidget";
+import LabLinksWidget from "./LabLinksWidget";
 import {
   OverdueTasksWidget,
   TodaysTasksWidget,
@@ -53,6 +57,50 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     defaultLayout: { w: 4, h: 6, minW: 4, minH: 4 },
     surface: "canvas",
     memberVisible: false, // lab_head only
+  },
+
+  // R3 catalog additions (R3 widget catalog manager, 2026-05-23):
+  // canvas-surface ports of the Lab Mode panels. None are in the
+  // default layout — members + PIs add via the "+ Add widget" palette
+  // so the first-run Lab Overview stays focused on the R2 trio
+  // (announcements + comments + metrics).
+  {
+    id: "lab-notes",
+    title: "Lab notes",
+    description:
+      "Cross-lab notes the viewer can read (canRead filter), searchable + filterable.",
+    Component: LabNotesWidget,
+    defaultLayout: { w: 6, h: 6, minW: 4, minH: 4 },
+    surface: "canvas",
+    memberVisible: true,
+  },
+  {
+    id: "lab-experiments",
+    title: "Lab experiments",
+    description: "Outcome gallery of every lab member's experiments.",
+    Component: LabExperimentsWidget,
+    defaultLayout: { w: 6, h: 6, minW: 4, minH: 4 },
+    surface: "canvas",
+    memberVisible: true,
+  },
+  {
+    id: "lab-search",
+    title: "Lab search",
+    description:
+      "Cross-lab keyword + filter search across tasks, projects, methods.",
+    Component: LabSearchWidget,
+    defaultLayout: { w: 6, h: 8, minW: 4, minH: 5 },
+    surface: "canvas",
+    memberVisible: true,
+  },
+  {
+    id: "lab-links",
+    title: "Lab links",
+    description: "Shared lab links grouped by category. Read-only navigation.",
+    Component: LabLinksWidget,
+    defaultLayout: { w: 6, h: 4, minW: 3, minH: 3 },
+    surface: "canvas",
+    memberVisible: true,
   },
 
   // ── Sidebar widgets (PI-oriented) ────────────────────────────────────
